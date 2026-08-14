@@ -135,6 +135,14 @@ DOMHighResTimeStamp Performance::TimeStampToDOMHighResForRendering(
                                                          mRTPCallerType);
 }
 
+DOMHighResTimeStamp Performance::GetReducedTimePrecisionDOMHighRes(
+    const TimeStamp& aTimeStamp) {
+  DOMHighResTimeStamp rawValue =
+      GetDOMTiming()->TimeStampToDOMHighRes(aTimeStamp);
+  return nsRFPService::ReduceTimePrecisionAsMSecs(
+      rawValue, GetRandomTimelineSeed(), GetRTPCallerType());
+}
+
 DOMHighResTimeStamp Performance::Now() {
   DOMHighResTimeStamp rawTime = NowUnclamped();
 

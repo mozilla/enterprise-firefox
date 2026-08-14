@@ -23,7 +23,8 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import mozilla.components.browser.state.selector.selectedTab
+import mozilla.components.browser.state.selector.findCustomTab
+import mozilla.components.browser.state.selector.findTabOrCustomTabOrSelectedTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.translate.Language
 import mozilla.components.concept.engine.translate.TranslationError
@@ -101,6 +102,7 @@ class TranslationsDialogFragment : BottomSheetDialogFragment() {
                 TranslationsDialogMiddleware(
                     browserStore = browserStore,
                     settings = requireComponents.settings,
+                    sessionId = args.sessionId,
                 ),
             ),
         )
@@ -213,6 +215,7 @@ class TranslationsDialogFragment : BottomSheetDialogFragment() {
         translationDialogBinding.set(
             feature = TranslationsDialogBinding(
                 browserStore = browserStore,
+                sessionId = args.sessionId,
                 translationsDialogStore = translationsDialogStore,
                 getTranslatedPageTitle = { localizedFrom, localizedTo ->
                     requireContext().getString(
@@ -363,7 +366,9 @@ class TranslationsDialogFragment : BottomSheetDialogFragment() {
     ) {
         val pageSettingsState =
             browserStore.observeAsComposableState { state ->
-                state.selectedTab?.translationsState?.pageSettings
+                state.findTabOrCustomTabOrSelectedTab(args.sessionId)
+                    ?.translationsState
+                    ?.pageSettings
             }.value
 
         val offerTranslation = browserStore.observeAsComposableState { state ->
@@ -371,7 +376,9 @@ class TranslationsDialogFragment : BottomSheetDialogFragment() {
         }.value
 
         val pageSettingsError = browserStore.observeAsComposableState { state ->
-            state.selectedTab?.translationsState?.settingsError
+            state.findTabOrCustomTabOrSelectedTab(args.sessionId)
+                ?.translationsState
+                ?.settingsError
         }.value
 
         val localView = LocalView.current
@@ -418,17 +425,35 @@ class TranslationsDialogFragment : BottomSheetDialogFragment() {
 
         if (isTranslationInProgress == true) {
             appStore.dispatch(
-                AppAction.TranslationsAction.TranslationStarted(sessionId = browserStore.state.selectedTab?.id),
+                AppAction.TranslationsAction.TranslationStarted(
+                    sessionId = browserStore.state
+                        .findTabOrCustomTabOrSelectedTab(args.sessionId)
+                        ?.id,
+                ),
             )
         }
     }
 
     private fun openBrowserAndLoad(learnMoreUrl: String) {
-        findNavController().openToBrowser()
-        requireComponents.useCases.fenixBrowserUseCases.loadUrlOrSearch(
-            searchTermOrURL = learnMoreUrl,
-            newTab = true,
-        )
+        val sessionId = args.sessionId
+        when (sessionId != null && browserStore.state.findCustomTab(sessionId) != null) {
+            true -> {
+                requireComponents.useCases.sessionUseCases.loadUrl(
+                    url = learnMoreUrl,
+                    sessionId = sessionId,
+                )
+                dismiss()
+                return
+            }
+
+            else -> {
+                findNavController().openToBrowser()
+                requireComponents.useCases.fenixBrowserUseCases.loadUrlOrSearch(
+                    searchTermOrURL = learnMoreUrl,
+                    newTab = true,
+                )
+            }
+        }
     }
 
     private fun dismissDialog() {

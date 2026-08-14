@@ -175,6 +175,29 @@ class TlsConnectStreamTls13Ech : public TlsConnectTestBase {
                                       echconfig.len()));
   }
 
+  //   struct {
+  //      ECHClientHelloType type;                // 1B, outer(0)
+  //      HpkeSymmetricCipherSuite cipher_suite;  // 4B
+  //      uint8 config_id;                        // 1B
+  //      opaque enc<0..2^16-1>;
+  //      opaque payload<1..2^16-1>;              // inner || AEAD tag
+  //   } ECHClientHello;
+  size_t ConnectAndGetEchInnerLen() {
+    auto ech_xtn = MakeTlsFilter<TlsExtensionCapture>(
+        client_, ssl_tls13_encrypted_client_hello_xtn);
+    Connect();
+
+    EXPECT_TRUE(ech_xtn->captured());
+    const DataBuffer& ext = ech_xtn->extension();
+    uint32_t enc_len = 0;
+    uint32_t payload_len = 0;
+    EXPECT_TRUE(ext.len() > 0 && ext.data()[0] == ech_xtn_type_outer);
+    EXPECT_TRUE(ext.Read(6, 2, &enc_len));
+    EXPECT_TRUE(ext.Read(8 + static_cast<size_t>(enc_len), 2, &payload_len));
+    EXPECT_GE(payload_len, static_cast<uint32_t>(TLS13_ECH_AEAD_TAG_LEN));
+    return payload_len - TLS13_ECH_AEAD_TAG_LEN;
+  }
+
   void ValidatePublicNames(const std::vector<std::string>& names,
                            SECStatus expected) {
     static const std::vector<HpkeSymmetricSuite> kSuites = {
@@ -1299,6 +1322,22 @@ TEST_F(TlsConnectStreamTls13Ech, EchGreaseSize) {
 
   ASSERT_TRUE(real_ext->captured());
   ASSERT_EQ(real_ext->extension().len(), greased_ext->extension().len());
+}
+
+// RFC 9849, Section 6.1.3 requires the padded EncodedClientHelloInner to be a
+// multiple of 32 bytes.
+TEST_F(TlsConnectStreamTls13Ech, EchInnerPaddingBlockAligned) {
+  const size_t kSniLen = strlen("server");
+  for (size_t max_name_len = kSniLen + 1; max_name_len <= kSniLen + 32;
+       max_name_len++) {
+    Reset();
+    EnsureTlsSetup();
+    SetupEch(client_, server_, HpkeDhKemX25519Sha256, true, true, true,
+             static_cast<int>(max_name_len));
+    size_t inner_len = ConnectAndGetEchInnerLen();
+    EXPECT_EQ(0U, inner_len % 32)
+        << "maxNameLen " << +max_name_len << ", inner length " << inner_len;
+  }
 }
 
 TEST_F(TlsConnectStreamTls13Ech, EchGreaseClientDisable) {

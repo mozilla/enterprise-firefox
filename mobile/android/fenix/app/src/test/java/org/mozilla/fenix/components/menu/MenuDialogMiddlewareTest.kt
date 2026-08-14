@@ -981,6 +981,25 @@ class MenuDialogMiddlewareTest {
         }
 
     @Test
+    fun `GIVEN an eligible custom tab WHEN the menu is initialized THEN the summarize page menu item is enabled`() =
+        runTest(testDispatcher) {
+            summarizeFeatureSettings.showMenuItem = true
+            val customTab = createCustomTab(
+                url = "https://mozilla.org",
+                engineSession = TestEngineSession(),
+            )
+            val store = createStore(
+                menuState = MenuState(
+                    browserMenuState = BrowserMenuState(selectedTab = customTab),
+                ),
+            )
+
+            testScheduler.advanceUntilIdle()
+
+            assertTrue(store.state.summarizationMenuState.enabled)
+        }
+
+    @Test
     fun `GIVEN summarization feature setting indicates the menu item should be visible, WHEN menu is initialized, THEN the menu item is visible`() =
         runTest(testDispatcher) {
             summarizeFeatureSettings.showMenuItem = true

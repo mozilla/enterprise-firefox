@@ -116,6 +116,8 @@
       this.#observeTabChanges();
       this.#restorePanelWidths();
 
+      this.toggleAttribute("hidden", !this.visible);
+
       if (this.hasActiveTab) {
         this.#activate();
       }
@@ -161,6 +163,7 @@
               tab.setAttribute("aria-setsize", this.tabs.length);
               tab.updateSplitViewAriaLabel(index);
             });
+            this.toggleAttribute("hidden", !this.visible);
             this.dispatchEvent(
               new CustomEvent("SplitViewTabChange", {
                 bubbles: true,
@@ -172,8 +175,7 @@
 
           if (
             this.tabs.length == 1 &&
-            mutations.length &&
-            mutations[0].removedNodes.length == 1
+            mutations.some(mutation => mutation.removedNodes.length == 1)
           ) {
             // We assume you end up with only one tab in a splitview when the other tab is closed,
             // in which case, move the remaining tab out via this.unsplitTabs.
@@ -183,6 +185,8 @@
       }
       this.#tabChangeObserver.observe(this, {
         childList: true,
+        subtree: true,
+        attributeFilter: ["hidden"],
       });
     }
 

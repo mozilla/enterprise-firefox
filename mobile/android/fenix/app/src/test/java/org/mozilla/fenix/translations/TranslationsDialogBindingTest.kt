@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.action.TranslationsAction
 import mozilla.components.browser.state.state.BrowserState
+import mozilla.components.browser.state.state.createCustomTab
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.translate.DetectedLanguages
@@ -111,6 +112,68 @@ class TranslationsDialogBindingTest {
                     TranslationsDialogAction.UpdateTranslatedPageTitle(
                         "Translated from ${englishLanguage.localizedDisplayName} to ${spanishLanguage.localizedDisplayName}",
                     ),
+                )
+            }
+        }
+
+    @Test
+    fun `GIVEN a custom tab WHEN supported translations languages change THEN update the dialog from the custom tab`() =
+        runTest(testDispatcher) {
+            val customTabId = "custom-tab"
+            val englishLanguage = Language("en", "English")
+            val spanishLanguage = Language("es", "Spanish")
+            translationsDialogStore = spyk(TranslationsDialogStore(TranslationsDialogState()))
+            browserStore = BrowserStore(
+                BrowserState(
+                    tabs = listOf(tab),
+                    selectedTabId = tabId,
+                    customTabs = listOf(createCustomTab(url = customTabId, id = customTabId)),
+                ),
+            )
+            val binding = TranslationsDialogBinding(
+                browserStore = browserStore,
+                translationsDialogStore = translationsDialogStore,
+                getTranslatedPageTitle = titleProvider,
+                sessionId = customTabId,
+                mainDispatcher = testDispatcher,
+            )
+            binding.start()
+            browserStore.dispatch(
+                TranslationsAction.SetSupportedLanguagesAction(
+                    supportedLanguages = TranslationSupport(
+                        fromLanguages = listOf(englishLanguage),
+                        toLanguages = listOf(spanishLanguage),
+                    ),
+                ),
+            )
+            browserStore.dispatch(
+                TranslationsAction.TranslateStateChangeAction(
+                    tabId = customTabId,
+                    translationEngineState = TranslationEngineState(
+                        detectedLanguages = DetectedLanguages(
+                            documentLangTag = englishLanguage.code,
+                            supportedDocumentLang = true,
+                            userPreferredLangTag = spanishLanguage.code,
+                        ),
+                        error = null,
+                        isEngineReady = true,
+                        requestedTranslationPair = TranslationPair(
+                            fromLanguage = englishLanguage.code,
+                            toLanguage = spanishLanguage.code,
+                        ),
+                    ),
+                ),
+            )
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            verify {
+                translationsDialogStore.dispatch(
+                    TranslationsDialogAction.UpdateFromSelectedLanguage(englishLanguage),
+                )
+            }
+            verify {
+                translationsDialogStore.dispatch(
+                    TranslationsDialogAction.UpdateToSelectedLanguage(spanishLanguage),
                 )
             }
         }

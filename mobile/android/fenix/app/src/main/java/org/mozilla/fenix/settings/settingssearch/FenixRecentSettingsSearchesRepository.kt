@@ -65,7 +65,7 @@ class FenixRecentSettingsSearchesRepository(
                 .setPreferenceKey(item.preferenceKey)
                 .setTitle(item.title)
                 .setSummary(item.summary)
-                .setXmlResourceId(item.preferenceFileInformation.xmlResourceId)
+                .setXmlResourceId(item.preferenceFileInformation.xmlResourceId ?: 0)
                 .build()
             currentItems.add(0, newProtoItem)
 

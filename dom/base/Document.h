@@ -3490,6 +3490,14 @@ class Document : public nsINode,
 
   void SetMayHaveAnimationObservers() { mMayHaveAnimationObservers = true; }
 
+  bool MayHaveContainerTimingAttributes() const {
+    return mMayHaveContainerTimingAttributes;
+  }
+
+  void SetMayHaveContainerTimingAttributes() {
+    mMayHaveContainerTimingAttributes = true;
+  }
+
   bool IsInSyncOperation() { return mInSyncOperationCount != 0; }
 
   void SetIsInSyncOperation(bool aSync);
@@ -5149,6 +5157,10 @@ class Document : public nsINode,
   // True if an nsIAnimationObserver is perhaps attached to a node in the
   // document.
   bool mMayHaveAnimationObservers : 1;
+
+  // True if a `containertiming`/`containertimingignore` attribute has ever
+  // been used in this document. Monotonic: never cleared.
+  bool mMayHaveContainerTimingAttributes : 1;
 
   // True if the document has a CSP delivered throuh a header
   bool mHasCSPDeliveredThroughHeader : 1;

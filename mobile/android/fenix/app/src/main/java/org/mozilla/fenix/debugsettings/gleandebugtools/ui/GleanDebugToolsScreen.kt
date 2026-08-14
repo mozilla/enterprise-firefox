@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -177,17 +178,23 @@ private fun GleanDebugViewSection(
             onOpenDebugView(true)
         }
 
+        HorizontalDivider()
+
         GleanDebugButton(
             text = stringResource(
                 R.string.glean_debug_tools_copy_debug_view_link_debug_view_tag,
                 debugViewTag,
             ),
         ) { onCopyDebugViewLink(true) }
+
+        HorizontalDivider()
     }
 
     GleanDebugButton(text = stringResource(R.string.glean_debug_tools_open_debug_view)) {
         onOpenDebugView(false)
     }
+
+    HorizontalDivider()
 
     GleanDebugButton(text = stringResource(R.string.glean_debug_tools_copy_debug_view_link)) {
         onCopyDebugViewLink(false)

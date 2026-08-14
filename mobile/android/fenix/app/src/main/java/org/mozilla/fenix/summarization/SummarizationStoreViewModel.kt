@@ -11,7 +11,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
-import mozilla.components.browser.state.state.TabSessionState
+import mozilla.components.browser.state.state.SessionState
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.pageextraction.ContentParams
 import mozilla.components.concept.llm.CloudLlmProvider
@@ -32,7 +32,7 @@ import kotlin.coroutines.resumeWithException
 /**
  * A [ViewModel] that owns and survives configuration changes for a [SummarizationStore].
  *
- * @param currentTab The [TabSessionState] whose page is being summarized.
+ * @param currentTab The [SessionState] whose page is being summarized.
  * @param initializedFromShake Whether the summarization feature was triggered by a shake gesture.
  * @param pageTitle The title of the page being summarized.
  * @param connectionType the current network [ConnectionType].
@@ -42,7 +42,7 @@ import kotlin.coroutines.resumeWithException
  */
 @Suppress("LongParameterList")
 class SummarizationStoreViewModel(
-    currentTab: TabSessionState?,
+    currentTab: SessionState?,
     initializedFromShake: Boolean,
     pageTitle: String,
     connectionType: ConnectionType,
@@ -76,7 +76,7 @@ class SummarizationStoreViewModel(
         /**
          * Creates a [ViewModelProvider.Factory] for [SummarizationStoreViewModel].
          *
-         * @param currentTab The [TabSessionState] whose page is being summarized.
+         * @param currentTab The [SessionState] whose page is being summarized.
          * @param initializedFromShake Whether the summarization feature was triggered by a shake gesture.
          * @param pageTitle The title of the page being summarized.
          * @param connectionType the current network [ConnectionType].
@@ -85,7 +85,7 @@ class SummarizationStoreViewModel(
          * @param errorReporter reports caught exceptions to the crash reporting service.
          */
         fun factory(
-            currentTab: TabSessionState?,
+            currentTab: SessionState?,
             initializedFromShake: Boolean,
             pageTitle: String,
             connectionType: ConnectionType,
@@ -155,7 +155,7 @@ private fun EngineSession?.asPageMetadataExtractor(): PageMetadataExtractor = {
  * Emits the page loading state for this tab, starting with its current value and then observing
  * subsequent changes from the underlying [EngineSession].
  */
-private fun TabSessionState?.asPageLoadingFlow(): Flow<Boolean> = callbackFlow {
+private fun SessionState?.asPageLoadingFlow(): Flow<Boolean> = callbackFlow {
     val engineSession = this@asPageLoadingFlow?.engineState?.engineSession
     trySend(this@asPageLoadingFlow?.content?.isLoading == true)
 

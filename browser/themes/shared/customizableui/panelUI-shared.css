@@ -501,8 +501,7 @@ menupopup[emptyplacesresult] > .hide-if-empty-places-result {
  * in the menubar, which isn't a descendant of #appMenu-popup.
  * Target it specifically in this rule to make it the same width
  * as if it was a standard panelview opened from the app menu. */
-#report-broken-site-popup-mainView[mainview],
-#PanelUI-fxa {
+#report-broken-site-popup-mainView[mainview] {
   width: 22.5em;
 }
 

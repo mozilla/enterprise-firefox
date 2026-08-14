@@ -713,3 +713,42 @@ describe("<Widgets> maximize toggle size sync", () => {
     );
   });
 });
+
+describe("<Widgets> add-widget control", () => {
+  // Everything isSideBySideActive gates on beyond the widget prefs
+  // makeNovaWidgetState already sets.
+  const SIDE_BY_SIDE = {
+    "pageLayouts.variant": "side-by-side-content-lead",
+    "feeds.section.topstories": true,
+    "feeds.system.topstories": true,
+    "widgets.system.enabled": true,
+  };
+  // An addable widget left off, so allWidgetsAdded is false and the tile is not
+  // suppressed for that unrelated reason.
+  const ONE_WIDGET_UNADDED = {
+    "widgets.system.clocks.enabled": true,
+    "widgets.clocks.enabled": false,
+  };
+
+  it("renders only the placeholder tile in the default full-width layout", () => {
+    const { container } = renderWidgets(
+      makeNovaWidgetState([["lists", "medium"]], ONE_WIDGET_UNADDED)
+    );
+
+    expect(container.querySelector(".widgets-add-button")).toBeInTheDocument();
+    expect(container.querySelector("#add-widgets-button")).toBeNull();
+  });
+
+  // Two controls sharing the "Add widget" accessible name in one region.
+  it("renders only the header button when side-by-side is active", () => {
+    const { container } = renderWidgets(
+      makeNovaWidgetState([["lists", "medium"]], {
+        ...ONE_WIDGET_UNADDED,
+        ...SIDE_BY_SIDE,
+      })
+    );
+
+    expect(container.querySelector("#add-widgets-button")).toBeInTheDocument();
+    expect(container.querySelector(".widgets-add-button")).toBeNull();
+  });
+});

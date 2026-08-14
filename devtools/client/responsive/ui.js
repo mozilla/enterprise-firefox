@@ -908,7 +908,10 @@ class ResponsiveUI extends EventEmitter {
     // that will accomodate its height. We should also make sure to keep
     // the width value we're toggling against in sync with the media-query
     // in devtools/client/responsive/index.css
-    this.rdmFrame.classList.toggle("accomodate-ua", event.data.isNarrowLayout);
+    this.browserContainerEl.classList.toggle(
+      "accomodate-ua",
+      event.data.isNarrowLayout
+    );
   }
 
   async hasDeviceState() {

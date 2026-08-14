@@ -6915,6 +6915,17 @@
       event.initEvent("TabShow", true, false);
       aTab.dispatchEvent(event);
       SessionStore.deleteCustomTabValue(aTab, "hiddenBy");
+
+      // Treat split view as one unit. Showing one of its tabs shows
+      // the whole view. This prevents invisible tabs from appearing in the
+      // splitview container.
+      if (aTab.splitview) {
+        for (let sibling of aTab.splitview.tabs) {
+          if (sibling != aTab) {
+            this.showTab(sibling);
+          }
+        }
+      }
     }
 
     hideTab(aTab, aSource) {
@@ -6946,6 +6957,22 @@
       aTab.dispatchEvent(event);
       if (aSource) {
         SessionStore.setCustomTabValue(aTab, "hiddenBy", aSource);
+      }
+
+      // Treat split view as one unit. Hiding one of its tabs hides the whole
+      // view.
+      // One exception: a selected tab can't be hidden (see the
+      // guard above), so if the split view holds the active tab, that tab
+      // stays selected while its sibling is set to hidden. It remains selected
+      // until focus moves to a tab outside the view. Despite a mismatch in
+      // state, the splitview container still becomes visually hidden via a
+      // display: none rule in browser/themes/shared/tabbrowser/tabs.css.
+      if (aTab.splitview) {
+        for (let sibling of aTab.splitview.tabs) {
+          if (sibling != aTab) {
+            this.hideTab(sibling, aSource);
+          }
+        }
       }
     }
 

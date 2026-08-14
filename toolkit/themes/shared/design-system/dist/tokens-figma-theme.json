@@ -352,10 +352,20 @@
     "dark": "transparent",
     "forcedColors": "transparent"
   },
+  "button/background/color/toolbar/active": {
+    "light": "{Theme$toolbarbutton/background/color/active}",
+    "dark": "{Theme$toolbarbutton/background/color/active}",
+    "forcedColors": "{Theme$toolbarbutton/background/color/active}"
+  },
   "button/background/color/toolbar/disabled": {
     "light": "{Theme$button/background/color/ghost}",
     "dark": "{Theme$button/background/color/ghost}",
     "forcedColors": "{Theme$button/background/color/ghost}"
+  },
+  "button/background/color/toolbar/hover": {
+    "light": "{Theme$toolbarbutton/background/color/hover}",
+    "dark": "{Theme$toolbarbutton/background/color/hover}",
+    "forcedColors": "{Theme$toolbarbutton/background/color/hover}"
   },
   "button/background/color/toolbar/selected": {
     "light": "{Theme$button/background/color/ghost/active}",
@@ -1053,6 +1063,16 @@
     "light": "{Theme$button/opacity/disabled}",
     "dark": "{Theme$button/opacity/disabled}",
     "forcedColors": 30
+  },
+  "toolbarbutton/background/color/hover": {
+    "light": "color-mix(in srgb, currentColor 17%, transparent)",
+    "dark": "color-mix(in srgb, currentColor 17%, transparent)",
+    "forcedColors": "{Theme$button/background/color/hover}"
+  },
+  "toolbarbutton/background/color/active": {
+    "light": "color-mix(in srgb, currentColor 30%, transparent)",
+    "dark": "color-mix(in srgb, currentColor 30%, transparent)",
+    "forcedColors": "{Theme$button/background/color/active}"
   },
   "toolbarbutton/outline": {
     "light": "{Primitives$border/width} solid {Theme$toolbarbutton/outline/color}",

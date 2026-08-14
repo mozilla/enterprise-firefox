@@ -22,9 +22,11 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,11 +49,13 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import mozilla.components.compose.base.PagerIndicator
 import mozilla.components.compose.base.annotation.FlexibleWindowPreview
+import mozilla.components.compose.base.button.TextButton
 import mozilla.components.compose.base.modifier.rightClickable
 import mozilla.components.feature.top.sites.TopSite
 import org.mozilla.fenix.R
@@ -96,6 +100,17 @@ internal fun TopSites(
     onAddShortcutClicked: () -> Unit,
     isPager: Boolean = false,
 ) {
+    // Deliberately not persisted: every new homepage starts collapsed.
+    var isExpanded by remember { mutableStateOf(false) }
+
+    // Expansion only applies to the grid.
+    val showExpandToggle = state.showExpandToggle && !isPager
+
+    // Expanded, the tile follows the last shortcut as it does in the shortcuts library. Collapsed,
+    // it is only shown when it fits within the truncated grid.
+    val showAddShortcut = state.isAddShortcutEnabled &&
+        (isExpanded || state.topSites.size < TOP_SITES_TO_SHOW)
+
     TopSites(
         topSites = state.topSites,
         topSiteColors = state.colors,
@@ -114,8 +129,11 @@ internal fun TopSites(
         onSponsorPrivacyClicked = interactor::onSponsorPrivacyClicked,
         onTopSitesItemBound = onTopSitesItemBound,
         onAddShortcutClicked = onAddShortcutClicked,
+        onExpandToggleClick = { isExpanded = !isExpanded },
         isPager = isPager,
-        showAddShortcut = state.showAddShortcut,
+        showAddShortcut = showAddShortcut,
+        showExpandToggle = showExpandToggle,
+        isExpanded = isExpanded,
     )
 }
 
@@ -136,8 +154,11 @@ internal fun TopSites(
  * menu item.
  * @param onTopSitesItemBound Invoked during the composition of a top site item.
  * @param onAddShortcutClicked Invoked when the user clicks on the "Add shortcut" tile.
+ * @param onExpandToggleClick Invoked when the user clicks on the expand/collapse control.
  * @param isPager Whether the top sites should be rendered as a horizontally pageable pager.
  * @param showAddShortcut Whether to display the "Add shortcut" tile after the top sites.
+ * @param showExpandToggle Whether to display the control that expands and collapses the grid.
+ * @param isExpanded Whether every top site is shown rather than only the first [TOP_SITES_TO_SHOW].
  */
 @Composable
 @Suppress("LongParameterList")
@@ -154,8 +175,11 @@ fun TopSites(
     onSponsorPrivacyClicked: () -> Unit,
     onTopSitesItemBound: () -> Unit,
     onAddShortcutClicked: () -> Unit,
+    onExpandToggleClick: () -> Unit = {},
     isPager: Boolean = false,
     showAddShortcut: Boolean = false,
+    showExpandToggle: Boolean = false,
+    isExpanded: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -182,7 +206,7 @@ fun TopSites(
             )
         } else {
             TopSitesGrid(
-                topSites = topSites,
+                topSites = if (isExpanded) topSites else topSites.take(TOP_SITES_TO_SHOW),
                 topSiteColors = topSiteColors,
                 showAddShortcut = showAddShortcut,
                 onTopSiteClick = onTopSiteClick,
@@ -197,6 +221,53 @@ fun TopSites(
                 onAddShortcutClicked = onAddShortcutClicked,
             )
         }
+
+        if (showExpandToggle) {
+            TopSitesExpandToggle(
+                isExpanded = isExpanded,
+                contentColor = topSiteColors.titleTextColor,
+                onClick = onExpandToggleClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TopSitesExpandToggle(
+    isExpanded: Boolean,
+    contentColor: Color,
+    onClick: () -> Unit,
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.testTag(TopSitesTestTag.EXPAND_TOGGLE),
+        colors = ButtonDefaults.textButtonColors(contentColor = contentColor),
+    ) {
+        Icon(
+            painter = painterResource(
+                if (isExpanded) {
+                    iconsR.drawable.mozac_ic_chevron_up_16
+                } else {
+                    iconsR.drawable.mozac_ic_chevron_down_16
+                },
+            ),
+            contentDescription = null,
+            tint = LocalContentColor.current,
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Text(
+            text = stringResource(
+                if (isExpanded) {
+                    R.string.homepage_shortcuts_show_less
+                } else {
+                    R.string.homepage_shortcuts_show_all
+                },
+            ),
+            style = FirefoxTheme.typography.button,
+            maxLines = 1,
+        )
     }
 }
 
@@ -217,7 +288,7 @@ private fun TopSitesGrid(
     onTopSitesItemBound: () -> Unit,
     onAddShortcutClicked: () -> Unit,
 ) {
-    val topSiteRows = topSites.take(TOP_SITES_TO_SHOW).chunked(TOP_SITES_PER_ROW)
+    val topSiteRows = topSites.chunked(TOP_SITES_PER_ROW)
     val addShortcutInCurrentRow = showAddShortcut &&
         topSiteRows.isNotEmpty() && topSiteRows.last().size < TOP_SITES_PER_ROW
     val addShortcutInNewRow = showAddShortcut && !addShortcutInCurrentRow
@@ -723,6 +794,35 @@ private fun TopSitesPreview(
                     onSponsorPrivacyClicked = {},
                     onTopSitesItemBound = {},
                     onAddShortcutClicked = {},
+                )
+            }
+        }
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun ShowMoreExperimentPreview(
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
+) {
+    FirefoxTheme(theme = theme) {
+        Surface {
+            Box(
+                modifier = Modifier.padding(all = FirefoxTheme.layout.space.static200),
+            ) {
+                TopSites(
+                    topSites = FakeHomepagePreview.topSites(),
+                    onTopSiteClick = {},
+                    onTopSiteLongClick = {},
+                    onTopSiteImpression = { _, _ -> },
+                    onOpenInPrivateTabClicked = {},
+                    onEditTopSiteClicked = {},
+                    onRemoveTopSiteClicked = {},
+                    onSettingsClicked = {},
+                    onSponsorPrivacyClicked = {},
+                    onTopSitesItemBound = {},
+                    onAddShortcutClicked = {},
+                    showExpandToggle = true,
                 )
             }
         }

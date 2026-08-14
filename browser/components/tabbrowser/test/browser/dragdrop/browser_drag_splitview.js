@@ -377,7 +377,7 @@ add_task(
     let unpinnedNonSplitTabs = win2.gBrowser.tabs.filter(
       t => !t.pinned && !t.splitview
     );
-    +is(
+    is(
       unpinnedNonSplitTabs.length,
       2,
       "Default tab + adopted normal tab, both unpinned in win2"

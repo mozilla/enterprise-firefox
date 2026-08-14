@@ -51,6 +51,31 @@ const CONFIGURABLE_STYLES = ["background", "color", "display", "fontSize", "font
 const ZAP_SIZE_THRESHOLD = 160;
 
 /**
+ * Picks the CONFIGURABLE_STYLES entries present on `source` into a style
+ * object.
+ */
+function pickConfigurableStyles(source) {
+  const style = {};
+  for (const styleProp of CONFIGURABLE_STYLES) {
+    if (source[styleProp] !== undefined) {
+      style[styleProp] = source[styleProp];
+    }
+  }
+  return style;
+}
+
+/**
+ * Resolves which icon URL to use.
+ */
+function resolveImageSrc({
+  imageURL,
+  rtlImageURL
+}) {
+  const isRTL = typeof document !== "undefined" && document.documentElement.matches(":dir(rtl)");
+  return isRTL && rtlImageURL ? rtlImageURL : imageURL;
+}
+
+/**
  * Based on the .text prop, localizes an inner element if a string_id
  * is provided, OR renders plain text, OR hides it if nothing is provided.
  * Allows configuring of some styles including zap underline and color.
@@ -71,6 +96,21 @@ const ZAP_SIZE_THRESHOLD = 160;
  *   <Localized text={{raw: "Welcome"}}><h1 /></Localized>
  * output:
  *   <h1>Welcome</h1>
+ *
+ * Localized text with inline icons
+ * ftl:
+ *  subtitle = Use <img data-l10n-name="my-icon" alt="My icon"/> for every account
+ * jsx:
+ *   <Localized text={{
+ *     string_id: "subtitle",
+ *     inline_icons: {
+ *       "my-icon": { imageURL: "chrome://...", rtlImageURL: "chrome://..." }
+ *     }
+ *   }}><p /></Localized>
+ * output:
+ *   <p data-l10n-id="subtitle">
+ *     Use <img data-l10n-name="my-icon" class="inline-icon" src="chrome://..." alt="My icon"/> for every account
+ *   </p>
  */
 
 const Localized = ({
@@ -126,16 +166,26 @@ const Localized = ({
       ref: zapRef
     }, text.zap));
   }
+
+  // Slot inline icons into the localized string. Each entry maps a Fluent
+  // data-l10n-name to an icon object, and Fluent inserts the matching <img>
+  // wherever <img data-l10n-name="..."/> appears in the string.
+  if (text.string_id && text.inline_icons) {
+    for (const [l10nName, icon] of Object.entries(text.inline_icons)) {
+      textNodes.push(/*#__PURE__*/external_React_default().createElement("img", {
+        key: l10nName,
+        "data-l10n-name": l10nName,
+        className: "inline-icon",
+        src: resolveImageSrc(icon)
+      }));
+    }
+  }
   if (text.aria_label) {
     props["aria-label"] = text.aria_label;
   }
 
   // Apply certain configurable styles.
-  CONFIGURABLE_STYLES.forEach(style => {
-    if (text[style] !== undefined) {
-      props.style[style] = text[style];
-    }
-  });
+  Object.assign(props.style, pickConfigurableStyles(text));
   return /*#__PURE__*/external_React_default().cloneElement(
   // Provide a default container for the text if necessary.
   children ?? /*#__PURE__*/external_React_default().createElement("span", null), props,
@@ -864,6 +914,15 @@ function renderSegment(segment, index, handleAction) {
   if (typeof segment === "string") {
     return segment;
   }
+  if (segment?.imageURL) {
+    return /*#__PURE__*/external_React_default().createElement("img", {
+      key: index,
+      className: "inline-icon",
+      src: resolveImageSrc(segment),
+      alt: segment.alt ?? "",
+      style: pickConfigurableStyles(segment)
+    });
+  }
   if (segment?.href) {
     const action = {
       type: "OPEN_URL",
@@ -932,15 +991,9 @@ const LinkParagraph = props => {
   }, [handleParagraphAction]);
   const paragraphClassName = text_content?.font_styles === "legal" ? "legal-paragraph" : "link-paragraph";
   if (Array.isArray(text)) {
-    const style = {};
-    for (const styleProp of CONFIGURABLE_STYLES) {
-      if (text_content[styleProp] !== undefined) {
-        style[styleProp] = text_content[styleProp];
-      }
-    }
     return /*#__PURE__*/external_React_default().createElement("p", {
       className: paragraphClassName,
-      style: style
+      style: pickConfigurableStyles(text_content)
     }, text.map((segment, index) => renderSegment(segment, index, handleAction)));
   }
   return /*#__PURE__*/external_React_default().createElement(Localized, {

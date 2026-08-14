@@ -849,16 +849,6 @@ class FunctionCompiler {
   }
 
   template <class T>
-  MDefinition* binary(MDefinition* lhs, MDefinition* rhs) {
-    if (inDeadCode()) {
-      return nullptr;
-    }
-    T* ins = T::New(alloc(), lhs, rhs);
-    curBlock_->add(ins);
-    return ins;
-  }
-
-  template <class T>
   MDefinition* binary(MDefinition* lhs, MDefinition* rhs, MIRType type) {
     if (inDeadCode()) {
       return nullptr;
@@ -5834,14 +5824,9 @@ class FunctionCompiler {
   bool emitSetGlobal();
   bool emitTeeGlobal();
   template <typename MIRClass>
-  bool emitUnary(ValType operandType);
-  template <typename MIRClass>
   bool emitConversion(ValType operandType, ValType resultType);
   template <typename MIRClass>
   bool emitUnaryWithType(ValType operandType, MIRType mirType);
-  template <typename MIRClass>
-  bool emitConversionWithType(ValType operandType, ValType resultType,
-                              MIRType mirType);
   bool emitTruncate(ValType operandType, ValType resultType, bool isUnsigned,
                     bool isSaturating);
   bool emitSignExtend(uint32_t srcSize, uint32_t targetSize);
@@ -6685,17 +6670,6 @@ bool FunctionCompiler::emitSetGlobal() {
 }
 
 template <typename MIRClass>
-bool FunctionCompiler::emitUnary(ValType operandType) {
-  MDefinition* input;
-  if (!iter().readUnary(operandType, &input)) {
-    return false;
-  }
-
-  iter().setResult(unary<MIRClass>(input));
-  return true;
-}
-
-template <typename MIRClass>
 bool FunctionCompiler::emitConversion(ValType operandType, ValType resultType) {
   MDefinition* input;
   if (!iter().readConversion(operandType, resultType, &input)) {
@@ -6710,19 +6684,6 @@ template <typename MIRClass>
 bool FunctionCompiler::emitUnaryWithType(ValType operandType, MIRType mirType) {
   MDefinition* input;
   if (!iter().readUnary(operandType, &input)) {
-    return false;
-  }
-
-  iter().setResult(unary<MIRClass>(input, mirType));
-  return true;
-}
-
-template <typename MIRClass>
-bool FunctionCompiler::emitConversionWithType(ValType operandType,
-                                              ValType resultType,
-                                              MIRType mirType) {
-  MDefinition* input;
-  if (!iter().readConversion(operandType, resultType, &input)) {
     return false;
   }
 

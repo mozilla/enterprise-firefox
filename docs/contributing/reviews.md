@@ -61,6 +61,19 @@ change.
 - Otherwise, try looking at the history of the file to see who has modified it recently (for example, `git log <modified-file>`).
 - Finally if you are still unable to identify someone, try asking in the [#introduction channel on Matrix](https://chat.mozilla.org/#/room/#introduction:mozilla.org).
 
+## Keeping track of your review queue
+
+If you review patches, you are strongly encouraged to install the
+[MyQOnly add-on](https://addons.mozilla.org/firefox/addon/myqonly/). It
+polls Phabricator, Bugzilla and GitHub and shows a badge in the toolbar
+with the number of reviews waiting on you. Most delayed reviews are
+simply forgotten ones, and this is the easiest way to avoid that.
+
+Phabricator works from your existing session; Bugzilla needs an API key
+in the add-on preferences, and GitHub needs your username. In the
+Bugzilla preferences, also enable *Count open needinfos too* so that
+needinfo requests are included in the badge.
+
 ## Getting attention
 
 We expect reviews to happen within a day or two, and most of them do.

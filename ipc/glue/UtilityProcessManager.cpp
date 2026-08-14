@@ -13,6 +13,7 @@
 #include "mozilla/ipc/UtilityProcessParent.h"
 #include "mozilla/ipc/UtilityMediaServiceChild.h"
 #include "mozilla/ipc/UtilityMediaServiceParent.h"
+#include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/ipc/Endpoint.h"
 #include "mozilla/ipc/UtilityProcessSandboxing.h"
@@ -140,6 +141,20 @@ RefPtr<UtilityProcessManager::ProcessFields> UtilityProcessManager::GetProcess(
   }
 
   return mProcesses[aSandbox];
+}
+
+void UtilityProcessManager::RegisterActor(
+    const RefPtr<UtilityProcessParent>& aParent, UtilityActorName aActorName) {
+  for (auto& p : mProcesses) {
+    if (p && p->mProcessParent && p->mProcessParent == aParent) {
+      MOZ_LOG(
+          gChildProcessLifecycleLog, LogLevel::Info,
+          ("UTILITYACTOR [childID = %" PRIi32 "] [actorName = %s]",
+           p->mProcess->GetChildID(), dom::GetEnumString(aActorName).get()));
+      p->mActors.AppendElement(aActorName);
+      return;
+    }
+  }
 }
 
 RefPtr<UtilityProcessManager::SharedLaunchPromise<Ok>>

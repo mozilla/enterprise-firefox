@@ -9,6 +9,7 @@ const { updateAppInfo } = ChromeUtils.importESModule(
 
 ChromeUtils.defineESModuleGetters(this, {
   AboutNewTab: "resource:///modules/AboutNewTab.sys.mjs",
+  AdsClient: "resource://newtab/lib/AdsClient.sys.mjs",
   ContextId: "moz-src:///browser/modules/ContextId.sys.mjs",
   actionCreators: "resource://newtab/common/Actions.mjs",
   actionTypes: "resource://newtab/common/Actions.mjs",
@@ -33,6 +34,12 @@ const PREF_REDACT_NEWTAB_PING_ENABLED =
   "browser.newtabpage.activity-stream.telemetry.privatePing.redactNewtabPing.enabled";
 const PREF_IS_MERINO_FEED_EXPERIMENT =
   "browser.newtabpage.activity-stream.discoverystream.merino-feed-experiment";
+const PREF_ENDPOINTS =
+  "browser.newtabpage.activity-stream.discoverystream.endpoints";
+const PREF_UNIFIED_ADS_TILES_ENABLED =
+  "browser.newtabpage.activity-stream.unifiedAds.tiles.enabled";
+const PREF_UNIFIED_ADS_SPOCS_ENABLED =
+  "browser.newtabpage.activity-stream.unifiedAds.spocs.enabled";
 
 add_setup(async function setup() {
   do_get_profile();
@@ -1385,6 +1392,57 @@ add_task(async function test_sendPageTakeoverData_newtab_ping() {
 });
 
 add_task(
+  async function test_handleDiscoveryStreamImpressionStats_records_adsClient_impression_if_enabled() {
+    info(
+      "TelemetryFeed.handleDiscoveryStreamImpressionStats should record adsClient impression " +
+        "when enabled"
+    );
+    let sandbox = sinon.createSandbox();
+    Services.prefs.setStringPref(PREF_ENDPOINTS, "https://test.reporting.net/");
+    Services.prefs.setBoolPref(PREF_UNIFIED_ADS_SPOCS_ENABLED, true);
+
+    sandbox.stub(AdsClient, "isEnabled").returns(true);
+    const ADS_CLIENT = { recordImpression: sinon.fake.resolves() };
+    sandbox.stub(AdsClient, "getClient").returns(ADS_CLIENT);
+    sandbox.stub(AdsClient, "callbackOptions").returns({ ohttp: true });
+
+    let instance = new TelemetryFeed();
+    sandbox.replaceGetter(
+      instance,
+      "SHOW_SPONSORED_STORIES_ENABLED",
+      sinon.fake.returns(true)
+    );
+
+    await instance.onAction({
+      type: actionTypes.PREFS_INITIAL_VALUES,
+    });
+    Assert.ok(AdsClient.isEnabled.calledOnce);
+    Assert.ok(AdsClient.getClient.calledOnce);
+
+    sandbox
+      .stub(instance.sessions, "get")
+      .returns({ session_id: "decafc0ffee" });
+
+    instance.handleDiscoveryStreamImpressionStats(42, {
+      tiles: [
+        {
+          card_type: "spoc",
+          pos: 42,
+          shim: "https://test.reporting.net/",
+        },
+      ],
+    });
+
+    Assert.ok(AdsClient.callbackOptions.calledOnce);
+    Assert.ok(ADS_CLIENT.recordImpression.calledOnce);
+
+    Services.prefs.clearUserPref(PREF_UNIFIED_ADS_SPOCS_ENABLED);
+    Services.prefs.clearUserPref(PREF_ENDPOINTS);
+    sandbox.restore();
+  }
+);
+
+add_task(
   async function test_handleDiscoveryStreamImpressionStats_should_throw() {
     info(
       "TelemetryFeed.handleDiscoveryStreamImpressionStats should throw " +
@@ -1552,6 +1610,104 @@ add_task(
     let impressions = Glean.topsites.impression.testGetValue();
     Assert.ok(!impressions, "Should not have recorded any impressions");
 
+    sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_handleTopSitesSponsoredImpressionStats_record_adsClient_impression_if_enabled() {
+    info(
+      "TelemetryFeed.handleTopSitesSponsoredImpressionStats should record an " +
+        "adsClient impression event on an impression event if enabled"
+    );
+
+    let sandbox = sinon.createSandbox();
+    Services.prefs.setStringPref(PREF_ENDPOINTS, "https://test.reporting.net/");
+    Services.prefs.setBoolPref(PREF_UNIFIED_ADS_TILES_ENABLED, true);
+
+    sandbox.stub(AdsClient, "isEnabled").returns(true);
+    const ADS_CLIENT = { recordImpression: sinon.fake.resolves() };
+    sandbox.stub(AdsClient, "getClient").returns(ADS_CLIENT);
+    sandbox.stub(AdsClient, "callbackOptions").returns({ ohttp: true });
+
+    let instance = new TelemetryFeed();
+    sandbox.replaceGetter(
+      instance,
+      "SHOW_SPONSORED_TOPSITES_ENABLED",
+      sinon.fake.returns(true)
+    );
+
+    await instance.onAction({
+      type: actionTypes.PREFS_INITIAL_VALUES,
+    });
+    Assert.ok(AdsClient.isEnabled.calledOnce);
+    Assert.ok(AdsClient.getClient.calledOnce);
+
+    await instance.handleTopSitesSponsoredImpressionStats({
+      data: {
+        type: "impression",
+        tile_id: 42,
+        source: "newtab",
+        position: 1,
+        reporting_url: "https://test.reporting.net/",
+        advertiser: "adnoid ads",
+      },
+    });
+
+    Assert.ok(AdsClient.callbackOptions.calledOnce);
+    Assert.ok(ADS_CLIENT.recordImpression.calledOnce);
+
+    Services.prefs.clearUserPref(PREF_UNIFIED_ADS_TILES_ENABLED);
+    Services.prefs.clearUserPref(PREF_ENDPOINTS);
+    sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_handleTopSitesSponsoredImpressionStats_record_adsClient_click_if_enabled() {
+    info(
+      "TelemetryFeed.handleTopSitesSponsoredImpressionStats should record an " +
+        "adsClient impresclicksion event on an click event if enabled"
+    );
+
+    let sandbox = sinon.createSandbox();
+    Services.prefs.setStringPref(PREF_ENDPOINTS, "https://test.reporting.net/");
+    Services.prefs.setBoolPref(PREF_UNIFIED_ADS_TILES_ENABLED, true);
+
+    sandbox.stub(AdsClient, "isEnabled").returns(true);
+    const ADS_CLIENT = { recordClick: sinon.fake.resolves() };
+    sandbox.stub(AdsClient, "getClient").returns(ADS_CLIENT);
+    sandbox.stub(AdsClient, "callbackOptions").returns({ ohttp: true });
+
+    let instance = new TelemetryFeed();
+    sandbox.replaceGetter(
+      instance,
+      "SHOW_SPONSORED_TOPSITES_ENABLED",
+      sinon.fake.returns(true)
+    );
+
+    await instance.onAction({
+      type: actionTypes.PREFS_INITIAL_VALUES,
+    });
+    Assert.ok(AdsClient.isEnabled.calledOnce);
+    Assert.ok(AdsClient.getClient.calledOnce);
+
+    await instance.handleTopSitesSponsoredImpressionStats({
+      data: {
+        type: "click",
+        tile_id: 42,
+        source: "newtab",
+        position: 1,
+        reporting_url: "https://test.reporting.net/",
+        advertiser: "adnoid ads",
+      },
+    });
+
+    Assert.ok(AdsClient.callbackOptions.calledOnce);
+    Assert.ok(ADS_CLIENT.recordClick.calledOnce);
+
+    Services.prefs.clearUserPref(PREF_UNIFIED_ADS_TILES_ENABLED);
+    Services.prefs.clearUserPref(PREF_ENDPOINTS);
     sandbox.restore();
   }
 );
@@ -2134,6 +2290,100 @@ add_task(
       content_redacted: String(true),
     });
 
+    sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_handleDiscoveryStreamUserEvent_record_adsClient_click_if_enabled() {
+    info(
+      "TelemetryFeed.handleDiscoveryStreamUserEvent records an adsClient click " +
+        "if enabled"
+    );
+
+    let sandbox = sinon.createSandbox();
+    Services.prefs.setStringPref(PREF_ENDPOINTS, "https://test.reporting.net/");
+    Services.prefs.setBoolPref(PREF_UNIFIED_ADS_SPOCS_ENABLED, true);
+
+    sandbox.stub(AdsClient, "isEnabled").returns(true);
+    const ADS_CLIENT = { recordClick: sinon.fake.resolves() };
+    sandbox.stub(AdsClient, "getClient").returns(ADS_CLIENT);
+    sandbox.stub(AdsClient, "callbackOptions").returns({ ohttp: true });
+
+    let instance = new TelemetryFeed();
+    sandbox.replaceGetter(
+      instance,
+      "SHOW_SPONSORED_STORIES_ENABLED",
+      sinon.fake.returns(true)
+    );
+
+    await instance.onAction({
+      type: actionTypes.PREFS_INITIAL_VALUES,
+    });
+    Assert.ok(AdsClient.isEnabled.calledOnce);
+    Assert.ok(AdsClient.getClient.calledOnce);
+
+    sandbox
+      .stub(instance.sessions, "get")
+      .returns({ session_id: "decafc0ffee" });
+
+    instance.handleDiscoveryStreamUserEvent(
+      actionCreators.DiscoveryStreamUserEvent({
+        event: "CLICK",
+        action_position: 42,
+        value: {
+          card_type: "spoc",
+          shim: "https://test.reporting.net/",
+        },
+      })
+    );
+
+    Assert.ok(AdsClient.callbackOptions.calledOnce);
+    Assert.ok(ADS_CLIENT.recordClick.calledOnce);
+
+    Services.prefs.clearUserPref(PREF_UNIFIED_ADS_SPOCS_ENABLED);
+    Services.prefs.clearUserPref(PREF_ENDPOINTS);
+    sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_handleReportAdUserEvent_reports_adsClient_ad_if_enabled() {
+    info(
+      "TelemetryFeed.handleDiscoveryStreamImpressionStats should report add to adsClient " +
+        "when enabled"
+    );
+
+    let sandbox = sinon.createSandbox();
+    Services.prefs.setStringPref(PREF_ENDPOINTS, "https://test.reporting.net/");
+
+    sandbox.stub(AdsClient, "isEnabled").returns(true);
+    const ADS_CLIENT = { reportAd: sinon.fake.resolves() };
+    sandbox.stub(AdsClient, "getClient").returns(ADS_CLIENT);
+    sandbox.stub(AdsClient, "callbackOptions").returns({ ohttp: true });
+
+    let instance = new TelemetryFeed();
+
+    await instance.onAction({
+      type: actionTypes.PREFS_INITIAL_VALUES,
+    });
+    Assert.ok(AdsClient.isEnabled.calledOnce);
+    Assert.ok(AdsClient.getClient.calledOnce);
+
+    await instance.handleReportAdUserEvent({
+      type: actionTypes.REPORT_AD_SUBMIT,
+      data: {
+        placement_id: "place",
+        position: 42,
+        report_reason: "not_interested",
+        reporting_url: "https://test.reporting.net/",
+      },
+    });
+
+    Assert.ok(AdsClient.callbackOptions.calledOnce);
+    Assert.ok(ADS_CLIENT.reportAd.calledOnce);
+
+    Services.prefs.clearUserPref(PREF_ENDPOINTS);
     sandbox.restore();
   }
 );
@@ -3163,6 +3413,71 @@ add_task(async function test_recordEnabledWidgets_none_enabled() {
     Glean.newtab.widgetsEnabledList.testGetValue(),
     [],
     "widgetsEnabledList should be empty when no widgets are enabled"
+  );
+});
+
+add_task(async function test_recordPageLayoutVariant_default() {
+  info("recordPageLayoutVariant should report the default layout name");
+  Services.fog.testResetFOG();
+
+  let instance = new TelemetryFeed();
+  instance.store = { getState: () => ({ Prefs: { values: {} } }) };
+
+  instance.recordPageLayoutVariant();
+
+  Assert.equal(
+    Glean.newtab.pageLayoutVariant.testGetValue(),
+    "nova-full-width",
+    "pageLayoutVariant should be the default name rather than an empty string"
+  );
+});
+
+add_task(async function test_recordPageLayoutVariant_pref() {
+  info("recordPageLayoutVariant should report the variant set by pref");
+  Services.fog.testResetFOG();
+
+  let instance = new TelemetryFeed();
+  instance.store = {
+    getState: () => ({
+      Prefs: { values: { "pageLayouts.variant": "side-by-side-content-lead" } },
+    }),
+  };
+
+  instance.recordPageLayoutVariant();
+
+  Assert.equal(
+    Glean.newtab.pageLayoutVariant.testGetValue(),
+    "side-by-side-content-lead",
+    "pageLayoutVariant should be the pref value"
+  );
+});
+
+add_task(async function test_recordPageLayoutVariant_trainhop() {
+  info(
+    "recordPageLayoutVariant should report a variant that only trainhopConfig carries"
+  );
+  Services.fog.testResetFOG();
+
+  let instance = new TelemetryFeed();
+  instance.store = {
+    getState: () => ({
+      Prefs: {
+        values: {
+          "pageLayouts.variant": "nova-full-width",
+          trainhopConfig: {
+            pageLayouts: { variant: "side-by-side-widgets-lead" },
+          },
+        },
+      },
+    }),
+  };
+
+  instance.recordPageLayoutVariant();
+
+  Assert.equal(
+    Glean.newtab.pageLayoutVariant.testGetValue(),
+    "side-by-side-widgets-lead",
+    "pageLayoutVariant should follow trainhopConfig over the pref"
   );
 });
 

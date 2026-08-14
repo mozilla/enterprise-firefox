@@ -26,6 +26,7 @@ import {
   resolveWidgetHasSidebar,
   getHideAllTargets,
 } from "common/WidgetsRegistry.mjs";
+import { isSideBySideActive } from "common/PageLayoutVariants.mjs";
 import { WIDGET_ROW_COMPONENTS } from "./WidgetsComponentRegistry.jsx";
 import { WidgetWrapper } from "./WidgetWrapper";
 import { ErrorBoundary } from "content-src/components/ErrorBoundary/ErrorBoundary";
@@ -142,8 +143,12 @@ function Widgets() {
     prefs[PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED];
   const feedbackUrl =
     prefs.trainhopConfig?.widgets?.feedbackUrl ?? WIDGETS_FEEDBACK_URL;
+  // Maximizing makes no sense in a single-widget-wide column, so that slot gets
+  // an add button instead.
+  const sideBySideActive = isSideBySideActive(prefs);
   const showWidgetsSizeToggle =
-    nimbusMaximizedTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED];
+    !sideBySideActive &&
+    (nimbusMaximizedTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED]);
   const widgetsMayBeMaximized = showWidgetsSizeToggle;
 
   const widgetsEnabled = prefs[PREF_WIDGETS_ENABLED];
@@ -566,6 +571,15 @@ function Widgets() {
             onKeyDown={handleToggleMaximizeKeyDown}
           />
         ) : null}
+        {sideBySideActive ? (
+          <moz-button
+            id="add-widgets-button"
+            size="small"
+            data-l10n-id="newtab-widget-add-widgets-button"
+            iconsrc="chrome://global/skin/icons/plus.svg"
+            onClick={handleManageWidgetsClick}
+          />
+        ) : null}
       </div>
     );
   }
@@ -811,7 +825,10 @@ function Widgets() {
               </React.Fragment>
             );
           })}
-          {novaEnabled && !allWidgetsAdded && (
+          {/* Side-by-side has its own add button in the section header, and
+              this tile's at-content-cols() reveal rules resolve against the
+              band rather than the one-card-wide widgets column. */}
+          {novaEnabled && !sideBySideActive && !allWidgetsAdded && (
             <button
               type="button"
               className={`widgets-add-button col-4 ${addButtonSize}-widget`}

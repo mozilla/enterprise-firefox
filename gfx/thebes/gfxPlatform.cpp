@@ -2987,6 +2987,45 @@ void gfxPlatform::InitHardwareVideoConfig() {
   // Collect the gfxVar updates into a single message.
   gfxVarsCollectUpdates collect;
 
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
+  nsCString failureId;
+
+#ifdef MOZ_WIDGET_GTK
+  int32_t statusVulkan = nsIGfxInfo::FEATURE_STATUS_UNKNOWN;
+  FeatureState& featureVulkanDec =
+      gfxConfig::GetFeature(Feature::HARDWARE_VIDEO_DECODING_VULKAN);
+  featureVulkanDec.Reset();
+  featureVulkanDec.EnableByDefault();
+
+  if (!StaticPrefs::media_hardware_video_decoding_vulkan_enabled_AtStartup()) {
+    featureVulkanDec.UserDisable(
+        "User disabled via media.hardware-video-decoding-vulkan.enabled pref",
+        "FEATURE_HARDWARE_VIDEO_DECODING_VULKAN_PREF_DISABLED"_ns);
+  } else if (
+      StaticPrefs::
+          media_hardware_video_decoding_vulkan_force_enabled_AtStartup()) {
+    featureVulkanDec.UserForceEnable("Force enabled by pref");
+  }
+
+  if (NS_FAILED(gfxInfo->GetFeatureStatus(
+          nsIGfxInfo::FEATURE_HARDWARE_VIDEO_DECODING_VULKAN, failureId,
+          &statusVulkan))) {
+    featureVulkanDec.Disable(FeatureStatus::BlockedNoGfxInfo,
+                             "gfxInfo is broken",
+                             "FEATURE_FAILURE_NO_GFX_INFO"_ns);
+  } else if (statusVulkan != nsIGfxInfo::FEATURE_STATUS_OK) {
+    featureVulkanDec.Disable(FeatureStatus::Blocklisted,
+                             "Blocklisted by gfxInfo", failureId);
+  }
+
+  if (statusVulkan == nsIGfxInfo::FEATURE_BLOCKED_PLATFORM_TEST) {
+    featureVulkanDec.ForceDisable(FeatureStatus::Unavailable,
+                                  "Force disabled by gfxInfo", failureId);
+  }
+
+  gfxVars::SetCanUseVulkanHardwareVideoDecoding(featureVulkanDec.IsEnabled());
+#endif
+
   FeatureState& featureDec =
       gfxConfig::GetFeature(Feature::HARDWARE_VIDEO_DECODING);
   featureDec.Reset();
@@ -3010,15 +3049,20 @@ void gfxPlatform::InitHardwareVideoConfig() {
   }
 
   int32_t status = nsIGfxInfo::FEATURE_STATUS_UNKNOWN;
-  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
-  nsCString failureId;
-  if (NS_FAILED(gfxInfo->GetFeatureStatus(
-          nsIGfxInfo::FEATURE_HARDWARE_VIDEO_DECODING, failureId, &status))) {
-    featureDec.Disable(FeatureStatus::BlockedNoGfxInfo, "gfxInfo is broken",
-                       "FEATURE_FAILURE_NO_GFX_INFO"_ns);
-  } else if (status != nsIGfxInfo::FEATURE_STATUS_OK) {
-    featureDec.Disable(FeatureStatus::Blocklisted, "Blocklisted by gfxInfo",
-                       failureId);
+  // If FEATURE_HARDWARE_VIDEO_DECODING_VULKAN is enabled,
+  // just mirror the state to FEATURE_HARDWARE_VIDEO_DECODING
+  // to have one single point of check for HW decoding status.
+  if (gfxVars::CanUseVulkanHardwareVideoDecoding()) {
+    status = nsIGfxInfo::FEATURE_STATUS_OK;
+  } else {
+    if (NS_FAILED(gfxInfo->GetFeatureStatus(
+            nsIGfxInfo::FEATURE_HARDWARE_VIDEO_DECODING, failureId, &status))) {
+      featureDec.Disable(FeatureStatus::BlockedNoGfxInfo, "gfxInfo is broken",
+                         "FEATURE_FAILURE_NO_GFX_INFO"_ns);
+    } else if (status != nsIGfxInfo::FEATURE_STATUS_OK) {
+      featureDec.Disable(FeatureStatus::Blocklisted, "Blocklisted by gfxInfo",
+                         failureId);
+    }
   }
 
   if (status == nsIGfxInfo::FEATURE_BLOCKED_PLATFORM_TEST) {
@@ -3103,37 +3147,8 @@ void gfxPlatform::InitHardwareVideoConfig() {
   InitPlatformHardwareVideoConfig();
   InitPlatformHardwarDRMConfig();
 
-  FeatureState& featureVulkanDec =
-      gfxConfig::GetFeature(Feature::HARDWARE_VIDEO_DECODING_VULKAN);
-  featureVulkanDec.Reset();
-  featureVulkanDec.EnableByDefault();
-  if (!StaticPrefs::media_hardware_video_decoding_vulkan_enabled_AtStartup()) {
-    featureVulkanDec.UserDisable(
-        "User disabled via media.hardware-video-decoding-vulkan.enabled pref",
-        "FEATURE_HARDWARE_VIDEO_DECODING_VULKAN_PREF_DISABLED"_ns);
-  }
-#ifdef XP_MACOSX
-  if (isXpcshell) {
-    featureVulkanDec.ForceDisable(FeatureStatus::Unavailable,
-                                  "Force disabled in xpcshell due to signing",
-                                  "FEATURE_FAILURE_OSX_XPCSHELL_SIGNING"_ns);
-  }
-#endif
-
-  bool canUseVulkanDecode = false;
-  int32_t vulkanDecStatus = nsIGfxInfo::FEATURE_STATUS_UNKNOWN;
-  nsCString vulkanDecFailureId;
-  if (featureVulkanDec.IsEnabled() &&
-      NS_SUCCEEDED(gfxInfo->GetFeatureStatus(
-          nsIGfxInfo::FEATURE_HARDWARE_VIDEO_DECODING_VULKAN,
-          vulkanDecFailureId, &vulkanDecStatus)) &&
-      vulkanDecStatus == nsIGfxInfo::FEATURE_STATUS_OK) {
-    canUseVulkanDecode = true;
-  }
-
   nsCString message;
-  gfxVars::SetCanUseHardwareVideoDecoding(featureDec.IsEnabled() ||
-                                          canUseVulkanDecode);
+  gfxVars::SetCanUseHardwareVideoDecoding(featureDec.IsEnabled());
   gfxVars::SetCanUseHardwareVideoEncoding(featureEnc.IsEnabled());
 
 #ifdef MOZ_WIDGET_ANDROID
@@ -3151,7 +3166,7 @@ void gfxPlatform::InitHardwareVideoConfig() {
   FeatureState& featureDec##name =                                             \
       gfxConfig::GetFeature(Feature::name##_HW_DECODE);                        \
   featureDec##name.Reset();                                                    \
-  if (featureDec.IsEnabled() || canUseVulkanDecode) {                          \
+  if (featureDec.IsEnabled()) {                                                \
     CODEC_HW_FEATURE_SETUP_PLATFORM(name, Dec, false)                          \
     if (!IsGfxInfoStatusOkay(nsIGfxInfo::FEATURE_##name##_HW_DECODE, &message, \
                              failureId)) {                                     \

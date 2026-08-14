@@ -9,6 +9,7 @@ import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.action.TranslationsAction
 import mozilla.components.browser.state.state.BrowserState
+import mozilla.components.browser.state.state.createCustomTab
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.translate.Language
@@ -35,6 +36,41 @@ class TranslationsDialogMiddlewareTest {
     private val settings = Settings(testContext)
     private val translationsDialogMiddleware =
         TranslationsDialogMiddleware(browserStore = browserStore, settings = settings)
+
+    @Test
+    fun `GIVEN a custom tab WHEN fetching supported languages for translations THEN target the custom tab`() = runTest {
+        val customTabId = "custom-tab"
+        val store = spyk(
+            BrowserStore(
+                BrowserState(
+                    tabs = listOf(createTab("https://www.mozilla.org", id = "tab1")),
+                    selectedTabId = "tab1",
+                    customTabs = listOf(createCustomTab("https://example.com", id = customTabId)),
+                ),
+            ),
+        )
+        val translationStore = TranslationsDialogStore(
+            initialState = TranslationsDialogState(),
+            middlewares = listOf(
+                TranslationsDialogMiddleware(
+                    browserStore = store,
+                    settings = settings,
+                    sessionId = customTabId,
+                ),
+            ),
+        )
+
+        translationStore.dispatch(TranslationsDialogAction.FetchSupportedLanguages)
+
+        verify {
+            store.dispatch(
+                TranslationsAction.OperationRequestedAction(
+                    tabId = customTabId,
+                    operation = TranslationOperation.FETCH_SUPPORTED_LANGUAGES,
+                ),
+            )
+        }
+    }
 
     @Test
     fun `GIVEN translationState WHEN FetchSupportedLanguages action is called THEN call OperationRequestedAction from BrowserStore`() =

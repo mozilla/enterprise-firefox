@@ -2098,6 +2098,14 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "pageLayouts.variant",
+    {
+      title:
+        "Name of the active newtab page layout variant, for layout experimentation. One of nova-full-width, side-by-side-content-lead, side-by-side-widgets-lead, side-by-side-content-lead-five, side-by-side-widgets-lead-five. The -five variants reach five card columns counting the widgets column, the others four. Overridden by trainhopConfig.pageLayouts.variant.",
+      value: "nova-full-width",
+    },
+  ],
+  [
     "selfLoading.enabled",
     {
       title:

@@ -97,6 +97,8 @@ skip-if = [
 
 ["browser_pdfjs_navigation.js"]
 
+["browser_pdfjs_no_browsing_context.js"]
+
 ["browser_pdfjs_nonpdf_filename.js"]
 support-files = ["file_pdf_download_link.html"]
 

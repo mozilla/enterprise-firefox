@@ -84,6 +84,11 @@
   @media (prefers-contrast) {
     --urlbarView-result-button-background-opacity: 100%;
     --urlbarview-text-color-secondary: currentColor;
+
+    /* Align the result buttons with the toolbar buttons by borrowing the
+       generic ghost-button hover colors. */
+    --urlbarView-result-button-hover-color: var(--button-text-color-ghost-hover);
+    --urlbarView-result-button-hover-background-color: var(--button-background-color-ghost-hover);
   }
 }
 
@@ -263,7 +268,8 @@
          LTR title to the left edge in an RTL locale. */
       justify-self: start;
 
-      > .urlbarView-title-separator {
+      .urlbarView-row:not([sponsored]) & > .urlbarView-title-separator,
+      .urlbarView-row[sponsored]:is([selected], :hover) & > .urlbarView-title-separator {
         display: none;
       }
     }
@@ -407,8 +413,6 @@
   }
 }
 
-/* `pinned` is currently only set on top sites, which have `type="top_site"`, so
-   this rule is mutually exclusive with the other badge rules. */
 .urlbarView-row[pinned] > .urlbarView-row-inner {
   > .urlbarView-favicon {
     mask-image: url(chrome://browser/skin/urlbar/badge-pin.svg#ltr-mask);
@@ -444,7 +448,7 @@
   -moz-context-properties: fill, fill-opacity;
   border-radius: var(--border-radius-circle);
 
-  &:not(:hover, [selected], [primary], [aria-expanded="true"]) {
+  &:not([primary]) {
     @media (prefers-contrast) {
       outline: 1px solid currentColor;
       outline-offset: -1px;
@@ -484,6 +488,7 @@
 .urlbarView-button-result-menu {
   background-image: url("chrome://global/skin/icons/more.svg");
   background-color: var(--button-background-color);
+  color: var(--button-text-color);
 
   .urlbarView-results:not([disable-resultmenu-autohide])
     > .urlbarView-row:not(:hover, [selected], [descendant-selected])

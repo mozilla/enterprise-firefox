@@ -1071,23 +1071,25 @@ gfxMatrix SVGUtils::AdjustMatrixForUnits(const gfxMatrix& aMatrix,
   return aMatrix;
 }
 
-bool SVGUtils::GetNonScalingStrokeTransform(const nsIFrame* aFrame,
-                                            gfxMatrix* aUserToOuterSVG) {
+Maybe<gfxMatrix> SVGUtils::GetNonScalingStrokeTransform(
+    const nsIFrame* aFrame) {
   if (aFrame->GetContent()->IsText()) {
     aFrame = aFrame->GetParent();
   }
 
   if (!aFrame->StyleSVGReset()->HasNonScalingStroke()) {
-    return false;
+    return Nothing();
   }
 
   MOZ_ASSERT(aFrame->GetContent()->IsSVGElement(), "should be an SVG element");
 
   SVGElement* content = static_cast<SVGElement*>(aFrame->GetContent());
-  *aUserToOuterSVG =
+  gfxMatrix userToOuterSVG =
       ThebesMatrix(SVGContentUtils::GetNonScalingStrokeCTM(content));
 
-  return aUserToOuterSVG->HasNonTranslation() && !aUserToOuterSVG->IsSingular();
+  return userToOuterSVG.HasNonTranslation() && !userToOuterSVG.IsSingular()
+             ? Some(userToOuterSVG)
+             : Nothing();
 }
 
 void SVGUtils::UpdateNonScalingStrokeStateBit(nsIFrame* aFrame) {
@@ -1115,10 +1117,10 @@ static gfxRect PathExtentsToMaxStrokeExtents(const gfxRect& aPathExtents,
 
   gfxMatrix matrix = aMatrix;
 
-  gfxMatrix outerSVGToUser;
-  if (SVGUtils::GetNonScalingStrokeTransform(aFrame, &outerSVGToUser)) {
-    outerSVGToUser.Invert();
-    matrix.PreMultiply(outerSVGToUser);
+  if (Maybe<gfxMatrix> outerSVGToUser =
+          SVGUtils::GetNonScalingStrokeTransform(aFrame)) {
+    outerSVGToUser->Invert();
+    matrix.PreMultiply(*outerSVGToUser);
   }
 
   double dx = style_expansion * (std::abs(matrix._11) + std::abs(matrix._21));

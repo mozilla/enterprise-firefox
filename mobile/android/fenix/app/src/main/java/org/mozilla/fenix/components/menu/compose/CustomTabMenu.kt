@@ -38,6 +38,8 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.components.menu.MenuAccessPoint
 import org.mozilla.fenix.components.menu.MenuDialogTestTag.DESKTOP_SITE_OFF
 import org.mozilla.fenix.components.menu.MenuDialogTestTag.DESKTOP_SITE_ON
+import org.mozilla.fenix.components.menu.store.SummarizationMenuState
+import org.mozilla.fenix.components.menu.store.TranslationInfo
 import org.mozilla.fenix.components.menu.store.WebExtensionMenuItem
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.theme.PreviewThemeProvider
@@ -77,6 +79,11 @@ import mozilla.components.ui.icons.R as iconsR
  * @param onShareButtonClick Invoked when the user clicks on the share button.
  * @param onExtensionsMenuClick Invoked when the user clicks on the extensions menu item.
  * @param extensionSubmenu The submenu content to be shown when the extensions menu item is expanded
+ * @param translationInfo Translation information and configuration.
+ * @param isReaderViewActive Whether the reader view is active.
+ * @param summarizationMenuState The state of the summarization menu.
+ * @param onSummarizePageMenuExposed Invoked when the user sees the summarization dialog.
+ * @param onSummarizePageClick Invoked when the user clicks on the summarize page menu item.
  */
 @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod", "CognitiveComplexMethod")
 @Composable
@@ -110,6 +117,11 @@ internal fun CustomTabMenu(
     onShareButtonClick: () -> Unit,
     onExtensionsMenuClick: () -> Unit,
     extensionSubmenu: @Composable () -> Unit,
+    translationInfo: TranslationInfo,
+    isReaderViewActive: Boolean,
+    summarizationMenuState: SummarizationMenuState,
+    onSummarizePageMenuExposed: () -> Unit,
+    onSummarizePageClick: () -> Unit,
 ) {
     MenuFrame(
         contentModifier = Modifier
@@ -251,6 +263,17 @@ internal fun CustomTabMenu(
                     extensionSubmenu = extensionSubmenu,
                 )
             }
+
+            TranslationMenuItem(
+                translationInfo = translationInfo,
+                isReaderViewActive = isReaderViewActive,
+            )
+
+            SummarizationMenuItem(
+                summarizationMenuState = summarizationMenuState,
+                onSummarizePageMenuExposed = onSummarizePageMenuExposed,
+                onSummarizePageClick = onSummarizePageClick,
+            )
         }
 
         if (!customTabMenuItems.isNullOrEmpty()) {
@@ -364,6 +387,11 @@ private fun CustomTabMenuPreview(
                 onShareButtonClick = {},
                 onExtensionsMenuClick = {},
                 extensionSubmenu = {},
+                translationInfo = TranslationInfo(false, false, false, "") {},
+                isReaderViewActive = false,
+                summarizationMenuState = SummarizationMenuState.Default,
+                onSummarizePageMenuExposed = {},
+                onSummarizePageClick = {},
             )
         }
     }
@@ -410,6 +438,11 @@ private fun CustomTabMenuDisabledButtonsPreview(
                 onShareButtonClick = {},
                 onExtensionsMenuClick = {},
                 extensionSubmenu = {},
+                translationInfo = TranslationInfo(false, false, false, "") {},
+                isReaderViewActive = false,
+                summarizationMenuState = SummarizationMenuState.Default,
+                onSummarizePageMenuExposed = {},
+                onSummarizePageClick = {},
             )
         }
     }

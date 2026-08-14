@@ -116,10 +116,7 @@ bool DoTrialInlining(JSContext* cx, BaselineFrame* frame) {
 
 TrialInliner::TrialInliner(JSContext* cx, HandleScript script,
                            ICScript* icScript)
-    : cx_(cx),
-      script_(script),
-      icScript_(icScript),
-      lock_(cx->zone(), icScript->markingLock()) {}
+    : cx_(cx), script_(script), icScript_(icScript) {}
 
 void TrialInliner::cloneSharedPrefix(ICCacheIRStub* stub,
                                      const uint8_t* endOfPrefix,
@@ -137,16 +134,19 @@ bool TrialInliner::replaceICStub(ICEntry& entry, ICFallbackStub* fallback,
   MOZ_ASSERT(fallback->trialInliningState() == TrialInliningState::Candidate);
   writer.setTrialInliningState(TrialInliningState::Inlined);
 
-  fallback->discardStubs(cx()->zone(), &entry, lock_);
-
-  // Note: AttachBaselineCacheIRStub never throws an exception.
+  // Note: AttachBaselineCacheIRStubLocked never throws an exception.
+  MaybeMarkingLock lock;
   ICAttachResult result = AttachBaselineCacheIRStubLocked(
-      cx(), writer, kind, script_, icScript_, fallback, "TrialInline", lock_);
+      cx(), writer, kind, script_, icScript_, fallback,
+      DiscardExistingStubs::Yes, "TrialInline", lock);
   if (result == ICAttachResult::Attached) {
     MOZ_ASSERT(fallback->trialInliningState() == TrialInliningState::Inlined);
     return true;
   }
 
+  if (!lock.isSome()) {
+    lock.emplace(cx()->zone(), icScript_->markingLock());
+  }
   MOZ_ASSERT(fallback->trialInliningState() == TrialInliningState::Candidate);
   icScript_->removeInlinedChild(fallback->pcOffset());
 
@@ -798,7 +798,8 @@ ICScript* TrialInliner::createInlinedICScript(JSScript* targetScript,
   MOZ_ASSERT(result->numICEntries() == targetScript->numICEntries());
 
   if (targetScript->needsFunctionEnvironmentObjects()) {
-    result->ensureEnvAllocSite(root->owningScript(), lock_);
+    gc::AutoMarkingLock lock(cx()->zone(), icScript_->markingLock());
+    result->ensureEnvAllocSite(root->owningScript(), lock);
   }
 
   root->addToTotalBytecodeSize(targetScript->length());
@@ -963,7 +964,7 @@ bool TrialInliner::tryInlining() {
     ICEntry& entry = icScript_->icEntry(icIndex);
     ICFallbackStub* fallback = icScript_->fallbackStub(icIndex);
 
-    if (!TryFoldingStubsLocked(cx(), fallback, script_, icScript_, lock_)) {
+    if (!TryFoldingStubs(cx(), fallback, script_, icScript_)) {
       return false;
     }
 

@@ -36,6 +36,7 @@ export class AIActionConfirmation extends MozLitElement {
   #tabsListRef = createRef();
   #resizeObserver = null;
   #observedList = null;
+  #scrollAnimationId = null;
 
   static properties = {
     labelL10nId: { type: String },
@@ -123,7 +124,47 @@ export class AIActionConfirmation extends MozLitElement {
     if (overflowing !== scroller.hasAttribute("data-overflowing")) {
       scroller.toggleAttribute("data-overflowing", overflowing);
     }
+    this.#updateListScrollFade();
   };
+
+  /**
+   * Handles scroll events from the tabs list.
+   *
+   * Returns early if CSS `animation-timeline: scroll()` is supported.
+   */
+  #handleScroll = () => {
+    if (CSS.supports("animation-timeline", "scroll()")) {
+      return;
+    }
+    this.#updateListScrollFade();
+  };
+
+  #updateListScrollFade() {
+    if (CSS.supports("animation-timeline", "scroll()")) {
+      return;
+    }
+    // Only run animation if there is not already an animation request for
+    // the current frame.
+    if (this.#scrollAnimationId) {
+      return;
+    }
+    this.#scrollAnimationId = requestAnimationFrame(() => {
+      this.#scrollAnimationId = null;
+
+      const list = this.#tabsListRef.value;
+      const scroller = list?.parentElement;
+      if (!list || !scroller) {
+        return;
+      }
+      const { scrollTop, scrollHeight, clientHeight } = list;
+      const maxScroll = scrollHeight - clientHeight;
+      const progress = maxScroll > 0 ? scrollTop / maxScroll : 0;
+      scroller.style.setProperty(
+        "--action-confirmation-scroll-progress",
+        progress.toFixed(3)
+      );
+    });
+  }
 
   /**
    * @param {TabSelectionData} tab
@@ -161,9 +202,11 @@ export class AIActionConfirmation extends MozLitElement {
     }
     if (this.#observedList) {
       this.#resizeObserver.unobserve(this.#observedList);
+      this.#observedList.removeEventListener("scroll", this.#handleScroll);
     }
     if (list) {
       this.#resizeObserver.observe(list);
+      list.addEventListener("scroll", this.#handleScroll);
     }
     this.#observedList = list;
   }
@@ -172,7 +215,12 @@ export class AIActionConfirmation extends MozLitElement {
     super.disconnectedCallback();
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = null;
+    this.#observedList?.removeEventListener("scroll", this.#handleScroll);
     this.#observedList = null;
+    if (this.#scrollAnimationId) {
+      cancelAnimationFrame(this.#scrollAnimationId);
+      this.#scrollAnimationId = null;
+    }
   }
 
   render() {

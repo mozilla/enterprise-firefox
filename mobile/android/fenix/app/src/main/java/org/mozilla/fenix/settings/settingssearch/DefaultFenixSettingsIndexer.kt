@@ -8,6 +8,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
 import android.content.res.XmlResourceParser
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mozilla.components.support.base.log.logger.Logger
@@ -44,7 +45,7 @@ class DefaultFenixSettingsIndexer(
         val newSettings = mutableListOf<SettingsSearchItem>()
 
         for (preferenceFileInformation in preferenceFileInformationList) {
-            val settingFileParser = getXmlParserForFile(preferenceFileInformation.xmlResourceId)
+            val settingFileParser = preferenceFileInformation.xmlResourceId?.let(::getXmlParserForFile)
             if (settingFileParser != null) {
                 parseXmlFile(settingFileParser, preferenceFileInformation, newSettings)
             }
@@ -84,9 +85,17 @@ class DefaultFenixSettingsIndexer(
         }
     }
 
+    /**
+     * Get every indexed setting, unfiltered by any query.
+     *
+     * @return List of all [SettingsSearchItem]s built by the last [indexAllSettings] call, or an
+     * empty list if it has not run yet.
+     */
+    @VisibleForTesting
+    internal fun indexedSettings(): List<SettingsSearchItem> = settings.get()
+
     private fun getXmlParserForFile(xmlResourceId: Int): XmlResourceParser? {
         try {
-            if (xmlResourceId == 0) return null
             return context.resources.getXml(xmlResourceId)
         } catch (e: Resources.NotFoundException) {
             logger.error("Failed to find XML resource $xmlResourceId", e)
@@ -362,9 +371,6 @@ class DefaultFenixSettingsIndexer(
             PreferenceFileInformation.TabsPreferences,
             PreferenceFileInformation.TrackingProtectionPreferences,
             PreferenceFileInformation.SaveLoginsPreferences,
-            PreferenceFileInformation.DataChoicesPreferences,
-            PreferenceFileInformation.AIControlsPreferences,
-            PreferenceFileInformation.FirefoxLabsPreferences,
         )
 
         /**

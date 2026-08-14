@@ -104,9 +104,7 @@ linux2404-64-ccov/opt:
 linux2404-64-devedition/opt:
     build-platform: linux64-devedition/opt
     test-sets:
-        - desktop-screenshot-capture
-        - linux-tests
-        - web-platform-tests
+        - devedition-tests
 
 linux2204-64-wayland/debug:
     build-platform: linux64/debug
@@ -307,12 +305,6 @@ windows11-64-24h2-shippable/opt:
         - browsertime
         - windows-talos-webgl
 
-windows11-64-24h2-devedition/opt:
-    build-platform: win64-devedition/opt
-    build-signing-label: build-signing-win64-devedition/opt
-    test-sets:
-        - windows11-24h2-tests
-
 windows11-64-24h2-asan/opt:
     build-platform: win64-asan/opt
     test-sets:
@@ -377,9 +369,7 @@ windows11-64-25h2-devedition/opt:
     build-platform: win64-devedition/opt
     build-signing-label: build-signing-win64-devedition/opt
     test-sets:
-        - desktop-screenshot-capture
-        - web-platform-tests
-        - windows11-25h2-tests
+        - devedition-tests
 
 windows11-64-25h2-asan/opt:
     build-platform: win64-asan/opt
@@ -399,11 +389,6 @@ windows11-64-25h2-mingwclang/opt:
 # windows11-64-aarch64
 windows11-aarch64-25h2-shippable/opt:
     build-platform: win64-aarch64-shippable/opt
-    test-sets:
-        - windows-aarch64-tests
-
-windows11-aarch64-25h2-devedition/opt:
-    build-platform: win64-aarch64-devedition/opt
     test-sets:
         - windows-aarch64-tests
 
@@ -452,13 +437,6 @@ macosx1500-aarch64-vms-shippable/opt:
     test-sets:
         - macosx1500-aarch64-vms-tests
 
-macosx1500-aarch64-vms-devedition/opt:
-    build-platform: macosx64-aarch64-devedition/opt
-    build-signing-label: repackage-macosx64-devedition/opt
-    test-sets:
-        - macosx1500-aarch64-vms-tests
-
-
 macosx1500-aarch64-shippable/opt:
     build-platform: macosx64-shippable/opt
     build-signing-label: repackage-macosx64-shippable/opt
@@ -473,7 +451,7 @@ macosx1500-aarch64-devedition/opt:
     build-platform: macosx64-aarch64-devedition/opt
     build-signing-label: repackage-macosx64-devedition/opt
     test-sets:
-        - macosx1500-aarch64-tests
+        - devedition-tests
 
 macosx1500-aarch64-nightlyasrelease/opt:
     build-platform: macosx64-aarch64-nightlyasrelease/opt
@@ -509,12 +487,6 @@ macosx1470-64-shippable/opt:
         - webgpu
         - web-platform-tests-backlog
 
-macosx1470-64-devedition/opt:
-    build-platform: macosx64-devedition/opt
-    test-sets:
-        - macosx1470-64-tests
-        - webgpu
-
 macosx1470-64/opt:
     build-platform: macosx64/opt
     test-sets:
@@ -531,11 +503,6 @@ macosx1470-64/debug:
 
 macosx1015-64-shippable-qr/opt:
     build-platform: macosx64-shippable/opt
-    test-sets:
-        - macosx1015-64-qr-tests
-
-macosx1015-64-devedition-qr/opt:
-    build-platform: macosx64-devedition/opt
     test-sets:
         - macosx1015-64-qr-tests
 

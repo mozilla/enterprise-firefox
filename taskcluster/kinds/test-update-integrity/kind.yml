@@ -133,9 +133,13 @@ tasks:
                                 mac.*:
                                     version: "125.0b9"
                                 win.*:
-                                    version: "127.0"
+                                    # TODO: the real watershed here is 127.0
+                                    # switch it back when mar channel ID override support is added
+                                    version: "127.0b9"
                                 default:
-                                    version: "72.0"
+                                    # TODO: the real watershed here is 72.0
+                                    # switch it back when mar channel ID override support is added
+                                    version: "72.0b11"
                 release:
                     by-project:
                         try:

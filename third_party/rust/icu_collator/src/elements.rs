@@ -1158,19 +1158,36 @@ where
     }
 
     fn maybe_gather_combining(&mut self) {
-        if self.upcoming.len() != 1 {
+        let Some(first) = self.upcoming.first().cloned() else {
+            return;
+        };
+        if !first.decomposition_starts_with_non_starter() {
             return;
         }
-        // index has to be in range due to the check above.
-        // rewriting with `get()` would result in two checks.
-        #[expect(clippy::indexing_slicing)]
-        if !self.upcoming[0].decomposition_starts_with_non_starter() {
+        if self.upcoming.len() == 1 {
+            // We now have a single character that decomposes to start with
+            // a non-starter. Decompose it and assign the real canonical combining class.
+            self.upcoming.clear();
+            // We just cleared `upcoming`, so we can no longer be in the exceptional
+            // state tracked by `self.upcoming_normalized` being `false`.
+            self.upcoming_normalized = true;
+            self.push_decomposed_combining(first);
+        } else {
+            // We end up sorting more times than minimally necessary.
+            self.ensure_upcoming_normalized();
+            #[cfg(debug_assertions)]
+            {
+                if !self.iter_exhausted {
+                    // `unwrap` OK, because len() must be > 1.
+                    debug_assert!(!self
+                        .upcoming
+                        .last()
+                        .unwrap()
+                        .decomposition_starts_with_non_starter());
+                }
+            }
             return;
         }
-        // We now have a single character that decomposes to start with
-        // a non-starter. Decompose it and assign the real canonical combining class.
-        let first = self.upcoming.remove(0);
-        self.push_decomposed_combining(first);
         // Not using `while let` to be able to set `iter_exhausted`
         loop {
             if let Some(ch) = self.iter_next() {
@@ -1230,11 +1247,6 @@ where
 
         let mut unnormalized = core::mem::take(&mut self.upcoming);
         let last_index = unnormalized.len() - 1;
-        // Indexing is for debug assert only.
-        #[expect(clippy::indexing_slicing)]
-        {
-            debug_assert!(!unnormalized[0].decomposition_starts_with_non_starter());
-        }
         let mut start_combining = 0;
         for (i, c) in unnormalized.drain(..).enumerate() {
             if c.decomposition_starts_with_non_starter() {
@@ -1252,6 +1264,7 @@ where
                 start_combining = self.push_decomposed_starter(c);
             }
         }
+        // XXX: What mechanism makes the assertion correct?
         // Make the assertion conditional to make CI happy.
         #[cfg(debug_assertions)]
         debug_assert!(self.iter_exhausted);

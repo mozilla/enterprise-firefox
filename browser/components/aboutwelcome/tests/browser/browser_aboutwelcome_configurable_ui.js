@@ -1128,3 +1128,30 @@ add_task(async function test_aboutwelcome_fullscreen_split_layout_styles() {
   await doExperimentCleanup();
   browser.closeBrowser();
 });
+
+add_task(async function test_aboutwelcome_link_paragraph_inline_image() {
+  const TEST_ICON_URL =
+    "chrome://global/skin/media/picture-in-picture-open.svg";
+  const TEST_CONTENT = makeTestContent("TEST_LINK_PARAGRAPH_IMAGE_STEP", {
+    above_button_content: [
+      {
+        type: "text",
+        text: [
+          "Learn more ",
+          { imageURL: TEST_ICON_URL, alt: "icon" },
+          " here.",
+        ],
+      },
+    ],
+  });
+
+  let browser = await openAboutWelcome(JSON.stringify([TEST_CONTENT]));
+
+  await test_screen_content(
+    browser,
+    "renders an image segment in a LinkParagraph",
+    [`.link-paragraph img.inline-icon[src="${TEST_ICON_URL}"][alt="icon"]`]
+  );
+
+  browser.closeBrowser();
+});

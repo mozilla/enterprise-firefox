@@ -9,14 +9,15 @@ import org.mozilla.fenix.R
 /**
  * Data class for a settings search item navigation information based on the xml file it comes from.
  *
- * @property xmlResourceId The resource ID of the xml file that the item comes from.
+ * @property xmlResourceId The resource ID of the xml file that the item comes from, or `null` for
+ * Compose-based screens that have no backing XML file and are indexed via a [SettingsSearchProvider].
  * @property topBreadcrumbResourceId The top breadcrumb of the item as a resource id.
  * @property secondaryBreadcrumbResourceId The secondary breadcrumb of the item as a resource id.
  * @property categoryHeaderResourceId The category header of the item as a resource id.
  * @property fragmentId The fragment ID of the fragment where the item is displayed.
  */
 sealed class PreferenceFileInformation(
-    val xmlResourceId: Int,
+    val xmlResourceId: Int? = null,
     val topBreadcrumbResourceId: Int,
     val secondaryBreadcrumbResourceId: Int = 0,
     val categoryHeaderResourceId: Int,
@@ -178,7 +179,6 @@ sealed class PreferenceFileInformation(
      * This screen is Compose-based and has no backing XML preference file.
      */
     object DataChoicesPreferences : PreferenceFileInformation(
-        xmlResourceId = R.id.dataChoicesFragment,
         topBreadcrumbResourceId = R.string.preferences_data_collection,
         categoryHeaderResourceId = R.string.preferences_category_privacy_security,
         fragmentId = R.id.dataChoicesFragment,
@@ -189,7 +189,6 @@ sealed class PreferenceFileInformation(
      * This screen is Compose-based and has no backing XML preference file.
      */
     object AIControlsPreferences : PreferenceFileInformation(
-        xmlResourceId = R.id.aiControlsFragment,
         topBreadcrumbResourceId = R.string.preferences_ai_controls,
         categoryHeaderResourceId = R.string.preferences_category_general,
         fragmentId = R.id.aiControlsFragment,
@@ -200,7 +199,6 @@ sealed class PreferenceFileInformation(
      * This screen is compose-based and has no backing XML preference file.
      */
     object PageSummariesPreferences : PreferenceFileInformation(
-        xmlResourceId = R.id.pageSummariesSettingsFragment,
         topBreadcrumbResourceId = R.string.preferences_page_summaries,
         categoryHeaderResourceId = R.string.preferences_category_general,
         fragmentId = R.id.pageSummariesSettingsFragment,
@@ -211,7 +209,6 @@ sealed class PreferenceFileInformation(
      * This screen is Compose-based and has no backing XML preference file.
      */
     object FirefoxLabsPreferences : PreferenceFileInformation(
-        xmlResourceId = R.id.firefoxLabsFragment,
         topBreadcrumbResourceId = R.string.settings_title,
         categoryHeaderResourceId = R.string.preferences_category_advanced,
         fragmentId = R.id.firefoxLabsFragment,

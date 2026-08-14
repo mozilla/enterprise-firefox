@@ -11,6 +11,7 @@
 #include "mozilla/ReflowInput.h"
 #include "mozilla/dom/HTMLImageElement.h"
 #include "mozilla/dom/HTMLVideoElement.h"
+#include "mozilla/dom/PerformanceContainerTiming.h"
 #include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/layers/RenderRootStateManager.h"
 #include "nsCOMPtr.h"
@@ -578,7 +579,8 @@ class nsDisplayVideo final : public nsPaintedDisplayItem {
 
   NS_DISPLAY_DECL_NAME("Video", TYPE_VIDEO)
 
-  already_AddRefed<ImageContainer> GetImageContainer(gfxRect& aDestGFXRect) {
+  already_AddRefed<ImageContainer> GetImageContainer(gfxRect& aDestGFXRect,
+                                                     nsRect& aDest) {
     auto* f = static_cast<nsVideoFrame*>(Frame());
     nsRect area = f->InkOverflowRectRelativeToSelf() + ToReferenceFrame();
     auto* element = static_cast<HTMLVideoElement*>(f->GetContent());
@@ -601,9 +603,9 @@ class nsDisplayVideo final : public nsPaintedDisplayItem {
       return nullptr;
     }
 
-    nsRect dest =
-        f->GetDestRect(f->GetContentRectRelativeToSelf() + ToReferenceFrame());
-    aDestGFXRect = f->PresContext()->AppUnitsToGfxUnits(dest);
+    aDest = f->GetDestRect(f->GetContentRectRelativeToSelf());
+    aDestGFXRect =
+        f->PresContext()->AppUnitsToGfxUnits(aDest + ToReferenceFrame());
     aDestGFXRect.Round();
     if (aDestGFXRect.IsEmpty()) {
       return nullptr;
@@ -618,10 +620,10 @@ class nsDisplayVideo final : public nsPaintedDisplayItem {
       const mozilla::layers::StackingContextHelper& aSc,
       mozilla::layers::RenderRootStateManager* aManager,
       nsDisplayListBuilder* aDisplayListBuilder) override {
-    HTMLVideoElement* element =
-        static_cast<HTMLVideoElement*>(Frame()->GetContent());
+    auto* element = static_cast<HTMLVideoElement*>(Frame()->GetContent());
     gfxRect destGFXRect;
-    RefPtr<ImageContainer> container = GetImageContainer(destGFXRect);
+    nsRect dest;
+    RefPtr<ImageContainer> container = GetImageContainer(destGFXRect, dest);
     if (!container) {
       return true;
     }
@@ -635,6 +637,9 @@ class nsDisplayVideo final : public nsPaintedDisplayItem {
                           destGFXRect.height);
     aManager->CommandBuilder().PushImage(this, container, aBuilder, aResources,
                                          aSc, rect, rect);
+
+    dom::ContainerTimingHelpers::MaybeProcessPaintForContainer(element, Frame(),
+                                                               dest);
     return true;
   }
 
@@ -655,10 +660,10 @@ class nsDisplayVideo final : public nsPaintedDisplayItem {
   }
 
   void Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) override {
-    HTMLVideoElement* element =
-        static_cast<HTMLVideoElement*>(Frame()->GetContent());
+    auto* element = static_cast<HTMLVideoElement*>(Frame()->GetContent());
     gfxRect destGFXRect;
-    RefPtr<ImageContainer> container = GetImageContainer(destGFXRect);
+    nsRect dest;
+    RefPtr<ImageContainer> container = GetImageContainer(destGFXRect, dest);
     if (!container) {
       return;
     }
@@ -700,6 +705,9 @@ class nsDisplayVideo final : public nsPaintedDisplayItem {
         SurfacePattern(surface, ExtendMode::CLAMP, Matrix(),
                        nsLayoutUtils::GetSamplingFilterForFrame(Frame())),
         DrawOptions());
+
+    dom::ContainerTimingHelpers::MaybeProcessPaintForContainer(element, Frame(),
+                                                               dest);
   }
 };
 

@@ -1104,6 +1104,18 @@ PdfStreamConverter.prototype = {
       );
     }
 
+    // Without a browsing context there's nowhere to render the result, so
+    // PDF.js must not claim the channel and rewrite its type to text/html -
+    // that breaks the external handler for attachments opened from the compose
+    // window (bug 1698140).
+    let browsingContext = aChannel?.loadInfo?.targetBrowsingContext;
+    if (!browsingContext) {
+      throw new Components.Exception(
+        "PDF.js can't be used without a browsing context.",
+        Cr.NS_ERROR_FAILURE
+      );
+    }
+
     const HTML = "text/html";
     let channelURI = aChannel?.URI;
     // We can be invoked for application/octet-stream; check if we want the
@@ -1120,11 +1132,8 @@ PdfStreamConverter.prototype = {
           "pdf";
       }
 
-      let browsingContext = aChannel?.loadInfo.targetBrowsingContext;
       let toplevelOctetStream =
-        aFromType == "application/octet-stream" &&
-        browsingContext &&
-        !browsingContext.parent;
+        aFromType == "application/octet-stream" && !browsingContext.parent;
       if (
         !isPDF ||
         !toplevelOctetStream ||

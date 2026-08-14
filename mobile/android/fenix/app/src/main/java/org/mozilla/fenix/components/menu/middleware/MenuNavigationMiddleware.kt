@@ -206,9 +206,11 @@ class MenuNavigationMiddleware(
 
                 is MenuAction.Navigate.Translate -> navController.nav(
                     R.id.menuDialogFragment,
-                    MenuDialogFragmentDirections.actionMenuDialogFragmentToTranslationsDialogFragment(),
+                    MenuDialogFragmentDirections.actionMenuDialogFragmentToTranslationsDialogFragment(
+                        sessionId = currentState.browserMenuState?.selectedTab?.id,
+                    ),
                     navOptions = NavOptions.Builder()
-                        .setPopUpTo(R.id.browserFragment, false)
+                        .setPopUpTo(currentState.browserDestinationId(), false)
                         .build(),
                 )
 
@@ -301,9 +303,11 @@ class MenuNavigationMiddleware(
                     navController.nav(
                         id = R.id.menuDialogFragment,
                         directions = MenuDialogFragmentDirections
-                            .actionMenuDialogFragmentToSummarizationFragment(),
+                            .actionMenuDialogFragmentToSummarizationFragment(
+                                sessionId = currentState.browserMenuState?.selectedTab?.id,
+                            ),
                         navOptions = NavOptions.Builder()
-                            .setPopUpTo(R.id.browserFragment, false)
+                            .setPopUpTo(currentState.browserDestinationId(), false)
                             .build(),
                     )
                 }
@@ -420,5 +424,10 @@ class MenuNavigationMiddleware(
                 else -> Unit
             }
         }
+    }
+
+    private fun MenuState.browserDestinationId(): Int = when (browserMenuState?.selectedTab.isCustomTab()) {
+        true -> R.id.externalAppBrowserFragment
+        else -> R.id.browserFragment
     }
 }

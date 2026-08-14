@@ -319,6 +319,8 @@ export class UrlbarQueryContext {
    * Only returns a subset of the properties from URIFixup. This is both to
    * reduce the memory footprint of UrlbarQueryContexts and to keep them
    * serializable so they can be sent to extensions.
+   *
+   * IMPORTANT: This uses `Services`, so it only works in privileged code.
    */
   get fixupInfo() {
     if (!this._fixupError && !this._fixupInfo && this.trimmedSearchString) {

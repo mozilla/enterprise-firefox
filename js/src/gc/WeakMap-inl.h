@@ -50,7 +50,7 @@ static inline bool IsSymbol(const JS::Value& value) { return value.isSymbol(); }
 // Return the effective cell color given the current marking state.
 // This must be kept in sync with ShouldMark in Marking.cpp.
 template <typename T>
-static CellColor GetEffectiveColor(GCMarker* marker, const T& item) {
+CellColor GetEffectiveColor(GCMarker* marker, const T& item) {
   static_assert(!IsBarriered<T>::value, "Don't pass wrapper types");
 
   Cell* cell = ToMarkable(item);
@@ -201,6 +201,7 @@ bool WeakMap<K, V, AP>::markEntry(GCMarker* marker, gc::CellColor mapColor,
   if (marker->isParallelMarkingMultipleThreads()) {
     marker->runtime()->gc.assertCurrentThreadHasLockedGC();
   }
+  MOZ_ASSERT(marker->tracingZone == zone());
 #endif
 
   BarrieredKey& key = iter.get().mutableKey();
@@ -400,6 +401,8 @@ bool WeakMap<K, V, AP>::markEntries(GCMarker* marker) {
   // Read the atomic color into a local variable so the compiler doesn't load it
   // every time.
   gc::CellColor mapColor = this->mapColor();
+
+  AutoSetMarkingZone setMarkingZone(marker, zone());
 
   for (auto iter = modIter(); !iter.done(); iter.next()) {
     if (markEntry(marker, mapColor, iter, populateWeakKeysTable)) {
@@ -783,7 +786,7 @@ void WeakMap<K, V, AP>::assertEntriesNotAboutToBeFinalized() {
 #ifdef JS_GC_ZEAL
 template <class K, class V, class AP>
 bool WeakMap<K, V, AP>::checkMarking() const {
-  bool ok = true;
+  bool ok = gc::CheckWeakMapMapMarking(this);
   for (auto iter = this->iter(); !iter.done(); iter.next()) {
     gc::Cell* key = gc::ToMarkable(iter.get().key());
     MOZ_RELEASE_ASSERT(key);

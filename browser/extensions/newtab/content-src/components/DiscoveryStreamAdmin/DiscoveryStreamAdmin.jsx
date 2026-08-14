@@ -3,7 +3,18 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
-import { WIDGET_REGISTRY } from "common/WidgetsRegistry.mjs";
+import {
+  WIDGET_REGISTRY,
+  hasContentAreaWidgets,
+  isWidgetsContainerVisible,
+} from "common/WidgetsRegistry.mjs";
+import {
+  DEFAULT_PAGE_LAYOUT_VARIANT,
+  PAGE_LAYOUT_VARIANTS,
+  PREF_PAGE_LAYOUT_VARIANT,
+  isSideBySideAssigned,
+  resolvePageLayoutVariant,
+} from "common/PageLayoutVariants.mjs";
 import { connect } from "react-redux";
 import React from "react";
 
@@ -53,6 +64,41 @@ const WIDGET_EXTRA_FEATURES = {
       label: "Celebrations",
     },
   ],
+};
+
+// Devtools-only copy, so not localized. A variant with no entry falls back to its
+// raw pref value and renders no description.
+const PAGE_LAYOUTS_INFO = {
+  [PAGE_LAYOUT_VARIANTS.NOVA_FULL_WIDTH]: {
+    label: "Nova",
+    description:
+      "Today's layout. Widgets sit in a row above the stories, and both run " +
+      "the full width of the screen.",
+  },
+  [PAGE_LAYOUT_VARIANTS.SIDE_BY_SIDE_CONTENT_LEAD]: {
+    label: "Side-by-side (Content lead)",
+    description:
+      "Stories on the left, widgets stacked in one narrow column on the " +
+      "right. Stories get up to three cards across.",
+  },
+  [PAGE_LAYOUT_VARIANTS.SIDE_BY_SIDE_WIDGETS_LEAD]: {
+    label: "Side-by-side (Widgets lead)",
+    description:
+      "Widgets stacked in one narrow column on the left, stories on the " +
+      "right. Stories get up to three cards across.",
+  },
+  [PAGE_LAYOUT_VARIANTS.SIDE_BY_SIDE_CONTENT_LEAD_FIVE]: {
+    label: "Side-by-side (Content lead, five columns)",
+    description:
+      "Same as Content lead, but stories get a fourth card across on wide " +
+      "screens.",
+  },
+  [PAGE_LAYOUT_VARIANTS.SIDE_BY_SIDE_WIDGETS_LEAD_FIVE]: {
+    label: "Side-by-side (Widgets lead, five columns)",
+    description:
+      "Same as Widgets lead, but stories get a fourth card across on wide " +
+      "screens.",
+  },
 };
 
 const Row = props => (
@@ -152,6 +198,8 @@ export class DiscoveryStreamAdminUI extends React.PureComponent {
       this.handleResetWidgetInteractions.bind(this);
     this.handleResetWidgetsToDefaults =
       this.handleResetWidgetsToDefaults.bind(this);
+    this.handlePageLayoutChange = this.handlePageLayoutChange.bind(this);
+    this.handleResetPageLayout = this.handleResetPageLayout.bind(this);
     this.toggleIABBanners = this.toggleIABBanners.bind(this);
     this.handleAllizomToggle = this.handleAllizomToggle.bind(this);
     this.sendConversionEvent = this.sendConversionEvent.bind(this);
@@ -489,6 +537,93 @@ export class DiscoveryStreamAdminUI extends React.PureComponent {
       Object.keys(this.props.otherPrefs).filter(prefName =>
         prefName.startsWith("widgets.")
       )
+    );
+  }
+
+  handlePageLayoutChange(e) {
+    this.props.dispatch(ac.SetPref(PREF_PAGE_LAYOUT_VARIANT, e.target.value));
+  }
+
+  handleResetPageLayout() {
+    this.clearPrefs([PREF_PAGE_LAYOUT_VARIANT]);
+  }
+
+  // Names the first isSideBySideActive gate that fails, so a variant falling back to
+  // one column says why. Callers check the variant is side-by-side first.
+  pageLayoutInactiveReason() {
+    const prefs = this.props.otherPrefs;
+    if (!prefs["feeds.section.topstories"]) {
+      return "stories are turned off (feeds.section.topstories)";
+    }
+    if (!prefs["feeds.system.topstories"]) {
+      return "stories are turned off (feeds.system.topstories)";
+    }
+    if (!isWidgetsContainerVisible(prefs)) {
+      return "widgets are turned off (widgets.system.enabled)";
+    }
+    if (!hasContentAreaWidgets(prefs)) {
+      return "no widgets are showing to sit beside the stories";
+    }
+    return null;
+  }
+
+  renderLayouts() {
+    const prefs = this.props.otherPrefs;
+    // The pref, not the effective value: what the radio sets and reset clears.
+    const prefVariant =
+      prefs[PREF_PAGE_LAYOUT_VARIANT] || DEFAULT_PAGE_LAYOUT_VARIANT;
+    const effectiveVariant = resolvePageLayoutVariant(prefs);
+    const trainhopOverride = effectiveVariant !== prefVariant;
+    const inactiveReason =
+      isSideBySideAssigned(prefs) && this.pageLayoutInactiveReason();
+
+    return (
+      <>
+        <div className="layout-variants">
+          {Object.values(PAGE_LAYOUT_VARIANTS).map(variant => (
+            <label key={variant} className="layout-variant">
+              <input
+                type="radio"
+                name="page-layout-variant"
+                value={variant}
+                checked={prefVariant === variant}
+                onChange={this.handlePageLayoutChange}
+              />
+              <span className="layout-variant-text">
+                <span className="layout-variant-name">
+                  {PAGE_LAYOUTS_INFO[variant]?.label ?? variant}
+                  {variant === DEFAULT_PAGE_LAYOUT_VARIANT ? " (default)" : ""}
+                  {/* The pref value, for a Nimbus recipe or about:config. */}
+                  <code className="layout-variant-value">{variant}</code>
+                </span>
+                {PAGE_LAYOUTS_INFO[variant]?.description && (
+                  <span className="layout-variant-description">
+                    {PAGE_LAYOUTS_INFO[variant].description}
+                  </span>
+                )}
+              </span>
+            </label>
+          ))}
+        </div>
+        <moz-button
+          disabled={prefVariant === DEFAULT_PAGE_LAYOUT_VARIANT ? true : null}
+          onClick={this.handleResetPageLayout}
+        >
+          Reset layout
+        </moz-button>
+        {trainhopOverride && (
+          <p className="layout-status layout-status-warning">
+            A train-hop experiment is forcing <code>{effectiveVariant}</code>,
+            so picking a layout here does nothing. See Train Hop above.
+          </p>
+        )}
+        {inactiveReason && (
+          <p className="layout-status">
+            Showing as one column instead of side-by-side because{" "}
+            {inactiveReason}.
+          </p>
+        )}
+      </>
     );
   }
 
@@ -1063,6 +1198,10 @@ export class DiscoveryStreamAdminUI extends React.PureComponent {
         <details className="details-section">
           <summary>Train Hop</summary>
           {this.renderTrainhop()}
+        </details>
+        <details className="details-section">
+          <summary>Page Layouts (experimental)</summary>
+          {this.renderLayouts()}
         </details>
         <details className="details-section">
           <summary>IAB Banner Ad Sizes</summary>

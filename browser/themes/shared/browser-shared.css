@@ -105,6 +105,7 @@ body {
   /* z-indices that fight on the browser container */
   --browser-container-z-index-devtools-toolbox: 1;
   --browser-container-z-index-devtools-splitter: 2;
+  --browser-container-z-index-devtools-rdm-with-devices-dialog: 3;
 
   /* z-indices that fight on the browser stack */
   --browser-stack-z-index-dialog-stack: 2;

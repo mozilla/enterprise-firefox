@@ -936,18 +936,6 @@ struct GetParentBrowserParent {
 };
 
 template <TreeKind aKind>
-static bool AreNodesInSameSlot(const nsINode* aNode1, const nsINode* aNode2) {
-  if (const auto* content1 = nsIContent::FromNodeOrNull(aNode1)) {
-    if (auto* slot = content1->GetAssignedSlot<aKind>()) {
-      if (const auto* content2 = nsIContent::FromNodeOrNull(aNode2)) {
-        return slot == content2->GetAssignedSlot<aKind>();
-      }
-    }
-  }
-  return false;
-}
-
-template <TreeKind aKind>
 static bool ChildNodeIsInShadowDOMHostedByParent(const nsINode* aParent,
                                                  const nsINode* aChild) {
   ShadowRoot* const shadowRoot = aParent->GetShadowRoot<aKind>();

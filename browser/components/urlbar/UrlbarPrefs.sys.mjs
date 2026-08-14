@@ -130,6 +130,12 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // 0 - never resolve; 1 - use heuristics (default); 2 - always resolve
   ["dnsResolveSingleWordsAfterSearch", 0],
 
+  // Maximum time (ms) the event bufferer defers events for. In automation
+  // providers can be quite slow, thus we need a longer timeout to avoid
+  // intermittent failures. Must be larger than
+  // ProvidersManager.chunkResultsDelayMs.
+  ["eventBufferer.deferringTimeoutMs", Cu.isInAutomation ? 1500 : 300],
+
   // If Suggest is disabled before these seconds from a search, then send a
   // disable event.
   ["events.disableSuggest.maxSecondsFromLastSearch", 300],

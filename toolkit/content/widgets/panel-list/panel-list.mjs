@@ -114,7 +114,13 @@ export class PanelList extends HTMLElement {
       const autohideDisabled = this.hasServices()
         ? Services.prefs.getBoolPref("ui.popup.disable_autohide", false)
         : false;
-      this.setAttribute("popover", autohideDisabled ? "manual" : "auto");
+      // A contextmenu event is dispatched during the button press on most
+      // platforms, so the release that follows would light-dismiss an auto
+      // popover. Manual popovers are exempt from light dismiss; the listeners
+      // from addHideListeners() dismiss them.
+      const lightDismissable =
+        !autohideDisabled && triggeringEvent?.type != "contextmenu";
+      this.setAttribute("popover", lightDismissable ? "auto" : "manual");
     }
 
     // Bug 2010864 - We need to set `open` to true before calling this.onShow()

@@ -1039,7 +1039,7 @@ inline void DequantizeMonotonic(const Span<float> vals) {
 }
 
 template <class In, class Out>
-static void InvertLut(const In& lut, Out* const out_invertedLut) {
+void InvertLut(const In& lut, Out* const out_invertedLut) {
   MOZ_ASSERT(IsMonotonic(lut));
   auto plut = &lut;
   auto vec = std::vector<float>{};

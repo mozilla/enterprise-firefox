@@ -2457,6 +2457,11 @@ export class UrlbarView {
       item.setAttribute("type", "semantic-history");
     } else if (result.providerName == "UrlbarProviderInputHistory") {
       item.setAttribute("type", "adaptive-history");
+    } else if (
+      result.providerName == "UrlbarProviderTopSites" &&
+      result.source == UrlbarShared.RESULT_SOURCE.HISTORY
+    ) {
+      item.setAttribute("type", "history");
     } else {
       item.setAttribute(
         "type",
@@ -4636,6 +4641,10 @@ export class UrlbarView {
 
   clearTopSitesCache() {
     this.queryContextCache.clearTopSitesCache();
+  }
+
+  clearL10nCache() {
+    this.#l10nCache.clear();
   }
 }
 

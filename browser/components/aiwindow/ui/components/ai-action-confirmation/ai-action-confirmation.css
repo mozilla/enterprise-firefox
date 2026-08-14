@@ -112,6 +112,16 @@
   position: relative;
   timeline-scope: --action-confirmation-scroll;
 
+  /*
+   * Scroll progress: `0` at top and `1` at end.
+   * --action-confirmation-scroll-progress is set by JS as a fallback when
+   * `animation-timeline: scroll()` is not supported.
+   */
+  --action-confirmation-scroll-progress: 0;
+  --action-confirmation-fade-threshold: 0.1;
+  --action-confirmation-scroll-at-top-ratio: clamp(0, var(--action-confirmation-scroll-progress) / var(--action-confirmation-fade-threshold), 1);
+  --action-confirmation-scroll-at-bottom-ratio: clamp(0, (1 - var(--action-confirmation-scroll-progress)) / var(--action-confirmation-fade-threshold), 1);
+
   /* Top separator: Hidden at the top and fades in when scrolled. */
   &[data-overflowing]::before {
     content: "";
@@ -122,10 +132,12 @@
     block-size: var(--border-width);
     /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
     background-color: var(--border-color, light-dark(var(--color-violet-desaturated-20), var(--color-violet-desaturated-60)));
-    opacity: 0;
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    opacity: var(--action-confirmation-scroll-at-top-ratio);
     z-index: 1;
 
     @supports (animation-timeline: scroll()) {
+      opacity: 0;
       animation: action-confirmation-top-line linear both;
       animation-timeline: --action-confirmation-scroll;
       animation-range: 0 var(--space-large);
@@ -142,8 +154,11 @@
     /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
     background: linear-gradient(to top, var(--ai-action-confirmation-background-color), transparent);
     pointer-events: none;
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    opacity: var(--action-confirmation-scroll-at-bottom-ratio);
 
     @supports (animation-timeline: scroll()) {
+      opacity: 1;
       animation: action-confirmation-bottom-fade linear both;
       animation-timeline: --action-confirmation-scroll;
       animation-range: calc(100% - var(--space-large)) 100%;

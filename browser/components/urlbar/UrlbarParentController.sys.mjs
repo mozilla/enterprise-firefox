@@ -154,6 +154,7 @@ export class UrlbarParentController {
 
     this.engagementEvent = new TelemetryEvent(this);
     lazy.UrlbarProviderTopSites.addTopSitesListener(this.#topSitesListener);
+    Services.obs.addObserver(this, "intl:app-locales-changed", true);
   }
 
   /**
@@ -1279,6 +1280,7 @@ export class UrlbarParentController {
       Services.obs.removeObserver(this, "browser-search-engine-modified");
       this.#engineObserverRegistered = false;
     }
+    Services.obs.removeObserver(this, "intl:app-locales-changed");
   }
 
   /**
@@ -1343,11 +1345,29 @@ export class UrlbarParentController {
   ]);
 
   /**
-   * @param {{wrappedJSObject: SearchEngine}} subject
-   * @param {"browser-search-engine-modified"} _topic
+   * @param {nsISupports} subject
+   * @param {"browser-search-engine-modified"|"intl:app-locales-changed"} topic
    * @param {string} data
    */
-  observe = (subject, _topic, data) => {
+  observe = (subject, topic, data) => {
+    switch (topic) {
+      case "browser-search-engine-modified":
+        this.#onSearchEngineModified(
+          /** @type {{wrappedJSObject: SearchEngine}} */ (subject),
+          data
+        );
+        break;
+      case "intl:app-locales-changed":
+        this.view.clearL10nCache();
+        break;
+    }
+  };
+
+  /**
+   * @param {{wrappedJSObject: SearchEngine}} subject
+   * @param {string} data
+   */
+  #onSearchEngineModified(subject, data) {
     let engine = subject.wrappedJSObject;
     let sortedEngines = lazy.SearchService.visibleEngines;
     let index = sortedEngines.findIndex(e => e == engine);
@@ -1383,7 +1403,7 @@ export class UrlbarParentController {
         }
         break;
     }
-  };
+  }
 }
 
 /**

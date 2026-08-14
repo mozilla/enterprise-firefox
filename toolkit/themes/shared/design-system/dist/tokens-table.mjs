@@ -526,11 +526,31 @@ export const tokensTable = {
       name: "--toolbarbutton-badge-background-color",
     },
     {
-      value: "color-mix(in srgb, currentColor 17%, transparent)",
+      value: {
+        default: "color-mix(in srgb, currentColor 17%, transparent)",
+        forcedColors: "var(--button-background-color-hover)",
+        nativeTheme: "var(--button-background-color-ghost-hover)",
+        platform: {
+          default: "var(--button-background-color-ghost-hover)",
+          browserTheme: {
+            default: "color-mix(in srgb, currentColor 17%, transparent)",
+          },
+        },
+      },
       name: "--toolbarbutton-background-color-hover",
     },
     {
-      value: "color-mix(in srgb, currentColor 30%, transparent)",
+      value: {
+        default: "color-mix(in srgb, currentColor 30%, transparent)",
+        forcedColors: "var(--button-background-color-active)",
+        nativeTheme: "var(--button-background-color-ghost-active)",
+        platform: {
+          default: "var(--button-background-color-ghost-active)",
+          browserTheme: {
+            default: "color-mix(in srgb, currentColor 30%, transparent)",
+          },
+        },
+      },
       name: "--toolbarbutton-background-color-active",
     },
     {
@@ -4832,10 +4852,28 @@ export const variableLookupTable = {
     prefersContrast: 0.3,
   },
   "toolbarbutton-border-radius": "var(--button-border-radius)",
-  "toolbarbutton-background-color-hover":
-    "color-mix(in srgb, currentColor 17%, transparent)",
-  "toolbarbutton-background-color-active":
-    "color-mix(in srgb, currentColor 30%, transparent)",
+  "toolbarbutton-background-color-hover": {
+    default: "color-mix(in srgb, currentColor 17%, transparent)",
+    forcedColors: "var(--button-background-color-hover)",
+    nativeTheme: "var(--button-background-color-ghost-hover)",
+    platform: {
+      default: "var(--button-background-color-ghost-hover)",
+      browserTheme: {
+        default: "color-mix(in srgb, currentColor 17%, transparent)",
+      },
+    },
+  },
+  "toolbarbutton-background-color-active": {
+    default: "color-mix(in srgb, currentColor 30%, transparent)",
+    forcedColors: "var(--button-background-color-active)",
+    nativeTheme: "var(--button-background-color-ghost-active)",
+    platform: {
+      default: "var(--button-background-color-ghost-active)",
+      browserTheme: {
+        default: "color-mix(in srgb, currentColor 30%, transparent)",
+      },
+    },
+  },
   "toolbarbutton-outline":
     "var(--border-width) solid var(--toolbarbutton-outline-color)",
   "toolbarbutton-outline-color": {

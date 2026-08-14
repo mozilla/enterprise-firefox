@@ -13,7 +13,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import mozilla.components.browser.state.state.SessionState
-import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.concept.engine.webextension.InstallationMethod
 import mozilla.components.concept.storage.BookmarksStorage
 import mozilla.components.feature.addons.Addon
@@ -276,12 +275,7 @@ class MenuDialogMiddleware(
         onDismiss()
     }
 
-    private fun SessionState.isNormalTab(): Boolean {
-        return when (this) {
-            is TabSessionState -> !content.private
-            else -> false
-        }
-    }
+    private fun SessionState.isNormalTab() = !content.private
 
     private fun addShortcut(
         store: Store<MenuState, MenuAction>,

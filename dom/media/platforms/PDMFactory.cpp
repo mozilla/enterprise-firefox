@@ -575,17 +575,12 @@ void PDMFactory::CreateRddPDMs() {
       StaticPrefs::media_rdd_ffmpeg_enabled() &&
       !StartupPDM(
           FFmpegRuntimeLinker::CreateDecoder(),
-  // When Vulkan video decoding is enabled, insert the full FFmpeg
-  // decoder before ffvpx so that Vulkan hardware decoding is
-  // preferred. ffvpx does not support Vulkan decode and would
-  // otherwise be selected first and fall back to software.
-  // TODO (bug 2034236): remove once ffvpx gains Vulkan decode support.
-#  ifdef MOZ_WIDGET_GTK
-          StaticPrefs::media_hardware_video_decoding_vulkan_enabled_AtStartup()
-#  else
-          false
-#  endif
-              )) {
+          // When Vulkan video decoding is enabled, insert the full FFmpeg
+          // decoder before ffvpx so that Vulkan hardware decoding is
+          // preferred. ffvpx does not support Vulkan decode and would
+          // otherwise be selected first and fall back to software.
+          // TODO (bug 2034236): remove once ffvpx gains Vulkan decode support.
+          gfx::gfxVars::CanUseVulkanHardwareVideoDecoding())) {
     mFailureFlags += GetFailureFlagBasedOnFFmpegStatus(
         FFmpegRuntimeLinker::LinkStatusCode());
   }

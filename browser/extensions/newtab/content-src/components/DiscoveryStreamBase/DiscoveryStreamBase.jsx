@@ -278,6 +278,11 @@ export class _DiscoveryStreamBase extends React.PureComponent {
     };
 
     const privacyLinkComponent = extractComponent("PrivacyLink");
+    // renderLayout always returns a div, so gate on the same condition
+    // Highlights.jsx uses or the side-by-side panel frames an empty box.
+    const hasHighlights = Boolean(
+      this.props.Sections?.find(s => s.id === "highlights")?.enabled
+    );
     let learnMore = {
       link: {
         href: message.header.link_url,
@@ -362,42 +367,57 @@ export class _DiscoveryStreamBase extends React.PureComponent {
             </ErrorBoundary>
           )}
 
-        {/* Nova only: the ABOVE_CONTENT_FEED message, built in Base.jsx. This is
+        {/* Grouped so the side-by-side layouts have one element to place beside the
+        widgets. display: contents otherwise. */}
+        <div
+          className={`layout-content-column${
+            layoutRender.length ? " has-feed" : ""
+          }`}
+        >
+          {/* Nova only: the ABOVE_CONTENT_FEED message, built in Base.jsx. This is
         the widgets/feed boundary, which only exists inside this component. */}
-        {this.props.aboveContentFeed}
+          {this.props.aboveContentFeed}
 
-        {!!layoutRender.length && (
-          <CollapsibleSection
-            className="ds-layout"
-            collapsed={topStories.pref.collapsed}
-            dispatch={this.props.dispatch}
-            id={topStories.id}
-            isFixed={true}
-            learnMore={learnMore}
-            privacyNoticeURL={topStories.privacyNoticeURL}
-            showPrefName={topStories.pref.feed}
-            title={sectionTitle}
-            subTitle={subTitle}
-            mayHaveTopicsSelection={topicSelectionEnabled}
-            sectionsEnabled={sectionsEnabled}
-            eventSource="CARDGRID"
-          >
-            {this.renderLayout(layoutRender)}
-          </CollapsibleSection>
+          {!!layoutRender.length && (
+            <CollapsibleSection
+              className="ds-layout"
+              collapsed={topStories.pref.collapsed}
+              dispatch={this.props.dispatch}
+              id={topStories.id}
+              isFixed={true}
+              learnMore={learnMore}
+              privacyNoticeURL={topStories.privacyNoticeURL}
+              showPrefName={topStories.pref.feed}
+              title={sectionTitle}
+              subTitle={subTitle}
+              mayHaveTopicsSelection={topicSelectionEnabled}
+              sectionsEnabled={sectionsEnabled}
+              eventSource="CARDGRID"
+            >
+              {this.renderLayout(layoutRender)}
+            </CollapsibleSection>
+          )}
+          {privacyLinkComponent &&
+            this.renderLayout([
+              {
+                width: 12,
+                components: [privacyLinkComponent],
+              },
+            ])}
+        </div>
+
+        {/* Its own section in side-by-side, on the row below the pair, so it needs a
+        box to carry that panel. display: contents elsewhere. */}
+        {hasHighlights && (
+          <div className="layout-highlights-column">
+            {this.renderLayout([
+              {
+                width: 12,
+                components: [{ type: "Highlights" }],
+              },
+            ])}
+          </div>
         )}
-        {this.renderLayout([
-          {
-            width: 12,
-            components: [{ type: "Highlights" }],
-          },
-        ])}
-        {privacyLinkComponent &&
-          this.renderLayout([
-            {
-              width: 12,
-              components: [privacyLinkComponent],
-            },
-          ])}
       </React.Fragment>
     );
   }

@@ -2488,6 +2488,14 @@ class Settings(
     )
 
     /**
+     * Indicates if more shortcuts should be shown.
+     */
+    var showMoreShortcuts by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_show_more_shortcuts),
+        default = { FxNimbus.features.showMoreShortcuts.value().enabled },
+    )
+
+    /**
      * Indicates if Merino Client is enabled.
      */
     var enableMerinoClient by booleanPreference(

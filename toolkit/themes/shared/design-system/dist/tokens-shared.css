@@ -784,6 +784,8 @@
       --text-color-accent-primary-selected: SelectedItemText;
 
       /** toolbarbutton **/
+      --toolbarbutton-background-color-hover: var(--button-background-color-hover);
+      --toolbarbutton-background-color-active: var(--button-background-color-active);
       --toolbarbutton-outline-color: ButtonText;
       --toolbarbutton-outline-color-hover: SelectedItem;
       --toolbarbutton-outline-color-active: ButtonText;

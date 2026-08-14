@@ -103,6 +103,9 @@ export class MemoriesSchedulers {
    */
   static maybeRunAndSchedule() {
     if (!MemoriesSchedulers.#anySourceEnabled()) {
+      lazy.console.debug(
+        "Memory scheduler not started: no valid memory source"
+      );
       return null;
     }
     if (!this.#instance) {
@@ -339,8 +342,13 @@ export class MemoriesSchedulers {
         lastMemoryTs,
         isFirstRun
       );
+      // If not enough evidence accumulated on this cycle, re-arm the trigger and wait {@link MEMORIES_SCHEDULER_COOLDOWN_MS}
       if (!shouldRunGeneration) {
         lazy.console.debug("No trigger met this interval; skipping.");
+        this.#lastGenerationMs = Date.now();
+        await lazy.MemoriesManager.setLastGenerationRunTimestamp(
+          this.#lastGenerationMs
+        );
         return;
       }
 

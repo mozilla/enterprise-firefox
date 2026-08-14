@@ -12,12 +12,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +39,8 @@ import org.mozilla.fenix.theme.FirefoxTheme
 import mozilla.components.ui.icons.R as IconsR
 
 private val NoDevicesAvailableDescriptionHorizontalPadding = 16.dp
+private val SendToDevicesContentHorizontalPadding = 16.dp
+private val SendToDevicesContentBottomPadding = 16.dp
 
 @Composable
 internal fun SendToDevicesContent(
@@ -50,42 +56,59 @@ internal fun SendToDevicesContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                .padding(horizontal = SendToDevicesContentHorizontalPadding)
+                .nestedScroll(rememberNestedScrollInteropConnection()),
         ) {
-            BottomSheetHandle(
-                onRequestDismiss = onDismiss,
-                contentDescription = stringResource(
-                    R.string.send_to_devices_bottom_sheet_close_content_description,
-                ),
-                modifier = Modifier
-                    .padding(vertical = 16.dp)
-                    .align(Alignment.CenterHorizontally),
-            )
-            Text(
-                text = stringResource(id = R.string.share_device_subheader),
-                style = FirefoxTheme.typography.headline7,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(
-                        bottom = 16.dp,
-                        top = 8.dp,
-                        start = 16.dp,
-                        end = 16.dp,
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                BottomSheetHandle(
+                    onRequestDismiss = onDismiss,
+                    contentDescription = stringResource(
+                        R.string.send_to_devices_bottom_sheet_close_content_description,
                     ),
-            )
-            if (singleDevices.isEmpty()) {
-                NoDevicesAvailable()
-            } else {
-                DeviceList(
-                    devices = singleDevices,
-                    onDeviceClick = onSendToDevice,
+                    modifier = Modifier
+                        .padding(vertical = 16.dp)
+                        .align(Alignment.CenterHorizontally),
+                )
+
+                Text(
+                    text = stringResource(id = R.string.share_device_subheader),
+                    style = FirefoxTheme.typography.headline7,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            bottom = 16.dp,
+                            top = 8.dp,
+                            start = 16.dp,
+                            end = 16.dp,
+                        ),
                 )
             }
-            if (singleDevices.size > 1) {
-                Spacer(modifier = Modifier.size(8.dp))
-                SendToAllItem(onSendToAll = onSendToAll)
+
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = SendToDevicesContentBottomPadding),
+            ) {
+                if (singleDevices.isEmpty()) {
+                    NoDevicesAvailable()
+                } else {
+                    DeviceList(
+                        devices = singleDevices,
+                        onDeviceClick = onSendToDevice,
+                    )
+                }
+
+                if (singleDevices.size > 1) {
+                    Spacer(modifier = Modifier.size(8.dp))
+                    SendToAllItem(onSendToAll = onSendToAll)
+                }
             }
         }
     }

@@ -111,6 +111,8 @@
     <string name="preferences_debug_settings_top_sites_pager" translatable="false">Enable Top Sites Pager</string>
     <!-- Label for enabling Add Shortcuts improvement -->
     <string name="preferences_debug_settings_add_shortcuts_improvement" translatable="false">Enable Add Shortcuts Improvement</string>
+    <!-- Label for showing more shortcuts -->
+    <string name="preferences_debug_settings_show_more_shortcuts" translatable="false">Show More Shortcuts</string>
     <!-- Label for enabling Merino Client -->
     <string name="preferences_debug_settings_merino_client" translatable="false">Enable Merino Client</string>
     <!-- Label for enabling Homepage Weather Widget -->

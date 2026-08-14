@@ -55,7 +55,7 @@ internal fun MoreSettingsSubmenu(
     Column(
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        TranslationSection(
+        TranslationMenuItem(
             translationInfo = translationInfo,
             isReaderViewActive = isReaderViewActive,
         )
@@ -98,19 +98,6 @@ internal fun MoreSettingsSubmenu(
         PrintMenuItem(
             isAndroidAutomotiveAvailable = isAndroidAutomotiveAvailable,
             onPrintMenuClick = onPrintMenuClick,
-        )
-    }
-}
-
-@Composable
-private fun TranslationSection(
-    translationInfo: TranslationInfo,
-    isReaderViewActive: Boolean,
-) {
-    if (translationInfo.isTranslationSupported) {
-        TranslationMenuItem(
-            translationInfo = translationInfo,
-            isReaderViewActive = isReaderViewActive,
         )
     }
 }
@@ -238,33 +225,6 @@ private fun PrintMenuItem(
             label = stringResource(id = R.string.browser_menu_print_2),
             beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_print_24),
             onClick = onPrintMenuClick,
-        )
-    }
-}
-
-@Composable
-private fun TranslationMenuItem(
-    translationInfo: TranslationInfo,
-    isReaderViewActive: Boolean,
-) {
-    if (translationInfo.isTranslated) {
-        MenuItem(
-            label = stringResource(id = R.string.browser_menu_translated),
-            beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_translate_active_24),
-            state = MenuItemState.ACTIVE,
-            onClick = translationInfo.onTranslatePageMenuClick,
-        ) {
-            Badge(
-                badgeText = translationInfo.translatedLanguage,
-                state = MenuItemState.ACTIVE,
-            )
-        }
-    } else {
-        MenuItem(
-            label = stringResource(id = R.string.browser_menu_translate_page_2),
-            beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_translate_24),
-            state = if (isReaderViewActive || translationInfo.isPdf) MenuItemState.DISABLED else MenuItemState.ENABLED,
-            onClick = translationInfo.onTranslatePageMenuClick,
         )
     }
 }

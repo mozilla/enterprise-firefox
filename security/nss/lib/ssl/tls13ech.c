@@ -1625,15 +1625,19 @@ tls13_PadChInner(sslBuffer *chInner, uint8_t maxNameLen, uint8_t serverNameLen)
     PORT_Assert(chInner);
     PORT_Assert(serverNameLen > 0);
     static unsigned char padding[256 + 32] = { 0 };
-    int16_t name_padding = (int16_t)maxNameLen - (int16_t)serverNameLen;
-    if (name_padding < 0) {
-        name_padding = 0;
+    int16_t namePaddingLen = (int16_t)maxNameLen - (int16_t)serverNameLen;
+    if (namePaddingLen < 0) {
+        namePaddingLen = 0;
     }
-    unsigned int rounding_padding = 31 - ((SSL_BUFFER_LEN(chInner) + name_padding) % 32);
-    unsigned int total_padding = name_padding + rounding_padding;
-    PORT_Assert(total_padding < sizeof(padding));
-    SSL_TRC(100, ("computed ECH Inner Client Hello padding of size %u", total_padding));
-    rv = sslBuffer_Append(chInner, padding, total_padding);
+    /* RFC 9849, Section 6.1.3, step 2:  Let N = 31 - ((L - 1) % 32) and add N
+     * bytes of padding, where L is the length of the EncodedClientHelloInner
+     * with all the padding computed so far. */
+    unsigned int roundingPaddingLen =
+        31 - ((SSL_BUFFER_LEN(chInner) + namePaddingLen - 1) % 32);
+    unsigned int totalPaddingLen = namePaddingLen + roundingPaddingLen;
+    PORT_Assert(totalPaddingLen < sizeof(padding));
+    SSL_TRC(100, ("computed ECH Inner Client Hello padding of size %u", totalPaddingLen));
+    rv = sslBuffer_Append(chInner, padding, totalPaddingLen);
     if (rv != SECSuccess) {
         sslBuffer_Clear(chInner);
         return SECFailure;

@@ -22,6 +22,11 @@ struct JS_PUBLIC_API JSContext;
 class JSScript;
 
 namespace js {
+
+namespace gc {
+class AutoMarkingLock;
+}  // namespace gc
+
 namespace jit {
 
 class CacheIRWriter;
@@ -34,7 +39,11 @@ class MacroAssembler;
 struct Address;
 struct Register;
 
+using MaybeMarkingLock = mozilla::Maybe<gc::AutoMarkingLock>;
+
 enum class ICAttachResult { Attached, DuplicateStub, TooLarge, OOM };
+
+enum class DiscardExistingStubs { Yes, No };
 
 ICAttachResult AttachBaselineCacheIRStub(JSContext* cx,
                                          const CacheIRWriter& writer,
@@ -45,7 +54,8 @@ ICAttachResult AttachBaselineCacheIRStub(JSContext* cx,
 ICAttachResult AttachBaselineCacheIRStubLocked(
     JSContext* cx, const CacheIRWriter& writer, CacheKind kind,
     JSScript* outerScript, ICScript* icScript, ICFallbackStub* stub,
-    const char* name, const gc::AutoMarkingLock& lock);
+    DiscardExistingStubs discardFallbackStubs, const char* name,
+    MaybeMarkingLock& lock);
 
 // BaselineCacheIRCompiler compiles CacheIR to BaselineIC native code.
 class MOZ_RAII BaselineCacheIRCompiler : public CacheIRCompiler {

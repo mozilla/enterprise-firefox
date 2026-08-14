@@ -10,9 +10,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.mapNotNull
-import mozilla.components.browser.state.selector.selectedTab
+import mozilla.components.browser.state.selector.findTabOrCustomTabOrSelectedTab
 import mozilla.components.browser.state.state.BrowserState
-import mozilla.components.browser.state.state.TabSessionState
+import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.state.TranslationsBrowserState
 import mozilla.components.browser.state.state.TranslationsState
 import mozilla.components.browser.state.store.BrowserStore
@@ -26,12 +26,13 @@ import java.util.Locale
 
 /**
  * Helper for observing Translation state from both [BrowserState.translationEngine]
- * and [TabSessionState.translationsState].
+ * and [SessionState.translationsState].
  */
 class TranslationsDialogBinding(
     browserStore: BrowserStore,
     private val translationsDialogStore: TranslationsDialogStore,
     private val getTranslatedPageTitle: (localizedFrom: String?, localizedTo: String?) -> String,
+    private val sessionId: String? = null,
     mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : AbstractBinding<BrowserState>(browserStore, mainDispatcher) {
 
@@ -44,14 +45,18 @@ class TranslationsDialogBinding(
             }
 
         // Session level flows
-        val sessionFlow = flow.mapNotNull { state -> state.selectedTab }
+        val sessionFlow = flow.mapNotNull { state ->
+            state.findTabOrCustomTabOrSelectedTab(sessionId)
+        }
             .distinctUntilChangedBy {
                 it.translationsState
             }
 
         // Applying the flows together
         sessionFlow
-            .combine(browserFlow) { sessionState, browserState -> TranslationsFlowState(sessionState, browserState) }
+            .combine(browserFlow) { sessionState, browserState ->
+                DialogTranslationsFlowState(sessionState, browserState)
+            }
             .collect { state ->
                 // Browser Translations State Behavior (Global)
                 val browserTranslationsState = state.browserState.translationEngine
@@ -234,4 +239,9 @@ class TranslationsDialogBinding(
             )
         }
     }
+
+    private data class DialogTranslationsFlowState(
+        val sessionState: SessionState,
+        val browserState: BrowserState,
+    )
 }

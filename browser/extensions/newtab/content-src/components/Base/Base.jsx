@@ -32,12 +32,15 @@ import {
 } from "../../lib/asrouter-message-utils.mjs";
 import {
   WIDGET_REGISTRY,
+  hasContentAreaWidgets,
   isWidgetEnabled,
   isWidgetToggleVisible,
   isWidgetsContainerVisible,
-  resolveWidgetHasSidebar,
-  resolveWidgetSize,
 } from "common/WidgetsRegistry.mjs";
+import {
+  isSideBySideActive,
+  sideBySideBandClasses,
+} from "common/PageLayoutVariants.mjs";
 
 const VISIBLE = "visible";
 const VISIBILITY_CHANGE_EVENT = "visibilitychange";
@@ -1065,27 +1068,33 @@ export class BaseContent extends React.PureComponent {
       // anchors the inline-start sidebar. If the page has nothing on it
       // (no content sections, no search, no widgets), the Logo is
       // suppressed entirely via `isPageEmpty`.
-      const weatherWidget = WIDGET_REGISTRY.find(w => w.id === "weather");
-      const weatherGoesToSidebar =
-        resolveWidgetHasSidebar(weatherWidget, prefs) &&
-        resolveWidgetSize(weatherWidget, prefs) === "small";
       const widgetsEnabled = prefs["widgets.enabled"];
       const hasAnyEnabledWidget = WIDGET_REGISTRY.some(w =>
         isWidgetEnabled(w, prefs, widgetsEnabled)
       );
-      const hasContentWidgets = WIDGET_REGISTRY.some(
-        w =>
-          isWidgetEnabled(w, prefs, widgetsEnabled) &&
-          !(w.id === "weather" && weatherGoesToSidebar)
-      );
+      const hasContentWidgets = hasContentAreaWidgets(prefs);
       const highlightsEnabled = prefs["feeds.section.highlights"];
       const noContentSectionsEnabled =
         !topSitesEnabled && !pocketEnabled && !highlightsEnabled;
       const isPageEmpty =
         noContentSectionsEnabled && !prefs.showSearch && !hasAnyEnabledWidget;
       const hasManyTopSitesRows = topSitesEnabled && prefs.topSitesRows > 2;
+      // Recent activity is then alone in the band, and the logo leaves the sidebar.
+      const noFeedOrContentWidgets = !pocketEnabled && !hasContentWidgets;
+      // Gated here rather than in CSS, so the stylesheet never has to infer
+      // whether widgets or stories exist. The lead class alone means the
+      // experiment is assigned, which is enough to frame a lone section; the
+      // two-column layout additionally needs both sections.
+      const bandClassName = [
+        "content-full-width",
+        ...sideBySideBandClasses(prefs),
+        isSideBySideActive(prefs) && "side-by-side-active",
+        noFeedOrContentWidgets && "highlights-only",
+      ]
+        .filter(Boolean)
+        .join(" ");
       const logoShouldBeCentered =
-        !pocketEnabled && !hasContentWidgets && !hasManyTopSitesRows;
+        noFeedOrContentWidgets && !hasManyTopSitesRows;
       // Rendered as a direct child of .container unless the logo is centered,
       // so position: sticky is bounded by .container (which spans the whole
       // page) rather than .content (which now ends above the content band).
@@ -1239,7 +1248,7 @@ export class BaseContent extends React.PureComponent {
                 {/* Widgets + content feed, in a band spanning all three columns
               on the row below the grid. See _Grid.scss. */}
                 {contentFeed && (
-                  <div className="content-full-width">{contentFeed}</div>
+                  <div className={bandClassName}>{contentFeed}</div>
                 )}
               </main>
             </div>

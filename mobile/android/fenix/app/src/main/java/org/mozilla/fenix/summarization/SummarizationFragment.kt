@@ -25,8 +25,8 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import mozilla.components.browser.state.selector.selectedTab
-import mozilla.components.browser.state.state.TabSessionState
+import mozilla.components.browser.state.selector.findTabOrCustomTabOrSelectedTab
+import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.summarize.SummarizationState
 import mozilla.components.feature.summarize.SummarizationUi
@@ -65,7 +65,8 @@ private fun Context.getConnectionType(): ConnectionType {
 class SummarizationFragment : BottomSheetDialogFragment() {
     private val args by navArgs<SummarizationFragmentArgs>()
     private val browserStore: BrowserStore get() = requireComponents.core.store
-    private val currentTab: TabSessionState? get() = browserStore.state.selectedTab
+    private val currentTab: SessionState?
+        get() = browserStore.state.findTabOrCustomTabOrSelectedTab(args.sessionId)
     private val isEngineAvailable: Boolean get() = currentTab?.engineState?.engineSession != null
     private val storeViewModel: SummarizationStoreViewModel by viewModels {
         val title = currentTab?.toDisplayTitle() ?: ""

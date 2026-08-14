@@ -61,7 +61,7 @@ class ETWProfile(RaptorProfiling):
         )
         self.upload_dir = Path(self.upload_dir)
         self.profile = (
-            self.upload_dir / f"profile_etw_{self.test_name}_unprocessed.json.gz"
+            self.upload_dir / f"profile_etw_{self.test_name}_unprocessed.jslb.gz"
         )
 
         # Temporary working directory for intermediate files

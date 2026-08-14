@@ -18,6 +18,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
   MENTION_TYPE:
     "moz-src:///browser/components/urlbar/SmartbarMentionsPanelSearch.sys.mjs",
+  MonitorUIUtils:
+    "moz-src:///browser/components/aiwindow/ui/modules/MonitorUIUtils.sys.mjs",
   SkippableTimer: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   SmartbarMentionsPanelSearch:
     "moz-src:///browser/components/urlbar/SmartbarMentionsPanelSearch.sys.mjs",
@@ -31,6 +33,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "maxResults",
   "browser.urlbar.mentions.maxResults"
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "agentEnabled",
+  "browser.smartwindow.agent.enabled",
+  false
 );
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
@@ -59,12 +68,24 @@ const AGENT_COMMAND_ITEMS = [
 const COMMAND_TRIGGER = "inline-command";
 
 /**
+ * Whether agent command can run right now
+ *
+ * @returns {boolean}
+ */
+function isAgentCommandAvailable() {
+  return lazy.agentEnabled && lazy.MonitorUIUtils.isMonitorRegionSupported();
+}
+
+/**
  * Whether the input begins with a known agent command, e.g. "/watch ...".
  *
  * @param {string} value - Raw smartbar input
  * @returns {boolean}
  */
 export function isAgentCommand(value) {
+  if (!isAgentCommandAvailable()) {
+    return false;
+  }
   const match = /^\/(\w{1,20})/.exec(String(value ?? "").trimStart());
   return (
     !!match &&
@@ -79,6 +100,9 @@ export function isAgentCommand(value) {
  * @returns {Array<{header: string, items: Array}>} Panel groups, empty when nothing matches
  */
 function getCommandSuggestions(query) {
+  if (!isAgentCommandAvailable()) {
+    return [];
+  }
   const normalized = query.trim().toLowerCase();
   const items = AGENT_COMMAND_ITEMS.filter(command =>
     command.id.startsWith(normalized)

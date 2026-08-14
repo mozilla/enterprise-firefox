@@ -251,9 +251,7 @@ static AVPixelFormat ChooseV4L2PixelFormat(AVCodecContext* aCodecContext,
 #  if LIBAVCODEC_VERSION_MAJOR >= 60 && !defined(FFVPX_VERSION)
 static bool VulkanDirectDecodeExportEnabled() {
   return StaticPrefs::
-             media_hardware_video_decoding_vulkan_enabled_AtStartup() &&
-         StaticPrefs::
-             media_hardware_video_decoding_vulkan_direct_export_enabled_AtStartup();
+      media_hardware_video_decoding_vulkan_direct_export_enabled_AtStartup();
 }
 
 static AVPixelFormat ChooseVulkanPixelFormat(AVCodecContext* aCodecContext,
@@ -653,8 +651,8 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::InitVAAPIDecoder() {
 
 #  if LIBAVCODEC_VERSION_MAJOR >= 60 && !defined(FFVPX_VERSION)
 MediaResult FFmpegVideoDecoder<LIBAV_VER>::InitVulkanDecoder() {
-  if (!StaticPrefs::media_hardware_video_decoding_vulkan_enabled_AtStartup()) {
-    FFMPEG_LOG("Vulkan FFmpeg decoder disabled by pref");
+  if (!gfx::gfxVars::CanUseVulkanHardwareVideoDecoding()) {
+    FFMPEG_LOG("Vulkan FFmpeg decoder disabled");
     return NS_ERROR_NOT_AVAILABLE;
   }
 

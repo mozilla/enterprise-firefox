@@ -89,6 +89,11 @@
         tab = tab.splitview;
       }
 
+      // Don't start a drag on a split view whose tabs are hidden.
+      if (isSplitViewWrapper(tab) && !tab.visible) {
+        return;
+      }
+
       this._tabbrowserTabs.previewPanel?.deactivate(null, { force: true });
       this.startTabDrag(event, tab);
     }

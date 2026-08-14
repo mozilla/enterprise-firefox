@@ -488,6 +488,11 @@ this.FxAMenuDeviceList = class FxAMenuDeviceList {
     this._updateDevicesPromise = Promise.resolve();
 
     this._initDeviceList();
+
+    // Refresh the FxA devices list.  This won't affect the current menu items,
+    // but it helps ensure the menu is up-to-date the next time the menu loads.
+    // This can help the user get unstuck when the device list is stale (#1664954)
+    gSync.refreshFxaDevices();
   }
 
   observe(subject, topic) {
@@ -2678,6 +2683,11 @@ var gSync = {
     }
 
     devicesPopup.appendChild(fragment);
+
+    // Refresh the FxA devices list.  This won't affect the current menu items,
+    // but it helps ensure the menu is up-to-date the next time the menu loads.
+    // This can help the user get unstuck when the device list is stale (#1664954)
+    this.refreshFxaDevices();
   },
 
   _appendSendTabDeviceList(

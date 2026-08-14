@@ -527,6 +527,18 @@ class Element : public FragmentOrElement {
   void UnbindFromTree(UnbindContext&) override;
   using nsIContent::UnbindFromTree;
 
+  // Container Timing (https://wicg.github.io/container-timing/).
+  // Returns the nearest strict-ancestor element carrying a `containertiming`
+  // attribute that tracks this element (respecting `containertimingignore`
+  // boundaries), or nullptr. This is an O(1) node-property lookup; the value
+  // is kept up to date.
+  Element* GetContainerTimingRoot() const;
+
+  // Recomputes the cached container-timing root for this element and its whole
+  // subtree from its parent. Called when `containertiming` or
+  // `containertimingignore` changes.
+  void RecomputeContainerTimingRootForSubtree();
+
   virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const;
   static void MapNoAttributesInto(mozilla::MappedDeclarationsBuilder&);
 
@@ -776,6 +788,10 @@ class Element : public FragmentOrElement {
       nsIFrame** aFrame = nullptr, FlushType aFlushType = FlushType::Layout);
 
  private:
+  // Computes and stores this element's cached container-timing root from
+  // aParent's already-computed state. aParent may be null or a non-element.
+  void UpdateContainerTimingRootFromParent(nsINode* aParent);
+
   // Style state computed from element's state and style locks.
   ElementState StyleStateFromLocks() const;
 

@@ -528,8 +528,7 @@ StringListRange<String, empties> MakeStringListRange(const String& aList) {
 
 template <StringListRangeEmptyItems empties = StringListRangeEmptyItems::Skip,
           typename ListString, typename ItemString>
-static bool StringListContains(const ListString& aList,
-                               const ItemString& aItem) {
+bool StringListContains(const ListString& aList, const ItemString& aItem) {
   for (const auto& listItem : MakeStringListRange<empties>(aList)) {
     if (listItem.Equals(aItem)) {
       return true;

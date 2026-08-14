@@ -518,9 +518,20 @@ const TOPSTORIES_SECTION = {
   rows: [],
 };
 
+const HIGHLIGHTS_SECTION = {
+  ...TOPSTORIES_SECTION,
+  id: "highlights",
+};
+
 // storePrefs goes into the Redux store rather than BaseContent's props, for
 // values the connected DiscoveryStreamBase reads itself (e.g. widgets gating).
-function renderBaseContentWithFeed(props, storePrefs = {}) {
+// sections goes into the store too: DiscoveryStreamBase reads it to decide whether
+// the Highlights wrapper renders at all.
+function renderBaseContentWithFeed(
+  props,
+  storePrefs = {},
+  sections = [TOPSTORIES_SECTION]
+) {
   return render(
     <Provider
       store={makeStore(
@@ -534,7 +545,7 @@ function renderBaseContentWithFeed(props, storePrefs = {}) {
             ...INITIAL_STATE.DiscoveryStream,
             ...RENDERABLE_DISCOVERY_STREAM,
           },
-          Sections: [TOPSTORIES_SECTION],
+          Sections: sections,
         }
       )}
     >
@@ -695,6 +706,154 @@ describe("<BaseContent> Nova layout ASRouterNewTabMessage positions", () => {
     expect(feedIdx).toBeGreaterThan(-1);
     expect(messageIdx).toBeGreaterThan(widgetsIdx);
     expect(messageIdx).toBeLessThan(feedIdx);
+  });
+});
+
+describe("<BaseContent> Nova layout variant class", () => {
+  const DOCUMENT_STUB = {
+    visibilityState: "visible",
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+  };
+
+  // Base.jsx reads props.Prefs.values, not the store.
+  const propsWithPrefs = prefs => ({
+    store: { getState: () => {} },
+    App: { initialized: true },
+    Prefs: {
+      values: {
+        "nova.enabled": true,
+        "feeds.topsites": true,
+        "feeds.section.topstories": true,
+        "feeds.system.topstories": true,
+        // Needs a widget in the content area, not just the container on.
+        "widgets.system.enabled": true,
+        "widgets.enabled": true,
+        "widgets.system.lists.enabled": true,
+        "widgets.lists.enabled": true,
+        ...prefs,
+      },
+    },
+    Sections: [],
+    DiscoveryStream: {
+      config: { enabled: true },
+      spocs: {},
+      feeds: { loaded: true },
+      showTopicSelection: false,
+    },
+    dispatch: () => {},
+    document: DOCUMENT_STUB,
+  });
+
+  const bandClassList = prefs => {
+    const { container } = renderBaseContentWithFeed(propsWithPrefs(prefs), {
+      "widgets.system.enabled": true,
+    });
+    return [...container.querySelector(".content-full-width").classList];
+  };
+
+  it("puts the lead class on the band for each side-by-side variant", () => {
+    expect(
+      bandClassList({ "pageLayouts.variant": "side-by-side-content-lead" })
+    ).toContain("side-by-side-content-lead");
+    expect(
+      bandClassList({ "pageLayouts.variant": "side-by-side-widgets-lead" })
+    ).toContain("side-by-side-widgets-lead");
+  });
+
+  // The four-column variants must not pick up the modifier that unlocks the
+  // fourth content card.
+  it("adds no width modifier for the four-column variants", () => {
+    expect(
+      bandClassList({ "pageLayouts.variant": "side-by-side-content-lead" })
+    ).not.toContain("side-by-side-five");
+    expect(
+      bandClassList({ "pageLayouts.variant": "side-by-side-widgets-lead" })
+    ).not.toContain("side-by-side-five");
+  });
+
+  // The shared lead class is what every side-by-side rule keys off, and CSS
+  // matches per token, so the "-five" variant name must not be the class.
+  it.each([
+    ["side-by-side-content-lead-five", "side-by-side-content-lead"],
+    ["side-by-side-widgets-lead-five", "side-by-side-widgets-lead"],
+  ])("gives %s the lead class plus side-by-side-five", (variant, lead) => {
+    const classes = bandClassList({ "pageLayouts.variant": variant });
+    expect(classes).toContain(lead);
+    expect(classes).toContain("side-by-side-five");
+    expect(classes).not.toContain(variant);
+  });
+
+  // Drops the section panel in _Grid.scss; same condition that un-sidebars the logo.
+  it("marks the band highlights-only when the feed and widgets are both off", () => {
+    expect(
+      bandClassList({
+        "feeds.section.topstories": false,
+        "widgets.enabled": false,
+      })
+    ).toContain("highlights-only");
+  });
+
+  it.each([
+    ["the feed is on", { "widgets.enabled": false }],
+    ["a content-area widget is on", { "feeds.section.topstories": false }],
+  ])("is not highlights-only while %s", (_label, prefs) => {
+    expect(bandClassList(prefs)).not.toContain("highlights-only");
+  });
+
+  it("marks the layout active when both sections are there", () => {
+    expect(
+      bandClassList({ "pageLayouts.variant": "side-by-side-content-lead" })
+    ).toContain("side-by-side-active");
+  });
+
+  it("adds no classes at all for the default layout", () => {
+    expect(bandClassList({ "pageLayouts.variant": "nova-full-width" })).toEqual(
+      ["content-full-width"]
+    );
+    expect(bandClassList({})).toEqual(["content-full-width"]);
+  });
+
+  // The variant class stays so the lone section keeps its panel; only the
+  // two-column layout drops out.
+  it.each([
+    ["stories are off", { "feeds.section.topstories": false }],
+    [
+      "the widgets container is not visible",
+      { "widgets.system.enabled": false },
+    ],
+    ["the widgets toggle is off", { "widgets.enabled": false }],
+    ["every widget is hidden", { "widgets.lists.enabled": false }],
+  ])("keeps the variant class but is not active when %s", (_label, prefs) => {
+    const classes = bandClassList({
+      "pageLayouts.variant": "side-by-side-content-lead",
+      ...prefs,
+    });
+    expect(classes).toContain("side-by-side-content-lead");
+    expect(classes).not.toContain("side-by-side-active");
+  });
+
+  it("honours a variant set only through trainhopConfig", () => {
+    expect(
+      bandClassList({
+        trainhopConfig: {
+          pageLayouts: { variant: "side-by-side-widgets-lead" },
+        },
+      })
+    ).toContain("side-by-side-widgets-lead");
+    expect(
+      bandClassList({
+        trainhopConfig: {
+          pageLayouts: { variant: "side-by-side-content-lead-five" },
+        },
+      })
+    ).toEqual(
+      expect.arrayContaining([
+        "side-by-side-content-lead",
+        "side-by-side-five",
+        "side-by-side-active",
+      ])
+    );
   });
 });
 
@@ -1765,5 +1924,95 @@ describe("<BaseContent> customize menu dispatch", () => {
     instance.closeCustomizationMenu();
 
     expect(dispatch).not.toHaveBeenCalled();
+  });
+});
+
+describe("<BaseContent> Highlights wrapper", () => {
+  const DOCUMENT_STUB = {
+    visibilityState: "visible",
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+  };
+
+  const props = {
+    store: { getState: () => {} },
+    App: { initialized: true },
+    Prefs: {
+      values: {
+        "nova.enabled": true,
+        "feeds.topsites": true,
+        "feeds.section.topstories": true,
+        "feeds.system.topstories": true,
+        "feeds.section.highlights": true,
+      },
+    },
+    Sections: [],
+    DiscoveryStream: {
+      config: { enabled: true },
+      spocs: {},
+      feeds: { loaded: true },
+      showTopicSelection: false,
+    },
+    dispatch: () => {},
+    document: DOCUMENT_STUB,
+  };
+
+  const renderWithSections = sections =>
+    renderBaseContentWithFeed(props, {}, sections).container;
+
+  // The point of the wrapper: side-by-side frames it separately from the feed.
+  it("renders Highlights in its own wrapper outside the content column", () => {
+    const container = renderWithSections([
+      TOPSTORIES_SECTION,
+      HIGHLIGHTS_SECTION,
+    ]);
+
+    const highlightsColumn = container.querySelector(
+      ".layout-highlights-column"
+    );
+    expect(highlightsColumn).toBeInTheDocument();
+    expect(
+      highlightsColumn.querySelector(".ds-highlights")
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector(
+        ".layout-content-column .layout-highlights-column"
+      )
+    ).toBeNull();
+    expect(
+      container.querySelector(".layout-content-column .ds-highlights")
+    ).toBeNull();
+  });
+
+  // renderLayout always returns a div, so the gate is what keeps the panel off nothing.
+  it("renders no wrapper when the highlights section is absent or disabled", () => {
+    expect(
+      renderWithSections([TOPSTORIES_SECTION]).querySelector(
+        ".layout-highlights-column"
+      )
+    ).toBeNull();
+    expect(
+      renderWithSections([
+        TOPSTORIES_SECTION,
+        { ...HIGHLIGHTS_SECTION, enabled: false },
+      ]).querySelector(".layout-highlights-column")
+    ).toBeNull();
+  });
+
+  // The content feed keeps its own privacy link; only Highlights moved.
+  it("keeps the content column ahead of the Highlights wrapper", () => {
+    const container = renderWithSections([
+      TOPSTORIES_SECTION,
+      HIGHLIGHTS_SECTION,
+    ]);
+    const contentColumn = container.querySelector(".layout-content-column");
+    const highlightsColumn = container.querySelector(
+      ".layout-highlights-column"
+    );
+
+    expect(
+      contentColumn.compareDocumentPosition(highlightsColumn) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 });

@@ -17,14 +17,17 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/RangeUtils.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/ToString.h"
 #include "mozilla/dom/CharacterData.h"
 #include "mozilla/dom/ChildIterator.h"
+#include "mozilla/dom/CustomElementRegistry.h"
 #include "mozilla/dom/DOMRect.h"
 #include "mozilla/dom/DOMStringList.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/DocumentFragment.h"
 #include "mozilla/dom/DocumentType.h"
+#include "mozilla/dom/Element.h"
 #include "mozilla/dom/InspectorFontFace.h"
 #include "mozilla/dom/NodeList.h"
 #include "mozilla/dom/RangeBinding.h"
@@ -2751,6 +2754,21 @@ void nsRange::ToString(nsAString& aReturn, ErrorResult& aErr) {
 
 void nsRange::Detach() {}
 
+// https://html.spec.whatwg.org/#dom-range-createcontextualfragment
+// The context is the range's start node's element (or its parent element).
+// The fragment is parsed using that context's custom element registry, except
+// for a template element, whose contents live in the separate template contents
+// owner document and therefore always use the null registry.
+static Maybe<RefPtr<CustomElementRegistry>> ContextualFragmentRegistry(
+    nsINode* aStartNode) {
+  Element* element = aStartNode->GetAsElementOrParentElement();
+  if (element && element->IsTemplateElement() &&
+      StaticPrefs::dom_scoped_custom_element_registries_enabled()) {
+    return Some(RefPtr<CustomElementRegistry>(nullptr));
+  }
+  return nsContentUtils::GetCustomElementRegistry(element);
+}
+
 already_AddRefed<DocumentFragment> nsRange::CreateContextualFragment(
     const nsAString& aFragment, ErrorResult& aRv) const {
   if (!mIsPositioned) {
@@ -2758,8 +2776,9 @@ already_AddRefed<DocumentFragment> nsRange::CreateContextualFragment(
     return nullptr;
   }
 
+  nsINode* node = mStart.GetContainer();
   return nsContentUtils::CreateContextualFragment(
-      mStart.GetContainer(), aFragment, false, Nothing(), aRv);
+      node, aFragment, false, ContextualFragmentRegistry(node), aRv);
 }
 
 already_AddRefed<DocumentFragment> nsRange::CreateContextualFragment(
@@ -2783,7 +2802,7 @@ already_AddRefed<DocumentFragment> nsRange::CreateContextualFragment(
   }
 
   return nsContentUtils::CreateContextualFragment(
-      mStart.GetContainer(), *compliantString, false, Nothing(), aRv);
+      node, *compliantString, false, ContextualFragmentRegistry(node), aRv);
 }
 
 nsresult nsRange::GetUsedFontFaces(nsLayoutUtils::UsedFontFaceList& aResult,

@@ -585,9 +585,12 @@ class ChildIndexCache {
 nsClassHashtable<nsPtrHashKey<const nsINode>, ChildIndexCache::Entry>
     ChildIndexCache::sCache;
 const nsINode* ChildIndexCache::sLastAccessedParent = nullptr;
+const nsINode* nsINode::sObserverChainStart = nullptr;
+nsINode* nsINode::sObserverChainSkipTo = nullptr;
 ChildIndexCache::Entry* ChildIndexCache::sLastAccessedEntry = nullptr;
 
 nsINode::~nsINode() {
+  ForgetObserverChainIfCached(this);
   MOZ_ASSERT(!ChildIndexCache::Contains(this),
              "Node still in ChildIndexCache at destruction?");
   MOZ_ASSERT(ChildIndexCache::LastAccessedParent() != this,
@@ -2368,6 +2371,11 @@ void nsINode::DisconnectChild(nsIContent* aKid) {
   MOZ_ASSERT(GetChildCount() > 0);
 
   RemoveFromCache(this);
+  // Clear the cache if there is a chance the start node is in the disconnected
+  // subtree.
+  if (!nsINode::IsObserverChainStart(this) && IsInComposedDoc()) {
+    nsINode::ForgetObserverChain();
+  }
   ChildIndexCache::Invalidate(this, aKid);
 
   nsIContent* previousSibling = aKid->GetPreviousSibling();
@@ -4406,6 +4414,10 @@ already_AddRefed<nsINode> nsINode::CloneAndAdopt(
 
     if (oldDoc->MayHaveAnimationObservers()) {
       newDoc->SetMayHaveAnimationObservers();
+    }
+
+    if (oldDoc->MayHaveContainerTimingAttributes()) {
+      newDoc->SetMayHaveContainerTimingAttributes();
     }
 
     if (elem) {

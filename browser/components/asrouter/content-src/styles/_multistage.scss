@@ -1910,6 +1910,15 @@ html {
     @include text-link-styles;
   }
 
+  .inline-icon {
+    -moz-context-properties: fill;
+    fill: currentColor;
+    block-size: 1.2em;
+    inline-size: auto;
+    vertical-align: middle;
+    margin-inline: 0.15em;
+  }
+
   .welcome-text {
     display: flex;
     flex-direction: column;

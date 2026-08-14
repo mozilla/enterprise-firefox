@@ -472,6 +472,30 @@ export function resolveWidgetHasSidebar(widget, prefs) {
 }
 
 /**
+ * Returns true if at least one enabled widget renders in the content area rather
+ * than the inline-end sidebar. Weather is the only widget that can move to the
+ * sidebar, and only at its small size.
+ *
+ * Layout code needs this rather than isWidgetsContainerVisible, which is true
+ * even when the user has hidden every widget.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {boolean}
+ */
+export function hasContentAreaWidgets(prefs) {
+  const weatherWidget = WIDGET_REGISTRY.find(w => w.id === "weather");
+  const weatherGoesToSidebar =
+    resolveWidgetHasSidebar(weatherWidget, prefs) &&
+    resolveWidgetSize(weatherWidget, prefs) === "small";
+
+  return WIDGET_REGISTRY.some(
+    w =>
+      isWidgetEnabled(w, prefs, prefs["widgets.enabled"]) &&
+      !(w.id === "weather" && weatherGoesToSidebar)
+  );
+}
+
+/**
  * Returns the Merino endpoint the Crossword widget iframe should load.
  * The dedicated widgetCrossword trainhop object wins, then the legacy
  * widgets.crosswordEndpoint key, then the raw pref, so the endpoint can be

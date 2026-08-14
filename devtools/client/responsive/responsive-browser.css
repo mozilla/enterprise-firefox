@@ -8,7 +8,6 @@
   --rdm-shadow-color: light-dark(rgba(155, 155, 155, 0.26), rgba(105, 105, 105, 0.26));
   --theme-tab-toolbar-background: light-dark(#f9f9fa, #0c0c0d);
   --rdm-toolbar-height: 30px;
-  --rdm-toolbar-accomodate-ua-height: 60px;
 
   /**
    * Set background - not only background-color - to properly override the
@@ -38,8 +37,8 @@
   }
 }
 
-.browserContainer.responsive-mode > .rdm-toolbar.accomodate-ua {
-  height: var(--rdm-toolbar-accomodate-ua-height);
+.browserContainer.responsive-mode.accomodate-ua {
+  --rdm-toolbar-height: 60px;
 }
 
 .browserContainer.responsive-mode > .rdm-toolbar.device-modal-opened {

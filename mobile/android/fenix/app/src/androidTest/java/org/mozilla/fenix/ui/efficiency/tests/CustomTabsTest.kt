@@ -17,6 +17,7 @@ import org.mozilla.fenix.ui.efficiency.helpers.BaseTest
 import org.mozilla.fenix.ui.efficiency.selectors.CustomTabsSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.DownloadsSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.FindInPageSelectors
+import org.mozilla.fenix.ui.efficiency.selectors.NotificationSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.TabHistorySelectors
 import org.mozilla.fenix.ui.efficiency.selectors.ToolbarSelectors
 
@@ -142,7 +143,7 @@ class CustomTabsTest : BaseTest() {
             .mozClick(DownloadsSelectors.DOWNLOAD_DIALOG_CONFIRM_BUTTON)
             .mozVerify(DownloadsSelectors.DOWNLOAD_COMPLETE_SNACKBAR, timeout = 15_000)
         on.notification.openNotificationTray()
-            .verifyNotificationExists("Download completed")
+            .verifyNotificationExists(NotificationSelectors.SYSTEM_NOTIFICATION("Download completed"))
             .closeNotificationTray()
     }
 

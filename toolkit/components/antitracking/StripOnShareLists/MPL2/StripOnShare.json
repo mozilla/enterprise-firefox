@@ -4,6 +4,7 @@
     "queryParams": [
       "_gl",
       "li_fat_id",
+      "lid",
       "utm_ad",
       "utm_affiliate",
       "utm_brand",

@@ -353,6 +353,7 @@ def exposed_on_getcs(prop):
 def cpp_flags(prop):
     RUST_TO_CPP_FLAGS = {
       "CAN_ANIMATE_ON_COMPOSITOR": "CanAnimateOnCompositor",
+      "SCROLL_LINKED_EFFECTIVE": "ScrollLinkedEffective",
       "AFFECTS_LAYOUT": "AffectsLayout",
       "AFFECTS_PAINT": "AffectsPaint",
       "AFFECTS_OVERFLOW": "AffectsOverflow",

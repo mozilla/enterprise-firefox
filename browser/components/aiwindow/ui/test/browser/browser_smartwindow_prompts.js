@@ -245,6 +245,41 @@ async function stubResumeActivityGeneration(sb) {
   };
 }
 
+/**
+ * Shared setup/teardown for tests that click a resume pill: enables the
+ * memories prefs, stubs resume-activity generation so a real pill renders,
+ * opens the AI Window, and hands the caller its buttons to click. `run`
+ * supplies whatever additional stubs it needs (engine build, fetchWithHistory,
+ * etc.) via its own sandbox before calling this.
+ *
+ * @param {object} sb - Sinon sandbox, owned and restored by the caller
+ * @param {Function} run - Async callback invoked with
+ *   {win, browser, aiWindow, buttons}
+ */
+async function testResumeActivityClick(sb, run) {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.smartwindow.memories.generateFromConversation", true],
+      ["browser.smartwindow.memories.generateFromHistory", true],
+    ],
+  });
+  const resumeActivityStubs = await stubResumeActivityGeneration(sb);
+  let win;
+  try {
+    win = await openAIWindow();
+    const browser = win.gBrowser.selectedBrowser;
+    const aiWindow = browser.contentDocument.querySelector("ai-window");
+    const buttons = await getPromptButtons(browser);
+    await run({ win, browser, aiWindow, buttons });
+  } finally {
+    if (win) {
+      await BrowserTestUtils.closeWindow(win);
+    }
+    await resumeActivityStubs.cleanup();
+    await SpecialPowers.popPrefEnv();
+  }
+}
+
 describe("sidebar conversation starter prompts", () => {
   let responseContent, mock, gAiWindow, backgroundTab;
 
@@ -585,23 +620,6 @@ add_task(async function test_fullpage_resume_starters() {
       },
       "The resume pill should retain favicons, tab payload, and memory id"
     );
-
-    const submitChatMessageStub = sb.stub(aiWindow, "submitChatMessage");
-    buttons[0].click();
-    Assert.ok(
-      submitChatMessageStub.calledOnce,
-      "Clicking a resume pill should submit a chat message"
-    );
-    Assert.deepEqual(
-      submitChatMessageStub.firstCall.args[0].contextMentions,
-      [1, 2, 3, 4].map(id => ({
-        type: "tab",
-        url: `https://example.com/${id}`,
-        label: `Example ${id}`,
-        iconSrc: `page-icon:https://example.com/${id}`,
-      })),
-      "Clicking a resume pill should submit its preview tabs as context"
-    );
   } finally {
     if (win) {
       await BrowserTestUtils.closeWindow(win);
@@ -723,6 +741,136 @@ add_task(
       sb.restore();
       await resumeActivityStubs?.cleanup();
       await SpecialPowers.popPrefEnv();
+    }
+  }
+);
+
+add_task(async function test_resume_prompt_click_shows_confirmation_card() {
+  const sb = sinon.createSandbox();
+  try {
+    sb.stub(openAIEngine, "build").resolves({});
+    const fetchWithHistoryStub = sb.stub(Chat, "fetchWithHistory").resolves();
+
+    await testResumeActivityClick(sb, async ({ aiWindow, buttons }) => {
+      buttons[0].click();
+
+      await TestUtils.waitForCondition(
+        () => fetchWithHistoryStub.calledOnce,
+        "Should generate a response for the resume-activity conversation"
+      );
+
+      const assistantMessage = aiWindow.conversation.messages.at(-1);
+      Assert.deepEqual(
+        assistantMessage.toolUIData,
+        {
+          uiType: "tab-group-confirmation",
+          toolCallId: "resume-activity-memory-1",
+          properties: {
+            actionType: "open_tabs",
+            tabGroupLabel: "Pick up your research",
+            tabs: [1, 2, 3, 4].map((id, index) => ({
+              token: String(index),
+              url: `https://example.com/${id}`,
+              title: `Example ${id}`,
+              iconSrc: `page-icon:https://example.com/${id}`,
+              checked: false,
+            })),
+          },
+        },
+        "Should attach a tab-selection confirmation card built from the pill's preview tabs"
+      );
+    });
+  } finally {
+    sb.restore();
+  }
+});
+
+add_task(async function test_resume_prompt_click_injects_context() {
+  const sb = sinon.createSandbox();
+  try {
+    sb.stub(openAIEngine, "build").resolves({});
+    const fetchWithHistoryStub = sb.stub(Chat, "fetchWithHistory").resolves();
+    const realTimeStub = sb
+      .stub(this.ChatConversation.prototype, "injectRealTimeContext")
+      .resolves();
+
+    await testResumeActivityClick(sb, async ({ buttons }) => {
+      buttons[0].click();
+
+      await TestUtils.waitForCondition(
+        () => fetchWithHistoryStub.calledOnce,
+        "Should generate a response for the resume-activity conversation"
+      );
+
+      Assert.ok(
+        realTimeStub.calledOnce,
+        "Should inject real-time context onto the resume-activity user message"
+      );
+    });
+  } finally {
+    sb.restore();
+  }
+});
+
+add_task(
+  async function test_resume_prompt_click_shows_confirmation_card_without_memory_context_when_toggled_off() {
+    const sb = sinon.createSandbox();
+    try {
+      sb.stub(openAIEngine, "build").resolves({});
+      const fetchWithHistoryStub = sb.stub(Chat, "fetchWithHistory").resolves();
+
+      await testResumeActivityClick(sb, async ({ aiWindow, buttons }) => {
+        const memoriesButton = aiWindow.shadowRoot.querySelector(
+          "memories-icon-button"
+        );
+        memoriesButton.dispatchEvent(
+          new CustomEvent("aiwindow-memories-toggle:on-change", {
+            bubbles: true,
+            composed: true,
+            detail: { pressed: false },
+          })
+        );
+        await TestUtils.waitForCondition(
+          () => memoriesButton.pressed === false,
+          "Memories toggle should turn off"
+        );
+
+        buttons[0].click();
+
+        await TestUtils.waitForCondition(
+          () => fetchWithHistoryStub.calledOnce,
+          "Should generate a response for the resume-activity conversation"
+        );
+
+        const assistantMessage = aiWindow.conversation.messages.at(-1);
+        Assert.deepEqual(
+          assistantMessage.toolUIData,
+          {
+            uiType: "tab-group-confirmation",
+            toolCallId: "resume-activity-memory-1",
+            properties: {
+              actionType: "open_tabs",
+              tabGroupLabel: "Pick up your research",
+              tabs: [1, 2, 3, 4].map((id, index) => ({
+                token: String(index),
+                url: `https://example.com/${id}`,
+                title: `Example ${id}`,
+                iconSrc: `page-icon:https://example.com/${id}`,
+                checked: false,
+              })),
+            },
+          },
+          "Should still attach a tab-selection confirmation card when memories are toggled off"
+        );
+
+        const userMessage = aiWindow.conversation.messages.at(-2);
+        Assert.ok(
+          !userMessage.content.userContext?.resumeActivityContext,
+          "Should not bake memory context into the conversation when memories are toggled off"
+        );
+      });
+    } finally {
+      sb.restore();
     }
   }
 );

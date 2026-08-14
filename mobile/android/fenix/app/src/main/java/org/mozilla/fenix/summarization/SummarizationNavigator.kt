@@ -75,7 +75,9 @@ class SummarizationNavigator(
             }
 
             navigate(
-                BrowserFragmentDirections.actionBrowserFragmentToSummarizationFragment(fromShakeGesture),
+                BrowserFragmentDirections.actionBrowserFragmentToSummarizationFragment(
+                    fromShake = fromShakeGesture,
+                ),
             )
         }
     }

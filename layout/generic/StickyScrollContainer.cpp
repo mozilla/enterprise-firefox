@@ -206,35 +206,42 @@ void StickyScrollContainer::ComputeStickyLimits(nsIFrame* aFrame,
     }
   }
 
+  // The limits have so far been computed for the "position" of the union of
+  // aFrame and its continuations, but our consumers expect the limits to be
+  // on the position of aFrame, so we need to shift the limits by the
+  // difference.
+  // - For |aContain| we're otherwise done, so we apply the offset directly.
+  // - For |aStick| we apply the offset as part of setting |aStick| (applying
+  //   it via `MoveBy` after we set |aStick| would trash any sentinel values).
+  const nsPoint frameOffset = aFrame->GetPosition() - rect.TopLeft();
+
+  aContain->MoveBy(frameOffset);
+
   // Top
   if (computedOffsets->top != NS_AUTOOFFSET) {
     aStick->SetTopEdge(mScrollPosition.y + sfPadding.top +
-                       effectiveOffsets.top - sfOffset.y);
+                       effectiveOffsets.top - sfOffset.y + frameOffset.y);
   }
 
   // Bottom
   if (computedOffsets->bottom != NS_AUTOOFFSET) {
     aStick->SetBottomEdge(mScrollPosition.y + sfPadding.top + sfSize.height -
-                          effectiveOffsets.bottom - rect.height - sfOffset.y);
+                          effectiveOffsets.bottom - rect.height - sfOffset.y +
+                          frameOffset.y);
   }
 
   // Left
   if (computedOffsets->left != NS_AUTOOFFSET) {
     aStick->SetLeftEdge(mScrollPosition.x + sfPadding.left +
-                        effectiveOffsets.left - sfOffset.x);
+                        effectiveOffsets.left - sfOffset.x + frameOffset.x);
   }
 
   // Right
   if (computedOffsets->right != NS_AUTOOFFSET) {
     aStick->SetRightEdge(mScrollPosition.x + sfPadding.left + sfSize.width -
-                         effectiveOffsets.right - rect.width - sfOffset.x);
+                         effectiveOffsets.right - rect.width - sfOffset.x +
+                         frameOffset.x);
   }
-
-  // These limits are for the bounding box of aFrame's continuations. Convert
-  // to limits for aFrame itself.
-  nsPoint frameOffset = aFrame->GetPosition() - rect.TopLeft();
-  aStick->MoveBy(frameOffset);
-  aContain->MoveBy(frameOffset);
 }
 
 nsPoint StickyScrollContainer::ComputePosition(nsIFrame* aFrame) const {

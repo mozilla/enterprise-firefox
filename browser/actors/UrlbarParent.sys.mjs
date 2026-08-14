@@ -380,6 +380,10 @@ class ViewProxy {
     this.#invoke("acknowledgeFeedback", [result.toWire()]);
   }
 
+  clearL10nCache() {
+    this.#invoke("clearL10nCache", []);
+  }
+
   clearTopSitesCache() {
     this.#invoke("clearTopSitesCache", []);
   }

@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
+import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs";
 
 /**
  * Array of keyCodes to defer.
@@ -49,11 +50,10 @@ export class UrlbarEventBufferer {
     return this.#logger;
   }
 
-  // Maximum time events can be deferred for. In automation providers can be
-  // quite slow, thus we need a longer timeout to avoid intermittent failures.
-  // Note: to avoid handling events too early, this timer should be larger than
-  // ProvidersManager.chunkResultsDelayMs.
-  static DEFERRING_TIMEOUT_MS = Cu.isInAutomation ? 1500 : 300;
+  // Maximum time events can be deferred for.
+  static get DEFERRING_TIMEOUT_MS() {
+    return UrlbarPrefs.get("eventBufferer.deferringTimeoutMs");
+  }
 
   /**
    * Initialises the class.
@@ -68,8 +68,8 @@ export class UrlbarEventBufferer {
     this.#lastQuery = {
       // The time at which the current or last search was started. This is used
       // to check how much time passed while deferring the user's actions. Must
-      // be set using the monotonic ChromeUtils.now() helper.
-      startDate: ChromeUtils.now(),
+      // be set using the monotonic performance.now() helper.
+      startDate: performance.now(),
       // Status of the query; one of QUERY_STATUS.*
       status: QUERY_STATUS.UKNOWN,
       // The query context.
@@ -91,7 +91,7 @@ export class UrlbarEventBufferer {
    */
   queryStarting(queryContext) {
     this.#lastQuery = {
-      startDate: ChromeUtils.now(),
+      startDate: performance.now(),
       status: QUERY_STATUS.RUNNING,
       context: queryContext,
     };
@@ -126,9 +126,9 @@ export class UrlbarEventBufferer {
     // populated on the parent's own copy over the message path.
     this.#lastQuery.context = queryContext;
     // Ensure this runs after other results handling code.
-    Services.tm.dispatchToMainThread(() => {
+    setTimeout(() => {
       this.replayDeferredEvents(true);
-    });
+    }, 0);
   }
 
   /**
@@ -192,7 +192,7 @@ export class UrlbarEventBufferer {
     });
 
     if (!this.#deferringTimeout) {
-      let elapsed = ChromeUtils.now() - this.#lastQuery.startDate;
+      let elapsed = performance.now() - this.#lastQuery.startDate;
       let remaining = UrlbarEventBufferer.DEFERRING_TIMEOUT_MS - elapsed;
       this.#deferringTimeout = setTimeout(
         () => {
@@ -231,9 +231,9 @@ export class UrlbarEventBufferer {
     if (searchString == this.#lastQuery.context.searchString) {
       callback();
     }
-    Services.tm.dispatchToMainThread(() => {
+    setTimeout(() => {
       this.replayDeferredEvents(onlyIfSafe);
-    });
+    }, 0);
   }
 
   /**
@@ -275,7 +275,7 @@ export class UrlbarEventBufferer {
     // start of the search, we don't want to block the user's workflow anymore.
     if (
       this.#lastQuery.startDate + UrlbarEventBufferer.DEFERRING_TIMEOUT_MS <=
-      ChromeUtils.now()
+      performance.now()
     ) {
       return false;
     }

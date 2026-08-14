@@ -140,6 +140,11 @@ class DownloadTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/451563
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.DownloadTest#pauseResumeCancelDownloadTest"],
+        bug = 2063195,
+        since = "2026-08",
+    )
     @SmokeTest
     @Test
     fun pauseResumeCancelDownloadTest() {

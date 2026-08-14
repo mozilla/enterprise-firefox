@@ -106,6 +106,7 @@ export class UrlbarInput extends HTMLElement {
         <html:moz-urlbar-slot name="remote-control-box" />
 
         <html:moz-button class="searchmode-switcher chromeclass-toolbar-additional"
+                         type="muted"
                          iconsrc="chrome://global/skin/icons/search-glass.svg"
                          title="More options"
                          aria-label="More options"

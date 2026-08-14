@@ -28,6 +28,20 @@ object BrowserPageSelectors {
         groups = listOf(""),
     )
 
+    // The Play control on the media test pages (video's custom <button>Play</button> and audio's native
+    // <audio controls>). Two deliberate choices, both learned from failing runs:
+    //  - EXACT text (By.text), not contains: the audio page's "Page content: audio player" paragraph also
+    //    contains "play", so a contains-match clicks that non-clickable paragraph and playback never starts.
+    //  - UiObject2 (fire-and-forget click): starting playback is a slow reaction that produces no app-window
+    //    update, so a UiObject clickAndSync reports a false failure even though the tap landed and media
+    //    started (same reasoning as NotificationSelectors.MEDIA_NOTIFICATION_CONTROL_BUTTON).
+    val MEDIA_PLAY_BUTTON = Selector(
+        strategy = SelectorStrategy.UIAUTOMATOR2_BY_TEXT,
+        value = "Play",
+        description = "Web media Play button",
+        groups = listOf(),
+    )
+
     val SNACKBAR_EDIT_BUTTON = Selector(
         strategy = SelectorStrategy.COMPOSE_BY_TAG,
         value = SNACKBAR_BUTTON_TEST_TAG,
@@ -336,6 +350,7 @@ object BrowserPageSelectors {
         AUTOFILLED_STREET_ADDRESS(),
         ENGINE_VIEW,
         MAIN_MENU_BUTTON,
+        MEDIA_PLAY_BUTTON,
         OPEN_IN_APP_PROMPT(),
         OPEN_IN_APP_PROMPT_BUTTON,
         PAGE_CONTENT,

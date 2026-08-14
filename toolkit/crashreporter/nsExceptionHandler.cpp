@@ -1668,12 +1668,6 @@ static size_t BuildTempPath(char* aBuf, size_t aBufLen) {
 #  error "Implement this for your platform"
 #endif
 
-template <typename CharT, size_t N>
-static size_t BuildTempPath(CharT (&aBuf)[N]) {
-  static_assert(N >= XP_PATH_MAX, "char array length is too small");
-  return BuildTempPath(&aBuf[0], N);
-}
-
 template <typename PathStringT>
 static bool BuildTempPath(PathStringT& aResult) {
   if (!aResult.IsEmpty()) {

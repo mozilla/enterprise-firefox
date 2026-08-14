@@ -18,6 +18,10 @@
     --tab-group-label-size: var(--tab-min-height);
   }
 
+  @media (-moz-native-theme) {
+    --tab-box-shadow-selected: var(--box-shadow-level-1);
+  }
+
   @media not -moz-pref("browser.nova.enabled") {
     --tab-min-height: 36px;
     --tab-group-label-size: 24px;
@@ -30,6 +34,8 @@
       --tab-group-label-size: 27px;
     }
   }
+
+  --tab-group-label-container-size: var(--tab-group-label-size);
 
   --tab-group-counter-size: 24px;
   --split-view-padding-block: 2px;
@@ -73,12 +79,37 @@
 
   @media -moz-pref("browser.nova.enabled") {
     --tab-group-label-padding: 8px;
-    --tab-context-line-block-offset: 3px;
-    --tab-context-line-collapsed-width: 12px;
 
     &[uidensity="compact"] {
       --tab-margin-block: 4px;
-      --tab-context-line-block-offset: 2px;
+    }
+  }
+
+  /* Sizing and positioning of the container tab line. */
+  @media -moz-pref("browser.nova.enabled") {
+    --tab-context-line-block-offset: 3px;
+    --tab-context-line-inline-offset: calc(var(--tab-inline-padding) + 2px);
+
+    /* We need a different block offset for split-view because there's less
+     * vertical space available there */
+    --tab-context-line-split-view-block-offset: 1px;
+
+    &[uidensity="compact"] {
+      --tab-context-line-block-offset: 1px;
+      --tab-context-line-split-view-block-offset: 0px;
+    }
+
+    @media -moz-pref("sidebar.verticalTabs") {
+      --tab-context-line-block-offset: 3px;
+      --tab-context-line-inline-offset: var(--tab-inline-padding);
+
+      --tab-context-line-split-view-block-offset: 3px;
+
+      &[uidensity="compact"] {
+        --tab-context-line-inline-offset: calc(var(--tab-inline-padding) + 1px);
+        --tab-context-line-block-offset: 2px;
+        --tab-context-line-split-view-block-offset: 1px;
+      }
     }
   }
 
@@ -115,10 +146,8 @@
   --tab-group-label-text-dark: var(--color-gray-100);
   /* 5px of padding-block are adding to .tabbrowser-tab */
   --tab-height-with-margin-padding: calc(5px + var(--tab-min-height) + (2 * var(--tab-margin-block)));
-}
 
-@media -moz-pref("sidebar.verticalTabs") {
-  :root {
+  @media -moz-pref("sidebar.verticalTabs") {
     --tab-min-height: max(32px, calc(var(--tab-label-line-height) * 1em));
     --tab-margin-block: var(--tab-vertical-block-margin);
     --tab-inline-padding: var(--tab-vertical-inline-padding);
@@ -173,6 +202,14 @@
 
   &[orient="vertical"] {
     --tab-group-label-highlight-radius: 4px;
+
+    @media -moz-pref("browser.nova.enabled") {
+      /* The hover highlight fills a full tab-height row and the tab group
+       * label is inset within it. */
+      --tab-group-label-hover-inset: var(--dimension-2);
+      --tab-group-label-container-size: var(--tab-min-height);
+      --tab-group-label-size: calc(var(--tab-group-label-container-size) - 2 * var(--tab-group-label-hover-inset));
+    }
   }
 }
 
@@ -1066,38 +1103,20 @@ tab-split-view-wrapper[dragtarget] {
 }
 
 @media -moz-pref("browser.nova.enabled") {
-  #tabbrowser-tabs[orient="horizontal"] tab-split-view-wrapper {
-    --tab-context-line-block-offset: 1px;
-  }
-
-  :root[uidensity="compact"] #tabbrowser-tabs[orient="vertical"] tab-split-view-wrapper {
-    --tab-context-line-block-offset: 1px;
-    --tab-context-line-collapsed-width: 8px;
-  }
-
-  .tabbrowser-tab {
-    anchor-scope: --tab-pill, --tab-favicon;
-  }
-
-  .tab-background {
-    anchor-name: --tab-pill;
-  }
-
-  .tab-icon-stack {
-    anchor-name: --tab-favicon;
-  }
-
   .tabbrowser-tab[usercontextid] > .tab-stack > .tab-background > .tab-context-line {
-    position: absolute;
-    position-anchor: --tab-pill;
-    background-color: var(--identity-stroke-color);
+    height: 0;
+    /* border-block guarantees it's snapped to device pixels */
+    border-block: 1px solid transparent;
+    background: var(--identity-stroke-color) border-box border-box;
     border-radius: var(--border-radius-xsmall);
-    width: auto;
-    height: 2px;
-    inset-inline: anchor(start) anchor(end);
-    inset-block: anchor(start) auto;
-    margin-inline: 12px;
     margin-block-start: var(--tab-context-line-block-offset);
+    width: calc(100% - 2 * var(--tab-context-line-inline-offset));
+    margin-inline-start: var(--tab-context-line-inline-offset);
+
+    /* With expand on hover, size of the stroke is always the collapsed size */
+    :root[sidebar-expand-on-hover] & {
+      width: calc(var(--tab-collapsed-background-width) - 2 * var(--tab-context-line-inline-offset));
+    }
   }
 
   :is(#tabbrowser-tabs[orient="horizontal"], :root:not([sidebar-expand-on-hover]) #tabbrowser-tabs[orient="vertical"][expanded])
@@ -1105,40 +1124,12 @@ tab-split-view-wrapper[dragtarget] {
     > .tab-stack
     > .tab-background
     > .tab-context-line {
-    mask-image: linear-gradient(to left, transparent, black var(--tab-label-mask-size));
+    background-color: transparent;
+    background-image: linear-gradient(to left, transparent, var(--identity-stroke-color) var(--tab-label-mask-size));
 
     &:-moz-locale-dir(rtl) {
-      mask-image: linear-gradient(to right, transparent, black var(--tab-label-mask-size));
+      background-image: linear-gradient(to right, transparent, var(--identity-stroke-color) var(--tab-label-mask-size));
     }
-  }
-
-  /* Pinned tabs have no label or close button, so center a short stroke over
-     the favicon, inset by 1px on each side. */
-  .tabbrowser-tab[usercontextid][pinned] > .tab-stack > .tab-background > .tab-context-line {
-    width: calc(var(--icon-size) - 2px);
-    margin-inline: auto;
-  }
-
-  /* Expanded vertical mode lays pinned tabs out in a wide grid, so the stroke
-     runs across the whole pill instead. */
-  :root:not([sidebar-expand-on-hover])
-    #tabbrowser-tabs[orient="vertical"][expanded]
-    .tabbrowser-tab[usercontextid][pinned]
-    > .tab-stack
-    > .tab-background
-    > .tab-context-line {
-    width: auto;
-    margin-inline: calc(var(--tab-border-radius) / 2);
-  }
-
-  /* Collapsed vertical tabs are icon-only, pinned or not, so they all get the
-     same short stroke. It hangs off the favicon rather than the pill, so that
-     expanding the sidebar on hover doesn't stretch or move it. */
-  #tabbrowser-tabs[orient="vertical"]:not([expanded]) .tabbrowser-tab[usercontextid] > .tab-stack > .tab-background > .tab-context-line,
-  :root[sidebar-expand-on-hover] #tabbrowser-tabs[orient="vertical"] .tabbrowser-tab[usercontextid] > .tab-stack > .tab-background > .tab-context-line {
-    width: var(--tab-context-line-collapsed-width);
-    inset-inline: anchor(--tab-favicon start) auto;
-    margin-inline-start: calc((var(--icon-size) - var(--tab-context-line-collapsed-width)) / 2);
   }
 }
 
@@ -1290,10 +1281,8 @@ tab-group > tab-split-view-wrapper {
       margin-inline-start: calc(var(--space-medium) - var(--space-xsmall));
     }
 
-    #tabbrowser-tabs:not([expanded]) & {
-      .tab-group-line {
-        inset-inline-start: calc((var(--tab-inner-inline-margin) * -1) + 2px) !important;
-      }
+    #tabbrowser-tabs:not([expanded]) & .tab-group-line {
+      inset-inline-start: calc((var(--tab-inner-inline-margin) * -1) + 2px) !important;
     }
 
     > .tabbrowser-tab {
@@ -1396,6 +1385,8 @@ tab-group > tab-split-view-wrapper {
 
 /* Tabs in split-view-wrapper defaults */
 #tabbrowser-tabs tab-split-view-wrapper {
+  --tab-context-line-block-offset: var(--tab-context-line-split-view-block-offset);
+
   display: grid;
   grid-template-columns: 1fr 1fr;
   margin-inline: var(--space-small);
@@ -1403,6 +1394,10 @@ tab-group > tab-split-view-wrapper {
   border-radius: var(--tab-border-radius);
   position: relative; /* prevents splitview wrappers from shifting during other drag events*/
   -moz-window-dragging: no-drag;
+
+  &[hidden] {
+    display: none;
+  }
 
   &[hasactivetab] {
     background-color: var(--tab-background-color-hover);
@@ -1963,6 +1958,14 @@ tab-group {
     tab-group[collapsed][hasactivetab] > & {
       padding-block-end: var(--space-small);
     }
+
+    @media -moz-pref("browser.nova.enabled") {
+      margin-block-start: calc(var(--tab-margin-block) + var(--tab-padding-block-start));
+
+      tab-group[collapsed]:not([hasactivetab]) > & {
+        margin-block-end: calc(var(--tab-margin-block) + var(--tab-padding-block-end));
+      }
+    }
   }
 
   #tabbrowser-tabs[orient="horizontal"] tab-group:not([collapsed]) > &::after,
@@ -2073,9 +2076,21 @@ tab-group {
         padding-block: 4px;
       }
     }
+  }
 
-    #tabbrowser-tabs[orient="vertical"][expanded] & {
-      margin-inline-end: var(--space-medium);
+  #tabbrowser-tabs[orient="vertical"][expanded] & {
+    margin-inline-end: var(--space-medium);
+  }
+
+  /* Echo the shape of .tab-group-label, including its sharper bottom start
+   * corner.
+   */
+  @media -moz-pref("browser.nova.enabled") {
+    #tabbrowser-tabs[orient="vertical"] & {
+      block-size: var(--tab-group-label-container-size);
+      padding-inline: var(--tab-group-label-hover-inset);
+      border-radius: calc(var(--tab-group-label-container-size) / 2);
+      border-end-start-radius: calc(var(--tab-group-label-size) / 8 + var(--tab-group-label-hover-inset));
     }
   }
 
@@ -2088,6 +2103,10 @@ tab-group {
      * transition.
      */
     margin-inline: calc(var(--tab-inner-inline-margin) + (var(--tab-collapsed-background-width) - var(--tab-group-label-size)) / 2);
+
+    @media -moz-pref("browser.nova.enabled") {
+      margin-inline: var(--tab-inner-inline-margin);
+    }
   }
 
   tab-group[collapsed]:not([movingtabgroup]) &:hover,
@@ -2096,7 +2115,12 @@ tab-group {
       background-color: var(--tab-background-color-hover);
       box-shadow: 0 0 0 var(--tab-group-label-highlight-radius) var(--tab-background-color-hover);
     }
+
     @media -moz-pref("browser.nova.enabled") {
+      #tabbrowser-tabs[orient="vertical"][expanded] & {
+        background-color: var(--tab-background-color-hover);
+      }
+
       .tab-group-label {
         background-color: var(--tab-group-background-color-hover);
       }
@@ -2197,7 +2221,6 @@ tab-group {
   #tabbrowser-tabs[expanded] & {
     align-self: start;
     max-width: -moz-available;
-    margin-inline-end: var(--space-medium);
   }
 }
 
@@ -2687,6 +2710,13 @@ tab-group {
 #tabbrowser-tabs[orient="vertical"] {
   --tab-min-width: unset;
   --tab-inline-padding: calc((var(--tab-collapsed-width) - var(--icon-size)) / 2);
+  /* Space between a tab and the tabs above and below it, outside of
+   * --tab-margin-block. Anything else that occupies a row in the tab strip
+   * (i.e. a tab group label) needs to reserve the same space in order to
+   * preserve spacing rhythm.
+   */
+  --tab-padding-block-start: 3px;
+  --tab-padding-block-end: 2px;
 
   min-height: 0;
   display: flex;
@@ -2717,7 +2747,7 @@ tab-group {
   .tabbrowser-tab {
     flex: none;
     padding-inline: 0;
-    padding-block: 3px 2px;
+    padding-block: var(--tab-padding-block-start) var(--tab-padding-block-end);
 
     /* prevent the shadow of the close button from being cutoff by the toolbar on the first tab */
     &:nth-child(1 of :not([hidden], [pinned])) {
@@ -2730,8 +2760,11 @@ tab-group {
   }
 
   .tab-background {
-    flex-direction: row-reverse;
     margin-inline: var(--tab-inner-inline-margin);
+    @media not -moz-pref("browser.nova.enabled") {
+      /* Needed to flip the direction of the tab-context-line. */
+      flex-direction: row-reverse;
+    }
   }
 
   &:not([expanded]) {

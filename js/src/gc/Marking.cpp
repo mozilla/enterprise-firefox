@@ -457,6 +457,8 @@ INSTANTIATE_INTERNAL_TRACE_FUNCTIONS(TaggedProto)
 // a trace hook or traceChildren() method on a GC thing. The source zone is
 // required in all builds so that MarkingTracerT::onEdge can keep the per-zone
 // atom reference bitmap in sync for Symbol edges traced via the generic tracer.
+//
+// Set also AutoSetMarkingZone.
 class MOZ_RAII AutoSetTracingSource {
   GCMarker* marker = nullptr;
 
@@ -1085,7 +1087,11 @@ void js::gc::PerformIncrementalBarrierDuringFlattening(JSString* str) {
   // Skip eager marking of ropes during flattening. Their children will also be
   // barriered by flattening process so we don't need to traverse them.
   if (str->isRope()) {
+#ifdef JS_GC_CONCURRENT_MARKING
     cell->markBlackAtomic();
+#else
+    cell->markBlack();
+#endif
     return;
   }
 

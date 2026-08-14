@@ -583,6 +583,19 @@ interface LocalizableThing {
   paddingBlock?: string;
   paddingInline?: string;
   whiteSpace?: string;
+  // Inline icons to slot into a localized string. Only effective when
+  // `string_id` is set; Fluent uses the `<img data-l10n-name="…"/>` markers in
+  // the translated string to position each icon. Each key must match a
+  // `data-l10n-name` value on an `<img>` element in the Fluent string. Set
+  // `alt` directly on that `<img>` element in the Fluent string.
+  inline_icons?: {
+    [name: string]: {
+      // URL of the icon image.
+      imageURL: string;
+      // Optional alternative URL used in RTL locales.
+      rtlImageURL?: string;
+    };
+  };
 }
 
 interface Logo {
@@ -649,16 +662,17 @@ interface Action {
   needsAwait?: boolean;
 }
 
-// Either an image or a paragraph that supports inline links. Inline links can
-// be expressed in two ways:
+// Either an image or a paragraph that supports inline links and images.
+// Inline links can be expressed in two ways:
 //   1. A single Fluent-localized string paired with `link_keys`. Each key
 //      corresponds to an `<a data-l10n-name="…">` marker inside the Fluent
 //      string. This is the original mode and requires Fluent.
-//   2. An array of text/link segments assigned to `text`. Segments can be
-//      raw strings, embedded URLs (`href`), or inline `link_key` references
-//      that look up actions on `screen.content`. This mode supports raw
-//      strings (no Fluent required) and is the recommended shape for
-//      paragraphs that mix prose with one or more inline links.
+//   2. An array of text/link/image segments assigned to `text`. Segments can
+//      be raw strings, embedded URLs (`href`), inline `link_key` references
+//      that look up actions on `screen.content`, or inline images. This mode
+//      supports raw strings (no Fluent required) and is the recommended
+//      shape for paragraphs that mix prose with one or more inline links or
+//      images.
 interface LinkParagraphOrImage extends Logo {
   // Which type of content this is.
   type: "image" | "text";
@@ -682,7 +696,12 @@ interface LinkParagraphOrImage extends Logo {
   //       (the same mechanism that mode (1)'s `link_keys` uses, but
   //       anchored to an explicit segment — so it works with raw text and
   //       does not need a `<a data-l10n-name>` marker in a Fluent string).
-  //     * a `LocalizableThing` with neither, rendered as a localized span.
+  //     * an object with `imageURL` (and optional `rtlImageURL`), rendered as
+  //       an `<img class="inline-icon">`. Unlike `inline_icons` on
+  //       `LocalizableThing` (mode 1), this segment isn't backed by Fluent,
+  //       so `alt` must be set directly on the segment (defaults to "").
+  //     * a `LocalizableThing` with neither `href`, `link_key`, nor
+  //       `imageURL`, rendered as a localized span.
   //   Because each segment can itself be a `LocalizableThing`, segments
   //   carry their own per-segment CSS overrides and `aria_label`. CSS
   //   overrides set on `LinkParagraphOrImage` itself (e.g. `textAlign`,
@@ -699,6 +718,17 @@ interface LinkParagraphOrImage extends Logo {
         // Mutually exclusive with `href`; if both are set, `href` wins.
         link_key?: string;
       })
+    | {
+        // URL of the inline image.
+        imageURL: string;
+        // Optional alternative URL used in RTL locales.
+        rtlImageURL?: string;
+        // <img> alt text. Defaults to "". Not backed by Fluent, so set it
+        // here rather than in a Fluent string.
+        alt?: string;
+        // CSS overrides for the <img> itself (e.g. width, height,
+        // marginInline), separate from the paragraph-level overrides above.
+      }
   >;
   // Only used in mode (1). Each link key must exist in screen.content. For
   // example, if link_keys is ["learn_more"], then there must be a key named

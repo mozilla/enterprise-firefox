@@ -39,6 +39,7 @@ import org.mozilla.fenix.ui.efficiency.pageObjects.SettingsHomepagePage
 import org.mozilla.fenix.ui.efficiency.pageObjects.SettingsLanguagePage
 import org.mozilla.fenix.ui.efficiency.pageObjects.SettingsOpenLinksInAppsPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.SettingsPage
+import org.mozilla.fenix.ui.efficiency.pageObjects.SettingsPageSummariesPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.SettingsPasswordsPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.SettingsPrivateBrowsingPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.SettingsSavePasswordsPage
@@ -100,6 +101,7 @@ class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTest
     val settingsHTTPSOnlyMode = SettingsHTTPSOnlyModePage(composeRule)
     val settingsLanguage = SettingsLanguagePage(composeRule)
     val settingsOpenLinksInApps = SettingsOpenLinksInAppsPage(composeRule)
+    val settingsPageSummaries = SettingsPageSummariesPage(composeRule)
     val settingsPasswords = SettingsPasswordsPage(composeRule)
     val settingsPrivateBrowsing = SettingsPrivateBrowsingPage(composeRule)
     val settingsSavePasswords = SettingsSavePasswordsPage(composeRule)

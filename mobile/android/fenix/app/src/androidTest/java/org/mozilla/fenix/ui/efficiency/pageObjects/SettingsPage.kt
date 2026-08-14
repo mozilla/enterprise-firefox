@@ -86,6 +86,15 @@ class SettingsPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRul
         )
         NavigationRegistry.register(
             from = pageName,
+            to = "SettingsPageSummariesPage",
+            steps = listOf(
+                // "Page summaries" sits below the fold in the General section, so scroll it into view first.
+                NavigationStep.Swipe(SettingsSelectors.PAGE_SUMMARIES_BUTTON),
+                NavigationStep.Click(SettingsSelectors.PAGE_SUMMARIES_BUTTON),
+            ),
+        )
+        NavigationRegistry.register(
+            from = pageName,
             to = "GooglePlayPage",
             steps = listOf(
                 NavigationStep.Swipe(SettingsSelectors.RATE_ON_GOOGLE_PLAY_BUTTON),

@@ -693,6 +693,10 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
   // Returns whether the font was successfully updated.
   bool SetFontInternal(const nsACString& aFont, mozilla::ErrorResult& aError);
 
+  // Can we skip parsing and resolving the font, because it is the same as last
+  // time and no other relevant attributes have changed?
+  bool FontIsUnchanged(const nsACString& aFont, gfxUserFontSet* aFontSet);
+
   // Helper for SetFontInternal in the case where we have no PresShell.
   bool SetFontInternalDisconnected(const nsACString& aFont,
                                    mozilla::ErrorResult& aError);
@@ -858,7 +862,7 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
     // will initialize the value if not set, else does nothing
     GetCurrentFontStyle();
 
-    return CurrentState().font;
+    return CurrentState().resolvedFont;
   }
 
   bool UseSoftwareRendering() const;
@@ -1107,7 +1111,8 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
         patternStyles;
     EnumeratedArray<Style, nscolor, size_t(Style::MAX)> colorStyles;
 
-    nsCString font;
+    nsCString specifiedFont;  // `font` as specified by the caller
+    nsCString resolvedFont;   // parsed & re-serialized value of `font`
     CanvasTextAlign textAlign = CanvasTextAlign::Start;
     CanvasTextBaseline textBaseline = CanvasTextBaseline::Alphabetic;
     CanvasDirection textDirection = CanvasDirection::Inherit;

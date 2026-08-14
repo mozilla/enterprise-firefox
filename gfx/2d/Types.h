@@ -1284,6 +1284,7 @@ enum class DeviceResetDetectPlace {
   WR_SIMULATE,
   WIDGET,
   CANVAS_TRANSLATOR,
+  WR_BEFORE_READBACK,
   _First = WR_BEGIN_FRAME,
   _Last = CANVAS_TRANSLATOR,
 };

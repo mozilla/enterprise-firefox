@@ -133,14 +133,7 @@ class UtilityProcessManager final : public UtilityProcessHost::Listener {
   }
 
   void RegisterActor(const RefPtr<UtilityProcessParent>& aParent,
-                     UtilityActorName aActorName) {
-    for (auto& p : mProcesses) {
-      if (p && p->mProcessParent && p->mProcessParent == aParent) {
-        p->mActors.AppendElement(aActorName);
-        return;
-      }
-    }
-  }
+                     UtilityActorName aActorName);
 
   Span<const UtilityActorName> GetActors(
       const RefPtr<UtilityProcessParent>& aParent) {

@@ -5,7 +5,7 @@
 package org.mozilla.fenix.translations
 
 import mozilla.components.browser.state.action.TranslationsAction
-import mozilla.components.browser.state.selector.selectedTab
+import mozilla.components.browser.state.selector.findTabOrCustomTabOrSelectedTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.translate.TranslationOperation
 import mozilla.components.concept.engine.translate.TranslationPageSettingOperation
@@ -19,6 +19,7 @@ import org.mozilla.fenix.utils.Settings
 class TranslationsDialogMiddleware(
     private val browserStore: BrowserStore,
     private val settings: Settings,
+    private val sessionId: String? = null,
 ) : Middleware<TranslationsDialogState, TranslationsDialogAction> {
 
     @Suppress("LongMethod", "CyclomaticComplexMethod")
@@ -27,7 +28,7 @@ class TranslationsDialogMiddleware(
         next: (TranslationsDialogAction) -> Unit,
         action: TranslationsDialogAction,
     ) {
-        val sessionId = browserStore.state.selectedTab?.id ?: return
+        val targetSessionId = browserStore.state.findTabOrCustomTabOrSelectedTab(sessionId)?.id ?: return
 
         when (action) {
             is TranslationsDialogAction.InitTranslationsDialog -> {
@@ -38,7 +39,7 @@ class TranslationsDialogMiddleware(
                 ) {
                     browserStore.dispatch(
                         TranslationsAction.OperationRequestedAction(
-                            tabId = sessionId,
+                            tabId = targetSessionId,
                             operation = TranslationOperation.FETCH_SUPPORTED_LANGUAGES,
                         ),
                     )
@@ -48,7 +49,7 @@ class TranslationsDialogMiddleware(
             is TranslationsDialogAction.FetchDownloadFileSizeAction -> {
                 browserStore.dispatch(
                     TranslationsAction.FetchTranslationDownloadSizeAction(
-                        tabId = sessionId,
+                        tabId = targetSessionId,
                         fromLanguage = action.fromLanguage,
                         toLanguage = action.toLanguage,
                     ),
@@ -58,7 +59,7 @@ class TranslationsDialogMiddleware(
             is TranslationsDialogAction.FetchSupportedLanguages -> {
                 browserStore.dispatch(
                     TranslationsAction.OperationRequestedAction(
-                        tabId = sessionId,
+                        tabId = targetSessionId,
                         operation = TranslationOperation.FETCH_SUPPORTED_LANGUAGES,
                     ),
                 )
@@ -67,7 +68,7 @@ class TranslationsDialogMiddleware(
             is TranslationsDialogAction.FetchPageSettings -> {
                 browserStore.dispatch(
                     TranslationsAction.OperationRequestedAction(
-                        tabId = sessionId,
+                        tabId = targetSessionId,
                         operation = TranslationOperation.FETCH_PAGE_SETTINGS,
                     ),
                 )
@@ -77,7 +78,7 @@ class TranslationsDialogMiddleware(
                 store.state.initialFrom?.code?.let { fromLanguage ->
                     store.state.initialTo?.code?.let { toLanguage ->
                         TranslationsAction.TranslateAction(
-                            tabId = sessionId,
+                            tabId = targetSessionId,
                             fromLanguage = fromLanguage,
                             toLanguage = toLanguage,
                             options = null,
@@ -91,7 +92,7 @@ class TranslationsDialogMiddleware(
             }
 
             is TranslationsDialogAction.RestoreTranslation -> {
-                browserStore.dispatch(TranslationsAction.TranslateRestoreAction(sessionId))
+                browserStore.dispatch(TranslationsAction.TranslateRestoreAction(targetSessionId))
             }
 
             is TranslationsDialogAction.UpdatePageSettingsValue -> {
@@ -110,7 +111,7 @@ class TranslationsDialogMiddleware(
 
                     is TranslationPageSettingsOption.AlwaysTranslateLanguage -> browserStore.dispatch(
                         TranslationsAction.UpdatePageSettingAction(
-                            tabId = sessionId,
+                            tabId = targetSessionId,
                             operation = TranslationPageSettingOperation.UPDATE_ALWAYS_TRANSLATE_LANGUAGE,
                             setting = action.checkValue,
                         ),
@@ -118,7 +119,7 @@ class TranslationsDialogMiddleware(
 
                     is TranslationPageSettingsOption.NeverTranslateLanguage -> browserStore.dispatch(
                         TranslationsAction.UpdatePageSettingAction(
-                            tabId = sessionId,
+                            tabId = targetSessionId,
                             operation = TranslationPageSettingOperation.UPDATE_NEVER_TRANSLATE_LANGUAGE,
                             setting = action.checkValue,
                         ),
@@ -126,7 +127,7 @@ class TranslationsDialogMiddleware(
 
                     is TranslationPageSettingsOption.NeverTranslateSite -> browserStore.dispatch(
                         TranslationsAction.UpdatePageSettingAction(
-                            tabId = sessionId,
+                            tabId = targetSessionId,
                             operation = TranslationPageSettingOperation.UPDATE_NEVER_TRANSLATE_SITE,
                             setting = action.checkValue,
                         ),

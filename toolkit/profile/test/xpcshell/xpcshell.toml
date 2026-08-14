@@ -18,6 +18,7 @@ run-if = ["os == 'mac'"]
 ["test_bad_ini.js"]
 
 ["test_check_backup.js"]
+disabled = "Bug 2063359" # telemetry probes require extension
 
 ["test_claim_locked.js"]
 
@@ -52,8 +53,10 @@ run-if = ["os == 'mac'"]
 ["test_lock.js"]
 
 ["test_missing_profilesini.js"]
+disabled = "Bug 2063359" # telemetry probes require extension
 
 ["test_new_default.js"]
+disabled = "Bug 2063359" # telemetry probes require extension
 
 ["test_new_profile_ping_sent.js"]
 
@@ -140,9 +143,11 @@ skip-if = [
 ["test_update_paths.js"]
 
 ["test_update_selected_dedicated.js"]
+disabled = "Bug 2063359" # telemetry probes require extension
 
 ["test_update_unknown_dedicated.js"]
 
 ["test_update_unselected_dedicated.js"]
 
 ["test_use_dedicated.js"]
+disabled = "Bug 2063359" # telemetry probes require extension

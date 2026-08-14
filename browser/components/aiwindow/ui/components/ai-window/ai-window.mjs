@@ -62,6 +62,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   MAX_NUM_MEMORIES_FOR_RESUME_ACTIVITY:
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
+  constructConversationToResumeActivity:
+    "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   MemoriesManager:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
   getAllModelsData:
@@ -259,6 +261,7 @@ export class AIWindow extends MozLitElement {
   #canLoadResumeStarters = true;
   #selectedModelChoiceId = null;
   #hasModelChoiceOverride = false;
+  #isGeneratingResumeActivityConversation = false;
 
   get #kitMention() {
     return this.shadowRoot?.querySelector("kit-mention");
@@ -1962,15 +1965,119 @@ export class AIWindow extends MozLitElement {
   };
 
   #handleResumePromptSelected(resumePrompt) {
-    const contextMentions = resumePrompt.content.previewTabs.map(
-      ({ url, title }) => ({
-        type: "tab",
+    if (this.#isGeneratingResumeActivityConversation) {
+      return;
+    }
+
+    Glean.smartWindow.quickPromptClicked.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+      starter: true,
+    });
+
+    this.#generateResumeActivityConversation(resumePrompt).catch(e =>
+      lazy.log.error("[Prompts] Resume-activity generation failed:", e)
+    );
+  }
+
+  /**
+   * Builds a conversation seeded with the selected resume-activity
+   * suggestion and generates its first response, attaching an open_tabs
+   * confirmation card built from the pill's preview tabs. Uses a plain
+   * (memory-free) conversation instead of the memory-summarizing one when
+   * memories are toggled off, or if building the memory-driven version
+   * fails - the confirmation card itself only needs the preview tabs, not
+   * the memory content.
+   *
+   * @param {object} resumePrompt - The clicked resume-activity prompt,
+   *   carrying the raw memory/content the generator needs.
+   */
+  async #generateResumeActivityConversation(resumePrompt) {
+    const conversationAtClick = this.#conversation;
+    let conversation = null;
+    this.#isGeneratingResumeActivityConversation = true;
+    try {
+      if (this.#memoriesToggled ?? this.#memoriesIconShown) {
+        try {
+          conversation = await lazy.constructConversationToResumeActivity({
+            memory: resumePrompt.memory,
+            content: resumePrompt.content,
+          });
+        } catch (e) {
+          lazy.log.error(
+            "[Prompts] Failed to create resume-activity conversation:",
+            e
+          );
+        }
+      }
+      if (!conversation) {
+        try {
+          conversation = await this.#buildPlainResumeConversation(resumePrompt);
+        } catch (e) {
+          lazy.log.error(
+            "[Prompts] Failed to create plain resume-activity conversation:",
+            e
+          );
+        }
+      }
+    } finally {
+      this.#isGeneratingResumeActivityConversation = false;
+    }
+
+    // The conversation may have changed while generation was in flight.
+    if (
+      !conversation ||
+      this.#conversation !== conversationAtClick ||
+      !resumePrompt.content.previewTabs?.length
+    ) {
+      return;
+    }
+
+    const tabs = resumePrompt.content.previewTabs.map(
+      ({ url, title }, index) => ({
+        token: String(index),
         url,
-        label: title,
+        title,
         iconSrc: `page-icon:${url}`,
+        checked: false,
       })
     );
-    this.onQuickPromptClicked(resumePrompt.text, true, contextMentions);
+    await this.reloadAndGenerate(conversation, {
+      uiType: "tab-group-confirmation",
+      toolCallId: `resume-activity-${resumePrompt.memory.id}`,
+      properties: {
+        actionType: "open_tabs",
+        tabGroupLabel: resumePrompt.text,
+        tabs,
+      },
+    });
+  }
+
+  /**
+   * Builds a conversation seeded with just the resume-activity headline and
+   * no memory content in the system prompt - used when memories are
+   * toggled off, or as a fallback if the memory-driven builder fails.
+   *
+   * @param {object} resumePrompt
+   * @returns {Promise<ChatConversation>}
+   */
+  async #buildPlainResumeConversation(resumePrompt) {
+    const { engine, parameters } = await lazy.buildEngineForFeature(
+      lazy.MODEL_FEATURES.CHAT,
+      { flowId: null, modelChoiceIdOverride: this.#selectedModelChoiceId }
+    );
+    const conversation = new lazy.ChatConversation({
+      title: resumePrompt.content.headline,
+    });
+    conversation.engine = engine;
+    conversation.parameters = parameters;
+    await conversation.loadSystemPrompt();
+    conversation.addUserMessage(resumePrompt.content.headline);
+    conversation.securityProperties.setPrivateData();
+    conversation.securityProperties.setUntrustedInput();
+    conversation.securityProperties.commit();
+    return conversation;
   }
 
   /**
@@ -2156,10 +2263,31 @@ export class AIWindow extends MozLitElement {
    * message, or null if the user removed page context.
    * @param {boolean} [options.isRetry=false] - True when the call originated
    * from a user-initiated retry; surfaced in model_response telemetry.
+   * @param {boolean} [options.ensureAssistantResponse=false] - When true and
+   * no inputText is provided, add the empty assistant message the stream
+   * writes into. Used when the user turn is already present in the
+   * conversation (e.g. resume-activity starters), so generatePrompt is not
+   * called to create it.
+   * @param {boolean} [options.skipSystemPromptRefresh=false] - When true,
+   * skip reloading the system prompt for this call. Used when a caller has
+   * just built a bespoke system prompt (e.g. resume-activity starters) that
+   * should survive this one request unchanged.
+   * @param {object} [options.assistantToolUIData] - When set alongside
+   * ensureAssistantResponse, attached to the empty assistant message so it
+   * renders alongside the streamed response (e.g. a tab-selection card for
+   * resume-activity starters).
    */
   async #fetchAIResponse(
     inputText,
-    { skipUserDispatch = false, pageUrl, isRetry = false, ...userOpts } = {}
+    {
+      skipUserDispatch = false,
+      pageUrl,
+      isRetry = false,
+      ensureAssistantResponse = false,
+      skipSystemPromptRefresh = false,
+      assistantToolUIData,
+      ...userOpts
+    } = {}
   ) {
     // Capture conversation and browsingContext at call time so that a tab switch
     // mid-stream cannot redirect this request to the wrong target.
@@ -2210,8 +2338,12 @@ export class AIWindow extends MozLitElement {
 
       // Rewrites the system prompt in place so a restored conversation gets
       // today's timestamp and the latest RS content. The engine was just built
-      // for this model choice, so its model drives the v2 assembly.
-      await conversation.loadSystemPrompt();
+      // for this model choice, so its model drives the v2 assembly. Skipped
+      // when a caller has just built a bespoke system prompt of its own,
+      // so it survives this one request unchanged.
+      if (!skipSystemPromptRefresh) {
+        await conversation.loadSystemPrompt();
+      }
 
       if (inputText) {
         await conversation.generatePrompt(
@@ -2223,6 +2355,14 @@ export class AIWindow extends MozLitElement {
 
         conversation.addAssistantMessage("text", "");
 
+        this.#sendModelRequestTelemetryEvent();
+      } else if (ensureAssistantResponse) {
+        // The user turn is already in the conversation, so generatePrompt is
+        // skipped; add the empty assistant message receiveResponse streams into.
+        const assistantMessage = conversation.addAssistantMessage("text", "");
+        if (assistantToolUIData) {
+          assistantMessage.toolUIData = assistantToolUIData;
+        }
         this.#sendModelRequestTelemetryEvent();
       }
 
@@ -2929,6 +3069,32 @@ export class AIWindow extends MozLitElement {
     }
     this.openConversation(conversation);
     this.#continueAfterToolResult();
+  }
+
+  /**
+   * Opens a pre-built conversation whose last message is a user turn and
+   * generates the assistant reply. Unlike reloadAndContinue (which resumes
+   * an in-flight tool turn), this adds the assistant placeholder the stream
+   * needs, and skips the usual system-prompt reload since the conversation
+   * was just built with its own bespoke system prompt.
+   *
+   * @param {ChatConversation} conversation
+   * @param {object} [assistantToolUIData] - Attached to the assistant
+   *   message so it renders alongside the streamed response (e.g. a
+   *   tab-selection card for resume-activity starters).
+   */
+  async reloadAndGenerate(conversation, assistantToolUIData) {
+    if (!conversation) {
+      return;
+    }
+    const userMessage = conversation.messages.at(-1);
+    await conversation.injectRealTimeContext(userMessage, {});
+    this.openConversation(conversation);
+    this.#fetchAIResponse(undefined, {
+      ensureAssistantResponse: true,
+      skipSystemPromptRefresh: true,
+      assistantToolUIData,
+    });
   }
 
   async #continueAfterToolResult() {

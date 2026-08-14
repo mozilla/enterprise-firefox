@@ -452,6 +452,18 @@ async function cleanupPlaces() {
  *   The date the bookmark was last visited in ms since epoch.
  *   For `check_results()`, leave this undefined to ignore the actual value.
  *   Pass zero to assert that the actual value is falsey.
+ * @param {boolean} [options.isPinned]
+ *   Whether the result is pinned. Relevant to results from
+ *   UrlbarProviderTopSites.
+ * @param {boolean} [options.isSponsored]
+ *   Whether the result is sponsored. Relevant to results from
+ *   UrlbarProviderTopSites.
+ * @param {boolean} [options.sendAttributionRequest]
+ *   The result's sendAttributionRequest. Relevant to results from
+ *   UrlbarProviderTopSites.
+ * @param {string} [options.providerName]
+ *   The name of the provider offering this result. The test suite will not
+ *   check which provider offered a result unless this option is specified.
  * @returns {UrlbarResult}
  */
 function makeBookmarkResult(
@@ -465,6 +477,10 @@ function makeBookmarkResult(
     source = UrlbarShared.RESULT_SOURCE.BOOKMARKS,
     bookmarkDateMs = undefined,
     lastVisit = undefined,
+    isPinned = undefined,
+    isSponsored = undefined,
+    sendAttributionRequest = undefined,
+    providerName = undefined,
   }
 ) {
   let payload = {
@@ -492,12 +508,22 @@ function makeBookmarkResult(
   if (lastVisit !== undefined) {
     payload.lastVisit = lastVisit;
   }
+  if (isPinned !== undefined) {
+    payload.isPinned = isPinned;
+  }
+  if (isSponsored !== undefined) {
+    payload.isSponsored = isSponsored;
+  }
+  if (sendAttributionRequest !== undefined) {
+    payload.sendAttributionRequest = sendAttributionRequest;
+  }
 
   return new UrlbarResult({
     type: UrlbarShared.RESULT_TYPE.URL,
     source,
     heuristic,
     payload,
+    providerName,
   });
 }
 
@@ -904,6 +930,15 @@ function makeSearchResult(
  *   The date the URL was last visited in ms since epoch.
  *   For `check_results()`, leave this undefined to ignore the actual value.
  *   Pass zero to assert that the actual value is falsey.
+ * @param {boolean} [options.isPinned]
+ *   Whether the result is pinned. Relevant to results from
+ *   UrlbarProviderTopSites.
+ * @param {boolean} [options.isSponsored]
+ *   Whether the result is sponsored. Relevant to results from
+ *   UrlbarProviderTopSites.
+ * @param {boolean} [options.sendAttributionRequest]
+ *   The result's sendAttributionRequest. Relevant to results from
+ *   UrlbarProviderTopSites.
  * @returns {UrlbarResult}
  */
 function makeVisitResult(
@@ -919,6 +954,9 @@ function makeVisitResult(
     isAutofillFallback = false,
     bookmarkDateMs = undefined,
     lastVisit = undefined,
+    isPinned = undefined,
+    isSponsored = undefined,
+    sendAttributionRequest = undefined,
   }
 ) {
   let payload = {
@@ -934,10 +972,20 @@ function makeVisitResult(
   if (lastVisit !== undefined) {
     payload.lastVisit = lastVisit;
   }
+  if (isPinned !== undefined) {
+    payload.isPinned = isPinned;
+  }
+  if (isSponsored !== undefined) {
+    payload.isSponsored = isSponsored;
+  }
+  if (sendAttributionRequest !== undefined) {
+    payload.sendAttributionRequest = sendAttributionRequest;
+  }
 
   if (
     !heuristic &&
     providerName != "UrlbarProviderAboutPages" &&
+    providerName != "UrlbarProviderTopSites" &&
     source == UrlbarShared.RESULT_SOURCE.HISTORY
   ) {
     payload.isBlockable = true;

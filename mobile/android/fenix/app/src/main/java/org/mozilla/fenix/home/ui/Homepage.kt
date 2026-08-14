@@ -433,7 +433,11 @@ internal fun TopSitesSection(
             headerText = stringResource(R.string.homepage_shortcuts_title),
             modifier = Modifier.padding(horizontal = horizontalMargin),
             description = stringResource(R.string.homepage_shortcuts_show_all_content_description),
-            onButtonClick = interactor::onShowAllTopSitesClicked,
+            onButtonClick = if (state.showShortcutsLibraryButton) {
+                interactor::onShowAllTopSitesClicked
+            } else {
+                null
+            },
         )
 
         Spacer(Modifier.height(16.dp))

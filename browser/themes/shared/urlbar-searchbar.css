@@ -63,6 +63,17 @@
   @media not -moz-pref("browser.nova.enabled") {
     --chrome-box-shadow: rgba(0, 0, 0, 0.13);
   }
+
+  /* In high contrast mode, align the urlbar buttons (page actions, identity
+     block, go/clear buttons, result menu/action buttons) with the toolbar
+     buttons by borrowing the ghost-button hover/active colors. */
+  @media -moz-pref("browser.nova.enabled") {
+    @media (prefers-contrast) {
+      --urlbar-box-background-color-hover: var(--button-background-color-ghost-hover);
+      --urlbar-box-background-color-active: var(--button-background-color-ghost-active);
+      --urlbar-box-text-color-hover: var(--button-text-color-ghost-hover);
+    }
+  }
 }
 
 /**
@@ -1328,25 +1339,11 @@ toolbar[inactive="true"] .urlbar,
 
 .searchmode-switcher {
   height: var(--urlbar-basic-component-size);
-  --button-border: none;
   --button-padding: 0 var(--space-small);
   --button-min-height: 100%;
   --button-font-weight: normal;
   --focus-outline-offset: var(--focus-outline-inset);
 
-  --button-background-color-active: var(--button-background-color);
-  --button-background-color-hover: var(--button-background-color);
-  /* Ideally, we'd use this variable instead of the &[open] rule.
-  Unfortunately, it gets overridden by --button-background-color-active
-  during clicks.*/
-  --button-background-color-selected: var(--button-background-color);
-
-  --button-text-color: var(--urlbar-box-text-color);
-  --button-text-color-hover: var(--urlbar-box-text-color-hover);
-  --button-text-color-active: var(--urlbar-box-text-color-hover);
-  --button-text-color-selected: var(--urlbar-box-text-color);
-
-  --button-background-color: var(--urlbar-box-background-color);
   @media -moz-pref("browser.urlbar.unifiedSearchButton.always") {
     .urlbar[pageproxystate="valid"] & {
       --button-icon-content: url("chrome://global/skin/icons/search-glass.svg");
@@ -1359,22 +1356,10 @@ toolbar[inactive="true"] .urlbar,
     gap: var(--space-small);
   }
 
-  &[open] {
-    --button-background-color: var(--urlbar-box-background-color-focus);
-  }
-
   &[offscreen] {
     /* Display as off-screen to get focus */
     position: fixed;
     top: -999px;
-  }
-
-  .urlbar[searchmode] & {
-    --button-background-color: var(--urlbar-box-background-color);
-  }
-
-  .urlbar[focused] & {
-    --button-background-color: var(--urlbar-box-background-color-focus);
   }
 
   .urlbar:not(#searchbar-new) & {

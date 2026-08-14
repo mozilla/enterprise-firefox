@@ -94,13 +94,8 @@ import org.mozilla.fenix.perf.StrictModeManager
 import org.mozilla.fenix.perf.lazyMonitored
 import org.mozilla.fenix.reviewprompt.ReviewPromptMiddleware
 import org.mozilla.fenix.search.VoiceSearchAIControlFeature
-import org.mozilla.fenix.settings.ToolbarShortcutSettingsSearchProvider
-import org.mozilla.fenix.settings.ai.AIControlsSearchProvider
-import org.mozilla.fenix.settings.datachoices.DataChoicesSearchProvider
 import org.mozilla.fenix.settings.emailmasks.middleware.DefaultEmailMasksRepository
 import org.mozilla.fenix.settings.emailmasks.middleware.EmailMasksRepository
-import org.mozilla.fenix.settings.labs.FirefoxLabsSettingsSearchProvider
-import org.mozilla.fenix.settings.pagesummaries.PageSummariesSettingsSearchProvider
 import org.mozilla.fenix.settings.settingssearch.DefaultFenixSettingsIndexer
 import org.mozilla.fenix.termsofuse.TermsOfUseManager
 import org.mozilla.fenix.termsofuse.store.DefaultTermsOfUsePromptRepository
@@ -413,16 +408,9 @@ class Components(
     val settingsIndexer by lazyMonitored {
         DefaultFenixSettingsIndexer(
             context = context,
-            additionalProviders = listOf(
-                DataChoicesSearchProvider,
-                AIControlsSearchProvider,
-                PageSummariesSettingsSearchProvider(
-                    summarizationFeatureConfiguration = core.summarizeFeatureSettings,
-                ),
-                FirefoxLabsSettingsSearchProvider(
-                    isLabsEnabled = { settings.enableFirefoxLabs },
-                ),
-                ToolbarShortcutSettingsSearchProvider,
+            additionalProviders = settingsSearchProviders(
+                summarizationFeatureConfiguration = core.summarizeFeatureSettings,
+                isFirefoxLabsEnabled = { settings.enableFirefoxLabs },
             ),
         )
     }

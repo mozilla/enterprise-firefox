@@ -1293,7 +1293,7 @@ static void Deallocate(BaseCompiler* bc, RegI32 rv, const Temps& temps) {
   bc->freeI32(temps.t0);
 }
 
-#elif defined(JS_CODEGEN_MIPS64) || defined(JS_CODEGEN_LOONG64)
+#elif defined(JS_CODEGEN_LOONG64)
 
 struct Temps {
   RegI32 t0, t1, t2;
@@ -1311,6 +1311,42 @@ static void PopAndAllocate(BaseCompiler* bc, ValType type,
                              !(LOONG64Flags::HasLamBhExtension() &&
                                (op == AtomicOp::Add || op == AtomicOp::Sub));
   if (needsLlScLoop) {
+    temps->t0 = bc->needI32();
+    temps->t1 = bc->needI32();
+    temps->t2 = bc->needI32();
+  }
+  *rd = bc->needI32();
+}
+
+static void Perform(BaseCompiler* bc, const MemoryAccessDesc& access,
+                    Address srcAddr, AtomicOp op, RegI32 rv, RegI32 rd,
+                    const Temps& temps) {
+  bc->masm.wasmAtomicFetchOp(access, op, rv, srcAddr, temps.t0, temps.t1,
+                             temps.t2, rd);
+}
+
+static void Deallocate(BaseCompiler* bc, RegI32 rv, const Temps& temps) {
+  bc->freeI32(rv);
+  bc->maybeFree(temps.t0);
+  bc->maybeFree(temps.t1);
+  bc->maybeFree(temps.t2);
+}
+
+#elif defined(JS_CODEGEN_MIPS64)
+
+struct Temps {
+  RegI32 t0, t1, t2;
+};
+
+static void PopAndAllocate(BaseCompiler* bc, ValType type,
+                           Scalar::Type viewType, AtomicOp op, RegI32* rd,
+                           RegI32* rv, Temps* temps) {
+  *rv = type == ValType::I64 ? bc->popI64ToI32() : bc->popI32();
+  if (type == ValType::I64) {
+    // Architecture-specific i64-to-i32.
+    bc->masm.move64To32(Register64(*rv), *rv);
+  }
+  if (Scalar::byteSize(viewType) < 4) {
     temps->t0 = bc->needI32();
     temps->t1 = bc->needI32();
     temps->t2 = bc->needI32();
@@ -1703,7 +1739,7 @@ static void Deallocate(BaseCompiler* bc, RegI32 rv, const Temps&) {
   bc->freeI32(rv);
 }
 
-#elif defined(JS_CODEGEN_MIPS64) || defined(JS_CODEGEN_LOONG64)
+#elif defined(JS_CODEGEN_LOONG64)
 
 struct Temps {
   RegI32 t0, t1, t2;
@@ -1720,6 +1756,41 @@ static void PopAndAllocate(BaseCompiler* bc, ValType type,
   const bool needsLlScLoop =
       Scalar::byteSize(viewType) < 4 && !LOONG64Flags::HasLamBhExtension();
   if (needsLlScLoop) {
+    temps->t0 = bc->needI32();
+    temps->t1 = bc->needI32();
+    temps->t2 = bc->needI32();
+  }
+  *rd = bc->needI32();
+}
+
+static void Perform(BaseCompiler* bc, const MemoryAccessDesc& access,
+                    Address srcAddr, RegI32 rv, RegI32 rd, const Temps& temps) {
+  bc->masm.wasmAtomicExchange(access, srcAddr, rv, temps.t0, temps.t1, temps.t2,
+                              rd);
+}
+
+static void Deallocate(BaseCompiler* bc, RegI32 rv, const Temps& temps) {
+  bc->freeI32(rv);
+  bc->maybeFree(temps.t0);
+  bc->maybeFree(temps.t1);
+  bc->maybeFree(temps.t2);
+}
+
+#elif defined(JS_CODEGEN_MIPS64)
+
+struct Temps {
+  RegI32 t0, t1, t2;
+};
+
+static void PopAndAllocate(BaseCompiler* bc, ValType type,
+                           Scalar::Type viewType, RegI32* rd, RegI32* rv,
+                           Temps* temps) {
+  *rv = (type == ValType::I64) ? bc->popI64ToI32() : bc->popI32();
+  if (type == ValType::I64) {
+    // Architecture-specific i64-to-i32.
+    bc->masm.move64To32(Register64(*rv), *rv);
+  }
+  if (Scalar::byteSize(viewType) < 4) {
     temps->t0 = bc->needI32();
     temps->t1 = bc->needI32();
     temps->t2 = bc->needI32();

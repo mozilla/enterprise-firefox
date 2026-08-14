@@ -82,6 +82,13 @@ object SettingsSelectors {
         groups = listOf("generalSettingsSection"),
     )
 
+    val PAGE_SUMMARIES_BUTTON = Selector(
+        strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT,
+        value = getStringResource(R.string.preferences_page_summaries),
+        description = "the Page summaries button",
+        groups = listOf("generalSettingsSection"),
+    )
+
     val ACCESSIBILITY_BUTTON = Selector(
         strategy = SelectorStrategy.ESPRESSO_BY_TEXT,
         value = "Accessibility",
@@ -311,6 +318,7 @@ object SettingsSelectors {
         SEARCH_BUTTON,
         SEARCH_SETTING_ROW,
         TABS_BUTTON,
+        PAGE_SUMMARIES_BUTTON,
         ACCESSIBILITY_BUTTON,
         AUTOFILL_BUTTON,
         CUSTOMIZE_BUTTON,

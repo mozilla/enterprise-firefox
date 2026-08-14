@@ -122,8 +122,9 @@ if (
   !Services.prefs.getBoolPref("layout.css.scroll-driven-animations.enabled")
 ) {
   ignoreList.push({
-    sourceName: /smartbar\.css$/i,
-    errorMessage: /Unknown property .*animation-timeline/i,
+    sourceName: /\b(smartbar|ai-action-confirmation)\.css$/i,
+    errorMessage:
+      /Unknown property .*(animation-range|animation-timeline|scroll-timeline|view-timeline|timeline-scope)/i,
     isFromDevTools: false,
   });
 }

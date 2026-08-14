@@ -1351,6 +1351,30 @@ newtab:
     send_in_pings:
       - newtab
 
+  page_layout_variant:
+    type: string
+    description: >
+      The name of the newtab page layout variant the client is assigned, for
+      layout experimentation. One of nova-full-width,
+      side-by-side-content-lead, side-by-side-widgets-lead,
+      side-by-side-content-lead-five or side-by-side-widgets-lead-five. The
+      -five variants reach five card columns counting the widgets column, the
+      others four. Reports the assigned variant whether or not the page can
+      currently render it, and covers variants set by pref as well as by a
+      Nimbus train-hop configuration.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2061741
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2061741
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - mcrawford@mozilla.com
+    expires: never
+    lifetime: application
+    send_in_pings:
+      - newtab
+
   spons_nav_traffic_sent:
     type: memory_distribution
     memory_unit: kilobyte

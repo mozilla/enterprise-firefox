@@ -1466,6 +1466,13 @@ pref("browser.xul.error_pages.show_safe_browsing_details_on_load", false);
 // page. Disabled by default; consumers land in later bugs (meta bug 2055374).
 pref("browser.netError.searchCTA.enabled", false);
 
+// Freshness window for the search CTA's connectivity signal. If the last
+// captive-portal check is older than this, an authoritative re-check runs
+// before the CTA is shown (bug 2055712). connectivityRecheckTimeoutMs bounds
+// that re-check so the CTA can never hang.
+pref("browser.netError.searchCTA.connectivityFreshnessMs", 60000);
+pref("browser.netError.searchCTA.connectivityRecheckTimeoutMs", 3000);
+
 // Enable captive portal detection.
 pref("network.captive-portal-service.enabled", true);
 

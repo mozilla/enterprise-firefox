@@ -1323,11 +1323,12 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   }
   mSessionStorage = nullptr;
   if (mPerformance) {
-    // Since window is dying, nothing is going to be painted
-    // with meaningful sizes, so these temp data for LCP is
-    // no longer needed.
-    static_cast<PerformanceMainThread*>(mPerformance.get())
-        ->ClearGeneratedTempDataForLCP();
+    // Since window is dying, nothing is going to be painted with meaningful
+    // sizes, so the temp data for LCP and container timing is no longer needed.
+    // Clearing the container timing records also drops their raw element keys.
+    auto* perf = static_cast<PerformanceMainThread*>(mPerformance.get());
+    perf->ClearGeneratedTempDataForLCP();
+    perf->ClearContainerTimingData();
   }
   mPerformance = nullptr;
 

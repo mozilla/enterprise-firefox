@@ -47,7 +47,7 @@ import:
             enabled: true
         - channel: release
           value:
-            enabled: false
+            enabled: true
 
 features:
   homescreen:
@@ -1009,6 +1009,14 @@ features:
           Whether or not to turn on local network / device access blocking
         type: Boolean
         default: false
+      block-insecure-contexts:
+        description: >
+          Whether or not LNA requests coming from insecure contexts should be
+          blocked outright, without prompting the user for permission
+        type: Option<Boolean>
+        gecko-pref:
+          pref: "network.lna.block_insecure_contexts"
+          branch: "default"
 
   isolated-content-processes:
     description: Feature that controls content process isolation.
@@ -1106,7 +1114,7 @@ features:
       enabled:
         description: If true, Native Share Sheet is enabled.
         type: Boolean
-        default: false
+        default: true
     defaults:
       - channel: developer
         value:
@@ -1122,6 +1130,14 @@ features:
         description: If true, Add Shortcuts improvement is enabled.
         type: Boolean
         default: true
+
+  show-more-shortcuts:
+    description: Feature to show expand/collapse buttons for shortcuts on the homepage.
+    variables:
+      enabled:
+        description: If true, show the expand/collapse buttons on the homepage.
+        type: Boolean
+        default: false
 
   merino-client:
     description: Feature to enable the Merino Client for users on Firefox on Android.

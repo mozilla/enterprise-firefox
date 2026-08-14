@@ -13,6 +13,7 @@ import org.mozilla.fenix.helpers.Constants
 import org.mozilla.fenix.helpers.TestAssetHelper.loremIpsumAsset
 import org.mozilla.fenix.ui.efficiency.helpers.BaseTest
 import org.mozilla.fenix.ui.efficiency.selectors.DownloadsSelectors
+import org.mozilla.fenix.ui.efficiency.selectors.NotificationSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.ShareOverlaySelectors
 
 class DownloadTest : BaseTest() {
@@ -57,5 +58,41 @@ class DownloadTest : BaseTest() {
         // Parity gap: legacy verifyDownloadPrompt also asserted the prompt named the file ("Lorem") and
         // that the Cancel button was displayed. The downloadDialog group covers the dialog title and the
         // Download button only; there is no filename or cancel-button selector yet.
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/451563
+    @SmokeTest
+    @Test
+    fun pauseResumeCancelDownloadTest() {
+        // Unlike the other download tests, this one keeps the remote testapp page and its 3GB.zip
+        // instead of the local mockWebServer assets. Pause/resume/cancel need a download that stays in
+        // progress, and every local asset is a few KB and completes instantly. The download is only
+        // started and then cancelled -- never completed -- so the remote page's slow completion, which
+        // pushed the other download tests onto mockWebServer, is not a factor here.
+        val downloadTestPage = "https://storage.googleapis.com/mobile_test_assets/test_app/downloads.html"
+        val downloadFile = "3GB.zip"
+
+        on.browserPage.navigateToPage(downloadTestPage)
+            .clickDownloadLink(downloadFile, downloadTestPage)
+            .verifyDownloadPrompt()
+            .clickDownloadPromptConfirmButton()
+            .verifyDownloadInProgressSnackbar()
+            .waitUntilDownloadSnackbarGone()
+
+        // clickNotificationActionButton(PAUSE) tolerates the Pause button already being gone: over the
+        // real network the 3GB download stalls and Fenix auto-pauses it before the shade opens, so the
+        // download can already be paused when we arrive. Either way the paused state is asserted next,
+        // then the download is resumed and cancelled.
+        on.notification.openNotificationTray()
+            .expandNotification(downloadFile)
+            .clickNotificationActionButton(NotificationSelectors.DOWNLOAD_NOTIFICATION_PAUSE_BUTTON)
+            .verifyNotificationExists(NotificationSelectors.DOWNLOAD_PAUSED_NOTIFICATION)
+            .clickNotificationActionButton(NotificationSelectors.DOWNLOAD_NOTIFICATION_RESUME_BUTTON)
+            .clickNotificationActionButton(NotificationSelectors.DOWNLOAD_NOTIFICATION_CANCEL_BUTTON)
+            .verifyNotificationDoesNotExist(NotificationSelectors.SYSTEM_NOTIFICATION(downloadFile))
+            .closeNotificationTray()
+
+        on.downloads.navigateToPage()
+            .mozVerifyElementsByGroup("emptyDownloads")
     }
 }

@@ -68,6 +68,15 @@ object DownloadsSelectors {
         groups = listOf("downloadCompleteSnackbar"),
     )
 
+    // Shown after starting a large download that keeps transferring, instead of the completion
+    // snackbar. Used to confirm the download started and, once gone, that it stopped covering the page.
+    val DOWNLOAD_IN_PROGRESS_SNACKBAR = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+        value = getStringResource(R.string.download_in_progress_snackbar),
+        description = "Download in progress snackbar",
+        groups = listOf("downloadInProgressSnackbar"),
+    )
+
     val DOWNLOAD_SNACK_BAR_OPEN_BUTTON = Selector(
         strategy = SelectorStrategy.COMPOSE_BY_TAG,
         value = SNACKBAR_BUTTON_TEST_TAG,
@@ -136,6 +145,7 @@ object DownloadsSelectors {
         DOWNLOAD_DIALOG_CONFIRM_BUTTON,
         DOWNLOAD_DIALOG_CANCEL_BUTTON,
         DOWNLOAD_COMPLETE_SNACKBAR,
+        DOWNLOAD_IN_PROGRESS_SNACKBAR,
         DOWNLOAD_SNACK_BAR_OPEN_BUTTON,
         DOWNLOAD_SNACK_BAR_OPEN_ACTION_LABEL,
     )

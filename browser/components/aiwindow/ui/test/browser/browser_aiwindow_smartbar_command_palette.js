@@ -3,12 +3,23 @@
 
 "use strict";
 
+const { Region } = ChromeUtils.importESModule(
+  "resource://gre/modules/Region.sys.mjs"
+);
+
 add_setup(async function () {
+  const originalRegion = Region.home;
+  Region._setHomeRegion("US", false);
+  registerCleanupFunction(() => {
+    Region._setHomeRegion(originalRegion, false);
+  });
+
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.search.suggest.enabled", false],
       ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
       ["browser.smartwindow.agent.enabled", true],
+      ["browser.smartwindow.agent.supportedRegions", "US"],
     ],
   });
 });
@@ -165,4 +176,30 @@ add_task(async function test_slash_command_submit_does_not_navigate() {
   Assert.ok(!called, "Submitting a '/command' does not navigate Go");
 
   await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_palette_hidden_when_agent_disabled() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.smartwindow.agent.enabled", false]],
+  });
+
+  const { win, sidebarBrowser } = await openAIWindowWithSidebar();
+
+  await typeInSmartbar(sidebarBrowser, "/");
+
+  await SpecialPowers.spawn(sidebarBrowser, [], async () => {
+    const aiWindow = content.document.querySelector("ai-window");
+    const smartbar = aiWindow.shadowRoot.querySelector("#ai-window-smartbar");
+    const panelList = smartbar.querySelector("smartwindow-panel-list");
+
+    await ContentTaskUtils.waitForCondition(
+      () =>
+        !panelList.groups.length &&
+        smartbar.inputField.isHandlingCommands === false,
+      "Command palette stays closed when the agent pref is disabled"
+    );
+  });
+
+  await BrowserTestUtils.closeWindow(win);
+  await SpecialPowers.popPrefEnv();
 });

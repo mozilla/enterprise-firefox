@@ -155,6 +155,7 @@ export class UrlbarProviderTopSites extends UrlbarProvider {
     sites = sites.map(link => {
       let site = {
         type: link.searchTopSite ? "search" : "url",
+        subtype: link.type,
         url: link.url_urlbar || link.url,
         isPinned: !!link.isPinned,
         isSponsored: !!link.sponsored_position,
@@ -204,7 +205,6 @@ export class UrlbarProviderTopSites extends UrlbarProvider {
             icon: site.favicon,
             isPinned: site.isPinned,
             isSponsored: site.isSponsored,
-            lastVisit: site.lastVisitDate,
           };
 
           // Fuzzy match both the URL as-is, and the URL without ref, then
@@ -252,7 +252,10 @@ export class UrlbarProviderTopSites extends UrlbarProvider {
           // Places (a trailing slash, an http->https upgrade, or another
           // redirect).  Look the date up live, following the Places redirect
           // chain, so the explanation is accurate.
-          if (lazy.UrlbarPrefs.get("resultExplanationsFeatureGate")) {
+          if (
+            lazy.UrlbarPrefs.get("resultExplanationsFeatureGate") &&
+            lazy.UrlbarPrefs.get("suggest.history")
+          ) {
             let lastVisit = await this.#fetchLastVisit(payload.url);
             if (instance != this.queryInstance) {
               break;
@@ -260,8 +263,19 @@ export class UrlbarProviderTopSites extends UrlbarProvider {
             payload.lastVisit = lastVisit ?? site.lastVisitDate;
           }
 
+          // Figure out what the source of this result should be. When bookmark
+          // or history results are disabled, we use `RESULT_SOURCE.OTHER_LOCAL`
+          // so that the muxer and providers manager add the result anyway. That
+          // seems wrong but appears to be how this provider has always worked.
+          // See also bug 1631281.
           /** @type {Values<typeof lazy.UrlbarShared.RESULT_SOURCE>} */
           let resultSource = lazy.UrlbarShared.RESULT_SOURCE.OTHER_LOCAL;
+          if (
+            lazy.UrlbarPrefs.get("suggest.history") &&
+            site.subtype == "history"
+          ) {
+            resultSource = lazy.UrlbarShared.RESULT_SOURCE.HISTORY;
+          }
           if (lazy.UrlbarPrefs.get("suggest.bookmark")) {
             let bookmark = await lazy.PlacesUtils.bookmarks.fetch({
               url: new URL(payload.url),

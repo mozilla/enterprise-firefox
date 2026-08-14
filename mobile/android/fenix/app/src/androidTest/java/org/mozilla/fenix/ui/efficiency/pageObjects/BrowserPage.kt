@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.ui.efficiency.pageObjects
 
+import android.os.SystemClock
 import android.util.Log
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -13,8 +14,11 @@ import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
+import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.compose.browser.toolbar.concept.BrowserToolbarTestTags.ADDRESSBAR_URL
+import mozilla.components.concept.engine.mediasession.MediaSession
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
@@ -114,6 +118,33 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
 
     override fun mozGetSelectorsByGroup(group: String): List<Selector> {
         return BrowserPageSelectors.all.filter { it.groups.contains(group) }
+    }
+
+    /**
+     * Taps the Play control on a web media page (video or audio). The tap is confirmed by
+     * [verifyMediaPlaybackState], not by the click call itself -- see
+     * [BrowserPageSelectors.MEDIA_PLAY_BUTTON] for why this is an exact-text, fire-and-forget click.
+     */
+    fun clickMediaPlayButton(): BrowserPage {
+        mozClick(BrowserPageSelectors.MEDIA_PLAY_BUTTON)
+        return this
+    }
+
+    /**
+     * Polls the selected tab's media-session playback state until it reaches [expectedState] or the wait
+     * budget runs out. Reads the browser store directly rather than the UI, mirroring the legacy
+     * BrowserRobot.assertPlaybackState.
+     */
+    fun verifyMediaPlaybackState(expectedState: MediaSession.PlaybackState): BrowserPage {
+        val store = appContext.components.core.store
+        val startMillis = SystemClock.uptimeMillis()
+        while (SystemClock.uptimeMillis() - startMillis <= waitingTime) {
+            if (store.state.selectedTab?.mediaSessionState?.playbackState == expectedState) {
+                return this
+            }
+        }
+        fail("Playback did not move to state: $expectedState")
+        return this
     }
 
     fun verifyPageContent(text: String): BrowserPage {
@@ -298,6 +329,24 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
         return this
     }
 
+    /**
+     * Assert the "Download in progress" snackbar shown after starting a large download, as legacy
+     * verifySnackBarText("Download in progress") did.
+     */
+    fun verifyDownloadInProgressSnackbar(): BrowserPage {
+        mozVerify(DownloadsSelectors.DOWNLOAD_IN_PROGRESS_SNACKBAR, timeout = waitingTimeLong)
+        return this
+    }
+
+    /**
+     * Wait for the download snackbar to auto-dismiss so it stops covering the page before the
+     * notification shade is opened. Mirrors legacy DownloadRobot.waitUntilDownloadSnackbarGone.
+     */
+    fun waitUntilDownloadSnackbarGone(): BrowserPage {
+        mozWaitUntilAbsent(DownloadsSelectors.DOWNLOAD_IN_PROGRESS_SNACKBAR, timeout = waitingTimeLong)
+        return this
+    }
+
     fun clickSubmitLoginButton(): BrowserPage {
         mozClick(BrowserPageSelectors.SUBMIT_LOGIN_BUTTON)
         return this
@@ -314,7 +363,11 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
     }
 
     fun continueToHttpSite(): BrowserPage {
-        return clickPageContent("Continue to HTTP Site")
+        // The HTTPS-Only error page renders its buttons only once the HTTP->HTTPS upgrade has failed,
+        // which lands after navigateToPage() has already returned on engineView. mozClick does a single
+        // non-polling lookup, so wait for the button to render first, otherwise the click races it.
+        verifyPageContent(HTTPS_ERROR_CONTINUE)
+        return clickPageContent(HTTPS_ERROR_CONTINUE)
     }
 
     fun verifyOpenLinkInAppPrompt(appName: String): BrowserPage {
@@ -472,6 +525,7 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
 
     private companion object {
         const val HTTPS_ERROR_GO_BACK = "Go Back (Recommended)"
+        const val HTTPS_ERROR_CONTINUE = "Continue to HTTP Site"
         const val AUTOFILL_RETRY_COUNT = 3
         const val FONT_SIZE_STEP_SIZE = 5
         const val FONT_SIZE_MIN_VALUE = 50

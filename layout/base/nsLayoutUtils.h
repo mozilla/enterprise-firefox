@@ -910,25 +910,24 @@ class nsLayoutUtils {
       const nsIFrame* aFrame, const nsRect& aRect, const nsIFrame* aAncestor,
       bool* aPreservesAxisAlignedRectangles = nullptr,
       mozilla::Maybe<Matrix4x4Flagged>* aMatrixCache = nullptr,
-      bool aStopAtStackingContextAndDisplayPortAndOOFFrame = false,
+      mozilla::TransformMatrixFlags aFlags = {},
       nsIFrame** aOutAncestor = nullptr) {
-    return TransformFrameRectToAncestor(
-        aFrame, aRect, RelativeTo{aAncestor}, aPreservesAxisAlignedRectangles,
-        aMatrixCache, aStopAtStackingContextAndDisplayPortAndOOFFrame,
-        aOutAncestor);
+    return TransformFrameRectToAncestor(aFrame, aRect, RelativeTo{aAncestor},
+                                        aPreservesAxisAlignedRectangles,
+                                        aMatrixCache, aFlags, aOutAncestor);
   }
   static nsRect TransformFrameRectToAncestor(
       const nsIFrame* aFrame, const nsRect& aRect, RelativeTo aAncestor,
       bool* aPreservesAxisAlignedRectangles = nullptr,
       mozilla::Maybe<Matrix4x4Flagged>* aMatrixCache = nullptr,
-      bool aStopAtStackingContextAndDisplayPortAndOOFFrame = false,
+      mozilla::TransformMatrixFlags aFlags = {},
       nsIFrame** aOutAncestor = nullptr);
 
   /**
    * Gets the transform for aFrame relative to aAncestor. Pass null for
-   * aAncestor to go up to the root frame. Including nsIFrame::IN_CSS_UNITS
-   * flag in aFlags will return CSS pixels, by default it returns device
-   * pixels.
+   * aAncestor to go up to the root frame. Including
+   * TransformMatrixFlag::InCSSUnits in aFlags will return CSS pixels,
+   * by default it returns device pixels.
    * More info can be found in nsIFrame::GetTransformMatrix.
    *
    * Some notes on the possible combinations of |aFrame.mViewportType| and
@@ -964,7 +963,8 @@ class nsLayoutUtils {
    * ==========================================================================
    */
   static Matrix4x4Flagged GetTransformToAncestor(
-      RelativeTo aFrame, RelativeTo aAncestor, uint32_t aFlags = 0,
+      RelativeTo aFrame, RelativeTo aAncestor,
+      mozilla::TransformMatrixFlags aFlags = {},
       nsIFrame** aOutAncestor = nullptr);
 
   /**

@@ -7,6 +7,7 @@ package org.mozilla.fenix.ui
 import mozilla.components.concept.engine.mediasession.MediaSession
 import org.junit.Rule
 import org.junit.Test
+import org.mozilla.fenix.customannotations.Converted
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.helpers.FenixTestRule
@@ -56,6 +57,11 @@ class MediaNotificationTest {
     val memoryLeaksRule = DetectMemoryLeaksRule(composeTestRule = { composeTestRule })
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1347033
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MediaNotificationTest#verifyVideoPlaybackSystemNotificationTest"],
+        bug = 2063242,
+        since = "2026-08",
+    )
     @SmokeTest
     @Test
     fun verifyVideoPlaybackSystemNotificationTest() {
@@ -91,6 +97,11 @@ class MediaNotificationTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2316010
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MediaNotificationTest#verifyVideoPlaybackSystemNotificationTest"],
+        bug = 2063242,
+        since = "2026-08",
+    )
     @SmokeTest
     @Test
     fun verifyAudioPlaybackSystemNotificationTest() {

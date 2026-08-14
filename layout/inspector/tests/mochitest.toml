@@ -1,6 +1,7 @@
 [DEFAULT]
 prefs = [
   "layout.css.at-scope.enabled=true",
+  "layout.css.attr.enabled=true",
   "layout.css.basic-shape-shape.enabled=true",
   "layout.css.calc-typed-arithmetic.enabled=true",
   "layout.css.progress-function.enabled=true",

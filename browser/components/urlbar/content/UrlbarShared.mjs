@@ -1449,7 +1449,7 @@ export const UrlbarShared = {
     // generate "{n} weeks ago" UI strings, which aren't very precise anyway.
     if (this.__firstDayOfWeek === undefined) {
       this.__firstDayOfWeek = new Intl.Locale(
-        Services.locale.appLocaleAsBCP47
+        Intl.DateTimeFormat().resolvedOptions().locale
       ).getWeekInfo().firstDay;
 
       // Make sure we always have a valid value in case the locale doesn't

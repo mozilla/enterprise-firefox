@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.tabstray.ext
 
+import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.state.isActive
 import mozilla.components.support.ktx.kotlin.trimmed
@@ -51,6 +52,6 @@ internal fun TabSessionState.isNormalTab(): Boolean {
 }
 
 /**
- * Returns a [String] for displaying a [TabSessionState]'s title or its url when a title is not available.
+ * Returns a [String] for displaying a [SessionState]'s title or its url when a title is not available.
  */
-fun TabSessionState.toDisplayTitle(): String = content.title.ifEmpty { content.url.trimmed() }
+fun SessionState.toDisplayTitle(): String = content.title.ifEmpty { content.url.trimmed() }

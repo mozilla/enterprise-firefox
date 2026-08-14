@@ -550,3 +550,134 @@ describe("<ToggleStoryButton>", () => {
     expect(onClick).toHaveBeenCalledWith("spoc");
   });
 });
+
+describe("<DiscoveryStreamAdminUI> Layouts", () => {
+  const VARIANTS = [
+    "nova-full-width",
+    "side-by-side-content-lead",
+    "side-by-side-widgets-lead",
+    "side-by-side-content-lead-five",
+    "side-by-side-widgets-lead-five",
+  ];
+  // Everything isSideBySideActive gates on, so the status line stays quiet.
+  const ACTIVE_PREFS = {
+    "feeds.section.topstories": true,
+    "feeds.system.topstories": true,
+    "widgets.system.enabled": true,
+    "widgets.enabled": true,
+    "widgets.system.lists.enabled": true,
+    "widgets.lists.enabled": true,
+  };
+  const radios = container => [
+    ...container.querySelectorAll("input[name='page-layout-variant']"),
+  ];
+
+  it("renders one radio per variant with the pref value checked", () => {
+    const { container } = renderUI({
+      otherPrefs: { "pageLayouts.variant": "side-by-side-widgets-lead" },
+    });
+
+    expect(radios(container).map(r => r.value)).toEqual(VARIANTS);
+    expect(
+      radios(container)
+        .filter(r => r.checked)
+        .map(r => r.value)
+    ).toEqual(["side-by-side-widgets-lead"]);
+  });
+
+  it("falls back to the default variant when the pref is unset", () => {
+    const { container } = renderUI({ otherPrefs: {} });
+
+    expect(radios(container).find(r => r.checked).value).toBe(
+      "nova-full-width"
+    );
+  });
+
+  it("sets the pref when a variant is picked", () => {
+    const { container, dispatch } = renderUI({ otherPrefs: {} });
+
+    fireEvent.click(
+      radios(container).find(r => r.value === "side-by-side-content-lead-five")
+    );
+
+    const action = dispatchedAction(dispatch, at.SET_PREF);
+    expect(action.data).toEqual({
+      name: "pageLayouts.variant",
+      value: "side-by-side-content-lead-five",
+    });
+  });
+
+  it("clears the pref from the reset button", () => {
+    const { container, dispatch } = renderUI({
+      otherPrefs: { "pageLayouts.variant": "side-by-side-content-lead" },
+    });
+
+    const reset = buttonByText(container, "Reset layout");
+    expect(reset.hasAttribute("disabled")).toBe(false);
+
+    fireEvent.click(reset);
+
+    expect(dispatchedAction(dispatch, at.CLEAR_PREF).data).toEqual({
+      name: "pageLayouts.variant",
+    });
+  });
+
+  it("disables reset while the pref is already at the default", () => {
+    const { container } = renderUI({
+      otherPrefs: { "pageLayouts.variant": "nova-full-width" },
+    });
+
+    expect(
+      buttonByText(container, "Reset layout").hasAttribute("disabled")
+    ).toBe(true);
+  });
+
+  // The pref is dead while an enrollment is in play, so the panel has to say so.
+  it("warns that a train-hop enrollment overrides the pref", () => {
+    const { container } = renderUI({
+      otherPrefs: {
+        ...ACTIVE_PREFS,
+        "pageLayouts.variant": "side-by-side-content-lead",
+        trainhopConfig: {
+          pageLayouts: { variant: "side-by-side-widgets-lead-five" },
+        },
+      },
+    });
+
+    const warning = container.querySelector(".layout-status-warning");
+    expect(warning).toBeInTheDocument();
+    expect(warning.textContent).toContain("side-by-side-widgets-lead-five");
+    // The radio still reflects the pref, which is what reset clears.
+    expect(radios(container).find(r => r.checked).value).toBe(
+      "side-by-side-content-lead"
+    );
+  });
+
+  it("says why a side-by-side variant is not laying out", () => {
+    const { container } = renderUI({
+      otherPrefs: {
+        ...ACTIVE_PREFS,
+        "feeds.section.topstories": false,
+        "pageLayouts.variant": "side-by-side-content-lead",
+      },
+    });
+
+    // Assert on the pref name, not the prose, so copy edits don't break this.
+    expect(container.querySelector(".layout-status").textContent).toContain(
+      "feeds.section.topstories"
+    );
+  });
+
+  it("stays quiet for the default variant and for a working side-by-side", () => {
+    const withDefault = renderUI({ otherPrefs: ACTIVE_PREFS }).container;
+    expect(withDefault.querySelector(".layout-status")).toBeNull();
+
+    const working = renderUI({
+      otherPrefs: {
+        ...ACTIVE_PREFS,
+        "pageLayouts.variant": "side-by-side-content-lead",
+      },
+    }).container;
+    expect(working.querySelector(".layout-status")).toBeNull();
+  });
+});

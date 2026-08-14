@@ -179,6 +179,11 @@ artifact-tests:
     - mochitest-plain
     - xpcshell
 
+### Developer Edition (DevEdition)
+devedition-tests:
+    - mochitest-browser-chrome
+    - mochitest-devtools-chrome
+
 ### Specific platform test sets
 
 # Linux

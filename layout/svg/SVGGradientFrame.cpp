@@ -283,9 +283,9 @@ already_AddRefed<gfxPattern> SVGGradientFrame::GetPaintServerPattern(
 
   // revert any vector effect transform so that the gradient appears unchanged
   if (aFillOrStroke == &nsStyleSVG::mStroke) {
-    gfxMatrix userToOuterSVG;
-    if (SVGUtils::GetNonScalingStrokeTransform(aSource, &userToOuterSVG)) {
-      patternMatrix *= userToOuterSVG;
+    if (Maybe<gfxMatrix> userToOuterSVG =
+            SVGUtils::GetNonScalingStrokeTransform(aSource)) {
+      patternMatrix *= *userToOuterSVG;
     }
   }
 

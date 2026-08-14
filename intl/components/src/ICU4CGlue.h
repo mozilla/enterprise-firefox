@@ -161,8 +161,8 @@ class ICUPointer {
  * over to the buffer.
  */
 template <typename ICUStringFunction, typename Buffer>
-static ICUResult FillBufferWithICUCall(Buffer& buffer,
-                                       const ICUStringFunction& strFn) {
+ICUResult FillBufferWithICUCall(Buffer& buffer,
+                                const ICUStringFunction& strFn) {
   static_assert(std::is_same_v<typename Buffer::CharType, char16_t> ||
                 std::is_same_v<typename Buffer::CharType, char> ||
                 std::is_same_v<typename Buffer::CharType, uint8_t>);
@@ -219,8 +219,8 @@ class VectorToBufferAdaptor {
  * than a Buffer.
  */
 template <typename ICUStringFunction, size_t InlineSize, typename CharType>
-static ICUResult FillBufferWithICUCall(Vector<CharType, InlineSize>& vector,
-                                       const ICUStringFunction& strFn) {
+ICUResult FillBufferWithICUCall(Vector<CharType, InlineSize>& vector,
+                                const ICUStringFunction& strFn) {
   VectorToBufferAdaptor buffer(vector);
   return FillBufferWithICUCall(buffer, strFn);
 }
@@ -289,15 +289,15 @@ class AutoTArrayToBufferAdapter : public nsTArrayToBufferAdapter<T> {
  * An overload of FillBufferWithICUCall that accepts a nsTArray.
  */
 template <typename ICUStringFunction, typename CharType>
-static ICUResult FillBufferWithICUCall(nsTArray<CharType>& array,
-                                       const ICUStringFunction& strFn) {
+ICUResult FillBufferWithICUCall(nsTArray<CharType>& array,
+                                const ICUStringFunction& strFn) {
   nsTArrayToBufferAdapter<CharType> buffer(array);
   return FillBufferWithICUCall(buffer, strFn);
 }
 
 template <typename ICUStringFunction, typename CharType, size_t N>
-static ICUResult FillBufferWithICUCall(AutoTArray<CharType, N>& array,
-                                       const ICUStringFunction& strFn) {
+ICUResult FillBufferWithICUCall(AutoTArray<CharType, N>& array,
+                                const ICUStringFunction& strFn) {
   AutoTArrayToBufferAdapter<CharType, N> buffer(array);
   return FillBufferWithICUCall(buffer, strFn);
 }
@@ -389,7 +389,7 @@ template <typename Buffer>
  * null terminated.
  */
 template <size_t StackSize>
-[[nodiscard]] static bool FillUTF16Vector(
+[[nodiscard]] bool FillUTF16Vector(
     Span<const char> utf8Span,
     mozilla::Vector<char16_t, StackSize>& utf16TargetVec) {
   // Per ConvertUtf8toUtf16: The length of aDest must be at least one greater

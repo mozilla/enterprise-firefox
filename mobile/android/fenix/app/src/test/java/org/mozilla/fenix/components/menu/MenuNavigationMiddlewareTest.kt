@@ -448,13 +448,67 @@ class MenuNavigationMiddlewareTest {
 
         verify {
             navController.navigate(
-                MenuDialogFragmentDirections.actionMenuDialogFragmentToTranslationsDialogFragment(),
+                MenuDialogFragmentDirections.actionMenuDialogFragmentToTranslationsDialogFragment(
+                    sessionId = tab.id,
+                ),
                 navOptions = NavOptions.Builder()
                     .setPopUpTo(R.id.browserFragment, false)
                     .build(),
             )
         }
     }
+
+    @Test
+    fun `GIVEN a custom tab WHEN showing the translations popup THEN use the custom tab id`() =
+        runTest {
+            val customTab = createCustomTab(url = "https://www.mozilla.org")
+            val store = createStore(
+                scope = this,
+                menuState = MenuState(
+                    browserMenuState = BrowserMenuState(selectedTab = customTab),
+                ),
+            )
+
+            store.dispatch(MenuAction.Navigate.Translate)
+            testScheduler.advanceUntilIdle()
+
+            verify {
+                navController.navigate(
+                    MenuDialogFragmentDirections.actionMenuDialogFragmentToTranslationsDialogFragment(
+                        sessionId = customTab.id,
+                    ),
+                    navOptions = NavOptions.Builder()
+                        .setPopUpTo(R.id.externalAppBrowserFragment, false)
+                        .build(),
+                )
+            }
+        }
+
+    @Test
+    fun `GIVEN a custom tab WHEN showing the summarization popup THEN use the custom tab id`() =
+        runTest {
+            val customTab = createCustomTab(url = "https://www.mozilla.org")
+            val store = createStore(
+                scope = this,
+                menuState = MenuState(
+                    browserMenuState = BrowserMenuState(selectedTab = customTab),
+                ),
+            )
+
+            store.dispatch(MenuAction.Navigate.Summarizer)
+            testScheduler.advanceUntilIdle()
+
+            verify {
+                navController.navigate(
+                    MenuDialogFragmentDirections.actionMenuDialogFragmentToSummarizationFragment(
+                        sessionId = customTab.id,
+                    ),
+                    navOptions = NavOptions.Builder()
+                        .setPopUpTo(R.id.externalAppBrowserFragment, false)
+                        .build(),
+                )
+            }
+        }
 
     @Test
     fun `WHEN navigate to share action is dispatched THEN share use case is invoked and onDismiss is called`() = runTest {

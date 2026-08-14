@@ -71,20 +71,21 @@ class NotificationPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTes
     }
 
     /**
-     * Clicks a notification action button (e.g. "PAUSE", "RESUME", "CANCEL" on a download).
+     * Clicks a download notification action button (Pause / Resume / Cancel), tolerating the button
+     * already being gone.
      *
-     * Retries, because the shade re-lays-out as a download's state changes and a click can land while
-     * the row is being rebuilt. Success is confirmed by the button no longer being present rather than
-     * by the click returning — clicking PAUSE swaps the button for RESUME, so the old label going away
-     * is what actually proves the action was applied.
+     * The button is clicked only if present, and the action is confirmed by it no longer being there:
+     * clicking Pause swaps it for Resume, Cancel removes the notification, so the button going away is
+     * what proves the action was applied. Treating an already-absent button as done is deliberate --
+     * a large download over a real network can auto-pause before the shade is opened, leaving no Pause
+     * button to click, and the resulting paused state is asserted separately. Retries because the shade
+     * re-lays-out as the download's state changes and a click can land while the row is being rebuilt.
      */
-    fun clickNotificationActionButton(action: String): NotificationPage {
-        val selector = NotificationSelectors.NOTIFICATION_ACTION_BUTTON(action)
+    fun clickNotificationActionButton(selector: Selector): NotificationPage {
         var lastError: AssertionError? = null
         repeat(ACTION_RETRIES) {
             try {
-                mozVerify(selector)
-                mozClick(selector)
+                mozClickIfPresent(selector)
                 mozVerifyElementAbsent(selector)
                 return this
             } catch (e: AssertionError) {
@@ -92,16 +93,42 @@ class NotificationPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTes
                 mDevice.waitForWindowUpdate(null, WINDOW_UPDATE_TIMEOUT)
             }
         }
-        throw lastError ?: AssertionError("Could not click notification action button: $action")
+        throw lastError ?: AssertionError("Could not click notification action button: ${selector.description}")
     }
 
-    fun verifyNotificationExists(text: String): NotificationPage {
-        mozVerify(NotificationSelectors.SYSTEM_NOTIFICATION(text))
+    /**
+     * Clicks a media-session notification transport control (Play / Pause), matched by content
+     * description. Mirrors the legacy NotificationRobot.clickMediaNotificationControlButton: a
+     * media-style notification shows its controls in the collapsed state, so unlike a download
+     * notification it needs no [expandNotification] step first.
+     */
+    fun clickMediaNotificationControlButton(action: String): NotificationPage {
+        val button = NotificationSelectors.MEDIA_NOTIFICATION_CONTROL_BUTTON(action)
+        // Wait for the transport control to render before clicking -- it can appear a beat after the
+        // notification's title. Mirrors the legacy waitForExists() + click() sequence.
+        mozVerify(button)
+        mozClick(button)
         return this
     }
 
-    fun verifyNotificationDoesNotExist(text: String): NotificationPage {
-        mozVerifyElementAbsent(NotificationSelectors.SYSTEM_NOTIFICATION(text))
+    /**
+     * Asserts the media notification's Play/Pause toggle is currently showing [action]. The single
+     * toggle button's content description flips between "Play" and "Pause" as playback is paused and
+     * resumed, so this doubles as a playback-state check. Mirrors legacy
+     * verifyMediaSystemNotificationButtonState.
+     */
+    fun verifyMediaNotificationButtonState(action: String): NotificationPage {
+        mozVerify(NotificationSelectors.MEDIA_NOTIFICATION_CONTROL_BUTTON(action))
+        return this
+    }
+
+    fun verifyNotificationExists(selector: Selector): NotificationPage {
+        mozVerify(selector)
+        return this
+    }
+
+    fun verifyNotificationDoesNotExist(selector: Selector): NotificationPage {
+        mozVerifyElementAbsent(selector)
         return this
     }
 

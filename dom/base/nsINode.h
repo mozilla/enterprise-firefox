@@ -1589,6 +1589,7 @@ class nsINode : public mozilla::dom::EventTarget {
                    "Observer already in the list");
 
       s->mMutationObservers.pushBack(aMutationObserver);
+      ForgetObserverChain();
     }
   }
 
@@ -1606,6 +1607,7 @@ class nsINode : public mozilla::dom::EventTarget {
     if (aMutationObserver &&
         !s->mMutationObservers.contains(aMutationObserver)) {
       s->mMutationObservers.pushBack(aMutationObserver);
+      ForgetObserverChain();
     }
   }
 
@@ -1630,8 +1632,39 @@ class nsINode : public mozilla::dom::EventTarget {
    * Removes a mutation observer.
    */
   void RemoveMutationObserver(nsIMutationObserver* aMutationObserver) {
+    // We do not need to invalidate the observer chain cache here. The cache
+    // points to the lowest ancestor that had an observer. If an observer is
+    // removed, the cached skip-to node might become overly conservative, but
+    // it will never skip over new observers, so correctness is preserved.
     if (nsSlots* s = GetExistingSlots()) {
       s->mMutationObservers.remove(aMutationObserver);
+    }
+  }
+
+  /**
+   * Memoizes one ForEachAncestorObserver walk's start node and the lowest
+   * ancestor holding an observer, so repeated mutations against the same node
+   * skip the stretch between them. Only picks where a walk starts, never what
+   * it returns, so a stale skip costs iteration and memory accesses rather than
+   * correctness.
+   */
+  static bool IsObserverChainStart(const nsINode* aNode) {
+    return aNode == sObserverChainStart;
+  }
+  static nsINode* ObserverChainSkipTo(const nsINode* aNode) {
+    return aNode == sObserverChainStart ? sObserverChainSkipTo : nullptr;
+  }
+  static void NoteObserverChain(const nsINode* aStart, nsINode* aSkipTo) {
+    sObserverChainStart = aStart;
+    sObserverChainSkipTo = aSkipTo;
+  }
+  static void ForgetObserverChain() {
+    sObserverChainStart = nullptr;
+    sObserverChainSkipTo = nullptr;
+  }
+  static void ForgetObserverChainIfCached(const nsINode* aNode) {
+    if (aNode == sObserverChainStart || aNode == sObserverChainSkipTo) {
+      ForgetObserverChain();
     }
   }
 
@@ -3230,6 +3263,10 @@ class nsINode : public mozilla::dom::EventTarget {
   // EventListenerManager*, which is null for most nodes; otherwise a non-null
   // nsSlots*, which then owns the manager.  See SetSlots.
   uintptr_t mSlotsOrListenerManager = kListenerManagerBit;
+
+  // See ObserverChainSkipTo.
+  static const nsINode* sObserverChainStart;
+  static nsINode* sObserverChainSkipTo;
 };
 
 NON_VIRTUAL_ADDREF_RELEASE(nsINode)

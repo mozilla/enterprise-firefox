@@ -151,6 +151,56 @@ describe("LinkParagraph component", () => {
       assert.isUndefined(linkKeyAnchor.prop("href"));
     });
 
+    it("should render image segments as an inline-icon img with the resolved src", () => {
+      wrapper.setProps({
+        text_content: {
+          text: [{ imageURL: "chrome://test.svg", alt: "test icon" }],
+        },
+      });
+      const img = wrapper.find(".link-paragraph img");
+      assert.lengthOf(img, 1);
+      assert.strictEqual(img.prop("src"), "chrome://test.svg");
+      assert.strictEqual(img.prop("alt"), "test icon");
+      assert.isTrue(img.hasClass("inline-icon"));
+    });
+
+    it("should default the alt text to an empty string when not provided on an image segment", () => {
+      wrapper.setProps({
+        text_content: {
+          text: [{ imageURL: "chrome://test.svg" }],
+        },
+      });
+      const img = wrapper.find(".link-paragraph img");
+      assert.strictEqual(img.prop("alt"), "");
+    });
+
+    it("should apply CONFIGURABLE_STYLES from an image segment to the img style", () => {
+      wrapper.setProps({
+        text_content: {
+          text: [{ imageURL: "chrome://test.svg", width: "16px" }],
+        },
+      });
+      const img = wrapper.find(".link-paragraph img");
+      assert.strictEqual(img.prop("style").width, "16px");
+    });
+
+    it("should use rtlImageURL for an image segment when in RTL", () => {
+      document.documentElement.setAttribute("dir", "rtl");
+      wrapper.setProps({
+        text_content: {
+          text: [
+            {
+              imageURL: "chrome://ltr.svg",
+              rtlImageURL: "chrome://rtl.svg",
+            },
+          ],
+        },
+      });
+      const img = wrapper.find(".link-paragraph img");
+      assert.strictEqual(img.prop("src"), "chrome://rtl.svg");
+      document.documentElement.removeAttribute("dir");
+    });
+
     it("should fall back to a localized span when a segment has neither href nor link_key", () => {
       wrapper.setProps({
         text_content: { text: [{ raw: "plain segment" }] },

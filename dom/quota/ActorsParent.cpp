@@ -2755,14 +2755,26 @@ void QuotaManager::InitQuotaForOrigin(
   // We set mMetadataDirty directly because the OriginInfo is not yet
   // registered in GroupInfo, so DirtyTrackingAutoLock cannot look it up.
   //
-  // TODO: The mOriginUsage > 0 check avoids queuing origins whose directory
-  // may not exist, which would cause the flush path to requeue them
-  // indefinitely. This should be replaced by checking mDirectoryExists,
-  // with the flush path skipping origins without a directory instead of
-  // requeueing them.
-  if (!cacheRowMatches && aFullOriginMetadata.mDirty &&
-      aFullOriginMetadata.mOriginUsage > 0 &&
-      !mUsageModificationDisabled.load()) {
+  // Enqueue for storage-database flush when the existing row is stale or
+  // missing.
+  //
+  // During a disk scan, dirty origins are enqueued so corrected metadata
+  // is flushed back.  When the storage database is fresh (no origin
+  // rows, inactive reconciliation map), every origin with usage is
+  // enqueued to populate it for the first time.
+  //
+  // Origins loaded directly from the storage database are already
+  // correct.  Callers pass an active reconciliation map for these, so
+  // cacheRowMatches is true and no enqueue happens.
+  //
+  // TODO: The mOriginUsage > 0 guard avoids queuing origins whose
+  // directory may not exist, which would cause the flush path to
+  // requeue them indefinitely.  This should be replaced by checking
+  // mDirectoryExists, with the flush path skipping origins without a
+  // directory instead of requeueing them.
+  if (!cacheRowMatches &&
+      (aFullOriginMetadata.mDirty || !aCacheMap.IsActive()) &&
+      aFullOriginMetadata.mOriginUsage > 0) {
     originInfo->mMetadataDirty = true;
     auto* message = new UnboundedMPSCQueue<RefPtr<OriginInfo>>::Message();
     message->data = originInfo;
@@ -2989,10 +3001,17 @@ nsresult QuotaManager::LoadQuota() {
             "last_access_time, last_maintenance_date, metadata_flags "
             "FROM origin"_ns));
 
+    // Origins loaded from the storage database are already correct, so
+    // InitQuotaForOrigin must not enqueue them for a flush.  We pass an
+    // active reconciliation map so each origin matches its own row and
+    // cacheRowMatches evaluates to true.
+    OriginCacheMap cacheMap;
+    cacheMap.Activate();
+
     QM_TRY(quota::CollectWhileHasResult(
         *stmt,
-        [this, &MaybeCollectUnaccessedOrigin,
-         &aDirtyOrigins](auto& stmt) -> Result<Ok, nsresult> {
+        [this, &MaybeCollectUnaccessedOrigin, &aDirtyOrigins,
+         &cacheMap](auto& stmt) -> Result<Ok, nsresult> {
           QM_TRY_INSPECT(const int32_t& repositoryId,
                          MOZ_TO_RESULT_INVOKE_MEMBER(stmt, GetInt32, 0));
 
@@ -3078,7 +3097,11 @@ nsresult QuotaManager::LoadQuota() {
             if (fullOriginMetadata.mAccessed) {
               AddTemporaryOrigin(fullOriginMetadata);
 
-              InitQuotaForOrigin(fullOriginMetadata);
+              cacheMap.InsertOrUpdate(fullOriginMetadata.mPersistenceType,
+                                      fullOriginMetadata.mOrigin,
+                                      fullOriginMetadata.Clone());
+              InitQuotaForOrigin(fullOriginMetadata,
+                                 /* aDirectoryExists */ true, cacheMap);
             }
           }
 

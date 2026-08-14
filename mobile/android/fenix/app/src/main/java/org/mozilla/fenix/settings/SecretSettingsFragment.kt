@@ -224,6 +224,11 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_show_more_shortcuts).apply {
+            isChecked = settings.showMoreShortcuts
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_merino_client).apply {
             isChecked = settings.enableMerinoClient
             onPreferenceChangeListener = SharedPreferenceUpdater()
@@ -490,7 +495,7 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         }
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_native_share_sheet).apply {
-            isVisible = Config.channel.isNightlyOrDebug
+            isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
             isChecked = settings.nativeShareSheetEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }

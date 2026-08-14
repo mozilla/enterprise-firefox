@@ -18,6 +18,8 @@ internal object TopSitesTestTag {
 
     const val TOP_SITES_PAGER_INDICATOR = "$TOP_SITES.pager_indicator"
 
+    const val EXPAND_TOGGLE = "$TOP_SITES.expand_toggle"
+
     // Contextual/DropDown menu
     const val TOP_SITE_CONTEXTUAL_MENU = "$TOP_SITES.top_site_contextual_menu"
     const val OPEN_IN_PRIVATE_TAB = "$TOP_SITE_CONTEXTUAL_MENU.open_in_private_tab"

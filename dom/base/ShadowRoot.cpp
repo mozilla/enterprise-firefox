@@ -1033,6 +1033,9 @@ void ShadowRoot::SetCustomElementRegistry(CustomElementRegistry* aRegistry) {
   if (aRegistry->IsScoped()) {
     SetCustomElementRegistryState(CustomElementRegistryState::Scoped);
     CustomElementRegistry::SetScopedRegistry(*this, *aRegistry);
+    // https://html.spec.whatwg.org/#scoped-document-set
+    // Append shadow root's node document to the registry's scoped document set.
+    aRegistry->AddToScopedDocumentSet(OwnerDoc());
   } else {
     MOZ_ASSERT(aRegistry == OwnerDoc()->GetCustomElementRegistry(),
                "Tried to set a global registry different to docs");
