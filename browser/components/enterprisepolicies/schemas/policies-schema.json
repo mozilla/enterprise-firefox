@@ -1835,7 +1835,7 @@
         "firefox_enterprise": { "version_added": "149" }
       },
       "description": "Enable an enterprise-managed primary password so that stored credentials and other sensitive profile data are kept encrypted at rest.",
-      "examples": [true, false]
+      "examples": [true]
     },
 
     "ExemptDomainFileTypePairsFromFileTypeDownloadWarnings": {
