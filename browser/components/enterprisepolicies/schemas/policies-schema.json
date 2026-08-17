@@ -64,7 +64,7 @@
       "x-compatibility": {
         "firefox": { "version_added": false },
         "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "151" }
+        "firefox_enterprise": { "version_added": "149" }
       },
       "description": "Configures an Access Connector for proxying web traffic. Traffic is routed through the server by 'Host' and 'Port'. If 'MatchPatterns' is set, only URLs matching those patterns are routed through the connector.",
       "examples": [
@@ -105,7 +105,7 @@
       "x-compatibility": {
         "firefox": { "version_added": false },
         "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "151" }
+        "firefox_enterprise": { "version_added": "149" }
       },
       "description": "Controls access to AI chat services. Built-in providers can be enabled individually. For custom providers, add them to the 'Add' array. The 'Default' field specifies which provider is used by default.",
       "examples": [
@@ -1045,7 +1045,7 @@
       "x-compatibility": {
         "firefox": { "version_added": false },
         "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "151" }
+        "firefox_enterprise": { "version_added": "154" }
       },
       "description": "Configure crash report submission settings.",
       "examples": [
@@ -1422,7 +1422,7 @@
       "x-compatibility": {
         "firefox": { "version_added": false },
         "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "154" }
+        "firefox_enterprise": { "version_added": "155" }
       },
       "description": "Disable all local policy sources (policies.json, Windows GPO and macOS plist).",
       "examples": [true, false]
@@ -3661,7 +3661,7 @@
       "x-compatibility": {
         "firefox": { "version_added": false },
         "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "149" }
+        "firefox_enterprise": { "version_added": "150" }
       },
       "description": "Enable or disable sync and define which data to include.",
       "examples": [
