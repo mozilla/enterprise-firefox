@@ -111,8 +111,8 @@ nsresult WasmModuleBackend::EnsureReady() {
   // Kick off fetching the module now instead of waiting for the first
   // Analyze(), so the console round trip isn't on the critical path of the
   // first real request.
-  // If this doesn't succeed an error will be returned when a "real" request
-  // happens, as it will return the rejected promise.
+  // If this doesn't succeed, the EnsureModuleReady() call will try again
+  // the next time it's called.
   RefPtr<dom::Promise> promise;
   if (NS_SUCCEEDED(runner->EnsureModuleReady(getter_AddRefs(promise))) &&
       promise) {
