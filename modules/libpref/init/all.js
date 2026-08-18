@@ -3157,8 +3157,14 @@ pref("extensions.webextensions.ExtensionStorageIDB.enabled", true);
 
 // Whether to allow the inline options browser in HTML about:addons page.
 pref("extensions.htmlaboutaddons.inline-options.enabled", true);
-// Show recommendations on the extension and theme list views.
+
+// Show recommendations on the extension and theme list views. AMO
+// recommendations are not relevant where add-ons are managed by policy.
+#ifdef MOZ_ENTERPRISE
+pref("extensions.htmlaboutaddons.recommendations.enabled", false);
+#else
 pref("extensions.htmlaboutaddons.recommendations.enabled", true);
+#endif
 
 // Whether the Nova Themes picker should be enabled in the about:addons page.
 // (disabled by default here, so that other applications embedding Gecko

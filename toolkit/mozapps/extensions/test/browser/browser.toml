@@ -70,6 +70,9 @@ skip-if = [
   "true", # Bug 1626824
 ]
 
+["browser_enterprise_recommendations_prefs.js"]
+run-if = ["enterprise"]
+
 ["browser_file_xpi_no_process_switch.js"]
 
 ["browser_globalwarnings.js"]
