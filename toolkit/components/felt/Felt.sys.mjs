@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   WebAuthnPromptHelper:
     "moz-src:///toolkit/modules/WebAuthnPromptHelper.sys.mjs",
+  FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
 });
 
 if (lazy.isBuildAppBrowser()) {
@@ -255,7 +256,7 @@ export class Felt {
     }
   }
 
-  receiveMessage(message) {
+  async receiveMessage(message) {
     lazy.log.debug(`${message.name} handling ...`);
     switch (message.name) {
       case "FeltParent:FirefoxNormalExit": {
@@ -264,11 +265,16 @@ export class Felt {
           this
         );
 
+        // A clean browser exit means signing out: locking is an explicit
+        // action that travels its own path (FeltProcessParent handles
+        // "felt-firefox-lock"), so here we always sign out the server session
+        // and drop any token left over from a previous lock.
         lazy.ConsoleClient.performServerSignout()
           .catch(err => {
             console.error(`Failed to post signout on exit: ${err}`);
           })
-          .finally(() => {
+          .finally(async () => {
+            await lazy.FeltLocking.clear();
             Services.felt.clearTokens();
             // This is only useful for testing purpose when we need to exit the
             // browser cleanly but need to keep felt alive for some processing after

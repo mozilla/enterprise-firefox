@@ -364,6 +364,21 @@ impl FeltXPCOM {
         }
     }
 
+    fn PerformLock(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::PerformLock");
+        let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
+        match &*guard {
+            Some(client) => {
+                client.notify_lock();
+                NS_OK
+            }
+            None => {
+                trace!("performLock(): missing client");
+                NS_ERROR_FAILURE
+            }
+        }
+    }
+
     fn IpcChannel(&self) -> nserror::nsresult {
         let felt_server = match self.one_shot_server.take() {
             Some(f) => f,
@@ -450,6 +465,10 @@ impl FeltXPCOM {
                             Ok(FeltMessage::LogoutShutdown) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for logout");
                                 crate::utils::notify_observers("felt-firefox-logout".to_string());
+                            }
+                            Ok(FeltMessage::Lock) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for lock");
+                                crate::utils::notify_observers("felt-firefox-lock".to_string());
                             }
                             Ok(FeltMessage::AccessToken((access_token, expires_at))) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Update tokens from browser");

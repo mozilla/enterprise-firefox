@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   resolveManagedProfile: "chrome://felt/content/FeltCommon.sys.mjs",
+  FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -126,6 +127,7 @@ const kBrowserObserverTopics = [
   "felt-firefox-restarting",
   "felt-ready",
   "felt-firefox-logout",
+  "felt-firefox-lock",
   "felt-firefox-tokens",
   "felt-firefox-refresh-tokens",
 ];
@@ -310,6 +312,10 @@ export class FeltProcessParent extends JSProcessActorParent {
             gFeltProcessParentInstance.logoutFirefox().catch(err => {
               lazy.log.error(`Logout failed: ${err}`);
             });
+            break;
+
+          case "felt-firefox-lock":
+            gFeltProcessParentInstance.lockFirefox();
             break;
 
           case "felt-firefox-tokens": {
@@ -1080,7 +1086,9 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.log.error(`Server signout failed: ${err}`);
     }
 
-    // clear token data on the FELT side, then shut Firefox down
+    // Drop any stored locked-session token and clear token data on the
+    // FELT side, then shut Firefox down.
+    lazy.FeltLocking.clear();
     Services.felt.clearTokens();
     Services.felt.shutdownFirefox();
     gFeltProcessParentInstance.proc.exitPromise.then(_ => {
@@ -1090,6 +1098,49 @@ export class FeltProcessParent extends JSProcessActorParent {
     });
   }
 
+  /**
+   * Lock the session on the FELT side: persist the (encrypted) refresh token
+   * so it can be unlocked later, then shut Firefox down without signing the
+   * server session out. Mirrors logoutFirefox().
+   */
+  lockFirefox() {
+    if (!Services.felt.isFeltUI()) {
+      throw new Error("Lock handling should only happen on FELT side.");
+    }
+
+    if (gFeltProcessParentInstance.logoutReported) {
+      lazy.log.debug("lockFirefox: shutdown already in progress, skipping.");
+      return;
+    }
+
+    // Reuse logoutReported so startFirefox()'s exit handler does not also send
+    // FirefoxNormalExit (which would sign the session out).
+    gFeltProcessParentInstance.logoutReported = true;
+
+    let locked = true;
+    lazy.FeltLocking.store(Services.felt.getRefreshToken())
+      .catch(async err => {
+        // If we cannot persist the session there is nothing to unlock later,
+        // so fall back to a server signout rather than leaving a dangling
+        // session behind, and drop any stale stored token.
+        locked = false;
+        lazy.log.error(`Locking failed, falling back to signout: ${err}`);
+        await lazy.FeltLocking.clear();
+        return lazy.ConsoleClient.performServerSignout().catch(e => {
+          lazy.log.error(`Server signout failed: ${e}`);
+        });
+      })
+      .finally(() => {
+        Services.felt.clearTokens();
+        Services.felt.shutdownFirefox();
+        gFeltProcessParentInstance.proc.exitPromise.then(_ => {
+          Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
+            reason: locked ? "lock" : "logout",
+          });
+        });
+      });
+  }
+
   async receiveMessage(message) {
     lazy.log.debug(
       `ParentProcess: Received message ${message.name} => ${message.data}`
@@ -1097,6 +1148,11 @@ export class FeltProcessParent extends JSProcessActorParent {
     switch (message.name) {
       case "FeltChild:StartFirefox":
         {
+          // An unlock resumes with the tokens already set on the FELT side (see
+          // FeltLocking.tryUnlock), so message.data is empty; a fresh SSO login
+          // carries the login payload here.
+          const isUnlock = !message.data?.user_id;
+
           const {
             one_time_token = "",
             user_id,
@@ -1104,22 +1160,28 @@ export class FeltProcessParent extends JSProcessActorParent {
             posture: postureConfig,
           } = message.data;
 
-          // The profile is derived from the user id, so without one the session
-          // would run in the profile shared by every user.
-          if (!user_id) {
-            lazy.log.error("SSO callback carried no user id");
-            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
-              errorType: "loginFailed",
-            });
-            break;
+          if (isUnlock && !Services.felt.getRefreshToken()) {
+            throw new Error("No token!");
           }
 
-          this.loggedInUserInfo = { id: user_id, email };
-          lazy.FeltStorage.updateLastSignedInUserEmail(email);
+          if (!isUnlock) {
+            // The profile is derived from the user id, so without one the session
+            // would run in the profile shared by every user.
+            if (!user_id) {
+              lazy.log.error("SSO callback carried no user id");
+              Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+                errorType: "loginFailed",
+              });
+              break;
+            }
 
-          // Login starts a fresh session, so an absent list clears the probe
-          // list of the previous one rather than preserving it.
-          lazy.EdrAgents.write(postureConfig?.edr_agents);
+            this.loggedInUserInfo = { id: user_id, email };
+            lazy.FeltStorage.updateLastSignedInUserEmail(email);
+
+            // Login starts a fresh session, so an absent list clears the probe
+            // list of the previous one rather than preserving it.
+            lazy.EdrAgents.write(postureConfig?.edr_agents);
+          }
 
           // Read the extension list from the profile on disk, before the browser
           // is spawned and its AddonManager rewrites extensions.json.
@@ -1140,28 +1202,31 @@ export class FeltProcessParent extends JSProcessActorParent {
             break;
           }
 
-          let tokens;
-          try {
-            tokens = await lazy.ConsoleClient.redeemOneTimeToken(
-              one_time_token,
-              posture
-            );
-          } catch (e) {
-            lazy.log.error("One-time-token redemption failed:", e);
-            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
-              errorType: "loginFailed",
-            });
-            break;
+          if (!isUnlock) {
+            let tokens;
+            try {
+              tokens = await lazy.ConsoleClient.redeemOneTimeToken(
+                one_time_token,
+                posture
+              );
+            } catch (e) {
+              lazy.log.error("One-time-token redemption failed:", e);
+              Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+                errorType: "loginFailed",
+              });
+              break;
+            }
+
+            const {
+              access_token = "",
+              refresh_token = "",
+              expires_in = 0,
+            } = tokens;
+
+            const expires_at =
+              Math.floor(Date.now() / 1000) + Number(expires_in);
+            Services.felt.setTokens(access_token, refresh_token, expires_at);
           }
-
-          const {
-            access_token = "",
-            refresh_token = "",
-            expires_in = 0,
-          } = tokens;
-
-          const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
-          Services.felt.setTokens(access_token, refresh_token, expires_at);
           gSessionGeneration += 1;
 
           // The console has this posture now: the baseline the monitor diffs
@@ -1172,7 +1237,7 @@ export class FeltProcessParent extends JSProcessActorParent {
           lazy.log.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
           // When a restart was reported we assume cookies were stored properly on the
           // browser side?
-          if (!ssoCollectedCookies.length) {
+          if (!isUnlock && !ssoCollectedCookies.length) {
             throw new Error("Not enough cookies!!");
           }
 

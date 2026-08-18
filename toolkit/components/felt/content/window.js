@@ -11,6 +11,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CaptivePortal: "resource://gre/modules/enterprise/CaptivePortal.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
+  FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
   FeltErrorReport: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
   ERROR_SOURCE: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
@@ -107,6 +108,11 @@ function resetToLoginPageWithError(errorType, details = null, cause = null) {
 }
 
 async function connectToConsole(email) {
+  const browser = document.getElementById("browser");
+  if (await lazy.FeltLocking.tryUnlock(email, browser)) {
+    return;
+  }
+
   // One attempt at a time: block a concurrent second submit or resume.
   if (signInInFlight) {
     return;
@@ -142,7 +148,6 @@ async function connectToConsole(email) {
     return;
   }
 
-  const browser = document.getElementById("browser");
   browser.setAttribute("maychangeremoteness", "true");
   browser.setAttribute(
     "remoteType",

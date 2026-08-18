@@ -32,6 +32,8 @@ pref("enterprise.prompt_on_signout", true);
 //              or is it fine to apply it to any enterprise build?
 pref("app.update.checkOnlyInstance.enabled", false);
 pref("app.update.background.enabled", true);
+// Allow locking the session (persist behind OS auth) instead of signing out.
+pref("enterprise.session.locking.enabled", false);
 #endif
 
 // Set add-ons abuse report related prefs specific to Firefox Desktop.

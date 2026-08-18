@@ -97,6 +97,42 @@ export const FeltStorage = {
     await this._feltStorage._save();
   },
 
+  /**
+   * Gets the stored (encrypted) refresh token for a locked session, if any.
+   *
+   * @param {string} email
+   * @returns {string | undefined} The encrypted refresh token.
+   */
+  getLockingToken(email) {
+    return this._feltStorage.data?.lockingTokens?.[email];
+  },
+
+  /**
+   * Stores the (already encrypted) refresh token for a locked session.
+   *
+   * @param {string} email
+   * @param {string} token The encrypted refresh token.
+   */
+  setLockingToken(email, token) {
+    if (!this._feltStorage.data.lockingTokens) {
+      this._feltStorage.data.lockingTokens = {};
+    }
+    this._feltStorage.data.lockingTokens[email] = token;
+    this._feltStorage.saveSoon();
+  },
+
+  /**
+   * Removes any stored locked-session token for the given user.
+   *
+   * @param {string} email
+   */
+  clearLockingToken(email) {
+    if (this._feltStorage.data.lockingTokens?.[email] !== undefined) {
+      delete this._feltStorage.data.lockingTokens[email];
+      this._feltStorage.saveSoon();
+    }
+  },
+
   async uninit() {
     this._feltStorage = {};
     this._initialized = false;
