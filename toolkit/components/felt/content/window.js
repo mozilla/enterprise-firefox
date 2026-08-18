@@ -108,11 +108,6 @@ function resetToLoginPageWithError(errorType, details = null, cause = null) {
 }
 
 async function connectToConsole(email) {
-  const browser = document.getElementById("browser");
-  if (await lazy.FeltLocking.tryUnlock(email, browser)) {
-    return;
-  }
-
   // One attempt at a time: block a concurrent second submit or resume.
   if (signInInFlight) {
     return;
@@ -138,6 +133,25 @@ async function connectToConsole(email) {
     lazy.CaptivePortal.recheck();
     lazy.CaptivePortal.maybeResumeUpdates();
     await lazy.FeltErrorReport.handleXhrError(err);
+    return;
+  }
+
+  const browser = document.getElementById("browser");
+
+  try {
+    // On success tryUnlock has already committed the resumed tokens and started
+    // Firefox through the parent actor, so return and skip the SSO flow below.
+    if (await lazy.FeltLocking.tryUnlock(email, browser)) {
+      return;
+    }
+  } catch (err) {
+    if (attempt !== signInGeneration) {
+      // Superseded (abandoned on a portal-clear retry); drop silently.
+      return;
+    }
+    // Surface a failed launch instead of leaving the window stuck in-flight.
+    lazy.log.error(`Unlock failed: ${err}`);
+    resetToLoginPageWithError("felt-browser-error-connection");
     return;
   }
 

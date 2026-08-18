@@ -90,16 +90,6 @@ export const FeltLocking = {
             Services.felt.setTokens(access_token, refresh_token, expires_at);
 
             await storeToken(email, refresh_token);
-
-            const parentActor =
-              browser.browsingContext.currentWindowGlobal.domProcess.getActor(
-                "FeltProcess"
-              );
-            parentActor.receiveMessage({
-              name: "FeltChild:StartFirefox",
-              data: {},
-            });
-            return true;
           } catch (err) {
             Services.felt.setTokens("", "", 0);
             if (err?.name === "ReauthRequiredError") {
@@ -113,7 +103,20 @@ export const FeltLocking = {
                 `tryUnlock: transient failure resuming from token, keeping it: ${err}`
               );
             }
+            return false;
           }
+
+          // Tokens are committed; from here a failure is a launch failure, not
+          // a reason to fall back to SSO, so let it propagate to the caller.
+          const parentActor =
+            browser.browsingContext.currentWindowGlobal.domProcess.getActor(
+              "FeltProcess"
+            );
+          await parentActor.receiveMessage({
+            name: "FeltChild:StartFirefox",
+            data: {},
+          });
+          return true;
         }
       }
     }
@@ -150,9 +153,9 @@ export const FeltLocking = {
    * (even when locking is disabled) so signing out can never leave a credential
    * behind. No-op when no user is known or nothing is stored.
    *
-   * @returns {Promise<void>}
+   * @returns {void}
    */
-  clear: async () => {
+  clear: () => {
     const email = currentEmail();
     if (!email) {
       return;

@@ -1119,13 +1119,13 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     let locked = true;
     lazy.FeltLocking.store(Services.felt.getRefreshToken())
-      .catch(async err => {
+      .catch(err => {
         // If we cannot persist the session there is nothing to unlock later,
         // so fall back to a server signout rather than leaving a dangling
         // session behind, and drop any stale stored token.
         locked = false;
         lazy.log.error(`Locking failed, falling back to signout: ${err}`);
-        await lazy.FeltLocking.clear();
+        lazy.FeltLocking.clear();
         return lazy.ConsoleClient.performServerSignout().catch(e => {
           lazy.log.error(`Server signout failed: ${e}`);
         });

@@ -270,8 +270,8 @@ export class Felt {
           .catch(err => {
             console.error(`Failed to post signout on exit: ${err}`);
           })
-          .finally(async () => {
-            await lazy.FeltLocking.clear();
+          .finally(() => {
+            lazy.FeltLocking.clear();
             Services.felt.clearTokens();
             this.#quitOrHoldForShutdown();
           });
