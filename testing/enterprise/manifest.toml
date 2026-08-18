@@ -65,6 +65,16 @@ run-if = [
   "buildapp == 'browser'", # open new tab
 ]
 
+["test_felt_browser_packagekit_no_firefox_update.py"]
+run-if = [
+  "os == 'linux'",
+]
+
+["test_felt_browser_packagekit_one_firefox_update.py"]
+run-if = [
+  "os == 'linux'",
+]
+
 ["test_felt_browser_rapid_new_tabs_from_cli.py"]
 run-if = [
   "os == 'mac' && buildapp == 'browser'",
@@ -180,7 +190,17 @@ disabled = "Bug 1996558: scaffolding for the Felt UI scratch-reset flow; not run
 
 ["test_felt_updater_errors.py"]
 
-["test_felt_updates_apply.py"]
+["test_felt_updates_directory_packagekit.py"]
+run-if = [
+  "os == 'linux'",
+]
+
+["test_felt_updates_apply_from_packagekit.py"]
+run-if = [
+  "os == 'linux'",
+]
+
+["test_felt_updates_apply_from_updater.py"]
 
 ["test_felt_updates_basic.py"]
 

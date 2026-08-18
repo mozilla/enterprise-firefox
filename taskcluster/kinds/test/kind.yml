@@ -93,4 +93,5 @@ task-defaults:
                 default:
                     - linux64-minidump-stackwalk
                     - linux64-fix-stacks
+                    - linux-python-dbusmock
                     - linux64-2404-dbus-python

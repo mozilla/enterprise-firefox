@@ -26,24 +26,51 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
-XPCOMUtils.defineLazyServiceGetter(
-  lazy,
-  "AUS",
-  "@mozilla.org/updates/update-service;1",
-  Ci.nsIApplicationUpdateService
-);
-XPCOMUtils.defineLazyServiceGetter(
-  lazy,
-  "UM",
-  "@mozilla.org/updates/update-manager;1",
-  Ci.nsIUpdateManager
-);
-XPCOMUtils.defineLazyServiceGetter(
-  lazy,
-  "CheckSvc",
-  "@mozilla.org/updates/update-checker;1",
-  Ci.nsIUpdateChecker
-);
+if (Services.prefs.getBoolPref("app.update.use_package_kit", false)) {
+  LOG(
+    `UpdateService.sys.mjs: @mozilla.org/updates/packagekit-update-checker;1`
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "CheckSvc",
+    "@mozilla.org/updates/packagekit-update-checker;1",
+    Ci.nsIUpdateChecker
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "AUS",
+    "@mozilla.org/updates/packagekit-update-service;1",
+    Ci.nsIApplicationUpdateService
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "UM",
+    // "@mozilla.org/updates/packagekit-update-manager;1",
+    "@mozilla.org/updates/update-manager;1",
+    Ci.nsIUpdateManager
+  );
+} else {
+  LOG(`UpdateService.sys.mjs: @mozilla.org/updates/update-checker;1`);
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "CheckSvc",
+    "@mozilla.org/updates/update-checker;1",
+    Ci.nsIUpdateChecker
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "AUS",
+    "@mozilla.org/updates/update-service;1",
+    Ci.nsIApplicationUpdateService
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "UM",
+    "@mozilla.org/updates/update-manager;1",
+    Ci.nsIUpdateManager
+  );
+}
+
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "UpdateServiceStub",
@@ -4024,6 +4051,10 @@ export class UpdateService {
       await cleanupDownloadingUpdate();
     }
     AUSTLMY.pingCheckCode(this._pingSuffix, AUSTLMY.CHK_DOWNLOAD_UPDATE);
+  }
+
+  get supportsUpdates() {
+    return !Services.sysinfo.getProperty("isPackagedApp");
   }
 
   /**

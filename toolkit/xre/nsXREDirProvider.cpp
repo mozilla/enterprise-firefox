@@ -117,7 +117,7 @@ static const char* GetAppName() {
 }
 #endif
 
-#ifdef XP_MACOSX
+#if defined(XP_MACOSX) || (defined(MOZ_ENTERPRISE) && defined(XP_LINUX))
 static const char* GetAppVendor() {
   if (gAppData) {
     return gAppData->vendor;
@@ -962,6 +962,71 @@ nsresult nsXREDirProvider::GetUpdateRootDir(nsIFile** aResult,
   NS_ENSURE_SUCCESS(rv, rv);
   rv = appFile->GetParent(getter_AddRefs(updRoot));
   NS_ENSURE_SUCCESS(rv, rv);
+
+#if defined(MOZ_ENTERPRISE) && defined(XP_LINUX)
+  // This is intended for the usecase of using PackageKit to perform app update
+  // when running from a packaged app, like debian package. When running on
+  // Linux the default behavior for "UpdRootD" as documented in nsXULAppAPI.h is
+  // "Parent directory of XRE_EXECUTABLE_FILE".
+  //
+  // Which is fine when app is installed e.g. under $HOME/bin/, but is not fine
+  // for e.g. debian package installing in system locations that is not
+  // user-writeable.
+  //
+  // This directory is used to store some of the update's state, so it needs to
+  // be writeable.
+  //
+  // When on Linux with PackageKit updates enabled let's build a directory out
+  // of user's data home where it is writeable, similar to macOS,
+  // e.g. $HOME/.cache/<vendor>/updates/.
+  //
+  // XXX: Add testing for this otherwise it can only be verified at runtime
+  // **from a debian package**
+  //
+
+  if (mozilla::Preferences::GetBool("app.update.use_package_kit", false) &&
+      !mozilla::Preferences::GetBool(
+          "app.update.use_package_kit_dont_override_updates_dir", false)) {
+    nsCOMPtr<nsIFile> appRootDirFile;
+    nsCOMPtr<nsIFile> localDir;
+    if (NS_FAILED(appFile->GetParent(getter_AddRefs(appRootDirFile))) ||
+        NS_FAILED(GetUserDataDirectoryHome(getter_AddRefs(localDir),
+                                           /* aLocal */ true))) {
+      return NS_ERROR_FAILURE;
+    }
+
+    bool hasVendor = GetAppVendor() && strlen(GetAppVendor()) != 0;
+    if (hasVendor) {
+      nsCString vendor;
+      ToLowerCase(nsDependentCString(GetAppVendor()), vendor);
+
+      if (NS_FAILED(localDir->AppendNative(vendor))) {
+        return NS_ERROR_FAILURE;
+      }
+    } else if (NS_FAILED(localDir->AppendNative("mozilla"_ns))) {
+      return NS_ERROR_FAILURE;
+    }
+
+    nsAutoCString updatePath;
+    localDir->GetNativePath(updatePath);
+
+    if (NS_FAILED(localDir->Append(u"updates"_ns))) {
+      return NS_ERROR_FAILURE;
+    }
+
+    localDir->GetNativePath(updatePath);
+
+    nsCString appName;
+    ToLowerCase(nsDependentCString(GetAppName()), appName);
+    if (NS_FAILED(localDir->AppendNative(appName))) {
+      return NS_ERROR_FAILURE;
+    }
+
+    localDir->GetNativePath(updatePath);
+    localDir.forget(aResult);
+    return NS_OK;
+  }
+#endif
 
 #ifdef XP_MACOSX
   nsCOMPtr<nsIFile> appRootDirFile;

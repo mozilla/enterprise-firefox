@@ -116,14 +116,26 @@ export class UpdateServiceStub {
   }
 
   async #initUpdate() {
+    let updateCheckerContract = "@mozilla.org/updates/update-checker;1";
+    let updateServiceContract = "@mozilla.org/updates/update-service;1";
+    let updateManagerContract = "@mozilla.org/updates/update-manager;1";
+    if (Services.prefs.getBoolPref("app.update.use_package_kit", false)) {
+      updateCheckerContract =
+        "@mozilla.org/updates/packagekit-update-checker;1";
+      updateServiceContract =
+        "@mozilla.org/updates/packagekit-update-service;1";
+      // updateManagerContract = "@mozilla.org/updates/packagekit-update-manager;1";
+    }
+
     // Ensure that the constructors for the update services have run.
-    const aus = Cc["@mozilla.org/updates/update-service;1"].getService(
+    const aus = Cc[updateServiceContract].getService(
       Ci.nsIApplicationUpdateService
     );
-    await Cc["@mozilla.org/updates/update-manager;1"]
+    await Cc[updateManagerContract]
       .getService(Ci.nsIUpdateManager)
       .internal.reload(false);
-    Cc["@mozilla.org/updates/update-checker;1"].getService(Ci.nsIUpdateChecker);
+
+    Cc[updateCheckerContract].getService(Ci.nsIUpdateChecker);
 
     // Run update service initialization
     await aus.internal.init(false);
@@ -211,8 +223,15 @@ export class UpdateServiceStub {
     return (
       (Services.policies && !Services.policies.isAllowed("appUpdate")) ||
       this.updateDisabledForTesting ||
-      Services.sysinfo.getProperty("isPackagedApp")
+      !this.supportsUpdates
     );
+  }
+
+  get supportsUpdates() {
+    if (Services.prefs.getBoolPref("app.update.use_package_kit", false)) {
+      return true;
+    }
+    return !Services.sysinfo.getProperty("isPackagedApp");
   }
 
   async observe(_subject, topic, _data) {

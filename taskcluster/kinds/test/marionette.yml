@@ -22,7 +22,6 @@ task-defaults:
                     - marionette/windows_taskcluster_config.py
                 linux.*:
                     - marionette/prod_config.py
-                    - unittests/linux_dbus-python.py
                     - remove_executables.py
                 default:
                     - marionette/prod_config.py
@@ -154,6 +153,11 @@ marionette-enterprise:
                 windows.*:
                     - marionette/windows_taskcluster_config.py
                     - marionette/enterprise_config.py
+                linux.*:
+                    - marionette/prod_config.py
+                    - marionette/enterprise_config.py
+                    - unittests/linux_dbus-python.py
+                    - remove_executables.py
                 default:
                     - marionette/prod_config.py
                     - marionette/enterprise_config.py
