@@ -68,7 +68,14 @@ export const FeltLocking = {
           "Firefox Enterprise"
         );
         if (authenticated) {
-          const refreshToken = await lazy.OSKeyStore.decrypt(token, "", false);
+          let refreshToken;
+          try {
+            refreshToken = await lazy.OSKeyStore.decrypt(token, "", false);
+          } catch (err) {
+            lazy.log.warn(
+              `tryUnlock: decrypt failed, falling back to sign-in: ${err}`
+            );
+          }
           if (!refreshToken) {
             Services.felt.setTokens("", "", 0);
             lazy.FeltStorage.clearLockingToken(email);

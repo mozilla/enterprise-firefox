@@ -24,6 +24,8 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.prompt_on_signout";
 const WARN_ON_CLOSE_PREF = "browser.tabs.warnOnClose";
+const LOCK_ENABLED_PREF = "enterprise.session.locking.enabled";
+const LOCK_ON_CLOSE_PREF = "enterprise.session.locking.on_close";
 
 export const EnterpriseHandler = {
   /**
@@ -121,8 +123,10 @@ export const EnterpriseHandler = {
     warnOnSignout,
     warnOnCloseWithTabs,
   } = {}) {
+    const lockOnClose = this.willLockOnClose;
     const hasMultipleTabs = tabCount > 1;
     const hasTabsWarning = hasMultipleTabs && warnOnCloseWithTabs;
+    const lockSuffix = lockOnClose ? "-lock" : "";
 
     let titleId, messageId;
     if (hasTabsWarning) {
@@ -131,13 +135,17 @@ export const EnterpriseHandler = {
         id: `enterprise-close-prompt-title-with-tabcount${warnSuffix}`,
         args: { tabCount },
       };
+      // Titles are action-neutral; only the message reflects lock vs sign-out.
+      const tabsLockSuffix = warnOnSignout ? "-and-lock-warning" : "-lock";
       messageId = {
-        id: `enterprise-close-prompt-message-with-tabcount${warnSuffix}`,
+        id: `enterprise-close-prompt-message-with-tabcount${
+          lockOnClose ? tabsLockSuffix : warnSuffix
+        }`,
         args: warnOnSignout ? { tabCount } : {},
       };
     } else {
       titleId = { id: "enterprise-close-prompt-title" };
-      messageId = { id: "enterprise-close-prompt-message" };
+      messageId = { id: `enterprise-close-prompt-message${lockSuffix}` };
     }
 
     const [
@@ -150,9 +158,9 @@ export const EnterpriseHandler = {
     ] = await lazy.localization.formatValues([
       titleId,
       messageId,
-      { id: "enterprise-close-prompt-primary-btn-label" },
-      { id: "enterprise-close-prompt-message-reauth" },
-      { id: "enterprise-close-prompt-checkbox-label" },
+      { id: `enterprise-close-prompt-primary-btn-label${lockSuffix}` },
+      { id: `enterprise-close-prompt-message${lockSuffix}-reauth` },
+      { id: `enterprise-close-prompt-checkbox-label${lockSuffix}` },
       { id: "enterprise-close-prompt-tabs-checkbox-label" },
     ]);
 
@@ -172,7 +180,9 @@ export const EnterpriseHandler = {
     return {
       title,
       message,
-      reauthNotice: warnOnSignout ? reauthNotice : null,
+      // When locking, the resume notice is always shown; when signing out it is
+      // only shown if the user opted into sign-out warnings.
+      reauthNotice: lockOnClose || warnOnSignout ? reauthNotice : null,
       acceptLabel,
       checkboxes,
       accepted: false,
@@ -218,28 +228,18 @@ export const EnterpriseHandler = {
   },
 
   /**
-   * Determines whether the signout/close prompt should be shown based on preferences and current state.
+   * Whether to run the close flow, or let the re-quit from an already-started
+   * enterprise shutdown through.
    *
-   * @returns {boolean} True if the prompt should be shown, false otherwise.
+   * @returns {boolean} True to run the close flow, false while an enterprise
+   *   shutdown is already underway so its re-quit proceeds.
    */
-  shouldShowClosePrompt() {
+  shouldHandleClose() {
     if (this._skipSignoutPrompt) {
       this._skipSignoutPrompt = false;
       return false;
     }
-    const warnOnSignout = Services.prefs.getBoolPref(
-      PROMPT_ON_SIGNOUT_PREF,
-      true
-    );
-    const warnOnCloseWithTabs = Services.prefs.getBoolPref(
-      WARN_ON_CLOSE_PREF,
-      false
-    );
-    if (!warnOnSignout && !warnOnCloseWithTabs) {
-      return false;
-    }
-    this._tabCount = this._countOpenTabs();
-    return warnOnSignout || this._tabCount > 1;
+    return true;
   },
 
   /**
@@ -315,5 +315,40 @@ export const EnterpriseHandler = {
     }
 
     lazy.initiateShutdown();
+  },
+
+  /**
+   * Whether closing the browser will lock the session (persist it behind OS
+   * auth to resume later) rather than sign out, per the locking prefs.
+   *
+   * @returns {boolean}
+   */
+  get willLockOnClose() {
+    return (
+      Services.prefs.getBoolPref(LOCK_ENABLED_PREF, false) &&
+      Services.prefs.getBoolPref(LOCK_ON_CLOSE_PREF, false)
+    );
+  },
+
+  /**
+   * Ends the FELT session on browser close by either locking it (persisting it
+   * behind OS auth to resume later) or signing out.
+   */
+  lockOrSignOut() {
+    this._skipSignoutPrompt = true;
+    if (this.willLockOnClose) {
+      try {
+        Services.felt.performLock();
+      } catch (e) {
+        // performLock only throws when the browser-side FELT IPC client is
+        // missing, which should not happen in a FELT browser. Fall back to a
+        // regular close.
+        lazy.log.warn(`Unable to lock, falling back to signout: ${e}`);
+        Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+      }
+      return;
+    }
+
+    Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
   },
 };

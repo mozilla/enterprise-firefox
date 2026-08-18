@@ -256,7 +256,7 @@ export class Felt {
     }
   }
 
-  async receiveMessage(message) {
+  receiveMessage(message) {
     lazy.log.debug(`${message.name} handling ...`);
     switch (message.name) {
       case "FeltParent:FirefoxNormalExit": {
@@ -265,10 +265,7 @@ export class Felt {
           this
         );
 
-        // A clean browser exit means signing out: locking is an explicit
-        // action that travels its own path (FeltProcessParent handles
-        // "felt-firefox-lock"), so here we always sign out the server session
-        // and drop any token left over from a previous lock.
+        // Clean exit is the sign-out path, drop any locked tokens.
         lazy.ConsoleClient.performServerSignout()
           .catch(err => {
             console.error(`Failed to post signout on exit: ${err}`);
@@ -276,16 +273,7 @@ export class Felt {
           .finally(async () => {
             await lazy.FeltLocking.clear();
             Services.felt.clearTokens();
-            // This is only useful for testing purpose when we need to exit the
-            // browser cleanly but need to keep felt alive for some processing after
-            if (!lazy.isBlockingShutdown()) {
-              Services.startup.quit(
-                Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
-              );
-            } else if (!this._win) {
-              Services.felt.makeBackgroundProcess(false);
-              this.showWindow();
-            }
+            this.#quitOrHoldForShutdown();
           });
         break;
       }
@@ -322,8 +310,13 @@ export class Felt {
       }
 
       case "FeltParent:FirefoxLogoutExit": {
-        Services.felt.makeBackgroundProcess(false);
-        this.showWindow();
+        // Lock quits to resume next launch, sign-out returns to sign-in.
+        if (message.data?.reason === "lock") {
+          this.#quitOrHoldForShutdown();
+        } else {
+          Services.felt.makeBackgroundProcess(false);
+          this.showWindow();
+        }
         break;
       }
 
@@ -369,6 +362,19 @@ export class Felt {
       default:
         lazy.log.debug(`${message.name} NOT HANDLED`);
         break;
+    }
+  }
+
+  // The isBlockingShutdown branch is a test-only path that keeps FELT alive
+  // after the browser exits so tests can run follow-up processing.
+  #quitOrHoldForShutdown() {
+    if (!lazy.isBlockingShutdown()) {
+      Services.startup.quit(
+        Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
+      );
+    } else if (!this._win) {
+      Services.felt.makeBackgroundProcess(false);
+      this.showWindow();
     }
   }
 

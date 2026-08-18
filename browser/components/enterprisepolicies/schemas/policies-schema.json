@@ -4176,6 +4176,44 @@
       "examples": [true]
     },
 
+    "SignOut": {
+      "type": "object",
+      "x-category": "Authentication",
+      "x-compatibility": {
+        "firefox": {
+          "version_added": false
+        },
+        "firefox_esr": {
+          "version_added": false
+        },
+        "firefox_enterprise": {
+          "version_added": "156"
+        }
+      },
+      "description": "Control whether the managed session is signed out or locked when the browser closes.",
+      "examples": [
+        {
+          "OnClose": {
+            "Enabled": true
+          }
+        }
+      ],
+      "properties": {
+        "OnClose": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "Locked": {
+              "type": "boolean"
+            }
+          },
+          "required": ["Enabled"]
+        }
+      }
+    },
+
     "SitePolicies": {
       "type": "array",
       "x-category": "Browsing restrictions",
