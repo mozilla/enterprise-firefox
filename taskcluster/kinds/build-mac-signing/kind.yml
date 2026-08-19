@@ -28,7 +28,6 @@ only-for-build-platforms:
     - macosx64-enterprise/opt
     - macosx64-enterprise/debug
     - macosx64-enterprise-shippable/opt
-    - macosx64-enterprise-shippable/debug
 
 tasks:
     build-mac-signing:
