@@ -136,11 +136,7 @@ export let StartupTelemetry = {
     // completed.  See comments in `TelemetryReportingPolicy`.
     await lazy.TelemetryReportingPolicy.ensureUserIsNotified();
 
-    if (AppConstants.MOZ_ENTERPRISE) {
-      Services.fog.initializeFOG(undefined, "firefox.enterprise.desktop");
-    } else {
-      Services.fog.initializeFOG();
-    }
+    Services.fog.initializeFOG();
 
     // Register Glean to listen for experiment updates releated to the
     // "gleanInternalSdk" feature defined in the t/c/nimbus/FeatureManifest.yaml

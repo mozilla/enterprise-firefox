@@ -4945,6 +4945,10 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
   FOG::SetApplicationID("thunderbird.desktop"_ns);
 #endif  // MOZ_THUNDERBIRD
 
+#ifdef MOZ_ENTERPRISE
+  FOG::SetApplicationID("firefox.enterprise.desktop"_ns);
+#endif
+
   nsCOMPtr<nsIFile> xreBinDirectory;
   xreBinDirectory = mDirProvider.GetGREBinDir();
 
