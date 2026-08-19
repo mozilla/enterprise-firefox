@@ -4942,7 +4942,11 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
   // We do NOT set one for `firefox`.
   // FOG uses a default one,
   // background tasks overwrite it using `initializeFOG`.
-  FOG::SetApplicationID("thunderbird.desktop"_ns);
+  #if !defined(MOZ_ENTERPRISE)
+    FOG::SetApplicationID("thunderbird.desktop"_ns);
+  #else
+    FOG::SetApplicationID("thunderbird.enterprise.desktop"_ns);
+  #endif
 #endif  // MOZ_THUNDERBIRD
 
 #ifdef MOZ_ENTERPRISE
