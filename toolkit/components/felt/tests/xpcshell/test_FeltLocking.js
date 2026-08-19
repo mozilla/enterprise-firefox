@@ -82,6 +82,27 @@ add_task(async function test_store_encrypts_and_persists() {
   }
 });
 
+add_task(async function test_store_clears_stale_token_when_disabled() {
+  // Flipping locking off must purge any previously stored token so a disabled
+  // pref can never leave a credential behind.
+  Services.prefs.setBoolPref(ENABLED_PREF, false);
+  FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  FeltStorage.setLockingToken(EMAIL, "stale-ciphertext");
+  const encrypt = sinon.stub(OSKeyStore, "encrypt");
+  try {
+    await FeltLocking.store("refresh-token");
+    Assert.ok(encrypt.notCalled, "does not encrypt when locking is disabled");
+    Assert.equal(
+      FeltStorage.getLockingToken(EMAIL),
+      undefined,
+      "a stale token is purged when locking is disabled"
+    );
+  } finally {
+    encrypt.restore();
+    FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
 add_task(async function test_store_throws_when_no_user_known() {
   Services.prefs.setBoolPref(ENABLED_PREF, true);
   FeltStorage.updateLastSignedInUserEmail(undefined);

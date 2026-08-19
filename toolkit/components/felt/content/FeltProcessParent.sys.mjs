@@ -355,6 +355,16 @@ export class FeltProcessParent extends JSProcessActorParent {
                   }
                   lazy.log.debug("refreshTokens successful");
                   Services.felt.sendAccessToken();
+                  // Keep the persisted token in sync with the rotated refresh
+                  // token; a keystore failure here must not tear down a healthy
+                  // session.
+                  lazy.FeltLocking.store(Services.felt.getRefreshToken()).catch(
+                    err => {
+                      lazy.log.warn(
+                        `Failed to reconcile locked-session token on refresh: ${err}`
+                      );
+                    }
+                  );
                   gFeltProcessParentInstance._storeEdrAgents(
                     postureConfig?.edr_agents
                   );
@@ -399,6 +409,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       `token refresh failed (${error.name}), shutting down Firefox`,
       error
     );
+    lazy.FeltLocking.clear();
     Services.felt.clearTokens();
     this.logoutReported = true;
     gSessionGeneration += 1;
@@ -1086,8 +1097,6 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.log.error(`Server signout failed: ${err}`);
     }
 
-    // Drop any stored locked-session token and clear token data on the
-    // FELT side, then shut Firefox down.
     lazy.FeltLocking.clear();
     Services.felt.clearTokens();
     Services.felt.shutdownFirefox();
@@ -1117,8 +1126,18 @@ export class FeltProcessParent extends JSProcessActorParent {
     // FirefoxNormalExit (which would sign the session out).
     gFeltProcessParentInstance.logoutReported = true;
 
+    const persistLock = async () => {
+      // Guard here as well as browser-side: if locking is disabled we must not
+      // silently quit without persisting or signing out, which would leave a
+      // dangling server session.
+      if (!lazy.FeltLocking.enabled) {
+        throw new Error("locking disabled, cannot persist session");
+      }
+      await lazy.FeltLocking.store(Services.felt.getRefreshToken());
+    };
+
     let locked = true;
-    lazy.FeltLocking.store(Services.felt.getRefreshToken())
+    persistLock()
       .catch(err => {
         // If we cannot persist the session there is nothing to unlock later,
         // so fall back to a server signout rather than leaving a dangling

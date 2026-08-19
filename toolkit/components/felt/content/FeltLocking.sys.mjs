@@ -42,6 +42,10 @@ function currentEmail() {
  * @returns {Promise<void>}
  */
 async function storeToken(email, token) {
+  // Choke point: never persist a token while the feature is disabled.
+  if (!lockingEnabled()) {
+    return;
+  }
   const encryptedRefreshToken = await lazy.OSKeyStore.encrypt(token);
   lazy.FeltStorage.setLockingToken(email, encryptedRefreshToken);
 }
@@ -81,10 +85,9 @@ export const FeltLocking = {
             lazy.FeltStorage.clearLockingToken(email);
             return false;
           }
-          // Only set the refresh token since that's all we have.
+          // Only the refresh token is available here; force a refresh below.
           Services.felt.setTokens("", refreshToken, 0);
           try {
-            // Get an access token to force a refresh.
             const { access_token, refresh_token, expires_at } =
               await lazy.ConsoleClient.refreshTokens();
             Services.felt.setTokens(access_token, refresh_token, expires_at);
@@ -124,8 +127,10 @@ export const FeltLocking = {
   },
 
   /**
-   * Persist the (encrypted) refresh token for the current user so the session
-   * can later be unlocked. No-op when locking is disabled.
+   * Reconcile the persisted locked-session token with the current refresh token
+   * and the enabled pref: when locking is enabled, store the (encrypted) token
+   * so the session can later be unlocked; when it is disabled, drop any stale
+   * token so flipping the pref off can never leave a credential behind.
    *
    * @param {string} refresh_token
    * @throws {Error} If locking is enabled but no signed-in user is known, so the
@@ -133,14 +138,14 @@ export const FeltLocking = {
    * @returns {Promise<void>}
    */
   store: async refresh_token => {
+    const email = currentEmail();
     if (!lockingEnabled()) {
+      if (email) {
+        lazy.FeltStorage.clearLockingToken(email);
+      }
       return;
     }
-    const email = currentEmail();
     if (!email) {
-      // Surface this as an error so the caller (e.g. lockFirefox) can fall back
-      // to signing out, rather than silently leaving a session that is neither
-      // restorable nor signed out.
       throw new Error(
         "store: no signed-in user known, cannot persist locked session"
       );
