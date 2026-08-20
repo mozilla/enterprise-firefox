@@ -24,8 +24,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.prompt_on_signout";
 const WARN_ON_CLOSE_PREF = "browser.tabs.warnOnClose";
-const LOCK_ENABLED_PREF = "enterprise.session.locking.enabled";
-const LOCK_ON_CLOSE_PREF = "enterprise.session.locking.on_close";
+const LOCK_ON_CLOSE_PREF = "enterprise.locking.browser_close";
 
 export const EnterpriseHandler = {
   /**
@@ -319,15 +318,12 @@ export const EnterpriseHandler = {
 
   /**
    * Whether closing the browser will lock the session (persist it behind OS
-   * auth to resume later) rather than sign out, per the locking prefs.
+   * auth to resume later) rather than sign out, per the locking pref.
    *
    * @returns {boolean}
    */
   get willLockOnClose() {
-    return (
-      Services.prefs.getBoolPref(LOCK_ENABLED_PREF, false) &&
-      Services.prefs.getBoolPref(LOCK_ON_CLOSE_PREF, false)
-    );
+    return Services.prefs.getBoolPref(LOCK_ON_CLOSE_PREF, false);
   },
 
   /**

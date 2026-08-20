@@ -3,7 +3,7 @@
 
 "use strict";
 
-// Tests for the FeltLocking store/clear/enabled surface. tryUnlock is not
+// Tests for the FeltLocking store/updateStoredToken/clear surface. tryUnlock is not
 // covered here because it depends on Services.felt and ConsoleClient, which
 // require a running FELT instance; the storage and encryption behavior of the
 // remaining entry points is exercised below with OSKeyStore stubbed.
@@ -21,7 +21,6 @@ const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
 );
 
-const ENABLED_PREF = "enterprise.session.locking.enabled";
 const EMAIL = "user@example.com";
 
 add_setup(async function () {
@@ -30,37 +29,11 @@ add_setup(async function () {
   FeltStorage.updateLastSignedInUserEmail(EMAIL);
 
   registerCleanupFunction(() => {
-    Services.prefs.clearUserPref(ENABLED_PREF);
     FeltStorage.clearLockingToken(EMAIL);
   });
 });
 
-add_task(async function test_enabled_reflects_pref() {
-  Services.prefs.setBoolPref(ENABLED_PREF, false);
-  Assert.equal(FeltLocking.enabled, false, "disabled when pref is false");
-
-  Services.prefs.setBoolPref(ENABLED_PREF, true);
-  Assert.equal(FeltLocking.enabled, true, "enabled when pref is true");
-});
-
-add_task(async function test_store_is_noop_when_disabled() {
-  Services.prefs.setBoolPref(ENABLED_PREF, false);
-  const encrypt = sinon.stub(OSKeyStore, "encrypt");
-  try {
-    await FeltLocking.store("refresh-token");
-    Assert.ok(encrypt.notCalled, "does not encrypt when locking is disabled");
-    Assert.equal(
-      FeltStorage.getLockingToken(EMAIL),
-      undefined,
-      "nothing is persisted when locking is disabled"
-    );
-  } finally {
-    encrypt.restore();
-  }
-});
-
 add_task(async function test_store_encrypts_and_persists() {
-  Services.prefs.setBoolPref(ENABLED_PREF, true);
   FeltStorage.updateLastSignedInUserEmail(EMAIL);
   const encrypt = sinon
     .stub(OSKeyStore, "encrypt")
@@ -82,29 +55,7 @@ add_task(async function test_store_encrypts_and_persists() {
   }
 });
 
-add_task(async function test_store_clears_stale_token_when_disabled() {
-  // Flipping locking off must purge any previously stored token so a disabled
-  // pref can never leave a credential behind.
-  Services.prefs.setBoolPref(ENABLED_PREF, false);
-  FeltStorage.updateLastSignedInUserEmail(EMAIL);
-  FeltStorage.setLockingToken(EMAIL, "stale-ciphertext");
-  const encrypt = sinon.stub(OSKeyStore, "encrypt");
-  try {
-    await FeltLocking.store("refresh-token");
-    Assert.ok(encrypt.notCalled, "does not encrypt when locking is disabled");
-    Assert.equal(
-      FeltStorage.getLockingToken(EMAIL),
-      undefined,
-      "a stale token is purged when locking is disabled"
-    );
-  } finally {
-    encrypt.restore();
-    FeltStorage.clearLockingToken(EMAIL);
-  }
-});
-
 add_task(async function test_store_throws_when_no_user_known() {
-  Services.prefs.setBoolPref(ENABLED_PREF, true);
   FeltStorage.updateLastSignedInUserEmail(undefined);
   const encrypt = sinon.stub(OSKeyStore, "encrypt");
   try {
@@ -120,8 +71,51 @@ add_task(async function test_store_throws_when_no_user_known() {
   }
 });
 
+add_task(async function test_update_stored_token_updates_existing_token() {
+  FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  FeltStorage.setLockingToken(EMAIL, "old-ciphertext");
+  const encrypt = sinon
+    .stub(OSKeyStore, "encrypt")
+    .resolves("encrypted(rotated-token)");
+  try {
+    await FeltLocking.updateStoredToken("rotated-token");
+    Assert.ok(
+      encrypt.calledOnceWithExactly("rotated-token"),
+      "encrypts the rotated refresh token"
+    );
+    Assert.equal(
+      FeltStorage.getLockingToken(EMAIL),
+      "encrypted(rotated-token)",
+      "an already-persisted token is kept in sync"
+    );
+  } finally {
+    encrypt.restore();
+    FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
+add_task(
+  async function test_update_stored_token_is_noop_without_existing_token() {
+    // Must never create a token: persistence is authorized only by an explicit
+    // lock, so a refresh cannot turn a non-locking session lockable.
+    FeltStorage.updateLastSignedInUserEmail(EMAIL);
+    FeltStorage.clearLockingToken(EMAIL);
+    const encrypt = sinon.stub(OSKeyStore, "encrypt");
+    try {
+      await FeltLocking.updateStoredToken("rotated-token");
+      Assert.ok(encrypt.notCalled, "does not encrypt when no token is stored");
+      Assert.equal(
+        FeltStorage.getLockingToken(EMAIL),
+        undefined,
+        "nothing is persisted when no token already exists"
+      );
+    } finally {
+      encrypt.restore();
+    }
+  }
+);
+
 add_task(async function test_clear_removes_stored_token() {
-  Services.prefs.setBoolPref(ENABLED_PREF, true);
   FeltStorage.updateLastSignedInUserEmail(EMAIL);
   FeltStorage.setLockingToken(EMAIL, "ciphertext");
 
@@ -131,21 +125,5 @@ add_task(async function test_clear_removes_stored_token() {
     FeltStorage.getLockingToken(EMAIL),
     undefined,
     "clear removes the stored token"
-  );
-});
-
-add_task(async function test_clear_runs_even_when_disabled() {
-  // Signing out must never leave a token behind, even if locking was turned
-  // off after a session was locked.
-  Services.prefs.setBoolPref(ENABLED_PREF, false);
-  FeltStorage.updateLastSignedInUserEmail(EMAIL);
-  FeltStorage.setLockingToken(EMAIL, "ciphertext");
-
-  await FeltLocking.clear();
-
-  Assert.equal(
-    FeltStorage.getLockingToken(EMAIL),
-    undefined,
-    "clear removes the token regardless of the enabled pref"
   );
 });

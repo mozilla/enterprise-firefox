@@ -1516,29 +1516,26 @@ const POLICIES_TESTS = [
   {
     policies: {
       SignOut: {
-        OnClose: {
-          Enabled: false,
+        BrowserClose: {
+          Action: "lock",
         },
       },
     },
-    // Not signing out on close means locking/persisting the session.
-    unlockedPrefs: {
-      "enterprise.session.locking.enabled": true,
-      "enterprise.session.locking.on_close": true,
+    // Locking on close persists the session behind OS auth instead of signing out.
+    lockedPrefs: {
+      "enterprise.locking.browser_close": true,
     },
   },
   {
     policies: {
       SignOut: {
-        OnClose: {
-          Enabled: true,
-          Locked: true,
+        BrowserClose: {
+          Action: "signout",
         },
       },
     },
     lockedPrefs: {
-      "enterprise.session.locking.enabled": false,
-      "enterprise.session.locking.on_close": false,
+      "enterprise.locking.browser_close": false,
     },
   },
 ];

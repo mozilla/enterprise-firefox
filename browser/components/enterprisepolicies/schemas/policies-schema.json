@@ -4193,23 +4193,21 @@
       "description": "Control whether the managed session is signed out or locked when the browser closes.",
       "examples": [
         {
-          "OnClose": {
-            "Enabled": true
+          "BrowserClose": {
+            "Action": "lock"
           }
         }
       ],
       "properties": {
-        "OnClose": {
+        "BrowserClose": {
           "type": "object",
           "properties": {
-            "Enabled": {
-              "type": "boolean"
-            },
-            "Locked": {
-              "type": "boolean"
+            "Action": {
+              "type": "string",
+              "enum": ["signout", "lock"]
             }
           },
-          "required": ["Enabled"]
+          "required": ["Action"]
         }
       }
     },

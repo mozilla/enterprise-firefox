@@ -3799,19 +3799,10 @@ export var Policies = {
 
   SignOut: {
     onBeforeAddons(manager, param) {
-      if (param.OnClose) {
-        // Disabling sign-out on close means locking and persisting instead.
-        const lock = !param.OnClose.Enabled;
-        const locked = param.OnClose.Locked ?? false;
-        lazy.PoliciesUtils.setDefaultPref(
-          "enterprise.session.locking.enabled",
-          lock,
-          locked
-        );
-        lazy.PoliciesUtils.setDefaultPref(
-          "enterprise.session.locking.on_close",
-          lock,
-          locked
+      if (param.BrowserClose) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.locking.browser_close",
+          param.BrowserClose.Action === "lock"
         );
       }
     },

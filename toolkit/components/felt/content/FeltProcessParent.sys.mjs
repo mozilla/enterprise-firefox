@@ -358,13 +358,13 @@ export class FeltProcessParent extends JSProcessActorParent {
                   // Keep the persisted token in sync with the rotated refresh
                   // token; a keystore failure here must not tear down a healthy
                   // session.
-                  lazy.FeltLocking.store(Services.felt.getRefreshToken()).catch(
-                    err => {
-                      lazy.log.warn(
-                        `Failed to reconcile locked-session token on refresh: ${err}`
-                      );
-                    }
-                  );
+                  lazy.FeltLocking.updateStoredToken(
+                    Services.felt.getRefreshToken()
+                  ).catch(err => {
+                    lazy.log.warn(
+                      `Failed to update the stored locked-session token on refresh: ${err}`
+                    );
+                  });
                   gFeltProcessParentInstance._storeEdrAgents(
                     postureConfig?.edr_agents
                   );
@@ -1126,13 +1126,10 @@ export class FeltProcessParent extends JSProcessActorParent {
     // FirefoxNormalExit (which would sign the session out).
     gFeltProcessParentInstance.logoutReported = true;
 
+    // Reaching here means the browser already decided to lock (it owns the
+    // locking pref and only sends the lock signal when enabled), so persist
+    // unconditionally; store() still throws if no user is known.
     const persistLock = async () => {
-      // Guard here as well as browser-side: if locking is disabled we must not
-      // silently quit without persisting or signing out, which would leave a
-      // dangling server session.
-      if (!lazy.FeltLocking.enabled) {
-        throw new Error("locking disabled, cannot persist session");
-      }
       await lazy.FeltLocking.store(Services.felt.getRefreshToken());
     };
 
