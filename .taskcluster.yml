@@ -493,7 +493,9 @@ tasks:
                                                 - "index.${trustDomain}.v2.${project}.branch.${shortRef}.latest.taskgraph.decision"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
                                             'tasks_for == "action"':
-                                                - "tc-treeherder.v2.${shortRef}.${headRev}"
+                                                - $switch:
+                                                      'project == "enterprise-firefox"': "tc-treeherder.v2.${shortRef}.${headRev}"
+                                                      $default: "tc-treeherder.v2.${project}.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.actions.${ownTaskId}"
                                             'tasks_for == "pr-action"':
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
