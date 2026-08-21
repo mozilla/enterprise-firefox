@@ -38,7 +38,13 @@ server.registerPathHandler("/discoapi", (request, response) => {
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
-    set: [["extensions.getAddons.discovery.api_url", TEST_API_URL]],
+    set: [
+      ["extensions.getAddons.discovery.api_url", TEST_API_URL],
+      // The discopane and the list view recommendations are not enabled by
+      // default in every build.
+      ["extensions.getAddons.showPane", true],
+      ["extensions.htmlaboutaddons.recommendations.enabled", true],
+    ],
   });
 
   let mockProvider = new MockProvider();

@@ -123,6 +123,10 @@ async function checkManageExtensionsText(elem) {
 }
 
 add_task(async function test_button_opens_discopane_when_no_extension() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["extensions.getAddons.showPane", true]],
+  });
+
   await BrowserTestUtils.withNewTab(
     { gBrowser, url: "about:robots" },
     async () => {
@@ -157,6 +161,8 @@ add_task(async function test_button_opens_discopane_when_no_extension() {
       BrowserTestUtils.removeTab(tab);
     }
   );
+
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_button_opens_extlist_when_all_exts_pinned() {

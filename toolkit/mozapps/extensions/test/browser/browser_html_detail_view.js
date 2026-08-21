@@ -1059,6 +1059,10 @@ add_task(async function testPrivateBrowsingExtension() {
 });
 
 add_task(async function testInvalidExtension() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["extensions.getAddons.showPane", true]],
+  });
+
   let win = await open_manager("addons://detail/foo");
   is(
     AboutAddonsTestUtils.getSidebarSelectedCategory(win),
@@ -1069,6 +1073,7 @@ add_task(async function testInvalidExtension() {
   ok(!gBrowser.canGoBack, "The view has been replaced");
 
   await close_manager(win);
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function testInvalidExtensionNoDiscover() {

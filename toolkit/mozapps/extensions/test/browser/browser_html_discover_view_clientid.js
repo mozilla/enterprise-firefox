@@ -53,6 +53,8 @@ add_setup(async function () {
       ["datareporting.healthreport.uploadEnabled", true],
       ["extensions.getAddons.discovery.api_url", `${serverBaseUrl}discoapi`],
       ["app.support.baseURL", `${serverBaseUrl}sumo/`],
+      // The discopane is not enabled by default in every build.
+      ["extensions.getAddons.showPane", true],
       // Discovery API requests can be triggered by the discopane and the
       // recommendations in the list view. To make sure that the every test
       // checks the behavior of the view they're testing, ensure that only one

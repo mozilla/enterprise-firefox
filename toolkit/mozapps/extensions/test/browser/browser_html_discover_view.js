@@ -212,6 +212,8 @@ add_setup(async function () {
         "extensions.getAddons.discovery.api_url",
         `http://${AMO_TEST_HOST}/discoapi`,
       ],
+      // The discopane is not enabled by default in every build.
+      ["extensions.getAddons.showPane", true],
       // Disable non-discopane recommendations to avoid unexpected discovery
       // API requests.
       ["extensions.htmlaboutaddons.recommendations.enabled", false],

@@ -44,9 +44,3 @@ user_pref("dom.push.serverURL", "wss://push.services.mozilla.com/");
 // Set a breakpad URL for mochitest runs. In enterprise builds the
 // default is an empty string, but push tests need a non-empty value.
 user_pref("breakpad.reportURL", "https://crash-stats.mozilla.org/report/index/");
-
-// Show the about:addons recommendations for mochitest runs. In enterprise
-// builds both default to false, but the discovery pane and list view
-// recommendation tests need them enabled.
-user_pref("extensions.getAddons.showPane", true);
-user_pref("extensions.htmlaboutaddons.recommendations.enabled", true);

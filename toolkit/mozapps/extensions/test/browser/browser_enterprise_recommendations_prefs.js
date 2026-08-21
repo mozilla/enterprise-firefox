@@ -4,17 +4,6 @@
 
 "use strict";
 
-const PREF_RECOMMENDATIONS_ENABLED =
-  "extensions.htmlaboutaddons.recommendations.enabled";
-
-// The mochitest profile re-enables both prefs on the user branch; clear those
-// overrides to get the defaults enterprise builds ship.
-add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({
-    clear: [[PREF_DISCOVER_ENABLED], [PREF_RECOMMENDATIONS_ENABLED]],
-  });
-});
-
 add_task(async function testNoRecommendationsCategory() {
   await SpecialPowers.pushPrefEnv({ clear: [[PREF_UI_LASTCATEGORY]] });
 

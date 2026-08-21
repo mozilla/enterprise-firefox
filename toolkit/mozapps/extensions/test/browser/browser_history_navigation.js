@@ -542,7 +542,11 @@ add_task(async function test_open_last_view() {
 // Tests that navigating the discovery page works when that was the first view
 add_task(async function test_discopane_first_history_entry() {
   await SpecialPowers.pushPrefEnv({
-    set: [["extensions.getAddons.discovery.api_url", DISCOAPI_URL]],
+    set: [
+      ["extensions.getAddons.discovery.api_url", DISCOAPI_URL],
+      // The discopane is not enabled by default in every build.
+      ["extensions.getAddons.showPane", true],
+    ],
   });
 
   let aManager = await open_manager("addons://discover/");
@@ -565,6 +569,13 @@ add_task(async function test_discopane_first_history_entry() {
 
 // Tests that navigating the discovery page works when that was the second view
 add_task(async function test_discopane_second_history_entry() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      // The discopane is not enabled by default in every build.
+      ["extensions.getAddons.showPane", true],
+    ],
+  });
+
   let aManager = await open_manager("addons://list/plugin");
   is_in_list(aManager, "addons://list/plugin", false, false);
 
