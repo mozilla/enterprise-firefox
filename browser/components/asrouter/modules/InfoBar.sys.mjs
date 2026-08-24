@@ -696,9 +696,7 @@ export const InfoBar = {
     }
 
     if (!universalInNewWin) {
-      this._activeInfobar = { message, dispatch, notification };
-      // If the window closes before the user interacts with the active infobar,
-      // clear it
+      // Update active state if this window closes before user interaction.
       win.addEventListener(
         "unload",
         () => {
@@ -707,19 +705,13 @@ export const InfoBar = {
             ({ box }) => box.documentGlobal !== win
           );
 
-          // This listener is registered per window and closes over the
-          // notification it was shown for, so it can outlive its own infobar: a
-          // replacement takes over _activeInfobar while this window stays open.
-          // Only the notification that still owns the active infobar may clear
-          // it, and identity is on the notification rather than the message
-          // because callers may show the same message object again.
+          // This listener can outlive its notification, so only the current
+          // owner may update the active state.
           if (InfoBar._activeInfobar?.notification !== notification) {
             return;
           }
 
-          // A universal infobar survives in the windows that are still open;
-          // closing one of them leaves the notification that owns them all in
-          // place. Anything else goes with its window.
+          // A universal notification remains active while any bar survives.
           const survives =
             isUniversal &&
             InfoBar._universalInfobars.some(

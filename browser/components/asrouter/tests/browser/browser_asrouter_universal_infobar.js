@@ -916,21 +916,14 @@ add_task(async function global_replaces_universal_across_windows() {
   cleanupInfobars();
 });
 
-// The unload listener that hands the active infobar over to a surviving window
-// is registered on the window the bar was shown from, so closing that window
-// while others remain is what exercises the handover.
-add_task(async function universal_replaced_after_originating_window_closes() {
+add_task(async function universal_survives_originating_window_closure() {
   const sandbox = sinon.createSandbox();
   const win1 = BrowserWindowTracker.getTopWindow();
-  const win2 = await BrowserTestUtils.openNewBrowserWindow();
+  let win2 = await BrowserTestUtils.openNewBrowserWindow();
 
   const incumbent = {
     id: "TEST_UNIVERSAL_HANDOVER_INCUMBENT",
-    content: {
-      type: "universal",
-      text: "incumbent",
-      buttons: [],
-    },
+    content: { type: "universal", text: "incumbent", buttons: [] },
   };
   const replacement = {
     id: "TEST_UNIVERSAL_HANDOVER_REPLACEMENT",
@@ -942,52 +935,54 @@ add_task(async function universal_replaced_after_originating_window_closes() {
     },
   };
 
-  const incumbentNotification = await InfoBar.showInfoBarMessage(
-    win2.gBrowser.selectedBrowser,
-    incumbent,
-    sandbox.stub()
-  );
-  await TestUtils.waitForCondition(
-    () => !!getNotificationFromWin(win1, incumbent.id),
-    "Incumbent visible in the surviving window"
-  );
+  try {
+    const incumbentNotification = await InfoBar.showInfoBarMessage(
+      win2.gBrowser.selectedBrowser,
+      incumbent,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win1, incumbent.id),
+      "Incumbent visible in the surviving window"
+    );
 
-  await BrowserTestUtils.closeWindow(win2);
+    await BrowserTestUtils.closeWindow(win2);
+    win2 = null;
 
-  Assert.equal(
-    InfoBar._activeInfobar?.notification,
-    incumbentNotification,
-    "The active infobar still names the notification that owns the bars"
-  );
+    Assert.equal(
+      InfoBar._activeInfobar?.notification,
+      incumbentNotification,
+      "The active infobar still names the notification that owns the bars"
+    );
 
-  await InfoBar.showInfoBarMessage(
-    win1.gBrowser.selectedBrowser,
-    replacement,
-    sandbox.stub()
-  );
-  await TestUtils.waitForCondition(
-    () => !!getNotificationFromWin(win1, replacement.id),
-    "Replacement visible in the surviving window"
-  );
-  Assert.ok(
-    !getNotificationFromWin(win1, incumbent.id),
-    "The incumbent was evicted rather than left stacked under the replacement"
-  );
-
-  // Cleanup
-  removeByIdInWin(win1, replacement.id);
-  removeByIdInWin(win1, incumbent.id);
-  sandbox.restore();
-  cleanupInfobars();
+    await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      replacement,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win1, replacement.id),
+      "Replacement visible in the surviving window"
+    );
+    await TestUtils.waitForCondition(
+      () => !getNotificationFromWin(win1, incumbent.id),
+      "The incumbent was evicted rather than left stacked under the replacement"
+    );
+  } finally {
+    removeByIdInWin(win1, replacement.id);
+    removeByIdInWin(win1, incumbent.id);
+    if (win2) {
+      await BrowserTestUtils.closeWindow(win2);
+    }
+    sandbox.restore();
+    cleanupInfobars();
+  }
 });
 
-// The unload listener closes over the message it was registered for, so a
-// window that outlives its own infobar must not resurrect it: the replacement
-// owns the active infobar by the time the older window goes away.
 add_task(async function stale_unload_does_not_resurrect_replaced_infobar() {
   const sandbox = sinon.createSandbox();
   const win1 = BrowserWindowTracker.getTopWindow();
-  const win2 = await BrowserTestUtils.openNewBrowserWindow();
+  let win2 = await BrowserTestUtils.openNewBrowserWindow();
 
   const first = {
     id: "TEST_UNIVERSAL_STALE_FIRST",
@@ -1012,60 +1007,141 @@ add_task(async function stale_unload_does_not_resurrect_replaced_infobar() {
     },
   };
 
-  // Shown from win2, so win2's unload listener closes over `first`.
-  await InfoBar.showInfoBarMessage(
-    win2.gBrowser.selectedBrowser,
-    first,
-    sandbox.stub()
-  );
-  await TestUtils.waitForCondition(
-    () => !!getNotificationFromWin(win1, first.id),
-    "First message visible in both windows"
-  );
+  try {
+    // Shown from win2, so win2's unload listener closes over `first`.
+    await InfoBar.showInfoBarMessage(
+      win2.gBrowser.selectedBrowser,
+      first,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win1, first.id),
+      "First message visible in both windows"
+    );
 
-  const secondNotification = await InfoBar.showInfoBarMessage(
-    win1.gBrowser.selectedBrowser,
-    second,
-    sandbox.stub()
-  );
-  await TestUtils.waitForCondition(
-    () => !!getNotificationFromWin(win2, second.id),
-    "Second message replaced the first"
-  );
+    const secondNotification = await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      second,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win2, second.id),
+      "Second message replaced the first"
+    );
 
-  // win2 is closing after the message it was shown for is long gone.
-  await BrowserTestUtils.closeWindow(win2);
+    await BrowserTestUtils.closeWindow(win2);
+    win2 = null;
 
-  Assert.equal(
-    InfoBar._activeInfobar?.message?.id,
-    second.id,
-    "The stale unload left the replacement as the active infobar"
-  );
-  Assert.equal(
-    InfoBar._activeInfobar?.notification,
-    secondNotification,
-    "The active infobar still names the replacement's notification"
-  );
+    Assert.equal(
+      InfoBar._activeInfobar?.message?.id,
+      second.id,
+      "The stale unload left the replacement as the active infobar"
+    );
+    Assert.equal(
+      InfoBar._activeInfobar?.notification,
+      secondNotification,
+      "The active infobar still names the replacement's notification"
+    );
 
-  // The consequence: a message that replaces the second one is still accepted.
-  await InfoBar.showInfoBarMessage(
-    win1.gBrowser.selectedBrowser,
-    third,
-    sandbox.stub()
-  );
-  await TestUtils.waitForCondition(
-    () => !!getNotificationFromWin(win1, third.id),
-    "Third message visible in the surviving window"
-  );
-  Assert.ok(
-    !getNotificationFromWin(win1, second.id),
-    "The second message was evicted rather than left stacked"
-  );
+    await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      third,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win1, third.id),
+      "Third message visible in the surviving window"
+    );
+    await TestUtils.waitForCondition(
+      () => !getNotificationFromWin(win1, second.id),
+      "The second message was evicted rather than left stacked"
+    );
+  } finally {
+    removeByIdInWin(win1, third.id);
+    removeByIdInWin(win1, second.id);
+    removeByIdInWin(win1, first.id);
+    if (win2) {
+      await BrowserTestUtils.closeWindow(win2);
+    }
+    sandbox.restore();
+    cleanupInfobars();
+  }
+});
 
-  // Cleanup
-  removeByIdInWin(win1, third.id);
-  removeByIdInWin(win1, second.id);
-  removeByIdInWin(win1, first.id);
-  sandbox.restore();
-  cleanupInfobars();
+add_task(async function stale_unload_does_not_clear_active_global_infobar() {
+  const sandbox = sinon.createSandbox();
+  const win1 = BrowserWindowTracker.getTopWindow();
+  let win2 = await BrowserTestUtils.openNewBrowserWindow();
+
+  const original = {
+    id: "TEST_GLOBAL_STALE_ORIGINAL",
+    content: { type: "global", text: "original", buttons: [] },
+  };
+  const replacement = {
+    id: "TEST_GLOBAL_STALE_REPLACEMENT",
+    content: {
+      type: "global",
+      text: "replacement",
+      buttons: [],
+      canReplace: [original.id],
+    },
+  };
+  const unrelated = {
+    id: "TEST_GLOBAL_STALE_UNRELATED",
+    content: { type: "global", text: "unrelated", buttons: [] },
+  };
+
+  try {
+    await InfoBar.showInfoBarMessage(
+      win2.gBrowser.selectedBrowser,
+      original,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win2, original.id),
+      "Original visible in the window it was shown from"
+    );
+
+    const replacementNotification = await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      replacement,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win1, replacement.id),
+      "Replacement visible in the first window"
+    );
+
+    await BrowserTestUtils.closeWindow(win2);
+    win2 = null;
+
+    Assert.equal(
+      InfoBar._activeInfobar?.notification,
+      replacementNotification,
+      "Closing the original's window left the replacement active"
+    );
+
+    const shown = await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      unrelated,
+      sandbox.stub()
+    );
+    Assert.equal(
+      shown,
+      null,
+      "A message that replaces nothing is still refused"
+    );
+    Assert.ok(
+      !getNotificationFromWin(win1, unrelated.id),
+      "It did not stack under the replacement"
+    );
+  } finally {
+    removeByIdInWin(win1, unrelated.id);
+    removeByIdInWin(win1, replacement.id);
+    if (win2) {
+      await BrowserTestUtils.closeWindow(win2);
+    }
+    sandbox.restore();
+    cleanupInfobars();
+  }
 });
