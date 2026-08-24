@@ -158,6 +158,8 @@ export const ConsoleClient = {
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
       FXACCOUNT: "/api/browser/account",
+      // Right now we always pass 0.0.0 as the current version
+      // to the console because we don't cache it on disk.
       DLP_WASM: `/api/browser/content-analysis-wasm/update/${majorMinorPatchVersion}/${Services.appinfo.appBuildID}/0.0.0`,
     };
   },
