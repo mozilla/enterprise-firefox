@@ -30,10 +30,10 @@ try {
 }
 
 // Stub ConsoleClient's DLP wasm endpoints to serve the module bundled under
-// WASM_PATH as the given version, standing in for the real console.
+// WASM_PATH, standing in for the real console.
 async function stubDlpWasmModule() {
   const moduleBytes = await IOUtils.read(do_get_file(WASM_PATH).path);
-  	
+
   const originalGetDlpWasmModule = ConsoleClient.getDlpWasmModule;
   const restore = () => {
     ConsoleClient.getDlpWasmModule = originalGetDlpWasmModule;

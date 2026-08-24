@@ -79,8 +79,9 @@ export class ContentAnalysisWasmRunner {
     // Note that `getDlpWasmModule()` will return 204 No Content
     // if the version of the DLP module is >= the version we have already.
     // This will mean `buffer` will be empty.
-    // Right now we don't do any caching so we always pass a 0.0.0 version
+    // Right now we always pass 0.0.0 as the current version
     // to the console, so `buffer` should always be the latest version.
+    // When we start sending a real cached version, this should be revisited.
     this.#cachedModuleBytes = new Uint8Array(buffer);
     return {
       moduleBytes: this.#cachedModuleBytes,
