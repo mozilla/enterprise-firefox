@@ -15,6 +15,14 @@ felt-sso-continue-btn =
 felt-sso-unlock-btn =
     .label = Unlock
 felt-sso-unlock-hint = Verify with your device to continue.
+felt-sso-unlock-os-auth-dialog-caption = { -brand-full-name }
+# The macOS strings are preceded by the operating system with "Firefox is trying to ".
+# This message can be seen when attempting to unlock a FELT session when enabled by policy.
+felt-sso-unlock-os-auth-dialog-message =
+  { PLATFORM() ->
+    [macos] unlock an existing session
+    *[other] { -brand-short-name } is trying to unlock an existing session. Use your device to continue.
+  }
 
 felt-pending-action-notification = Please wait while { -brand-short-name } starts…
 felt-powered-by =

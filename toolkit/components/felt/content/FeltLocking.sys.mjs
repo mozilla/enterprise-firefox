@@ -16,6 +16,14 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return lazy.createEnterpriseLogger("FeltLocking");
 });
 
+ChromeUtils.defineLazyGetter(lazy, "localization", () => {
+  return new Localization(
+    ["toolkit/enterprise/felt.ftl", "branding/brand.ftl"],
+    true
+  );
+});
+
+
 /**
  * The email of the currently signed-in user, used as the key under which a
  * locked session's refresh token is stored. Read from the cached value rather
@@ -55,9 +63,13 @@ export const FeltLocking = {
     // the browser process, which the Felt UI process cannot read.
     const token = lazy.FeltStorage.getLockingToken(email);
     if (token) {
+      const [ messageText, captionText ] = await lazy.localization.formatValues([
+        "felt-sso-unlock-os-auth-dialog-message",
+        "felt-sso-unlock-os-auth-dialog-caption"
+      ]);
       const { authenticated } = await lazy.OSKeyStore.ensureLoggedIn(
-        "Trying to unlock existing session",
-        "Firefox Enterprise"
+        messageText,
+        captionText
       );
       if (authenticated) {
         let refreshToken;
