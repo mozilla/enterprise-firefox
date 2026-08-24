@@ -32,9 +32,7 @@ async function isBlockedSite(url, isExpectedBlocked) {
 }
 
 async function removePolicies() {
-  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
-  await updateApplied;
+  await waitForLivePolicyUpdate({});
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
     {},
@@ -88,16 +86,12 @@ add_task(async function test_update_keeps_blocking_redirects() {
 
   // Change the parameters (add an unrelated exception) to trigger a
   // teardown-then-reapply update.
-  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({
-    policies: {
-      WebsiteFilter: {
-        Block: [BLOCK_PATTERN],
-        Exceptions: ["*://example.com/*"],
-      },
+  await waitForLivePolicyUpdate({
+    WebsiteFilter: {
+      Block: [BLOCK_PATTERN],
+      Exceptions: ["*://example.com/*"],
     },
   });
-  await updateApplied;
 
   await isBlockedSite(BLOCKED_PAGE, true);
   await isBlockedSite(REDIRECT_301, true);
@@ -122,15 +116,11 @@ add_task(async function test_update_changes_block_list() {
   await isBlockedSite(BLOCKED_PAGE, true);
   await isBlockedSite(EXCEPTION_PAGE, false);
 
-  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({
-    policies: {
-      WebsiteFilter: {
-        Block: ["*://mochi.test/*_exception*"],
-      },
+  await waitForLivePolicyUpdate({
+    WebsiteFilter: {
+      Block: ["*://mochi.test/*_exception*"],
     },
   });
-  await updateApplied;
 
   // The old Block pattern no longer matches, the new one does.
   await isBlockedSite(BLOCKED_PAGE, false);
@@ -157,15 +147,11 @@ add_task(async function test_update_drops_exceptions() {
   await isBlockedSite(EXCEPTION_PAGE, false);
 
   // Drop the exceptions via a live update.
-  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({
-    policies: {
-      WebsiteFilter: {
-        Block: [BLOCK_PATTERN],
-      },
+  await waitForLivePolicyUpdate({
+    WebsiteFilter: {
+      Block: [BLOCK_PATTERN],
     },
   });
-  await updateApplied;
 
   await isBlockedSite(BLOCKED_PAGE, true);
   await isBlockedSite(EXCEPTION_PAGE, true);

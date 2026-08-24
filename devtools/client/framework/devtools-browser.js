@@ -116,23 +116,26 @@ var gDevToolsBrowser = (exports.gDevToolsBrowser = {
       }
     }
 
+    const disabledByPolicy = Services.prefs.getBoolPref(
+      "devtools.policy.disabled",
+      false
+    );
+
     // Enable Browser Toolbox?
     const chromeEnabled = Services.prefs.getBoolPref("devtools.chrome.enabled");
     const devtoolsRemoteEnabled = Services.prefs.getBoolPref(
       "devtools.debugger.remote-enabled"
     );
-    const remoteEnabled = chromeEnabled && devtoolsRemoteEnabled;
+    const remoteEnabled =
+      chromeEnabled && devtoolsRemoteEnabled && !disabledByPolicy;
     toggleMenuItem("menu_browserToolbox", remoteEnabled);
 
-    if (Services.prefs.getBoolPref("devtools.policy.disabled", false)) {
-      toggleMenuItem("menu_devToolbox", false);
-      toggleMenuItem("menu_devtools_remotedebugging", false);
-      toggleMenuItem("menu_browserToolbox", false);
-      toggleMenuItem("menu_browserConsole", false);
-      toggleMenuItem("menu_responsiveUI", false);
-      toggleMenuItem("menu_eyedropper", false);
-      toggleMenuItem("extensionsForDevelopers", false);
-    }
+    toggleMenuItem("menu_devToolbox", !disabledByPolicy);
+    toggleMenuItem("menu_devtools_remotedebugging", !disabledByPolicy);
+    toggleMenuItem("menu_browserConsole", !disabledByPolicy);
+    toggleMenuItem("menu_responsiveUI", !disabledByPolicy);
+    toggleMenuItem("menu_eyedropper", !disabledByPolicy);
+    toggleMenuItem("extensionsForDevelopers", !disabledByPolicy);
   },
 
   /**
@@ -156,7 +159,10 @@ var gDevToolsBrowser = (exports.gDevToolsBrowser = {
         this._registerBrowserWindow(subject);
         break;
       case "nsPref:changed":
-        if (prefName.endsWith("enabled")) {
+        if (
+          prefName.endsWith("enabled") ||
+          prefName == "devtools.policy.disabled"
+        ) {
           for (const win of this._trackedBrowserWindows) {
             this.updateCommandAvailability(win);
           }

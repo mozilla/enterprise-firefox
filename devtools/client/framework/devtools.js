@@ -545,6 +545,11 @@ class DevTools extends EventEmitter {
       hostOptions,
     } = {}
   ) {
+    if (Services.prefs.getBoolPref("devtools.policy.disabled", false)) {
+      // DevTools are disabled by the DisableDeveloperTools policy
+      return null;
+    }
+
     let toolbox = this.#toolboxesPerCommands.get(commands);
 
     if (toolbox) {

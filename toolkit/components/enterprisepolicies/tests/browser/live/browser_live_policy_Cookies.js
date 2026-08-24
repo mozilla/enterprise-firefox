@@ -43,12 +43,6 @@ function checkBehaviorPref(prefName, expectedValue, expectedLocked) {
   );
 }
 
-async function updatePolicies(policies) {
-  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies(policies);
-  await updateApplied;
-}
-
 // Applying a Cookies policy, updating it live and removing it live should be
 // reflected in the cookieBehavior prefs' values and lock status
 add_task(async function test_cookie_behavior_apply_update_remove() {
@@ -77,12 +71,10 @@ add_task(async function test_cookie_behavior_apply_update_remove() {
   );
 
   info("Updating Cookies policy to unlocked accept behavior.");
-  await updatePolicies({
-    policies: {
-      Cookies: {
-        Behavior: "accept",
-        BehaviorPrivateBrowsing: "accept",
-      },
+  await waitForLivePolicyUpdate({
+    Cookies: {
+      Behavior: "accept",
+      BehaviorPrivateBrowsing: "accept",
     },
   });
 
@@ -94,7 +86,7 @@ add_task(async function test_cookie_behavior_apply_update_remove() {
   );
 
   info("Removing the Cookies policy.");
-  await updatePolicies({ policies: {} });
+  await waitForLivePolicyUpdate({});
 
   checkBehaviorPref(BEHAVIOR_PREF, initialBehavior, false);
   checkBehaviorPref(BEHAVIOR_PB_PREF, initialBehaviorPB, false);
@@ -142,7 +134,7 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
   );
 
   info("Removing the Cookies policy.");
-  await updatePolicies({ policies: {} });
+  await waitForLivePolicyUpdate({});
 
   Assert.equal(
     getCurrentCookiePermission(allowOrigin),
@@ -196,11 +188,9 @@ add_task(async function test_cookie_permissions_reconciled_on_update() {
   );
 
   info("Updating Cookies policy config to allow only the first origin.");
-  await updatePolicies({
-    policies: {
-      Cookies: {
-        Allow: [keptOrigin],
-      },
+  await waitForLivePolicyUpdate({
+    Cookies: {
+      Allow: [keptOrigin],
     },
   });
 
@@ -249,7 +239,7 @@ add_task(
     );
 
     info("Removing the Cookies policy.");
-    await updatePolicies({ policies: {} });
+    await waitForLivePolicyUpdate({});
 
     Assert.equal(
       getPersistDataPermission(allowOrigin),

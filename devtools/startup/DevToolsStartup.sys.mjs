@@ -31,6 +31,8 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserToolboxLauncher:
+    "resource://devtools/client/framework/browser-toolbox/Launcher.sys.mjs",
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   CustomizableWidgets:
@@ -320,6 +322,7 @@ export class DevToolsStartup {
     this.onMoreToolsViewShowing = this.onMoreToolsViewShowing.bind(this);
     this.toggleProfilerKeyShortcuts =
       this.toggleProfilerKeyShortcuts.bind(this);
+    this.onDisabledByPolicyChanged = this.onDisabledByPolicyChanged.bind(this);
   }
   /**
    * Boolean flag to check if DevTools have been already initialized or not.
@@ -386,6 +389,13 @@ export class DevToolsStartup {
         // Initialize DevTools to create all menuitems in the system menu.
         this.initDevTools("CustomKeysUI");
       }, "customkeys-ui-showing");
+
+      // React to the DisableDeveloperTools policy being applied or removed at
+      // runtime.
+      Services.prefs.addObserver(
+        DEVTOOLS_POLICY_DISABLED_PREF,
+        this.onDisabledByPolicyChanged
+      );
       /* eslint-enable mozilla/balanced-observers */
 
       if (!this.isDisabledByPolicy()) {
@@ -583,6 +593,37 @@ export class DevToolsStartup {
     }
 
     JsonView.initialize();
+  }
+
+  /**
+   * Called when the DisableDeveloperTools policy is updated live.
+   * Closes any open toolbox and hooks/unhooks every open window so the DevTools
+   * key shortcuts start or stop working.
+   */
+  onDisabledByPolicyChanged() {
+    const disabled = this.isDisabledByPolicy();
+
+    // Close any open toolbox, if DevTools got disabled.
+    if (disabled && this.initialized) {
+      const { require } = ChromeUtils.importESModule(
+        "resource://devtools/shared/loader/Loader.sys.mjs"
+      );
+      const { gDevTools } = require("devtools/client/framework/devtools");
+      for (const toolbox of gDevTools.getToolboxes()) {
+        toolbox.closeToolbox().catch(console.error);
+      }
+
+      lazy.BrowserToolboxLauncher.closeAll();
+    }
+
+    for (const window of Services.wm.getEnumerator("navigator:browser")) {
+      const keyset = window.document.getElementById("devtoolsKeyset");
+      if (disabled && keyset) {
+        keyset.remove();
+      } else if (!disabled && !keyset) {
+        this.hookWindow(window);
+      }
+    }
   }
 
   /**

@@ -24,6 +24,51 @@ const POLICY_PARAM_STATE = {
   REMOVED: "removed",
 };
 
+/**
+ * Serve a new remote policy set and wait until the live poller has fetched and
+ * applied it, so callers can assert on the post-update state without a restart.
+ *
+ * @param {object} policies policy set served as the new remote policies
+ *                          and applied on the next poll
+ * @returns {Promise<void>} resolves once the update has been applied
+ */
+async function waitForLivePolicyUpdate(policies) {
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({ policies });
+  await updateApplied;
+}
+
+// Navigate to `url` in a new tab and assert whether it was blocked by policy
+// (replaced with about:neterror?e=blockedByPolicy) or loaded normally.
+async function checkBlockedPage(url, expectedBlocked) {
+  let newTab = BrowserTestUtils.addTab(gBrowser);
+  gBrowser.selectedTab = newTab;
+
+  if (expectedBlocked) {
+    let promise = BrowserTestUtils.waitForErrorPage(gBrowser.selectedBrowser);
+    BrowserTestUtils.startLoadingURIString(gBrowser, url);
+    await promise;
+    is(
+      newTab.linkedBrowser.documentURI.spec.startsWith(
+        "about:neterror?e=blockedByPolicyEnterprise"
+      ),
+      true,
+      `${url} should be blocked by policy`
+    );
+  } else {
+    let promise = BrowserTestUtils.browserStopped(gBrowser, url);
+    BrowserTestUtils.startLoadingURIString(gBrowser, url);
+    await promise;
+    is(
+      newTab.linkedBrowser.documentURI.spec,
+      url,
+      `${url} should not be blocked by policy`
+    );
+  }
+
+  BrowserTestUtils.removeTab(newTab);
+}
+
 add_setup(async () => {
   PoliciesPrefTracker.start();
 

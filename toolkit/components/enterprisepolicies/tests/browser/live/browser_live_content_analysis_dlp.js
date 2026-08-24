@@ -71,15 +71,6 @@ function assertInterceptionPoints(expectedOn, message) {
   }
 }
 
-// Serve a new remote policy set and wait for the update to be applied. This is
-// the live path: the poller notices the changed set, the engine diffs it, and
-// EnterprisePolicies:PolicyUpdatesApplied lands after the prefs have settled.
-async function applyLivePolicies(policies) {
-  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({ policies });
-  await updateApplied;
-}
-
 // Establish a starting policy set, then drive one no-op update through so the
 // C++ backend is in sync with the prefs before the transition under test. An
 // engine restart re-runs the JS handlers but does not fire
@@ -102,7 +93,7 @@ add_task(async function test_live_activation_selects_builtin_backend() {
   );
   Assert.ok(!ca.isActive, "Content Analysis inactive with no policy");
 
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     DataLossPrevention: { FallbackResult: "block", Rules: [PASTE_RULE] },
   });
 
@@ -138,7 +129,7 @@ add_task(async function test_live_rules_edit_does_not_rebuild_backend() {
 
   // Same provider, different rules: the backend reads dlp_rules and the
   // interception-point prefs live, so this must not rebuild it.
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     DataLossPrevention: {
       FallbackResult: "warn",
       Rules: [PASTE_RULE, UPLOAD_RULE],
@@ -182,7 +173,7 @@ add_task(async function test_live_adding_external_suppresses_builtin() {
   Assert.equal(backendKind(), "wasm-module", "starting on the WASM backend");
   const generationBefore = backendGeneration();
 
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     ContentAnalysis: { Enabled: true },
     DataLossPrevention: { FallbackResult: "block", Rules: [PASTE_RULE] },
   });
@@ -225,7 +216,7 @@ add_task(async function test_live_removing_external_reactivates_builtin() {
   );
   const generationBefore = backendGeneration();
 
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     DataLossPrevention: { FallbackResult: "block", Rules: [UPLOAD_RULE] },
   });
 
@@ -271,7 +262,7 @@ add_task(async function test_live_external_enabled_flip_swaps_backend() {
   );
   let generation = backendGeneration();
 
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     ContentAnalysis: { Enabled: true },
     DataLossPrevention: { FallbackResult: "block", Rules: [PASTE_RULE] },
   });
@@ -284,7 +275,7 @@ add_task(async function test_live_external_enabled_flip_swaps_backend() {
   Assert.greater(backendGeneration(), generation, "enabling rebuilt");
   generation = backendGeneration();
 
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     ContentAnalysis: { Enabled: false },
     DataLossPrevention: { FallbackResult: "block", Rules: [PASTE_RULE] },
   });
@@ -317,7 +308,7 @@ add_task(async function test_live_external_connection_change_rebuilds() {
   );
   let generation = backendGeneration();
 
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     ContentAnalysis: { Enabled: true, PipePathName: "live_dlp_pipe_b" },
   });
 
@@ -339,7 +330,7 @@ add_task(async function test_live_external_connection_change_rebuilds() {
   generation = backendGeneration();
 
   // An update that touches nothing the connection depends on must not churn it.
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     ContentAnalysis: {
       Enabled: true,
       PipePathName: "live_dlp_pipe_b",
@@ -387,7 +378,7 @@ add_task(async function test_builtin_does_not_inherit_external_url_filters() {
     "the external agent's allow list is in effect to begin with"
   );
 
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     DataLossPrevention: { FallbackResult: "block", Rules: [PASTE_RULE] },
   });
 
@@ -414,7 +405,7 @@ add_task(async function test_live_deactivation_tears_down_backend() {
   Assert.equal(backendKind(), "wasm-module", "starting on the WASM backend");
   Assert.ok(ca.isActive, "Content Analysis active before deactivation");
 
-  await applyLivePolicies({});
+  await waitForLivePolicyUpdate({});
 
   Assert.ok(!ca.isActive, "Content Analysis inactive after removing DLP");
   Assert.equal(

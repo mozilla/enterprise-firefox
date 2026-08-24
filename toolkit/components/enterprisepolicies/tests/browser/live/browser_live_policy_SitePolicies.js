@@ -98,9 +98,7 @@ add_task(async function test_apply_then_remove_sitepolicies() {
   );
 
   info("Removing SitePolicies.");
-  let updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
-  await updateApplied;
+  await waitForLivePolicyUpdate({});
 
   // onRemove must reset both the parent's internal state and
   // the shared data snapshot read by content processes.
@@ -133,18 +131,14 @@ add_task(async function test_apply_then_update_sitepolicies() {
   );
 
   info("Updating SitePolicies to match example.org instead.");
-  let updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({
-    policies: {
-      SitePolicies: [
-        {
-          Match: ["*.example.org"],
-          Policies: { DisableJit: true },
-        },
-      ],
-    },
+  await waitForLivePolicyUpdate({
+    SitePolicies: [
+      {
+        Match: ["*.example.org"],
+        Policies: { DisableJit: true },
+      },
+    ],
   });
-  await updateApplied;
 
   assertHasSitePolicy("https://example.com/", false);
   assertHasSitePolicy("https://example.org/", true);
@@ -156,9 +150,7 @@ add_task(async function test_apply_then_update_sitepolicies() {
   );
 
   info("Removing SitePolicies.");
-  updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
-  await updateApplied;
+  await waitForLivePolicyUpdate({});
 
   await assertNoSitePolicies();
 });
@@ -188,18 +180,14 @@ add_task(async function test_live_update_exceptions() {
   assertJitAllowed("https://example.com/", true);
 
   info("Updating the exception to example.org so the diff re-applies it.");
-  let updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({
-    policies: {
-      SitePolicies: [
-        {
-          Exceptions: ["*.example.org"],
-          Policies: { DisableJit: true },
-        },
-      ],
-    },
+  await waitForLivePolicyUpdate({
+    SitePolicies: [
+      {
+        Exceptions: ["*.example.org"],
+        Policies: { DisableJit: true },
+      },
+    ],
   });
-  await updateApplied;
 
   await assertSitePolicyCount(
     ["https://example.com/", "https://example.org/"],
@@ -209,9 +197,7 @@ add_task(async function test_live_update_exceptions() {
   assertJitAllowed("https://example.org/", true);
 
   info("Removing SitePolicies.");
-  updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
-  await updateApplied;
+  await waitForLivePolicyUpdate({});
 
   await assertNoSitePolicies();
 });

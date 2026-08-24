@@ -21,12 +21,6 @@ const HARNESS_EXEMPTIONS = {
   "mochikit@mozilla.org": { installation_mode: "allowed" },
 };
 
-async function updatePolicies(policies) {
-  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies(policies);
-  await updateApplied;
-}
-
 function isRestricted(host) {
   return WebExtensionPolicy.isRestrictedURI(
     Services.io.newURI(`https://${host}/`)
@@ -82,11 +76,9 @@ add_task(async function test_restricted_domains_apply_update_remove() {
   );
 
   info("Updating restricted_domains to a different domain.");
-  await updatePolicies({
-    policies: {
-      ExtensionSettings: {
-        "*": { restricted_domains: ["two.example.com"] },
-      },
+  await waitForLivePolicyUpdate({
+    ExtensionSettings: {
+      "*": { restricted_domains: ["two.example.com"] },
     },
   });
 
@@ -97,7 +89,7 @@ add_task(async function test_restricted_domains_apply_update_remove() {
   );
 
   info("Removing the ExtensionSettings policy.");
-  await updatePolicies({ policies: {} });
+  await waitForLivePolicyUpdate({});
 
   Assert.ok(
     !isRestricted("one.example.com") && !isRestricted("two.example.com"),
@@ -154,7 +146,7 @@ add_task(async function test_block_all_prefs_and_feature_reverted() {
   );
 
   info("Removing the ExtensionSettings policy.");
-  await updatePolicies({ policies: {} });
+  await waitForLivePolicyUpdate({});
 
   Assert.ok(
     !Services.prefs.prefIsLocked(SHOW_PANE_PREF),
@@ -208,11 +200,9 @@ add_task(async function test_install_sources_reset() {
   );
 
   info("Updating the policy to drop install_sources.");
-  await updatePolicies({
-    policies: {
-      ExtensionSettings: {
-        "*": { installation_mode: "allowed" },
-      },
+  await waitForLivePolicyUpdate({
+    ExtensionSettings: {
+      "*": { installation_mode: "allowed" },
     },
   });
 
@@ -222,7 +212,7 @@ add_task(async function test_install_sources_reset() {
   );
 
   info("Removing the ExtensionSettings policy.");
-  await updatePolicies({ policies: {} });
+  await waitForLivePolicyUpdate({});
 
   Assert.ok(
     Services.policies.allowedInstallSource(allowed) &&
@@ -256,13 +246,11 @@ add_task(async function test_runtime_blocked_hosts_blocks_access() {
   Assert.ok(canAccess(hostA), "extension can access host A before the policy");
 
   info("Block host A.");
-  await updatePolicies({
-    policies: {
-      ExtensionSettings: {
-        [id]: {
-          installation_mode: "allowed",
-          runtime_blocked_hosts: ["*://*.a.example.com"],
-        },
+  await waitForLivePolicyUpdate({
+    ExtensionSettings: {
+      [id]: {
+        installation_mode: "allowed",
+        runtime_blocked_hosts: ["*://*.a.example.com"],
       },
     },
   });
@@ -273,13 +261,11 @@ add_task(async function test_runtime_blocked_hosts_blocks_access() {
   Assert.ok(canAccess(hostB), "extension can still access host B");
 
   info("Update to block host B instead of A.");
-  await updatePolicies({
-    policies: {
-      ExtensionSettings: {
-        [id]: {
-          installation_mode: "allowed",
-          runtime_blocked_hosts: ["*://*.b.example.com"],
-        },
+  await waitForLivePolicyUpdate({
+    ExtensionSettings: {
+      [id]: {
+        installation_mode: "allowed",
+        runtime_blocked_hosts: ["*://*.b.example.com"],
       },
     },
   });
@@ -293,7 +279,7 @@ add_task(async function test_runtime_blocked_hosts_blocks_access() {
   );
 
   info("Removing the policy clears the guards.");
-  await updatePolicies({ policies: {} });
+  await waitForLivePolicyUpdate({});
   await TestUtils.waitForCondition(
     () => canAccess(hostB),
     "extension can access all hosts again after removal"
@@ -325,10 +311,8 @@ add_task(async function test_installation_mode_lifecycle() {
   );
 
   info("force_installed: the user can no longer remove or disable it.");
-  await updatePolicies({
-    policies: {
-      ExtensionSettings: { [id]: { installation_mode: "force_installed" } },
-    },
+  await waitForLivePolicyUpdate({
+    ExtensionSettings: { [id]: { installation_mode: "force_installed" } },
   });
   await TestUtils.waitForCondition(
     () => !(addon.permissions & AddonManager.PERM_CAN_UNINSTALL),
@@ -340,10 +324,8 @@ add_task(async function test_installation_mode_lifecycle() {
   );
 
   info("normal_installed: disabling is allowed again, removal still locked.");
-  await updatePolicies({
-    policies: {
-      ExtensionSettings: { [id]: { installation_mode: "normal_installed" } },
-    },
+  await waitForLivePolicyUpdate({
+    ExtensionSettings: { [id]: { installation_mode: "normal_installed" } },
   });
   await TestUtils.waitForCondition(
     () => addon.permissions & AddonManager.PERM_CAN_DISABLE,
@@ -355,10 +337,8 @@ add_task(async function test_installation_mode_lifecycle() {
   );
 
   info("blocked: the add-on is uninstalled live.");
-  await updatePolicies({
-    policies: {
-      ExtensionSettings: { [id]: { installation_mode: "blocked" } },
-    },
+  await waitForLivePolicyUpdate({
+    ExtensionSettings: { [id]: { installation_mode: "blocked" } },
   });
   await TestUtils.waitForCondition(
     () => !WebExtensionPolicy.getByID(id),
@@ -373,7 +353,7 @@ add_task(async function test_installation_mode_lifecycle() {
   info(
     "Removing the ExtensionSettings policy (teardown; result not asserted)."
   );
-  await updatePolicies({ policies: {} });
+  await waitForLivePolicyUpdate({});
 });
 
 // Functional: an installed extension whose permission is added to
@@ -396,11 +376,9 @@ add_task(async function test_blocked_permission_disables_and_reenables() {
   );
 
   info("Blocking the history permission via a live update.");
-  await updatePolicies({
-    policies: {
-      ExtensionSettings: {
-        "*": { blocked_permissions: ["history"] },
-      },
+  await waitForLivePolicyUpdate({
+    ExtensionSettings: {
+      "*": { blocked_permissions: ["history"] },
     },
   });
 
@@ -411,7 +389,7 @@ add_task(async function test_blocked_permission_disables_and_reenables() {
   Assert.ok(addon.appDisabled, "the add-on is disabled by blocked_permissions");
 
   info("Removing the ExtensionSettings policy.");
-  await updatePolicies({ policies: {} });
+  await waitForLivePolicyUpdate({});
 
   await TestUtils.waitForCondition(
     () => !addon.appDisabled,
@@ -454,10 +432,8 @@ add_task(async function test_shared_feature_kept_while_sibling_holds_it() {
   info(
     "Removing only ExtensionSettings; InstallAddonsPermission stays active."
   );
-  await updatePolicies({
-    policies: {
-      InstallAddonsPermission: { Default: false },
-    },
+  await waitForLivePolicyUpdate({
+    InstallAddonsPermission: { Default: false },
   });
 
   Assert.ok(
@@ -466,5 +442,5 @@ add_task(async function test_shared_feature_kept_while_sibling_holds_it() {
   );
 
   // Remove all policies to leave a clean state.
-  await updatePolicies({ policies: {} });
+  await waitForLivePolicyUpdate({});
 });

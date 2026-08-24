@@ -21,7 +21,13 @@ run-if = [
 
 ["browser_live_policies_restoring_preference_state.js"]
 
+["browser_live_policy_BlockAboutConfig.js"]
+
+["browser_live_policy_BlockAboutSupport.js"]
+
 ["browser_live_policy_Cookies.js"]
+
+["browser_live_policy_DisableDeveloperTools.js"]
 
 ["browser_live_policy_ExtensionSettings.js"]
 

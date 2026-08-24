@@ -30,12 +30,6 @@ const ca = Cc["@mozilla.org/contentanalysis;1"].getService(
   Ci.nsIContentAnalysis
 );
 
-async function applyLivePolicies(policies) {
-  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({ policies });
-  await updateApplied;
-}
-
 async function startFrom(policies) {
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies({ policies });
   const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
@@ -63,7 +57,7 @@ add_task(async function test_indicator_appears_in_existing_windows() {
     "no indicator in the second window while inactive"
   );
 
-  await applyLivePolicies({
+  await waitForLivePolicyUpdate({
     DataLossPrevention: { FallbackResult: "block", Rules: [PASTE_RULE] },
   });
 
@@ -78,7 +72,7 @@ add_task(async function test_indicator_appears_in_existing_windows() {
   );
 
   // Deactivation must clear it again in every window.
-  await applyLivePolicies({});
+  await waitForLivePolicyUpdate({});
 
   Assert.ok(!ca.isActive, "Content Analysis inactive again");
   Assert.ok(
@@ -107,7 +101,7 @@ add_task(async function test_indicator_shown_in_a_window_opened_while_active() {
   );
 
   await BrowserTestUtils.closeWindow(newWindow);
-  await applyLivePolicies({});
+  await waitForLivePolicyUpdate({});
 });
 
 // MightBeActive is the content-process gate for CA-aware clipboard reads. It
@@ -130,7 +124,7 @@ add_task(async function test_might_be_active_live_in_content_process() {
         "mightBeActive is false in the content process while inactive"
       );
 
-      await applyLivePolicies({
+      await waitForLivePolicyUpdate({
         DataLossPrevention: { FallbackResult: "block", Rules: [PASTE_RULE] },
       });
 
@@ -148,7 +142,7 @@ add_task(async function test_might_be_active_live_in_content_process() {
         "mightBeActive turned true in the already-running content process"
       );
 
-      await applyLivePolicies({});
+      await waitForLivePolicyUpdate({});
 
       Assert.ok(
         !(await SpecialPowers.spawn(browser, [], () => {
