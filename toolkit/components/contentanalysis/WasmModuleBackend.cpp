@@ -370,7 +370,11 @@ WasmModuleBackend::GetDiagnosticInfo() {
       do_GetService(WASM_RUNNER_CONTRACTID);
   if (runner) {
     MOZ_ALWAYS_SUCCEEDS(runner->GetCachedModuleVersion(version));
-    version.Insert(u"version ", 0);
+    if (version.Length() > 0) {
+      version.Insert(u"version ", 0);
+    } else {
+      version = u"(none)";
+    }
   }
   auto info = MakeRefPtr<ContentAnalysisDiagnosticInfo>(
       mConnectedToAgent, std::move(version), false, mRequestCount);

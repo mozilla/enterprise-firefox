@@ -41,7 +41,7 @@ export class ContentAnalysisWasmRunner {
   get cachedModuleVersion() {
     return this.#cachedModuleBytes && this.#cachedModuleBytes.length
       ? "1.0"
-      : "(unknown)";
+      : "";
   }
 
   async analyze(aRequestBytes, aContentBytes, aRules) {
