@@ -39,7 +39,9 @@ export class ContentAnalysisWasmRunner {
   // In the future we should get this from the WASM bytes somehow, perhaps
   // by calling ca_abi_version()?
   get cachedModuleVersion() {
-    return "1.0";
+    return this.#cachedModuleBytes && this.#cachedModuleBytes.length
+      ? "1.0"
+      : "(unknown)";
   }
 
   async analyze(aRequestBytes, aContentBytes, aRules) {
