@@ -143,7 +143,7 @@ export const ConsoleClient = {
    */
   get _paths() {
     // Strip off any trailing "a1", etc.
-    let majorMinorPatchVersion = Services.appinfo.appBuildID.replace(
+    let majorMinorPatchVersion = Services.appinfo.version.replace(
       /[a-zA-Z].*$/,
       ""
     );
@@ -158,7 +158,7 @@ export const ConsoleClient = {
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
       FXACCOUNT: "/api/browser/account",
-      DLP_WASM: `/api/browser/content-analysis-wasm/update/156.0/${majorMinorPatchVersion}/0.0.0`,
+      DLP_WASM: `/api/browser/content-analysis-wasm/update/${majorMinorPatchVersion}/${Services.appinfo.appBuildID}/0.0.0`,
     };
   },
 
