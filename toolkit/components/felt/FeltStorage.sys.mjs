@@ -98,7 +98,7 @@ export const FeltStorage = {
   },
 
   /**
-   * Gets the stored (encrypted) refresh token for a locked session, if any.
+   * Gets the encrypted stored refresh token for a locked session, if any.
    *
    * @param {string} email
    * @returns {string | undefined} The encrypted refresh token.
@@ -108,7 +108,7 @@ export const FeltStorage = {
   },
 
   /**
-   * Stores the (already encrypted) refresh token for a locked session.
+   * Stores the refresh token for a locked session. Encryption needs to be performed before calling this.
    *
    * @param {string} email
    * @param {string} token The encrypted refresh token.
