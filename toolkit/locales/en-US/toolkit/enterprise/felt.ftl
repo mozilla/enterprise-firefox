@@ -12,6 +12,9 @@ felt-sso-input-email =
     .label = Work email
 felt-sso-continue-btn =
     .label = Continue
+felt-sso-unlock-btn =
+    .label = Unlock
+felt-sso-unlock-hint = Verify with your device to continue.
 
 felt-pending-action-notification = Please wait while { -brand-short-name } starts…
 felt-powered-by =

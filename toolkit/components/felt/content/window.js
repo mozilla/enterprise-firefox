@@ -323,16 +323,25 @@ async function connectToConsole(email) {
 async function listenFormEmailSubmission() {
   const signInBtn = document.getElementById("felt-form__sign-in-btn");
   const emailInput = document.getElementById("felt-form__email");
+  const unlockHint = document.querySelector(".felt-login__unlock-hint");
 
   const lastUsedUserEmail = lazy.FeltStorage.getLastSignedInUser();
   if (lastUsedUserEmail) {
     emailInput.value = lastUsedUserEmail;
-    signInBtn.disabled = false;
   }
 
-  emailInput.addEventListener("input", () => {
-    signInBtn.disabled = emailInput.value.trim() === "";
-  });
+  const onEmailInput = () => {
+    const email = emailInput.value.trim();
+    signInBtn.disabled = email === "";
+    const locked = !!lazy.FeltStorage.getLockingToken(email);
+    signInBtn.setAttribute(
+      "data-l10n-id",
+      locked ? "felt-sso-unlock-btn" : "felt-sso-continue-btn"
+    );
+    unlockHint.classList.toggle("is-hidden", !locked);
+  };
+  emailInput.addEventListener("input", onEmailInput);
+  onEmailInput();
 
   // <moz-button> does not trigger the native "submit" event on <form>
   // so we manually handle submission on button click and when Enter is pressed
