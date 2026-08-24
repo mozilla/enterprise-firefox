@@ -431,7 +431,6 @@ add_task(async function test_showInfoBarMessage_skipsPrivateWindow() {
   Assert.equal(result, null);
   Assert.equal(dispatch.callCount, 0);
 
-  // Cleanup
   sinon.restore();
 });
 
@@ -1826,4 +1825,43 @@ add_task(async function dismiss_on_any_pref_in_array_change() {
 
   Services.prefs.clearUserPref(PREF1);
   Services.prefs.clearUserPref(PREF2);
+});
+
+add_task(async function test_remoteText_rerenders() {
+  const win = BrowserWindowTracker.getTopWindow();
+  const doc = win.document;
+  InfoBar.maybeLoadCustomElement(win);
+  InfoBar.maybeInsertFTL(win);
+
+  const el = doc.createElement("remote-text");
+  el.setAttribute("fluent-variable-name", "Ada");
+  el.setAttribute("fluent-remote-id", "cfr-doorhanger-extension-author");
+  doc.documentElement.appendChild(el);
+
+  // Fluent wraps substituted variables in bidi isolation marks.
+  const text = () =>
+    (el.shadowRoot?.textContent ?? "").replace(/[\u2068\u2069]/g, "");
+  await TestUtils.waitForCondition(
+    () => text(),
+    "Initial render is translated"
+  );
+  Assert.equal(text(), "by Ada", "Rendered with the initial variable");
+
+  el.setAttribute("fluent-remote-id", "cfr-doorhanger-extension-heading");
+  await TestUtils.waitForCondition(
+    () => text() !== "by Ada",
+    "Changing fluent-remote-id re-renders the message"
+  );
+  Assert.equal(text(), "Recommended Extension", "Rendered the new message");
+
+  el.setAttribute("fluent-remote-id", "cfr-doorhanger-extension-author");
+  el.setVariable("name", "Grace");
+  await TestUtils.waitForCondition(
+    () => text() !== "Recommended Extension",
+    "setVariable() re-renders the message"
+  );
+  Assert.equal(text(), "by Grace", "Substituted the new variable value");
+
+  // Cleanup
+  el.remove();
 });
