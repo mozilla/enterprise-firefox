@@ -683,21 +683,36 @@ export const InfoBar = {
       this._activeInfobar = { message, dispatch, notification };
     }
 
-    if (isFirstUniversal) {
-      await this.showNotificationAllWindows(notification);
-      if (!this._observingWindowOpened) {
-        this._observingWindowOpened = true;
-        Services.obs.addObserver(this, "domwindowopened");
+    try {
+      if (isFirstUniversal) {
+        await this.showNotificationAllWindows(notification);
+        if (!this._observingWindowOpened) {
+          this._observingWindowOpened = true;
+          Services.obs.addObserver(this, "domwindowopened");
+        } else {
+          // TODO: At least during testing it seems that we can get here more
+          // than once without passing through removeUniversalInfobars(). Is
+          // this expected?
+          console.warn(
+            "InfoBar: Already observing new windows for universal infobar."
+          );
+        }
       } else {
-        // TODO: At least during testing it seems that we can get here more
-        // than once without passing through removeUniversalInfobars(). Is
-        // this expected?
-        console.warn(
-          "InfoBar: Already observing new windows for universal infobar."
-        );
+        await notification.showNotification(browser);
       }
-    } else {
-      await notification.showNotification(browser);
+    } catch (e) {
+      // Release failed shows only while they still own the active slot;
+      // universal tracking may already belong to a successor.
+      if (
+        !universalInNewWin &&
+        this._activeInfobar?.notification === notification
+      ) {
+        if (isUniversal) {
+          notification.removeUniversalInfobars();
+        }
+        this._activeInfobar = null;
+      }
+      throw e;
     }
 
     if (!universalInNewWin) {

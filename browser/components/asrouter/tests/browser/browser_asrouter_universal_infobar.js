@@ -1271,3 +1271,148 @@ add_task(async function universal_dismissed_from_later_window() {
     cleanupInfobars();
   }
 });
+
+add_task(async function failed_show_does_not_hold_the_active_slot() {
+  const sandbox = sinon.createSandbox();
+  const win1 = BrowserWindowTracker.getTopWindow();
+
+  const doomed = {
+    id: "TEST_UNIVERSAL_DOOMED",
+    content: {
+      type: "universal",
+      text: "doomed",
+      buttons: [],
+      priority: 99,
+    },
+  };
+  const followUp = {
+    id: "TEST_UNIVERSAL_FOLLOW_UP",
+    content: { type: "universal", text: "follow up", buttons: [] },
+  };
+
+  try {
+    await Assert.rejects(
+      InfoBar.showInfoBarMessage(
+        win1.gBrowser.selectedBrowser,
+        doomed,
+        sandbox.stub()
+      ),
+      /Invalid notification priority/,
+      "The show reports its failure"
+    );
+
+    Assert.ok(!InfoBar._activeInfobar, "The active infobar slot was released");
+    Assert.equal(
+      InfoBar._universalInfobars.length,
+      0,
+      "No universal infobars are left tracked"
+    );
+
+    const shown = await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      followUp,
+      sandbox.stub()
+    );
+    Assert.ok(shown, "A later message is not refused by the failed one");
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win1, followUp.id),
+      "The later message is visible"
+    );
+  } finally {
+    removeByIdInWin(win1, followUp.id);
+    removeByIdInWin(win1, doomed.id);
+    sandbox.restore();
+    cleanupInfobars();
+  }
+});
+
+// Pause the first append until release() is called, optionally with an error.
+const holdFirstAppend = (sandbox, box) => {
+  let release;
+  const held = new Promise(resolve => {
+    release = resolve;
+  });
+  const realAppend = box.appendNotification.bind(box);
+  let calls = 0;
+  sandbox.stub(box, "appendNotification").callsFake(async (...args) => {
+    if (++calls > 1) {
+      return realAppend(...args);
+    }
+    const rejection = await held;
+    if (rejection) {
+      throw rejection;
+    }
+    return realAppend(...args);
+  });
+  return release;
+};
+
+add_task(async function superseded_failed_show_spares_its_successor() {
+  const sandbox = sinon.createSandbox();
+  const win1 = BrowserWindowTracker.getTopWindow();
+
+  const doomed = {
+    id: "TEST_UNIVERSAL_SUPERSEDED_DOOMED",
+    content: { type: "universal", text: "doomed", buttons: [] },
+  };
+  const successor = {
+    id: "TEST_UNIVERSAL_SUPERSEDED_SUCCESSOR",
+    content: {
+      type: "universal",
+      text: "successor",
+      buttons: [],
+      canReplace: [doomed.id],
+    },
+  };
+
+  try {
+    const release = holdFirstAppend(sandbox, win1.gNotificationBox);
+
+    const pending = InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      doomed,
+      sandbox.stub()
+    );
+
+    const successorNotification = await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      successor,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win1, successor.id),
+      "The successor took the slot while the first was still appending"
+    );
+
+    release(new Error("held append failed"));
+    await Assert.rejects(
+      pending,
+      /held append failed/,
+      "The superseded show reports its failure"
+    );
+
+    Assert.ok(
+      getNotificationFromWin(win1, successor.id),
+      "The successor's bar survived the failure"
+    );
+    Assert.equal(
+      InfoBar._activeInfobar?.notification,
+      successorNotification,
+      "The successor still owns the active infobar"
+    );
+    Assert.equal(
+      InfoBar._universalInfobars.length,
+      1,
+      "The successor's bar is still tracked"
+    );
+    Assert.ok(
+      InfoBar._observingWindowOpened,
+      "The successor's new window observer is still registered"
+    );
+  } finally {
+    sandbox.restore();
+    removeByIdInWin(win1, successor.id);
+    removeByIdInWin(win1, doomed.id);
+    cleanupInfobars();
+  }
+});
