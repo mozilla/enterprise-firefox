@@ -33,5 +33,11 @@ try {
 // WASM_PATH as the given version, standing in for the real console.
 async function stubDlpWasmModule() {
   const moduleBytes = await IOUtils.read(do_get_file(WASM_PATH).path);
+  	
+  const originalGetDlpWasmModule = ConsoleClient.getDlpWasmModule;
+  const restore = () => {
+    ConsoleClient.getDlpWasmModule = originalGetDlpWasmModule;
+  };
+  registerCleanupFunction(restore);
   ConsoleClient.getDlpWasmModule = async () => moduleBytes.buffer;
 }
