@@ -1416,3 +1416,65 @@ add_task(async function superseded_failed_show_spares_its_successor() {
     cleanupInfobars();
   }
 });
+
+add_task(async function superseded_show_does_not_leave_its_bar_behind() {
+  const sandbox = sinon.createSandbox();
+  const win1 = BrowserWindowTracker.getTopWindow();
+
+  const first = {
+    id: "TEST_UNIVERSAL_SUPERSEDED_FIRST",
+    content: { type: "universal", text: "first", buttons: [] },
+  };
+  const second = {
+    id: "TEST_UNIVERSAL_SUPERSEDED_SECOND",
+    content: {
+      type: "universal",
+      text: "second",
+      buttons: [],
+      canReplace: [first.id],
+    },
+  };
+
+  try {
+    const release = holdFirstAppend(sandbox, win1.gNotificationBox);
+
+    const pending = InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      first,
+      sandbox.stub()
+    );
+
+    const secondNotification = await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      second,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win1, second.id),
+      "The replacement took the slot while the first was still appending"
+    );
+
+    release();
+    await pending;
+
+    Assert.ok(
+      !getNotificationFromWin(win1, first.id),
+      "The superseded show did not leave its bar behind"
+    );
+    Assert.equal(
+      InfoBar._activeInfobar?.notification,
+      secondNotification,
+      "The replacement still owns the active infobar"
+    );
+    Assert.equal(
+      InfoBar._universalInfobars.length,
+      1,
+      "Only the replacement's bar is tracked"
+    );
+  } finally {
+    sandbox.restore();
+    removeByIdInWin(win1, first.id);
+    removeByIdInWin(win1, second.id);
+    cleanupInfobars();
+  }
+});

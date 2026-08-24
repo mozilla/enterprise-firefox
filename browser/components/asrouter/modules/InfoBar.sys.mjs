@@ -218,6 +218,15 @@ class InfoBarNotification {
     messageSlot.setAttribute("slot", "message");
     messageSlot.appendChild(labelNode);
     this.notification.appendChild(messageSlot);
+
+    // A replacement can take ownership while appendNotification() is pending.
+    // Remove this bar if it completed after being superseded.
+    if (InfoBar._activeInfobar?.notification !== this) {
+      notificationContainer.removeNotification(this.notification);
+      this.notification = null;
+      return;
+    }
+
     // If the infobar is universal, only record an impression for the first
     // instance.
     if (
@@ -227,12 +236,7 @@ class InfoBarNotification {
       this.addImpression(browser);
     }
 
-    // Only add if the universal infobar is still active. Prevents race condition
-    // where a notification could add itself after removeUniversalInfobars().
-    if (
-      content.type === TYPES.UNIVERSAL &&
-      InfoBar._activeInfobar?.notification === this
-    ) {
+    if (content.type === TYPES.UNIVERSAL) {
       InfoBar._universalInfobars.push({
         box: notificationContainer,
         notification: this.notification,
