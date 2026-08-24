@@ -1145,3 +1145,129 @@ add_task(async function stale_unload_does_not_clear_active_global_infobar() {
     cleanupInfobars();
   }
 });
+
+add_task(async function reshown_universal_stays_tracked() {
+  const sandbox = sinon.createSandbox();
+  // Keep removal pending until the replacement is appended.
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 0]] });
+
+  const win1 = BrowserWindowTracker.getTopWindow();
+  const win2 = await BrowserTestUtils.openNewBrowserWindow();
+
+  const message = {
+    id: "TEST_UNIVERSAL_RESHOWN",
+    content: {
+      type: "universal",
+      text: "reshown",
+      buttons: [],
+      canReplace: ["TEST_UNIVERSAL_RESHOWN"],
+    },
+  };
+
+  try {
+    await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      message,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win2, message.id),
+      "First showing visible in both windows"
+    );
+
+    const reshown = await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      message,
+      sandbox.stub()
+    );
+
+    Assert.equal(
+      InfoBar._activeInfobar?.notification,
+      reshown,
+      "The re-shown notification owns the active infobar"
+    );
+    Assert.equal(
+      InfoBar._universalInfobars.length,
+      2,
+      "Both of the re-shown bars are tracked"
+    );
+
+    reshown.removeUniversalInfobars();
+    await TestUtils.waitForCondition(
+      () =>
+        !getNotificationFromWin(win1, message.id) &&
+        !getNotificationFromWin(win2, message.id),
+      "The re-shown bars can still be removed"
+    );
+  } finally {
+    removeByIdInWin(win1, message.id);
+    removeByIdInWin(win2, message.id);
+    await BrowserTestUtils.closeWindow(win2);
+    await SpecialPowers.popPrefEnv();
+    sandbox.restore();
+    cleanupInfobars();
+  }
+});
+
+add_task(async function universal_dismissed_from_later_window() {
+  const sandbox = sinon.createSandbox();
+  const win1 = BrowserWindowTracker.getTopWindow();
+
+  const message = {
+    id: "TEST_UNIVERSAL_DISMISS_LATER_WINDOW",
+    content: { type: "universal", text: "later window", buttons: [] },
+  };
+
+  let win2;
+  try {
+    await InfoBar.showInfoBarMessage(
+      win1.gBrowser.selectedBrowser,
+      message,
+      sandbox.stub()
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win1, message.id),
+      "Visible in the window it was shown from"
+    );
+
+    win2 = await BrowserTestUtils.openNewBrowserWindow();
+    // Mirror observe() for a newly opened window.
+    await InfoBar.showInfoBarMessage(
+      win2.gBrowser.selectedBrowser,
+      message,
+      sandbox.stub(),
+      true
+    );
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win2, message.id),
+      "Visible in the window that got its bar later"
+    );
+
+    getNotificationFromWin(win2, message.id).dismiss();
+
+    await TestUtils.waitForCondition(
+      () => !getNotificationFromWin(win2, message.id),
+      "Dismissed in the window it was dismissed from"
+    );
+    await TestUtils.waitForCondition(
+      () => !getNotificationFromWin(win1, message.id),
+      "Dismissed in the other window too"
+    );
+    Assert.ok(
+      !InfoBar._activeInfobar,
+      "The active infobar was cleared by the dismissal"
+    );
+    Assert.ok(
+      !InfoBar._observingWindowOpened,
+      "The new window observer was unregistered"
+    );
+  } finally {
+    removeByIdInWin(win1, message.id);
+    if (win2) {
+      removeByIdInWin(win2, message.id);
+      await BrowserTestUtils.closeWindow(win2);
+    }
+    sandbox.restore();
+    cleanupInfobars();
+  }
+});

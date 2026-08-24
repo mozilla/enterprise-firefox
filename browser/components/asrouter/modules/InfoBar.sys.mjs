@@ -231,7 +231,7 @@ class InfoBarNotification {
     // where a notification could add itself after removeUniversalInfobars().
     if (
       content.type === TYPES.UNIVERSAL &&
-      InfoBar._activeInfobar?.message?.id === this.message.id
+      InfoBar._activeInfobar?.notification === this
     ) {
       InfoBar._universalInfobars.push({
         box: notificationContainer,
@@ -420,8 +420,9 @@ class InfoBarNotification {
     // Clean up the pref observer on any removal/dismissal path.
     this._removePrefObserver();
     const wasUniversal = this.message.content.type === TYPES.UNIVERSAL;
-    const isActiveMessage =
-      InfoBar._activeInfobar?.message?.id === this.message.id;
+    // A delayed "removed" callback may run after another notification with
+    // the same message id became active, so compare notification identity.
+    const isActiveMessage = InfoBar._activeInfobar?.notification === this;
     if (eventType === "removed") {
       this.notification = null;
       this._browser = null;
@@ -532,7 +533,7 @@ class InfoBarNotification {
     });
     InfoBar._universalInfobars = [];
 
-    if (InfoBar._activeInfobar?.message.content.type === TYPES.UNIVERSAL) {
+    if (InfoBar._activeInfobar?.notification === this) {
       InfoBar._activeInfobar = null;
     }
   }
@@ -672,7 +673,11 @@ export const InfoBar = {
     this.maybeLoadCustomElement(win);
     this.maybeInsertFTL(win);
 
-    let notification = new InfoBarNotification(message, dispatch);
+    // All windows displaying a universal message share one notification so
+    // dismissing from any window removes every bar.
+    let notification =
+      (universalInNewWin && this._activeInfobar?.notification) ||
+      new InfoBarNotification(message, dispatch);
 
     if (!universalInNewWin) {
       this._activeInfobar = { message, dispatch, notification };
