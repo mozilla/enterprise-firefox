@@ -15,6 +15,7 @@
       super();
 
       this._content = null;
+      this._translated = Promise.resolve();
     }
 
     get fluentAttributeValues() {
@@ -42,8 +43,11 @@
           this.getAttribute("fluent-remote-id"),
           this.fluentAttributeValues
         );
-        // RemoteL10n does not observe this shadow root, so translate each render.
-        RemoteL10n.l10n.translateFragment(this._content);
+        // RemoteL10n does not observe this shadow root. Queue translations to
+        // preserve render order, and report failures.
+        this._translated = this._translated
+          .then(() => RemoteL10n.l10n.translateFragment(this._content))
+          .catch(console.error);
       }
     }
 
