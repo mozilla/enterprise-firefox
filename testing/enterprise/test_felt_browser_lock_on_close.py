@@ -133,8 +133,10 @@ class BrowserLockOnClose(FeltTests):
         self.assert_user_signed_in(env=Environment.FIREFOX)
         return self._child_driver.session_capabilities["moz:processID"]
 
-    def test_lock_on_close_persists_session_without_signout(self):
-        """Locking enabled, prompt disabled: closing locks (no signout, token kept)."""
+    def _begin_close_test(self, *, locking_enabled, prompt_enabled):
+        """Sign in, set the locking/prompt prefs, and assert no signout yet.
+
+        Returns the child browser pid for _settle_after_close."""
         browser_pid = self._start_signed_in()
         # enterprise.locking.browser_close ships locked, and set_prefs can't
         # modify a locked pref; unlock it so the set_prefs below takes effect.
@@ -144,15 +146,14 @@ class BrowserLockOnClose(FeltTests):
                 script_args=[PREF_LOCK_ON_CLOSE],
             )
         self._child_driver.set_prefs({
-            PREF_LOCK_ON_CLOSE: True,
-            PREF_PROMPT_ON_SIGNOUT: False,
+            PREF_LOCK_ON_CLOSE: locking_enabled,
+            PREF_PROMPT_ON_SIGNOUT: prompt_enabled,
         })
-
         assert self.signout_count.value == 0, "No signout should have been posted yet"
+        return browser_pid
 
-        self._trigger_browser_closure()
-        self._settle_after_close(browser_pid)
-
+    def _assert_locked(self):
+        """Assert the close locked the session: no signout, resume token kept."""
         assert self.signout_count.value == 0, (
             f"Locking must not post a signout, got {self.signout_count.value}"
         )
@@ -160,19 +161,8 @@ class BrowserLockOnClose(FeltTests):
             "Locking must persist an encrypted resume token"
         )
 
-    def test_signout_on_close_when_locking_disabled(self):
-        """Locking disabled, prompt disabled: closing signs out (no token kept)."""
-        browser_pid = self._start_signed_in()
-        self._child_driver.set_prefs({
-            PREF_LOCK_ON_CLOSE: False,
-            PREF_PROMPT_ON_SIGNOUT: False,
-        })
-
-        assert self.signout_count.value == 0, "No signout should have been posted yet"
-
-        self._trigger_browser_closure()
-        self._settle_after_close(browser_pid)
-
+    def _assert_signed_out(self):
+        """Assert the close signed out: exactly one signout, no token left behind."""
         assert self.signout_count.value == 1, (
             f"Expected exactly 1 signout request, got {self.signout_count.value}"
         )
@@ -181,13 +171,27 @@ class BrowserLockOnClose(FeltTests):
         )
         self.assert_user_signed_out(env=Environment.FELT)
 
+    def test_lock_on_close_persists_session_without_signout(self):
+        """Locking enabled, prompt disabled: closing locks (no signout, token kept)."""
+        browser_pid = self._begin_close_test(locking_enabled=True, prompt_enabled=False)
+
+        self._trigger_browser_closure()
+        self._settle_after_close(browser_pid)
+
+        self._assert_locked()
+
+    def test_signout_on_close_when_locking_disabled(self):
+        """Locking disabled, prompt disabled: closing signs out (no token kept)."""
+        browser_pid = self._begin_close_test(locking_enabled=False, prompt_enabled=False)
+
+        self._trigger_browser_closure()
+        self._settle_after_close(browser_pid)
+
+        self._assert_signed_out()
+
     def test_prompt_lock_dialog_accept_locks(self):
         """Locking enabled, prompt enabled: dialog shows lock wording; accept locks."""
-        browser_pid = self._start_signed_in()
-        self._child_driver.set_prefs({
-            PREF_LOCK_ON_CLOSE: True,
-            PREF_PROMPT_ON_SIGNOUT: True,
-        })
+        browser_pid = self._begin_close_test(locking_enabled=True, prompt_enabled=True)
 
         self._trigger_browser_closure()
         self._assert_close_dialog_content(
@@ -197,20 +201,11 @@ class BrowserLockOnClose(FeltTests):
         self._accept_close_dialog()
         self._settle_after_close(browser_pid)
 
-        assert self.signout_count.value == 0, (
-            f"Locking must not post a signout, got {self.signout_count.value}"
-        )
-        assert self._felt_has_locking_token(), (
-            "Locking must persist an encrypted resume token"
-        )
+        self._assert_locked()
 
     def test_prompt_signout_dialog_accept_signs_out(self):
         """Locking disabled, prompt enabled: dialog shows signout wording; accept signs out."""
-        browser_pid = self._start_signed_in()
-        self._child_driver.set_prefs({
-            PREF_LOCK_ON_CLOSE: False,
-            PREF_PROMPT_ON_SIGNOUT: True,
-        })
+        browser_pid = self._begin_close_test(locking_enabled=False, prompt_enabled=True)
 
         self._trigger_browser_closure()
         self._assert_close_dialog_content(
@@ -220,9 +215,4 @@ class BrowserLockOnClose(FeltTests):
         self._accept_close_dialog()
         self._settle_after_close(browser_pid)
 
-        assert self.signout_count.value == 1, (
-            f"Expected exactly 1 signout request, got {self.signout_count.value}"
-        )
-        assert not self._felt_has_locking_token(), (
-            "Signing out must not leave a resume token behind"
-        )
+        self._assert_signed_out()
