@@ -310,7 +310,9 @@ export class Felt {
       }
 
       case "FeltParent:FirefoxLogoutExit": {
-        // Lock quits to resume next launch, sign-out returns to sign-in.
+        // A "lock" reason quits Firefox so the session can be resumed on the
+        // next launch; any other reason signs the user out and returns to the
+        // sign-in window.
         if (message.data?.reason === "lock") {
           this.#quitOrHoldForShutdown();
         } else {

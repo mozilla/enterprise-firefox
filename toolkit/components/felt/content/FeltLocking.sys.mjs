@@ -23,31 +23,6 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
   );
 });
 
-
-/**
- * The email of the currently signed-in user, used as the key under which a
- * locked session's refresh token is stored. Read from the cached value rather
- * than the network so locking cannot hang or fail at shutdown.
- *
- * @returns {string | undefined} email
- */
-function currentEmail() {
-  return lazy.FeltStorage.getLastSignedInUser();
-}
-
-/**
- * Encrypts the refresh token and persists it for the given user via
- * FeltStorage, so the value never lands in a plaintext pref / about:config.
- *
- * @param {string} email
- * @param {string} token The plaintext refresh token.
- * @returns {Promise<void>}
- */
-async function storeToken(email, token) {
-  const encryptedRefreshToken = await lazy.OSKeyStore.encrypt(token);
-  lazy.FeltStorage.setLockingToken(email, encryptedRefreshToken);
-}
-
 export const FeltLocking = {
   /**
    * Attempt to resume a previously locked session for the given user. Requires
@@ -61,8 +36,7 @@ export const FeltLocking = {
     // A stored token exists only because a browser-authorized lock created it,
     // so its presence is the authorization to resume: the locking pref lives in
     // the browser process, which the Felt UI process cannot read.
-    const token = lazy.FeltStorage.getLockingToken(email);
-    if (token) {
+    if (lazy.FeltStorage.hasLockingToken(email)) {
       const [ messageText, captionText ] = await lazy.localization.formatValues([
         "felt-sso-unlock-os-auth-dialog-message",
         "felt-sso-unlock-os-auth-dialog-caption"
@@ -72,9 +46,11 @@ export const FeltLocking = {
         captionText
       );
       if (authenticated) {
+        // Decrypt only after OS auth succeeds, so authentication gates access
+        // to the token rather than merely gating the resume that follows.
         let refreshToken;
         try {
-          refreshToken = await lazy.OSKeyStore.decrypt(token, "", false);
+          refreshToken = await lazy.FeltStorage.getLockingToken(email);
         } catch (err) {
           lazy.log.warn(
             `tryUnlock: decrypt failed, falling back to sign-in: ${err}`
@@ -92,7 +68,7 @@ export const FeltLocking = {
             await lazy.ConsoleClient.refreshTokens();
           Services.felt.setTokens(access_token, refresh_token, expires_at);
 
-          await storeToken(email, refresh_token);
+          await lazy.FeltStorage.setLockingToken(email, refresh_token);
         } catch (err) {
           Services.felt.setTokens("", "", 0);
           if (err?.name === "ReauthRequiredError") {
@@ -136,13 +112,13 @@ export const FeltLocking = {
    * @returns {Promise<void>}
    */
   store: async refresh_token => {
-    const email = currentEmail();
+    const email = lazy.FeltStorage.getLastSignedInUser();
     if (!email) {
       throw new Error(
         "store: no signed-in user known, cannot persist locked session"
       );
     }
-    await storeToken(email, refresh_token);
+    await lazy.FeltStorage.setLockingToken(email, refresh_token);
   },
 
   /**
@@ -154,11 +130,11 @@ export const FeltLocking = {
    * @returns {Promise<void>}
    */
   updateStoredToken: async refresh_token => {
-    const email = currentEmail();
-    if (!email || !lazy.FeltStorage.getLockingToken(email)) {
+    const email = lazy.FeltStorage.getLastSignedInUser();
+    if (!email || !lazy.FeltStorage.hasLockingToken(email)) {
       return;
     }
-    await storeToken(email, refresh_token);
+    await lazy.FeltStorage.setLockingToken(email, refresh_token);
   },
 
   /**
@@ -169,7 +145,7 @@ export const FeltLocking = {
    * @returns {void}
    */
   clear: () => {
-    const email = currentEmail();
+    const email = lazy.FeltStorage.getLastSignedInUser();
     if (!email) {
       return;
     }

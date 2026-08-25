@@ -42,6 +42,9 @@ add_task(async function test_store_encrypts_and_persists() {
   const encrypt = sinon
     .stub(OSKeyStore, "encrypt")
     .resolves("encrypted(refresh-token)");
+  const decrypt = sinon
+    .stub(OSKeyStore, "decrypt")
+    .resolves("refresh-token");
   try {
     await FeltLocking.store("refresh-token");
     Assert.ok(
@@ -49,12 +52,13 @@ add_task(async function test_store_encrypts_and_persists() {
       "encrypts the plaintext refresh token"
     );
     Assert.equal(
-      lazy.FeltStorage.getLockingToken(EMAIL),
-      "encrypted(refresh-token)",
-      "persists the ciphertext keyed by the current user"
+      await lazy.FeltStorage.getLockingToken(EMAIL),
+      "refresh-token",
+      "the token persisted for the current user round-trips"
     );
   } finally {
     encrypt.restore();
+    decrypt.restore();
     lazy.FeltStorage.clearLockingToken(EMAIL);
   }
 });
@@ -77,23 +81,31 @@ add_task(async function test_store_throws_when_no_user_known() {
 
 add_task(async function test_update_stored_token_updates_existing_token() {
   lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
-  lazy.FeltStorage.setLockingToken(EMAIL, "old-ciphertext");
   const encrypt = sinon
     .stub(OSKeyStore, "encrypt")
-    .resolves("encrypted(rotated-token)");
+    .callsFake(async plaintext => `encrypted(${plaintext})`);
+  const decrypt = sinon
+    .stub(OSKeyStore, "decrypt")
+    .callsFake(async ciphertext =>
+      ciphertext.replace(/^encrypted\((.*)\)$/, "$1")
+    );
   try {
+    await lazy.FeltStorage.setLockingToken(EMAIL, "old-token");
+    encrypt.resetHistory();
+
     await FeltLocking.updateStoredToken("rotated-token");
     Assert.ok(
       encrypt.calledOnceWithExactly("rotated-token"),
       "encrypts the rotated refresh token"
     );
     Assert.equal(
-      lazy.FeltStorage.getLockingToken(EMAIL),
-      "encrypted(rotated-token)",
+      await lazy.FeltStorage.getLockingToken(EMAIL),
+      "rotated-token",
       "an already-persisted token is kept in sync"
     );
   } finally {
     encrypt.restore();
+    decrypt.restore();
     lazy.FeltStorage.clearLockingToken(EMAIL);
   }
 });
@@ -108,9 +120,8 @@ add_task(
     try {
       await FeltLocking.updateStoredToken("rotated-token");
       Assert.ok(encrypt.notCalled, "does not encrypt when no token is stored");
-      Assert.equal(
-        lazy.FeltStorage.getLockingToken(EMAIL),
-        undefined,
+      Assert.ok(
+        !lazy.FeltStorage.hasLockingToken(EMAIL),
         "nothing is persisted when no token already exists"
       );
     } finally {
@@ -121,13 +132,17 @@ add_task(
 
 add_task(async function test_clear_removes_stored_token() {
   lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
-  lazy.FeltStorage.setLockingToken(EMAIL, "ciphertext");
+  const encrypt = sinon.stub(OSKeyStore, "encrypt").resolves("ciphertext");
+  try {
+    await lazy.FeltStorage.setLockingToken(EMAIL, "token");
 
-  await FeltLocking.clear();
+    await FeltLocking.clear();
 
-  Assert.equal(
-    lazy.FeltStorage.getLockingToken(EMAIL),
-    undefined,
-    "clear removes the stored token"
-  );
+    Assert.ok(
+      !lazy.FeltStorage.hasLockingToken(EMAIL),
+      "clear removes the stored token"
+    );
+  } finally {
+    encrypt.restore();
+  }
 });

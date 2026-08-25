@@ -6,6 +6,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
+  OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
 });
 
 /**
@@ -98,26 +99,46 @@ export const FeltStorage = {
   },
 
   /**
-   * Gets the encrypted stored refresh token for a locked session, if any.
+   * Whether a locked-session token is stored for the given user. Cheap and
+   * synchronous, unlike getLockingToken, so callers that only need to know
+   * whether a session can be unlocked should use this.
    *
    * @param {string} email
-   * @returns {string | undefined} The encrypted refresh token.
+   * @returns {boolean}
    */
-  getLockingToken(email) {
-    return this._feltStorage.data?.lockingTokens?.[email];
+  hasLockingToken(email) {
+    return this._feltStorage.data?.lockingTokens?.[email] !== undefined;
   },
 
   /**
-   * Stores the refresh token for a locked session. Encryption needs to be performed before calling this.
+   * Gets and decrypts the stored refresh token for a locked session, if any.
    *
    * @param {string} email
-   * @param {string} token The encrypted refresh token.
+   * @returns {Promise<string | undefined>} The plaintext refresh token, or
+   *   undefined if none is stored.
    */
-  setLockingToken(email, token) {
+  async getLockingToken(email) {
+    const ciphertext = this._feltStorage.data?.lockingTokens?.[email];
+    if (ciphertext === undefined) {
+      return undefined;
+    }
+    return lazy.OSKeyStore.decrypt(ciphertext, "", false);
+  },
+
+  /**
+   * Encrypts and stores the refresh token for a locked session. Encryption is
+   * owned here so a plaintext token can never be persisted to felt.json.
+   *
+   * @param {string} email
+   * @param {string} token The plaintext refresh token.
+   * @returns {Promise<void>}
+   */
+  async setLockingToken(email, token) {
+    const ciphertext = await lazy.OSKeyStore.encrypt(token);
     if (!this._feltStorage.data.lockingTokens) {
       this._feltStorage.data.lockingTokens = {};
     }
-    this._feltStorage.data.lockingTokens[email] = token;
+    this._feltStorage.data.lockingTokens[email] = ciphertext;
     this._feltStorage.saveSoon();
   },
 

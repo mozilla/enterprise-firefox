@@ -333,7 +333,7 @@ async function listenFormEmailSubmission() {
   const onEmailInput = () => {
     const email = emailInput.value.trim();
     signInBtn.disabled = email === "";
-    const locked = !!lazy.FeltStorage.getLockingToken(email);
+    const locked = lazy.FeltStorage.hasLockingToken(email);
     signInBtn.setAttribute(
       "data-l10n-id",
       locked ? "felt-sso-unlock-btn" : "felt-sso-continue-btn"

@@ -4,7 +4,8 @@
 "use strict";
 
 // Tests for the locked-session token accessors that FeltLocking relies on to
-// persist (encrypted) refresh tokens in felt.json instead of a pref.
+// persist refresh tokens in felt.json instead of a pref. FeltStorage owns the
+// encryption, so OSKeyStore is stubbed to a reversible transform here.
 
 // Imported lazily so FeltStorage doesn't resolve its "UAppData"-based path
 // before makeFakeAppDir() runs in the head.js add_setup().
@@ -13,60 +14,97 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
 });
 
+const { OSKeyStore } = ChromeUtils.importESModule(
+  "resource://gre/modules/OSKeyStore.sys.mjs"
+);
+const { sinon } = ChromeUtils.importESModule(
+  "resource://testing-common/Sinon.sys.mjs"
+);
+
 const EMAIL_A = "a@example.com";
 const EMAIL_B = "b@example.com";
 
 add_setup(async function () {
   do_get_profile();
   await lazy.FeltStorage.init();
+
+  // Reversible stand-ins so the tests can assert both that a value is encrypted
+  // on the way in and recovered on the way out, without a real keystore.
+  sinon.stub(OSKeyStore, "encrypt").callsFake(async plaintext => `enc(${plaintext})`);
+  sinon
+    .stub(OSKeyStore, "decrypt")
+    .callsFake(async ciphertext => ciphertext.replace(/^enc\((.*)\)$/, "$1"));
+
+  registerCleanupFunction(() => {
+    sinon.restore();
+  });
 });
 
 add_task(async function test_get_returns_undefined_initially() {
   Assert.equal(
-    lazy.FeltStorage.getLockingToken(EMAIL_A),
+    await lazy.FeltStorage.getLockingToken(EMAIL_A),
     undefined,
     "no token stored for an unknown user"
+  );
+  Assert.equal(
+    lazy.FeltStorage.hasLockingToken(EMAIL_A),
+    false,
+    "hasLockingToken is false for an unknown user"
   );
 });
 
 add_task(async function test_set_get_update_clear_roundtrip() {
-  lazy.FeltStorage.setLockingToken(EMAIL_A, "ciphertext-1");
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "token-1");
+  Assert.ok(
+    lazy.FeltStorage.hasLockingToken(EMAIL_A),
+    "hasLockingToken is true once a token is stored"
+  );
   Assert.equal(
-    lazy.FeltStorage.getLockingToken(EMAIL_A),
-    "ciphertext-1",
-    "token is stored"
+    await lazy.FeltStorage.getLockingToken(EMAIL_A),
+    "token-1",
+    "the stored token round-trips through encrypt/decrypt"
   );
 
-  lazy.FeltStorage.setLockingToken(EMAIL_A, "ciphertext-2");
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "token-2");
   Assert.equal(
-    lazy.FeltStorage.getLockingToken(EMAIL_A),
-    "ciphertext-2",
+    await lazy.FeltStorage.getLockingToken(EMAIL_A),
+    "token-2",
     "token is overwritten on a second set"
   );
 
   lazy.FeltStorage.clearLockingToken(EMAIL_A);
   Assert.equal(
-    lazy.FeltStorage.getLockingToken(EMAIL_A),
+    await lazy.FeltStorage.getLockingToken(EMAIL_A),
     undefined,
     "token is removed after clear"
   );
 });
 
-add_task(async function test_tokens_are_isolated_per_email() {
-  lazy.FeltStorage.setLockingToken(EMAIL_A, "token-a");
-  lazy.FeltStorage.setLockingToken(EMAIL_B, "token-b");
+add_task(async function test_stored_value_is_encrypted_at_rest() {
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "plaintext");
+  Assert.equal(
+    lazy.FeltStorage._feltStorage.data.lockingTokens[EMAIL_A],
+    "enc(plaintext)",
+    "the raw value persisted to felt.json is the ciphertext, never the plaintext"
+  );
+  lazy.FeltStorage.clearLockingToken(EMAIL_A);
+});
 
-  Assert.equal(lazy.FeltStorage.getLockingToken(EMAIL_A), "token-a");
-  Assert.equal(lazy.FeltStorage.getLockingToken(EMAIL_B), "token-b");
+add_task(async function test_tokens_are_isolated_per_email() {
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "token-a");
+  await lazy.FeltStorage.setLockingToken(EMAIL_B, "token-b");
+
+  Assert.equal(await lazy.FeltStorage.getLockingToken(EMAIL_A), "token-a");
+  Assert.equal(await lazy.FeltStorage.getLockingToken(EMAIL_B), "token-b");
 
   lazy.FeltStorage.clearLockingToken(EMAIL_A);
   Assert.equal(
-    lazy.FeltStorage.getLockingToken(EMAIL_A),
+    await lazy.FeltStorage.getLockingToken(EMAIL_A),
     undefined,
     "clearing one user does not affect the other"
   );
   Assert.equal(
-    lazy.FeltStorage.getLockingToken(EMAIL_B),
+    await lazy.FeltStorage.getLockingToken(EMAIL_B),
     "token-b",
     "the other user's token is untouched"
   );
@@ -81,15 +119,15 @@ add_task(async function test_clear_missing_is_noop() {
 });
 
 add_task(async function test_tokens_persist_across_reload() {
-  lazy.FeltStorage.setLockingToken(EMAIL_A, "persisted-ciphertext");
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "persisted");
 
   // Flush pending writes and reload the backing file from disk.
   await lazy.FeltStorage._feltStorage._save();
   await lazy.FeltStorage.init();
 
   Assert.equal(
-    lazy.FeltStorage.getLockingToken(EMAIL_A),
-    "persisted-ciphertext",
+    await lazy.FeltStorage.getLockingToken(EMAIL_A),
+    "persisted",
     "token survives a save + reload cycle"
   );
 
