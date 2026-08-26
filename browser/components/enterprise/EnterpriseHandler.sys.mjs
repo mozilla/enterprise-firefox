@@ -339,7 +339,7 @@ export const EnterpriseHandler = {
    */
   lockOrSignOut() {
     this._skipSignoutPrompt = true;
-    if (this.willLockOnClose) {
+    if (this.willLockOnClose && Services.felt?.isFeltBrowser()) {
       try {
         Services.felt.performLock();
       } catch (e) {
