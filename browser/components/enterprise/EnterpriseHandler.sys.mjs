@@ -115,14 +115,15 @@ export const EnterpriseHandler = {
    * @param {number} options.tabCount - The number of open tabs across all windows.
    * @param {boolean} options.warnOnSignout - Whether to warn on signout.
    * @param {boolean} options.warnOnCloseWithTabs - Whether to warn on close when multiple tabs are open.
+   * @param {boolean} options.lockOnClose - Whether the action will lock the session rather than sign out.
    * @returns {Promise<object>} The parameters for the signout/close prompt, including title, message, checkbox states, and more.
    */
   async _getSignoutPromptParams({
     tabCount,
     warnOnSignout,
     warnOnCloseWithTabs,
+    lockOnClose,
   } = {}) {
-    const lockOnClose = this.willLockOnClose;
     const hasMultipleTabs = tabCount > 1;
     const hasTabsWarning = hasMultipleTabs && warnOnCloseWithTabs;
     const lockSuffix = lockOnClose ? "-lock" : "";
@@ -245,9 +246,12 @@ export const EnterpriseHandler = {
    * Shows the signout/close confirmation dialog if needed.
    *
    * @param {Window} window
+   * @param {boolean} [lockOnClose] - Whether the resulting action will lock the
+   *   session rather than sign out. Defaults to the locking pref; the explicit
+   *   sign-out entry point passes false so the dialog always reflects a sign-out.
    * @returns {Promise<boolean>} true if the action should proceed, false if cancelled.
    */
-  async showSignoutPrompt(window) {
+  async showSignoutPrompt(window, lockOnClose = this.willLockOnClose) {
     const warnOnSignout = Services.prefs.getBoolPref(
       PROMPT_ON_SIGNOUT_PREF,
       true
@@ -268,6 +272,7 @@ export const EnterpriseHandler = {
       tabCount: this._tabCount,
       warnOnSignout,
       warnOnCloseWithTabs,
+      lockOnClose,
     });
     this._tabCount = null;
 
@@ -309,7 +314,9 @@ export const EnterpriseHandler = {
    * @param {Window} window
    */
   async onSignOut(window) {
-    if (!(await this.showSignoutPrompt(window))) {
+    // Signing out explicitly always ends the session, so show sign-out wording
+    // even when the locking pref would lock on a plain browser close.
+    if (!(await this.showSignoutPrompt(window, false))) {
       return;
     }
 
