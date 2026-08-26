@@ -310,9 +310,7 @@ export class Felt {
       }
 
       case "FeltParent:FirefoxLogoutExit": {
-        // A "lock" reason quits Firefox so the session can be resumed on the
-        // next launch; any other reason signs the user out and returns to the
-        // sign-in window.
+        // A lock quits so the session resumes next launch; other reasons sign out.
         if (message.data?.reason === "lock") {
           this.#quitOrHoldForShutdown();
         } else {
@@ -367,8 +365,8 @@ export class Felt {
     }
   }
 
-  // The isBlockingShutdown branch is a test-only path that keeps FELT alive
-  // after the browser exits so tests can run follow-up processing.
+  // The isBlockingShutdown branch is test-only: it keeps FELT alive after the
+  // browser exits for follow-up processing.
   #quitOrHoldForShutdown() {
     if (!lazy.isBlockingShutdown()) {
       Services.startup.quit(

@@ -1130,7 +1130,10 @@ export class FeltProcessParent extends JSProcessActorParent {
     // locking pref and only sends the lock signal when enabled), so persist
     // unconditionally; store() still throws if no user is known.
     const persistLock = async () => {
-      await lazy.FeltLocking.store(Services.felt.getRefreshToken());
+      await lazy.FeltLocking.store(
+        Services.felt.getRefreshToken(),
+        this.loggedInUserInfo?.id
+      );
     };
 
     let locked = true;
@@ -1164,10 +1167,10 @@ export class FeltProcessParent extends JSProcessActorParent {
     switch (message.name) {
       case "FeltChild:StartFirefox":
         {
-          // An unlock resumes with the tokens already set on the FELT side (see
-          // FeltLocking.tryUnlock), so message.data is empty; a fresh SSO login
-          // carries the login payload here.
-          const isUnlock = !message.data?.user_id;
+          // An unlock resumes tokens committed through this message (see
+          // FeltLocking.tryUnlock); a fresh SSO login carries a one-time token
+          // the parent redeems below.
+          const { isUnlock = false } = message.data;
 
           const {
             one_time_token = "",
@@ -1176,11 +1179,23 @@ export class FeltProcessParent extends JSProcessActorParent {
             posture: postureConfig,
           } = message.data;
 
-          if (isUnlock && !Services.felt.getRefreshToken()) {
-            throw new Error("No token!");
-          }
-
-          if (!isUnlock) {
+          if (isUnlock) {
+            const {
+              access_token = "",
+              refresh_token = "",
+              expires_in,
+              expires_at,
+            } = message.data;
+            Services.felt.setTokens(
+              access_token,
+              refresh_token,
+              expires_at ??
+                Math.floor(Date.now() / 1000) + Number(expires_in ?? 0)
+            );
+            // Resume into the per-user profile the locked session used.
+            this.loggedInUserInfo = { id: user_id, email };
+            lazy.EdrAgents.write(postureConfig?.edr_agents);
+          } else {
             // The profile is derived from the user id, so without one the session
             // would run in the profile shared by every user.
             if (!user_id) {

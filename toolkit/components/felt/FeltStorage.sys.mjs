@@ -107,7 +107,7 @@ export const FeltStorage = {
    * @returns {boolean}
    */
   hasLockingToken(email) {
-    return this._feltStorage.data?.lockingTokens?.[email] !== undefined;
+    return this._feltStorage.data?.lockingTokens?.[email]?.token !== undefined;
   },
 
   /**
@@ -118,7 +118,7 @@ export const FeltStorage = {
    *   undefined if none is stored.
    */
   async getLockingToken(email) {
-    const ciphertext = this._feltStorage.data?.lockingTokens?.[email];
+    const ciphertext = this._feltStorage.data?.lockingTokens?.[email]?.token;
     if (ciphertext === undefined) {
       return undefined;
     }
@@ -126,19 +126,36 @@ export const FeltStorage = {
   },
 
   /**
-   * Encrypts and stores the refresh token for a locked session. Encryption is
-   * owned here so a plaintext token can never be persisted to felt.json.
+   * Returns the user id stored alongside a locked-session token, if any.
+   *
+   * @param {string} email
+   * @returns {string | undefined}
+   */
+  getLockingUserId(email) {
+    return this._feltStorage.data?.lockingTokens?.[email]?.userId;
+  },
+
+  /**
+   * Encrypts and stores the refresh token for a locked session, plus the user
+   * id. Encryption is owned here so a plaintext token can never be persisted to
+   * felt.json.
    *
    * @param {string} email
    * @param {string} token The plaintext refresh token.
+   * @param {string} [userId] Preserves the existing one if omitted.
    * @returns {Promise<void>}
    */
-  async setLockingToken(email, token) {
+  async setLockingToken(email, token, userId) {
     const ciphertext = await lazy.OSKeyStore.encrypt(token);
     if (!this._feltStorage.data.lockingTokens) {
       this._feltStorage.data.lockingTokens = {};
     }
-    this._feltStorage.data.lockingTokens[email] = ciphertext;
+    const record = this._feltStorage.data.lockingTokens[email] ?? {};
+    record.token = ciphertext;
+    if (userId !== undefined) {
+      record.userId = userId;
+    }
+    this._feltStorage.data.lockingTokens[email] = record;
     this._feltStorage.saveSoon();
   },
 

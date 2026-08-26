@@ -45,30 +45,29 @@ export const FeltLocking = {
         messageText,
         captionText
       );
+
       if (authenticated) {
         // Decrypt only after OS auth succeeds, so authentication gates access
         // to the token rather than merely gating the resume that follows.
-        let refreshToken;
+        let lockingToken, tokenData;
         try {
-          refreshToken = await lazy.FeltStorage.getLockingToken(email);
+          lockingToken = await lazy.FeltStorage.getLockingToken(email);
         } catch (err) {
           lazy.log.warn(
             `tryUnlock: decrypt failed, falling back to sign-in: ${err}`
           );
         }
-        if (!refreshToken) {
+        if (!lockingToken) {
           Services.felt.setTokens("", "", 0);
           lazy.FeltStorage.clearLockingToken(email);
           return false;
         }
         // Only the refresh token is available here; force a refresh below.
-        Services.felt.setTokens("", refreshToken, 0);
+        Services.felt.setTokens("", lockingToken, 0);
         try {
-          const { access_token, refresh_token, expires_at } =
-            await lazy.ConsoleClient.refreshTokens();
-          Services.felt.setTokens(access_token, refresh_token, expires_at);
+          tokenData = await lazy.ConsoleClient.refreshTokens();
 
-          await lazy.FeltStorage.setLockingToken(email, refresh_token);
+          await lazy.FeltStorage.setLockingToken(email, tokenData.refresh_token);
         } catch (err) {
           Services.felt.setTokens("", "", 0);
           if (err?.name === "ReauthRequiredError") {
@@ -87,13 +86,14 @@ export const FeltLocking = {
 
         // Tokens are committed; from here a failure is a launch failure, not
         // a reason to fall back to SSO, so let it propagate to the caller.
+        const userId = lazy.FeltStorage.getLockingUserId(email);
         const parentActor =
           browser.browsingContext.currentWindowGlobal.domProcess.getActor(
             "FeltProcess"
           );
         await parentActor.receiveMessage({
           name: "FeltChild:StartFirefox",
-          data: {},
+          data: { ...tokenData, isUnlock: true, user_id: userId, email },
         });
         return true;
       }
@@ -107,18 +107,20 @@ export const FeltLocking = {
    * consult the locking pref (which the Felt UI process cannot read).
    *
    * @param {string} refresh_token
+   * @param {string} [userId] The user id, stored so the unlock can resume into
+   *   the same per-user profile.
    * @throws {Error} If no signed-in user is known, so the caller can fall back
    *   to signing out instead of locking.
    * @returns {Promise<void>}
    */
-  store: async refresh_token => {
+  store: async (refresh_token, userId) => {
     const email = lazy.FeltStorage.getLastSignedInUser();
     if (!email) {
       throw new Error(
         "store: no signed-in user known, cannot persist locked session"
       );
     }
-    await lazy.FeltStorage.setLockingToken(email, refresh_token);
+    await lazy.FeltStorage.setLockingToken(email, refresh_token, userId);
   },
 
   /**

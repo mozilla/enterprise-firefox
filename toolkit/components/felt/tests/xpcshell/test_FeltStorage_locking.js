@@ -83,11 +83,39 @@ add_task(async function test_set_get_update_clear_roundtrip() {
 add_task(async function test_stored_value_is_encrypted_at_rest() {
   await lazy.FeltStorage.setLockingToken(EMAIL_A, "plaintext");
   Assert.equal(
-    lazy.FeltStorage._feltStorage.data.lockingTokens[EMAIL_A],
+    lazy.FeltStorage._feltStorage.data.lockingTokens[EMAIL_A].token,
     "enc(plaintext)",
-    "the raw value persisted to felt.json is the ciphertext, never the plaintext"
+    "the raw token persisted to felt.json is the ciphertext, never the plaintext"
   );
   lazy.FeltStorage.clearLockingToken(EMAIL_A);
+});
+
+add_task(async function test_user_id_stored_and_preserved_on_rotation() {
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "token-1", "user-123");
+  Assert.equal(
+    lazy.FeltStorage.getLockingUserId(EMAIL_A),
+    "user-123",
+    "the user id is stored alongside the token"
+  );
+
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "token-2");
+  Assert.equal(
+    await lazy.FeltStorage.getLockingToken(EMAIL_A),
+    "token-2",
+    "the token is rotated"
+  );
+  Assert.equal(
+    lazy.FeltStorage.getLockingUserId(EMAIL_A),
+    "user-123",
+    "the user id is preserved when the token is rotated without one"
+  );
+
+  lazy.FeltStorage.clearLockingToken(EMAIL_A);
+  Assert.equal(
+    lazy.FeltStorage.getLockingUserId(EMAIL_A),
+    undefined,
+    "clearing the token drops the user id too"
+  );
 });
 
 add_task(async function test_tokens_are_isolated_per_email() {
