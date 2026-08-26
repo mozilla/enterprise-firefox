@@ -52,6 +52,10 @@ function updateTabContextMenu(tab = gBrowser.selectedTab) {
   menu.hidePopup();
 }
 
+function add_task_skip(fn) {
+  add_task({ skip_if: () => AppConstants.MOZ_ENTERPRISE }, fn);
+}
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [["test.wait300msAfterTabSwitch", true]],
@@ -104,7 +108,8 @@ async function checkForConfirmationHint(targetId) {
   sandbox.restore();
 }
 
-add_task(async function test_sendTabToDevice_showsConfirmationHint_fxa() {
+// Test relies on fxa-toolbar-menu-button which is hidden in enterprise.
+add_task_skip(async function test_sendTabToDevice_showsConfirmationHint_fxa() {
   // We need to change the fxastatus from "not_configured" to show the FxA button.
   is(
     document.documentElement.getAttribute("fxastatus"),
@@ -116,7 +121,8 @@ add_task(async function test_sendTabToDevice_showsConfirmationHint_fxa() {
   document.documentElement.setAttribute("fxastatus", "not_configured");
 });
 
-add_task(
+// Test relies on fxa-toolbar-menu-button which is hidden in enterprise.
+add_task_skip(
   async function test_sendTabToDevice_showsConfirmationHint_onOverflowMenu() {
     // We need to change the fxastatus from "not_configured" to show the FxA button.
     is(
@@ -203,7 +209,8 @@ add_task(async function test_tab_contextmenu() {
   sandbox.restore();
 });
 
-add_task(async function test_tab_contextmenu_send_to_mobile() {
+// Test mocks FxA mobile devices; enterprise backend does not serve them.
+add_task_skip(async function test_tab_contextmenu_send_to_mobile() {
   let mobileFxaDevices = [
     {
       id: 1,

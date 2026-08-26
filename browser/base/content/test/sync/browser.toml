@@ -4,8 +4,10 @@ support-files = ["head.js"]
 ["browser_appmenu_nova_fxa_label_signin.js"]
 
 ["browser_appmenu_signin_cta_variants.js"]
+skip-if = ["enterprise"] # FxA sign-in CTA is not enabled in enterprise builds
 
 ["browser_avatar_menu_signin_cta_variants.js"]
+skip-if = ["enterprise"] # FxA sign-in CTA is not enabled in enterprise builds
 
 ["browser_contextmenu_sendpage.js"]
 skip-if = [
@@ -17,14 +19,17 @@ skip-if = [
 ["browser_contextmenu_sendtab.js"]
 
 ["browser_fxa_badge.js"]
+skip-if = ["enterprise"] # FxA badge notifications are not enabled in enterprise builds
 
 ["browser_fxa_cta_links.js"]
 
 ["browser_fxa_web_channel.js"]
 https_first_disabled = true
 support-files = ["browser_fxa_web_channel.html"]
+skip-if = ["enterprise"] # FxA web channel messaging is not enabled in enterprise builds
 
 ["browser_sendtab_telemetry.js"]
+skip-if = ["enterprise"] # Send tab telemetry relies on FxA panel and devices
 
 ["browser_sendtab_toolbarbutton.js"]
 
@@ -32,5 +37,6 @@ support-files = ["browser_fxa_web_channel.html"]
 
 ["browser_sync.js"]
 support-files = ["!/browser/components/profiles/tests/browser/head.js"]
+skip-if = ["enterprise"] # Tests FxA/Sync panel UI states which are disabled in enterprise
 
 ["browser_synced_tabs_view.js"]
