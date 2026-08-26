@@ -125,6 +125,12 @@ unit tests, source-code analysis, or measurement work. While source-test tasks r
 a source checkout, it is still possible for them to depend on a build artifact, though
 often they do not.
 
+## try-status
+
+Find the try push of a pull request's branch and generate one task per task of
+that push, each reporting the outcome of the task it monitors on the pull
+request.
+
 ## code-review
 
 Publish issues found by source-test tasks on Phabricator.

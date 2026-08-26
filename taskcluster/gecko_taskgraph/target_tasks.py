@@ -652,7 +652,17 @@ def target_tasks_enterprise_firefox_with_tests(
 
         return False
 
-    return [l for l in filtered_for_project if filter(full_task_graph[l])]
+    selected = [l for l in filtered_for_project if filter(full_task_graph[l])]
+
+    # The try status reporter reports on the try push of the same branch, not on
+    # the graph it belongs to, so none of the filtering above applies to it.
+    selected += [
+        label
+        for label, task in full_task_graph.tasks.items()
+        if task.kind == "try-status" and label not in selected
+    ]
+
+    return selected
 
 
 @register_target_task("graphics_tasks")
