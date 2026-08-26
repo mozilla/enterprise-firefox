@@ -1,0 +1,67 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - gecko_taskgraph.transforms.try_status:transforms
+    - gecko_taskgraph.transforms.job:transforms
+    - gecko_taskgraph.transforms.task:transforms
+
+tasks:
+    gen:
+        label: try-status-gen
+        description: >-
+            Find the try push of this branch and generate one task per task of
+            that push, to report its outcome on this pull request
+
+        # Selected by name in target_tasks_enterprise_firefox_with_tests, since
+        # it reports on the try push of the branch rather than on the graph it
+        # belongs to and so has no business going through the project filter.
+        run-on-projects: []
+
+        # `code-review` earns the `checks` route in
+        # gecko_taskgraph.transforms.task, which is what puts a task on the pull
+        # request. It applies to this task so that a branch with no try push is
+        # reported, and the generated tasks carry the same route.
+        attributes:
+            code-review: true
+
+        worker-type: t-linux-docker-amd
+        worker:
+            docker-image: {in-tree: debian12-base}
+            # Long enough to wait for the try decision task to run.
+            max-run-time: 3600
+            taskcluster-proxy: true
+            env:
+                TRY_STATUS_TRY_REMOTE: https://github.com/mozilla/enterprise-firefox-try
+                TRY_STATUS_TRY_PROJECT: enterprise-firefox-try
+                TRY_STATUS_TREEHERDER_URL: https://treeherder.mozilla.org
+                TRY_STATUS_REPORT_SCRIPT: taskcluster/scripts/try-status-report.py
+            artifacts:
+                - name: public/try-status
+                  path: /builds/worker/artifacts
+                  type: directory
+
+        # Creating the report tasks, in this task group, with the routes that
+        # surface them on the pull request. No secret is involved: nothing here
+        # authenticates to GitHub, Taskcluster reports on its own tasks. The
+        # treeherder route is added by the transform, which is where the exact
+        # route of this push is known.
+        scopes:
+            - queue:create-task:highest:enterprise-t/t-linux-docker-amd
+            - queue:scheduler-id:enterprise-level-{level}
+            - queue:route:checks
+
+        treeherder:
+            kind: other
+            symbol: try-status
+            tier: 1
+            platform: gecko-decision/opt
+
+        run:
+            using: run-task
+            checkout: true
+            cwd: '{checkout}'
+            command: python3 taskcluster/scripts/try-status-gen.py
