@@ -563,6 +563,25 @@ def target_tasks_enterprise_firefox_with_tests(
     )
 
     def filter(task):
+        if parameters["tasks_for"] == "github-pull-request":
+            tier = task.task.get("extra", {}).get("treeherder", {}).get("tier", 3)
+            platform = (
+                task.task
+                .get("extra", {})
+                .get("treeherder", {})
+                .get("machine", {})
+                .get("platform", "build")
+            )
+            allowed_kinds = ["source-test"]
+            return (
+                tier < 2
+                and platform == "lint"
+                and task.kind in allowed_kinds
+                # source-test for android adds a dependency that ends up building
+                # geckoview
+                and "android" not in task.label
+            )
+
         test_platform = task.attributes.get("test_platform")
         # Skip android-hw tests, windows11-aarch64: they require special hardware and credentials
         if (
