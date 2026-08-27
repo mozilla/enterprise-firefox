@@ -515,6 +515,16 @@ EMCheckCompatibility:
   type: string
   scope: report
 
+EnterpriseCrashReportsSubmit:
+  description: >
+    State of the CrashReportsSubmit enterprise policy: "1" when it enables
+    automatic submission, "0" when it disables crash reporting entirely, and
+    absent when the policy is not set. Read when the crashing process' crash
+    reporter environment is not available, which is the case when the Felt UI
+    process launches the crash reporter client rather than the crashing process.
+  type: string
+  scope: report
+
 EventLoopNestingLevel:
   description: >
     Present only if higher than 0, indicates that we're running in a nested

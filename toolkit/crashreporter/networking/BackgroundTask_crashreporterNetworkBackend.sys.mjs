@@ -9,6 +9,17 @@ import { EXIT_CODE } from "resource://gre/modules/BackgroundTasksManager.sys.mjs
  * toolkit/crashreporter/client/app/src/net/http.rs
  */
 
+// Build a null-prototype headers object from the serialized `[name, value]`
+// pairs, treating an absent list as no headers. The null prototype prevents
+// prototype pollution via a "__proto__" key.
+function deserializeHeaders(pairs) {
+  const headers = Object.create(null);
+  for (const [name, value] of pairs ?? []) {
+    headers[name] = value;
+  }
+  return headers;
+}
+
 async function createRequestInit(requestBuilder) {
   switch (requestBuilder.type) {
     case "MimePost": {
@@ -28,16 +39,15 @@ async function createRequestInit(requestBuilder) {
       }
       return {
         method: "POST",
+        headers: deserializeHeaders(requestBuilder.headers),
         body: formData,
       };
     }
     case "Post": {
-      const body = requestBuilder.body;
-      const headers = requestBuilder.headers;
       return {
         method: "POST",
-        headers: Object.fromEntries(headers),
-        body: new Uint8Array(body),
+        headers: deserializeHeaders(requestBuilder.headers),
+        body: new Uint8Array(requestBuilder.body),
       };
     }
   }

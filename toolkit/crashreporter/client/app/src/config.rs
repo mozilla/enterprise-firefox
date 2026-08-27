@@ -280,6 +280,17 @@ impl Config {
             self.update_log_file();
         }
 
+        // When the Felt UI process launches us we do not inherit the crashing
+        // browser's environment, so fall back to the annotation it wrote at crash
+        // time.
+        #[cfg(feature = "enterprise")]
+        if !self.policy_auto_submit {
+            self.policy_auto_submit = extra
+                .get("EnterpriseCrashReportsSubmit")
+                .and_then(|v| v.as_str())
+                .is_some_and(|v| v == "1");
+        }
+
         if Self::should_suppress_restart(&extra) {
             self.restart_command = None;
         }

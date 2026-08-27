@@ -2,6 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
+const lazy = {};
+
+// ConsoleClient only exists in enterprise builds (toolkit/components/enterprise
+// is gated on MOZ_ENTERPRISE), so only define the getter there.
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  });
+}
+
 const SUCCESS = "success";
 const FAILED = "failed";
 const SUBMITTING = "submitting";
@@ -139,8 +151,7 @@ Submitter.prototype = {
       serverURL = envOverride;
     }
 
-    let xhr = new XMLHttpRequest();
-    xhr.open("POST", serverURL, true);
+    let didAuthRetry = false;
 
     let formData = new FormData();
 
@@ -197,8 +208,21 @@ Submitter.prototype = {
     let manager = Services.crashmanager;
     let submissionID = manager.generateSubmissionID();
 
-    xhr.addEventListener("readystatechange", () => {
+    let onReadyStateChange = event => {
+      const xhr = event.target;
       if (xhr.readyState == 4) {
+        // Enterprise: if the console rejected the token, refresh it and retry
+        // once before falling through to the normal response handling below.
+        if (
+          AppConstants.MOZ_ENTERPRISE &&
+          !didAuthRetry &&
+          (xhr.status === 401 || xhr.status === 403) &&
+          Services.felt?.isFeltBrowser?.()
+        ) {
+          didAuthRetry = true;
+          send(true);
+          return;
+        }
         let ret =
           xhr.status === 200 ? this.parseResponse(xhr.responseText) : {};
         let failmsg;
@@ -207,6 +231,12 @@ Submitter.prototype = {
             switch (code) {
               case 400:
                 return xhr.responseText;
+
+              case 401:
+                return "Discarded=unauthorized";
+
+              case 403:
+                return "Discarded=forbidden";
 
               case 413:
                 return "Discarded=post_body_too_large";
@@ -257,7 +287,24 @@ Submitter.prototype = {
           }
         });
       }
-    });
+    };
+
+    // Enterprise auth as a thin wrapper around the send: fetch the bearer token
+    // (refreshing it when retrying), build the request, attach the (upstream)
+    // response handler, and send. The handler above calls this again with
+    // `refresh = true` to retry once after the console rejected the token.
+    let send = async refresh => {
+      let token = refresh
+        ? await this.refreshAuthToken()
+        : await this.getAuthToken();
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", serverURL, true);
+      if (token) {
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      }
+      xhr.addEventListener("readystatechange", onReadyStateChange);
+      xhr.send(formData);
+    };
 
     let p = Promise.all(promises);
     let id = this.id;
@@ -267,10 +314,37 @@ Submitter.prototype = {
         return manager.addSubmissionAttempt(id, submissionID, new Date());
       });
     }
-    p.then(() => {
-      xhr.send(formData);
-    });
+    p.then(() => send(false));
     return true;
+  },
+
+  // Returns the Felt access token used to authenticate uploads to the
+  // enterprise admin console, or null for non-enterprise builds (where uploads
+  // remain unauthenticated). Never throws: on failure the report is sent
+  // unauthenticated and recorded as a failed submission.
+  async getAuthToken() {
+    if (!AppConstants.MOZ_ENTERPRISE || !Services.felt?.isFeltBrowser?.()) {
+      return null;
+    }
+    try {
+      return await lazy.ConsoleClient.getAccessToken();
+    } catch {
+      return null;
+    }
+  },
+
+  // Force a Felt token refresh and return the new access token, or null on
+  // failure. Never throws; used to retry a submission rejected with 401/403.
+  async refreshAuthToken() {
+    if (!AppConstants.MOZ_ENTERPRISE || !Services.felt?.isFeltBrowser?.()) {
+      return null;
+    }
+    try {
+      await lazy.ConsoleClient._refreshSession();
+      return await lazy.ConsoleClient.getAccessToken();
+    } catch {
+      return null;
+    }
   },
 
   // `ret` is determined based on `status`:

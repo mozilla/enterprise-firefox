@@ -14,6 +14,7 @@
 #include "nsIDUtils.h"
 #include "nsIFileStreams.h"
 #include "nsNetUtil.h"
+#include "nsReadableUtils.h"
 #include "nsString.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/GeckoArgs.h"
@@ -41,6 +42,10 @@
 
 #ifdef MOZ_BACKGROUNDTASKS
 #  include "mozilla/BackgroundTasks.h"
+#endif
+
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/toolkit/components/felt/felt.h"
 #endif
 
 #if defined(XP_WIN)
@@ -241,6 +246,14 @@ static MOZ_GLIBCXX_CONSTINIT xpstring eventsDirectory;
 
 // If this is false, we don't launch the crash reporter
 static mozilla::Atomic<bool> doReport(true);
+
+#if defined(MOZ_ENTERPRISE)
+// In a Felt-launched browser the crash reporter is started by the Felt UI
+// process once it observes our abnormal exit, so the crash path writes the
+// minidump and stops there. Cached at SetExceptionHandler() time because the
+// crash path must not call into Felt.
+static mozilla::Atomic<bool> gFeltLaunchesCrashReporter(false);
+#endif
 
 // if this is true, we pass the exception on to the OS crash reporter
 static bool showOSCrashReporter = false;
@@ -1190,6 +1203,11 @@ static void AnnotateMemoryStatus(AnnotationTable&) {
  * @param aMinidumpPath The path of the minidump file, passed as an argument
  *        to the launched program
  */
+#  if !defined(XP_WIN) && !defined(XP_MACOSX)
+// Used to build a child-only environment for the crash reporter on Linux.
+extern "C" char** environ;
+#  endif
+
 static bool LaunchProgram(const XP_CHAR* aProgramPath,
                           const XP_CHAR* aMinidumpPath) {
 #  ifdef XP_WIN
@@ -1207,12 +1225,14 @@ static bool LaunchProgram(const XP_CHAR* aProgramPath,
   STARTUPINFO si = {};
   si.cb = sizeof(si);
 
+  DWORD creationFlags =
+      NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB;
+
   // If CreateProcess() fails don't do anything.
   if (CreateProcess(
           /* lpApplicationName */ nullptr, (LPWSTR)cmdLine,
           /* lpProcessAttributes */ nullptr, /* lpThreadAttributes */ nullptr,
-          /* bInheritHandles */ FALSE,
-          NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB,
+          /* bInheritHandles */ FALSE, creationFlags,
           /* lpEnvironment */ nullptr, /* lpCurrentDirectory */ nullptr, &si,
           &pi)) {
     CloseHandle(pi.hProcess);
@@ -1675,10 +1695,19 @@ bool MinidumpCallback(
 #ifdef MOZ_BACKGROUNDTASKS
   isBackgroundTaskMode = BackgroundTasks::IsBackgroundTaskMode();
 #endif
-  if (doReport && isSafeToDump && !isBackgroundTaskMode) {
+  bool feltLaunchesCrashReporter = false;
+#if defined(MOZ_ENTERPRISE)
+  feltLaunchesCrashReporter = gFeltLaunchesCrashReporter;
+#endif
+
+  if (doReport && isSafeToDump && !isBackgroundTaskMode &&
+      !feltLaunchesCrashReporter) {
     // We launch the crash reporter client/dialog only if we've been explicitly
     // asked to report crashes and if we weren't already trying to unset the
     // exception handler (which is indicated by isSafeToDump being false).
+    // In a Felt-launched browser the Felt UI process launches it instead, once
+    // it observes our exit; the minidump and .extra written above are all it
+    // needs.
 #if defined(MOZ_WIDGET_ANDROID)  // Android
     returnValue =
         LaunchCrashHandlerService(crashReporterPath.c_str(), minidumpPath);
@@ -2011,6 +2040,12 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   // Initialize the launch-client decision from the environment. Policies and
   // other callers can update it later via UpdateShouldReport().
   doReport = ShouldReport();
+
+#if defined(MOZ_ENTERPRISE)
+  // felt_init() runs at the top of XREMain::XRE_main(), well before we get
+  // here, so this is already settled.
+  gFeltLaunchesCrashReporter = is_felt_browser();
+#endif
 
   RegisterRuntimeExceptionModule();
   InitializeAppNotes();

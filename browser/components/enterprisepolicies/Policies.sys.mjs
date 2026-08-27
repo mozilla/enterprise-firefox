@@ -70,6 +70,30 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
   });
 });
 
+/**
+ * Record the CrashReportsSubmit policy state in the crash report itself. When
+ * the Felt UI process launches the crash reporter it does not inherit the
+ * MOZ_CRASHREPORTER_* environment we set here, so the annotation is the only
+ * way for it and the client to honour the policy.
+ *
+ * @param {?boolean} enabled - the policy value, or null when it is not set
+ */
+function setCrashReportsSubmitAnnotation(enabled) {
+  try {
+    const crashReporter = Services.appinfo.QueryInterface(Ci.nsICrashReporter);
+    if (enabled === null) {
+      crashReporter.removeCrashReportAnnotation("EnterpriseCrashReportsSubmit");
+    } else {
+      crashReporter.annotateCrashReport(
+        "EnterpriseCrashReportsSubmit",
+        enabled ? "1" : "0"
+      );
+    }
+  } catch (e) {
+    // nsICrashReporter is unavailable in builds without the crash reporter.
+  }
+}
+
 /*
  * ============================
  * = POLICIES IMPLEMENTATIONS =
@@ -1069,6 +1093,7 @@ export var Policies = {
             "MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT",
             "1"
           );
+          setCrashReportsSubmitAnnotation(true);
         } else {
           lazy.PoliciesUtils.setAndLockPref(
             "browser.crashReports.unsubmittedCheck.autoSubmit2",
@@ -1090,6 +1115,7 @@ export var Policies = {
             "MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT",
             ""
           );
+          setCrashReportsSubmitAnnotation(false);
         }
       } else {
         lazy.PoliciesUtils.unsetAndUnlockPref(
@@ -1106,6 +1132,7 @@ export var Policies = {
         );
         lazy.PoliciesUtils.unsetEnvVar("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT");
         lazy.PoliciesUtils.unsetEnvVar("MOZ_CRASHREPORTER_NO_REPORT");
+        setCrashReportsSubmitAnnotation(null);
       }
       // The crash callback reads a cached, signal-safe atomic; tell it to
       // re-read the env vars now that we've changed them.
@@ -1132,6 +1159,7 @@ export var Policies = {
       );
       lazy.PoliciesUtils.unsetEnvVar("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT");
       lazy.PoliciesUtils.unsetEnvVar("MOZ_CRASHREPORTER_NO_REPORT");
+      setCrashReportsSubmitAnnotation(null);
       // The crash callback reads a cached, signal-safe atomic; tell it to
       // re-read the env vars now that we've changed them.
       try {

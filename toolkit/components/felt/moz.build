@@ -15,6 +15,13 @@ EXTRA_JS_MODULES.enterprise += [
     "FeltStorage.sys.mjs",
 ]
 
+if CONFIG["MOZ_CRASHREPORTER"]:
+    EXTRA_JS_MODULES.enterprise += [
+        "FeltCrashReporter.sys.mjs",
+    ]
+
+    XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

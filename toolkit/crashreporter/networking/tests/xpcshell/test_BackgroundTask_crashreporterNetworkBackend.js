@@ -110,6 +110,46 @@ add_task(async function test_mime_post() {
   Assert.equal(content, "CrashID=abcdef");
 });
 
+server.registerPathHandler("/mime_post_headers", (request, response) => {
+  response.processAsync();
+  (async () => {
+    Assert.equal(request.method, "POST");
+    // Headers carried by a MimePost request (e.g. an enterprise Authorization
+    // header) must be forwarded to the upload.
+    Assert.equal(request.getHeader("Authorization"), "Bearer abc");
+    const body = CommonUtils.readBytesFromInputStream(request.bodyInputStream);
+    const data = await new Response(body, {
+      headers: { "Content-Type": request.getHeader("Content-Type") },
+    }).formData();
+    Assert.equal(await data.get("extra").text(), EXTRA_DATA);
+  })().then(() => {
+    response.write("CrashID=abcdef");
+    response.finish();
+  });
+});
+
+add_task(async function test_mime_post_headers() {
+  const requestFile = await tempTestFile("mime-post-headers-request");
+  await IOUtils.writeJSON(requestFile, {
+    type: "MimePost",
+    headers: [["Authorization", "Bearer abc"]],
+    parts: [
+      {
+        name: "extra",
+        content: {
+          type: "String",
+          value: EXTRA_DATA,
+        },
+        filename: "extra.json",
+        mime_type: "application/json",
+      },
+    ],
+  });
+
+  const exitCode = await sendRequest("/mime_post_headers", requestFile);
+  Assert.equal(exitCode, 0);
+});
+
 server.registerPathHandler("/post", (request, response) => {
   response.processAsync();
   Assert.equal(request.method, "POST");

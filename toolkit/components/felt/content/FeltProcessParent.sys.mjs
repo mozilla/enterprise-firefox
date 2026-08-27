@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -28,6 +30,14 @@ if (lazy.isBuildAppBrowser()) {
     resetFeltFirefoxWindowReady: "resource:///modules/FeltURLHandler.sys.mjs",
     // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
     FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
+  });
+}
+
+if (AppConstants.MOZ_CRASHREPORTER) {
+  // Only packaged with the crash reporter, since that is all it drives.
+  ChromeUtils.defineESModuleGetters(lazy, {
+    FeltCrashReporter:
+      "resource://gre/modules/enterprise/FeltCrashReporter.sys.mjs",
   });
 }
 
@@ -578,17 +588,19 @@ export class FeltProcessParent extends JSProcessActorParent {
             `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
           );
 
-          if (!this.restartReported && !this.logoutReported) {
-            if (this.proc.exitCode === 0) {
-              this.abnormalExitCounter = 0;
-              this.abnormalExitFirstTime = 0;
-              Services.cpmm.sendAsyncMessage(
-                "FeltParent:FirefoxNormalExit",
-                {}
-              );
-            } else {
-              this.handleRestartAfterAbnormalExit();
+          if (this.restartReported || this.logoutReported) {
+            // We already know why the process is going away and will not treat
+            // it as a crash, but a non-zero exit code means it died on the way
+            // out and that is still worth a crash report.
+            if (this.proc.exitCode !== 0) {
+              this.reportCrash();
             }
+          } else if (this.proc.exitCode === 0) {
+            this.abnormalExitCounter = 0;
+            this.abnormalExitFirstTime = 0;
+            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxNormalExit", {});
+          } else {
+            this.handleRestartAfterAbnormalExit();
           }
         });
       })
@@ -655,6 +667,13 @@ export class FeltProcessParent extends JSProcessActorParent {
         }
       }
       this.proc.profilePath = null;
+    } else {
+      // Report before deciding anything about restarting: a shutdown crash is
+      // still worth a crash report even though it does not earn a restart. The
+      // encryption exit codes handled above are deliberate exits rather than
+      // crashes, and the Delete one has just removed the directory any minidump
+      // would have lived in.
+      this.reportCrash();
     }
 
     lazy.log.debug(
@@ -681,6 +700,28 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.log.debug("Trying to restart Firefox again.");
       this.startFirefox(PROCESS_START_REASON.CRASH);
     }
+  }
+
+  /**
+   * Launch the crash reporter for the browser process that just died. In a
+   * Felt-launched browser the crashing process only writes the minidump and
+   * leaves the client to us, so that the upload can be authenticated with a
+   * token we refresh now rather than one that expired before the crash.
+   *
+   * Deliberately not awaited: the restart should not wait on the upload. The
+   * profile path and start time are read synchronously so that a browser that
+   * restarts and crashes again cannot redirect us to the wrong minidump.
+   */
+  reportCrash() {
+    if (!AppConstants.MOZ_CRASHREPORTER) {
+      return;
+    }
+
+    const { profilePath } = this.proc;
+    const startTime = this.firefoxStartTime;
+    lazy.FeltCrashReporter.report(profilePath, startTime).catch(err =>
+      lazy.log.error(`Failed to report the browser crash: ${err}`)
+    );
   }
 
   /**
@@ -798,6 +839,9 @@ export class FeltProcessParent extends JSProcessActorParent {
     };
 
     try {
+      // Recorded before the spawn so that any minidump this browser writes is
+      // necessarily newer; see FeltCrashReporter._findMinidump().
+      this.firefoxStartTime = Date.now();
       this.proc = await lazy.Subprocess.call(firefoxRun);
       this.proc.profilePath = foundProfile?.rootDir.path || profilePath;
     } catch (e) {
