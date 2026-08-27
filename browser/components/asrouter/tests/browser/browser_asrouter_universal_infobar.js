@@ -322,9 +322,7 @@ add_task(async function universalInfobar_persists_original_window_closure() {
     message: UNIVERSAL_MESSAGE,
     dispatch: sandbox.stub(),
   };
-  InfoBar._universalInfobars = [
-    { box: { documentGlobal: fakeWindow }, notification: {} },
-  ];
+  InfoBar._universalInfobars = [{ box: {}, notification: {}, win: fakeWindow }];
 
   Assert.ok(InfoBar._activeInfobar, "Got a universal infobar");
 
@@ -1475,6 +1473,92 @@ add_task(async function superseded_show_does_not_leave_its_bar_behind() {
     sandbox.restore();
     removeByIdInWin(win1, first.id);
     removeByIdInWin(win1, second.id);
+    cleanupInfobars();
+  }
+});
+
+add_task(async function stale_entries_are_pruned_on_unload() {
+  const win1 = BrowserWindowTracker.getTopWindow();
+  let win2 = await BrowserTestUtils.openNewBrowserWindow();
+
+  const message = {
+    id: "TEST_UNIVERSAL_PRUNE_ON_UNLOAD",
+    content: { type: "universal", text: "prune", buttons: [] },
+  };
+
+  try {
+    // Shown from win2, so win2 owns the unload listener.
+    await InfoBar.showInfoBarMessage(
+      win2.gBrowser.selectedBrowser,
+      message,
+      () => {}
+    );
+    await TestUtils.waitForCondition(
+      () => InfoBar._universalInfobars.length === 2,
+      "One entry per window"
+    );
+
+    await BrowserTestUtils.closeWindow(win2);
+    win2 = null;
+
+    Assert.equal(
+      InfoBar._universalInfobars.length,
+      1,
+      "The closing window's entry was pruned"
+    );
+    Assert.ok(
+      InfoBar._activeInfobar,
+      "The notification stays active while a bar survives"
+    );
+  } finally {
+    removeByIdInWin(win1, message.id);
+    if (win2) {
+      await BrowserTestUtils.closeWindow(win2);
+    }
+    cleanupInfobars();
+  }
+});
+
+add_task(async function closing_the_last_universal_window_clears_active() {
+  const win1 = BrowserWindowTracker.getTopWindow();
+  let win2 = await BrowserTestUtils.openNewBrowserWindow();
+
+  const message = {
+    id: "TEST_UNIVERSAL_LAST_WINDOW",
+    content: { type: "universal", text: "last window", buttons: [] },
+  };
+
+  try {
+    await InfoBar.showInfoBarMessage(
+      win2.gBrowser.selectedBrowser,
+      message,
+      () => {}
+    );
+    await TestUtils.waitForCondition(
+      () => InfoBar._universalInfobars.length === 2,
+      "One entry per window"
+    );
+
+    // Leave win2 as the only window still showing a bar, so its unload has to
+    // recognize that nothing survives it.
+    removeByIdInWin(win1, message.id);
+    InfoBar._universalInfobars = InfoBar._universalInfobars.filter(
+      entry => entry.win !== win1
+    );
+
+    await BrowserTestUtils.closeWindow(win2);
+    win2 = null;
+
+    Assert.equal(
+      InfoBar._activeInfobar,
+      null,
+      "The active infobar was released once no bar survived"
+    );
+  } finally {
+    removeByIdInWin(win1, message.id);
+    if (win2) {
+      await BrowserTestUtils.closeWindow(win2);
+    }
     cleanupInfobars();
   }
 });
