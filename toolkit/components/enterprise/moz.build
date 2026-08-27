@@ -10,6 +10,7 @@ with Files("**"):
 EXTRA_JS_MODULES.enterprise += [
     "modules/CaptivePortal.sys.mjs",
     "modules/ConsoleClient.sys.mjs",
+    "modules/ConsoleConnectionGuard.sys.mjs",
     "modules/ConsoleProxyBypassFilter.sys.mjs",
     "modules/EnterpriseBadge.sys.mjs",
     "modules/EnterpriseCommon.sys.mjs",

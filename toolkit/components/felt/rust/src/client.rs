@@ -76,9 +76,9 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn notify_signout(&self) {
-        trace!("FeltIpcClient::notify_signout()");
-        let msg = FeltMessage::LogoutShutdown;
+    pub fn notify_signout(&self, reason: Option<String>) {
+        trace!("FeltIpcClient::notify_signout({:?})", reason);
+        let msg = FeltMessage::LogoutShutdown(reason);
         if let Some(tx) = &self.tx {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::notify_signout() SENT"),
@@ -471,10 +471,10 @@ impl FeltClientThread {
         client.send_felt_ready();
     }
 
-    pub fn notify_signout(&self) {
-        trace!("FeltClientThread::notify_signout()");
+    pub fn notify_signout(&self, reason: Option<String>) {
+        trace!("FeltClientThread::notify_signout({:?})", reason);
         let client = self.ipc_client.borrow();
-        client.notify_signout();
+        client.notify_signout(reason);
     }
 
     pub fn notify_refresh_tokens(&self) {

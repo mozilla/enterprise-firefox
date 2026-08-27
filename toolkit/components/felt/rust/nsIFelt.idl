@@ -102,6 +102,14 @@ interface nsIFelt : nsISupports {
   [must_use]
   void performSignout();
 
+  /**
+   * Like performSignout(), but ends the session with a reason (e.g.
+   * "networkLoss") that routes the user to the matching error screen rather than
+   * the silent return to the login screen.
+   */
+  [must_use]
+  void performSignoutWithReason(in ACString reason);
+
   [must_use]
   void shutdownFirefox();
 };

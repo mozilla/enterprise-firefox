@@ -332,6 +332,9 @@ export class Felt {
             // console.
             this.showWindow("felt-browser-error-session-expired");
             break;
+          case "networkLoss":
+            this.showWindow("felt-browser-error-network-loss");
+            break;
           case "tokenRefreshFailed":
           default:
             this.showWindow("felt-browser-error-session-interrupted");

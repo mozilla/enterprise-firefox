@@ -21,6 +21,8 @@ run-if = [
 
 ["browser_live_policies_restoring_preference_state.js"]
 
+["browser_live_signout_on_network_loss.js"]
+
 ["browser_live_policy_Cookies.js"]
 
 ["browser_live_policy_ExtensionSettings.js"]

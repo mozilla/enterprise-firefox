@@ -15,6 +15,8 @@ const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  ConsoleConnectionGuard:
+    "resource://gre/modules/enterprise/ConsoleConnectionGuard.sys.mjs",
   ConsoleProxyBypassFilter:
     "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs",
   EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
@@ -311,6 +313,8 @@ export const ConsoleClient = {
       }
 
       xhr.onload = () => {
+        // Any HTTP response (including 5xx) means the console is reachable.
+        lazy.ConsoleConnectionGuard.recordReachable();
         const response = {
           ok: xhr.status >= 200 && xhr.status < 300,
           status: xhr.status,
@@ -328,6 +332,7 @@ export const ConsoleClient = {
       };
 
       xhr.onerror = () => {
+        lazy.ConsoleConnectionGuard.recordUnreachable();
         const channelStatus = xhr.channel?.status ?? null;
         reject(
           new TypeError("ConsoleClientXHRError", {
@@ -337,6 +342,7 @@ export const ConsoleClient = {
       };
 
       xhr.ontimeout = () => {
+        lazy.ConsoleConnectionGuard.recordUnreachable();
         reject(new TypeError("NS_ERROR_NET_TIMEOUT"));
       };
 
