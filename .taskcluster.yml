@@ -536,9 +536,12 @@ tasks:
                                   # between levels; "low" is the highest priority available at all levels, and
                                   # nothing runs at any higher priority on these workerTypes.
                                   $switch:
-                                      'eventType == "cron"': "low"
-                                      'eventType == "action"': "lowest"
-                                      $default: "very-low"
+                                      $if: 'ref[:22] == "main-merge_"'
+                                      then: "low"
+                                      else:
+                                        'eventType == "cron"': "low"
+                                        'eventType == "action"': "lowest"
+                                        $default: "very-low"
                               retries: 5
 
                               payload:
