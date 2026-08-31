@@ -17,8 +17,6 @@ from marionette_driver.marionette import Marionette
 from marionette_driver.wait import Wait
 from marionette_harness import MarionetteTestCase
 
-AUTOCONFIG_FILENAME = "firefox.cfg"
-
 # Byte shift applied to AutoConfig files. Must match the value locked by
 # general.config.obscure_value in browser/branding/enterprise.
 AUTOCONFIG_OBSCURE_VALUE = 13
@@ -186,7 +184,8 @@ class EnterpriseTestsBase(MarionetteTestCase):
         return os.path.dirname(driver.instance.binary)
 
     def get_autoconfig(self, driver):
-        cfg = os.path.join(self.get_gre_dir(driver), AUTOCONFIG_FILENAME)
+        app_name = os.path.basename(driver.instance.binary)
+        cfg = os.path.join(self.get_gre_dir(driver), f"{app_name}.cfg")
         if not os.path.isfile(cfg):
             raise ValueError(f"Missing {cfg}")
 
