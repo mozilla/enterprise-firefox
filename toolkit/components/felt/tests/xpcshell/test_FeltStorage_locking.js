@@ -30,7 +30,9 @@ add_setup(async function () {
 
   // Reversible stand-ins so the tests can assert both that a value is encrypted
   // on the way in and recovered on the way out, without a real keystore.
-  sinon.stub(OSKeyStore, "encrypt").callsFake(async plaintext => `enc(${plaintext})`);
+  sinon
+    .stub(OSKeyStore, "encrypt")
+    .callsFake(async plaintext => `enc(${plaintext})`);
   sinon
     .stub(OSKeyStore, "decrypt")
     .callsFake(async ciphertext => ciphertext.replace(/^enc\((.*)\)$/, "$1"));

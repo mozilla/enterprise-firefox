@@ -3806,6 +3806,16 @@ export var Policies = {
         );
       }
     },
+    onRemove(manager, oldParams) {
+      if (oldParams.BrowserClose) {
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.locking.browser_close"
+        );
+        // unsetAndUnlockPref restores the build default but never re-locks;
+        // re-lock to match the locked default the enterprise build ships.
+        Services.prefs.lockPref("enterprise.locking.browser_close");
+      }
+    },
   },
 
   SitePolicies: {

@@ -37,9 +37,9 @@ export const FeltLocking = {
     // so its presence is the authorization to resume: the locking pref lives in
     // the browser process, which the Felt UI process cannot read.
     if (lazy.FeltStorage.hasLockingToken(email)) {
-      const [ messageText, captionText ] = await lazy.localization.formatValues([
+      const [messageText, captionText] = await lazy.localization.formatValues([
         "felt-sso-unlock-os-auth-dialog-message",
-        "felt-sso-unlock-os-auth-dialog-caption"
+        "felt-sso-unlock-os-auth-dialog-caption",
       ]);
       const { authenticated } = await lazy.OSKeyStore.ensureLoggedIn(
         messageText,
@@ -67,7 +67,10 @@ export const FeltLocking = {
         try {
           tokenData = await lazy.ConsoleClient.refreshTokens();
 
-          await lazy.FeltStorage.setLockingToken(email, tokenData.refresh_token);
+          await lazy.FeltStorage.setLockingToken(
+            email,
+            tokenData.refresh_token
+          );
         } catch (err) {
           Services.felt.setTokens("", "", 0);
           if (err?.name === "ReauthRequiredError") {

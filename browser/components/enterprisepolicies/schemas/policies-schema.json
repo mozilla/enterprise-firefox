@@ -4190,6 +4190,7 @@
           "version_added": "156"
         }
       },
+      "x-restart-required": false,
       "description": "Control whether the managed session is signed out or locked when the browser closes.",
       "examples": [
         {

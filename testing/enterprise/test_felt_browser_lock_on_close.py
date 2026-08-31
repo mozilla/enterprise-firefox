@@ -182,7 +182,9 @@ class BrowserLockOnClose(FeltTests):
 
     def test_signout_on_close_when_locking_disabled(self):
         """Locking disabled, prompt disabled: closing signs out (no token kept)."""
-        browser_pid = self._begin_close_test(locking_enabled=False, prompt_enabled=False)
+        browser_pid = self._begin_close_test(
+            locking_enabled=False, prompt_enabled=False
+        )
 
         self._trigger_browser_closure()
         self._settle_after_close(browser_pid)

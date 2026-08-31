@@ -42,9 +42,7 @@ add_task(async function test_store_encrypts_and_persists() {
   const encrypt = sinon
     .stub(OSKeyStore, "encrypt")
     .resolves("encrypted(refresh-token)");
-  const decrypt = sinon
-    .stub(OSKeyStore, "decrypt")
-    .resolves("refresh-token");
+  const decrypt = sinon.stub(OSKeyStore, "decrypt").resolves("refresh-token");
   try {
     await FeltLocking.store("refresh-token");
     Assert.ok(
