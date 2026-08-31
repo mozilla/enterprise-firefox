@@ -730,8 +730,8 @@ tasks:
                           'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                           'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                           $default: "master"
-                  commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
-                  commHeadRef: refs/heads/main
+                  commHeadRepoUrl: https://github.com/lissyx/thunderbird-desktop
+                  commHeadRef: refs/heads/enterprise-bug2067645
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}
