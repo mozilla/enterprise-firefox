@@ -108,6 +108,7 @@ function getWindowsServerVersion(buildNumber) {
 }
 
 const MACOS_NAMES = [
+  ["27", "Golden Gate"],
   ["26", "Tahoe"],
   ["15", "Sequoia"],
   ["14", "Sonoma"],
