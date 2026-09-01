@@ -2064,19 +2064,6 @@
       }
     },
 
-    "EnterpriseStorageEncryption": {
-      "type": "boolean",
-      "x-category": "Miscellaneous",
-      "x-compatibility": {
-        "firefox": { "version_added": false },
-        "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "149" }
-      },
-      "x-restart-required": true,
-      "description": "Enable an enterprise-managed primary password so that stored credentials and other sensitive profile data are kept encrypted at rest.",
-      "examples": [true]
-    },
-
     "ExemptDomainFileTypePairsFromFileTypeDownloadWarnings": {
       "type": "array",
       "x-category": "Network security",

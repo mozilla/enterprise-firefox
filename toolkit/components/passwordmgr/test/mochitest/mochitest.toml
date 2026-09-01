@@ -429,6 +429,7 @@ run-if = [
 ]
 skip-if = [
   "xorigin", # Tests desktop prompts and bug 1333264
+  "enterprise", # On enterprise builds the primpary password is provisioned by the console and keeps the token logged in.
 ]
 support-files = [
   "chrome_timeout.js",

@@ -888,13 +888,6 @@ const POLICIES_TESTS = [
     },
   },
 
-  // POLICY: EnterpriseStorageEncryption
-
-  {
-    policies: { EnterpriseStorageEncryption: true },
-    lockedPrefs: { "security.storage.encryption.enabled": true },
-  },
-
   // POLICY: PDFjs
 
   {

@@ -19256,10 +19256,17 @@
   value: true
   mirror: always
 
-# Enable storage encryption functionality.
+# INTERNAL -- DO NOT ENABLE. Master switch for enterprise storage encryption:
+# at startup the browser unlocks the internal NSS token with an enterprise console
+# provisioned secret, and fails closed (force-quit) if that secret is unavailable.
+# Don't enable it on unprovisioned builds.
 - name: security.storage.encryption.enabled
   type: bool
+#if defined(MOZ_ENTERPRISE) && !defined(MOZ_THUNDERBIRD)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 # INTERNAL -- DO NOT ENABLE. Master switch for SQLite database encryption

@@ -13,11 +13,6 @@
 do_get_profile();
 
 add_task(async function test_enterprise_logout_keeps_token_unlocked() {
-  Services.prefs.setBoolPref("security.storage.encryption.enabled", true);
-  registerCleanupFunction(() =>
-    Services.prefs.clearUserPref("security.storage.encryption.enabled")
-  );
-
   const secret = "primary-secret";
   let token = Cc["@mozilla.org/security/internalkeytoken;1"].createInstance(
     Ci.nsIPKCS11Token

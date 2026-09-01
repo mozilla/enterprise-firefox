@@ -1,0 +1,4 @@
+[DEFAULT]
+
+["test_storage_encryption.js"]
+run-if = ["buildapp == 'browser'"]
