@@ -126,9 +126,40 @@ class BrowserLockOnClose(FeltTests):
         self.await_felt_auth_window()
         self.force_window()
 
+    def _prepare_felt_keystore(self):
+        """Stub OSKeyStore and clear any leftover tokens on the FELT process.
+
+        The reversible encrypt/decrypt pair avoids coupling this headless run to
+        the machine's keychain. Clearing felt.json (shared via UAppData, so it
+        outlives the per-test profile) stops a prior test's token from turning
+        this sign-in into an unlock."""
+        driver = self.get_driver(Environment.FELT)
+        driver.set_context("chrome")
+        try:
+            driver.execute_script(
+                r"""
+                const { OSKeyStore } = ChromeUtils.importESModule(
+                    "resource://gre/modules/OSKeyStore.sys.mjs"
+                );
+                OSKeyStore.encrypt = async plaintext => `encrypted(${plaintext})`;
+                OSKeyStore.decrypt = async ciphertext =>
+                    String(ciphertext).replace(/^encrypted\((.*)\)$/, "$1");
+
+                const { FeltStorage } = ChromeUtils.importESModule(
+                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+                );
+                if (FeltStorage._feltStorage?.data) {
+                    FeltStorage._feltStorage.data.lockingTokens = {};
+                }
+                """
+            )
+        finally:
+            driver.set_context("content")
+
     def _start_signed_in(self):
         self._hold_felt_after_child_exit()
         self.run_felt_base()
+        self._prepare_felt_keystore()
         self.connect_child_browser()
         self.assert_user_signed_in(env=Environment.FIREFOX)
         return self._child_driver.session_capabilities["moz:processID"]
