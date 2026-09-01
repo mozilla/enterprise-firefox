@@ -326,7 +326,9 @@ export class FeltProcessParent extends JSProcessActorParent {
             break;
 
           case "felt-firefox-lock":
-            gFeltProcessParentInstance.lockFirefox();
+            gFeltProcessParentInstance.lockFirefox().catch(err => {
+              lazy.log.error(`Lock failed: ${err}`);
+            });
             break;
 
           case "felt-firefox-tokens": {
@@ -1069,6 +1071,37 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
+   * Order any in-flight token refresh ahead of the token teardown a caller
+   * performs next: a browser-driven refresh that already rotated the tokens is
+   * applied rather than dropped, so a signout authenticates with the token the
+   * console now expects and a lock persists the current token. Callers must set
+   * logoutReported first so no new refresh is scheduled.
+   *
+   * @returns {Promise<void>}
+   */
+  async _drainPendingRefresh() {
+    lazy.PostureMonitor.stop();
+    await lazy.PostureMonitor.idle();
+    await gBrowserRefresh;
+    gSessionGeneration += 1;
+  }
+
+  /**
+   * Shut the spawned Firefox down and, once it has exited, tell the browser
+   * process how the session ended so it can quit or return to the login window.
+   *
+   * @param {string} reason "logout" or "lock".
+   */
+  _shutdownAndReportExit(reason) {
+    Services.felt.shutdownFirefox();
+    gFeltProcessParentInstance.proc.exitPromise.then(_ => {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
+        reason,
+      });
+    });
+  }
+
+  /**
    * Perform all the logout operations on FELT side.
    *
    * @returns {Promise<void>} Resolves once the browser shutdown was requested.
@@ -1088,14 +1121,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     );
     gFeltProcessParentInstance.logoutReported = true;
 
-    // Awaiting both refresh paths orders a mid-refresh decision to drop its
-    // response before the clearTokens() below. A browser-driven refresh that
-    // already rotated the tokens is applied rather than dropped, so the signout
-    // authenticates with the token the console now expects.
-    lazy.PostureMonitor.stop();
-    await lazy.PostureMonitor.idle();
-    await gBrowserRefresh;
-    gSessionGeneration += 1;
+    await this._drainPendingRefresh();
 
     // Send the logout request to the server.
     // Handle any errors that occur during signout gracefully,
@@ -1107,12 +1133,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     clearAllTokens();
-    Services.felt.shutdownFirefox();
-    gFeltProcessParentInstance.proc.exitPromise.then(_ => {
-      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
-        reason: "logout",
-      });
-    });
+    this._shutdownAndReportExit("logout");
   }
 
   /**
@@ -1120,7 +1141,7 @@ export class FeltProcessParent extends JSProcessActorParent {
    * so it can be unlocked later, then shut Firefox down without signing the
    * server session out. Mirrors logoutFirefox().
    */
-  lockFirefox() {
+  async lockFirefox() {
     if (!Services.felt.isFeltUI()) {
       throw new Error("Lock handling should only happen on FELT side.");
     }
@@ -1131,41 +1152,37 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     // Reuse logoutReported so startFirefox()'s exit handler does not also send
-    // FirefoxNormalExit (which would sign the session out).
+    // FirefoxNormalExit (which would sign the session out), and so the refresh
+    // observer stops scheduling new refreshes.
     gFeltProcessParentInstance.logoutReported = true;
 
-    // Reaching here means the browser already decided to lock (it owns the
-    // locking pref and only sends the lock signal when enabled), so persist
-    // unconditionally; store() still throws if no user is known.
-    const persistLock = async () => {
+    await this._drainPendingRefresh();
+
+    let locked = true;
+    try {
+      // Reaching here means the browser already decided to lock (it owns the
+      // locking pref and only sends the lock signal when enabled), so persist
+      // unconditionally; store() still throws if no user is known.
       await lazy.FeltLocking.store(
         Services.felt.getRefreshToken(),
         this.loggedInUserInfo?.id
       );
-    };
+    } catch (err) {
+      // If we cannot persist the session there is nothing to unlock later, so
+      // fall back to a server signout rather than leaving a dangling session
+      // behind, and drop any stale stored token.
+      locked = false;
+      lazy.log.error(`Locking failed, falling back to signout: ${err}`);
+      lazy.FeltLocking.clear();
+      try {
+        await lazy.ConsoleClient.performServerSignout();
+      } catch (e) {
+        lazy.log.error(`Server signout failed: ${e}`);
+      }
+    }
 
-    let locked = true;
-    persistLock()
-      .catch(err => {
-        // If we cannot persist the session there is nothing to unlock later,
-        // so fall back to a server signout rather than leaving a dangling
-        // session behind, and drop any stale stored token.
-        locked = false;
-        lazy.log.error(`Locking failed, falling back to signout: ${err}`);
-        lazy.FeltLocking.clear();
-        return lazy.ConsoleClient.performServerSignout().catch(e => {
-          lazy.log.error(`Server signout failed: ${e}`);
-        });
-      })
-      .finally(() => {
-        Services.felt.clearTokens();
-        Services.felt.shutdownFirefox();
-        gFeltProcessParentInstance.proc.exitPromise.then(_ => {
-          Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
-            reason: locked ? "lock" : "logout",
-          });
-        });
-      });
+    Services.felt.clearTokens();
+    this._shutdownAndReportExit(locked ? "lock" : "logout");
   }
 
   async receiveMessage(message) {
