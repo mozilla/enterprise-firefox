@@ -21,6 +21,10 @@ release-branches:
         - enterprise-main
         - enterprise-beta
         - enterprise-release
+    enterprise-thunderbird:
+        - enterprise-main
+        - enterprise-beta
+        - enterprise-release
     mozilla-central: true
     mozilla-beta: true
     mozilla-release: true
