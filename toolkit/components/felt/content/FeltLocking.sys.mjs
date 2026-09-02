@@ -26,7 +26,9 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
 export const FeltLocking = {
   /**
    * Attempt to resume a previously locked session for the given user. Requires
-   * OS-level authentication and a stored, still-valid refresh token.
+   * OS-level authentication and a stored, still-valid refresh token. The
+   * device posture is measured and submitted with the resuming refresh, so the
+   * console evaluates the device it re-admits just as it does on a login.
    *
    * @param {string} rawEmail
    * @param {Element} browser
@@ -64,10 +66,35 @@ export const FeltLocking = {
           lazy.FeltStorage.clearLockingToken(email);
           return false;
         }
+        const userId = lazy.FeltStorage.getLockingUserId(email);
+        if (!userId) {
+          // Without a user id the session would resume into the profile
+          // shared by every user, so treat the record as unresumeable.
+          Services.felt.setTokens("", "", 0);
+          lazy.FeltStorage.clearLockingToken(email);
+          return false;
+        }
+        const parentActor =
+          browser.browsingContext.currentWindowGlobal.domProcess.getActor(
+            "FeltProcess"
+          );
+
+        // Posture gates resuming a session the way it gates a fresh login,
+        // so a failed collect falls back to sign-in rather than have the
+        // console re-admit the device unchecked.
+        let posture, measuredAt;
+        try {
+          ({ posture, measuredAt } =
+            await parentActor.collectLaunchPosture(userId));
+        } catch (err) {
+          lazy.log.error(`tryUnlock: failed to collect device posture: ${err}`);
+          return false;
+        }
+
         // Only the refresh token is available here; force a refresh below.
         Services.felt.setTokens("", lockingToken, 0);
         try {
-          tokenData = await lazy.ConsoleClient.refreshTokens();
+          tokenData = await lazy.ConsoleClient.refreshTokens({ posture });
 
           // refreshTokens has already committed the rotated pair, so failing
           // to persist it must not tear the working session down. The stored
@@ -96,14 +123,16 @@ export const FeltLocking = {
 
         // Tokens are committed; from here a failure is a launch failure, not
         // a reason to fall back to SSO, so let it propagate to the caller.
-        const userId = lazy.FeltStorage.getLockingUserId(email);
-        const parentActor =
-          browser.browsingContext.currentWindowGlobal.domProcess.getActor(
-            "FeltProcess"
-          );
         await parentActor.receiveMessage({
           name: "FeltChild:StartFirefox",
-          data: { ...tokenData, isUnlock: true, user_id: userId, email },
+          data: {
+            ...tokenData,
+            isUnlock: true,
+            user_id: userId,
+            email,
+            measuredPosture: posture,
+            measuredAt,
+          },
         });
         return true;
       }

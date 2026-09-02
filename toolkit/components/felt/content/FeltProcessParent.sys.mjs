@@ -879,6 +879,26 @@ export class FeltProcessParent extends JSProcessActorParent {
     return this._resolvedProfile;
   }
 
+  /**
+   * Collect device posture for the given user's profile, for a session about to
+   * launch. Exposed for the unlock flow (FeltLocking.tryUnlock), which runs in
+   * this process and submits the posture with its resuming refresh, so posture
+   * collection stays owned here rather than duplicated in FeltLocking.
+   *
+   * @param {string} userId
+   * @returns {Promise<{posture: DevicePosture, measuredAt: number}>}
+   */
+  async collectLaunchPosture(userId) {
+    const { path: profileDir } = await lazy.resolveManagedProfile({
+      id: userId,
+    });
+    const measuredAt = Date.now();
+    // Include the new browser's session id in its initial posture.
+    lazy.ClientSession.renew();
+    const posture = await lazy.DevicePosture.collect({ profileDir });
+    return { posture, measuredAt };
+  }
+
   async startFirefoxProcess() {
     let socket = Services.felt.oneShotIpcServer();
 
@@ -1237,6 +1257,9 @@ export class FeltProcessParent extends JSProcessActorParent {
             // Resume into the per-user profile the locked session used.
             this.loggedInUserInfo = { id: user_id, email };
             lazy.FeltStorage.updateLastSignedInUserEmail(email);
+            // Clear-on-omit like a login: the resuming refresh restarts the
+            // session, so its response is authoritative, unlike mid-session
+            // refreshes which preserve on omit (see _storeEdrAgents).
             lazy.EdrAgents.write(postureConfig?.edr_agents);
           } else {
             // The profile is derived from the user id, so without one the session
@@ -1260,23 +1283,40 @@ export class FeltProcessParent extends JSProcessActorParent {
             lazy.EdrAgents.write(postureConfig?.edr_agents);
           }
 
-          // Read the extension list from the profile on disk, before the browser
-          // is spawned and its AddonManager rewrites extensions.json.
-          const { path: profileDir } = await this._resolveProfile();
-          let posture;
-          const measuredAt = Date.now();
-          // Include the new browser's session id in its initial posture.
-          lazy.ClientSession.renew();
-          try {
-            posture = await lazy.DevicePosture.collect({ profileDir });
-          } catch (e) {
-            // The console mints no session without a posture, so there is
-            // nothing to redeem the one-time token with.
-            lazy.log.error("Failed to collect the initial device posture:", e);
-            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
-              errorType: "loginFailed",
-            });
-            break;
+          let posture = null;
+          let measuredAt = null;
+          if (isUnlock) {
+            // A posture the unlock refresh did not carry (see
+            // FeltLocking.tryUnlock) is not news to the console and must not
+            // become the monitor's baseline.
+            if (message.data.postureSubmitted) {
+              posture = message.data.measuredPosture;
+              measuredAt = message.data.measuredAt;
+            }
+          } else {
+            // Read the extension list from the profile on disk, before the
+            // browser is spawned and its AddonManager rewrites extensions.json.
+            const { path: profileDir } = await this._resolveProfile();
+            measuredAt = Date.now();
+            // Include the new browser's session id in its initial posture.
+            lazy.ClientSession.renew();
+            try {
+              posture = await lazy.DevicePosture.collect({ profileDir });
+            } catch (e) {
+              // The console mints no session without a posture, so there is
+              // nothing to redeem the one-time token with.
+              lazy.log.error(
+                "Failed to collect the initial device posture:",
+                e
+              );
+              Services.cpmm.sendAsyncMessage(
+                "FeltParent:FirefoxLaunchFailure",
+                {
+                  errorType: "loginFailed",
+                }
+              );
+              break;
+            }
           }
 
           if (!isUnlock) {
@@ -1311,7 +1351,9 @@ export class FeltProcessParent extends JSProcessActorParent {
 
           // The console has this posture now: the baseline the monitor diffs
           // against.
-          lazy.PostureMonitor.record(posture, measuredAt);
+          if (posture) {
+            lazy.PostureMonitor.record(posture, measuredAt);
+          }
 
           const ssoCollectedCookies = this.getAllCookies();
           lazy.log.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
