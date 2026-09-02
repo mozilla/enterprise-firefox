@@ -104,6 +104,10 @@ https_first_disabled = true
 ["browser_UsageTelemetry_uniqueOriginsVisitedInPast24Hours.js"]
 https_first_disabled = true
 
+["browser_aswebauth_session.js"]
+run-if = ["os == 'mac' && nightly_build"]
+support-files = ["browser_aswebauth_form.sjs"]
+
 ["browser_preloading_tab_moving.js"]
 
 ["browser_taskbar_preview.js"]

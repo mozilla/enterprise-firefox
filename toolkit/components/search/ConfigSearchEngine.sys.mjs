@@ -309,9 +309,7 @@ const ParamPreferenceCache = {
     let branchFetcher = AppConstants.NIGHTLY_BUILD
       ? "getBranch"
       : "getDefaultBranch";
-    this.branch = Services.prefs[branchFetcher](
-      lazy.SearchUtils.BROWSER_SEARCH_PREF + "param."
-    );
+    this.branch = Services.prefs[branchFetcher]("browser.search.param.");
     this.cache = new Map();
     this.nimbusCache = new Map();
     for (let prefName of this.branch.getChildList("")) {

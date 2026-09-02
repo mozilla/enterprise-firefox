@@ -68,6 +68,9 @@
 #  include "MacApplicationDelegate.h"
 #  include "MacAutoreleasePool.h"
 #  include "MacRunFromDmgUtils.h"
+#  ifdef NIGHTLY_BUILD
+#    include "ASWebAuthSessionHandler.h"
+#  endif
 // these are needed for sysctl
 #  include <sys/types.h>
 #  include <sys/sysctl.h>
@@ -6838,6 +6841,10 @@ nsresult XREMain::XRE_mainRun() {
         appStartup->Quit(nsIAppStartup::eForceQuit, 0, &userAllowedQuit);
       }
 #  endif
+#endif
+
+#if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
+      RegisterASWebAuthSessionObservers();
 #endif
 
       nsCOMPtr<nsIObserverService> obsService =

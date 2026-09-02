@@ -4941,9 +4941,10 @@ delta = "0.15.0 -> 0.22.0"
 who = [
     "Benjamin Beurdouche <beurdouche@mozilla.com>",
     "Lars Eggert <leggert@mozilla.com>",
+    "Max Inden <mail@max-inden.de>",
 ]
 criteria = "safe-to-deploy"
-delta = "0.22.0 -> 0.22.0@git:2a2e344019bfc76b7e566ee6e0549cf668d90127"
+delta = "0.22.0 -> 0.22.0@git:eb1c880304127bcb7d0ee6d701fd4ca9ebc73403"
 importable = false
 
 [[audits.mockito]]
@@ -4989,7 +4990,7 @@ delta = "0.3.0 -> 0.4.1"
 [[audits.mtu]]
 who = "Max Inden <mail@max-inden.de>"
 criteria = "safe-to-deploy"
-delta = "0.4.1 -> 0.4.1@git:e2a2a7459b8b51778b50209251a61fc5ca020893"
+delta = "0.4.1 -> 0.4.1@git:965bea08e57a7b79679f5ea4a51889fb6c669a15"
 importable = false
 
 [[audits.multiversion]]

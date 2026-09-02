@@ -17,6 +17,8 @@ skip-if = ["debug"]
 
 ["browser_escape.js"]
 
+["browser_mousedown.js"]
+
 ["browser_pickResult.js"]
 
 ["browser_placeholder.js"]
@@ -33,5 +35,7 @@ support-files = [
   "../../../search/test/browser/telemetry/searchTelemetryAd.html",
   "../../../search/test/browser/telemetry/serp.css",
 ]
+
+["browser_topLayer.js"]
 
 ["browser_viewBounds.js"]

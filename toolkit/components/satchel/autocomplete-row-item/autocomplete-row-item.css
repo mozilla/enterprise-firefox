@@ -51,7 +51,8 @@
 .secondary-action {
   visibility: hidden;
   margin-inline-start: auto;
-  --button-background-color-ghost-hover: var(--button-background-color-active);
+  --button-background-color-ghost-hover: color-mix(in srgb, currentColor 15%, transparent);
+  --button-background-color-ghost-active: color-mix(in srgb, currentColor 30%, transparent);
 }
 
 :host(:is(:hover, [selected]:not([pointerselected]), [subfocused])) .secondary-action {
@@ -62,6 +63,15 @@
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-offset);
   border-radius: var(--button-border-radius);
+}
+
+:host([menuopen]) .row-item {
+  color: var(--button-text-color-hover);
+  background-color: var(--button-background-color-hover);
+}
+
+:host([menuopen]) .secondary-action {
+  visibility: visible;
 }
 
 /**

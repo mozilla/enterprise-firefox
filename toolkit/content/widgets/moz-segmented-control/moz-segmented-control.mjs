@@ -47,6 +47,10 @@ export class MozSegmentedControl extends SelectControlBaseElement {
     return this.deck ? "tab" : super.getChildRole();
   }
 
+  getGroupRole() {
+    return this.deck ? "tablist" : super.getGroupRole();
+  }
+
   willUpdate(changedProperties) {
     super.willUpdate(changedProperties);
     if (changedProperties.has("deck")) {

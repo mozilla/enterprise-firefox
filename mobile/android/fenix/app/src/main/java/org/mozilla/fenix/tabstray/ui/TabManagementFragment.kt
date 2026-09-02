@@ -84,6 +84,7 @@ import org.mozilla.fenix.ext.hideToolbar
 import org.mozilla.fenix.ext.registerForActivityResult
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.runIfFragmentIsAttached
+import org.mozilla.fenix.ext.tabsClosedUndoMessage
 import org.mozilla.fenix.home.HomeScreenViewModel
 import org.mozilla.fenix.navigation.DefaultNavControllerProvider
 import org.mozilla.fenix.navigation.NavControllerProvider
@@ -247,6 +248,7 @@ class TabManagementFragment : Fragment() {
                 showUndoSnackbarForTab = ::showUndoSnackbarForTab,
                 showUndoSnackbarForInactiveTab = ::showUndoSnackbarForInactiveTab,
                 showUndoSnackbarForSyncedTab = ::showUndoSnackbarForSyncedTab,
+                showUndoSnackbarForMultipleTabs = ::showUndoSnackbarForMultipleTabs,
                 showCancelledDownloadWarning = ::showCancelledDownloadWarning,
                 showBookmarkSnackbar = ::showBookmarkSnackbar,
                 showCollectionSnackbar = ::showCollectionSnackbar,
@@ -995,6 +997,27 @@ class TabManagementFragment : Fragment() {
                     }
                 },
             )
+        }
+    }
+
+    private fun showUndoSnackbarForMultipleTabs(isPrivate: Boolean, tabCount: Int) {
+        context?.let { context ->
+            val requireComponents = context.components
+            val page = if (isPrivate) Page.PrivateTabs else Page.NormalTabs
+
+            lifecycleScope.launch {
+                snackbarHostState.displaySnackbar(
+                    message = context.tabsClosedUndoMessage(count = tabCount),
+                    actionLabel = getString(R.string.snackbar_deleted_undo),
+                    timeout = requireComponents.settings.getSnackbarTimeout(hasAction = true),
+                    onActionPerformed = {
+                        requireComponents.useCases.tabsUseCases.undo.invoke()
+                        runIfFragmentIsAttached {
+                            tabsTrayStore.dispatch(TabsTrayAction.PageSelected(page))
+                        }
+                    },
+                )
+            }
         }
     }
 

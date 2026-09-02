@@ -825,6 +825,70 @@ describe("Auto Tab Grouping toolbar button", () => {
     });
   });
 
+  describe("when the button is in the overflow menu", () => {
+    let placement;
+
+    afterEach(() => {
+      if (!placement) {
+        return;
+      }
+      CustomizableUI.addWidgetToArea(
+        "smartwindow-group-tabs-button",
+        placement.area,
+        placement.position
+      );
+      placement = null;
+    });
+
+    it("opens the panel anchored to the overflow button", async () => {
+      win = await openGroupingWindowWithTabs();
+      placement = CustomizableUI.getPlacementOfWidget(
+        "smartwindow-group-tabs-button"
+      );
+      CustomizableUI.addWidgetToArea(
+        "smartwindow-group-tabs-button",
+        CustomizableUI.AREA_FIXED_OVERFLOW_PANEL
+      );
+
+      const overflowPanel = win.document.getElementById("widget-overflow");
+      const overflowShown = BrowserTestUtils.waitForEvent(
+        overflowPanel,
+        "popupshown"
+      );
+      EventUtils.synthesizeMouseAtCenter(
+        win.document.getElementById("nav-bar-overflow-button"),
+        {},
+        win
+      );
+      await overflowShown;
+
+      EventUtils.synthesizeMouseAtCenter(
+        win.document.getElementById("smartwindow-group-tabs-button"),
+        {},
+        win
+      );
+      const panel = await TestUtils.waitForCondition(() =>
+        win.document.getElementById("smartwindow-group-tabs-panel")
+      );
+      await TestUtils.waitForCondition(
+        () => panel.state === "open",
+        "The panel opens even though the overflow menu rolls up with the click"
+      );
+      Assert.equal(
+        panel.anchorNode.id,
+        "nav-bar-overflow-button",
+        "The panel is anchored to the overflow button, not the button it hides"
+      );
+      Assert.equal(
+        overflowPanel.state,
+        "closed",
+        "The overflow menu is gone by the time the panel is up"
+      );
+
+      await closePanel(win);
+    });
+  });
+
   describe("when there is nothing left to suggest", () => {
     it("credits work done this time and forgets it the next", async () => {
       win = await openGroupingWindowWithTabs();

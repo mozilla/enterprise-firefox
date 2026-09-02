@@ -70,9 +70,9 @@ add_task(async function run_test() {
   // tends to cause problems like this).
   // Since this is an uncommon configuration and since this issue hasn't been
   // reproduced outside of this test infrastructure, this works around it for
-  // the time being by authenticating to all tokens on the main thread so that
-  // the socket thread doesn't have to.
-  gCertDB.getCerts();
+  // the time being by authenticating to all tokens beforehand so that the
+  // socket thread doesn't have to.
+  await gCertDB.getCerts();
 
   await asyncStartTLSTestServer("BadCertAndPinningServer", "bad_certs");
   gClientAuthDialogService.certificateNameToUse = "CN=client cert rsa";

@@ -102,12 +102,13 @@ class NewtabContentTestUtils extends UrlbarInputBaseTestUtils {
 
   /**
    * What the bar is showing, in one round trip. `viewOpen` is the state the
-   * view keeps, `viewVisible` whether it is painted; the element stays in the
-   * top layer between queries, so the two can disagree.
+   * view keeps and `viewVisible` whether it is painted, so the two can
+   * disagree. `popoverOpen` is whether the element itself is in the top
+   * layer.
    *
    * @param {ChromeWindow} win
    * @returns {{focused: boolean, value: string, viewOpen: boolean,
-   *   viewVisible: boolean}}
+   *   viewVisible: boolean, popoverOpen: boolean}}
    */
   getState(win) {
     let bar = this.getUrlbar(win);
@@ -116,6 +117,7 @@ class NewtabContentTestUtils extends UrlbarInputBaseTestUtils {
       value: bar.value,
       viewOpen: bar.view.isOpen,
       viewVisible: bar.view.panel.checkVisibility(),
+      popoverOpen: bar.matches(":popover-open"),
     };
   }
 

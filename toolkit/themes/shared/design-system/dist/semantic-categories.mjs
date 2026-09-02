@@ -1356,6 +1356,7 @@ export const tokensTable = {
       value: "var(--border-color-interactive)",
       name: "--segmented-control-border-color",
     },
+    { value: "var(--button-border-color)", name: "--select-border-color" },
     {
       value: "var(--button-border-color-hover)",
       name: "--select-border-color-hover",
@@ -2823,6 +2824,10 @@ export const tokensTable = {
       name: "--urlbar-box-text-color-hover",
     },
     {
+      value: "var(--urlbar-box-text-color)",
+      name: "--urlbar-box-text-color-active",
+    },
+    {
       value: {
         light: "rgb(91, 91, 102)",
         dark: "rgb(191, 191, 201)",
@@ -2897,7 +2902,10 @@ export const tokensTable = {
       value: "var(--border-width) solid var(--segmented-control-border-color)",
       name: "--segmented-control-border",
     },
-    { value: "var(--button-border)", name: "--select-border" },
+    {
+      value: "var(--border-width) solid var(--select-border-color)",
+      name: "--select-border",
+    },
   ],
   uncategorized: [
     { value: "center", name: "--button-content-alignment" },
@@ -3448,6 +3456,7 @@ export const tokensTable = {
     { value: "32px", name: "--icon-size-xlarge" },
     { value: "var(--size-item-xlarge)", name: "--icon-size-xxlarge" },
     { value: "var(--icon-size-xsmall)", name: "--input-text-icon-size" },
+    { value: "var(--input-text-icon-size)", name: "--input-search-icon-size" },
     { value: "var(--icon-size)", name: "--box-icon-size" },
     { value: "var(--icon-size-xsmall)", name: "--breadcrumb-icon-size" },
     { value: "var(--icon-size)", name: "--message-bar-icon-size" },
@@ -4504,6 +4513,7 @@ export const variableLookupTable = {
   "input-text-min-height": "var(--button-min-height)",
   "input-text-opacity-disabled": "var(--button-opacity-disabled)",
   "input-search-border-radius": { default: "var(--input-text-border-radius)" },
+  "input-search-icon-size": "var(--input-text-icon-size)",
   "input-width": "var(--size-item-small)",
   "link-color": {
     forcedColors: "LinkText",
@@ -5147,7 +5157,8 @@ export const variableLookupTable = {
   "select-background-color": "var(--button-background-color)",
   "select-background-color-hover": "var(--button-background-color-hover)",
   "select-background-color-disabled": "var(--button-background-color-disabled)",
-  "select-border": "var(--button-border)",
+  "select-border": "var(--border-width) solid var(--select-border-color)",
+  "select-border-color": "var(--button-border-color)",
   "select-border-color-hover": "var(--button-border-color-hover)",
   "select-border-color-disabled": "var(--button-border-color-disabled)",
   "select-border-radius": "var(--button-border-radius)",
@@ -5560,6 +5571,7 @@ export const variableLookupTable = {
   },
   "urlbar-box-text-color": "inherit",
   "urlbar-box-text-color-hover": "var(--urlbar-box-text-color)",
+  "urlbar-box-text-color-active": "var(--urlbar-box-text-color)",
   "urlbar-icon-fill-opacity": {
     default: "0.72",
     nativeTheme: "0.9",

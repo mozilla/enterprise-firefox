@@ -129,6 +129,7 @@ function findParams(records, { feature, model }) {
   return (
     (model && candidates.find(r => r.model === model)) ||
     candidates.find(r => r.model === GENERIC_MODEL_NAME) ||
+    candidates.find(r => r.is_default === true) ||
     null
   );
 }
@@ -567,11 +568,12 @@ export async function loadPromptV2(feature, opts = {}) {
     paramsRecord.modules?.find(m => m.name === opts.module)?.version ??
     paramsRecord.version;
 
-  // find the module record for the feature+module+model+version
+  // find the module record for the feature+module+model+version by the param
+  // record's model
   const moduleRecord = findModule(v2Records, {
     feature,
     module: opts.module,
-    options: { model, version: moduleVersion },
+    options: { model: paramsRecord.model, version: moduleVersion },
   });
   if (!moduleRecord?.prompts) {
     const err = new Error(

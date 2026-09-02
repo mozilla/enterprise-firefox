@@ -142,7 +142,7 @@ static Element::MappedAttributeEntry sGlobalAttributes[] = {
     {nsGkAtoms::displaystyle},
     {nullptr}};
 
-bool MathMLElement::IsAttributeMapped(const nsAtom* aAttribute) const {
+bool MathMLElement::IsNoNamespaceAttrMapped(const nsAtom* aAttribute) const {
   MOZ_ASSERT(IsMathMLElement());
 
   static const MappedAttributeEntry* const globalMap[] = {sGlobalAttributes};

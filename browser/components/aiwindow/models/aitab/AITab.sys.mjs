@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   renderPrompt: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   openAIEngine:
     "moz-src:///browser/components/aiwindow/models/openAIEngine.sys.mjs",
+  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "console", () =>
@@ -301,23 +302,39 @@ export class AITab {
 
     const urlsUsed = [];
     const sourceParts = [];
-    urls.forEach((url, index) => {
+    for (const [index, url] of urls.entries()) {
       // Prefer the open tab's title for the heading; fall back to the URL.
       const tab = lazy.GetPageContent.getTabWithURL(url);
       const heading = tab?.label || url;
       const text = contents[index] ?? "";
+      // Best-effort og:image lookup ("" when none cached), gated on the same
+      // access-control decision as the page text so a refused URL leaks no
+      // image either.
+      const imageUrl = lazy.GetPageContent.isContentAllowed(url, conversation)
+        ? await AITab.#getPageImage(url)
+        : "";
       urlsUsed.push({
         url,
         title: heading,
         favIconUrl: `page-icon:${url}`,
+        imageUrl: imageUrl || null,
         extractedText: text,
       });
       // Trim each page's text to its share of the budget before sending to the
       // model.
       const budgetedText =
         text.length > perTabBudget ? text.slice(0, perTabBudget) : text;
-      sourceParts.push(`## ${heading}\nURL: ${url}\n\n${budgetedText}`);
-    });
+      // Omit the Image: line when absent so the model never echoes an empty
+      // value.
+      const head = imageUrl
+        ? `## ${heading}\nURL: ${url}\nImage: ${imageUrl}\n\n`
+        : `## ${heading}\nURL: ${url}\n\n`;
+      sourceParts.push(`${head}${budgetedText}`);
+    }
+
+    if (signal?.aborted) {
+      return { error: CANCELED_ERROR };
+    }
 
     const focusText = focus.trim();
 
@@ -356,6 +373,26 @@ export class AITab {
     };
 
     return { metadata, page: structured.page };
+  }
+
+  /**
+   * Look up a page's preview-image (og:image) URL from Places. Never rejects;
+   * returns "" on failure or when none is cached.
+   *
+   * @param {string} url
+   * @returns {Promise<string>}
+   */
+  static async #getPageImage(url) {
+    try {
+      const pageInfo = await lazy.PlacesUtils.history
+        .fetch(url, { includeMeta: true })
+        .catch(() => null);
+      // previewImageURL is a URL object when the page cached an og:image.
+      return pageInfo?.previewImageURL ? pageInfo.previewImageURL.href : "";
+    } catch (e) {
+      lazy.console.debug("getPageImage failed", url, e);
+      return "";
+    }
   }
 
   /**

@@ -228,8 +228,7 @@ nsChangeHint HTMLImageElement::GetAttributeChangeHint(
   return retval;
 }
 
-NS_IMETHODIMP_(bool)
-HTMLImageElement::IsAttributeMapped(const nsAtom* aAttribute) const {
+bool HTMLImageElement::IsNoNamespaceAttrMapped(const nsAtom* aAttribute) const {
   static const MappedAttributeEntry* const map[] = {
       sCommonAttributeMap, sImageMarginSizeAttributeMap,
       sImageBorderAttributeMap, sImageAlignAttributeMap};

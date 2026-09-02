@@ -1207,29 +1207,36 @@ static bool ComputePositionVisibility(
       if (defaultAnchor && AnchorIsEffectivelyHidden(defaultAnchor)) {
         return false;
       }
-      auto* containingBlock = aPositioned->GetParent()->FirstInFlow();
+      auto* containingBlock = nsLayoutUtils::FirstContinuationOrIBSplitSibling(
+          aPositioned->GetParent());
       // If both are in the same cb the expectation is that this doesn't apply
       // because there are no intervening clips. I think that's broken, see
       // https://github.com/w3c/csswg-drafts/issues/13176
-      if (defaultAnchor &&
-          defaultAnchor->GetParent()->FirstInFlow() != containingBlock) {
+      if (defaultAnchor && nsLayoutUtils::FirstContinuationOrIBSplitSibling(
+                               defaultAnchor->GetParent()) != containingBlock) {
+        // Initially, get containingBlock's rect in intersectionRoot's
+        // coordinate space.
         auto* intersectionRoot = containingBlock;
-        nsRect rootRect = nsLayoutUtils::GetAllInFlowRectsUnion(
-            intersectionRoot, containingBlock,
-            nsLayoutUtils::GetAllInFlowRectsFlag::UseInkOverflowAsBox);
-        if (IsScrolled(intersectionRoot)) {
-          intersectionRoot = intersectionRoot->GetParent();
+        nsRect rootRect;
+        if (IsScrolled(containingBlock)) {
+          intersectionRoot = containingBlock->GetParent();
           ScrollContainerFrame* sc = do_QueryFrame(intersectionRoot);
           rootRect = sc->GetScrollPortRectAccountingForDynamicToolbar();
+        } else {
+          rootRect = nsLayoutUtils::GetAllInFlowRectsUnion(
+              containingBlock, intersectionRoot,
+              nsLayoutUtils::GetAllInFlowRectsFlag::UseInkOverflowAsBox);
         }
+        // Then, transform it to the root frame's coordinate space.
+        rootRect = nsLayoutUtils::TransformFrameRectToAncestor(
+            intersectionRoot, rootRect,
+            nsLayoutUtils::GetContainingBlockForClientRect(intersectionRoot));
+
         const auto* doc = aPositioned->PresContext()->Document();
         const nsINode* root =
             intersectionRoot->GetContent()
                 ? static_cast<nsINode*>(intersectionRoot->GetContent())
                 : doc;
-        rootRect = nsLayoutUtils::TransformFrameRectToAncestor(
-            intersectionRoot, rootRect,
-            nsLayoutUtils::GetContainingBlockForClientRect(intersectionRoot));
         const auto input = dom::IntersectionInput{
             .mIsImplicitRoot = false,
             .mRootNode = root,

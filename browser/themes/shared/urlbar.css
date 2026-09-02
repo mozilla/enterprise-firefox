@@ -77,6 +77,7 @@
       --urlbar-box-background-color-hover: var(--button-background-color-ghost-hover);
       --urlbar-box-background-color-active: var(--button-background-color-ghost-active);
       --urlbar-box-text-color-hover: var(--button-text-color-ghost-hover);
+      --urlbar-box-text-color-active: var(--button-text-color-ghost-active);
     }
   }
 }
@@ -719,7 +720,7 @@ toolbar[inactive="true"] .urlbar,
 
     &:active {
       background-color: var(--urlbar-box-background-color-active);
-      color: var(--urlbar-box-text-color-hover);
+      color: var(--urlbar-box-text-color-active);
     }
   }
 }
@@ -832,7 +833,7 @@ toolbar[inactive="true"] .urlbar,
   &:not([disabled])[open],
   &:not([disabled]):hover:active {
     background-color: var(--urlbar-box-background-color-active);
-    color: var(--urlbar-box-text-color-hover);
+    color: var(--urlbar-box-text-color-active);
     outline-color: var(--toolbarbutton-outline-color-active);
   }
 }
@@ -858,7 +859,7 @@ toolbar[inactive="true"] .urlbar,
 .searchbar-textbox::-moz-search-clear-button:hover:active,
 .urlbar-input::-moz-search-clear-button:hover:active {
   background-color: var(--urlbar-box-background-color-active);
-  color: var(--urlbar-box-text-color-hover);
+  color: var(--urlbar-box-text-color-active);
   outline-color: var(--toolbarbutton-outline-color-active);
 }
 
@@ -1222,7 +1223,7 @@ toolbar[inactive="true"] .urlbar,
 
     &:active {
       background-color: var(--urlbar-box-background-color-active);
-      color: var(--urlbar-box-text-color-hover);
+      color: var(--urlbar-box-text-color-active);
     }
   }
 

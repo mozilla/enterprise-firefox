@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -14,10 +16,33 @@ ChromeUtils.defineLazyGetter(
   "l10n",
   () =>
     new Localization(
-      ["branding/brand.ftl", "toolkit/formautofill/formAutofill.ftl"],
+      [
+        "branding/brand.ftl",
+        "toolkit/formautofill/formAutofill.ftl",
+        "toolkit/main-window/autocomplete.ftl",
+      ],
       true
     )
 );
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "removeRecordsEnabled",
+  "browser.autocomplete.removeRecords.enabled",
+  false
+);
+
+// Builds the "more actions" flyout secondaryAction for a profile row. The edit
+// and delete menu items are non-functional placeholders for now.
+function moreActionsSecondaryAction(editLabelId, deleteLabelId) {
+  return {
+    type: "menupopup",
+    label: lazy.l10n.formatValueSync("autocomplete-more-actions"),
+    actions: [
+      { label: lazy.l10n.formatValueSync(editLabelId) },
+      { label: lazy.l10n.formatValueSync(deleteLabelId) },
+    ],
+  };
+}
 
 export class ProfileAutoCompleteResult {
   externalEntries = [];
@@ -436,6 +461,12 @@ export class AddressResult extends ProfileAutoCompleteResult {
         // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
         image: "chrome://browser/skin/fxa/avatar-empty.svg",
         type: "address",
+        ...(lazy.removeRecordsEnabled && {
+          secondaryAction: moreActionsSecondaryAction(
+            "autocomplete-edit-address",
+            "autocomplete-delete-address"
+          ),
+        }),
       });
     }
 
@@ -580,6 +611,12 @@ export class CreditCardResult extends ProfileAutoCompleteResult {
           ariaLabel,
           image,
           type: "payment",
+          ...(lazy.removeRecordsEnabled && {
+            secondaryAction: moreActionsSecondaryAction(
+              "autocomplete-edit-payment-method",
+              "autocomplete-delete-payment-method"
+            ),
+          }),
         };
       });
 

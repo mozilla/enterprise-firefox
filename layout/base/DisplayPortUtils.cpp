@@ -1152,7 +1152,8 @@ FrameAndASRKind DisplayPortUtils::OneStepInASRChain(
       nsLayoutUtils::GetCrossDocParentFrameInProcess(aFrameAndASRKind.mFrame);
   if (aLimitAncestor && parent &&
       (parent == aLimitAncestor ||
-       parent->FirstContinuation() == aLimitAncestor->FirstContinuation())) {
+       nsLayoutUtils::FirstContinuationOrIBSplitSibling(parent) ==
+           nsLayoutUtils::FirstContinuationOrIBSplitSibling(aLimitAncestor))) {
     return FrameAndASRKind::default_value();
   }
   return {parent, ActiveScrolledRoot::ASRKind::Scroll};
@@ -1220,9 +1221,14 @@ const ActiveScrolledRoot* DisplayPortUtils::ActivateDisplayportOnASRAncestors(
   FrameAndASRKind frameAndASRKind{aAnchor, ActiveScrolledRoot::ASRKind::Scroll};
   frameAndASRKind =
       OneStepInASRChain(frameAndASRKind, aBuilder, aLimitAncestor);
-  while (frameAndASRKind.mFrame && frameAndASRKind.mFrame != aLimitAncestor &&
-         (!aLimitAncestor || frameAndASRKind.mFrame->FirstContinuation() !=
-                                 aLimitAncestor->FirstContinuation())) {
+  const nsIFrame* limitAncestorFirst =
+      aLimitAncestor
+          ? nsLayoutUtils::FirstContinuationOrIBSplitSibling(aLimitAncestor)
+          : nullptr;
+  while (
+      frameAndASRKind.mFrame && frameAndASRKind.mFrame != aLimitAncestor &&
+      (!aLimitAncestor || nsLayoutUtils::FirstContinuationOrIBSplitSibling(
+                              frameAndASRKind.mFrame) != limitAncestorFirst)) {
     // We check if each frame encountered generates an ASR. It can either
     // generate a scroll asr or a sticky asr, or both! If it generates both then
     // the sticky asr is the outer (parent) asr. So we check for scroll ASRs
@@ -1343,6 +1349,8 @@ static bool ShouldAsyncScrollWithAnchorNotCached(nsIFrame* aFrame,
   *aReportToDoc = true;
   nsIFrame* limitAncestor = aFrame->GetParent();
   MOZ_ASSERT(limitAncestor);
+  const nsIFrame* limitAncestorFirst =
+      nsLayoutUtils::FirstContinuationOrIBSplitSibling(limitAncestor);
   // Start from aAnchor (not aFrame) so we don't infinite loop.
   nsIFrame* frame = aAnchor;
   bool firstIteration = true;
@@ -1353,7 +1361,8 @@ static bool ShouldAsyncScrollWithAnchorNotCached(nsIFrame* aFrame,
   // potential ASR and then start checking for transforms.
   bool sawPotentialASR = false;
   while (frame && !frame->IsMenuPopupFrame() && frame != limitAncestor &&
-         (frame->FirstContinuation() != limitAncestor->FirstContinuation())) {
+         (nsLayoutUtils::FirstContinuationOrIBSplitSibling(frame) !=
+          limitAncestorFirst)) {
     // Note that we purposely check all scroll frames in this loop because we
     // might not have activated scroll frames yet.
 

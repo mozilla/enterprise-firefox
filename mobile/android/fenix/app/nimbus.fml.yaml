@@ -959,6 +959,14 @@ features:
       - channel: nightly
         value:
           enabled: false
+  tab-groups-ungroup:
+    description: Control whether the ungroup option is available for tab groups.
+    variables:
+      enabled:
+        description: >
+          Whether or not to enable ungrouping tab groups.
+        type: Boolean
+        default: true
 
   marketing-onboarding-card:
     description: A temporary feature to control the marketing onboarding card shown during the onboarding flow.

@@ -1301,6 +1301,9 @@ AbortReasonOr<Ok> WarpScriptOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
     }
   }
 
+  // Add pending fuse dependencies to the CompilationDependencyTracker. It's
+  // important to do this after we've committed to adding a WarpCacheIR snapshot
+  // because this snapshot ensures the ObjectFuse owner objects are kept alive.
   for (auto& pending : pendingFuseDeps) {
     auto addDep = [&](const auto& dep) {
       return oracle_->addFuseDependency(dep);

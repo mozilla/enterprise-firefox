@@ -1008,6 +1008,10 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
    * drawn with a filter.
    */
   bool NeedToApplyFilter() {
+    // Avoid trying to update filter state if no filter chain has ever been set.
+    if (CurrentState().filterChain.IsEmpty()) {
+      return false;
+    }
     return EnsureUpdatedFilter().mPrimitives.Length() > 0;
   }
 

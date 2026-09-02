@@ -9,6 +9,7 @@ import noBaseDesignTokens from "./no-base-design-tokens.mjs";
 import noBrowserRefsInToolkit from "./no-browser-refs-in-toolkit.mjs";
 import noHasSelector from "./no-has-selector.mjs";
 import useDesignTokens from "./use-design-tokens.mjs";
+import usePairedColorTokens from "./use-paired-color-tokens.mjs";
 
 export default {
   "media-query-no-invalid": mediaQueryNoInvalid,
@@ -16,4 +17,5 @@ export default {
   "no-browser-refs-in-toolkit": noBrowserRefsInToolkit,
   "no-has-selector": noHasSelector,
   "use-design-tokens": useDesignTokens,
+  "use-paired-color-tokens": usePairedColorTokens,
 };

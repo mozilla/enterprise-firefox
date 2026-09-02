@@ -17,9 +17,7 @@ import { UrlbarResult } from "chrome://browser/content/urlbar/UrlbarResult.mjs";
  * `browser.urlbar.ipc.chromeMessagePassing`) holds one of these instead of a
  * direct controller reference: it forwards the child->parent query-lifecycle
  * calls to the parent process as actor messages, where `UrlbarParent` routes
- * them to the real controller keyed by `instanceId`. Parent->child
- * notifications come back as `Notify` messages that the child actor dispatches
- * to the paired `UrlbarChildController`.
+ * them to the real controller keyed by `instanceId`.
  */
 export class UrlbarParentControllerProxy {
   /** @type {UrlbarChild} */
@@ -53,11 +51,11 @@ export class UrlbarParentControllerProxy {
 
   /**
    * Registers the paired child controller with the actor so parent->child
-   * `Notify` messages for this instance can be dispatched to it. The parent
+   * notifications for this instance can be dispatched to it. The parent
    * controller itself never holds the child on this path (cross-process it
    * can't, and a strong ref would pin the input and defeat cleanup).
    *
-   * @param {object} child
+   * @param {UrlbarChildController} child
    *   The paired `UrlbarChildController`.
    */
   setChild(child) {

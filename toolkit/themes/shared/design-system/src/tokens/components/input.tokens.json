@@ -86,6 +86,11 @@
           }
         }
       }
+    },
+    "icon": {
+      "size": {
+        "value": "{input.text.icon.size}"
+      }
     }
   },
   "width": {

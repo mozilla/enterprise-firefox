@@ -46,7 +46,7 @@ data object DefaultTabManagementFeatureHelper : TabManagementFeatureHelper {
         get() = FxNimbus.features.tabGroupsLiveReorder.value().enabled
 
     override val ungroupTabGroupEnabled: Boolean
-        get() = false
+        get() = Config.channel.isDebug || FxNimbus.features.tabGroupsUngroup.value().enabled
 
     override val tabGroupsOnboardingEnabled: Boolean
         get() = Config.channel.isDebug || FxNimbus.features.tabGroupsOnboarding.value().enabled

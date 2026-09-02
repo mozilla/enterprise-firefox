@@ -140,6 +140,11 @@ export class UrlbarProviderGlobalActions extends UrlbarProvider {
     provider.onPick(queryContext, controller, action, details);
   }
 
+  /**
+   * @param {UrlbarQueryContext} queryContext
+   * @param {UrlbarParentController} controller
+   * @param {object} details
+   */
   onSearchSessionEnd(queryContext, controller, details) {
     let showOnboardingLabel = queryContext.results?.find(
       r => r.providerName == this.name

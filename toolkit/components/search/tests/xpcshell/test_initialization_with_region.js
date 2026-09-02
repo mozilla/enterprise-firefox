@@ -54,7 +54,7 @@ function listenFor(name, key) {
 add_setup(async function () {
   Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
   Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.ui.enabled",
     true
   );
 

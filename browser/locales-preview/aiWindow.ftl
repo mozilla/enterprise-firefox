@@ -232,6 +232,13 @@ ai-tasks-alert-condition-not-met = No match
 # the user did not say what the page should focus on.
 ai-tab-default-page-title = Generated page
 
+# Shown in place of a generated page when it can no longer be found, for
+# example because the user deleted it.
+ai-tab-page-unavailable = This page isn’t available anymore.
+
+# Shown in place of a generated page when it could not be loaded.
+ai-tab-page-error = Something went wrong loading this page.
+
 ## Smartbar command palette
 ## Slash commands shown in the smartbar when the user types "/".
 

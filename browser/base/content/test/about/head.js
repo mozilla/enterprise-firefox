@@ -9,6 +9,23 @@ ChromeUtils.defineESModuleGetters(this, {
 
 SearchTestUtils.init(this);
 
+/**
+ * Decode ui.key.contentAccess into the modifier set a content access key needs,
+ * so tests synthesize the right combination on every platform (Alt+Shift on
+ * Windows and Linux, Control+Option on macOS).
+ *
+ * @returns {object} Modifiers for EventUtils.synthesizeKey().
+ */
+function getAccessKeyModifiers() {
+  const contentAccess = Services.prefs.getIntPref("ui.key.contentAccess", 5);
+  return {
+    shiftKey: !!(contentAccess & 1),
+    ctrlKey: !!(contentAccess & 2),
+    altKey: !!(contentAccess & 4),
+    metaKey: !!(contentAccess & 8),
+  };
+}
+
 // Force the search CTA to accept the test's default engine as a supported
 // general-purpose engine. installSearchExtension() creates addon engines, which
 // report isGeneralPurposeEngine=false, so without this the CTA would be

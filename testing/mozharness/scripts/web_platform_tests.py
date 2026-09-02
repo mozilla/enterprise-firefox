@@ -675,12 +675,16 @@ class WebPlatformTest(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidM
         if self.is_android:
             env["ADB_PATH"] = self.adb_path
 
-        # gmp-fake stands in for Widevine, which we have yet to supply. The
-        # real OpenH264 plugin comes from fetches where we have one; the fake
-        # stands in everywhere else.
-        gmp_paths = [
-            os.path.join(dirs["abs_test_bin_dir"], "plugins", "gmp-fake", "1.0")
-        ]
+        # The real plugins come from fetches where we have them; the fakes
+        # stand in everywhere else.
+        widevine_path = self.query_gmp_path("gmp-widevinecdm")
+        if widevine_path:
+            self.info(f"Using the Widevine CDM in {widevine_path}")
+            gmp_paths = [widevine_path]
+        else:
+            gmp_paths = [
+                os.path.join(dirs["abs_test_bin_dir"], "plugins", "gmp-fake", "1.0")
+            ]
         openh264_path = self.query_gmp_path("gmp-gmpopenh264")
         if openh264_path:
             self.info(f"Using the OpenH264 GMP plugin in {openh264_path}")

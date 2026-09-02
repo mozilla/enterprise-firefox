@@ -1389,6 +1389,19 @@
         "Smart Light (WIP)": "{color/gray/50}"
       }
     },
+    "input": {
+      "text": {
+        "background": {
+          "color": {
+            "Light": "{background/color/box}",
+            "Dark": "{background/color/box}",
+            "disabled": {
+              "Value": "{button/background/color/ghost/disabled}"
+            }
+          }
+        }
+      }
+    },
     "link": {
       "color": {
         "Light": "{color/accent/primary}",
@@ -3078,7 +3091,12 @@
             "HCM": "{border/color/interactive/disabled}",
             "Private": "{border/color/interactive/disabled}",
             "Smart Light (WIP)": "{border/color/interactive/disabled}"
-          }
+          },
+          "Light": "{border/color/interactive}",
+          "Dark": "{border/color/interactive}",
+          "HCM": "{border/color/interactive}",
+          "Private": "{border/color/interactive}",
+          "Smart Light (WIP)": "{border/color/interactive}"
         }
       }
     },
@@ -3989,6 +4007,13 @@
       }
     },
     "input": {
+      "search": {
+        "icon": {
+          "size": {
+            "Value": "{icon/size/small}"
+          }
+        }
+      },
       "text": {
         "min": {
           "height": {
@@ -4056,21 +4081,21 @@
       },
       "padding": {
         "inner": {
-          "narrow": {
-            "Value": 7
-          },
           "Value": 8,
           "touch": {
             "narrow": {
               "Value": 8
             }
+          },
+          "narrow": {
+            "Value": 7
           }
         },
         "outer": {
+          "Value": 2,
           "narrow": {
             "Value": 1
-          },
-          "Value": 2
+          }
         },
         "compact": {
           "inner": {
@@ -4172,13 +4197,6 @@
           }
         }
       },
-      "text-container": {
-        "padding": {
-          "block": {
-            "Value": 0
-          }
-        }
-      },
       "icon": {
         "size": {
           "Value": "{icon/size}"
@@ -4190,6 +4208,13 @@
       "margin": {
         "block": {
           "start": {
+            "Value": 0
+          }
+        }
+      },
+      "text-container": {
+        "padding": {
+          "block": {
             "Value": 0
           }
         }

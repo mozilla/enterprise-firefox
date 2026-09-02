@@ -697,17 +697,19 @@ class AdjustedTarget {
                           const gfx::Rect* aBounds = nullptr,
                           bool aAllowOptimization = false)
       : mCtx(aCtx), mUsedOperation(aCtx->CurrentState().op) {
-    // All rects in this function are in the device space of ctx->mTarget.
+    const bool needShadow = aCtx->NeedToDrawShadow();
+    const bool needFilter = aCtx->NeedToApplyFilter();
 
+    // All rects in this function are in the device space of ctx->mTarget.
     // In order to keep our temporary surfaces as small as possible, we first
     // calculate what their maximum required bounds would need to be if we
     // were to fill the whole canvas. Everything outside those bounds we don't
     // need to render.
     gfx::Rect r(0, 0, aCtx->mWidth, aCtx->mHeight);
     gfx::Rect maxSourceNeededBoundsForShadow =
-        MaxSourceNeededBoundsForShadow(r, aCtx);
-    gfx::Rect maxSourceNeededBoundsForFilter =
-        MaxSourceNeededBoundsForFilter(maxSourceNeededBoundsForShadow, aCtx);
+        MaxSourceNeededBoundsForShadow(r, aCtx, needShadow);
+    gfx::Rect maxSourceNeededBoundsForFilter = MaxSourceNeededBoundsForFilter(
+        maxSourceNeededBoundsForShadow, aCtx, needFilter);
     if (!aCtx->IsTargetValid()) {
       return;
     }
@@ -716,7 +718,7 @@ class AdjustedTarget {
     if (aBounds) {
       bounds = bounds.Intersect(*aBounds);
     }
-    gfx::Rect boundsAfterFilter = BoundsAfterFilter(bounds, aCtx);
+    gfx::Rect boundsAfterFilter = BoundsAfterFilter(bounds, aCtx, needFilter);
     if (!aCtx->IsTargetValid() || !boundsAfterFilter.IsFinite()) {
       return;
     }
@@ -726,9 +728,8 @@ class AdjustedTarget {
     // First set up the shadow draw target, because the shadow goes outside.
     // It applies to the post-filter results, if both a filter and a shadow
     // are used.
-    const bool applyFilter = aCtx->NeedToApplyFilter();
-    if (aCtx->NeedToDrawShadow()) {
-      if (aAllowOptimization && !applyFilter) {
+    if (needShadow) {
+      if (aAllowOptimization && !needFilter) {
         // If only drawing a shadow and no filter, then avoid buffering to an
         // intermediate target while drawing the shadow directly to the final
         // target. When doing so, we want to use the actual composition op
@@ -753,7 +754,7 @@ class AdjustedTarget {
     if (!aCtx->IsTargetValid()) {
       return;
     }
-    if (applyFilter) {
+    if (needFilter) {
       bounds.RoundOut();
 
       if (!mTarget) {
@@ -904,12 +905,12 @@ class AdjustedTarget {
 
  private:
   gfx::Rect MaxSourceNeededBoundsForFilter(const gfx::Rect& aDestBounds,
-                                           CanvasRenderingContext2D* aCtx) {
-    const bool applyFilter = aCtx->NeedToApplyFilter();
+                                           CanvasRenderingContext2D* aCtx,
+                                           bool aNeedFilter) {
     if (!aCtx->IsTargetValid()) {
       return aDestBounds;
     }
-    if (!applyFilter) {
+    if (!aNeedFilter) {
       return aDestBounds;
     }
 
@@ -926,8 +927,9 @@ class AdjustedTarget {
   }
 
   gfx::Rect MaxSourceNeededBoundsForShadow(const gfx::Rect& aDestBounds,
-                                           CanvasRenderingContext2D* aCtx) {
-    if (!aCtx->NeedToDrawShadow()) {
+                                           CanvasRenderingContext2D* aCtx,
+                                           bool aNeedShadow) {
+    if (!aNeedShadow) {
       return aDestBounds;
     }
 
@@ -941,12 +943,12 @@ class AdjustedTarget {
   }
 
   gfx::Rect BoundsAfterFilter(const gfx::Rect& aBounds,
-                              CanvasRenderingContext2D* aCtx) {
-    const bool applyFilter = aCtx->NeedToApplyFilter();
+                              CanvasRenderingContext2D* aCtx,
+                              bool aNeedFilter) {
     if (!aCtx->IsTargetValid()) {
       return aBounds;
     }
-    if (!applyFilter) {
+    if (!aNeedFilter) {
       return aBounds;
     }
 

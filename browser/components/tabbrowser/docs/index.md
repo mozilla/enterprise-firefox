@@ -8,6 +8,7 @@
 :maxdepth: 1
 
 gbrowser
+opening-tabs
 api
 progress-listeners
 async-tab-switcher

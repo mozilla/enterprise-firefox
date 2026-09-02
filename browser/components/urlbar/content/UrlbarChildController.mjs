@@ -46,6 +46,13 @@ export class UrlbarChildController {
   /** @type {Console} */
   static #logger;
 
+  /**
+   * Whether this is a UrlbarChildController or a UrlbarChildControllerProxy.
+   *
+   * @type {false}
+   */
+  isProxy = false;
+
   get logger() {
     if (!UrlbarChildController.#logger) {
       UrlbarChildController.#logger = UrlbarShared.getLogger({

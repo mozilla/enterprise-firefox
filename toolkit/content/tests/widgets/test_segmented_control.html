@@ -14,8 +14,16 @@
       type="module"
       src="chrome://global/content/elements/moz-segmented-control.mjs"
     ></script>
+    <script src="common.js"></script>
+    <script src="name.js"></script>
+    <script src="role.js"></script>
+    <script src="states.js"></script>
     <script src="lit-test-helpers.js"></script>
     <script>
+      /* import-globals-from ../../../../accessible/tests/mochitest/common.js */
+      /* import-globals-from ../../../../accessible/tests/mochitest/name.js */
+      /* import-globals-from ../../../../accessible/tests/mochitest/role.js */
+      /* import-globals-from ../../../../accessible/tests/mochitest/states.js */
       let html;
       let defaultTemplate;
       let testHelpers = new InputTestHelpers();
@@ -103,6 +111,13 @@
             "Segmented control items use the 'radio' role by default."
           );
         });
+        is(
+          control.fieldset.shadowRoot
+            .querySelector("fieldset")
+            .getAttribute("role"),
+          "radiogroup",
+          "Segmented control container is a radiogroup by default."
+        );
       });
 
       add_task(async function testSegmentedControlItemText() {
@@ -543,12 +558,9 @@
       });
 
       add_task(async function testNamedDeckIntegration() {
+        // Start as a radio group to verify the live role transition.
         let template = html`
-          <moz-segmented-control
-            label="Deck control"
-            value="first"
-            deck="test-deck"
-          >
+          <moz-segmented-control label="Deck control" value="first">
             <moz-segmented-control-item value="first" label="First">
             </moz-segmented-control-item>
             <moz-segmented-control-item value="second" label="Second">
@@ -565,9 +577,60 @@
 
         let { control, items, secondItem, thirdItem } =
           await renderSegmentedControl(template);
+        await control.fieldset.updateComplete;
+
         let deck = document.getElementById("test-deck");
 
-        // Verify items have tab role when deck is specified
+        let innerFieldset =
+          control.fieldset.shadowRoot.querySelector("fieldset");
+
+        is(
+          innerFieldset.getAttribute("role"),
+          "radiogroup",
+          "Segmented control container is a radiogroup before a deck is set."
+        );
+        ok(
+          !control.fieldset.hasAttribute("role"),
+          "Segmented control fieldset host has no role before a deck is set."
+        );
+        items.forEach(item => {
+          is(
+            item.role,
+            "radio",
+            "Segmented control items use 'radio' role before a deck is set."
+          );
+        });
+
+        control.deck = "test-deck";
+        await control.updateComplete;
+        await control.fieldset.updateComplete;
+
+        // Adding a deck changes the child role to `tab` while `type` stays "radio".
+        is(
+          innerFieldset.getAttribute("role"),
+          "tablist",
+          "Segmented control container is a tablist once a deck is set."
+        );
+        ok(
+          !control.fieldset.hasAttribute("role"),
+          "Segmented control fieldset host has no role once a deck is set."
+        );
+        control.scrollIntoView();
+        await TestUtils.waitForCondition(
+          () => gAccService.getAccessibleFor(innerFieldset),
+          "Accessible is created for the segmented control's inner fieldset."
+        );
+        testRole(innerFieldset, ROLE_PAGETABLIST);
+        testName(innerFieldset, "Deck control");
+        testStates(
+          innerFieldset,
+          0,
+          EXT_STATE_HORIZONTAL,
+          0,
+          EXT_STATE_VERTICAL,
+          "horizontal tablist segmented control"
+        );
+        // Verify items have tab role when deck is specified.
         items.forEach(item => {
           is(
             item.role,
@@ -575,6 +638,7 @@
             "Segmented control items use 'tab' role when deck is specified."
           );
         });
+        is(control.type, "radio", "Setting deck leaves type as radio.");
 
         // Verify initial deck state matches control value
         is(

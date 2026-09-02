@@ -227,6 +227,11 @@ export class UrlbarProviderSearchTips extends UrlbarProvider {
     );
   }
 
+  /**
+   * @param {UrlbarQueryContext} queryContext
+   * @param {UrlbarParentController} controller
+   * @param {object} details
+   */
   onEngagement(queryContext, controller, details) {
     this.#pickResult(details.result, controller.browserWindow);
   }

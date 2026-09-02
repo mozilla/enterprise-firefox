@@ -366,6 +366,16 @@ export const FALLBACK_MODELS_V2 = {
 };
 
 /**
+ * Checks if the modelChoiceId points at a custom model selection.
+ *
+ * @param {string} modelChoiceId
+ * @returns {boolean}
+ */
+function isCustomModelChoice(modelChoiceId) {
+  return modelChoiceId === "0" || modelChoiceId === "";
+}
+
+/**
  * Selects the main configuration for a feature based on version and model preferences.
  *
  * Remote Settings maintains only the latest minor version for each (feature, model, major_version) combination.
@@ -397,11 +407,12 @@ export function selectMainConfig(
     return null;
   }
 
-  // We only allow customization of main assistant model ("chat" feature)
+  // Only the main assistant model ("chat" feature) is selectable per model
+  // choice; other features always use their default config.
   // We figure out which model the user wants and load prompts for that model
   // If we can't find a config for the user selection, we load the generic one
   if (feature === MODEL_FEATURES.CHAT) {
-    if (modelChoiceId !== "0" && modelChoiceId !== "") {
+    if (!isCustomModelChoice(modelChoiceId)) {
       // First check the choice ID. If it's not 0, use the model associated with that ID
 
       // Look for config based on model choice ID
@@ -447,10 +458,13 @@ export function selectMainConfig(
   }
 
   // **For all features other than "chat"**
-  // If no user model pref OR user's model not found: use default
+  // If no user model pref OR user's model not found: use default, swapping in
+  // the userModel if needed
   const defaultConfig = sameMajor.find(config => config.is_default === true);
   if (defaultConfig) {
-    return defaultConfig;
+    return userModel && isCustomModelChoice(modelChoiceId)
+      ? { ...defaultConfig, model: userModel }
+      : defaultConfig;
   }
 
   // No default found - this shouldn't happen with proper Remote Settings data

@@ -134,21 +134,6 @@
     "dark": "{Colors$color/gray/55}",
     "forcedColors": "{HCM Theme$SelectedItemText}"
   },
-  "button/background/color": {
-    "light": "transparent",
-    "dark": "transparent",
-    "forcedColors": "{HCM Theme$ButtonFace}"
-  },
-  "button/background/color/hover": {
-    "light": "{Colors$color/violet-desaturated/20}",
-    "dark": "{Colors$color/violet-desaturated/50}",
-    "forcedColors": "{HCM Theme$SelectedItemText}"
-  },
-  "button/background/color/active": {
-    "light": "{Colors$color/violet-desaturated/30}",
-    "dark": "{Colors$color/violet-desaturated/40}",
-    "forcedColors": "{HCM Theme$SelectedItemText}"
-  },
   "button/background/color/disabled": {
     "light": "{Theme$button/background/color}",
     "dark": "{Theme$button/background/color}",
@@ -419,6 +404,21 @@
     "dark": "{Theme$button/text/color}",
     "forcedColors": "{HCM Theme$SelectedItemText}"
   },
+  "button/background/color": {
+    "light": "transparent",
+    "dark": "transparent",
+    "forcedColors": "{HCM Theme$ButtonFace}"
+  },
+  "button/background/color/hover": {
+    "light": "{Colors$color/violet-desaturated/20}",
+    "dark": "{Colors$color/violet-desaturated/50}",
+    "forcedColors": "{HCM Theme$SelectedItemText}"
+  },
+  "button/background/color/active": {
+    "light": "{Colors$color/violet-desaturated/30}",
+    "dark": "{Colors$color/violet-desaturated/40}",
+    "forcedColors": "{HCM Theme$SelectedItemText}"
+  },
   "button/background/color/menu/active": {
     "light": "transparent",
     "dark": "transparent",
@@ -483,6 +483,16 @@
     "light": "{Colors$color/red/50}",
     "dark": "{Colors$color/red/20}",
     "forcedColors": "{Theme$icon/color}"
+  },
+  "input/text/background/color": {
+    "light": "{Theme$background/color/box}",
+    "dark": "{Theme$background/color/box}",
+    "forcedColors": "{Theme$background/color/box}"
+  },
+  "input/text/background/color/disabled": {
+    "light": "{Theme$button/background/color/ghost/disabled}",
+    "dark": "{Theme$button/background/color/ghost/disabled}",
+    "forcedColors": "{Theme$button/background/color/ghost/disabled}"
   },
   "panel/background/color": {
     "light": "{Theme$popup/background/color}",
@@ -713,6 +723,11 @@
     "light": "color-mix(in lch, currentColor 12%, transparent)",
     "dark": "color-mix(in lch, currentColor 12%, transparent)",
     "forcedColors": "{HCM Theme$CanvasText}"
+  },
+  "select/border/color": {
+    "light": "{Theme$border/color/interactive}",
+    "dark": "{Theme$border/color/interactive}",
+    "forcedColors": "{Theme$border/color/interactive}"
   },
   "select/border/color/hover": {
     "light": "{Theme$border/color/interactive/hover}",

@@ -28,10 +28,7 @@ const CONFIG = [
 add_setup(async function () {
   SearchTestUtils.setRemoteSettingsConfig(CONFIG);
 
-  Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
-    true
-  );
+  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
 });
 
 async function checkOrder(type, expectedOrder) {

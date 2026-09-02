@@ -68,6 +68,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
  */
 class SharePageActionClass {
   #windowToAction = new WeakMap();
+  #openedByKeyboard = false;
 
   /**
    * Sets up the share button for a browser window. Called for every window at
@@ -90,6 +91,7 @@ class SharePageActionClass {
     }
 
     button.addEventListener("click", this, true);
+    button.addEventListener("keydown", this, true);
   }
 
   updateGlobalButtonVisibility() {
@@ -113,6 +115,9 @@ class SharePageActionClass {
         this.togglePanel(event);
         break;
       }
+      case "keydown":
+        this.handleKeydown(event);
+        break;
       case "command": {
         this.handleCommand(event);
         break;
@@ -122,10 +127,17 @@ class SharePageActionClass {
         break;
       }
       case "popuphidden": {
+        this.#openedByKeyboard = false;
         this.#recordActions(event.target.documentGlobal);
         this.#setButtonExpanded(event.target, false);
         break;
       }
+    }
+  }
+
+  handleKeydown(event) {
+    if (event.key === "Enter" || event.key === " ") {
+      this.#openedByKeyboard = true;
     }
   }
 
@@ -267,8 +279,10 @@ class SharePageActionClass {
 
     this.#startActions(panel.documentGlobal, isShareable);
 
-    let mainView = panel.querySelector("#share-panel-mainView");
-    lazy.PanelMultiView.forNode(mainView).focusWhenActive = true;
+    if (this.#openedByKeyboard) {
+      let mainView = panel.querySelector("#share-panel-mainView");
+      lazy.PanelMultiView.forNode(mainView).focusWhenActive = true;
+    }
 
     this.#setButtonExpanded(panel, true);
   }

@@ -933,7 +933,7 @@
   <!-- Summary for notification preference indicating notifications are not allowed -->
   <string name="notifications_not_allowed_summary">Não permitido</string>
   <!-- Preference for local network access / nearby devices in Android 17 -->
-  <string name="preferences_local_network_access">Acesso à rede local / Dispositivos nas proximidades</string>
+  <string name="preferences_local_network_access">Acesso à Rede Local / Dispositivos Próximos</string>
   <!-- Summary for local network access preference indicating access is allowed -->
   <string name="local_network_access_allowed_summary">Permitido</string>
   <!-- Summary for local network access preference indicating access is not allowed -->
@@ -1128,7 +1128,7 @@
   <!-- Button text on the extension crash dialog to prompt the user to continue with all extensions disabled. -->
   <string name="extension_process_crash_dialog_disable_extensions_button_text">Continuar com as extensões desativadas</string>
   <!-- Text shown in the snackbar action button that lets the user retry an add-on operation that just failed. -->
-  <string name="addon_failure_retry_action">Voltar a tentar</string>
+  <string name="addon_failure_retry_action">Tentar novamente</string>
   <!--
     Account Preferences
 
@@ -1454,7 +1454,7 @@
   <!-- Title of inactive tabs preference -->
   <string name="preferences_inactive_tabs_title">Os separadores que não acedeu há duas semanas são movidos para a secção inativos.</string>
   <!-- Title for the preference to enable or disable the tab groups feature -->
-  <string name="preferences_tab_groups_feature">Ativar grupos de separadores</string>
+  <string name="preferences_tab_groups_feature">Ativar Grupos de Separadores</string>
   <!--
     Privacy report
 
@@ -1683,7 +1683,7 @@
   <!-- Title for the Ungroup tab group confirmation dialog. -->
   <string name="ungroup_tab_group_confirmation_dialog_title">Desagrupar grupo de separadores?</string>
   <!-- Text shown in the body of the Ungroup tab group confirmation dialog. -->
-  <string name="ungroup_tab_group_confirmation_dialog_body">Os separadores irão permanecer abertos neste dispositivo, mas o grupo será eliminado.</string>
+  <string name="ungroup_tab_group_confirmation_dialog_body">Os separadores irão permanecer abertos neste dispositivo, mas o grupo será apagado.</string>
   <!-- Text shown on the Don't Ask Again checkbox button in the Ungroup tab group confirmation dialog. -->
   <string name="ungroup_tab_group_confirmation_dialog_dont_ask_again">Não perguntar novamente</string>
   <!-- Text shown on the confirm button in the Ungroup tab group confirmation dialog. -->
@@ -1970,9 +1970,9 @@
   <!-- The error message of the description when the user selects "Something else" as the reason, but left the description empty or too short. -->
   <string name="webcompat_reporter_description_error">Introduza pelo menos 10 caracteres</string>
   <!-- The label/title of a mandatory field in the Web Compat Reporter feature for adding additional information. -->
-  <string name="webcompat_reporter_label_mandatory_description">Descreva o problema em detalhes para nos ajudar a investigar o problema</string>
+  <string name="webcompat_reporter_label_mandatory_description">Descreva o problema detalhadamente para ajudar-nos a investigar a situação</string>
   <!-- The label/title of a optional field in the Web Compat Reporter feature for adding additional information. -->
-  <string name="webcompat_reporter_label_optional_description">Descreva detalhadamente o problema para nos ajudar a investigar a situação (opcional)</string>
+  <string name="webcompat_reporter_label_optional_description">Descreva detalhadamente o problema para ajudar-nos a investigar a situação (opcional)</string>
   <!-- The button text for the cancel button to leave the Web Compat Reporter feature. -->
   <string name="webcompat_reporter_cancel">Cancelar</string>
   <!-- The button text for the send button to submit the provided form data. -->
@@ -2177,7 +2177,7 @@
   <!-- Bookmark snackbar message for moving a single item. %1$s is the title of the item being moved and %2$s is the new parent folder of the bookmark -->
   <string name="bookmark_moved_single_item">%1$s movido para %2$s</string>
   <!-- Text for bookmark search page when there are no results. -->
-  <string name="bookmark_no_search_results">Nenhum resultado encontrado.</string>
+  <string name="bookmark_no_search_results">Nenhuma correspondência encontrada.</string>
   <!-- Additional text for bookmark search page when there are no results. -->
   <string name="bookmark_no_search_results_additional_text">Tentar outra pesquisa!</string>
   <!--
@@ -3093,7 +3093,7 @@
   <!-- Snackbar (in-app pop-up notification) text to signal the browser VPN connection error -->
   <string name="ip_protection_connection_error_snackbar">Não foi possível ligar à VPN. Tente novamente dentro de alguns minutos.</string>
   <!-- Snackbar (in-app pop-up notification) text to signal the VPN location has been reset due to the previously selected VPN location being no longer available. -->
-  <string name="ip_protection_location_selection_reset_snackbar">Localização da VPN selecionada indisponível. Mudado para a localização recomendada.</string>
+  <string name="ip_protection_location_selection_reset_snackbar">Localização da VPN selecionada indisponível. Mudada para a localização recomendada.</string>
   <!--
     Snackbar (in-app pop-up notification) text to signal the browser VPN has reached the monthly data limit.
     %1$d is the total monthly allowance in GB (for example "50").
@@ -3130,7 +3130,7 @@
   <!-- Title for the browser VPN location selection screen (displayed in the app bar) -->
   <string name="ip_protection_locations_title">Escolher a localização da VPN</string>
   <!-- Content description for the browser VPN location selection screen top bar back button -->
-  <string name="ip_protection_locations_navigate_back_button_content_description">Navegar de volta</string>
+  <string name="ip_protection_locations_navigate_back_button_content_description">Navegar para trás</string>
   <!--
     Autofill
 
@@ -3858,7 +3858,7 @@
       Text for displaying the total number of trackers blocked in the trackers blocked panel.
       %1$d is a placeholder for the number of trackers blocked.
     -->
-    <item quantity="one">%1$d rastreadores bloqueados neste site</item>
+    <item quantity="one">%1$d rastreador bloqueado neste site</item>
     <item quantity="other">%1$d rastreadores bloqueados neste site</item>
   </plurals>
   <plurals name="trackers_blocked_panel_num_social_media_trackers">
@@ -3874,7 +3874,7 @@
       Text for displaying in the trackers blocked panel the total number of blocked cross-site tracking cookies.
       %1$d is a placeholder for the number of cross-site tracking cookies blocked.
     -->
-    <item quantity="one">%1$d cookies de monitorização entre sites</item>
+    <item quantity="one">%1$d cookie de monitorização entre sites</item>
     <item quantity="other">%1$d cookies de monitorização entre sites</item>
   </plurals>
   <plurals name="trackers_blocked_panel_num_cryptominers">
@@ -3882,7 +3882,7 @@
       Text for displaying in the trackers blocked panel the total number of blocked cryptomining scripts.
       %1$d is a placeholder for the number of cryptominers blocked.
     -->
-    <item quantity="one">%1$d cripto-mineradores</item>
+    <item quantity="one">%1$d cripto-minerador</item>
     <item quantity="other">%1$d cripto-mineradores</item>
   </plurals>
   <plurals name="trackers_blocked_panel_num_fingerprinters">
@@ -3890,7 +3890,7 @@
       Text for displaying in the trackers blocked panel the total number of blocked fingerprinter scripts.
       %1$d is a placeholder for the number of fingerprinters blocked.
     -->
-    <item quantity="one">%1$d identificadores digitais</item>
+    <item quantity="one">%1$d identificador digital</item>
     <item quantity="other">%1$d identificadores digitais</item>
   </plurals>
   <plurals name="trackers_blocked_panel_num_trackers_2">
@@ -3899,14 +3899,14 @@
       %1$d is a placeholder for the number of trackers blocked.
     -->
     <item quantity="one">%1$d conteúdo de monitorização</item>
-    <item quantity="other">%1$d conteúdo de monitorização</item>
+    <item quantity="other">%1$d conteúdos de monitorização</item>
   </plurals>
   <plurals name="trackers_blocked_panel_num_trackers_blocked_this_week_2">
     <!--
       Text for displaying the number of trackers blocked this week in the trackers blocked panel.
       %1$d is a placeholder for the number of trackers blocked this week.
     -->
-    <item quantity="one">%1$d rastreadores bloqueados esta semana</item>
+    <item quantity="one">%1$d rastreador bloqueado esta semana</item>
     <item quantity="other">%1$d rastreadores bloqueados esta semana</item>
   </plurals>
   <!--
@@ -4067,9 +4067,9 @@
   <!-- Uninstall survey answer option -->
   <string name="uninstall_survey_option_3_v2">Funcionalidades em falta que preciso</string>
   <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_4_v2">Vídeos, transferências ou media não funcionaram</string>
+  <string name="uninstall_survey_option_4_v2">Vídeos, transferências ou multimédia não funcionaram</string>
   <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_5_v2">É difícil de utilizar ou mal desenhado</string>
+  <string name="uninstall_survey_option_5_v2">É difícil de usar ou está mal desenhado</string>
   <!-- Uninstall survey answer option -->
   <string name="uninstall_survey_option_6_v2">Preocupações com a privacidade ou segurança</string>
   <!-- Button label shown at the bottom of the uninstall survey -->
@@ -4463,9 +4463,9 @@
   -->
   <string name="lens_camera_title_qr">Código QR</string>
   <!-- Title for the Google Lens Search Settings page feature toggle -->
-  <string name="search_settings_google_lens_title">Ativar a pesquisa Google Ler mais</string>
+  <string name="search_settings_google_lens_title">Ativar pesquisa Google Lens</string>
   <!-- Description for the Google Lens Search Settings page feature toggle -->
-  <string name="search_settings_google_lens_description">Envia imagens e fotos para a Google para pesquisa visual.</string>
+  <string name="search_settings_google_lens_description">Envia imagens e fotos para o Google para pesquisa visual.</string>
   <!-- Caption shown under the Google Lens toggle clarifying when the feature is available -->
   <string name="preferences_google_lens_availability_caption">Disponível apenas quando o Google está ativado acima e é o seu motor de pesquisa ativo enquanto navega.</string>
   <!-- Content description for the Google Lens half of the camera mode toggle -->
@@ -4475,11 +4475,11 @@
   <!-- Toast shown when the user picks an image from the gallery in QR mode but no QR code is found in it -->
   <string name="lens_camera_qr_no_code_found">A imagem não contém nenhum código QR</string>
   <!-- Title of the bottom sheet shown the first time the user opens the Google Lens camera screen -->
-  <string name="lens_opt_out_title">Encontre com o Google Ler mais</string>
+  <string name="lens_opt_out_title">Encontre-o com o Google Lens</string>
   <!-- Description of the bottom sheet shown the first time the user opens the Google Lens camera screen -->
-  <string name="lens_opt_out_description">Escolha uma imagem ou utilize a sua câmara para obter resultados com o Google Ler mais.</string>
+  <string name="lens_opt_out_description">Escolha uma imagem ou use a sua câmara para obter resultados com o Google Lens.</string>
   <!-- Text of the link in the first-run Google Lens bottom sheet that opens the Search settings page -->
-  <string name="lens_opt_out_settings_link">Definições do Google Ler mais</string>
+  <string name="lens_opt_out_settings_link">Definições do Google Lens</string>
   <!-- Button in the first-run Google Lens bottom sheet that dismisses it and starts the camera -->
   <string name="lens_opt_out_try_it_now_button">Experimentar agora</string>
   <!-- Button in the first-run Google Lens bottom sheet that leaves Google Lens without using it -->
@@ -4527,7 +4527,7 @@
   <!-- Title of the Firefox Labs Sandboxing experiment. -->
   <string name="firefox_labs_website_isolation_title" tools:ignore="UnusedResources">Isolamento de sites</string>
   <!-- Description of the Firefox Labs Sandboxing experiment. -->
-  <string name="firefox_labs_website_isolation_description" tools:ignore="UnusedResources">Uma barreira extra entre sites que ajuda a proteger os seus dados entre separadores. Pode afetar o desempenho, estabilidade, compatibilidade do site e como o histórico de navegação é guardado.</string>
+  <string name="firefox_labs_website_isolation_description" tools:ignore="UnusedResources">Uma barreira extra entre sites que ajuda a proteger os seus dados entre separadores. Pode afetar o desempenho, estabilidade, compatibilidade do site, e como o histórico de navegação é guardado.</string>
   <!--
     PDF viewer toolbar and buttons
 

@@ -317,3 +317,59 @@ add_task(async function test_noCtaWhenDisabled() {
     });
   });
 });
+
+add_task(async function test_ctaButtonAccessKeys() {
+  await withDnsNotFoundPage(true, async browser => {
+    await waitForSettledNetErrorCard(browser);
+    await SpecialPowers.spawn(
+      browser,
+      [getAccessKeyModifiers()],
+      async mods => {
+        const card =
+          content.document.querySelector("net-error-card").wrappedJSObject;
+        const searchButton = card.searchCTAButton;
+        const reloadButton = card.reloadButton;
+
+        await ContentTaskUtils.waitForCondition(
+          () => searchButton.accessKey && reloadButton.accessKey,
+          "Waiting for accesskeys to be set by Fluent"
+        );
+
+        is(searchButton.accessKey, "c", "Search button has accesskey 'c'");
+        is(reloadButton.accessKey, "R", "Reload button has accesskey 'R'");
+        isnot(
+          searchButton.accessKey,
+          reloadButton.accessKey,
+          "The two CTA buttons take different access keys"
+        );
+
+        // Listen on the card's shadow root, above the button, so the capture
+        // phase reaches this before the template's own @click and the search
+        // never actually runs. The capture flag has to be the boolean form.
+        let clickedId = null;
+        const onClick = e => {
+          e.stopPropagation();
+          clickedId = e.target.id;
+        };
+        card.shadowRoot.addEventListener("click", onClick, true);
+
+        EventUtils.synthesizeKey("s", mods, content);
+        is(
+          clickedId,
+          null,
+          "Access key S no longer activates the Search button"
+        );
+
+        clickedId = null;
+        EventUtils.synthesizeKey("c", mods, content);
+        is(
+          clickedId,
+          "searchCTAButton",
+          "Access key c activated the Search button"
+        );
+
+        card.shadowRoot.removeEventListener("click", onClick, true);
+      }
+    );
+  });
+});

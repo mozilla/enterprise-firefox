@@ -3215,6 +3215,9 @@ ${
     }
 
     this.toggleAttribute("breakout-extend", true);
+    if (this.hasAttribute("in-page")) {
+      this.showPopover();
+    }
     this.#updateTextboxPosition();
 
     // Enable the animation only after the first extend call to ensure it
@@ -3241,6 +3244,9 @@ ${
     }
 
     this.toggleAttribute("breakout-extend", false);
+    if (this.hasAttribute("in-page")) {
+      this.hidePopover();
+    }
     this.#updateTextboxPosition();
   }
 
@@ -3624,8 +3630,17 @@ ${
 
         this.setAttribute("breakout", "true");
         this.parentNode.setAttribute("breakout", "true");
-        this.showPopover();
-        this.#fixAddressbarSearchbarOrder();
+        // A toolbar element is a popover for as long as it has the `breakout`
+        // attribute; an in-page one only while it also has `breakout-extend`,
+        // so that a modal dialog the page opens covers the closed element: the
+        // top layer paints in the order elements enter it, which z-index cannot
+        // reorder.
+        // TODO(bug 2022527): Take the in-page approach for toolbar elements
+        // too, which makes #fixAddressbarSearchbarOrder unnecessary.
+        if (!this.hasAttribute("in-page")) {
+          this.showPopover();
+          this.#fixAddressbarSearchbarOrder();
+        }
         this.#updateTextboxPosition();
 
         resolve();
@@ -5634,8 +5649,8 @@ ${
       case this: {
         this._mousedownOnUrlbarDescendant = true;
         if (
-          event.composedTarget != this.inputField &&
-          event.composedTarget != this._inputContainer
+          event.target != this.inputField &&
+          event.target != this._inputContainer
         ) {
           break;
         }
@@ -5646,7 +5661,7 @@ ${
         // Keep the focus status, since the attribute may be changed
         // upon calling this.focus().
         const hasFocus = this.hasAttribute("focused");
-        if (event.composedTarget != this.inputField) {
+        if (event.target != this.inputField) {
           this.focus();
         }
 

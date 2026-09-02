@@ -8,11 +8,12 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
  * @import {BrowserSearchTelemetry} from "moz-src:///browser/components/search/BrowserSearchTelemetry.sys.mjs"
  * @import {ProvidersManager} from "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs"
  * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
- * @import {SapLocation, SmartbarInput} from "moz-src:///browser/components/urlbar/content/SmartbarInput.mjs"
+ * @import {SapLocation} from "moz-src:///browser/components/urlbar/content/SmartbarInput.mjs"
  * @import {UrlbarView} from "chrome://browser/content/urlbar/UrlbarView.mjs"
  * @import {WindowMode} from "moz-src:///browser/components/urlbar/content/UrlbarInputBase.mjs"
  * @import {SearchEngineInfo} from "chrome://browser/content/urlbar/SearchEngineStore.mjs"
  * @import {UrlbarLoadRequest} from "chrome://browser/content/urlbar/UrlbarShared.mjs"
+ * @import {UrlbarChildControllerProxy, UrlbarInputProxy, UrlbarViewProxy} from "moz-src:///browser/components/urlbar/actors/UrlbarParent.sys.mjs"
  */
 
 const lazy = {};
@@ -102,12 +103,12 @@ export class UrlbarParentController {
   static _lastAutofillReintegrationPromise = Promise.resolve();
 
   /**
-   * The paired UrlbarChildController, which registers itself via setChild().
+   * The paired UrlbarChildController or an object that can forward calls to it.
    * Listener registration and notification dispatch live on it, keeping
    * dispatch on the side where the listeners (the view, the event bufferer)
    * live. The child is always set before any query runs.
    *
-   * @type {UrlbarChildController}
+   * @type {UrlbarChildControllerProxy | UrlbarChildController}
    */
   #child = null;
 
@@ -168,10 +169,9 @@ export class UrlbarParentController {
   }
 
   /**
-   * The input, owned by the paired `UrlbarChildController` and read through it
-   * for the query-lifecycle and telemetry call sites that need it.
+   * The input or an object that can forward calls to the input.
    *
-   * @type {UrlbarInput}
+   * @type {UrlbarInputProxy | UrlbarInput}
    */
   get input() {
     return this.#child?.input;
@@ -221,9 +221,9 @@ export class UrlbarParentController {
   }
 
   /**
-   * The view.
+   * The view or an object that can forward calls to the view.
    *
-   * @type {UrlbarView}
+   * @type {UrlbarViewProxy | UrlbarView}
    */
   get view() {
     return this.#child?.view;
@@ -787,7 +787,7 @@ export class UrlbarParentController {
    * and notification dispatch. It must be set before any query runs, since
    * the query lifecycle notifies through it.
    *
-   * @param {object} child The paired UrlbarChildController.
+   * @param {UrlbarChildControllerProxy | UrlbarChildController} child
    */
   setChild(child) {
     this.#child = child;
@@ -1300,7 +1300,18 @@ export class UrlbarParentController {
    * @param {object} params Parameters to pass with the notification.
    */
   notify(name, ...params) {
-    this.#child.notify(name, ...params);
+    if (this.#child.isProxy === true) {
+      this.#child.notifyFromWire(
+        name,
+        ...params.map(param =>
+          param instanceof lazy.UrlbarQueryContext
+            ? { serializedQueryContext: param.toWire() }
+            : param
+        )
+      );
+    } else {
+      this.#child.notify(name, ...params);
+    }
   }
 
   #engineStoreInitStarted = false;

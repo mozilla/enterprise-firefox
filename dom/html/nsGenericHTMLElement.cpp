@@ -1161,7 +1161,8 @@ bool nsGenericHTMLElement::ParseBackgroundAttribute(int32_t aNamespaceID,
   return false;
 }
 
-bool nsGenericHTMLElement::IsAttributeMapped(const nsAtom* aAttribute) const {
+bool nsGenericHTMLElement::IsNoNamespaceAttrMapped(
+    const nsAtom* aAttribute) const {
   static const MappedAttributeEntry* const map[] = {sCommonAttributeMap};
 
   return FindAttributeDependence(aAttribute, map);

@@ -153,6 +153,26 @@ add_task(async function test_blockedHostOutcome() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// A private-use intranet suffix reaches the same reason label as .internal
+// (bug 2066447). recordSearchCTADecision() also reports action=none when no
+// engine is usable.
+add_task(async function test_intranetHostOutcome() {
+  Services.fog.testResetFOG();
+  const { tab, browser } = await loadDnsNotFoundPage(
+    "https://wiki.acme.corp/it-helpdesk"
+  );
+  await waitForCtaResolved(browser);
+
+  is(
+    action(SEARCH_CTA_ACTIONS.NONE),
+    1,
+    "action=none recorded for a private-use intranet TLD"
+  );
+  is(reason("host_unusable"), 1, "reason=host_unusable recorded");
+  is(shown(), null, "shown not recorded when no CTA is displayed");
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function test_noEngineOutcome() {
   Services.fog.testResetFOG();
   const sandbox = sinon.createSandbox();

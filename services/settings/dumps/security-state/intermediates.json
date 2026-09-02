@@ -1210,19 +1210,6 @@
       "last_modified": 1781405823096
     },
     {
-      "schema": 1781402370349,
-      "derHash": "+qT6DvcFbWlTu9+zZGHj983zM1Kvck/YJUsYTT4slB8=",
-      "attachment": {
-        "hash": "1d4dc8ff39b78e22003c1339b070e301141e4a41d53d263aaedcd1656240e569",
-        "size": 2353,
-        "filename": "PdJrKZbQK0ZWbRuhG9U_4hUG6GbBqVP6TH0OUtHcbNk=.pem",
-        "location": "security-state-staging/intermediates/20260614015930--60c91cc3-fa0c-497a-9cb9-8450f3c293f1--dc23040c-5aca-4ef9-bf3b-7eddfd75fc7c.pem",
-        "mimetype": "application/x-pem-file"
-      },
-      "id": "60c91cc3-fa0c-497a-9cb9-8450f3c293f1",
-      "last_modified": 1781405823076
-    },
-    {
       "schema": 1781402369601,
       "derHash": "lXTGR3NuGvPqNHz+dgO2RW6RaF50xSrlkPxMJat2f5k=",
       "attachment": {
@@ -29792,5 +29779,5 @@
       "last_modified": 1559865884636
     }
   ],
-  "timestamp": 1788015422404
+  "timestamp": 1788188222656
 }

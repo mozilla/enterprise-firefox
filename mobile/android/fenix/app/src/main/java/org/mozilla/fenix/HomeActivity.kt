@@ -308,6 +308,7 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
     private val homepageTabBinding by lazy {
         HomepageTabBinding(
             browserStore = components.core.store,
+            appStore = components.appStore,
             browsingModeManager = browsingModeManager,
             fenixBrowserUseCases = components.useCases.fenixBrowserUseCases,
             repository = DefaultHomepageAsANewTabPreferenceRepository(components.settings),

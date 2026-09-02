@@ -307,17 +307,8 @@ body {
 }
 
 @media -moz-pref("browser.nova.enabled") {
-  :root[lwtheme]:not([theme-image-in-toolbox]) #navigator-toolbox {
-    color: inherit;
-  }
-
   :root[lwtheme]:not([theme-image-in-toolbox]) .chrome-block {
-    color: var(--toolbox-text-color);
     overflow: clip;
-
-    &:-moz-window-inactive {
-      color: var(--toolbox-text-color-inactive);
-    }
   }
 
   /* The sidebar panel and the content area round their corners away from the

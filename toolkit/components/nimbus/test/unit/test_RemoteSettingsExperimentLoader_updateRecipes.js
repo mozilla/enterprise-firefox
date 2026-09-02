@@ -3768,3 +3768,35 @@ add_task(async function testUpdateRecipesOnlyFeatureIdsLabs() {
 
   await cleanup();
 });
+
+add_task(async function testFinishedUpdatingResolvesAfterException() {
+  const { sandbox, loader, cleanup } = await NimbusTestUtils.setupTest();
+
+  // We need just need to trigger an exception inside #updateImpl.
+  sandbox.stub(loader, "_partitionRecipes").throws(new Error("uh oh"));
+
+  // This will only progress to the first await.
+  const updatePromise = loader.updateRecipes("test");
+  // This promise should resolve after updatePromise rejects.
+  const finishedUpdatingPromise = loader.finishedUpdating();
+
+  await Assert.rejects(updatePromise, /uh oh/);
+  await finishedUpdatingPromise;
+
+  Assert.ok(!loader._updating, "No longer updating");
+
+  Assert.deepEqual(
+    Glean.nimbusEvents.updateError
+      .testGetValue("events")
+      ?.map(ev => ev.extra) ?? [],
+    [
+      {
+        error: "Error",
+        trigger: "test",
+        during_shutdown: "false",
+      },
+    ]
+  );
+
+  await cleanup();
+});

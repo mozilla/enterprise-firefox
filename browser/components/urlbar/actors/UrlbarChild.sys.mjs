@@ -3,32 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import * as UrlbarContentUtils from "chrome://browser/content/urlbar/UrlbarContentUtils.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const lazy = {};
-
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
 });
 
-// The content-side input/view methods a parent-side provider hook may invoke
-// over the actor (see the `input`/`view` stand-ins on `UrlbarChildControllerProxy`).
-// An allowlist, so an `InvokeContentAction` message can't reach arbitrary methods.
-const INVOKABLE_CONTENT_ACTIONS = {
-  input: new Set(["search", "setValue", "startQuery"]),
-  view: new Set([
-    "acknowledgeFeedback",
-    "clearL10nCache",
-    "clearTopSitesCache",
-    "close",
-    "updateResultMenuCommands",
-    "startTail150",
-  ]),
-};
-
 /**
- * @import {UrlbarParent} from "./UrlbarParent.sys.mjs"
- * @import {UrlbarParentController} from "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs"
  * @import {UrlbarChildController} from "chrome://browser/content/urlbar/UrlbarChildController.mjs"
  */
 
@@ -44,7 +27,7 @@ const INVOKABLE_CONTENT_ACTIONS = {
  *   chrome when `browser.urlbar.ipc.chromeMessagePassing` is set (so the message
  *   path runs in CI). The child builds a `UrlbarParentControllerProxy` that
  *   trades messages with the parent-side controller, identified by an
- *   `instanceId` this actor allocates. The parent's `Notify` messages are
+ *   `instanceId` this actor allocates. The parent's notifications are
  *   dispatched back to the paired child controller, held weakly (keyed by
  *   `instanceId`) so as not to pin its input.
  *
@@ -266,8 +249,8 @@ export class UrlbarChild extends JSWindowActorChild {
 
   /**
    * Records the message-path child controller for an instance so the parent's
-   * `Notify` messages can be dispatched to it. Held weakly so it (and its
-   * input) stay collectable.
+   * notifications can be dispatched to it. Held weakly so it (and its input)
+   * stay collectable.
    *
    * @param {number} instanceId
    *   The instance the controller was created for.
@@ -280,52 +263,20 @@ export class UrlbarChild extends JSWindowActorChild {
 
   receiveMessage(message) {
     switch (message.name) {
-      case "Notify":
-        this.#receiveNotify(message.data);
-        break;
       case "InvokeContentAction":
         this.#invokeContentAction(message.data);
         break;
-      case "UpdateEngineStore":
-        this.#updateEngineStore(message.data);
-        break;
     }
   }
 
   /**
-   * Dispatches a parent-side `notify()` to the paired child controller.
-   *
-   * @param {object} data The `Notify` message data.
-   * @param {number} data.instanceId The instance whose child controller to notify.
-   * @param {string} data.name The notification (listener method) name.
-   * @param {any[]} data.params The notification arguments.
-   */
-  #receiveNotify({ instanceId, name, params }) {
-    let child = this.#childControllers.get(instanceId)?.deref();
-    if (!child) {
-      this.#childControllers.delete(instanceId);
-      return;
-    }
-    // In a content process the child controller is a content object; waive
-    // Xrays so its methods (and `input`/`view`) are callable from here.
-    if (!this.manager.parentActor) {
-      child = Cu.waiveXrays(child);
-    }
-    // The wire form crosses as plain data and the child controller builds the
-    // query context from it, so the object is born in the realm that reads it.
-    // Deserializing here would leave content an Xray over it, whose properties
-    // all read `undefined`.
-    child.notifyFromWire(name, ...this.#forContent(params));
-  }
-
-  /**
-   * Invokes an allowed input/view method a parent-side provider hook
-   * requested (e.g. `view.close()`, `input.startQuery()`), on the real
-   * content-side objects.
+   * Invokes an allowed controller/input/view method the parent requested
+   * (e.g. `view.close()`, `input.startQuery()`).
    *
    * @param {object} data The `InvokeContentAction` message data.
-   * @param {number} data.instanceId The instance whose input/view to act on.
-   * @param {"input"|"view"} data.target Which content object to invoke on.
+   * @param {number} data.instanceId The instance to act on.
+   * @param {"controller"|"input"|"view"} data.target
+   *   Which content object to invoke on.
    * @param {string} data.method The allowed method to call.
    * @param {any[]} data.args The method arguments.
    */
@@ -335,30 +286,17 @@ export class UrlbarChild extends JSWindowActorChild {
       this.#childControllers.delete(instanceId);
       return;
     }
-    if (!INVOKABLE_CONTENT_ACTIONS[target]?.has(method)) {
-      console.error(`Urlbar: disallowed content action ${target}.${method}`);
-      return;
+    /** @type {readonly string[]} */
+    let allowlist = lazy.UrlbarShared.INVOKABLE_CONTENT_ACTIONS[target];
+    if (!allowlist?.includes(method)) {
+      throw new Error(`Urlbar: disallowed content action ${target}.${method}`);
     }
     // In a content process `child.input`/`child.view` are content objects;
     // waive Xrays so their methods are callable from here.
     if (!this.manager.parentActor) {
       child = Cu.waiveXrays(child);
     }
-    child[target]?.[method](...this.#forContent(args));
-  }
-
-  #updateEngineStore({ instanceId, args }) {
-    let child = this.#childControllers.get(instanceId)?.deref();
-    if (!child) {
-      this.#childControllers.delete(instanceId);
-      return;
-    }
-    // In a content process the child controller is a content object; waive
-    // Xrays so its methods are callable from here.
-    if (!this.manager.parentActor) {
-      child = Cu.waiveXrays(child);
-    }
-    // @ts-expect-error This will be refactored soon.
-    child.updateEngineStore(...this.#forContent(args));
+    let receiver = target == "controller" ? child : child[target];
+    receiver?.[method](...this.#forContent(args));
   }
 }

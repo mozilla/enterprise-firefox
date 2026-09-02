@@ -86,19 +86,41 @@ add_task(async function test_queryStringAndFragmentNeverSearched() {
 });
 
 add_task(async function test_blockedHostRendersNoSearchButton() {
+  for (const failedURL of [
+    "https://db.internal/status",
+    // Private-use intranet suffixes (bug 2066447), including the two-label
+    // home.arpa that a last-label-only check would miss.
+    "https://wiki.acme.corp/it-helpdesk",
+    "https://router.home/setup",
+    "https://nas.lan/media",
+    "https://gateway.home.arpa/status",
+  ]) {
+    const { tab, browser } = await loadDnsNotFoundPage(failedURL);
+    await waitForSettledNetErrorCard(browser);
+    await SpecialPowers.spawn(browser, [failedURL], async url => {
+      const card =
+        content.document.querySelector("net-error-card").wrappedJSObject;
+      ok(card.reloadButton, `Reload is always present (${url})`);
+      is(
+        card.searchCTAButton,
+        null,
+        `A blocked host renders no Search button despite the wordy path (${url})`
+      );
+    });
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// The over-blocking guard: a mistyped TLD is not a private-use suffix, so it
+// keeps its Search button (bug 2066447).
+add_task(async function test_mistypedTLDStillRendersSearchButton() {
   const { tab, browser } = await loadDnsNotFoundPage(
-    "https://db.internal/status"
+    "https://wildernessgear-cta.comm/winter-deals"
   );
-  await waitForSettledNetErrorCard(browser);
-  await SpecialPowers.spawn(browser, [], async () => {
-    const card =
-      content.document.querySelector("net-error-card").wrappedJSObject;
-    ok(card.reloadButton, "Reload is always present");
-    is(
-      card.searchCTAButton,
-      null,
-      "A blocked host renders no Search button despite the wordy path"
-    );
-  });
+  is(
+    await searchQueryFromClick(browser),
+    "winter deals wildernessgear cta",
+    "A mistyped TLD still gets a Search button"
+  );
   BrowserTestUtils.removeTab(tab);
 });

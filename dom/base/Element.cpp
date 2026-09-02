@@ -3426,8 +3426,9 @@ nsresult Element::SetInlineStyleDeclaration(StyleLockedDeclarationBlock&,
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-NS_IMETHODIMP_(bool)
-Element::IsAttributeMapped(const nsAtom* aAttribute) const { return false; }
+bool Element::IsNoNamespaceAttrMapped(const nsAtom* aAttribute) const {
+  return false;
+}
 
 nsMapRuleToAttributesFunc Element::GetAttributeMappingFunction() const {
   return &MapNoAttributesInto;
@@ -4047,7 +4048,8 @@ nsresult Element::SetNoNameSpaceAttrOnNewlyCreatedElement(
   const nsAttrValue* valuePtr =
       mAttrs.AddNewAttributeAssumeAvailableSlot(nameRef, value);
   UpdateSubtreeBloomFilterForAttribute(namePtr);
-  if (!aIsPendingMappedAttributeEvaluation && IsAttributeMapped(namePtr)) {
+  if (!aIsPendingMappedAttributeEvaluation &&
+      IsNoNamespaceAttrMapped(namePtr)) {
     aIsPendingMappedAttributeEvaluation = true;
     mAttrs.InfallibleMarkAsPendingPresAttributeEvaluation();
     // Not calling `Document::ScheduleForPresAttrEvaluation` since not in doc.
@@ -4100,7 +4102,8 @@ nsresult Element::SetAttrAndNotify(
     }
 
     MOZ_TRY(SetAndSwapAttr(aName, aParsedValue, &oldValueSet, aIsKnownNew));
-    if (IsAttributeMapped(aName) && !IsPendingMappedAttributeEvaluation()) {
+    if (IsNoNamespaceAttrMapped(aName) &&
+        !IsPendingMappedAttributeEvaluation()) {
       mAttrs.InfallibleMarkAsPendingPresAttributeEvaluation();
       if (Document* doc = GetComposedDoc()) {
         doc->ScheduleForPresAttrEvaluation(this);
@@ -4487,7 +4490,8 @@ nsresult Element::UnsetAttr(int32_t aNameSpaceID, nsAtom* aName, bool aNotify) {
       hadValidDir = HasValidDir() || IsHTMLElement(nsGkAtoms::bdi);
       hadDirAuto = HasDirAuto();  // already takes bdi into account
     }
-    if (IsAttributeMapped(aName) && !IsPendingMappedAttributeEvaluation()) {
+    if (IsNoNamespaceAttrMapped(aName) &&
+        !IsPendingMappedAttributeEvaluation()) {
       mAttrs.InfallibleMarkAsPendingPresAttributeEvaluation();
       if (Document* doc = GetComposedDoc()) {
         doc->ScheduleForPresAttrEvaluation(this);

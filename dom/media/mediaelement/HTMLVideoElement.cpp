@@ -270,8 +270,7 @@ void HTMLVideoElement::MapAttributesIntoRule(
   MapCommonAttributesInto(aBuilder);
 }
 
-NS_IMETHODIMP_(bool)
-HTMLVideoElement::IsAttributeMapped(const nsAtom* aAttribute) const {
+bool HTMLVideoElement::IsNoNamespaceAttrMapped(const nsAtom* aAttribute) const {
   static const MappedAttributeEntry attributes[] = {
       {nsGkAtoms::width}, {nsGkAtoms::height}, {nullptr}};
 

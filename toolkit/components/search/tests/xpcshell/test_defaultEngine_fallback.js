@@ -32,15 +32,12 @@ add_setup(async function () {
   useHttpServer();
   SearchTestUtils.setRemoteSettingsConfig(CONFIG);
 
-  Services.prefs.setCharPref(SearchUtils.BROWSER_SEARCH_PREF + "region", "US");
+  Services.prefs.setCharPref("browser.search.region", "US");
   Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.ui.enabled",
     true
   );
-  Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
-    true
-  );
+  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
 
   appDefault = await SearchService.getDefault();
   appPrivateDefault = await SearchService.getDefaultPrivate();

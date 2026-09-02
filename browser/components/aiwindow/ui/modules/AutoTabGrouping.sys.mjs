@@ -9,6 +9,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AutoTabGroupingSuggestions:
     "moz-src:///browser/components/aiwindow/ui/modules/AutoTabGroupingSuggestions.sys.mjs",
+  CustomizableUI:
+    "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   TabMetrics: "moz-src:///browser/components/tabbrowser/TabMetrics.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -166,6 +168,17 @@ export const AutoTabGrouping = {
   },
 
   /**
+   * Get the "Organize Tabs" button in `win`, or the overflow menu's chevron
+   * button if the widget has been moved or overflowed into that menu.
+   *
+   * @param {ChromeWindow} win
+   * @returns {Element}
+   */
+  _getButtonAnchor(win) {
+    return lazy.CustomizableUI.getWidget(BUTTON_ID).forWindow(win).anchor;
+  },
+
+  /**
    * Build the panel, show it, then populate it once the clustering models have
    * run (or immediately if suggestions were already computed).
    *
@@ -184,6 +197,8 @@ export const AutoTabGrouping = {
     if (!button || !popupSet) {
       return;
     }
+    const anchor = this._getButtonAnchor(win);
+    lazy.CustomizableUI.hidePanelForNode(button);
 
     Glean.smartWindow.autoTabGroupMenuOpened.record({
       source,
@@ -264,13 +279,13 @@ export const AutoTabGrouping = {
         }
         panel.remove();
         if (panel._restoreFocus) {
-          button.focus();
+          anchor.focus();
         }
       },
       { once: true }
     );
 
-    panel.openPopup(button, "after_end", 0, 6, false, false);
+    panel.openPopup(anchor, "after_end", 0, 6, false, false);
 
     const state = this._getState(win);
     if (!state.computing) {
@@ -1015,7 +1030,7 @@ export const AutoTabGrouping = {
 
     try {
       win.gBrowser.removeAllDuplicateTabs({
-        confirmationAnchor: win.document.getElementById(BUTTON_ID),
+        confirmationAnchor: this._getButtonAnchor(win),
       });
     } catch (e) {
       lazy.console.warn("removeAllDuplicateTabs failed", e);

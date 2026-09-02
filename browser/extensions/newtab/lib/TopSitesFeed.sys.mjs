@@ -14,11 +14,10 @@ import {
 } from "resource://newtab/common/Actions.mjs";
 import { TippyTopProvider } from "resource:///modules/topsites/TippyTopProvider.sys.mjs";
 import { insertPinned } from "resource:///modules/topsites/TopSites.sys.mjs";
-import { TOP_SITES_MAX_SITES_PER_ROW } from "resource:///modules/topsites/constants.mjs";
-// @backward-compat { version 154 }
-// Sourced from Reducers for its fallback shim. When 154 hits Release, import
-// TOP_SITES_MAX_ROWS from the constants.mjs import above instead.
-import { TOP_SITES_MAX_ROWS } from "resource://newtab/common/Reducers.sys.mjs";
+import {
+  TOP_SITES_MAX_ROWS,
+  TOP_SITES_MAX_SITES_PER_ROW,
+} from "resource:///modules/topsites/constants.mjs";
 import { Dedupe } from "resource:///modules/Dedupe.sys.mjs";
 
 import {

@@ -319,5 +319,19 @@
 
   <key>NSLocalNetworkUsageDescription</key>
   <string>@MAC_APP_NAME@ needs this access to open websites and services on your network.</string>
+
+#ifdef NIGHTLY_BUILD
+  <key>ASWebAuthenticationSessionWebBrowserSupportCapabilities</key>
+  <dict>
+    <key>IsSupported</key>
+    <true/>
+    <key>EphemeralBrowserSessionIsSupported</key>
+    <true/>
+    <key>CallbackURLMatchingIsSupported</key>
+    <true/>
+    <key>AdditionalHeaderFieldsAreSupported</key>
+    <true/>
+  </dict>
+#endif
 </dict>
 </plist>

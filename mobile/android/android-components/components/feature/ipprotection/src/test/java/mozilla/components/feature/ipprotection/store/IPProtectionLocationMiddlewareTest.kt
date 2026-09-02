@@ -225,8 +225,8 @@ class IPProtectionLocationMiddlewareTest {
         }
 
     @Test
-    fun `GIVEN a cached selected location WHEN a user logs out THEN the cache is cleared`() = scope.runTest {
-        val cachedCode = "JA"
+    fun `GIVEN a cached selected location WHEN a user logs out THEN the cache is retained`() = scope.runTest {
+        val cachedCode = "JP"
         val selectedCountry = Country(countryCode = cachedCode, available = true)
         val store =
             buildStore(
@@ -249,7 +249,7 @@ class IPProtectionLocationMiddlewareTest {
         store.dispatch(InternalAction.AccountManagerStateChanged(status = AccountStatus.NoAccount))
         testScheduler.advanceUntilIdle()
 
-        assertEquals(null, fakeRepository.getSelectedLocationCode())
+        assertEquals(cachedCode, fakeRepository.getSelectedLocationCode())
     }
 
     private fun buildStore(

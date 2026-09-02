@@ -307,6 +307,17 @@ export class SelectControlBaseElement extends MozLitElement {
     return this.type == "radio" ? "radio" : "option";
   }
 
+  getGroupRole() {
+    switch (this.getChildRole()) {
+      case "radio":
+        return "radiogroup";
+      case "option":
+        return "listbox";
+      default:
+        return undefined;
+    }
+  }
+
   updateChildRoles() {
     let childRole = this.getChildRole();
     this.childElements.forEach(item => {
@@ -339,6 +350,7 @@ export class SelectControlBaseElement extends MozLitElement {
         headinglevel=${this.headingLevel}
         exportparts="inputs, support-link"
         aria-orientation=${ifDefined(this.orientation)}
+        role=${ifDefined(this.getGroupRole())}
       >
         ${!this.supportPage
           ? html`<slot slot="support-link" name="support-link"></slot>`

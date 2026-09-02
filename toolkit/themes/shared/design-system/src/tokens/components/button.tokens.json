@@ -12,6 +12,12 @@
           "platform": {
             "light": "rgba(207, 207, 216, 0.33)",
             "dark": "rgba(0, 0, 0, 0.33)"
+          },
+          "nova": {
+            "value": {
+              "default": "transparent",
+              "forcedColors": "ButtonFace"
+            }
           }
         }
       },
@@ -25,6 +31,14 @@
           "platform": {
             "light": "rgba(207, 207, 216, 0.66)",
             "dark": "rgba(207, 207, 216, 0.2)"
+          },
+          "nova": {
+            "value": {
+              "nativeTheme": "color-mix(in srgb, AccentColor 20%, transparent)",
+              "light": "{color.violet-desaturated.20}",
+              "dark": "{color.violet-desaturated.50}",
+              "forcedColors": "SelectedItemText"
+            }
           }
         }
       },
@@ -38,6 +52,14 @@
           "platform": {
             "light": "rgb(207, 207, 216)",
             "dark": "rgba(207, 207, 216, 0.4)"
+          },
+          "nova": {
+            "value": {
+              "nativeTheme": "color-mix(in srgb, AccentColor 30%, transparent)",
+              "light": "{color.violet-desaturated.30}",
+              "dark": "{color.violet-desaturated.40}",
+              "forcedColors": "SelectedItemText"
+            }
           }
         }
       },

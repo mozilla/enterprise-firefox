@@ -401,13 +401,40 @@ export class RemoteSettingsExperimentLoader {
       this._updatingDeferred = Promise.withResolvers();
     }
 
-    await this.withUpdateLock(() => this.#updateImpl(trigger, options));
+    try {
+      await this.withUpdateLock(() => this.#updateImpl(trigger, options));
+    } catch (e) {
+      let error;
+      if (DOMException.isInstance(e)) {
+        error = `DOMException:${e.name}`;
+      } else if (e instanceof Ci.nsIException) {
+        error = ChromeUtils.getXPCOMErrorName(e.result);
+      } else if (Error.isError(e)) {
+        try {
+          error = e.constructor.name;
+        } catch {}
+      }
+
+      if (!error) {
+        error = "(unknown)";
+      }
+
+      Glean.nimbusEvents.updateError.record({
+        error,
+        trigger,
+        during_shutdown: Services.startup.isInOrBeyondShutdownPhase(
+          Ci.nsIAppStartup.SHUTDOWN_PHASE_APPSHUTDOWNCONFIRMED
+        ),
+      });
+
+      throw e;
+    } finally {
+      this._hasUpdatedOnce = true;
+      this._updating = false;
+      this._updatingDeferred.resolve();
+    }
 
     Services.prefs.setBoolPref("nimbus.firstUpdateComplete", true);
-
-    this._hasUpdatedOnce = true;
-    this._updating = false;
-    this._updatingDeferred.resolve();
 
     this.recordIsReady();
   }

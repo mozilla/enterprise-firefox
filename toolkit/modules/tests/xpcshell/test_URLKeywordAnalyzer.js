@@ -23,6 +23,15 @@ add_task(function test_blocked_hosts() {
     "http://foo.test/bar", // reserved TLD
     "http://service.local/api", // reserved TLD
     "https://example.invalid/x", // reserved TLD
+    // One entry per private-use suffix, so a missing suffix cannot hide behind
+    // another. The wordy paths prove the block happens before keyword
+    // extraction (bug 2066447).
+    "http://wiki.acme.corp/it-helpdesk-password-reset", // RFC 6762 App. G
+    "http://router.home/setup-wizard", // RFC 6762 App. G
+    "http://nas.lan/media/movies", // RFC 6762 App. G
+    "http://portal.intranet/hr-benefits", // RFC 6762 App. G
+    "http://files.private/shared-drive", // RFC 6762 App. G
+    "http://gateway.home.arpa/status", // RFC 8375, a two-label suffix
   ];
   for (const url of blocked) {
     checkAnalyze(url, {
@@ -31,6 +40,23 @@ add_task(function test_blocked_hosts() {
       reason: SEARCH_CTA_REASONS.HOST_UNUSABLE,
     });
   }
+});
+
+// Only the listed suffixes block a CTA. A mistyped TLD is a recoverable
+// failure that a search could plausibly rescue, and a normal domain carrying
+// the same words as the blocked intranet cases is unaffected. Both fail if the
+// rule is ever widened to "any unknown public suffix" (bug 2066447).
+add_task(function test_unreserved_suffixes_still_get_a_cta() {
+  checkAnalyze("https://example.comm/winter-deals", {
+    action: SEARCH_CTA_ACTIONS.KEYWORDS,
+    query: "winter deals example",
+    reason: SEARCH_CTA_REASONS.KEYWORDS_FOUND,
+  });
+  checkAnalyze("https://portal.acme.com/helpdesk-password-reset", {
+    action: SEARCH_CTA_ACTIONS.KEYWORDS,
+    query: "helpdesk password reset portal acme",
+    reason: SEARCH_CTA_REASONS.KEYWORDS_FOUND,
+  });
 });
 
 // Path tokens first, in path order, then the host's tokens: the kept subdomain

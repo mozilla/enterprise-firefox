@@ -55,6 +55,8 @@ class TextInputDelegateTest : BaseSessionTest() {
                 arrayOf("#contenteditable"),
                 arrayOf("#designmode"),
             )
+
+        private const val EDITABLE_SYNC_TIMEOUT_MILLIS = 2000L
     }
 
     @field:Parameter(0) @JvmField var id: String = ""
@@ -160,7 +162,7 @@ class TextInputDelegateTest : BaseSessionTest() {
     }
 
     private fun processChildEvents() {
-        mainSession.waitForJS("new Promise(r => requestAnimationFrame(r))")
+        mainSession.waitForJS("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
     }
 
     private fun setComposingText(ic: InputConnection, text: CharSequence, newCursorPosition: Int) {
@@ -607,6 +609,12 @@ class TextInputDelegateTest : BaseSessionTest() {
 
     private fun getText(ic: InputConnection) = ic.getExtractedText(ExtractedTextRequest(), 0)!!.text.toString()
 
+    private fun pumpUntil(condition: () -> Boolean) {
+        try {
+            UiThreadUtils.waitForCondition({ condition() }, EDITABLE_SYNC_TIMEOUT_MILLIS)
+        } catch (e: UiThreadUtils.TimeoutException) {}
+    }
+
     private fun assertText(message: String, actual: String, expected: String) =
         // In an HTML editor, Gecko may insert an additional element that show up as a
         // return character at the end. Deal with that here.
@@ -624,6 +632,11 @@ class TextInputDelegateTest : BaseSessionTest() {
         if (checkGecko) {
             assertText(message, textContent, expected)
         }
+
+        pumpUntil {
+            val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)
+            extracted?.text?.toString()?.trimEnd('\n') == expected
+        }
         assertText(message, getText(ic), expected)
     }
 
@@ -639,6 +652,11 @@ class TextInputDelegateTest : BaseSessionTest() {
 
         if (checkGecko) {
             assertThat(message, selectionOffsets, equalTo(Pair(start, end)))
+        }
+
+        pumpUntil {
+            val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)
+            extracted != null && extracted.selectionStart == start && extracted.selectionEnd == end
         }
 
         val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)!!
@@ -669,6 +687,14 @@ class TextInputDelegateTest : BaseSessionTest() {
             assertThat(message, selectionOffsets, equalTo(Pair(start, end)))
         }
 
+        pumpUntil {
+            val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)
+            extracted != null &&
+                extracted.text?.toString()?.trimEnd('\n') == expected &&
+                extracted.selectionStart == start &&
+                extracted.selectionEnd == end
+        }
+
         val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)!!
         assertText(message, extracted.text.toString(), expected)
         assertThat(message, extracted.selectionStart, equalTo(start))
@@ -695,8 +721,6 @@ class TextInputDelegateTest : BaseSessionTest() {
     }
 
     // Test setSelection
-    @Ignore
-    // Disable for frequent timeout for selection event.
     @WithDisplay(width = 512, height = 512)
     // Child process updates require having a display.
     @Test
@@ -901,7 +925,7 @@ class TextInputDelegateTest : BaseSessionTest() {
 
     @WithDisplay(width = 512, height = 512)
     // Child process updates require having a display.
-    @Ignore("Failing frequently, see: https://bugzilla.mozilla.org/show_bug.cgi?id=1741790")
+    @Ignore("Forward selection is lost on the Java side, see bug 2067617")
     @Test
     fun inputConnection_selectionByArrowKey() {
         setupContent("")

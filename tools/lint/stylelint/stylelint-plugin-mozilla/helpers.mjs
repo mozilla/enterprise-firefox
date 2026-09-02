@@ -130,3 +130,79 @@ export const trimValue = value => String(value).trim();
  */
 export const isSystemColor = value =>
   SYSTEM_COLORS.includes(value.toLowerCase());
+
+/**
+ * Every semantic token name in the tokens table.
+ */
+const TOKEN_NAMES = new Set(
+  Object.values(tokensTable)
+    .flat()
+    .map(token => token.name)
+);
+
+/**
+ * Tokens that style a background and a text color for the same surface share a
+ * name apart from the `background-color` / `text-color` part, e.g.
+ * `--button-background-color-primary-hover` and
+ * `--button-text-color-primary-hover`. A token only counts as paired when its
+ * counterpart exists: plenty of background tokens have no text token (and vice
+ * versa) because they are meant to combine with whatever the surface inherits.
+ */
+const buildColorTokenPairs = () => {
+  let backgroundToText = new Map();
+  let textToBackground = new Map();
+
+  for (let tokenName of TOKEN_NAMES) {
+    let match = tokenName.match(
+      /^--(?<prefix>.*?)background-color(?<suffix>.*)$/
+    );
+    if (!match) {
+      continue;
+    }
+    let counterpart = `--${match.groups.prefix}text-color${match.groups.suffix}`;
+    if (TOKEN_NAMES.has(counterpart)) {
+      backgroundToText.set(tokenName, counterpart);
+      textToBackground.set(counterpart, tokenName);
+    }
+  }
+
+  return { backgroundToText, textToBackground };
+};
+
+export const { backgroundToText, textToBackground } = buildColorTokenPairs();
+
+/**
+ * Whether a custom property name is a semantic design token.
+ *
+ * @param {string} tokenName
+ * @returns {boolean}
+ */
+export const isDesignToken = tokenName => TOKEN_NAMES.has(tokenName);
+
+/**
+ * Whether a declaration defines a custom property (or a Sass variable) rather
+ * than using one.
+ *
+ * @param {object} decl - A PostCSS Declaration.
+ * @returns {boolean}
+ */
+export const isCustomPropertyDefinition = decl =>
+  decl.prop.startsWith("--") || decl.prop.startsWith("$");
+
+/**
+ * Splits a background or text color token name into the component family it
+ * belongs to and the variant within that family, e.g.
+ * `--button-text-color-primary-hover` is the `button-` family's
+ * `-primary-hover` variant. Returns null for a name that is neither.
+ *
+ * @param {string} tokenName
+ * @returns {?{family: string, variant: string}}
+ */
+export const parseColorTokenName = tokenName => {
+  let match = tokenName.match(
+    /^--(?<family>.*?)(?:background|text)-color(?<variant>.*)$/
+  );
+  return match
+    ? { family: match.groups.family, variant: match.groups.variant }
+    : null;
+};

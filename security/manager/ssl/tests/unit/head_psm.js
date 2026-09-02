@@ -1469,3 +1469,23 @@ function installWindowWatcherForProtectedAuth(prompt) {
 
   return windowWatcher;
 }
+
+async function commonFindCertBy(propertyName, value) {
+  let certDB = Cc["@mozilla.org/security/x509certdb;1"].getService(
+    Ci.nsIX509CertDB
+  );
+  for (let cert of await certDB.getCerts()) {
+    if (cert[propertyName] == value) {
+      return cert;
+    }
+  }
+  return null;
+}
+
+async function findCertByCommonName(commonName) {
+  return commonFindCertBy("commonName", commonName);
+}
+
+async function findCertByEmailAddress(emailAddress) {
+  return commonFindCertBy("emailAddress", emailAddress);
+}

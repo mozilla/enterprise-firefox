@@ -309,8 +309,12 @@ def cargo(
         if not crate_info:
             # Not one of the top-level crates we know how to build directly, assume it's
             # other crate in the gkrust workspace and target it explicitly via `-p`.
+            #
+            # gkrust's features and lib/bin targets don't apply to an individual crate,
+            # so pass the target explicitly instead, and let the makefiles skip the
+            # automatically-computed arguments via CARGO_NO_AUTO_ARG below.
             crate_info = crates_and_roots["gkrust"]
-            package_arg = f"-p {crate} "
+            package_arg = f"-p {crate} --target={{arch}} "
 
         targets = [
             "force-cargo-library-%s" % cargo_command,
@@ -350,7 +354,7 @@ def cargo(
             append_env["USE_CARGO_JSON_MESSAGE_FORMAT"] = "1"
         if continue_on_error:
             append_env["CARGO_CONTINUE_ON_ERROR"] = "1"
-        if cargo_build_flags:
+        if cargo_build_flags or package_arg:
             append_env["CARGO_NO_AUTO_ARG"] = "1"
 
         ret = command_context._run_make(

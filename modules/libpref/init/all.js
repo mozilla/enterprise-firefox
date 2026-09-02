@@ -423,7 +423,6 @@ pref("gfx.webrender.debug.texture-cache", false);
 pref("gfx.webrender.debug.texture-cache.clear-evicted", true);
 pref("gfx.webrender.debug.render-targets", false);
 pref("gfx.webrender.debug.gpu-cache", false);
-pref("gfx.webrender.debug.alpha-primitives", false);
 pref("gfx.webrender.debug.profiler", false);
 pref("gfx.webrender.debug.gpu-time-queries", false);
 pref("gfx.webrender.debug.gpu-sample-queries", false);
@@ -431,7 +430,6 @@ pref("gfx.webrender.debug.disable-batching", false);
 pref("gfx.webrender.debug.epochs", false);
 pref("gfx.webrender.debug.echo-driver-messages", false);
 pref("gfx.webrender.debug.show-overdraw", false);
-pref("gfx.webrender.debug.slow-frame-indicator", false);
 pref("gfx.webrender.debug.picture-caching", false);
 pref("gfx.webrender.debug.picture-borders", false);
 pref("gfx.webrender.debug.force-picture-invalidation", false);
@@ -1934,10 +1932,6 @@ pref("dom.ipc.keepProcessesAlive.privilegedabout", 1);
 
 // Disable support for SVG
 pref("svg.disabled", false);
-
-// This pref will cause assertions when a remoteType triggers a process switch
-// to a new remoteType it should not be able to trigger.
-pref("browser.tabs.remote.enforceRemoteTypeRestrictions", false);
 
 // Pref to control whether we use a separate privileged content process
 // for about: pages. This pref name did not age well: we will have multiple

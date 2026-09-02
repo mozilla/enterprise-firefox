@@ -4150,38 +4150,8 @@ const gRemoteControl = {
 };
 
 /**
- * Switch to a tab that has a given URI, and focuses its browser window.
- * If a matching tab is in this window, it will be switched to. Otherwise, other
- * windows will be searched.
- *
- * @param aURI
- *        URI to search for
- * @param aOpenNew
- *        True to open a new tab and switch to it, if no existing tab is found.
- *        If no suitable window is found, a new one will be opened.
- * @param aOpenParams
- *        If switching to this URI results in us opening a tab, aOpenParams
- *        will be the parameter object that gets passed to openTrustedLinkIn. Please
- *        see the documentation for openTrustedLinkIn to see what parameters can be
- *        passed via this object.
- *        This object also allows:
- *        - 'ignoreFragment' property to be set to true to exclude fragment-portion
- *        matching when comparing URIs.
- *          If set to "whenComparing", the fragment will be unmodified.
- *          If set to "whenComparingAndReplace", the fragment will be replaced.
- *        - 'ignoreQueryString' boolean property to be set to true to exclude query string
- *        matching when comparing URIs.
- *        - 'replaceQueryString' boolean property to be set to true to exclude query string
- *        matching when comparing URIs and overwrite the initial query string with
- *        the one from the new URI.
- *        - 'adoptIntoActiveWindow' boolean property to be set to true to adopt the tab
- *        into the current window.
- * @param aUserContextId
- *        If not null, will switch to the first found tab having the provided
- *        userContextId.
- * @param aSplitView
- *        If not null, will move the tab to the active split view instead of switching to tab
- * @return True if an existing tab was found, false otherwise
+ * Forwards to URILoadingHelper.switchToTabHavingURI, which documents the
+ * parameters and the return value.
  */
 function switchToTabHavingURI(
   aURI,

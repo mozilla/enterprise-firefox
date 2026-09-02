@@ -39,6 +39,9 @@ const { ChatConversation } = ChromeUtils.importESModule(
 const { MLTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/MLTestUtils.sys.mjs"
 );
+const { PlacesTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/PlacesTestUtils.sys.mjs"
+);
 
 add_setup(async function () {
   // Raise AITab's log verbosity for the duration of this file so a failing run
@@ -168,6 +171,99 @@ add_task(async function test_generateAITab_success() {
   } finally {
     await stopServing();
     mockEngine.cleanupMocks();
+  }
+});
+
+add_task(async function test_generateAITab_includes_page_image() {
+  // A page's cached preview image (og:image in Places) should reach the model
+  // prompt as an `Image:` line and be recorded on its urlsUsed entry.
+  const mockEngine = new MockEngineManager();
+  const { url: GEN_URL, cleanup: stopServing } = servePage();
+  const IMAGE_URL = "https://example.com/lisbon-hero.jpg";
+  // Seed the preview image in Places for the page that generation will read.
+  await PlacesTestUtils.addVisits(GEN_URL);
+  await PlacesUtils.history.update({
+    url: GEN_URL,
+    previewImageURL: IMAGE_URL,
+  });
+  try {
+    const genPromise = generateAITab(
+      { urlList: [GEN_URL], focus: "hotels in Lisbon" },
+      newConversation()
+    );
+
+    const { request, respond } = await mockEngine.captureRequest({
+      purpose: MODEL_FEATURES.AITAB,
+    });
+    Assert.ok(
+      JSON.stringify(request.args).includes(`Image: ${IMAGE_URL}`),
+      "the page's preview image URL reaches the model prompt"
+    );
+    respond(JSON.stringify(GENERATED_PAGE));
+
+    const result = await genPromise;
+    Assert.ok(!result.error, `generation should succeed: ${result.error}`);
+    Assert.equal(
+      result.metadata.context.urlsUsed[0].imageUrl,
+      IMAGE_URL,
+      "the preview image URL is recorded on the urlsUsed entry"
+    );
+  } finally {
+    await stopServing();
+    mockEngine.cleanupMocks();
+    await PlacesUtils.history.clear();
+  }
+});
+
+add_task(async function test_generateAITab_omits_image_for_denied_url() {
+  // Threat model: a prompt injection could ask AITab to build a page from an
+  // attacker-chosen URL. When the conversation holds both untrusted input and
+  // private data, get_page_content refuses to fetch unmentioned, non-SERP URLs
+  // headlessly to block that exfiltration channel. This test asserts the image
+  // path honors the same refusal — the denied URL's cached og:image must reach
+  // neither the model prompt nor the urlsUsed metadata — so it cannot become a
+  // side channel around the existing block.
+  const mockEngine = new MockEngineManager();
+  const DENIED_URL = "https://example.com/denied-private-untrusted-page";
+  const IMAGE_URL = "https://example.com/denied-hero.jpg";
+  await PlacesTestUtils.addVisits(DENIED_URL);
+  await PlacesUtils.history.update({
+    url: DENIED_URL,
+    previewImageURL: IMAGE_URL,
+  });
+  const conversation = newConversation();
+  // Mark the conversation as holding private data and untrusted input;
+  // commit() makes the staged flags visible to the security getters.
+  conversation.securityProperties.setPrivateData();
+  conversation.securityProperties.setUntrustedInput();
+  conversation.securityProperties.commit();
+  try {
+    const genPromise = generateAITab({ urlList: [DENIED_URL] }, conversation);
+
+    const { request, respond } = await mockEngine.captureRequest({
+      purpose: MODEL_FEATURES.AITAB,
+    });
+    const serializedRequest = JSON.stringify(request.args);
+    Assert.ok(
+      serializedRequest.includes("Access is not allowed"),
+      "the denied URL surfaces the refusal message, not page content"
+    );
+    Assert.ok(
+      !serializedRequest.includes(IMAGE_URL),
+      "the denied URL's preview image does not reach the model prompt"
+    );
+    respond(JSON.stringify(GENERATED_PAGE));
+
+    const result = await genPromise;
+    Assert.ok(!result.error, `generation should succeed: ${result.error}`);
+    Assert.equal(
+      result.metadata.context.urlsUsed[0].imageUrl,
+      null,
+      "no preview image URL is recorded for a denied URL"
+    );
+  } finally {
+    mockEngine.cleanupMocks();
+    await PlacesUtils.history.clear();
   }
 });
 

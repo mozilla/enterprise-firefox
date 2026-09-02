@@ -6235,6 +6235,11 @@
   value: true
   mirror: always
 
+- name: dom.webnotifications.navigate.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: dom.webnotifications.privateBrowsing.enabled
   type: RelaxedAtomicBool
   value: true
@@ -7767,11 +7772,6 @@
   value: 1
 #endif
   mirror: always
-
-- name: gfx.e10s.font-list.shared
-  type: bool
-  value: true
-  mirror: once
 
 # Do we fire a notification about missing fonts, so the front-end can decide
 # whether to try and do something about it (e.g. download additional fonts)?

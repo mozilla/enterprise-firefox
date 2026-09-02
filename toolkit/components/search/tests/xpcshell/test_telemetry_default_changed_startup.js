@@ -58,13 +58,10 @@ async function checkTelemetry(
 
 add_setup(async () => {
   Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.ui.enabled",
     true
   );
-  Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
-    true
-  );
+  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
 
   Region._setHomeRegion("US", false);
   Services.locale.availableLocales = [

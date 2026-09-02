@@ -5718,8 +5718,7 @@ nsChangeHint HTMLInputElement::GetAttributeChangeHint(
   return retval;
 }
 
-NS_IMETHODIMP_(bool)
-HTMLInputElement::IsAttributeMapped(const nsAtom* aAttribute) const {
+bool HTMLInputElement::IsNoNamespaceAttrMapped(const nsAtom* aAttribute) const {
   static const MappedAttributeEntry attributes[] = {
       {nsGkAtoms::align},
       {nullptr},

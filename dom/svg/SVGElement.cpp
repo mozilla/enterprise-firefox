@@ -944,14 +944,13 @@ void SVGElement::NodeInfoChanged(Document* aOldDoc) {
   SVGElementBase::NodeInfoChanged(aOldDoc);
 }
 
-NS_IMETHODIMP_(bool)
-SVGElement::IsAttributeMapped(const nsAtom* name) const {
+bool SVGElement::IsNoNamespaceAttrMapped(const nsAtom* name) const {
   if (name == nsGkAtoms::lang) {
     return true;
   }
 
   if (IsSVGAnimationElement()) {
-    return SVGElementBase::IsAttributeMapped(name);
+    return SVGElementBase::IsNoNamespaceAttrMapped(name);
   }
 
   static const MappedAttributeEntry attributes[] = {
@@ -1019,7 +1018,7 @@ SVGElement::IsAttributeMapped(const nsAtom* name) const {
   static const MappedAttributeEntry* const map[] = {attributes};
 
   return FindAttributeDependence(name, map) ||
-         SVGElementBase::IsAttributeMapped(name);
+         SVGElementBase::IsNoNamespaceAttrMapped(name);
 }
 
 //----------------------------------------------------------------------
@@ -1328,7 +1327,7 @@ void SVGElement::UpdateMappedDeclarationBlock() {
     }
 
     nsAtom* nameAtom = attrName->Atom();
-    if (!IsAttributeMapped(nameAtom)) {
+    if (!IsNoNamespaceAttrMapped(nameAtom)) {
       continue;
     }
 

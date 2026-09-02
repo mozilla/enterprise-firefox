@@ -118,6 +118,8 @@ skip-if = [
 support-files = [
   "../../../../accessible/tests/mochitest/common.js",
   "../../../../accessible/tests/mochitest/name.js",
+  "../../../../accessible/tests/mochitest/role.js",
+  "../../../../accessible/tests/mochitest/states.js",
 ]
 
 ["test_panel_item_accesskey.html"]
@@ -150,6 +152,12 @@ skip-if = [
 ["test_popupreflows.xhtml"]
 
 ["test_segmented_control.html"]
+support-files = [
+  "../../../../accessible/tests/mochitest/common.js",
+  "../../../../accessible/tests/mochitest/name.js",
+  "../../../../accessible/tests/mochitest/role.js",
+  "../../../../accessible/tests/mochitest/states.js",
+]
 
 ["test_theme_picker.html"]
 

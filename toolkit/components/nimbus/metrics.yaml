@@ -1279,6 +1279,44 @@ nimbus_events:
       - project-nimbus@mozilla.com
     expires: never
 
+  update_error:
+    type: event
+    description: >
+      Triggered when Nimbus fails to complete an update.
+
+    extra_keys:
+      trigger:
+        type: string
+        description: >
+          The trigger for the update. In practice this is one of "timer" or
+          "enable".
+
+      during_shutdown:
+        type: boolean
+        description: Whether the error occured during shutdown.
+
+      error:
+        type: string
+        description: >
+          A description of the error; one of:
+
+          - DOMException:{name} (e.g., DOMException:AbortError)
+          - NS_ERROR_*
+          - the error constructor's name
+          - the string "(unknown)"
+
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2063425
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2063425
+
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - beth@mozilla.com
+      - project-nimbus@mozilla.com
+    expires: never
+
 normandy:
   expose_nimbus_experiment:
     type: event

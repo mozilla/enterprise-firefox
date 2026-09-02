@@ -994,6 +994,50 @@ export class GetPageContent {
   }
 
   /**
+   * Whether getPageContent would surface content for `url` in this
+   * conversation (same allow/deny logic). Lets callers gate other
+   * page-derived data (e.g. AITab's per-tab og:image) on the same decision.
+   *
+   * @param {string} url
+   * @param {ChatConversation} conversation
+   * @returns {boolean}
+   */
+  static isContentAllowed(url, conversation) {
+    if (!isAllowedURL(url)) {
+      // Only http/https pages may be exposed to the LLM at all; internal
+      // schemes (about:, chrome:, file:, ...) stay out regardless of
+      // conversation state.
+      return false;
+    }
+    if (
+      GetPageContent.getTabWithURL(url) ||
+      conversation.getAllMentionURLs().has(url)
+    ) {
+      // The user deliberately brought this page into the conversation —
+      // it is open as a tab or was mentioned by them — so reading it
+      // reflects direct user intent rather than a model-chosen fetch.
+      return true;
+    }
+    if (
+      conversation.securityProperties.untrustedInput &&
+      conversation.securityProperties.privateData &&
+      !conversation.serpUrlsForAnonymousFetch.has(url)
+    ) {
+      // Anything else requires a headless network fetch of a URL the user
+      // never opened or mentioned. When the conversation holds both untrusted
+      // input (a prompt injection could have chosen this URL) and private
+      // data (something worth stealing), such a fetch is a potential
+      // exfiltration channel, so it is denied. SERP URLs are exempt because
+      // they get an anonymous fetch path that carries no user identity.
+      return false;
+    }
+    // A headless fetch is acceptable here: without the untrusted + private
+    // combination above, there is either no injected URL choice or no private
+    // data for it to leak.
+    return true;
+  }
+
+  /**
    * Search through all AI Windows to find the tab with the matching URL.
    *
    * @param {string} url

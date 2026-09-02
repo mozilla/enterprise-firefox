@@ -419,11 +419,11 @@ async function loadBadCertPage(url, feltPrivacyV1) {
 // nsITLSServerSocket needs a certificate with a corresponding private key
 // available. In mochitests, the certificate with the common name "Mochitest
 // client" has such a key.
-function getTestServerCertificate() {
+async function getTestServerCertificate() {
   const certDB = Cc["@mozilla.org/security/x509certdb;1"].getService(
     Ci.nsIX509CertDB
   );
-  for (const cert of certDB.getCerts()) {
+  for (const cert of await certDB.getCerts()) {
     if (cert.commonName == "Mochitest client") {
       return cert;
     }

@@ -355,8 +355,8 @@ nsChangeHint HTMLTextAreaElement::GetAttributeChangeHint(
   return retval;
 }
 
-NS_IMETHODIMP_(bool)
-HTMLTextAreaElement::IsAttributeMapped(const nsAtom* aAttribute) const {
+bool HTMLTextAreaElement::IsNoNamespaceAttrMapped(
+    const nsAtom* aAttribute) const {
   static const MappedAttributeEntry attributes[] = {{nsGkAtoms::wrap},
                                                     {nullptr}};
 

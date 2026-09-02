@@ -245,7 +245,7 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
   nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
   nsChangeHint GetAttributeChangeHint(const nsAtom* aAttribute,
                                       AttrModType aModType) const override;
-  NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
+  bool IsNoNamespaceAttrMapped(const nsAtom* aAttribute) const override;
 
   nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 

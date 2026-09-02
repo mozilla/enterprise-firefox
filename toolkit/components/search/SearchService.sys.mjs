@@ -217,10 +217,7 @@ export const SearchService = new (class SearchService {
   async setDefaultPrivate(engine, changeReason) {
     await this.init();
     if (!this.#lazyPrefs.separatePrivateDefaultPrefValue) {
-      Services.prefs.setBoolPref(
-        lazy.SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
-        true
-      );
+      Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
     }
     this.#setEngineDefault(this.#separatePrivateDefault, engine, changeReason);
   }
@@ -1792,14 +1789,14 @@ export const SearchService = new (class SearchService {
     let logIgnored = (name, url, type) => {
       lazy.logConsole.warn("Search engine", name, `matches ${type}`, url);
       Services.prefs.setCharPref(
-        lazy.SearchUtils.BROWSER_SEARCH_PREF + "lastEngineIgnored",
+        "browser.search.lastEngineIgnored",
         // Limit length of url to avoid storing too much in prefs.
         `${Math.trunc(Date.now() / 1000)} Search engine matches ${type} ignore list ${url.substring(0, 200)}`
       );
       // Kept separate from lastEngineIgnored so the engine name isn't
       // included if that preference is displayed, e.g. on about:support.
       Services.prefs.setStringPref(
-        lazy.SearchUtils.BROWSER_SEARCH_PREF + "lastEngineIgnored.name",
+        "browser.search.lastEngineIgnored.name",
         name
       );
     };
@@ -4071,10 +4068,7 @@ export const SearchService = new (class SearchService {
   #maybeStartOpenSearchUpdateTimer() {
     if (
       this.#openSearchUpdateTimerStarted ||
-      !Services.prefs.getBoolPref(
-        lazy.SearchUtils.BROWSER_SEARCH_PREF + "update",
-        true
-      )
+      !Services.prefs.getBoolPref("browser.search.update", true)
     ) {
       return;
     }

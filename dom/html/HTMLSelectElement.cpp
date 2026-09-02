@@ -1168,8 +1168,8 @@ nsChangeHint HTMLSelectElement::GetAttributeChangeHint(
   return retval;
 }
 
-NS_IMETHODIMP_(bool)
-HTMLSelectElement::IsAttributeMapped(const nsAtom* aAttribute) const {
+bool HTMLSelectElement::IsNoNamespaceAttrMapped(
+    const nsAtom* aAttribute) const {
   static const MappedAttributeEntry* const map[] = {sCommonAttributeMap,
                                                     sImageAlignAttributeMap};
 

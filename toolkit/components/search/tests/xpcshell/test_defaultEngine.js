@@ -272,13 +272,10 @@ add_task(async function test_telemetry_empty_submission_url() {
 
 add_task(async function test_privateDefaultClearedOnSeparatePrivateDisabled() {
   Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.ui.enabled",
     true
   );
-  Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
-    true
-  );
+  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
 
   await SearchService.setDefaultPrivate(
     engine1,
@@ -290,20 +287,14 @@ add_task(async function test_privateDefaultClearedOnSeparatePrivateDisabled() {
     "engine1 should be the private default before disabling separate private"
   );
 
-  Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
-    false
-  );
+  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", false);
   Assert.notEqual(
     await SearchService.getDefaultPrivate(),
     engine1,
     "engine1 should no longer be the private default after disabling separate private"
   );
 
-  Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
-    true
-  );
+  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
   // If the default private engine is ever changed to fall back to the user's
   // default engine instead of the app private default, this assertion may need
   // updating — but the notEqual to engine1 should remain correct.
@@ -314,11 +305,9 @@ add_task(async function test_privateDefaultClearedOnSeparatePrivateDisabled() {
   );
 
   Services.prefs.clearUserPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault.ui.enabled"
+    "browser.search.separatePrivateDefault.ui.enabled"
   );
-  Services.prefs.clearUserPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault"
-  );
+  Services.prefs.clearUserPref("browser.search.separatePrivateDefault");
 });
 
 add_task(async function test_switch_with_invalid_overriddenBy() {

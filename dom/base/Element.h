@@ -520,9 +520,9 @@ class Element : public FragmentOrElement {
   virtual bool IsInteractiveHTMLContent() const;
 
   /**
-   * Is the attribute named aAttribute a mapped attribute?
+   * Is the attribute named aAttribute in the null namespace a mapped attribute?
    */
-  NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const;
+  virtual bool IsNoNamespaceAttrMapped(const nsAtom* aAttribute) const;
 
   nsresult BindToTree(BindContext&, nsINode& aParent) override;
   void UnbindFromTree(UnbindContext&) override;
@@ -1273,7 +1273,7 @@ class Element : public FragmentOrElement {
   /**
    * A common method where you can just pass in a list of maps to check
    * for attribute dependence. Most implementations of
-   * IsAttributeMapped should use this function as a default
+   * IsNoNamespaceAttrMapped should use this function as a default
    * handler.
    */
   template <size_t N>

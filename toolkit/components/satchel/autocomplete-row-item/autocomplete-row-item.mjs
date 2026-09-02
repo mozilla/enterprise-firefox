@@ -5,6 +5,7 @@
 import {
   html,
   when,
+  classMap,
   ifDefined,
 } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
@@ -30,7 +31,14 @@ class AutocompleteRowItem extends MozLitElement {
     emptySourcesLabel: { type: String },
   };
 
+  #actionsMenu = null;
+
   #openActionsMenu(anchor, actions) {
+    const panel = this.closest("panel");
+    if (!panel) {
+      return;
+    }
+
     const XUL_NS =
       "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 
@@ -43,17 +51,21 @@ class AutocompleteRowItem extends MozLitElement {
       menupopup.appendChild(menuitem);
     }
 
-    const panel = this.closest("panel");
-
-    panel?.setAttribute("noautohide", "true");
-
+    this.#actionsMenu = menupopup;
+    this.toggleAttribute("menuopen", true);
     menupopup.addEventListener("popuphiding", () => {
-      panel?.removeAttribute("noautohide");
+      this.#actionsMenu = null;
+      this.toggleAttribute("menuopen", false);
       menupopup.remove();
     });
 
-    document.documentElement.appendChild(menupopup);
+    panel.appendChild(menupopup);
     menupopup.openPopup(anchor, "after_start");
+  }
+
+  closeActionsMenu() {
+    this.#actionsMenu?.hidePopup();
+    this.toggleAttribute("menuopen", false);
   }
 
   getSecondaryActionItemIcon(type) {
@@ -62,6 +74,8 @@ class AutocompleteRowItem extends MozLitElement {
         return "chrome://global/skin/icons/edit.svg";
       case "menupopup":
         return "chrome://global/skin/icons/more.svg";
+      case "delete":
+        return "chrome://global/skin/icons/delete.svg";
       default:
         return "chrome://global/skin/icons/settings.svg";
     }
@@ -81,42 +95,32 @@ class AutocompleteRowItem extends MozLitElement {
 
   renderSecondaryActionButton() {
     const { type, action, actions, label } = this.actions.secondary;
+    if (!action && !actions) {
+      return "";
+    }
+
     const stopMouseEvents = e => e.stopPropagation();
     const onMouseDown = e => {
+      // Letting mousedown run its default action focuses the button, making
+      // nsFormFillController close the popup.
+      e.preventDefault();
       e.stopPropagation();
       this.activateSecondaryAction();
     };
 
-    // We're expecting a single action
-    if (action) {
-      return html`<moz-button
-        id="secondary-action-button"
-        @mousedown=${onMouseDown}
-        @mouseup=${stopMouseEvents}
-        type="icon ghost"
-        aria-label=${ifDefined(label)}
-        title=${ifDefined(label)}
-        .iconSrc=${this.getSecondaryActionItemIcon(type)}
-        class="secondary-action"
-      ></moz-button>`;
-    }
-
-    // We're expecting multiple actions for this item
-    if (actions) {
-      return html`<moz-button
-        id="secondary-action-button"
-        @mousedown=${onMouseDown}
-        @mouseup=${stopMouseEvents}
-        type="icon ghost"
-        aria-label=${ifDefined(label)}
-        title=${ifDefined(label)}
-        .iconSrc=${this.getSecondaryActionItemIcon(type)}
-        class="secondary-action"
-        menuId="secondary-action-menu"
-      ></moz-button>`;
-    }
-
-    return "";
+    return html`<moz-button
+      id="secondary-action-button"
+      @mousedown=${onMouseDown}
+      @mouseup=${stopMouseEvents}
+      type="icon ghost"
+      aria-label=${ifDefined(label)}
+      title=${ifDefined(label)}
+      .iconSrc=${this.getSecondaryActionItemIcon(type)}
+      class=${classMap({
+        "secondary-action": true,
+        selected: this.selected,
+      })}
+    ></moz-button>`;
   }
 
   renderSourcesValue() {

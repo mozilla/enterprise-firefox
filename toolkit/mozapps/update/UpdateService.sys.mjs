@@ -1935,12 +1935,14 @@ function pingStateAndStatusCodes(aUpdate, aStartup, aStatus) {
         stateCode = 1;
     }
 
-    if (parts.length > 1) {
-      let statusErrorCode = INVALID_UPDATER_STATE_CODE;
-      if (parts[0] == STATE_FAILED) {
-        statusErrorCode = parseInt(parts[1]) || INVALID_UPDATER_STATUS_CODE;
-      }
-      AUSTLMY.pingStatusErrorCode(suffix, statusErrorCode);
+    if (parts[0] == STATE_FAILED) {
+      // Record a missing or non-numeric error code rather than nothing.
+      AUSTLMY.pingStatusErrorCode(
+        suffix,
+        parseInt(parts[1]) || INVALID_UPDATER_STATUS_CODE
+      );
+    } else if (parts.length > 1) {
+      AUSTLMY.pingStatusErrorCode(suffix, INVALID_UPDATER_STATE_CODE);
     }
   }
   AUSTLMY.pingStateCode(suffix, stateCode);
@@ -2869,9 +2871,11 @@ export class UpdateService {
       return;
     }
     const readyUpdateDir = getReadyUpdateDir();
-    let status = readStatusFile(readyUpdateDir);
-    let statusParts = status.split(":");
-    status = statusParts[0];
+    // pingStateAndStatusCodes() needs the error code after the colon
+    // (ex. "failed: 7"), so keep the untruncated status too.
+    const fullStatus = readStatusFile(readyUpdateDir);
+    const statusParts = fullStatus.split(":");
+    const status = statusParts[0];
     LOG(`UpdateService:#asyncInit - status = "${status}"`);
     if (!this.canUsuallyApplyUpdates) {
       LOG(
@@ -3117,7 +3121,7 @@ export class UpdateService {
         ? lazy.UM.internal.downloadingUpdate
         : lazy.UM.internal.readyUpdate,
       true,
-      status
+      fullStatus
     );
     if (lazy.UM.internal.downloadingUpdate || status == STATE_DOWNLOADING) {
       if (status == STATE_SUCCEEDED) {

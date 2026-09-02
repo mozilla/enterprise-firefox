@@ -227,6 +227,13 @@ export class AmpSuggestions extends SuggestProvider {
     return commands;
   }
 
+  /**
+   * @param {string} state
+   * @param {UrlbarQueryContext} queryContext
+   * @param {UrlbarParentController} controller
+   * @param {{index: number, result: UrlbarResult}[]} featureResults
+   * @param {object|null} details
+   */
   onImpression(state, queryContext, controller, featureResults, details) {
     // For the purpose of the `quick-suggest` impression ping, "impression"
     // means that one of these suggestions was visible at the time of an
@@ -243,6 +250,12 @@ export class AmpSuggestions extends SuggestProvider {
     }
   }
 
+  /**
+   * @param {UrlbarQueryContext} queryContext
+   * @param {UrlbarParentController} controller
+   * @param {object} details
+   * @param {string} searchString
+   */
   onEngagement(queryContext, controller, details, searchString) {
     let { result } = details;
 

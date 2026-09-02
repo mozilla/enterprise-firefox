@@ -279,6 +279,24 @@ tasks:
         chunks: dynamic
         default-chunks: 1
         max-run-time: 1800
+        fetches:
+            fetch:
+                by-test-platform:
+                    macosx.*-aarch64.*:
+                        - widevine-mac-arm64
+                    macosx.*-64.*:
+                        - widevine-mac
+                    windows.*-aarch64.*:
+                        - widevine-win-arm64
+                    windows.*-64.*:
+                        - widevine-win64
+                    windows.*-32.*:
+                        - widevine-win32
+                    linux.*-aarch64.*:
+                        - widevine-linux-arm64
+                    linux.*-64.*:
+                        - widevine-linux
+                    default: []
         variants:
             - eme-wmf
         run-on-projects:
@@ -289,17 +307,32 @@ tasks:
                         default: []
                 default:
                     by-test-platform:
-                        android.*: []
+                        android-em.*/debug-isolated-process: []
                         .*-wayland.*: []
                         windows1.*: []
                         default: built-projects
         mozharness:
             chunked: true
             extra-options:
-                - --test-type=testharness
-                - --default-exclude
-                - --tag=eme
-                - --no-update-status-on-crash
+                by-test-platform:
+                    android.*:
+                        - --test-type=testharness
+                        - --default-exclude
+                        - --tag=eme
+                        - --no-update-status-on-crash
+                        - --setpref=network.socket.allowed_nonlocal_domains='lic.staging.drmtoday.com,www.googleapis.com'
+                    windows.*:
+                        - --test-type=testharness
+                        - --default-exclude
+                        - --tag=eme
+                        - --no-update-status-on-crash
+                        - --setpref=network.socket.allowed_nonlocal_domains='lic.staging.drmtoday.com,test.playready.microsoft.com'
+                    default:
+                        - --test-type=testharness
+                        - --default-exclude
+                        - --tag=eme
+                        - --no-update-status-on-crash
+                        - --setpref=network.socket.allowed_nonlocal_domains='lic.staging.drmtoday.com'
 
     web-platform-tests-webrtc:
         description: "Web platform webrtc test run"

@@ -73,6 +73,9 @@
         },
         "hover": {
           "value": "{urlbar.box.text.color.@base}"
+        },
+        "active": {
+          "value": "{urlbar.box.text.color.@base}"
         }
       }
     }

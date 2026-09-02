@@ -2101,7 +2101,7 @@ export class UrlbarProvider {
    *    The current query context.
    * @param {UrlbarParentController} _controller
    *    The associated controller.
-   * @param {Array} _providerVisibleResults
+   * @param {{index: number, result: UrlbarResult}[]} _providerVisibleResults
    *    Array of visible results at the time of either an engagement or
    *    abandonment event relevant to the provider. Each object in the array
    *    contains:

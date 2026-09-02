@@ -35,15 +35,12 @@ gulp mozcentral
 popd || exit
 
 
-mkdir -p "$ROOT/build/mozcentral/browser/extensions/pdfjs/"
-
-cp "$ROOT/build/mozcentral/browser/extensions/pdfjs/content/LICENSE" "$GECKO_PATH/toolkit/components/pdfjs/"
+cp "$ROOT/build/mozcentral/browser/extensions/pdfjs/LICENSE" "$GECKO_PATH/toolkit/components/pdfjs/"
 cp "$ROOT/build/mozcentral/browser/extensions/pdfjs/PdfJsDefaultPrefs.js" "$GECKO_PATH/toolkit/components/pdfjs/PdfJsDefaultPrefs.js"
 rsync -a -v --delete "$ROOT/build/mozcentral/browser/extensions/pdfjs/content/build/" "$GECKO_PATH/toolkit/components/pdfjs/content/build/"
 rsync -a -v --delete "$ROOT/build/mozcentral/browser/extensions/pdfjs/content/web/" "$GECKO_PATH/toolkit/components/pdfjs/content/web/"
 
-ls -R "$ROOT/build/mozcentral/browser/"
-cp "$ROOT"/build/mozcentral/browser/locales/en-US/pdfviewer/*.ftl "$GECKO_PATH/toolkit/locales/en-US/toolkit/pdfviewer/" || true
+cp "$ROOT"/build/mozcentral/browser/locales/en-US/pdfviewer/*.ftl "$GECKO_PATH/toolkit/locales/en-US/toolkit/pdfviewer/"
 
 # For now we don't update the revision because we need to reduce the number of files to test
 # (cf https://bugzilla.mozilla.org/show_bug.cgi?id=1940144 for re-enabling).

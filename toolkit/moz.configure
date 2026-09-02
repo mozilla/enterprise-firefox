@@ -800,21 +800,9 @@ set_define("MOZ_APPLEMEDIA", applemedia)
 
 # Windows Media Foundation support
 # ==============================================================
-option("--disable-wmf", help="Disable support for Windows Media Foundation")
-
-
-@depends("--disable-wmf", target, "--help")
-def wmf(value, target, _):
-    enabled = bool(value)
-    if value.origin == "default":
-        # Enable Windows Media Foundation support by default.
-        # Note our minimum SDK version is Windows 7 SDK, so we are (currently)
-        # guaranteed to have a recent-enough SDK to build WMF.
-        enabled = target.os == "WINNT"
-    if enabled and target.os != "WINNT":
-        die("Cannot enable Windows Media Foundation support on %s", target.os)
-    if enabled:
-        return True
+@depends(target)
+def wmf(target):
+    return target.os == "WINNT"
 
 
 @depends(artifact_builds, c_compiler, when=wmf)
@@ -824,28 +812,21 @@ def wmfmediaengine(artifact_builds, c_compiler):
     return bool(artifact_builds)
 
 
-set_config("MOZ_WMF", wmf)
-set_define("MOZ_WMF", wmf)
+set_config("MOZ_WMF", True, when=wmf)
+set_define("MOZ_WMF", True, when=wmf)
 
 set_config("MOZ_WMF_MEDIA_ENGINE", True, when=wmfmediaengine)
 set_define("MOZ_WMF_MEDIA_ENGINE", True, when=wmfmediaengine)
 
 # FFmpeg H264/AAC Decoding Support
 # ==============================================================
-option("--disable-ffmpeg", help="Disable FFmpeg for fragmented H264/AAC decoding")
+@depends(target)
+def ffmpeg(target):
+    return target.os not in ("Android", "WINNT")
 
 
-@depends("--disable-ffmpeg", target)
-def ffmpeg(value, target):
-    enabled = bool(value)
-    if value.origin == "default":
-        enabled = target.os not in ("Android", "WINNT")
-    if enabled:
-        return True
-
-
-set_config("MOZ_FFMPEG", ffmpeg)
-set_define("MOZ_FFMPEG", ffmpeg)
+set_config("MOZ_FFMPEG", True, when=ffmpeg)
+set_define("MOZ_FFMPEG", True, when=ffmpeg)
 
 # AV1 Video Codec Support
 # ==============================================================

@@ -203,6 +203,9 @@ js_source_paths:
     - browser/components/migration/content
     - browser/components/mozcachedohttp
     - browser/components/mozcachedohttp/actors
+    # Limited to SessionStore.sys.mjs, the only file in the directory that has
+    # a documentation page.
+    - browser/components/sessionstore/SessionStore.sys.mjs
     # Limited to Tabbrowser.sys.mjs: the rest of the directory holds window
     # scripts and tests whose bare globals and duplicate local names trip
     # https://github.com/pyodide/sphinx-js/issues/242 or a variant of it.

@@ -42,6 +42,7 @@ def main(output, input_path, mac_app_name):
         args.append("-DMOZ_ENTERPRISE")
     args.append(input_path)
     pp = Preprocessor()
+    pp.context.update(buildconfig.defines["ALLDEFINES"])
     pp.out = output
     pp.handleCommandLine(args, True)
     return set(pp.includes)

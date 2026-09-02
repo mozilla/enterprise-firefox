@@ -274,6 +274,23 @@ let JSWINDOWACTORS = {
     remoteTypes: ["parent"],
   },
 
+  AITab: {
+    parent: {
+      esModuleURI:
+        "moz-src:///browser/components/aiwindow/ui/actors/AITabParent.sys.mjs",
+    },
+    child: {
+      esModuleURI:
+        "moz-src:///browser/components/aiwindow/ui/actors/AITabChild.sys.mjs",
+      events: {
+        "AITab:RequestPage": { wantUntrusted: true },
+      },
+    },
+    matches: ["about:aitab", "about:aitab?*"],
+    remoteTypes: ["privilegedabout"],
+    enablePreference: "browser.smartwindow.aitab.enabled",
+  },
+
   SmartWindowTasks: {
     parent: {
       esModuleURI:

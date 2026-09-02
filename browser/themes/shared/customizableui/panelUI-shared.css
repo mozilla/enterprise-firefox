@@ -2837,7 +2837,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   @media not (prefers-contrast) {
     fieldset > label,
     details > summary {
-      color: var(--button-text-color);
+      color: var(--button-text-color-menu);
       background-color: var(--button-background-color-menu);
 
       &:hover {

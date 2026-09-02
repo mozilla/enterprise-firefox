@@ -574,8 +574,11 @@ export class UrlbarView {
     });
   }
 
-  async acknowledgeFeedback(result) {
-    let row = this.#getRowByResultId(result.id);
+  /**
+   * @param {number} resultId
+   */
+  async acknowledgeFeedback(resultId) {
+    let row = this.#getRowByResultId(resultId);
     if (!row) {
       return;
     }
@@ -584,7 +587,7 @@ export class UrlbarView {
     await this.#l10nCache.ensure(l10n);
     // Confirm the row still holds the dismissed result: a re-query may have
     // swapped it during the async l10n fetch above.
-    if (row.result?.id != result.id) {
+    if (row.result?.id != resultId) {
       return;
     }
 

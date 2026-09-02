@@ -55,19 +55,28 @@
     box-shadow: none;
     border-block-start: var(--border-width) solid var(--chrome-content-separator-color);
 
-    :root:not([inDOMFullscreen], [inFullscreen]) #tabbrowser-tabbox:is([sidebar-shown], [sidebar-panel-open]):not([sidebar-positionend]) & {
+    /* A .browserContainer edge is only separated and rounded when it faces chrome.
+     * SidebarController.setPosition updates the order of all of #browser's
+     * (flex) children according to the sidebar.position_start pref.
+     * The AI sidebar always docks opposite the browser sidebar. */
+    #tabbrowser-tabbox:not([sidebar-positionend]):is([sidebar-shown], [sidebar-panel-open]) &,
+    #tabbrowser-tabbox[sidebar-positionend][ai-window-open] & {
       border-inline-start: var(--border-width) solid var(--chrome-content-separator-color);
       border-start-start-radius: var(--border-radius-medium);
     }
 
-    :root:not([inDOMFullscreen], [inFullscreen]) #tabbrowser-tabbox:is([sidebar-positionend]:is([sidebar-shown], [sidebar-panel-open]), [ai-window-open]) & {
+    #tabbrowser-tabbox[sidebar-positionend]:is([sidebar-shown], [sidebar-panel-open]) &,
+    #tabbrowser-tabbox:not([sidebar-positionend])[ai-window-open] & {
       border-inline-end: var(--border-width) solid var(--chrome-content-separator-color);
       border-start-end-radius: var(--border-radius-medium);
     }
 
-    /* Nothing to separate from once the content covers the window. */
-    :root:is([inDOMFullscreen], [inFullscreen]) & {
+    /* In fullscreen, there's nothing to separate once the content covers
+     * the window. This has to match the specificity and follow the rules above
+     * to undo them, hence the otherwise redundant #tabbrowser-tabbox. */
+    :root:is([inDOMFullscreen], [inFullscreen]) #tabbrowser-tabbox & {
       border: none;
+      border-radius: 0;
     }
   }
 

@@ -58,7 +58,7 @@ neterror-search-cta-hint-search-query = Search the web for <strong>“{ $query }
 # that results open in a new tab.
 neterror-search-cta-search-button =
     .label = Search
-    .accesskey = S
+    .accesskey = c
     .tooltiptext = Opens search results in a new tab
 
 neterror-search-cta-reload-button =

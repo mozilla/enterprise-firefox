@@ -584,8 +584,8 @@ class DCSurfaceVideo : public DCSurface {
   bool CreateVideoSwapChain(DXGI_FORMAT aFormat);
   bool CallVideoProcessorBlt();
   bool ShaderBltSetup();
-  bool ShaderBlt(DXGI_COLOR_SPACE_TYPE inputColorSpace, const RECT& sourceRect,
-                 DXGI_COLOR_SPACE_TYPE outputColorSpace, const RECT& destRect);
+  bool ShaderBlt(const RECT& sourceRect, DXGI_COLOR_SPACE_TYPE outputColorSpace,
+                 const RECT& destRect);
   void ReleaseDecodeSwapChainResources();
 
   RefPtr<ID3D11VideoProcessorOutputView> mOutputView;

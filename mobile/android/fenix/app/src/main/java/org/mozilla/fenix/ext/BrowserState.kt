@@ -62,6 +62,21 @@ fun BrowserState.actualInactiveTabs(settings: Settings): List<TabSessionState> {
 }
 
 /**
+ * Splits all normal tabs into the active and inactive ones, based on [maxActiveTime]. All normal tabs are considered
+ * active if the user disabled the inactive tabs feature.
+ *
+ * @return The active normal tabs (first) and the inactive tabs (second).
+ */
+fun BrowserState.partitionNormalTabsByActiveTime(
+    settings: Settings
+): Pair<List<TabSessionState>, List<TabSessionState>> =
+    if (settings.inactiveTabsAreEnabled) {
+        normalTabs.partition { !it.isNormalTabInactive(maxActiveTime) }
+    } else {
+        normalTabs to emptyList()
+    }
+
+/**
  * Get if there's a browser history item to get back to or if the current URL is of a story from application's
  * homescreen that we should get back to.
  */

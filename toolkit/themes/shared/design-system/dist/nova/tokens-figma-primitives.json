@@ -13,6 +13,7 @@
   "icon/size/large": "{Primitives$size/item/medium}",
   "icon/size/xlarge": "{Primitives$size/item/large}",
   "info-bar/margin/block/end": 0,
+  "input/search/icon/size": "{Primitives$icon/size/small}",
   "input/search/border/radius": "{Primitives$border/radius/circle}",
   "page/main/content/width": 664,
   "panel-menuitem/border/radius": "{Primitives$border/radius/large}",

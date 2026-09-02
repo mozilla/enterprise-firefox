@@ -5,6 +5,7 @@
 browser.jar:
   content/browser/aiwindow/aiChatContent.html                       (content/aiChatContent.html)
   content/browser/aiwindow/aiWindow.html                            (content/aiWindow.html)
+  content/browser/aiwindow/aitab.html                               (content/aitab.html)
   content/browser/aiwindow/tasks.html                               (content/tasks.html)
   content/browser/aiwindow/assets/ai-chat-grid-loading.svg          (assets/ai-chat-grid-loading.svg)
   content/browser/aiwindow/assets/ask-icon.svg                      (assets/ask-icon.svg)
@@ -123,3 +124,5 @@ browser.jar:
   content/browser/aiwindow/components/smartwindow-topsites.css       (components/smartwindow-topsites/smartwindow-topsites.css)
   content/browser/aiwindow/components/smartwindow-group-tabs.mjs     (components/smartwindow-group-tabs/smartwindow-group-tabs.mjs)
   content/browser/aiwindow/assets/agent-watch.svg                    (assets/agent-watch.svg)
+  content/browser/aiwindow/components/aitab-page.mjs                 (components/aitab-page/aitab-page.mjs)
+  content/browser/aiwindow/components/aitab-page.css                 (components/aitab-page/aitab-page.css)

@@ -10,13 +10,10 @@ add_setup(async function () {
   useHttpServer();
 
   Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.ui.enabled",
     true
   );
-  Services.prefs.setBoolPref(
-    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
-    true
-  );
+  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
 
   appDefaultEngine = await SearchService.getDefault();
 });
@@ -91,10 +88,7 @@ add_task(
       SearchService.CHANGE_REASON.UNKNOWN
     );
 
-    Services.prefs.setBoolPref(
-      SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
-      false
-    );
+    Services.prefs.setBoolPref("browser.search.separatePrivateDefault", false);
 
     await defaultNotificationTest(true, true);
   }

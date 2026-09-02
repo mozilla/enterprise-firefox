@@ -368,6 +368,50 @@ class BrowserStateTest {
     }
 
     @Test
+    fun `GIVEN inactiveTabs feature is disabled WHEN partitionNormalTabsByActiveTime is called THEN return all of the normal tabs as active and return no tabs as inactive`() {
+        val normalTab1 = createTab(url = "url1", id = "normalTab1")
+        val normalTab2 = createTab(url = "url2", id = "normalTab2")
+
+        val normalTab3 = createTab(url = "url3", id = "normalTab3", lastAccess = 0L, createdAt = 0L)
+        val normalTab4 = createTab(url = "url4", id = "normalTab4", lastAccess = 0L, createdAt = 0L)
+
+        val privateTab1 = createTab(url = "url5", id = "privateTab1", private = true)
+        val privateTab2 = createTab(url = "url6", id = "privateTab2", private = true, lastAccess = 0L, createdAt = 0L)
+        val browserState =
+            BrowserState(tabs = listOf(normalTab1, normalTab2, normalTab3, normalTab4, privateTab1, privateTab2))
+        val settings: Settings = mockk {
+            every { inactiveTabsAreEnabled } returns false
+        }
+
+        val (activeTabs, inactiveTabs) = browserState.partitionNormalTabsByActiveTime(settings)
+
+        assertEquals(listOf(normalTab1, normalTab2, normalTab3, normalTab4), activeTabs)
+        assertEquals(emptyList<TabSessionState>(), inactiveTabs)
+    }
+
+    @Test
+    fun `GIVEN inactiveTabs feature is enabled WHEN partitionNormalTabsByActiveTime is called THEN return the normal tabs split by their active time`() {
+        val normalTab1 = createTab(url = "url1", id = "normalTab1")
+        val normalTab2 = createTab(url = "url2", id = "normalTab2")
+
+        val inactiveTab1 = createTab(url = "url3", id = "inactiveTab1", lastAccess = 0L, createdAt = 0L)
+        val inactiveTab2 = createTab(url = "url4", id = "inactiveTab2", lastAccess = 0L, createdAt = 0L)
+
+        val privateTab1 = createTab(url = "url5", id = "privateTab1", private = true)
+        val privateTab2 = createTab(url = "url6", id = "privateTab2", private = true, lastAccess = 0L, createdAt = 0L)
+        val browserState =
+            BrowserState(tabs = listOf(normalTab1, normalTab2, inactiveTab1, inactiveTab2, privateTab1, privateTab2))
+        val settings: Settings = mockk {
+            every { inactiveTabsAreEnabled } returns true
+        }
+
+        val (activeTabs, inactiveTabs) = browserState.partitionNormalTabsByActiveTime(settings)
+
+        assertEquals(listOf(normalTab1, normalTab2), activeTabs)
+        assertEquals(listOf(inactiveTab1, inactiveTab2), inactiveTabs)
+    }
+
+    @Test
     fun `GIVEN existing back browser history WHEN checking if can go back in history or to stories THEN return true`() {
         val normalTab = createTab(url = "url1").markAsCanGoBackInHistory()
         val browserState = BrowserState(tabs = listOf(normalTab), selectedTabId = normalTab.id)

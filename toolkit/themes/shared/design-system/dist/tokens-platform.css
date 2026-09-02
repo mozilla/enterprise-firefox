@@ -104,10 +104,8 @@
   @media -moz-pref("browser.nova.enabled") {
     @layer tokens-foundation-nova {
       /** button **/
-      /* TODO Bug 1821203 - Gray use needs to be consolidated */
-      --button-background-color: color-mix(in srgb, currentColor 13%, transparent);
-      --button-background-color-hover: color-mix(in srgb, currentColor 17%, transparent);
-      --button-background-color-active: color-mix(in srgb, currentColor 30%, transparent);
+      --button-background-color-hover: color-mix(in srgb, AccentColor 20%, transparent);
+      --button-background-color-active: color-mix(in srgb, AccentColor 30%, transparent);
       --button-background-color-ghost: transparent;
       --button-text-color: currentColor;
       --button-text-color-menu-selected: currentColor;
@@ -119,6 +117,9 @@
       --color-accent-primary-hover: color-mix(in srgb, black 10%, var(--color-accent-primary));
       --color-accent-primary-active: color-mix(in srgb, black 20%, var(--color-accent-primary));
       --color-accent-primary-selected: SelectedItem;
+
+      /** input **/
+      --input-text-background-color: Field;
 
       /** panel **/
       --panel-background-color: Field;
@@ -232,8 +233,6 @@
     @layer tokens-browser-theme-nova {
       @media not ((forced-colors) or (-moz-native-theme)) {
         /** button **/
-        /* TODO Bug 1821203 - Gray use needs to be consolidated */
-        --button-background-color: transparent;
         --button-background-color-hover: light-dark(var(--color-violet-desaturated-20), var(--color-violet-desaturated-50));
         --button-background-color-active: light-dark(var(--color-violet-desaturated-30), var(--color-violet-desaturated-40));
         --button-background-color-ghost: var(--button-background-color);
@@ -247,6 +246,9 @@
         --color-accent-primary-hover: light-dark(var(--color-violet-60), var(--color-violet-20));
         --color-accent-primary-active: light-dark(var(--color-violet-70), var(--color-violet-10));
         --color-accent-primary-selected: var(--button-background-color-primary-active);
+
+        /** input **/
+        --input-text-background-color: var(--background-color-box);
 
         /** panel **/
         --panel-background-color: var(--popup-background-color);

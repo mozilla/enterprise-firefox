@@ -63,6 +63,8 @@ skip-if = [
 
 ["browser_autocomplete_insecure_warning.js"]
 
+["browser_autocomplete_secondary_actions.js"]
+
 ["browser_autocomplete_primary_password.js"]
 
 ["browser_autofill_after_paint.js"]

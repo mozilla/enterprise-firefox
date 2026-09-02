@@ -360,6 +360,11 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
     return undefined;
   }
 
+  /**
+   * @param {UrlbarQueryContext} queryContext
+   * @param {UrlbarParentController} controller
+   * @param {object} details
+   */
   onEngagement(queryContext, controller, details) {
     let { result } = details;
 
@@ -661,9 +666,12 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
     Glean.urlbarTrending.block.add(1);
   }
 
-  /*
+  /**
    * Remove all the trending results and show an acknowledgement that the
    * trending suggestions have been turned off.
+   *
+   * @param {UrlbarParentController} controller
+   * @param {UrlbarQueryContext} queryContext
    */
   #replaceTrendingResultWithAcknowledgement(controller, queryContext) {
     let resultsToRemove = queryContext.results.filter(

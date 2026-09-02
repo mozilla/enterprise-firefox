@@ -4006,9 +4006,19 @@ void nsIFrame::BuildDisplayListForStackingContext(
       prerenderInfo.mDecision = nsDisplayTransform::PrerenderDecision::No;
     }
 
+    // A transform does not form a Backdrop Root, so if a descendant has a
+    // backdrop-filter this stacking context must not be used to resolve it,
+    // even though WebRender may give it a surface (e.g. to apply a clip it
+    // inherits). Unless we are forcing isolation, in which case we are the
+    // backdrop root that the descendant should resolve from.
+    const bool forceIsolation = ShouldForceIsolation();
+    const bool wrapsBackdropFilter =
+        usingBackdropFilter ||
+        (!forceIsolation && aBuilder->ContainsBackdropFilter());
+
     nsDisplayTransform* transformItem = MakeDisplayItem<nsDisplayTransform>(
         aBuilder, this, &resultList, visibleRect, prerenderInfo.mDecision,
-        usingBackdropFilter, ShouldForceIsolation());
+        wrapsBackdropFilter, forceIsolation);
     if (transformItem) {
       resultList.AppendToTop(transformItem);
       createdContainer = true;

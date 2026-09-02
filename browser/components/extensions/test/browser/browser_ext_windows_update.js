@@ -52,7 +52,15 @@ add_task(async function () {
 
 add_task(async function testWindowUpdate() {
   let extension = ExtensionTestUtils.loadExtension({
+    manifest: {
+      description: JSON.stringify({
+        isWayland: Services.appinfo.isWayland,
+      }),
+    },
     async background() {
+      const { isWayland } = JSON.parse(
+        browser.runtime.getManifest().description
+      );
       let _checkWindowPromise;
       browser.test.onMessage.addListener(msg => {
         if (msg == "checked-window") {
@@ -140,17 +148,21 @@ add_task(async function testWindowUpdate() {
           { state: "STATE_NORMAL" },
           { width: normalWidth, height: normalHeight }
         );
-        await updateWindow(
-          windowId,
-          { state: "minimized" },
-          { state: "STATE_MINIMIZED" }
-        );
-        await updateWindow(
-          windowId,
-          { state: "normal" },
-          { state: "STATE_NORMAL" },
-          { width: normalWidth, height: normalHeight }
-        );
+        // TODO bug 2063202: Wayland has no way of telling us that a toplevel
+        // has been minimized, so the minimized state is never reported there.
+        if (!isWayland) {
+          await updateWindow(
+            windowId,
+            { state: "minimized" },
+            { state: "STATE_MINIMIZED" }
+          );
+          await updateWindow(
+            windowId,
+            { state: "normal" },
+            { state: "STATE_NORMAL" },
+            { width: normalWidth, height: normalHeight }
+          );
+        }
         await updateWindow(
           windowId,
           { state: "fullscreen" },
@@ -264,6 +276,14 @@ add_task(async function testWindowUpdateParams() {
 });
 
 add_task(async function testPositionBoundaryCheck() {
+  // TODO bug 1989539: Wayland has no request to position a toplevel, so the
+  // window stays wherever the compositor put it and none of the positions below
+  // can be checked. This task checks nothing else, so skip it entirely.
+  if (Services.appinfo.isWayland) {
+    info("Skipping the position checks, which Wayland cannot satisfy.");
+    return;
+  }
+
   const extension = ExtensionTestUtils.loadExtension({
     async background() {
       function waitMessage() {

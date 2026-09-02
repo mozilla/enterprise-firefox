@@ -8,7 +8,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import mozilla.components.ExperimentalAndroidComponentsApi
-import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.feature.ipprotection.store.state.Country
 import mozilla.components.feature.ipprotection.store.state.IPProtectionState
 import mozilla.components.feature.ipprotection.store.state.Recommended
@@ -38,7 +37,6 @@ class IPProtectionLocationMiddleware(
         when (action) {
             is IPProtectionAction.CountryListChanged -> handleCountryListChanged(action, store)
             is IPProtectionAction.LocationChanged -> handleLocationChanged(action)
-            is InternalAction.AccountManagerStateChanged -> handleAccountManagerStateChanged(action)
 
             is IPProtectionAction.AccountStateChanged,
             is IPProtectionAction.CheckAccount,
@@ -51,6 +49,7 @@ class IPProtectionLocationMiddleware(
             is IPProtectionAction.ProxyActivationShown,
             is IPProtectionAction.Toggle,
             is IPProtectionAction.ToggleFailed,
+            is InternalAction.AccountManagerStateChanged,
             is InternalAction.AccountReadyForEnrollment,
             is InternalAction.AwaitingAuth,
             is InternalAction.EligibilityChanged,
@@ -95,11 +94,4 @@ class IPProtectionLocationMiddleware(
             repository.setSelectedLocationCode(null)
         }
     }
-
-    private fun handleAccountManagerStateChanged(action: InternalAction.AccountManagerStateChanged) =
-        coroutineScope.launch {
-            if (action.status == AccountStatus.NoAccount) {
-                repository.setSelectedLocationCode(null)
-            }
-        }
 }

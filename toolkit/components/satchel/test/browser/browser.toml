@@ -16,6 +16,11 @@ skip-if = [
   "verify-standalone",
 ]
 
+["browser_popup_secondary_action.js"]
+skip-if = [
+  "verify-standalone",
+]
+
 ["browser_privbrowsing_perwindowpb.js"]
 skip-if = [
   "verify-standalone",

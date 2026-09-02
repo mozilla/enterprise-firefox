@@ -1460,9 +1460,14 @@
     "forcedColors": "{Theme$button/background/color/disabled}"
   },
   "select/border": {
-    "light": "{Theme$button/border}",
-    "dark": "{Theme$button/border}",
-    "forcedColors": "{Theme$button/border}"
+    "light": "{Primitives$border/width} solid {Theme$select/border/color}",
+    "dark": "{Primitives$border/width} solid {Theme$select/border/color}",
+    "forcedColors": "{Primitives$border/width} solid {Theme$select/border/color}"
+  },
+  "select/border/color": {
+    "light": "{Theme$button/border/color}",
+    "dark": "{Theme$button/border/color}",
+    "forcedColors": "{Theme$button/border/color}"
   },
   "select/border/color/hover": {
     "light": "{Theme$button/border/color/hover}",

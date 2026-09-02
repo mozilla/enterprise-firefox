@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * @typedef {import("../aiwindow/ui/actors/AISmartBarParent.sys.mjs").AISmartBarParent} AISmartBarParent
+ * @import {AISmartBarParent} from "moz-src:///browser/components/aiwindow/ui/actors/AISmartBarParent.sys.mjs"
+ * @import {SmartbarInput} from "chrome://browser/content/urlbar/SmartbarInput.mjs"
  */
 import {
   SkippableTimer,
@@ -181,6 +182,11 @@ export class UrlbarProviderAiChat extends UrlbarProvider {
     }
   }
 
+  /**
+   * @param {UrlbarQueryContext} queryContext
+   * @param {UrlbarParentController & {input: SmartbarInput}} controller
+   * @param {object} details
+   */
   async onEngagement(queryContext, controller, details) {
     let win = controller.input.inputField.documentGlobal;
     /** @type {AISmartBarParent} */
@@ -204,6 +210,7 @@ export class UrlbarProviderAiChat extends UrlbarProvider {
           browser.browsingContext?.currentWindowGlobal?.getActor("AISmartBar");
       }
     } else {
+      // @ts-expect-error bug 1957626
       actor = win.browsingContext?.currentWindowGlobal?.getActor("AISmartBar");
     }
     if (!actor) {

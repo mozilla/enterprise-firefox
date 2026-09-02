@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-08-27T14:56:00.956472+00:00'
+updated_at: '2026-08-30T21:57:49.687851+00:00'
 export:
   path: ./docs/mots/index.md
   format: md
@@ -2501,13 +2501,17 @@ modules:
       group: dev-platform
       components:
         - Core::MFBT
+      review_group: mfbt-reviewers
       owners_emeritus:
         - Jeff Walden
       peers_emeritus:
         - *Ms2ger
     owners:
       - *glandium
-    peers: []
+    peers:
+      - *emilio
+      - *nika
+      - *sergesanspaille
     machine_name: core_mfbt
 
   - name: 'Core: Moz2D (Graphics submodule)'
@@ -4904,5 +4908,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: b8f914ead3d09cf0dbc16f4c98a092330befddb9
-  export: f463dbcca4264713888dd676f02df3dedfb20eb6
+  config: 44effb78a239f368bf8b724e3d1286e35414a1aa
+  export: 7449eea286fe70270789eb90c9f14e5533a72719

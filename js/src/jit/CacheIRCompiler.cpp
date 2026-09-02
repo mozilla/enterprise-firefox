@@ -1580,13 +1580,6 @@ bool CacheIRWriter::stubDataEqualsIgnoringShapeAndOffset(
   return true;
 }
 
-HashNumber CacheIRStubKey::hash(const CacheIRStubKey::Lookup& l) {
-  HashNumber hash = mozilla::HashBytes(l.code, l.length);
-  hash = mozilla::AddToHash(hash, uint32_t(l.kind));
-  hash = mozilla::AddToHash(hash, uint32_t(l.engine));
-  return hash;
-}
-
 bool CacheIRStubKey::match(const CacheIRStubKey& entry,
                            const CacheIRStubKey::Lookup& l) {
   if (entry.stubInfo->kind() != l.kind) {

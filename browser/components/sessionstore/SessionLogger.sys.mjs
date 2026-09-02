@@ -54,10 +54,6 @@ class SessionLogManager extends LogManager {
     );
   }
 
-  get isDebug() {
-    return this.level >= Log.Level.Debug;
-  }
-
   getLogFilename(reasonPrefix = "success") {
     if (!this.#startupTime) {
       this.#startupTime = Services.startup.getStartupInfo().main.getTime();

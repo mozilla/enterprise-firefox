@@ -4,22 +4,12 @@
 
 import { actionTypes as at } from "resource://newtab/common/Actions.mjs";
 import { Dedupe } from "resource:///modules/Dedupe.sys.mjs";
-// Namespace import: a named import of an export missing on older train-hop
-// platforms is a link error; a namespace member is just undefined.
-import * as PlatformTopSitesConstants from "resource:///modules/topsites/constants.mjs";
 
 export {
   TOP_SITES_DEFAULT_ROWS,
+  TOP_SITES_MAX_ROWS,
   TOP_SITES_MAX_SITES_PER_ROW,
 } from "resource:///modules/topsites/constants.mjs";
-
-// @backward-compat { version 154 }
-// TOP_SITES_MAX_ROWS lands in platform constants.mjs in 154; until that reaches
-// Release it's absent on train-hop, so fall back to 4. At 154-Release: drop the
-// namespace import above, delete this shim, and add TOP_SITES_MAX_ROWS to the
-// re-export block above.
-export const TOP_SITES_MAX_ROWS =
-  PlatformTopSitesConstants.TOP_SITES_MAX_ROWS ?? 4;
 
 const dedupe = new Dedupe(site => site && site.url);
 

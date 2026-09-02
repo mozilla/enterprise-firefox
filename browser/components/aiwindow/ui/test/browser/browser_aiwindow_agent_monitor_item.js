@@ -169,7 +169,12 @@ add_task(async function test_preset_updates_condition() {
 add_task(async function test_submit_and_delete_dispatch_detail() {
   await withTestPage(async browser => {
     await setProps(browser, {
-      agent: AGENT,
+      // A schedule the card seeds from, so the submitted one doesn't depend on
+      // the form's clock-based default
+      agent: {
+        ...AGENT,
+        schedule: { frequency: "daily", time: "09:00", weekday: 1 },
+      },
       mode: "display",
       expanded: true,
       editing: true,
@@ -593,6 +598,50 @@ add_task(async function test_create_mode_empty_state_inputs() {
         ["https://example.com/product"],
         "submit carries the added page URL"
       );
+    });
+  });
+});
+
+add_task(async function test_create_mode_defaults_time_to_next_slot() {
+  await withTestPage(async browser => {
+    await SpecialPowers.spawn(browser, [], async () => {
+      const SLOTS_PER_DAY = 48;
+      const slotValue = date => {
+        const slot =
+          Math.ceil((date.getHours() * 60 + date.getMinutes()) / 30) %
+          SLOTS_PER_DAY;
+        const hour = Math.floor(slot / 2);
+        return `${String(hour).padStart(2, "0")}:${slot % 2 ? "30" : "00"}`;
+      };
+
+      // The card computes its default in its constructor, so bracket that call
+      // with timestamps: the only acceptable values are the slots those two
+      // instants map to, which collapse to one unless a boundary was crossed.
+      const before = new Date();
+      const el = content.document.createElement("agent-monitor-item");
+      const after = new Date();
+
+      const accepted = [...new Set([slotValue(before), slotValue(after)])];
+
+      el.mode = "create";
+      content.document.body.append(el);
+      await el.updateComplete;
+
+      const timeSelect = el.shadowRoot.querySelectorAll(
+        "moz-select.form-select"
+      )[1];
+      Assert.ok(
+        accepted.includes(timeSelect.value),
+        `Time defaults to the upcoming half-hour slot, got ${timeSelect.value}, expected one of ${accepted}`
+      );
+      Assert.ok(
+        [...el.shadowRoot.querySelectorAll("moz-option")].some(
+          opt => opt.value === timeSelect.value
+        ),
+        "The default is a value the time dropdown actually offers"
+      );
+
+      el.remove();
     });
   });
 });
