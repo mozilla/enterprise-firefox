@@ -12,6 +12,15 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () => {
   ).getFxAccountsSingleton();
 });
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
+});
+
+const CONSENT_REQUIRED_PREFS = [
+  "services.sync.engine.passwords",
+  "services.sync.engine.creditcards",
+];
+
 Preferences.addAll([
   { id: "services.sync.engine.addons", type: "bool" },
   { id: "services.sync.engine.bookmarks", type: "bool" },
@@ -27,6 +36,11 @@ let gSyncChooseWhatToSync = {
   init() {
     this._setupEventListeners();
     this._adjustForPrefs();
+
+    if (lazy.AppConstants.MOZ_ENTERPRISE) {
+      this._showManagedNotice();
+    }
+
     let options = window.arguments[0];
     if (options.disconnectFun && Services.policies.isAllowed("sync")) {
       // Offer 'Disconnect' functionality if it was provided
@@ -42,6 +56,22 @@ let gSyncChooseWhatToSync = {
       document.getElementById("syncChooseOptions").getButton("extra2").hidden =
         true;
     }
+  },
+
+  // Enterprise Sync is encrypted at rest but not end-to-end encrypted: the
+  // management console holds the key. Passwords and payment methods therefore
+  // only sync when the user opts in on this dialog, unless policy has locked
+  // them off, in which case the notice must not claim they can be turned on.
+  _showManagedNotice() {
+    const optInPossible = CONSENT_REQUIRED_PREFS.some(
+      pref => !Services.prefs.prefIsLocked(pref)
+    );
+    const notice = document.getElementById("syncManagedNotice");
+    document.l10n.setAttributes(
+      notice,
+      optInPossible ? "sync-managed-dialog" : "sync-managed-dialog-locked"
+    );
+    notice.hidden = false;
   },
 
   // make whatever tweaks we need based on preferences.

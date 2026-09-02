@@ -1482,6 +1482,14 @@ prefs-syncing-button-2 =
     .label = Syncing…
     .title = Sync now
 
+# Shown in enterprise builds, where Sync data is stored encrypted but the
+# management console holds the key (so it is not end-to-end encrypted). The
+# passwords and payment method checkboxes are in the "Choose what to sync"
+# dialog rather than on this pane, which is why this avoids saying "here".
+sync-managed-pane =
+    .heading = Your organization manages Sync on this device
+    .message = Your synced data is encrypted, and your organization can access it. Passwords and payment methods only sync if you choose to turn them on.
+
 ## The list of things currently syncing.
 
 sync-syncing-across-devices-heading = You are syncing these items across all your connected devices:
@@ -1521,6 +1529,18 @@ sync-choose-what-to-sync-dialog4 =
     .buttonaccesskeyaccept = S
     .buttonlabelextra2 = Disconnect…
     .buttonaccesskeyextra2 = D
+
+# Shown in enterprise builds, where Sync data is stored encrypted but the
+# management console holds the key (so it is not end-to-end encrypted).
+sync-managed-dialog =
+    .heading = Your organization manages Sync on this device
+    .message = Your synced data is encrypted, and your organization can access it. Passwords and payment methods only sync if you turn them on here.
+
+# Same as sync-managed-dialog, but shown when policy has locked the passwords and
+# payment method checkboxes off, so the user cannot turn them on.
+sync-managed-dialog-locked =
+    .heading = Your organization manages Sync on this device
+    .message = Your synced data is encrypted, and your organization can access it.
 
 sync-engine-bookmarks =
     .label = Bookmarks

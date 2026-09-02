@@ -92,6 +92,10 @@ run-if = ["enterprise"]
 
 ["test_sorted_alphabetically.js"]
 
+["test_sync.js"]
+# The Sync policy only exists in enterprise builds.
+run-if = ["enterprise"]
+
 ["test_telemetry.js"]
 
 ["test_watermark.js"]

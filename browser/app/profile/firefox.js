@@ -3109,6 +3109,16 @@ pref("browser.crashReports.cleanupCheck.enabled", true);
 // Checkbox in sync options for credit card data sync service
 pref("services.sync.engine.creditcards.available", true);
 
+#ifdef MOZ_ENTERPRISE
+// In enterprise builds, Sync data is encrypted at rest but not end-to-end
+// encrypted (the management console holds the key), so passwords and payment
+// methods must never sync unless the user explicitly opts in locally. Default
+// both engines off (upstream defaults passwords on); leave `.available` on so
+// the user can still turn them on themselves.
+pref("services.sync.engine.passwords", false);
+pref("services.sync.engine.creditcards", false);
+#endif
+
 // Whether or not to restore a session with lazy-browser tabs.
 pref("browser.sessionstore.restore_tabs_lazily", true);
 

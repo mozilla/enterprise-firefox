@@ -64,6 +64,12 @@
         role="status"
         message="Test message"
       ></moz-message-bar>
+      <moz-message-bar
+        id="customIconMessage"
+        type="warning"
+        iconsrc="chrome://global/skin/icons/organizational-unit.svg"
+        message="Test message"
+      ></moz-message-bar>
     </div>
     <script class="testbody" type="application/javascript">
       add_task(async function test_component_declaration() {
@@ -166,6 +172,37 @@
         ok(iconUrl.includes("error.svg"), "Error icon is showing up.");
         const iconAlt = icon.alt;
         is(iconAlt, "Error", "Alternate text for the error icon is present.");
+      });
+
+      add_task(async function test_custom_icon() {
+        const mozMessageBar = document.querySelector("#customIconMessage");
+        const icon = mozMessageBar.shadowRoot.querySelector(".icon");
+        ok(
+          icon.src.includes("organizational-unit.svg"),
+          "iconsrc overrides the icon the type would select."
+        );
+        is(
+          icon.alt,
+          "",
+          "The overriding icon is decorative, so it has an empty alt."
+        );
+        ok(
+          !icon.hasAttribute("data-l10n-id"),
+          "The type's icon l10n ID is not applied to the overriding icon."
+        );
+
+        mozMessageBar.iconSrc = undefined;
+        await mozMessageBar.updateComplete;
+        const fallbackIcon = mozMessageBar.shadowRoot.querySelector(".icon");
+        ok(
+          fallbackIcon.src.includes("warning.svg"),
+          "Clearing iconsrc falls back to the icon for the type."
+        );
+        is(
+          fallbackIcon.alt,
+          "Warning",
+          "The fallback icon keeps its alternate text."
+        );
       });
 
       add_task(async function test_support_page_attribute() {

@@ -500,6 +500,16 @@ Preferences.addSetting({
   },
 });
 
+// Enterprise Sync is encrypted at rest but not end-to-end encrypted: the
+// management console holds the key. Disclose that wherever the user can turn
+// Sync on, so this sits above the rest of the group in every account state.
+Preferences.addSetting({
+  id: "syncManagedNotice",
+  visible() {
+    return AppConstants.MOZ_ENTERPRISE;
+  },
+});
+
 // Sync section - Syncing is OFF
 Preferences.addSetting({
   id: "syncNotConfigured",
@@ -979,6 +989,15 @@ SettingGroupManager.registerGroups({
     iconSrc: "chrome://browser/skin/sync.svg",
     hidden: !accountsEnabled,
     items: [
+      {
+        id: "syncManagedNotice",
+        control: "moz-message-bar",
+        l10nId: "sync-managed-pane",
+        iconSrc: "chrome://global/skin/icons/organizational-unit.svg",
+        controlAttrs: {
+          role: "status",
+        },
+      },
       {
         id: "syncNoFxaSignIn",
         l10nId: "sync-signedout-account-signin-4",

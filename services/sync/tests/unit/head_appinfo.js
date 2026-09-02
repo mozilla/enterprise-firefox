@@ -22,6 +22,25 @@ Services.prefs.setStringPref(
   "http://token-server"
 );
 
+// Enterprise builds default the passwords engine off, since syncing it requires
+// an explicit local opt-in, but these tests assume the upstream default. This
+// has to go on the default branch rather than be a user pref, because some
+// tests clear every user pref under services.sync. between tasks.
+// AppConstants is imported inline because several tests in this directory
+// declare `const AppConstants` themselves, and head files share their global.
+if (
+  ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs")
+    .AppConstants.MOZ_ENTERPRISE
+) {
+  const syncEngineDefaults = Services.prefs.getDefaultBranch(
+    "services.sync.engine."
+  );
+  syncEngineDefaults.setBoolPref("passwords", true);
+  registerCleanupFunction(() => {
+    syncEngineDefaults.setBoolPref("passwords", false);
+  });
+}
+
 // Make sure to provide the right OS so crypto loads the right binaries
 function getOS() {
   switch (mozinfo.os) {
