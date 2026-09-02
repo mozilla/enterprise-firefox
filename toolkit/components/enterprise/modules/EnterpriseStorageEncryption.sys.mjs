@@ -10,7 +10,17 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
 });
 
+const PROFILE_ENCRYPTION_KEK_ID = "profileEncryption";
+const PROFILE_ENCRYPTION_KEK_REF = `lockstore::kek::password:${PROFILE_ENCRYPTION_KEK_ID}`;
+// Lockstore treats 0 as "don't cache" and clamps large values, so this is
+// effectively "unlocked for the whole session".
+const KEK_CACHE_TIMEOUT_MS = 2 ** 32;
+
 export const EnterpriseStorageEncryption = {
+  get PROFILE_ENCRYPTION_KEK_REF() {
+    return PROFILE_ENCRYPTION_KEK_REF;
+  },
+
   async init() {
     if (
       AppConstants.MOZ_ENTERPRISE &&
@@ -81,9 +91,55 @@ export const EnterpriseStorageEncryption = {
       );
       if (!sdr.login(primarySecret) || !pk11token.isLoggedIn) {
         fail("Internal token not logged in after unlock");
+        return;
       }
     } catch (e) {
       fail("SDR login failed", e);
+      return;
     }
+
+    try {
+      await this.ensureProfileEncryptionKek(primarySecret);
+    } catch (e) {
+      fail("Failed to unlock the profileEncryption KEK", e);
+    }
+  },
+
+  /**
+   * Unlock-or-create the `lockstore::kek::password:profileEncryption` KEK
+   * keyed by the console primarySecret, leaving it unlocked for the session.
+   *
+   * @param {string} primarySecret
+   * @returns {Promise<string>} the kekRef
+   */
+  async ensureProfileEncryptionKek(primarySecret) {
+    const lockstore = Cc["@mozilla.org/security/lockstore;1"].getService(
+      Ci.nsILockstore
+    );
+    try {
+      await lockstore.unlockKek(
+        PROFILE_ENCRYPTION_KEK_REF,
+        primarySecret,
+        KEK_CACHE_TIMEOUT_MS
+      );
+      return PROFILE_ENCRYPTION_KEK_REF;
+    } catch (e) {
+      // NOT_AVAILABLE / INVALID_ARG mean the KEK does not exist yet; anything
+      // else (notably NS_ERROR_ABORT on a wrong secret) is a real failure.
+      if (
+        e.result !== Cr.NS_ERROR_NOT_AVAILABLE &&
+        e.result !== Cr.NS_ERROR_INVALID_ARG
+      ) {
+        throw e;
+      }
+    }
+    // createKek with a fixed identifier is get-or-create and, for a fresh
+    // Password KEK, also caches it for cacheTimeoutMs.
+    return lockstore.createKek(
+      "password",
+      PROFILE_ENCRYPTION_KEK_ID,
+      primarySecret,
+      KEK_CACHE_TIMEOUT_MS
+    );
   },
 };
