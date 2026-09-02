@@ -9,6 +9,7 @@ policy-DataLossPrevention = Enable and configure built-in data loss prevention (
 policy-DisableLocalPolicies = Disable all local policy sources (policies.json, Windows GPO and macOS plist).
 policy-EnterpriseStorageEncryption = Enable enterprise-managed primary password for encrypted storage.
 policy-SecurityLogging = Enable and configure security logging/telemetry for security-relevant events.
+policy-SignOut = Configure sign-out behavior for enterprise users.
 policy-Sync = Enable or disable sync and define which data to include.
 policy-CrashReportsSubmit = Configure crash report submission settings.
 policy-Watermark = Display a tiled, diagonal watermark over a list of websites.
