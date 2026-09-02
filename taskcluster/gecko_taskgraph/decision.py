@@ -5,6 +5,7 @@
 import logging
 import os
 import shutil
+import subprocess
 import sys
 import time
 from collections import defaultdict
@@ -300,6 +301,43 @@ def taskgraph_decision(options, parameters):
     )
 
 
+COMM_DECISION_REPOSITORY = "https://github.com/thunderbird/thunderbird-desktop"
+
+# enterprise-firefox release branches do not share names with their
+# thunderbird-desktop counterparts, so the mapping is explicit. Anything else
+# (feature branches, pull requests, try) builds against comm main.
+COMM_DECISION_REF_BY_HEAD_REF = {
+    "refs/heads/enterprise-main": "refs/heads/main",
+    "refs/heads/enterprise-beta": "refs/heads/beta",
+    "refs/heads/enterprise-release": "refs/heads/release",
+}
+COMM_DECISION_DEFAULT_REF = "refs/heads/main"
+
+
+def set_comm_decision_parameters(parameters):
+    """Resolve the thunderbird-desktop revision the comm decision task will build.
+
+    The lookup happens here, in the decision task, so that the revision is
+    recorded in ``parameters.yml`` and baked into the comm decision task
+    definition published in ``task-graph.json``. Resolving it later, inside the
+    comm decision task itself, would leave the revision unattested.
+    """
+    comm_ref = COMM_DECISION_REF_BY_HEAD_REF.get(
+        parameters.get("head_ref"), COMM_DECISION_DEFAULT_REF
+    )
+
+    output = subprocess.check_output(
+        ["git", "ls-remote", COMM_DECISION_REPOSITORY, comm_ref],
+        text=True,
+    )
+    if not output.strip():
+        raise RuntimeError(f"{comm_ref} does not exist in {COMM_DECISION_REPOSITORY}")
+
+    parameters["comm_decision_repository"] = COMM_DECISION_REPOSITORY
+    parameters["comm_decision_ref"] = comm_ref
+    parameters["comm_decision_rev"] = output.split()[0]
+
+
 def get_decision_parameters(graph_config, options):
     """
     Load parameters from the command-line options for 'taskgraph decision'.
@@ -359,6 +397,7 @@ def get_decision_parameters(graph_config, options):
         parameters["files_changed"] = repo.get_changed_files(
             rev=parameters["head_rev"], base=parameters["base_rev"]
         )
+        set_comm_decision_parameters(parameters)
 
     # Define default filter list, as most configurations shouldn't need
     # custom filters.

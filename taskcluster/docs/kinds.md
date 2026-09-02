@@ -58,6 +58,13 @@ endpoint for notarizing apps.
 Downstream tasks switch to build-mac-signing in non-shippable builds or level 1
 environments.
 
+## comm-decision
+
+The Thunderbird decision task for enterprise builds. It checks out
+thunderbird-desktop at the revision resolved by this decision task and runs
+`mach taskgraph decision --root=comm/taskcluster` to generate the Thunderbird
+half of the graph.
+
 ## complete
 
 Barrier tasks that resolve once all their dependencies have completed

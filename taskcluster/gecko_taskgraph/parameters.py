@@ -90,6 +90,13 @@ class GeckoParametersSchema(Schema, kw_only=True, rename=None):
     head_git_repository: Optional[str] = None
     head_git_rev: Optional[str] = None
     pull_request_number: Optional[int] = None
+    # thunderbird-desktop repository and revision the comm decision task builds.
+    # Deliberately not named ``comm_head_*``: those names select the comm
+    # parameter set in graph config and would redirect gecko's own
+    # ``files_changed`` and treeherder platform handling at the comm repository.
+    comm_decision_repository: Optional[str] = None
+    comm_decision_ref: Optional[str] = None
+    comm_decision_rev: Optional[str] = None
 
 
 def get_contents(path):

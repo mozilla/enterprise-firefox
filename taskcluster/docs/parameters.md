@@ -127,6 +127,23 @@ topic.
 
 : Set (to `true`) when the commit message requested that no tasks run on this push.
 
+`comm_decision_repository`
+
+: The thunderbird-desktop repository the comm decision task builds from. Unset
+  when this push has no comm decision task.
+
+`comm_decision_ref`
+
+: The thunderbird-desktop ref `comm_decision_rev` was resolved from, mapped from
+  `head_ref`. Enterprise release branches map to their thunderbird-desktop
+  counterparts; everything else maps to `refs/heads/main`.
+
+`comm_decision_rev`
+
+: The thunderbird-desktop revision the comm decision task builds. Resolved in the
+  decision task so that it is recorded here and in the published task graph
+  rather than looked up again at task runtime.
+
 ## Tree Information
 
 `project`

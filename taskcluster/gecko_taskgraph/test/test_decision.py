@@ -254,5 +254,64 @@ def test_decision_parameters_note_invalid_json(
             decision.get_decision_parameters(FAKE_GRAPH_CONFIG, opts)
 
 
+@pytest.mark.parametrize(
+    "project,head_ref,expected_ref",
+    (
+        pytest.param(
+            "enterprise-firefox",
+            "refs/heads/enterprise-main",
+            "refs/heads/main",
+            id="main",
+        ),
+        pytest.param(
+            "enterprise-firefox",
+            "refs/heads/enterprise-beta",
+            "refs/heads/beta",
+            id="beta",
+        ),
+        pytest.param(
+            "enterprise-firefox-try",
+            "refs/heads/some-try-push",
+            "refs/heads/main",
+            id="try",
+        ),
+        pytest.param(
+            "enterprise-firefox",
+            "refs/heads/some-feature-branch",
+            "refs/heads/main",
+            id="feature-branch",
+        ),
+    ),
+)
+def test_set_comm_decision_parameters(project, head_ref, expected_ref):
+    parameters = {"project": project, "head_ref": head_ref}
+    with patch.object(
+        decision.subprocess,
+        "check_output",
+        return_value=f"d363f05c22a504aee54ac640a728b7732cfe75e7\t{expected_ref}\n",
+    ) as check_output:
+        decision.set_comm_decision_parameters(parameters)
+
+    check_output.assert_called_once_with(
+        ["git", "ls-remote", decision.COMM_DECISION_REPOSITORY, expected_ref],
+        text=True,
+    )
+    assert parameters["comm_decision_repository"] == decision.COMM_DECISION_REPOSITORY
+    assert parameters["comm_decision_ref"] == expected_ref
+    assert (
+        parameters["comm_decision_rev"] == "d363f05c22a504aee54ac640a728b7732cfe75e7"
+    )
+
+
+def test_set_comm_decision_parameters_missing_ref():
+    parameters = {
+        "project": "enterprise-firefox",
+        "head_ref": "refs/heads/enterprise-main",
+    }
+    with patch.object(decision.subprocess, "check_output", return_value="\n"):
+        with pytest.raises(RuntimeError, match="does not exist in"):
+            decision.set_comm_decision_parameters(parameters)
+
+
 if __name__ == "__main__":
     main()

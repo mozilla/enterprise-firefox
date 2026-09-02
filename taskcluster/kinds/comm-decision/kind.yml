@@ -1,0 +1,54 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - gecko_taskgraph.transforms.comm_decision:pre_job_transforms
+    - gecko_taskgraph.transforms.job:transforms
+    - gecko_taskgraph.transforms.comm_decision:post_job_transforms
+    - gecko_taskgraph.transforms.task:transforms
+
+tasks:
+    comm-decision:
+        label: comm-decision
+        description: The task that creates all Thunderbird tasks in the task graph
+        run-on-projects: ['enterprise-firefox']
+        worker-type: decision
+        # 1 second so the artifacts, which default to 1 year, expire first.
+        expires-after: 1 year 1 second
+        treeherder:
+            symbol: DC
+            kind: other
+            tier: 1
+            platform: gecko-decision/opt
+        worker:
+            docker-image: 'mozillareleases/taskgraph:run-task-latest'
+            max-run-time: 1800
+            chain-of-trust: true
+            taskcluster-proxy: true
+            allow-ptrace: false
+            # The upstream taskgraph image is not introspected for VOLUMEs the
+            # way in-tree images are, so declare them: without these the
+            # checkout cache fails check_caches_are_volumes and run-task warns
+            # that the checkout is neither cached nor on a volume.
+            volumes:
+                - /builds/worker/checkouts
+                - /builds/worker/artifacts
+            env:
+                MOZ_AUTOMATION: '1'
+            artifacts:
+                - type: directory
+                  name: public
+                  path: /builds/worker/artifacts
+                  expires-after: 1 year
+                - type: directory
+                  name: public/docker-contexts
+                  path: /builds/worker/checkouts/gecko/docker-contexts
+                  expires-after: 7 days
+        run:
+            using: run-task
+            cwd: '{checkout}'
+            # Replaced by gecko_taskgraph.transforms.comm_decision.
+            command: 'false'

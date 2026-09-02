@@ -648,6 +648,12 @@ def target_tasks_enterprise_firefox_with_tests(
 
     selected = [l for l in filtered_for_project if filter(full_task_graph[l])]
 
+    selected += [
+        label
+        for label, task in full_task_graph.tasks.items()
+        if task.kind == "comm-decision" and label not in selected
+    ]
+
     level = int(parameters["level"])
     # Make sure to always schedule, but on PR only
     selected += [

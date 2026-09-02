@@ -2973,7 +2973,15 @@ def check_run_task_caches(config, tasks):
                     "cache name" % (task["label"], cache)
                 )
 
-            if not cache.endswith(suffix):
+            # Cache names for out-of-tree images carry an extra hash of the
+            # image name; mirror that here or the check can never pass for them.
+            expected_suffix = suffix
+            if isinstance(payload.get("image"), str):
+                expected_suffix += hashlib.sha256(
+                    payload["image"].encode("utf-8")
+                ).hexdigest()[0:12]
+
+            if not cache.endswith(expected_suffix):
                 raise Exception(
                     "%s is using a cache (%s) reserved for run-task "
                     "but the cache name is not dependent on the contents "
