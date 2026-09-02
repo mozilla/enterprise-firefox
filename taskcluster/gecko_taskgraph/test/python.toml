@@ -9,6 +9,9 @@ subsuite = "taskgraph"
 
 ["test_files_changed.py"]
 
+["test_filter_tasks.py"]
+run-if = ["enterprise"]
+
 ["test_main.py"]
 
 ["test_morph.py"]
