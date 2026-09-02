@@ -44,10 +44,15 @@ add_task(async function test_store_encrypts_and_persists() {
     .resolves("encrypted(refresh-token)");
   const decrypt = sinon.stub(OSKeyStore, "decrypt").resolves("refresh-token");
   try {
-    await FeltLocking.store("refresh-token");
+    await FeltLocking.store("refresh-token", "user-123");
     Assert.ok(
       encrypt.calledOnceWithExactly("refresh-token"),
       "encrypts the plaintext refresh token"
+    );
+    Assert.equal(
+      lazy.FeltStorage.getLockingUserId(EMAIL),
+      "user-123",
+      "the user id is persisted alongside the token"
     );
     Assert.equal(
       await lazy.FeltStorage.getLockingToken(EMAIL),
@@ -66,7 +71,7 @@ add_task(async function test_store_throws_when_no_user_known() {
   const encrypt = sinon.stub(OSKeyStore, "encrypt");
   try {
     await Assert.rejects(
-      FeltLocking.store("refresh-token"),
+      FeltLocking.store("refresh-token", "user-123"),
       /no signed-in user/,
       "rejects so the caller can fall back to signing out"
     );
@@ -74,6 +79,32 @@ add_task(async function test_store_throws_when_no_user_known() {
   } finally {
     encrypt.restore();
     lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  }
+});
+
+add_task(async function test_store_throws_when_token_or_user_id_missing() {
+  // An empty token offers an unlock that can never succeed; a missing user id
+  // would resume into the profile shared by every user.
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  const encrypt = sinon.stub(OSKeyStore, "encrypt");
+  try {
+    await Assert.rejects(
+      FeltLocking.store("", "user-123"),
+      /missing refresh token or user id/,
+      "rejects on an empty refresh token"
+    );
+    await Assert.rejects(
+      FeltLocking.store("refresh-token", undefined),
+      /missing refresh token or user id/,
+      "rejects on a missing user id"
+    );
+    Assert.ok(encrypt.notCalled, "does not encrypt when validation fails");
+    Assert.ok(
+      !lazy.FeltStorage.hasLockingToken(EMAIL),
+      "nothing is persisted when validation fails"
+    );
+  } finally {
+    encrypt.restore();
   }
 });
 

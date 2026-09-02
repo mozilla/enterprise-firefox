@@ -142,6 +142,30 @@ add_task(async function test_tokens_are_isolated_per_email() {
   lazy.FeltStorage.clearLockingToken(EMAIL_B);
 });
 
+add_task(async function test_set_does_not_resurrect_a_cleared_record() {
+  // A signout can clear the record while an update is suspended in encrypt();
+  // the late write must not put the credential back on disk.
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "token-1");
+
+  let resolveEncrypt;
+  OSKeyStore.encrypt.callsFake(
+    () => new Promise(resolve => (resolveEncrypt = resolve))
+  );
+  try {
+    const pendingUpdate = lazy.FeltStorage.setLockingToken(EMAIL_A, "token-2");
+    lazy.FeltStorage.clearLockingToken(EMAIL_A);
+    resolveEncrypt("enc(token-2)");
+    await pendingUpdate;
+
+    Assert.ok(
+      !lazy.FeltStorage.hasLockingToken(EMAIL_A),
+      "an update that lost the race against a clear is dropped"
+    );
+  } finally {
+    OSKeyStore.encrypt.callsFake(async plaintext => `enc(${plaintext})`);
+  }
+});
+
 add_task(async function test_clear_missing_is_noop() {
   // Clearing a token that was never stored must not throw.
   lazy.FeltStorage.clearLockingToken("nobody@example.com");

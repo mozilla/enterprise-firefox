@@ -52,6 +52,12 @@ const PROCESS_START_REASON = {
   CRASH: "crash",
 };
 
+const FIREFOX_EXIT_MESSAGE = {
+  LOCKED: "FeltParent:FirefoxLockExit",
+  CLOSED: "FeltParent:FirefoxNormalExit",
+  SIGNED_OUT: "FeltParent:FirefoxLogoutExit",
+};
+
 export function queueURL(payload) {
   // If Firefox AND Felt are both ready, forward immediately
   if (
@@ -328,6 +334,15 @@ export class FeltProcessParent extends JSProcessActorParent {
           case "felt-firefox-lock":
             gFeltProcessParentInstance.lockFirefox().catch(err => {
               lazy.log.error(`Lock failed: ${err}`);
+              // A lock that failed past its own fallback must not leave the
+              // browser running against a half-torn-down session.
+              try {
+                gFeltProcessParentInstance._shutdownAndReportExit(
+                  FIREFOX_EXIT_MESSAGE.CLOSED
+                );
+              } catch (e) {
+                lazy.log.error(`Shutdown after failed lock failed: ${e}`);
+              }
             });
             break;
 
@@ -355,7 +370,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             // last posture rather than measuring a new one (see PostureMonitor).
             gBrowserRefresh = lazy.PostureMonitor.postureForRefresh()
               .then(({ posture, measuredAt }) =>
-                client.refreshTokens({ posture }).then(result => {
+                client.refreshTokens({ posture }).then(async result => {
                   const { posture: postureConfig, postureSubmitted } = result;
                   // The tokens are stored by refreshTokens; a response that
                   // outlived its session must not reach the dead browser or
@@ -368,15 +383,18 @@ export class FeltProcessParent extends JSProcessActorParent {
                   }
                   lazy.log.debug("refreshTokens successful");
                   Services.felt.sendAccessToken();
-                  // A keystore failure must not tear down an otherwise
-                  // healthy session.
-                  lazy.FeltLocking.updateStoredToken(
-                    result.refresh_token
-                  ).catch(err => {
+                  try {
+                    // Awaited so the gBrowserRefresh drain covers the write
+                    // and teardown cannot race it. A keystore failure must
+                    // not tear down an otherwise healthy session.
+                    await lazy.FeltLocking.updateStoredToken(
+                      result.refresh_token
+                    );
+                  } catch (err) {
                     lazy.log.warn(
                       `Failed to update the stored locked-session token on refresh: ${err}`
                     );
-                  });
+                  }
                   gFeltProcessParentInstance._storeEdrAgents(
                     postureConfig?.edr_agents
                   );
@@ -1087,18 +1105,23 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Shut the spawned Firefox down and, once it has exited, tell the browser
+   * Shut the spawned Firefox down and, once it has exited, tell the FELT
    * process how the session ended so it can quit or return to the login window.
    *
-   * @param {string} reason "logout" or "lock".
+   * @param {string} exitMessage A FIREFOX_EXIT_MESSAGE value: LOCKED to quit
+   *   keeping the stored token, CLOSED to sign out and quit, or SIGNED_OUT to
+   *   return to the login window.
    */
-  _shutdownAndReportExit(reason) {
+  _shutdownAndReportExit(exitMessage) {
     Services.felt.shutdownFirefox();
-    gFeltProcessParentInstance.proc.exitPromise.then(_ => {
-      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
-        reason,
-      });
-    });
+    const report = () => {
+      Services.cpmm.sendAsyncMessage(exitMessage, {});
+    };
+    if (gFeltProcessParentInstance.proc) {
+      gFeltProcessParentInstance.proc.exitPromise.then(report);
+    } else {
+      report();
+    }
   }
 
   /**
@@ -1133,7 +1156,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     clearAllTokens();
-    this._shutdownAndReportExit("logout");
+    this._shutdownAndReportExit(FIREFOX_EXIT_MESSAGE.SIGNED_OUT);
   }
 
   /**
@@ -1158,7 +1181,6 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     await this._drainPendingRefresh();
 
-    let locked = true;
     try {
       // Reaching here means the browser already decided to lock (it owns the
       // locking pref and only sends the lock signal when enabled), so persist
@@ -1168,21 +1190,16 @@ export class FeltProcessParent extends JSProcessActorParent {
         this.loggedInUserInfo?.id
       );
     } catch (err) {
-      // If we cannot persist the session there is nothing to unlock later, so
-      // fall back to a server signout rather than leaving a dangling session
-      // behind, and drop any stale stored token.
-      locked = false;
       lazy.log.error(`Locking failed, falling back to signout: ${err}`);
-      lazy.FeltLocking.clear();
-      try {
-        await lazy.ConsoleClient.performServerSignout();
-      } catch (e) {
-        lazy.log.error(`Server signout failed: ${e}`);
-      }
+      // Nothing to unlock later, so end the session the way a plain close
+      // does. That path posts the server signout, drops any stale stored
+      // token and clears the tokens it authenticates with, so leave them be.
+      this._shutdownAndReportExit(FIREFOX_EXIT_MESSAGE.CLOSED);
+      return;
     }
 
     Services.felt.clearTokens();
-    this._shutdownAndReportExit(locked ? "lock" : "logout");
+    this._shutdownAndReportExit(FIREFOX_EXIT_MESSAGE.LOCKED);
   }
 
   async receiveMessage(message) {
@@ -1219,6 +1236,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             );
             // Resume into the per-user profile the locked session used.
             this.loggedInUserInfo = { id: user_id, email };
+            lazy.FeltStorage.updateLastSignedInUserEmail(email);
             lazy.EdrAgents.write(postureConfig?.edr_agents);
           } else {
             // The profile is derived from the user id, so without one the session

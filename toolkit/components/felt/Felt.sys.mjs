@@ -208,6 +208,7 @@ export class Felt {
 
   _feltMessageListeners = [
     "FeltParent:FirefoxNormalExit",
+    "FeltParent:FirefoxLockExit",
     "FeltParent:FirefoxRestartUpdateExit",
     "FeltParent:FirefoxLogoutExit",
     "FeltParent:FirefoxAbnormalExit",
@@ -278,6 +279,15 @@ export class Felt {
         break;
       }
 
+      case "FeltParent:FirefoxLockExit": {
+        Services.ppmm.removeMessageListener("FeltParent:FirefoxLockExit", this);
+
+        // The session stays alive behind the stored token, so unlike a normal
+        // exit this neither signs out nor drops it.
+        this.#quitOrHoldForShutdown();
+        break;
+      }
+
       case "FeltParent:FirefoxRestartUpdateExit": {
         Services.ppmm.removeMessageListener(
           "FeltParent:FirefoxRestartUpdateExit",
@@ -310,13 +320,8 @@ export class Felt {
       }
 
       case "FeltParent:FirefoxLogoutExit": {
-        // A lock quits so the session resumes next launch; other reasons sign out.
-        if (message.data?.reason === "lock") {
-          this.#quitOrHoldForShutdown();
-        } else {
-          Services.felt.makeBackgroundProcess(false);
-          this.showWindow();
-        }
+        Services.felt.makeBackgroundProcess(false);
+        this.showWindow();
         break;
       }
 

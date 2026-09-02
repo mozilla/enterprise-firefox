@@ -146,7 +146,13 @@ export const FeltStorage = {
    * @returns {Promise<void>}
    */
   async setLockingToken(email, token, userId) {
+    const existedBefore = this.hasLockingToken(email);
     const ciphertext = await lazy.OSKeyStore.encrypt(token);
+    // A signout may have cleared the record while encrypt() was pending;
+    // writing now would resurrect the credential.
+    if (existedBefore && !this.hasLockingToken(email)) {
+      return;
+    }
     if (!this._feltStorage.data.lockingTokens) {
       this._feltStorage.data.lockingTokens = {};
     }

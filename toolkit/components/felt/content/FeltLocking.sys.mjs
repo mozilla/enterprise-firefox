@@ -28,11 +28,13 @@ export const FeltLocking = {
    * Attempt to resume a previously locked session for the given user. Requires
    * OS-level authentication and a stored, still-valid refresh token.
    *
-   * @param {string} email
+   * @param {string} rawEmail
    * @param {Element} browser
    * @returns {Promise<boolean>} Whether the session was successfully unlocked.
    */
-  tryUnlock: async (email, browser) => {
+  tryUnlock: async (rawEmail, browser) => {
+    const email = rawEmail.trim();
+
     // A stored token exists only because a browser-authorized lock created it,
     // so its presence is the authorization to resume: the locking pref lives in
     // the browser process, which the Felt UI process cannot read.
@@ -67,9 +69,14 @@ export const FeltLocking = {
         try {
           tokenData = await lazy.ConsoleClient.refreshTokens();
 
+          // refreshTokens has already committed the rotated pair, so failing
+          // to persist it must not tear the working session down. The stored
+          // copy stays stale until the next rotation syncs it.
           await lazy.FeltStorage.setLockingToken(
             email,
             tokenData.refresh_token
+          ).catch(err =>
+            lazy.log.warn(`tryUnlock: failed to persist rotated token: ${err}`)
           );
         } catch (err) {
           Services.felt.setTokens("", "", 0);
@@ -110,10 +117,11 @@ export const FeltLocking = {
    * consult the locking pref (which the Felt UI process cannot read).
    *
    * @param {string} refresh_token
-   * @param {string} [userId] The user id, stored so the unlock can resume into
+   * @param {string} userId The user id, stored so the unlock can resume into
    *   the same per-user profile.
-   * @throws {Error} If no signed-in user is known, so the caller can fall back
-   *   to signing out instead of locking.
+   * @throws {Error} If no signed-in user, refresh token, or user id is known,
+   *   so the caller can fall back to signing out instead of persisting a record
+   *   that cannot resume a session.
    * @returns {Promise<void>}
    */
   store: async (refresh_token, userId) => {
@@ -121,6 +129,11 @@ export const FeltLocking = {
     if (!email) {
       throw new Error(
         "store: no signed-in user known, cannot persist locked session"
+      );
+    }
+    if (!refresh_token || !userId) {
+      throw new Error(
+        "store: missing refresh token or user id, cannot persist locked session"
       );
     }
     await lazy.FeltStorage.setLockingToken(email, refresh_token, userId);

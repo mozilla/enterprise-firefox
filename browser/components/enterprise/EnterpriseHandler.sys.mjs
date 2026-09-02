@@ -342,16 +342,18 @@ export const EnterpriseHandler = {
     if (this.willLockOnClose && Services.felt?.isFeltBrowser()) {
       try {
         Services.felt.performLock();
+        return;
       } catch (e) {
         // performLock only throws when the browser-side FELT IPC client is
         // missing, which should not happen in a FELT browser. Fall back to a
         // regular close.
         lazy.log.warn(`Unable to lock, falling back to signout: ${e}`);
-        Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
       }
-      return;
     }
 
-    Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+    if (!Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit)) {
+      // Vetoed by a beforeunload handler; the next close must prompt again.
+      this._skipSignoutPrompt = false;
+    }
   },
 };
