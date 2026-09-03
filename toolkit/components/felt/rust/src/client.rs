@@ -87,17 +87,6 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn notify_lock(&self) {
-        trace!("FeltIpcClient::notify_lock()");
-        let msg = FeltMessage::Lock;
-        if let Some(tx) = &self.tx {
-            match tx.send(msg) {
-                Ok(()) => trace!("FeltIpcClient::notify_lock() SENT"),
-                Err(err) => trace!("FeltIpcClient::notify_lock() TX ERROR: {}", err),
-            }
-        }
-    }
-
     pub fn notify_refresh_tokens(&self) {
         trace!("FeltIpcClient::notify_refresh_tokens()");
         let msg = FeltMessage::RefreshTokens;
@@ -249,7 +238,9 @@ impl FeltClientThread {
                                 }
                                 "shutdown" => {
                                     trace!("FeltClientThread::start_thread::observe() quit-application: shutdown");
-                                    if let Err(err) = tx.send(FeltMessage::Exiting) {
+                                    let with_lock =
+                                        crate::CLOSE_LOCK_INTENT.load(Ordering::Relaxed);
+                                    if let Err(err) = tx.send(FeltMessage::Exiting(with_lock)) {
                                         trace!("FeltClientThread::start_thread::observe() failed to send shutdown: {:?}", err);
                                     }
                                 }
@@ -486,12 +477,6 @@ impl FeltClientThread {
         trace!("FeltClientThread::notify_signout()");
         let client = self.ipc_client.borrow();
         client.notify_signout();
-    }
-
-    pub fn notify_lock(&self) {
-        trace!("FeltClientThread::notify_lock()");
-        let client = self.ipc_client.borrow();
-        client.notify_lock();
     }
 
     pub fn notify_refresh_tokens(&self) {

@@ -103,18 +103,15 @@ interface nsIFelt : nsISupports {
   void performSignout();
 
   /**
-   * Called by the spawned Firefox to end the session by locking it instead of
-   * signing out: the refresh token is persisted behind OS auth so the session
-   * can be resumed later. Sends a Lock message over the Felt IPC channel, which
-   * the Felt UI process turns into a `felt-firefox-lock` observer notification.
-   * This is the lock counterpart to performSignout() and is dispatched on
-   * browser close when the locking pref is enabled (see
-   * EnterpriseHandler.lockOrSignOut). Returns a failure nsresult (throwing on
-   * the caller side) if the IPC client is not available, so the caller can fall
-   * back to a normal sign-out-on-close quit.
+   * Called by the spawned Firefox to tell the Felt UI process whether closing
+   * the browser locks the session (persists the refresh token behind OS auth
+   * to resume later) rather than signing out. The value is cached on the
+   * browser's IPC client and attached to the Exiting message when a shutdown
+   * is observed, so it must be kept in sync with the locking pref (see
+   * EnterpriseHandler). Because the intent travels with the exit itself, a
+   * quit vetoed by a beforeunload handler leaves nothing to undo.
    */
-  [must_use]
-  void performLock();
+  void setCloseLockIntent(in boolean lock);
 
   [must_use]
   void shutdownFirefox();

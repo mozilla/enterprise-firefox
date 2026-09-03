@@ -53,6 +53,7 @@ export const EnterpriseHandler = {
       return;
     }
     this.restrictEnterpriseView(window);
+    this._initLockingPrefObservers();
     this._initUrlbarButtons(window);
   },
 
@@ -96,6 +97,21 @@ export const EnterpriseHandler = {
   },
 
   /**
+   * Initialize observers for the locking prefs.
+   */
+  _initLockingPrefObservers() {
+    if (Services.felt?.isFeltBrowser() && !this._lockObserversInitialized) {
+      this._lockObserversInitialized = true;
+      this._syncCloseLockIntent();
+      this._lockOnClosePrefObserver = () => this._syncCloseLockIntent();
+      Services.prefs.addObserver(
+        LOCK_ON_CLOSE_PREF,
+        this._lockOnClosePrefObserver
+      );
+    }
+  },
+
+  /**
    * Hide away FxA appearances in the toolbar and the app menu (hamburger menu)
    *
    * @param {Window} window chrome window
@@ -115,18 +131,18 @@ export const EnterpriseHandler = {
    * @param {number} options.tabCount - The number of open tabs across all windows.
    * @param {boolean} options.warnOnSignout - Whether to warn on signout.
    * @param {boolean} options.warnOnCloseWithTabs - Whether to warn on close when multiple tabs are open.
-   * @param {boolean} options.lockOnClose - Whether the action will lock the session rather than sign out.
+   * @param {boolean} options.willLock - Whether the action will lock the session rather than sign out.
    * @returns {Promise<object>} The parameters for the signout/close prompt, including title, message, checkbox states, and more.
    */
   async _getSignoutPromptParams({
     tabCount,
     warnOnSignout,
     warnOnCloseWithTabs,
-    lockOnClose,
+    willLock,
   } = {}) {
     const hasMultipleTabs = tabCount > 1;
     const hasTabsWarning = hasMultipleTabs && warnOnCloseWithTabs;
-    const lockSuffix = lockOnClose ? "-lock" : "";
+    const lockSuffix = willLock ? "-lock" : "";
 
     let titleId, messageId;
     if (hasTabsWarning) {
@@ -139,7 +155,7 @@ export const EnterpriseHandler = {
       const tabsLockSuffix = warnOnSignout ? "-and-lock-warning" : "-lock";
       messageId = {
         id: `enterprise-close-prompt-message-with-tabcount${
-          lockOnClose ? tabsLockSuffix : warnSuffix
+          willLock ? tabsLockSuffix : warnSuffix
         }`,
         args: warnOnSignout ? { tabCount } : {},
       };
@@ -182,7 +198,7 @@ export const EnterpriseHandler = {
       message,
       // When locking, the resume notice is always shown; when signing out it is
       // only shown if the user opted into sign-out warnings.
-      reauthNotice: lockOnClose || warnOnSignout ? reauthNotice : null,
+      reauthNotice: willLock || warnOnSignout ? reauthNotice : null,
       acceptLabel,
       checkboxes,
       accepted: false,
@@ -246,12 +262,12 @@ export const EnterpriseHandler = {
    * Shows the signout/close confirmation dialog if needed.
    *
    * @param {Window} window
-   * @param {boolean} [lockOnClose] - Whether the resulting action will lock the
+   * @param {boolean} [willLock] - Whether the resulting action will lock the
    *   session rather than sign out. Defaults to the locking pref; the explicit
    *   sign-out entry point passes false so the dialog always reflects a sign-out.
    * @returns {Promise<boolean>} true if the action should proceed, false if cancelled.
    */
-  async showSignoutPrompt(window, lockOnClose = this.willLockOnClose) {
+  async showSignoutPrompt(window, willLock = this.willLockOnClose) {
     const warnOnSignout = Services.prefs.getBoolPref(
       PROMPT_ON_SIGNOUT_PREF,
       true
@@ -272,7 +288,7 @@ export const EnterpriseHandler = {
       tabCount: this._tabCount,
       warnOnSignout,
       warnOnCloseWithTabs,
-      lockOnClose,
+      willLock,
     });
     this._tabCount = null;
 
@@ -334,26 +350,43 @@ export const EnterpriseHandler = {
   },
 
   /**
+   * Push the current close-locking preference to the browser's FELT IPC
+   * client, which attaches it to the exit event when a shutdown is observed.
+   * The value is cached there rather than read at close time so the intent
+   * always travels with the exit itself (a vetoed quit sends nothing).
+   */
+  _syncCloseLockIntent() {
+    try {
+      Services.felt.setCloseLockIntent(this.willLockOnClose);
+    } catch (e) {
+      lazy.log.error(`Unable to sync close lock intent: ${e}`);
+    }
+  },
+
+  /**
    * Ends the FELT session on browser close by either locking it (persisting it
-   * behind OS auth to resume later) or signing out.
+   * behind OS auth to resume later) or signing out, per the synced locking
+   * intent that FELT applies once the browser process exits.
    */
   lockOrSignOut() {
     this._skipSignoutPrompt = true;
-    if (this.willLockOnClose && Services.felt?.isFeltBrowser()) {
-      try {
-        Services.felt.performLock();
-        return;
-      } catch (e) {
-        // performLock only throws when the browser-side FELT IPC client is
-        // missing, which should not happen in a FELT browser. Fall back to a
-        // regular close.
-        lazy.log.warn(`Unable to lock, falling back to signout: ${e}`);
-      }
-    }
-
     if (!Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit)) {
       // Vetoed by a beforeunload handler; the next close must prompt again.
       this._skipSignoutPrompt = false;
+    }
+  },
+
+  /**
+   * Removes all observers owned by this handler.
+   */
+  uninit() {
+    if (this._lockObserversInitialized) {
+      this._lockObserversInitialized = false;
+      Services.prefs.removeObserver(
+        LOCK_ON_CLOSE_PREF,
+        this._lockOnClosePrefObserver
+      );
+      this._lockOnClosePrefObserver = null;
     }
   },
 };

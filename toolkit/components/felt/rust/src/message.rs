@@ -69,8 +69,7 @@ pub enum FeltMessage {
     RestartForced,
     Restarting,
     LogoutShutdown,
-    Lock,
-    Exiting,
+    Exiting(bool),
     UpdateReady,
     Shutdown,
 }
