@@ -617,10 +617,14 @@ export class ReportBrokenSiteParent extends JSWindowActorParent {
 
   #getSecurityInfo(troubleshootingInfo) {
     const result = {};
-    for (const [k, v] of Object.entries(troubleshootingInfo.securitySoftware)) {
-      result[k.replace("registered", "").toLowerCase()] = v
-        ? v.split(";")
-        : null;
+    for (const key of [
+      "registeredAntiVirus",
+      "registeredAntiSpyware",
+      "registeredFirewall",
+    ]) {
+      const value = troubleshootingInfo.securitySoftware[key];
+      result[key.replace("registered", "").toLowerCase()] =
+        typeof value === "string" && value ? value.split(";") : null;
     }
 
     // Right now, security data is only available for Windows builds, and
@@ -684,7 +688,9 @@ export class ReportBrokenSiteParent extends JSWindowActorParent {
   }
 
   async #getBrowserInfo() {
-    const troubleshootingInfo = await Troubleshoot.snapshot();
+    const troubleshootingInfo = await Troubleshoot.snapshot({
+      includeEnterpriseSecurity: false,
+    });
     return {
       addons: this.#getActiveAddons(troubleshootingInfo),
       app: this.#getAppInfo(troubleshootingInfo),

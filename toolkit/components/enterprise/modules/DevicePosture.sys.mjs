@@ -9,6 +9,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+  DiskEncryption: "resource://gre/modules/enterprise/DiskEncryption.sys.mjs",
   EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
   MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
@@ -200,6 +201,14 @@ export const DevicePosture = {
    */
 
   /**
+   * @typedef {object} DeviceDiskEncryption
+   * @property {"full"|"enabled"|"partial"|"disabled"|"in-progress"|"unknown"} status
+   *   Aggregated encryption status.
+   * @property {"filevault"|"bitlocker"|"dm-crypt"|"zfs"|null} method
+   *   Platform mechanism checked, or null for an unknown status.
+   */
+
+  /**
    * @typedef {object} DevicePosture
    * @property {object} os Telemetry-reported os information.
    * @property {object|undefined} security Telemetry-reported security software info (windows only)
@@ -210,6 +219,8 @@ export const DevicePosture = {
    * @property {boolean} secureBootEnabled Whether Secure Boot is enabled.
    * @property {boolean} isDomainJoined Whether the machine is joined to a domain (Windows on-prem AD or Azure AD/Entra).
    * @property {DeviceEdr[]} presentEdrs Detected EDR agents (empty if none, or if the console asked us to probe none).
+   * @property {DeviceDiskEncryption} diskEncryption Disk encryption for the
+   *   boot and other mounted fixed volumes.
    */
 
   /**
@@ -290,15 +301,19 @@ export const DevicePosture = {
       );
     };
 
-    // These probes are independent, and some are slow (subprocess spawns, an
-    // `ioreg` shell-out), so run them concurrently.
-    const [mobileEquipmentId, extensions, machineId, presentEdrs] =
-      await Promise.all([
-        getImeiValue(),
-        this.getExtensions({ profileDir }),
-        getMachineId(),
-        getPresentEDRs(),
-      ]);
+    const [
+      mobileEquipmentId,
+      extensions,
+      machineId,
+      presentEdrs,
+      diskEncryption,
+    ] = await Promise.all([
+      getImeiValue(),
+      this.getExtensions({ profileDir }),
+      getMachineId(),
+      getPresentEDRs(),
+      lazy.DiskEncryption.getStatus(),
+    ]);
 
     const devicePosturePayload = {
       os,
@@ -314,6 +329,7 @@ export const DevicePosture = {
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
       isDomainJoined: Services.sysinfo.getPropertyAsBool("isDomainJoined"),
       presentEdrs,
+      diskEncryption,
     };
     return devicePosturePayload;
   },

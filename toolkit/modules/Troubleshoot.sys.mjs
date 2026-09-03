@@ -8,6 +8,7 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  DiskEncryption: "resource://gre/modules/enterprise/DiskEncryption.sys.mjs",
   EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
   MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   PlacesDBUtils: "resource://gre/modules/PlacesDBUtils.sys.mjs",
@@ -175,10 +176,13 @@ export var Troubleshoot = {
    * Captures a snapshot of data that may help troubleshooters troubleshoot
    * trouble.
    *
+   * @param {object} [options]
+   * @param {boolean} [options.includeEnterpriseSecurity=true]
+   *   Whether to run and include the enterprise EDR and disk-encryption probes.
    * @returns {Promise}
    *   A promise that is resolved with the snapshot data.
    */
-  snapshot() {
+  snapshot({ includeEnterpriseSecurity = true } = {}) {
     return new Promise(resolve => {
       let snapshot = {};
       let numPending = Object.keys(dataProviders).length;
@@ -191,7 +195,9 @@ export var Troubleshoot = {
       }
       for (let name in dataProviders) {
         try {
-          dataProviders[name](providerDone.bind(null, name));
+          dataProviders[name](providerDone.bind(null, name), {
+            includeEnterpriseSecurity,
+          });
         } catch (err) {
           let msg = "Troubleshoot data provider failed: " + name + "\n" + err;
           console.error(msg);
@@ -388,7 +394,10 @@ var dataProviders = {
     );
   },
 
-  securitySoftware: async function securitySoftware(done) {
+  securitySoftware: async function securitySoftware(
+    done,
+    { includeEnterpriseSecurity }
+  ) {
     let data = {};
 
     const keys = [
@@ -405,8 +414,11 @@ var dataProviders = {
       data[key] = prop;
     }
 
-    if (AppConstants.MOZ_ENTERPRISE) {
-      data.presentEdrs = await lazy.EdrDetection.getPresentEdrs();
+    if (AppConstants.MOZ_ENTERPRISE && includeEnterpriseSecurity) {
+      [data.presentEdrs, data.diskEncryption] = await Promise.all([
+        lazy.EdrDetection.getPresentEdrs(),
+        lazy.DiskEncryption.getStatus(),
+      ]);
     }
 
     done(data);

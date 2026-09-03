@@ -5,7 +5,8 @@
 use log::trace;
 use std::cell::OnceCell;
 
-use crate::edr_checker::{run_command_bounded, DetectMethod};
+use crate::edr_checker::DetectMethod;
+use crate::process::run_command_bounded;
 
 /// A one-time capture of the system state used to evaluate every requested
 /// agent without re-enumerating processes (or re-running

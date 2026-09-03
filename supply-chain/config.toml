@@ -55,6 +55,10 @@ notes = "Upstream not yet published changes"
 audit-as-crates-io = true
 notes = "This is upstream plus a build fix for bug 2033279."
 
+[policy.felt]
+dependency-criteria = { plist = "safe-to-run" }
+notes = "plist is used only through Value::from_reader_xml to parse stdout from the absolute, SIP-protected /usr/sbin/diskutil binary. Callers cannot supply plist syntax or structure; diskutil emits no namespaces, internal DTD subset, custom entities, or caller-controlled attributes. The binary and serde entry points are unused."
+
 [policy.firefox-on-glean]
 audit-as-crates-io = false
 notes = "The crates.io version of this is just a placeholder to allow public crates to depend on firefox-on-glean."
