@@ -5,10 +5,14 @@
 
 // Tests for the FeltLocking store/updateStoredToken/clear surface, and for the
 // posture handling of tryUnlock with its FELT dependencies (Services.felt,
-// OSKeyStore, ConsoleClient, and the FeltProcess actor) stubbed.
+// OSKeyStore, ConsoleClient, DevicePosture, and the FeltProcess actor)
+// stubbed.
 
 const { FeltLocking } = ChromeUtils.importESModule(
   "chrome://felt/content/FeltLocking.sys.mjs"
+);
+const { DevicePosture } = ChromeUtils.importESModule(
+  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
 );
 const { OSKeyStore } = ChromeUtils.importESModule(
   "resource://gre/modules/OSKeyStore.sys.mjs"
@@ -28,11 +32,16 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const EMAIL = "user@example.com";
+let gProfilePath;
 
 add_setup(async function () {
-  do_get_profile();
+  gProfilePath = do_get_profile().path;
   await lazy.FeltStorage.init();
   lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+
+  // With this pref set, resolveManagedProfile returns the path directly
+  // instead of get-or-creating a managed profile via the profile service.
+  Services.prefs.setStringPref("enterprise.profile_path", gProfilePath);
 
   // tryUnlock formats OS-auth dialog strings from the enterprise FTL, which the
   // xpcshell runner does not register; supply them from an in-memory source.
@@ -232,15 +241,13 @@ function installFakeFelt() {
 }
 /* eslint-enable mozilla/valid-services */
 
-// A browser whose FeltProcess parent actor records the messages it receives and
-// serves posture from the supplied collectLaunchPosture stub.
-function makeFakeBrowser(messages, collectLaunchPosture) {
+// A browser whose FeltProcess parent actor records the messages it receives.
+function makeFakeBrowser(messages) {
   return {
     browsingContext: {
       currentWindowGlobal: {
         domProcess: {
           getActor: () => ({
-            collectLaunchPosture,
             async receiveMessage(message) {
               messages.push(message);
             },
@@ -263,6 +270,7 @@ function setupUnlockStubs({ refreshTokens }) {
       ),
     sinon.stub(OSKeyStore, "ensureLoggedIn").resolves({ authenticated: true }),
     sinon.stub(ConsoleClient, "refreshTokens").resolves(refreshTokens),
+    sinon.stub(DevicePosture, "collect"),
   ];
 }
 
@@ -280,22 +288,20 @@ add_task(async function test_try_unlock_submits_posture_with_refresh() {
       postureSubmitted: true,
     },
   });
-  const collectLaunchPosture = sinon
-    .stub()
-    .resolves({ posture: POSTURE, measuredAt: 1000 });
+  DevicePosture.collect.resolves(POSTURE);
   const messages = [];
   try {
     await lazy.FeltStorage.setLockingToken(EMAIL, "stored-token", "user-123");
 
     const unlocked = await FeltLocking.tryUnlock(
       EMAIL,
-      makeFakeBrowser(messages, collectLaunchPosture)
+      makeFakeBrowser(messages)
     );
 
     Assert.ok(unlocked, "the session unlocks");
     Assert.ok(
-      collectLaunchPosture.calledOnceWith("user-123"),
-      "posture is collected for the user being resumed"
+      DevicePosture.collect.calledOnceWith({ profileDir: gProfilePath }),
+      "posture is collected from the resumed user's profile"
     );
     Assert.deepEqual(
       ConsoleClient.refreshTokens.firstCall.args[0],
@@ -338,16 +344,14 @@ add_task(async function test_try_unlock_fails_when_posture_collect_fails() {
       postureSubmitted: true,
     },
   });
-  const collectLaunchPosture = sinon
-    .stub()
-    .rejects(new Error("posture probe failed"));
+  DevicePosture.collect.rejects(new Error("posture probe failed"));
   const messages = [];
   try {
     await lazy.FeltStorage.setLockingToken(EMAIL, "stored-token", "user-123");
 
     const unlocked = await FeltLocking.tryUnlock(
       EMAIL,
-      makeFakeBrowser(messages, collectLaunchPosture)
+      makeFakeBrowser(messages)
     );
 
     Assert.ok(!unlocked, "the unlock fails");
@@ -360,6 +364,47 @@ add_task(async function test_try_unlock_fails_when_posture_collect_fails() {
       await lazy.FeltStorage.getLockingToken(EMAIL),
       "stored-token",
       "the stored token is kept for a later unlock"
+    );
+  } finally {
+    stubs.forEach(stub => stub.restore());
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
+add_task(async function test_try_unlock_clears_record_when_persist_fails() {
+  // The resuming refresh spends the stored token, so when the rotated one
+  // cannot be persisted the record is dropped (it could only offer a doomed
+  // unlock) while the resumed session itself lives on.
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  // eslint-disable-next-line no-unused-vars
+  using _felt = installFakeFelt();
+
+  const stubs = setupUnlockStubs({
+    refreshTokens: {
+      access_token: "access",
+      refresh_token: "rotated",
+      expires_at: 4102444800,
+      postureSubmitted: true,
+    },
+  });
+  // First call encrypts the setup write below; the second is the rotated-token
+  // persist inside tryUnlock.
+  stubs[0].onSecondCall().rejects(new Error("keystore write failed"));
+  DevicePosture.collect.resolves({ os: { name: "test-os" } });
+  const messages = [];
+  try {
+    await lazy.FeltStorage.setLockingToken(EMAIL, "stored-token", "user-123");
+
+    const unlocked = await FeltLocking.tryUnlock(
+      EMAIL,
+      makeFakeBrowser(messages)
+    );
+
+    Assert.ok(unlocked, "the session still unlocks");
+    Assert.equal(messages.length, 1, "Firefox is started once");
+    Assert.ok(
+      !lazy.FeltStorage.hasLockingToken(EMAIL),
+      "the record holding the spent token is dropped"
     );
   } finally {
     stubs.forEach(stub => stub.restore());
@@ -382,20 +427,18 @@ add_task(async function test_try_unlock_fails_without_stored_user_id() {
       postureSubmitted: true,
     },
   });
-  const collectLaunchPosture = sinon
-    .stub()
-    .resolves({ posture: { os: { name: "test-os" } }, measuredAt: 1000 });
+  DevicePosture.collect.resolves({ os: { name: "test-os" } });
   const messages = [];
   try {
     await lazy.FeltStorage.setLockingToken(EMAIL, "stored-token");
 
     const unlocked = await FeltLocking.tryUnlock(
       EMAIL,
-      makeFakeBrowser(messages, collectLaunchPosture)
+      makeFakeBrowser(messages)
     );
 
     Assert.ok(!unlocked, "the unlock fails");
-    Assert.ok(collectLaunchPosture.notCalled, "no posture is collected");
+    Assert.ok(DevicePosture.collect.notCalled, "no posture is collected");
     Assert.ok(ConsoleClient.refreshTokens.notCalled, "no refresh is attempted");
     Assert.equal(messages.length, 0, "Firefox is not started");
     Assert.ok(

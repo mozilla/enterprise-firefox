@@ -52,12 +52,6 @@ const PROCESS_START_REASON = {
   CRASH: "crash",
 };
 
-const FIREFOX_EXIT_MESSAGE = {
-  LOCKED: "FeltParent:FirefoxLockExit",
-  CLOSED: "FeltParent:FirefoxNormalExit",
-  SIGNED_OUT: "FeltParent:FirefoxLogoutExit",
-};
-
 export function queueURL(payload) {
   // If Firefox AND Felt are both ready, forward immediately
   if (
@@ -379,9 +373,10 @@ export class FeltProcessParent extends JSProcessActorParent {
                       result.refresh_token
                     );
                   } catch (err) {
-                    lazy.log.warn(
+                    lazy.log.error(
                       `Failed to update the stored locked-session token on refresh: ${err}`
                     );
+                    lazy.FeltLocking.clear();
                   }
                   gFeltProcessParentInstance._storeEdrAgents(
                     postureConfig?.edr_agents
@@ -872,26 +867,6 @@ export class FeltProcessParent extends JSProcessActorParent {
     return this._resolvedProfile;
   }
 
-  /**
-   * Collect device posture for the given user's profile, for a session about to
-   * launch. Exposed for the unlock flow (FeltLocking.tryUnlock), which runs in
-   * this process and submits the posture with its resuming refresh, so posture
-   * collection stays owned here rather than duplicated in FeltLocking.
-   *
-   * @param {string} userId
-   * @returns {Promise<{posture: DevicePosture, measuredAt: number}>}
-   */
-  async collectLaunchPosture(userId) {
-    const { path: profileDir } = await lazy.resolveManagedProfile({
-      id: userId,
-    });
-    const measuredAt = Date.now();
-    // Include the new browser's session id in its initial posture.
-    lazy.ClientSession.renew();
-    const posture = await lazy.DevicePosture.collect({ profileDir });
-    return { posture, measuredAt };
-  }
-
   async startFirefoxProcess() {
     let socket = Services.felt.oneShotIpcServer();
 
@@ -1151,7 +1126,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     clearAllTokens();
     Services.felt.shutdownFirefox();
     const reportSignedOut = () => {
-      Services.cpmm.sendAsyncMessage(FIREFOX_EXIT_MESSAGE.SIGNED_OUT, {});
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
     };
     if (gFeltProcessParentInstance.proc) {
       gFeltProcessParentInstance.proc.exitPromise.then(reportSignedOut);
@@ -1186,12 +1161,12 @@ export class FeltProcessParent extends JSProcessActorParent {
       );
     } catch (err) {
       lazy.log.error(`Locking failed, falling back to signout: ${err}`);
-      Services.cpmm.sendAsyncMessage(FIREFOX_EXIT_MESSAGE.CLOSED, {});
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxNormalExit", {});
       return;
     }
 
     Services.felt.clearTokens();
-    Services.cpmm.sendAsyncMessage(FIREFOX_EXIT_MESSAGE.LOCKED, {});
+    Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLockExit", {});
   }
 
   async receiveMessage(message) {

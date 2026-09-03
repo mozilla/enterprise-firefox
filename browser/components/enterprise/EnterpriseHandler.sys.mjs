@@ -142,26 +142,37 @@ export const EnterpriseHandler = {
   } = {}) {
     const hasMultipleTabs = tabCount > 1;
     const hasTabsWarning = hasMultipleTabs && warnOnCloseWithTabs;
-    const lockSuffix = willLock ? "-lock" : "";
 
     let titleId, messageId;
     if (hasTabsWarning) {
-      const warnSuffix = warnOnSignout ? "-and-signout-warning" : "";
+      // Titles are action-neutral; only the message reflects lock vs sign-out.
       titleId = {
-        id: `enterprise-close-prompt-title-with-tabcount${warnSuffix}`,
+        id: warnOnSignout
+          ? "enterprise-close-prompt-title-with-tabcount-and-signout-warning"
+          : "enterprise-close-prompt-title-with-tabcount",
         args: { tabCount },
       };
-      // Titles are action-neutral; only the message reflects lock vs sign-out.
-      const tabsLockSuffix = warnOnSignout ? "-and-lock-warning" : "-lock";
+      let messageIdName;
+      if (willLock) {
+        messageIdName = warnOnSignout
+          ? "enterprise-close-prompt-message-with-tabcount-and-lock-warning"
+          : "enterprise-close-prompt-message-with-tabcount-lock";
+      } else {
+        messageIdName = warnOnSignout
+          ? "enterprise-close-prompt-message-with-tabcount-and-signout-warning"
+          : "enterprise-close-prompt-message-with-tabcount";
+      }
       messageId = {
-        id: `enterprise-close-prompt-message-with-tabcount${
-          willLock ? tabsLockSuffix : warnSuffix
-        }`,
+        id: messageIdName,
         args: warnOnSignout ? { tabCount } : {},
       };
     } else {
       titleId = { id: "enterprise-close-prompt-title" };
-      messageId = { id: `enterprise-close-prompt-message${lockSuffix}` };
+      messageId = {
+        id: willLock
+          ? "enterprise-close-prompt-message-lock"
+          : "enterprise-close-prompt-message",
+      };
     }
 
     const [
@@ -174,9 +185,21 @@ export const EnterpriseHandler = {
     ] = await lazy.localization.formatValues([
       titleId,
       messageId,
-      { id: `enterprise-close-prompt-primary-btn-label${lockSuffix}` },
-      { id: `enterprise-close-prompt-message${lockSuffix}-reauth` },
-      { id: `enterprise-close-prompt-checkbox-label${lockSuffix}` },
+      {
+        id: willLock
+          ? "enterprise-close-prompt-primary-btn-label-lock"
+          : "enterprise-close-prompt-primary-btn-label",
+      },
+      {
+        id: willLock
+          ? "enterprise-close-prompt-message-lock-reauth"
+          : "enterprise-close-prompt-message-reauth",
+      },
+      {
+        id: willLock
+          ? "enterprise-close-prompt-checkbox-label-lock"
+          : "enterprise-close-prompt-checkbox-label",
+      },
       { id: "enterprise-close-prompt-tabs-checkbox-label" },
     ]);
 
