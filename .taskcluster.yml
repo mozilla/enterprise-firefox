@@ -745,6 +745,9 @@ tasks:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}
                       else: ${ref}
+                  commProject:
+                        'project == "enterprise-firefox-try"': "enterprise-thunderbird-try"
+                        $default: "enterprise-thunderbird"
               in:
                   $if: >
                     eventType in ["action", "cron"]
@@ -775,7 +778,7 @@ tasks:
 
                           tags:
                               createdForUser: "${ownerEmail}"
-                              project: enterprise-thunderbird
+                              project: ${commProject}
                               trust-domain: ${trustDomain}
                               worker-implementation: docker-worker
                               kind: decision-task
@@ -884,7 +887,7 @@ tasks:
                                            --root=comm/taskcluster \
                                            --pushlog-id='0' \
                                            --pushdate='0' \
-                                           --project='enterprise-thunderbird' \
+                                           --project='${commProject}' \
                                            --owner='${ownerEmail}' \
                                            --level='${level}' \
                                            --repository-type=git \
