@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import functools
+import os
 from collections import namedtuple
 from types import FunctionType
 
@@ -13,6 +14,7 @@ from taskgraph.parameters import Parameters
 from taskgraph.util import json, taskcluster, yaml
 from taskgraph.util.python_path import import_sibling_modules
 
+from gecko_taskgraph import GECKO
 from gecko_taskgraph.util import hash
 
 actions = []
@@ -214,9 +216,30 @@ def register_callback_action(
             # The full parameter set is too large, and gets duplicated in
             # `actions.json` once per hook. So only pass in what's actually
             # necessary.
+            repo_param_prefix = graph_config["project-repo-param-prefix"]
             filtered_params = {
                 "repository_type": parameters["repository_type"],
+                "taskgraph_root": os.path.relpath(
+                    os.path.abspath(graph_config.root_dir), GECKO
+                ),
             }
+            if repo_param_prefix:
+                # `repository` and `push` above describe the prefixed repository, so the
+                # hook template also needs the top-level repository to check out, plus
+                # the prefixed refs, which `push` doesn't carry.
+                filtered_params.update({
+                    "base_repository": parameters["base_repository"],
+                    "base_rev": parameters["base_rev"],
+                    "head_repository": parameters["head_repository"],
+                    "head_ref": parameters["head_ref"],
+                    "head_rev": parameters["head_rev"],
+                    f"{repo_param_prefix}base_ref": parameters[
+                        f"{repo_param_prefix}base_ref"
+                    ],
+                    f"{repo_param_prefix}head_ref": parameters[
+                        f"{repo_param_prefix}head_ref"
+                    ],
+                })
 
             rv = {
                 "name": name,
@@ -231,7 +254,10 @@ def register_callback_action(
 
             trustDomain = graph_config["trust-domain"]
             level = parameters["level"]
-            tcyml_hash = hash_taskcluster_yml(graph_config.taskcluster_yml)
+            # ci-admin only installs the top-level `.taskcluster.yml` as an action hook
+            # template; `graph_config.taskcluster_yml` would be `comm/.taskcluster.yml`
+            # for the nested comm graph, whose hash no hook uses.
+            tcyml_hash = hash_taskcluster_yml(os.path.join(GECKO, ".taskcluster.yml"))
 
             # the tcyml_hash is prefixed with `/` in the hookId, so users will be granted
             # hooks:trigger-hook:project-gecko/in-tree-action-3-myaction/*; if another
@@ -322,25 +348,27 @@ def sanity_check_task_scope(callback, parameters, graph_config):
     else:
         raise Exception(f"No action with cb_name {callback}")
 
-    base_repo_param = "{}base_repository".format(
-        graph_config["project-repo-param-prefix"]
-    )
-    parsed_base_url = parse(parameters[base_repo_param])
-    head_repo_param = "{}head_repository".format(
-        graph_config["project-repo-param-prefix"]
-    )
-    parsed_head_url = parse(parameters[head_repo_param])
-    action_scope = (
-        f"assume:{parsed_head_url.taskcluster_role_prefix}:action:{action.permission}"
-    )
-    pr_action_scope = f"assume:{parsed_base_url.taskcluster_role_prefix}:pr-action:{action.permission}"
+    # A graph with a repo param prefix (comm) is actioned from a hook installed for the
+    # top-level repository, so the action task carries that repository's scope instead.
+    expected_scopes = set()
+    for prefix in {graph_config["project-repo-param-prefix"], ""}:
+        parsed_base_url = parse(parameters[f"{prefix}base_repository"])
+        parsed_head_url = parse(parameters[f"{prefix}head_repository"])
+        expected_scopes.add(
+            f"assume:{parsed_head_url.taskcluster_role_prefix}:action:{action.permission}"
+        )
+        expected_scopes.add(
+            f"assume:{parsed_base_url.taskcluster_role_prefix}:pr-action:{action.permission}"
+        )
 
     # the scope should appear literally; no need for a satisfaction check. The use of
     # get_current_scopes here calls the auth service through the Taskcluster Proxy, giving
     # the precise scopes available to this task.
-    if not set((action_scope, pr_action_scope)) & set(taskcluster.get_current_scopes()):
+    if not expected_scopes & set(taskcluster.get_current_scopes()):
         raise ValueError(
-            f"Expected task scope {action_scope} or {pr_action_scope} for this action"
+            "Expected one of task scopes {} for this action".format(
+                ", ".join(sorted(expected_scopes))
+            )
         )
 
 

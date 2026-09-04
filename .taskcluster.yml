@@ -361,6 +361,10 @@ tasks:
                         prNumber: null
                         eventType: '${tasks_for}'
                         eventAction: null
+                        taskgraphRoot:
+                            $if: 'tasks_for in ["action", "pr-action"]'
+                            then: '${parameters["taskgraph_root"]}'
+                            else: taskcluster
                       - $switch:
                             'tasks_for[:6] == "github"':
                                 ownTaskId: {$eval: as_slugid("gecko_decision_task")}
@@ -404,6 +408,22 @@ tasks:
                             'tasks_for == "pr-action"':
                                 baseRepoUrl: '${repository.base_url}'
                                 eventType: action
+                      # For an action on the comm graph `repository` and `push` describe
+                      # thunderbird-desktop; the gecko side comes from `parameters`.
+                      - $if: 'tasks_for in ["action", "pr-action"] && parameters["taskgraph_root"] == "comm/taskcluster"'
+                        then:
+                            commBaseRepoUrl: '${repository.base_url}'
+                            commBaseRef: '${parameters["comm_base_ref"]}'
+                            commBaseRev: '${push.base_revision}'
+                            commRepoUrl: '${repository.url}'
+                            commRef: '${parameters["comm_head_ref"]}'
+                            commHeadRev: '${push.revision}'
+                            baseRepoUrl: '${parameters["base_repository"]}'
+                            baseRev: '${parameters["base_rev"]}'
+                            repoUrl: '${parameters["head_repository"]}'
+                            ref: '${parameters["head_ref"]}'
+                            headRev: '${parameters["head_rev"]}'
+                        else: {}
 
               in:
                   $let:
@@ -415,6 +435,16 @@ tasks:
                               'repoUrl == "https://github.com/mozilla-releng/staging-firefox"': "dev"
                               'repoUrl == "https://github.com/mozilla-firefox/firefox"': "prod"
                               $default: null
+                      # `project` is the comm project for comm actions, but the checkout
+                      # cache is keyed on the gecko one, as in the comm decision task.
+                      geckoProject:
+                          $switch:
+                              'repoUrl == "https://github.com/mozilla/enterprise-firefox"': "enterprise-firefox"
+                              'repoUrl == "https://github.com/mozilla/enterprise-firefox-try"': "enterprise-firefox-try"
+                              'repoUrl == "https://github.com/mozilla/firefox-dev"': "firefox-dev"
+                              'repoUrl == "https://github.com/mozilla-releng/staging-firefox"': "staging-firefox"
+                              'repoUrl == "https://github.com/mozilla-firefox/firefox"': "firefox"
+                              $default: '${project}'
                       shortRef:
                           $if: 'ref[:11] == "refs/heads/"'
                           then: {$eval: 'ref[11:]'}
@@ -442,6 +472,12 @@ tasks:
                                   $merge:
                                       - owner: "${ownerEmail}"
                                         source: "${repoUrl}/raw/${headRev}/.taskcluster.yml"
+                                      # cot_product `enterprise` requires metadata.source
+                                      # to match COMM_HEAD_REPOSITORY when it is set.
+                                      - $if: 'taskgraphRoot == "comm/taskcluster"'
+                                        then:
+                                            source: "${commRepoUrl}/raw/${commHeadRev}/.taskcluster.yml"
+                                        else: {}
                                       - $switch:
                                             'tasks_for == "action"':
                                                 name: "Action: ${action.title}"
@@ -494,9 +530,12 @@ tasks:
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
                                             'tasks_for == "action"':
                                                 - $switch:
+                                                      'taskgraphRoot == "comm/taskcluster"': "tc-treeherder.v2.${project}.${commHeadRev}"
                                                       'project == "enterprise-firefox"': "tc-treeherder.v2.${shortRef}.${headRev}"
                                                       $default: "tc-treeherder.v2.${project}.${headRev}"
-                                                - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.actions.${ownTaskId}"
+                                                - $if: 'taskgraphRoot == "comm/taskcluster"'
+                                                  then: "index.${trustDomain}.v2.${project}.revision.${commHeadRev}.taskgraph.actions.${ownTaskId}"
+                                                  else: "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.actions.${ownTaskId}"
                                             'tasks_for == "pr-action"':
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}-pr.revision.${headRev}.taskgraph.actions.${ownTaskId}"
@@ -567,8 +606,19 @@ tasks:
                                                     ACTION_TASK_ID: {$json: {$eval: 'taskId'}}
                                                     ACTION_INPUT: {$json: {$eval: 'input'}}
                                                     ACTION_CALLBACK: '${action.cb_name}'
+                                          - $if: 'taskgraphRoot == "comm/taskcluster"'
+                                            then:
+                                                COMM_BASE_REPOSITORY: '${commBaseRepoUrl}'
+                                                COMM_BASE_REF: '${commBaseRef}'
+                                                COMM_BASE_REV: '${commBaseRev}'
+                                                COMM_HEAD_REPOSITORY: '${commRepoUrl}'
+                                                COMM_HEAD_REF: '${commRef}'
+                                                COMM_HEAD_REV: '${commHeadRev}'
+                                                COMM_REPOSITORY_TYPE: git
+                                                REPOSITORIES: {$json: {gecko: "Mozilla Firefox", comm: "Mozilla Thunderbird"}}
+                                            else: {}
                                   cache:
-                                      "${trustDomain}-level-${level}-${project}-checkouts-git-shallow-v1": /builds/worker/checkouts
+                                      "${trustDomain}-level-${level}-${geckoProject}-checkouts-git-shallow-v1": /builds/worker/checkouts
 
                                   features:
                                       taskclusterProxy: true
@@ -577,43 +627,57 @@ tasks:
                                   image: mozillareleases/taskgraph:run-task-latest
                                   maxRunTime: 1800
                                   command:
-                                      - run-task
-                                      - '--gecko-checkout=/builds/worker/checkouts/gecko'
-                                      - '--gecko-shallow-clone'
-                                      - '--'
-                                      - bash
-                                      - -cx
-                                      - $let:
-                                            extraArgs:
-                                                $switch:
-                                                    'tasks_for == "cron"': '${cron.quoted_args}'
-                                                    $default:
-                                                        $switch:
-                                                            'repoType == "dev"': '--allow-parameter-override'
-                                                            $default: ''
-                                        in:
-                                            $if: 'eventType == "action"'
-                                            then: >
-                                              cd /builds/worker/checkouts/gecko &&
-                                              ln -s /builds/worker/artifacts artifacts &&
-                                              ./mach --log-no-times taskgraph action-callback
-                                            else: >
-                                              cd /builds/worker/checkouts/gecko &&
-                                              ln -s /builds/worker/artifacts artifacts &&
-                                              ./mach --log-no-times taskgraph decision \
-                                               --pushlog-id='0' \
-                                               --pushdate='0' \
-                                               --project='${project}' \
-                                               --owner='${ownerEmail}' \
-                                               --level='${level}' \
-                                               --repository-type=git \
-                                               --tasks-for='${tasks_for}' \
-                                               --base-repository='${baseRepoUrl}' \
-                                               --base-rev='${baseRev}' \
-                                               --head-repository='${repoUrl}' \
-                                               --head-ref='${ref}' \
-                                               --head-rev='${headRev}' \
-                                               ${extraArgs}
+                                      $flatten:
+                                          - run-task
+                                          - '--gecko-checkout=/builds/worker/checkouts/gecko'
+                                          - '--gecko-shallow-clone'
+                                          - $if: 'taskgraphRoot == "comm/taskcluster"'
+                                            then:
+                                                - '--comm-checkout=/builds/worker/checkouts/gecko/comm'
+                                                - '--comm-shallow-clone'
+                                            else: []
+                                          - '--'
+                                          - bash
+                                          - -cx
+                                          - $let:
+                                                extraArgs:
+                                                    $switch:
+                                                        'tasks_for == "cron"': '${cron.quoted_args}'
+                                                        $default:
+                                                            $switch:
+                                                                'repoType == "dev"': '--allow-parameter-override'
+                                                                $default: ''
+                                            in:
+                                                $if: 'eventType == "action"'
+                                                then:
+                                                    $if: 'taskgraphRoot == "comm/taskcluster"'
+                                                    then: >
+                                                      cd /builds/worker/checkouts/gecko &&
+                                                      ln -s /builds/worker/artifacts artifacts &&
+                                                      sed -i 's|^trust-domain: .*|trust-domain: enterprise|g' comm/taskcluster/config.yml &&
+                                                      sed -i 's|^    scope-prefix: .*|    scope-prefix: project:enterprise:releng|g' comm/taskcluster/config.yml &&
+                                                      ./mach --log-no-times taskgraph action-callback --root=comm/taskcluster
+                                                    else: >
+                                                      cd /builds/worker/checkouts/gecko &&
+                                                      ln -s /builds/worker/artifacts artifacts &&
+                                                      ./mach --log-no-times taskgraph action-callback
+                                                else: >
+                                                  cd /builds/worker/checkouts/gecko &&
+                                                  ln -s /builds/worker/artifacts artifacts &&
+                                                  ./mach --log-no-times taskgraph decision \
+                                                   --pushlog-id='0' \
+                                                   --pushdate='0' \
+                                                   --project='${project}' \
+                                                   --owner='${ownerEmail}' \
+                                                   --level='${level}' \
+                                                   --repository-type=git \
+                                                   --tasks-for='${tasks_for}' \
+                                                   --base-repository='${baseRepoUrl}' \
+                                                   --base-rev='${baseRev}' \
+                                                   --head-repository='${repoUrl}' \
+                                                   --head-ref='${ref}' \
+                                                   --head-rev='${headRev}' \
+                                                   ${extraArgs}
 
                                   artifacts:
                                       'public':
@@ -661,7 +725,9 @@ tasks:
                                       - tasks_for: '${tasks_for}'
 
     # Second task: Comm (Thunderbird) decision task for git events.
-    - $if: 'tasks_for[:11] == "github-push" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git")'
+    # Actions on the graph this produces are served by the first task, which is the
+    # only one ci-admin installs as an action hook template.
+    - $if: 'tasks_for[:11] == "github-push"'
       then:
           $let:
               $merge:
@@ -676,19 +742,6 @@ tasks:
                             commTaskId: {$eval: as_slugid("comm_decision_task")}
                             eventType: '${tasks_for[7:]}'
                             eventAction: '${event["action"]}'
-                        'tasks_for in ["action", "pr-action"]':
-                            ownTaskId: '${ownTaskId}'
-                            commTaskId: '${ownTaskId}'
-                            ownerEmail: '${tasks_for}@noreply.mozilla.org'
-                            baseRepoUrl: '${repository.url}'
-                            repoUrl: '${repository.url}'
-                            project: '${repository.project}'
-                            ref:
-                                $if: 'push.branch[:11] == "refs/heads/"'
-                                then: ${push.branch}
-                                else: 'refs/heads/${push.branch}'
-                            baseRev: '${push.revision}'
-                            headRev: '${push.revision}'
                   - $switch:
                         'tasks_for == "github-push"':
                             ownerEmail: '${event.pusher.email}'
@@ -710,9 +763,6 @@ tasks:
                             headRev: '${event.pull_request.head.sha}'
                             prNumber: '${event.pull_request.number}'
                             isPullRequest: true
-                        'tasks_for == "pr-action"':
-                            baseRepoUrl: '${repository.base_url}'
-                            eventType: action
           in:
               $let:
                   repoType:
