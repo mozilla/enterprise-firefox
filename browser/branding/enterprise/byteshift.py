@@ -6,7 +6,10 @@ import buildconfig
 
 # Byte shift value applied to AutoConfig files. Must match the default of the
 # general.config.obscure_value preference, which the browser subtracts when
-# reading the file.
+# reading the file, and DEFAULT_OBSCURE_VALUE in the enterprise-console crate
+# (toolkit/components/enterprise/rust), which decodes the file for the early
+# startup and crash reporter consumers. The generic console address
+# placeholder below is CONSOLE_ADDRESS_PLACEHOLDER in that crate.
 OBSCURE_VALUE = 13
 
 
@@ -20,8 +23,8 @@ def generate(output, input_path):
     the URL changes. `output` is a binary file object provided by the build
     system.
     """
-    console_url = buildconfig.substs["MOZ_ENTERPRISE_CONSOLE_URL"]
     with open(input_path, "rb") as fh:
         data = fh.read()
+    console_url = buildconfig.substs["MOZ_ENTERPRISE_CONSOLE_URL"]
     data = data.replace(b"@MOZ_ENTERPRISE_CONSOLE_URL@", console_url.encode("utf-8"))
     output.write(bytes((byte + OBSCURE_VALUE) & 0xFF for byte in data))

@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+
+<html
+  xmlns="http://www.w3.org/1999/xhtml"
+  role="document"
+  class="system-font-size"
+  id="felt-console-setup-window"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src chrome:" />
+    <link
+      rel="stylesheet"
+      href="chrome://felt/content/styles/consoleSetup.css"
+    />
+    <link rel="localization" href="branding/brand.ftl" />
+    <link rel="localization" href="toolkit/enterprise/felt.ftl" />
+    <script
+      type="application/javascript"
+      src="chrome://global/content/customElements.js"
+    ></script>
+    <script
+      type="application/javascript"
+      src="chrome://felt/content/consoleSetup.js"
+    ></script>
+    <title data-l10n-id="felt-console-setup-window-title"></title>
+  </head>
+
+  <body>
+    <div class="felt">
+      <div class="felt-logo">
+        <div class="felt-logo__container"></div>
+      </div>
+      <div class="felt-main">
+        <div class="felt-card">
+          <div class="felt-login">
+            <div class="felt-login__email-pane">
+              <img class="enterprise-wordmark" />
+              <form class="felt-form">
+                <h1
+                  class="felt-form__title"
+                  data-l10n-id="felt-console-setup-title"
+                ></h1>
+                <div class="felt-form__elements">
+                  <p
+                    class="console-setup__description"
+                    data-l10n-id="felt-console-setup-description"
+                  ></p>
+                  <moz-input-text
+                    id="console-setup-address"
+                    data-l10n-id="felt-console-setup-input"
+                    class="fill-width"
+                  ></moz-input-text>
+                  <moz-button
+                    id="console-setup-save-btn"
+                    type="primary"
+                    class="fill-width"
+                    data-l10n-id="felt-console-setup-save-btn"
+                    disabled="true"
+                  ></moz-button>
+                  <moz-button
+                    id="console-setup-quit-btn"
+                    class="fill-width"
+                    data-l10n-id="felt-console-setup-quit-btn"
+                  ></moz-button>
+                  <moz-message-bar
+                    id="console-setup-error"
+                    class="fill-width"
+                    type="error"
+                    data-l10n-id="felt-console-setup-invalid-address"
+                    hidden=""
+                  ></moz-message-bar>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="felt-footer">
+          <div id="felt-footer-content">
+            <span class="felt-powered-by" data-l10n-id="felt-powered-by"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

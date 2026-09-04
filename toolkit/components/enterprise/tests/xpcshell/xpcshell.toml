@@ -4,4 +4,8 @@ skip-if = [
   "os == 'android'",
 ]
 
+["test_console_client_console_address.js"]
+
+["test_felt_storage_console_address.js"]
+
 ["test_relaunch_enforcer.js"]

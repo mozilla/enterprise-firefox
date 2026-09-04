@@ -106,3 +106,21 @@ felt-warning-title-download-attempt-failed =
 felt-error-warning-download-attempt-failed-contact-admin = The latest update couldn’t be downloaded. If this problem persists, contact your administrator for help.
 
 felt-back-button = Back to login
+
+## Console setup dialog, shown before anything else on generic builds where no
+## enterprise console address has been configured yet.
+
+felt-console-setup-window-title = { -brand-short-name } — Setup
+felt-console-setup-title = Get started
+felt-console-setup-description = Enter the address of your organization’s management console. Your administrator can provide it.
+felt-console-setup-input =
+    .label = Console address
+    .placeholder = https://console.example.com
+felt-console-setup-invalid-address =
+    .message = Enter a valid address, such as https://console.example.com
+felt-console-setup-save-failed =
+    .message = The address couldn’t be saved. Please try again, or contact your administrator if the problem persists.
+felt-console-setup-save-btn =
+    .label = Save and restart
+felt-console-setup-quit-btn =
+    .label = Quit

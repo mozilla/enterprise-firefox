@@ -61,6 +61,7 @@ class Environment(Enum):
 class EnterpriseTestsBase(MarionetteTestCase):
     def setUp(self):
         os.environ.update({"MOZ_DISABLE_NONLOCAL_CONNECTIONS": "0"})
+        os.environ.update({"MOZ_ENTERPRISE_CONSOLE_URL": "http://127.0.0.1:1"})
 
         if getattr(self, "EXTRA_ENV", None):
             self._saved_env = deepcopy(os.environ)
@@ -128,6 +129,7 @@ class EnterpriseTestsBase(MarionetteTestCase):
             self.marionette.instance.prefs = None
 
         del os.environ["MOZ_DISABLE_NONLOCAL_CONNECTIONS"]
+        del os.environ["MOZ_ENTERPRISE_CONSOLE_URL"]
 
         self.marionette.quit(in_app=False, clean=True)
 

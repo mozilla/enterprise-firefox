@@ -1,0 +1,16 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* The console setup dialog reuses the FELT window's look wholesale: same
+ * layout, branding assets, and colors. */
+@import url("chrome://felt/content/styles/felt.css");
+
+.console-setup__description {
+  margin: 0;
+  color: var(--text-color-deemphasized);
+}
+
+moz-message-bar[hidden] {
+  display: none;
+}

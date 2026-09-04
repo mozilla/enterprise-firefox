@@ -35,6 +35,36 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 export const CONSOLE_ADDRESS_PREF = "enterprise.console.address";
 
 /**
+ * Placeholder value the pref holds on generic (non-repacked) builds, where
+ * the AutoConfig file does not bake in a real console address. The actual
+ * address then comes from the MOZ_ENTERPRISE_CONSOLE_URL environment
+ * variable or from felt.json, filled in by the pre-profile console setup
+ * dialog. Keep in sync with CONSOLE_ADDRESS_PLACEHOLDER in the
+ * enterprise-console crate (toolkit/components/enterprise/rust), which holds
+ * this resolution logic for the native consumers; resolveConsoleAddress below
+ * mirrors it in JS.
+ */
+export const CONSOLE_ADDRESS_PLACEHOLDER = "FIREFOX_ENTERPRISE_GENERIC";
+
+async function resolveConsoleAddress(prefValue) {
+  if (prefValue !== CONSOLE_ADDRESS_PLACEHOLDER) {
+    return prefValue;
+  }
+  const envUrl = Services.env.get("MOZ_ENTERPRISE_CONSOLE_URL");
+  if (envUrl) {
+    return envUrl;
+  }
+  await lazy.FeltStorage.init();
+  const storedUrl = lazy.FeltStorage.getConsoleAddress();
+  if (!storedUrl) {
+    throw new Error(
+      "Console address is the generic placeholder and no stored address exists"
+    );
+  }
+  return storedUrl;
+}
+
+/**
  * Error logged when user needs to reauthenticate to obtain new token data
  */
 class ReauthRequiredError extends Error {
@@ -100,7 +130,7 @@ export const ConsoleClient = {
       this._consoleUriReadyPromise = new Promise((resolve, reject) => {
         try {
           const consoleURI = Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
-          resolve(consoleURI);
+          resolve(resolveConsoleAddress(consoleURI));
         } catch (e) {
           lazy.log.warn(`Missing console URI. Waiting on pref change.`);
           const consolePrefObserver = {
@@ -115,7 +145,7 @@ export const ConsoleClient = {
                   try {
                     const consoleURI =
                       Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
-                    resolve(consoleURI);
+                    resolve(resolveConsoleAddress(consoleURI));
                   } catch (ex) {
                     lazy.log.error(
                       `Critical misconfiguration: Missing console URI`
@@ -128,6 +158,13 @@ export const ConsoleClient = {
           };
           Services.prefs.addObserver(CONSOLE_ADDRESS_PREF, consolePrefObserver);
         }
+      });
+      // A failure (e.g. felt.json unreadable at that instant) must not be
+      // cached for the rest of the session: clear the slot so the next
+      // access retries the resolution. Callers still see the rejection.
+      this._consoleUriReadyPromise.catch(e => {
+        lazy.log.error("Failed to resolve the console address", e);
+        this._consoleUriReadyPromise = null;
       });
     }
     return this._consoleUriReadyPromise.then(url => new URL(url));

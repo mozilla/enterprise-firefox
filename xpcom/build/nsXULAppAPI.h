@@ -9,6 +9,7 @@
 #include "mozilla/ProcessType.h"
 #include "mozilla/TimeStamp.h"
 #include "nscore.h"
+#include "nsStringFwd.h"
 
 #if defined(MOZ_WIDGET_ANDROID)
 #  include <jni.h>
@@ -256,10 +257,36 @@ nsresult XRE_ParseAppData(nsIFile* aINIFile, mozilla::XREAppData& aAppData);
  * @param aAppData The nsXREAppData structure on which to set the
  * crashReporterURL.
  *
- * @param aServerUrl Enterprise console address. Fails if empty.
+ * @param aServerUrl Enterprise console address. Fails if empty. On generic
+ * (non-repacked) builds this is the placeholder from the AutoConfig file,
+ * resolved by the enterprise-console crate
+ * (toolkit/components/enterprise/rust) from the
+ * MOZ_ENTERPRISE_CONSOLE_URL environment variable or from the value
+ * persisted in felt.json by the console setup dialog.
+ *
+ * @return NS_ERROR_NOT_AVAILABLE when aServerUrl is the generic build
+ * placeholder and no stored or environment-provided address exists yet; the
+ * caller is expected to run the console setup dialog.
  */
 nsresult XRE_ParseEnterpriseServerURL(mozilla::XREAppData& aAppData,
                                       const char* aServerUrl);
+
+/**
+ * Read the enterprise console address out of the AutoConfig file
+ * (firefox.cfg in aAppData.xreDirectory, byte shift decoded) without
+ * evaluating it. AutoConfig proper only runs once the pref service is up in
+ * XRE_mainRun; this gives pre-profile startup code the address so it can
+ * decide whether the console setup dialog must be shown.
+ */
+nsresult XRE_ReadEnterpriseConsoleAddress(const mozilla::XREAppData& aAppData,
+                                          nsACString& aConsoleAddress);
+
+/**
+ * Remove the console address persisted in felt.json so the console setup
+ * dialog runs again on a generic build. Backs the --reset-console-address
+ * command line flag.
+ */
+nsresult XRE_ClearStoredEnterpriseConsoleUrl();
 #endif
 
 const char* XRE_GeckoProcessTypeToString(GeckoProcessType aProcessType);

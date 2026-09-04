@@ -17,6 +17,9 @@ config = {
             ],
             "run_filename": "",
             "testsdir": "marionette",
+            "env": {
+                "MOZ_ENTERPRISE_CONSOLE_URL": "http://127.0.0.1:1",
+            },
         },
     },
 }

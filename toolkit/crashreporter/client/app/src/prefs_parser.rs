@@ -43,18 +43,6 @@ pub fn find_string_pref<'a>(prefs_content: &'a str, pref: &str) -> Option<&'a st
     find_pref(prefs_content, pref).and_then(|s| s.strip_prefix('"')?.strip_suffix('"'))
 }
 
-/// Like [`find_string_pref`], but for an arbitrary pref-setting function.
-///
-/// Only used by `enterprise_prefs`, which is compiled under the same feature.
-#[cfg(feature = "enterprise")]
-pub fn find_string_pref_call<'a>(
-    prefs_content: &'a str,
-    func: &str,
-    pref: &str,
-) -> Option<&'a str> {
-    find_pref_call(prefs_content, func, pref).and_then(|s| s.strip_prefix('"')?.strip_suffix('"'))
-}
-
 /// Find a single bool pref (if any) from the prefs file contents.
 pub fn find_bool_pref(prefs_content: &str, pref: &str) -> Option<bool> {
     find_pref(prefs_content, pref).and_then(|s| s.parse().ok())
@@ -105,17 +93,8 @@ mod test {
 
     #[cfg(feature = "enterprise")]
     #[test]
-    fn test_find_string_pref_call_lock_pref() {
-        let input = r#"lockPref("enterprise.console.address", "https://example.com/");"#;
-        assert_eq!(
-            find_string_pref_call(input, "lockPref", "enterprise.console.address"),
-            Some("https://example.com/")
-        );
-    }
-
-    #[test]
-    fn test_find_string_pref_ignores_lock_pref() {
-        // The standard user_pref finder must not match a lockPref call.
+    fn find_pref_ignores_other_functions() {
+        // The user_pref finder must not match a lockPref call.
         let input = r#"lockPref("enterprise.console.address", "https://example.com/");"#;
         assert_eq!(find_string_pref(input, "enterprise.console.address"), None);
     }

@@ -17,6 +17,10 @@
 
 #if defined(MOZ_ENTERPRISE)
 #  include "mozilla/toolkit/components/felt/felt.h"
+#  include "mozilla/Try.h"
+#  include "mozilla/URLPreloader.h"
+#  include "nsXREDirProvider.h"
+#  include "nsString.h"
 #endif
 
 using namespace mozilla;
@@ -81,12 +85,82 @@ nsresult XRE_ParseAppData(nsIFile* aINIFile, XREAppData& aAppData) {
 }
 
 #if defined(MOZ_ENTERPRISE)
+// Path to felt.json, the profile-independent enterprise storage file kept in
+// UAppData. It must be computable before the directory service and XPCOM are
+// up, which is why nsXREDirProvider's static helper is used.
+static nsresult GetFeltStorageFilePath(nsCString& aOutPath) {
+  nsCOMPtr<nsIFile> dir;
+  nsresult rv = nsXREDirProvider::GetUserAppDataDirectory(getter_AddRefs(dir));
+  NS_ENSURE_SUCCESS(rv, rv);
+  // The first GetUserAppDataDirectory call hands out the instance that
+  // nsXREDirProvider caches and serves as UAppData for the rest of startup,
+  // so it must not be mutated: appending without cloning would turn UAppData
+  // into .../felt.json for every later consumer.
+  nsCOMPtr<nsIFile> file;
+  rv = dir->Clone(getter_AddRefs(file));
+  NS_ENSURE_SUCCESS(rv, rv);
+  rv = file->AppendNative("felt.json"_ns);
+  NS_ENSURE_SUCCESS(rv, rv);
+  nsAutoString path;
+  rv = file->GetPath(path);
+  NS_ENSURE_SUCCESS(rv, rv);
+  CopyUTF16toUTF8(path, aOutPath);
+  return NS_OK;
+}
+
+nsresult XRE_ClearStoredEnterpriseConsoleUrl() {
+  nsCString path;
+  nsresult rv = GetFeltStorageFilePath(path);
+  NS_ENSURE_SUCCESS(rv, rv);
+  return firefox_felt_clear_stored_console_url(&path) ? NS_OK
+                                                      : NS_ERROR_FAILURE;
+}
+
+nsresult XRE_ReadEnterpriseConsoleAddress(const XREAppData& aAppData,
+                                          nsACString& aConsoleAddress) {
+  nsCOMPtr<nsIFile> cfgFile;
+  nsresult rv = aAppData.xreDirectory->Clone(getter_AddRefs(cfgFile));
+  NS_ENSURE_SUCCESS(rv, rv);
+  rv = cfgFile->Append(u"firefox.cfg"_ns);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCString obscured = MOZ_TRY(URLPreloader::ReadFile(cfgFile));
+
+  // Byte shift decoding and light-weight extraction of the pref value happen
+  // in the shared enterprise-console crate; full AutoConfig evaluation only
+  // happens in XRE_mainRun.
+  if (!firefox_felt_console_address_from_autoconfig(&obscured,
+                                                    &aConsoleAddress)) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  return NS_OK;
+}
+
 nsresult XRE_ParseEnterpriseServerURL(XREAppData& aAppData,
                                       const char* aServerUrl) {
   nsCString serverUrl(aServerUrl);
   if (serverUrl.IsEmpty()) {
     return NS_ERROR_NOT_AVAILABLE;
   }
+
+  // On a generic (non-repacked) build the address is the placeholder baked in
+  // by the branding; the shared enterprise-console crate resolves it from the
+  // test override environment variable or the URL persisted by the console
+  // setup dialog. If neither exists the caller shows that dialog. A real
+  // address passes through unchanged. The path computation is best effort:
+  // it is only read when the placeholder has to be resolved from felt.json.
+  nsCString feltJsonPath;
+  if (NS_FAILED(GetFeltStorageFilePath(feltJsonPath))) {
+    NS_WARNING(
+        "Could not compute the felt.json path; a stored console address "
+        "cannot be found");
+  }
+  nsCString resolvedUrl;
+  if (!firefox_felt_resolve_console_address(&serverUrl, &feltJsonPath,
+                                            &resolvedUrl)) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  serverUrl = resolvedUrl;
 
   if (serverUrl.Last() != '/') {
     serverUrl.Append('/');

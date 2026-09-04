@@ -12,8 +12,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * Storage helper for reading and writing felt-related profile data to felt.json
  */
 export const FeltStorage = {
+  _initialized: false,
+
+  _feltStorage: null,
   /**
-   * Absolute path to the felt.json file in the current profile.
+   * Absolute path to the felt.json file in UAppData.
    *
    * @type {string}
    */
@@ -23,9 +26,12 @@ export const FeltStorage = {
   ),
 
   async init() {
-    this._feltStorage = new lazy.JSONFile({
-      path: this.FELT_FILE_PATH,
-    });
+    if (!this._initialized) {
+      this._feltStorage = new lazy.JSONFile({
+        path: this.FELT_FILE_PATH,
+      });
+      this._initialized = true;
+    }
     await this._feltStorage.load();
   },
 
@@ -68,7 +74,31 @@ export const FeltStorage = {
     this._feltStorage.saveSoon();
   },
 
+  /**
+   * Gets the enterprise console address entered in the console setup dialog
+   * (if available). Only meaningful on generic builds, where the AutoConfig
+   * file does not provide a real address.
+   *
+   * @returns {string | undefined} url
+   */
+  getConsoleAddress() {
+    return this._feltStorage.data?.consoleAddress;
+  },
+
+  /**
+   * Persists the enterprise console address, writing felt.json immediately.
+   * Called from the pre-profile console setup dialog, which relaunches right
+   * after, so the write cannot be deferred to saveSoon().
+   *
+   * @param {string} url
+   */
+  async persistConsoleAddress(url) {
+    this._feltStorage.data.consoleAddress = url;
+    await this._feltStorage._save();
+  },
+
   async uninit() {
     this._feltStorage = {};
+    this._initialized = false;
   },
 };

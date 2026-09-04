@@ -7,6 +7,17 @@
 use crate::std::{env, io::stdin};
 use crate::{glean, logging, net::ping};
 
+/// The user application data directory, derived from the crash data path.
+///
+/// `CrashManager` always passes `UAppData/Crash Reports`, so the parent of the
+/// given path is the directory holding `felt.json`.
+#[cfg(all(not(mock), feature = "enterprise"))]
+fn app_data_dir(data_path: &::std::ffi::OsStr) -> Option<::std::path::PathBuf> {
+    ::std::path::Path::new(data_path)
+        .parent()
+        .map(::std::path::Path::to_path_buf)
+}
+
 pub fn main() {
     logging::init();
 
@@ -17,6 +28,9 @@ pub fn main() {
     let extra: serde_json::Value =
         serde_json::from_reader(stdin()).expect("failed to read extra data from stdin");
 
+    #[cfg(all(not(mock), feature = "enterprise"))]
+    let app_data_dir = app_data_dir(&data_path);
+
     let _glean_handle = glean::InitOptions {
         data_dir: data_path.into(),
         locale: None,
@@ -26,6 +40,8 @@ pub fn main() {
         // AutoConfig during init.
         #[cfg(all(not(mock), feature = "enterprise"))]
         server_url: None,
+        #[cfg(all(not(mock), feature = "enterprise"))]
+        app_data_dir,
     }
     .init()
     .expect("failed to acquire Glean store");
@@ -54,12 +70,17 @@ pub fn cleanup_main() {
         .parse()
         .expect("invalid upload enabled value");
 
+    #[cfg(all(not(mock), feature = "enterprise"))]
+    let app_data_dir = app_data_dir(&data_path);
+
     let _glean_handle = glean::InitOptions {
         data_dir: data_path.into(),
         locale: None,
         upload_enabled,
         #[cfg(all(not(mock), feature = "enterprise"))]
         server_url: None,
+        #[cfg(all(not(mock), feature = "enterprise"))]
+        app_data_dir,
     }
     .init()
     .expect("failed to acquire Glean store");

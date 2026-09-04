@@ -18,7 +18,6 @@ extern crate thin_vec;
 
 mod client;
 mod components;
-mod message;
 mod edr_checker;
 #[cfg(target_os = "linux")]
 mod edr_checker_linux;
@@ -26,6 +25,7 @@ mod edr_checker_linux;
 mod edr_checker_macos;
 #[cfg(target_os = "windows")]
 mod edr_checker_win;
+mod message;
 mod utils;
 
 pub use utils::{CONSOLE_URL, TOKENS};
@@ -149,6 +149,92 @@ pub extern "C" fn firefox_felt_is_startup_complete() -> bool {
         Some(client) => client.is_startup_complete(),
         None => {
             trace!("firefox_felt_is_startup_complete(): missing client, blocking startup");
+            false
+        }
+    }
+}
+
+/// Remove the persisted console URL from felt.json, keeping the other keys.
+/// Returns true when the value is gone (including when it was never there);
+/// false when the file could not be read or updated, so the stale URL may
+/// still be picked up.
+#[no_mangle]
+pub extern "C" fn firefox_felt_clear_stored_console_url(path: &nsstring::nsACString) -> bool {
+    let path = path.to_utf8();
+    let bytes = match std::fs::read(&*path) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return true,
+        Err(e) => {
+            log::warn!("could not read {path} to clear the stored console URL: {e}");
+            return false;
+        }
+    };
+    use enterprise_console::RemoveStoredAddress;
+    match enterprise_console::remove_stored_console_address(&bytes) {
+        RemoveStoredAddress::AlreadyAbsent => true,
+        RemoveStoredAddress::Invalid => {
+            log::warn!("cannot clear the stored console URL: {path} is not a JSON object");
+            false
+        }
+        RemoveStoredAddress::Removed(json) => match std::fs::write(&*path, json) {
+            Ok(()) => true,
+            Err(e) => {
+                log::warn!("could not write {path} to clear the stored console URL: {e}");
+                false
+            }
+        },
+    }
+}
+
+/// Extract the console address from raw AutoConfig file contents (byte shift
+/// decoded, not evaluated). Backs XRE_ReadEnterpriseConsoleAddress.
+#[no_mangle]
+pub extern "C" fn firefox_felt_console_address_from_autoconfig(
+    contents: &nsstring::nsACString,
+    out_address: &mut nsstring::nsACString,
+) -> bool {
+    match enterprise_console::console_address_from_autoconfig(contents) {
+        Some(address) => {
+            out_address.assign(&address);
+            true
+        }
+        None => false,
+    }
+}
+
+/// Resolve a console address that may be the generic build placeholder, from
+/// the MOZ_ENTERPRISE_CONSOLE_URL environment variable or the URL
+/// persisted in felt.json at the given path. A real address is returned
+/// unchanged. Returns false when the placeholder cannot be resolved; the
+/// caller then shows the console setup dialog. Backs
+/// XRE_ParseEnterpriseServerURL.
+#[no_mangle]
+pub extern "C" fn firefox_felt_resolve_console_address(
+    address: &nsstring::nsACString,
+    felt_json_path: &nsstring::nsACString,
+    out_url: &mut nsstring::nsACString,
+) -> bool {
+    let path = felt_json_path.to_utf8();
+    match enterprise_console::resolve_console_address(
+        &address.to_utf8(),
+        std::env::var(enterprise_console::CONSOLE_ADDRESS_ENV)
+            .ok()
+            .as_deref(),
+        || std::fs::read(&*path),
+    ) {
+        Ok(url) => {
+            out_url.assign(&url);
+            true
+        }
+        Err(e) => {
+            // A missing felt.json or one without an address is the normal
+            // first-run state leading to the setup dialog; anything else
+            // means a saved address exists but cannot be used.
+            if e.is_expected_first_run() {
+                trace!("console address placeholder not resolvable yet: {e}");
+            } else {
+                log::warn!("could not resolve the console address placeholder: {e}");
+            }
             false
         }
     }

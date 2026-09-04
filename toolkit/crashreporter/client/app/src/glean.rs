@@ -20,6 +20,10 @@ pub struct InitOptions {
     /// the enterprise console base without reading AutoConfig when available.
     #[cfg(all(not(mock), feature = "enterprise"))]
     pub server_url: Option<String>,
+    /// The user application data directory, used to locate `felt.json` when
+    /// the console address has to be resolved on a generic enterprise build.
+    #[cfg(all(not(mock), feature = "enterprise"))]
+    pub app_data_dir: Option<::std::path::PathBuf>,
 }
 
 /// Parse the telemetry enablement pref from the prefs file.
@@ -93,6 +97,8 @@ impl InitOptions {
             upload_enabled,
             #[cfg(all(not(mock), feature = "enterprise"))]
             server_url,
+            #[cfg(all(not(mock), feature = "enterprise"))]
+            app_data_dir: cfg.app_data_dir.clone(),
         }
     }
 
@@ -115,6 +121,10 @@ impl InitOptions {
     fn init_glean(self) -> anyhow::Result<crashping::InitGlean> {
         #[cfg(all(not(mock), feature = "enterprise"))]
         let server_url = self.server_url;
+        // The user application data directory, kept to locate felt.json on
+        // generic enterprise builds.
+        #[cfg(all(not(mock), feature = "enterprise"))]
+        let app_data_dir = self.app_data_dir;
         let mut data_dir = if cfg!(mock) {
             // Use a (non-mocked) temp directory since glean won't access our mocked API.
             ::std::env::temp_dir().join("crashreporter-mock")
@@ -150,9 +160,11 @@ impl InitOptions {
         }
         #[cfg(all(not(mock), feature = "enterprise"))]
         {
-            init_glean.configuration.server_endpoint = Some(
-                crate::enterprise_prefs::console_glean_url(server_url.as_deref())?,
-            );
+            init_glean.configuration.server_endpoint =
+                Some(crate::enterprise_prefs::console_glean_url(
+                    server_url.as_deref(),
+                    app_data_dir.as_deref(),
+                )?);
         }
 
         Ok(init_glean)

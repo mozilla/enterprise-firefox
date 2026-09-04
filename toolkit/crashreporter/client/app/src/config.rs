@@ -132,6 +132,9 @@ pub struct Config {
     pub run_memtest: bool,
     /// The data directory.
     pub data_dir: Option<PathBuf>,
+    /// The user application data directory: the top-level Firefox directory
+    /// containing `profiles.ini` and the profiles.
+    pub app_data_dir: Option<PathBuf>,
     /// The events directory.
     pub events_dir: Option<PathBuf>,
     /// The profile directory in use when the crash occurred.
@@ -269,31 +272,39 @@ impl Config {
             }
         }
 
+        // Set the data dir if not already set.
+        // TODO bug 1910736: if we don't need to support VENDOR_KEY and PRODUCT_KEY in the extra
+        // file, it'd simplify the data_dir logic and things like glean initialization (which
+        // relies on the data dir).
+        let vendor = extra[VENDOR_KEY].as_str().unwrap_or(DEFAULT_VENDOR);
+        let product = extra[PRODUCT_KEY].as_str().unwrap_or(DEFAULT_PRODUCT);
+        if self.data_dir.is_none() {
+            self.data_dir = Some(self.get_data_dir(vendor, product)?);
+            self.update_log_file();
+        }
+        // Computed rather than derived from `data_dir`, which may be an
+        // arbitrary directory passed in the environment.
+        if self.app_data_dir.is_none() {
+            match self.get_app_data_dir(vendor, product) {
+                Ok(dir) => self.app_data_dir = Some(dir),
+                Err(e) => log::warn!("could not determine the application data directory: {e:#}"),
+            }
+        }
+
         // Enterprise builds normally get the submission endpoint from the
         // ServerURL annotation. Before the browser derives it from the console
         // address (e.g. a startup crash) it is still the domainless placeholder
         // from application.ini (`/submit?...`), so fall back to reading the
-        // console address from AutoConfig when the annotation isn't usable.
         #[cfg(feature = "enterprise")]
         {
             let current = self.report_url.as_deref().and_then(OsStr::to_str);
-            match crate::enterprise_prefs::console_report_url(current) {
+            match crate::enterprise_prefs::console_report_url(current, self.app_data_dir.as_deref())
+            {
                 Ok(url) => self.report_url = Some(url.into()),
                 Err(e) => {
                     log::warn!("could not resolve enterprise console report URL: {e:#}")
                 }
             }
-        }
-
-        // Set the data dir if not already set.
-        // TODO bug 1910736: if we don't need to support VENDOR_KEY and PRODUCT_KEY in the extra
-        // file, it'd simplify the data_dir logic and things like glean initialization (which
-        // relies on the data dir).
-        if self.data_dir.is_none() {
-            let vendor = extra[VENDOR_KEY].as_str().unwrap_or(DEFAULT_VENDOR);
-            let product = extra[PRODUCT_KEY].as_str().unwrap_or(DEFAULT_PRODUCT);
-            self.data_dir = Some(self.get_data_dir(vendor, product)?);
-            self.update_log_file();
         }
 
         if Self::should_suppress_restart(&extra) {
@@ -504,24 +515,50 @@ impl Config {
         Ok(data_path)
     }
 
+    /// The crash reporter data directory, `Crash Reports` inside the user
+    /// application data directory.
+    fn get_data_dir(&self, vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
+        let app_data_dir = self.get_app_data_dir(vendor, product)?;
+        #[cfg(all(not(mock), target_os = "macos"))]
+        std::fs::create_dir_all(&app_data_dir).with_context(|| {
+            self.build_string("crashreporter-error-creating-dir")
+                .arg("path", app_data_dir.display().to_string())
+                .get()
+        })?;
+        Ok(app_data_dir.join("Crash Reports"))
+    }
+
+    /// The user application data directory (`UAppData`): the top-level Firefox
+    /// directory holding `profiles.ini`, the profiles themselves and the
+    /// profile-independent enterprise storage (`felt.json`).
+    ///
+    /// This must match `nsXREDirProvider::GetUserAppDataDirectory`; the
+    /// per-platform layout below mirrors `AppendProfilePath` there.
+    fn get_app_data_dir(&self, vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
+        // The browser honors this override (`./mach run --appdata`) ahead of
+        // the computed location.
+        if let Some(dir) = std::env::var_os("MOZ_APP_DATA") {
+            return Ok(PathBuf::from(dir));
+        }
+        self.default_app_data_dir(vendor, product)
+    }
+
     cfg_if::cfg_if! {
         if #[cfg(mock)] {
-            fn get_data_dir(&self, vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
+            fn default_app_data_dir(&self, vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
                 let mut path = PathBuf::from("data_dir");
                 path.push(vendor);
                 path.push(product);
-                path.push("Crash Reports");
                 Ok(path)
             }
         } else if #[cfg(target_os = "linux")] {
-            fn get_data_dir(&self, vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
-            let mut data_path = self.get_data_dir_root(vendor)?;
+            fn default_app_data_dir(&self, vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
+                let mut data_path = self.get_data_dir_root(vendor)?;
                 data_path.push(product.to_lowercase());
-                data_path.push("Crash Reports");
                 Ok(data_path)
             }
         } else if #[cfg(target_os = "macos")] {
-            fn get_data_dir(&self, _vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
+            fn default_app_data_dir(&self, _vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
                 use objc::{
                     rc::autoreleasepool,
                     runtime::{Object, BOOL, YES},
@@ -561,16 +598,10 @@ impl Config {
                     Ok(PathBuf::from(s))
                 })?;
                 data_path.push(product);
-                std::fs::create_dir_all(&data_path).with_context(|| {
-                    self.build_string("crashreporter-error-creating-dir")
-                        .arg("path", data_path.display().to_string())
-                        .get()
-                })?;
-                data_path.push("Crash Reports");
                 Ok(data_path)
             }
         } else if #[cfg(target_os = "windows")] {
-            fn get_data_dir(&self, vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
+            fn default_app_data_dir(&self, vendor: &str, product: &str) -> anyhow::Result<PathBuf> {
                 use crate::std::os::windows::ffi::OsStringExt;
                 use windows_sys::{
                     core::PWSTR,
@@ -595,7 +626,6 @@ impl Config {
                 let mut path = PathBuf::from(osstr);
                 path.push(vendor);
                 path.push(product);
-                path.push("Crash Reports");
                 Ok(path)
             }
         }

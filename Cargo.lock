@@ -1423,6 +1423,7 @@ dependencies = [
  "cocoabind",
  "crashping",
  "embed-manifest",
+ "enterprise-console",
  "env_logger",
  "flate2",
  "fluent",
@@ -2117,6 +2118,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "enterprise-console"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "enum-map"
 version = "2.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2313,6 +2321,7 @@ name = "felt"
 version = "0.1.0"
 dependencies = [
  "cstr",
+ "enterprise-console",
  "env_logger",
  "ipc-channel",
  "libc",
