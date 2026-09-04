@@ -1,0 +1,62 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - taskgraph.transforms.from_deps
+    - gecko_taskgraph.transforms.enterprise_release_push
+    - gecko_taskgraph.transforms.job
+    - gecko_taskgraph.transforms.task
+
+kind-dependencies:
+    - enterprise-release-push
+    - fetch
+
+task-defaults:
+    description: "Ship a Firefox Enterprise OCI release by tagging the staged digest."
+    run-on-projects: [enterprise-firefox]
+    shipping-product: firefox-enterprise
+    shipping-phase: ship
+    attributes:
+        shippable: true
+    from-deps:
+        # `fetch` is a kind-dependency only so the moa fetch artifact resolves;
+        # restrict the fan-out to the per-console push tasks.
+        kinds:
+            - enterprise-release-push
+        group-by: single
+    worker-type: b-linux
+    worker:
+        docker-image: {in-tree: lint}
+        max-run-time: 1800
+        taskcluster-proxy: true
+        env:
+            # TODO: real Taskcluster secret holding registry credentials. The
+            # registry reference and channel come from the push task's
+            # release-index.json, so no REGISTRY_REFERENCE is needed here.
+            REGISTRY_SECRET: project/enterprise/releng/oci-registry
+    scopes:
+        - secrets:get:project/enterprise/releng/oci-registry
+    run:
+        using: run-task
+        checkout: true
+        cwd: "{checkout}"
+        command: >-
+            bash taskcluster/scripts/ship-enterprise-release.sh
+    fetches:
+        enterprise-release-push:
+            # The {reference, channel, index_digest} handoff from the push task.
+            - artifact: release-index.json
+              extract: false
+        fetch:
+            - moa
+    treeherder:
+        symbol: "Ent(ship)"
+        kind: other
+        tier: 1
+        platform: firefox-release-enterprise/opt
+
+tasks:
+    ship: {}

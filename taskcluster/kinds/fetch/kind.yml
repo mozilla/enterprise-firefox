@@ -16,6 +16,7 @@ tasks-from:
     - chromium-fetch.yml
     - cft-chromedriver-fetch.yml
     - shunit2.yml
+    - moa.yml
     - python-wheels.yml
     - toolchain-clang-tidy-external.yml
     - toolchains.yml

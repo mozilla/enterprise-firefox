@@ -37,10 +37,6 @@ from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_b
 from .util.bugbug import push_schedules
 from .util.hg import get_hg_revision_branch, get_hg_revision_info
 from .util.partials import populate_release_history
-from .util.partners import (
-    get_release_partner_config,
-    get_release_partners,
-)
 from .util.taskcluster import insert_index
 from .util.taskgraph import find_decision_task, find_existing_tasks_from_previous_kinds
 
@@ -377,6 +373,7 @@ def get_decision_parameters(graph_config, options):
     parameters["phabricator_diff"] = None
     parameters["release_type"] = get_release_type(parameters)
     parameters["release_eta"] = ""
+    parameters["release_enable_enterprise_repack"] = False
     parameters["release_enable_partner_repack"] = False
     parameters["release_enable_partner_attribution"] = False
     parameters["release_partners"] = []
@@ -410,14 +407,6 @@ def get_decision_parameters(graph_config, options):
             "for this project"
         )
         parameters.update(PER_PROJECT_PARAMETERS["default"])
-
-    if "enterprise" in project:
-        # They silently depend on release_type / release_product parameters
-        parameters["release_partner_config"] = get_release_partner_config(
-            parameters, graph_config
-        )
-        # Depends on the values from the previous call
-        parameters["release_partners"] = get_release_partners(parameters)
 
     if parameters.get("tasks_for", "").startswith("github-pull-request"):
         parameters["optimize_strategies"] = (

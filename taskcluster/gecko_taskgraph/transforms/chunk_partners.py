@@ -63,15 +63,18 @@ def chunk_partners(config, jobs):
                     partner_job = copy.deepcopy(job)  # don't overwrite dict values here
                     partner_job.setdefault("extra", {})
                     partner_job["extra"]["repack_id"] = repack_id
+                    partner_job.setdefault("attributes", {})["repack_id"] = repack_id
                     yield partner_job
         # fan out chunked mac signing for repackage
         elif repack_ids:
             for repack_id in repack_ids:
                 partner_job = copy.deepcopy(job)
                 partner_job.setdefault("extra", {}).setdefault("repack_id", repack_id)
+                partner_job.setdefault("attributes", {})["repack_id"] = repack_id
                 yield partner_job
         # otherwise we've fully fanned out already, continue by passing repack_id on
         else:
             partner_job = copy.deepcopy(job)
             partner_job.setdefault("extra", {}).setdefault("repack_id", repack_id)
+            partner_job.setdefault("attributes", {})["repack_id"] = repack_id
             yield partner_job

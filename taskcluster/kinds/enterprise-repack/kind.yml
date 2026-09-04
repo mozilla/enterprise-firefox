@@ -21,7 +21,7 @@ kind-dependencies:
     - shippable-l10n-mac-notarization
 
 task-defaults:
-    run-on-projects: ["enterprise-firefox"]
+    run-on-projects: []  # only via the enterprise-release-promotion action
     name: ent-repack
     description: Enterprise repacks
     worker-type: b-linux
@@ -31,7 +31,7 @@ task-defaults:
         chain-of-trust: true
         max-run-time: 7200
     shipping-product: firefox-enterprise
-    shipping-phase: build
+    shipping-phase: promote
     run:
         using: mozharness
         config:

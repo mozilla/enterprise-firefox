@@ -250,6 +250,7 @@ treeherder:
         'Attr-L10n': 'Build Attribution'
         'android-l10n': 'Import strings from android-l10n repo'
         'updt-tst': 'Test updates to release from older firefox versions'
+        'Ent': 'Firefox Enterprise release tasks'
         'Rpk-Ent': 'Enterprise repacks'
         'Rpk-Ent-Rpk': 'Enterprise repacks repackage'
         'Rpk': 'Classic repacks'
@@ -532,6 +533,21 @@ release-promotion:
                 - release-partner-attribution
                 - release-partner-attribution-beetmover
             target-tasks-method: promote_desktop
+        promote_firefox_enterprise:
+            product: firefox-enterprise
+            rebuild-kinds:
+                - enterprise-repack
+                - enterprise-repack-mac-signing
+                - enterprise-repack-mac-notarization
+                - enterprise-repack-repackage
+                - repackage-deb
+                - repackage-msi
+                - repackage-msix
+                - repackage-signing-msi
+                - repackage-signing-msix
+                - repackage-shippable-l10n-msix
+                - complete
+            target-tasks-method: promote_firefox_enterprise_tasks
         push_devedition:
             product: devedition
             target-tasks-method: push_desktop
@@ -550,6 +566,12 @@ release-promotion:
             target-tasks-method: ship_desktop
             version-bump: true
             partial-updates: true
+        push_firefox_enterprise:
+            product: firefox-enterprise
+            target-tasks-method: push_firefox_enterprise_tasks
+        ship_firefox_enterprise:
+            product: firefox-enterprise
+            target-tasks-method: ship_firefox_enterprise_tasks
         promote_android:
             product: firefox-android
             target-tasks-method: promote_android

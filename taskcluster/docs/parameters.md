@@ -263,6 +263,10 @@ syntax or reading a project-specific configuration file).
 
 : Boolean which controls repacking vanilla Firefox builds into EME-free builds.
 
+`release_enable_enterprise_repack`
+
+: Boolean which controls production of Firefox Enterprise repacks.
+
 `release_partners`
 
 : List of partners to repack or attribute if a subset of the whole config. A null value defaults to all.

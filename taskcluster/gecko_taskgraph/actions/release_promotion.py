@@ -14,12 +14,18 @@ from taskgraph.util.taskcluster import get_artifact, list_task_group_incomplete_
 
 from gecko_taskgraph.actions.registry import register_callback_action
 from gecko_taskgraph.decision import taskgraph_decision
-from gecko_taskgraph.util.attributes import RELEASE_PROMOTION_PROJECTS
+from gecko_taskgraph.util.attributes import (
+    ENTERPRISE_PRODUCTS,
+    ENTERPRISE_PROMOTION_PROJECTS,
+    RELEASE_PROMOTION_PROJECTS,
+)
 from gecko_taskgraph.util.partials import populate_release_history
 from gecko_taskgraph.util.partners import (
     fix_partner_config,
     get_partner_config_by_url,
     get_partner_url_config,
+    get_release_partner_config,
+    get_release_partners,
     get_token,
 )
 from gecko_taskgraph.util.taskgraph import (
@@ -29,7 +35,10 @@ from gecko_taskgraph.util.taskgraph import (
 
 
 def is_release_promotion_available(parameters):
-    return parameters["project"] in RELEASE_PROMOTION_PROJECTS
+    return (
+        parameters["project"]
+        in RELEASE_PROMOTION_PROJECTS - ENTERPRISE_PROMOTION_PROJECTS
+    )
 
 
 def get_partner_config(partner_url_config, github_token):
@@ -344,6 +353,10 @@ def release_promotion_action(
         release_enable_partner_repack = False
         release_enable_partner_attribution = True
         release_enable_emefree = False
+    elif product in ENTERPRISE_PRODUCTS:
+        release_enable_partner_repack = False
+        release_enable_partner_attribution = False
+        release_enable_emefree = False
     else:
         # for promotion or ship phases, we use the action input to turn the repacks/attribution off
         release_enable_partner_repack = input["release_enable_partner_repack"]
@@ -351,17 +364,15 @@ def release_promotion_action(
         release_enable_emefree = input["release_enable_emefree"]
 
     partner_url_config = get_partner_url_config(parameters, graph_config)
-    if (
-        release_enable_partner_repack
-        and not partner_url_config["release-partner-repack"]
+    if release_enable_partner_repack and not partner_url_config.get(
+        "release-partner-repack"
     ):
         raise Exception("Can't enable partner repacks when no config url found")
-    if (
-        release_enable_partner_attribution
-        and not partner_url_config["release-partner-attribution"]
+    if release_enable_partner_attribution and not partner_url_config.get(
+        "release-partner-attribution"
     ):
         raise Exception("Can't enable partner attribution when no config url found")
-    if release_enable_emefree and not partner_url_config["release-eme-free-repack"]:
+    if release_enable_emefree and not partner_url_config.get("release-eme-free-repack"):
         raise Exception("Can't enable EMEfree repacks when no config url found")
     parameters["release_enable_partner_repack"] = release_enable_partner_repack
     parameters["release_enable_partner_attribution"] = (
@@ -385,7 +396,21 @@ def release_promotion_action(
             "release_partner_build_number"
         ]
 
-    if input["version"]:
+    # Enterprise repacks are implied by the product: there is no enterprise
+    # release without them.
+    release_enable_enterprise_repack = product in ENTERPRISE_PRODUCTS
+    parameters["release_enable_enterprise_repack"] = release_enable_enterprise_repack
+    if release_enable_enterprise_repack:
+        if not partner_url_config.get("enterprise-repack"):
+            raise Exception("Can't enable enterprise repacks when no config url found")
+        if not partner_config:
+            parameters["release_partner_config"] = get_release_partner_config(
+                parameters, graph_config
+            )
+            # Depends on the values from the previous call
+            parameters["release_partners"] = get_release_partners(parameters)
+
+    if input.get("version"):
         parameters["version"] = input["version"]
 
     parameters["dontbuild"] = False

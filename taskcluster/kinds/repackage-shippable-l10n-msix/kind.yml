@@ -41,7 +41,8 @@ tasks:
         worker-type: b-linux
         worker:
             max-run-time: 2700
-        run-on-projects: ["enterprise-firefox"]
+        run-on-projects: []
+        shipping-phase: promote
         mozharness:
             config:
                 by-build-platform:

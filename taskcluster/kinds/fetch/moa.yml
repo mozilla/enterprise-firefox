@@ -1,0 +1,12 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+moa:
+    description: "mozilla-oci-artifacts-cli (moa) prebuilt linux64 binary"
+    fetch:
+        type: static-url
+        artifact-name: moa.tar.zst
+        url: https://github.com/mozilla/mozilla-oci-artifacts-cli/releases/download/v0.0.0/moa-linux64.tar.zst
+        sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+        size: 0

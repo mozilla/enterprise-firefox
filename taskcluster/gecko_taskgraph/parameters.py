@@ -11,6 +11,7 @@ from taskgraph.util.schema import Schema
 
 from gecko_taskgraph import GECKO
 from gecko_taskgraph.files_changed import get_locally_changed_files
+from gecko_taskgraph.util.attributes import ENTERPRISE_PROMOTION_PROJECTS
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ class GeckoParametersSchema(Schema, kw_only=True, rename=None):
     optimize_strategies: Optional[str]
     phabricator_diff: Optional[str]
     release_enable_emefree: bool
+    release_enable_enterprise_repack: bool
     release_enable_partner_repack: bool
     release_enable_partner_attribution: bool
     release_eta: Optional[str]
@@ -109,7 +111,7 @@ def get_app_version(product_dir="browser"):
 
 
 def get_release_type(parameters):
-    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
+    if parameters["project"] not in ENTERPRISE_PROMOTION_PROJECTS:
         return ""
 
     if parameters["head_ref"] == "refs/heads/enterprise-release":
@@ -137,6 +139,7 @@ def get_defaults(repo_root=None):
         "phabricator_diff": None,
         "project": "enterprise-firefox",
         "release_enable_emefree": False,
+        "release_enable_enterprise_repack": False,
         "release_enable_partner_repack": False,
         "release_enable_partner_attribution": False,
         "release_eta": "",

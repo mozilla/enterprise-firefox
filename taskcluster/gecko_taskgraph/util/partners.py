@@ -16,6 +16,8 @@ from taskgraph.util import json
 from taskgraph.util.copy import deepcopy
 from taskgraph.util.schema import resolve_keyed_by
 
+from gecko_taskgraph.util.attributes import ENTERPRISE_PROMOTION_PROJECTS
+
 # Suppress chatty requests logging
 logging.getLogger("requests").setLevel(logging.WARNING)
 
@@ -367,11 +369,12 @@ def get_partner_config_by_url(
 
 
 def check_if_partners_enabled(config, tasks):
-    if config.kind.startswith("enterprise-repack"):
-        yield from tasks
-
     if (
         (
+            config.params["release_enable_enterprise_repack"]
+            and config.kind.startswith("enterprise-repack")
+        )
+        or (
             config.params["release_enable_partner_repack"]
             and config.kind.startswith("release-partner-repack")
         )
@@ -492,30 +495,17 @@ def get_partner_url_config(parameters, graph_config):
         "release-level": release_level(graph_config["release-branches"], parameters),
         "release-type": parameters["release_type"],
     }
-    resolve_keyed_by(
-        partner_url_config,
+    # Not every product declares every entry: comm only has the enterprise one.
+    for field in (
         "release-eme-free-repack",
-        "eme-free manifest_url",
-        **substitutions,
-    )
-    resolve_keyed_by(
-        partner_url_config,
         "release-partner-repack",
-        "partner manifest url",
-        **substitutions,
-    )
-    resolve_keyed_by(
-        partner_url_config,
         "release-partner-attribution",
-        "partner attribution url",
-        **substitutions,
-    )
-    resolve_keyed_by(
-        partner_url_config,
         "enterprise-repack",
-        "enterprise repacks manifest url",
-        **substitutions,
-    )
+    ):
+        if field in partner_url_config:
+            resolve_keyed_by(
+                partner_url_config, field, f"{field} manifest url", **substitutions
+            )
     return partner_url_config
 
 
@@ -644,10 +634,13 @@ def _pad_macos_attribution_code(attribution_string):
 
 
 def make_enterprise_repack_from_url(parameters, graph_config, kind, platform_mapping):
-    token = get_token({"level": parameters["level"], "source": "enterprise"})
+    token = get_token({
+        "level": parameters["level"],
+        "source": graph_config["trust-domain"],
+    })
     partner_url_config = get_partner_url_config(parameters, graph_config)
     get_partner_config_by_url(
-        manifest_url=partner_url_config["enterprise-repack"],
+        manifest_url=partner_url_config.get("enterprise-repack"),
         kind=kind,
         token=token,
         platform_mapping=platform_mapping,
@@ -657,13 +650,13 @@ def make_enterprise_repack_from_url(parameters, graph_config, kind, platform_map
 
 
 def get_release_partners(parameters):
-    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
+    if parameters["project"] not in ENTERPRISE_PROMOTION_PROJECTS:
         return []
     return get_enterprise_partner_subset(parameters)
 
 
 def get_release_partner_config(parameters, graph_config):
-    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
+    if parameters["project"] not in ENTERPRISE_PROMOTION_PROJECTS:
         return {}
     return get_enterprise_partner_configs(parameters, graph_config)
 

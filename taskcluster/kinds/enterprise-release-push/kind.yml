@@ -1,0 +1,71 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - taskgraph.transforms.from_deps
+    - gecko_taskgraph.transforms.enterprise_release_push
+    - gecko_taskgraph.transforms.job
+    - gecko_taskgraph.transforms.task
+
+kind-dependencies:
+    - enterprise-release-definition
+    - fetch
+
+task-defaults:
+    description: "Stage a Firefox Enterprise OCI release in the registry (by digest)."
+    run-on-projects: [enterprise-firefox]
+    shipping-product: firefox-enterprise
+    shipping-phase: push
+    attributes:
+        shippable: true
+    from-deps:
+        # `fetch` is a kind-dependency only so the moa fetch artifact resolves;
+        # restrict the fan-out to the per-console release-definition tasks.
+        kinds:
+            - enterprise-release-definition
+        group-by: single
+    worker-type: b-linux
+    worker:
+        docker-image: {in-tree: lint}
+        max-run-time: 3600
+        taskcluster-proxy: true
+        artifacts:
+            # The resulting OCI index digest, handed off to the ship task.
+            - type: file
+              name: public/build/release-index.json
+              path: /builds/worker/artifacts/release-index.json
+        env:
+            # TODO: real OCI reference (registry/repo, no tag). push stages the
+            # image by digest here; ship later tags it with the release channel.
+            REGISTRY_REFERENCE: registry.example.com/mozilla/firefox-enterprise
+            # TODO: real Taskcluster secret holding registry credentials.
+            REGISTRY_SECRET: project/enterprise/releng/oci-registry
+    scopes:
+        - secrets:get:project/enterprise/releng/oci-registry
+        # moa downloads the (private) enterprise repack artifacts referenced by
+        # the release definition.
+        - queue:get-artifact:project/enterprise/repacks/*
+    run:
+        using: run-task
+        checkout: true
+        cwd: "{checkout}"
+        command: >-
+            bash taskcluster/scripts/push-enterprise-release.sh
+    fetches:
+        enterprise-release-definition:
+            # Path is relative to the dependency's artifact prefix (public/build).
+            - artifact: release-definition.json
+              extract: false
+        fetch:
+            - moa
+    treeherder:
+        symbol: "Ent(push)"
+        kind: other
+        tier: 1
+        platform: firefox-release-enterprise/opt
+
+tasks:
+    push: {}
