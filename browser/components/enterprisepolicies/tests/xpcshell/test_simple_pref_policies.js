@@ -1498,6 +1498,58 @@ const POLICIES_TESTS = [
       "browser.contentanalysis.enterprise.telemetry.urlLogging": "none",
     },
   },
+
+  // POLICY: SignOut
+  {
+    policies: {
+      SignOut: {
+        BrowserClose: {
+          Action: "lock",
+        },
+      },
+    },
+    // Locking on close persists the session behind OS auth instead of signing out.
+    lockedPrefs: {
+      "enterprise.locking.browser_close": true,
+    },
+  },
+  {
+    policies: {
+      SignOut: {
+        BrowserClose: {
+          Action: "signout",
+        },
+      },
+    },
+    lockedPrefs: {
+      "enterprise.locking.browser_close": false,
+    },
+  },
+  {
+    policies: {
+      SignOut: {
+        BrowserRestart: {
+          Action: "lock",
+        },
+      },
+    },
+    // Locking on restart persists the session behind OS auth instead of signing out.
+    lockedPrefs: {
+      "enterprise.locking.browser_restart": true,
+    },
+  },
+  {
+    policies: {
+      SignOut: {
+        BrowserRestart: {
+          Action: "signout",
+        },
+      },
+    },
+    lockedPrefs: {
+      "enterprise.locking.browser_restart": false,
+    },
+  },
 ];
 
 add_task(async function test_policy_simple_prefs() {

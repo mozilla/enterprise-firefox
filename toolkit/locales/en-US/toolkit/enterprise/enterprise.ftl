@@ -59,6 +59,23 @@ enterprise-close-prompt-checkbox-label = Warn me when closing { -brand-short-nam
 enterprise-close-prompt-tabs-checkbox-label = Warn me when closing multiple tabs
 enterprise-close-prompt-primary-btn-label = Close and sign out
 
+# Shown instead of the sign-out variants when the session is locked (persisted)
+# on close rather than signed out.
+enterprise-close-prompt-message-lock = Your session will be locked.
+
+# Variables:
+#   $tabCount (Number): The number of tabs to be closed.
+enterprise-close-prompt-message-with-tabcount-and-lock-warning =
+    { $tabCount ->
+        [one] Your session will be locked and { $tabCount } tab will close.
+       *[other] Your session will be locked and { $tabCount } tabs will close.
+    }
+
+enterprise-close-prompt-message-with-tabcount-lock = Closing { -brand-short-name } will lock your session.
+enterprise-close-prompt-message-lock-reauth = You can resume your session after authenticating on this device.
+enterprise-close-prompt-checkbox-label-lock = Warn me when closing { -brand-short-name } locks my session
+enterprise-close-prompt-primary-btn-label-lock = Close and lock
+
 enterprise-quit-shortcut-prompt-title-with-tabs = Quit { -brand-short-name } or close current tab?
 enterprise-quit-shortcut-prompt-title = Close window and quit { -brand-short-name }?
 enterprise-quit-shortcut-prompt-message = Quitting will sign you out of your session. You’ll need to reauthenticate through your organization’s SSO provider.

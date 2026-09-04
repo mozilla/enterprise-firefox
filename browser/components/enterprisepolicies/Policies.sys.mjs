@@ -3795,6 +3795,41 @@ export var Policies = {
     },
   },
 
+  SignOut: {
+    onBeforeAddons(manager, param) {
+      if (param.BrowserClose) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.locking.browser_close",
+          param.BrowserClose.Action === "lock"
+        );
+      }
+      if (param.BrowserRestart) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.locking.browser_restart",
+          param.BrowserRestart.Action === "lock"
+        );
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams.BrowserClose) {
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.locking.browser_close"
+        );
+        // unsetAndUnlockPref restores the build default but never re-locks;
+        // re-lock to match the locked default the enterprise build ships.
+        Services.prefs.lockPref("enterprise.locking.browser_close");
+      }
+      if (oldParams.BrowserRestart) {
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.locking.browser_restart"
+        );
+        // unsetAndUnlockPref restores the build default but never re-locks;
+        // re-lock to match the locked default the enterprise build ships.
+        Services.prefs.lockPref("enterprise.locking.browser_restart");
+      }
+    },
+  },
+
   SitePolicies: {
     /**
      * Converts a wildcard domain into a match pattern.

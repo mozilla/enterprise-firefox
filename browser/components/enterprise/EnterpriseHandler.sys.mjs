@@ -24,6 +24,8 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.prompt_on_signout";
 const WARN_ON_CLOSE_PREF = "browser.tabs.warnOnClose";
+const LOCK_ON_CLOSE_PREF = "enterprise.locking.browser_close";
+const LOCK_ON_RESTART_PREF = "enterprise.locking.browser_restart";
 
 export const EnterpriseHandler = {
   /**
@@ -52,6 +54,7 @@ export const EnterpriseHandler = {
       return;
     }
     this.restrictEnterpriseView(window);
+    this._initLockingPrefObservers();
     this._initUrlbarButtons(window);
   },
 
@@ -95,6 +98,27 @@ export const EnterpriseHandler = {
   },
 
   /**
+   * Initialize observers for the locking prefs.
+   */
+  _initLockingPrefObservers() {
+    if (Services.felt?.isFeltBrowser() && !this._lockObserversInitialized) {
+      this._lockObserversInitialized = true;
+      this._syncCloseLockIntent();
+      this._syncRestartLockIntent();
+      this._lockOnClosePrefObserver = () => this._syncCloseLockIntent();
+      this._lockOnRestartPrefObserver = () => this._syncRestartLockIntent();
+      Services.prefs.addObserver(
+        LOCK_ON_CLOSE_PREF,
+        this._lockOnClosePrefObserver
+      );
+      Services.prefs.addObserver(
+        LOCK_ON_RESTART_PREF,
+        this._lockOnRestartPrefObserver
+      );
+    }
+  },
+
+  /**
    * Hide away FxA appearances in the toolbar and the app menu (hamburger menu)
    *
    * @param {Window} window chrome window
@@ -114,30 +138,48 @@ export const EnterpriseHandler = {
    * @param {number} options.tabCount - The number of open tabs across all windows.
    * @param {boolean} options.warnOnSignout - Whether to warn on signout.
    * @param {boolean} options.warnOnCloseWithTabs - Whether to warn on close when multiple tabs are open.
+   * @param {boolean} options.willLock - Whether the action will lock the session rather than sign out.
    * @returns {Promise<object>} The parameters for the signout/close prompt, including title, message, checkbox states, and more.
    */
   async _getSignoutPromptParams({
     tabCount,
     warnOnSignout,
     warnOnCloseWithTabs,
+    willLock,
   } = {}) {
     const hasMultipleTabs = tabCount > 1;
     const hasTabsWarning = hasMultipleTabs && warnOnCloseWithTabs;
 
     let titleId, messageId;
     if (hasTabsWarning) {
-      const warnSuffix = warnOnSignout ? "-and-signout-warning" : "";
+      // Titles are action-neutral; only the message reflects lock vs sign-out.
       titleId = {
-        id: `enterprise-close-prompt-title-with-tabcount${warnSuffix}`,
+        id: warnOnSignout
+          ? "enterprise-close-prompt-title-with-tabcount-and-signout-warning"
+          : "enterprise-close-prompt-title-with-tabcount",
         args: { tabCount },
       };
+      let messageIdName;
+      if (willLock) {
+        messageIdName = warnOnSignout
+          ? "enterprise-close-prompt-message-with-tabcount-and-lock-warning"
+          : "enterprise-close-prompt-message-with-tabcount-lock";
+      } else {
+        messageIdName = warnOnSignout
+          ? "enterprise-close-prompt-message-with-tabcount-and-signout-warning"
+          : "enterprise-close-prompt-message-with-tabcount";
+      }
       messageId = {
-        id: `enterprise-close-prompt-message-with-tabcount${warnSuffix}`,
+        id: messageIdName,
         args: warnOnSignout ? { tabCount } : {},
       };
     } else {
       titleId = { id: "enterprise-close-prompt-title" };
-      messageId = { id: "enterprise-close-prompt-message" };
+      messageId = {
+        id: willLock
+          ? "enterprise-close-prompt-message-lock"
+          : "enterprise-close-prompt-message",
+      };
     }
 
     const [
@@ -150,9 +192,21 @@ export const EnterpriseHandler = {
     ] = await lazy.localization.formatValues([
       titleId,
       messageId,
-      { id: "enterprise-close-prompt-primary-btn-label" },
-      { id: "enterprise-close-prompt-message-reauth" },
-      { id: "enterprise-close-prompt-checkbox-label" },
+      {
+        id: willLock
+          ? "enterprise-close-prompt-primary-btn-label-lock"
+          : "enterprise-close-prompt-primary-btn-label",
+      },
+      {
+        id: willLock
+          ? "enterprise-close-prompt-message-lock-reauth"
+          : "enterprise-close-prompt-message-reauth",
+      },
+      {
+        id: willLock
+          ? "enterprise-close-prompt-checkbox-label-lock"
+          : "enterprise-close-prompt-checkbox-label",
+      },
       { id: "enterprise-close-prompt-tabs-checkbox-label" },
     ]);
 
@@ -172,7 +226,9 @@ export const EnterpriseHandler = {
     return {
       title,
       message,
-      reauthNotice: warnOnSignout ? reauthNotice : null,
+      // When locking, the resume notice is always shown; when signing out it is
+      // only shown if the user opted into sign-out warnings.
+      reauthNotice: willLock || warnOnSignout ? reauthNotice : null,
       acceptLabel,
       checkboxes,
       accepted: false,
@@ -218,37 +274,30 @@ export const EnterpriseHandler = {
   },
 
   /**
-   * Determines whether the signout/close prompt should be shown based on preferences and current state.
+   * Whether to run the close flow, or let the re-quit from an already-started
+   * enterprise shutdown through.
    *
-   * @returns {boolean} True if the prompt should be shown, false otherwise.
+   * @returns {boolean} True to run the close flow, false while an enterprise
+   *   shutdown is already underway so its re-quit proceeds.
    */
-  shouldShowClosePrompt() {
+  shouldHandleClose() {
     if (this._skipSignoutPrompt) {
       this._skipSignoutPrompt = false;
       return false;
     }
-    const warnOnSignout = Services.prefs.getBoolPref(
-      PROMPT_ON_SIGNOUT_PREF,
-      true
-    );
-    const warnOnCloseWithTabs = Services.prefs.getBoolPref(
-      WARN_ON_CLOSE_PREF,
-      false
-    );
-    if (!warnOnSignout && !warnOnCloseWithTabs) {
-      return false;
-    }
-    this._tabCount = this._countOpenTabs();
-    return warnOnSignout || this._tabCount > 1;
+    return true;
   },
 
   /**
    * Shows the signout/close confirmation dialog if needed.
    *
    * @param {Window} window
+   * @param {boolean} [willLock] - Whether the resulting action will lock the
+   *   session rather than sign out. Defaults to the locking pref; the explicit
+   *   sign-out entry point passes false so the dialog always reflects a sign-out.
    * @returns {Promise<boolean>} true if the action should proceed, false if cancelled.
    */
-  async showSignoutPrompt(window) {
+  async showSignoutPrompt(window, willLock = this.willLockOnClose) {
     const warnOnSignout = Services.prefs.getBoolPref(
       PROMPT_ON_SIGNOUT_PREF,
       true
@@ -269,6 +318,7 @@ export const EnterpriseHandler = {
       tabCount: this._tabCount,
       warnOnSignout,
       warnOnCloseWithTabs,
+      willLock,
     });
     this._tabCount = null;
 
@@ -310,10 +360,87 @@ export const EnterpriseHandler = {
    * @param {Window} window
    */
   async onSignOut(window) {
-    if (!(await this.showSignoutPrompt(window))) {
+    // Signing out explicitly always ends the session, so show sign-out wording
+    // even when the locking pref would lock on a plain browser close.
+    if (!(await this.showSignoutPrompt(window, false))) {
       return;
     }
 
     lazy.initiateShutdown();
+  },
+
+  /**
+   * Whether closing the browser will lock the session (persist it behind OS
+   * auth to resume later) rather than sign out, per the locking pref.
+   *
+   * @returns {boolean}
+   */
+  get willLockOnClose() {
+    return Services.prefs.getBoolPref(LOCK_ON_CLOSE_PREF, false);
+  },
+
+  /**
+   * Push the current close-locking preference to the browser's FELT IPC
+   * client, which attaches it to the exit event when a shutdown is observed.
+   * The value is cached there rather than read at close time so the intent
+   * always travels with the exit itself (a vetoed quit sends nothing).
+   */
+  _syncCloseLockIntent() {
+    try {
+      Services.felt.setCloseLockIntent(this.willLockOnClose);
+    } catch (e) {
+      lazy.log.error(`Unable to sync close lock intent: ${e}`);
+    }
+  },
+
+  /**
+   * Push the current restart-locking preference to the browser's FELT IPC
+   * client, which attaches it to the restart event when a restart-quit is
+   * observed. The value is cached there rather than read at restart time so
+   * the intent always travels with the restart itself; FELT only honors it
+   * when the restart applies a pending update.
+   */
+  _syncRestartLockIntent() {
+    try {
+      const willLockOnRestart = Services.prefs.getBoolPref(
+        LOCK_ON_RESTART_PREF,
+        false
+      );
+      Services.felt.setRestartLockIntent(willLockOnRestart);
+    } catch (e) {
+      lazy.log.error(`Unable to sync restart lock intent: ${e}`);
+    }
+  },
+
+  /**
+   * Ends the FELT session on browser close by either locking it (persisting it
+   * behind OS auth to resume later) or signing out, per the synced locking
+   * intent that FELT applies once the browser process exits.
+   */
+  lockOrSignOut() {
+    this._skipSignoutPrompt = true;
+    if (!Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit)) {
+      // Vetoed by a beforeunload handler; the next close must prompt again.
+      this._skipSignoutPrompt = false;
+    }
+  },
+
+  /**
+   * Removes all observers owned by this handler.
+   */
+  uninit() {
+    if (this._lockObserversInitialized) {
+      this._lockObserversInitialized = false;
+      Services.prefs.removeObserver(
+        LOCK_ON_CLOSE_PREF,
+        this._lockOnClosePrefObserver
+      );
+      this._lockOnClosePrefObserver = null;
+      Services.prefs.removeObserver(
+        LOCK_ON_RESTART_PREF,
+        this._lockOnRestartPrefObserver
+      );
+      this._lockOnRestartPrefObserver = null;
+    }
   },
 };
