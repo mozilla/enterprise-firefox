@@ -212,6 +212,12 @@ moz-input-text::part(label) {
   font-size: medium;
 }
 
+.felt-login__unlock-hint {
+  margin: var(--space-small) 0 0;
+  font-size: small;
+  color: var(--text-color-deemphasized);
+}
+
 .fill-width {
   width: 100%;
 }
