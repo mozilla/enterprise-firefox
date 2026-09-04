@@ -39,6 +39,9 @@ skip-if = ["enterprise"] # Enterprise builds repurpose the VPN as the Access Con
 ["browser_privacy_syncDataClearing_v2.js"]
 
 ["browser_privacy_uploadEnabled.js"]
+# Enterprise builds hide the data collection checkboxes, so the
+# submitHealthReportBox checkbox this test targets is never rendered.
+skip-if = ["enterprise"]
 
 ["browser_privacypane_2_srd.js"]
 skip-if = [

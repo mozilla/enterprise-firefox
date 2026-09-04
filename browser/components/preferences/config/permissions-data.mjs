@@ -293,6 +293,15 @@ Preferences.addSetting({
   deps: ["privacySegmentation"],
   visible: ({ privacySegmentation }) =>
     lazy.AppConstants.MOZ_DATA_REPORTING || privacySegmentation.value,
+  getControlConfig(config) {
+    if (lazy.AppConstants.MOZ_ENTERPRISE) {
+      return {
+        ...config,
+        l10nId: "data-collection-enterprise",
+      };
+    }
+    return config;
+  },
 });
 Preferences.addSetting({
   id: "dataCollectionLink",
@@ -331,7 +340,10 @@ Preferences.addSetting({
   id: "telemetryContainer",
   deps: ["submitHealthReportBox"],
   visible: deps => {
-    if (!lazy.AppConstants.MOZ_DATA_REPORTING) {
+    if (
+      !lazy.AppConstants.MOZ_DATA_REPORTING ||
+      lazy.AppConstants.MOZ_ENTERPRISE
+    ) {
       return false;
     }
     return !deps.submitHealthReportBox.value;
@@ -344,6 +356,7 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "submitHealthReportBox",
   pref: PREF_UPLOAD_ENABLED,
+  visible: () => !lazy.AppConstants.MOZ_ENTERPRISE,
   getControlConfig(config, _, setting) {
     if (!setting.value) {
       return {
@@ -361,7 +374,8 @@ Preferences.addSetting({
   id: "addonRecommendationEnabled",
   pref: PREF_ADDON_RECOMMENDATIONS_ENABLED,
   deps: ["submitHealthReportBox"],
-  visible: () => lazy.AppConstants.MOZ_DATA_REPORTING,
+  visible: () =>
+    lazy.AppConstants.MOZ_DATA_REPORTING && !lazy.AppConstants.MOZ_ENTERPRISE,
   get: (value, deps) => {
     return value && deps.submitHealthReportBox.pref.value;
   },
@@ -373,7 +387,8 @@ Preferences.addSetting({
 
 Preferences.addSetting({
   id: "optOutStudiesEnabled",
-  visible: () => lazy.AppConstants.MOZ_NORMANDY,
+  visible: () =>
+    lazy.AppConstants.MOZ_NORMANDY && !lazy.AppConstants.MOZ_ENTERPRISE,
   pref: PREF_OPT_OUT_STUDIES_ENABLED,
   deps: ["submitHealthReportBox", "normandyEnabled"],
   disabled: ({ submitHealthReportBox, normandyEnabled }) => {
@@ -414,12 +429,15 @@ Preferences.addSetting({
 });
 Preferences.addSetting({
   id: "viewShieldStudies",
+  visible: () => !lazy.AppConstants.MOZ_ENTERPRISE,
 });
 Preferences.addSetting({
   id: "enableNimbusRollouts",
   pref: "nimbus.rollouts.enabled",
   visible: () =>
-    lazy.AppConstants.MOZ_DATA_REPORTING && lazy.AppConstants.MOZ_NORMANDY,
+    lazy.AppConstants.MOZ_DATA_REPORTING &&
+    lazy.AppConstants.MOZ_NORMANDY &&
+    !lazy.AppConstants.MOZ_ENTERPRISE,
   disabled: () => !Services.policies.isAllowed("NimbusRollouts"),
   get: value => {
     if (!Services.policies.isAllowed("NimbusRollouts")) {
@@ -431,13 +449,24 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "submitUsagePingBox",
   pref: "datareporting.usage.uploadEnabled",
-  visible: () => lazy.AppConstants.MOZ_DATA_REPORTING,
+  visible: () =>
+    lazy.AppConstants.MOZ_DATA_REPORTING && !lazy.AppConstants.MOZ_ENTERPRISE,
 });
 Preferences.addSetting({
   id: "automaticallySubmitCrashesBox",
   pref: "browser.crashReports.unsubmittedCheck.autoSubmit2",
   visible: () =>
     lazy.AppConstants.MOZ_DATA_REPORTING && lazy.AppConstants.MOZ_CRASHREPORTER,
+  getControlConfig(config) {
+    if (lazy.AppConstants.MOZ_ENTERPRISE) {
+      return {
+        ...config,
+        l10nId: "data-collection-backlogged-crash-reports-enterprise",
+        supportPage: undefined,
+      };
+    }
+    return config;
+  },
 });
 Preferences.addSetting(
   /** @type {{ _originalStateOfDataCollectionPrefs: Map<string, any>} & SettingConfig} */ ({

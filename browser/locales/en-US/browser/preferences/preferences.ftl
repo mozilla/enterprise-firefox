@@ -2160,6 +2160,10 @@ data-collection =
     .label = { -brand-short-name } data collection and use
     .description = We strive to provide you with choices and collect only the minimal data necessary to improve { -brand-product-name } for everyone.
     .searchkeywords = telemetry
+# Variant of data-collection without the description, used on Enterprise builds.
+data-collection-enterprise =
+    .label = { -brand-short-name } data collection and use
+    .searchkeywords = telemetry
 data-collection-link = View Privacy Notice
 data-collection-preferences-across-profiles =
     .message = These settings apply to every { -brand-product-name } profile on this device.
@@ -2182,6 +2186,11 @@ data-collection-studies-link =
 data-collection-backlogged-crash-reports =
     .label = Automatically send crash reports
     .description = This helps { -vendor-short-name } diagnose and fix issues with the browser. Reports may include personal or sensitive data.
+    .accesskey = c
+# Variant of data-collection-backlogged-crash-reports used on Enterprise builds.
+data-collection-backlogged-crash-reports-enterprise =
+    .label = Automatically send crash reports
+    .description = Crash reports help your organization diagnose and fix issues with the browser. Reports may include personal or sensitive data.
     .accesskey = c
 data-collection-usage-ping =
     .label = Send daily usage ping to { -vendor-short-name }
