@@ -48,7 +48,13 @@ skip-if = [
   "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix && verify-standalone",
 ]
 
+["browser_aboutDialog_enterprise.js"]
+# The managed-notice link only exists on enterprise builds
+run-if = ["enterprise"]
+
 ["browser_aboutDialog_referrals.js"]
+# Enterprise builds preprocess the contribute/referrals blurbs out of the About dialog
+skip-if = ["enterprise"]
 
 ["browser_aboutNetError.js"]
 

@@ -117,31 +117,33 @@ function init() {
     }
   }
 
-  // contributeDescReferrals contains the Share Firefox link, so we
-  // toggle which description based on the referrals config flag
-  let referralsEnabled = Services.prefs.getBoolPref(
-    "browser.referrals.enabled",
-    false
-  );
-  document.getElementById("contributeDesc").hidden = referralsEnabled;
-  let contributeDescReferrals = document.getElementById(
-    "contributeDescReferrals"
-  );
-  contributeDescReferrals.hidden = !referralsEnabled;
-
-  if (referralsEnabled) {
-    contributeDescReferrals.addEventListener(
-      "click",
-      event => {
-        if (
-          event.target.closest('[data-l10n-name="helpus-shareFirefoxLink"]')
-        ) {
-          event.preventDefault();
-          lazy.Referrals.openReferralsTab(window, "about_dialog");
-        }
-      },
-      true
+  if (!AppConstants.MOZ_ENTERPRISE) {
+    // contributeDescReferrals contains the Share Firefox link, so we
+    // toggle which description based on the referrals config flag
+    let referralsEnabled = Services.prefs.getBoolPref(
+      "browser.referrals.enabled",
+      false
     );
+    document.getElementById("contributeDesc").hidden = referralsEnabled;
+    let contributeDescReferrals = document.getElementById(
+      "contributeDescReferrals"
+    );
+    contributeDescReferrals.hidden = !referralsEnabled;
+
+    if (referralsEnabled) {
+      contributeDescReferrals.addEventListener(
+        "click",
+        event => {
+          if (
+            event.target.closest('[data-l10n-name="helpus-shareFirefoxLink"]')
+          ) {
+            event.preventDefault();
+            lazy.Referrals.openReferralsTab(window, "about_dialog");
+          }
+        },
+        true
+      );
+    }
   }
 
   if (AppConstants.IS_ESR) {
@@ -154,14 +156,16 @@ function init() {
       window.close();
     });
   if (AppConstants.MOZ_UPDATER) {
-    document
-      .getElementById("aboutDialogHelpLink")
-      .addEventListener("click", () => {
-        openHelpLink("firefox-help");
-      });
-    document
-      .getElementById("submit-feedback")
-      .addEventListener("click", openFeedbackPage);
+    if (!AppConstants.MOZ_ENTERPRISE) {
+      document
+        .getElementById("aboutDialogHelpLink")
+        .addEventListener("click", () => {
+          openHelpLink("firefox-help");
+        });
+      document
+        .getElementById("submit-feedback")
+        .addEventListener("click", openFeedbackPage);
+    }
     document
       .getElementById("checkForUpdatesButton")
       .addEventListener("command", () => {
