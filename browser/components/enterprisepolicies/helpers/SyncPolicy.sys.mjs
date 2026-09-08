@@ -33,6 +33,13 @@ const ENGINE_PREFS = {
 const SYNC = "sync";
 const SYNC_TABS = "sync-tabs";
 
+// Engines whose data is especially sensitive and, in enterprise builds, is
+// encrypted at rest but not end-to-end encrypted (the management console holds
+// the key). Policy may turn these off (following the usual `Locked` handling),
+// but must never turn them on: enabling them requires an explicit local opt-in
+// from the user.
+const CONSENT_REQUIRED_ENGINES = new Set(["Passwords", "PaymentMethods"]);
+
 /**
  * Customizes Sync settings (all settings are optional):
  *    - Whether sync is enabled/disabled
@@ -62,8 +69,13 @@ export const SyncPolicy = {
    * @property {boolean} [Bookmarks] Whether syncing bookmarks should be enabled
    * @property {boolean} [History] Whether syncing history should be enabled
    * @property {boolean} [OpenTabs] Whether syncing open tabs should be enabled
-   * @property {boolean} [Passwords] Whether syncing passwords should be enabled
-   * @property {boolean} [PaymentMethods] Whether syncing payment methods should be enabled
+   * @property {boolean} [Passwords] May only disable syncing passwords (false).
+   *                                 A request to enable it is ignored: enabling
+   *                                 requires an explicit local opt-in.
+   * @property {boolean} [PaymentMethods] May only disable syncing payment
+   *                                      methods (false). A request to enable it
+   *                                      is ignored: enabling requires an
+   *                                      explicit local opt-in.
    * @property {boolean} [Settings] Whether syncing settings should be enabled
    */
 
@@ -102,6 +114,18 @@ export const SyncPolicy = {
 
     for (const [type, value] of Object.entries(typeSettings)) {
       const pref = ENGINE_PREFS[type];
+
+      // Passwords and payment methods can only ever be turned off by policy.
+      // Enabling them is reserved to an explicit local choice by the user, so a
+      // request to turn them on is ignored regardless of `Locked`. Turning them
+      // off falls through to the regular handling below.
+      if (CONSENT_REQUIRED_ENGINES.has(type) && value !== false) {
+        lazy.log.warn(
+          `Ignoring policy request to enable ${type} (${pref}); syncing ${type} requires explicit local user consent.`
+        );
+        continue;
+      }
+
       if (isIgnoringUserPreferences) {
         lazy.log.debug(`Setting and locking ${type}: ${pref} : ${value}`);
         lazy.PoliciesUtils.setAndLockPref(pref, value);

@@ -62,12 +62,14 @@ const Template = ({
   hasSupportLink,
   hasActionButton,
   hasSlottedMessage,
+  iconSrc,
 }) => html`
   <moz-message-bar
     type=${type}
     heading=${ifDefined(heading)}
     message=${ifDefined(message)}
     data-l10n-id=${ifDefined(l10nId)}
+    iconsrc=${ifDefined(iconSrc)}
     ?dismissable=${dismissable}
   >
     ${hasSlottedMessage
@@ -142,4 +144,11 @@ export const WithMessageSlot = Template.bind({});
 WithMessageSlot.args = {
   ...Default.args,
   hasSlottedMessage: true,
+};
+
+export const WithCustomIcon = Template.bind({});
+WithCustomIcon.args = {
+  ...Default.args,
+  l10nId: "moz-message-bar-message-heading",
+  iconSrc: "chrome://global/skin/icons/organizational-unit.svg",
 };

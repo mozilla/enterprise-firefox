@@ -29,6 +29,15 @@
     </linkset>
     <script src="chrome://global/content/preferencesBindings.js" />
     <script src="chrome://browser/content/preferences/dialogs/syncChooseWhatToSync.js" />
+    <script
+      type="module"
+      src="chrome://global/content/elements/moz-message-bar.mjs"
+    />
+    <html:moz-message-bar
+      id="syncManagedNotice"
+      iconsrc="chrome://global/skin/icons/organizational-unit.svg"
+      hidden="hidden"
+    />
     <html:div class="sync-engines-list">
       <html:div class="sync-engine-bookmarks">
         <checkbox
