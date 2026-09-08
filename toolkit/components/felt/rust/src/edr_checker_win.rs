@@ -5,7 +5,8 @@
 use log::trace;
 use std::cell::OnceCell;
 
-use crate::edr_checker::{run_command_bounded, DetectMethod};
+use crate::edr_checker::DetectMethod;
+use crate::process::run_command_bounded;
 
 /// Lower-cased full paths and executable file names of all running processes.
 struct ProcessList {

@@ -1,0 +1,46 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/** Receives one query result on the main thread. */
+[scriptable, uuid(aeae0c99-9c76-4efa-b5b6-bbf2b5192def)]
+interface nsIDiskEncryptionCheckerCallback : nsISupports {
+  /**
+   * @param status "full" when all relevant volumes were inspected and are
+   *               encrypted; "enabled" when the boot volume is encrypted and
+   *               no plaintext volume was found, but inspection was incomplete;
+   *               "partial" when the boot volume is encrypted but a secondary
+   *               volume is not, taking precedence if another is converting;
+   *               "disabled" when the boot volume is not encrypted;
+   *               "in-progress" during encryption or decryption when no
+   *               plaintext secondary volume was found; otherwise "unknown".
+   * @param method inspected platform mechanism ("filevault", "bitlocker",
+   *               "dm-crypt" or "zfs"), or empty for an unknown status.
+   */
+  void onComplete(in ACString status, in ACString method);
+};
+
+/**
+ * Reports encryption for the operating-system volume, other mounted fixed
+ * volumes and active Linux swap. Returns "unknown" when unprivileged platform
+ * APIs cannot determine the status. This is self-reported from local OS state,
+ * not remote attestation.
+ */
+[scriptable, uuid(ba74995f-708b-4349-a8c9-53ecb0f118f7)]
+interface nsIDiskEncryptionChecker : nsISupports {
+  /**
+   * Asynchronously determines disk encryption on a background thread.
+   * Concurrent callers share one scan; a call throws instead of queueing when
+   * the running scan appears wedged. Must be called on the main thread, where
+   * the callback is invoked.
+   *
+   * @param callback invoked once with the aggregated status.
+   */
+  void getDiskEncryption(in nsIDiskEncryptionCheckerCallback callback);
+};
+
+%{C++
+#define NS_DISK_ENCRYPTION_CHECKER_CONTRACTID "@mozilla.org/enterprise/disk-encryption-checker;1"
+%}

@@ -379,7 +379,17 @@ var snapshotFormatters = {
       $("security-software-edr").textContent = data.presentEdrs.join(", ");
     }
 
-    let hasContent = isWin || hasEdrs;
+    let diskEncryption = data.diskEncryption;
+    $("security-software-disk-encryption-row").hidden = !diskEncryption;
+    if (diskEncryption) {
+      document.l10n.setAttributes(
+        $("security-software-disk-encryption"),
+        `security-software-disk-encryption-${diskEncryption.status}`,
+        { method: diskEncryption.method ?? "" }
+      );
+    }
+
+    let hasContent = isWin || hasEdrs || !!diskEncryption;
     $("security-software").hidden = !hasContent;
     $("security-software-table").hidden = !hasContent;
   },

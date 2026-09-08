@@ -50,6 +50,8 @@ skip-if = [
 ["test_DeferredTask_window.js"]
 support-files = ["test_DeferredTask_window/*"]
 
+["test_DiskEncryption.js"]
+
 ["test_E10SUtils_getRemoteTypeForURIObject.js"]
 
 ["test_EventEmitter.js"]

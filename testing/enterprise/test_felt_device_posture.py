@@ -243,6 +243,35 @@ class FeltDevicePosture(FeltTests):
         for edr in present_edrs:
             assert "name" in edr, "Each EDR entry has a name field"
 
+        assert "diskEncryption" in device_posture, (
+            "Device posture reports diskEncryption"
+        )
+        disk_encryption = device_posture["diskEncryption"]
+        self._logger.info(f"Disk encryption: {disk_encryption}")
+        assert disk_encryption["status"] in (
+            "full",
+            "enabled",
+            "partial",
+            "disabled",
+            "in-progress",
+            "unknown",
+        ), "diskEncryption reports a documented status"
+        expected_methods = {
+            "darwin": ("filevault",),
+            "win32": ("bitlocker",),
+            # A ZFS root reports native encryption rather than dm-crypt.
+            "linux": ("dm-crypt", "zfs"),
+        }.get(sys.platform, ())
+        if disk_encryption["status"] == "unknown":
+            assert disk_encryption["method"] is None, (
+                "An unknown status names no encryption method"
+            )
+        else:
+            assert disk_encryption["method"] in expected_methods, (
+                f"diskEncryption method should be one of {expected_methods} "
+                f"on {sys.platform}"
+            )
+
         assert "mobileEquipmentId" in device_posture["network"], (
             "Device posture reports IMEI/MEID"
         )
