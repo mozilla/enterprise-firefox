@@ -72,6 +72,8 @@ run-if = [
 
 ["test_felt_browser_starts.py"]
 
+["test_felt_browser_startup_policies.py"]
+
 ["test_felt_browser_token_refresh.py"]
 
 ["test_felt_browser_updates_forward.py"]

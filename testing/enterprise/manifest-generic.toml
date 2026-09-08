@@ -32,6 +32,8 @@ subsuite = "enterprise"
 
 ["test_felt_starts_utf8.py"]
 
+["test_felt_startup_policies.py"]
+
 ["test_felt_status_panel.py"]
 
 ["test_felt_token_refresh_5xx.py"]
