@@ -604,23 +604,61 @@ export const InfoBar = {
   },
 
   /**
-   * Displays the universal infobar in all open, fully loaded browser windows.
+   * Displays the universal infobar immediately in loaded browser windows and
+   * after load in windows that are still loading.
    *
    * @param {InfoBarNotification} notification - The notification instance to display.
    */
   async showNotificationAllWindows(notification) {
     for (let win of Services.wm.getEnumerator("navigator:browser")) {
-      if (
-        !win.gBrowser ||
-        win.document?.readyState !== "complete" ||
-        !this.isValidInfobarWindow(win)
-      ) {
+      if (!this.isValidInfobarWindow(win)) {
+        continue;
+      }
+      if (win.document?.readyState !== "complete") {
+        if (this._activeInfobar?.notification === notification) {
+          this._showWhenLoaded(win, this._activeInfobar);
+        }
+        continue;
+      }
+      if (!win.gBrowser) {
         continue;
       }
       this.maybeLoadCustomElement(win);
       this.maybeInsertFTL(win);
       const browser = win.gBrowser.selectedBrowser;
       await notification.showNotification(browser);
+    }
+  },
+
+  /**
+   * Shows the active universal message in a window after it loads, provided
+   * that its notification is still the active one.
+   *
+   * @param {Window} win - A browser window, possibly still loading.
+   * @param {object} active - The _activeInfobar entry to show.
+   */
+  _showWhenLoaded(win, { message, dispatch, notification }) {
+    const onWindowReady = () => {
+      if (!win.gBrowser || win.closed) {
+        return;
+      }
+      // The same message object can be shown again while this window loads,
+      // so the notification identifies the show this listener belongs to.
+      if (InfoBar._activeInfobar?.notification !== notification) {
+        return;
+      }
+      this.showInfoBarMessage(
+        win.gBrowser.selectedBrowser,
+        message,
+        dispatch,
+        true
+      );
+    };
+
+    if (win.document?.readyState === "complete") {
+      onWindowReady();
+    } else {
+      win.addEventListener("load", onWindowReady, { once: true });
     }
   },
 
@@ -771,33 +809,11 @@ export const InfoBar = {
       return;
     }
 
-    const { message, dispatch } = this._activeInfobar || {};
-    if (!message || message.content.type !== TYPES.UNIVERSAL) {
+    const active = this._activeInfobar;
+    if (active?.message?.content.type !== TYPES.UNIVERSAL) {
       return;
     }
 
-    const onWindowReady = () => {
-      if (!win.gBrowser || win.closed) {
-        return;
-      }
-      if (
-        !InfoBar._activeInfobar ||
-        InfoBar._activeInfobar.message !== message
-      ) {
-        return;
-      }
-      this.showInfoBarMessage(
-        win.gBrowser.selectedBrowser,
-        message,
-        dispatch,
-        true
-      );
-    };
-
-    if (win.document?.readyState === "complete") {
-      onWindowReady();
-    } else {
-      win.addEventListener("load", onWindowReady, { once: true });
-    }
+    this._showWhenLoaded(win, active);
   },
 };

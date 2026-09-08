@@ -1562,3 +1562,55 @@ add_task(async function closing_the_last_universal_window_clears_active() {
     cleanupInfobars();
   }
 });
+
+add_task(async function universal_reaches_a_window_still_loading() {
+  const sandbox = sinon.createSandbox();
+  const win1 = BrowserWindowTracker.getTopWindow();
+
+  const message = {
+    id: "TEST_UNIVERSAL_LOADING_WINDOW",
+    content: { type: "universal", text: "loading window", buttons: [] },
+  };
+
+  // Open this window before showing the message so the new-window observer
+  // cannot handle it.
+  let win2 = win1.OpenBrowserWindow();
+  const started = TestUtils.topicObserved(
+    "browser-delayed-startup-finished",
+    subject => subject === win2
+  );
+  try {
+    await BrowserTestUtils.waitForEvent(win2, "DOMContentLoaded");
+    Assert.equal(
+      win2.document.readyState,
+      "interactive",
+      "The new window is still loading"
+    );
+
+    // Exclude the harness window so enumeration reaches win2 before yielding.
+    // This models startup, when the loading window is the only eligible one.
+    win1.document.documentElement.setAttribute("taskbartab", "true");
+    try {
+      await InfoBar.showInfoBarMessage(
+        win2.gBrowser.selectedBrowser,
+        message,
+        sandbox.stub()
+      );
+    } finally {
+      win1.document.documentElement.removeAttribute("taskbartab");
+    }
+
+    await started;
+    await TestUtils.waitForCondition(
+      () => !!getNotificationFromWin(win2, message.id),
+      "Shown in the window once it loaded"
+    );
+  } finally {
+    await started;
+    removeByIdInWin(win1, message.id);
+    removeByIdInWin(win2, message.id);
+    await BrowserTestUtils.closeWindow(win2);
+    sandbox.restore();
+    cleanupInfobars();
+  }
+});
