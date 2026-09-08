@@ -1586,6 +1586,7 @@
     "dark": "{Theme$border/color/interactive}",
     "forcedColors": "{Theme$border/color/interactive}"
   },
+  "panel-item/fill": "currentColor",
   "panel-list/background/color": {
     "light": "{Theme$background/color/box}",
     "dark": "{Theme$background/color/box}",

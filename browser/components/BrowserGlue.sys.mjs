@@ -37,7 +37,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FormAutofillUtils: "resource://gre/modules/shared/FormAutofillUtils.sys.mjs",
   Interactions: "moz-src:///browser/components/places/Interactions.sys.mjs",
   LaunchOnLogin: "resource://gre/modules/LaunchOnLogin.sys.mjs",
-  LoginBreaches: "resource:///modules/LoginBreaches.sys.mjs",
+  LoginBreaches:
+    "moz-src:///browser/components/aboutlogins/LoginBreaches.sys.mjs",
   LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
   MigrationUtils: "resource:///modules/MigrationUtils.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",

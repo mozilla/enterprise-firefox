@@ -146,6 +146,7 @@ export default [
 
   // ESLint parse does not support import source yet (Bug 2063547)
   "dom/base/test/test_wasm_offthread_compile.html",
+  "dom/base/test/jsmodules/scriptDisabled_frame.html",
 
   // Intentional broken files
   "dom/base/test/file_js_cache_syntax_error.js",

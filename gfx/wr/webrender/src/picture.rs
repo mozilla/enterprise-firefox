@@ -2909,6 +2909,7 @@ fn test_large_surface_scale_1() {
             is_opaque: true,
             clipping_rect: PictureRect::max_rect(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
             map_local_to_picture: map_local_to_picture.clone(),
             raster_spatial_node_index: root_reference_frame_index,
             surface_spatial_node_index: root_reference_frame_index,
@@ -2930,6 +2931,7 @@ fn test_large_surface_scale_1() {
             is_opaque: true,
             clipping_rect: PictureRect::max_rect(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
             map_local_to_picture,
             raster_spatial_node_index: root_reference_frame_index,
             surface_spatial_node_index: root_reference_frame_index,
@@ -3024,6 +3026,7 @@ fn test_drop_filter_dirty_region_outside_prim() {
             force_scissor_rect: false,
             svgfe_source_map: ScaleOffset::identity(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
         },
         SurfaceInfo {
             unclipped_local_rect: PictureRect::new(
@@ -3048,6 +3051,7 @@ fn test_drop_filter_dirty_region_outside_prim() {
             force_scissor_rect: false,
             svgfe_source_map: ScaleOffset::identity(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
         },
     ];
 
@@ -3144,6 +3148,7 @@ fn test_drop_filter_partial_dirty_content_inflate() {
             force_scissor_rect: false,
             svgfe_source_map: ScaleOffset::identity(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
         },
         SurfaceInfo {
             unclipped_local_rect: PictureRect::new(
@@ -3168,6 +3173,7 @@ fn test_drop_filter_partial_dirty_content_inflate() {
             force_scissor_rect: false,
             svgfe_source_map: ScaleOffset::identity(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
         },
     ];
 

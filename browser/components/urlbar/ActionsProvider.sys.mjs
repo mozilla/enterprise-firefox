@@ -69,6 +69,7 @@ export class ActionsProvider {
  * @property {{[key: string]: any}} [dataset]
  *   An object of properties we set on the action button that can be used to
  *   pass data when it is selected.
+ * @param {{[property: string]: string}} [options.style]
  * @property {string} [engine]
  *   The name of an installed engine if the action prompts search mode.
  */

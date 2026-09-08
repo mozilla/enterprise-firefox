@@ -242,6 +242,9 @@ For more information about the review process, see the {ref}`Code Review FAQ`.
    * - #nss-reviewers
      - Network Security Services (NSS)
      - `Member list <https://phabricator.services.mozilla.com/project/members/156/>`__
+   * - #pdfjs-reviewers
+     - `Core: PDF </mots/index.html#core-pdf>`__ (the `pdf.js <https://github.com/mozilla/pdf.js>`__ viewer and its Gecko integration)
+     - `Member list <https://phabricator.services.mozilla.com/project/members/152/>`__
    * - #perftest-reviewers
      - Perf Tests
      - `Member list <https://phabricator.services.mozilla.com/project/members/102/>`__

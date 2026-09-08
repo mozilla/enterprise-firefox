@@ -37,6 +37,12 @@
       "chrome://browser/content/aiwindow/components/ai-grouped-chip-container.mjs": [
         "../../../browser/components/aiwindow/ui/components/ai-grouped-chip-container/ai-grouped-chip-container.mjs"
       ],
+      "chrome://browser/content/aiwindow/components/ai-sff-form-review.mjs": [
+        "../../../browser/components/aiwindow/ui/components/ai-sff-form-review/ai-sff-form-review.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/ai-sff-tab-selector.mjs": [
+        "../../../browser/components/aiwindow/ui/components/ai-sff-tab-selector/ai-sff-tab-selector.mjs"
+      ],
       "chrome://browser/content/aiwindow/components/ai-website-chip.mjs": [
         "../../../browser/components/aiwindow/ui/components/ai-website-chip/ai-website-chip.mjs"
       ],
@@ -117,6 +123,9 @@
       ],
       "chrome://browser/content/aiwindow/modules/ClientErrorTelemetry.mjs": [
         "../../../browser/components/aiwindow/ui/modules/ClientErrorTelemetry.mjs"
+      ],
+      "chrome://browser/content/aiwindow/modules/SmartFormFillConstants.mjs": [
+        "../../../browser/components/aiwindow/ui/modules/SmartFormFillConstants.mjs"
       ],
       "chrome://browser/content/asrouter/components/menu-message.mjs": [
         "../../../browser/components/asrouter/content/components/menu-message/menu-message.mjs"
@@ -1396,9 +1405,6 @@
       "chrome://remote/content/webdriver-bidi/modules/windowglobal/script.sys.mjs": [
         "../../../remote/webdriver-bidi/modules/windowglobal/script.sys.mjs"
       ],
-      "resource:///actors/AboutLoginsParent.sys.mjs": [
-        "../../../browser/components/aboutlogins/AboutLoginsParent.sys.mjs"
-      ],
       "resource:///actors/AboutNewTabParent.sys.mjs": [
         "../../../browser/actors/AboutNewTabParent.sys.mjs"
       ],
@@ -1479,9 +1485,6 @@
       ],
       "resource:///modules/BuiltInThemes.sys.mjs": [
         "../../../browser/themes/BuiltInThemes.sys.mjs"
-      ],
-      "resource:///modules/ChangePasswordURLs.sys.mjs": [
-        "../../../browser/components/aboutlogins/ChangePasswordURLs.sys.mjs"
       ],
       "resource:///modules/ChatsController.sys.mjs": [
         "../../../browser/components/firefoxview/ChatsController.sys.mjs"
@@ -1566,9 +1569,6 @@
       ],
       "resource:///modules/LinksCache.sys.mjs": [
         "../../../browser/modules/LinksCache.sys.mjs"
-      ],
-      "resource:///modules/LoginBreaches.sys.mjs": [
-        "../../../browser/components/aboutlogins/LoginBreaches.sys.mjs"
       ],
       "resource:///modules/MSMigrationUtils.sys.mjs": [
         "../../../browser/components/migration/MSMigrationUtils.sys.mjs"
@@ -1885,6 +1885,9 @@
       "resource:///modules/webrtcUI.sys.mjs": [
         "../../../browser/modules/webrtcUI.sys.mjs"
       ],
+      "resource://autofill/AddressStorageMigrator.sys.mjs": [
+        "../../../toolkit/components/formautofill/AddressStorageMigrator.sys.mjs"
+      ],
       "resource://autofill/FormAutofill.sys.mjs": [
         "../../../toolkit/components/formautofill/FormAutofill.sys.mjs"
       ],
@@ -1914,6 +1917,9 @@
       ],
       "resource://autofill/ProfileAutoCompleteResult.sys.mjs": [
         "../../../toolkit/components/formautofill/ProfileAutoCompleteResult.sys.mjs"
+      ],
+      "resource://autofill/RustAutofillAddressStorage.sys.mjs": [
+        "../../../toolkit/components/formautofill/RustAutofillAddressStorage.sys.mjs"
       ],
       "resource://autofill/RustAutofillStore.sys.mjs": [
         "../../../toolkit/components/formautofill/RustAutofillStore.sys.mjs"
@@ -3199,9 +3205,6 @@
       "resource://devtools/client/jsonview/json-size-profiler.mjs": [
         "../../../devtools/client/jsonview/json-size-profiler.mjs"
       ],
-      "resource://devtools/client/jsonview/jsonl-utils.mjs": [
-        "../../../devtools/client/jsonview/jsonl-utils.mjs"
-      ],
       "resource://devtools/client/memory/actions/allocations.js": [
         "../../../devtools/client/memory/actions/allocations.js"
       ],
@@ -4242,6 +4245,12 @@
       ],
       "resource://devtools/client/shared/inplace-editor.js": [
         "../../../devtools/client/shared/inplace-editor.js"
+      ],
+      "resource://devtools/client/shared/jsonl-mime-types.mjs": [
+        "../../../devtools/client/shared/jsonl-mime-types.mjs"
+      ],
+      "resource://devtools/client/shared/jsonl-utils.mjs": [
+        "../../../devtools/client/shared/jsonl-utils.mjs"
       ],
       "resource://devtools/client/shared/key-shortcuts.js": [
         "../../../devtools/client/shared/key-shortcuts.js"
@@ -5878,6 +5887,9 @@
       "resource://gre/modules/DateNormalizationUtils.sys.mjs": [
         "../../../toolkit/modules/DateNormalizationUtils.sys.mjs"
       ],
+      "resource://gre/modules/DefaultAgentScheduler.sys.mjs": [
+        "../../../toolkit/mozapps/defaultagent/DefaultAgentScheduler.sys.mjs"
+      ],
       "resource://gre/modules/DeferredTask.sys.mjs": [
         "../../../toolkit/modules/DeferredTask.sys.mjs"
       ],
@@ -6418,6 +6430,9 @@
       "resource://gre/modules/PushBroadcastService.sys.mjs": [
         "../../../dom/push/PushBroadcastService.sys.mjs"
       ],
+      "resource://gre/modules/PushCommandLineHandler.sys.mjs": [
+        "../../../toolkit/components/push/PushCommandLineHandler.sys.mjs"
+      ],
       "resource://gre/modules/PushCrypto.sys.mjs": [
         "../../../dom/push/PushCrypto.sys.mjs"
       ],
@@ -6466,6 +6481,9 @@
       "resource://gre/modules/SandboxUtils.sys.mjs": [
         "../../../security/sandbox/common/SandboxUtils.sys.mjs"
       ],
+      "resource://gre/modules/SanityTestChecks.sys.mjs": [
+        "../../../toolkit/components/gfx/SanityTestChecks.sys.mjs"
+      ],
       "resource://gre/modules/ScheduledTask.sys.mjs": [
         "../../../toolkit/modules/ScheduledTask.sys.mjs"
       ],
@@ -6492,6 +6510,9 @@
       ],
       "resource://gre/modules/SitePolicyUtils.sys.mjs": [
         "../../../toolkit/components/enterprisepolicies/SitePolicyUtils.sys.mjs"
+      ],
+      "resource://gre/modules/SpeechRecognitionFeature.sys.mjs": [
+        "../../../dom/media/webspeech/recognition/SpeechRecognitionFeature.sys.mjs"
       ],
       "resource://gre/modules/Sqlite.sys.mjs": [
         "../../../toolkit/modules/Sqlite.sys.mjs"
@@ -6576,9 +6597,6 @@
       ],
       "resource://gre/modules/UpdateLog.sys.mjs": [
         "../../../toolkit/mozapps/update/UpdateLog.sys.mjs"
-      ],
-      "resource://gre/modules/UpdatePing.sys.mjs": [
-        "../../../toolkit/components/telemetry/pings/UpdatePing.sys.mjs"
       ],
       "resource://gre/modules/UpdateService.sys.mjs": [
         "../../../toolkit/mozapps/update/UpdateService.sys.mjs"
@@ -7168,32 +7186,8 @@
       "resource://normandy/NormandyMigrations.sys.mjs": [
         "../../../toolkit/components/normandy/NormandyMigrations.sys.mjs"
       ],
-      "resource://normandy/actions/AddonRollbackAction.sys.mjs": [
-        "../../../toolkit/components/normandy/actions/AddonRollbackAction.sys.mjs"
-      ],
-      "resource://normandy/actions/AddonRolloutAction.sys.mjs": [
-        "../../../toolkit/components/normandy/actions/AddonRolloutAction.sys.mjs"
-      ],
       "resource://normandy/actions/BaseAction.sys.mjs": [
         "../../../toolkit/components/normandy/actions/BaseAction.sys.mjs"
-      ],
-      "resource://normandy/actions/BaseStudyAction.sys.mjs": [
-        "../../../toolkit/components/normandy/actions/BaseStudyAction.sys.mjs"
-      ],
-      "resource://normandy/actions/BranchedAddonStudyAction.sys.mjs": [
-        "../../../toolkit/components/normandy/actions/BranchedAddonStudyAction.sys.mjs"
-      ],
-      "resource://normandy/actions/ConsoleLogAction.sys.mjs": [
-        "../../../toolkit/components/normandy/actions/ConsoleLogAction.sys.mjs"
-      ],
-      "resource://normandy/actions/PreferenceExperimentAction.sys.mjs": [
-        "../../../toolkit/components/normandy/actions/PreferenceExperimentAction.sys.mjs"
-      ],
-      "resource://normandy/actions/PreferenceRollbackAction.sys.mjs": [
-        "../../../toolkit/components/normandy/actions/PreferenceRollbackAction.sys.mjs"
-      ],
-      "resource://normandy/actions/PreferenceRolloutAction.sys.mjs": [
-        "../../../toolkit/components/normandy/actions/PreferenceRolloutAction.sys.mjs"
       ],
       "resource://normandy/actions/ShowHeartbeatAction.sys.mjs": [
         "../../../toolkit/components/normandy/actions/ShowHeartbeatAction.sys.mjs"
@@ -7228,9 +7222,6 @@
       "resource://normandy/lib/LogManager.sys.mjs": [
         "../../../toolkit/components/normandy/lib/LogManager.sys.mjs"
       ],
-      "resource://normandy/lib/NormandyAddonManager.sys.mjs": [
-        "../../../toolkit/components/normandy/lib/NormandyAddonManager.sys.mjs"
-      ],
       "resource://normandy/lib/NormandyApi.sys.mjs": [
         "../../../toolkit/components/normandy/lib/NormandyApi.sys.mjs"
       ],
@@ -7245,9 +7236,6 @@
       ],
       "resource://normandy/lib/RecipeRunner.sys.mjs": [
         "../../../toolkit/components/normandy/lib/RecipeRunner.sys.mjs"
-      ],
-      "resource://normandy/lib/ShieldPreferences.sys.mjs": [
-        "../../../toolkit/components/normandy/lib/ShieldPreferences.sys.mjs"
       ],
       "resource://normandy/lib/Storage.sys.mjs": [
         "../../../toolkit/components/normandy/lib/Storage.sys.mjs"
@@ -7273,8 +7261,14 @@
       "resource://pdf.js/PdfJsParent.sys.mjs": [
         "../../../toolkit/components/pdfjs/content/PdfJsParent.sys.mjs"
       ],
+      "resource://pdf.js/PdfJsPrint.sys.mjs": [
+        "../../../toolkit/components/pdfjs/content/PdfJsPrint.sys.mjs"
+      ],
       "resource://pdf.js/PdfJsTelemetry.sys.mjs": [
         "../../../toolkit/components/pdfjs/content/PdfJsTelemetry.sys.mjs"
+      ],
+      "resource://pdf.js/PdfJsVersion.sys.mjs": [
+        "../../../toolkit/components/pdfjs/content/PdfJsVersion.sys.mjs"
       ],
       "resource://pdf.js/PdfSandbox.sys.mjs": [
         "../../../toolkit/components/pdfjs/content/PdfSandbox.sys.mjs"
@@ -7720,6 +7714,9 @@
       "resource://testing-common/MockSound.sys.mjs": [
         "../../../testing/specialpowers/content/MockSound.sys.mjs"
       ],
+      "resource://testing-common/NewtabSearchbarTestUtils.sys.mjs": [
+        "../../../browser/components/urlbar/tests/NewtabSearchbarTestUtils.sys.mjs"
+      ],
       "resource://testing-common/NimbusTestUtils.sys.mjs": [
         "../../../toolkit/components/nimbus/test/NimbusTestUtils.sys.mjs"
       ],
@@ -7791,6 +7788,9 @@
       ],
       "resource://testing-common/StructuredLog.sys.mjs": [
         "../../../testing/modules/StructuredLog.sys.mjs"
+      ],
+      "resource://testing-common/SystemDelay.sys.mjs": [
+        "../../../toolkit/modules/tests/modules/SystemDelay.sys.mjs"
       ],
       "resource://testing-common/TabGroupTestUtils.sys.mjs": [
         "../../../browser/components/tabbrowser/test/TabGroupTestUtils.sys.mjs"

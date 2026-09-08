@@ -830,6 +830,19 @@ class DevTools extends EventEmitter {
   }
 
   /**
+   * Closes all toolboxes (fire and forget)
+   *
+   * @return {Promise} Returns a promise that resolves
+   *                   after all toolbox destroyal completed
+   */
+  closeAllToolboxes() {
+    for (const [, toolbox] of this.#toolboxesPerCommands) {
+      toolbox.closeToolbox();
+      toolbox.destroy();
+    }
+  }
+
+  /**
    * Compatibility layer for web-extensions. Used by DevToolsShim for
    * browser/components/extensions/parent/ext-devtools-inspectedWindow.js and
    * browser/components/extensions/parent/ext-devtools-panels.js
@@ -945,9 +958,7 @@ class DevTools extends EventEmitter {
   destroy({ shuttingDown }) {
     // Do not cleanup everything during firefox shutdown.
     if (!shuttingDown) {
-      for (const [, toolbox] of this.#toolboxesPerCommands) {
-        toolbox.destroy();
-      }
+      gDevTools.closeAllToolboxes();
     }
 
     for (const [key] of this.getToolDefinitionMap()) {

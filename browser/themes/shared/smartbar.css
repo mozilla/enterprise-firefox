@@ -4,6 +4,7 @@
 
 /* TODO (Bug 2008938): Make in-page Smartbar styling not dependent on chrome styles */
 @import url("chrome://browser/skin/urlbar.css");
+@import url("chrome://browser/skin/tabbrowser/tab.tokens.css");
 
 :host,
 :root {

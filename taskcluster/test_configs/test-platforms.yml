@@ -519,6 +519,13 @@ android-em-14-x86_64/opt:
         - android14-x86_64-tests
         - web-platform-tests-backlog
 
+android-em-14-x86_64-ccov/opt:
+    build-platform: android-x86_64-ccov/opt
+    test-sets:
+        - ccov-code-coverage-tests
+        - android14-x86_64-tests
+        - web-platform-tests-backlog
+
 android-em-14-x86_64-lite/opt:
     build-platform: android-x86_64-lite/opt
     test-sets:

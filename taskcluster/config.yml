@@ -614,14 +614,23 @@ partner-urls:
                     production: 'git@github.com:mozilla-partners/enterprise-manifests.git'
 
 
+# Beta and ESR are integration branches, so by default their tasks run at the
+# same priority as autoland. Release managers landing an uplift they intend to
+# ship set the "SHIPPING" flag in Lando, which adds "SHIPPING" to the commit
+# message and raises the priority to get results as quickly as possible.
 task-priority:
     by-project:
         'mozilla-release': 'highest'
-        'mozilla-esr.*': 'very-high'
-        'mozilla-beta': 'high'
+        'mozilla-esr.*':
+            by-shipping:
+                'true': 'very-high'
+                'default': 'low'
+        'mozilla-beta':
+            by-shipping:
+                'true': 'very-high'
+                'default': 'low'
         'mozilla-central': 'medium'
         'autoland': 'low'
-        'mozilla-inbound': 'low'
         'default': 'very-low'
 
 taskgraph:

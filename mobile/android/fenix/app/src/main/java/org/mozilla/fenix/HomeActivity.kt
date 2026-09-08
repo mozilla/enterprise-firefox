@@ -556,7 +556,7 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
                                 inactiveTabsEnabled = components.settings.inactiveTabsAreEnabled,
                                 loginsStorage = components.core.passwordsStorage,
                                 tabGroupRepository = components.core.tabGroupRepository,
-                                listenStore = components.listenStore,
+                                listenStore = components.listenToPage.store,
                             )
                         }
                     } else {

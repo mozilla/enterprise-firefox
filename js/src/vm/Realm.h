@@ -253,9 +253,11 @@ class ObjectRealm {
   // Map from array buffers to views sharing that storage.
   JS::WeakCache<js::InnerViewTable> innerViews;
 
+  // ScriptSourceObjects of the module scripts in this realm. Used by
+  // Debugger::findSources to locate the script sources.
   using ModuleScriptSourceSet =
       JS::GCHashSet<js::WeakHeapPtr<ScriptSourceObject*>,
-                    js::DefaultHasher<js::WeakHeapPtr<ScriptSourceObject*>>,
+                    js::StableCellHasher<js::WeakHeapPtr<ScriptSourceObject*>>,
                     js::ZoneAllocPolicy>;
   JS::WeakCache<ModuleScriptSourceSet> moduleScriptSources;
 
@@ -279,6 +281,10 @@ class ObjectRealm {
   void finishRoots();
   void trace(JSTracer* trc);
   void sweepAfterMinorGC(JSTracer* trc);
+
+#ifdef JSGC_HASH_TABLE_CHECKS
+  void checkModuleScriptSourcesAfterMovingGC(JS::Zone* zone);
+#endif
 
   void addSizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf,
                               size_t* innerViewsArg,
@@ -594,6 +600,10 @@ class JS::Realm : public JS::shadow::Realm {
   void purge();
 
   void fixupAfterMovingGC(JSTracer* trc);
+
+#ifdef JSGC_HASH_TABLE_CHECKS
+  void checkModuleScriptSourcesAfterMovingGC();
+#endif
 
   void enter() { enterRealmDepthIgnoringJit_++; }
   void leave() {

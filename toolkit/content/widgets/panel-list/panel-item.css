@@ -15,10 +15,11 @@
 
 button {
   background-color: transparent;
-  color: inherit;
+  background-image: var(--panel-item-icon);
   background-position: var(--panel-menuitem-padding-inline) center;
   background-repeat: no-repeat;
   background-size: var(--icon-size);
+  color: inherit;
   border: none;
   border-radius: var(--panel-item-button-border-radius);
   margin: var(--panel-item-button-margin);
@@ -30,7 +31,7 @@ button {
   text-align: start;
   width: 100%;
   -moz-context-properties: fill;
-  fill: currentColor;
+  fill: var(--panel-item-fill);
   overflow: hidden;
 
   &:dir(rtl),

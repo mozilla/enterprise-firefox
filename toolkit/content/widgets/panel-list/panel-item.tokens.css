@@ -17,6 +17,7 @@
     --panel-item-button-padding: var(--space-xsmall) var(--space-small);
     --panel-item-button-padding-inline-start: var(--space-xxlarge);
     --panel-item-button-padding-inline-start-offset: 0px;
+    --panel-item-fill: currentColor;
   }
 
   @media -moz-pref("browser.nova.enabled") {

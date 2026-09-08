@@ -30,7 +30,8 @@ class ProviderTabGroups extends ActionsProvider {
 
   isActive(queryContext) {
     return (
-      queryContext.sapName == "urlbar" &&
+      (queryContext.sapName == "urlbar" ||
+        queryContext.sapName == "smartbar") &&
       Services.prefs.getBoolPref("browser.tabs.groups.enabled") &&
       (!queryContext.restrictSource ||
         queryContext.restrictSource == lazy.UrlbarShared.RESULT_SOURCE.TABS) &&
@@ -142,16 +143,14 @@ class ProviderTabGroups extends ActionsProvider {
       l10nId,
       l10nArgs,
       icon: "chrome://browser/skin/tabbrowser/tab-groups.svg",
-      dataset: {
-        ...dataset,
-        style: {
-          "--tab-group-color": `var(--tab-group-${color})`,
-          "--tab-group-color-invert": `var(--tab-group-${color}-invert)`,
-          "--tab-group-color-pale": `var(--tab-group-${color}-pale)`,
-          "--tab-group-background-color": `var(--tab-group-${color})`,
-          "--tab-group-text-color": `var(--tab-group-${color}-text)`,
-          "--tab-group-background-color-hover": `var(--tab-group-${color}-hover)`,
-        },
+      dataset,
+      style: {
+        "--tab-group-color": `var(--tab-group-${color})`,
+        "--tab-group-color-invert": `var(--tab-group-${color}-invert)`,
+        "--tab-group-color-pale": `var(--tab-group-${color}-pale)`,
+        "--tab-group-background-color": `var(--tab-group-${color})`,
+        "--tab-group-text-color": `var(--tab-group-${color}-text)`,
+        "--tab-group-background-color-hover": `var(--tab-group-${color}-hover)`,
       },
     });
   }

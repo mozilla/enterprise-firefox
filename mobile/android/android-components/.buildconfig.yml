@@ -1214,6 +1214,7 @@ projects:
     - components:lib-state
     - components:support-base
     - components:support-ktx
+    - components:support-test
     - components:support-utils
     - components:tooling-lint
     - components:ui-colors

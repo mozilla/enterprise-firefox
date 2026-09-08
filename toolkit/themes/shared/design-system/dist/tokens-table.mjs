@@ -3434,6 +3434,7 @@ export const tokensTable = {
       name: "--message-bar-icon-color",
     },
     { value: "var(--button-icon-fill)", name: "--select-icon-fill" },
+    { value: "currentColor", name: "--panel-item-fill" },
     { value: { default: "var(--color-blue-50)" }, name: "--tab-loading-fill" },
     {
       value: {
@@ -5309,6 +5310,7 @@ export const variableLookupTable = {
   },
   "panel-item-button-padding-inline-start": { default: "var(--space-xxlarge)" },
   "panel-item-button-padding-inline-start-offset": { default: "0px" },
+  "panel-item-fill": "currentColor",
   "panel-list-background-color": "var(--background-color-box)",
   "panel-list-border-color": { default: "var(--border-color-deemphasized)" },
   "panel-list-border-radius": "var(--panel-border-radius)",

@@ -30,13 +30,9 @@ sealed interface ListenAction : Action {
         /**
          * The article was extracted from the page.
          *
-         * @property text The article text, as plain prose.
          * @property languageTag language of the article.
          */
-        data class ContentReady(
-            val text: String,
-            val languageTag: String,
-        ) : Content
+        data class ContentReady(val languageTag: String) : Content
 
         /** The page gave back no usable text. */
         data object ContentUnavailable : Content

@@ -3265,6 +3265,43 @@ void nsDocShell::UnblockEmbedderLoadEventForFailure(bool aFireFrameErrorEvent) {
   }
 }
 
+// If aChannel failed while it was following a redirect, returns the URI of the
+// redirect target when that target uses a different scheme, otherwise nullptr.
+// The channel itself keeps reporting the URI it was redirected away from, which
+// isn't the URI that we were unable to load.
+static already_AddRefed<nsIURI> GetUnhandledRedirectURI(nsIChannel* aChannel) {
+  nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(aChannel);
+  if (!httpChannel) {
+    return nullptr;
+  }
+
+  nsAutoCString location;
+  if (NS_FAILED(httpChannel->GetResponseHeader("Location"_ns, location))) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsIURI> channelURI;
+  if (NS_FAILED(httpChannel->GetURI(getter_AddRefs(channelURI)))) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsIURI> redirectURI;
+  if (NS_FAILED(NS_NewURI(getter_AddRefs(redirectURI), location, nullptr,
+                          channelURI))) {
+    return nullptr;
+  }
+
+  nsAutoCString channelScheme;
+  nsAutoCString redirectScheme;
+  channelURI->GetScheme(channelScheme);
+  redirectURI->GetScheme(redirectScheme);
+  if (channelScheme.Equals(redirectScheme)) {
+    return nullptr;
+  }
+
+  return redirectURI.forget();
+}
+
 NS_IMETHODIMP
 nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
                              const char16_t* aURL, nsIChannel* aFailedChannel,
@@ -3305,11 +3342,20 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
   if (NS_ERROR_UNKNOWN_PROTOCOL == aError) {
     NS_ENSURE_ARG_POINTER(aURI);
 
+    // A load that failed while following a redirect reports the URI it was
+    // redirected away from, so name the protocol we could not handle rather
+    // than the one of the server which sent us there.
+    nsCOMPtr<nsIURI> unknownProtocolURI =
+        GetUnhandledRedirectURI(aFailedChannel);
+    if (!unknownProtocolURI) {
+      unknownProtocolURI = aURI;
+    }
+
     // Extract the schemes into a comma delimited list.
     nsAutoCString scheme;
-    aURI->GetScheme(scheme);
+    unknownProtocolURI->GetScheme(scheme);
     CopyASCIItoUTF16(scheme, *formatStrs.AppendElement());
-    nsCOMPtr<nsINestedURI> nestedURI = do_QueryInterface(aURI);
+    nsCOMPtr<nsINestedURI> nestedURI = do_QueryInterface(unknownProtocolURI);
     while (nestedURI) {
       nsCOMPtr<nsIURI> tempURI;
       nsresult rv2;

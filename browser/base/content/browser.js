@@ -4772,13 +4772,9 @@ var gDialogBox = {
     // Bring the window to the front in case we're minimized or occluded:
     window.focus();
 
-    try {
-      // Prevent urlbars from showing on top of modal
-      for (let urlbar of document.querySelectorAll(".urlbar")) {
-        urlbar.incrementBreakoutBlockerCount();
-      }
-    } catch (ex) {
-      console.error(ex);
+    // Prevent urlbar views from showing on top of the modal.
+    for (let urlbar of document.querySelectorAll(".urlbar")) {
+      urlbar.view?.close();
     }
 
     try {
@@ -4804,10 +4800,6 @@ var gDialogBox = {
       this._updateMenuAndCommandState(true /* to enable */);
       this._dialog = null;
       UpdatePopupNotificationsVisibility();
-      // Restore urlbar breakout if needed
-      for (let urlbar of document.querySelectorAll(".urlbar")) {
-        urlbar.decrementBreakoutBlockerCount();
-      }
     }
     if (this._queued.length) {
       setTimeout(() => this._openNextDialog(), 0);

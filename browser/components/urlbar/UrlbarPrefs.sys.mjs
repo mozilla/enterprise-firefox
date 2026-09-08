@@ -786,6 +786,7 @@ const PREF_OTHER_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   ["browser.smartwindow.smartbarMentions.loglevel", "Error"],
   ["keyword.enabled", true],
   ["privacy.query_stripping.strip_on_share.enabled", true],
+  ["privacy.userContext.enabled", true],
   ["security.insecure_connection_text.enabled", true],
   [TelemetryReportingPolicy.TOU_ACCEPTED_DATE_PREF, 0],
   ["ui.popup.disable_autohide", false],

@@ -380,8 +380,7 @@ export class UrlbarChildController {
    */
   // eslint-disable-next-line complexity
   handleKeyNavigation(event, executeAction = true) {
-    // If the resultMenu is open then let them handle any key events.
-    if (this.view.resultMenu.hasAttribute("open")) {
+    if (this.view.isResultMenuOpen()) {
       return;
     }
 

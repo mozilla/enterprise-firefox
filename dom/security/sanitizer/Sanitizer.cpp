@@ -559,7 +559,7 @@ static bool IsNonReplaceableElement(const CanonicalElement& aElement) {
 }
 
 // https://wicg.github.io/sanitizer-api/#sanitizerconfig-valid
-void Sanitizer::IsValid(ErrorResult& aRv) {
+void Sanitizer::IsValid(ErrorResult& aRv) const {
   // Step 1. The config has either an elements or a removeElements key, but
   // not both.
   MOZ_ASSERT(mElements || mRemoveElements,
@@ -803,7 +803,7 @@ void Sanitizer::IsValid(ErrorResult& aRv) {
   }
 }
 
-void Sanitizer::AssertIsValid() {
+void Sanitizer::AssertIsValid() const {
 #ifdef DEBUG
   IgnoredErrorResult rv;
   IsValid(rv);
@@ -1950,11 +1950,8 @@ SanitizerElementAction Sanitizer::SanitizeElementInternal(Element* aElement,
     return match.mAction;
   }
 
-  // The element is kept, so its attributes have to be sanitized in place.
-
-  // Step "If element's is value is not null": drop the is value when the "is"
-  // attribute is not allowed. The default config allows "is" neither globally
-  // nor for any element, so this always clears it there.
+  // The "is" value was already consumed by the element creation process, so
+  // drop it when the configuration does not allow the "is" attribute.
   if (CustomElementData* data = aElement->GetCustomElementData();
       data && data->GetIs(aElement)) [[unlikely]] {
     if (!MatchAllowsAttribute<IsDefaultConfig>(match, nsGkAtoms::is,
@@ -1982,6 +1979,42 @@ SanitizerElementAction Sanitizer::SanitizeElementInternal(Element* aElement,
 
   // 6. Return "Keep".
   return SanitizerElementAction::Keep;
+}
+
+// The action is discarded, like in the spec: an element the configuration
+// removes keeps the attributes it was given, because "to sanitize an Element"
+// returns before its attribute steps.
+void Sanitizer::SanitizeElement(Element* aElement, bool aSafe) const {
+  if (mIsDefaultConfig) {
+    AssertNoLists();
+    SanitizeElementInternal<true>(aElement, aSafe);
+    return;
+  }
+  AssertIsValid();
+  SanitizeElementInternal<false>(aElement, aSafe);
+}
+
+SanitizerElementMatch Sanitizer::MatchElement(nsAtom* aLocalName,
+                                              int32_t aNamespaceID,
+                                              bool aSafe) const {
+  if (mIsDefaultConfig) {
+    AssertNoLists();
+    return MatchElementInternal<true>(aLocalName, aNamespaceID, aSafe);
+  }
+  AssertIsValid();
+  return MatchElementInternal<false>(aLocalName, aNamespaceID, aSafe);
+}
+
+bool Sanitizer::ShouldRemoveAttribute(
+    const SanitizerElementMatch& aMatch, nsAtom* aLocalName,
+    int32_t aNamespaceID, FunctionRef<void(nsAString&)> aGetValue) const {
+  MOZ_ASSERT(aMatch.mAction == SanitizerElementAction::Keep);
+  if (mIsDefaultConfig) {
+    return ShouldRemoveAttributeInternal<true>(aMatch, aLocalName, aNamespaceID,
+                                               aGetValue);
+  }
+  return ShouldRemoveAttributeInternal<false>(aMatch, aLocalName, aNamespaceID,
+                                              aGetValue);
 }
 
 // https://wicg.github.io/sanitizer-api/#sanitize-core

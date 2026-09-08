@@ -583,16 +583,6 @@ def enable_code_coverage(config, tasks):
                 task["run-on-projects"] = []
                 continue
 
-            # Skip this transform for android code coverage builds.
-            if "android" in task["build-platform"]:
-                task.setdefault("fetches", {}).setdefault("toolchain", []).append(
-                    "linux64-grcov"
-                )
-                task["mozharness"].setdefault("extra-options", []).append(
-                    "--java-code-coverage"
-                )
-                yield task
-                continue
             task["mozharness"].setdefault("extra-options", []).append("--code-coverage")
             task["instance-size"] = "xlarge-noscratch"
             if "jittest" in task["test-name"]:
@@ -614,13 +604,15 @@ def enable_code_coverage(config, tasks):
             task["optimization"] = None
 
             # Add a toolchain and a fetch task for the grcov binary.
-            if any(p in task["build-platform"] for p in ("linux", "osx", "win")):
+            if any(
+                p in task["build-platform"] for p in ("linux", "osx", "win", "android")
+            ):
                 task.setdefault("fetches", {})
                 task["fetches"].setdefault("fetch", [])
                 task["fetches"].setdefault("toolchain", [])
                 task["fetches"].setdefault("build", [])
 
-            if "linux" in task["build-platform"]:
+            if any(p in task["build-platform"] for p in ("linux", "android")):
                 task["fetches"]["toolchain"].append("linux64-grcov")
             elif "osx" in task["build-platform"]:
                 task["fetches"]["toolchain"].append("macosx64-grcov")

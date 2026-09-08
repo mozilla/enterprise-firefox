@@ -23,6 +23,7 @@
 #include "mozilla/StateMirroring.h"
 #include "mozilla/gtest/MozHelpers.h"
 #include "mozilla/gtest/WaitFor.h"
+#include "mozilla/ipc/IOThread.h"
 #include "nsComponentManager.h"
 #include "nsITargetShutdownTask.h"
 #include "nsIThreadInternal.h"
@@ -3910,11 +3911,12 @@ class TestRunnable : public Runnable, public nsIDiscardableRunnable {
     mCheckpoint.Call(nsPrintfCString("%s::%s", mName, __func__).get());
   }
 
- private:
+ protected:
   ~TestRunnable() override {
     mCheckpoint.Call(nsPrintfCString("~%s", mName).get());
   }
 
+ private:
   const char* mName;
   const bool mDiscardable;
   MockFunction<void(const char*)>& mCheckpoint;
@@ -4392,6 +4394,125 @@ TEST(TestAudioTrackGraph, TargetShutdownTaskOnMainThread)
   });
 
   DispatchFunction([&] { checkpoint.Call("Final call"); });
+
+  // Ensure the stream is no longer used by its MockCubeb before releasing our
+  // reference, and before the next test might ForceSetCubebContext() to
+  // destroy our cubeb.
+  (void)WaitFor(destroyPromise).unwrap()[0];
+  ProcessEventQueue();
+}
+
+namespace {
+// Stands in for ipc::MessageChannel::MessageTask. When a dispatched IPC
+// message is discarded, MessageTask::Cancel() calls
+// ipc::MessageChannel::AssertWorkerThread(), which release-asserts
+// IsOnCurrentThread() on the channel's worker thread -- the graph, for a
+// channel opened on the graph thread.
+class IPCTestRunnable final : public TestRunnable {
+ public:
+  IPCTestRunnable(MediaTrackGraphImpl* aGraph,
+                  MockFunction<void(const char*)>& aCheckpoint)
+      : TestRunnable("IPCDispatch", /*aDiscardable=*/true, aCheckpoint),
+        mGraph(aGraph) {}
+
+  void OnDiscard() override {
+    EXPECT_TRUE(mGraph->IsOnCurrentThread());
+    TestRunnable::OnDiscard();
+  }
+
+ private:
+  ~IPCTestRunnable() = default;
+
+  const RefPtr<MediaTrackGraphImpl> mGraph;
+};
+}  // namespace
+
+TEST(TestAudioTrackGraph, IOThreadDispatchDuringShutdown)
+{
+  ASSERT_TRUE(ipc::IOThread::Get());
+
+  MockCubeb* cubeb = new MockCubeb(MockCubeb::RunningMode::Manual);
+  CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
+
+  RefPtr<MediaTrackGraphImpl> graph = MediaTrackGraphImpl::GetInstance(
+      MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1,
+      CubebUtils::PreferredSampleRate(/* aShouldResistFingerprinting */ false),
+      nullptr, AbstractThread::MainThread());
+
+  // Mocks and expectations.
+  RefPtr processedTrack = new MockProcessedMediaTrack(graph->GraphRate());
+
+  MockFunction<void(const char* name)> checkpoint;
+  EXPECT_CALL(*processedTrack, AddListenerImpl);
+  EXPECT_CALL(*processedTrack, ProcessInput).Times(AtLeast(1));
+  EXPECT_CALL(*processedTrack, RemoveListenerImpl);
+  {
+    InSequence s;
+    EXPECT_CALL(checkpoint, Call(StrEq("Now manual")));
+    EXPECT_CALL(checkpoint, Call(StrEq("Final track removed")));
+    // The graph is no longer processing messages, so the dispatch is discarded
+    // on the main thread rather than run. For an ipc::MessageChannel this is
+    // MessageTask::Cancel(), which asserts that the main thread is now the
+    // graph's thread, as IPCTestRunnable::OnDiscard() does here.
+    EXPECT_CALL(checkpoint, Call(StrEq("IPCDispatch::OnDiscard")));
+    EXPECT_CALL(checkpoint, Call(StrEq("~IPCDispatch")));
+  }
+
+  RefPtr<OnFallbackListener> fallbackListener;
+  DispatchFunction([&] {
+    // Add a track to maintain an output-only audio driver.
+    graph->AddTrack(processedTrack);
+    processedTrack->AddAudioOutput(reinterpret_cast<void*>(1), nullptr);
+    fallbackListener = new OnFallbackListener(processedTrack);
+    processedTrack->AddListener(fallbackListener);
+  });
+
+  RefPtr<SmartMockCubebStream> stream = WaitFor(cubeb->StreamInitEvent());
+  while (stream->State().isNothing()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  EXPECT_EQ(*stream->State(), CUBEB_STATE_STARTED);
+  // Wait for the AudioCallbackDriver to come into effect.
+  DispatchFunction([&] {
+    while (fallbackListener->OnFallback()) {
+      EXPECT_EQ(stream->ManualDataCallback(WEBAUDIO_BLOCK_SIZE),
+                MockCubebStream::KeepProcessing::Yes);
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    // The graph is now run by ManualDataCallback().
+    checkpoint.Call("Now manual");
+  });
+
+  auto destroyPromise = TakeN(cubeb->StreamDestroyEvent(), 1);
+  DispatchFunction([&] { graph->ForceShutDown(); });
+
+  DispatchFunction([&] {
+    // Process the ForceShutdown message.
+    EXPECT_EQ(stream->ManualDataCallback(0),
+              MockCubebStream::KeepProcessing::No);
+  });
+
+  // Let the main-thread-cleanup stable state runnable run.
+  DispatchFunction([&] {
+    processedTrack->RemoveListener(fallbackListener);
+    processedTrack->Destroy();
+  });
+
+  DispatchFunction([&] { checkpoint.Call("Final track removed"); });
+
+  DispatchFunction([&] {
+    // An AudioWorklet's PBackground ipc::MessageChannel is opened on the graph
+    // thread, so IPC dispatches to the graph from the IPC I/O thread. Those
+    // dispatches are not outlived by a main-thread controlled track or port,
+    // since the channel is only closed when the graph shuts down. See bug
+    // 2065075.
+    MOZ_ALWAYS_SUCCEEDS(ipc::IOThread::Get()->GetEventTarget()->Dispatch(
+        NS_NewRunnableFunction(__func__, [graph, &checkpoint] {
+          MOZ_ALWAYS_SUCCEEDS(graph->Dispatch(
+              MakeAndAddRef<IPCTestRunnable>(graph, checkpoint)));
+        })));
+  });
 
   // Ensure the stream is no longer used by its MockCubeb before releasing our
   // reference, and before the next test might ForceSetCubebContext() to

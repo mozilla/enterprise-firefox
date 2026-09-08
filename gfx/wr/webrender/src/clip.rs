@@ -1428,6 +1428,20 @@ pub struct ClipStore {
     active_clip_node_info: Vec<ClipNodeInfo>,
     active_local_clip_rect: Option<LayoutRect>,
     active_pic_coverage_rect: PictureRect,
+
+    /// Counts of what the visibility-space clip path did this frame, flushed to
+    /// the profiler by `end_frame`.
+    vis_stats: VisClipStats,
+}
+
+/// Instrumentation for the clip decisions that visibility space affects. See the
+/// `VIS_CLIP_*` profiler counters.
+#[derive(Clone, Default, MallocSizeOf)]
+#[cfg_attr(feature = "capture", derive(Serialize))]
+pub struct VisClipStats {
+    pub projections: usize,
+    pub projection_fails: usize,
+    pub rejects: usize,
 }
 
 // A clip chain instance is what gets built for a given clip
@@ -1485,6 +1499,7 @@ impl ClipStore {
             active_clip_node_info: Vec::new(),
             active_local_clip_rect: None,
             active_pic_coverage_rect: PictureRect::max_rect(),
+            vis_stats: VisClipStats::default(),
         }
     }
 
@@ -1681,11 +1696,13 @@ impl ClipStore {
                 }
                 ClipSpaceConversion::Transform(ref transform) => {
                     has_non_local_clips = true;
+                    self.vis_stats.projections += 1;
                     node.item.kind.get_clip_result_complex(
                         transform,
                         &vis_clip_rect,
                         culling_rect,
                         node_info.clip_rect,
+                        &mut self.vis_stats.projection_fails,
                     )
                 }
             };
@@ -1696,6 +1713,9 @@ impl ClipStore {
                 }
                 ClipResult::Reject => {
                     // Completely clips the supplied prim rect
+                    if matches!(node_info.conversion, ClipSpaceConversion::Transform(..)) {
+                        self.vis_stats.rejects += 1;
+                    }
                     return None;
                 }
                 ClipResult::Partial => {
@@ -1769,6 +1789,11 @@ impl ClipStore {
         mem::swap(&mut self.mask_tiles, &mut scratch.mask_tiles);
         self.clip_node_instances.clear();
         self.mask_tiles.clear();
+        self.vis_stats = VisClipStats::default();
+    }
+
+    pub fn vis_stats(&self) -> &VisClipStats {
+        &self.vis_stats
     }
 
     pub fn end_frame(&mut self, scratch: &mut ClipStoreScratchBuffer) {
@@ -1968,6 +1993,7 @@ impl ClipItemKind {
         prim_rect: &VisRect,
         culling_rect: &VisRect,
         clip_rect: LayoutRect,
+        projection_fails: &mut usize,
     ) -> ClipResult {
         let visible_rect = match prim_rect.intersection(culling_rect) {
             Some(rect) => rect,
@@ -2005,7 +2031,12 @@ impl ClipItemKind {
                     &culling_rect,
                 ) {
                     Some(outer_clip_rect) => outer_clip_rect,
-                    None => return ClipResult::Partial,
+                    None => {
+                        // No exact answer available, so a mask is required even
+                        // though the clip may well not affect the primitive.
+                        *projection_fails += 1;
+                        return ClipResult::Partial;
+                    }
                 };
 
                 match outer_clip_rect.intersection(prim_rect) {

@@ -529,6 +529,15 @@ class SelectableProfileServiceClass extends EventEmitter {
   }
 
   /**
+   * The public API to initialize the service.
+   *
+   * @returns {Promise}
+   */
+  init() {
+    return this.#init();
+  }
+
+  /**
    * At startup, store the nsToolkitProfile for the group.
    * Get the groupDBPath from the nsToolkitProfile, and connect to it.
    *
@@ -536,9 +545,9 @@ class SelectableProfileServiceClass extends EventEmitter {
    *
    * @returns {Promise}
    */
-  init(isInitial = false) {
+  #init(isInitial = false) {
     if (!this.#initPromise) {
-      this.#initPromise = this.#init(isInitial).finally(
+      this.#initPromise = this.#initialize(isInitial).finally(
         () => (this.#initPromise = null)
       );
     }
@@ -546,7 +555,7 @@ class SelectableProfileServiceClass extends EventEmitter {
     return this.#initPromise;
   }
 
-  async #init(isInitial = false) {
+  async #initialize(isInitial = false) {
     if (this.#initialized) {
       return;
     }
@@ -1598,7 +1607,7 @@ class SelectableProfileServiceClass extends EventEmitter {
     }
 
     await this.initProfilesData();
-    await this.init(true);
+    await this.#init(true);
 
     await this.flushAllSharedPrefsToDatabase();
 

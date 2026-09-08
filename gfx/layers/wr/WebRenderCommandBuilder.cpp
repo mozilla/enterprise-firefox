@@ -43,7 +43,7 @@ namespace mozilla::layers {
 
 using namespace gfx;
 using namespace image;
-static int sIndent;
+[[maybe_unused]] static int sIndent;
 #include <stdarg.h>
 #include <stdio.h>
 

@@ -3,9 +3,10 @@
 
 // The in-page counterpart of browser-editing/browser_undo_history.js. A bar in
 // the toolbar stays a popover for as long as it can break out, while the one on
-// about:newtab takes the top layer only while its view is open
+// about:newtab takes the top layer while the user is interacting with it
 // (browser_topLayer.js). Each transition reconstructs the input's frame, and
-// Gecko drops an editor's undo history when that happens (bug 2017065).
+// Gecko drops an editor's undo history when that happens (bug 2017065), so the
+// transitions have to fall outside the interaction.
 
 "use strict";
 
@@ -51,8 +52,7 @@ add_task(async function undoAfterViewClose() {
       );
 
       EventUtils.synthesizeKey("z", { accelKey: true }, content);
-      // TODO(bug 2069291): the view closing took the undo history with it.
-      todo_is(bar.inputField.value, "", "Undo removed the typed string.");
+      Assert.equal(bar.inputField.value, "", "undo removed the typed string");
     }
   );
 
@@ -60,8 +60,8 @@ add_task(async function undoAfterViewClose() {
 });
 
 add_task(async function undoFromContextMenu() {
-  // A recent search, so the view is already open before the string is typed and
-  // no transition happens while there is undo history to lose.
+  // A recent search, so the view opens on the mousedown and is still open when
+  // the context menu comes up.
   await NewtabSearchbarTestUtils.formHistory.add(["a recent search"]);
 
   let tab = await NewtabSearchbarTestUtils.openNewTabPage();
@@ -120,6 +120,45 @@ add_task(async function undoFromContextMenu() {
       "undo removed the typed string"
     );
   });
+
+  BrowserTestUtils.removeTab(tab);
+});
+
+// Setting the bar's value drops the input's undo history unless the input
+// carries preserveundohistory, which about:newtab honors like a chrome
+// document (bug 2069367).
+add_task(async function undoAfterValueSetter() {
+  let tab = await NewtabSearchbarTestUtils.openNewTabPage();
+
+  await NewtabSearchbarTestUtils.spawn(
+    tab.linkedBrowser,
+    [TEST_VALUE],
+    async value => {
+      let utils = NewtabSearchbarContentTestUtils;
+      let bar = utils.getUrlbar(content);
+
+      bar.focus();
+      EventUtils.sendString(value, content);
+      await ContentTaskUtils.waitForCondition(
+        () => utils.getState(content).value == value,
+        "the string was typed"
+      );
+
+      bar.value = "something else";
+      Assert.equal(
+        bar.inputField.value,
+        "something else",
+        "the setter replaced the typed string"
+      );
+
+      EventUtils.synthesizeKey("z", { accelKey: true }, content);
+      Assert.equal(
+        bar.inputField.value,
+        value,
+        "undo restored the typed string"
+      );
+    }
+  );
 
   BrowserTestUtils.removeTab(tab);
 });

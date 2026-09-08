@@ -106,13 +106,45 @@ class Sanitizer final : public nsISupports, public nsWrapperCache {
 
   void Sanitize(nsINode* aNode, bool aSafe, ErrorResult& aRv);
 
+  /**
+   * Runs the spec's "sanitize" for a single element that is already in the
+   * tree, for the HTML parser: removes the attributes the configuration
+   * disallows from aElement in place and discards the returned action.
+   *
+   * @param aSafe the spec's "remove javascript navigation URLs"
+   */
+  void SanitizeElement(Element* aElement, bool aSafe) const;
+
+  /**
+   * Runs the element half of the spec's "sanitize" for the HTML parser: what
+   * the configuration does with the element that a start tag token creates.
+   * Pair it with ShouldRemoveAttribute() to sanitize the token's attributes
+   * before they are applied to that element.
+   *
+   * @param aSafe the spec's "remove javascript navigation URLs"
+   */
+  SanitizerElementMatch MatchElement(nsAtom* aLocalName, int32_t aNamespaceID,
+                                     bool aSafe) const;
+
+  /**
+   * Runs the attribute half of the spec's "sanitize" for the HTML parser:
+   * whether an attribute has to be dropped from the start tag token that
+   * aMatch was obtained for. aGetValue writes the attribute value and only
+   * runs for the few attributes whose value decides the outcome.
+   */
+  bool ShouldRemoveAttribute(const SanitizerElementMatch& aMatch,
+                             nsAtom* aLocalName, int32_t aNamespaceID,
+                             FunctionRef<void(nsAString&)> aGetValue) const;
+
+  bool CommentsAllowed() const { return mComments; }
+
  private:
   ~Sanitizer() = default;
 
   void CanonicalizeConfiguration(const SanitizerConfig& aConfig,
                                  bool aAllowCommentsPIsAndDataAttributes,
                                  ErrorResult& aRv);
-  void IsValid(ErrorResult& aRv);
+  void IsValid(ErrorResult& aRv) const;
 
   void SetDefaultConfig();
   void SetConfig(const SanitizerConfig& aConfig,
@@ -157,9 +189,9 @@ class Sanitizer final : public nsISupports, public nsWrapperCache {
       sanitizer::CanonicalElementAttributes* aElementAttributes,
       nsAtom* aAttrLocalName, int32_t aAttrNs, bool aSafe) const;
 
-  void AssertIsValid();
+  void AssertIsValid() const;
 
-  void AssertNoLists() {
+  void AssertNoLists() const {
     MOZ_ASSERT(!mElements);
     MOZ_ASSERT(!mRemoveElements);
     MOZ_ASSERT(!mReplaceWithChildrenElements);

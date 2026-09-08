@@ -30,6 +30,7 @@
 #include "wasm/WasmJS.h"       // js::WasmModuleObject
 
 #include "gc/GCContext-inl.h"
+#include "gc/StableCellHasher-inl.h"
 #include "vm/EnvironmentObject-inl.h"  // EnvironmentObject::setAliasedBinding
 #include "vm/JSObject-inl.h"
 #include "vm/JSScript-inl.h"
@@ -1186,11 +1187,11 @@ bool ModuleObject::initScriptSlots(JSContext* cx, HandleScript script) {
   MOZ_ASSERT(script->sourceObject());
   MOZ_ASSERT(script->filename());
   initReservedSlotTyped(SCRIPT_SLOT, PrivateGCThingValue(script));
-  cyclicModuleFields()->scriptSourceObject = script->sourceObject();
+  ScriptSourceObject* sso = script->sourceObject();
+  cyclicModuleFields()->scriptSourceObject = sso;
   auto& sources = ObjectRealm::get(this).moduleScriptSources;
-  WeakHeapPtr<ScriptSourceObject*> key(script->sourceObject());
-  auto p = sources.lookupForAdd(key);
-  if (!p.found() && !sources.add(p, key)) {
+  auto p = sources.lookupForAdd(sso);
+  if (!p.found() && !sources.add(p, WeakHeapPtr<ScriptSourceObject*>(sso))) {
     ReportOutOfMemory(cx);
     return false;
   }
@@ -1905,7 +1906,7 @@ bool ModuleBuilder::buildTables(frontend::StencilModuleMetadata& metadata) {
           }
         }
       }
-    } else if (exp.importNameValueType == ImportNameValueType::AllButDefault) {
+    } else if (exp.importNameValueType == ImportNameValueType::All) {
       MOZ_ASSERT(!exp.exportName);
       if (!metadata.starExportEntries.append(exp)) {
         js::ReportOutOfMemory(fc_);

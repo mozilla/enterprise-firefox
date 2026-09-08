@@ -2218,6 +2218,9 @@ export class UrlbarProvider {
    * @property {boolean} [overflowable]
    *   If true, the element's overflow status will be tracked in order to
    *   fade it out when needed.
+   *
+   * @property {object} [style]
+   *   An optional mapping from CSS property names to values.
    */
 
   /**

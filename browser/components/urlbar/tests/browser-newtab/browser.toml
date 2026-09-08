@@ -47,6 +47,8 @@ support-files = [
   "../../../search/test/browser/telemetry/serp.css",
 ]
 
+["browser_selection.js"]
+
 ["browser_topLayer.js"]
 
 ["browser_trendingDismissal.js"]

@@ -8,6 +8,8 @@
   // returned promise: it can never settle, and nothing settles it afterwards.
   window.importModule = url => import(url);
 
+  window.importSource = url => import.source(url);
+
   window.startModuleScript = url => {
     const script = document.createElement("script");
     script.type = "module";

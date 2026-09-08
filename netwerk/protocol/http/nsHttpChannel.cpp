@@ -6158,8 +6158,10 @@ void nsHttpChannel::CloseCacheEntry(bool doomOnFailure) {
     mCacheEntry->AsyncDoom(nullptr);
   } else {
     // Store updated security info, makes cached EV status race less likely
-    // (see bug 1040086)
-    if (mSecurityInfo) {
+    // (see bug 1040086). On a plain cache hit ReadFromCache() adopted the info
+    // this very entry handed us in OpenCacheInputStream(), so storing it back
+    // would only re-serialize the certificate chain and rewrite the entry file.
+    if (mSecurityInfo && mSecurityInfo != mCachedSecurityInfo) {
       mCacheEntry->SetSecurityInfo(mSecurityInfo);
     }
 

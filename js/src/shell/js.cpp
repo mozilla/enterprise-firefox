@@ -13446,6 +13446,8 @@ bool InitOptionParser(OptionParser& op) {
       !op.addBoolOption('\0', "enable-atomics-pause", "Enable Atomics pause") ||
       !op.addBoolOption('\0', "enable-temporal", "Enable Temporal") ||
       !op.addBoolOption('\0', "enable-import-bytes", "Enable import bytes") ||
+      !op.addBoolOption('\0', "enable-export-star-default",
+                        "Include default in export * declarations") ||
       !op.addBoolOption('\0', "enable-import-text", "Enable import text") ||
       !op.addBoolOption('\0', "enable-promise-allkeyed",
                         "Enable Promise.allKeyed") ||
@@ -13565,6 +13567,9 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
   }
   if (op.getBoolOption("enable-import-bytes")) {
     JS::Prefs::setAtStartup_experimental_import_bytes(true);
+  }
+  if (op.getBoolOption("enable-export-star-default")) {
+    JS::Prefs::setAtStartup_experimental_export_star_default(true);
   }
   if (op.getBoolOption("enable-promise-allkeyed")) {
     JS::Prefs::setAtStartup_experimental_promise_allkeyed(true);

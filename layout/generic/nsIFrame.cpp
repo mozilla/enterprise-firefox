@@ -9031,9 +9031,13 @@ bool nsIFrame::IsImageFrameOrSubclass() const {
   return !!asImage;
 }
 
+// Unlike its neighbours this must not use do_QueryFrame(), because
+// IMPL_FAST_QUERYFRAME routes do_QueryFrame<ScrollContainerFrame> through here.
 bool nsIFrame::IsScrollContainerOrSubclass() const {
-  const ScrollContainerFrame* asScrollContainer = do_QueryFrame(this);
-  return !!asScrollContainer;
+  const bool result =
+      IsScrollContainerFrame() || IsListControlFrame() || IsTextInputFrame();
+  MOZ_ASSERT(result == !!QueryFrame(ScrollContainerFrame::kFrameIID));
+  return result;
 }
 
 bool nsIFrame::IsSubgrid() const {

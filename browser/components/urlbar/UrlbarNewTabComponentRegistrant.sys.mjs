@@ -53,8 +53,8 @@ export class UrlbarNewTabComponentRegistrant extends BaseAboutNewTabComponentReg
         tagName: "moz-urlbar",
         attributes: {
           class: "urlbar",
+          role: "group",
           pageproxystate: "invalid",
-          popover: "manual",
           "in-page": "",
           "sap-name": "newtab_searchbar",
           "unifiedsearchbutton-available": "",

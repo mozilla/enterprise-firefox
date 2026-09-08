@@ -3759,8 +3759,8 @@ void HttpBaseChannel::SetChannelBlockedByOpaqueResponse() {
   }
 }
 
-NS_IMETHODIMP
-HttpBaseChannel::SetCookieHeaders(const nsTArray<nsCString>& aCookieHeaders) {
+nsresult HttpBaseChannel::SetCookieHeaders(
+    const nsTArray<nsCString>& aCookieHeaders) {
   if (mLoadFlags & LOAD_ANONYMOUS) return NS_OK;
 
   // The loadGroup of the channel in the parent process could be null in the

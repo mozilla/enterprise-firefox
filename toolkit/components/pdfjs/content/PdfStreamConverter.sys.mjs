@@ -33,6 +33,7 @@ const SVG_DATA_URL_REGEX = /^data:image\/svg\+xml(?:[;,]|$)/i;
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+import { isEmbeddedPdfLoad } from "resource://gre/modules/pdfjs.sys.mjs";
 
 // Non-pdfjs preferences to get when the viewer is created and to observe.
 const toolbarDensityPref = "browser.uidensity";
@@ -1434,12 +1435,8 @@ PdfStreamConverter.prototype = {
       }
     }
 
-    // If we're loading this PDF with an object/embed element, we always want to
-    // try to render it inline, as we can't fall back to an external handler.
-    if (
-      aChannel.loadInfo?.externalContentPolicyType ==
-      Ci.nsIContentPolicy.TYPE_OBJECT
-    ) {
+    // Keep embedded PDFs in PDF.js instead of invoking the configured handler.
+    if (isEmbeddedPdfLoad(aChannel.loadInfo)) {
       return HTML;
     }
 

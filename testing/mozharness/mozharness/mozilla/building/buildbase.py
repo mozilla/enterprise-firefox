@@ -273,6 +273,7 @@ class BuildOptionParser:
         "x86-lite": path_base + "%s_x86_lite.py",
         "x86-profile-generate": path_base + "%s_x86_profile_generate.py",
         "x86_64": path_base + "%s_x86_64.py",
+        "x86_64-ccov": path_base + "%s_x86_64_ccov.py",
         "x86_64-lite": path_base + "%s_x86_64_lite.py",
         "x86_64-debug": path_base + "%s_x86_64_debug.py",
         "x86_64-debug-isolated-process": path_base

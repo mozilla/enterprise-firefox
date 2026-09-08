@@ -54,7 +54,7 @@ var localProviderModules = [
     name: "UrlbarProviderGlobalActions",
     module:
       "moz-src:///browser/components/urlbar/UrlbarProviderGlobalActions.sys.mjs",
-    supportedSAPs: ["searchbar", "urlbar"],
+    supportedSAPs: ["searchbar", "urlbar", "smartbar"],
   },
   {
     name: "UrlbarProviderAliasEngines",

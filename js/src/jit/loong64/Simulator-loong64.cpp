@@ -505,6 +505,14 @@ SimInstruction::Type SimInstruction::instructionType() const {
       case op_fldx_d:
       case op_fstx_s:
       case op_fstx_d:
+      case op_amcas_b:
+      case op_amcas_h:
+      case op_amcas_w:
+      case op_amcas_d:
+      case op_amcas_db_b:
+      case op_amcas_db_h:
+      case op_amcas_db_w:
+      case op_amcas_db_d:
       case op_amswap_b:
       case op_amswap_h:
       case op_amadd_b:
@@ -2048,6 +2056,35 @@ void Simulator::AtomicMemoryHelper(AmoOp<T> f, SimInstruction* instr) {
     SharedMem<T*> ptr = SharedMem<T*>::shared(reinterpret_cast<T*>(addr));
     LLBit_ = false;
     T old = f(ptr, value);
+
+    if constexpr (elementSize == 4) {
+      setRegister(rd_reg(instr), static_cast<int32_t>(old));
+    } else {
+      setRegister(rd_reg(instr), static_cast<int64_t>(old));
+    }
+    return;
+  }
+
+  printf("Unaligned atomic access at 0x%016" PRIx64 ", pc=0x%016" PRIxPTR "\n",
+         addr, reinterpret_cast<intptr_t>(instr));
+  MOZ_CRASH();
+}
+
+template <typename T>
+void Simulator::AtomicMemoryCasHelper(AmoCasOp<T> f, SimInstruction* instr) {
+  uint64_t addr = rj_u(instr);
+  T expected = static_cast<T>(rd(instr));
+  T newVal = static_cast<T>(rk(instr));
+  constexpr unsigned elementSize = sizeof(T);
+
+  if (addr % elementSize == 0) {
+    if (handleWasmSegFault(addr, elementSize)) {
+      return;
+    }
+
+    SharedMem<T*> ptr = SharedMem<T*>::shared(reinterpret_cast<T*>(addr));
+    LLBit_ = false;
+    T old = f(ptr, expected, newVal);
 
     if constexpr (elementSize == 4) {
       setRegister(rd_reg(instr), static_cast<int32_t>(old));
@@ -3731,6 +3768,26 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       writeD(rj(instr) + rk(instr), getFpuRegisterDouble(fd_reg(instr)), instr);
       break;
     }
+    case op_amcas_b:
+    case op_amcas_db_b:
+      AtomicMemoryCasHelper(AtomicOperations::compareExchangeSeqCst<int8_t>,
+                            instr);
+      break;
+    case op_amcas_h:
+    case op_amcas_db_h:
+      AtomicMemoryCasHelper(AtomicOperations::compareExchangeSeqCst<int16_t>,
+                            instr);
+      break;
+    case op_amcas_w:
+    case op_amcas_db_w:
+      AtomicMemoryCasHelper(AtomicOperations::compareExchangeSeqCst<int32_t>,
+                            instr);
+      break;
+    case op_amcas_d:
+    case op_amcas_db_d:
+      AtomicMemoryCasHelper(AtomicOperations::compareExchangeSeqCst<int64_t>,
+                            instr);
+      break;
     case op_amswap_b:
     case op_amswap_db_b:
       AtomicMemoryHelper(AtomicOperations::exchangeSeqCst<int8_t>, instr);

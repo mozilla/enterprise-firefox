@@ -517,6 +517,8 @@ prefs = ["browser.cache.disk.encryption.enabled=true"]
 
 ["test_cache2-43-purge-residual-folder.js"]
 
+["test_cache2-44-no-rewrite-unchanged-metadata.js"]
+
 ["test_cache2_clear_with_principal.js"]
 run-sequentially = ["true"] # httpd server
 

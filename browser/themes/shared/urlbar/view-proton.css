@@ -13,6 +13,10 @@
   --urlbarView-small-font-size: 0.85em;
 
   --urlbarView-results-padding: 7px;
+  /* The view's own margin, which urlbar.css also derives the joint
+     background's outsets from. */
+  --urlbarView-margin-block: 0px;
+  --urlbarView-margin-inline: var(--urlbarView-results-padding);
   --urlbarView-row-gutter: var(--space-xxsmall);
   --urlbarview-row-padding-block: 6px;
   --urlbarView-row-padding-inline: var(--urlbar-icon-padding);
@@ -91,13 +95,8 @@
   display: none;
   text-shadow: none;
   overflow: clip;
-  margin-inline: var(--urlbarView-results-padding);
-  width: calc(100% - 2 * var(--urlbarView-results-padding));
-
-  .urlbar[breakout][open] > & {
-    display: flex;
-    flex-direction: column;
-  }
+  margin-inline: var(--urlbarView-margin-inline);
+  width: calc(100% - 2 * var(--urlbarView-margin-inline));
 
   /* When hosted in content, let the view scroll when there's limited space
      below the input due to small viewport size or page scroll position. */

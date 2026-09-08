@@ -1293,7 +1293,7 @@ export const AIWindow = {
     const isFirstRun = currentURI.equalsExceptRef(FIRSTRUN_URI);
     const isFirstRunView = isFirstRun && isImmersiveView;
     // Leaving first run reveals the previously hidden nav-bar; notify the urlbar
-    // so it can recompute its layout breakout for the now-visible bar.
+    // so it can recompute its popover layout for the now-visible bar.
     if (root.hasAttribute("aiwindow-first-run") && !isFirstRunView) {
       Services.obs.notifyObservers(
         win,

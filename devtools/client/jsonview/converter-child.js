@@ -44,18 +44,16 @@ loader.lazyGetter(this, "jsonViewStrings", () => {
  *
  * Inspired by JSON View: https://github.com/bhollis/jsonview/
  */
-function Converter() {}
-
-Converter.prototype = {
-  QueryInterface: ChromeUtils.generateQI([
+class Converter {
+  QueryInterface = ChromeUtils.generateQI([
     "nsIStreamConverter",
     "nsIStreamListener",
     "nsIRequestObserver",
-  ]),
+  ]);
 
   get wrappedJSObject() {
     return this;
-  },
+  }
 
   /**
    * This component works as such:
@@ -69,12 +67,13 @@ Converter.prototype = {
    */
   convert(fromStream) {
     return fromStream;
-  },
+  }
 
   asyncConvertData(fromType, toType, listener) {
     this.listener = listener;
     this.isJsonlines = fromType === "application/vnd.mozilla.jsonlines.view";
-  },
+  }
+
   getConvertedType(_fromType, channel) {
     if (channel instanceof Ci.nsIMultiPartChannel) {
       throw new Components.Exception(
@@ -83,14 +82,14 @@ Converter.prototype = {
       );
     }
     return "text/html";
-  },
+  }
 
   onDataAvailable(request, inputStream, offset, count) {
     // Decode and insert data.
     const buffer = new ArrayBuffer(count);
     new BinaryInput(inputStream).readArrayBuffer(count, buffer);
     this.decodeAndInsertBuffer(buffer);
-  },
+  }
 
   onStartRequest(request) {
     // Set the content type to HTML in order to parse the doctype, styles
@@ -158,7 +157,7 @@ Converter.prototype = {
     const buffer = new TextEncoder().encode(initialHTML(win.document)).buffer;
     const stream = new BufferStream(buffer, 0, buffer.byteLength);
     this.listener.onDataAvailable(request, stream, 0, stream.available());
-  },
+  }
 
   onStopRequest(request, statusCode) {
     // Flush data if we haven't been canceled.
@@ -171,7 +170,7 @@ Converter.prototype = {
     this.listener = null;
     this.decoder = null;
     this.data = null;
-  },
+  }
 
   // Decodes an ArrayBuffer into a string and inserts it into the page.
   decodeAndInsertBuffer(buffer, flush = false) {
@@ -181,8 +180,8 @@ Converter.prototype = {
     // Using `appendData` instead of `textContent +=` is important to avoid
     // repainting previous data.
     this.data.json.appendData(data);
-  },
-};
+  }
+}
 
 /**
  * Lets "save as" save the original JSON, not the viewer.

@@ -646,6 +646,9 @@ nsresult CacheFile::OnMetadataRead(nsresult aResult) {
                         (mAltDataOffset > mDataSize))) {
           // alt-metadata cannot be parsed or alt-data offset is invalid
           mMetadata->InitEmptyMetadata();
+          // InitEmptyMetadata() invalidates and truncates the file, so the
+          // reset metadata has to be written back out.
+          mMetadata->MarkDirty();
           isNew = true;
           mAltDataOffset = -1;
           mAltDataType.Truncate();
@@ -1179,8 +1182,16 @@ nsresult CacheFile::SetElement(const char* aKey, const char* aValue) {
     return NS_ERROR_FAILURE;
   }
 
-  PostWriteTimer();
-  return mMetadata->SetElement(aKey, aValue);
+  nsresult rv = mMetadata->SetElement(aKey, aValue);
+
+  // Only schedule a write when the metadata actually changed. Re-storing an
+  // element with the value it already holds is a no-op and must not rewrite the
+  // entry file.
+  if (mMetadata->IsDirty()) {
+    PostWriteTimer();
+  }
+
+  return rv;
 }
 
 nsresult CacheFile::VisitMetaData(nsICacheEntryMetaDataVisitor* aVisitor) {

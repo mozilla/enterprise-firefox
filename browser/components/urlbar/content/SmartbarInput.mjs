@@ -173,6 +173,7 @@ ${
                       dir="auto"
                       aria-autocomplete="both"
                       inputmode="mozAwesomebar"
+                      preserveundohistory=""
                       data-l10n-id="smartbar-placeholder"/>
         </moz-input-box>
         <html:smartwindow-panel-list></html:smartwindow-panel-list>
@@ -248,10 +249,22 @@ ${
     "selectionchange",
   ];
 
-  #allowBreakout = false;
+  #canOpenPopover = false;
   #gBrowserListenersAdded = false;
-  #breakoutBlockerCount = 0;
+  #popoverBlockerCount = 0;
+  #popoverAnchorUpdateKey = {};
   #isAddressbar = false;
+
+  /**
+   * The container the popover anchors to, which also reserves the space the
+   * bar leaves behind while it is in the top layer.
+   *
+   * @type {Element}
+   */
+  get #popoverAnchor() {
+    return this.parentNode;
+  }
+
   /**
    * Whether sapName == "smartbar".
    */
@@ -499,7 +512,7 @@ ${
       return;
     }
 
-    this.updateLayoutExtend();
+    this.updatePopover();
   }
 
   connectedCallback() {
@@ -531,7 +544,7 @@ ${
       this.window.document.documentElement.hasAttribute("taskbartab") ||
       this.readOnly
     ) {
-      this.#stopBreakout();
+      this.#releasePopoverAnchor();
       return;
     }
 
@@ -581,9 +594,9 @@ ${
     }
 
     // Expanding requires a parent toolbar, and us not being read-only.
-    this.#allowBreakout = !!this.closest("toolbar");
+    this.#canOpenPopover = !!this.closest("toolbar");
 
-    this.#updateLayoutBreakout();
+    this.#updatePopoverAnchor();
 
     this._addObservers();
   }
@@ -3905,8 +3918,8 @@ ${
     return state;
   }
 
-  async #updateLayoutBreakout() {
-    if (!this.#allowBreakout) {
+  async #updatePopoverAnchor() {
+    if (!this.#canOpenPopover) {
       return;
     }
     if (this.document.fullscreenElement) {
@@ -3915,17 +3928,17 @@ ${
       this.window.addEventListener(
         "fullscreen",
         () => {
-          this.#updateLayoutBreakout();
+          this.#updatePopoverAnchor();
         },
         { once: true }
       );
       return;
     }
-    await this.#updateLayoutBreakoutDimensions();
+    await this.#measurePopoverAnchor();
   }
 
-  startLayoutExtend() {
-    if (!this.#allowBreakout || this.hasAttribute("breakout-extend")) {
+  #openPopover() {
+    if (!this.#canOpenPopover || this.hasAttribute("expanded")) {
       // Do not expand if the Urlbar does not support being expanded or it is
       // already expanded.
       return;
@@ -3934,35 +3947,35 @@ ${
       return;
     }
 
-    this.setAttribute("breakout-extend", "true");
+    this.setAttribute("expanded", "true");
 
     // Enable the animation only after the first extend call to ensure it
     // doesn't run when opening a new window.
-    if (!this.hasAttribute("breakout-extend-animate")) {
+    if (!this.hasAttribute("popover-animate")) {
       this.window.promiseDocumentFlushed(() => {
         this.window.requestAnimationFrame(() => {
-          this.setAttribute("breakout-extend-animate", "true");
+          this.setAttribute("popover-animate", "true");
         });
       });
     }
   }
 
-  endLayoutExtend() {
+  #closePopover() {
     // If reduce motion is enabled, we want to collapse the Urlbar here so the
     // user sees only sees two states: not expanded, and expanded with the view
     // open.
-    if (!this.hasAttribute("breakout-extend") || this.view.isOpen) {
+    if (!this.hasAttribute("expanded") || this.view.isOpen) {
       return;
     }
 
-    this.removeAttribute("breakout-extend");
+    this.removeAttribute("expanded");
   }
 
-  updateLayoutExtend() {
+  updatePopover() {
     if (this.view.isOpen) {
-      this.startLayoutExtend();
+      this.#openPopover();
     } else {
-      this.endLayoutExtend();
+      this.#closePopover();
     }
   }
 
@@ -4225,58 +4238,54 @@ ${
     this.view.close();
   }
 
-  #stopBreakout() {
-    this.removeAttribute("breakout");
-    this.parentNode.removeAttribute("breakout");
+  #releasePopoverAnchor() {
     try {
       this.hidePopover();
     } catch (ex) {
       // No big deal if not a popover already.
     }
-    this._layoutBreakoutUpdateKey = {};
+    this.#popoverAnchorUpdateKey = {};
   }
 
-  incrementBreakoutBlockerCount() {
-    this.#breakoutBlockerCount++;
-    if (this.#breakoutBlockerCount == 1) {
-      this.#stopBreakout();
+  incrementPopoverBlockerCount() {
+    this.#popoverBlockerCount++;
+    if (this.#popoverBlockerCount == 1) {
+      this.#releasePopoverAnchor();
     }
   }
 
-  decrementBreakoutBlockerCount() {
-    if (this.#breakoutBlockerCount > 0) {
-      this.#breakoutBlockerCount--;
+  decrementPopoverBlockerCount() {
+    if (this.#popoverBlockerCount > 0) {
+      this.#popoverBlockerCount--;
     }
-    if (this.#breakoutBlockerCount === 0) {
-      this.#updateLayoutBreakout();
+    if (this.#popoverBlockerCount === 0) {
+      this.#updatePopoverAnchor();
     }
   }
 
-  async #updateLayoutBreakoutDimensions() {
-    this.#stopBreakout();
+  async #measurePopoverAnchor() {
+    this.#releasePopoverAnchor();
 
     // When this method gets called a second time before the first call
     // finishes, we need to disregard the first one.
     let updateKey = {};
-    this._layoutBreakoutUpdateKey = updateKey;
+    this.#popoverAnchorUpdateKey = updateKey;
     await this.window.promiseDocumentFlushed(() => {});
     await new Promise(resolve => {
       this.window.requestAnimationFrame(() => {
-        if (this._layoutBreakoutUpdateKey != updateKey || !this.isConnected) {
+        if (this.#popoverAnchorUpdateKey != updateKey || !this.isConnected) {
           return;
         }
 
-        this.parentNode.style.setProperty(
+        this.#popoverAnchor.style.setProperty(
           "--urlbar-container-height",
-          px(getBoundsWithoutFlushing(this.parentNode).height)
+          px(getBoundsWithoutFlushing(this.#popoverAnchor).height)
         );
 
-        if (this.#breakoutBlockerCount) {
+        if (this.#popoverBlockerCount) {
           return;
         }
 
-        this.setAttribute("breakout", "true");
-        this.parentNode.setAttribute("breakout", "true");
         this.showPopover();
 
         resolve();
@@ -7078,20 +7087,20 @@ ${
   }
 
   _on_customizationstarting() {
-    this.incrementBreakoutBlockerCount();
+    this.incrementPopoverBlockerCount();
     this.blur();
   }
 
   _on_aftercustomization() {
-    this.decrementBreakoutBlockerCount();
-    this.#updateLayoutBreakout();
+    this.decrementPopoverBlockerCount();
+    this.#updatePopoverAnchor();
   }
 
   uiDensityChanged() {
-    if (this.#breakoutBlockerCount) {
+    if (this.#popoverBlockerCount) {
       return;
     }
-    this.#updateLayoutBreakout();
+    this.#updatePopoverAnchor();
   }
 
   #allTextSelectedOnKeyDown = false;

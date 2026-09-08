@@ -9791,6 +9791,13 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+  # Experimental support for including default in export * declarations.
+- name: javascript.options.experimental.export_star_default
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: startup
+
   # Experimental support for WASM/EcmaScript module integration in JavaScript.
 - name: javascript.options.experimental.wasm_esm_integration
   type: RelaxedAtomicBool
@@ -14687,12 +14694,6 @@
   value: true
   mirror: always
 
-# If true content types of multipart/x-mixed-replace cannot set a cookie
-- name: network.cookie.prevent_set_cookie_from_multipart
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Use sever time (Date header) to adjust the expire cookie attribute
 - name: network.cookie.useServerTime
   type: RelaxedAtomicBool
@@ -17344,8 +17345,8 @@
   value: false
   mirror: always
 
-# Replace PDFs embedded with an object/embed element by a page offering to open
-# them, when the viewer is disabled. That page is only packaged on desktop, see
+# Show an open-PDF fallback for PDF loads from object, embed, frame, and iframe
+# elements when the built-in viewer is disabled. Desktop only; see
 # toolkit/components/pdfjs/jar.mn.
 - name: pdfjs.embedFallback
   type: bool
@@ -17354,6 +17355,13 @@
 #else
   value: true
 #endif
+  mirror: always
+
+# Whether PDFs loaded from attributes of unsandboxed frame/iframe elements
+# bypass the configured handler, like object/embed loads.
+- name: pdfjs.handleFrameAttributeLoads
+  type: bool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------

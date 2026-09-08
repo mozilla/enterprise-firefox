@@ -76,7 +76,7 @@ LazyLogModule gRenderThreadLog("RenderThread");
 #define LOG(...) MOZ_LOG(gRenderThreadLog, LogLevel::Debug, (__VA_ARGS__))
 
 static StaticRefPtr<RenderThread> sRenderThread;
-static mozilla::BackgroundHangMonitor* sBackgroundHangMonitor;
+[[maybe_unused]] static mozilla::BackgroundHangMonitor* sBackgroundHangMonitor;
 #ifdef DEBUG
 static bool sRenderThreadEverStarted = false;
 #endif

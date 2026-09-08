@@ -269,17 +269,22 @@ add_task(async function test_update() {
     "trustpanel-blocker-section-header"
   );
 
-  // The test page loads a trackertest.org iframe, so one tracker is already
-  // blocked by the time the panel opens. The count now reflects the full
-  // content-blocking log, so the section shows that baseline rather than a
-  // misleading "0 trackers blocked".
   await TestUtils.waitForCondition(
-    () => parseInt(blockerHeader.textContent, 10) == 1,
-    "Shows the tracker already blocked on page load"
+    () =>
+      // eslint-disable-next-line sdl/no-insecure-url
+      "http://trackertest.org" in
+        JSON.parse(gBrowser.selectedBrowser.getContentBlockingLog()) &&
+      blockerHeader.textContent.length,
+    "Waiting for the tracking iframe to be recorded and the count rendered"
+  );
+  Assert.equal(
+    parseInt(blockerHeader.textContent, 10),
+    0,
+    "Detected but unblocked trackers (i.e. the tracking iframe) are not counted"
   );
   Assert.ok(
-    !blockerSection.hasAttribute("hidden"),
-    "Blocker section is shown once a tracker is blocked"
+    blockerSection.hasAttribute("hidden"),
+    "Blocker section is hidden while nothing has been blocked"
   );
 
   await SpecialPowers.spawn(tab.linkedBrowser, [], function () {
@@ -287,12 +292,12 @@ add_task(async function test_update() {
   });
 
   await TestUtils.waitForCondition(
-    () => parseInt(blockerHeader.textContent, 10) == 2,
+    () => parseInt(blockerHeader.textContent, 10) == 1,
     "Updated to show new cryptominer blocked"
   );
   Assert.ok(
     !blockerSection.hasAttribute("hidden"),
-    "Blocker section stays shown with multiple trackers blocked"
+    "Blocker section is shown once a tracker is blocked"
   );
 
   await SpecialPowers.spawn(tab.linkedBrowser, [], function () {
@@ -300,7 +305,7 @@ add_task(async function test_update() {
   });
 
   await TestUtils.waitForCondition(
-    () => parseInt(blockerHeader.textContent, 10) == 3,
+    () => parseInt(blockerHeader.textContent, 10) == 2,
     "Updated to show new fingerprinter blocked"
   );
   Assert.ok(

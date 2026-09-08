@@ -1100,8 +1100,7 @@ impl TileCacheInstance {
             .expect("unable to unmap screen rect");
 
         let pic_to_vis_mapper = SpaceMapper::new_with_target(
-            // TODO: use the raster node instead of the root node.
-            frame_context.root_spatial_node_index,
+            surface.visibility_spatial_node_index,
             self.spatial_node_index,
             surface.culling_rect,
             frame_context.spatial_tree,

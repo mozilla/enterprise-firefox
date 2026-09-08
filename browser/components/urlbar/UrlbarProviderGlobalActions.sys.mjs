@@ -186,12 +186,8 @@ export class UrlbarProviderGlobalActions extends UrlbarProvider {
         ],
       };
 
-      if (action.dataset?.style) {
-        let style = "";
-        for (let [prop, val] of Object.entries(action.dataset.style)) {
-          style += `${prop}: ${val};`;
-        }
-        btn.attributes.style = style;
+      if (action.style) {
+        btn.style = action.style;
       }
 
       if (action.dataset?.providesSearchMode) {

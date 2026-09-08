@@ -291,7 +291,7 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemIns
                         },
                         onListenClicked = {
                             context.components.core.store.state.selectedTab?.let { tab ->
-                                context.components.listenStore.dispatch(
+                                context.components.listenToPage.store.dispatch(
                                     ListenAction.Session.ListenRequested(tabId = tab.id, url = tab.content.url)
                                 )
                             }

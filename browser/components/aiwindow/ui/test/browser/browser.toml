@@ -189,6 +189,8 @@ skip-if = [
 
 ["browser_aiwindow_smartbar_tab_switch.js"]
 
+["browser_aiwindow_smartbar_tabgroups.js"]
+
 ["browser_aiwindow_smartbar_telemetry.js"]
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && tsan",

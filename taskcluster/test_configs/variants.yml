@@ -642,7 +642,7 @@ draw-snapshot:
 async-event-dispatching:
     description: "{description} with async widget event dispatching"
     component: "Remote Protocol::Agent"
-    expiration: "2026-10-01"
+    expiration: "2027-04-01"
     suffix: "async"
     mozinfo: "remote_async"
     replace:

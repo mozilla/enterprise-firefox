@@ -13,7 +13,6 @@ import androidx.core.app.NotificationManagerCompat
 import com.google.android.play.core.review.ReviewManagerFactory
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
-import mozilla.components.browser.state.selector.findTab
 import mozilla.components.concept.ai.controls.AIFeatureBlock
 import mozilla.components.concept.ai.controls.AIFeatureRegistry
 import mozilla.components.feature.addons.AddonManager
@@ -21,12 +20,6 @@ import mozilla.components.feature.addons.amo.AMOAddonsProvider
 import mozilla.components.feature.addons.migration.DefaultSupportedAddonsChecker
 import mozilla.components.feature.addons.update.DefaultAddonUpdater
 import mozilla.components.feature.autofill.AutofillConfiguration
-import mozilla.components.feature.listentopage.ListenMiddleware
-import mozilla.components.feature.listentopage.ListenState
-import mozilla.components.feature.listentopage.ListenStore
-import mozilla.components.feature.listentopage.content.ContentProvider
-import mozilla.components.feature.listentopage.listenReducer
-import mozilla.components.feature.listentopage.synthesis.SpeechSynthesizer
 import mozilla.components.feature.summarize.PageSummaryFeature
 import mozilla.components.feature.summarize.settings.SummarizationSettings
 import mozilla.components.lib.ai.controls.AIFeatureBlockStorage
@@ -65,6 +58,7 @@ import org.mozilla.fenix.components.appstate.setup.checklist.getSetupChecklistCo
 import org.mozilla.fenix.components.bookmarks.lastSavedFolderCache
 import org.mozilla.fenix.components.ipprotection.IPProtection
 import org.mozilla.fenix.components.ipprotection.IPProtectionAuthSources
+import org.mozilla.fenix.components.listentopage.ListenToPage
 import org.mozilla.fenix.components.llm.Llm
 import org.mozilla.fenix.components.llm.ext.accessTokenProvider
 import org.mozilla.fenix.components.metrics.MetricsMiddleware
@@ -478,27 +472,8 @@ class Components(
         SummarizationSettings.dataStore(context)
     }
 
-    val listenStore: ListenStore by lazyMonitored {
-        val pageExtractor = FenixListenPageExtractor { tabId ->
-            core.store.state.findTab(tabId)?.engineState?.engineSession
-        }
-
-        ListenStore(
-            initialState = ListenState(),
-            reducer = ::listenReducer,
-            middleware =
-                listOf(
-                    ListenMiddleware(
-                        contentProvider =
-                            ContentProvider.fromPage(
-                                pageContentExtractor = pageExtractor,
-                                pageMetadataExtractor = pageExtractor,
-                            ),
-                        synthesizer = SpeechSynthesizer.android(context),
-                        scope = applicationScope,
-                    )
-                ),
-        )
+    val listenToPage by lazyMonitored {
+        ListenToPage(browserStore = core.store, context = context, scope = applicationScope)
     }
 
     val aiFeatureRegistry by lazyMonitored {

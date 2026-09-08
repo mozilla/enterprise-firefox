@@ -2115,7 +2115,51 @@ static void Deallocate(BaseCompiler* bc, RegI32 rexpect, RegI32 rnew,
   bc->freeI32(rexpect);
 }
 
-#elif defined(JS_CODEGEN_MIPS64) || defined(JS_CODEGEN_LOONG64)
+#elif defined(JS_CODEGEN_LOONG64)
+
+struct Temps {
+  RegI32 t0, t1, t2;
+};
+
+static void PopAndAllocate(BaseCompiler* bc, ValType type,
+                           Scalar::Type viewType, RegI32* rexpect, RegI32* rnew,
+                           RegI32* rd, Temps* temps) {
+  if (type == ValType::I64) {
+    *rnew = bc->popI64ToI32();
+    *rexpect = bc->popI64ToI32();
+    // Architecture-specific i64-to-i32.
+    bc->masm.move64To32(Register64(*rexpect), *rexpect);
+  } else {
+    *rnew = bc->popI32();
+    *rexpect = bc->popI32();
+  }
+  const bool needsLlScLoop =
+      Scalar::byteSize(viewType) < 4 && !LOONG64Flags::HasLamcasExtension();
+  if (needsLlScLoop) {
+    temps->t0 = bc->needI32();
+    temps->t1 = bc->needI32();
+    temps->t2 = bc->needI32();
+  }
+  *rd = bc->needI32();
+}
+
+static void Perform(BaseCompiler* bc, const MemoryAccessDesc& access,
+                    Address srcAddr, RegI32 rexpect, RegI32 rnew, RegI32 rd,
+                    const Temps& temps) {
+  bc->masm.wasmCompareExchange(access, srcAddr, rexpect, rnew, temps.t0,
+                               temps.t1, temps.t2, rd);
+}
+
+static void Deallocate(BaseCompiler* bc, RegI32 rexpect, RegI32 rnew,
+                       const Temps& temps) {
+  bc->freeI32(rnew);
+  bc->freeI32(rexpect);
+  bc->maybeFree(temps.t0);
+  bc->maybeFree(temps.t1);
+  bc->maybeFree(temps.t2);
+}
+
+#elif defined(JS_CODEGEN_MIPS64)
 
 struct Temps {
   RegI32 t0, t1, t2;

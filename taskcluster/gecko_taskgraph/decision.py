@@ -467,6 +467,13 @@ def get_decision_parameters(graph_config, options):
         "DONTBUILD" in commit_message and options["tasks_for"] == "hg-push"
     )
 
+    # "SHIPPING" is set in the commit message by Lando when a release manager
+    # lands an uplift they intend to ship, and raises the priority of the tasks
+    # on the beta and ESR branches. See `task-priority` in `taskcluster/config.yml`.
+    parameters["shipping"] = (
+        "SHIPPING" in commit_message and options["tasks_for"] == "hg-push"
+    )
+
     # Determine if this should be a backstop push.
     parameters["backstop"] = is_backstop(parameters)
 

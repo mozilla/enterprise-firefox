@@ -79,5 +79,8 @@
         }
       }
     }
+  },
+  "fill": {
+    "value": "currentColor"
   }
 }

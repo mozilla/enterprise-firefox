@@ -14,6 +14,11 @@
      and selected rows while keeping the view's entire hover area contiguous. It's
      row padding that `background-clip: content-box` keeps out of the background. */
   --urlbarView-row-gutter: var(--space-xsmall);
+  /* The view's own margin, which urlbar.css also derives the joint
+     background's outsets from. Negative here so the selection rect is flush
+     with the input container's border edge, compensating the row's gutter. */
+  --urlbarView-margin-block: calc(-1 * var(--urlbarView-row-gutter));
+  --urlbarView-margin-inline: calc(-1 * var(--urlbarView-row-gutter));
   --urlbarView-row-border-radius: var(--urlbarview-border-radius);
 
   --urlbarView-row-padding-inline: var(--urlbar-icon-padding);
@@ -96,9 +101,7 @@
 }
 
 .urlbarView {
-  /* Compensate for the row's gutter, so the selection rect is flush with the
-     input container's border edge. */
-  margin: calc(-1 * var(--urlbarView-row-gutter));
+  margin: var(--urlbarView-margin-block) var(--urlbarView-margin-inline);
 
   /* Don't handle window drag events in case we are overlapping a toolbar */
   -moz-window-dragging: no-drag;
@@ -106,11 +109,6 @@
   display: none;
   text-shadow: none;
   overflow: clip;
-
-  .urlbar[breakout][open] > & {
-    display: flex;
-    flex-direction: column;
-  }
 
   /* When hosted in content, let the view scroll when there's limited space
      below the input due to small viewport size or page scroll position. */
@@ -539,7 +537,8 @@
 
 /* This should be supported within panel-{item,list} rather than modifying it, to be fixed by
    https://bugzilla.mozilla.org/show_bug.cgi?id=1826841 */
-.urlbarView-result-menuitem::part(button) {
+.urlbarView-result-menuitem::part(button),
+#urlbarView-context-menu panel-item::part(button) {
   padding-inline-start: 12px;
 }
 

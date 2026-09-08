@@ -99,10 +99,12 @@ let JSWINDOWACTORS = {
 
   AboutLogins: {
     parent: {
-      esModuleURI: "resource:///actors/AboutLoginsParent.sys.mjs",
+      esModuleURI:
+        "moz-src:///browser/components/aboutlogins/AboutLoginsParent.sys.mjs",
     },
     child: {
-      esModuleURI: "resource:///actors/AboutLoginsChild.sys.mjs",
+      esModuleURI:
+        "moz-src:///browser/components/aboutlogins/AboutLoginsChild.sys.mjs",
       events: {
         AboutLoginsCopyLoginDetail: { wantUntrusted: true },
         AboutLoginsCreateLogin: { wantUntrusted: true },
@@ -473,10 +475,12 @@ let JSWINDOWACTORS = {
 
   CustomKeys: {
     parent: {
-      esModuleURI: "resource:///actors/CustomKeysParent.sys.mjs",
+      esModuleURI:
+        "moz-src:///browser/components/customkeys/CustomKeysParent.sys.mjs",
     },
     child: {
-      esModuleURI: "resource:///actors/CustomKeysChild.sys.mjs",
+      esModuleURI:
+        "moz-src:///browser/components/customkeys/CustomKeysChild.sys.mjs",
       events: {
         DOMDocElementInserted: { wantUntrusted: true },
       },

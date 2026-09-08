@@ -307,40 +307,9 @@ body {
 }
 
 @media -moz-pref("browser.nova.enabled") {
+  /* XXX is this still needed? */
   :root[lwtheme]:not([theme-image-in-toolbox]) .chrome-block {
     overflow: clip;
-  }
-
-  /* The sidebar panel and the content area round their corners away from the
-   * chrome they sit against, and #browser is what shows through the notches
-   * that leaves, so it needs to be the same color as the blocks above to appear
-   * seamless. */
-  #browser {
-    /* Only the native titlebar color dims with the window; the toolbar color
-     * that the rule below falls back to doesn't. */
-    @media (-moz-native-theme) {
-      &:-moz-window-inactive {
-        background-color: var(--toolbox-background-color-inactive);
-        color: var(--toolbox-text-color-inactive);
-      }
-    }
-  }
-
-  /* Without a native theme --toolbox-background-color is either the system
-   * titlebar color or a lwtheme's accent, and neither matches the toolbars, so
-   * the chrome and the surface it sits on take the toolbar color to appear
-   * seamless instead. */
-  @media not (-moz-native-theme) {
-    /* A lwtheme's toolbar color is allowed to be translucent, so body keeps the
-     * theme's accent to give the chrome an opaque surface to composite over. */
-    :root:not([lwtheme]) body {
-      background-color: var(--toolbar-background-color);
-      color: var(--toolbar-text-color);
-    }
-
-    :root:not([sidebar-expand-on-hover]) #sidebar-container {
-      background-color: transparent;
-    }
   }
 }
 
@@ -351,12 +320,9 @@ body {
   border-style: none;
   background-color: transparent;
   color: inherit;
-
-  @media (not -moz-pref("sidebar.verticalTabs")) or (-moz-pref("sidebar.verticalTabs") and -moz-pref("browser.nova.enabled")) {
-    &:not(.browser-titlebar) {
-      background-color: var(--toolbar-background-color);
-      color: var(--toolbar-text-color);
-    }
+  &:not(.browser-titlebar) {
+    background-color: var(--toolbar-background-color);
+    color: var(--toolbar-text-color);
   }
 }
 
@@ -365,8 +331,7 @@ body {
 .browser-titlebar {
   -moz-window-dragging: drag;
 
-  :root[customtitlebar] &,
-  :root[customtitlebar] & .urlbar:popover-open {
+  :root[customtitlebar] & {
     will-change: opacity;
     transition: opacity var(--inactive-window-transition);
 

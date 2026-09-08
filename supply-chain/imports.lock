@@ -653,8 +653,8 @@ user-login = "BurntSushi"
 user-name = "Andrew Gallant"
 
 [[publisher.scopeguard]]
-version = "1.1.0"
-when = "2020-02-16"
+version = "1.2.0"
+when = "2023-07-17"
 user-id = 2915
 user-login = "Amanieu"
 user-name = "Amanieu d'Antras"

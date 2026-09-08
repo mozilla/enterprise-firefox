@@ -4456,6 +4456,14 @@ MediaTrackGraphImpl::HaveDirectTasks(bool* aResult) {
 
 // AbstractThread methods
 
+/* Whether the caller is running on the IPC I/O thread, which dispatches to the
+ * graph on behalf of ipc::MessageChannels opened on the graph thread. */
+[[maybe_unused]] static bool OnIPCIOThread() {
+  ipc::IOThread* ioThread = ipc::IOThread::Get();
+  return ioThread &&
+         ioThread->GetEventTarget() == GetCurrentSerialEventTarget();
+}
+
 nsresult MediaTrackGraphImpl::Dispatch(
     already_AddRefed<nsIRunnable> aEvent,
     DispatchReason aReason /*= NormalDispatch*/) {
@@ -4483,9 +4491,7 @@ nsresult MediaTrackGraphImpl::Dispatch(
 
   // Enforce tail-dispatch. The IOThread is exempt as it dispatches messages to
   // AudioWorklet from JS.
-  MOZ_ASSERT_IF(
-      ipc::IOThread::Get()->GetEventTarget() != GetCurrentSerialEventTarget(),
-      RequiresTailDispatchFromCurrentThread());
+  MOZ_ASSERT_IF(!OnIPCIOThread(), RequiresTailDispatchFromCurrentThread());
 
   if (aReason == TailDispatch || !RequiresTailDispatchFromCurrentThread()) {
     return TailDispatchMessage(event.forget());
@@ -4547,8 +4553,15 @@ nsresult MediaTrackGraphImpl::TailDispatchMessage(
 
   MonitorAutoLock lock(mMonitor);
   if (!NS_IsMainThread()) {
+    // The IPC I/O thread is exempt. An ipc::MessageChannel opened on the graph
+    // thread holds a strong reference to the graph as its worker thread, so
+    // the graph outlives these dispatches. The channel is closed when the
+    // graph shuts down, which is necessarily after the main-thread track and
+    // port counts have reached zero. Its runnables are cancelable, so they are
+    // discarded below once the graph no longer processes messages.
     MOZ_DIAGNOSTIC_ASSERT(
-        mMainThreadTrackCount > 0 || mMainThreadPortCount > 0,
+        mMainThreadTrackCount > 0 || mMainThreadPortCount > 0 ||
+            OnIPCIOThread(),
         "Clients must guarantee that any non-main thread tail dispatches to "
         "the graph are outlived by a main-thread controlled track or port");
   }

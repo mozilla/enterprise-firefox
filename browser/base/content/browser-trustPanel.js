@@ -11,9 +11,12 @@ ChromeUtils.defineESModuleGetters(this, {
     "resource://gre/modules/ContentBlockingAllowList.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
   FX_MONITOR_OAUTH_CLIENT_ID: "resource://gre/modules/FxAccountsCommon.sys.mjs",
+  identifyType: "resource://gre/modules/TrackingDBService.sys.mjs",
   PanelMultiView:
     "moz-src:///browser/components/customizableui/PanelMultiView.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
+  privacyMetricsStatsCategories:
+    "moz-src:///browser/components/protections/PrivacyMetricsService.sys.mjs",
   QWACs: "resource://gre/modules/psm/QWACs.sys.mjs",
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
   SiteDataManager: "resource:///modules/SiteDataManager.sys.mjs",
@@ -144,11 +147,6 @@ class TrustPanel {
    */
   #clearFxaOauthClientCache = false;
   #breachAlertStoragePromise = null;
-  #trackerCount = null;
-  // In-flight promise from #computeTrackerCount, so concurrent callers (the
-  // toolbar update and the blocker subview) for the same content-blocking event
-  // share a single query of each blocker instead of both querying.
-  #trackerCountPromise = null;
   #isFirstVisit = false;
   // False until the blocker check completes; while false a secure page shows the
   // neutral "scanning" shield rather than the check-mark.
@@ -191,10 +189,6 @@ class TrustPanel {
   // switch to another tab on the same domain, so the tracker count from the
   // previous tab is not incorrectly inherited.
   #lastBrowser = null;
-
-  // Monotonic tag for #updateBlockerView runs so a stale (slower) run can't
-  // overwrite a fresher one's result. See the method for details.
-  #blockerViewUpdateId = 0;
 
   #popupToggleDelayTimer = null;
   #openingReason = null;
@@ -282,9 +276,6 @@ class TrustPanel {
     // different blockers:
     this.anyDetected = false;
     this.#lastEvent = event;
-    // Recompute the count, but keep the last displayed value so it doesn't
-    // briefly drop to 0 during a same-site navigation.
-    this.#trackerCountPromise = null;
 
     // Check whether the user has added an exception for this site.
     this.hasException =
@@ -553,8 +544,6 @@ class TrustPanel {
     if (this.#sameSiteNavigation) {
       this.#blockersChecked = true;
     }
-    this.#trackerCount = null;
-    this.#trackerCountPromise = null;
     this.#isFirstVisit = false;
     // #blockersChecked is reset in resetIconForNavigation, not here, so tab
     // switches and re-fired security changes don't re-enter scanning.
@@ -633,7 +622,7 @@ class TrustPanel {
       targetClasses.add("first-visit");
     }
     // Added after "first-visit" so the tracker-count pill animation stays in sync.
-    if (this.#trackerCount > 0) {
+    if (this.#computeTrackerCount() > 0) {
       targetClasses.add("has-blocked-trackers");
     }
 
@@ -824,27 +813,18 @@ class TrustPanel {
     // trust panel's count:
     void this.#updateToolbarTrackerCount();
 
-    await this.#updateBlockerView();
+    this.#updateBlockerView();
   }
 
   #computeTrackerCount() {
-    if (this.#trackerCountPromise) {
-      return this.#trackerCountPromise;
-    }
-    const p = (async () => {
-      let count = this.#fetchSmartBlocked().length;
-      for (let blocker of Object.values(this.#blockers)) {
-        count += await blocker.getBlockerCount();
-      }
-      return count;
-    })();
-    this.#trackerCountPromise = p;
-    p.finally(() => {
-      if (this.#trackerCountPromise === p) {
-        this.#trackerCountPromise = null;
-      }
-    });
-    return p;
+    const log = JSON.parse(gBrowser.selectedBrowser.getContentBlockingLog());
+
+    const logEntriesToCount = Object.values(log).filter(
+      entry =>
+        typeof privacyMetricsStatsCategories[identifyType(entry)] !==
+        "undefined"
+    );
+    return logEntriesToCount.length;
   }
 
   async #markFirstVisit() {
@@ -897,15 +877,12 @@ class TrustPanel {
     // Tag this run so that if a newer one starts while we're awaiting below,
     // this now-stale run bails instead of clobbering the fresher count.
     const updateId = ++this.#toolbarTrackerCountUpdateId;
-    let [count] = await Promise.all([
-      this.#computeTrackerCount(),
-      this.#firstVisitPromise,
-    ]);
+    await this.#firstVisitPromise;
+    let count = this.#computeTrackerCount();
     if (this.#uri !== uri || this.#toolbarTrackerCountUpdateId !== updateId) {
       return;
     }
 
-    this.#trackerCount = count;
     // A blocked tracker resolves the scanning shield straight into the reveal.
     if (count > 0) {
       this.#blockersChecked = true;
@@ -932,35 +909,18 @@ class TrustPanel {
     this.#updateUrlbarIcon();
   }
 
-  async #updateBlockerView() {
-    // Snapshot the event so this run stays internally consistent across the
-    // awaits below, and tag the run so that if a newer run starts while we're
-    // awaiting, this (now stale) one bails out instead of writing its result.
-    // Without this guard, concurrent runs — a burst of content-blocking events
-    // on a tracker-heavy site (e.g. Meta) plus opening the subview — race on
-    // the final write, and a stale run can finish last and clobber a fresher
-    // count with 0, producing the intermittent "0 trackers blocked".
-    const event = this.#lastEvent;
-    const updateId = ++this.#blockerViewUpdateId;
-
+  #updateBlockerView() {
     let blocked = [];
     let detected = [];
     for (let blocker of Object.values(this.#blockers)) {
-      if (blocker.isBlocking(event)) {
+      if (blocker.isBlocking(this.#lastEvent)) {
         blocked.push(blocker);
-      } else if (blocker.isDetected(event)) {
+      } else if (blocker.isDetected(this.#lastEvent)) {
         detected.push(blocker);
       }
     }
 
-    // Share the single per-event count computation with the toolbar update so a
-    // content-blocking event only queries each blocker once.
-    const count = await this.#computeTrackerCount();
-
-    // A newer run started while we were awaiting; let it own the DOM update.
-    if (updateId !== this.#blockerViewUpdateId) {
-      return;
-    }
+    const count = this.#computeTrackerCount();
 
     this.#addButtons("trustpanel-blocked", blocked, true);
     this.#addButtons("trustpanel-detected", detected, false);
@@ -1055,13 +1015,13 @@ class TrustPanel {
       .showSubView("trustpanel-securityInformationView", event.target);
   }
 
-  async #openBlockerSubview(event) {
+  #openBlockerSubview(event) {
     document.l10n.setAttributes(
       document.getElementById("trustpanel-blockerView"),
       "trustpanel-blocker-header",
       { host: this.#displayHost }
     );
-    await this.#updateBlockerView();
+    this.#updateBlockerView();
     document
       .getElementById("trustpanel-popup-multiView")
       .showSubView("trustpanel-blockerView", event.target);

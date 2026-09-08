@@ -36,8 +36,8 @@ import subprocess
 
 
 class PackagerFileFinder(FileFinder):
-    def get(self, path):
-        f = super(PackagerFileFinder, self).get(path)
+    def get(self, path, known_to_exist=False):
+        f = super(PackagerFileFinder, self).get(path, known_to_exist)
         # Normalize Info.plist files, and remove the MozillaDeveloper*Path
         # entries which are only needed on unpackaged builds.
         if mozpath.basename(path) == "Info.plist":
