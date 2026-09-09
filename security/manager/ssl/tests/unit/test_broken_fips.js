@@ -37,7 +37,14 @@ function run_test() {
   Cc["@mozilla.org/psm;1"].getService(Ci.nsINSSComponent);
 
   ok(!Glean.nss.initializationFallbacks.READ_ONLY.testGetValue());
-  equal(Glean.nss.initializationFallbacks.RENAME_MODULE_DB.testGetValue(), 1);
+  if (AppConstants.MOZ_ENTERPRISE) {
+    // Enterprise builds never load the profile's PKCS#11 module DB, so the
+    // FIPS-mode module DB is ignored rather than renamed: NSS initializes on
+    // the first try and no rename fallback is recorded.
+    ok(!Glean.nss.initializationFallbacks.RENAME_MODULE_DB.testGetValue());
+  } else {
+    equal(Glean.nss.initializationFallbacks.RENAME_MODULE_DB.testGetValue(), 1);
+  }
   ok(
     !Glean.nss.initializationFallbacks.RENAME_MODULE_DB_READ_ONLY.testGetValue()
   );
@@ -67,10 +74,12 @@ function run_test() {
     "decrypted ciphertext should match expected plaintext"
   );
 
-  let pkcs11modDBFileFIPS = do_get_profile();
-  pkcs11modDBFileFIPS.append(`${pkcs11modDBName}.fips`);
-  ok(
-    pkcs11modDBFileFIPS.exists(),
-    "backed-up PKCS#11 module db should now exist"
-  );
+  if (!AppConstants.MOZ_ENTERPRISE) {
+    let pkcs11modDBFileFIPS = do_get_profile();
+    pkcs11modDBFileFIPS.append(`${pkcs11modDBName}.fips`);
+    ok(
+      pkcs11modDBFileFIPS.exists(),
+      "backed-up PKCS#11 module db should now exist"
+    );
+  }
 }

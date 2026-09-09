@@ -1359,10 +1359,18 @@ static nsresult InitializeNSSWithFallbacks(const nsACString& profilePath,
 #ifndef ANDROID
   PRErrorCode savedPRErrorCode1;
 #endif  // ifndef ANDROID
-  PKCS11DBConfig safeModeDBConfig =
-      safeMode ? PKCS11DBConfig::DoNotLoadModules : PKCS11DBConfig::LoadModules;
+  // Enterprise builds never auto-load the user-writable profile module DB
+  // (pkcs11.txt): NSS_Initialize would dlopen its entries before the policy
+  // engine starts. Admin modules go through the SecurityDevices policy instead.
+  bool loadProfileModules = !safeMode;
+#ifdef MOZ_ENTERPRISE
+  loadProfileModules = false;
+#endif
+  PKCS11DBConfig profileModuleDBConfig = loadProfileModules
+                                             ? PKCS11DBConfig::LoadModules
+                                             : PKCS11DBConfig::DoNotLoadModules;
   SECStatus srv = ::mozilla::psm::InitializeNSS(
-      profilePath, NSSDBConfig::ReadWrite, safeModeDBConfig);
+      profilePath, NSSDBConfig::ReadWrite, profileModuleDBConfig);
   if (srv == SECSuccess) {
     MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("initialized NSS in r/w mode"));
     return NS_OK;
@@ -1373,7 +1381,7 @@ static nsresult InitializeNSSWithFallbacks(const nsACString& profilePath,
 #endif  // ifndef ANDROID
   // That failed. Try read-only mode.
   srv = ::mozilla::psm::InitializeNSS(profilePath, NSSDBConfig::ReadOnly,
-                                      safeModeDBConfig);
+                                      profileModuleDBConfig);
   if (srv == SECSuccess) {
     mozilla::glean::nss::initialization_fallbacks.Get("READ_ONLY"_ns).Add(1);
     MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("initialized NSS in r-o mode"));
@@ -1429,7 +1437,7 @@ static nsresult InitializeNSSWithFallbacks(const nsACString& profilePath,
         return rv;
       }
       srv = ::mozilla::psm::InitializeNSS(profilePath, NSSDBConfig::ReadWrite,
-                                          PKCS11DBConfig::LoadModules);
+                                          profileModuleDBConfig);
       if (srv == SECSuccess) {
         mozilla::glean::nss::initialization_fallbacks.Get("RENAME_MODULE_DB"_ns)
             .Add(1);
@@ -1437,7 +1445,7 @@ static nsresult InitializeNSSWithFallbacks(const nsACString& profilePath,
         return NS_OK;
       }
       srv = ::mozilla::psm::InitializeNSS(profilePath, NSSDBConfig::ReadOnly,
-                                          PKCS11DBConfig::LoadModules);
+                                          profileModuleDBConfig);
       if (srv == SECSuccess) {
         mozilla::glean::nss::initialization_fallbacks
             .Get("RENAME_MODULE_DB_READ_ONLY"_ns)
