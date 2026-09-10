@@ -65,12 +65,20 @@ class AppRestartWorks(FeltTests):
         felt_ui_pid = self._driver.session_capabilities["moz:processID"]
         target_exe = psutil.Process(felt_ui_pid).exe()
         felt_browser_pids = set(self._get_felt_browser_pids(target_exe))
-        unexpected = felt_browser_pids - {new_browser_pid}
-        assert not unexpected, (
-            f"Extra FELT browser process(es) after restart (double relaunch?): {unexpected}"
-        )
+
         assert new_browser_pid in felt_browser_pids, (
             f"Relaunched browser PID {new_browser_pid} is not running"
+        )
+
+        launcher_pid = self._check_for_launcher(new_browser_pid, felt_browser_pids)
+
+        expected_pids = {new_browser_pid}
+        if launcher_pid is not None:
+            expected_pids.add(launcher_pid)
+
+        unexpected = felt_browser_pids - expected_pids
+        assert not unexpected, (
+            f"Extra FELT browser process(es) after restart (double relaunch?): {unexpected}"
         )
 
         self._logger.info(f"Closing new browser with PID {new_browser_pid}")
@@ -90,3 +98,35 @@ class AppRestartWorks(FeltTests):
             except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied):
                 continue
         return pids
+
+    def _check_for_launcher(self, browser_pid, felt_browser_pids):
+        """On Windows Firefox, asserts that browser_pid was started by a
+        launcher process, and returns that launcher's PID.
+        Otherwise returns None.
+        """
+        app_name = self._driver.session_capabilities.get("browserName")
+        if sys.platform != "win32" or app_name != "firefox":
+            return None
+
+        launcher_pid = self._get_launcher_pid(browser_pid)
+        assert launcher_pid in felt_browser_pids, (
+            f"Expected a launcher process parent for browser PID {browser_pid}, "
+            f"got {launcher_pid}; running FELT browser processes: "
+            f"{felt_browser_pids}"
+        )
+        return launcher_pid
+
+    def _get_launcher_pid(self, browser_pid):
+        """Returns the browser's parent process PID if it is a launcher
+        process (i.e., the command line contains "--launcher" and "-felt").
+        Returns None when the browser has no launcher.
+        """
+        try:
+            parent = psutil.Process(browser_pid).parent()
+            if parent:
+                cmdline = parent.cmdline()
+                if "--launcher" in cmdline and "-felt" in cmdline:
+                    return parent.pid
+        except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied):
+            pass
+        return None

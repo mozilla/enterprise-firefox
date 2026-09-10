@@ -874,8 +874,20 @@ export class FeltProcessParent extends JSProcessActorParent {
       profileArgs = ["-P", foundProfile.name];
     }
 
+    // Use the launcher process so the browser gets the DLL blocklist and other
+    // security enhancements patched in while suspended.
+    // --wait-for-browser keeps the launcher alive to relay the browser's exit code
+    // --no-deelevate keeps the browser at felt's integrity level so that the ipc
+    // socket is accessible to both the browser and felt. (Felt running elevated
+    // is probably bad, but unlikely due to felt's own launcher process)
+    let launcherArgs = [];
+    if (Services.appinfo.OS == "WINNT" && lazy.isBuildAppBrowser()) {
+      launcherArgs = ["--launcher", "--wait-for-browser", "--no-deelevate"];
+    }
+
     lazy.log.debug(`Using profileArgs: ${profileArgs}`);
     const firefoxRunArgs = [
+      ...launcherArgs,
       "--foreground",
       ...profileArgs,
       "-felt",
