@@ -688,10 +688,12 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     // Fetch primarySecret from the console BEFORE spawning Firefox. The child's
-    // storage encryption layer (mozStorage / obfsvfs) blocks at
-    // profile-do-change waiting for it to unlock the
-    // `lockstore::kek::password:sqlite` Password KEK, so the browser cannot
-    // function without it. ConsoleClient.getPrimarySecret() already refreshes
+    // lockstore KEK startup blocks startup just before profile-do-change
+    // waiting for it to unlock the profile's Password KEKs
+    // (`password:profile` and `password:sqlite`), and every encrypted database
+    // open fails closed until they are up, so the browser cannot function
+    // without it.
+    // ConsoleClient.getPrimarySecret() already refreshes
     // the session and retries once on an auth failure. If the fetch fails,
     // abort the launch rather than spawn a browser that hangs waiting for a
     // secret that never arrives. The value is held only in this local until it

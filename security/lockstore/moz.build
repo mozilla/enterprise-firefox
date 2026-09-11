@@ -29,6 +29,10 @@ UNIFIED_SOURCES += [
 ]
 
 if CONFIG["MOZ_ENTERPRISE"]:
+    EXPORTS.mozilla.security.lockstore += [
+        "ProfileKekStartup.h",
+    ]
+
     UNIFIED_SOURCES += [
         "ProfileKekStartup.cpp",
     ]
