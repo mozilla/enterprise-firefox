@@ -60,6 +60,28 @@ class TryTaskConfig(Schema, kw_only=True):
     routes: Optional[list[str]] = None
 
 
+# Where the Thunderbird taskgraph lives inside the gecko checkout. Matches the
+# `--root` its decision task is run with in `.taskcluster.yml`.
+COMM_TASKGRAPH_ROOT = "comm/taskcluster"
+
+
+class CommGraph(Schema, kw_only=True, rename=None):
+    """The Thunderbird graph a Firefox Enterprise push also builds.
+
+    ``.taskcluster.yml`` spawns a second decision task for it, and records here
+    what an action needs to reach that graph rather than this one: the task
+    group holding its ``parameters.yml``, the taskgraph root its kinds live in,
+    and the comm checkout it was generated from. See
+    ``gecko_taskgraph.actions.forward_comm``.
+    """
+
+    task_id: str
+    root: str
+    head_repository: str
+    head_ref: str
+    head_rev: str
+
+
 class GeckoParametersSchema(Schema, kw_only=True, rename=None):
     android_perftest_backstop: bool
     app_version: str
@@ -87,6 +109,9 @@ class GeckoParametersSchema(Schema, kw_only=True, rename=None):
     try_mode: Optional[str]
     try_task_config: TryTaskConfig
     version: str
+    # Defaulted, so a `parameters.yml` from before this field existed -- an
+    # action reusing an older graph, say -- still validates.
+    comm_graph: Optional[CommGraph] = None
     head_git_ref: Optional[str] = None
     head_git_repository: Optional[str] = None
     head_git_rev: Optional[str] = None
@@ -131,6 +156,7 @@ def get_defaults(repo_root=None):
         "android_perftest_backstop": False,
         "app_version": get_app_version(),
         "backstop": False,
+        "comm_graph": None,
         "dontbuild": False,
         "base_repository": "https://hg.mozilla.org/mozilla-unified",
         "build_number": 1,
