@@ -31,6 +31,15 @@ disabled = "Bug 1996558: scaffolding for the browsing-child encryption-mismatch 
 
 ["test_felt_browser_fxa.py"]
 
+["test_felt_browser_launcher_process.py"]
+run-if = [
+  "os == 'win'",
+]
+skip-if = [
+  "asan",
+  "os == 'win' && arch == 'aarch64'",
+]
+
 ["test_felt_browser_new_window_from_cli.py"]
 
 ["test_felt_browser_rapid_new_tabs_from_cli.py"]
