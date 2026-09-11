@@ -81,9 +81,7 @@ XPCOMUtils.defineLazyServiceGetters(lazy, {
   BrowserHandler: ["@mozilla.org/browser/clh;1", Ci.nsIBrowserHandler],
 });
 import { MESSAGING_EXPERIMENTS_DEFAULT_FEATURES } from "resource:///modules/asrouter/MessagingExperimentConstants.sys.mjs";
-import { CFRMessageProvider } from "resource:///modules/asrouter/CFRMessageProvider.sys.mjs";
 import { OnboardingMessageProvider } from "resource:///modules/asrouter/OnboardingMessageProvider.sys.mjs";
-import { CFRPageActions } from "resource:///modules/asrouter/CFRPageActions.sys.mjs";
 
 // List of hosts for endpoints that serve router messages.
 // Key is allowed host, value is a name for the endpoint host.
@@ -96,7 +94,6 @@ const SIX_MONTHS_MS = (60 * 60 * 24 * 365 * 1000) / 2; // six months in millisec
 
 const LOCAL_MESSAGE_PROVIDERS = {
   OnboardingMessageProvider,
-  CFRMessageProvider,
 };
 const STARTPAGE_VERSION = "6";
 
@@ -1184,7 +1181,7 @@ export class _ASRouter {
   observe(aSubject, aTopic, aPrefName) {
     switch (aPrefName) {
       case USE_REMOTE_L10N_PREF:
-        CFRPageActions.reloadL10n();
+        lazy.RemoteL10n.reloadL10n();
         break;
     }
   }
@@ -1324,8 +1321,6 @@ export class _ASRouter {
       MULTIPROFILE_DATA_UPDATED
     );
     Services.prefs.removeObserver(USE_REMOTE_L10N_PREF, this);
-    // If we added any CFR recommendations, they need to be removed
-    CFRPageActions.clearRecommendations();
     this._resetInitialization();
   }
 
@@ -1689,55 +1684,6 @@ export class _ASRouter {
     // reassign it, so it stays resolved.
     let closedPromise = Promise.resolve();
     switch (message.template) {
-      case "cfr_doorhanger":
-      case "milestone_message":
-        // @TODO Bug 2041980: Remove CFRPageActions entirely. For now these are
-        // just disabled outside of automated tests.
-        if (
-          Cu.isInAutomation ||
-          Services.env.exists("XPCSHELL_TEST_PROFILE_DIR") ||
-          Services.env.get("MOZ_AUTOMATION")
-        ) {
-          if (force) {
-            CFRPageActions.forceRecommendation(
-              browser,
-              message,
-              this.dispatchCFRAction
-            );
-          } else {
-            CFRPageActions.addRecommendation(
-              browser,
-              trigger.param && trigger.param.host,
-              message,
-              this.dispatchCFRAction
-            );
-          }
-        }
-        break;
-      case "cfr_urlbar_chiclet":
-        // @TODO Bug 2041980: Remove CFRPageActions entirely. For now these are
-        // just disabled outside of automated tests.
-        if (
-          Cu.isInAutomation ||
-          Services.env.exists("XPCSHELL_TEST_PROFILE_DIR") ||
-          Services.env.get("MOZ_AUTOMATION")
-        ) {
-          if (force) {
-            CFRPageActions.forceRecommendation(
-              browser,
-              message,
-              this.dispatchCFRAction
-            );
-          } else {
-            CFRPageActions.addRecommendation(
-              browser,
-              null,
-              message,
-              this.dispatchCFRAction
-            );
-          }
-        }
-        break;
       case "toolbar_badge":
         lazy.ToolbarBadgeHub.registerBadgeNotificationListener(message, {
           force,

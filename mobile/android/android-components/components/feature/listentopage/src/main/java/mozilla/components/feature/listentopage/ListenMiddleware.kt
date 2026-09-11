@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import mozilla.components.feature.listentopage.content.ContentProvider
 import mozilla.components.feature.listentopage.playback.AudioFileCache
 import mozilla.components.feature.listentopage.playback.PlaybackController
+import mozilla.components.feature.listentopage.settings.ListenSettings
 import mozilla.components.feature.listentopage.synthesis.NoOfflineVoiceAvailableException
 import mozilla.components.feature.listentopage.synthesis.SpeechSynthesizer
 import mozilla.components.lib.state.Middleware
@@ -32,6 +33,7 @@ import mozilla.components.support.base.log.logger.Logger
  * @property audioCache Holds the audio files. It is emptied when the session stops.
  * @property playbackController Plays the audio file. It is used instead of the player directly, because only playback
  *   commanded through the media session keeps the audio alive in the background and shows the notification.
+ * @property settings The module's own preferences, holding the voice the user picked for each article language.
  * @property scope The [CoroutineScope] the extraction, the synthesis and the playback commands run in. It has to
  *   dispatch on one thread: the session fields below are read from `invoke`, which the store runs on whichever thread
  *   dispatched, and written from this scope.
@@ -42,6 +44,7 @@ class ListenMiddleware(
     private val synthesizerProvider: () -> SpeechSynthesizer,
     private val audioCache: AudioFileCache,
     private val playbackController: PlaybackController,
+    private val settings: ListenSettings,
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : Middleware<ListenState, ListenAction> {
@@ -80,12 +83,14 @@ class ListenMiddleware(
 
             // synthesizeAndPlay will be called from the PlaybackStarted action in Bug 2064848
             is ListenAction.Content.ContentReady -> {
-                store.requestVoices(action.languageTag)
+                if (store.state.voiceState.availableVoices.isEmpty()) {
+                    store.requestVoices(action.languageTag)
+                }
                 synthesizeAndPlay(store.state.tabId, store::dispatch)
             }
+            is ListenAction.Voices.VoiceSelected -> store.state.languageTag?.let { action.voice.persistChoiceFor(it) }
 
             ListenAction.Content.ContentUnavailable,
-            is ListenAction.Voices.VoiceSelected,
             is ListenAction.Voices.AvailableVoicesLoaded,
             ListenAction.Voices.NoOfflineVoicesAvailable,
             ListenAction.ErrorDismissed -> Unit
@@ -119,16 +124,27 @@ class ListenMiddleware(
         voicesJob?.cancel()
         voicesJob =
             scope.launch(ioDispatcher) {
-                val voices = synthesizer().loadAvailableVoices(langTag)
+                val engine = synthesizer()
+                settings.clearSavedVoicesOnEngineChange(engine.enginePackageName)
+                val voices = engine.loadAvailableVoices(langTag)
 
                 dispatch(
                     if (voices.isEmpty()) {
                         ListenAction.Voices.NoOfflineVoicesAvailable
                     } else {
-                        ListenAction.Voices.AvailableVoicesLoaded(voices)
+                        ListenAction.Voices.AvailableVoicesLoaded(voices, voices.loadSavedVoiceFor(langTag))
                     }
                 )
             }
+    }
+
+    private suspend fun List<Voice>.loadSavedVoiceFor(langTag: String): Voice {
+        val savedId = settings.getSelectedVoiceId(langTag)
+        return firstOrNull { it.id == savedId } ?: first()
+    }
+
+    private fun Voice.persistChoiceFor(langTag: String) {
+        scope.launch(ioDispatcher) { settings.setSelectedVoiceId(langTag, id) }
     }
 
     /**

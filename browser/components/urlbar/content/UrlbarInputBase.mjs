@@ -179,7 +179,6 @@ ${
           <!-- In the addressbar, there will be an input with id="urlbar-scheme" here. -->
           <input class="urlbar-input textbox-input"
                  role="combobox"
-                 dir="auto"
                  aria-autocomplete="both"
                  inputmode="mozAwesomebar"
                  preserveundohistory=""
@@ -406,6 +405,10 @@ ${
 
     if (this.#isAddressbar) {
       this.inputField.id = "urlbar-input";
+      // A URL is inherently LTR, so the value's own direction lays the field
+      // out. Elsewhere the field holds free-form text and takes the locale's
+      // direction like any other text input.
+      this.inputField.dir = "auto";
 
       let schemeField = document.createElement("input");
       schemeField.id = "urlbar-scheme";
@@ -4073,7 +4076,14 @@ ${
     // The autofilled value may be a URL that includes a scheme at the
     // beginning.  Do not allow it to be trimmed.
     this.setValue(value, { untrimmedValue });
-    this.inputField.setSelectionRange(selectionStart, selectionEnd);
+    // Keep the origin in view rather than the tail of the value. A long
+    // autofilled path would otherwise scroll the host out of the view.
+    // TODO (Bug 1566151): scrollLeftMin is the start-of-text edge in both
+    // directions, but an RTL host can never autofill today because the queries
+    // match the typed string against the punycode stored in Places. Revisit
+    // this once IDN hosts autofill, when the RTL case becomes reachable.
+    this.inputField.scrollLeft = this.inputField.scrollLeftMin;
+    this.inputField.setSelectionRange(selectionStart, selectionEnd, "backward");
     this._autofillPlaceholder = {
       value,
       type,

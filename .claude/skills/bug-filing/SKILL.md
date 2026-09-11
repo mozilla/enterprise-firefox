@@ -71,6 +71,15 @@ created under their own account with a chance to review and adjust.
    - Any form field works, so add more as the bug needs them, e.g. `blocked=<bug>`
      (blocks), `dependson=<bug>` (depends on), or `see_also=<url>`.
 
+   The script opens the form and prints a one-line confirmation. **Never paste the
+   URL into your reply**: a prefilled form carries the whole description
+   percent-encoded in its query string, which puts the URL past the length at which
+   a terminal stops linkifying it, so the reader gets an unclickable wall of `%20`.
+   It also costs you: those characters stay resident in your context and are re-sent
+   with every later request in the session. Report the summary and the component
+   instead - and don't compress the description to shorten the URL, which nobody
+   was meant to read.
+
    The user reviews and submits the form to create the bug, then provides the bug number.
 
 ## Notes

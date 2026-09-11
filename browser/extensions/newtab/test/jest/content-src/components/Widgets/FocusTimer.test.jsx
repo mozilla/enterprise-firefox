@@ -166,26 +166,26 @@ describe("<FocusTimer>", () => {
       ).toBeInTheDocument();
     });
 
-    it("omits the Focus/Break radiogroup when idle in small", () => {
+    it("omits the Focus/Break mode control when idle in small", () => {
       const { container } = renderTimer({ state: smallState() });
       // Idle: the editable spinbutton is still present...
       expect(
         container.querySelector(".focus-timer-spinbutton")
       ).toBeInTheDocument();
-      // ...but the manual Focus/Break radiogroup is not.
-      expect(container.querySelector("[role='radiogroup']")).toBeNull();
+      // ...but the manual Focus/Break mode control is not.
+      expect(container.querySelector("moz-segmented-control")).toBeNull();
     });
 
-    it("keeps the radiogroup when idle in medium", () => {
+    it("keeps the mode control when idle in medium", () => {
       const { container } = renderTimer({
         state: novaState({ "widgets.focusTimer.size": "medium" }),
       });
       expect(
-        container.querySelector("[role='radiogroup']")
+        container.querySelector("moz-segmented-control")
       ).toBeInTheDocument();
     });
 
-    it("running small shows the time display (mode label in DOM) and no reset/radiogroup", () => {
+    it("running small shows the time display (mode label in DOM) and no reset/mode control", () => {
       const { container } = renderTimer({
         state: smallState(
           {},
@@ -208,10 +208,10 @@ describe("<FocusTimer>", () => {
         )
       ).toBeInTheDocument();
       expect(container.querySelector(".focus-timer-reset-button")).toBeNull();
-      expect(container.querySelector("[role='radiogroup']")).toBeNull();
+      expect(container.querySelector("moz-segmented-control")).toBeNull();
     });
 
-    it("paused small (progressed, not running) shows running layout with no reset/radiogroup", () => {
+    it("paused small (progressed, not running) shows running layout with no reset/mode control", () => {
       const { container } = renderTimer({
         state: smallState(
           {},
@@ -233,7 +233,7 @@ describe("<FocusTimer>", () => {
         )
       ).toBeInTheDocument();
       expect(container.querySelector(".focus-timer-reset-button")).toBeNull();
-      expect(container.querySelector("[role='radiogroup']")).toBeNull();
+      expect(container.querySelector("moz-segmented-control")).toBeNull();
     });
   });
 
@@ -513,47 +513,104 @@ describe("<FocusTimer>", () => {
     });
   });
 
-  describe("Nova mode radiogroup", () => {
-    it("wraps the Focus/Break controls in a radiogroup", () => {
+  describe("Nova mode segmented control", () => {
+    function getModeGroup(container) {
+      return container.querySelector("moz-segmented-control");
+    }
+
+    function getModeItems(container) {
+      return Array.from(
+        getModeGroup(container).querySelectorAll("moz-segmented-control-item")
+      );
+    }
+
+    it("renders a segmented control with both modes", () => {
       const { container } = renderTimer({ state: novaState() });
-      const group = container.querySelector("[role='radiogroup']");
-      expect(group).toBeInTheDocument();
-      expect(group.getAttribute("data-l10n-id")).toBe(
+      const modeGroup = getModeGroup(container);
+
+      expect(modeGroup).toBeInTheDocument();
+      expect(modeGroup.getAttribute("data-l10n-id")).toBe(
         "newtab-widget-timer-mode-group"
       );
-      const radios = group.querySelectorAll("[role='radio']");
-      expect(radios).toHaveLength(2);
+
+      const items = getModeItems(container);
+      expect(items.map(item => item.getAttribute("value"))).toEqual([
+        "focus",
+        "break",
+      ]);
+      expect(items.map(item => item.getAttribute("data-l10n-id"))).toEqual([
+        "newtab-widget-timer-mode-focus",
+        "newtab-widget-timer-mode-break",
+      ]);
     });
 
-    it("aria-checked and tabindex track the active timerType", () => {
+    it("hands the active timerType to the control as its value", () => {
       const { container } = renderTimer({
         state: novaState({}, { timerType: "break" }),
       });
-      const radios = container.querySelectorAll(
-        "[role='radiogroup'] [role='radio']"
-      );
-      const focusRadio = Array.from(radios).find(
-        r => r.getAttribute("data-l10n-id") === "newtab-widget-timer-mode-focus"
-      );
-      const breakRadio = Array.from(radios).find(
-        r => r.getAttribute("data-l10n-id") === "newtab-widget-timer-mode-break"
-      );
-      expect(focusRadio.getAttribute("aria-checked")).toBe("false");
-      expect(focusRadio.getAttribute("tabindex")).toBe("-1");
-      expect(breakRadio.getAttribute("aria-checked")).toBe("true");
-      expect(breakRadio.getAttribute("tabindex")).toBe("0");
+      expect(getModeGroup(container).getAttribute("value")).toBe("break");
     });
 
-    it("ArrowRight on the radiogroup toggles timer type", () => {
+    it("toggles timer type when the control reports a new selection", () => {
       const { container, dispatch } = renderTimer({ state: novaState() });
-      const group = container.querySelector("[role='radiogroup']");
-      fireEvent.keyDown(group, { key: "ArrowRight" });
+      const modeGroup = getModeGroup(container);
+
+      // The real component updates its own value before the change event
+      // escapes the shadow root; jsdom never upgrades it, so stand that in.
+      modeGroup.value = "break";
+      fireEvent.change(modeGroup);
 
       const setType = dispatch.mock.calls.find(
         ([action]) => action.type === "WIDGETS_TIMER_SET_TYPE"
       );
       expect(setType).toBeDefined();
       expect(setType[0].data.timerType).toBe("break");
+    });
+
+    it("still toggles after the control unmounts and remounts", () => {
+      const dispatch = jest.fn();
+      const renderWithState = state => (
+        <WrapWithProvider state={state}>
+          <FocusTimer {...defaultProps} dispatch={dispatch} />
+        </WrapWithProvider>
+      );
+      // Only isRunning differs between the two states, and isRunning is not one
+      // of toggleType's dependencies, so an effect keyed on those deps would not
+      // re-attach its listener to the remounted control.
+      const runningState = novaState({}, { focus: { isRunning: true } });
+
+      const { container, rerender } = render(renderWithState(novaState()));
+      expect(getModeGroup(container)).toBeInTheDocument();
+
+      rerender(renderWithState(runningState));
+      expect(getModeGroup(container)).toBeNull();
+
+      rerender(renderWithState(novaState()));
+      const remountedGroup = getModeGroup(container);
+      expect(remountedGroup).toBeInTheDocument();
+
+      remountedGroup.value = "break";
+      fireEvent.change(remountedGroup);
+
+      const setType = dispatch.mock.calls.find(
+        ([action]) => action.type === "WIDGETS_TIMER_SET_TYPE"
+      );
+      expect(setType).toBeDefined();
+      expect(setType[0].data.timerType).toBe("break");
+    });
+
+    it("ignores a change that reports the already-active mode", () => {
+      const { container, dispatch } = renderTimer({ state: novaState() });
+      const modeGroup = getModeGroup(container);
+
+      modeGroup.value = "focus";
+      fireEvent.change(modeGroup);
+
+      expect(
+        dispatch.mock.calls.find(
+          ([action]) => action.type === "WIDGETS_TIMER_SET_TYPE"
+        )
+      ).toBeUndefined();
     });
   });
 
@@ -614,15 +671,15 @@ describe("<FocusTimer>", () => {
       ).toBeInTheDocument();
     });
 
-    it("swaps the radiogroup for the reset button while running (Large)", () => {
+    it("swaps the mode control for the reset button while running (Large)", () => {
       const { container } = renderTimer({ state: runningState() });
-      expect(container.querySelector("[role='radiogroup']")).toBeNull();
+      expect(container.querySelector("moz-segmented-control")).toBeNull();
       expect(
         container.querySelector(".focus-timer-reset-button")
       ).toBeInTheDocument();
     });
 
-    it("hides both radiogroup and reset button while running (Medium)", () => {
+    it("hides both mode control and reset button while running (Medium)", () => {
       const { container } = renderTimer({
         state: novaState(
           { "widgets.focusTimer.size": "medium" },
@@ -635,7 +692,7 @@ describe("<FocusTimer>", () => {
           }
         ),
       });
-      expect(container.querySelector("[role='radiogroup']")).toBeNull();
+      expect(container.querySelector("moz-segmented-control")).toBeNull();
       expect(container.querySelector(".focus-timer-reset-button")).toBeNull();
     });
   });

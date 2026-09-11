@@ -500,7 +500,6 @@ describe("ContentSection", () => {
       wallpapersEnabled: true,
       toggleWidgetsManagementPanel: sinon.stub(),
       showWidgetsManagementPanel: false,
-      onSubpanelToggle: sinon.stub(),
     };
 
     it("renders the wallpaper toggle", () => {

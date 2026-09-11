@@ -218,6 +218,15 @@ class experimental:
     }
     """Choose configs selected by bugbug, medium confidence threshold with reduced tasks."""
 
+    bugbug_reduced_manifests_config_selection_high = {
+        "test": Any(
+            "skip-unless-schedules",
+            "bugbug-reduced-manifests-config-selection-high",
+            split_args=split_bugbug_arg,
+        ),
+    }
+    """Choose configs selected by bugbug, medium confidence threshold with reduced tasks."""
+
     bugbug_disperse_medium_no_unseen = {
         "test": Any(
             "skip-unless-schedules",

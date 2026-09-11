@@ -114,6 +114,8 @@ skip-if = [
 
 ["test_rust_autofill_address_parity.js"]
 
+["test_rust_autofill_credit_card_adapter.js"]
+
 ["test_savedFieldNames.js"]
 
 ["test_storage_remove.js"]

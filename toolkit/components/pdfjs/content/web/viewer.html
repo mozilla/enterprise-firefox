@@ -29,7 +29,7 @@ See https://github.com/adobe-type-tools/cmap-resources
   <link rel="icon" type="image/svg+xml" href="chrome://global/skin/icons/pdf.svg" />
   <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src resource: 'wasm-unsafe-eval'; worker-src resource:; style-src resource: chrome:; img-src resource: blob: data:; media-src blob:; font-src resource:; connect-src resource:; base-uri 'none'; form-action 'none';"
+      content="default-src 'none'; script-src resource: chrome: 'wasm-unsafe-eval'; worker-src resource:; style-src resource: chrome:; img-src resource: blob: data:; media-src blob:; font-src resource:; connect-src resource:; base-uri 'none'; form-action 'none';"
     />
 
 <!-- This snippet is used in the Firefox extension (included from viewer.html) -->
@@ -37,10 +37,13 @@ See https://github.com/adobe-type-tools/cmap-resources
 
   <link rel="stylesheet" href="resource://pdf.js/web/viewer.css">
   <link rel="localization" href="toolkit/pdfviewer/viewer.ftl"/>
+  <link rel="localization" href="branding/brand.ftl"/>
+  <link rel="localization" href="toolkit/global/mozMessageBar.ftl"/>
+  <link rel="localization" href="toolkit/about/pdfFeaturesNotification.ftl"/>
 
   <script src="resource://pdf.js/web/viewer.mjs" type="module"></script>
 
-  <script src="resource://pdf.js/pdfFeaturesNotification.mjs" type="module"></script>
+  <script src="chrome://global/content/elements/moz-message-bar.mjs" type="module"></script>
   </head>
 
   <body tabindex="0">
@@ -795,7 +798,9 @@ See https://github.com/adobe-type-tools/cmap-resources
           </div>
         </div>
 
-  <pdf-features-notification id="pdfFeaturesNotification" data-focus-target="#viewerContainer" hidden></pdf-features-notification>
+  <moz-message-bar id="pdfFeaturesNotification" type="info" role="region" aria-live="polite" dismissable hidden data-l10n-id="pdf-features-notification">
+          <span slot="message" data-l10n-id="pdf-features-notification-message"><a href="about:pdf#features" data-l10n-name="features-link"></a></span>
+        </moz-message-bar>
 
         <div id="viewerContainer" tabindex="0">
           <div id="viewer" class="pdfViewer"></div>

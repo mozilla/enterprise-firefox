@@ -21,10 +21,12 @@ import mozilla.components.feature.listentopage.synthesis.SpeechSynthesizer
  * @property requests The text of every request, in the order it arrived.
  * @property voiceRequests The language tag of every voice lookup, in the order it arrived.
  * @property closed Whether [close] has been called.
+ * @property enginePackageName The engine to report
  */
 class FakeSpeechSynthesizer(
     override val maxInputLength: Int = 4000,
     private val voices: List<Voice> = listOf(Voice(id = "voice-1")),
+    override val enginePackageName: String = "com.example.tts",
 ) : SpeechSynthesizer {
     val requests = mutableListOf<String>()
     val voiceRequests = mutableListOf<String>()

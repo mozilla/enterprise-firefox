@@ -49,6 +49,7 @@ class HomeActivityTestRule(
         launchActivity: Boolean = true,
         skipOnboarding: Boolean = true,
         isPocketEnabled: Boolean = settings.showPocketRecommendationsFeature,
+        isBookmarksHomeFeatureEnabled: Boolean = settings.showBookmarksHomeFeature,
         isRecentTabsFeatureEnabled: Boolean = settings.showRecentTabsFeature,
         isRecentlyVisitedFeatureEnabled: Boolean = settings.historyMetadataUIFeature,
         isWallpaperOnboardingEnabled: Boolean = settings.showWallpaperOnboarding,
@@ -75,6 +76,7 @@ class HomeActivityTestRule(
         showAddressBarInFocusMode: Boolean = false,
     ) : this(initialTouchMode, launchActivity, skipOnboarding) {
         this.isPocketEnabled = isPocketEnabled
+        this.isBookmarksHomeFeatureEnabled = isBookmarksHomeFeatureEnabled
         this.isRecentTabsFeatureEnabled = isRecentTabsFeatureEnabled
         this.isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled
         this.isWallpaperOnboardingEnabled = isWallpaperOnboardingEnabled
@@ -190,6 +192,7 @@ internal constructor(
         launchActivity: Boolean = true,
         skipOnboarding: Boolean = true,
         isPocketEnabled: Boolean = settings.showPocketRecommendationsFeature,
+        isBookmarksHomeFeatureEnabled: Boolean = settings.showBookmarksHomeFeature,
         isRecentTabsFeatureEnabled: Boolean = settings.showRecentTabsFeature,
         isRecentlyVisitedFeatureEnabled: Boolean = settings.historyMetadataUIFeature,
         isWallpaperOnboardingEnabled: Boolean = settings.showWallpaperOnboarding,
@@ -218,6 +221,7 @@ internal constructor(
         showAddressBarInFocusMode: Boolean = false,
     ) : this(initialTouchMode, launchActivity, skipOnboarding) {
         this.isPocketEnabled = isPocketEnabled
+        this.isBookmarksHomeFeatureEnabled = isBookmarksHomeFeatureEnabled
         this.isRecentTabsFeatureEnabled = isRecentTabsFeatureEnabled
         this.isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled
         this.isWallpaperOnboardingEnabled = isWallpaperOnboardingEnabled
@@ -298,6 +302,7 @@ internal constructor(
      */
     fun updateCachedSettings() {
         isPocketEnabled = settings.showPocketRecommendationsFeature
+        isBookmarksHomeFeatureEnabled = settings.showBookmarksHomeFeature
         isRecentTabsFeatureEnabled = settings.showRecentTabsFeature
         isRecentlyVisitedFeatureEnabled = settings.historyMetadataUIFeature
         isWallpaperOnboardingEnabled = settings.showWallpaperOnboarding
@@ -337,6 +342,8 @@ internal constructor(
                 initialTouchMode = initialTouchMode,
                 launchActivity = launchActivity,
                 skipOnboarding = skipOnboarding,
+                isBookmarksHomeFeatureEnabled = true,
+                isRecentlyVisitedFeatureEnabled = true,
                 isWallpaperOnboardingEnabled = false,
                 isOpenInAppBannerEnabled = false,
                 isMicrosurveyEnabled = false,

@@ -446,6 +446,8 @@ function CardSection({
         scheduled_corpus_item_id={rec.scheduled_corpus_item_id}
         recommended_at={rec.recommended_at}
         received_rank={rec.received_rank}
+        variant_id={rec.variant_id}
+        source_section_id={rec.source_section_id}
         format={rec.format}
         is_ad_eligible_position={rec.is_ad_eligible_position}
         alt_text={rec.alt_text}

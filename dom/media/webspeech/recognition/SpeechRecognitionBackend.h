@@ -49,6 +49,13 @@ class Promise;
 // SpeechRecognitionBackend::DispatchTrailingEvents().
 enum class TrailingEvents { Fire, Skip };
 
+// What the engine did over a session, in milliseconds: the audio it was fed,
+// and the wall clock it spent on it. Their ratio is the real-time factor.
+struct EnginePerfStats {
+  double mFedAudioMs = 0.0;
+  double mInferenceMs = 0.0;
+};
+
 // Keeps the shared IPC actor open for as long as this guard is alive,
 // releasing it on destruction - the hold is tied to the guard's own lifetime
 // rather than to a promise settling. Gecko silently drops a promise's
@@ -173,9 +180,9 @@ class SpeechRecognitionBackend {
   // left open, then audioend, as one task ahead of the one that fires "end".
   void DispatchTrailingEvents() MOZ_REQUIRES(sMainThreadCapability);
   // Tells the SpeechRecognition the session is over and whether the engine
-  // finalized anything, so it can fire nomatch before end. Callable from the
-  // main and IPC threads.
-  void NotifySessionFinished(bool aProducedResult);
+  // finalized anything, so it can fire nomatch before end, along with what the
+  // engine did. Callable from the main and IPC threads.
+  void NotifySessionFinished(bool aProducedResult, EnginePerfStats aStats);
 
   // == Resampling thread
   void ProcessAudioChunk() MOZ_REQUIRES(mResamplingCapability);

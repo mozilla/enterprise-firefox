@@ -74,7 +74,15 @@
       "value": {
         "light": "#f9f9fb",
         "dark": "rgb(43, 42, 51)",
-        "nativeTheme": "color-mix(in srgb, -moz-dialog 85%, {color.white.@base})"
+        "nativeTheme": "color-mix(in srgb, -moz-dialog 85%, {color.white.@base})",
+        "nova": {
+          "value": {
+            "nativeTheme": "color-mix(in srgb, -moz-dialog 85%, {color.white.@base})",
+            "light": "rgba(255, 255, 255, 0.4)",
+            "dark": "rgba(0, 0, 0, 0.2)",
+            "forcedColors": "Canvas"
+          }
+        }
       }
     }
   },

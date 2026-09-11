@@ -8,7 +8,7 @@
 
 const QUICKACTIONS_PREF = "browser.urlbar.suggest.quickactions";
 const SUGGEST_ENABLED_PREF = "browser.search.suggest.enabled";
-const PRIVATE_SEARCH_PREF = "browser.search.separatePrivateDefault.ui.enabled";
+const PRIVATE_SEARCH_PREF = "browser.search.separatePrivateDefault.featureGate";
 
 // We make sure that restriction tokens and search terms are correctly
 // recognized when they are separated by each of these different types of spaces

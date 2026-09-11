@@ -170,7 +170,6 @@ ${
                       class="urlbar-input textbox-input"
                       aria-controls="urlbar-results"
                       role="combobox"
-                      dir="auto"
                       aria-autocomplete="both"
                       inputmode="mozAwesomebar"
                       preserveundohistory=""

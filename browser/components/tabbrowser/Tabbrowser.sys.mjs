@@ -5598,10 +5598,15 @@ export class Tabbrowser {
       return {
         uri,
         userContextId: tab.userContextId,
+        conversationId: lazy.AIWindow.getChatTabConversationId(tab),
       };
     };
     let keyEquals = (a, b) => {
-      return a.userContextId == b.userContextId && a.uri.equals(b.uri);
+      return (
+        a.userContextId == b.userContextId &&
+        a.conversationId == b.conversationId &&
+        a.uri.equals(b.uri)
+      );
     };
     if (aTab.multiselected) {
       for (let tab of this.selectedTabs) {
@@ -5652,8 +5657,11 @@ export class Tabbrowser {
         // Safest to leave it be.
         continue;
       }
+      // Smart Window chat tabs all live at one chrome URL, so the conversation
+      // open in each is what tells them apart.
+      const conversationId = lazy.AIWindow.getChatTabConversationId(tab);
       let userContextIds = userContextIdsPerUri.getOrInsertComputed(
-        uri.spec,
+        conversationId ? `${uri.spec}\n${conversationId}` : uri.spec,
         () => new Set()
       );
       let userContextId = tab.userContextId;
@@ -8909,7 +8917,7 @@ export class Tabbrowser {
       this.#multiSelectChangeSelected = false;
       this.#multiSelectChangeAdditions.clear();
       this.#multiSelectChangeRemovals.clear();
-      this.dispatchEvent(
+      this.tabContainer.dispatchEvent(
         new this.documentGlobal.CustomEvent("TabMultiSelect", {
           bubbles: true,
         })

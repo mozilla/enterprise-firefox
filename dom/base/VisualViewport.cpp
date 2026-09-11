@@ -237,11 +237,12 @@ void VisualViewport::PostScrollEvent(const nsPoint& aPrevVisualOffset,
     mScrollEvent = nullptr;
   }
 
-  // The event constructor will register itself with the refresh driver.
   if (presContext) {
     mScrollEvent = new VisualViewportScrollEvent(
         this, presContext, aPrevVisualOffset, aPrevLayoutOffset);
-    VVP_LOG("%p: PostScrollEvent, created new event\n", this);
+    VVP_LOG("%p: Registering PostScroll on %p %p\n", this, presContext,
+            presContext->RefreshDriver());
+    presContext->PresShell()->PostScrollEvent(mScrollEvent);
   }
 }
 
@@ -250,11 +251,7 @@ VisualViewport::VisualViewportScrollEvent::VisualViewportScrollEvent(
     const nsPoint& aPrevVisualOffset, const nsPoint& aPrevLayoutOffset)
     : VisualViewportScrollEndEvent(aViewport, aPresContext),
       mPrevVisualOffset(aPrevVisualOffset),
-      mPrevLayoutOffset(aPrevLayoutOffset) {
-  VVP_LOG("%p: Registering PostScroll on %p %p\n", aViewport, aPresContext,
-          aPresContext->RefreshDriver());
-  aPresContext->PresShell()->PostScrollEvent(this);
-}
+      mPrevLayoutOffset(aPrevLayoutOffset) {}
 
 // TODO: Convert this to MOZ_CAN_RUN_SCRIPT (bug 1415230, bug 1535398)
 MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
@@ -321,10 +318,11 @@ void VisualViewport::PostScrollEndEvent() {
     mScrollEndEvent = nullptr;
   }
 
-  // The event constructor will register itself with the refresh driver.
   if (presContext) {
     mScrollEndEvent = new VisualViewportScrollEndEvent(this, presContext);
-    VVP_LOG("%p: PostScrollEndEvent, created new event\n", this);
+    VVP_LOG("%p: Registering PostScrollEnd on %p %p\n", this, presContext,
+            presContext->RefreshDriver());
+    presContext->PresShell()->PostScrollEvent(mScrollEndEvent);
   }
 }
 
@@ -332,11 +330,7 @@ VisualViewport::VisualViewportScrollEndEvent::VisualViewportScrollEndEvent(
     VisualViewport* aViewport, nsPresContext* aPresContext)
     : Runnable("VisualViewport::VisualViewportScrollEvent"),
       mViewport(aViewport),
-      mPresContext(aPresContext) {
-  VVP_LOG("%p: Registering PostScrollEnd on %p %p\n", aViewport, aPresContext,
-          aPresContext->RefreshDriver());
-  aPresContext->PresShell()->PostScrollEvent(this);
-}
+      mPresContext(aPresContext) {}
 
 bool VisualViewport::VisualViewportScrollEndEvent::HasPresContext(
     nsPresContext* aContext) const {

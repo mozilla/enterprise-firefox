@@ -9,6 +9,7 @@ import { combineReducers, createStore } from "redux";
 import { INITIAL_STATE, reducers } from "common/Reducers.sys.mjs";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { WrapWithProvider } from "test/jest/test-utils";
+import { CUSTOMIZE_SUBPANELS } from "content-src/lib/constants";
 import {
   Base as ConnectedBase,
   _Base as Base,
@@ -195,7 +196,7 @@ describe("<BaseContent>", () => {
     ).toBeInTheDocument();
   });
 
-  it("should dispatch a user event when the customize menu is opened or closed", () => {
+  it("dispatches SHOW_PERSONALIZE on open and HIDE_PERSONALIZE with its user event on close", () => {
     const dispatch = jest.fn();
     const ref = React.createRef();
     renderBaseContent(
@@ -208,9 +209,6 @@ describe("<BaseContent>", () => {
     );
     ref.current.openCustomizationMenu();
     expect(dispatch).toHaveBeenCalledWith({ type: at.SHOW_PERSONALIZE });
-    expect(dispatch).toHaveBeenCalledWith(
-      ac.UserEvent({ event: "SHOW_PERSONALIZE" })
-    );
     ref.current.closeCustomizationMenu();
     expect(dispatch).toHaveBeenCalledWith({ type: at.HIDE_PERSONALIZE });
     expect(dispatch).toHaveBeenCalledWith(
@@ -225,99 +223,90 @@ describe("<BaseContent>", () => {
     act(() => {
       ref.current.openWallpapersPanel("celestial");
     });
-    expect(ref.current.state.showWallpapersPanel).toBe(true);
-    expect(ref.current.state.wallpapersPanelCategory).toBe("celestial");
+    expect(ref.current.state).toMatchObject({
+      activeSubpanel: CUSTOMIZE_SUBPANELS.WALLPAPERS,
+      wallpapersPanelCategory: "celestial",
+    });
 
     act(() => {
       ref.current.closeWallpapersPanel();
     });
-    expect(ref.current.state.showWallpapersPanel).toBe(false);
+    expect(ref.current.state.activeSubpanel).toBeNull();
     // Retained so the heading and list keep their content while the
     // subpanel slides out.
     expect(ref.current.state.wallpapersPanelCategory).toBe("celestial");
   });
 
-  it("closeSubpanels closes every subpanel and clears the wallpaper category", () => {
+  it("toggles a subpanel open and closed", () => {
     const ref = React.createRef();
     renderBaseContent(DEFAULT_PROPS, ref);
 
     act(() => {
-      // Opened first because openWallpapersPanel closes the other subpanels.
-      ref.current.openWallpapersPanel("celestial");
-      ref.current.toggleSectionsMgmtPanel();
-      ref.current.toggleWidgetsManagementPanel();
       ref.current.toggleThemesPanel();
     });
-    expect(ref.current.state).toMatchObject({
-      showSectionsMgmtPanel: true,
-      showWidgetsManagementPanel: true,
-      showThemesPanel: true,
-      showWallpapersPanel: true,
-    });
-
+    expect(ref.current.state.activeSubpanel).toBe(CUSTOMIZE_SUBPANELS.THEMES);
     act(() => {
-      ref.current.closeSubpanels();
+      ref.current.toggleThemesPanel();
     });
-    expect(ref.current.state).toMatchObject({
-      showSectionsMgmtPanel: false,
-      showWidgetsManagementPanel: false,
-      showThemesPanel: false,
-      showWallpapersPanel: false,
-      wallpapersPanelCategory: null,
-    });
+    expect(ref.current.state.activeSubpanel).toBeNull();
   });
 
-  it("openWidgetsPanel opens the widgets subpanel and closes the others", () => {
+  it("keeps at most one subpanel open", () => {
     const ref = React.createRef();
     renderBaseContent(DEFAULT_PROPS, ref);
 
     act(() => {
-      // Opened first because openWallpapersPanel closes the other subpanels.
-      ref.current.openWallpapersPanel("celestial");
       ref.current.toggleSectionsMgmtPanel();
-      ref.current.toggleThemesPanel();
     });
-    expect(ref.current.state).toMatchObject({
-      showSectionsMgmtPanel: true,
-      showThemesPanel: true,
-      showWallpapersPanel: true,
+    act(() => {
+      ref.current.toggleWidgetsManagementPanel();
     });
+    expect(ref.current.state.activeSubpanel).toBe(CUSTOMIZE_SUBPANELS.WIDGETS);
+    act(() => {
+      ref.current.openWallpapersPanel("celestial");
+    });
+    expect(ref.current.state.activeSubpanel).toBe(
+      CUSTOMIZE_SUBPANELS.WALLPAPERS
+    );
     act(() => {
       ref.current.openWidgetsPanel();
     });
     expect(ref.current.state).toMatchObject({
-      showWidgetsManagementPanel: true,
-      showSectionsMgmtPanel: false,
-      showThemesPanel: false,
-      showWallpapersPanel: false,
-      wallpapersPanelCategory: null,
-    });
-  });
-
-  it("openWallpapersPanel closes the other subpanels", () => {
-    const ref = React.createRef();
-    renderBaseContent(DEFAULT_PROPS, ref);
-
-    act(() => {
-      ref.current.toggleSectionsMgmtPanel();
-      ref.current.toggleThemesPanel();
-    });
-    act(() => {
-      ref.current.openWallpapersPanel("celestial");
-    });
-    expect(ref.current.state).toMatchObject({
-      showSectionsMgmtPanel: false,
-      showWidgetsManagementPanel: false,
-      showThemesPanel: false,
-      showWallpapersPanel: true,
+      activeSubpanel: CUSTOMIZE_SUBPANELS.WIDGETS,
       wallpapersPanelCategory: "celestial",
     });
   });
 
-  describe.each([
-    ["classic", {}],
-    ["Nova", { "nova.enabled": true }],
-  ])("wallpaper subpanel wiring, %s layout", (_layout, layoutPrefs) => {
+  it("closeSubpanels closes the open subpanel and clears the wallpaper category", () => {
+    const ref = React.createRef();
+    renderBaseContent(DEFAULT_PROPS, ref);
+
+    act(() => {
+      ref.current.openWallpapersPanel("celestial");
+    });
+    act(() => {
+      ref.current.closeSubpanels();
+    });
+    expect(ref.current.state).toMatchObject({
+      activeSubpanel: null,
+      wallpapersPanelCategory: null,
+    });
+  });
+
+  it("closeWallpapersPanel leaves another open subpanel alone", () => {
+    const ref = React.createRef();
+    renderBaseContent(DEFAULT_PROPS, ref);
+
+    act(() => {
+      ref.current.toggleThemesPanel();
+    });
+    act(() => {
+      ref.current.closeWallpapersPanel();
+    });
+    expect(ref.current.state.activeSubpanel).toBe(CUSTOMIZE_SUBPANELS.THEMES);
+  });
+
+  describe("subpanel wiring through the DOM", () => {
     let originalShowModal;
     let originalClose;
     beforeEach(() => {
@@ -333,8 +322,85 @@ describe("<BaseContent>", () => {
       jest.useRealTimers();
     });
 
-    it("opens a category through Base state and resets it when the panel closes", () => {
-      const prefValues = { "newtabWallpapers.enabled": true, ...layoutPrefs };
+    describe.each([
+      ["classic", {}],
+      ["Nova", { "nova.enabled": true }],
+    ])("wallpaper subpanel wiring, %s layout", (_layout, layoutPrefs) => {
+      it("opens a category through Base state and resets it when the panel closes", () => {
+        const prefValues = {
+          "newtabWallpapers.enabled": true,
+          ...layoutPrefs,
+        };
+        const store = makeStore(prefValues, {
+          Wallpapers: {
+            ...INITIAL_STATE.Wallpapers,
+            wallpaperList: [
+              { title: "moon", category: "celestial", theme: "light" },
+            ],
+            categories: ["celestial"],
+          },
+        });
+        const ref = React.createRef();
+        const props = {
+          ...DEFAULT_PROPS,
+          Prefs: { values: prefValues },
+          App: {
+            initialized: true,
+            customizeMenuVisible: true,
+            isForStartupCache: {},
+          },
+        };
+        const { container, rerender } = render(
+          <Provider store={store}>
+            <BaseContent Wallpapers={MOUNT_WALLPAPERS} {...props} ref={ref} />
+          </Provider>
+        );
+
+        act(() => {
+          ref.current.openWallpapersPanel("celestial");
+        });
+        expect(
+          container.querySelector(
+            '.wallpaper-list [data-l10n-id="newtab-wallpaper-category-title-celestial"]'
+          )
+        ).toBeInTheDocument();
+        expect(container.querySelector(".customize-menu-content")).toHaveClass(
+          "subpanel-open"
+        );
+
+        rerender(
+          <Provider store={store}>
+            <BaseContent
+              Wallpapers={MOUNT_WALLPAPERS}
+              {...props}
+              App={{
+                initialized: true,
+                customizeMenuVisible: false,
+                isForStartupCache: {},
+              }}
+              ref={ref}
+            />
+          </Provider>
+        );
+        act(() => {
+          jest.advanceTimersByTime(250);
+        });
+        expect(ref.current.state).toMatchObject({
+          activeSubpanel: null,
+          wallpapersPanelCategory: null,
+        });
+        expect(
+          container.querySelector(".customize-menu-content")
+        ).not.toHaveClass("subpanel-open");
+      });
+    });
+
+    it("opening the themes subpanel replaces the wallpaper subpanel", () => {
+      const prefValues = {
+        "newtabWallpapers.enabled": true,
+        "nova.enabled": true,
+        browserNovaEnabled: true,
+      };
       const store = makeStore(prefValues, {
         Wallpapers: {
           ...INITIAL_STATE.Wallpapers,
@@ -354,7 +420,7 @@ describe("<BaseContent>", () => {
           isForStartupCache: {},
         },
       };
-      const { container, rerender } = render(
+      const { container } = render(
         <Provider store={store}>
           <BaseContent Wallpapers={MOUNT_WALLPAPERS} {...props} ref={ref} />
         </Provider>
@@ -363,33 +429,18 @@ describe("<BaseContent>", () => {
       act(() => {
         ref.current.openWallpapersPanel("celestial");
       });
-      expect(
-        container.querySelector(
-          '.wallpaper-list [data-l10n-id="newtab-wallpaper-category-title-celestial"]'
-        )
-      ).toBeInTheDocument();
+      expect(container.querySelector(".wallpaper-list")).toBeInTheDocument();
 
-      rerender(
-        <Provider store={store}>
-          <BaseContent
-            Wallpapers={MOUNT_WALLPAPERS}
-            {...props}
-            App={{
-              initialized: true,
-              customizeMenuVisible: false,
-              isForStartupCache: {},
-            }}
-            ref={ref}
-          />
-        </Provider>
-      );
       act(() => {
-        jest.advanceTimersByTime(250);
+        ref.current.toggleThemesPanel();
       });
-      expect(ref.current.state).toMatchObject({
-        showWallpapersPanel: false,
-        wallpapersPanelCategory: null,
+      expect(container.querySelector(".themes-mgmt-panel")).toBeInTheDocument();
+      act(() => {
+        jest.advanceTimersByTime(300);
       });
+      expect(
+        container.querySelector(".wallpaper-list")
+      ).not.toBeInTheDocument();
     });
   });
 

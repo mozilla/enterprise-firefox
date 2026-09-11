@@ -63,24 +63,12 @@ export class ThemePickerChild extends JSWindowActorChild {
     }
   };
 
-  recordShownOnce(eventData) {
-    // The first-pass metric records at most one impression per tab/window,
-    // regardless of picker layout, so repeat calls must not inflate aggregate
-    // shown counts. Per-showing session IDs are deferred to a follow-up.
-    if (this.hasRecordedShown) {
-      return;
-    }
-
-    this.hasRecordedShown = true;
-    Glean.themePicker.shown.record(eventData);
-  }
-
   async handleEvent(event) {
     const target = event.composedTarget;
 
     switch (event.type) {
       case "ThemePickerShown":
-        this.recordShownOnce(event.detail);
+        Glean.themePicker.shown.record(event.detail);
         break;
 
       case "ThemePickerGetInitialState": {

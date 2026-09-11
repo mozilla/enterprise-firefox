@@ -917,7 +917,9 @@ export class ContileIntegration {
   }
 
   async _fetchSitesWithAdsClient(placements) {
-    const options = lazy.AdsClient.requestOptions();
+    const options = lazy.AdsClient.requestOptions(
+      this._topSitesFeed.store.getState().Prefs.values
+    );
 
     const requests = placements.map(
       placementId =>

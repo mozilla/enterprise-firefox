@@ -54,10 +54,11 @@
   "panel-item/button/padding/inline/start": 24,
   "panel-item/button/padding/inline/start/offset": "{Primitives$space/small}",
   "panel-list/box/shadow": "{Primitives$panel/box/shadow}",
-  "tab/margin/block": 6,
   "tab/box/shadow/selected": "none",
+  "tab/margin/block": 6,
   "tab/outline/offset": -1,
   "tab/border/color/accent": "linear-gradient(96deg, {Primitives$tab/border/color/selected/leading} 20.68%, {Primitives$tab/border/color/selected/trailing} 79.34%)",
+  "tab/container/margin/inline/pinned/expanded": 4,
   "urlbar/border/radius": "{Primitives$popup/border/radius}",
   "urlbarview/border/radius": "{Primitives$urlbar/border/radius}"
 }

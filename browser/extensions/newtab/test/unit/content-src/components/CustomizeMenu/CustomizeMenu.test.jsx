@@ -253,28 +253,6 @@ describe("<CustomizeMenu>", () => {
     assert.calledOnce(mockClose);
   });
 
-  it("adds subpanel-open class to customize-menu-content when onSubpanelToggle is called", () => {
-    wrapper = mount(
-      <WrapWithProvider>
-        <CustomizeMenu {...DEFAULT_PROPS} showing={true} />
-      </WrapWithProvider>
-    );
-
-    const instance = wrapper.find("_CustomizeMenu").instance();
-
-    instance.onSubpanelToggle(true);
-    wrapper.update();
-
-    const content = wrapper.find(".customize-menu-content").hostNodes();
-    assert.isTrue(content.hasClass("subpanel-open"));
-
-    instance.onSubpanelToggle(false);
-    wrapper.update();
-
-    const contentAfter = wrapper.find(".customize-menu-content").hostNodes();
-    assert.isFalse(contentAfter.hasClass("subpanel-open"));
-  });
-
   it("calls showModal when showing transitions from false to true", () => {
     wrapper = mount(
       <WrapWithProvider>
@@ -283,7 +261,11 @@ describe("<CustomizeMenu>", () => {
     );
     const instance = wrapper.find("_CustomizeMenu").instance();
     const mockShowModal = sandbox.stub();
-    instance.dialogRef.current = { open: false, showModal: mockShowModal };
+    instance.dialogRef.current = {
+      open: false,
+      showModal: mockShowModal,
+      querySelectorAll: () => [],
+    };
 
     // Simulate the transition: prevProps.showing was false, now it's true
     instance.componentDidUpdate({ ...DEFAULT_PROPS, showing: false });

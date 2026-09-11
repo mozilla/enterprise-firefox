@@ -169,6 +169,7 @@ sap:
           `contextmenu`,
           `contextmenu_visual`,
           `about_newtab`,
+          `newtab_search_widget`,
           `errorpage`,
           `newtab_searchbar`,
           `searchbar`,
@@ -355,7 +356,8 @@ serp:
           `searchbar`,
           `newtab_searchbar`,
           `smartbar`,
-          `smartwindow_assistant`
+          `smartwindow_assistant`,
+          `newtab_search_widget`,
           `system`,
           `urlbar`,
           `urlbar_handoff`,
@@ -773,7 +775,7 @@ browser.engagement.navigation:
   urlbar:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the urlbar,
+      The count of URI loads triggered in a subsession from the urlbar,
       broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.engagement.navigation.urlbar.
@@ -790,7 +792,7 @@ browser.engagement.navigation:
   urlbar_handoff:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the urlbar via
+      The count of URI loads triggered in a subsession from the urlbar via
       handoff, broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.engagement.navigation.urlbar_handoff.
@@ -825,7 +827,7 @@ browser.engagement.navigation:
   urlbar_searchmode:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the urlbar's
+      The count of URI loads triggered in a subsession from the urlbar's
       search mode, broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.engagement.navigation.urlbar_searchmode.
@@ -842,7 +844,7 @@ browser.engagement.navigation:
   searchbar:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the searchbar,
+      The count of URI loads triggered in a subsession from the searchbar,
       broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.engagement.navigation.searchbar.
@@ -859,7 +861,7 @@ browser.engagement.navigation:
   about_home:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from about:home,
+      The count of URI loads triggered in a subsession from about:home,
       broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.engagement.navigation.about_home.
@@ -876,7 +878,7 @@ browser.engagement.navigation:
   about_newtab:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from about:newtab,
+      The count of URI loads triggered in a subsession from about:newtab,
       broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.engagement.navigation.about_newtab.
@@ -890,10 +892,26 @@ browser.engagement.navigation:
     expires: never
     telemetry_mirror: BROWSER_ENGAGEMENT_NAVIGATION_ABOUT_NEWTAB
 
+  newtab_search_widget:
+    type: labeled_counter
+    data_sensitivity:
+      - interaction
+    description: >
+      The count URI loads triggered in a subsession from a search widget on
+      about:newtab, broken down by the originating action.
+    bugs:
+      - https://bugzil.la/2063718
+    data_reviews:
+      - https://bugzil.la/2063718
+    notification_emails:
+      - fx-search-telemetry@mozilla.com
+      - rev-data@mozilla.com
+    expires: never
+
   contextmenu:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the contextmenu,
+      The count of URI loads triggered in a subsession from the contextmenu,
       broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.engagement.navigation.contextmenu.
@@ -926,7 +944,7 @@ browser.engagement.navigation:
   webextension:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from a webextension.
+      The count of URI loads triggered in a subsession from a webextension.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.engagement.navigation.webextension.
     bugs:
@@ -942,7 +960,7 @@ browser.engagement.navigation:
   smartwindow_assistant:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the AI window assistant
+      The count of URI loads triggered in a subsession from the AI window assistant
       search handoff button.
     bugs:
       - https://bugzil.la/2001519
@@ -956,7 +974,7 @@ browser.engagement.navigation:
   smartbar:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the smartbar,
+      The count of URI loads triggered in a subsession from the smartbar,
       broken down by the originating action.
     bugs:
       - https://bugzil.la/2008925
@@ -970,7 +988,7 @@ browser.engagement.navigation:
   newtab_searchbar:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the New Tab search
+      The count of URI loads triggered in a subsession from the New Tab search
       bar, broken down by the originating action.
     data_sensitivity:
       - interaction
@@ -986,7 +1004,7 @@ browser.engagement.navigation:
   errorpage:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the search CTA on
+      The count of URI loads triggered in a subsession from the search CTA on
       a network error page, broken down by the originating action.
     bugs:
       - https://bugzil.la/2061005
@@ -1028,7 +1046,7 @@ browser.search.content:
   urlbar_handoff:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the urlbar via
+      The count of URI loads triggered in a subsession from the urlbar via
       handoff, broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.search.content.urlbar_handoff.
@@ -1357,7 +1375,7 @@ browser.search.withads:
   urlbar_handoff:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the urlbar via
+      The count of URI loads triggered in a subsession from the urlbar via
       handoff, broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.search.withads.urlbar_handoff.
@@ -1619,7 +1637,7 @@ browser.search.adclicks:
   urlbar_handoff:
     type: labeled_counter
     description: >
-      The count URI loads triggered in a subsession from the urlbar via
+      The count of URI loads triggered in a subsession from the urlbar via
       handoff, broken down by the originating action.
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.search.adclicks.urlbar_handoff.

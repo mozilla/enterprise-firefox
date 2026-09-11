@@ -175,14 +175,6 @@ export class _WallpaperCategories extends React.PureComponent {
       this.requestThumbnails();
     }
 
-    // Notify parent menu when subpanel opens/closes
-    if (
-      this.props.onSubpanelToggle &&
-      prevProps.showPanel !== this.props.showPanel
-    ) {
-      this.props.onSubpanelToggle(this.props.showPanel);
-    }
-
     // A CTA can deep-link into a specific wallpaper category by dispatching
     // SHOW_PERSONALIZE with a wallpaperCategory. Open it once when it appears.
     const requestedCategory = this.props.customizePanelWallpaperCategory;

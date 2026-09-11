@@ -525,6 +525,71 @@ newtab:
     send_in_pings:
       - newtab
 
+  customize_panel_open:
+    type: event
+    description: >
+      Recorded when the customize panel becomes visible, whichever control
+      or message opened it.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2066344
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2066344
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - npypchenko@mozilla.com
+    expires: never
+    extra_keys:
+      newtab_visit_id: *newtab_visit_id
+    send_in_pings:
+      - newtab
+
+  customize_panel_subpanel_open:
+    type: event
+    description: >
+      Recorded when one of the customize panel's subpanels becomes visible,
+      whether opened from the panel, from a widget's context menu, or by a
+      message deep link.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2066344
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2066344
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - npypchenko@mozilla.com
+    expires: never
+    extra_keys:
+      newtab_visit_id: *newtab_visit_id
+      panel:
+        description: >
+          Which subpanel opened. One of themes_management,
+          wallpaper_categories, sections_management, widgets_management,
+          the ids of CUSTOMIZE_SUBPANELS in
+          browser/extensions/newtab/content-src/lib/constants.mjs.
+        type: string
+    send_in_pings:
+      - newtab
+
+  appearance_explore_more_themes_click:
+    type: event
+    description: >
+      Recorded when the user clicks Explore more themes in the customize
+      panel's themes subpanel, which opens the about:addons themes list.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2066344
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2066344
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - npypchenko@mozilla.com
+    expires: never
+    extra_keys:
+      newtab_visit_id: *newtab_visit_id
+    send_in_pings:
+      - newtab
+
   weather_change_display:
     type: event
     description: >
@@ -2812,6 +2877,16 @@ newtab_content:
         description: >
           If click belongs in a section, if that section is followed
         type: boolean
+      variant_id: &variant_id
+        description: >
+          The section variant id for the item. 0 for the base variant of a
+          section, absent for editorial sections, or the experiment variant id.
+        type: quantity
+      source_section_id: &source_section_id
+        description: >
+          The id of the section that sourced the item. For Popular Today this is
+          the item's origin section, otherwise it is the item's own section.
+        type: string
       layout_name: *layout_name
     send_in_pings:
       - newtab-content
@@ -2860,6 +2935,8 @@ newtab_content:
         description: >
           If click belongs in a section, if that section is followed
         type: boolean
+      variant_id: *variant_id
+      source_section_id: *source_section_id
       layout_name: *layout_name
     send_in_pings:
       - newtab-content

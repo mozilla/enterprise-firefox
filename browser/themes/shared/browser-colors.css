@@ -4,21 +4,7 @@
 
 @import url("chrome://global/skin/design-system/toolbar.css");
 
-@layer tokens-foundation {
-  /* These tokens are declared inside of tokens-foundation layer so that the
-   * tokens-browser-theme layer can override them with design-system colors
-   * on platforms where the native theme is not active (e.g. macOS). */
-  :root:where([customtitlebar]) {
-    --toolbox-background-color: ActiveCaption;
-    --toolbox-text-color: CaptionText;
-    --toolbox-background-color-inactive: InactiveCaption;
-    --toolbox-text-color-inactive: InactiveCaptionText;
-  }
-}
-
 :root {
-  --short-notification-background: #0250bb;
-  --short-notification-gradient: #9059ff;
   --warning-icon-bgcolor: light-dark(#ffa436, #ffbd4f);
 
   --content-area-shadow: var(--card-box-shadow);
@@ -27,6 +13,20 @@
   @media not -moz-pref("sidebar.revamp") {
     &:not([lwtheme]) {
       --chrome-content-separator-color: ThreeDShadow;
+    }
+  }
+
+  @media (-moz-native-theme) or (forced-colors) {
+    --toolbox-background-color: -moz-headerbar;
+    --toolbox-text-color: -moz-headerbartext;
+    --toolbox-background-color-inactive: -moz-headerbarinactive;
+    --toolbox-text-color-inactive: -moz-headerbarinactivetext;
+
+    &:where([customtitlebar]) {
+      --toolbox-background-color: ActiveCaption;
+      --toolbox-text-color: CaptionText;
+      --toolbox-background-color-inactive: InactiveCaption;
+      --toolbox-text-color-inactive: InactiveCaptionText;
     }
   }
 

@@ -17,7 +17,7 @@ who = "John M. Schanck <jschanck@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 175410 # John Schanck (jschanck)
 start = "2022-11-15"
-end = "2026-09-25"
+end = "2027-09-01"
 notes = "Maintained by the CryptoEng team at Mozilla."
 
 [[wildcard-audits.bhttp]]
@@ -33,7 +33,7 @@ who = "Alex Franchuk <afranchuk@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 72814 # Gabriele Svelto (gabrielesvelto)
 start = "2022-11-30"
-end = "2026-02-01"
+end = "2027-09-01"
 notes = "This crate is written and maintained by mozilla employees."
 
 [[wildcard-audits.cachemap2]]
@@ -366,7 +366,7 @@ who = "Alex Franchuk <afranchuk@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 72814 # Gabriele Svelto (gabrielesvelto)
 start = "2022-11-30"
-end = "2026-02-01"
+end = "2027-09-01"
 notes = "This crate is written and maintained by mozilla employees."
 
 [[wildcard-audits.minidump-common]]
@@ -374,7 +374,7 @@ who = "Alex Franchuk <afranchuk@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 72814 # Gabriele Svelto (gabrielesvelto)
 start = "2022-11-30"
-end = "2026-02-01"
+end = "2027-09-01"
 notes = "This crate is written and maintained by mozilla employees."
 
 [[wildcard-audits.minidump-unwind]]
@@ -382,7 +382,7 @@ who = "Alex Franchuk <afranchuk@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 72814 # Gabriele Svelto (gabrielesvelto)
 start = "2023-05-17"
-end = "2026-02-01"
+end = "2027-09-01"
 notes = "This crate is written and maintained by mozilla employees."
 
 [[wildcard-audits.mozdevice]]
@@ -1779,6 +1779,17 @@ sound.
 who = "Gabriele Svelto <gsvelto@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.6.0 -> 0.6.1"
+
+[[audits.crash-context]]
+who = "Chris Martin <marti4d@live.ca>"
+criteria = "safe-to-deploy"
+delta = "0.6.1 -> 0.8.0"
+
+[[audits.crash-context]]
+who = "Chris Martin <marti4d@live.ca>"
+criteria = "safe-to-deploy"
+delta = "0.8.0 -> 0.8.0@git:6744feee58804a78730d176cdcc31bb4f3021107"
+importable = false
 
 [[audits.crc32fast]]
 who = "Alex Franchuk <afranchuk@mozilla.com>"
@@ -4795,8 +4806,15 @@ delta = "0.11.0 -> 0.12.0"
 [[audits.minidump-writer]]
 who = "Chris Martin <marti4d@live.ca>"
 criteria = "safe-to-deploy"
-delta = "0.12.0 -> 0.12.0@git:ee5b9d59d85bea1d4c6845f6b854e04fe204adf2"
+delta = "0.12.0 -> 0.13.0"
+notes = "This crate is mostly maintained by Mozilla staff"
+
+[[audits.minidump-writer]]
+who = "Chris Martin <marti4d@live.ca>"
+criteria = "safe-to-deploy"
+delta = "0.13.0 -> 0.13.0@git:6744feee58804a78730d176cdcc31bb4f3021107"
 importable = false
+notes = "This crate is mostly maintained by Mozilla staff."
 
 [[audits.miniz_oxide]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
@@ -9155,6 +9173,12 @@ criteria = "safe-to-deploy"
 user-id = 2915 # Amanieu d'Antras (Amanieu)
 start = "2019-05-04"
 end = "2024-05-05"
+
+[[trusted.mach2]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:JohnTitor/mach2"
+start = "2025-11-16"
+end = "2027-09-01"
 
 [[trusted.memchr]]
 criteria = "safe-to-deploy"

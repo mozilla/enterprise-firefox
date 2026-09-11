@@ -48,7 +48,7 @@ sealed interface ListenAction : Action {
         data class VoiceSelected(val voice: Voice) : Voices
 
         /** Available voices were loaded from the engine. */
-        data class AvailableVoicesLoaded(val voices: List<Voice>) : Voices
+        data class AvailableVoicesLoaded(val voices: List<Voice>, val selectedVoice: Voice) : Voices
 
         /** The engine has no installed, network-free voice for the article language. */
         data object NoOfflineVoicesAvailable : Voices

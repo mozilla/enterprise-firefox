@@ -8,7 +8,6 @@ pdfjs.jar:
  content/PdfEmbedFallbackStreamConverter.sys.mjs (content/PdfEmbedFallbackStreamConverter.sys.mjs)
  content/PdfSandbox.sys.mjs (content/PdfSandbox.sys.mjs)
  content/PdfStreamConverter.sys.mjs (content/PdfStreamConverter.sys.mjs)
- content/pdfFeaturesNotification.mjs        (../aboutpdf/content/pdfFeaturesNotification.mjs)
  content/build/	(content/build/*)
  content/web/cmaps/	(content/web/cmaps/*)
  content/web/standard_fonts/	(content/web/standard_fonts/*)

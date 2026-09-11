@@ -1925,6 +1925,14 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.recentSearches.tab",
+    {
+      title:
+        "Tab the recent searches widget last showed, so a new tab opens the widget on the same tab as the user last selected",
+      value: "recent",
+    },
+  ],
+  [
     "widgets.stocks.watchlist",
     {
       title: "Saved stocks widget watchlist ticker symbols (comma-separated)",

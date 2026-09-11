@@ -14,7 +14,6 @@
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/layers/CompositionRecorder.h"
-#include "mozilla/layers/GpuFence.h"
 #include "mozilla/layers/NativeLayer.h"
 #include "mozilla/layers/ProfilerScreenshots.h"
 #include "mozilla/layers/SurfacePool.h"

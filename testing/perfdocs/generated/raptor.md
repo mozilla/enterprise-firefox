@@ -380,6 +380,38 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
 * **unit**: score
 * **Test Task**:
 
+:::{list-table} **test-android-em-14-arm64-shippable/opt**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **browsertime-benchmark-jetstream3-chrome-m-jetstream3-nofis**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-jetstream3-cstm-car-m-jetstream3-nofis**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-jetstream3-fenix-jetstream3**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-jetstream3-fenix-jetstream3-nofis**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+:::
+
+
 :::{list-table} **test-android-hw-a55-14-0-aarch64-shippable/opt**
 :widths: 30 15 15 15 15
 :header-rows: 1
@@ -696,6 +728,38 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
 * **type**: benchmark
 * **unit**: score
 * **Test Task**:
+
+:::{list-table} **test-android-em-14-arm64-shippable/opt**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **browsertime-benchmark-jetstream3-chrome-m-jetstream3-nofis**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-jetstream3-cstm-car-m-jetstream3-nofis**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-jetstream3-fenix-jetstream3**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-jetstream3-fenix-jetstream3-nofis**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+:::
+
 
 :::{list-table} **test-android-hw-a55-14-0-aarch64-shippable/opt**
 :widths: 30 15 15 15 15

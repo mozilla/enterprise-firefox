@@ -179,18 +179,15 @@
       },
       "menu": {
         "@base": {
-          "value": "{button.background.color.ghost.@base}"
+          "value": {
+            "default": "{button.background.color.ghost.@base}",
+            "forcedColors": "Menu"
+          }
         },
         "active": {
           "value": {
             "default": "{button.background.color.ghost.active}",
-            "forcedColors": "{button.background.color.primary.@base}",
-            "nova": {
-              "comment": "The HCM value in Figma needs to be updated",
-              "value": {
-                "forcedColors": "ButtonText"
-              }
-            }
+            "forcedColors": "{button.background.color.menu.hover}"
           }
         },
         "disabled": {
@@ -199,13 +196,7 @@
         "hover": {
           "value": {
             "default": "{button.background.color.ghost.hover}",
-            "forcedColors": "{button.background.color.primary.@base}",
-            "nova": {
-              "comment": "The HCM value in Figma needs to be updated",
-              "value": {
-                "forcedColors": "ButtonText"
-              }
-            }
+            "forcedColors": "-moz-menuhover"
           }
         },
         "selected": {
@@ -619,6 +610,7 @@
               "comment": "Preserve token structure that can't be replicated in Figma",
               "value": {
                 "brand": {
+                  "default": "{button.text.color.@base}",
                   "forcedColors": "ButtonText"
                 }
               }
@@ -699,18 +691,19 @@
       },
       "menu": {
         "@base": {
-          "value": "{button.text.color.ghost.@base}"
+          "value": {
+            "default": "{button.text.color.ghost.@base}",
+            "forcedColors": "MenuText"
+          }
         },
         "active": {
           "value": {
             "default": "{button.text.color.ghost.active}",
-            "forcedColors": "{button.text.color.primary.@base}",
+            "forcedColors": "{button.text.color.menu.hover}",
             "nova": {
-              "comment": "The HCM value in Figma needs to be updated",
               "value": {
                 "light": "{button.text.color.ghost.active}",
-                "dark": "{button.text.color.active}",
-                "forcedColors": "ButtonFace"
+                "dark": "{button.text.color.active}"
               }
             }
           }
@@ -721,15 +714,7 @@
         "hover": {
           "value": {
             "default": "{button.text.color.ghost.hover}",
-            "forcedColors": "{button.text.color.primary.@base}",
-            "nova": {
-              "comment": "The HCM value in Figma needs to be updated",
-              "value": {
-                "light": "{button.text.color.ghost.hover}",
-                "dark": "{button.text.color.hover}",
-                "forcedColors": "ButtonFace"
-              }
-            }
+            "forcedColors": "-moz-menuhovertext"
           }
         },
         "selected": {

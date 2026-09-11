@@ -58,7 +58,11 @@ async function checkTelemetry(
 
 add_setup(async () => {
   Services.prefs.setBoolPref(
-    "browser.search.separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.featureGate",
+    true
+  );
+  Services.prefs.setBoolPref(
+    "browser.search.separatePrivateDefault.enabled",
     true
   );
   Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);

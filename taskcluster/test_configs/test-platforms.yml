@@ -555,7 +555,7 @@ android-em-14-x86_64/debug-isolated-process:
 android-em-14-arm64-shippable/opt:
     build-platform: android-aarch64-shippable/opt
     test-sets:
-        - android-em-arm64-speedometer-tests
+        - android-em-arm64-benchmark-tests
 
 # android-hw test platforms execute on real devices attached to Autophone hosts.
 

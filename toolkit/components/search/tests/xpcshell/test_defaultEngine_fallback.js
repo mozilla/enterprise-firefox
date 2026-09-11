@@ -34,7 +34,11 @@ add_setup(async function () {
 
   Services.prefs.setCharPref("browser.search.region", "US");
   Services.prefs.setBoolPref(
-    "browser.search.separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.featureGate",
+    true
+  );
+  Services.prefs.setBoolPref(
+    "browser.search.separatePrivateDefault.enabled",
     true
   );
   Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);

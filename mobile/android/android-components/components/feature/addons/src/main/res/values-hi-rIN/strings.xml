@@ -39,19 +39,19 @@
   <!-- Content description for a permission item, for an installed add-on details page. %1$s will be replaced with the permission text name, %2$d will be replaced with the permission position in the list and %3$d will be replaced with the total number of permissions in the list.Taking as an example "Read and modify privacy settings" the whole text will read Read and modify privacy settings, 2 of 6. -->
   <string name="mozac_feature_addons_permissions_content_description_item">%1$s, %3$d में से %2$d</string>
   <!-- Description for the "privacy" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_privacy_description">गोपनीयता सेटिंग पढ़ें और संशोधित करें</string>
+  <string name="mozac_feature_addons_permissions_privacy_description">प्राइवेसी सेटिंग पढ़ें और उसमें बदलाव करें</string>
   <!-- Description for the "<all_urls>" WebExtensions API permission. -->
   <string name="mozac_feature_addons_permissions_all_urls_description">सभी वेबसाइटों के लिए अपने डेटा को एक्सेस करें</string>
   <!-- Description for the "tabs" WebExtensions API permission. -->
   <string name="mozac_feature_addons_permissions_tabs_description">ब्राउज़र टैब को एक्सेस करें</string>
   <!-- Description for the "webNavigation" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_web_navigation_description">नेवीगेशन के दौरान ब्राउज़र गतिविधि एक्सेस करें</string>
+  <string name="mozac_feature_addons_permissions_web_navigation_description">नेविगेशन के दौरान ब्राउज़र एक्टिविटी एक्सेस करें</string>
   <!-- Description for the "bookmarks" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_bookmarks_description">बुकमार्क पढ़ें और संशोधित करें</string>
+  <string name="mozac_feature_addons_permissions_bookmarks_description">बुकमार्क रीड करें और उनमें बदलाव करें</string>
   <!-- Description for the "browserSettings" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_browser_setting_description">ब्राउज़र सेटिंग देखें और संशोधित करें</string>
+  <string name="mozac_feature_addons_permissions_browser_setting_description">ब्राउज़र सेटिंग रीड करें और संशोधित करें</string>
   <!-- Description for the "browsingData" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_browser_data_description">आधुनिक ब्राउज़िंग इतिहास, कूकीज़, और संबंधित डेटा मिटाएं</string>
+  <string name="mozac_feature_addons_permissions_browser_data_description">हालिया ब्राउज़िंग हिस्ट्री, कुकीज़ और संबंधित डेटा मिटाएं</string>
   <!-- Description for the "clipboardRead" WebExtensions API permission. -->
   <string name="mozac_feature_addons_permissions_clipboard_read_description">क्लिपबोर्ड से डेटा प्राप्त करें</string>
   <!-- Description for the "clipboardWrite" WebExtensions API permission. -->
@@ -61,39 +61,39 @@
   <!-- Description for the "declarativeNetRequestFeedback" WebExtensions API permission. -->
   <string name="mozac_feature_addons_permissions_declarative_net_request_feedback_description">अपनी ब्राउज़िंग हिस्ट्री देखें</string>
   <!-- Description for the "downloads" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_downloads_description">फाइलों को डाउनलोड करें और ब्राउज़र के डाउनलोड इतिहास को देखें और संशोधित करें</string>
+  <string name="mozac_feature_addons_permissions_downloads_description">फ़ाइलें डाउनलोड करें और ब्राउज़र की डाउनलोड हिस्ट्री देखें और उसमें बदलाव करें</string>
   <!-- Description for the "downloads.open" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_downloads_open_description">उपकरण पर डाउनलोड की गई फाइलें खोलें</string>
+  <string name="mozac_feature_addons_permissions_downloads_open_description">डिवाइस पर डाउनलोड की गई फ़ाइलें खोलें</string>
   <!-- Description for the "find" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_find_description">सभी खुले टैब के लेख पढ़ें</string>
+  <string name="mozac_feature_addons_permissions_find_description">खुले हुए सभी टैब के टेक्स्ट पढ़ें</string>
   <!-- Description for the "geolocation" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_geolocation_description">अपनी लोकेशन को एक्सेस करें</string>
+  <string name="mozac_feature_addons_permissions_geolocation_description">आपकी लोकेशन एक्सेस करें</string>
   <!-- Description for the "history" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_history_description">ब्राउज़िंग इतिहास को एक्सेस करें</string>
+  <string name="mozac_feature_addons_permissions_history_description">ब्राउज़िंग हिस्ट्री एक्सेस करें</string>
   <!-- Description for the "management" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_management_description">एक्सटेंशन उपयोग पर नजर रखें और थीम प्रबंधित करें</string>
+  <string name="mozac_feature_addons_permissions_management_description">एक्सटेंशन के इस्तेमाल पर नज़र रखें और थीम मैनेज करें</string>
   <!-- Description for the "nativeMessaging" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_native_messaging_description">इस ऐप के अलावा किसी और के साथ संदेशों का आदान-प्रदान करें</string>
+  <string name="mozac_feature_addons_permissions_native_messaging_description">इस ऐप के अलावा किसी और ऐप के साथ मैसेज का आदान-प्रदान करें</string>
   <!-- Description for the "notifications" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_notifications_description">आपको अधिसूचना प्रदर्शित करें</string>
+  <string name="mozac_feature_addons_permissions_notifications_description">नोटिफ़िकेशन दिखाएं</string>
   <!-- Description for the "pkcs11" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_pkcs11_description">क्रिप्टोग्राफिक प्रमाणीकरण सेवाएं प्रदान करें</string>
+  <string name="mozac_feature_addons_permissions_pkcs11_description">क्रिप्टोग्राफ़िक ऑथेंटिकेशन सेवाएं प्रदान करें</string>
   <!-- Description for the "proxy" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_proxy_description">ब्राउज़र प्रॉक्सी सेटिंग्स नियंत्रित करें</string>
+  <string name="mozac_feature_addons_permissions_proxy_description">ब्राउज़र प्रॉक्सी सेटिंग कंट्रोल करें</string>
   <!-- Description for the "sessions" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_sessions_description">हाल ही में बंद किए गए टैबों तक पहुंचें</string>
+  <string name="mozac_feature_addons_permissions_sessions_description">हाल ही में बंद किए गए टैब एक्सेस करें</string>
   <!-- Description for the "tabHide" WebExtensions API permission. -->
   <string name="mozac_feature_addons_permissions_tab_hide_description">ब्राउज़र टैब को छिपाएं और दिखाएं</string>
   <!-- Description for the "topSites" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_top_sites_description">ब्राउज़िंग इतिहास एक्सेस करें</string>
+  <string name="mozac_feature_addons_permissions_top_sites_description">ब्राउज़िंग हिस्ट्री एक्सेस करें</string>
   <!-- Description for the "trialML" WebExtensions API permission. -->
   <string name="mozac_feature_addons_permissions_trial_ml_description">अपने डिवाइस पर AI मॉडल डाउनलोड करें और चलाएं</string>
   <!-- Description for the "userScripts" WebExtensions API permission. -->
   <string name="mozac_feature_addons_permissions_user_scripts_description">ऐसी किसी थर्ड-पार्टी स्क्रिप्ट को आपका डेटा एक्सेस करने की अनुमति दें, जिसे वेरिफ़ाई नहीं किया गया है</string>
   <!-- Description for the "devtools" WebExtensions API permission. -->
-  <string name="mozac_feature_addons_permissions_devtools_description">अपने डेटा को खुले टैबों में उपयोग करने के लिए डेवलपर उपकरण को विस्तृत करें</string>
+  <string name="mozac_feature_addons_permissions_devtools_description">खुले टैब से जुड़ा आपका डेटा एक्सेस कर पाने के लिए, डेवलपर टूल्स को एक्टेंड करें</string>
   <!-- Description for the "privacy" WebExtensions API permission for the update notification. Multiple permissions may be simply appended one after the other, and separated with a space, which is why the period is important. -->
-  <string name="mozac_feature_addons_permissions_privacy_description_for_update">गोपनीयता से जुड़ी सेटिंग देखें और उनमें बदलाव करें।</string>
+  <string name="mozac_feature_addons_permissions_privacy_description_for_update">प्राइवेसी सेटिंग देखें और उनमें बदलाव करें।</string>
   <!-- Description for the "<all_urls>" WebExtensions API permission for the update notification. Multiple permissions may be simply appended one after the other, and separated with a space, which is why the period is important. -->
   <string name="mozac_feature_addons_permissions_all_urls_description_for_update">सभी वेबसाइटों से संबंधित अपना डेटा एक्सेस करें।</string>
   <!-- Description for the "tabs" WebExtensions API permission for the update notification. Multiple permissions may be simply appended one after the other, and separated with a space, which is why the period is important. -->
@@ -144,6 +144,8 @@
   <string name="mozac_feature_addons_permissions_trial_ml_description_for_update">अपने डिवाइस पर AI मॉडल डाउनलोड करें और चलाएं।</string>
   <!-- Description for the "userScripts" WebExtensions API permission for the update notification. Multiple permissions may be simply appended one after the other, and separated with a space, which is why the period is important. -->
   <string name="mozac_feature_addons_permissions_user_scripts_description_for_update">ऐसी किसी थर्ड-पार्टी स्क्रिप्ट को आपका डेटा एक्सेस करने की अनुमति दें, जिसे वेरिफ़ाई नहीं किया गया है।</string>
+  <!-- Description for the "devtools" WebExtensions API permission for the update notification. Multiple permissions may be simply appended one after the other, and separated with a space, which is why the period is important. -->
+  <string name="mozac_feature_addons_permissions_devtools_description_for_update">खुले टैब से जुड़ा आपका डेटा एक्सेस कर पाने के लिए, डेवलपर टूल्स को एक्टेंड करें।</string>
   <!-- Description for giving an add-on access to users's data on one site. %1$s  will be replaced by the DNS host name for which a web extension is requesting access (e.g., www.mozilla.org). -->
   <string name="mozac_feature_addons_permissions_one_site_description_for_update">%1$s का अपना डेटा एक्सेस करें।</string>
   <!-- Description for giving an add-on access to users's data in multiple sites in the domain %1$s. %1$s will be replaced by the DNS domain for which a web extension is requesting access (e.g., mozilla.org). -->
@@ -169,9 +171,9 @@
   -->
   <string name="mozac_feature_addons_permissions_extra_sites_description_for_update">दूसरी साइटों वाला अपना डेटा एक्सेस करें।</string>
   <!-- The text shown when an extension requests the userScripts permission, near the usual description of the userScripts permission -->
-  <string name="mozac_feature_addons_permissions_user_scripts_extra_warning">जो स्क्रिप्ट वेरिफ़ाई नहीं हुई हैं, वे सुरक्षा और गोपनीयता से जुड़े जोखिम पैदा कर सकती हैं। सिर्फ़ उन्हीं एक्सटेंशन या सोर्स वाली स्क्रिप्ट चलाएं, जिन पर आप भरोसा करते हैं।</string>
+  <string name="mozac_feature_addons_permissions_user_scripts_extra_warning">जो स्क्रिप्ट वेरिफ़ाई नहीं हुई हैं, वे सुरक्षा और प्राइवेसी से जुड़े जोखिम पैदा कर सकती हैं। सिर्फ़ उन्हीं एक्सटेंशन या सोर्स वाली स्क्रिप्ट चलाएं, जिन पर आप भरोसा करते हैं।</string>
   <!-- The sentence used when the extension has data collection permissions. %1$s is a formatted list of permissions. -->
-  <string name="mozac_feature_addons_permissions_required_data_collection_description_2">डेवलपर का कहना है कि यह एक्सटेंशन इन चीज़ों का इकट्ठा करता है: %1$s</string>
+  <string name="mozac_feature_addons_permissions_required_data_collection_description_2">डेवलपर का कहना है कि यह एक्सटेंशन इन चीज़ों को इकट्ठा करता है: %1$s</string>
   <!-- The sentence used when the developer of an extension has explicitly stated that they do not collect any data collection. -->
   <string name="mozac_feature_addons_permissions_none_required_data_collection_description">डेवलपर का कहना है कि इस एक्सटेंशन को डेटा इकट्ठा करने की ज़रूरत नहीं होती है।</string>
   <!-- The sentence used when the extension requests new data collection permissions. %1$s is a formatted list of permissions. -->
@@ -192,6 +194,8 @@
   <string name="mozac_feature_addons_permissions_data_collection_healthInfo_short_description">स्वास्थ्य संबंधी जानकारी</string>
   <!-- Short description for the locationInfo data collection permission -->
   <string name="mozac_feature_addons_permissions_data_collection_locationInfo_short_description">लोकेशन</string>
+  <!-- Short description for the personalCommunications data collection permission -->
+  <string name="mozac_feature_addons_permissions_data_collection_personalCommunications_short_description">व्यक्तिगत कम्युनिकेशन</string>
   <!-- Short description for the personallyIdentifyingInfo data collection permission -->
   <string name="mozac_feature_addons_permissions_data_collection_personallyIdentifyingInfo_short_description">व्यक्तिगत पहचान वाली जानकारी</string>
   <!-- Short description for the searchTerms data collection permission -->
@@ -227,15 +231,15 @@
   <!-- Long description for the websiteContent data collection permission -->
   <string name="mozac_feature_addons_permissions_data_collection_websiteContent_long_description">वेबसाइट के कंटेंट को एक्सटेंशन डेवलपर के साथ शेयर करें</string>
   <!-- The version on of add-on. -->
-  <string name="mozac_feature_addons_version">संस्करण</string>
+  <string name="mozac_feature_addons_version">वर्ज़न</string>
   <!-- The author of an add-on. -->
   <string name="mozac_feature_addons_author">ऑथर</string>
   <!-- The last date that the add-on was updated. -->
   <string name="mozac_feature_addons_last_updated">पिछला अपडेट</string>
   <!-- The developer website (Homepage) of the add-on. -->
-  <string name="mozac_feature_addons_home_page">मुख्य पृष्ठ</string>
+  <string name="mozac_feature_addons_home_page">होम पेज</string>
   <!-- A link where users can find more information about add-ons permissions. -->
-  <string name="mozac_feature_addons_learn_more">अनुमतियों के बारे में और अधिक जानें</string>
+  <string name="mozac_feature_addons_learn_more">अनुमतियों के बारे में और जानें</string>
   <!-- The rating of the add-on. -->
   <string name="mozac_feature_addons_rating">रेटिंग</string>
   <!-- A link that points to the detail page of the extension. -->
@@ -243,29 +247,29 @@
   <!-- The settings of the add-on. -->
   <string name="mozac_feature_addons_settings">सेटिंग</string>
   <!-- Indicates the add-on is enabled. -->
-  <string name="mozac_feature_addons_settings_on">चालू</string>
+  <string name="mozac_feature_addons_settings_on">ऑन</string>
   <!-- Indicates the add-on is allowed in private browsing mode. -->
   <string name="mozac_feature_addons_settings_allow_in_private_browsing_2">एक्सटेंशन को प्राइवेट ब्राउज़िंग में चलने की अनुमति दें</string>
   <!-- Indicates the add-on is allowed in private browsing mode. -->
-  <string name="mozac_feature_addons_settings_run_in_private_browsing">निजी ब्राउज़िंग में चलाएं</string>
+  <string name="mozac_feature_addons_settings_run_in_private_browsing">प्राइवेट ब्राउज़िंग में चलाएं</string>
   <!-- This is displayed when the add-on is not allowed to run in private browsing. -->
   <string name="mozac_feature_addons_not_allowed_in_private_browsing">प्राइवेट विंडो में चलने की अनुमति नहीं है</string>
   <!-- Indicates the add-on is enabled. -->
-  <string name="mozac_feature_addons_enabled">सक्रिय किया गया</string>
+  <string name="mozac_feature_addons_enabled">चालू किया</string>
   <!-- This is displayed in a page where the user can see the installed and recommended(not installed yet) add-ons, this string indicates the installed section. -->
-  <string name="mozac_feature_addons_installed_section">स्थापित किया गया</string>
+  <string name="mozac_feature_addons_installed_section">इंस्टॉल किया</string>
   <!-- This is displayed in a page where the user can see the installed and recommended(not installed yet) add-ons, this string indicates the recommended section. -->
-  <string name="mozac_feature_addons_recommended_section">अनुशंसित</string>
+  <string name="mozac_feature_addons_recommended_section">सुझाया गया</string>
   <!-- This is displayed in a page where the user can see the installed and recommended(not installed yet) add-ons, this string indicates the not yet supported section. -->
-  <string name="mozac_feature_addons_unsupported_section">अभी तक समर्थित नहीं है</string>
+  <string name="mozac_feature_addons_unsupported_section">फ़िलहाल सपोर्ट नहीं किया जाता है</string>
   <!-- This is displayed in a page where the user can see the installed and recommended(not installed yet) add-ons, this string indicates the not yet available section. -->
   <string name="mozac_feature_addons_unavailable_section">अभी तक उपलब्ध नहीं</string>
   <!-- This is displayed in a page where the user can see the installed and recommended(not installed yet) add-ons, this string indicates the disabled section. -->
-  <string name="mozac_feature_addons_disabled_section">अक्षम</string>
+  <string name="mozac_feature_addons_disabled_section">बंद है</string>
   <!-- Displays a page with all the details of an add-on. -->
-  <string name="mozac_feature_addons_details">विवरण</string>
+  <string name="mozac_feature_addons_details">ज़्यादा जानकारी</string>
   <!-- Displays a page with all the permissions of an add-on. -->
-  <string name="mozac_feature_addons_permissions">अनुमति‌</string>
+  <string name="mozac_feature_addons_permissions">अनुमति‌यां</string>
   <!-- This is a button to remove (i.e. uninstall) an add-on. -->
   <string name="mozac_feature_addons_remove">हटाएं</string>
   <!-- This is a button to report an add-on. -->
@@ -289,27 +293,27 @@
   <!-- This is a button to add (install) an add-on . -->
   <string name="mozac_feature_addons_permissions_dialog_add">जोड़ें</string>
   <!-- This is a button to allow the optional permissions requested by an add-on . -->
-  <string name="mozac_feature_addons_permissions_dialog_allow">मंज़ूरी दें</string>
+  <string name="mozac_feature_addons_permissions_dialog_allow">अनुमति दें</string>
   <!-- This is a button to deny the optional permissions requested by an add-on . -->
-  <string name="mozac_feature_addons_permissions_dialog_deny">नामंज़ूर करें</string>
+  <string name="mozac_feature_addons_permissions_dialog_deny">अनुमति न दें</string>
   <!-- Text link to learn more about permission requests on the add-on permissions dialog . -->
   <string name="mozac_feature_addons_permissions_dialog_learn_more">और जानें</string>
   <!-- This is the text for the "technical and interaction" checkbox shown in the add-on permissions dialog. -->
   <string name="mozac_feature_addons_permissions_dialog_technical_and_interaction_data">टेक्निकल और इंटरैक्शन से जुड़े डेटा को एक्सटेंशन डेवलपर के साथ शेयर करें</string>
   <!-- This is a button to cancel the add-on installation . -->
-  <string name="mozac_feature_addons_permissions_dialog_cancel">रद्द करें</string>
+  <string name="mozac_feature_addons_permissions_dialog_cancel">कैंसिल करें</string>
   <!-- Accessibility content description to install add-on button. %1$s is the add-on name. -->
   <string name="mozac_feature_addons_install_addon_content_description_2">%1$s इंस्टॉल करें</string>
   <!-- This is the label of a button to cancel an ongoing add-on installation. -->
-  <string name="mozac_feature_addons_install_addon_dialog_cancel">रद्द करें</string>
+  <string name="mozac_feature_addons_install_addon_dialog_cancel">कैंसिल करें</string>
   <!-- Indicates how many users have rated an add-on. %1$s will be replaced with number of reviews -->
-  <string name="mozac_feature_addons_user_rating_count_2">समीक्षाएं: %1$s</string>
+  <string name="mozac_feature_addons_user_rating_count_2">रिव्यू: %1$s</string>
   <!-- Accessibility content description for the amount of stars that add-on has, where %1$.02f will be the amount of stars. -->
   <string name="mozac_feature_addons_rating_content_description_2">रेटिंग: 5 में से %1$.02f</string>
   <!-- This is the title of page where all the add-ons are listed -->
   <string name="mozac_feature_addons_addons">ऐड-ऑन</string>
   <!-- Label for add-ons sub menu item for add-ons manager -->
-  <string name="mozac_feature_addons_addons_manager">ऐड-ऑन प्रबंधक</string>
+  <string name="mozac_feature_addons_addons_manager">ऐड-ऑन मैनेजर</string>
   <!-- The title of the "crash" notification in the extensions manager -->
   <string name="mozac_feature_extensions_manager_notification_title_text">एक्सटेंशन को कुछ समय के लिए बंद किया गया है।</string>
   <!-- The content of the "crash" notification in the extensions manager -->
@@ -333,7 +337,7 @@
   <!-- Name of the "notification channel" used for displaying a notification for updating an extension. See https://developer.android.com/training/notify-user/channels -->
   <string name="mozac_feature_addons_updater_notification_channel_2">एक्सटेंशन अपडेट</string>
   <!-- Name of the "notification channel" used for displaying a notification for new supported add-ons. See https://developer.android.com/training/notify-user/channels -->
-  <string name="mozac_feature_addons_supported_checker_notification_channel" tools:ignore="UnusedResources">समर्थित ऐड-ऑन जांचकर्ता</string>
+  <string name="mozac_feature_addons_supported_checker_notification_channel" tools:ignore="UnusedResources">सपोर्टेड ऐड-ऑन चेकर</string>
   <!-- The tile of the notification, this will be shown to the user when one newly supported add-on is available. -->
   <string name="mozac_feature_addons_supported_checker_notification_title" tools:ignore="UnusedResources">नया ऐड-ऑन उपलब्ध</string>
   <!-- The tile of the notification, this will be shown to the user when more than one newly supported add-ons are available. -->
@@ -345,7 +349,7 @@
   <!-- The content of the notification, this will be shown to the user when more than two newly supported add-ons are available. %1$s is the app name (in most cases Firefox). -->
   <string name="mozac_feature_addons_supported_checker_notification_content_more_than_two">उन्हें %1$s में जोड़ें</string>
   <!-- This is the caption for not yet supported screen caption -->
-  <string name="mozac_feature_addons_not_yet_supported_caption2">हम फिलहाल अनुसंशित एक्सटेंशंस की प्रारंभिक चयन के लिए समर्थन तैयार कर रहे हैं।</string>
+  <string name="mozac_feature_addons_not_yet_supported_caption2">हम फ़िलहाल \'सुझाए गए एक्सटेंशन\' के शुरुआती सलेक्शन के लिए सपोर्ट तैयार कर रहे हैं।</string>
   <!-- This is the caption for the extension installation progress overlay -->
   <string name="mozac_extension_install_progress_caption">एक्सटेंशन डाउनलोड और वेरिफ़ाई किया जा रहा है…</string>
   <!-- Error shown when extensions could not be loaded -->
@@ -353,9 +357,9 @@
   <!-- Error shown when unable to find a translation for an add-on field. %1$s is the locale of the user and %2$s is the default language of the add-on -->
   <string name="mozac_feature_addons_failed_to_translate">%1$s भाषा और डिफ़ॉल्ट भाषा %2$s, दोनों के लिए अनुवाद नहीं मिला</string>
   <!-- Text shown after successfully installed an add-on. %1$s is the add-on name. -->
-  <string name="mozac_feature_addons_successfully_installed">%1$s सफलतापूर्वक स्थापित किया गया</string>
+  <string name="mozac_feature_addons_successfully_installed">%1$s इंस्टॉल हुआ</string>
   <!-- Text shown after failing to install an add-on (when add-on type isn't supported or an unknown has errored). %1$s is the add-on name. -->
-  <string name="mozac_feature_addons_failed_to_install">%1$s को स्थापित करने में विफल</string>
+  <string name="mozac_feature_addons_failed_to_install">%1$s इंस्टॉल नहीं हो पाया</string>
   <!-- Text shown after failing to install an extension for which we don't have its name (when add-on type isn't supported or an unknown has errored). -->
   <string name="mozac_feature_addons_extension_failed_to_install">यह एक्सटेंशन इंस्टॉल नहीं किया जा सका।</string>
   <!-- Text shown when installing an add-on has failed. -->
@@ -375,35 +379,35 @@
   <!-- Text shown when attempting to install an add-on that is soft-blocked. %1$s is the add-on name. %2$s is the app name. -->
   <string name="mozac_feature_addons_soft_blocked_2">%1$s प्रतिबंधित है और इसे %2$s पर इंस्टॉल नहीं किया जा सकता है।</string>
   <!-- Text shown after failed to enable an add-on. %1$s is the add-on name. -->
-  <string name="mozac_feature_addons_failed_to_enable">%1$s को सक्षम करने में असफल</string>
+  <string name="mozac_feature_addons_failed_to_enable">%1$s चालू नहीं हो पाया</string>
   <!-- Text shown after failed to disable an add-on. %1$s is the add-on name. -->
-  <string name="mozac_feature_addons_failed_to_disable">%1$s को अक्षम करने में असफल</string>
+  <string name="mozac_feature_addons_failed_to_disable">%1$s बंद नहीं हो पाया</string>
   <!-- Text shown after failed to uninstall an add-on. %1$s is the add-on name. -->
-  <string name="mozac_feature_addons_failed_to_uninstall">%1$s को अस्थापित करने में असफल</string>
+  <string name="mozac_feature_addons_failed_to_uninstall">%1$s इंस्टॉल नहीं किया जा सका</string>
   <!-- Text shown after successfully removed an add-on. %1$s is the add-on name. -->
-  <string name="mozac_feature_addons_successfully_removed" tools:ignore="UnusedResources">%1$s को सफलतापूर्वक हटा दिया गया</string>
+  <string name="mozac_feature_addons_successfully_removed" tools:ignore="UnusedResources">%1$s हटा दिया गया है</string>
   <!-- Text shown after failed to remove an add-on. %1$s is the add-on name. -->
-  <string name="mozac_feature_addons_failed_to_remove" tools:ignore="UnusedResources">%1$s को हटाने में विफल</string>
+  <string name="mozac_feature_addons_failed_to_remove" tools:ignore="UnusedResources">%1$s हटाया नहीं जा सका</string>
   <!-- Label shown to indicate that the add-on was migrated from a previous version of the app. %1$s is the app name most of the case it will be Firefox. -->
-  <string name="mozac_feature_addons_migrated_from_a_previous_version_label" tools:ignore="UnusedResources">यह ऐड-ऑन %1$s के पिछले संस्करण से बदला गया था</string>
+  <string name="mozac_feature_addons_migrated_from_a_previous_version_label" tools:ignore="UnusedResources">यह ऐड-ऑन %1$s के पिछले वर्ज़न से माइग्रेट किया गया था</string>
   <!-- Text shown in not yet supported add-ons section. -->
   <string name="mozac_feature_addons_unsupported_caption_2">1 एक्सटेंशन</string>
   <!-- Text shown in not yet supported add-ons section - plural. %1$s is the number of unsupported extensions. -->
   <string name="mozac_feature_addons_unsupported_caption_plural_2">%1$s एक्सटेंशन</string>
   <!-- Text link to a sumo page for learning more about unsupported add-ons. -->
-  <string name="mozac_feature_addons_unsupported_learn_more">अधिक जानें</string>
+  <string name="mozac_feature_addons_unsupported_learn_more">और जानें</string>
   <!-- Displayed in the "Status" field for the updater when an add-on has been correctly updated. -->
   <string name="mozac_feature_addons_updater_status_successfully_updated">सफलतापूर्वक अपडेट हो गया</string>
   <!-- Displayed in the "Status" field for the updater when an add-on has no updates available. -->
   <string name="mozac_feature_addons_updater_status_no_update_available">कोई अपडेट उपलब्ध नहीं</string>
   <!-- Displayed in the "Status" field for the updater when there was an error during the add-on update. -->
-  <string name="mozac_feature_addons_updater_status_error">त्रुटि</string>
+  <string name="mozac_feature_addons_updater_status_error">गड़बड़ी</string>
   <!-- Text shown in a dialog that displays information about the last attempt to update an add-on. This is the title of the dialog. -->
   <string name="mozac_feature_addons_updater_dialog_title">अपडेटर की जानकारी</string>
   <!-- Label in the dialog displaying information for the last attempt to update add-ons. It's followed by the date of the last attempt. -->
   <string name="mozac_feature_addons_updater_dialog_last_attempt">पिछला प्रयास:</string>
   <!-- Displayed in the "Status" field for the updater when an add-on has been correctly updated -->
-  <string name="mozac_feature_addons_updater_dialog_status">स्थिति:</string>
+  <string name="mozac_feature_addons_updater_dialog_status">स्टेटस:</string>
   <!-- Text shown in the dialog when add-on installation is completed. %1$s is the add-on name. -->
   <string name="mozac_feature_addons_installed_dialog_title_2">%1$s जोड़ा गया</string>
   <!-- Used as text for the link in the description of the post-installation dialog. -->

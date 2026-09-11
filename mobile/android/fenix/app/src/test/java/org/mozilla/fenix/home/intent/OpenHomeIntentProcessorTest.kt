@@ -26,7 +26,7 @@ import org.junit.runner.RunWith
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
-import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
+import org.mozilla.fenix.browser.browsingmode.fakes.FakeBrowsingModeManager
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.utils.Settings
@@ -172,13 +172,5 @@ class OpenHomeIntentProcessorTest {
         val tab = browserStore.state.tabs[0]
         assertEquals(true, tab.content.private)
         verify { navController.nav(null, NavGraphDirections.actionGlobalHome()) }
-    }
-
-    private class FakeBrowsingModeManager(override var mode: BrowsingMode) : BrowsingModeManager {
-        var hasModeUpdated = false
-
-        override fun updateMode(intent: Intent?) {
-            hasModeUpdated = true
-        }
     }
 }

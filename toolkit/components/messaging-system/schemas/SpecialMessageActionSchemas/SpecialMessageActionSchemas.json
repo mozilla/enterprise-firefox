@@ -350,7 +350,7 @@
           },
           "required": ["type"],
           "additionalProperties": false,
-          "description": "Minimize the CFR doorhanger back into the URLbar"
+          "description": "Minimize the notification"
         },
         {
           "type": "object",
@@ -878,6 +878,18 @@
           "required": ["type"],
           "additionalProperties": false,
           "description": "Creates a new user profile using SelectableProfileService and launches it in a new instance"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["RESET_PROFILE"]
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": false,
+          "description": "Opens the refresh confirmation dialog, which resets the current profile and restarts the browser"
         },
         {
           "type": "object",

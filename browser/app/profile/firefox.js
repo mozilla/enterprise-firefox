@@ -1020,7 +1020,7 @@ pref("browser.search.context.loadInBackground", false);
 
 // Enables display of the options for the user using a separate default search
 // engine in private browsing mode.
-pref("browser.search.separatePrivateDefault.ui.enabled", false);
+pref("browser.search.separatePrivateDefault.featureGate", false);
 // The maximum amount of times the private default banner is shown.
 pref("browser.search.separatePrivateDefault.ui.banner.max", 0);
 
@@ -2182,9 +2182,9 @@ pref("browser.newtabpage.activity-stream.discoverystream.topicSelection.locale-t
 pref("browser.newtabpage.activity-stream.discoverystream.topicLabels.locale-topic-label-config", "en-US, en-GB, en-CA");
 
 // List of locales that get section layout by default
-pref("browser.newtabpage.activity-stream.discoverystream.sections.locale-content-config", "en-US,en-CA,en-GB");
+pref("browser.newtabpage.activity-stream.discoverystream.sections.locale-content-config", "en-US,en-CA,en-GB,de,fr,it,es-ES,pl");
 // List of regions that get section layout by default
-pref("browser.newtabpage.activity-stream.discoverystream.sections.region-content-config", "US,GB,CA,IE");
+pref("browser.newtabpage.activity-stream.discoverystream.sections.region-content-config", "US,GB,CA,IE,IN,DE,AT,CH,BE,FR,IT,ES,PL");
 
 pref("browser.newtabpage.activity-stream.discoverystream.sections.cards.enabled", true);
 

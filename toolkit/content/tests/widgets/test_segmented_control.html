@@ -106,9 +106,13 @@
         );
         items.forEach(item => {
           is(
-            item.role,
+            item.buttonEl.getAttribute("role"),
             "radio",
             "Segmented control items use the 'radio' role by default."
+          );
+          ok(
+            !item.hasAttribute("role"),
+            "Segmented control item host has no role attribute."
           );
         });
         is(
@@ -162,7 +166,7 @@
         async function verifySelectedControlItem(selectedItem, focusedItem) {
           ok(selectedItem.checked, "The selected control item is checked.");
           is(
-            selectedItem.getAttribute("aria-checked"),
+            selectedItem.buttonEl.getAttribute("aria-checked"),
             "true",
             "The checked item has the correct aria-checked value."
           );
@@ -185,9 +189,13 @@
               `${item.value} item is ${isChecked ? "" : "not"} checked`
             );
             is(
-              item.getAttribute("aria-checked"),
+              item.buttonEl.getAttribute("aria-checked"),
               isChecked ? "true" : "false",
               `${item.value} item has the expected aria-checked value`
+            );
+            ok(
+              !item.hasAttribute("aria-checked"),
+              `${item.value} item host has no aria-checked attribute`
             );
             is(
               item.tabIndex,

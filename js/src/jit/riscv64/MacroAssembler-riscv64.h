@@ -159,6 +159,8 @@ class MacroAssemblerRiscv64 : public Assembler {
   FaultingCodeRange ma_storeFloat16(FloatRegister src, Address address);
   FaultingCodeRange ma_storeFloat16(FloatRegister src, const BaseIndex& dest);
 
+  void ma_mv(Register dest, Register src);
+
   // immediates
   BufferOffset ma_liPatchable(Register dest, Imm32 imm);
   BufferOffset ma_liPatchable(Register dest, ImmPtr imm) {
@@ -655,7 +657,7 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
 
   void j(Label* dest) { jump(dest); }
 
-  void mov(Register src, Register dest) { mv(dest, src); }
+  void mov(Register src, Register dest) { ma_mv(dest, src); }
   void mov(ImmWord imm, Register dest) { ma_li(dest, imm); }
   void mov(ImmPtr imm, Register dest) {
     mov(ImmWord(uintptr_t(imm.value)), dest);

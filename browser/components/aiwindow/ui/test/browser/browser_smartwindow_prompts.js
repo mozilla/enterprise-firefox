@@ -872,6 +872,72 @@ add_task(async function test_resume_prompt_click_injects_context() {
   }
 });
 
+add_task(async function test_resume_prompt_click_marks_memory_applied() {
+  const sb = sinon.createSandbox();
+  const { server, port } = startMockOpenAI({
+    streamChunks: ["Sure, here's an update."],
+  });
+  try {
+    await SpecialPowers.pushPrefEnv({
+      set: [["browser.smartwindow.endpoint", `http://localhost:${port}/v1`]],
+    });
+
+    try {
+      await testResumeActivityClick(
+        sb,
+        async ({ browser, buttons }) => {
+          buttons[0].click();
+
+          const aiWindowEl = browser.contentDocument.querySelector("ai-window");
+          const aichatBrowser = await TestUtils.waitForCondition(
+            () => aiWindowEl.shadowRoot?.querySelector("#aichat-browser"),
+            "Wait for aichat-browser"
+          );
+
+          await SpecialPowers.spawn(aichatBrowser, [], async () => {
+            const chatContent =
+              content.document.querySelector("ai-chat-content");
+
+            await ContentTaskUtils.waitForMutationCondition(
+              chatContent.shadowRoot,
+              { childList: true, subtree: true },
+              () =>
+                chatContent.shadowRoot.querySelector("assistant-message-footer")
+            );
+            let appliedButton;
+            await ContentTaskUtils.waitForCondition(() => {
+              const button = chatContent.shadowRoot
+                .querySelector("assistant-message-footer")
+                ?.shadowRoot?.querySelector("applied-memories-button");
+              // Unwrap the content element so Lit's prototype-backed
+              // properties are visible through SpecialPowers.
+              appliedButton = button?.wrappedJSObject ?? button;
+              return appliedButton?.appliedMemories?.length;
+            }, "Wait for the resume-activity memory to be marked applied");
+
+            Assert.equal(
+              appliedButton.appliedMemories.length,
+              1,
+              "Resume-activity response should have exactly one applied memory"
+            );
+            Assert.equal(
+              appliedButton.appliedMemories[0].memory_summary,
+              "Research project",
+              "Applied memory should be the one that drove the resume-activity conversation"
+            );
+          });
+        },
+        { fxAccountToken: "mock-fxa-token" }
+      );
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    sb.restore();
+    await stopMockOpenAI(server);
+  }
+});
+
 add_task(
   async function test_resume_prompt_click_shows_confirmation_card_without_memory_context_when_toggled_off() {
     const sb = sinon.createSandbox();

@@ -380,6 +380,29 @@ ml-perf-native:
         env:
             MOZ_ML_BACKENDS: onnx-native
 
+speech-recognition-perf:
+    fetches:
+        fetch:
+            - parakeet-eou-120m
+            - parakeet-nemotron-0.6b
+    description: Latency, real-time factor and memory of on-device speech recognition
+    treeherder:
+        symbol: perftest(sr-perf)
+        tier: 2
+    attributes:
+        batch: false
+        cron: false
+    run-on-projects: [mozilla-central]
+    run:
+        command: >-
+            mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
+            cd $MOZ_FETCHES_DIR &&
+            python3 python/mozperftest/mozperftest/runner.py
+            --mochitest-binary ${MOZ_FETCHES_DIR}/target.dmg
+            --flavor mochitest
+            --output $MOZ_FETCHES_DIR/../artifacts
+            dom/media/webspeech/recognition/test/browser_speech_recognition_perf.js
+
 ml-llama-summarizer-perf:
     fetches:
         fetch:

@@ -445,3 +445,6 @@ jxl_simd = { path = "third_party/rust/jxl_simd" }
 gleam = { git = "https://github.com/jamienicol/gleam", rev = "68ca4e5cc31135b843af07ff213a94b9ddce64cf" }
 # gl_generator 0.14.0 + https://github.com/rust-windowing/gl-rs/pull/566
 gl_generator = { git = "https://github.com/jamienicol/gl-rs", rev = "71c792dbfe0ec5caeb242fc90937e19098386342" }
+
+# Implement mach2 0.4 in terms of 0.6
+mach2 = { path = "build/rust/mach2" }

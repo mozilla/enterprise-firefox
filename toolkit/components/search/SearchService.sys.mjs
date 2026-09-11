@@ -217,7 +217,10 @@ export const SearchService = new (class SearchService {
   async setDefaultPrivate(engine, changeReason) {
     await this.init();
     if (!this.#lazyPrefs.separatePrivateDefaultPrefValue) {
-      Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
+      Services.prefs.setBoolPref(
+        "browser.search.separatePrivateDefault.enabled",
+        true
+      );
     }
     this.#setEngineDefault(this.#separatePrivateDefault, engine, changeReason);
   }
@@ -1538,12 +1541,12 @@ export const SearchService = new (class SearchService {
 
   #lazyPrefs = XPCOMUtils.declareLazy({
     separatePrivateDefaultPrefValue: {
-      pref: "browser.search.separatePrivateDefault",
+      pref: "browser.search.separatePrivateDefault.enabled",
       default: false,
       onUpdate: this.#onSeparateDefaultPrefChanged.bind(this),
     },
     separatePrivateDefaultEnabledPrefValue: {
-      pref: "browser.search.separatePrivateDefault.ui.enabled",
+      pref: "browser.search.separatePrivateDefault.featureGate",
       default: false,
       onUpdate: this.#onSeparateDefaultPrefChanged.bind(this),
     },
@@ -3470,7 +3473,7 @@ export const SearchService = new (class SearchService {
     this._cachedSortedEngines = null;
 
     if (
-      prefName === "browser.search.separatePrivateDefault" &&
+      prefName === "browser.search.separatePrivateDefault.enabled" &&
       !previousValue &&
       currentValue
     ) {
@@ -3504,7 +3507,7 @@ export const SearchService = new (class SearchService {
       );
     }
 
-    let eventReason = prefName.endsWith("separatePrivateDefault.ui.enabled")
+    let eventReason = prefName.endsWith("separatePrivateDefault.featureGate")
       ? this.CHANGE_REASON.USER_PRIVATE_PREF_ENABLED
       : this.CHANGE_REASON.USER_PRIVATE_SPLIT;
     if (!previousValue && currentValue) {

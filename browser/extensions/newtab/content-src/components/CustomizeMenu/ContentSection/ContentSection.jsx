@@ -218,7 +218,6 @@ export class ContentSection extends React.PureComponent {
       mayHaveTopicSections,
       weatherDisplay,
       panelShowing,
-      onSubpanelToggle,
       toggleSectionsMgmtPanel,
       showSectionsMgmtPanel,
       // @nova-cleanup(remove-conditional): Remove novaEnabled
@@ -278,7 +277,6 @@ export class ContentSection extends React.PureComponent {
                 installsource="about:newtab"
               ></theme-picker>
               <ThemesManagementPanel
-                onSubpanelToggle={onSubpanelToggle}
                 togglePanel={toggleThemesPanel}
                 showPanel={showThemesPanel}
               />
@@ -307,7 +305,6 @@ export class ContentSection extends React.PureComponent {
                   activeCategory={wallpapersPanelCategory}
                   openPanel={openWallpapersPanel}
                   closePanel={closeWallpapersPanel}
-                  onSubpanelToggle={onSubpanelToggle}
                 />
               </div>
             </>
@@ -579,7 +576,6 @@ export class ContentSection extends React.PureComponent {
                             mayHaveWeatherForecast={mayHaveWeatherForecast}
                             weatherDisplay={weatherDisplay}
                             setPref={setPref}
-                            onSubpanelToggle={onSubpanelToggle}
                             togglePanel={toggleWidgetsManagementPanel}
                             showPanel={showWidgetsManagementPanel}
                           />
@@ -641,7 +637,6 @@ export class ContentSection extends React.PureComponent {
                           {mayHaveTopicSections && (
                             <SectionsMgmtPanel
                               pocketEnabled={pocketEnabled}
-                              onSubpanelToggle={onSubpanelToggle}
                               togglePanel={toggleSectionsMgmtPanel}
                               showPanel={showSectionsMgmtPanel}
                               novaEnabled={novaEnabled}

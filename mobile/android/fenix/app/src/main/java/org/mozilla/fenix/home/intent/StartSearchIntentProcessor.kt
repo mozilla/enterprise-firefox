@@ -10,15 +10,26 @@ import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.SearchWidget
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.NavGraphDirections
+import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.metrics.MetricsUtils
+import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.utils.Settings
 
 /**
  * When the search widget is tapped and the user has been onboarded, Fenix should open directly to search. Tapping the
  * private browsing mode launcher icon should also open to search.
+ *
+ * @param fenixBrowserUseCases [FenixBrowserUseCases] used to add a new homepage tab when the homepage as a new tab
+ *   feature is enabled.
+ * @param browsingModeManager [BrowsingModeManager] used to get and set the browsing mode of the new tab.
+ * @param userHasBeenOnboarded Returns whether the user has completed onboarding.
  */
-class StartSearchIntentProcessor(private val userHasBeenOnboarded: () -> Boolean) : HomeIntentProcessor {
+class StartSearchIntentProcessor(
+    private val fenixBrowserUseCases: FenixBrowserUseCases,
+    private val browsingModeManager: BrowsingModeManager,
+    private val userHasBeenOnboarded: () -> Boolean,
+) : HomeIntentProcessor {
 
     override fun process(intent: Intent, navController: NavController, out: Intent, settings: Settings): Boolean {
         if (!userHasBeenOnboarded()) {
@@ -44,6 +55,11 @@ class StartSearchIntentProcessor(private val userHasBeenOnboarded: () -> Boolean
             out.removeExtra(HomeActivity.OPEN_TO_SEARCH)
 
             source?.let {
+                if (settings.enableHomepageAsNewTab) {
+                    browsingModeManager.updateMode(intent)
+                    fenixBrowserUseCases.addNewHomepageTab(private = browsingModeManager.mode.isPrivate)
+                }
+
                 navController.nav(
                     id = null,
                     directions =

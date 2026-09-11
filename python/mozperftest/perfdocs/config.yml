@@ -57,6 +57,11 @@ suites:
             "Service Worker Registration": ""
             "Service Worker Update": ""
 
+    dom/media/webspeech/recognition/test:
+        description: "Performance tests for on-device speech recognition"
+        tests:
+            "browser_speech_recognition_perf.js": ""
+
     toolkit/components/ml/tests/browser:
         description: "Performance tests running through Mochitest for ML Models"
         tests:

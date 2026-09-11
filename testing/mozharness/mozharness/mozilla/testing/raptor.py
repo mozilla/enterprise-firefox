@@ -1320,15 +1320,7 @@ class Raptor(
         # Add modules required for visual metrics. Packages with non-Python
         # components are particularly fussy about python version.
         py3_minor = sys.version_info.minor
-        if py3_minor <= 7:
-            modules.extend([
-                "numpy==1.16.1",
-                "Pillow==6.1.0",
-                "scipy==1.2.3",
-                "pyssim==0.4",
-                "opencv-python==4.5.4.60",
-            ])
-        elif py3_minor <= 11:
+        if py3_minor <= 11:
             modules.extend([
                 "numpy==1.23.5",
                 "Pillow==9.2.0",

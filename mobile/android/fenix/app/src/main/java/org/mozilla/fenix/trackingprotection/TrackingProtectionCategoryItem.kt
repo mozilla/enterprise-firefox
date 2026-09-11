@@ -7,25 +7,37 @@ package org.mozilla.fenix.trackingprotection
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
-import androidx.constraintlayout.widget.ConstraintLayout
+import android.widget.LinearLayout
 import androidx.core.content.withStyledAttributes
 import org.mozilla.fenix.R
 import org.mozilla.fenix.databinding.TrackingProtectionCategoryBinding
 
+/**
+ * A tracking protection category, shown as a title above a description of what it blocks.
+ *
+ * @attr ref R.styleable.TrackingProtectionCategory_categoryItemTitle
+ * @attr ref R.styleable.TrackingProtectionCategory_categoryItemDescription
+ */
 class TrackingProtectionCategoryItem
 @JvmOverloads
 constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
-) : ConstraintLayout(context, attrs, defStyleAttr) {
-    private val binding =
-        TrackingProtectionCategoryBinding.inflate(
-            LayoutInflater.from(context),
-            this,
-        )
+) : LinearLayout(context, attrs, defStyleAttr) {
+    private val binding: TrackingProtectionCategoryBinding
 
     init {
+        // A LinearLayout hands its children different default layout params depending on its
+        // orientation, so this has to be set before anything is inflated into it.
+        orientation = VERTICAL
+
+        binding =
+            TrackingProtectionCategoryBinding.inflate(
+                LayoutInflater.from(context),
+                this,
+            )
+
         context.withStyledAttributes(
             attrs,
             R.styleable.TrackingProtectionCategory,

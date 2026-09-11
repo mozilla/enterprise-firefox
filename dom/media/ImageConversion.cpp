@@ -141,10 +141,23 @@ already_AddRefed<SourceSurface> GetSourceSurface(Image* aImage) {
   return surf.forget();
 }
 
+static int32_t CeilingOfHalf(int32_t aValue) {
+  MOZ_ASSERT(aValue >= 0);
+  return aValue / 2 + (aValue % 2);
+}
+
 nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
                        uint8_t* aDestU, int aDestStrideU, uint8_t* aDestV,
                        int aDestStrideV, const IntSize& aDestSize) {
   if (!aImage->IsValid()) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  // A chroma row is ceil(width / 2) bytes wide in the planar layout.
+  if (aDestStrideY < aDestSize.width ||
+      aDestStrideU < CeilingOfHalf(aDestSize.width) ||
+      aDestStrideV < CeilingOfHalf(aDestSize.width)) {
+    NS_WARNING("ConvertToI420: destination strides too small for I420");
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -531,11 +544,6 @@ nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
   return MapRv(libyuv::ABGRToI420(tempBuf, tempRgbStride, aDestY, aDestStrideY,
                                   aDestU, aDestStrideU, aDestV, aDestStrideV,
                                   aDestSize.width, aDestSize.height));
-}
-
-static int32_t CeilingOfHalf(int32_t aValue) {
-  MOZ_ASSERT(aValue >= 0);
-  return aValue / 2 + (aValue % 2);
 }
 
 nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,

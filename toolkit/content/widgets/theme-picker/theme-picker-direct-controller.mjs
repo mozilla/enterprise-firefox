@@ -22,8 +22,6 @@ const PREF_SYSTEM_USES_DARK = "ui.systemUsesDarkTheme";
 const PREF_NATIVE_THEME = "browser.theme.native-theme";
 const PREF_ACTIVE_THEME_ID = "extensions.activeThemeID";
 
-const shownDocuments = new WeakSet();
-
 /**
  * @implements {ReactiveController}
  */
@@ -34,17 +32,6 @@ export class ThemePickerDirectController {
   constructor(host) {
     this.host = host;
     this.host.addController(this);
-    lazy
-      .getThemesList({
-        installSource: this.host.getAttribute("installsource") || "unknown",
-      })
-      .then(tm => {
-        this.themesManager = tm;
-        this.host.themes = tm.getThemesInfo({
-          showInCompactLayout: this.host.layout === "compact",
-        });
-        this.updateHost();
-      });
     this.lazy = XPCOMUtils.declareLazy({
       activeThemeId: {
         pref: PREF_ACTIVE_THEME_ID,
@@ -72,12 +59,6 @@ export class ThemePickerDirectController {
   }
 
   shown() {
-    const document = this.host.ownerDocument;
-    if (shownDocuments.has(document)) {
-      return;
-    }
-
-    shownDocuments.add(document);
     Glean.themePicker.shown.record({
       source: this.host.getAttribute("installsource") || "unknown",
       layout: this.host.layout || "unknown",
@@ -85,6 +66,17 @@ export class ThemePickerDirectController {
   }
 
   hostConnected() {
+    this.themesManagerPromise ??= lazy
+      .getThemesList({
+        installSource: this.host.getAttribute("installsource") || "unknown",
+      })
+      .then(tm => {
+        this.themesManager = tm;
+        this.host.themes = tm.getThemesInfo({
+          showInCompactLayout: this.host.layout === "compact",
+        });
+        this.updateHost();
+      });
     Services.obs.addObserver(this.updateHost, "look-and-feel-changed");
     this.updateHost();
   }
@@ -110,9 +102,21 @@ export class ThemePickerDirectController {
             value == "light" ? 0 : 1
           );
         }
+        Glean.themePicker.change.record({
+          source: this.host.getAttribute("installsource") || "unknown",
+          layout: this.host.layout || "unknown",
+          property,
+          appearance: String(value),
+        });
         break;
       case "nativeTheme":
         Services.prefs.setBoolPref(PREF_NATIVE_THEME, Boolean(value));
+        Glean.themePicker.change.record({
+          source: this.host.getAttribute("installsource") || "unknown",
+          layout: this.host.layout || "unknown",
+          property,
+          native_theme: Boolean(value),
+        });
         break;
     }
   }

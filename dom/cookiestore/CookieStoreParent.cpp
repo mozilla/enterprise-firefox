@@ -580,8 +580,12 @@ bool CookieStoreParent::DeleteRequestOnMainThread(
   nsAutoCString hostName;
   nsContentUtils::GetHostOrIPv6WithBrackets(aCookieURI, hostName);
 
+  // A cookie set without a domain attribute is host-only; one set with a domain
+  // attribute never is, even when the attribute equals the host.
+  const bool hostOnly = aDomain.IsEmpty();
+
   nsAutoCString cookiesForDomain;
-  if (aDomain.IsEmpty()) {
+  if (hostOnly) {
     cookiesForDomain = std::move(hostName);
   } else {
     cookiesForDomain = NS_ConvertUTF16toUTF8(aDomain);
@@ -611,7 +615,12 @@ bool CookieStoreParent::DeleteRequestOnMainThread(
     if (!matchName.Equals(cookie->Name())) {
       continue;
     }
-    if (!CookieCommons::DomainMatches(cookie, cookiesForDomain)) {
+    // "Delete a cookie" is defined as "set a cookie" with a max-age of 0, so
+    // the target is the single cookie the storage model identifies by name,
+    // domain, host-only-flag and path.
+    const bool cookieIsHostOnly = !cookie->IsDomain();
+    if (cookieIsHostOnly != hostOnly ||
+        !cookie->RawHost().Equals(cookiesForDomain)) {
       continue;
     }
 

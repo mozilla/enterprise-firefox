@@ -545,6 +545,14 @@ Any message that uses this action should have `canCreateSelectableProfiles` as p
 
 - args: (none)
 
+### `RESET_PROFILE`
+
+Opens the refresh confirmation dialog, which resets the current profile and restarts the browser
+
+Any message that uses this action should have `canResetProfile` as part of the targeting, to ensure we don't show a message where the action will not work.
+
+- args: (none)
+
 ### `SUBMIT_ONBOARDING_OPT_OUT_PING`
 
 Submits a Glean `onboarding-opt-out` ping.  Should only be used during preonboarding (but this is not enforced).

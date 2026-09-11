@@ -443,6 +443,11 @@ const JSClass* WarpCacheIRTranspiler::classForGuardClassKind(
     case GuardClassKind::Map:
     case GuardClassKind::BoundFunction:
     case GuardClassKind::Date:
+    case GuardClassKind::Duration:
+    case GuardClassKind::PlainTime:
+    case GuardClassKind::PlainDateTime:
+    case GuardClassKind::Instant:
+    case GuardClassKind::ZonedDateTime:
     case GuardClassKind::WeakMap:
     case GuardClassKind::WeakSet:
       return ClassFor(kind);
@@ -6011,6 +6016,40 @@ bool WarpCacheIRTranspiler::emitNewDateObjectResult(
   add(obj);
 
   pushResult(obj);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitUnpackTimeResult(ValOperandId packedValId,
+                                                 uint32_t shiftImm,
+                                                 uint32_t maskImm) {
+  MDefinition* packedVal = getOperand(packedValId);
+
+  auto* ins = MUnpackTime::New(alloc(), packedVal, shiftImm, maskImm);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitEpochMillisecondsResult(
+    ObjOperandId objId, uint32_t secondsOffset, uint32_t nanosecondsOffset) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* seconds = MLoadFixedSlot::New(
+      alloc(), obj, NativeObject::getFixedSlotIndexFromOffset(secondsOffset));
+  seconds->setResultType(MIRType::Double);
+  add(seconds);
+
+  auto* nanoseconds = MLoadFixedSlot::New(
+      alloc(), obj,
+      NativeObject::getFixedSlotIndexFromOffset(nanosecondsOffset));
+  nanoseconds->setResultType(MIRType::Int32);
+  add(nanoseconds);
+
+  auto* ins = MEpochMilliseconds::New(alloc(), seconds, nanoseconds);
+  add(ins);
+
+  pushResult(ins);
   return true;
 }
 

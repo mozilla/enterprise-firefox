@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.3.335
- * pdfjsBuild = 74515c623
+ * pdfjsVersion = 6.3.351
+ * pdfjsBuild = 716aff9d5
  */
 
 ;// ./src/shared/util.js
@@ -39302,9 +39302,7 @@ class MetadataParser {
   }
   _repair(data) {
     return data.replace(/^[^<]+/, "").replaceAll(/>\\376\\377([^<]+)/g, function (all, codes) {
-      const bytes = codes.replaceAll(/\\([0-3])([0-7])([0-7])/g, function (code, d1, d2, d3) {
-        return String.fromCharCode(d1 * 64 + d2 * 8 + d3 * 1);
-      }).replaceAll(/&(amp|apos|gt|lt|quot);/g, function (str, name) {
+      const bytes = codes.replaceAll(/\\([0-3])([0-7])([0-7])/g, (_, d1, d2, d3) => String.fromCharCode(d1 * 64 + d2 * 8 + d3 * 1)).replaceAll(/&(amp|apos|gt|lt|quot);/g, function (str, name) {
         switch (name) {
           case "amp":
             return "&";
@@ -64321,7 +64319,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.3.335";
+    const workerVersion = "6.3.351";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }

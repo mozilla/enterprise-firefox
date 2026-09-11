@@ -104,10 +104,6 @@ void ModuleLoadRequest::ModuleLoaded() {
 
   mModuleScript = mLoader->GetFetchedModule(ModuleMapKey(URI(), mModuleType));
 
-  if (FetchInfo()->IsForModulePreload() != mLoadContext->IsPreload()) {
-    FetchInfo()->SetForModulePreload(mLoadContext->IsPreload());
-  }
-
   // A module script fetched during preload can be reused by a normal load whose
   // top-level request never matched a preload entry, so the preload-promotion
   // path never clears the module script's preload flag. Clear it here so the

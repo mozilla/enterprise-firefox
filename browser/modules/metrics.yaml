@@ -2267,21 +2267,18 @@ theme_picker:
       property:
         type: string
         description: >
-          Which setting changed. Only `"theme"` is recorded today.
-          `"appearance"` and `"nativeTheme"` are declared ahead of the
-          appearance and native theme instrumentation.
+          Which setting changed: `"theme"`, `"appearance"`, or `"nativeTheme"`.
       theme_id:
         type: string
         description: >
-          The addon ID of the theme selected. Set on every recorded
-          event, since `property` is always `"theme"` today.
+          The addon ID of the theme selected. Set when `property` is `"theme"`.
       appearance:
         type: string
         description: >
           The appearance mode selected, one of `"light"`, `"dark"`, or
-          `"device"`. Not recorded until `property` can be `"appearance"`.
+          `"device"`. Set when `property` is `"appearance"`.
       native_theme:
         type: boolean
         description: >
-          Whether native theme styling was enabled. Not recorded until
-          `property` can be `"nativeTheme"`.
+          Whether native theme styling was enabled. Set when `property` is
+          `"nativeTheme"`.

@@ -5,6 +5,9 @@ ggml_threadpool_params_match
 ggml_backend_dev_by_type
 ggml_backend_dev_init
 ggml_backend_free
+#ifdef XP_MACOSX
+ggml_backend_metal_disable
+#endif
 llama_attach_threadpool
 llama_chat_apply_template
 llama_context_default_params
@@ -64,3 +67,4 @@ parakeet_capi_transcribe_pcm_batch_json
 parakeet_capi_transcribe_pcm_batch_json_lang
 parakeet_capi_transcribe_pcm_batch_lang
 parakeet_capi_transcribe_pcm_lang
+parakeet_capi_weights_bytes

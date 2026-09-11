@@ -37,6 +37,7 @@
 #  include "libavutil/macros.h"
 #  include "libavutil/pixfmt.h"
 #  include "libavutil/version.h"
+#  include "mozilla/StaticMutex.h"
 #  include "mozilla/StaticPrefs_media.h"
 #  ifdef __linux__
 #    include <sys/sysmacros.h>
@@ -802,7 +803,57 @@ void FFmpegVideoDecoder<LIBAV_VER>::FFmpegVulkanVideoDecoder::InitDrmModifiers(
               (unsigned long long)mDrmModifiers[0]);
 }
 
-static void* sVulkanLib = nullptr;
+// Process-wide loader/instance for physical-device select. Created once;
+// never destroyed (VkPhysicalDevice handles die with the instance).
+// sMutex is per-LIBAV_VER so it cannot guard these; sSharedInstanceMutex
+// does, self-contained within this function.
+static StaticMutex sSharedInstanceMutex;
+static void* sVulkanLib MOZ_GUARDED_BY(sSharedInstanceMutex) = nullptr;
+static VkInstance sSharedInstance MOZ_GUARDED_BY(sSharedInstanceMutex) =
+    VK_NULL_HANDLE;
+static PFN_vkGetInstanceProcAddr sSharedGetInstanceProcAddr
+    MOZ_GUARDED_BY(sSharedInstanceMutex) = nullptr;
+
+static bool EnsureSharedVulkanInstance(
+    VkInstance* aOutInstance, PFN_vkGetInstanceProcAddr* aOutGetProcAddr) {
+  StaticMutexAutoLock lock(sSharedInstanceMutex);
+  if (!sSharedInstance || !sSharedGetInstanceProcAddr) {
+    if (!sVulkanLib) {
+      sVulkanLib = dlopen("libvulkan.so.1", RTLD_LAZY);
+      if (!sVulkanLib) {
+        return false;
+      }
+    }
+    auto getIPA = reinterpret_cast<PFN_vkGetInstanceProcAddr>(
+        dlsym(sVulkanLib, "vkGetInstanceProcAddr"));
+    if (!getIPA) {
+      return false;
+    }
+    auto vkCreateInstance = reinterpret_cast<PFN_vkCreateInstance>(
+        getIPA(nullptr, "vkCreateInstance"));
+    if (!vkCreateInstance) {
+      return false;
+    }
+    VkApplicationInfo appInfo = {};
+    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    appInfo.apiVersion = VK_API_VERSION_1_3;
+    VkInstanceCreateInfo instInfo = {};
+    instInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    instInfo.pApplicationInfo = &appInfo;
+    VkInstance instance = VK_NULL_HANDLE;
+    if (vkCreateInstance(&instInfo, nullptr, &instance) != VK_SUCCESS) {
+      return false;
+    }
+    sSharedInstance = instance;
+    sSharedGetInstanceProcAddr = getIPA;
+  }
+  // Copy out under the lock: callers must not read MOZ_GUARDED_BY statics
+  // after this function returns.
+  *aOutInstance = sSharedInstance;
+  *aOutGetProcAddr = sSharedGetInstanceProcAddr;
+  return true;
+}
+
 static bool sVulkanEnumerated = false;
 static char sCachedVulkanDeviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {};
 static uint32_t sCachedVulkanVendorID = 0;
@@ -897,49 +948,12 @@ bool FFmpegVideoDecoder<LIBAV_VER>::FFmpegVulkanVideoDecoder::
     return true;
   }
 
-  if (!sVulkanLib) {
-    sVulkanLib = dlopen("libvulkan.so.1", RTLD_LAZY);
-    if (!sVulkanLib) {
-      FFMPEGV_LOG("Failed to load libvulkan.so.1");
-      return false;
-    }
-  }
-
-  auto vkGetInstanceProcAddr =
-      (PFN_vkGetInstanceProcAddr)dlsym(sVulkanLib, "vkGetInstanceProcAddr");
-  if (!vkGetInstanceProcAddr) {
-    FFMPEGV_LOG("Failed to get vkGetInstanceProcAddr");
-    return false;
-  }
-
-  auto vkCreateInstance =
-      (PFN_vkCreateInstance)vkGetInstanceProcAddr(nullptr, "vkCreateInstance");
-  if (!vkCreateInstance) {
-    FFMPEGV_LOG("Failed to get vkCreateInstance");
-    return false;
-  }
-
-  VkApplicationInfo appInfo = {};
-  appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  appInfo.apiVersion = VK_API_VERSION_1_3;
-
-  VkInstanceCreateInfo createInfo = {};
-  createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  createInfo.pApplicationInfo = &appInfo;
-
+  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
   VkInstance instance = VK_NULL_HANDLE;
-  if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-    FFMPEGV_LOG("Failed to create Vulkan instance");
+  if (!EnsureSharedVulkanInstance(&instance, &vkGetInstanceProcAddr)) {
+    FFMPEGV_LOG("Failed to create shared Vulkan instance");
     return false;
   }
-
-  auto vkDestroyInstance = (PFN_vkDestroyInstance)vkGetInstanceProcAddr(
-      instance, "vkDestroyInstance");
-  auto destroyInstance = MakeScopeExit([&] {
-    if (vkDestroyInstance && instance) {
-      vkDestroyInstance(instance, nullptr);
-    }
-  });
 
   auto vkEnumeratePhysicalDevices =
       (PFN_vkEnumeratePhysicalDevices)vkGetInstanceProcAddr(

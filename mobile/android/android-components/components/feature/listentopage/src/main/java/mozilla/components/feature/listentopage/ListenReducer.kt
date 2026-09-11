@@ -22,7 +22,12 @@ fun listenReducer(state: ListenState, action: ListenAction): ListenState =
 private fun reduceSession(state: ListenState, action: ListenAction.Session): ListenState =
     when (action) {
         is ListenAction.Session.ListenRequested -> {
-            ListenState(tabId = action.tabId, url = action.url, voiceState = VoiceState())
+            ListenState(
+                tabId = action.tabId,
+                url = action.url,
+                languageTag = state.languageTag,
+                voiceState = state.voiceState,
+            )
         }
 
         ListenAction.Session.StopRequested -> {
@@ -32,7 +37,12 @@ private fun reduceSession(state: ListenState, action: ListenAction.Session): Lis
 
 private fun reduceContent(state: ListenState, action: ListenAction.Content): ListenState =
     when (action) {
-        is ListenAction.Content.ContentReady -> state.copy(languageTag = action.languageTag)
+        is ListenAction.Content.ContentReady ->
+            if (action.languageTag == state.languageTag) {
+                state
+            } else {
+                state.copy(languageTag = action.languageTag, voiceState = VoiceState())
+            }
 
         ListenAction.Content.ContentUnavailable -> state.copy(error = ListenError.ContentUnavailable)
     }
@@ -42,7 +52,10 @@ private fun reduceVoices(state: ListenState, action: ListenAction.Voices): Liste
         is ListenAction.Voices.VoiceSelected ->
             state.copy(voiceState = state.voiceState.copy(selectedVoice = action.voice))
         is ListenAction.Voices.AvailableVoicesLoaded ->
-            state.copy(voiceState = state.voiceState.copy(availableVoices = action.voices))
+            state.copy(
+                voiceState =
+                    state.voiceState.copy(availableVoices = action.voices, selectedVoice = action.selectedVoice)
+            )
 
         ListenAction.Voices.NoOfflineVoicesAvailable -> state.copy(error = ListenError.NoOfflineVoice)
     }

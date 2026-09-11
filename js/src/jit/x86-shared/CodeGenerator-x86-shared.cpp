@@ -1593,7 +1593,16 @@ void CodeGenerator::visitBitOpI(LBitOpI* ins) {
       break;
     case JSOp::BitAnd:
       if (rhs->isConstant()) {
-        masm.andl(Imm32(ToInt32(rhs)), lhs);
+        int32_t mask = ToInt32(rhs);
+        if (mask == 0xffff) {
+          masm.movzwl(lhs, lhs);
+        } else if (mask == 0xff &&
+                   AllocatableGeneralRegisterSet(Registers::SingleByteRegs)
+                       .has(lhs)) {
+          masm.movzbl(lhs, lhs);
+        } else {
+          masm.andl(Imm32(mask), lhs);
+        }
       } else {
         masm.andl(ToOperand(rhs), lhs);
       }

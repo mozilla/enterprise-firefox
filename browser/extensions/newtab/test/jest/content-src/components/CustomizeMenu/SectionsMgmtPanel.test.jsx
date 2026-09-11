@@ -38,7 +38,6 @@ describe("<SectionsMgmtPanel>", () => {
       <WrapWithProvider state={STATE_WITH_SECTIONS}>
         <SectionsMgmtPanel
           pocketEnabled={true}
-          onSubpanelToggle={jest.fn()}
           togglePanel={jest.fn()}
           showPanel={false}
         />
@@ -52,7 +51,6 @@ describe("<SectionsMgmtPanel>", () => {
       <WrapWithProvider state={STATE_WITH_SECTIONS}>
         <SectionsMgmtPanel
           pocketEnabled={true}
-          onSubpanelToggle={jest.fn()}
           togglePanel={jest.fn()}
           showPanel={true}
           novaEnabled={true}

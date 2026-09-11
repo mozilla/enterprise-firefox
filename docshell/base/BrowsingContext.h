@@ -1519,8 +1519,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
                       ContentParent* aSource);
   bool CanSet(FieldIndex<IDX_FullscreenAllowedByOwner>, const bool&,
               ContentParent*);
-  bool CanSet(FieldIndex<IDX_WatchedByDevToolsInternal>,
-              const bool& aWatchedByDevToolsInternal, ContentParent* aSource);
+  CanSetResult CanSet(FieldIndex<IDX_WatchedByDevToolsInternal>,
+                      const bool& aWatchedByDevToolsInternal,
+                      ContentParent* aSource);
 
   CanSetResult CanSet(FieldIndex<IDX_DefaultLoadFlags>,
                       const uint32_t& aDefaultLoadFlags,

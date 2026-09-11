@@ -113,9 +113,12 @@ add_setup(async () => {
   await addTestEngines();
 
   Services.prefs.setBoolPref("keyword.enabled", true);
-  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
   Services.prefs.setBoolPref(
-    "browser.search.separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.enabled",
+    true
+  );
+  Services.prefs.setBoolPref(
+    "browser.search.separatePrivateDefault.featureGate",
     true
   );
 

@@ -305,8 +305,11 @@ panelview {
     --panel-padding: var(--panel-subview-body-padding);
     --panel-box-shadow-margin: inherit;
     --menuitem-border-radius: var(--panel-menuitem-border-radius);
-    --menuitem-padding: var(--panel-menuitem-padding);
+    --menuitem-padding-block: var(--panel-menuitem-padding-block);
+    --menuitem-padding-inline: var(--panel-menuitem-padding-inline);
     --menuitem-margin: var(--panel-menuitem-margin);
+    --menuitem-text-padding-block: 0px;
+    --menuitem-icon-margin-block: 0px;
   }
 
   menupopup {
@@ -344,8 +347,7 @@ panelview {
   .menu-accel,
   menu::after {
     /* Reset spacing set by menu.css */
-    margin: 0;
-    padding: 0;
+    margin-inline: 0;
   }
 
   menuitem:not(.menuitem-iconic, [image]) > .menu-icon,
@@ -502,7 +504,7 @@ menupopup[emptyplacesresult] > .hide-if-empty-places-result {
  * Target it specifically in this rule to make it the same width
  * as if it was a standard panelview opened from the app menu. */
 #report-broken-site-popup-mainView[mainview] {
-  width: 22.5em;
+  width: 25em;
 }
 
 :where(#customizationui-widget-multiview) panelview:not([extension]) {
@@ -2096,7 +2098,6 @@ toolbarbutton[itemtype="showinactivebutton"] {
 
 #PanelUI-panic-timeframe {
   padding: var(--space-large);
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   border-bottom: var(--border-width) solid var(--panel-separator-color);
 }
 

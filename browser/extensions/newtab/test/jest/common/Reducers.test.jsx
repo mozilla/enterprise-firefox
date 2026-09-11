@@ -44,6 +44,15 @@ describe("RecentSearches reducer", () => {
     expect(next.searches).toEqual(["alpha", "beta"]);
   });
 
+  it("leaves initialized alone for a trending-only update", () => {
+    const next = RecentSearches(INITIAL_STATE.RecentSearches, {
+      type: at.WIDGETS_RECENT_SEARCHES_UPDATE,
+      data: { trending: [] },
+    });
+    expect(next.initialized).toBe(false);
+    expect(next.trending).toEqual([]);
+  });
+
   it("returns the prior state for unrelated actions", () => {
     const prev = INITIAL_STATE.RecentSearches;
     expect(RecentSearches(prev, { type: "SOME_OTHER_ACTION" })).toBe(prev);

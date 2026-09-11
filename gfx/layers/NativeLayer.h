@@ -10,6 +10,7 @@
 #include "mozilla/Range.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/gfx/Types.h"
+#include "mozilla/layers/GpuFence.h"
 #include "mozilla/layers/ScreenshotGrabber.h"
 #include "nsISupportsImpl.h"
 #include "nsRegion.h"
@@ -252,7 +253,7 @@ class NativeLayer {
 
   virtual void AttachExternalImage(wr::RenderTextureHost* aExternalImage) = 0;
 
-  virtual GpuFence* GetGpuFence() = 0;
+  virtual RefPtr<GpuFence> GetGpuFence() = 0;
 
  protected:
   virtual ~NativeLayer() = default;

@@ -54,8 +54,8 @@ add_task(async function test_descriptivePathSearchesKeywords() {
   );
   is(
     await searchQueryFromClick(browser),
-    "best hiking boots reviews wildernessgear cta",
-    "Path keywords come first, then the host's tokens"
+    "wildernessgear cta best hiking boots reviews",
+    "The host's tokens come first, then the path keywords"
   );
   BrowserTestUtils.removeTab(tab);
 });
@@ -80,8 +80,8 @@ add_task(async function test_queryStringAndFragmentNeverSearched() {
   );
   is(
     await searchQueryFromClick(browser),
-    "tents shop wildernessgear cta",
-    "Only the path and host contribute to the query"
+    "shop wildernessgear cta tents",
+    "Only the host and path contribute to the query"
   );
   BrowserTestUtils.removeTab(tab);
 });
@@ -120,7 +120,7 @@ add_task(async function test_mistypedTLDStillRendersSearchButton() {
   );
   is(
     await searchQueryFromClick(browser),
-    "winter deals wildernessgear cta",
+    "wildernessgear cta winter deals",
     "A mistyped TLD still gets a Search button"
   );
   BrowserTestUtils.removeTab(tab);

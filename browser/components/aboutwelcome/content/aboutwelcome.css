@@ -897,6 +897,11 @@ div#feature-callout.hidden {
   width: 100%;
   color: var(--fc-button-background);
 }
+@media (-moz-pref("browser.nova.enabled")) {
+  #feature-callout .screen[pos=callout] .action-checklist .action-checklist-divider {
+    color: var(--fc-button-background-active);
+  }
+}
 #feature-callout .screen[pos=callout] .action-checklist .action-checklist-progress-bar-container {
   display: flex;
   align-items: center;

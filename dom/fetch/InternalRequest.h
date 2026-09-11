@@ -450,9 +450,11 @@ class InternalRequest final : public AtomicSafeRefCounted<InternalRequest> {
   static RequestDestination MapContentPolicyTypeToRequestDestination(
       ExtContentPolicyType aContentPolicyType);
 
- private:
+  // True for content policy types that are only ever legitimately used for
+  // nsDocShell-initiated navigations, never for a fetch() call.
   static bool IsNavigationContentPolicy(nsContentPolicyType aContentPolicyType);
 
+ private:
   static bool IsWorkerContentPolicy(nsContentPolicyType aContentPolicyType);
 
   // It should only be called while there is a service-worker-internal-redirect.

@@ -37,6 +37,10 @@ already_AddRefed<gfx::SourceSurface> GetSourceSurface(layers::Image* aImage);
 
 /**
  * Converts aImage to an I420 image and writes it to the given buffers.
+ *
+ * aDestStrideY must be at least aDestSize.width, and aDestStrideU and
+ * aDestStrideV must be at least ceil(aDestSize.width / 2). Returns
+ * NS_ERROR_INVALID_ARG if any stride is too small.
  */
 nsresult ConvertToI420(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
                        uint8_t* aDestU, int aDestStrideU, uint8_t* aDestV,

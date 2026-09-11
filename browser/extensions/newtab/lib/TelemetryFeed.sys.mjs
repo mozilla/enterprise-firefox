@@ -682,6 +682,10 @@ export class TelemetryFeed {
         tile_id,
         // eslint-disable-next-line no-unused-vars
         topic,
+        // eslint-disable-next-line no-unused-vars
+        variant_id,
+        // eslint-disable-next-line no-unused-vars
+        source_section_id,
         ...result
       } = pingDict;
       result.content_redacted = true;
@@ -695,6 +699,10 @@ export class TelemetryFeed {
       selected_topics,
       // eslint-disable-next-line no-unused-vars
       topic,
+      // eslint-disable-next-line no-unused-vars
+      variant_id,
+      // eslint-disable-next-line no-unused-vars
+      source_section_id,
       ...result
     } = pingDict;
 
@@ -1204,6 +1212,25 @@ export class TelemetryFeed {
         });
         break;
       }
+      case "SHOW_PERSONALIZE": {
+        Glean.newtab.customizePanelOpen.record({
+          newtab_visit_id: session.session_id,
+        });
+        break;
+      }
+      case "SHOW_PERSONALIZE_SUBPANEL": {
+        Glean.newtab.customizePanelSubpanelOpen.record({
+          newtab_visit_id: session.session_id,
+          panel: action.data.source,
+        });
+        break;
+      }
+      case "EXPLORE_MORE_THEMES_CLICK": {
+        Glean.newtab.appearanceExploreMoreThemesClick.record({
+          newtab_visit_id: session.session_id,
+        });
+        break;
+      }
     }
   }
 
@@ -1294,6 +1321,7 @@ export class TelemetryFeed {
       ...item,
       topic: randomItem.topic,
       corpus_item_id: randomItem.corpus_item_id,
+      source_section_id: randomItem.source_section_id ?? randomItem.section,
     };
     // If we're replacing a non top stories item, then assign the appropriate
     // section and layout to the item
@@ -1307,6 +1335,8 @@ export class TelemetryFeed {
       resultItem.layout_name = this.getAllSections().find(
         section => section.sectionKey === randomItem.section
       )?.layout?.name;
+      // variant_id is section-level, so only adopt the swapped item's when we adopt its section.
+      resultItem.variant_id = randomItem.variant_id;
     }
     return resultItem;
   }
@@ -1345,8 +1375,10 @@ export class TelemetryFeed {
           section,
           selected_topics,
           shim,
+          source_section_id,
           tile_id,
           topic,
+          variant_id,
         } = action.data.value ?? {};
 
         if (
@@ -1382,6 +1414,8 @@ export class TelemetryFeed {
             matches_selected_topic,
             selected_topics,
             topic,
+            variant_id,
+            source_section_id: source_section_id ?? section,
             position: action.data.action_position,
             tile_id,
             event_source,
@@ -2729,6 +2763,8 @@ export class TelemetryFeed {
         position: tile.pos,
         tile_id: tile.id,
         topic: tile.topic,
+        variant_id: tile.variant_id,
+        source_section_id: tile.source_section_id ?? tile.section,
         selected_topics: tile.selectedTopics,
         is_list_card: tile.is_list_card,
         // We conditionally add in a few props.

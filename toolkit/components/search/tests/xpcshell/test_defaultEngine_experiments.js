@@ -69,7 +69,11 @@ let defaultGetVariable = name => {
 
 add_setup(async () => {
   Services.prefs.setBoolPref(
-    "browser.search.separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.featureGate",
+    true
+  );
+  Services.prefs.setBoolPref(
+    "browser.search.separatePrivateDefault.enabled",
     true
   );
   Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
@@ -411,7 +415,10 @@ add_task(async function test_experiment_setting_user_changed_to_other_during() {
 });
 
 add_task(async function test_experiment_setting_user_hid_app_default_during() {
-  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", false);
+  Services.prefs.setBoolPref(
+    "browser.search.separatePrivateDefault.enabled",
+    false
+  );
   await SearchService.setDefault(
     SearchService.getEngineByName("engine1"),
     SearchService.CHANGE_REASON.UNKNOWN

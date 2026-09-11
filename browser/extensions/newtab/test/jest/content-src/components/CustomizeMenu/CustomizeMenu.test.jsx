@@ -1,7 +1,9 @@
 import React from "react";
-import { render, act } from "@testing-library/react";
+import { render, act, waitFor } from "@testing-library/react";
 import { WrapWithProvider } from "test/jest/test-utils";
 import { _CustomizeMenu as CustomizeMenu } from "content-src/components/CustomizeMenu/CustomizeMenu";
+import { CUSTOMIZE_SUBPANELS } from "content-src/lib/constants";
+import { actionCreators as ac } from "common/Actions.mjs";
 
 const DEFAULT_PROPS = {
   dispatch: jest.fn(),
@@ -36,9 +38,9 @@ const DEFAULT_PROPS = {
   mayHaveTimerWidget: false,
   mayHaveListsWidget: false,
   toggleSectionsMgmtPanel: jest.fn(),
-  showSectionsMgmtPanel: false,
+  activeSubpanel: null,
   toggleWidgetsManagementPanel: jest.fn(),
-  showWidgetsManagementPanel: false,
+  toggleThemesPanel: jest.fn(),
   closeSubpanels: jest.fn(),
   Prefs: { values: {} },
 };
@@ -46,6 +48,11 @@ const DEFAULT_PROPS = {
 const NOVA_PROPS = {
   ...DEFAULT_PROPS,
   Prefs: { values: { "nova.enabled": true } },
+};
+
+const BROWSER_NOVA_PROPS = {
+  ...DEFAULT_PROPS,
+  Prefs: { values: { browserNovaEnabled: true } },
 };
 
 describe("<CustomizeMenu>", () => {
@@ -116,11 +123,7 @@ describe("<CustomizeMenu>", () => {
   it("threads browserNovaEnabled from Prefs.values to ContentSection (renders the theme-picker)", () => {
     const { container } = render(
       <WrapWithProvider>
-        <CustomizeMenu
-          {...DEFAULT_PROPS}
-          showing={true}
-          Prefs={{ values: { browserNovaEnabled: true } }}
-        />
+        <CustomizeMenu {...BROWSER_NOVA_PROPS} showing={true} />
       </WrapWithProvider>
     );
     expect(container.querySelector("theme-picker")).toBeInTheDocument();
@@ -131,24 +134,24 @@ describe("<CustomizeMenu>", () => {
     HTMLDialogElement.prototype.showModal = jest.fn();
     HTMLDialogElement.prototype.close = jest.fn();
     const closeSubpanels = jest.fn();
-    const ref = React.createRef();
     const props = { ...NOVA_PROPS, closeSubpanels };
 
     const { container, rerender } = render(
       <WrapWithProvider>
-        <CustomizeMenu {...props} showing={false} ref={ref} />
+        <CustomizeMenu {...props} showing={false} />
       </WrapWithProvider>
     );
     rerender(
       <WrapWithProvider>
-        <CustomizeMenu {...props} showing={true} ref={ref} />
+        <CustomizeMenu
+          {...props}
+          showing={true}
+          activeSubpanel={CUSTOMIZE_SUBPANELS.THEMES}
+        />
       </WrapWithProvider>
     );
     act(() => {
       jest.advanceTimersByTime(250);
-    });
-    act(() => {
-      ref.current.onSubpanelToggle(true);
     });
     expect(container.querySelector(".customize-menu-content")).toHaveClass(
       "subpanel-open"
@@ -156,7 +159,11 @@ describe("<CustomizeMenu>", () => {
 
     rerender(
       <WrapWithProvider>
-        <CustomizeMenu {...props} showing={false} ref={ref} />
+        <CustomizeMenu
+          {...props}
+          showing={false}
+          activeSubpanel={CUSTOMIZE_SUBPANELS.THEMES}
+        />
       </WrapWithProvider>
     );
     expect(closeSubpanels).not.toHaveBeenCalled();
@@ -165,8 +172,227 @@ describe("<CustomizeMenu>", () => {
     });
 
     expect(closeSubpanels).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the content as subpanel-open from the activeSubpanel prop", () => {
+    const { container, rerender } = render(
+      <WrapWithProvider>
+        <CustomizeMenu
+          {...DEFAULT_PROPS}
+          showing={true}
+          activeSubpanel={null}
+        />
+      </WrapWithProvider>
+    );
     expect(container.querySelector(".customize-menu-content")).not.toHaveClass(
       "subpanel-open"
     );
+    rerender(
+      <WrapWithProvider>
+        <CustomizeMenu
+          {...DEFAULT_PROPS}
+          showing={true}
+          activeSubpanel={CUSTOMIZE_SUBPANELS.THEMES}
+        />
+      </WrapWithProvider>
+    );
+    expect(container.querySelector(".customize-menu-content")).toHaveClass(
+      "subpanel-open"
+    );
+  });
+
+  it("records the panel and subpanel opening", () => {
+    const dispatch = jest.fn();
+    HTMLDialogElement.prototype.showModal = jest.fn();
+    HTMLDialogElement.prototype.close = jest.fn();
+    const props = { ...DEFAULT_PROPS, dispatch, activeSubpanel: null };
+    const { rerender } = render(
+      <WrapWithProvider>
+        <CustomizeMenu {...props} showing={false} />
+      </WrapWithProvider>
+    );
+    rerender(
+      <WrapWithProvider>
+        <CustomizeMenu {...props} showing={true} />
+      </WrapWithProvider>
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      ac.UserEvent({ event: "SHOW_PERSONALIZE" })
+    );
+    rerender(
+      <WrapWithProvider>
+        <CustomizeMenu
+          {...props}
+          showing={true}
+          activeSubpanel={CUSTOMIZE_SUBPANELS.THEMES}
+        />
+      </WrapWithProvider>
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      ac.UserEvent({
+        event: "SHOW_PERSONALIZE_SUBPANEL",
+        source: CUSTOMIZE_SUBPANELS.THEMES,
+      })
+    );
+    expect(dispatch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not record a panel open on a mount that is already showing with a subpanel active", () => {
+    const dispatch = jest.fn();
+    HTMLDialogElement.prototype.showModal = jest.fn();
+    HTMLDialogElement.prototype.close = jest.fn();
+    render(
+      <WrapWithProvider>
+        <CustomizeMenu
+          {...DEFAULT_PROPS}
+          dispatch={dispatch}
+          showing={true}
+          activeSubpanel={CUSTOMIZE_SUBPANELS.WIDGETS}
+        />
+      </WrapWithProvider>
+    );
+    expect(dispatch).not.toHaveBeenCalledWith(
+      ac.UserEvent({ event: "SHOW_PERSONALIZE" })
+    );
+    expect(dispatch).not.toHaveBeenCalledWith(
+      ac.UserEvent({
+        event: "SHOW_PERSONALIZE_SUBPANEL",
+        source: CUSTOMIZE_SUBPANELS.WIDGETS,
+      })
+    );
+  });
+
+  describe("theme picker shown()", () => {
+    const shownLayouts = [];
+    beforeAll(() => {
+      // Custom elements stay registered for the rest of this file. The stub
+      // exposes `layout` as a property, as the lit element does, so React
+      // sets it as a property rather than an attribute.
+      customElements.define(
+        "theme-picker",
+        class extends HTMLElement {
+          get layout() {
+            return this._layout ?? this.getAttribute("layout");
+          }
+          set layout(value) {
+            this._layout = value;
+          }
+          shown() {
+            shownLayouts.push(this.layout);
+          }
+        }
+      );
+    });
+    beforeEach(() => {
+      shownLayouts.length = 0;
+      HTMLDialogElement.prototype.showModal = jest.fn();
+      HTMLDialogElement.prototype.close = jest.fn();
+    });
+
+    it("notifies the compact picker when the panel opens", async () => {
+      const { rerender } = render(
+        <WrapWithProvider>
+          <CustomizeMenu {...BROWSER_NOVA_PROPS} showing={false} />
+        </WrapWithProvider>
+      );
+      rerender(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            activeSubpanel={null}
+          />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["compact"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["compact"]);
+    });
+
+    it("notifies the compact picker when mounted already showing", async () => {
+      render(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            activeSubpanel={null}
+          />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["compact"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["compact"]);
+    });
+
+    it("notifies the full picker when the themes subpanel opens", async () => {
+      const { rerender } = render(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            activeSubpanel={null}
+          />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["compact"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["compact"]);
+      rerender(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            activeSubpanel={CUSTOMIZE_SUBPANELS.THEMES}
+          />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["compact", "full"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["compact", "full"]);
+    });
+
+    it("notifies the compact picker again when a subpanel closes back to the root", async () => {
+      const { rerender } = render(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            activeSubpanel={CUSTOMIZE_SUBPANELS.THEMES}
+          />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["full"]));
+      rerender(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            activeSubpanel={null}
+          />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["full", "compact"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["full", "compact"]);
+    });
+
+    it("notifies nothing when the panel opens straight into a subpanel", async () => {
+      const { rerender } = render(
+        <WrapWithProvider>
+          <CustomizeMenu {...BROWSER_NOVA_PROPS} showing={false} />
+        </WrapWithProvider>
+      );
+      rerender(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            activeSubpanel={CUSTOMIZE_SUBPANELS.WIDGETS}
+          />
+        </WrapWithProvider>
+      );
+      await act(async () => {});
+      expect(shownLayouts).toEqual([]);
+    });
   });
 });

@@ -17,7 +17,6 @@ transforms:
     - gecko_taskgraph.transforms.task:transforms
 
 task-defaults:
-    run-on-repo-type: [hg]
     index:
         product: firefox
     treeherder:
@@ -34,7 +33,6 @@ task-defaults:
             MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE: system
             USE_ARTIFACT: '1'
     run:
-        clone-with: hg
         using: mozharness
         actions: [get-secrets, build]
         config:

@@ -2522,95 +2522,6 @@
     ],
     "bug_numbers": [1762374, 1830058]
   },
-  "SERVICE_WORKER_LAUNCH_TIME_2": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "bug_numbers": [1328398, 1693074],
-    "kind": "exponential",
-    "high": 30000,
-    "n_buckets": 25,
-    "releaseChannelCollection": "opt-out",
-    "alert_emails": ["sw-telemetry@mozilla.com", "echuang@mozilla.com"],
-    "description": "Time (ms) for spawning a service worker in the remote content process."
-  },
-  "SERVICE_WORKER_ISOLATED_LAUNCH_TIME": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "bug_numbers": [1740335],
-    "kind": "exponential",
-    "high": 30000,
-    "n_buckets": 25,
-    "releaseChannelCollection": "opt-out",
-    "alert_emails": [
-      "sw-telemetry@mozilla.com",
-      "rjesup@mozilla.com",
-      "echuang@mozilla.com"
-    ],
-    "description": "Time (ms) for spawning a service worker in an isolated content process."
-  },
-  "SERVICE_WORKER_REGISTRATION_LOADING": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 5000,
-    "n_buckets": 20,
-    "description": "Tracking how ServiceWorkerRegistrar loads data before the first content is shown. File bugs in Core::DOM in case of a Telemetry regression."
-  },
-  "SERVICE_WORKER_FETCH_INTERCEPTION_DURATION_MS_2": {
-    "expires_in_version": "never",
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "kind": "exponential",
-    "bug_numbers": [1359610, 1433916, 1693074],
-    "high": 60000,
-    "keyed": true,
-    "n_buckets": 25,
-    "releaseChannelCollection": "opt-out",
-    "alert_emails": ["sw-telemetry@mozilla.com"],
-    "description": "Time delta (ms) between when a network request is intercepted in the parent process and the service worker provides a response."
-  },
-  "SERVICE_WORKER_FETCH_EVENT_DISPATCH_MS_2": {
-    "expires_in_version": "never",
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "bug_numbers": [1359610, 1433916, 1693074],
-    "kind": "exponential",
-    "high": 5000,
-    "n_buckets": 25,
-    "keyed": true,
-    "releaseChannelCollection": "opt-out",
-    "alert_emails": ["sw-telemetry@mozilla.com", "echuang@mozilla.com"],
-    "description": "Time (in ms) measured between when the fetch event is dispatched by the Service Worker and before we execute the event listeners."
-  },
-  "SERVICE_WORKER_FETCH_EVENT_FINISH_SYNTHESIZED_RESPONSE_MS_2": {
-    "expires_in_version": "never",
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "bug_numbers": [1359610, 1433916, 1693074],
-    "kind": "exponential",
-    "high": 5000,
-    "n_buckets": 25,
-    "keyed": true,
-    "releaseChannelCollection": "opt-out",
-    "alert_emails": ["sw-telemetry@mozilla.com", "echuang@mozilla.com"],
-    "description": "Time (in ms) measured between when the respondWith promise resolves and when we provide the response through the intercepted channel."
-  },
-  "SERVICE_WORKER_FETCH_EVENT_CHANNEL_RESET_MS_2": {
-    "expires_in_version": "never",
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "bug_numbers": [1359610, 1433916, 1693074],
-    "kind": "exponential",
-    "high": 5000,
-    "n_buckets": 25,
-    "keyed": true,
-    "releaseChannelCollection": "opt-out",
-    "alert_emails": ["sw-telemetry@mozilla.com", "echuang@mozilla.com"],
-    "description": "Time (in ms) measured between when the fetch handler finished executing and when we reset the network channel."
-  },
   "SUBPROCESS_ABNORMAL_ABORT": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -2995,50 +2906,6 @@
     "releaseChannelCollection": "opt-out",
     "description": "Elapsed time to detect whether a <form> element is a signup form."
   },
-  "SERVICE_WORKER_SPAWN_GETS_QUEUED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["amarchesini@mozilla.com"],
-    "bug_numbers": [1286895],
-    "expires_in_version": "never",
-    "kind": "count",
-    "description": "Tracking whether a ServiceWorker spawn gets queued due to hitting max workers per domain limit. File bugs in Core::DOM in case of a Telemetry regression."
-  },
-  "SHARED_WORKER_SPAWN_GETS_QUEUED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["amarchesini@mozilla.com"],
-    "bug_numbers": [1286895],
-    "expires_in_version": "never",
-    "kind": "count",
-    "description": "Tracking whether a SharedWorker spawn gets queued due to hitting max workers per domain limit. File bugs in Core::DOM in case of a Telemetry regression."
-  },
-  "DEDICATED_WORKER_SPAWN_GETS_QUEUED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["amarchesini@mozilla.com"],
-    "bug_numbers": [1286895],
-    "expires_in_version": "never",
-    "kind": "count",
-    "description": "Tracking whether a DedicatedWorker spawn gets queued due to hitting max workers per domain limit. File bugs in Core::DOM in case of a Telemetry regression."
-  },
-  "SERVICE_WORKER_RUNNING": {
-    "record_in_processes": ["main"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "linear",
-    "high": 31,
-    "n_buckets": 30,
-    "keyed": true,
-    "keys": ["All", "Fetch"],
-    "bug_numbers": [1740335],
-    "alert_emails": [
-      "sw-telemetry@mozilla.com",
-      "rjesup@mozilla.com",
-      "echuang@mozilla.com"
-    ],
-    "description": "The sampled number of simultaneous running ServiceWorkers in a session, sampled once each 10 seconds (lazily on state change)"
-  },
   "GRAPHICS_SANITY_TEST": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -3306,18 +3173,6 @@
     "n_values": 50,
     "bug_numbers": [1368600],
     "description": "Error code when a Windows sandboxed process fails to launch, keyed by process type and Windows error code. See https://searchfox.org/mozilla-central/search?q=ResultCode++path%3Asandbox_types.h&redirect=true for definitions of the error codes."
-  },
-  "SYNC_WORKER_OPERATION": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["amarchesini@mozilla.com", "khuey@mozilla.com"],
-    "bug_numbers": [1267904],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 5000,
-    "n_buckets": 20,
-    "keyed": true,
-    "description": "Tracking how long a Worker thread is blocked when a sync operation is executed on the main-thread."
   },
   "SUBPROCESS_KILL_HARD": {
     "record_in_processes": ["main", "content"],

@@ -574,7 +574,7 @@ describe("<Widgets> row-collapsed attribute", () => {
 });
 
 describe("<Widgets> manage widgets menu item", () => {
-  it("calls openWidgetsPanel and dispatches SHOW_PERSONALIZE when clicked", () => {
+  it("calls openWidgetsPanel when clicked", () => {
     const novaState = {
       ...ENABLED_STATE,
       Prefs: {
@@ -586,7 +586,6 @@ describe("<Widgets> manage widgets menu item", () => {
       },
     };
     const store = createStore(combineReducers(reducers), novaState);
-    jest.spyOn(store, "dispatch");
     const openWidgetsPanel = jest.fn();
     const { container } = render(
       <Provider store={store}>
@@ -601,12 +600,6 @@ describe("<Widgets> manage widgets menu item", () => {
     expect(manageItem).toBeInTheDocument();
     fireEvent.click(manageItem);
     expect(openWidgetsPanel).toHaveBeenCalledTimes(1);
-    expect(store.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: at.TELEMETRY_USER_EVENT,
-        data: expect.objectContaining({ event: "SHOW_PERSONALIZE" }),
-      })
-    );
   });
 });
 

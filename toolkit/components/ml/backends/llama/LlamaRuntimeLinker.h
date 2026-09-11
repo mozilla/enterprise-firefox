@@ -14,6 +14,13 @@ struct PRLibrary;
 
 namespace mozilla::llama {
 
+#ifdef XP_MACOSX
+#  define MOZINFERENCE_METAL_FUNCTION_LIST(X) \
+    X(void, ggml_backend_metal_disable, (void))
+#else
+#  define MOZINFERENCE_METAL_FUNCTION_LIST(X)
+#endif
+
 // Format: X(return_type, name, params)
 #define MOZINFERENCE_FUNCTION_LIST(X)                                          \
   X(void, llama_log_set,                                                       \
@@ -93,6 +100,7 @@ namespace mozilla::llama {
   /* mudler/parakeet.cpp cache-aware streaming C-API */                        \
   X(parakeet_ctx*, parakeet_capi_load_fd, (int fd))                            \
   X(void, parakeet_capi_free, (parakeet_ctx * ctx))                            \
+  X(size_t, parakeet_capi_weights_bytes, (const parakeet_ctx* ctx))            \
   X(parakeet_stream*, parakeet_capi_stream_begin_lang,                         \
     (parakeet_ctx * ctx, const char* target_lang))                             \
   X(char*, parakeet_capi_stream_feed,                                          \
@@ -102,7 +110,8 @@ namespace mozilla::llama {
     (parakeet_stream * s, parakeet_stream_word * *out_words))                  \
   X(void, parakeet_capi_free_words, (parakeet_stream_word * words, int count)) \
   X(void, parakeet_capi_stream_free, (parakeet_stream * s))                    \
-  X(void, parakeet_capi_free_string, (char* s))
+  X(void, parakeet_capi_free_string, (char* s))                                \
+  MOZINFERENCE_METAL_FUNCTION_LIST(X)
 
 struct LlamaLibWrapper {
   LlamaLibWrapper() = default;

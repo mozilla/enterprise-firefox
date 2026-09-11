@@ -7,10 +7,12 @@ support-files = [
   "head.js",
   "hello.ogg",
   "hello.ogg^headers^",
-  # One minute excerpt from
+  # Excerpt from
   # https://www.jfklibrary.org/learn/about-jfk/historic-speeches/address-at-rice-university-on-the-nations-space-effort,
-  # public domain speech that isn't too clean and contains a few proper names.
+  # public domain speech that isn't too clean. transcript.txt is what is said
+  # in it, for tests that check recognition quality.
   "kennedy-appolo.opus",
+  "transcript.txt",
   # Two pangrams separated by ~4s of silence, recorded for
   # test_parakeet_eou_flush.html. Original recording, no third-party rights.
   "pangrams.opus",
@@ -70,6 +72,16 @@ subsuite = "speech-recognition"
 tags = "mtg parakeet-asr"
 # Audio capture doesn't produce real signal under Wayland in CI, so
 # recognition always returns an empty transcript there.
+skip-if = [
+  "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && display == 'wayland'", # Bug 2053116
+  "verify", # skip under test-verify: it runs outside the subsuite, so serve_model.py (the model hub) is never started
+]
+
+["test_parakeet_memory_reporter.html"]
+subsuite = "speech-recognition"
+tags = "mtg parakeet-asr"
+# Audio capture doesn't produce real signal under Wayland in CI, so a session
+# never reaches "audiostart" there.
 skip-if = [
   "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && display == 'wayland'", # Bug 2053116
   "verify", # skip under test-verify: it runs outside the subsuite, so serve_model.py (the model hub) is never started

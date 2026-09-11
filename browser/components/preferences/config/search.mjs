@@ -36,8 +36,8 @@ Preferences.addAll([
   { id: "browser.urlbar.showSearchSuggestionsFirst", type: "bool" },
   { id: "browser.urlbar.showSearchTerms.enabled", type: "bool" },
   { id: "browser.urlbar.showSearchTerms.featureGate", type: "bool" },
-  { id: "browser.search.separatePrivateDefault", type: "bool" },
-  { id: "browser.search.separatePrivateDefault.ui.enabled", type: "bool" },
+  { id: "browser.search.separatePrivateDefault.enabled", type: "bool" },
+  { id: "browser.search.separatePrivateDefault.featureGate", type: "bool" },
   { id: "browser.urlbar.suggest.trending", type: "bool" },
   { id: "browser.urlbar.trending.featureGate", type: "bool" },
   { id: "browser.urlbar.recentsearches.featureGate", type: "bool" },
@@ -217,12 +217,12 @@ Preferences.addSetting({
 
 Preferences.addSetting({
   id: "separatePrivateDefaultUI",
-  pref: "browser.search.separatePrivateDefault.ui.enabled",
+  pref: "browser.search.separatePrivateDefault.featureGate",
 });
 
 Preferences.addSetting({
   id: "browserSeparateDefaultEngine",
-  pref: "browser.search.separatePrivateDefault",
+  pref: "browser.search.separatePrivateDefault.enabled",
   deps: ["separatePrivateDefaultUI"],
   visible: ({ separatePrivateDefaultUI }) => {
     return separatePrivateDefaultUI.value;

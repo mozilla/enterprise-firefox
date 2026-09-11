@@ -556,9 +556,10 @@ nsresult ScriptLoader::CheckContentPolicy(nsIScriptElement* aElement,
   nsContentPolicyType contentPolicyType =
       ScriptLoadRequestToContentPolicyType(aRequest);
 
-  nsCOMPtr<nsINode> requestingNode;
-  if (aElement) {
-    requestingNode = do_QueryInterface(aElement);
+  nsCOMPtr<nsINode> requestingNode = do_QueryInterface(aElement);
+  if (!requestingNode) {
+    MOZ_ASSERT(aRequest->IsModuleRequest());
+    requestingNode = mDocument;
   }
   nsCOMPtr<nsILoadInfo> secCheckLoadInfo = MOZ_TRY(net::LoadInfo::Create(
       mDocument->NodePrincipal(),  // loading principal

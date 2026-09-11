@@ -796,19 +796,19 @@
           "menu": {
             "Light": "{button/background/color/ghost}",
             "Dark": "{button/background/color/ghost}",
-            "HCM": "{button/background/color}",
+            "HCM": "{Menu}",
             "Private": "{button/background/color/ghost}",
             "hover": {
               "Light": "{button/background/color/ghost/hover}",
               "Dark": "{button/background/color/ghost/hover}",
-              "HCM": "{button/background/color/primary}",
+              "HCM": "{-moz-menuhover}",
               "Private": "{button/background/color/ghost/hover}",
               "Smart Light (WIP)": "{button/background/color/ghost/hover}"
             },
             "active": {
               "Light": "{button/background/color/ghost/active}",
               "Dark": "{button/background/color/ghost/active}",
-              "HCM": "{button/background/color/primary}",
+              "HCM": "{button/background/color/menu/hover}",
               "Private": "{button/background/color/ghost/active}",
               "Smart Light (WIP)": "{button/background/color/ghost/active}"
             },
@@ -1185,19 +1185,19 @@
           "menu": {
             "Light": "{button/text/color/ghost}",
             "Dark": "{button/text/color/ghost}",
-            "HCM": "{button/text/color/ghost}",
+            "HCM": "{MenuText}",
             "Private": "{button/text/color/ghost}",
             "hover": {
               "Light": "{button/text/color/ghost/hover}",
               "Dark": "{button/text/color/hover}",
-              "HCM": "{button/text/color/primary}",
+              "HCM": "{-moz-menuhovertext}",
               "Private": "{button/text/color/hover}",
               "Smart Light (WIP)": "{button/text/color/ghost/hover}"
             },
             "active": {
               "Light": "{button/text/color/ghost/active}",
               "Dark": "{button/text/color/active}",
-              "HCM": "{button/text/color/primary/active}",
+              "HCM": "{button/text/color/menu/hover}",
               "Private": "{button/text/color/active}",
               "Smart Light (WIP)": "{button/text/color/ghost/active}"
             },
