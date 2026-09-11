@@ -1,0 +1,76 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - taskgraph.transforms.from_deps
+    - gecko_taskgraph.transforms.enterprise_release_push
+    - gecko_taskgraph.transforms.job
+    - gecko_taskgraph.transforms.task
+
+kind-dependencies:
+    - enterprise-release-definition
+    - toolchain
+
+task-defaults:
+    description: "Stage a Firefox Enterprise OCI release in the registry (by digest)."
+    run-on-projects: [enterprise-firefox]
+    shipping-product: firefox-enterprise
+    shipping-phase: push
+    attributes:
+        shippable: true
+    from-deps:
+        # `fetch` is a kind-dependency only so the moa fetch artifact resolves;
+        # restrict the fan-out to the per-console release-definition tasks.
+        kinds:
+            - enterprise-release-definition
+        group-by: single
+    worker-type: b-linux
+    worker:
+        docker-image: {in-tree: lint}
+        max-run-time: 3600
+        taskcluster-proxy: true
+        artifacts:
+            # The resulting OCI index digest, handed off to the ship task.
+            - type: file
+              name: public/build/release-index.json
+              path: /builds/worker/artifacts/release-index.json
+        env:
+            # The OCI reference to stage the image under (registry/repo, no
+            # tag). Defaults to the dev registry so try and pull-request pushes
+            # cannot reach a partner registry; elsewhere the
+            # enterprise_release_push transform replaces it per partner repack,
+            # from the registry_reference entry of its repack.cfg. That
+            # transform also sets REGISTRY_SECRET, named after whichever
+            # repository the reference points at.
+            REGISTRY_REFERENCE: harbor.stage.fx-enterprise.nonprod.webservices.mozgcp.net/enterprise-shipit-dev/firefox
+    scopes:
+        # `{name}` is the repository of REGISTRY_REFERENCE with its slashes
+        # flattened; the transform renders it (see its SECRET_PATH).
+        - secrets:get:project/enterprise/level-{level}/oci-registry/{name}
+        # moa downloads the (private) enterprise repack artifacts referenced by
+        # the release definition.
+        # TODO: Re-enable - queue:get-artifact:project/enterprise/repacks/*
+    run:
+        using: run-task
+        checkout: true
+        cwd: "{checkout}"
+        command: >-
+            bash taskcluster/scripts/push-enterprise-release.sh
+    fetches:
+        enterprise-release-definition:
+            # Path is relative to the dependency's artifact prefix (public/build).
+            - artifact: release-definition.json
+              extract: false
+        toolchain:
+            - linux64-mozilla-oci-artifacts-cli
+    treeherder:
+        symbol: "Ent(push)"
+        kind: other
+        tier: 1
+        platform: firefox-release-enterprise/opt
+
+tasks:
+    push: {}

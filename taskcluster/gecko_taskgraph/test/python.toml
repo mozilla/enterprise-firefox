@@ -45,6 +45,8 @@ subsuite = "taskgraph"
 
 ["test_util_partials.py"]
 
+["test_util_partners.py"]
+
 ["test_util_runnable_jobs.py"]
 
 ["test_util_templates.py"]

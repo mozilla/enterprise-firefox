@@ -431,12 +431,22 @@ class RepackBase:
     def doRepack(self):
         self.announceStart()
         os.chdir(self.working_dir)
+        log.info("START [self.unpackBuild(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
         self.unpackBuild()
+        log.info("END [self.unpackBuild(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
+        log.info("START [self.copyFiles(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
         self.copyFiles()
+        log.info("END [self.copyFiles(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
+        log.info("START [self.repackBuild(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
         self.repackBuild()
+        log.info("END [self.repackBuild(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
+        log.info("START [self.stage(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
         self.stage()
         os.chdir(self.base_dir)
+        log.info("END [self.stage(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
+        log.info("START [self.rmRecursive(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
         rmdirRecursive(self.working_dir)
+        log.info("END [self.rmRecursive(] %s %s build %s"% (self.ftp_platform, self.locale, self.build))
         self.announceSuccess()
 
 
@@ -465,7 +475,7 @@ class RepackLinux(RepackBase):
     def unpackBuild(self):
         super().unpackBuild()
         target_path = Path(self.uncompressed_build)
-        unpack_cmd = f"xz -c -d {self.build} > {target_path.absolute()}"
+        unpack_cmd = f"xz -c -T0 -d {self.build} > {target_path.absolute()}"
         shellCommand(unpack_cmd)
         if not target_path.exists():
             log.error(
@@ -483,7 +493,7 @@ class RepackLinux(RepackBase):
             tar_flags = "rvf"
         tar_cmd = "tar %s %s %s" % (tar_flags, self.uncompressed_build, self.dest_dir)
         shellCommand(tar_cmd)
-        compress_cmd = "xz -f -z -e -9 %s" % self.uncompressed_build
+        compress_cmd = "xz -f -z -e -9 -T0 --block-size=16MiB %s" % self.uncompressed_build
         shellCommand(compress_cmd)
 
 

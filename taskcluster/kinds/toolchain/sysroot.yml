@@ -228,6 +228,24 @@ linux64-toolchain-sysroot:
             # For socorro-cli
             - libdbus-1-dev
 
+linux64-toolchain-sysroot-deb12:
+    # Unlike the sysroots above, this one is bootstrapped from bookworm rather
+    # than jessie, so that it carries OpenSSL 3.x. Toolchains whose crates use
+    # openssl-sys need it, as that crate rejects jessie's OpenSSL 1.0.1. The
+    # tradeoff is a glibc 2.36 baseline instead of 2.19, so prefer the jessie
+    # sysroots for anything that does not need it.
+    description: "Debian 12 sysroot for linux64 toolchain builds needing OpenSSL 3"
+    worker:
+        env:
+            DIST: bookworm
+    treeherder:
+        symbol: TL(sysroot-toolchain-deb12)
+    run:
+        arguments:
+            - amd64
+            # For mozilla-oci-artifacts-cli
+            - libssl-dev
+
 linux64-toolchain-sysroot-gcc10:
     description: "Sysroot for linux64 toolchain builds"
     worker:

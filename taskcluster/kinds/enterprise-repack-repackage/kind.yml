@@ -34,6 +34,7 @@ tasks:
     enterprise-repack-repackage:
         from-deps:
             group-by: single-with-filters
+        shipping-phase: promote
         upstream-mac-kind:
             by-build-platform:
                 macosx64-enterprise:
