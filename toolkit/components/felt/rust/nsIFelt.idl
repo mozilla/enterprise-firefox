@@ -104,4 +104,7 @@ interface nsIFelt : nsISupports {
 
   [must_use]
   void shutdownFirefox();
+
+  [must_use]
+  void requestUpdateCheck();
 };

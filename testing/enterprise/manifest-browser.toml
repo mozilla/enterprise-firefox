@@ -55,6 +55,8 @@ run-if = [
 
 ["test_felt_browser_relaunch_deadline_withdrawn.py"]
 
+["test_felt_browser_relaunch_update_check.py"]
+
 ["test_felt_browser_safe_mode.py"]
 
 ["test_felt_browser_shutdown_crash_exit.py"]

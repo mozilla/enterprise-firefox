@@ -24,7 +24,72 @@ const FELT_UPDATE_APPLY_PERCENT_DOWNLOAD_END = 90;
 const FELT_UPDATE_APPLY_PERCENT_STAGING_END = 100;
 
 export const Updates = {
+  _restartUpdateCheck: null,
+  _restartUpdater: null,
+  _nextRestartUpdateCheck: 0,
+  _updateTask: Promise.resolve(),
+
+  _queueUpdateTask(task) {
+    // AppUpdater.stop() aborts all updater promises in this process.
+    const result = this._updateTask.then(task);
+    this._updateTask = result.catch(() => {});
+    return result;
+  },
+
+  prepareForRestart() {
+    if (!this._restartUpdateCheck) {
+      this._restartUpdateCheck = this._queueUpdateTask(() =>
+        this._prepareForRestart()
+      ).finally(() => {
+        this._restartUpdateCheck = null;
+      });
+    }
+    return this._restartUpdateCheck;
+  },
+
+  async _prepareForRestart() {
+    if (this._suspended || Date.now() < this._nextRestartUpdateCheck) {
+      return;
+    }
+    await this.updateCheckingAllowed();
+    if (
+      !this._canDoUpdateChecking ||
+      this._suspended ||
+      Services.startup.shuttingDown
+    ) {
+      return;
+    }
+
+    const updater = new lazy.AppUpdater();
+    this._restartUpdater = updater;
+    const onStatus = status => {
+      lazy.log.debug(`Preparing an update before restart: ${status}`);
+      if (status === lazy.AppUpdater.STATUS.NO_UPDATES_FOUND) {
+        this._nextRestartUpdateCheck =
+          Date.now() +
+          Services.prefs.getIntPref("app.update.interval", 21600) * 1000;
+      }
+      if (status === lazy.AppUpdater.STATUS.DOWNLOAD_AND_INSTALL) {
+        updater.allowUpdateDownload();
+      }
+    };
+    const onShutdown = () => updater.stop();
+    updater.addListener(onStatus);
+    Services.obs.addObserver(onShutdown, "quit-application");
+    try {
+      await updater.check();
+    } finally {
+      Services.obs.removeObserver(onShutdown, "quit-application");
+      updater.removeListener(onStatus);
+      updater.stop();
+      this._restartUpdater = null;
+    }
+  },
+
   async init(doc) {
+    if (Services.startup.shuttingDown) {
+      return;
+    }
     // Make sure that we always refer to the correct document, so we can show
     // back the login UI in any circumstance
     this._document = doc;
@@ -34,18 +99,23 @@ export const Updates = {
     this._suspended = false;
 
     this.maybeShowUpdateSuccess();
-    // Check this early to avoid re-downloading updates when it would fail
-    await this.updateCheckingAllowed();
-
-    // A captive portal suspended us during the await above: show the login and
-    // bail, so we don't paint the update UI over the banner or check behind it.
-    if (this._suspended) {
+    if (this._initialized) {
       this.displayLoginState();
       return;
     }
 
-    if (this._initialized) {
-      this.displayLoginState();
+    void this._queueUpdateTask(() => this._initUpdateCheck()).catch(err => {
+      lazy.log.error("FeltUpdates: initialization failed", err);
+    });
+  },
+
+  async _initUpdateCheck() {
+    if (this._suspended || this._initialized || Services.startup.shuttingDown) {
+      return;
+    }
+    // Check this early to avoid re-downloading updates when it would fail.
+    await this.updateCheckingAllowed();
+    if (this._suspended || Services.startup.shuttingDown) {
       return;
     }
 
@@ -72,9 +142,9 @@ export const Updates = {
       });
     }
 
-    this.forceUpdateCheck();
-
+    const check = this.forceUpdateCheck();
     this._initialized = true;
+    await check;
   },
 
   uninit() {
@@ -93,6 +163,7 @@ export const Updates = {
     }
     this._suspended = true;
     this.cancelDelayedUpdateCheckUI();
+    this._restartUpdater?.stop();
     if (this._appUpdater) {
       this._appUpdater.removeListener(this._updaterCallback);
       // Abort the in-flight check so its network request doesn't linger behind
@@ -172,7 +243,7 @@ export const Updates = {
     Services.obs.addObserver(this, "update-error");
   },
 
-  forceUpdateCheck() {
+  async forceUpdateCheck() {
     if (this._canDoUpdateChecking !== true) {
       lazy.log.warn(
         `FeltUpdates: forceUpdateCheck(): skip because previous updates failures`
@@ -181,7 +252,7 @@ export const Updates = {
       return;
     }
 
-    this._appUpdater
+    await this._appUpdater
       .check()
       .catch(err => {
         if (this._suspended) {
@@ -490,6 +561,9 @@ export const Updates = {
         break;
       // https://searchfox.org/enterprise-main/rev/a038f49228d707c6675ef20ce640034a64307d2e/toolkit/mozapps/update/UpdateListener.sys.mjs#366
       case "update-error":
+        if (this._suspended) {
+          break;
+        }
         switch (state) {
           case "elevation-attempt-failed":
             this.displayLoginStateWithUpdateWarning(

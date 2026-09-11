@@ -211,3 +211,61 @@ add_task(function test_a_deadline_before_session_restore_defers_the_restart() {
     "One withdrawal drops the wait"
   );
 });
+
+add_task(function test_requests_updates_when_the_console_sets_a_deadline() {
+  const { sinon } = ChromeUtils.importESModule(
+    "resource://testing-common/Sinon.sys.mjs"
+  );
+  const sandbox = sinon.createSandbox();
+  try {
+    sandbox.stub(RelaunchEnforcer, "_arm");
+    sandbox.stub(RelaunchEnforcer, "_refreshNotification");
+    sandbox.stub(RelaunchEnforcer, "_hideNotification");
+    const request = sandbox.stub(RelaunchEnforcer, "_requestUpdateCheck");
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: "invalid" });
+    Assert.ok(request.notCalled, "Malformed directives do not request updates");
+    request
+      .onFirstCall()
+      .throws(
+        Components.Exception("IPC not connected", Cr.NS_ERROR_NOT_CONNECTED)
+      );
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 45 });
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 44 });
+    Assert.equal(
+      request.callCount,
+      2,
+      "Failed IPC is retried on the next poll"
+    );
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 43 });
+    Assert.equal(
+      request.callCount,
+      2,
+      "Repeated deadlines do not repeat the check"
+    );
+    RelaunchEnforcer._lastUpdateCheck -= 5 * MINUTE;
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 38 });
+    Assert.equal(
+      request.callCount,
+      3,
+      "A continuing directive retries every five minutes"
+    );
+    RelaunchEnforcer.onConsolePoll(null);
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 30 });
+    Assert.equal(
+      request.callCount,
+      4,
+      "A new directive requests another check"
+    );
+  } finally {
+    RelaunchEnforcer.testingOnly_reset();
+    sandbox.restore();
+  }
+});
+
+add_task(function test_update_request_without_felt_is_a_noop() {
+  Assert.ok(
+    !Services.felt.isFeltBrowser(),
+    "This test runs without a FELT browser"
+  );
+  RelaunchEnforcer._requestUpdateCheck();
+});
