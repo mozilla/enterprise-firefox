@@ -216,6 +216,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 }
             })
 
+        if self.server.policy_disable_safe_mode.value >= 0:
+            policy_content.update({
+                "DisableSafeMode": self.server.policy_disable_safe_mode.value == 1
+            })
+
+        if self.server.policy_disable_third_party_module_blocking.value >= 0:
+            policy_content.update({
+                "DisableThirdPartyModuleBlocking": self.server.policy_disable_third_party_module_blocking.value
+                == 1
+            })
+
         if self.server.policy_watermark.value == 1:
             policy_content.update({
                 "Watermark": {
@@ -652,6 +663,8 @@ def serve(
     policy_block_about_config=None,
     policy_extensions=None,
     policy_watermark=None,
+    policy_disable_safe_mode=None,
+    policy_disable_third_party_module_blocking=None,
     policy_access_token=None,
     policy_refresh_token=None,
     policy_access_connector=None,
@@ -685,6 +698,12 @@ def serve(
         httpd.policy_extensions = policy_extensions
     if policy_watermark is not None:
         httpd.policy_watermark = policy_watermark
+    if policy_disable_safe_mode is not None:
+        httpd.policy_disable_safe_mode = policy_disable_safe_mode
+    if policy_disable_third_party_module_blocking is not None:
+        httpd.policy_disable_third_party_module_blocking = (
+            policy_disable_third_party_module_blocking
+        )
     if policy_access_token:
         httpd.policy_access_token = policy_access_token
     if policy_access_connector:
@@ -816,6 +835,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_connector = Value("b", 0)
         self.policy_extensions = Value("B", 0)
         self.policy_watermark = Value("b", 0)
+        self.policy_disable_safe_mode = Value("b", -1)
+        self.policy_disable_third_party_module_blocking = Value("b", -1)
         self.policies_fail_request = Value("B", 0)
         # Serves "{}", a 200 that carries neither policies nor a relaunch key.
         self.policies_omit_policies = Value("B", 0)
@@ -846,6 +867,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 policy_block_about_config=self.policy_block_about_config,
                 policy_extensions=self.policy_extensions,
                 policy_watermark=self.policy_watermark,
+                policy_disable_safe_mode=self.policy_disable_safe_mode,
+                policy_disable_third_party_module_blocking=self.policy_disable_third_party_module_blocking,
                 policy_access_token=self.policy_access_token,
                 policy_access_connector=self.policy_access_connector,
                 policy_refresh_token=self.policy_refresh_token,
@@ -1004,6 +1027,14 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
             f"return Services.prefs.get{pref_get}Pref('{pref_name}');"
         )
         self._logger.info(f"Pref value: {rv}")
+        self._child_driver.set_context("content")
+        return rv
+
+    def get_env_child(self, name):
+        self._logger.info(f"Getting env {name}")
+        self._child_driver.set_context("chrome")
+        rv = self._child_driver.execute_script(f"return Services.env.get('{name}');")
+        self._logger.info(f"Env value: {rv}")
         self._child_driver.set_context("content")
         return rv
 

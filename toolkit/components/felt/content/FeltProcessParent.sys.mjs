@@ -51,6 +51,16 @@ const PROCESS_START_REASON = {
   CRASH: "crash",
 };
 
+// Policies that Firefox reads before the policy engine exists, so they cannot
+// be delivered over the Felt IPC channel like every other configuration point.
+// Felt fetches them before spawning the browser and passes them in the child's
+// environment; the native side checks each variable at its own read site.
+const STARTUP_POLICY_ENV_VARS = {
+  DisableSafeMode: "MOZ_ENTERPRISE_DISABLE_SAFE_MODE",
+  DisableThirdPartyModuleBlocking:
+    "MOZ_ENTERPRISE_DISABLE_THIRD_PARTY_MODULE_BLOCKING",
+};
+
 export function queueURL(payload) {
   // If Firefox AND Felt are both ready, forward immediately
   if (
@@ -610,6 +620,18 @@ export class FeltProcessParent extends JSProcessActorParent {
       return;
     }
 
+    // Fetch the policies that must be known before the browser process starts.
+    // A failure here is not fatal: the spawned browser polls the console itself
+    // at policies-startup and reports the failure from there, so only the
+    // startup policies are missed, and only for this launch.
+    this._startupPolicies = {};
+    try {
+      const res = await lazy.ConsoleClient.getRemotePolicies();
+      this._startupPolicies = res?.policies ?? {};
+    } catch (e) {
+      lazy.log.error(`startFirefox: getRemotePolicies() failed: ${e}`);
+    }
+
     this.firefox = this.startFirefoxProcess();
     this.firefox
       .then(async () => {
@@ -861,7 +883,12 @@ export class FeltProcessParent extends JSProcessActorParent {
       extraRunArgs.push("-purgecaches");
     }
 
-    if (Services.felt.isFeltSafeMode()) {
+    // Withholding --safe-mode enforces DisableSafeMode on every platform; the
+    // environment variable below only covers the Windows-side checks.
+    if (
+      Services.felt.isFeltSafeMode() &&
+      !this._startupPolicies?.DisableSafeMode
+    ) {
       extraRunArgs.push("--safe-mode");
     }
 
@@ -883,12 +910,21 @@ export class FeltProcessParent extends JSProcessActorParent {
       ...extraRunArgs,
     ];
 
+    // Only set a variable when the policy is enabled: the native side tests for
+    // presence, not for a value.
+    const environment = {};
+    for (const [policy, envVar] of Object.entries(STARTUP_POLICY_ENV_VARS)) {
+      if (this._startupPolicies?.[policy] === true) {
+        environment[envVar] = "1";
+      }
+    }
+
     const firefoxRun = {
       command: firefoxBin,
       arguments: firefoxRunArgs,
       stderr: "pipe",
-      /* environmentAppend: true,
-      environment: env, */
+      environmentAppend: true,
+      environment,
     };
 
     try {
