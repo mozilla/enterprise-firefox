@@ -20,17 +20,17 @@ pref("app.update.promptWaitTime", 691200);
   pref("app.update.url.manual", "https://www.mozilla.org/%LOCALE%/firefox/beta?reason=manual-update");
   pref("app.update.url.details", "https://www.mozilla.org/%LOCALE%/firefox/beta/notes");
   pref("app.releaseNotesURL", "https://www.firefox.com/%LOCALE%/firefox/%VERSION%beta/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=whatsnew");
-  pref("app.releaseNotesURL.aboutDialog", "https://www.firefox.com/%LOCALE%/firefox/%VERSION%beta/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=about-dialog");
+  pref("app.releaseNotesURL.aboutDialog", "https://www.firefox.com/%LOCALE%/firefox/enterprise/%VERSION%beta/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=about-dialog");
 #elifdef MOZ_ESR
   pref("app.update.url.manual", "https://www.mozilla.org/%LOCALE%/firefox/enterprise?reason=manual-update");
   pref("app.update.url.details", "https://www.mozilla.org/%LOCALE%/firefox/organizations/notes");
   pref("app.releaseNotesURL", "https://www.firefox.com/%LOCALE%/firefox/%VERSION%/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=whatsnew");
-  pref("app.releaseNotesURL.aboutDialog", "https://www.firefox.com/%LOCALE%/firefox/%VERSION%/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=about-dialog");
+  pref("app.releaseNotesURL.aboutDialog", "https://www.firefox.com/%LOCALE%/firefox/enterprise/%VERSION%/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=about-dialog");
 #else
   pref("app.update.url.manual", "https://www.mozilla.org/%LOCALE%/firefox/new?reason=manual-update");
   pref("app.update.url.details", "https://www.mozilla.org/%LOCALE%/firefox/notes");
   pref("app.releaseNotesURL", "https://www.firefox.com/%LOCALE%/firefox/%VERSION%/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=whatsnew");
-  pref("app.releaseNotesURL.aboutDialog", "https://www.firefox.com/%LOCALE%/firefox/%VERSION%/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=about-dialog");
+  pref("app.releaseNotesURL.aboutDialog", "https://www.firefox.com/%LOCALE%/firefox/enterprise/%VERSION%/releasenotes/");
 #endif
 pref("app.releaseNotesURL.prompt", "https://www.firefox.com/%LOCALE%/firefox/%VERSION%/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=updateprompt");
 

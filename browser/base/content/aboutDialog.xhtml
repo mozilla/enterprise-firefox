@@ -14,7 +14,11 @@
         data-l10n-id="aboutDialog-title"
 #endif
         role="dialog"
+#ifdef MOZ_ENTERPRISE
+        aria-describedby="version distribution distributionId managedDesc communityDesc trademark"
+#else
         aria-describedby="version distribution distributionId communityDesc contributeDesc trademark"
+#endif
         >
 #ifdef XP_MACOSX
 #include macWindow.inc.xhtml
@@ -35,6 +39,9 @@
 
     <html:link rel="localization" href="branding/brand.ftl"/>
     <html:link rel="localization" href="browser/aboutDialog.ftl"/>
+#ifdef MOZ_ENTERPRISE
+    <html:link rel="localization" href="toolkit/enterprise/enterprise.ftl"/>
+#endif
   </linkset>
 
   <html:div id="aboutDialogContainer">
@@ -102,10 +109,12 @@
                 <label id="version" class="update"/>
                 <label id="releasenotes" is="text-link" hidden="true" data-l10n-id="releaseNotes-link"/>
               </hbox>
+#ifndef MOZ_ENTERPRISE
               <description class="text-blurb">
                 <label id="aboutDialogHelpLink" is="text-link" data-l10n-id="aboutdialog-help-user"/>
                 <label id="submit-feedback" is="text-link" data-l10n-id="aboutdialog-submit-feedback"/>
               </description>
+#endif
             </vbox>
 #endif
           </hbox>
@@ -117,8 +126,15 @@
             <label id="currentChannel" data-l10n-name="current-channel"/>
           </description>
 #endif
+#ifdef MOZ_ENTERPRISE
+          <description class="text-blurb" id="managedDesc" data-l10n-id="aboutdialog-managed-notice"/>
+#endif
           <vbox id="experimental" hidden="true">
+#ifdef MOZ_ENTERPRISE
+            <description class="text-blurb" id="warningDesc" data-l10n-id="aboutdialog-nightly-channel-warning"></description>
+#else
             <description class="text-blurb" id="warningDesc" data-l10n-id="warningDesc-version"></description>
+#endif
             <description class="text-blurb" id="communityExperimentalDesc" data-l10n-id="community-exp">
               <label is="text-link" href="https://www.mozilla.org/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-name="community-exp-mozillaLink"/>
               <label is="text-link" useoriginprincipal="true" href="about:credits" data-l10n-name="community-exp-creditsLink"/>
@@ -128,6 +144,7 @@
             <label is="text-link" href="https://www.mozilla.org/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-name="community-mozillaLink"/>
             <label is="text-link" useoriginprincipal="true" href="about:credits" data-l10n-name="community-creditsLink"/>
           </description>
+#ifndef MOZ_ENTERPRISE
           <description class="text-blurb" id="contributeDesc" data-l10n-id="helpus">
             <label is="text-link" href="https://foundation.mozilla.org/?form=firefox-about" data-l10n-name="helpus-donateLink"/>
             <label is="text-link" href="https://www.mozilla.org/contribute/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-name="helpus-getInvolvedLink"/>
@@ -137,6 +154,7 @@
             <label is="text-link" useoriginprincipal="true" href="about:referrals" data-l10n-name="helpus-shareFirefoxLink"/>
             <label is="text-link" href="https://www.mozilla.org/contribute/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-name="helpus-getInvolvedLink"/>
           </description>
+#endif
 
         </vbox>
       </vbox>
@@ -144,8 +162,10 @@
     <vbox id="bottomBox">
       <hbox pack="center">
         <label is="text-link" class="bottom-link" useoriginprincipal="true" href="about:license" data-l10n-id="bottomLinks-license"/>
+#ifndef MOZ_ENTERPRISE
         <label is="text-link" class="bottom-link" href="https://www.mozilla.org/about/legal/terms/firefox/" data-l10n-id="bottom-links-terms"/>
         <label is="text-link" class="bottom-link" href="https://www.mozilla.org/privacy/firefox/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-id="bottom-links-privacy"/>
+#endif
       </hbox>
       <description id="trademark" data-l10n-id="trademarkInfo"></description>
     </vbox>

@@ -5,6 +5,13 @@
 # Access Connector is an Enterprise feature name and must not be translated.
 -enterprise-feature-access-connector = Access Connector
 
+# Shown in the About dialog on enterprise builds.
+aboutdialog-managed-notice = Your browser is being managed by your organization.
+
+# Shown in the About dialog on enterprise nightly builds.
+# "Nightly" is a release channel name and must not be translated.
+aboutdialog-nightly-channel-warning = The Nightly release channel is experimental and may be unstable.
+
 # Shown in the about:support "Application Basics" table on enterprise builds.
 app-basics-device-id = Device ID
 
