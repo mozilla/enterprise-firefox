@@ -27,6 +27,7 @@ run-if = [
   "buildapp == 'browser'",
 ]
 reason = "ASRouter is Firefox-only."
+skip-if = ["enterprise"] # The task process resets app.shield.optoutstudies.enabled to the enterprise default (false), so no enrollment happens and the test can't pass.
 
 ["test_backgroundtask_help.js"]
 
