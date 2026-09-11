@@ -1,5 +1,6 @@
 [DEFAULT]
 
 ["browser_referralsAccountMenu.js"]
+skip-if = ["enterprise"] # Enterprise builds do not support the FxA menu.
 
 ["browser_referralsAppMenu.js"]

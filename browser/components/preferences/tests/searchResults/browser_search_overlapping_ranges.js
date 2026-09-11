@@ -113,86 +113,91 @@ function searchableGroupCount(doc, paneName) {
 // finishes. The following "backup" search then takes the subQuery fast path and
 // skips the hidden group. No group matches, so the pane-level fallback shows
 // every group. The searchCompleted gate makes the search run in full instead.
-add_task(async function overlapping_subquery_does_not_show_whole_pane() {
-  const PANE = DEFAULT_PANE;
+add_task(
+  // The Backup settings group is hidden in enterprise builds
+  // (SQLite at-rest encryption disables backup).
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  async function overlapping_subquery_does_not_show_whole_pane() {
+    const PANE = DEFAULT_PANE;
 
-  // A fresh, non-overlapping search shows a proper subset of the pane's groups.
-  let doc = await openSearchWithQuery("backup");
-  let freshVisible = visibleGroupIds(doc, PANE);
-  let totalGroups = searchableGroupCount(doc, PANE);
-  Assert.greater(
-    freshVisible.length,
-    0,
-    "Fresh 'backup' search shows at least one group in " + PANE
-  );
-  Assert.less(
-    freshVisible.length,
-    totalGroups,
-    "Fresh 'backup' search does not show the whole " + PANE
-  );
-  BrowserTestUtils.removeTab(gBrowser.selectedTab);
+    // A fresh, non-overlapping search shows a proper subset of the pane's groups.
+    let doc = await openSearchWithQuery("backup");
+    let freshVisible = visibleGroupIds(doc, PANE);
+    let totalGroups = searchableGroupCount(doc, PANE);
+    Assert.greater(
+      freshVisible.length,
+      0,
+      "Fresh 'backup' search shows at least one group in " + PANE
+    );
+    Assert.less(
+      freshVisible.length,
+      totalGroups,
+      "Fresh 'backup' search does not show the whole " + PANE
+    );
+    BrowserTestUtils.removeTab(gBrowser.selectedTab);
 
-  // Type the typo so the Backup group is hidden. Deleting the "p" leaves "backuo",
-  // which still matches nothing, so the group stays hidden.
-  doc = await openSearchWithQuery("backuop");
-  let win = gBrowser.contentWindow;
-  let searchInput = doc.getElementById("searchInput");
+    // Type the typo so the Backup group is hidden. Deleting the "p" leaves "backuo",
+    // which still matches nothing, so the group stays hidden.
+    doc = await openSearchWithQuery("backuop");
+    let win = gBrowser.contentWindow;
+    let searchInput = doc.getElementById("searchInput");
 
-  searchInput.focus();
-  let backuoCompleted = BrowserTestUtils.waitForEvent(
-    win,
-    "PreferencesSearchCompleted",
-    e => e.detail == "backuo"
-  );
-  EventUtils.synthesizeKey("KEY_Backspace");
-  await backuoCompleted;
-
-  // Block the next search ("backu") at its gotoPref await so it never finishes,
-  // leaving this.query "backu" and searchCompleted false.
-  let releaseStale;
-  let staleBlocked = new Promise(r => (releaseStale = r));
-  let staleReachedGotoPref;
-  let staleEnteredGotoPref = new Promise(r => (staleReachedGotoPref = r));
-  let origGotoPref = win.gotoPref;
-  let armed = true;
-  win.gotoPref = async function (...args) {
-    if (armed && args[0] === "paneSearchResults") {
-      armed = false;
-      staleReachedGotoPref();
-      await staleBlocked;
-    }
-    return origGotoPref(...args);
-  };
-
-  try {
-    // Delete the "o" so the "backu" search blocks at gotoPref.
-    EventUtils.synthesizeKey("KEY_Backspace");
-    await staleEnteredGotoPref;
-
-    // Add the "p" so the "backup" search runs to completion while "backu" is
-    // still blocked.
-    let targetCompleted = BrowserTestUtils.waitForEvent(
+    searchInput.focus();
+    let backuoCompleted = BrowserTestUtils.waitForEvent(
       win,
       "PreferencesSearchCompleted",
-      e => e.detail == "backup"
+      e => e.detail == "backuo"
     );
-    EventUtils.sendString("p");
-    await targetCompleted;
+    EventUtils.synthesizeKey("KEY_Backspace");
+    await backuoCompleted;
 
-    Assert.deepEqual(
-      visibleGroupIds(gBrowser.contentDocument, PANE),
-      freshVisible,
-      "Overlapping subQuery search must match a fresh search, not show the whole " +
-        PANE
-    );
-  } finally {
-    win.gotoPref = origGotoPref;
-    releaseStale();
+    // Block the next search ("backu") at its gotoPref await so it never finishes,
+    // leaving this.query "backu" and searchCompleted false.
+    let releaseStale;
+    let staleBlocked = new Promise(r => (releaseStale = r));
+    let staleReachedGotoPref;
+    let staleEnteredGotoPref = new Promise(r => (staleReachedGotoPref = r));
+    let origGotoPref = win.gotoPref;
+    let armed = true;
+    win.gotoPref = async function (...args) {
+      if (armed && args[0] === "paneSearchResults") {
+        armed = false;
+        staleReachedGotoPref();
+        await staleBlocked;
+      }
+      return origGotoPref(...args);
+    };
+
+    try {
+      // Delete the "o" so the "backu" search blocks at gotoPref.
+      EventUtils.synthesizeKey("KEY_Backspace");
+      await staleEnteredGotoPref;
+
+      // Add the "p" so the "backup" search runs to completion while "backu" is
+      // still blocked.
+      let targetCompleted = BrowserTestUtils.waitForEvent(
+        win,
+        "PreferencesSearchCompleted",
+        e => e.detail == "backup"
+      );
+      EventUtils.sendString("p");
+      await targetCompleted;
+
+      Assert.deepEqual(
+        visibleGroupIds(gBrowser.contentDocument, PANE),
+        freshVisible,
+        "Overlapping subQuery search must match a fresh search, not show the whole " +
+          PANE
+      );
+    } finally {
+      win.gotoPref = origGotoPref;
+      releaseStale();
+    }
+
+    await waitForRangeCountStable(win);
+    BrowserTestUtils.removeTab(gBrowser.selectedTab);
   }
-
-  await waitForRangeCountStable(win);
-  BrowserTestUtils.removeTab(gBrowser.selectedTab);
-});
+);
 
 // Bug 2045266: same overlap as above, driven through searchInput keystrokes
 // instead of searchFunction. A single sendString dispatches all its keystrokes

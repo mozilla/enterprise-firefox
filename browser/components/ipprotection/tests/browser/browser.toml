@@ -134,5 +134,11 @@ skip-if = [
 ["browser_ipprotection_utils.js"]
 
 ["browser_ipprotection_viewer_site_exclusion.js"]
+skip-if = [
+  "enterprise", # Enterprise uses IPPEnterpriseAuthProvider and does not show the standard panel or toolbar button.
+]
 
 ["browser_ipprotection_window_close.js"]
+skip-if = [
+  "enterprise", # Enterprise uses IPPEnterpriseAuthProvider and does not show the standard panel or toolbar button.
+]

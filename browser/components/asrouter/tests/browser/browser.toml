@@ -38,6 +38,7 @@ skip-if = [
 https_first_disabled = true
 
 ["browser_asrouter_menu_messages.js"]
+skip-if = ["enterprise"] # Enterprise builds do not support the FxA menu.
 
 ["browser_asrouter_milestone_message_cfr.js"]
 
@@ -62,6 +63,7 @@ run-if = [
 ["browser_asrouter_toolbarbadge.js"]
 tags = "remote-settings"
 skip-if = [
+  "enterprise", # Enterprise Accounts replaces Firefox Accounts; the FxA toolbar button this test badges is hidden.
   "a11y_checks", # Bug 1854515 and 1858041 to investigate intermittent a11y_checks results (fails on Autoland, passes on Try)
 ]
 

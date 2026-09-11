@@ -273,7 +273,7 @@ add_task(async function test_exclusions_add_button() {
 });
 
 // Test that the exclusion_added counter is incremented
-// when exclusions are added via the permissions dialog
+// when exclusions are added via the permissions dialog.
 add_task(async function test_exclusions_telemetry() {
   const PERM_NAME = "ipp-vpn";
   await setupVpnPrefs({

@@ -2,10 +2,13 @@
 support-files = ["head.js"]
 
 ["browser_appmenu_nova_fxa_label_signin.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 
 ["browser_appmenu_signin_cta_variants.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 
 ["browser_avatar_menu_signin_cta_variants.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 
 ["browser_contextmenu_sendpage.js"]
 skip-if = [
@@ -17,20 +20,26 @@ skip-if = [
 ["browser_contextmenu_sendtab.js"]
 
 ["browser_fxa_badge.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 
 ["browser_fxa_cta_links.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 
 ["browser_fxa_web_channel.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 https_first_disabled = true
 support-files = ["browser_fxa_web_channel.html"]
 
 ["browser_sendtab_telemetry.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 
 ["browser_sendtab_toolbarbutton.js"]
 
 ["browser_signed_out_avatar_variants.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 
 ["browser_sync.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 support-files = ["!/browser/components/profiles/tests/browser/head.js"]
 
 ["browser_synced_tabs_view.js"]
