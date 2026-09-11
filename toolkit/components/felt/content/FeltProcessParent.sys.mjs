@@ -1169,6 +1169,67 @@ export class FeltProcessParent extends JSProcessActorParent {
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLockExit", {});
   }
 
+  /**
+   * Commit the already-refreshed tokens an unlock carries (see
+   * FeltLocking.tryUnlock) and surface the posture that refresh submitted.
+   *
+   * @param {object} data The FeltChild:StartFirefox message data.
+   * @returns {{posture: object | null, measuredAt: number | null}} The
+   *   submitted posture, or nulls when the refresh did not carry one.
+   */
+  _resumeUnlockedTokens(data) {
+    const {
+      access_token = "",
+      refresh_token = "",
+      expires_in = 0,
+      expires_at,
+    } = data;
+    Services.felt.setTokens(
+      access_token,
+      refresh_token,
+      expires_at ?? Math.floor(Date.now() / 1000) + Number(expires_in)
+    );
+    // A posture the unlock refresh did not carry is not news to the console
+    // and must not become the monitor's baseline.
+    if (!data.postureSubmitted) {
+      return { posture: null, measuredAt: null };
+    }
+    return { posture: data.measuredPosture, measuredAt: data.measuredAt };
+  }
+
+  /**
+   * Collect the initial device posture, redeem the SSO one-time token with it
+   * (the console mints no session without one), and commit the minted tokens.
+   *
+   * @param {object} data The FeltChild:StartFirefox message data.
+   * @returns {Promise<{posture: object, measuredAt: number}>}
+   * @throws When posture collection or the redemption fails.
+   */
+  async _redeemLoginTokens(data) {
+    // Read the extension list from the profile on disk, before the browser
+    // is spawned and its AddonManager rewrites extensions.json.
+    const { path: profileDir } = await this._resolveProfile();
+    const measuredAt = Date.now();
+    // Include the new browser's session id in its initial posture.
+    lazy.ClientSession.renew();
+    const posture = await lazy.DevicePosture.collect({ profileDir });
+
+    const {
+      access_token = "",
+      refresh_token = "",
+      expires_in = 0,
+    } = await lazy.ConsoleClient.redeemOneTimeToken(
+      data.one_time_token ?? "",
+      posture
+    );
+    Services.felt.setTokens(
+      access_token,
+      refresh_token,
+      Math.floor(Date.now() / 1000) + Number(expires_in)
+    );
+    return { posture, measuredAt };
+  }
+
   async receiveMessage(message) {
     lazy.log.debug(
       `ParentProcess: Received message ${message.name} => ${message.data}`
@@ -1176,86 +1237,44 @@ export class FeltProcessParent extends JSProcessActorParent {
     switch (message.name) {
       case "FeltChild:StartFirefox":
         {
-          // An unlock resumes tokens committed through this message (see
-          // FeltLocking.tryUnlock); a fresh SSO login carries a one-time token
-          // the parent redeems below.
-          const { isUnlock = false } = message.data;
-
           const {
-            one_time_token = "",
             user_id,
             email,
             posture: postureConfig,
+            isUnlock = false,
           } = message.data;
 
-          if (isUnlock) {
-            const {
-              access_token = "",
-              refresh_token = "",
-              expires_in,
-              expires_at,
-            } = message.data;
-            Services.felt.setTokens(
-              access_token,
-              refresh_token,
-              expires_at ??
-                Math.floor(Date.now() / 1000) + Number(expires_in ?? 0)
-            );
-            // Resume into the per-user profile the locked session used.
-            this.loggedInUserInfo = { id: user_id, email };
-            lazy.FeltStorage.updateLastSignedInUserEmail(email);
-            // Clear-on-omit like a login: the resuming refresh restarts the
-            // session, so its response is authoritative, unlike mid-session
-            // refreshes which preserve on omit (see _storeEdrAgents).
-            lazy.EdrAgents.write(postureConfig?.edr_agents);
-          } else {
-            // The profile is derived from the user id, so without one the session
-            // would run in the profile shared by every user.
-            if (!user_id) {
-              lazy.log.error("SSO callback carried no user id");
-              Services.cpmm.sendAsyncMessage(
-                "FeltParent:FirefoxLaunchFailure",
-                {
-                  errorType: "loginFailed",
-                }
-              );
-              break;
-            }
-
-            this.loggedInUserInfo = { id: user_id, email };
-            lazy.FeltStorage.updateLastSignedInUserEmail(email);
-
-            // Login starts a fresh session, so an absent list clears the probe
-            // list of the previous one rather than preserving it.
-            lazy.EdrAgents.write(postureConfig?.edr_agents);
+          // The profile is derived from the user id, so without one the session
+          // would run in the profile shared by every user.
+          if (!user_id) {
+            lazy.log.error("SSO callback carried no user id");
+            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+              errorType: "loginFailed",
+            });
+            break;
           }
 
-          let posture = null;
-          let measuredAt = null;
+          this.loggedInUserInfo = { id: user_id, email };
+          lazy.FeltStorage.updateLastSignedInUserEmail(email);
+          // A (re)starting session's response is authoritative: an absent list
+          // clears the previous probe list, unlike mid-session refreshes which
+          // preserve on omit (see _storeEdrAgents).
+          lazy.EdrAgents.write(postureConfig?.edr_agents);
+
+          let posture, measuredAt;
           if (isUnlock) {
-            // A posture the unlock refresh did not carry (see
-            // FeltLocking.tryUnlock) is not news to the console and must not
-            // become the monitor's baseline.
-            if (message.data.postureSubmitted) {
-              posture = message.data.measuredPosture;
-              measuredAt = message.data.measuredAt;
-            }
+            // Not wrapped in the login path's catch: an unlock failure must
+            // propagate to FeltLocking.tryUnlock, whose caller owns recovery.
+            ({ posture, measuredAt } = this._resumeUnlockedTokens(
+              message.data
+            ));
           } else {
-            // Read the extension list from the profile on disk, before the
-            // browser is spawned and its AddonManager rewrites extensions.json.
-            const { path: profileDir } = await this._resolveProfile();
-            measuredAt = Date.now();
-            // Include the new browser's session id in its initial posture.
-            lazy.ClientSession.renew();
             try {
-              posture = await lazy.DevicePosture.collect({ profileDir });
+              ({ posture, measuredAt } = await this._redeemLoginTokens(
+                message.data
+              ));
             } catch (e) {
-              // The console mints no session without a posture, so there is
-              // nothing to redeem the one-time token with.
-              lazy.log.error(
-                "Failed to collect the initial device posture:",
-                e
-              );
+              lazy.log.error("Failed to start the session:", e);
               Services.cpmm.sendAsyncMessage(
                 "FeltParent:FirefoxLaunchFailure",
                 {
@@ -1264,35 +1283,6 @@ export class FeltProcessParent extends JSProcessActorParent {
               );
               break;
             }
-          }
-
-          if (!isUnlock) {
-            let tokens;
-            try {
-              tokens = await lazy.ConsoleClient.redeemOneTimeToken(
-                one_time_token,
-                posture
-              );
-            } catch (e) {
-              lazy.log.error("One-time-token redemption failed:", e);
-              Services.cpmm.sendAsyncMessage(
-                "FeltParent:FirefoxLaunchFailure",
-                {
-                  errorType: "loginFailed",
-                }
-              );
-              break;
-            }
-
-            const {
-              access_token = "",
-              refresh_token = "",
-              expires_in = 0,
-            } = tokens;
-
-            const expires_at =
-              Math.floor(Date.now() / 1000) + Number(expires_in);
-            Services.felt.setTokens(access_token, refresh_token, expires_at);
           }
           gSessionGeneration += 1;
 
@@ -1305,7 +1295,8 @@ export class FeltProcessParent extends JSProcessActorParent {
           const ssoCollectedCookies = this.getAllCookies();
           lazy.log.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
           // When a restart was reported we assume cookies were stored properly on the
-          // browser side?
+          // browser side? An unlock never navigates to the SSO callback, so it cannot
+          // collect cookies. The browser must have already stored them on the first login.
           if (!isUnlock && !ssoCollectedCookies.length) {
             throw new Error("Not enough cookies!!");
           }
