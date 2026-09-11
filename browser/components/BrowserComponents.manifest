@@ -239,6 +239,7 @@ category browser-quit-application-granted moz-src:///browser/components/ipprotec
 
 #ifdef MOZ_ENTERPRISE
 category browser-quit-application-granted resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.uninit
+category browser-quit-application-granted resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.uninit
 #endif
 
 category search-service-notification moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchUIUtils.showSearchServiceNotification
