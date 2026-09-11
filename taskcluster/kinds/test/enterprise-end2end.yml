@@ -1,0 +1,21 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+enterprise-end2end:
+    run-on-projects: built-projects
+    tier: default
+    attributes:
+        code-review: true
+    worker-type: default
+    treeherder-symbol: Ent-End2End
+    # treeherder-machine-platform: gecko-decision/opt
+    suite: enterprise-end2end
+    description: Running Enterprise end-to-end tests
+    allow-software-gl-layers: false
+    max-run-time: 7200
+    mozharness:
+        script: enterprise-end2end.py
+        config:
+            - enterprise/end2end.py
+            - remove_executables.py

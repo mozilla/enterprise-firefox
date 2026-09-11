@@ -2067,6 +2067,26 @@ def setup_raptor(config, tasks):
 
 
 @transforms.add
+def setup_enterprise_end2end(config, tasks):
+    """Add options that are specific to enterprise_end2end jobs (identified by suite=enterprise_end2end).
+
+    This variant uses a separate set of transforms for manipulating the tests at the
+    task-level. Currently only used for setting the taskcluster proxy setting and
+    the scopes required for enterprise end2end github api secrets.
+    """
+    from gecko_taskgraph.transforms.test.enterprise import (
+        task_transforms as enterprise_end2end_transforms,
+    )
+
+    for task in tasks:
+        if task.get("extra", {}).get("suite", "") != "enterprise-end2end":
+            yield task
+            continue
+
+        yield from enterprise_end2end_transforms(config, [task])
+
+
+@transforms.add
 def task_name_from_label(config, tasks):
     for task in tasks:
         taskname = task.pop("name", None)

@@ -68,6 +68,7 @@ EXCLUSIVE_COMPONENTS = [
     "web-platform-tests",
     # specific test suites
     "crashtest",
+    "enterprise-end2end",
     "mochitest-a11y",
     "mochitest-browser-a11y",
     "mochitest-browser-media",
