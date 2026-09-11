@@ -111,6 +111,11 @@ export const ConsoleClient = {
   _consoleUriReadyPromise: null,
 
   /**
+   * Optional application-specific preparation to run before a forced quit.
+   */
+  _beforeForcedQuitHook: null,
+
+  /**
    * This promise guards agains multiple refresh operations on the console/FELT side, similar
    * to what happens on the browser side (`_refreshPromise`).
    *
@@ -691,21 +696,48 @@ export const ConsoleClient = {
   },
 
   /**
-   * Quit Firefox, ignoring any callbacks installed by the page
-   * preventing the tab/window from closing.
+   * Registers application-specific pre-shutdown logic to run before a forced quit.
+   *
+   * @param {function(number): (void|Promise<void>)} aHook - Receives
+   *   nsIAppStartup quit flags.
+   * @returns {function(): void} Unregisters this hook.
+   */
+  registerBeforeForcedQuitHook(aHook) {
+    if (typeof aHook !== "function") {
+      throw new TypeError("The before-forced-quit hook must be a function.");
+    }
+    this._beforeForcedQuitHook = aHook;
+    return () => {
+      if (this._beforeForcedQuitHook === aHook) {
+        this._beforeForcedQuitHook = null;
+      }
+    };
+  },
+
+  /**
+   * Quits the application, ignoring callbacks that could prevent it from
+   * closing.
    *
    * @param {number} [aFlags] - nsIAppStartup quit flags, to which eRestart can
    *   be added to come back up. eForceQuit on its own by default.
-   * @returns {void}
+   * @returns {Promise<void>} Resolves after the quit has been requested.
    */
-  quitIgnoringCanClose(aFlags = Ci.nsIAppStartup.eForceQuit) {
+  async quitIgnoringCanClose(aFlags = Ci.nsIAppStartup.eForceQuit) {
     if (Services.felt.isFeltUI()) {
       throw new Error(
         "quitIgnoringCanClose(): Called from Felt context, which is not allowed."
       );
     }
-    for (let win of Services.wm.getEnumerator("navigator:browser")) {
-      win.skipNextCanClose = true;
+    if (this._beforeForcedQuitHook) {
+      try {
+        await this._beforeForcedQuitHook(aFlags);
+      } catch (error) {
+        lazy.log.error("Pre-forced-quit hook failed; quitting anyway.", error);
+      }
+    } else {
+      for (const win of Services.wm.getEnumerator("navigator:browser")) {
+        win.skipNextCanClose = true;
+      }
     }
     Services.startup.quit(aFlags);
   },

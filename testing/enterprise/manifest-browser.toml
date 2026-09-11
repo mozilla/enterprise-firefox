@@ -29,6 +29,8 @@ disabled = "Bug 1996558: scaffolding for the browsing-child encryption-mismatch 
 
 ["test_felt_browser_external_link.py"]
 
+["test_felt_browser_forced_signout.py"]
+
 ["test_felt_browser_fxa.py"]
 
 ["test_felt_browser_new_window_from_cli.py"]

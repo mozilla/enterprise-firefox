@@ -66,6 +66,48 @@ export const RelaunchEnforcer = {
   _awaitingSessionRestore: false,
   // Serializes bar updates against the shown-state above.
   _refreshChain: Promise.resolve(),
+  // Delegate the warning UI to the application, if it registered one.
+  _warningUIDelegate: null,
+  // Invalidates delegated updates and restart actions when the warning hides.
+  _warningUIGeneration: 0,
+  _hasProcessedConsolePoll: false,
+
+  /**
+   * Registers application-specific relaunch warning UI before console polling
+   * starts. Only one delegate can be registered for the lifetime of the
+   * application.
+   *
+   * `showOrUpdate` receives the warning phase, deadline, remaining minutes, and
+   * a callback for the warning's restart action. It returns whether the warning
+   * is visible.
+   *
+   * @param {object} aDelegate - The warning UI delegate.
+   * @param {function(object): (boolean|Promise<boolean>)} aDelegate.showOrUpdate
+   * @param {function(): void} aDelegate.hide
+   * @param {function(): boolean} aDelegate.isVisible
+   * @returns {void}
+   */
+  registerWarningUIDelegate(aDelegate) {
+    if (
+      !aDelegate ||
+      typeof aDelegate.showOrUpdate !== "function" ||
+      typeof aDelegate.hide !== "function" ||
+      typeof aDelegate.isVisible !== "function"
+    ) {
+      throw new TypeError(
+        "The warning UI delegate must implement showOrUpdate(), hide(), and isVisible()."
+      );
+    }
+    if (this._warningUIDelegate) {
+      throw new Error("A warning UI delegate is already registered.");
+    }
+    if (this._hasProcessedConsolePoll) {
+      throw new Error(
+        "The warning UI delegate must be registered before console polling starts."
+      );
+    }
+    this._warningUIDelegate = aDelegate;
+  },
 
   get _sessionStart() {
     // The real process start.
@@ -157,6 +199,7 @@ export const RelaunchEnforcer = {
    * @param {object|null} relaunch - The response's `relaunch` key, if any.
    */
   onConsolePoll(relaunch) {
+    this._hasProcessedConsolePoll = true;
     if (this._restarting) {
       return;
     }
@@ -317,7 +360,10 @@ export const RelaunchEnforcer = {
     if (!this._schedule || this._restarting) {
       return;
     }
-
+    if (this._warningUIDelegate) {
+      await this._updateDelegatedWarning();
+      return;
+    }
     const win = this._barWindow();
     if (!win) {
       // The first poll precedes session restore; the next poll retries.
@@ -423,6 +469,72 @@ export const RelaunchEnforcer = {
   },
 
   /**
+   * Brings an application-provided warning in line with the armed deadline.
+   *
+   * @returns {Promise<void>} Resolves once the delegate has applied the update.
+   */
+  async _updateDelegatedWarning() {
+    const delegate = this._warningUIDelegate;
+    const { restartAt } = this._schedule;
+    const remaining = restartAt - Date.now();
+    const isImminent = remaining <= IMMINENT_THRESHOLD_MS;
+    const phase = isImminent ? "imminent" : "warning";
+    const minutes = Math.max(1, Math.ceil(remaining / MS_PER_MINUTE));
+    const deadlineMinute = Math.floor(restartAt / MS_PER_MINUTE);
+    const sameText = isImminent
+      ? minutes === this._shownMinutes
+      : deadlineMinute === this._shownDeadlineMinute;
+
+    if (delegate.isVisible() && phase === this._shownPhase && sameText) {
+      this._shownMinutes = minutes;
+      this._shownDeadlineMinute = deadlineMinute;
+      if (isImminent) {
+        this._armCountdown(minutes);
+      }
+      return;
+    }
+
+    const generation = this._warningUIGeneration;
+    const shown = await delegate.showOrUpdate({
+      phase,
+      restartAt,
+      minutes,
+      restartNow: () => {
+        if (
+          generation === this._warningUIGeneration &&
+          delegate === this._warningUIDelegate &&
+          this._schedule &&
+          !this._restarting
+        ) {
+          this._restart();
+        }
+      },
+    });
+    if (!shown) {
+      if (generation === this._warningUIGeneration) {
+        ++this._warningUIGeneration;
+      }
+      return;
+    }
+    if (
+      generation !== this._warningUIGeneration ||
+      delegate !== this._warningUIDelegate ||
+      !this._schedule ||
+      this._restarting
+    ) {
+      delegate.hide();
+      return;
+    }
+
+    this._shownPhase = phase;
+    this._shownMinutes = minutes;
+    this._shownDeadlineMinute = deadlineMinute;
+    if (isImminent) {
+      this._armCountdown(minutes);
+    }
+  },
+
+  /**
    * The window to show the warning from. The most recent window can be a
    * private window, a popup or a taskbar tab, and InfoBar refuses all of those.
    *
@@ -478,6 +590,10 @@ export const RelaunchEnforcer = {
   // InfoBar hands the slot to another message, and closing the last window on
   // macOS takes the bar with it.
   _isBarShown() {
+    if (this._warningUIDelegate) {
+      return this._warningUIDelegate.isVisible();
+    }
+
     return (
       !!this._notification &&
       lazy.InfoBar._activeInfobar?.notification === this._notification
@@ -485,22 +601,28 @@ export const RelaunchEnforcer = {
   },
 
   _hideNotification() {
-    // A bar InfoBar lost track of is not in the list removeUniversalInfobars()
-    // walks, so take ours out of each window by hand. Skipping the animation
-    // removes the element, and runs InfoBar's own teardown, before returning.
-    let removed = false;
-    for (const win of Services.wm.getEnumerator("navigator:browser")) {
-      for (const id of [WARNING_ID, IMMINENT_ID]) {
-        const bar = win.gNotificationBox?.getNotificationWithValue(id);
-        if (bar) {
-          win.gNotificationBox.removeNotification(bar, true);
-          removed = true;
+    ++this._warningUIGeneration;
+    if (this._warningUIDelegate) {
+      this._warningUIDelegate.hide();
+    } else {
+      // A bar InfoBar lost track of is not in the list
+      // removeUniversalInfobars() walks, so take ours out of each window by
+      // hand. Skipping the animation removes the element, and runs InfoBar's
+      // own teardown, before returning.
+      let removed = false;
+      for (const win of Services.wm.getEnumerator("navigator:browser")) {
+        for (const id of [WARNING_ID, IMMINENT_ID]) {
+          const bar = win.gNotificationBox?.getNotificationWithValue(id);
+          if (bar) {
+            win.gNotificationBox.removeNotification(bar, true);
+            removed = true;
+          }
         }
       }
-    }
-    // Releases the slot, and the new-window observer, InfoBar may still hold.
-    if (removed || this._isBarShown()) {
-      this._notification?.removeUniversalInfobars();
+      // Releases the slot, and the new-window observer, InfoBar may still hold.
+      if (removed || this._isBarShown()) {
+        this._notification?.removeUniversalInfobars();
+      }
     }
     this._notification = null;
     this._shownPhase = null;
@@ -539,6 +661,8 @@ export const RelaunchEnforcer = {
     this._disarm();
     this._stopAwaitingSessionRestore();
     this._hideNotification();
+    this._warningUIDelegate = null;
+    this._hasProcessedConsolePoll = false;
     this._restarting = false;
   },
 };
