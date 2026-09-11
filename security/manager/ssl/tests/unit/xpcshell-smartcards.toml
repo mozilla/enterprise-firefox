@@ -27,6 +27,9 @@ prefs = [
   "security.pki.certificate_transparency.mode=1",
 ]
 
+["test_pkcs11_profile_module.js"]
+prefs = ["security.storage.encryption.sqlite.enabled=false"]
+
 ["test_pkcs11_remote_process.js"]
 run-if = [
   "nightly_build",
