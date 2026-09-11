@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -16,6 +18,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 ChromeUtils.defineLazyGetter(lazy, "logger", () => lazy.Log.get());
+
+// A remote client with system access can run privileged JavaScript in the parent
+// process and any other privileged context, such as WebExtension processes, and
+// undo enterprise policy. Deny it on non-default enterprise builds.
+const PREVENT_SYSTEM_ACCESS =
+  AppConstants.MOZ_ENTERPRISE && AppConstants.MOZ_UPDATE_CHANNEL !== "default";
 
 const DEFAULT_HOST = "localhost";
 const DEFAULT_PORT = 9222;
@@ -51,7 +59,9 @@ class RemoteAgentParentProcess {
   constructor() {
     this.#allowHosts = null;
     this.#allowOrigins = null;
-    this.#allowSystemAccess = Services.env.get(ENV_ALLOW_SYSTEM_ACCESS) == "1";
+    this.#allowSystemAccess =
+      !PREVENT_SYSTEM_ACCESS &&
+      Services.env.get(ENV_ALLOW_SYSTEM_ACCESS) == "1";
 
     this.#browserStartupFinished = lazy.Deferred();
     this.#enabled = false;
@@ -111,6 +121,13 @@ class RemoteAgentParentProcess {
     // There is also no possibility to disallow once it got allowed except
     // quitting Firefox and starting it again.
     if (this.#allowSystemAccess || !value) {
+      return;
+    }
+
+    if (PREVENT_SYSTEM_ACCESS) {
+      lazy.logger.warn(
+        "Ignoring request for system access: not available on this build."
+      );
       return;
     }
 
