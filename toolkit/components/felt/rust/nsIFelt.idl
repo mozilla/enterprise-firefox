@@ -102,6 +102,31 @@ interface nsIFelt : nsISupports {
   [must_use]
   void performSignout();
 
+  /**
+   * Called by the spawned Firefox to tell the Felt UI process whether closing
+   * the browser locks the session (persists the refresh token behind OS auth
+   * to resume later) rather than signing out. The value is cached on the
+   * browser's IPC client and attached to the Exiting message when a shutdown
+   * is observed, so it must be kept in sync with the locking pref (see
+   * EnterpriseHandler). Because the intent travels with the exit itself, a
+   * quit vetoed by a beforeunload handler leaves nothing to undo.
+   *
+   * @param lock Whether the close locks the session rather than signing out.
+   * @param reason Why the session is ending, for an exit the user did not ask
+   *   for (e.g. "networkLoss"), so FELT can explain itself instead of just
+   *   disappearing. Empty for an ordinary browser close, which needs no notice.
+   */
+  [must_use]
+  void setCloseLockIntent(in boolean lock, in ACString reason);
+
+  /**
+   * Like performSignout(), but ends the session with a reason (e.g.
+   * "networkLoss") that routes the user to the matching error screen rather than
+   * the silent return to the login screen.
+   */
+  [must_use]
+  void performSignoutWithReason(in ACString reason);
+
   [must_use]
   void shutdownFirefox();
 };

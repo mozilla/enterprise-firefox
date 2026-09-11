@@ -3797,6 +3797,47 @@ export var Policies = {
     },
   },
 
+  SignOut: {
+    onBeforeAddons(manager, param) {
+      if (param.BrowserClose) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.locking.browser_close",
+          param.BrowserClose.Action === "lock"
+        );
+      }
+      if (param.ConnectionLoss) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.connection_loss.action",
+          param.ConnectionLoss.Action
+        );
+        if (param.ConnectionLoss.GracePeriod !== undefined) {
+          lazy.PoliciesUtils.setAndLockPref(
+            "enterprise.connection_loss.grace_period",
+            param.ConnectionLoss.GracePeriod
+          );
+        }
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams.BrowserClose) {
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.locking.browser_close"
+        );
+        // unsetAndUnlockPref restores the build default but never re-locks;
+        // re-lock to match the locked default the enterprise build ships.
+        Services.prefs.lockPref("enterprise.locking.browser_close");
+      }
+      if (oldParams.ConnectionLoss) {
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.connection_loss.action"
+        );
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.connection_loss.grace_period"
+        );
+      }
+    },
+  },
+
   SitePolicies: {
     /**
      * Converts a wildcard domain into a match pattern.
