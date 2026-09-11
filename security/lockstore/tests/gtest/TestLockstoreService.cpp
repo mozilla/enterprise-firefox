@@ -12,6 +12,10 @@
 #include "nsString.h"
 #include "nsTArray.h"
 #include "nsThreadUtils.h"
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/security/lockstore/ProfileKek.h"
+#  include "mozilla/security/lockstore/ProfileKekStartup.h"
+#endif
 
 using namespace mozilla;
 using namespace mozilla::security::lockstore;
@@ -482,6 +486,114 @@ TEST_F(LockstoreServiceTest, RemoveKek_LastWrappingRejects) {
     mService->DoDeleteDek(dekName);
   });
 }
+
+#if defined(MOZ_ENTERPRISE)
+// ---------------------------------------------------------------------------
+// ProfileKekStartup: the Password KEK bring-up that runs just before
+// profile-do-change in the Felt browser.
+//
+// These drive it through BringUpKeksForTesting, so they need no Felt launch.
+// Unlike the rest of this file they touch the *deterministic* kek_refs
+// (`password:sqlite`, `password:profile`, `local:sqlite`) rather than
+// freshly-minted ones, so each test deletes them again: the service singleton
+// and its store outlive the individual test.
+// ---------------------------------------------------------------------------
+
+TEST_F(LockstoreServiceTest, BringUpKeks_CreatesAndUnlocksPasswordKeks) {
+  nsCString dekName = UniqueDekName("bringup-fresh");
+  RunOnBackground([&]() {
+    // Fresh profile: neither Password KEK exists yet.
+    ProfileKekStartup::BringUpKeksForTesting(
+        mService.get(), "0123456789abcdef0123456789abcdef"_ns);
+
+    // Both are minted *and* cached as unlocked, which is what storage checks
+    // before it will open an encrypted database.
+    bool unlocked = false;
+    EXPECT_NS_SUCCEEDED(mService->IsKekUnlocked(kSqlitePasswordKek, &unlocked));
+    EXPECT_TRUE(unlocked) << "password:sqlite must be unlocked after bring-up";
+    unlocked = false;
+    EXPECT_NS_SUCCEEDED(
+        mService->IsKekUnlocked(kProfilePasswordKek, &unlocked));
+    EXPECT_TRUE(unlocked) << "password:profile must be unlocked after bring-up";
+
+    // A DEK minted under the SQLite KEK is readable, i.e. the KEK is usable
+    // and not merely present.
+    EXPECT_NS_SUCCEEDED(mService->DoCreateDek(
+        dekName, kSqlitePasswordKek, /*extractable=*/true, /*keySize=*/32));
+    EXPECT_TRUE(mService->DoGetDek(dekName, kSqlitePasswordKek).isOk());
+
+    mService->DoDeleteDek(dekName);
+    EXPECT_NS_SUCCEEDED(mService->DoDeleteKek(kSqlitePasswordKek));
+    EXPECT_NS_SUCCEEDED(mService->DoDeleteKek(kProfilePasswordKek));
+  });
+}
+
+TEST_F(LockstoreServiceTest, BringUpKeks_MigratesLocalSqliteWrapping) {
+  nsCString dekName = UniqueDekName("bringup-migrate");
+  RunOnBackground([&]() {
+    // A profile predating the Password KEK: its DEK is wrapped under the
+    // deterministic LocalKey.
+    auto localKek = mService->DoCreateKek("local"_ns, kSqliteKekId, ""_ns,
+                                          /*cacheTimeoutMs=*/0);
+    ASSERT_TRUE(localKek.isOk());
+    ASSERT_EQ(localKek.inspect(), kSqliteLocalKek);
+    ASSERT_NS_SUCCEEDED(mService->DoCreateDek(
+        dekName, kSqliteLocalKek, /*extractable=*/true, /*keySize=*/32));
+    auto before = mService->DoGetDek(dekName, kSqliteLocalKek);
+    ASSERT_TRUE(before.isOk());
+
+    ProfileKekStartup::BringUpKeksForTesting(
+        mService.get(), "0123456789abcdef0123456789abcdef"_ns);
+
+    // The wrapping moved to password:sqlite, password:profile was
+    // added alongside it, and the LocalKey wrapping is gone.
+    auto keks = mService->DoListKeks(dekName);
+    ASSERT_TRUE(keks.isOk());
+    EXPECT_TRUE(keks.inspect().Contains(kSqlitePasswordKek));
+    EXPECT_TRUE(keks.inspect().Contains(kProfilePasswordKek));
+    EXPECT_FALSE(keks.inspect().Contains(kSqliteLocalKek))
+        << "the LocalKey wrapping must be removed, not just added to";
+
+    // Same DEK bytes: data already encrypted under it stays readable.
+    auto after = mService->DoGetDek(dekName, kSqlitePasswordKek);
+    ASSERT_TRUE(after.isOk());
+    EXPECT_EQ(after.inspect(), before.inspect());
+
+    // The orphaned LocalKey record itself is deleted, not merely unwrapped, so
+    // deleting it again reports it missing.
+    EXPECT_EQ(mService->DoDeleteKek(kSqliteLocalKek), NS_ERROR_NOT_AVAILABLE)
+        << "the orphaned local:sqlite record must be gone";
+
+    // Idempotent: the next launch's bring-up finds nothing left to do.
+    ProfileKekStartup::BringUpKeksForTesting(
+        mService.get(), "0123456789abcdef0123456789abcdef"_ns);
+    auto keksAgain = mService->DoListKeks(dekName);
+    ASSERT_TRUE(keksAgain.isOk());
+    EXPECT_EQ(keksAgain.inspect(), keks.inspect());
+
+    mService->DoDeleteDek(dekName);
+    EXPECT_NS_SUCCEEDED(mService->DoDeleteKek(kSqlitePasswordKek));
+    EXPECT_NS_SUCCEEDED(mService->DoDeleteKek(kProfilePasswordKek));
+  });
+}
+
+TEST_F(LockstoreServiceTest, BringUpKeks_EmptySecretLeavesStoreUntouched) {
+  RunOnBackground([&]() {
+    // Start from a store with no Password KEKs whatever the preceding tests
+    // left behind, since the kek_refs here are deterministic.
+    mService->DoDeleteKek(kSqlitePasswordKek);
+    mService->DoDeleteKek(kProfilePasswordKek);
+
+    // Password KEKs must never be minted under an empty password.
+    ProfileKekStartup::BringUpKeksForTesting(mService.get(), ""_ns);
+
+    EXPECT_EQ(mService->DoDeleteKek(kSqlitePasswordKek),
+              NS_ERROR_NOT_AVAILABLE);
+    EXPECT_EQ(mService->DoDeleteKek(kProfilePasswordKek),
+              NS_ERROR_NOT_AVAILABLE);
+  });
+}
+#endif  // MOZ_ENTERPRISE
 
 // ---------------------------------------------------------------------------
 // Threading: concurrent dispatches all complete with `mMutex`
