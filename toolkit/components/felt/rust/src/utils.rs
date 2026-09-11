@@ -35,13 +35,19 @@ extern "C" {
     // Defined in storage/SQLiteEncryption.cpp. Hands the console-supplied
     // primarySecret to the storage encryption layer; Felt keeps no copy.
     fn mozStorageSetSqlitePrimarySecret(hex: *const nsACString);
+    // Defined in security/lockstore/ProfileKekStartup.cpp. Hands the
+    // console-supplied primarySecret to the profile KEK startup.
+    fn mozSetProfileSecret(hex: *const nsACString);
 }
 
-/// Hand the console-supplied primarySecret (64-char hex) to the storage
-/// encryption layer. The value is consumed here and never retained by Felt.
-pub fn moz_storage_set_sqlite_primary_secret(hex: String) {
+/// Hand the console-supplied primarySecret (64-char hex) to the consumers that
+/// need it. The value is consumed here and never retained by Felt.
+pub fn deliver_primary_secret(hex: String) {
     let hex: nsCString = hex.as_str().into();
-    unsafe { mozStorageSetSqlitePrimarySecret(&*hex) };
+    unsafe {
+        mozStorageSetSqlitePrimarySecret(&*hex);
+        mozSetProfileSecret(&*hex);
+    }
 }
 
 #[cfg(target_os = "linux")]
