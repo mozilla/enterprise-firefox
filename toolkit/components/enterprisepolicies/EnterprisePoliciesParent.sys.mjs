@@ -1329,6 +1329,13 @@ class JSONPoliciesProvider extends PoliciesProvider {
     try {
       let configFile;
       let perUserPath = Services.prefs.getBoolPref(PREF_PER_USER_DIR, false);
+      // On enterprise builds only the default branch may enable it,
+      // except in automation so tests can set it.
+      if (AppConstants.MOZ_ENTERPRISE && !Cu.isInAutomation) {
+        perUserPath = Services.prefs
+          .getDefaultBranch("")
+          .getBoolPref(PREF_PER_USER_DIR, false);
+      }
       if (perUserPath) {
         configFile = Services.dirsvc.get("XREUserRunTimeDir", Ci.nsIFile);
       } else {
