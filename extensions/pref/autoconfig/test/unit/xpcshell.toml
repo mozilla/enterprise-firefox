@@ -8,6 +8,8 @@ support-files = [
   "autoconfig-no-sandbox-check.cfg",
   "autoconfig.js",
   "autoconfig-no-sandbox.js",
+  "autoconfig-admin.cfg",
+  "autoconfig-remote.jsc",
 ]
 run-if = [
   "!msix", # Does not work in MSIX builds.
@@ -44,3 +46,7 @@ skip-if = [
 run-if = [
   "os == 'linux'",
 ]
+
+["test_autoconfig_user_url.js"]
+
+["test_autoconfig_user_vendor.js"]

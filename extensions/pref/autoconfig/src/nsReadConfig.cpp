@@ -220,9 +220,18 @@ nsresult nsReadConfig::readConfigFile() {
   // file we allow for the preference to be set (and locked) by the creator
   // of the cfg file meaning the file can not be renamed (successfully).
 
+  // On enterprise builds the AutoConfig inputs below are read from the default
+  // branch so a profile's user.js can neither redirect AutoConfig to another
+  // file, make the vendor check fail, nor point autoadmin.global_config_url at
+  // an arbitrary script. An administrator configures these from
+  // the shipped firefox.cfg, which sets them on the default branch.
   nsCOMPtr<nsIPrefBranch> prefBranch;
+#if defined(MOZ_ENTERPRISE)
+  prefBranch = defaultPrefBranch;
+#else
   rv = prefService->GetBranch(nullptr, getter_AddRefs(prefBranch));
   NS_ENSURE_SUCCESS(rv, rv);
+#endif
 
   int32_t obscureValue = 0;
   (void)defaultPrefBranch->GetIntPref("general.config.obscure_value",
