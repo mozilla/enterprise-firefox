@@ -39,9 +39,10 @@ class ListenReducerTest {
         assertEquals("tab-2", state.tabId)
         assertEquals(URL, state.url)
         assertNull(state.title)
-        assertNull(state.languageTag)
         assertNull(state.error)
         assertEquals(ListenMode.Player, state.mode)
+        assertEquals("de-DE", state.languageTag)
+        assertEquals(fullState.voiceState, state.voiceState) // here
     }
 
     @Test
@@ -102,27 +103,34 @@ class ListenReducerTest {
     fun `test that loaded voices are recorded`() {
         val voices = listOf(Voice(id = "en-us-female"), Voice(id = "en-us-male"))
 
-        val state = listenReducer(ListenState(), ListenAction.Voices.AvailableVoicesLoaded(voices))
+        val state = listenReducer(ListenState(), ListenAction.Voices.AvailableVoicesLoaded(voices, voices.first()))
 
         assertEquals(voices, state.voiceState.availableVoices)
     }
 
     @Test
     fun `test that loading voices again replaces the voices of the previous language`() {
-        val loaded = listenReducer(ListenState(), ListenAction.Voices.AvailableVoicesLoaded(listOf(Voice("de-de"))))
+        val german = listOf(Voice("de-de"))
+        val loaded = listenReducer(ListenState(), ListenAction.Voices.AvailableVoicesLoaded(german, german.first()))
 
-        val state = listenReducer(loaded, ListenAction.Voices.AvailableVoicesLoaded(listOf(Voice("en-us"))))
+        val english = listOf(Voice("en-us"))
+        val state = listenReducer(loaded, ListenAction.Voices.AvailableVoicesLoaded(english, english.first()))
 
-        assertEquals(listOf(Voice("en-us")), state.voiceState.availableVoices)
+        assertEquals(english, state.voiceState.availableVoices)
     }
 
     @Test
-    fun `test that loading voices leaves the selected voice alone`() {
-        val selected = listenReducer(fullState, ListenAction.Voices.VoiceSelected(Voice(id = "en-us-female")))
+    fun `test that loading voices records the voice they were resolved for`() {
+        val voices = listOf(Voice(id = "en-us-female"), Voice(id = "en-us-male"))
 
-        val state = listenReducer(selected, ListenAction.Voices.AvailableVoicesLoaded(listOf(Voice("en-us-male"))))
+        val state =
+            listenReducer(
+                fullState,
+                ListenAction.Voices.AvailableVoicesLoaded(voices, selectedVoice = Voice(id = "en-us-male")),
+            )
 
-        assertEquals(Voice(id = "en-us-female"), state.voiceState.selectedVoice)
+        assertEquals(voices, state.voiceState.availableVoices)
+        assertEquals(Voice(id = "en-us-male"), state.voiceState.selectedVoice)
     }
 
     @Test
@@ -157,5 +165,20 @@ class ListenReducerTest {
         assertNull(initial.languageTag)
         assertNull(initial.error)
         assertEquals(ListenMode.Player, initial.mode)
+    }
+
+    @Test
+    fun `test that an article in the language of the previous one keeps its voices`() {
+        val state = listenReducer(fullState, ListenAction.Content.ContentReady(languageTag = "de-DE"))
+
+        assertEquals(fullState, state)
+    }
+
+    @Test
+    fun `test that an article in another language drops the voices of the previous one`() {
+        val state = listenReducer(fullState, ListenAction.Content.ContentReady(languageTag = "fr-FR"))
+
+        assertEquals("fr-FR", state.languageTag)
+        assertEquals(VoiceState(), state.voiceState)
     }
 }

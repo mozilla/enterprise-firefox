@@ -392,10 +392,13 @@ void Zone::forceDiscardJitCode(JS::GCContext* gcx,
       });
 
   // Also clear references to jit code from RegExpShared cells at this point.
-  // This avoid holding onto ExecutablePools.
-  for (auto regExp = cellIterUnsafe<RegExpShared>(); !regExp.done();
-       regExp.next()) {
-    regExp->discardJitCode();
+  // This avoid holding onto ExecutablePools. Do not discard if an interrupted
+  // regexp is currently on the stack.
+  if (!jitZone()->keepRegExpJitCode()) {
+    for (auto regExp = cellIterUnsafe<RegExpShared>(); !regExp.done();
+         regExp.next()) {
+      regExp->discardJitCode();
+    }
   }
 
   /*
@@ -416,7 +419,7 @@ void Zone::forceDiscardJitCode(JS::GCContext* gcx,
     char discardingBaseline = 'Y';
     char discardingIon = 'Y';
 
-    char discardingRegExp = 'Y';
+    char discardingRegExp = jitZone()->keepRegExpJitCode() ? 'N' : 'Y';
     char discardingNurserySites = options.resetNurseryAllocSites ? 'Y' : 'N';
     char discardingPretenuredSites =
         options.resetPretenuredAllocSites ? 'Y' : 'N';

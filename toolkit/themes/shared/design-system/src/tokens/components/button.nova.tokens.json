@@ -91,14 +91,6 @@
           }
         }
       },
-      "menu": {
-        "@base": {
-          "value": {
-            "default": "{button.background.color.ghost.@base}",
-            "forcedColors": "{button.background.color.@base}"
-          }
-        }
-      },
       "selected": {
         "value": {
           "default": "{button.background.color.active}",
@@ -308,6 +300,13 @@
             "light": "{button.text.color.ghost.disabled}",
             "dark": "{button.text.color.disabled}",
             "forcedColors": "{button.text.color.disabled}"
+          }
+        },
+        "hover": {
+          "value": {
+            "light": "{button.text.color.ghost.hover}",
+            "dark": "{button.text.color.hover}",
+            "forcedColors": "-moz-menuhovertext"
           }
         },
         "selected": {

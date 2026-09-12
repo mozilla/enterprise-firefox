@@ -58,6 +58,8 @@ run-if = [
   "buildapp == 'browser'",
 ]
 
+["test_crypto_SDR_primary_password.js"]
+
 ["test_dedupeLogins.js"]
 
 ["test_disabled_hosts.js"]

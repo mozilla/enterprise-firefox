@@ -180,7 +180,7 @@ class Settings(
     var showBookmarksHomeFeature by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_customization_bookmarks),
-            default = { homescreenSections[HomeScreenSection.BOOKMARKS] == true },
+            default = { false },
         )
 
     /** Indicates if the recent tabs functionality should be visible. */
@@ -246,7 +246,7 @@ class Settings(
     var historyMetadataUIFeature by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_history_metadata_feature),
-            default = { homescreenSections[HomeScreenSection.RECENT_EXPLORATIONS] == true },
+            default = { false },
         )
 
     /** Indicates whether or not the "Synced Tabs" section should be shown on the home screen. */

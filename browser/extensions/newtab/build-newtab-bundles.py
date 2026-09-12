@@ -107,6 +107,7 @@ def _record_reported_inputs(objdir, deps_file):
 def _run(argv, newtab_dir, node_modules, extra_env=None):
     env = dict(os.environ)
     env["MOZ_NODE_MODULES"] = node_modules
+    env["WEBPACK_CLI_SKIP_IMPORT_LOCAL"] = "1"
     env.update(extra_env or {})
     result = subprocess.run(argv, check=False, cwd=newtab_dir, env=env)
     if result.returncode != 0:

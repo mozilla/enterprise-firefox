@@ -2363,10 +2363,10 @@ static bool PrepareAndExecuteRegExp(MacroAssembler& masm, Register regexp,
    *------------------------------------------------------------
    *        Caller's frame              +---------------+
    *                                    |InputOutputData|
-   *          inputStartAddress +---------->  inputStart|
-   *            inputEndAddress +---------->    inputEnd|
+   *               inputAddress +---------->       input|
    *          startIndexAddress +---------->  startIndex|
    *             matchesAddress +---------->     matches|-----+
+   *           canResumeAddress +---------->       false|     |
    *                                    +---------------+     |
    * matchPairs(Address|Offset) +-----> +---------------+  <--+
    *                                    |  MatchPairs   |
@@ -2394,14 +2394,14 @@ static bool PrepareAndExecuteRegExp(MacroAssembler& masm, Register regexp,
   int32_t matchPairsOffset = ioOffset + int32_t(sizeof(InputOutputData));
   int32_t pairsArrayOffset = matchPairsOffset + int32_t(sizeof(MatchPairs));
 
-  Address inputStartAddress(FramePointer,
-                            ioOffset + InputOutputData::offsetOfInputStart());
-  Address inputEndAddress(FramePointer,
-                          ioOffset + InputOutputData::offsetOfInputEnd());
+  Address inputAddress(FramePointer,
+                       ioOffset + InputOutputData::offsetOfInput());
   Address startIndexAddress(FramePointer,
                             ioOffset + InputOutputData::offsetOfStartIndex());
   Address matchesAddress(FramePointer,
                          ioOffset + InputOutputData::offsetOfMatches());
+  Address canResumeAddress(FramePointer,
+                           ioOffset + InputOutputData::offsetOfCanResume());
 
   Address matchPairsAddress(FramePointer, matchPairsOffset);
   Address pairCountAddress(FramePointer,
@@ -2512,38 +2512,25 @@ static bool PrepareAndExecuteRegExp(MacroAssembler& masm, Register regexp,
     masm.store32(temp2, pairCountAddress);
   }
 
-  // Load code pointer and length of input (in bytes).
-  // Store the input start in the InputOutputData.
+  // Load the code pointer for the input's encoding.
   Register codePointer = temp1;  // Note: temp1 was previously regexpReg.
-  Register byteLength = temp3;
   {
     Label isLatin1, done;
-    masm.loadStringLength(input, byteLength);
-
     masm.branchLatin1String(input, &isLatin1);
 
     // Two-byte input
-    masm.loadStringChars(input, temp2, CharEncoding::TwoByte);
-    masm.storePtr(temp2, inputStartAddress);
     masm.loadPtr(
         Address(regexpReg, RegExpShared::offsetOfJitCode(/*latin1 =*/false)),
         codePointer);
-    masm.lshiftPtr(Imm32(1), byteLength);
     masm.jump(&done);
 
     // Latin1 input
     masm.bind(&isLatin1);
-    masm.loadStringChars(input, temp2, CharEncoding::Latin1);
-    masm.storePtr(temp2, inputStartAddress);
     masm.loadPtr(
         Address(regexpReg, RegExpShared::offsetOfJitCode(/*latin1 =*/true)),
         codePointer);
 
     masm.bind(&done);
-
-    // Store end pointer
-    masm.addPtr(byteLength, temp2);
-    masm.storePtr(temp2, inputEndAddress);
   }
 
   // Guard that the RegExpShared has been compiled for this type of input.
@@ -2554,9 +2541,11 @@ static bool PrepareAndExecuteRegExp(MacroAssembler& masm, Register regexp,
   masm.loadPtr(Address(codePointer, JitCode::offsetOfCode()), codePointer);
 
   // Finish filling in the InputOutputData instance on the stack
+  masm.store32(Imm32(0), canResumeAddress);
   masm.computeEffectiveAddress(matchPairsAddress, temp2);
   masm.storePtr(temp2, matchesAddress);
   masm.storePtr(lastIndex, startIndexAddress);
+  masm.storePtr(input, inputAddress);
 
   // Execute the RegExp.
   masm.computeEffectiveAddress(Address(FramePointer, ioOffset), temp2);
@@ -23311,6 +23300,25 @@ void CodeGenerator::visitNewDateObject(LNewDateObject* lir) {
   masm.boxDouble(utcTime, Address(output, DateObject::offsetOfUTCTimeSlot()));
 
   masm.bind(ool->rejoin());
+}
+
+void CodeGenerator::visitUnpackTime(LUnpackTime* lir) {
+  ValueOperand packedVal = ToValue(lir->packedVal());
+  Register output = ToRegister(lir->output());
+  Register temp = ToTempRegisterOrInvalid(lir->temp0());
+
+  auto* mir = lir->mir();
+
+  masm.unpackTime(packedVal, output, temp, mir->shiftImm(), mir->maskImm());
+}
+
+void CodeGenerator::visitEpochMilliseconds(LEpochMilliseconds* lir) {
+  FloatRegister seconds = ToFloatRegister(lir->seconds());
+  Register nanoseconds = ToRegister(lir->nanoseconds());
+  FloatRegister output = ToFloatRegister(lir->output());
+  Register temp = ToRegister(lir->temp0());
+
+  masm.epochMilliseconds(seconds, nanoseconds, output, temp);
 }
 
 void CodeGenerator::visitCanonicalizeNaND(LCanonicalizeNaND* ins) {

@@ -402,6 +402,40 @@ TEST(MediaImageConversion, ConvertToI420SourceSizeBounds)
   EXPECT_TRUE(NS_SUCCEEDED(ConvertToI420(maxWide, y, 2, u, 1, v, 1, dst)));
 }
 
+// ConvertToI420 must reject destination strides that are too small for one
+// output row, like ConvertToNV12 has done since bug 2050150: a luma stride
+// smaller than the width, or a chroma stride smaller than ceil(width / 2),
+// would make libyuv write a full row and then advance by the stride, so the
+// rows overlap and can write past a plane buffer sized stride * height.
+TEST(MediaImageConversion, ConvertToI420DestinationStrideBounds)
+{
+  uint8_t y[16] = {};
+  uint8_t u[8] = {};
+  uint8_t v[8] = {};
+
+  RefPtr<Image> image = GenerateI420(4, 4);
+  ASSERT_TRUE(!!image);
+
+  // Strides that fit one output row are accepted.
+  const IntSize dst(4, 4);
+  EXPECT_TRUE(NS_SUCCEEDED(ConvertToI420(image, y, 4, u, 2, v, 2, dst)));
+
+  // A luma stride smaller than the destination width is rejected.
+  EXPECT_EQ(NS_ERROR_INVALID_ARG, ConvertToI420(image, y, 3, u, 2, v, 2, dst));
+
+  // Chroma strides smaller than ceil(width / 2) are rejected.
+  EXPECT_EQ(NS_ERROR_INVALID_ARG, ConvertToI420(image, y, 4, u, 1, v, 2, dst));
+  EXPECT_EQ(NS_ERROR_INVALID_ARG, ConvertToI420(image, y, 4, u, 2, v, 1, dst));
+
+  // For an odd width the chroma row is ceil(width / 2) bytes, so a stride of
+  // width / 2 is rejected -- the same trap bug 2050150 caught for NV12.
+  const IntSize oddDst(3, 2);
+  EXPECT_EQ(NS_ERROR_INVALID_ARG,
+            ConvertToI420(image, y, 3, u, 1, v, 2, oddDst));
+  EXPECT_EQ(NS_ERROR_INVALID_ARG,
+            ConvertToI420(image, y, 3, u, 2, v, 1, oddDst));
+}
+
 TEST(MediaImageConversion, ConvertToNV12SourceSizeBounds)
 {
   uint8_t y[4] = {};

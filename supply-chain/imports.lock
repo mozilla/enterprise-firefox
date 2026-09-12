@@ -409,6 +409,11 @@ user-id = 2915
 user-login = "Amanieu"
 user-name = "Amanieu d'Antras"
 
+[[publisher.mach2]]
+version = "0.6.0"
+when = "2025-11-16"
+trusted-publisher = "github:JohnTitor/mach2"
+
 [[publisher.macho-unwind-info]]
 version = "0.5.0"
 when = "2024-12-06"
@@ -3884,72 +3889,7 @@ who = "Ameer Ghani <inahga@letsencrypt.org>"
 criteria = "safe-to-deploy"
 delta = "0.5.1 -> 0.5.2"
 
-[[audits.mozilla.wildcard-audits.uniffi]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2021-11-22"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_bindgen]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2021-11-22"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_build]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2021-11-22"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_core]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2023-11-20"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_macros]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2021-11-22"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_meta]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2023-11-20"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_pipeline]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2025-10-08"
-end = "2027-01-14"
-notes = "Maintained by the Glean and Application Services teams"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
 [[audits.mozilla.wildcard-audits.uniffi_testing]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2023-11-20"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_udl]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 111105 # Mark Hammond (mhammond)

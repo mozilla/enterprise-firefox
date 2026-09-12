@@ -182,6 +182,10 @@ class JitZone {
 
   gc::Heap initialStringHeap = gc::Heap::Tenured;
 
+  // If we are interrupted while executing a regexp, we disable discarding
+  // regexp code until we're done executing the regexp.
+  uint32_t regExpInterruptDepth_ = 0;
+
   JitCode* generateStringConcatStub(JSContext* cx);
   JitCode* generateRegExpMatcherStub(JSContext* cx);
   JitCode* generateRegExpSearcherStub(JSContext* cx);
@@ -398,6 +402,26 @@ class JitZone {
     return offsetof(JitZone, stubs_) +
            size_t(StubKind::RegExpExecTest) * sizeof(uintptr_t);
   }
+
+  bool keepRegExpJitCode() const { return regExpInterruptDepth_ > 0; }
+  void incRegExpInterruptDepth() {
+    MOZ_RELEASE_ASSERT(regExpInterruptDepth_ < UINT32_MAX);
+    regExpInterruptDepth_++;
+  }
+  void decRegExpInterruptDepth() {
+    MOZ_RELEASE_ASSERT(regExpInterruptDepth_ > 0);
+    regExpInterruptDepth_--;
+  }
+};
+
+class MOZ_RAII AutoInterruptingRegExp {
+  JitZone* jitZone_;
+
+ public:
+  explicit AutoInterruptingRegExp(JitZone* jitZone) : jitZone_(jitZone) {
+    jitZone_->incRegExpInterruptDepth();
+  }
+  ~AutoInterruptingRegExp() { jitZone_->decRegExpInterruptDepth(); }
 };
 
 }  // namespace jit

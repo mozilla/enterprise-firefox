@@ -356,11 +356,9 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_st_d(Register src,
 
 // Add.
 void MacroAssemblerLOONG64::ma_add_d(Register rd, Register rj, Imm32 imm) {
-  if (rd == rj && imm.value == 0) {
-    // This is nop.
-    return;
-  }
-  if (is_intN(imm.value, 12)) {
+  if (imm.value == 0) {
+    ma_move(rd, rj);
+  } else if (is_intN(imm.value, 12)) {
     as_addi_d(rd, rj, imm.value);
   } else if (rd != rj) {
     ma_li(rd, imm);
@@ -375,7 +373,9 @@ void MacroAssemblerLOONG64::ma_add_d(Register rd, Register rj, Imm32 imm) {
 }
 
 void MacroAssemblerLOONG64::ma_add_d(Register rd, Register rj, ImmWord imm) {
-  if (is_intN(imm.value, 12)) {
+  if (imm.value == 0) {
+    ma_move(rd, rj);
+  } else if (is_intN(imm.value, 12)) {
     as_addi_d(rd, rj, imm.value);
   } else if (rd != rj) {
     ma_li(rd, imm);
@@ -582,7 +582,9 @@ void MacroAssemblerLOONG64::ma_addPtrTestSigned(Condition cond, Register rd,
 
 // Subtract.
 void MacroAssemblerLOONG64::ma_sub_d(Register rd, Register rj, Imm32 imm) {
-  if (is_intN(-imm.value, 12)) {
+  if (imm.value == 0) {
+    ma_move(rd, rj);
+  } else if (is_intN(-imm.value, 12)) {
     as_addi_d(rd, rj, -imm.value);
   } else {
     UseScratchRegisterScope temps(asMasm());
@@ -593,7 +595,9 @@ void MacroAssemblerLOONG64::ma_sub_d(Register rd, Register rj, Imm32 imm) {
 }
 
 void MacroAssemblerLOONG64::ma_sub_d(Register rd, Register rj, ImmWord imm) {
-  if (is_intN(-imm.value, 12)) {
+  if (imm.value == 0) {
+    ma_move(rd, rj);
+  } else if (is_intN(-imm.value, 12)) {
     as_addi_d(rd, rj, -imm.value);
   } else {
     UseScratchRegisterScope temps(asMasm());
@@ -1481,7 +1485,9 @@ void MacroAssemblerLOONG64::ma_and(Register rd, Register rj, Imm32 imm) {
 }
 
 void MacroAssemblerLOONG64::ma_or(Register rd, Register rj, Imm32 imm) {
-  if (is_uintN(imm.value, 12)) {
+  if (imm.value == 0) {
+    ma_move(rd, rj);
+  } else if (is_uintN(imm.value, 12)) {
     as_ori(rd, rj, imm.value);
   } else {
     UseScratchRegisterScope temps(asMasm());

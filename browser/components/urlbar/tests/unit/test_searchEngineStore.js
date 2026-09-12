@@ -53,15 +53,20 @@ function createEngineStore(isPrivate) {
 
 add_setup(async function () {
   Services.prefs.setBoolPref(
-    "browser.search.separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.featureGate",
     true
   );
-  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
+  Services.prefs.setBoolPref(
+    "browser.search.separatePrivateDefault.enabled",
+    true
+  );
   registerCleanupFunction(() => {
     Services.prefs.clearUserPref(
-      "browser.search.separatePrivateDefault.ui.enabled"
+      "browser.search.separatePrivateDefault.featureGate"
     );
-    Services.prefs.clearUserPref("browser.search.separatePrivateDefault");
+    Services.prefs.clearUserPref(
+      "browser.search.separatePrivateDefault.enabled"
+    );
   });
 
   store = createEngineStore(false);

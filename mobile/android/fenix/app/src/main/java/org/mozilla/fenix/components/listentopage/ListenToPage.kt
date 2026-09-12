@@ -15,6 +15,7 @@ import mozilla.components.feature.listentopage.content.ContentProvider
 import mozilla.components.feature.listentopage.listenReducer
 import mozilla.components.feature.listentopage.playback.DirectoryAudioFileCache
 import mozilla.components.feature.listentopage.playback.ListenPlaybackController
+import mozilla.components.feature.listentopage.settings.ListenSettings
 import mozilla.components.feature.listentopage.synthesis.SpeechSynthesizer
 
 /**
@@ -50,6 +51,7 @@ class ListenToPage(
                         },
                         audioCache = audioCache,
                         playbackController = ListenPlaybackController(context, scope),
+                        settings = ListenSettings.dataStore(context),
                         scope = scope,
                     )
                 ),

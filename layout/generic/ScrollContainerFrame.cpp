@@ -41,7 +41,6 @@
 #include "mozilla/PresState.h"
 #include "mozilla/ReflowInput.h"
 #include "mozilla/SVGOuterSVGFrame.h"
-#include "mozilla/ScopeExit.h"
 #include "mozilla/ScrollbarPreferences.h"
 #include "mozilla/ScrollingMetrics.h"
 #include "mozilla/StaticPrefs_apz.h"
@@ -291,7 +290,6 @@ ScrollContainerFrame::ScrollContainerFrame(ComputedStyle* aStyle,
       mSuppressScrollbarRepaints(false),
       mIsUsingMinimumScaleSize(false),
       mMinimumScaleSizeChanged(false),
-      mProcessingScrollEvent(false),
       mApzAnimationRequested(false),
       mApzAnimationTriggeredByScriptRequested(false),
       mReclampVVOffsetInReflowFinished(false),
@@ -6132,16 +6130,6 @@ void ScrollContainerFrame::FireScrollEvent() {
               presContext->GetDocShell()));
   mScrollEvent->Revoke();
   mScrollEvent = nullptr;
-
-  bool oldProcessing = mProcessingScrollEvent;
-  AutoWeakFrame weakFrame(this);
-  auto RestoreProcessingScrollEvent = mozilla::MakeScopeExit([&] {
-    if (weakFrame.IsAlive()) {  // Otherwise `this` will be dead too.
-      mProcessingScrollEvent = oldProcessing;
-    }
-  });
-
-  mProcessingScrollEvent = true;
 
   WidgetGUIEvent event(true, eScroll, nullptr);
   nsEventStatus status = nsEventStatus_eIgnore;

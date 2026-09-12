@@ -33,6 +33,7 @@ interface SpeechSynthesizer {
      * article is split into chunks before it gets here.
      */
     val maxInputLength: Int
+    val enginePackageName: String
 
     /**
      * Synthesizes [text] and returns the audio file, or throws [SpeechSynthesisException].
@@ -117,6 +118,9 @@ internal class AndroidTtsSpeechSynthesizer(
 
     override val maxInputLength: Int
         get() = TextToSpeech.getMaxSpeechInputLength()
+
+    override val enginePackageName: String
+        get() = tts.defaultEngine
 
     override suspend fun synthesizeToFile(text: String): File {
         val status = started.await()

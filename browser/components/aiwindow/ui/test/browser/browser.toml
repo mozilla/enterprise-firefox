@@ -310,6 +310,8 @@ skip-if = [
 
 ["browser_smartwindow_disclaimer.js"]
 
+["browser_smartwindow_duplicate_chat_tabs.js"]
+
 ["browser_smartwindow_footer.js"]
 
 ["browser_smartwindow_get_page_content_timeout.js"]

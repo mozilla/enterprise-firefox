@@ -1101,6 +1101,29 @@ export let ProfileDataUpgrader = {
       }
     }
 
+    if (existingDataVersion < 182) {
+      // Bug 2031836 - Rename preferences related to a separate search engine
+      // in default private browsing mode.
+      const OLD_ENABLED_PREF = "browser.search.separatePrivateDefault";
+      const OLD_UI_ENABLED_PREF =
+        "browser.search.separatePrivateDefault.ui.enabled";
+
+      const uiEnabled = Services.prefs.getBoolPref(OLD_UI_ENABLED_PREF, false);
+
+      Services.prefs.setBoolPref(
+        "browser.search.separatePrivateDefault.featureGate",
+        uiEnabled
+      );
+      if (uiEnabled && Services.prefs.getBoolPref(OLD_ENABLED_PREF, true)) {
+        Services.prefs.setBoolPref(
+          "browser.search.separatePrivateDefault.enabled",
+          true
+        );
+      }
+
+      Services.prefs.clearUserPref(OLD_ENABLED_PREF);
+      Services.prefs.clearUserPref(OLD_UI_ENABLED_PREF);
+    }
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", newVersion);
   },

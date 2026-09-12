@@ -37,7 +37,6 @@ const DEFAULT_PROPS = {
   wallpapersPanelCategory: null,
   openWallpapersPanel: jest.fn(),
   closeWallpapersPanel: jest.fn(),
-  onSubpanelToggle: jest.fn(),
   toggleSectionsMgmtPanel: jest.fn(),
   showSectionsMgmtPanel: false,
   novaEnabled: false,

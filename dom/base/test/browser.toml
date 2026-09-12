@@ -232,6 +232,11 @@ support-files = [
   "file_js_cache_imported3.mjs",
 ]
 
+["browser_script_loader_js_cache_module_csp.js"]
+support-files = [
+  "file_js_cache_module_csp.sjs",
+]
+
 ["browser_script_loader_js_cache_module_preload.js"]
 support-files = [
   "empty.html",

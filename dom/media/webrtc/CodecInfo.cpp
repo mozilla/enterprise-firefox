@@ -16,15 +16,17 @@
 namespace mozilla {
 
 #ifdef MOZ_WEBRTC
-// Query the webrtc encoder factory whether aMime is supported in SW and/or HW.
-media::EncodeSupportSet SupportsVideoEncodeForWebrtc(
-    const EncoderConfig& aConfig) {
+// Query the webrtc encoder factory whether aConfig is supported in SW and/or
+// HW.
+RefPtr<PlatformEncoderModule::SupportsEncoderPromise>
+SupportsVideoEncodeForWebrtc(const EncoderConfig& aConfig) {
   return WebrtcVideoEncoderFactory::SupportsCodec(aConfig);
 }
 
 // Query the webrtc decoder factory whether aMime is supported in SW and/or HW.
-media::DecodeSupportSet SupportsVideoDecodeForWebrtc(
-    const MediaExtendedMIMEType& aMime, const SupportDecoderParams& aParams) {
+RefPtr<PlatformDecoderModule::SupportsDecoderPromise>
+SupportsVideoDecodeForWebrtc(const MediaExtendedMIMEType& aMime,
+                             const SupportDecoderParams& aParams) {
   return WebrtcVideoDecoderFactory::SupportsCodec(aMime, aParams);
 }
 
@@ -121,12 +123,17 @@ std::unique_ptr<WebrtcCodecInfo> WebrtcCodecInfo::Create() {
   return std::make_unique<CodecInfoImpl>();
 }
 #else
-media::EncodeSupportSet SupportsVideoEncodeForWebrtc(const EncoderConfig&) {
-  return {};
+RefPtr<PlatformEncoderModule::SupportsEncoderPromise>
+SupportsVideoEncodeForWebrtc(const EncoderConfig&) {
+  return PlatformEncoderModule::SupportsEncoderPromise::CreateAndResolve(
+      media::EncodeSupportSet{}, __func__);
 }
-media::DecodeSupportSet SupportsVideoDecodeForWebrtc(
-    const MediaExtendedMIMEType&, const SupportDecoderParams&) {
-  return {};
+
+RefPtr<PlatformDecoderModule::SupportsDecoderPromise>
+SupportsVideoDecodeForWebrtc(const MediaExtendedMIMEType&,
+                             const SupportDecoderParams&) {
+  return PlatformDecoderModule::SupportsDecoderPromise::CreateAndResolve(
+      media::DecodeSupportSet{}, __func__);
 }
 
 class CodecInfoStub final : public WebrtcCodecInfo {

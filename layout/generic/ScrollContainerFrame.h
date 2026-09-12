@@ -1255,8 +1255,6 @@ class ScrollContainerFrame : public nsContainerFrame,
     return mRestorePos != nsPoint(-1, -1);
   }
 
-  bool IsProcessingScrollEvent() const { return mProcessingScrollEvent; }
-
   class AutoScrollbarRepaintSuppression;
   friend class AutoScrollbarRepaintSuppression;
   class AutoScrollbarRepaintSuppression {
@@ -1610,9 +1608,6 @@ class ScrollContainerFrame : public nsContainerFrame,
 
   // True if the minimum scale size has been changed since the last reflow.
   bool mMinimumScaleSizeChanged : 1;
-
-  // True if we're processing an scroll event.
-  bool mProcessingScrollEvent : 1;
 
   // This is true from the time a scroll animation is requested of APZ to the
   // time that APZ responds with an up-to-date repaint request. More precisely,

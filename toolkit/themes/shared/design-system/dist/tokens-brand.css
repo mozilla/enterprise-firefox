@@ -78,6 +78,7 @@
       --border-color-interactive: light-dark(var(--color-gray-45), var(--color-gray-40));
 
       /** button **/
+      --button-text-color-ghost: var(--button-text-color);
       --button-text-color-ghost-disabled: var(--button-text-color-ghost);
 
       /** table **/

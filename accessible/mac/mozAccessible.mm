@@ -760,6 +760,11 @@ static bool ProvidesTitle(const Accessible* aAccessible, nsString& aName) {
   return @NO;
 }
 
+- (NSNumber*)moxGrabbed {
+  NSString* grabbed = utils::GetAccAttr(self, nsGkAtoms::aria_grabbed);
+  return @([grabbed isEqualToString:@"true"]);
+}
+
 - (NSNumber*)moxExpanded {
   return @([self stateWithMask:states::EXPANDED] != 0);
 }

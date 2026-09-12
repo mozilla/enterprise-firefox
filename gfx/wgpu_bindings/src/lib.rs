@@ -9,8 +9,8 @@ use wgpu_core_remote_types::encoders::{
 };
 use wgpu_core_remote_types::pipelines::{ComputePipelineDescriptor, RenderPipelineDescriptor};
 use wgpu_core_remote_types::{
-    BufferDescriptor, DeviceDescriptor, Label, PipelineLayoutDescriptor, QuerySetDescriptor,
-    RequestAdapterOptions, SamplerDescriptor, TextureDescriptor, TextureViewDescriptor, id,
+    id, BufferDescriptor, DeviceDescriptor, Label, PipelineLayoutDescriptor, QuerySetDescriptor,
+    RequestAdapterOptions, SamplerDescriptor, TextureDescriptor, TextureViewDescriptor,
 };
 
 pub mod client;

@@ -74,6 +74,8 @@ function truncateToDays(aMsec) {
 var SysInfo = {
   overrides: {},
 
+  _genuine: Cc["@mozilla.org/system-info;1"].createInstance(Ci.nsISupports),
+
   getProperty(name) {
     // Assert.ok(false, "Mock SysInfo: " + name + ", " + JSON.stringify(this.overrides));
     if (name in this.overrides) {

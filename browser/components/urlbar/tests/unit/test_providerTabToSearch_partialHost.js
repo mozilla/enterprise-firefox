@@ -23,7 +23,7 @@ add_setup(async function () {
     0
   );
   Services.prefs.setBoolPref(
-    "browser.search.separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.featureGate",
     false
   );
   // The test seeds the engine domain via an unvisited bookmark; bookmark-
@@ -37,7 +37,7 @@ add_setup(async function () {
     Services.prefs.clearUserPref("browser.urlbar.suggest.searches");
     Services.prefs.clearUserPref("browser.urlbar.suggest.quickactions");
     Services.prefs.clearUserPref(
-      "browser.search.separatePrivateDefault.ui.enabled"
+      "browser.search.separatePrivateDefault.featureGate"
     );
     Services.prefs.clearUserPref(
       "browser.urlbar.tabToSearch.onboard.interactionsLeft"

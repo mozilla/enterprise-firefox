@@ -53,6 +53,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
   false
 );
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "NOVA_ENABLED",
+  "browser.nova.enabled",
+  true
+);
+
 const PROFILES_CRYPTO_SALT_LENGTH_BYTES = 16;
 
 const COMMAND_LINE_UPDATE = "profiles-updated";
@@ -1031,7 +1038,9 @@ class SelectableProfileServiceClass extends EventEmitter {
 
     let themeFgColor = computedStyles.getPropertyValue("--toolbar-text-color");
     let themeBgColor = computedStyles.getPropertyValue(
-      "--toolbar-background-color"
+      lazy.NOVA_ENABLED
+        ? "--background-color-information"
+        : "--toolbar-background-color"
     );
 
     let bg = window.InspectorUtils.colorToRGBA(themeBgColor);
@@ -1076,15 +1085,18 @@ class SelectableProfileServiceClass extends EventEmitter {
   }
 
   /**
-   * Extract theme colors from theme data, handling Nova themes differently.
+   * Extract theme colors from theme data.
    *
    * @param {object} theme The theme object
    * @returns {{ themeFg: string, themeBg: string }}
    */
   extractThemeColors(theme) {
-    let themeFg =
-      theme.icon_attention_color || theme.toolbar_text || theme.textcolor;
+    let themeFg = theme.icon_color || theme.textcolor || theme.toolbar_text;
     let themeBg = theme.accentcolor || theme.toolbarColor;
+
+    if (theme.id === DEFAULT_THEME_ID || !themeFg || !themeBg) {
+      ({ themeBg, themeFg } = this.getColorsForDefaultTheme());
+    }
 
     return { themeFg, themeBg };
   }

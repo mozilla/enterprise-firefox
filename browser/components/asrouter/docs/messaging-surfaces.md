@@ -13,9 +13,8 @@ The most commonly used surfaces are listed below. "Multistage content" means the
 | [about:welcome](./about-welcome.md) | (page, not a message template) | Yes |
 | [Spotlight](./spotlight.md) | `spotlight` | Yes |
 | [Feature Callout](./feature-callout.md) | `feature_callout` | Yes |
-| [Contextual Feature Recommendation](./contextual-feature-recommendation.md) | `cfr_doorhanger`, `cfr_urlbar_chiclet` | No |
 | [Infobar](./infobars.md) | `infobar` | No |
-| [Toast notification](./contextual-feature-recommendation.md) | `toast_notification` | No |
+| Toast notification | `toast_notification` | No |
 | [Moments page](./moments-page.md) | `update_action` | No |
 | Toolbar badge | `toolbar_badge` | No |
 | [Private browsing newtab](./private-browsing.md) | `pb_newtab` | No |

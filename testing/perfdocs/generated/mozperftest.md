@@ -265,6 +265,29 @@ browser_translations_perf_tiny.js
 **Tests the performance of Full Page Translations with a tiny-architecture model**
 
 
+## dom/media/webspeech/recognition/test
+
+Performance tests for on-device speech recognition
+
+browser_speech_recognition_perf.js
+==================================
+
+:owner: Media Playback Team
+:name: browser_speech_recognition_perf.js
+:Default options:
+
+::
+
+ --perfherder
+ --perfherder-metrics name:engine-ready-latency,unit:ms,shouldAlert:False, name:first-result-latency,unit:ms,shouldAlert:False, name:finalization-latency,unit:ms,shouldAlert:False, name:real-time-factor,unit:X,shouldAlert:False,lowerIsBetter:False, name:memory-after-init,unit:MB,shouldAlert:False, name:memory-mid-recognition,unit:MB,shouldAlert:False
+ --verbose
+ --manifest perftest.toml
+ --manifest-flavor browser-chrome
+ --try-platform linux, mac, win
+
+**Latency, real-time factor and memory of on-device speech recognition**
+
+
 ## dom/serviceworkers/test/performance
 
 Performance tests running through Mochitest for Service Workers

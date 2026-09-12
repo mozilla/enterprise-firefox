@@ -636,7 +636,9 @@ export class DiscoveryStreamFeed {
   }
 
   async _fetchSpocsWithAdsClient(placements) {
-    const options = lazy.AdsClient.requestOptions();
+    const options = lazy.AdsClient.requestOptions(
+      this.store.getState().Prefs.values
+    );
 
     const requests = [];
     for (let { placement: placementId, count, content } of placements) {
@@ -665,35 +667,41 @@ export class DiscoveryStreamFeed {
 
     const spocs = await this.adsClient.requestSpocAds(requests, options);
 
-    return Object.fromEntries(
-      spocs.entries().map(([placementId, placementSpocs]) => [
-        placementId,
-        placementSpocs.map(spoc => ({
-          format: spoc.format,
-          url: spoc.url,
-          callbacks: spoc.callbacks,
-          image_url: spoc.imageUrl,
-          title: spoc.title,
-          domain: spoc.domain,
-          excerpt: spoc.excerpt,
-          sponsor: spoc.sponsor,
-          sponsored_by_override: spoc.sponsoredByOverride,
-          block_key: spoc.blockKey,
-          caps: spoc.caps
-            ? { cap_key: spoc.caps.capKey, day: spoc.caps.day }
-            : undefined,
-          ranking: spoc.ranking
-            ? {
-                item_score: spoc.ranking.itemScore,
-                personalization_models: Object.fromEntries(
-                  spoc.ranking.personalizationModels ?? []
-                ),
-                priority: spoc.ranking.priority,
-              }
-            : undefined,
-        })),
-      ])
-    );
+    // The ads-client omits placements it has no ads for; MARS returns them as
+    // empty arrays, and loadSpocs concats by placement, so a missing key folds
+    // an undefined into the spocs list.
+    return {
+      ...Object.fromEntries(placements.map(p => [p.placement, []])),
+      ...Object.fromEntries(
+        spocs.entries().map(([placementId, placementSpocs]) => [
+          placementId,
+          placementSpocs.map(spoc => ({
+            format: spoc.format,
+            url: spoc.url,
+            callbacks: spoc.callbacks,
+            image_url: spoc.imageUrl,
+            title: spoc.title,
+            domain: spoc.domain,
+            excerpt: spoc.excerpt,
+            sponsor: spoc.sponsor,
+            sponsored_by_override: spoc.sponsoredByOverride,
+            block_key: spoc.blockKey,
+            caps: spoc.caps
+              ? { cap_key: spoc.caps.capKey, day: spoc.caps.day }
+              : undefined,
+            ranking: spoc.ranking
+              ? {
+                  item_score: spoc.ranking.itemScore,
+                  personalization_models: Object.fromEntries(
+                    spoc.ranking.personalizationModels ?? []
+                  ),
+                  priority: spoc.ranking.priority,
+                }
+              : undefined,
+          })),
+        ])
+      ),
+    };
   }
 
   get spocsOnDemand() {
@@ -1365,7 +1373,7 @@ export class DiscoveryStreamFeed {
 
   // eslint-disable-next-line max-statements
   async loadSpocs(sendUpdate, isStartup) {
-    const cachedData = (await this.cache.get()) || {};
+    const cachedData = this.adsClient ? {} : (await this.cache.get()) || {};
     const unifiedAdsEnabled =
       this.store.getState().Prefs.values[PREF_UNIFIED_ADS_SPOCS_ENABLED];
 
@@ -1586,9 +1594,8 @@ export class DiscoveryStreamFeed {
             spocs: {},
           };
     // The ads-client has its own HTTP response cache, so it is the only cache
-    // on that path. Leaving this one unwritten also bypasses the freshness
-    // window, since isExpired() treats a missing entry as expired.
-    if (!lazy.AdsClient.isEnabled(this.store.getState().Prefs.values)) {
+    // on that path.
+    if (!this.adsClient) {
       await this.cache.set("spocs", {
         lastUpdated: spocsState.lastUpdated,
         spocs: spocsState.spocs,
@@ -1956,6 +1963,8 @@ export class DiscoveryStreamFeed {
                   server_score: item.serverScore,
                   recommended_at: feedResponse.recommendedAt,
                   section: sectionKey,
+                  variant_id: item.variantId === undefined ? 0 : item.variantId,
+                  source_section_id: item.sourceSectionId,
                   icon_src: item.iconUrl,
                   isTimeSensitive: item.isTimeSensitive,
                 });
@@ -2713,12 +2722,12 @@ export class DiscoveryStreamFeed {
         lazy.NimbusFeatures.pocketNewtab.onUpdate(
           this.onPocketExperimentUpdated
         );
+        if (lazy.AdsClient.isEnabled(this.store.getState().Prefs.values)) {
+          this.adsClient = lazy.AdsClient.getClient();
+        }
         // 2. If config.enabled is true, start loading data.
         if (this.config.enabled) {
           await this.enable({ updateOpenTabs: true, isStartup: true });
-        }
-        if (lazy.AdsClient.isEnabled(this.store.getState().Prefs.values)) {
-          this.adsClient = lazy.AdsClient.getClient();
         }
         // This function is async but just for devtools,
         // so we don't need to wait for it.

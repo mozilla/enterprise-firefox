@@ -501,6 +501,86 @@ add_task(async function test_topsites_change_display_event_no_session() {
   );
 });
 
+add_task(async function test_customize_panel_open_event() {
+  info("handleUserEvent records newtab.customize_panel_open with the visit id");
+  Services.fog.testResetFOG();
+  const PORT_ID = "port123";
+  let instance = new TelemetryFeed();
+  let session = instance.addSession(PORT_ID);
+
+  instance.handleUserEvent({
+    meta: { fromTarget: PORT_ID },
+    data: { event: "SHOW_PERSONALIZE" },
+  });
+
+  let events = Glean.newtab.customizePanelOpen.testGetValue();
+  Assert.equal(events.length, 1, "One customize_panel_open event");
+  Assert.deepEqual(events[0].extra, { newtab_visit_id: session.session_id });
+});
+
+add_task(async function test_customize_panel_subpanel_open_event() {
+  info(
+    "handleUserEvent records newtab.customize_panel_subpanel_open with the panel"
+  );
+  Services.fog.testResetFOG();
+  const PORT_ID = "port123";
+  let instance = new TelemetryFeed();
+  let session = instance.addSession(PORT_ID);
+
+  instance.handleUserEvent({
+    meta: { fromTarget: PORT_ID },
+    data: { event: "SHOW_PERSONALIZE_SUBPANEL", source: "themes_management" },
+  });
+
+  let events = Glean.newtab.customizePanelSubpanelOpen.testGetValue();
+  Assert.equal(events.length, 1, "One customize_panel_subpanel_open event");
+  Assert.deepEqual(events[0].extra, {
+    newtab_visit_id: session.session_id,
+    panel: "themes_management",
+  });
+});
+
+add_task(async function test_explore_more_themes_click_event() {
+  info("handleUserEvent records newtab.appearance_explore_more_themes_click");
+  Services.fog.testResetFOG();
+  const PORT_ID = "port123";
+  let instance = new TelemetryFeed();
+  let session = instance.addSession(PORT_ID);
+
+  instance.handleUserEvent({
+    meta: { fromTarget: PORT_ID },
+    data: { event: "EXPLORE_MORE_THEMES_CLICK" },
+  });
+
+  let events = Glean.newtab.appearanceExploreMoreThemesClick.testGetValue();
+  Assert.equal(events.length, 1, "One explore_more_themes_click event");
+  Assert.deepEqual(events[0].extra, { newtab_visit_id: session.session_id });
+});
+
+add_task(async function test_customize_panel_events_need_a_session() {
+  info("None of the customize panel events record without a session");
+  Services.fog.testResetFOG();
+  let instance = new TelemetryFeed();
+  const meta = { fromTarget: "port-with-no-session" };
+
+  instance.handleUserEvent({ meta, data: { event: "SHOW_PERSONALIZE" } });
+  instance.handleUserEvent({
+    meta,
+    data: { event: "SHOW_PERSONALIZE_SUBPANEL", source: "themes_management" },
+  });
+  instance.handleUserEvent({
+    meta,
+    data: { event: "EXPLORE_MORE_THEMES_CLICK" },
+  });
+
+  Assert.equal(Glean.newtab.customizePanelOpen.testGetValue(), null);
+  Assert.equal(Glean.newtab.customizePanelSubpanelOpen.testGetValue(), null);
+  Assert.equal(
+    Glean.newtab.appearanceExploreMoreThemesClick.testGetValue(),
+    null
+  );
+});
+
 add_task(async function test_browserOpenNewtabStart() {
   info(
     "TelemetryFeed.browserOpenNewtabStart should call " +
@@ -2428,6 +2508,8 @@ add_task(
         corpus_item_id: "decaf-beef",
         scheduled_corpus_item_id: "dead-beef",
         tile_id: 314623757745896,
+        variant_id: 5050,
+        source_section_id: "sourced-section",
         content_redacted: true,
       },
     });
@@ -2459,6 +2541,8 @@ add_task(
           corpus_item_id: "decaf-beef",
           scheduled_corpus_item_id: "dead-beef",
           tile_id: 314623757745896,
+          variant_id: 5050,
+          source_section_id: "sourced-section",
         })
       ),
       "NewTabContentPing passed the expected arguments."
@@ -2883,6 +2967,8 @@ add_task(function test_randomizeOrganicContentEvent() {
     is_sponsored: false,
     section_id: "section",
     section_position: 3,
+    variant_id: 0,
+    source_section_id: "src-section",
   });
   const allRecs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(computeRec);
   sandbox.stub(instance, "getRecommendationCount").returns(allRecs.length);
@@ -2922,12 +3008,16 @@ add_task(function test_randomizeOrganicContentEvent_tracks_layout_name() {
     section: "orig-section",
     section_position: 0,
     layout_name: "orig-layout",
+    variant_id: 0,
+    source_section_id: "orig-source",
   };
   const randomItem = {
     corpus_item_id: "swapped",
     topic: "b",
     is_sponsored: false,
     section: "swapped-section",
+    variant_id: 5050,
+    source_section_id: "swapped-source",
   };
   sandbox.stub(instance, "getRecommendationCount").returns(10);
   sandbox.stub(instance, "getAllRecommendations").returns([randomItem]);
@@ -2948,6 +3038,63 @@ add_task(function test_randomizeOrganicContentEvent_tracks_layout_name() {
     "swapped-layout",
     "layout_name tracks the swapped section"
   );
+  Assert.equal(
+    result.variant_id,
+    5050,
+    "variant_id tracks the swapped section"
+  );
+  Assert.equal(
+    result.source_section_id,
+    "swapped-source",
+    "source_section_id tracks the swapped section"
+  );
+
+  sandbox.restore();
+});
+
+add_task(function test_randomizeOrganicContentEvent_variant_id_popular_today() {
+  info(
+    "randomizeOrganicContentEvent should keep the original variant_id when the " +
+      "section stays Popular Today, since the swapped item's variant would be " +
+      "an impossible section/variant pair"
+  );
+  let sandbox = sinon.createSandbox();
+  let instance = new TelemetryFeed();
+
+  const item = {
+    corpus_item_id: "orig",
+    topic: "a",
+    is_sponsored: false,
+    section: "top_stories_section",
+    variant_id: 0,
+    source_section_id: "orig-origin",
+  };
+  const randomItem = {
+    corpus_item_id: "swapped",
+    topic: "b",
+    is_sponsored: false,
+    section: "sports",
+    variant_id: 5050,
+  };
+  sandbox.stub(instance, "getRecommendationCount").returns(10);
+  sandbox.stub(instance, "getAllRecommendations").returns([randomItem]);
+  instance._privateRandomContentTelemetryProbablityValues = { epsilon: 30 };
+  sandbox.stub(NewTabContentPing, "decideWithProbability").returns(false);
+  sandbox.stub(NewTabContentPing, "secureRandIntInRange").returns(0);
+
+  const result = instance.randomizeOrganicContentEvent(item);
+
+  Assert.equal(
+    result.section,
+    "top_stories_section",
+    "section stays Popular Today"
+  );
+  Assert.equal(
+    result.variant_id,
+    0,
+    "variant_id stays the Popular Today variant, not the swapped item's"
+  );
+  Assert.equal(result.corpus_item_id, "swapped", "content is still swapped");
 
   sandbox.restore();
 });

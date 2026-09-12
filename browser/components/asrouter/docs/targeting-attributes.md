@@ -179,6 +179,32 @@ devToolsOpenedCount > 10
 declare const devToolsOpenedCount: number;
 ```
 
+### `recentSearchCount`
+
+Number of distinct search terms submitted from a Search Access Point (SAP) in the last 28 days based on form history. Excludes private-browsing searches.
+
+#### Definition
+
+```ts
+declare const recentSearchCount: Promise<number>;
+```
+
+#### Examples
+* Has the user performed more than one SAP search in the last 28 days?
+```ts
+recentSearchCount > 1
+```
+
+* Has the user performed no SAP searches in the last 28 days?
+```ts
+recentSearchCount == 0
+```
+
+* Has the user performed between 1 to 10 SAP searches in the last 28 days?
+```ts
+recentSearchCount >= 1 && recentSearchCount <= 10
+```
+
 ### `isDefaultBrowser`
 
 Is Firefox the user's default browser?
@@ -468,6 +494,25 @@ The date the profile was reset as a UNIX Epoch timestamp (if it was reset).
 // profileAgeReset can be undefined if the profile was never reset
 // UnixEpochNumber is number, e.g. 1522843725924
 declare const profileAgeReset: undefined | UnixEpochNumber;
+// UnixEpochNumber is UNIX Epoch timestamp, e.g. 1522843725924
+type UnixEpochNumber = number;
+```
+
+### `profileLastUse`
+
+The date the profile was last used before the current session, as a UNIX Epoch
+timestamp. This is the more recent of the previous session's lock file time and
+the `prefs.js` modification time, and is `0` when neither is available.
+
+#### Examples
+* Has the profile been unused for at least 60 days?
+```java
+profileLastUse && currentDate|date - profileLastUse >= 5184000000
+```
+
+#### Definition
+```ts
+declare const profileLastUse: UnixEpochNumber;
 // UnixEpochNumber is UNIX Epoch timestamp, e.g. 1522843725924
 type UnixEpochNumber = number;
 ```
@@ -1333,6 +1378,16 @@ restore the previous session on startup; `false` otherwise.
 ### `canCreateSelectableProfiles`
 
 A boolean. `true` when both the current install and current profile support creating additional profiles using the `SelectableProfileService`; `false` otherwise.
+
+### `canResetProfile`
+
+A boolean. `true` when the current profile can be refreshed.
+
+Any message using the `RESET_PROFILE` action should include this in its targeting.
+
+### `isFirefoxReinstalled`
+
+Windows-only. A boolean. `true` when Firefox was uninstalled and then reinstalled over an existing profile since the previous run; `false` otherwise.
 
 ### `hasSelectableProfiles`
 

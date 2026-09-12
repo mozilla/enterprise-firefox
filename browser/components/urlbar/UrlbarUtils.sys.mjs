@@ -337,7 +337,8 @@ export var UrlbarUtils = {
   /**
    * Returns an engine's icon URL in a form the view can load. A config
    * engine's icon is a blob URL, which only resolves in the process that
-   * created it, so a view in a content process gets a data URL.
+   * created it, and an add-on engine's is a moz-extension URL, which a content
+   * document may not load, so a view in a content process gets a data URL.
    *
    * @param {SearchEngine} engine The engine whose icon to return.
    * @param {UrlbarParentController} [controller]
@@ -349,11 +350,14 @@ export var UrlbarUtils = {
    */
   async getEngineIconUrl(engine, controller) {
     let url = await engine.getIconURL();
-    if (!url?.startsWith("blob:") || !controller?.rendersInContentProcess) {
+    if (
+      !controller?.rendersInContentProcess ||
+      !/^(?:blob|moz-extension):/.test(url ?? "")
+    ) {
       return url;
     }
-    // An engine keeps one blob URL per icon size, so it's a stable cache key
-    // that a new icon invalidates by itself.
+    // A config engine keeps one blob URL per icon size, so it's a stable cache
+    // key that a new icon invalidates by itself.
     let dataUrl = gEngineIconDataUrls.get(url);
     if (!dataUrl) {
       dataUrl = (async () => {

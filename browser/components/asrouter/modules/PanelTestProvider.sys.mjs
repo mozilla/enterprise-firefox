@@ -744,67 +744,6 @@ const MESSAGES = () => [
     trigger: { id: "momentsUpdate" },
   },
   {
-    id: "PERSONALIZED_CFR_MESSAGE",
-    template: "cfr_doorhanger",
-    groups: ["cfr"],
-    content: {
-      layout: "icon_and_message",
-      category: "cfrFeatures",
-      bucket_id: "PERSONALIZED_CFR_MESSAGE",
-      notification_text: "Personalized CFR Recommendation",
-      heading_text: { string_id: "cfr-doorhanger-bookmark-fxa-header" },
-      info_icon: {
-        label: {
-          attributes: {
-            tooltiptext: { string_id: "cfr-doorhanger-fxa-close-btn-tooltip" },
-          },
-        },
-        sumo_path: "https://example.com",
-      },
-      text: { string_id: "cfr-doorhanger-bookmark-fxa-body-2" },
-      icon: "chrome://branding/content/icon64.png",
-      icon_class: "cfr-doorhanger-large-icon",
-      persistent_doorhanger: true,
-      buttons: {
-        primary: {
-          label: { string_id: "cfr-doorhanger-milestone-ok-button" },
-          action: {
-            type: "OPEN_URL",
-            data: {
-              args: "https://send.firefox.com/login/?utm_source=activity-stream&entrypoint=activity-stream-cfr-pdf",
-              where: "tabshifted",
-            },
-          },
-        },
-        secondary: [
-          {
-            label: { string_id: "cfr-doorhanger-extension-cancel-button" },
-            action: { type: "CANCEL" },
-          },
-          {
-            label: {
-              string_id: "cfr-doorhanger-extension-never-show-recommendation",
-            },
-          },
-          {
-            label: {
-              string_id: "cfr-doorhanger-extension-manage-settings-button",
-            },
-            action: {
-              type: "OPEN_PREFERENCES_PAGE",
-              data: { category: "general-cfrfeatures" },
-            },
-          },
-        ],
-      },
-    },
-    targeting: "scores.PERSONALIZED_CFR_MESSAGE.score > scoreThreshold",
-    trigger: {
-      id: "openURL",
-      patterns: ["*://*/*.pdf"],
-    },
-  },
-  {
     id: "TEST_BMB_BUTTON",
     groups: [],
     template: "bookmarks_bar_button",

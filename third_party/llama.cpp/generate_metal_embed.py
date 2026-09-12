@@ -10,6 +10,7 @@ This is inspired from upstream's CMake build system
 https://github.com/ggml-org/ggml/blob/72632094336524a9c809e129e8b1c52154543a5a/src/ggml-metal/CMakeLists.txt#L47-L61
 """
 
+import hashlib
 import os
 import sys
 
@@ -56,7 +57,12 @@ def main(output, *args):
     # referenced from ggml-metal.m at runtime to access the embedded shader
     # source. The shader is compiled on first run and then cached by the OS, so
     # it is not horribly inneficient (vs. e.g. precompiling at build time).
+    # .incbin is not tracked as a dependency, so the digest is what makes a
+    # shader edit change this file and reassemble the object.
+    digest = hashlib.sha256(metal_src.encode("utf-8")).hexdigest()
+
     asm_content = f'''.section __DATA,__ggml_metallib
+/* shader digest: {digest} */
 .globl _ggml_metallib_start
 _ggml_metallib_start:
 .incbin "{merged_metal_path}"

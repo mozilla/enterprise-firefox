@@ -9,6 +9,11 @@
 <resources>
   <!-- %1$d is a placeholder for the score value. -->
   <string name="score">स्कोर: %1$d</string>
+  <!--
+    Longfox is the name of an easter egg game available through
+    secret settings. Since that's not localized, keep the name unchanged.
+  -->
+  <string name="longfox">LONGFOX</string>
   <string name="likes_cookies">🍪 को कुकीज़ पसंद हैं 🍪</string>
   <string name="tap_to_play">खेलने के लिए टैप करें!</string>
   <!--
@@ -18,6 +23,8 @@
   <string name="hiscore">हाई-स्कोर: %1$d</string>
   <string name="sound_on">🔈 साउंड ऑन</string>
   <string name="sound_off">🔇 साउंड ऑफ़</string>
+  <!-- Back button -->
+  <string name="back">पीछे जाएं</string>
   <!-- Share hiscore action label. hiscore is an abbreviation for "Highest Score" -->
   <string name="share_hiscore">हाई-स्कोर शेयर करें</string>
   <!--

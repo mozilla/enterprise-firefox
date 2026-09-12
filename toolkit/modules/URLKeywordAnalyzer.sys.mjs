@@ -24,9 +24,11 @@
  *     tokenizing only (lowercasing, digit stripping, Unicode-aware splitting)
  *     with its stopword filtering disabled, and we apply our own stopword list
  *     (SEARCH_CTA_STOP_WORDS, forked from the shared list; see bug 2057648).
- *     When the path yields keywords, the host's tokens (non-www subdomains kept,
- *     public suffix dropped) are appended so the query is anchored to the site,
- *     capped at MAX_SEARCH_KEYWORDS with the path first.
+ *     When the path yields keywords, the query leads with the host's tokens
+ *     (non-www subdomains kept, public suffix dropped) so it is anchored to the
+ *     site, followed by the path's, capped at MAX_SEARCH_KEYWORDS. The host's
+ *     tokens keep their place when the cap is reached and the path is truncated
+ *     instead (bug 2070753).
  *   - When the path yields nothing meaningful, the query falls back to the
  *     registrable domain only ({ host, ... }); userinfo, port, query string,
  *     and fragment are never inspected.
@@ -222,10 +224,11 @@ export function analyzeURL(
   const pathKeywords = keywordsFrom(pathText);
 
   if (pathKeywords.length >= minKeywords) {
-    // Anchor the query to the site by appending the host's tokens, path first.
-    // A Set dedups while keeping first-appearance order.
-    const keywords = new Set(pathKeywords);
-    for (const word of hostKeywords(uri)) {
+    // Lead with the host's tokens so the query is anchored to the site the
+    // user meant, then the path's. A Set dedups while keeping first-appearance
+    // order, so a word carried by both surfaces at the front.
+    const keywords = new Set(hostKeywords(uri));
+    for (const word of pathKeywords) {
       keywords.add(word);
     }
     return {

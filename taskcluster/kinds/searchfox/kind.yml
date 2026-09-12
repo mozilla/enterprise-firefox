@@ -16,7 +16,6 @@ transforms:
     - gecko_taskgraph.transforms.task:transforms
 
 task-defaults:
-    run-on-repo-type: [hg]
     index:
         product: firefox
     treeherder:
@@ -30,7 +29,6 @@ task-defaults:
     # the files that sccache optimizes away compilation for.
     use-sccache: false
     run:
-        clone-with: hg
         using: mozharness
         actions: [build]
         extra-config:

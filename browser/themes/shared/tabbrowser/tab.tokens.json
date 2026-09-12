@@ -1,7 +1,52 @@
 {
-  "margin": {
-    "block": {
-      "value": "4px"
+  "attention": {
+    "dot": {
+      "color": {
+        "value": "{color.accent.attention}"
+      }
+    }
+  },
+  "background": {
+    "color": {
+      "@base": {
+        "value": {
+          "default": "transparent",
+          "nativeTheme": "transparent",
+          "forcedColors": "{button.background.color.@base}"
+        }
+      },
+      "hover": {
+        "value": {
+          "default": "color-mix(in srgb, currentColor 11%, transparent)",
+          "forcedColors": "{button.background.color.hover}",
+          "nova": {
+            "comment": "color-mix with currentColor cannot be expressed in Figma",
+            "value": {
+              "nativeTheme": "color-mix(in srgb, currentColor 17%, transparent)",
+              "default": "{toolbarbutton.background.color.hover}"
+            }
+          }
+        }
+      },
+      "selected": {
+        "value": {
+          "light": "{color.white.@base}",
+          "dark": "rgba(106, 106, 120, 0.7)",
+          "nativeTheme": "{toolbar.background.color}",
+          "forcedColors": "SelectedItem"
+        }
+      },
+      "pinned": {
+        "override": true,
+        "value": "unset"
+      }
+    },
+    "width": {
+      "pinned": {
+        "expanded": {
+          "value": "40px"
+        }
+      }
     }
   },
   "border": {
@@ -51,159 +96,6 @@
       }
     }
   },
-  "attention": {
-    "dot": {
-      "color": {
-        "value": "{color.accent.attention}"
-      }
-    }
-  },
-  "background": {
-    "color": {
-      "@base": {
-        "value": {
-          "default": "transparent",
-          "nativeTheme": "transparent",
-          "forcedColors": "{button.background.color.@base}"
-        }
-      },
-      "hover": {
-        "value": {
-          "default": "color-mix(in srgb, currentColor 11%, transparent)",
-          "forcedColors": "{button.background.color.hover}",
-          "nova": {
-            "comment": "color-mix with currentColor cannot be expressed in Figma",
-            "value": {
-              "nativeTheme": "color-mix(in srgb, currentColor 17%, transparent)",
-              "default": "{toolbarbutton.background.color.hover}"
-            }
-          }
-        }
-      },
-      "selected": {
-        "value": {
-          "light": "{color.white.@base}",
-          "dark": "rgba(106, 106, 120, 0.7)",
-          "nativeTheme": "{toolbar.background.color}",
-          "forcedColors": "SelectedItem"
-        }
-      },
-      "pinned": {
-        "override": true,
-        "value": "unset"
-      }
-    }
-  },
-  "text": {
-    "color": {
-      "@base": {
-        "value": {
-          "default": "{toolbox.text.color.current}",
-          "forcedColors": "{button.text.color.@base}"
-        }
-      },
-      "hover": {
-        "value": {
-          "default": "{toolbox.text.color.current}",
-          "forcedColors": "{button.text.color.hover}"
-        }
-      },
-      "selected": {
-        "value": {
-          "light": "rgb(21, 20, 26)",
-          "dark": "{color.white.@base}",
-          "nativeTheme": "{toolbar.text.color}",
-          "forcedColors": "SelectedItemText"
-        }
-      }
-    }
-  },
-  "icon": {
-    "end": {
-      "margin": {
-        "value": "5.5px"
-      }
-    }
-  },
-  "inline": {
-    "padding": {
-      "value": "8px"
-    }
-  },
-  "inner": {
-    "inline": {
-      "margin": {
-        "value": "{space.medium}"
-      }
-    }
-  },
-  "label": {
-    "line": {
-      "height": {
-        "value": 1.7
-      }
-    }
-  },
-  "loading": {
-    "fill": {
-      "value": {
-        "default": "{color.blue.50}",
-        "nova": {
-          "comment": "Tab HCM overrides are handled in CSS, so we don't want the forcedColors value from Figma",
-          "value": "{color.accent.primary.@base}"
-        }
-      }
-    }
-  },
-  "outline": {
-    "offset": {
-      "value": "calc(-1 * {border.width})"
-    }
-  },
-  "overflow": {
-    "clip": {
-      "margin": {
-        "value": "2px"
-      }
-    }
-  },
-  "pinned": {
-    "container": {
-      "margin": {
-        "inline": {
-          "expanded": {
-            "value": "{space.small}"
-          }
-        }
-      }
-    },
-    "expanded": {
-      "background": {
-        "width": {
-          "value": "40px"
-        }
-      }
-    },
-    "margin": {
-      "inline": {
-        "expanded": {
-          "value": "{space.xsmall}"
-        }
-      }
-    }
-  },
-  "vertical": {
-    "block": {
-      "margin": {
-        "value": "2px"
-      }
-    },
-    "inline": {
-      "padding": {
-        "value": "{space.medium}"
-      }
-    }
-  },
   "close": {
     "button": {
       "padding": {
@@ -212,7 +104,7 @@
       "background": {
         "color": {
           "@base": {
-            "value": "{toolbarbutton.background.color.@base}"
+            "value": "{button.background.color.ghost.@base}"
           },
           "hover": {
             "value": "{toolbarbutton.background.color.hover}"
@@ -258,6 +150,116 @@
               "forcedColors": "{button.text.color.active}"
             }
           }
+        }
+      }
+    }
+  },
+  "container": {
+    "margin": {
+      "inline": {
+        "pinned": {
+          "expanded": {
+            "value": {
+              "default": "{space.small}",
+              "nova": {
+                "comment": "This token's name needs to be updated in Figma to match.",
+                "value": "4px"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "icon": {
+    "fill": {
+      "loading": {
+        "value": {
+          "default": "{color.blue.50}",
+          "nova": {
+            "comment": "Tab HCM overrides are handled in CSS, so we don't want the forcedColors value from Figma",
+            "value": "{color.accent.primary.@base}"
+          }
+        }
+      }
+    },
+    "margin": {
+      "inline": {
+        "end": {
+          "value": "5.5px"
+        }
+      }
+    }
+  },
+  "label": {
+    "line": {
+      "height": {
+        "value": 1.7
+      }
+    }
+  },
+  "margin": {
+    "block": {
+      "@base": {
+        "value": "4px"
+      },
+      "vertical": {
+        "value": "2px"
+      }
+    },
+    "inline": {
+      "inner": {
+        "ignoreFigma": "Prefer space token over pixel value from Figma.",
+        "value": "{space.medium}"
+      },
+      "pinned": {
+        "expanded": {
+          "ignoreFigma": "The 0px value from Figma causes pinned tabs to touch.",
+          "value": "{space.xsmall}"
+        }
+      }
+    },
+    "overflow": {
+      "clip": {
+        "value": "2px"
+      }
+    }
+  },
+  "outline": {
+    "offset": {
+      "value": "calc(-1 * {border.width})"
+    }
+  },
+  "padding": {
+    "inline": {
+      "@base": {
+        "value": "8px"
+      },
+      "vertical": {
+        "value": "{space.medium}"
+      }
+    }
+  },
+  "text": {
+    "color": {
+      "@base": {
+        "value": {
+          "default": "{toolbox.text.color.current}",
+          "forcedColors": "{button.text.color.@base}"
+        }
+      },
+      "hover": {
+        "value": {
+          "default": "{toolbox.text.color.current}",
+          "forcedColors": "{button.text.color.hover}"
+        }
+      },
+      "selected": {
+        "value": {
+          "light": "rgb(21, 20, 26)",
+          "dark": "{color.white.@base}",
+          "nativeTheme": "{toolbar.text.color}",
+          "forcedColors": "SelectedItemText"
         }
       }
     }

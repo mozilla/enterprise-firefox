@@ -10,7 +10,11 @@ add_setup(async function () {
   useHttpServer();
 
   Services.prefs.setBoolPref(
-    "browser.search.separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.featureGate",
+    true
+  );
+  Services.prefs.setBoolPref(
+    "browser.search.separatePrivateDefault.enabled",
     true
   );
   Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
@@ -88,7 +92,10 @@ add_task(
       SearchService.CHANGE_REASON.UNKNOWN
     );
 
-    Services.prefs.setBoolPref("browser.search.separatePrivateDefault", false);
+    Services.prefs.setBoolPref(
+      "browser.search.separatePrivateDefault.enabled",
+      false
+    );
 
     await defaultNotificationTest(true, true);
   }

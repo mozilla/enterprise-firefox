@@ -19,6 +19,8 @@
 
 /* Fullpage: browser collapsed (0 height) until chat starts, showing prompts and smartbar */
 :host([mode="fullpage"]) {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/no-base-design-tokens */
+  box-shadow: inset 0 80px 80px -80px color-mix(in srgb, light-dark(var(--color-violet-70), var(--color-violet-50)) 60%, transparent);
   grid-template-areas:
     "browser"
     "."

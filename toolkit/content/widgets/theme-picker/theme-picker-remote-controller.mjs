@@ -123,6 +123,7 @@ export class ThemePickerRemoteController {
       case "theme":
         this.dispatchActorEvent("ThemePickerUpdateTheme", {
           themeId: String(value),
+          installsource: this.installSource,
           layout: this.host.layout,
         });
         break;

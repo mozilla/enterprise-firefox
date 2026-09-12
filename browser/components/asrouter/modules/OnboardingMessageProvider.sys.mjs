@@ -1308,53 +1308,6 @@ const BASE_MESSAGES = () => [
     trigger: { id: "toolbarBadgeUpdate" },
   },
   {
-    id: "MILESTONE_MESSAGE_87",
-    groups: ["cfr"],
-    content: {
-      text: "",
-      layout: "short_message",
-      buttons: {
-        primary: {
-          event: "PROTECTION",
-          label: {
-            string_id: "cfr-doorhanger-milestone-ok-button",
-          },
-          action: {
-            type: "OPEN_PROTECTION_REPORT",
-          },
-        },
-        secondary: [
-          {
-            event: "DISMISS",
-            label: {
-              string_id: "cfr-doorhanger-milestone-close-button",
-            },
-            action: {
-              type: "CANCEL",
-            },
-          },
-        ],
-      },
-      category: "cfrFeatures",
-      anchor_id: "tracking-protection-icon-container",
-      bucket_id: "CFR_MILESTONE_MESSAGE",
-      heading_text: {
-        string_id: "cfr-doorhanger-milestone-heading2",
-      },
-      notification_text: "",
-      skip_address_bar_notifier: true,
-    },
-    trigger: {
-      id: "contentBlocking",
-      params: ["ContentBlockingMilestone"],
-    },
-    template: "milestone_message",
-    frequency: {
-      lifetime: 7,
-    },
-    targeting: "pageLoad >= 4 && userPrefs.cfrFeatures",
-  },
-  {
     id: "FX_MR_106_UPGRADE",
     template: "spotlight",
     targeting: "true",
@@ -2671,6 +2624,49 @@ const BASE_MESSAGES = () => [
     trigger: {
       id: "selectableProfilesUpdated",
     },
+  },
+  {
+    id: "REFRESH_UNUSED_PROFILE_INFOBAR",
+    template: "infobar",
+    content: {
+      type: "global",
+      priority: 1,
+      text: { string_id: "refresh-unused-profile-infobar-message" },
+      buttons: [
+        {
+          label: { string_id: "refresh-profile-infobar-button" },
+          action: { type: "RESET_PROFILE" },
+        },
+      ],
+    },
+    trigger: {
+      id: "defaultBrowserCheck",
+    },
+    skip_in_tests: "fires on startup, may interfere with other tests",
+    priority: 1,
+    targeting:
+      "source == 'startup' && canResetProfile && !'browser.disableResetPrompt'|preferenceValue && profileLastUse && currentDate|date - profileLastUse >= 5184000000 && !activeNotifications",
+  },
+  {
+    id: "REFRESH_REINSTALLED_PROFILE_INFOBAR",
+    template: "infobar",
+    content: {
+      type: "global",
+      priority: 1,
+      text: { string_id: "refresh-reinstalled-profile-infobar-message" },
+      buttons: [
+        {
+          label: { string_id: "refresh-profile-infobar-button" },
+          action: { type: "RESET_PROFILE" },
+        },
+      ],
+    },
+    trigger: {
+      id: "defaultBrowserCheck",
+    },
+    skip_in_tests: "fires on startup, may interfere with other tests",
+    targeting:
+      "source == 'startup' && isFirefoxReinstalled && canResetProfile && !'browser.disableResetPrompt'|preferenceValue && !activeNotifications",
   },
   {
     id: "updated-privacy-notice-notification-infobar",

@@ -361,24 +361,40 @@ class RustLoginStorageAuthenticator extends PrimaryPasswordAuthenticator {
 
       if (!result.getProperty("ok")) {
         this.authCanceled = true;
+        this.#recordPrompt("cancel");
         Services.obs.notifyObservers(null, "passwordmgr-crypto-loginCanceled");
         throw new AuthenticationCanceled("User cancelled");
       }
 
       this.#logger.log("got a password");
       return result.getProperty("pass");
+    } catch (e) {
+      if (!(e instanceof AuthenticationCanceled)) {
+        this.#recordPrompt("error");
+      }
+      throw e;
     } finally {
       this.uiBusy = false;
     }
   }
 
   async onAuthenticationSuccess() {
+    this.#recordPrompt("success");
     Services.obs.notifyObservers(null, "passwordmgr-crypto-login");
     this.#logger.log("authenticated with success");
   }
 
+  // Rust prompts again after a failure, so every attempt gets its own event.
   async onAuthenticationFailure() {
+    this.#recordPrompt("wrong_password");
     this.#logger.log("failed to authenticate");
+  }
+
+  #recordPrompt(result) {
+    Glean.pwmgr.primaryPasswordPrompt.record({
+      source: "rust_storage",
+      result,
+    });
   }
 }
 

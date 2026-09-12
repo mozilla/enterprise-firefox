@@ -3,14 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    AdapterInformation, BufferMapResult, ByteBuf, DeviceAction, FfiDeviceLostReason,
+    error::{error_to_string, GPUError},
+    make_byte_buf,
+    telemetry::build_telemetry_struct,
+    wgpu_string, AdapterInformation, BufferMapResult, ByteBuf, DeviceAction, FfiDeviceLostReason,
     FfiErrorFilter, FfiPopErrorScopeResultType, FfiSlice, FfiTextureDescriptor, Message,
     PipelineError, QueueWriteAction, QueueWriteDataSource, ServerMessage,
     ShaderModuleCompilationMessage, SwapChainId, TextureAction,
-    error::{GPUError, error_to_string},
-    make_byte_buf,
-    telemetry::build_telemetry_struct,
-    wgpu_string,
 };
 
 use futures_util::StreamExt;
@@ -22,14 +21,13 @@ use wgc::{
 #[allow(unused_imports)]
 use wgh::Instance;
 use wgpu_core_remote_types::{
-    BufferDescriptor, DeviceDescriptor, ShaderModuleDescriptor, TextureDescriptor,
-    TextureViewDescriptor,
     encoders::{CommandBufferDescriptor, TexelCopyBufferInfo, TexelCopyTextureInfo},
-    id,
+    id, BufferDescriptor, DeviceDescriptor, ShaderModuleDescriptor, TextureDescriptor,
+    TextureViewDescriptor,
 };
 use wgt::{
-    CommandEncoderDescriptor, TexelCopyBufferLayout,
     error::{ErrorFilter, ErrorType, WebGpuError},
+    CommandEncoderDescriptor, TexelCopyBufferLayout,
 };
 
 use std::borrow::Cow;
@@ -1065,7 +1063,19 @@ pub unsafe extern "C" fn wgpu_server_buffer_get_mapped_range(
             ptr: ptr.as_ptr(),
             length: len,
         },
-        Err(error) => panic!("{error}"),
+        Err(error) => match error {
+            // The map may have been cancelled before the caller got here:
+            // `buffer.destroy()` destroys the resource and `buffer.unmap()`
+            // returns it to the idle state. Report an empty slice so the
+            // caller can turn it into a map error.
+            BufferAccessError::DestroyedResource(_) | BufferAccessError::NotMapped => {
+                MappedBufferSlice {
+                    ptr: core::ptr::null_mut(),
+                    length: 0,
+                }
+            }
+            _ => panic!("{error}"),
+        },
     }
 }
 
@@ -2539,30 +2549,32 @@ impl Global {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wgpu_server_pack_buffer_map_success(
+pub unsafe extern "C" fn wgpu_server_send_buffer_map_success(
+    parent: WebGPUParentPtr,
     buffer_id: id::BufferId,
     is_writable: bool,
     offset: u64,
     size: u64,
-    bb: &mut ByteBuf,
 ) {
     let result = BufferMapResult::Success {
         is_writable,
         offset,
         size,
     };
-    *bb = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    let mut byte_buf = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    unsafe { wgpu_parent_send_server_message(parent, &mut byte_buf) };
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wgpu_server_pack_buffer_map_error(
+pub unsafe extern "C" fn wgpu_server_send_buffer_map_error(
+    parent: WebGPUParentPtr,
     buffer_id: id::BufferId,
     error: &nsACString,
-    bb: &mut ByteBuf,
 ) {
     let error = error.to_utf8();
     let result = BufferMapResult::Error(error);
-    *bb = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    let mut byte_buf = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    unsafe { wgpu_parent_send_server_message(parent, &mut byte_buf) };
 }
 
 #[no_mangle]
@@ -3230,7 +3242,7 @@ fn enqueue_signal_semaphores_destruction(
     let device = global.resolve_device_id(device_id);
     let queue = global.resolve_queue_id(queue_id);
 
-    if !submission_errored {
+    if submission_errored {
         // Unregister the pending signals so that a later submission on this
         // queue does not signal them. This is a no-op for any semaphore that a
         // batch already consumed before `queue_submit` reported the failure.
@@ -3455,17 +3467,17 @@ pub unsafe extern "C" fn wgpu_server_device_wait_fence_from_shared_handle(
 mod macos {
     use std::ffi::CString;
 
-    use super::{Global, emit_critical_invalid_note, gfx_critical_note};
+    use super::{emit_critical_invalid_note, gfx_critical_note, Global};
     use crate::{
-        FfiTextureDescriptor, SwapChainId,
         server::{
             wgpu_server_ensure_shared_texture_for_swap_chain,
             wgpu_server_get_external_io_surface_id,
         },
+        FfiTextureDescriptor, SwapChainId,
     };
 
     use objc2::{
-        rc::{Retained, autoreleasepool},
+        rc::{autoreleasepool, Retained},
         runtime::ProtocolObject,
     };
     use objc2_foundation::NSString;
@@ -3474,7 +3486,7 @@ mod macos {
         MTLDevice as _, MTLPixelFormat, MTLResource, MTLStorageMode, MTLTexture,
         MTLTextureDescriptor, MTLTextureType, MTLTextureUsage,
     };
-    use wgpu_core_remote_types::{TextureDescriptor, id};
+    use wgpu_core_remote_types::{id, TextureDescriptor};
 
     /// Imports a Metal texture from the specified plane of an IOSurface.
     #[no_mangle]

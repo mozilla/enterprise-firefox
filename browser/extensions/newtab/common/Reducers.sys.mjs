@@ -324,8 +324,24 @@ export const INITIAL_STATE = {
   },
   RecentSearches: {
     initialized: false,
-    // Recent search strings, newest first.
+    /**
+     * @type {[{value: string, lastUsed: number}]}
+     *   Recent searches, newest first, as { value, lastUsed } where lastUsed is
+     *   a ms epoch.
+     */
     searches: [],
+    /**
+     * @type {?Array<string>}
+     *   Trending search strings for the default engine. Null until a user opens
+     *   the Trending tab and the engine answers, so an empty list means the
+     *   engine had nothing rather than that nothing has been asked for yet.
+     */
+    trending: null,
+    /**
+     * Name of the default engine, for the Trending tab attribution. Empty until
+     * the first update arrives, and for a profile with no default engine.
+     */
+    engineName: "",
   },
 };
 
@@ -1306,7 +1322,7 @@ function RecentSearches(prevState = INITIAL_STATE.RecentSearches, action) {
       return {
         ...prevState,
         ...action.data,
-        initialized: true,
+        initialized: prevState.initialized || "searches" in action.data,
       };
     default:
       return prevState;

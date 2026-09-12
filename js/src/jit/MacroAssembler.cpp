@@ -721,7 +721,11 @@ void MacroAssembler::bumpPointerAllocate(Register result, Register temp,
     Register site = allocSite.as<Register>();
     updateAllocSite(temp, result, zone, site);
     // See NurseryCellHeader::MakeValue.
-    orPtr(Imm32(int32_t(traceKind)), site);
+    static_assert(int32_t(JS::TraceKind::Object) == 0,
+                  "Object contributes no tag bits, making the OR a no-op");
+    if (traceKind != JS::TraceKind::Object) {
+      orPtr(Imm32(int32_t(traceKind)), site);
+    }
     storePtr(site, Address(result, -js::Nursery::nurseryCellHeaderSize()));
   }
 }
@@ -3855,6 +3859,64 @@ void MacroAssembler::timeClip(FloatRegister time, FloatRegister output,
     addDouble(fpscratch, output);
   }
   bind(&done);
+}
+
+void MacroAssembler::unpackTime(ValueOperand packedVal, Register dest,
+                                Register temp, uint32_t shiftImm,
+                                uint32_t maskImm) {
+  MOZ_ASSERT(maskImm <= INT32_MAX);
+
+#ifdef DEBUG
+  {
+    Label okValue;
+
+    branchTestDouble(Condition::Equal, packedVal, &okValue);
+    assumeUnreachable("packedTime is not a double");
+    bind(&okValue);
+  }
+#endif
+
+#ifdef JS_NUNBOX32
+  Register64 dest64(temp, dest);
+#else
+  MOZ_ASSERT(temp == InvalidReg);
+  Register64 dest64(dest);
+#endif
+
+  Register64 packedReg = packedVal.toRegister64();
+
+  if (shiftImm != 0) {
+    rshift64(Imm32(shiftImm), packedReg, dest64);
+  } else if (packedReg != dest64) {
+    move64(packedReg, dest64);
+  }
+
+  and32(Imm32(maskImm), dest);
+
+#ifdef JS_PUNBOX64
+  debugAssertCanonicalInt32(dest);
+#endif
+}
+
+void MacroAssembler::epochMilliseconds(FloatRegister seconds,
+                                       Register nanoseconds,
+                                       FloatRegister output, Register temp) {
+  // Inlined version of EpochNanoseconds::floorToMilliseconds. The
+  // C++ code uses integer arithmetic, but computing this with doubles
+  // gives identical results because all intermediate values are integers
+  // in the range ±8.64e15 and representable as doubles.
+  //
+  // |nanoseconds| is in the range [0, 999'999'999], so our unsigned division
+  // computes the same result as the signed division in the C++ code.
+
+  udiv32ByConstant(nanoseconds, 1'000'000, temp);
+
+  ScratchDoubleScope scratch(*this);
+  loadConstantDouble(1000.0, scratch);
+  mulDouble(seconds, scratch);
+
+  convertInt32ToDouble(temp, output);
+  addDouble(scratch, output);
 }
 
 void MacroAssembler::computeImplicitThis(Register env, ValueOperand output,

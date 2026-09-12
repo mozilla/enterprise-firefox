@@ -10,7 +10,7 @@
 <body>
 <div id="content"></div>
 <div id="results">
-  <label>Reference (first 60s of speech):</label>
+  <label>Reference:</label>
   <div class="reference" id="ref-text">loading...</div>
   <label>Recognized:</label>
   <div class="recognized" id="rec-text">waiting...</div>
@@ -68,7 +68,7 @@ add_setup(async function setup() {
 
 add_task(async function parakeet_e2e_stereo_downmix() {
   // Fetch reference transcript.
-  const refResp = await fetch(`http://localhost:${SERVER_PORT}/transcript.txt`);
+  const refResp = await fetch("transcript.txt");
   const refText = refResp.ok ? await refResp.text() : "(reference unavailable)";
   document.getElementById("ref-text").textContent = refText.slice(0, 800) + "...";
   diag("reference transcript fetched (ok=" + refResp.ok + ")");

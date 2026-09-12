@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.3.335
- * pdfjsBuild = 74515c623
+ * pdfjsVersion = 6.3.351
+ * pdfjsBuild = 716aff9d5
  */
 
 ;// ./web/ui_utils.js
@@ -898,7 +898,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "251ee865-0628-461b-917a-61511965a918";
+const INTERNAL_EVT = "b17e9a2f-7526-4489-adb9-d4e93d0cb8c5";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -13329,7 +13329,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.3.335";
+    const viewerVersion = "6.3.351";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -17770,12 +17770,12 @@ const PDFViewerApplication = {
       const {
         featuresNotification
       } = appConfig;
-      customElements.whenDefined("pdf-features-notification").then(() => {
+      customElements.whenDefined("moz-message-bar").then(() => {
         if (AppOptions.get("featuresNotificationDismissed")) {
           return;
         }
         featuresNotification.addEventListener("click", event => {
-          if (!event.target.closest(".cta")) {
+          if (!event.target.closest("a")) {
             return;
           }
           event.preventDefault();
@@ -17794,7 +17794,10 @@ const PDFViewerApplication = {
           docStyle.setProperty("--pfn-bar-height", "0px");
           featuresNotification.hidden = true;
         };
-        featuresNotification.addEventListener("pdf-features-notification:dismissed", () => {
+        featuresNotification.addEventListener("message-bar:user-dismissed", () => {
+          if (featuresNotification.matches(":focus-within")) {
+            container.focus();
+          }
           hideBar();
           this.preferences.set("featuresNotificationDismissed", true);
         }, {
@@ -17810,7 +17813,7 @@ const PDFViewerApplication = {
           signal: abortSignal,
           ...internalOpt
         });
-        featuresNotification.show();
+        featuresNotification.hidden = false;
       });
     }
     const signatureManager = AppOptions.get("enableSignatureEditor") && appConfig.addSignatureDialog ? new SignatureManager(appConfig.addSignatureDialog, appConfig.editSignatureDialog, appConfig.annotationEditorParams?.editorSignatureAddSignature || null, overlayManager, l10n, externalServices.createSignatureStorage(eventBus, abortSignal), eventBus) : null;

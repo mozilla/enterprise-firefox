@@ -10,7 +10,6 @@ import { CSSTransition } from "react-transition-group";
 
 function SectionsMgmtPanel({
   pocketEnabled,
-  onSubpanelToggle,
   togglePanel,
   showPanel,
   novaEnabled,
@@ -183,13 +182,6 @@ function SectionsMgmtPanel({
     },
     [dispatch, sectionPersonalization]
   );
-
-  // Notify parent menu when subpanel opens/closes
-  useEffect(() => {
-    if (onSubpanelToggle) {
-      onSubpanelToggle(showPanel);
-    }
-  }, [showPanel, onSubpanelToggle]);
 
   useEffect(() => {
     if (showPanel) {

@@ -8,6 +8,17 @@ cd $MOZ_FETCHES_DIR/winchecksec
 SUFFIX=
 
 case "$1" in
+x86_64-unknown-linux-gnu)
+    export PATH="$MOZ_FETCHES_DIR/clang/bin:$PATH"
+
+    CMAKE_FLAGS="
+      -DCMAKE_C_COMPILER=clang
+      -DCMAKE_CXX_COMPILER=clang++
+      -DCMAKE_SYSROOT=$MOZ_FETCHES_DIR/sysroot
+      -DCMAKE_EXE_LINKER_FLAGS_INIT=-fuse-ld=lld
+      -DCMAKE_SHARED_LINKER_FLAGS_INIT=-fuse-ld=lld
+    "
+    ;;
 x86_64-pc-windows-msvc)
     SUFFIX=.exe
     export PATH="$MOZ_FETCHES_DIR/clang/bin:$PATH"

@@ -1596,9 +1596,11 @@ void nsXULPopupManager::PaintPopups(nsRefreshDriver* aRefreshDriver) {
   AutoTArray<std::pair<RefPtr<nsIWidget>, WeakFrame>, 32> popupsToPaint;
   for (nsMenuChainItem* item = mPopups.get(); item; item = item->GetParent()) {
     nsMenuPopupFrame* frame = item->Frame();
-    if (!frame->IsVisibleOrHiding() ||
-        frame->PresContext()->GetRootPresContext()->RefreshDriver() !=
-            aRefreshDriver) {
+    if (!frame->IsVisibleOrHiding()) {
+      continue;
+    }
+    nsPresContext* rootPc = frame->PresContext()->GetRootPresContext();
+    if (!rootPc || rootPc->RefreshDriver() != aRefreshDriver) {
       continue;
     }
     if (nsIWidget* widget = frame->GetWidget()) {
@@ -1644,6 +1646,9 @@ void nsXULPopupManager::PaintPopups(nsRefreshDriver* aRefreshDriver) {
     nsAutoScriptBlocker scriptBlocker;
     RefPtr<PresShell> ps = frame->PresShell();
     RefPtr<WindowRenderer> renderer = widget->GetWindowRenderer();
+    if (!renderer) {
+      continue;
+    }
     if (renderer->AsFallback()) {
       // FIXME: A bit of a hack. This matches what PaintAndRequestComposite
       // does for views (eventually).

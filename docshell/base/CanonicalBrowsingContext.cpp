@@ -337,6 +337,12 @@ void CanonicalBrowsingContext::ReplacedBy(
   txn.SetForceDesktopViewport(GetForceDesktopViewport());
   txn.SetIsUnderHiddenEmbedderElement(GetIsUnderHiddenEmbedderElement());
 
+  // Propagate WatchedByDevTools state so that cross-group navigations
+  // are kept being tracked by DevTools.
+  if (GetWatchedByDevToolsInternal()) {
+    txn.SetWatchedByDevToolsInternal(true);
+  }
+
   // When using site-specific zoom, we let the frontend manage the zoom level
   // of BFCache'd contexts. Overriding those zoom levels can cause weirdness
   // like bug 1846141. We always copy to new contexts to avoid bug 1914149.

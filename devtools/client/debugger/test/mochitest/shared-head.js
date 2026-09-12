@@ -286,10 +286,7 @@ function waitForSelectedSource(dbg, sourceOrUrl) {
         return allSourceActorsProcessed;
       }
 
-      if (
-        !location.source.isStyleSheet &&
-        !getBreakableLines(location.source.id)
-      ) {
+      if (!location.source.isStyleSheet && !getBreakableLines(location)) {
         return false;
       }
 
@@ -325,11 +322,11 @@ function getVisibleSelectedFrameColumn(dbg) {
  * Assert that a given line is breakable or not.
  * Verify that CodeMirror gutter is grayed out via the empty line classname if not breakable.
  */
-async function assertLineIsBreakable(dbg, file, line, shouldBeBreakable) {
+async function assertLineIsBreakable(dbg, line, shouldBeBreakable) {
   const el = await getNodeAtEditorGutterLine(dbg, line);
   const lineText = `${line}| ${el.innerText.substring(0, 50)}${
     el.innerText.length > 50 ? "…" : ""
-  } — in ${file}`;
+  }`;
   // When a line is not breakable, the "empty-line" class is added
   // and the line is greyed out
   if (shouldBeBreakable) {
@@ -1091,10 +1088,10 @@ async function navigateToAbsoluteURL(dbg, url, ...sources) {
 }
 
 function getFirstBreakpointColumn(dbg, source, line) {
-  const position = dbg.selectors.getFirstBreakpointPosition(
+  const position = dbg.selectors.getFirstBreakpointPositionForLocationLine(
     createLocation({
-      line,
       source,
+      line,
     })
   );
 
@@ -2948,7 +2945,10 @@ async function waitForBreakableLine(dbg, source, lineNumber) {
       const currentSource = findSource(dbg, source);
 
       const breakableLines =
-        currentSource && dbg.selectors.getBreakableLines(currentSource.id);
+        currentSource &&
+        dbg.selectors.getBreakableLines(
+          createLocation({ source: currentSource, line: lineNumber })
+        );
 
       return breakableLines && breakableLines.includes(lineNumber);
     },

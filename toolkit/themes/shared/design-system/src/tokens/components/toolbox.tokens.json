@@ -5,7 +5,14 @@
         "value": {
           "light": "rgb(234, 234, 237)",
           "dark": "{color.gray.90}",
-          "nativeTheme": "-moz-headerbar"
+          "nativeTheme": "-moz-headerbar",
+          "nova": {
+            "value": {
+              "light": "{color.white.@base}",
+              "dark": "{color.gray.70}",
+              "nativeTheme": "-moz-headerbar"
+            }
+          }
         }
       },
       "inactive": {

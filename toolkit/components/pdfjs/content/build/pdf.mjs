@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.3.335
- * pdfjsBuild = 74515c623
+ * pdfjsVersion = 6.3.351
+ * pdfjsBuild = 716aff9d5
  */
 
 ;// ./src/shared/util.js
@@ -2064,7 +2064,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "251ee865-0628-461b-917a-61511965a918";
+const INTERNAL_EVT = "b17e9a2f-7526-4489-adb9-d4e93d0cb8c5";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -9740,15 +9740,12 @@ class TilingPattern {
     return nXLast <= nXFirst && nYLast <= nYFirst ? [nXFirst, nYFirst] : null;
   }
   updatePatternDims(clippedBBox, dims) {
-    const inv = Util.inverseTransform(this.patternBaseMatrix);
-    const c1 = [clippedBBox[0], clippedBBox[1]];
-    const c2 = [clippedBBox[2], clippedBBox[3]];
-    Util.applyTransform(c1, inv);
-    Util.applyTransform(c2, inv);
-    dims[0] = Math.abs(c2[0] - c1[0]);
-    dims[1] = Math.abs(c2[1] - c1[1]);
-    dims[2] = Math.min(c1[0], c2[0]);
-    dims[3] = Math.min(c1[1], c2[1]);
+    const bbox = [Infinity, Infinity, -Infinity, -Infinity];
+    Util.axialAlignedBoundingBox(clippedBBox, Util.inverseTransform(this.patternBaseMatrix), bbox);
+    dims[0] = bbox[2] - bbox[0];
+    dims[1] = bbox[3] - bbox[1];
+    dims[2] = bbox[0];
+    dims[3] = bbox[1];
   }
   _renderTileCanvas(owner, opIdx, dimx, dimy) {
     const [x0, y0, x1, y1] = this.bbox;
@@ -14479,7 +14476,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.3.335",
+    apiVersion: "6.3.351",
     data,
     password,
     disableAutoFetch,
@@ -16136,8 +16133,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.3.335";
-const build = "74515c623";
+const version = "6.3.351";
+const build = "716aff9d5";
 
 ;// ./src/display/editor/color_picker.js
 

@@ -20,7 +20,6 @@ import time
 import traceback
 from argparse import Namespace
 from collections import defaultdict, deque, namedtuple
-from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import partial
 from multiprocessing import cpu_count
@@ -143,25 +142,6 @@ def cleanup_encoding(s):
         s = s.decode("utf-8", "replace")
     # Replace all C0 and C1 control characters with \xNN escapes.
     return _cleanup_encoding_re.sub(_cleanup_encoding_repl, s)
-
-
-@contextmanager
-def popenCleanupHack():
-    """
-    Hack to work around https://bugs.python.org/issue37380
-    The basic idea is that on old versions of Python on Windows,
-    we need to clear subprocess._cleanup before we call Popen(),
-    then restore it afterwards.
-    """
-    savedCleanup = None
-    if mozinfo.isWin and sys.version_info[0] == 3 and sys.version_info < (3, 7, 5):
-        savedCleanup = subprocess._cleanup
-        subprocess._cleanup = lambda: None
-    try:
-        yield
-    finally:
-        if savedCleanup:
-            subprocess._cleanup = savedCleanup
 
 
 """ Control-C handling """
@@ -367,10 +347,7 @@ class XPCShellTestThread(Thread):
         else:
             popen_func = Popen
 
-        with popenCleanupHack():
-            proc = popen_func(cmd, stdout=stdout, stderr=stderr, env=env, cwd=cwd)
-
-        return proc
+        return popen_func(cmd, stdout=stdout, stderr=stderr, env=env, cwd=cwd)
 
     def checkForCrashes(self, dump_directory, symbols_path, test_name=None):
         """

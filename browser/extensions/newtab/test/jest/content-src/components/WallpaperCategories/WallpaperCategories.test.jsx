@@ -327,11 +327,9 @@ describe("<WallpaperCategories>", () => {
   });
 
   it("opens the requested category when deep-linked via App state", () => {
-    const onSubpanelToggle = jest.fn();
     const onOpenPanel = jest.fn();
     const props = {
       ...DEFAULT_PROPS,
-      onSubpanelToggle,
       Wallpapers: {
         ...DEFAULT_PROPS.Wallpapers,
         categories: ["celestial", "solid-colors", "firefox"],
@@ -360,7 +358,6 @@ describe("<WallpaperCategories>", () => {
       "data-l10n-id",
       "newtab-wallpaper-category-title-firefox"
     );
-    expect(onSubpanelToggle).toHaveBeenCalledWith(true);
     expect(DEFAULT_PROPS.dispatch).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: at.WALLPAPER_CATEGORY_CLICK })
     );
@@ -405,8 +402,7 @@ describe("<WallpaperCategories>", () => {
     );
   });
 
-  it("notifies the customize menu once per open and once per close", () => {
-    const onSubpanelToggle = jest.fn();
+  it("closes the panel and refocuses the tile on back", () => {
     const onClosePanel = jest.fn();
     const originalRAF = globalThis.requestAnimationFrame;
     globalThis.requestAnimationFrame = cb => {
@@ -415,20 +411,12 @@ describe("<WallpaperCategories>", () => {
     };
     try {
       const { container } = render(
-        <Harness
-          {...DEFAULT_PROPS}
-          onSubpanelToggle={onSubpanelToggle}
-          onClosePanel={onClosePanel}
-        />
+        <Harness {...DEFAULT_PROPS} onClosePanel={onClosePanel} />
       );
       fireEvent.click(container.querySelector("#celestial"));
-      expect(onSubpanelToggle).toHaveBeenCalledTimes(1);
-      expect(onSubpanelToggle).toHaveBeenLastCalledWith(true);
 
       fireEvent.click(container.querySelector(".wallpaper-list .arrow-button"));
       expect(onClosePanel).toHaveBeenCalledTimes(1);
-      expect(onSubpanelToggle).toHaveBeenCalledTimes(2);
-      expect(onSubpanelToggle).toHaveBeenLastCalledWith(false);
       // The synchronous requestAnimationFrame stub makes the refocus observable straight away.
       expect(document.activeElement).toBe(
         container.querySelector("#celestial")
@@ -438,20 +426,14 @@ describe("<WallpaperCategories>", () => {
     }
   });
 
-  it("does not notify again when switching to another category while open", () => {
-    const onSubpanelToggle = jest.fn();
+  it("opens the new category when switching while open", () => {
     const onOpenPanel = jest.fn();
     const { container } = render(
-      <Harness
-        {...DEFAULT_PROPS}
-        onSubpanelToggle={onSubpanelToggle}
-        onOpenPanel={onOpenPanel}
-      />
+      <Harness {...DEFAULT_PROPS} onOpenPanel={onOpenPanel} />
     );
     fireEvent.click(container.querySelector("#celestial"));
     fireEvent.click(container.querySelector("#solid-colors"));
     expect(onOpenPanel).toHaveBeenLastCalledWith("solid-colors");
-    expect(onSubpanelToggle).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the category title on the heading after back, for the exit animation", () => {

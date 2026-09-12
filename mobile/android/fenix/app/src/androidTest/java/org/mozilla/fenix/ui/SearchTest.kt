@@ -79,6 +79,7 @@ class SearchTest {
                 skipOnboarding = true,
                 isPocketEnabled = false,
                 isRecentTabsFeatureEnabled = false,
+                isRecentlyVisitedFeatureEnabled = true,
                 isWallpaperOnboardingEnabled = false,
                 isLocationPermissionEnabled = SitePermissionsRules.Action.BLOCKED,
                 // workaround for toolbar at top position by default

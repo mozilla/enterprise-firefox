@@ -7,6 +7,7 @@
 
 #include "DOMMediaStream.h"
 #include "SpeechGrammarList.h"
+#include "SpeechRecognitionBackend.h"
 #include "SpeechRecognitionResultList.h"
 #include "js/TypeDecls.h"
 #include "mozilla/DOMEventTargetHelper.h"
@@ -32,7 +33,6 @@ namespace mozilla {
 namespace dom {
 
 class Promise;
-class SpeechRecognitionBackend;
 class SpeechRecognitionPhrase;
 
 #define SPEECH_RECOGNITION_TEST_EVENT_REQUEST_TOPIC \
@@ -132,6 +132,9 @@ class SpeechRecognition final : public DOMEventTargetHelper,
       const GlobalObject& aGlobal, const SpeechRecognitionOptions& aOptions,
       ErrorResult& aRv);
 
+  // ChromeOnly, for perf tests: see SpeechRecognitionPerfStats.
+  already_AddRefed<Promise> GetPerfStats(ErrorResult& aRv);
+
   // https://webaudio.github.io/web-speech-api/#dom-speechrecognition-start
   // Two overloads per spec: start() (microphone) and start(MediaStreamTrack).
   void Start(CallerType aCallerType, ErrorResult& aRv);
@@ -199,7 +202,7 @@ class SpeechRecognition final : public DOMEventTargetHelper,
   // Called once the backend's session is fully over: for stop(), only after
   // the engine's end-of-stream flush and the results it produced. Fires
   // nomatch when the engine finalized nothing, then "end".
-  void OnSessionFinished(bool aProducedResult);
+  void OnSessionFinished(bool aProducedResult, EnginePerfStats aEngineStats);
   // Called once the backend's session is initialized and ready to receive
   // audio; combined with a track being attached (mTrack), this determines
   // when "start" fires (see MaybeDispatchStart()).
@@ -262,6 +265,7 @@ class SpeechRecognition final : public DOMEventTargetHelper,
   // Fires "start" once the system is successfully listening: the backend
   // session is initialized and a live track is attached (mTrack).
   void MaybeDispatchStart();
+  SpeechRecognitionPerfStats BuildPerfStats() const;
 
   RefPtr<DOMMediaStream> mStream;
   RefPtr<AudioStreamTrack> mTrack;
@@ -306,6 +310,20 @@ class SpeechRecognition final : public DOMEventTargetHelper,
   // https://github.com/WebAudio/web-speech-api/issues/172
   nsTArray<RefPtr<SpeechRecognitionPhrase>> mPhrases;
   nsTArray<RefPtr<SpeechRecognitionResult>> mRecognitionResults;
+
+  // What getPerfStats() reports. Reset by start(), and not by Reset(), so it
+  // outlives the session it describes. Nothing() until the point it measures
+  // is reached: abort() never reaches mFinalization, a silent session never
+  // reaches mFirstResult.
+  struct PerfTimeline {
+    TimeStamp mStart;
+    Maybe<TimeStamp> mStop;
+    Maybe<TimeDuration> mEngineReady;
+    Maybe<TimeDuration> mFirstResult;
+    Maybe<TimeDuration> mFinalization;
+    EnginePerfStats mEngine;
+  };
+  PerfTimeline mPerf;
   RefPtr<TrackListener> mListener;
   // Backend instance for handling audio processing
   RefPtr<SpeechRecognitionBackend> mBackend;

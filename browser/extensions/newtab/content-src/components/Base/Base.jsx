@@ -10,6 +10,7 @@ import { DiscoveryStreamBase } from "content-src/components/DiscoveryStreamBase/
 import { ErrorBoundary } from "content-src/components/ErrorBoundary/ErrorBoundary";
 import { CustomizeMenu } from "content-src/components/CustomizeMenu/CustomizeMenu";
 import { BaseContext } from "content-src/lib/BaseContext";
+import { CUSTOMIZE_SUBPANELS } from "content-src/lib/constants";
 import React, { useState, useEffect } from "react";
 import { Search } from "content-src/components/Search/Search";
 import { TopSites } from "content-src/components/TopSites/TopSites";
@@ -47,10 +48,7 @@ import {
 } from "common/PageLayoutVariants.mjs";
 
 const CLOSED_SUBPANELS = {
-  showSectionsMgmtPanel: false,
-  showWidgetsManagementPanel: false,
-  showThemesPanel: false,
-  showWallpapersPanel: false,
+  activeSubpanel: null,
   wallpapersPanelCategory: null,
 };
 
@@ -581,7 +579,6 @@ export class BaseContent extends React.PureComponent {
 
   openCustomizationMenu() {
     this.props.dispatch({ type: at.SHOW_PERSONALIZE });
-    this.props.dispatch(ac.UserEvent({ event: "SHOW_PERSONALIZE" }));
   }
 
   closeCustomizationMenu() {
@@ -838,28 +835,27 @@ export class BaseContent extends React.PureComponent {
     return 0.2125 * r + 0.7154 * g + 0.0721 * b <= 110;
   }
 
-  toggleSectionsMgmtPanel() {
+  toggleSubpanel(id) {
     this.setState(prevState => ({
-      showSectionsMgmtPanel: !prevState.showSectionsMgmtPanel,
+      activeSubpanel: prevState.activeSubpanel === id ? null : id,
     }));
+  }
+
+  toggleSectionsMgmtPanel() {
+    this.toggleSubpanel(CUSTOMIZE_SUBPANELS.SECTIONS);
   }
 
   toggleWidgetsManagementPanel() {
-    this.setState(prevState => ({
-      showWidgetsManagementPanel: !prevState.showWidgetsManagementPanel,
-    }));
+    this.toggleSubpanel(CUSTOMIZE_SUBPANELS.WIDGETS);
   }
 
   toggleThemesPanel() {
-    this.setState(prevState => ({
-      showThemesPanel: !prevState.showThemesPanel,
-    }));
+    this.toggleSubpanel(CUSTOMIZE_SUBPANELS.THEMES);
   }
 
   openWallpapersPanel(categoryId) {
     this.setState({
-      ...CLOSED_SUBPANELS,
-      showWallpapersPanel: true,
+      activeSubpanel: CUSTOMIZE_SUBPANELS.WALLPAPERS,
       wallpapersPanelCategory: categoryId,
     });
   }
@@ -867,7 +863,11 @@ export class BaseContent extends React.PureComponent {
   // Keeps wallpapersPanelCategory so the heading and wallpaper list stay
   // populated while the subpanel slides out. The next open overwrites it.
   closeWallpapersPanel() {
-    this.setState({ showWallpapersPanel: false });
+    this.setState(prevState =>
+      prevState.activeSubpanel === CUSTOMIZE_SUBPANELS.WALLPAPERS
+        ? { activeSubpanel: null }
+        : null
+    );
   }
 
   closeSubpanels() {
@@ -876,10 +876,7 @@ export class BaseContent extends React.PureComponent {
 
   openWidgetsPanel() {
     this.openCustomizationMenu();
-    this.setState({
-      ...CLOSED_SUBPANELS,
-      showWidgetsManagementPanel: true,
-    });
+    this.setState({ activeSubpanel: CUSTOMIZE_SUBPANELS.WIDGETS });
   }
 
   shouldDisplayTopicSelectionModal() {
@@ -1377,14 +1374,9 @@ export class BaseContent extends React.PureComponent {
                 weatherDisplay={prefs["weather.display"]}
                 showing={customizeMenuVisible}
                 toggleSectionsMgmtPanel={this.toggleSectionsMgmtPanel}
-                showSectionsMgmtPanel={this.state.showSectionsMgmtPanel}
-                showWidgetsManagementPanel={
-                  this.state.showWidgetsManagementPanel
-                }
+                activeSubpanel={this.state.activeSubpanel}
                 toggleWidgetsManagementPanel={this.toggleWidgetsManagementPanel}
                 toggleThemesPanel={this.toggleThemesPanel}
-                showThemesPanel={this.state.showThemesPanel}
-                showWallpapersPanel={this.state.showWallpapersPanel}
                 wallpapersPanelCategory={this.state.wallpapersPanelCategory}
                 openWallpapersPanel={this.openWallpapersPanel}
                 closeWallpapersPanel={this.closeWallpapersPanel}
@@ -1562,10 +1554,8 @@ export class BaseContent extends React.PureComponent {
               weatherDisplay={prefs["weather.display"]}
               showing={customizeMenuVisible}
               toggleSectionsMgmtPanel={this.toggleSectionsMgmtPanel}
-              showSectionsMgmtPanel={this.state.showSectionsMgmtPanel}
+              activeSubpanel={this.state.activeSubpanel}
               toggleThemesPanel={this.toggleThemesPanel}
-              showThemesPanel={this.state.showThemesPanel}
-              showWallpapersPanel={this.state.showWallpapersPanel}
               wallpapersPanelCategory={this.state.wallpapersPanelCategory}
               openWallpapersPanel={this.openWallpapersPanel}
               closeWallpapersPanel={this.closeWallpapersPanel}

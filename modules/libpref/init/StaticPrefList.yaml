@@ -5150,7 +5150,7 @@
 # (https://github.com/whatwg/html/pull/12756)
 - name: dom.security.sanitizer.while-parsing
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # pref controls `digital` credentials being exposed
@@ -6245,11 +6245,6 @@
   value: false
   mirror: always
 
-- name: dom.webnotifications.allowcrossoriginiframe
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: dom.webnotifications.forbid_nested_first_party.enabled
   type: RelaxedAtomicBool
   value: true
@@ -6262,7 +6257,7 @@
 
 - name: dom.webnotifications.navigate.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: dom.webnotifications.privateBrowsing.enabled
@@ -10815,6 +10810,13 @@
   mirror: always
   rust: true
 
+# Whether quirks mode check the same-originness of the final uri,
+# see https://github.com/whatwg/html/pull/12468
+- name: layout.css.quirks.final-uri-check
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Should we look for counter ancestor scopes first?
 - name: layout.css.counter-ancestor-scope.enabled
   type: bool
@@ -11736,13 +11738,6 @@
 - name: layout.css.scroll-anchoring.max-consecutive-adjustments
   type: uint32_t
   value: 10
-  mirror: always
-
-# Whether to reset counting the consecutive scroll-anchoring adjustments during
-# running async scrolling by APZ.
-- name: layout.css.scroll-anchoring.reset-heuristic-during-animation
-  type: bool
-  value: false
   mirror: always
 
 # The time after which we reset the max-consecutive-adjustments period, in

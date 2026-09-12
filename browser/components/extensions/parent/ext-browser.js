@@ -593,7 +593,7 @@ class TabTracker extends TabTrackerBase {
         if (this.has("tabs-highlighted")) {
           // Because we are delaying calling emitCreated above, we also need to
           // delay sending this event because it shouldn't fire before onCreated.
-          // event.target is gBrowser, so we don't use maybeWaitForTabOpen.
+          // event.target is the tab strip, so we don't use maybeWaitForTabOpen.
           Promise.resolve().then(() => {
             this.emitHighlighted(event.target.documentGlobal);
           });

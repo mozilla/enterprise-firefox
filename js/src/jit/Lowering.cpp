@@ -8435,6 +8435,25 @@ void LIRGenerator::visitDateFromTime(MDateFromTime* ins) {
   defineReturn(lir, ins);
 }
 
+void LIRGenerator::visitUnpackTime(MUnpackTime* ins) {
+  // Allocate an additional register on 32-bit targets to hold half of a 64-bit
+  // value.
+#ifdef JS_NUNBOX32
+  auto* lir = new (alloc()) LUnpackTime(useBox(ins->packedVal()), temp());
+#else
+  auto* lir = new (alloc())
+      LUnpackTime(useBoxAtStart(ins->packedVal()), LDefinition::BogusTemp());
+#endif
+  define(lir, ins);
+}
+
+void LIRGenerator::visitEpochMilliseconds(MEpochMilliseconds* ins) {
+  auto* lir = new (alloc())
+      LEpochMilliseconds(useRegisterAtStart(ins->seconds()),
+                         useRegisterAtStart(ins->nanoseconds()), temp());
+  define(lir, ins);
+}
+
 void LIRGenerator::visitPostIntPtrConversion(MPostIntPtrConversion* ins) {
   // This operation is a no-op.
   redefine(ins, ins->input());

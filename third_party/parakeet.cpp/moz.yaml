@@ -41,3 +41,5 @@ vendoring:
     - parakeet-stream-words.patch # typed per-word drain (timing + confidence)
     - parakeet-no-exceptions.patch # include moz-overrides.h, to build with -fno-exceptions
     - parakeet-move-mel-batch.patch # move, don't copy, the mel buffer into the 1-item MelBatch
+    - parakeet-weights-bytes.patch # expose the weights' size, for about:memory
+    - parakeet-free-host-weights.patch # drop the host weights once uploaded

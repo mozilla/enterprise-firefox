@@ -256,6 +256,8 @@ skip-if = [
 
 ["test_menulist_scrollbar.xhtml"]
 
+["test_menupopup_scroll_amount.xhtml"]
+
 ["test_mousescroll.xhtml"]
 
 ["test_mozinputbox_dictionary.xhtml"]

@@ -197,3 +197,33 @@ add_task(async function test_themes_mode_change_telemetry() {
   await closeView(win);
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_themes_mode_a11y_label() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [PREF_NOVA_ENABLED, true],
+      [PREF_SYSTEM_USES_DARK, 0 /* light */],
+    ],
+  });
+  const win = await loadInitialView("theme");
+  const themesMode = getThemesMode(win.document);
+  await themesMode.updateComplete;
+
+  const segmentedControl = themesMode.shadowRoot.querySelector(
+    "moz-segmented-control"
+  );
+  Assert.equal(
+    segmentedControl.getAttribute("data-l10n-id"),
+    "themes-mode",
+    "aboutaddons-themes-mode segmented control should have the expected data-l10n-id"
+  );
+  await segmentedControl.updateComplete;
+  await win.document.l10n.translateFragment(segmentedControl);
+  Assert.ok(
+    segmentedControl.getAttribute("aria-label"),
+    "aboutaddons-themes-mode segmented control should have an associated aria-label"
+  );
+
+  await closeView(win);
+  await SpecialPowers.popPrefEnv();
+});

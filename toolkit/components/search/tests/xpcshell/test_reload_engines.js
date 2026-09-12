@@ -131,9 +131,12 @@ async function visibleEngines() {
 }
 
 add_setup(async function () {
-  Services.prefs.setBoolPref("browser.search.separatePrivateDefault", true);
   Services.prefs.setBoolPref(
-    "browser.search.separatePrivateDefault.ui.enabled",
+    "browser.search.separatePrivateDefault.enabled",
+    true
+  );
+  Services.prefs.setBoolPref(
+    "browser.search.separatePrivateDefault.featureGate",
     true
   );
 

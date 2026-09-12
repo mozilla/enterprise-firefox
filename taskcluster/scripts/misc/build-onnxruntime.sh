@@ -32,43 +32,50 @@ case ${target_platform} in
     Darwin)
         # Use taskcluster clang instead of host compiler on OSX
         osx_sysroot=`cd ${MOZ_FETCHES_DIR}/MacOSX*.sdk; pwd`
-        extra_args="--cmake_extra_defines CMAKE_OSX_SYSROOT=${osx_sysroot} --osx_arch $target_arch"
+        extra_args=(--cmake_extra_defines CMAKE_OSX_SYSROOT=${osx_sysroot} --osx_arch $target_arch)
         prefix=lib
         extension=dylib
+        HARDENING_FLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong"
         ;;
     Linux)
-        prefix=lib
-        extension=so
-        # This library is shipped to users, so build it against the same sysroot
-        # Firefox itself uses rather than the build machine's system headers and
-        # libraries, which are much newer than what Firefox supports.
-        sysroot="$MOZ_FETCHES_DIR/sysroot-x86_64-linux-gnu"
+        HARDENING_FLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-clash-protection -fstack-protector-strong -fcf-protection"
         # Even the sysroot's libstdc++ is newer than the one Firefox targets, and
         # std::filesystem, which onnxruntime uses, can't be shimmed the way
         # build/unix/stdc++compat does it, so link it statically. Only the Ort* C
         # entry points are exported, so no C++ symbols or objects cross into
         # Gecko.
-        EXTRA_CXX_FLAGS="--sysroot=$sysroot -static-libstdc++ -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -fstack-clash-protection -fstack-protector-strong"
-        extra_args="--cmake_extra_defines CMAKE_C_FLAGS=--sysroot=$sysroot"
-        ;;
-    Android)
-        extra_args="--android --android_ndk_path=$MOZ_FETCHES_DIR/android-ndk --android_sdk_path=$MOZ_FETCHES_DIR/android-sdk-linux --android_abi=$target_arch"
+        EXTRA_CXX_FLAGS="-static-libstdc++ -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,-Bsymbolic-functions -Wp,-D_GLIBCXX_ASSERTIONS"
+        # This library is shipped to users, so build it against the same sysroot
+        # Firefox itself uses rather than the build machine's system headers and
+        # libraries, which are much newer than what Firefox supports.
+        sysroot="$MOZ_FETCHES_DIR/sysroot-x86_64-linux-gnu"
+        extra_args=(--cmake_extra_defines CMAKE_SYSROOT=$sysroot)
         prefix=lib
         extension=so
-        EXTRA_CXX_FLAGS="-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -fstack-clash-protection -fstack-protector-strong"
+        ;;
+    Android)
+        extra_args=(--android --android_ndk_path=$MOZ_FETCHES_DIR/android-ndk --android_sdk_path=$MOZ_FETCHES_DIR/android-sdk-linux --android_abi=$target_arch)
+        prefix=lib
+        extension=so
+        HARDENING_FLAGS="-fstack-clash-protection -fstack-protector-strong"
+        EXTRA_CXX_FLAGS="-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now"
         ;;
     Windows)
         # Still use visual studio there, compilation through clang-cl is not
         # supported upstream.
         case $target_arch in
             x86)
-                extra_args="--cmake_extra_defines CMAKE_SYSTEM_NAME=Windows CMAKE_SYSTEM_PROCESSOR=x86"
+                extra_args=(--cmake_extra_defines CMAKE_SYSTEM_NAME=Windows CMAKE_SYSTEM_PROCESSOR=x86)
                 export TARGET=i686-pc-windows-msvc
                 ;;
         esac
-        extra_args="$extra_args --cmake_extra_defines CMAKE_SHARED_LINKER_FLAGS=/MANIFEST:NO"
+        HARDENING_FLAGS="/guard:cf"
+        extra_args+=(--cmake_extra_defines "CMAKE_SHARED_LINKER_FLAGS=/MANIFEST:NO /guard:cf")
         . $GECKO_PATH/taskcluster/scripts/misc/vs-setup.sh
         sed -i -e 's/ProgramDatabase//' "$MOZ_FETCHES_DIR/onnxruntime/tools/ci_build/build.py"
+        # build.py appends its own CMAKE_C_FLAGS/CMAKE_CXX_FLAGS=/MP after the extra defines and
+        # cmake keeps the last definition, which would drop ours. /MP does nothing under Ninja.
+        sed -i -e 's/if njobs > 1:/if False:/' "$MOZ_FETCHES_DIR/onnxruntime/tools/ci_build/build.py"
         export CC=cl.exe
         export CXX=cl.exe
         prefix=
@@ -141,8 +148,9 @@ python3 tools/ci_build/build.py \
     --cmake_extra_defines PYTHON_EXECUTABLE=$(which python3)\
     --cmake_extra_defines ONNX_USE_LITE_PROTO=ON\
     --disable_exceptions \
-    --cmake_extra_defines CMAKE_CXX_FLAGS="-fno-exceptions $EXTRA_CXX_FLAGS -DORT_NO_EXCEPTIONS -DONNX_NO_EXCEPTIONS -DMLAS_NO_EXCEPTION"\
-    ${extra_args}
+    --cmake_extra_defines CMAKE_C_FLAGS_INIT="$HARDENING_FLAGS"\
+    --cmake_extra_defines CMAKE_CXX_FLAGS_INIT="$HARDENING_FLAGS $EXTRA_CXX_FLAGS"\
+    "${extra_args[@]}"
 
 ###
 # Pack the result and upload.

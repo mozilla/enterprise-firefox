@@ -2919,7 +2919,7 @@ export class nsContextMenu {
       (isPrivateSearchMenuitem &&
         (isBrowserPrivate ||
           !Services.prefs.getBoolPref(
-            "browser.search.separatePrivateDefault.ui.enabled"
+            "browser.search.separatePrivateDefault.featureGate"
           )));
 
     if (!menuitem.hidden) {

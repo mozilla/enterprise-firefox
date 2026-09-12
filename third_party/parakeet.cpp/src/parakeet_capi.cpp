@@ -225,6 +225,11 @@ extern "C" parakeet_ctx* parakeet_capi_load(const char* gguf_path) {
     }
 }
 
+extern "C" size_t parakeet_capi_weights_bytes(const parakeet_ctx* ctx) {
+    if (!ctx || !ctx->model) return 0;
+    return ctx->model->weights_bytes();
+}
+
 // Firefox-local: load from an already-open fd (sandboxed host).
 extern "C" parakeet_ctx* parakeet_capi_load_fd(int fd) {
     if (fd < 0) return nullptr;

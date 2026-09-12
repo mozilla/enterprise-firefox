@@ -497,7 +497,7 @@ void CodeGenerator::visitDivPowTwoI64(LDivPowTwoI64* ins) {
       masm.bind(&ok);
       masm.neg(dest, lhs);
     } else {
-      masm.mv(dest, lhs);
+      masm.ma_mv(dest, lhs);
     }
   }
 }
@@ -551,7 +551,7 @@ void CodeGenerator::visitModPowTwoI64(LModPowTwoI64* ins) {
       !ins->mir()->isUnsigned() && ins->mir()->canBeNegativeDividend();
 
   if (shift == 0) {
-    masm.mv(out, zero);
+    masm.ma_mv(out, zero);
     return;
   }
 
@@ -1371,7 +1371,7 @@ void CodeGenerator::visitDivConstantI(LDivConstantI* ins) {
     if (mir->trapOnError()) {
       masm.wasmTrap(wasm::Trap::IntegerDivideByZero, mir->trapSiteDesc());
     } else if (mir->canTruncateInfinities()) {
-      masm.mv(output, zero);
+      masm.ma_mv(output, zero);
     } else {
       MOZ_ASSERT(mir->fallible());
       bailout(ins->snapshot());
@@ -1461,7 +1461,7 @@ void CodeGenerator::visitModConstantI(LModConstantI* ins) {
     if (mir->trapOnError()) {
       masm.wasmTrap(wasm::Trap::IntegerDivideByZero, mir->trapSiteDesc());
     } else if (mir->isTruncated()) {
-      masm.mv(output, zero);
+      masm.ma_mv(output, zero);
     } else {
       MOZ_ASSERT(mir->fallible());
       bailout(ins->snapshot());
@@ -1499,7 +1499,7 @@ void CodeGenerator::visitModPowTwoI(LModPowTwoI* ins) {
     if (canBeNegative && !mir->isTruncated()) {
       bailoutTest32(Assembler::Signed, in, in, ins->snapshot());
     }
-    masm.mv(out, zero);
+    masm.ma_mv(out, zero);
     return;
   }
 
@@ -2394,7 +2394,7 @@ void CodeGenerator::visitUDivConstant(LUDivConstant* ins) {
     if (ins->mir()->trapOnError()) {
       masm.wasmTrap(wasm::Trap::IntegerDivideByZero, mir->trapSiteDesc());
     } else if (mir->canTruncateInfinities()) {
-      masm.mv(output, zero);
+      masm.ma_mv(output, zero);
     } else {
       MOZ_ASSERT(mir->fallible());
       bailout(ins->snapshot());
@@ -2465,7 +2465,7 @@ void CodeGenerator::visitUModConstant(LUModConstant* ins) {
     if (ins->mir()->trapOnError()) {
       masm.wasmTrap(wasm::Trap::IntegerDivideByZero, mir->trapSiteDesc());
     } else if (mir->isTruncated()) {
-      masm.mv(output, zero);
+      masm.ma_mv(output, zero);
     } else {
       MOZ_ASSERT(mir->fallible());
       bailout(ins->snapshot());

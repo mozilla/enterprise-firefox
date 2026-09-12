@@ -1,6 +1,8 @@
 #ifndef PARAKEET_CAPI_H
 #define PARAKEET_CAPI_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -53,6 +55,9 @@ parakeet_ctx* parakeet_capi_load_fd(int fd);
 
 // Free a context obtained from parakeet_capi_load. Safe on NULL.
 void parakeet_capi_free(parakeet_ctx* ctx);
+
+// Bytes the context's weights occupy, for memory reporting. 0 on NULL.
+size_t parakeet_capi_weights_bytes(const parakeet_ctx* ctx);
 
 // Transcribe a WAV file. `decoder` selects the head:
 //   0 = default (by arch: transducer for tdt/rnnt/hybrid, CTC for ctc),

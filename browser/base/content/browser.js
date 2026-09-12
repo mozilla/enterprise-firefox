@@ -24,7 +24,6 @@ ChromeUtils.defineESModuleGetters(this, {
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
   BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
-  CFRPageActions: "resource:///modules/asrouter/CFRPageActions.sys.mjs",
   Color: "resource://gre/modules/Color.sys.mjs",
   ContentAnalysis:
     "moz-src:///browser/components/contentanalysis/content/ContentAnalysis.sys.mjs",
@@ -526,33 +525,34 @@ ChromeUtils.defineLazyGetter(this, "MacUserActivityUpdater", () => {
   );
 });
 
+// Returns an object even when unavailable so it can be a category consumer.
 ChromeUtils.defineLazyGetter(this, "Win7Features", () => {
-  if (AppConstants.platform != "win") {
-    return null;
-  }
-
+  let aeroPeek = null;
   const WINTASKBAR_CONTRACTID = "@mozilla.org/windows-taskbar;1";
   if (
+    AppConstants.platform == "win" &&
     WINTASKBAR_CONTRACTID in Cc &&
     Cc[WINTASKBAR_CONTRACTID].getService(Ci.nsIWinTaskbar).available
   ) {
-    let { AeroPeek } = ChromeUtils.importESModule(
+    aeroPeek = ChromeUtils.importESModule(
       "resource:///modules/WindowsPreviewPerTab.sys.mjs"
-    );
-    return {
-      onOpenWindow() {
-        AeroPeek.onOpenWindow(window);
-        this.handledOpening = true;
-      },
-      onCloseWindow() {
-        if (this.handledOpening) {
-          AeroPeek.onCloseWindow(window);
-        }
-      },
-      handledOpening: false,
-    };
+    ).AeroPeek;
   }
-  return null;
+  return {
+    available: !!aeroPeek,
+    handledOpening: false,
+    onOpenWindow() {
+      if (aeroPeek) {
+        aeroPeek.onOpenWindow(window);
+        this.handledOpening = true;
+      }
+    },
+    onCloseWindow() {
+      if (this.handledOpening) {
+        aeroPeek.onCloseWindow(window);
+      }
+    },
+  };
 });
 
 ChromeUtils.defineLazyGetter(this, "gRestoreLastSessionObserver", () => {
@@ -702,13 +702,28 @@ Object.defineProperty(this, "gReduceMotion", {
   get() {
     return typeof gReduceMotionOverride == "boolean"
       ? gReduceMotionOverride
-      : gReduceMotionSetting;
+      : gReduceMotionManager.setting;
   },
 });
-// Reduce motion during startup. The setting will be reset later.
-let gReduceMotionSetting = true;
 // This is for tests to set.
 var gReduceMotionOverride;
+
+// TODO bug 2056447: read the media query directly instead of caching.
+var gReduceMotionManager = {
+  // Reduce motion during startup. The setting will be reset later.
+  setting: true,
+
+  init() {
+    let reduceMotionQuery = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    );
+    let readSetting = () => {
+      this.setting = reduceMotionQuery.matches;
+    };
+    reduceMotionQuery.addListener(readSetting);
+    readSetting();
+  },
+};
 
 // Smart getter for the findbar.  If you don't wish to force the creation of
 // the findbar, check gFindBarInitialized first.
@@ -3320,22 +3335,37 @@ var gUIDensity = {
     if (!(threshold > 0)) {
       return false;
     }
+    const { width, height } = this._densityReferenceSize();
     if (
-      window.innerHeight &&
-      this.AUTO_COMPACT_REFERENCE_TABSTRIP_HEIGHT / window.innerHeight >
-        threshold
+      height &&
+      this.AUTO_COMPACT_REFERENCE_TABSTRIP_HEIGHT / height > threshold
     ) {
       return true;
     }
     if (
-      window.innerWidth &&
+      width &&
       this._isSidebarLauncherCollapsed() &&
-      this.AUTO_COMPACT_REFERENCE_SIDEBAR_LAUNCHER_WIDTH / window.innerWidth >
-        threshold
+      this.AUTO_COMPACT_REFERENCE_SIDEBAR_LAUNCHER_WIDTH / width > threshold
     ) {
       return true;
     }
     return false;
+  },
+
+  // This function returns our window size, for the purpose of judging whether we
+  // should auto-compact. If we're maximized (as indicated by "sizemode"), we don't
+  // trust window.inner{Width,Height} as authoritative, because we might be a
+  // newly-spawned window, waiting on the OS to tell us our correct size. Hence: for
+  // maximized windows, we use the screen size (if it's larger), since it doesn't
+  // change as often and is likely to be close to the maximized window-size.
+  _densityReferenceSize() {
+    if (document.documentElement.getAttribute("sizemode") == "maximized") {
+      return {
+        width: Math.max(window.screen.availWidth, window.innerWidth),
+        height: Math.max(window.screen.availHeight, window.innerHeight),
+      };
+    }
+    return { width: window.innerWidth, height: window.innerHeight };
   },
 
   // Whether the sidebar.revamp launcher is currently visible (sidebar is

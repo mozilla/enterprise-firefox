@@ -134,6 +134,13 @@ export class ChatConversation extends Conversation {
   #pendingBrowserActionTelemetry = new Map();
 
   /**
+   * Uncited memories embedded in the current prompt. Cleared after completion.
+   *
+   * @type {Array<object>}
+   */
+  promptEmbeddedMemories = [];
+
+  /**
    * A mapping of a URL to its unique URL token. URL tokens are used as shortened
    * versions of URLs to help the model deal with very long URLs. Very long URLs are
    * problematic since they are hard for a model to repeat back without making mistakes
@@ -481,12 +488,23 @@ export class ChatConversation extends Conversation {
 
     // Only resolve used memories once the entire assistant turn is complete,
     // including all tool calls
-    const citedMemoryIds = currentMessage.tokens?.existing_memory ?? [];
-    if (!result.pendingToolCalls?.length && citedMemoryIds.length) {
-      currentMessage.memoriesApplied =
-        await lazy.MemoriesManager.resolveUsedMemories(citedMemoryIds);
+    if (!result.pendingToolCalls?.length) {
+      const citedMemoryIds = currentMessage.tokens?.existing_memory ?? [];
+      const promptEmbeddedMemoryIds = this.promptEmbeddedMemories.map(
+        memory => memory.id
+      );
+      this.promptEmbeddedMemories = [];
 
-      this.emit("chat-conversation:message-update", currentMessage);
+      const memoryIds = [...citedMemoryIds, ...promptEmbeddedMemoryIds];
+      const memoriesApplied = memoryIds.length
+        ? await lazy.MemoriesManager.resolveUsedMemories(memoryIds)
+        : [];
+
+      if (memoriesApplied.length) {
+        currentMessage.memoriesApplied = memoriesApplied;
+
+        this.emit("chat-conversation:message-update", currentMessage);
+      }
     }
 
     // Drop the pending chunk write rather than flushing it: the full write

@@ -406,6 +406,8 @@ void Buffer::Unmap(JSContext* aCx, ErrorResult& aRv) {
   AbortMapRequest();
 
   if (!mMapped) {
+    ffi::wgpu_client_buffer_unmap(GetClient(), mParent->GetId(), GetId(),
+                                  false);
     return;
   }
 

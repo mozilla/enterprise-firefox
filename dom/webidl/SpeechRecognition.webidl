@@ -20,6 +20,24 @@ dictionary SpeechRecognitionOptions {
   SpeechRecognitionQuality quality = "command";
 };
 
+// Test-only performance counters for a recognition session, in milliseconds.
+// A duration stays 0 until the point it measures has been reached.
+dictionary SpeechRecognitionPerfStats {
+  // From a successful start() to the engine being ready to consume audio: the
+  // HWInference process starting up, the model being retrieved and loaded, and
+  // the engine's own session setup.
+  double engineReadyDuration = 0;
+  // From a successful start() to the dispatch of the first result event,
+  // interim or final.
+  double firstResultDuration = 0;
+  // From stop() to the end event, i.e. the engine's end-of-stream flush.
+  double finalizationDuration = 0;
+  // Audio handed to the model, and the wall clock the model spent on it, over
+  // the session. Their ratio is the real-time factor.
+  double fedAudioDuration = 0;
+  double inferenceDuration = 0;
+};
+
 enum AvailabilityStatus {
   "unavailable",
   "downloadable",
@@ -59,6 +77,9 @@ interface SpeechRecognition : EventTarget {
     static Promise<AvailabilityStatus> available(SpeechRecognitionOptions options);
     [NewObject, Throws]
     static Promise<boolean> install(SpeechRecognitionOptions options);
+
+    [ChromeOnly, NewObject, Throws]
+    Promise<SpeechRecognitionPerfStats> getPerfStats();
 
     // event methods
     attribute EventHandler onaudiostart;

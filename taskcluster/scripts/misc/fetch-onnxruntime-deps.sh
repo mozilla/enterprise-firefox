@@ -17,14 +17,13 @@ onnx_rev=$2
 tardir=onnxruntime-deps
 
 # script dependencies
-git=`which git`
 curl=`which curl`
 
 # parse onnxruntime dependencies from original depo
 currdir=`pwd`
 workdir=`mktemp -d`
 cd $workdir
-curl -LO "$onnx_git/archive/$onnx_rev.tar.gz"
+$curl -fL --retry 5 --retry-all-errors -O "$onnx_git/archive/$onnx_rev.tar.gz"
 tar xf "$onnx_rev.tar.gz"
 cd onnxruntime-$onnx_rev
 
@@ -50,7 +49,11 @@ mkdir $tardir
 cd $tardir
 
 # actual download
-grep -v '^#' ../cmake/deps.txt | cut -d ';' -f2 | while read url ; do $curl -LO $url ; done
+grep -v '^#' ../cmake/deps.txt | while IFS=';' read -r name url sha1 ; do
+    test -n "$url" || continue
+    $curl -fL --retry 5 --retry-all-errors -O "$url"
+    echo "$sha1  $(basename "$url")" | sha1sum -c -
+done
 
 # packit
 cd ..

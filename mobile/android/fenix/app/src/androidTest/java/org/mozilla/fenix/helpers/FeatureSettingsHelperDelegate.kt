@@ -27,6 +27,7 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
     private val initialFeatureFlags =
         FeatureFlags(
             isPocketEnabled = settings.showPocketRecommendationsFeature,
+            isBookmarksHomeFeatureEnabled = settings.showBookmarksHomeFeature,
             isRecentTabsFeatureEnabled = settings.showRecentTabsFeature,
             isRecentlyVisitedFeatureEnabled = settings.historyMetadataUIFeature,
             isWallpaperOnboardingEnabled = settings.showWallpaperOnboarding,
@@ -56,6 +57,7 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
     private var updatedFeatureFlags = initialFeatureFlags.copy()
 
     override var isPocketEnabled: Boolean by updatedFeatureFlags::isPocketEnabled
+    override var isBookmarksHomeFeatureEnabled: Boolean by updatedFeatureFlags::isBookmarksHomeFeatureEnabled
     override var isWallpaperOnboardingEnabled: Boolean by updatedFeatureFlags::isWallpaperOnboardingEnabled
     override var isRecentTabsFeatureEnabled: Boolean by updatedFeatureFlags::isRecentTabsFeatureEnabled
     override var isRecentlyVisitedFeatureEnabled: Boolean by updatedFeatureFlags::isRecentlyVisitedFeatureEnabled
@@ -98,6 +100,7 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
 
     private fun applyFeatureFlags(featureFlags: FeatureFlags) {
         settings.showPocketRecommendationsFeature = featureFlags.isPocketEnabled
+        settings.showBookmarksHomeFeature = featureFlags.isBookmarksHomeFeatureEnabled
         settings.showRecentTabsFeature = featureFlags.isRecentTabsFeatureEnabled
         settings.historyMetadataUIFeature = featureFlags.isRecentlyVisitedFeatureEnabled
         settings.showWallpaperOnboarding = featureFlags.isWallpaperOnboardingEnabled
@@ -126,6 +129,7 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
 
 private data class FeatureFlags(
     var isPocketEnabled: Boolean,
+    var isBookmarksHomeFeatureEnabled: Boolean,
     var isRecentTabsFeatureEnabled: Boolean,
     var isRecentlyVisitedFeatureEnabled: Boolean,
     var isWallpaperOnboardingEnabled: Boolean,

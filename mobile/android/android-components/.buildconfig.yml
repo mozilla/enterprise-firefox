@@ -1225,14 +1225,19 @@ projects:
     path: components/feature/listentopage
     publish: true
     upstream_dependencies:
+    - components:browser-errorpages
     - components:compose-base
     - components:concept-base
+    - components:concept-engine
     - components:concept-fetch
+    - components:concept-storage
+    - components:concept-storage-bookmarks
     - components:lib-publicsuffixlist
     - components:lib-state
     - components:support-base
     - components:support-ktx
     - components:support-test
+    - components:support-test-fakes
     - components:support-utils
     - components:tooling-lint
     - components:ui-colors

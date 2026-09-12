@@ -1269,12 +1269,89 @@ describe("DiscoveryStreamFeed", () => {
 
       await feed.loadSpocs(feed.store.dispatch);
 
-      assert.calledOnce(AdsClient.requestOptions);
+      // The flags in adsBackendConfig only reach MARS if the prefs are passed.
+      assert.calledWith(
+        AdsClient.requestOptions,
+        feed.store.getState().Prefs.values
+      );
       assert.calledOnceWithMatch(
         ADS_CLIENT.requestSpocAds,
         [sinon.match.any],
         REQUEST_OPTIONS
       );
+    });
+    it("should not read the spocs cache when adsClient is set", async () => {
+      sandbox.stub(feed.cache, "get").resolves({
+        spocs: { lastUpdated: Date.now(), spocs: {} },
+      });
+      sandbox.stub(feed.cache, "set").resolves();
+
+      feed.store = createStore(combineReducers(reducers), {
+        Prefs: {
+          values: {
+            "unifiedAds.blockedAds": "",
+            "unifiedAds.spocs.enabled": true,
+            "discoverystream.placements.spocs": "newtab_stories_1",
+            "discoverystream.placements.spocs.counts": "1",
+          },
+        },
+      });
+
+      const ADS_CLIENT = {
+        requestSpocAds: sinon.fake.resolves(
+          new Map([["newtab_stories_1", [{ blockKey: "b1" }]]])
+        ),
+      };
+      globals.set({
+        AdsClient: {
+          isEnabled: sinon.fake.returns(true),
+          getClient: sinon.fake.returns(ADS_CLIENT),
+          requestOptions: sinon.fake.returns({}),
+        },
+      });
+
+      await feed.onAction({ type: at.INIT });
+
+      feed.cache.get.resetHistory();
+      await feed.loadSpocs(feed.store.dispatch);
+
+      // A later, unrelated read happens while processing the results, so it is
+      // the ordering that shows the guarded read was skipped.
+      assert.callOrder(ADS_CLIENT.requestSpocAds, feed.cache.get);
+      assert.calledOnce(ADS_CLIENT.requestSpocAds);
+      assert.neverCalledWith(feed.cache.set, "spocs", sinon.match.any);
+
+      // The same entry does suppress the fetch on the direct MARS path, which
+      // is what made it suppress the ads-client one too.
+      feed.adsClient = null;
+      sandbox.stub(feed, "fetchFromEndpoint").resolves({});
+      await feed.loadSpocs(feed.store.dispatch);
+
+      assert.notCalled(feed.fetchFromEndpoint);
+    });
+    it("should seed placements the ads client omitted with empty arrays", async () => {
+      feed.adsClient = {
+        requestSpocAds: sinon.fake.resolves(
+          new Map([["newtab_stories_1", []]])
+        ),
+      };
+      globals.set({
+        AdsClient: {
+          isEnabled: sinon.fake.returns(true),
+          getClient: sinon.fake.returns(feed.adsClient),
+          requestOptions: sinon.fake.returns({}),
+        },
+      });
+
+      const result = await feed._fetchSpocsWithAdsClient([
+        { placement: "newtab_stories_1", count: 1 },
+        { placement: "newtab_stories_2", count: 1 },
+      ]);
+
+      // loadSpocs concats by placement, so a missing key folds an undefined
+      // into the spocs list.
+      assert.deepEqual(result.newtab_stories_1, []);
+      assert.deepEqual(result.newtab_stories_2, []);
     });
   });
 
@@ -3221,6 +3298,7 @@ describe("DiscoveryStreamFeed", () => {
               server_score: 0.9,
               recommended_at: 1755834072383,
               section: "section-1",
+              variant_id: 0,
               icon_src: "sectionIconUrl",
               isTimeSensitive: false,
             },

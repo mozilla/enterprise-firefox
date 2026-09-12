@@ -1093,22 +1093,23 @@ class TabManagementFragment : Fragment() {
         }
     }
 
-    private fun showBookmarkSnackbar(
+    @VisibleForTesting
+    internal fun showBookmarkSnackbar(
         tabSize: Int,
         parentFolderTitle: String?,
     ) {
-        val displayFolderTitle = parentFolderTitle ?: getString(R.string.library_bookmarks)
-        val displayResId =
-            when {
-                tabSize > 1 -> {
-                    R.string.snackbar_message_bookmarks_saved_in_2
-                }
-
-                else -> {
-                    R.string.bookmark_saved_in_folder_snackbar
-                }
-            }
         lifecycleScope.launch {
+            val displayFolderTitle = parentFolderTitle ?: getString(R.string.library_bookmarks)
+            val displayResId =
+                when {
+                    tabSize > 1 -> {
+                        R.string.snackbar_message_bookmarks_saved_in_2
+                    }
+
+                    else -> {
+                        R.string.bookmark_saved_in_folder_snackbar
+                    }
+                }
             snackbarHostState.displaySnackbar(
                 message = getString(displayResId, displayFolderTitle),
                 actionLabel = getString(R.string.create_collection_view),

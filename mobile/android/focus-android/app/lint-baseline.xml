@@ -101,28 +101,6 @@
     </issue>
 
     <issue
-        id="MozMultipleConstraintLayouts"
-        message="Flatten the view hierarchy by using one `ConstraintLayout`, if possible. If the alternative is several nested `ViewGroup`, it may not help performance and this may be worth suppressing."
-        errorLine1="    &lt;androidx.constraintlayout.widget.ConstraintLayout"
-        errorLine2="     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/dialog_add_to_homescreen2.xml"
-            line="73"
-            column="6"/>
-    </issue>
-
-    <issue
-        id="MozMultipleConstraintLayouts"
-        message="Flatten the view hierarchy by using one `ConstraintLayout`, if possible. If the alternative is several nested `ViewGroup`, it may not help performance and this may be worth suppressing."
-        errorLine1="    &lt;androidx.constraintlayout.widget.ConstraintLayout"
-        errorLine2="     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/fragment_search_suggestions.xml"
-            line="89"
-            column="6"/>
-    </issue>
-
-    <issue
         id="NotifyDataSetChanged"
         message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort."
         errorLine1="            notifyDataSetChanged()"

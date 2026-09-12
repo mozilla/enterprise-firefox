@@ -561,7 +561,6 @@ function Widgets() {
   function handleManageWidgetsClick(e) {
     e.preventDefault();
     openWidgetsPanel();
-    dispatch(ac.UserEvent({ event: "SHOW_PERSONALIZE" }));
   }
 
   function toggleRowExpanded() {

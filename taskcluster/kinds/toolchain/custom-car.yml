@@ -122,7 +122,10 @@ win64-custom-car:
             is_official_build=true,
             symbol_level=2,
             target_cpu=\"x64\",
-            use_v8_context_snapshot=false
+            use_v8_context_snapshot=false,
+            # MSVC 14.51's intrinsics headers hide clang's, so the
+            # V8 metagen libclang parse fails.
+            v8_use_metagen_instance_types=false
         ]
         toolchain-artifact: public/build/car_win64.tar.zst
     fetches:

@@ -383,8 +383,8 @@ async function withPrivateWindow({ callback, privateDefaultEngineId = null }) {
   if (privateDefaultEngineId) {
     await SpecialPowers.pushPrefEnv({
       set: [
-        ["browser.search.separatePrivateDefault", true],
-        ["browser.search.separatePrivateDefault.ui.enabled", true],
+        ["browser.search.separatePrivateDefault.enabled", true],
+        ["browser.search.separatePrivateDefault.featureGate", true],
       ],
     });
 

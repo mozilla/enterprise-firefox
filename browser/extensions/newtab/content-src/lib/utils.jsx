@@ -374,7 +374,46 @@ function useSizeSubmenu(onChangeSize) {
   }, []);
 }
 
+// Biggest units first, so the loop returns the coarsest one that fits.
+const RELATIVE_TIME_UNITS = [
+  ["year", 365 * 24 * 60 * 60 * 1000],
+  ["month", 30 * 24 * 60 * 60 * 1000],
+  ["week", 7 * 24 * 60 * 60 * 1000],
+  ["day", 24 * 60 * 60 * 1000],
+  ["hour", 60 * 60 * 1000],
+  ["minute", 60 * 1000],
+];
+
+/**
+ * Picks the largest relative-time unit that fits ("2 hours ago", "5 days ago").
+ * Under a minute there is no unit to pick, so the caller gets a Fluent id to
+ * render instead of a string: the wording of "just now" belongs to the surface
+ * showing it, and each has its own message.
+ *
+ * @param {number} timestamp ms epoch of the moment being described.
+ * @param {string} [locale] BCP-47 locale; falls back to the runtime default.
+ * @param {number} now ms epoch to measure against.
+ * @param {string} justNowL10nId Fluent id for the under-a-minute case.
+ * @returns {{text: ?string, l10nId: ?string}} Exactly one of the two is set.
+ */
+function formatRelativeTime(timestamp, locale, now, justNowL10nId) {
+  const delta = timestamp - now;
+  const abs = Math.abs(delta);
+  for (const [unit, ms] of RELATIVE_TIME_UNITS) {
+    if (abs >= ms) {
+      return {
+        text: new Intl.RelativeTimeFormat(locale || undefined, {
+          numeric: "auto",
+        }).format(Math.round(delta / ms), unit),
+        l10nId: null,
+      };
+    }
+  }
+  return { text: null, l10nId: justNowL10nId };
+}
+
 export {
+  formatRelativeTime,
   useIntersectionObserver,
   useSizeSubmenu,
   getActiveCardSize,

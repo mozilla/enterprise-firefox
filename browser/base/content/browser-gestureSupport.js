@@ -22,12 +22,26 @@ var gGestureSupport = {
   _rotateMomentumThreshold: 0.75,
 
   /**
-   * Add or remove mouse gesture event listeners
+   * Add the mouse gesture event listeners.
+   */
+  init() {
+    this._toggleListeners(true);
+  },
+
+  /**
+   * Remove the mouse gesture event listeners.
+   */
+  uninit() {
+    this._toggleListeners(false);
+  },
+
+  /**
+   * Add or remove mouse gesture event listeners.
    *
    * @param aAddListener
-   *        True to add/init listeners and false to remove/uninit
+   *        True to add listeners and false to remove them.
    */
-  init: function GS_init(aAddListener) {
+  _toggleListeners(aAddListener) {
     const gestureEvents = [
       "SwipeGestureMayStart",
       "SwipeGestureStart",

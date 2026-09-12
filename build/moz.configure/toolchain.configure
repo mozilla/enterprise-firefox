@@ -683,13 +683,6 @@ def check_compiler(
         else:
             flags.append("-std=gnu++20")
 
-        # gcc 10 defines C++20's __cplusplus as 201709L instead of 202002L.
-        # Redefine as C++20's final vesion for gcc 10 so modern C++20 code's
-        # __cplusplus version checks work as expected.
-        if info.type == "gcc" and info.version < Version("11.0.0"):
-            flags.append("-U__cplusplus")
-            flags.append("-D__cplusplus=202002L")
-
     # Check compiler target
     # --------------------------------------------------------------------
     has_target = False
@@ -1375,7 +1368,7 @@ sccache_environment = sccache_config(
 
 
 def minimum_gcc_version():
-    return Version("10.1.0")
+    return Version("11.1.0")
 
 
 @template

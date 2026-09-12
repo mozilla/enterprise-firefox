@@ -135,8 +135,7 @@ NotificationPermissionRequest::Run() {
                  PermissionCheckPurpose::PermissionRequest,
                  mWindow->GetExtantDoc())) {
     mPermission = NotificationPermission::Denied;
-  } else if (!StaticPrefs::dom_webnotifications_allowcrossoriginiframe() &&
-             !mPrincipal->Subsumes(mTopLevelPrincipal)) {
+  } else if (!mPrincipal->Subsumes(mTopLevelPrincipal)) {
     mPermission = NotificationPermission::Denied;
   }
 
