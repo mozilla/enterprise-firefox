@@ -4187,7 +4187,7 @@
           "version_added": false
         },
         "firefox_enterprise": {
-          "version_added": "156"
+          "version_added": "158"
         }
       },
       "x-restart-required": false,
