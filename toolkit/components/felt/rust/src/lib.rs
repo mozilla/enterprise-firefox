@@ -33,6 +33,8 @@ pub use utils::{CONSOLE_URL, TOKENS};
 static IS_FELT_UI: AtomicBool = AtomicBool::new(false);
 static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
 static IS_FELT_SAFE_MODE: AtomicBool = AtomicBool::new(false);
+// Whether a browser close locks the session instead of signing out.
+pub(crate) static CLOSE_LOCK_INTENT: AtomicBool = AtomicBool::new(false);
 
 fn normalize_arg(arg: String) -> String {
     let mut normalized = arg;
