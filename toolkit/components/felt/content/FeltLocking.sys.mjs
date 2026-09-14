@@ -208,4 +208,17 @@ export const FeltLocking = {
     }
     lazy.FeltStorage.clearLockingToken(email);
   },
+
+  /**
+   * Tear down all credentials for the current user: drop the persisted
+   * locked-session token and clear the in-memory session tokens. Used when
+   * signing out or on an unrecoverable session failure. NOT used when locking,
+   * which intentionally keeps the stored token and clears only the session.
+   *
+   * @returns {void}
+   */
+  clearLockAndTokens: () => {
+    FeltLocking.clear();
+    Services.felt.clearTokens();
+  },
 };

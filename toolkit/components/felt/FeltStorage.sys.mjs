@@ -118,10 +118,10 @@ export const FeltStorage = {
    *   undefined if none is stored.
    */
   async getLockingToken(email) {
-    const ciphertext = this._feltStorage.data?.lockingTokens?.[email]?.token;
-    if (ciphertext === undefined) {
+    if (!this.hasLockingToken(email)) {
       return undefined;
     }
+    const ciphertext = this._feltStorage.data.lockingTokens[email].token;
     return lazy.OSKeyStore.decrypt(ciphertext, "", false);
   },
 

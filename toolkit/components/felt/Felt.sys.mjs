@@ -272,8 +272,7 @@ export class Felt {
             console.error(`Failed to post signout on exit: ${err}`);
           })
           .finally(() => {
-            lazy.FeltLocking.clear();
-            Services.felt.clearTokens();
+            lazy.FeltLocking.clearLockAndTokens();
             this.#quitOrHoldForShutdown();
           });
         break;

@@ -112,17 +112,6 @@ function notifyFirefoxReady() {
   Services.obs.notifyObservers(null, "felt-firefox-window-ready");
 }
 
-/**
- * Tear down all credentials for the current user: drop the persisted
- * locked-session token and clear the in-memory session tokens. Used when
- * signing out or on an unrecoverable session failure. NOT used when locking,
- * which intentionally keeps the stored token and clears only the session.
- */
-function clearAllTokens() {
-  lazy.FeltLocking.clear();
-  Services.felt.clearTokens();
-}
-
 // These observer topics relay IPC events from the Firefox subprocess back
 // through XPCOM. Their lifetime is tied to the Firefox process, not the
 // JSActor pair (which can be destroyed and re-created independently when the
@@ -422,7 +411,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       `token refresh failed (${error.name}), shutting down Firefox`,
       error
     );
-    clearAllTokens();
+    lazy.FeltLocking.clearLockAndTokens();
     this.logoutReported = true;
     gSessionGeneration += 1;
     // Otherwise further ticks refresh against the cleared tokens.
@@ -1123,7 +1112,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.log.error(`Server signout failed: ${err}`);
     }
 
-    clearAllTokens();
+    lazy.FeltLocking.clearLockAndTokens();
     Services.felt.shutdownFirefox();
     const reportSignedOut = () => {
       Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
