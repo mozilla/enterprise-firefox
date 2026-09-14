@@ -8,3 +8,7 @@ run-if = ["enterprise"]
 ["test_live_policy_SecurityLogging.js"]
 
 ["test_live_policy_Sync.js"]
+
+["test_managed_init_fails_closed.js"]
+
+["test_null_local_policy_preserves_console.js"]

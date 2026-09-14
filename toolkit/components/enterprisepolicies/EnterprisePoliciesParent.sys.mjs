@@ -94,7 +94,9 @@ function shouldIgnoreLocalPolicies() {
 // We're only testing for empty objects, not
 // empty strings or empty arrays.
 function isEmptyObject(obj) {
-  if (typeof obj != "object" || Array.isArray(obj)) {
+  // `typeof null == "object"`, so null must be rejected before Object.keys()
+  // below, which would otherwise throw on it (Bug 2071381).
+  if (obj === null || typeof obj != "object" || Array.isArray(obj)) {
     return false;
   }
   for (let key of Object.keys(obj)) {
@@ -200,32 +202,56 @@ EnterprisePoliciesManager.prototype = {
 
     try {
       this._provider = await this._buildProvider();
+
+      // Keep status evaluation and startup activation inside the try: an
+      // unexpected failure here (e.g. a malformed local policy) must not
+      // escape and leave a managed browser running with the successfully
+      // fetched console policies silently unapplied (Bug 2071381).
+      this._updateStatus();
+
+      if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
+        return;
+      }
+
+      // Make Web Serial support be opt-in for enterprise policies.
+      Services.prefs
+        .getDefaultBranch("")
+        .setBoolPref("dom.webserial.enabled", false);
+
+      this._activateStartupPolicies();
     } catch (e) {
+      // Initialization failed after status may have been set and some startup
+      // callbacks scheduled. Discard that partial state so the engine does not
+      // advertise ACTIVE or run a partial policy set (Bug 2071381).
+      this.status = Ci.nsIEnterprisePolicies.FAILED;
+      this._parsedPolicies = {};
+      this._seenParamHashes = new Map();
+      this._appliedParamHashes = new Map();
+      for (const timing of Object.keys(this._callbacks)) {
+        this._callbacks[timing] = [];
+      }
+
       if (e instanceof RemotePolicyProviderInitError) {
         lazy.log.error(
-          `Failed to fetch startup policies when building the policies provider: ${e}`
+          "Failed to fetch startup policies when building the policies provider",
+          e
         );
         // bug 2027006 will move the fetching of policies to felt
         // and no shutdown will be needed then
         lazy.initiateShutdown();
+      } else if (AppConstants.MOZ_ENTERPRISE && Services.felt.isFeltBrowser()) {
+        // A managed (felt) browser that cannot finish policy initialization
+        // fails closed rather than run unmanaged. Consumer builds log and
+        // continue.
+        lazy.log.error(
+          "Failed to initialize enterprise policies; failing closed",
+          e
+        );
+        lazy.initiateShutdown();
       } else {
-        lazy.log.error(`Failed to build the policies provider: ${e}`);
+        lazy.log.error("Failed to initialize enterprise policies", e);
       }
-      return;
     }
-
-    this._updateStatus();
-
-    if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
-      return;
-    }
-
-    // Make Web Serial support be opt-in for enterprise policies.
-    Services.prefs
-      .getDefaultBranch("")
-      .setBoolPref("dom.webserial.enabled", false);
-
-    this._activateStartupPolicies();
   },
 
   _reportEnterpriseTelemetry() {
