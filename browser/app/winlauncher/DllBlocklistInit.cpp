@@ -3,6 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 #include "nsWindowsDllInterceptor.h"
+#include "mozilla/CmdLineAndEnvUtils.h"
 #include "mozilla/ImportDir.h"
 #include "mozilla/NativeNt.h"
 #include "mozilla/PolicyChecks.h"
@@ -199,8 +200,16 @@ LauncherVoidResultWithLineInfo InitializeDllBlocklistOOPFromLauncher(
     return result;
   }
 
-  if (aBlocklistFileName.isSome() &&
-      !PolicyCheckBoolean(L"DisableThirdPartyModuleBlocking")) {
+  bool moduleBlockingDisabled =
+      PolicyCheckBoolean(L"DisableThirdPartyModuleBlocking");
+#  if defined(MOZ_ENTERPRISE)
+  // Felt passes the console-managed policy in the environment so that it is available at startup.
+  moduleBlockingDisabled =
+      moduleBlockingDisabled ||
+      EnvHasValue("MOZ_ENTERPRISE_DISABLE_THIRD_PARTY_MODULE_BLOCKING");
+#  endif
+
+  if (aBlocklistFileName.isSome() && !moduleBlockingDisabled) {
     DynamicBlockList blockList(aBlocklistFileName->c_str());
     result = freestanding::gSharedSection.SetBlocklist(
         blockList, aDisableDynamicBlocklist);
