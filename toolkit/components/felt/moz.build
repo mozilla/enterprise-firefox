@@ -20,3 +20,5 @@ XPCOM_MANIFESTS += [
 ]
 
 DIRS += ["rust"]
+
+XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]
