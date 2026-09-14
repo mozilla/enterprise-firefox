@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   WebAuthnPromptHelper:
     "moz-src:///toolkit/modules/WebAuthnPromptHelper.sys.mjs",
+  FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
 });
 
 if (lazy.isBuildAppBrowser()) {
@@ -207,6 +208,7 @@ export class Felt {
 
   _feltMessageListeners = [
     "FeltParent:FirefoxNormalExit",
+    "FeltParent:FirefoxLockExit",
     "FeltParent:FirefoxRestartUpdateExit",
     "FeltParent:FirefoxLogoutExit",
     "FeltParent:FirefoxAbnormalExit",
@@ -264,23 +266,25 @@ export class Felt {
           this
         );
 
+        // Clean exit is the sign-out path, drop any locked tokens.
         lazy.ConsoleClient.performServerSignout()
           .catch(err => {
             console.error(`Failed to post signout on exit: ${err}`);
           })
           .finally(() => {
+            lazy.FeltLocking.clear();
             Services.felt.clearTokens();
-            // This is only useful for testing purpose when we need to exit the
-            // browser cleanly but need to keep felt alive for some processing after
-            if (!lazy.isBlockingShutdown()) {
-              Services.startup.quit(
-                Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
-              );
-            } else if (!this._win) {
-              Services.felt.makeBackgroundProcess(false);
-              this.showWindow();
-            }
+            this.#quitOrHoldForShutdown();
           });
+        break;
+      }
+
+      case "FeltParent:FirefoxLockExit": {
+        Services.ppmm.removeMessageListener("FeltParent:FirefoxLockExit", this);
+
+        // The session stays alive behind the stored token, so unlike a normal
+        // exit this neither signs out nor drops it.
+        this.#quitOrHoldForShutdown();
         break;
       }
 
@@ -332,6 +336,15 @@ export class Felt {
             // console.
             this.showWindow("felt-browser-error-session-expired");
             break;
+          case "networkLoss":
+            // A locked session can be resumed, so it gets a different notice
+            // from one that was signed out and has to be started over.
+            this.showWindow(
+              message.data?.locked
+                ? "felt-browser-error-network-loss-locked"
+                : "felt-browser-error-network-loss"
+            );
+            break;
           case "tokenRefreshFailed":
           default:
             this.showWindow("felt-browser-error-session-interrupted");
@@ -363,6 +376,19 @@ export class Felt {
       default:
         lazy.log.debug(`${message.name} NOT HANDLED`);
         break;
+    }
+  }
+
+  // The isBlockingShutdown branch is test-only: it keeps FELT alive after the
+  // browser exits for follow-up processing.
+  #quitOrHoldForShutdown() {
+    if (!lazy.isBlockingShutdown()) {
+      Services.startup.quit(
+        Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
+      );
+    } else if (!this._win) {
+      Services.felt.makeBackgroundProcess(false);
+      this.showWindow();
     }
   }
 
