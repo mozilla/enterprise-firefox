@@ -18,6 +18,8 @@
 
 -brand-shorter-name = Firefox
 -brand-short-name = Firefox Enterprise
+# Used in messages that are only shown on Nightly-channel builds.
+-brand-nightly-channel = Firefox Enterprise Nightly
 -brand-shortcut-name = Firefox Enterprise
 -brand-full-name = Firefox Enterprise
 # This brand name can be used in messages where the product name needs to
