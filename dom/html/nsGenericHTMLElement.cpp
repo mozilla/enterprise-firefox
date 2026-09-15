@@ -2672,8 +2672,15 @@ nsGenericHTMLFormControlElement::~nsGenericHTMLFormControlElement() {
   NS_ASSERTION(!mForm, "mForm should be null at this point!");
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(nsGenericHTMLFormControlElement,
-                                   nsGenericHTMLFormElement, mForm)
+NS_IMPL_CYCLE_COLLECTION_CLASS(nsGenericHTMLFormControlElement)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsGenericHTMLFormControlElement,
+                                                nsGenericHTMLFormElement)
+  tmp->ClearForm(true, true);
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(
+    nsGenericHTMLFormControlElement, nsGenericHTMLFormElement)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mForm)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(nsGenericHTMLFormControlElement,
                                              nsGenericHTMLFormElement,

@@ -8,7 +8,10 @@ import {
   styleMap,
 } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
-import { getScreenshotForAddon } from "../aboutaddons-utils.mjs";
+import {
+  getScreenshotForAddon,
+  getThemesModeColorScheme,
+} from "../aboutaddons-utils.mjs";
 import { isNovaThemesPickerEnabled } from "./aboutaddons-themes-picker.mjs";
 
 const lazy = {};
@@ -24,6 +27,9 @@ export class ThemePreview extends MozLitElement {
 
   #themesListManager = null;
 
+  #colorSchemeMediaQuery = window.matchMedia("(-moz-system-dark-theme)");
+  #onColorSchemeChange = () => this.requestUpdate();
+
   createRenderRoot() {
     return this;
   }
@@ -31,6 +37,18 @@ export class ThemePreview extends MozLitElement {
   connectedCallback() {
     super.connectedCallback();
     this.#getExtraThemesListManager();
+    this.#colorSchemeMediaQuery.addEventListener(
+      "change",
+      this.#onColorSchemeChange
+    );
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.#colorSchemeMediaQuery.removeEventListener(
+      "change",
+      this.#onColorSchemeChange
+    );
   }
 
   render() {
@@ -51,6 +69,12 @@ export class ThemePreview extends MozLitElement {
       let { url, colorScheme } = getScreenshotForAddon(this.addon);
       screenshotUrl = url;
       screenshotColorScheme = colorScheme;
+    } else {
+      // The AMO curated Nova extra themes bundled theme preview SVGs
+      // should be forced in light/dark color scheme based on the
+      // current OS light/dark mode or the light/dark mode forced
+      // through the ui.systemUsesDarkTheme pref.
+      screenshotColorScheme = getThemesModeColorScheme();
     }
 
     if (!screenshotUrl) {

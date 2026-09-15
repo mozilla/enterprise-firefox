@@ -13050,6 +13050,15 @@
     value: true
     mirror: once
 
+# Re-drive the protected pipeline when activation fails with an error that
+# might clear on a retry. Disabled by default: the errors involved are not
+# documented as transient, and the retry surfaces to the page as a
+# hardware-context-reset, which invites it to retry indefinitely.
+-   name: media.wmf.media-engine.protected-readiness-gate.recovery.enabled
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+
 # Maximum bounded last-resort recoveries, per playback session, for the two
 # protected-activation errors Media Foundation gives no advance signal for.
 -   name: media.wmf.media-engine.protected-readiness-gate.max-recoveries

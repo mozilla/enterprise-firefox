@@ -12,6 +12,8 @@
 
 ["test_geolocation_provider_timeout.js"]
 
+["test_geolocation_provider_url.js"]
+
 ["test_geolocation_reset_accuracy.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && opt && msix", # Bug 1822179

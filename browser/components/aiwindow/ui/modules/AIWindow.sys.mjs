@@ -866,6 +866,22 @@ export const AIWindow = {
   },
 
   /**
+   * @param {MozTabbrowserTab} tab
+   * @returns {?string}
+   */
+  getChatTabConversationId(tab) {
+    const uri = tab.linkedBrowser?.currentURI;
+    if (!uri || !this.isAIWindowNewTabPage(uri)) {
+      return null;
+    }
+    return (
+      this._aiWindowTabStateManagers
+        .get(tab.documentGlobal)
+        ?.getTabConversationId(tab) ?? null
+    );
+  },
+
+  /**
    * Adds the AI Window app menu options
    *
    * @param {Event} event - History menu click event

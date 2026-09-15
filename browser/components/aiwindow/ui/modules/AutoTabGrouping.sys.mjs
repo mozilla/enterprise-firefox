@@ -113,7 +113,10 @@ export const AutoTabGrouping = {
    * computePromise memoizes the in-flight clustering run (it resolves to
    * undefined once suggestions are stored) so a panel reopened while it is
    * still running awaits the same computation instead of getting stuck on the
-   * loading state.
+   * loading state. A panel stops waiting on it after timeoutMs and shows what
+   * it has, but the run itself is never given up: models that are slow to
+   * load, typically right after startup, still deliver their groups to the
+   * open panel or to the next one.
    *
    * recent holds the groups created from suggestions (newest first); the panel
    * lists them under "Just created" and the "Ungroup" button reverses all of
@@ -209,9 +212,9 @@ export const AutoTabGrouping = {
     popupSet.appendChild(panel);
     this._panels.set(win, panel);
 
-    // Both panels are noautohide so hovering the flyout (a second popup) cannot
-    // roll up the main panel; dismiss it ourselves on Escape or a click outside
-    // both popups and the toolbar button.
+    // The panel is noautohide so hovering the flyout (a second popup) cannot
+    // roll it up; dismiss it ourselves on Escape or a click outside both popups
+    // and the toolbar button.
     const onMouseDown = event => {
       const target = event.target;
       const trigger = target.closest?.("menupopup")?.triggerNode ?? target;
@@ -296,10 +299,14 @@ export const AutoTabGrouping = {
     }
     const done = this._computeSuggestions(win);
     this._syncCard(win, panel);
-    await done;
+    const finished = await this._withTimeout(done, lazy.timeoutMs).then(
+      () => true,
+      () => false
+    );
     if (this._panels.get(win) !== panel) {
       return;
     }
+    panel._waitedOut = !finished;
     this._syncCard(win, panel);
 
     await panel._card.updateComplete;
@@ -310,6 +317,7 @@ export const AutoTabGrouping = {
       suggested_groups: state.suggestions.length,
       groups: state.recent.length,
       time: Date.now() - openedAt,
+      waited_out: !finished,
     });
   },
 
@@ -322,6 +330,7 @@ export const AutoTabGrouping = {
     const doc = win.document;
 
     const panel = this._createPanel(win, PANEL_ID);
+    panel.setAttribute("noautohide", "true");
 
     const card = doc.createElement(CARD_TAG);
     card.addEventListener("create-all", () =>
@@ -373,12 +382,13 @@ export const AutoTabGrouping = {
     panel._dismissedRow = null;
     panel._focusFlyoutController = null;
     panel._restoreFocus = false;
+    panel._waitedOut = false;
     return panel;
   },
 
   /**
-   * Create a non-auto-hiding panel that hosts one of our cards. Shared by the
-   * main panel and the hover flyout. `type="arrow"` is what makes popup.css
+   * Create a panel that hosts one of our cards. Shared by the main panel and
+   * the hover flyout. `type="arrow"` is what makes popup.css
    * paint the panel from the --panel-* design tokens; the rest of the styling
    * lives in the smartwindowGroupTabs.css theme sheet, scoped to the panel ids
    * and swgt- classes.
@@ -393,7 +403,6 @@ export const AutoTabGrouping = {
     panel.setAttribute("type", "arrow");
     panel.setAttribute("orient", "vertical");
     panel.setAttribute("noautofocus", "true");
-    panel.setAttribute("noautohide", "true");
     panel.setAttribute("ignorekeys", "true");
     return panel;
   },
@@ -411,6 +420,9 @@ export const AutoTabGrouping = {
       return panel._flyoutPanel;
     }
     const flyoutPanel = this._createPanel(win, FLYOUT_ID);
+    // Unlike the panel it hangs off, the flyout is an ordinary dismissable
+    // popup.
+    flyoutPanel.setAttribute("consumeoutsideclicks", "never");
     flyoutPanel.setAttribute("animate", "false");
     flyoutPanel.setAttribute("keepopenongroupdelete", "true");
     // Slide along the block axis to stay on screen near the bottom edge, and
@@ -439,6 +451,17 @@ export const AutoTabGrouping = {
         this._scheduleHideFlyout(panel);
       }
     });
+    // A click elsewhere rolls the flyout up without going through _hideFlyout
+    // or _leaveFlyout. Hiding a popup that holds focus hands it back to the
+    // row, whose own preview would reopen the flyout.
+    flyoutPanel.addEventListener("popuphiding", () => {
+      if (this._flyoutHasFocus(panel)) {
+        panel._dismissedRow = panel._activeRow;
+      }
+    });
+    flyoutPanel.addEventListener("popuphidden", () =>
+      this._releaseActiveRow(panel)
+    );
     flyoutPanel._flyoutEl = flyoutEl;
 
     win.document.getElementById("mainPopupSet").appendChild(flyoutPanel);
@@ -460,7 +483,7 @@ export const AutoTabGrouping = {
     const hidden = this._hideFlyout(panel);
 
     const card = panel._card;
-    card.computing = state.computing;
+    card.computing = state.computing && !panel._waitedOut;
     card.suggestions = [...state.suggestions];
     card.recent = [...state.recent];
     card.duplicates = win.gBrowser.getAllDuplicateTabsToClose().length;
@@ -514,6 +537,24 @@ export const AutoTabGrouping = {
       !flyoutPanel._flyoutEl.duplicates &&
       !!flyoutPanel._flyoutEl.groupsListId
     );
+  },
+
+  /**
+   * Names of the groups the "View Tab Groups" list offers. Despite hanging off
+   * one window's gBrowser, getAllTabGroups() spans every window that shares
+   * this one's privacy, and saved groups are global.
+   *
+   * @param {ChromeWindow} win
+   * @returns {string[]}
+   */
+  _takenGroupLabels(win) {
+    const saved = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+      ? []
+      : win.SessionStore.savedGroups.map(group => group.name);
+    return [
+      ...win.gBrowser.getAllTabGroups().map(group => group.label),
+      ...saved,
+    ].filter(Boolean);
   },
 
   /**
@@ -687,14 +728,25 @@ export const AutoTabGrouping = {
             flyoutPanel.addEventListener("popuphidden", resolve, { once: true })
           )
         : Promise.resolve();
-    panel._focusFlyoutController?.abort();
     flyoutPanel?.hidePopup();
+    this._releaseActiveRow(panel);
+    return hidden;
+  },
+
+  /**
+   * Let go of the row the flyout was opened for, and of any focus request
+   * waiting on the flyout. Runs whenever the flyout hides, whether we hid it or
+   * a click elsewhere rolled it up.
+   *
+   * @param {XULElement} panel
+   */
+  _releaseActiveRow(panel) {
+    panel._focusFlyoutController?.abort();
     if (panel._activeRow) {
       panel._activeRow.classList.remove("is-active");
       panel._activeRow.setAttribute("aria-expanded", "false");
       panel._activeRow = null;
     }
-    return hidden;
   },
 
   async _focusFlyout(panel) {
@@ -727,8 +779,7 @@ export const AutoTabGrouping = {
    */
   _leaveFlyout(panel) {
     const row = panel._activeRow;
-    // Hiding a popup that holds focus hands it back to the row, whose own
-    // preview would reopen the flyout we are closing.
+    // Focusing the row would reopen the flyout we are closing.
     panel._dismissedRow = row;
     this._hideFlyout(panel);
     row?.focus();
@@ -1117,9 +1168,9 @@ export const AutoTabGrouping = {
       let suggestions = [];
       let errorType = "";
       try {
-        const proposals = await this._withTimeout(
-          lazy.AutoTabGroupingSuggestions.buildProposals(candidates),
-          lazy.timeoutMs
+        const proposals = await lazy.AutoTabGroupingSuggestions.buildProposals(
+          candidates,
+          this._takenGroupLabels(win)
         );
         suggestions = proposals.map((proposal, index) => ({
           id: this._nextId++,
@@ -1151,6 +1202,11 @@ export const AutoTabGrouping = {
           total_length: titleLength(suggestion.tabs),
           grouped_id: suggestion.id,
         });
+      }
+      // A panel that stopped waiting on this run is filled in now.
+      const panel = this._panels.get(win);
+      if (panel?._waitedOut) {
+        this._syncCard(win, panel);
       }
     })();
     return state.computePromise;

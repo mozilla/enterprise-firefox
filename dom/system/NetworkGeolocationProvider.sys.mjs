@@ -30,6 +30,43 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return console.createInstance(consoleOptions);
 });
 
+// Registrable domains of the network geolocation services we report on
+// individually, mapped to their geolocation.network_provider Glean label.
+const KNOWN_PROVIDER_DOMAINS = new Map([
+  ["googleapis.com", "google"],
+  ["beacondb.net", "beacondb"],
+]);
+
+/**
+ * Categorize the configured network geolocation endpoint for telemetry.
+ *
+ * @param   {string} url The url
+ * @returns {string} The geolocation.network_provider label to record:
+ *                   a value in KNOWN_PROVIDER_DOMAINS, "other" for an
+ *                   unrecognized host, or "unknown" if the URL has no host we
+ *                   can parse.
+ */
+export function networkProviderLabel(url) {
+  let host;
+  try {
+    host = Services.io.newURI(url).host;
+  } catch {
+    return "unknown";
+  }
+
+  if (!host) {
+    return "unknown";
+  }
+
+  for (let [domain, label] of KNOWN_PROVIDER_DOMAINS) {
+    if (host == domain || host.endsWith("." + domain)) {
+      return label;
+    }
+  }
+
+  return "other";
+}
+
 function CachedRequest(loc, wifiList) {
   this.location = loc;
 
@@ -463,6 +500,7 @@ NetworkGeolocationProvider.prototype = {
     let isWifi = wifiData && wifiData.length >= 2;
     let label = isWifi ? "network_wifi_and_ip" : "network_ip";
     Glean.geolocation.geolocationService[label].add();
+    Glean.geolocation.networkProvider[networkProviderLabel(url)].add();
 
     let response;
     try {

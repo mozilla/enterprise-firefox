@@ -1065,7 +1065,19 @@ pub unsafe extern "C" fn wgpu_server_buffer_get_mapped_range(
             ptr: ptr.as_ptr(),
             length: len,
         },
-        Err(error) => panic!("{error}"),
+        Err(error) => match error {
+            // The map may have been cancelled before the caller got here:
+            // `buffer.destroy()` destroys the resource and `buffer.unmap()`
+            // returns it to the idle state. Report an empty slice so the
+            // caller can turn it into a map error.
+            BufferAccessError::DestroyedResource(_) | BufferAccessError::NotMapped => {
+                MappedBufferSlice {
+                    ptr: core::ptr::null_mut(),
+                    length: 0,
+                }
+            }
+            _ => panic!("{error}"),
+        },
     }
 }
 
@@ -2539,30 +2551,32 @@ impl Global {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wgpu_server_pack_buffer_map_success(
+pub unsafe extern "C" fn wgpu_server_send_buffer_map_success(
+    parent: WebGPUParentPtr,
     buffer_id: id::BufferId,
     is_writable: bool,
     offset: u64,
     size: u64,
-    bb: &mut ByteBuf,
 ) {
     let result = BufferMapResult::Success {
         is_writable,
         offset,
         size,
     };
-    *bb = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    let mut byte_buf = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    unsafe { wgpu_parent_send_server_message(parent, &mut byte_buf) };
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wgpu_server_pack_buffer_map_error(
+pub unsafe extern "C" fn wgpu_server_send_buffer_map_error(
+    parent: WebGPUParentPtr,
     buffer_id: id::BufferId,
     error: &nsACString,
-    bb: &mut ByteBuf,
 ) {
     let error = error.to_utf8();
     let result = BufferMapResult::Error(error);
-    *bb = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    let mut byte_buf = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    unsafe { wgpu_parent_send_server_message(parent, &mut byte_buf) };
 }
 
 #[no_mangle]

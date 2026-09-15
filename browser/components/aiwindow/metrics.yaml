@@ -1996,9 +1996,8 @@ smart_window:
         type: string
         description: >
           Why the process failed, empty when success is true: the error's name,
-          such as "TypeError", or "TimeoutError" when the process ran out of
-          time. Error messages are never recorded, only the name, so no path,
-          URL or tab title can appear here.
+          such as "TypeError". Error messages are never recorded, only the
+          name, so no path, URL or tab title can appear here.
       total_length:
         type: quantity
         unit: characters
@@ -2042,7 +2041,8 @@ smart_window:
     type: event
     description: |
       Recorded when the panel has finished loading and is showing the user what
-      it found.
+      it found, or, when clustering is slow, what it had by the time it stopped
+      waiting.
     bugs: *atg_bugs
     data_reviews: *atg_data_reviews
     data_sensitivity:
@@ -2067,6 +2067,12 @@ smart_window:
         description: >
           How long the user waited between asking for the panel and seeing it
           populated.
+      waited_out:
+        type: boolean
+        description: >
+          True when the panel stopped waiting on clustering before it finished,
+          so suggested_groups counts only what was ready then and the run's
+          groups fill the panel in later.
 
   auto_tab_group_accepted:
     type: event

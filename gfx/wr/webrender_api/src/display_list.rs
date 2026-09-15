@@ -1729,8 +1729,9 @@ impl DisplayListBuilder {
     /// rounded-rect `ClipOut`. This replaces the scene builder's zero-blur fast
     /// path. Rects are left in the caller's layout space; each `define_*`/
     /// `push_rect` call applies the same scroll-offset normalization for
-    /// `spatial_id`, so they stay aligned. The inner ClipOut carries the spread
-    /// as its snap outset to keep the ring width even under motion (bug 2052033).
+    /// `spatial_id`, so they stay aligned. An inset shadow's ClipOut carries the
+    /// spread as its snap outset to keep the ring width even under motion
+    /// (bug 2052033); an outset shadow's does not -- see that arm.
     fn push_zero_blur_box_shadow(
         &mut self,
         common: &di::CommonItemProperties,
@@ -1791,6 +1792,15 @@ impl DisplayListBuilder {
                     return;
                 }
 
+                // Snap outset 0: unlike the inset arm below, this ClipOut is
+                // already `box_bounds`, so there is no source rect to recover
+                // and it must snap exactly like the element does. Anchoring it
+                // (snap(box_bounds.inflate(spread)) inset by the spread) shifts
+                // the edge off the element's own snapped position by up to a
+                // pixel whenever `spread * device_scale` is fractional, leaving
+                // a partial-coverage seam against anything the element paints
+                // in the same colour -- a border or background abutting the
+                // shadow (bug 2070481).
                 clips.push(self.define_clip_rounded_rect_impl(
                     spatial_id,
                     ComplexClipRegion {
@@ -1799,7 +1809,7 @@ impl DisplayListBuilder {
                         inset: LayoutSideOffsets::zero(),
                         mode: ClipMode::ClipOut,
                     },
-                    spread_radius,
+                    0.0,
                 ));
 
                 (shadow_rect, shadow_radius, shadow_inset)

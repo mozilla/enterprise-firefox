@@ -753,6 +753,7 @@ export function getScreenshotForAddon(addon) {
         url: lazy.BROWSER_NOVA_ENABLED
           ? DEFAULT_THEME_PREVIEW_NOVA_URL
           : DEFAULT_THEME_PREVIEW_URL,
+        colorScheme: getThemesModeColorScheme(),
       };
     case "firefox-compact-light@mozilla.org":
     case "firefox-compact-dark@mozilla.org":
@@ -792,6 +793,17 @@ export function getScreenshotForAddon(addon) {
     screenshot = screenshots[0];
   }
   return { url: screenshot.url };
+}
+
+/**
+ * @returns {string}
+ *          "light" or "dark", following the current system color scheme or
+ *          the mode forced through ui.systemUsesDarkTheme pref.
+ */
+export function getThemesModeColorScheme() {
+  return window.matchMedia("(-moz-system-dark-theme)").matches
+    ? "dark"
+    : "light";
 }
 
 /**

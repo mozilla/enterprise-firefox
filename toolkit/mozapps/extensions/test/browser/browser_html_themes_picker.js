@@ -22,6 +22,12 @@ AddonTestUtils.initMochitest(this);
 const PREF_NOVA_ENABLED = "browser.nova.enabled";
 const PREF_NOVA_THEMES_PICKER = "browser.aboutaddons.novaThemesPickerEnabled";
 const PREF_ACTIVE_THEME_ID = "extensions.activeThemeID";
+const PREF_SYSTEM_USES_DARK_THEME = "ui.systemUsesDarkTheme";
+// Website Appearance setting exposed in about:preferences, which only
+// overrides prefers-color-scheme for content documents and must not
+// affect the (chrome-only) theme preview color scheme.
+const PREF_CONTENT_COLOR_SCHEME_OVERRIDE =
+  "layout.css.prefers-color-scheme.content-override";
 
 const DEFAULT_THEME_ID = "default-theme@mozilla.org";
 const LIGHT_THEME_ID = "firefox-compact-light@mozilla.org";
@@ -295,6 +301,104 @@ add_task(async function test_light_dark_themes_preview() {
     await closeView(win);
     await SpecialPowers.popPrefEnv();
   }
+});
+
+// Verifies that for the default theme and the curated AMO hosted extra Nova themes
+// their theme preview SVGs color scheme are:
+// - being forced to match the aboutaddons-themes-mode selector
+// - falling back to the current OS dark/light color scheme when the appearance
+//   mode is set to "device"
+// - are not affected by the "Website Appearance" setting from about:settings
+//   (or the underlying layout.css.prefers-color-scheme.content-override pref).
+add_task(async function test_default_and_extra_themes_preview_color_scheme() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [PREF_NOVA_ENABLED, true],
+      [PREF_NOVA_THEMES_PICKER, true],
+    ],
+  });
+
+  const win = await loadInitialView("theme");
+  const picker = getThemesPicker(win.document);
+  await waitForThemesPickerReady(picker);
+
+  const systemDarkThemeQuery = win.matchMedia("(-moz-system-dark-theme)");
+
+  for (const [prefValue, expectedColorScheme] of [
+    [0, "light"],
+    [1, "dark"],
+    [undefined, systemDarkThemeQuery.matches ? "dark" : "light"],
+  ]) {
+    // If the color scheme we expect is the same as the color scheme already active
+    // then we expect no "change" event to be emitted by the -moz-system-dark-theme
+    // media query after we set or clear the ui.systemUsesDarkTheme about:config pref.
+    const expectedSystemDarkMatch = expectedColorScheme === "dark";
+    const promiseMediaQueryChangeEvent =
+      systemDarkThemeQuery.matches === expectedSystemDarkMatch
+        ? Promise.resolve()
+        : new Promise(resolve => {
+            info("Wait for matchMedia -moz-system-dark-theme change event");
+            systemDarkThemeQuery.addEventListener("change", resolve, {
+              once: true,
+            });
+          });
+
+    await SpecialPowers.pushPrefEnv(
+      prefValue === undefined
+        ? { clear: [[PREF_SYSTEM_USES_DARK_THEME]] }
+        : { set: [[PREF_SYSTEM_USES_DARK_THEME, prefValue]] }
+    );
+
+    // ui.systemUsesDarkTheme changes propagate to -moz-system-dark-theme
+    // asynchronously.
+    await promiseMediaQueryChangeEvent;
+
+    // Force the opposite color scheme for content documents' "Website Appearance"
+    // (about:preferences), to explicitly verify the theme preview is not
+    // affected by it.
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        [
+          PREF_CONTENT_COLOR_SCHEME_OVERRIDE,
+          expectedColorScheme == "dark" ? 1 : 0,
+        ],
+      ],
+    });
+
+    const defaultThemeImg = await getThemePreviewImage(
+      getAddonCard(win, DEFAULT_THEME_ID)
+    );
+    Assert.equal(
+      defaultThemeImg.src,
+      DEFAULT_THEME_PREVIEW_NOVA_URL,
+      "default-theme keeps using the Nova preview image"
+    );
+    Assert.equal(
+      defaultThemeImg.style.colorScheme,
+      expectedColorScheme,
+      `default-theme preview has the expected forced color scheme (pref: ${prefValue})`
+    );
+
+    const novaSunImg = await getThemePreviewImage(
+      getThemeCard(picker, NOVA_SUN_ID_PREFIX)
+    );
+    Assert.equal(
+      novaSunImg.src,
+      "resource://extra-themes-previews/nova-sun@mozilla.org-preview.svg",
+      "nova-sun keeps using its own bundled preview image"
+    );
+    Assert.equal(
+      novaSunImg.style.colorScheme,
+      expectedColorScheme,
+      `nova-sun preview has the expected forced color scheme (pref: ${prefValue})`
+    );
+
+    await SpecialPowers.popPrefEnv();
+    await SpecialPowers.popPrefEnv();
+  }
+
+  await closeView(win);
+  await SpecialPowers.popPrefEnv();
 });
 
 // Verifies that the Nova themes picker can be expanded and collapsed as

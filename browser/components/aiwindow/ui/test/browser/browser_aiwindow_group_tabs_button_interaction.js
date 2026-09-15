@@ -105,6 +105,99 @@ describe("Auto Tab Grouping toolbar button", () => {
       };
     }
 
+    it("is a dismissable popup beside a panel that is not", async () => {
+      win = await openGroupingWindowWithTabs();
+      const panel = await openPanelWithSuggestions(win);
+      const { row } = await openFlyout(panel);
+      const flyout = panel._flyoutPanel;
+
+      Assert.ok(
+        panel.hasAttribute("noautohide"),
+        "The panel stays up while the pointer is over the flyout"
+      );
+      Assert.ok(
+        !flyout.hasAttribute("noautohide"),
+        "The flyout can be rolled up, which is what lets Wayland place it past the window's edge"
+      );
+      Assert.equal(
+        flyout.getAttribute("consumeoutsideclicks"),
+        "never",
+        "The click that rolls the flyout up still reaches the panel row under it"
+      );
+
+      // Rolling up bypasses _hideFlyout, so hide the flyout the way it does.
+      flyout.hidePopup();
+      await TestUtils.waitForCondition(
+        () => flyout.state === "closed",
+        "The flyout is hidden"
+      );
+      Assert.equal(
+        panel._activeRow,
+        null,
+        "The row is released when something else hides the flyout"
+      );
+      Assert.equal(
+        row.getAttribute("aria-expanded"),
+        "false",
+        "The row no longer reports its flyout as expanded"
+      );
+      Assert.ok(
+        !row.classList.contains("is-active"),
+        "The row drops its highlight"
+      );
+      Assert.equal(panel.state, "open", "The panel itself stays open");
+
+      row.dispatchEvent(new win.MouseEvent("mouseenter"));
+      await TestUtils.waitForCondition(
+        () => panel._activeRow === row && flyout.state !== "closed",
+        "Pointing at the row again reopens its flyout"
+      );
+    });
+
+    it("stays closed when rolling up hands focus back to its row", async () => {
+      win = await openGroupingWindowWithTabs();
+      const panel = await openPanelWithSuggestions(win);
+      const { row, tabRows } = await openFlyout(panel);
+      const flyout = panel._flyoutPanel;
+
+      EventUtils.synthesizeKey("KEY_ArrowRight", {}, win);
+      await TestUtils.waitForCondition(
+        () => win.document.activeElement === tabRows[0],
+        "Focus moved into the flyout"
+      );
+
+      flyout.hidePopup();
+      await TestUtils.waitForCondition(
+        () => flyout.state === "closed",
+        "The flyout is hidden"
+      );
+      Assert.equal(
+        win.document.activeElement,
+        row,
+        "Hiding the flyout hands focus back to its row"
+      );
+      Assert.equal(
+        panel._dismissedRow,
+        row,
+        "The row getting focus back is not a request to reopen the flyout"
+      );
+      Assert.equal(panel._activeRow, null, "The row is released");
+
+      panel.querySelector(".swgt-create-all").focus();
+      row.focus();
+      Assert.equal(
+        panel._activeRow,
+        null,
+        "Focus returning to the row leaves the flyout closed, as after Escape"
+      );
+
+      EventUtils.synthesizeKey("KEY_ArrowRight", {}, win);
+      await TestUtils.waitForCondition(
+        () => panel._activeRow === row && flyout.state !== "closed",
+        "Asking for the flyout again reopens it"
+      );
+    });
+
     it("hides the flyout once the pointer leaves it", async () => {
       win = await openGroupingWindowWithTabs();
       const panel = await openPanelWithSuggestions(win);

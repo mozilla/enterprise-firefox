@@ -66,6 +66,24 @@ describe("Auto Tab Grouping toolbar button", () => {
       );
     });
 
+    it("does not suggest a name the user's groups already use", async () => {
+      win = await openGroupingWindowWithTabs();
+      const tab = BrowserTestUtils.addTab(
+        win.gBrowser,
+        "https://example.com/grouped"
+      );
+      win.gBrowser.addTabGroup([tab], { label: "Test Group" });
+
+      const panel = await openPanelWithSuggestions(win);
+      Assert.deepEqual(
+        [...panel.querySelectorAll(".swgt-suggestion .swgt-row-label")].map(
+          el => el.textContent
+        ),
+        ["Test Group 2", "Test Group 3"],
+        "Both suggestions are named apart from the existing group and from each other"
+      );
+    });
+
     it("opens the panel when the button is clicked", async () => {
       win = await openGroupingWindowWithTabs();
 
@@ -153,6 +171,11 @@ describe("Auto Tab Grouping toolbar button", () => {
         "Showed both suggestions"
       );
       Assert.equal(displayed[0].extra.groups, "0", "Nothing created yet");
+      Assert.equal(
+        displayed[0].extra.waited_out,
+        "false",
+        "Clustering finished before the panel stopped waiting"
+      );
 
       await closePanel(win);
       await openPanelWithSuggestions(win);

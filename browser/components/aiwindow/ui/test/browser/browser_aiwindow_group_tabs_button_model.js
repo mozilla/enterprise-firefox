@@ -312,9 +312,9 @@ describe("Auto Tab Grouping toolbar button", () => {
   });
 
   describe("clustering edge cases", () => {
-    let generateClustersPromiseResolver;
-
     describe("when clustering times out", () => {
+      let finishClustering;
+
       beforeEach(async () => {
         await SpecialPowers.pushPrefEnv({
           set: [
@@ -323,23 +323,25 @@ describe("Auto Tab Grouping toolbar button", () => {
           ],
         });
 
+        // Clustering that does not finish until the test says so, as the
+        // models may not right after startup.
+        const fake = fakeTwoGroupManager();
         AutoTabGroupingSuggestions._manager = {
-          ...fakeTwoGroupManager(),
-          generateClusters() {
-            const generateClustersPromise = new Promise(resolve => {
-              generateClustersPromiseResolver = resolve;
+          ...fake,
+          generateClusters(tabList) {
+            return new Promise(resolve => {
+              finishClustering = () => resolve(fake.generateClusters(tabList));
             });
-            return generateClustersPromise;
           },
         };
       });
 
       afterEach(() => {
-        generateClustersPromiseResolver?.(null);
-        generateClustersPromiseResolver = null;
+        finishClustering?.();
+        finishClustering = null;
       });
 
-      it("falls back to the empty state when clustering times out", async () => {
+      it("stops waiting on slow clustering, then fills in its groups", async () => {
         win = await openAIWindow();
         await navigateToContent(win);
         await addWebTabs(win);
@@ -354,26 +356,60 @@ describe("Auto Tab Grouping toolbar button", () => {
             panel
               .querySelector(".swgt-message")
               ?.getAttribute("data-l10n-id") === "smartwindow-group-tabs-empty",
-          "Panel falls back to the empty state after the clustering timeout"
+          "Panel falls back to the empty state once the wait runs out"
+        );
+        Assert.ok(
+          AutoTabGrouping._getState(win).computing,
+          "The clustering run itself is still going"
+        );
+        Assert.ok(
+          !Glean.smartWindow.autoTabGroupingCompleted.testGetValue(),
+          "Nothing is recorded as completed while the run is still going"
+        );
+        await TestUtils.waitForCondition(
+          () => Glean.smartWindow.autoTabGroupWindowDisplay.testGetValue(),
+          "The panel records what it showed"
+        );
+        const displayed =
+          Glean.smartWindow.autoTabGroupWindowDisplay.testGetValue();
+        Assert.equal(
+          displayed.length,
+          1,
+          "One 'window display' event recorded"
+        );
+        Assert.equal(
+          displayed[0].extra.waited_out,
+          "true",
+          "Recorded that the panel stopped waiting on clustering"
+        );
+        Assert.equal(
+          displayed[0].extra.suggested_groups,
+          "0",
+          "Nothing had been found by then"
         );
 
+        finishClustering();
+        await TestUtils.waitForCondition(
+          () => panel.querySelectorAll(".swgt-suggestion").length === 2,
+          "The groups fill the panel in once the slow run finishes"
+        );
+        Assert.ok(
+          !panel.querySelector(".swgt-message"),
+          "The empty state is gone"
+        );
         const completed =
           Glean.smartWindow.autoTabGroupingCompleted.testGetValue();
-        Assert.equal(completed?.length, 1, "The timed-out run still completes");
+        Assert.equal(completed?.length, 1, "The run completes once");
         Assert.equal(
           completed[0].extra.success,
-          "false",
-          "Recorded as a failure"
+          "true",
+          "Taking longer than the panel waits is not a failure"
         );
+        Assert.equal(completed[0].extra.groups, "2", "Both groups were found");
         Assert.equal(
-          completed[0].extra.error_type,
-          "TimeoutError",
-          "Recorded the error's name, not its message"
-        );
-        Assert.equal(completed[0].extra.groups, "0", "Nothing was suggested");
-        Assert.ok(
-          !Glean.smartWindow.autoTabGroupSuggested.testGetValue(),
-          "No group was suggested"
+          Glean.smartWindow.autoTabGroupSuggested.testGetValue()?.length,
+          2,
+          "Both groups are recorded as suggested"
         );
       });
     });
