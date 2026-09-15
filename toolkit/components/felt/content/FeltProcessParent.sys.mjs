@@ -1283,10 +1283,13 @@ export class FeltProcessParent extends JSProcessActorParent {
 
           const ssoCollectedCookies = this.getAllCookies();
           lazy.log.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
-          // When a restart was reported we assume cookies were stored properly on the
-          // browser side? An unlock never navigates to the SSO callback, so it cannot
-          // collect cookies. The browser must have already stored them on the first login.
-          if (!isUnlock && !ssoCollectedCookies.length) {
+          if (isUnlock) {
+            lazy.log.debug(
+              "Unlock does not navigate to the SSO callback, so no cookies are collected."
+            );
+          } else if (!ssoCollectedCookies.length) {
+            // When a restart was reported we assume cookies were stored properly on
+            // the browser side?
             throw new Error("Not enough cookies!!");
           }
 

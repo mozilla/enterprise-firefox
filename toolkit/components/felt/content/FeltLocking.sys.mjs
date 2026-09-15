@@ -65,7 +65,7 @@ export const FeltLocking = {
           );
         }
         if (!lockingToken) {
-          Services.felt.setTokens("", "", 0);
+          Services.felt.clearTokens();
           lazy.FeltStorage.clearLockingToken(email);
           return false;
         }
@@ -73,7 +73,7 @@ export const FeltLocking = {
         if (!userId) {
           // Without a user id the session would resume into the profile
           // shared by every user, so treat the record as unresumeable.
-          Services.felt.setTokens("", "", 0);
+          Services.felt.clearTokens();
           lazy.FeltStorage.clearLockingToken(email);
           return false;
         }
@@ -114,7 +114,7 @@ export const FeltLocking = {
             lazy.FeltStorage.clearLockingToken(email);
           });
         } catch (err) {
-          Services.felt.setTokens("", "", 0);
+          Services.felt.clearTokens();
           if (err?.name === "ReauthRequiredError") {
             // The refresh token is genuinely invalid/revoked: drop it so we
             // fall back to a full SSO sign-in.

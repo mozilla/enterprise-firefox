@@ -282,20 +282,22 @@ add_task(async function test_clear_removes_stored_token() {
  * runner needs a fake installed via defineProperty (plain sinon.stub requires
  * the property to be present).
  *
- * @returns {object} A disposable exposing the setTokens spy.
+ * @returns {object} A disposable exposing the setTokens and clearTokens spies.
  */
 /* eslint-disable mozilla/valid-services */
 function installFakeFelt() {
   const had = Object.prototype.hasOwnProperty.call(Services, "felt");
   const prev = had ? Services.felt : undefined;
   const setTokens = sinon.spy();
+  const clearTokens = sinon.spy();
   Object.defineProperty(Services, "felt", {
-    value: { setTokens },
+    value: { setTokens, clearTokens },
     configurable: true,
     writable: true,
   });
   return {
     setTokens,
+    clearTokens,
     [Symbol.dispose]() {
       if (had) {
         Services.felt = prev;
