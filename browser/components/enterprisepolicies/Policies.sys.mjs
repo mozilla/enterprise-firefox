@@ -1838,15 +1838,6 @@ export var Policies = {
     },
   },
 
-  EnterpriseStorageEncryption: {
-    onBeforeUIStartup(manager, param) {
-      lazy.PoliciesUtils.setAndLockPref(
-        "security.storage.encryption.enabled",
-        param
-      );
-    },
-  },
-
   ExemptDomainFileTypePairsFromFileTypeDownloadWarnings: {
     // This policy is handled directly in EnterprisePoliciesParent.sys.mjs
     // and requires no validation (It's done by the schema).
@@ -3059,7 +3050,6 @@ export var Policies = {
         "security.pki.certificate_transparency.disable_for_hosts",
         "security.pki.certificate_transparency.disable_for_spki_hashes",
         "security.pki.certificate_transparency.mode",
-        "security.storage.encryption.enabled",
         "security.ssl.enable_ocsp_stapling",
         "security.ssl.errorReporting.enabled",
         "security.ssl.require_safe_negotiation",

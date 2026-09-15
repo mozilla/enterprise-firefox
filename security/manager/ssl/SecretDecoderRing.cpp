@@ -14,6 +14,9 @@
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/dom/Promise.h"
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/toolkit/components/felt/felt.h"
+#endif
 #include "nsCOMPtr.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIInterfaceRequestorUtils.h"
@@ -318,7 +321,8 @@ SecretDecoderRing::Login(const nsACString& password, bool* success) {
 // LoginHelper.sys.mjs, using the identical MOZ_ENTERPRISE + pref gate.
 static bool EnterpriseManagesPrimaryPassword() {
 #if defined(MOZ_ENTERPRISE)
-  return mozilla::StaticPrefs::security_storage_encryption_enabled();
+  return mozilla::StaticPrefs::security_storage_encryption_enabled() &&
+         is_felt_browser();
 #else
   return false;
 #endif

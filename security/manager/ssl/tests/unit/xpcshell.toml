@@ -321,10 +321,6 @@ run-sequentially = ["true"] # hardcoded ports
 
 ["test_sdr.js"]
 
-["test_sdr_enterprise_logout.js"]
-prefs = ["security.storage.encryption.sqlite.enabled=false"]
-run-if = ["enterprise"] # MOZ_ENTERPRISE-only; the SDR logout guard is compiled out otherwise
-
 ["test_sdr_preexisting.js"]
 prefs = ["security.storage.encryption.sqlite.enabled=false"]
 run-if = [
