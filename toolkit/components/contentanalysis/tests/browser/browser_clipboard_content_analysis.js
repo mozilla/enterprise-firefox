@@ -423,7 +423,7 @@ function assertContentAnalysisRequest(
   );
   is(
     request.operationTypeForDisplay,
-    Ci.nsIContentAnalysisRequest.eClipboard,
+    Ci.nsIContentAnalysisRequest.ePasteClipboard,
     "request has correct operationTypeForDisplay"
   );
   is(request.filePath, "", "request filePath should be empty");
