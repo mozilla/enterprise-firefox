@@ -16,6 +16,24 @@ from gecko_taskgraph.target_tasks import (
     target_tasks_default,
 )
 
+# Task labels `mach try auto` must never schedule on the Enterprise try repo.
+# `run_on_projects` cannot express this because `try_auto` masks the project as
+# "autoland" below.
+ENTERPRISE_TRY_AUTO_EXCLUDE_LABELS = [
+    # Test platforms rejected by `target_tasks_enterprise_firefox_with_tests`
+    # that `filter_by_uncommon_try_tasks` doesn't already cover. Test labels are
+    # always `test-<test-platform>-<test-name>`.
+    r"^test-windows11-aarch64",
+    r"^test-macos(?!.*enterprise)",
+    r"^test-macos.*enterprise.*browser-chrome",
+    # Sanitizers and performance testing, builds included: not worth the
+    # Enterprise try capacity.
+    r"-asan",
+    r"-tsan",
+    r"talos",
+    r"browsertime",
+]
+
 
 @filter_task("try_auto")
 def target_tasks_try_auto(full_task_graph, parameters, graph_config):
@@ -25,6 +43,7 @@ def target_tasks_try_auto(full_task_graph, parameters, graph_config):
     Should do the same thing as the `default` target tasks method.
     """
     params = dict(parameters)
+    orig_project = params["project"]
     params["project"] = "autoland"
     params["target_tasks_method"] = "default"
     parameters = Parameters(**params)
@@ -34,6 +53,12 @@ def target_tasks_try_auto(full_task_graph, parameters, graph_config):
     if regex_filters:
         include_regexes = [re.compile(r) for r in regex_filters.get("include", [])]
         exclude_regexes = [re.compile(r) for r in regex_filters.get("exclude", [])]
+
+    if "enterprise" in orig_project:
+        exclude_regexes = [
+            *exclude_regexes,
+            *(re.compile(r) for r in ENTERPRISE_TRY_AUTO_EXCLUDE_LABELS),
+        ]
 
     filtered_for_default = target_tasks_default(
         full_task_graph, parameters, graph_config
