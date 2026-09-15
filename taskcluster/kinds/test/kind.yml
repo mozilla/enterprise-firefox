@@ -32,6 +32,7 @@ tasks-from:
     - awsy.yml
     - compiled.yml
     - devtools-compat.yml
+    - enterprise-end2end.yml
     - firefox-ui.yml
     - marionette.yml
     - misc.yml
