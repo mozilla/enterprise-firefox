@@ -24,7 +24,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.prompt_on_signout";
 const WARN_ON_CLOSE_PREF = "browser.tabs.warnOnClose";
-const LOCK_ON_CLOSE_PREF = "enterprise.locking.browser_close";
+const LOCK_ON_CLOSE_PREF = "enterprise.locking.on_close";
 
 export const EnterpriseHandler = {
   /**

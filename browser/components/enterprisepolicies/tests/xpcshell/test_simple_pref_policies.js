@@ -1516,26 +1516,26 @@ const POLICIES_TESTS = [
   {
     policies: {
       SignOut: {
-        BrowserClose: {
+        OnClose: {
           Action: "lock",
         },
       },
     },
     // Locking on close persists the session behind OS auth instead of signing out.
     lockedPrefs: {
-      "enterprise.locking.browser_close": true,
+      "enterprise.locking.on_close": true,
     },
   },
   {
     policies: {
       SignOut: {
-        BrowserClose: {
+        OnClose: {
           Action: "signout",
         },
       },
     },
     lockedPrefs: {
-      "enterprise.locking.browser_close": false,
+      "enterprise.locking.on_close": false,
     },
   },
 ];

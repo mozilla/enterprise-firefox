@@ -1,6 +1,5 @@
 [DEFAULT]
 head = "head.js"
-run-if = ["enterprise"]
 
 ["test_FeltLocking.js"]
 

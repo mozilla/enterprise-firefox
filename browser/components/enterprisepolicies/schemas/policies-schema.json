@@ -4194,13 +4194,13 @@
       "description": "Control whether the managed session is signed out or locked when the browser closes.",
       "examples": [
         {
-          "BrowserClose": {
+          "OnClose": {
             "Action": "lock"
           }
         }
       ],
       "properties": {
-        "BrowserClose": {
+        "OnClose": {
           "type": "object",
           "properties": {
             "Action": {

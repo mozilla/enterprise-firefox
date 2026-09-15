@@ -3799,21 +3799,19 @@ export var Policies = {
 
   SignOut: {
     onBeforeAddons(manager, param) {
-      if (param.BrowserClose) {
+      if (param.OnClose) {
         lazy.PoliciesUtils.setAndLockPref(
-          "enterprise.locking.browser_close",
-          param.BrowserClose.Action === "lock"
+          "enterprise.locking.on_close",
+          param.OnClose.Action === "lock"
         );
       }
     },
     onRemove(manager, oldParams) {
-      if (oldParams.BrowserClose) {
-        lazy.PoliciesUtils.unsetAndUnlockPref(
-          "enterprise.locking.browser_close"
-        );
+      if (oldParams.OnClose) {
+        lazy.PoliciesUtils.unsetAndUnlockPref("enterprise.locking.on_close");
         // unsetAndUnlockPref restores the build default but never re-locks;
         // re-lock to match the locked default the enterprise build ships.
-        Services.prefs.lockPref("enterprise.locking.browser_close");
+        Services.prefs.lockPref("enterprise.locking.on_close");
       }
     },
   },

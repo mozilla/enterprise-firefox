@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(__file__))
 from base_test import Environment
 from felt_tests import FeltTests
 
-PREF_LOCK_ON_CLOSE = "enterprise.locking.browser_close"
+PREF_LOCK_ON_CLOSE = "enterprise.locking.on_close"
 PREF_PROMPT_ON_SIGNOUT = "enterprise.prompt_on_signout"
 
 
@@ -169,7 +169,7 @@ class BrowserLockOnClose(FeltTests):
 
         Returns the child browser pid for _settle_after_close."""
         browser_pid = self._start_signed_in()
-        # enterprise.locking.browser_close ships locked, and set_prefs can't
+        # enterprise.locking.on_close ships locked, and set_prefs can't
         # modify a locked pref; unlock it so the set_prefs below takes effect.
         with self._child_driver.using_context("chrome"):
             self._child_driver.execute_script(

@@ -3,7 +3,7 @@
 
 "use strict";
 
-const PREF_NAME = "enterprise.locking.browser_close";
+const PREF_NAME = "enterprise.locking.on_close";
 
 function checkState(locked, value) {
   Assert.equal(
@@ -30,7 +30,7 @@ add_task(async function test_signout_live_update() {
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
-        SignOut: { BrowserClose: { Action: "lock" } },
+        SignOut: { OnClose: { Action: "lock" } },
       },
     },
     null
@@ -40,7 +40,7 @@ add_task(async function test_signout_live_update() {
 
   info("Live-updating SignOut to signout");
   await waitForLivePolicyUpdate({
-    SignOut: { BrowserClose: { Action: "signout" } },
+    SignOut: { OnClose: { Action: "signout" } },
   });
 
   checkState(true, false);
@@ -60,7 +60,7 @@ add_task(async function test_signout_live_removal() {
 
   info("Applying SignOut with a signout action");
   await waitForLivePolicyUpdate({
-    SignOut: { BrowserClose: { Action: "signout" } },
+    SignOut: { OnClose: { Action: "signout" } },
   });
 
   checkState(true, false);
