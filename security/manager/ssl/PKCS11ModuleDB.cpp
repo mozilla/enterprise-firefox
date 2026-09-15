@@ -23,6 +23,7 @@
 #include "nsThreadUtils.h"
 #include "nss.h"
 #include "pk11pub.h"
+#include "secmod.h"
 #include "xpcpublic.h"
 
 #if defined(XP_MACOSX)
@@ -124,12 +125,19 @@ nsresult PKCS11ModuleDB::DoDeleteModule(const nsCString& moduleName) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
+#ifdef MOZ_ENTERPRISE
+  UniqueSECMODModule module(SECMOD_FindModule(moduleName.get()));
+  if (module && SECMOD_UnloadUserModule(module.get()) != SECSuccess) {
+    return NS_ERROR_FAILURE;
+  }
+#else
   // modType is an output variable. We ignore it.
   int32_t modType;
   SECStatus srv = SECMOD_DeleteModule(moduleName.get(), &modType);
   if (srv != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
+#endif  // MOZ_ENTERPRISE
 
   CollectThirdPartyPKCS11ModuleTelemetry();
 
@@ -275,6 +283,15 @@ void CollectThirdPartyModuleFilename(const nsCString& aModulePath) {
 }
 #endif  // defined(XP_MACOSX)
 
+#ifdef MOZ_ENTERPRISE
+static nsAutoCString EscapeNSSModuleSpecValue(const nsCString& aValue) {
+  nsAutoCString escaped(aValue);
+  escaped.ReplaceSubstring("\\", "\\\\");
+  escaped.ReplaceSubstring("\"", "\\\"");
+  return escaped;
+}
+#endif  // MOZ_ENTERPRISE
+
 nsresult PKCS11ModuleDB::DoAddModule(const nsCString& moduleName,
                                      const nsCString& libraryPath,
                                      uint32_t mechanismFlags,
@@ -283,6 +300,22 @@ nsresult PKCS11ModuleDB::DoAddModule(const nsCString& moduleName,
     return NS_ERROR_NOT_AVAILABLE;
   }
 
+#ifdef MOZ_ENTERPRISE
+  // No persistent module DB exists on enterprise builds (see
+  // InitializeNSSWithFallbacks), so load without persisting rather than via
+  // SECMOD_AddNewModule. mechanismFlags/cipherFlags are unused (policy passes
+  // 0/0).
+  nsAutoCString moduleSpec("name=\"");
+  moduleSpec.Append(EscapeNSSModuleSpecValue(moduleName));
+  moduleSpec.AppendLiteral("\" library=\"");
+  moduleSpec.Append(EscapeNSSModuleSpecValue(libraryPath));
+  moduleSpec.AppendLiteral("\"");
+  UniqueSECMODModule userModule(SECMOD_LoadUserModule(
+      const_cast<char*>(moduleSpec.get()), nullptr, false));
+  if (!userModule || !userModule->loaded) {
+    return NS_ERROR_FAILURE;
+  }
+#else
   uint32_t internalMechanismFlags =
       SECMOD_PubMechFlagstoInternal(mechanismFlags);
   uint32_t internalCipherFlags = SECMOD_PubCipherFlagstoInternal(cipherFlags);
@@ -292,6 +325,7 @@ nsresult PKCS11ModuleDB::DoAddModule(const nsCString& moduleName,
   if (srv != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
+#endif  // MOZ_ENTERPRISE
 
 #if defined(XP_MACOSX)
   CollectThirdPartyModuleSignatureType(libraryPath);
@@ -344,6 +378,16 @@ PKCS11ModuleDB::AddModule(const nsAString& aModuleName,
   }
   auto promiseHolder =
       MakeRefPtr<nsMainThreadPtrHolder<Promise>>("AddModule promise", promise);
+
+#ifdef MOZ_ENTERPRISE
+  // Refuse in safe mode, where no PKCS#11 modules load. Checked here because
+  // GetInSafeMode() must run on the main thread, not in DoAddModule's runnable.
+  if (GetInSafeMode()) {
+    promise->MaybeReject(NS_ERROR_FAILURE);
+    promise.forget(aPromise);
+    return NS_OK;
+  }
+#endif  // MOZ_ENTERPRISE
 
 #if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
   if (StaticPrefs::security_utility_pkcs11_module_process_enabled()) {
