@@ -24,7 +24,9 @@ requesttimeoutfactor = 2  # Slow on Windows
 requesttimeoutfactor = 6  # Slow on Linux and Windows
 tags = "remote-settings"
 run-if = [
-  "buildapp == 'browser'",
+  # The task process resets app.shield.optoutstudies.enabled to the enterprise
+  # default (false), so no enrollment happens.
+  "buildapp == 'browser' && !enterprise",
 ]
 reason = "ASRouter is Firefox-only."
 
