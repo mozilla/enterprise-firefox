@@ -94,7 +94,9 @@ function shouldIgnoreLocalPolicies() {
 // We're only testing for empty objects, not
 // empty strings or empty arrays.
 function isEmptyObject(obj) {
-  if (typeof obj != "object" || Array.isArray(obj)) {
+  // `typeof null == "object"`, so null must be rejected before Object.keys()
+  // below, which would otherwise throw on it.
+  if (obj === null || typeof obj != "object" || Array.isArray(obj)) {
     return false;
   }
   for (let key of Object.keys(obj)) {
@@ -198,34 +200,68 @@ EnterprisePoliciesManager.prototype = {
 
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
+    // The callbacks scheduled so far (the previous session's cleanup) must
+    // survive a failed initialization; only what the failed attempt scheduled
+    // is discarded.
+    const callbacksBeforeInit = Object.fromEntries(
+      Object.entries(this._callbacks).map(([timing, entries]) => [
+        timing,
+        [...entries],
+      ])
+    );
+
     try {
       this._provider = await this._buildProvider();
+
+      // Keep status evaluation and startup activation inside the try: an
+      // unexpected failure here (e.g. a malformed local policy) must not
+      // escape and leave a managed browser running with the successfully
+      // fetched console policies silently unapplied.
+      this._updateStatus();
+
+      if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
+        return;
+      }
+
+      // Make Web Serial support be opt-in for enterprise policies.
+      Services.prefs
+        .getDefaultBranch("")
+        .setBoolPref("dom.webserial.enabled", false);
+
+      this._activateStartupPolicies();
     } catch (e) {
+      // Initialization failed after status may have been set, the provider
+      // built and some startup callbacks scheduled. Discard that partial state
+      // so the engine does not advertise ACTIVE, run a partial policy set, or
+      // re-apply the fetched policies on a later policy update.
+      this.status = Ci.nsIEnterprisePolicies.FAILED;
+      this._discardPolicies();
+      for (const timing of Object.keys(this._callbacks)) {
+        this._callbacks[timing] = callbacksBeforeInit[timing];
+      }
+
+      // about:policies lists the first logged argument only, so the error
+      // goes into the message as well as being passed along for its stack.
       if (e instanceof RemotePolicyProviderInitError) {
         lazy.log.error(
-          `Failed to fetch startup policies when building the policies provider: ${e}`
+          `Failed to fetch startup policies when building the policies provider: ${e}`,
+          e
         );
         // bug 2027006 will move the fetching of policies to felt
         // and no shutdown will be needed then
         lazy.initiateShutdown();
+      } else if (AppConstants.MOZ_ENTERPRISE && Services.felt.isFeltBrowser()) {
+        // A managed (felt) browser that cannot finish policy initialization
+        // fails closed rather than run unmanaged. Otherwise log and continue.
+        lazy.log.error(
+          `Failed to initialize enterprise policies; failing closed: ${e}`,
+          e
+        );
+        lazy.initiateShutdown();
       } else {
-        lazy.log.error(`Failed to build the policies provider: ${e}`);
+        lazy.log.error(`Failed to initialize enterprise policies: ${e}`, e);
       }
-      return;
     }
-
-    this._updateStatus();
-
-    if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
-      return;
-    }
-
-    // Make Web Serial support be opt-in for enterprise policies.
-    Services.prefs
-      .getDefaultBranch("")
-      .setBoolPref("dom.webserial.enabled", false);
-
-    this._activateStartupPolicies();
   },
 
   _reportEnterpriseTelemetry() {
@@ -852,6 +888,20 @@ EnterprisePoliciesManager.prototype = {
     }
   },
 
+  /**
+   * Drops the provider and every parsed policy, so nothing can be applied or
+   * re-applied by a policy update until the engine is initialized again.
+   */
+  _discardPolicies() {
+    this._parsedPolicies = {};
+    this._seenParamHashes = new Map();
+    this._appliedParamHashes = new Map();
+    if (this._isRemotePoliciesSupported()) {
+      RemotePoliciesProvider.dropInstance();
+    }
+    this._provider = null;
+  },
+
   async _resetEngine() {
     lazy.log.debug("Resetting policy engine.");
     DisallowedFeatures = {};
@@ -862,14 +912,8 @@ EnterprisePoliciesManager.prototype = {
     Services.ppmm.sharedData.delete("EnterprisePolicies:SitePolicies");
 
     this.status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
-    this._parsedPolicies = {};
     lazy.PolicyFailures.clearAll();
-    this._seenParamHashes = new Map();
-    this._appliedParamHashes = new Map();
-    if (this._isRemotePoliciesSupported()) {
-      RemotePoliciesProvider.dropInstance();
-    }
-    this._provider = null;
+    this._discardPolicies();
     this._topicsObserved = new Set();
     for (let timing of Object.keys(this._callbacks)) {
       this._callbacks[timing] = [];
