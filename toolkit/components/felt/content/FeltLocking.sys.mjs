@@ -153,6 +153,34 @@ export const FeltLocking = {
   },
 
   /**
+   * The email identifying this user's stored records. Prefers the locally
+   * persisted value and falls back to asking the console, so a felt.json entry
+   * that was never written does not on its own cost the user an unlockable
+   * session. A console answer is persisted, so the request happens at most
+   * once per profile.
+   *
+   * @returns {Promise<string | undefined>} undefined when no user can be
+   *   identified, locally or from the console.
+   */
+  getUserEmail: async () => {
+    const storedEmail = lazy.FeltStorage.getLastSignedInUser();
+    if (storedEmail) {
+      return storedEmail;
+    }
+    let email;
+    try {
+      ({ email } = await lazy.ConsoleClient.getLoggedInUserInfo());
+    } catch (err) {
+      lazy.log.warn(`getUserEmail: asking the console failed: ${err}`);
+      return undefined;
+    }
+    if (email) {
+      lazy.FeltStorage.updateLastSignedInUserEmail(email);
+    }
+    return email;
+  },
+
+  /**
    * Persist the encrypted refresh token so the session can later be unlocked.
    *
    * @param {string} refresh_token
@@ -164,15 +192,15 @@ export const FeltLocking = {
    * @returns {Promise<void>}
    */
   store: async (refresh_token, userId) => {
-    const email = lazy.FeltStorage.getLastSignedInUser();
-    if (!email) {
-      throw new Error(
-        "store: no signed-in user known, cannot persist locked session"
-      );
-    }
     if (!refresh_token || !userId) {
       throw new Error(
         "store: missing refresh token or user id, cannot persist locked session"
+      );
+    }
+    const email = await FeltLocking.getUserEmail();
+    if (!email) {
+      throw new Error(
+        "store: no signed-in user known, cannot persist locked session"
       );
     }
     await lazy.FeltStorage.setLockingToken(email, refresh_token, userId);
@@ -187,7 +215,7 @@ export const FeltLocking = {
    * @returns {Promise<void>}
    */
   updateStoredToken: async refresh_token => {
-    const email = lazy.FeltStorage.getLastSignedInUser();
+    const email = await FeltLocking.getUserEmail();
     if (!email || !lazy.FeltStorage.hasLockingToken(email)) {
       return;
     }

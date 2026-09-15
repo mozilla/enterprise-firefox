@@ -104,15 +104,75 @@ add_task(async function test_store_encrypts_and_persists() {
 add_task(async function test_store_throws_when_no_user_known() {
   lazy.FeltStorage.updateLastSignedInUserEmail(undefined);
   const encrypt = sinon.stub(OSKeyStore, "encrypt");
+  const whoami = sinon
+    .stub(ConsoleClient, "getLoggedInUserInfo")
+    .rejects(new Error("no session"));
   try {
     await Assert.rejects(
       FeltLocking.store("refresh-token", "user-123"),
       /no signed-in user/,
       "rejects so the caller can fall back to signing out"
     );
+    Assert.ok(whoami.calledOnce, "asks the console before giving up");
     Assert.ok(encrypt.notCalled, "does not encrypt when no user is known");
   } finally {
     encrypt.restore();
+    whoami.restore();
+    lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  }
+});
+
+add_task(async function test_store_recovers_email_from_console() {
+  // A felt.json entry that was never written must not on its own cost the user
+  // an unlockable session.
+  lazy.FeltStorage.updateLastSignedInUserEmail(undefined);
+  const encrypt = sinon
+    .stub(OSKeyStore, "encrypt")
+    .resolves("encrypted(refresh-token)");
+  const decrypt = sinon.stub(OSKeyStore, "decrypt").resolves("refresh-token");
+  const whoami = sinon
+    .stub(ConsoleClient, "getLoggedInUserInfo")
+    .resolves({ id: "user-123", email: EMAIL });
+  try {
+    await FeltLocking.store("refresh-token", "user-123");
+    Assert.equal(
+      await lazy.FeltStorage.getLockingToken(EMAIL),
+      "refresh-token",
+      "the token is persisted under the email the console reported"
+    );
+    Assert.equal(
+      lazy.FeltStorage.getLastSignedInUser(),
+      EMAIL,
+      "the recovered email is persisted, so the lookup happens once"
+    );
+
+    await FeltLocking.updateStoredToken("rotated-token");
+    Assert.ok(whoami.calledOnce, "the console is not asked a second time");
+  } finally {
+    encrypt.restore();
+    decrypt.restore();
+    whoami.restore();
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+    lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  }
+});
+
+add_task(async function test_store_throws_when_console_reports_no_email() {
+  lazy.FeltStorage.updateLastSignedInUserEmail(undefined);
+  const encrypt = sinon.stub(OSKeyStore, "encrypt");
+  const whoami = sinon
+    .stub(ConsoleClient, "getLoggedInUserInfo")
+    .resolves({ id: "user-123" });
+  try {
+    await Assert.rejects(
+      FeltLocking.store("refresh-token", "user-123"),
+      /no signed-in user/,
+      "an answer without an email is no better than no answer"
+    );
+    Assert.ok(encrypt.notCalled, "does not encrypt when no user is known");
+  } finally {
+    encrypt.restore();
+    whoami.restore();
     lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
   }
 });
@@ -122,6 +182,7 @@ add_task(async function test_store_throws_when_token_or_user_id_missing() {
   // would resume into the profile shared by every user.
   lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
   const encrypt = sinon.stub(OSKeyStore, "encrypt");
+  const whoami = sinon.stub(ConsoleClient, "getLoggedInUserInfo");
   try {
     await Assert.rejects(
       FeltLocking.store("", "user-123"),
@@ -135,11 +196,16 @@ add_task(async function test_store_throws_when_token_or_user_id_missing() {
     );
     Assert.ok(encrypt.notCalled, "does not encrypt when validation fails");
     Assert.ok(
+      whoami.notCalled,
+      "the arguments are validated before any email lookup"
+    );
+    Assert.ok(
       !lazy.FeltStorage.hasLockingToken(EMAIL),
       "nothing is persisted when validation fails"
     );
   } finally {
     encrypt.restore();
+    whoami.restore();
   }
 });
 
