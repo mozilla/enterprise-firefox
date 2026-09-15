@@ -5,6 +5,8 @@ subsuite = "taskgraph"
 
 ["test_actions_backfill.py"]
 
+["test_actions_forward_comm.py"]
+
 ["test_actions_util.py"]
 
 ["test_decision.py"]
