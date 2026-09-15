@@ -6,7 +6,7 @@
 import logging
 import os
 import xml.etree.ElementTree as ET
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse
 
 import requests
 import yaml
@@ -15,6 +15,8 @@ from redo import retry
 from taskgraph.util import json
 from taskgraph.util.copy import deepcopy
 from taskgraph.util.schema import resolve_keyed_by
+
+from gecko_taskgraph.util.attributes import ENTERPRISE_PROMOTION_PROJECTS
 
 # Suppress chatty requests logging
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -258,14 +260,32 @@ def get_partners(manifestRepo, token, use_path_for_name=False):
     return partners
 
 
+def parse_registry_reference(value):
+    """Normalize a ``registry_reference`` value into an ``https`` url.
+
+    The OCI registry an enterprise release is pushed to may be written in
+    repack.cfg as a bare reference (``registry.example.com/mozilla/firefox``)
+    or as a full url. Anything that is not ``https`` is refused rather than
+    quietly turned into a registry nobody meant to publish to.
+    """
+    url = urlparse(value if "//" in value else f"https://{value}")
+    if url.scheme != "https" or not url.netloc:
+        raise RuntimeError(
+            f"registry_reference must be an https url or a bare registry "
+            f"reference, got {value!r}"
+        )
+    return url.geturl()
+
+
 def parse_config(data, platform_mapping):
     """Parse a single repack.cfg file into a python dictionary.
     data is contents of the file, in "foo=bar\nbaz=buzz" style. We do some translation on
-    locales and platforms data, otherwise passthrough
+    locales, platforms and registry_reference data, otherwise passthrough
     """
     ALLOWED_KEYS = (
         "locales",
         "platforms",
+        "registry_reference",
         "upload_to_candidates",
         "repack_stub_installer",
         "publish_to_releases",
@@ -285,6 +305,8 @@ def parse_config(data, platform_mapping):
             if key == "locales":
                 # a list please
                 value = value.split(" ")
+            elif key == "registry_reference":
+                value = parse_registry_reference(value)
             config[key] = value
     return config
 
@@ -367,11 +389,12 @@ def get_partner_config_by_url(
 
 
 def check_if_partners_enabled(config, tasks):
-    if config.kind.startswith("enterprise-repack"):
-        yield from tasks
-
     if (
         (
+            config.params["release_enable_enterprise_repack"]
+            and config.kind.startswith("enterprise-repack")
+        )
+        or (
             config.params["release_enable_partner_repack"]
             and config.kind.startswith("release-partner-repack")
         )
@@ -492,30 +515,17 @@ def get_partner_url_config(parameters, graph_config):
         "release-level": release_level(graph_config["release-branches"], parameters),
         "release-type": parameters["release_type"],
     }
-    resolve_keyed_by(
-        partner_url_config,
+    # Not every product declares every entry: comm only has the enterprise one.
+    for field in (
         "release-eme-free-repack",
-        "eme-free manifest_url",
-        **substitutions,
-    )
-    resolve_keyed_by(
-        partner_url_config,
         "release-partner-repack",
-        "partner manifest url",
-        **substitutions,
-    )
-    resolve_keyed_by(
-        partner_url_config,
         "release-partner-attribution",
-        "partner attribution url",
-        **substitutions,
-    )
-    resolve_keyed_by(
-        partner_url_config,
         "enterprise-repack",
-        "enterprise repacks manifest url",
-        **substitutions,
-    )
+    ):
+        if field in partner_url_config:
+            resolve_keyed_by(
+                partner_url_config, field, f"{field} manifest url", **substitutions
+            )
     return partner_url_config
 
 
@@ -672,7 +682,10 @@ ENTERPRISE_PLATFORM_MAPPINGS = {
 
 
 def make_enterprise_repack_from_url(parameters, graph_config, kind, platform_mapping):
-    token = get_token({"level": parameters["level"], "source": "enterprise"})
+    token = get_token({
+        "level": parameters["level"],
+        "source": graph_config["trust-domain"],
+    })
     partner_url_config = get_partner_url_config(parameters, graph_config)
     return get_partner_config_by_url(
         manifest_url=partner_url_config["enterprise-repack"],
@@ -684,13 +697,13 @@ def make_enterprise_repack_from_url(parameters, graph_config, kind, platform_map
 
 
 def get_release_partners(parameters):
-    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
+    if parameters["project"] not in ENTERPRISE_PROMOTION_PROJECTS:
         return []
     return get_enterprise_partner_subset(parameters)
 
 
 def get_release_partner_config(parameters, graph_config):
-    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
+    if parameters["project"] not in ENTERPRISE_PROMOTION_PROJECTS:
         return {}
     return get_enterprise_partner_configs(parameters, graph_config)
 

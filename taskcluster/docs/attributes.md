@@ -596,4 +596,17 @@ The label of the task this one was copied from by the `duplicate` transforms.
 A downstream kind that names this task's kind in `duplicate.chain-from` makes
 its own copies depend on this task rather than on the one it was copied from.
 
+## partner
+
+The partner an enterprise repack belongs to, as named in the enterprise
+manifest. Set on the release definition task, which is generated once per
+partner repack, and inherited by the tasks that push and ship that release.
+
+## sub_config
+
+The partner sub-configuration -- the directory holding the `repack.cfg` -- an
+enterprise repack belongs to. Together with `partner` it indexes
+`release_partner_config`, which is where the registry a release is pushed to
+comes from.
+
 [primary one]: https://taskcluster-taskgraph.readthedocs.io/en/latest/reference/transforms/from_deps.html#primary-kind

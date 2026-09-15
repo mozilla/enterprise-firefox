@@ -49,14 +49,33 @@ PROJECT_RELEASE_BRANCHES: dict[str, Union[list[str], Literal[True]]] = {
     "cypress": True,
     # https://github.com/mozilla/enterprise-firefox
     "enterprise-firefox": True,
+    # https://github.com/mozilla/enterprise-thunderbird
+    "enterprise-thunderbird": True,
 }
 RELEASE_PROJECTS = set(PROJECT_RELEASE_BRANCHES)
-RELEASE_PROMOTION_PROJECTS = {
-    "jamun",
-    "maple",
-    "try",
-    "try-comm-central",
-} | RELEASE_PROJECTS
+# Shipped by the `enterprise-release-promotion` action rather than by the
+# `release-promotion` one. Kept here rather than per-fork because
+# gecko_taskgraph is shared between the enterprise forks.
+ENTERPRISE_PRODUCTS = {
+    "firefox-enterprise",
+    "thunderbird-enterprise",
+}
+ENTERPRISE_PROMOTION_PROJECTS = {
+    "enterprise-firefox",
+    "enterprise-firefox-try",
+    "enterprise-thunderbird",
+    "enterprise-thunderbird-try",
+}
+RELEASE_PROMOTION_PROJECTS = (
+    {
+        "jamun",
+        "maple",
+        "try",
+        "try-comm-central",
+    }
+    | RELEASE_PROJECTS
+    | ENTERPRISE_PROMOTION_PROJECTS
+)
 
 TEMPORARY_PROJECTS = set({
     # When using a "Disposable Project Branch" you can specify your branch here. e.g.:
