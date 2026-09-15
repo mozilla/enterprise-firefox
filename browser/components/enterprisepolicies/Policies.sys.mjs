@@ -3797,6 +3797,25 @@ export var Policies = {
     },
   },
 
+  SignOut: {
+    onBeforeAddons(manager, param) {
+      if (param.OnClose) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.locking.on_close",
+          param.OnClose.Action === "lock"
+        );
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams.OnClose) {
+        lazy.PoliciesUtils.unsetAndUnlockPref("enterprise.locking.on_close");
+        // unsetAndUnlockPref restores the build default but never re-locks;
+        // re-lock to match the locked default the enterprise build ships.
+        Services.prefs.lockPref("enterprise.locking.on_close");
+      }
+    },
+  },
+
   SitePolicies: {
     /**
      * Converts a wildcard domain into a match pattern.
