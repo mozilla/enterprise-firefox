@@ -290,6 +290,15 @@ var gSyncPane = {
   },
 
   restrictEnterpriseView() {
+    // Enterprise Sync is encrypted at rest but not end-to-end encrypted: the
+    // management console holds the key. Disclose that wherever the user can
+    // turn Sync on, which is both cards of the deck, so the notice sits
+    // outside it. Dropping data-hidden-from-search lets the category
+    // machinery show it, the same way the deck itself is revealed below.
+    document
+      .getElementById("syncManagedNotice")
+      .removeAttribute("data-hidden-from-search");
+
     // "Sign out" button
     const fxaUnlinkButton = document.getElementById("fxaUnlinkButton");
     fxaUnlinkButton.setAttribute("restricted-enterprise-view", true);
