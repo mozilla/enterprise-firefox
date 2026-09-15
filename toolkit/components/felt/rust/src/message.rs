@@ -72,6 +72,7 @@ pub enum FeltMessage {
     Exiting,
     UpdateReady,
     Shutdown,
+    CheckForUpdates,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -80,4 +81,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 12;
+pub const FELT_IPC_VERSION: u32 = 13;

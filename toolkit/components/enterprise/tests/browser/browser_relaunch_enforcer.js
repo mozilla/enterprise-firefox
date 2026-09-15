@@ -40,6 +40,11 @@ async function reset(win) {
 }
 
 add_setup(async function () {
+  const requestUpdateCheck = RelaunchEnforcer._requestUpdateCheck;
+  RelaunchEnforcer._requestUpdateCheck = () => {};
+  registerCleanupFunction(() => {
+    RelaunchEnforcer._requestUpdateCheck = requestUpdateCheck;
+  });
   registerCleanupFunction(() =>
     reset(Services.wm.getMostRecentBrowserWindow())
   );

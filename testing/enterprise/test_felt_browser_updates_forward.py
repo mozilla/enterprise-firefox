@@ -66,6 +66,18 @@ class FeltUpdatesForward(FeltTests):
 
         # Update is ready to run by the updater, perform a FELT restart
         self.install_update_manager_mock("applied")
+        self._driver.set_context("chrome")
+        self._driver.execute_script(
+            """
+            const { UpdateManager } = ChromeUtils.importESModule(
+              "resource://gre/modules/UpdateService.sys.mjs"
+            );
+            UpdateManager.prototype.elevationOptedIn = async () => {
+              throw new Error("Simulated elevationOptedIn failure");
+            };
+            """
+        )
+        self._driver.set_context("content")
         self.run_felt_trigger_update()
         self.run_felt_click_browser_notification()
         # This is waiting on FELT to restart

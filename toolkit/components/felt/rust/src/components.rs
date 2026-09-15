@@ -266,6 +266,15 @@ impl FeltXPCOM {
         self.send(FeltMessage::PrimarySecret(hex)).to_result()
     }
 
+    fn RequestUpdateCheck(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::RequestUpdateCheck()");
+        let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
+        match &*guard {
+            Some(client) => client.request_update_check(),
+            None => NS_ERROR_NOT_CONNECTED,
+        }
+    }
+
     fn RefreshTokens(&self) -> nserror::nsresult {
         trace!("FeltXPCOM::RefreshTokens");
         let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
@@ -458,6 +467,9 @@ impl FeltXPCOM {
                                     "expires_at": expires_at,
                                 }).to_string();
                                 crate::utils::notify_observers_with_payload("felt-firefox-tokens".to_string(), Some(payload));
+                            },
+                            Ok(FeltMessage::CheckForUpdates) => {
+                                crate::utils::notify_observers("felt-firefox-check-for-updates".to_string());
                             },
                             Ok(FeltMessage::RefreshTokens) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Browser is requesting token refresh");

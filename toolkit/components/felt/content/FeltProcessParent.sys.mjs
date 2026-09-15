@@ -6,6 +6,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
+  Updates: "resource://gre/modules/enterprise/Updates.sys.mjs",
   ClientSession: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
@@ -124,6 +125,7 @@ function notifyFirefoxReady() {
 const kBrowserObserverTopics = [
   "felt-firefox-exiting",
   "felt-firefox-restarting",
+  "felt-firefox-check-for-updates",
   "felt-ready",
   "felt-firefox-logout",
   "felt-firefox-tokens",
@@ -179,6 +181,13 @@ export class FeltProcessParent extends JSProcessActorParent {
             break;
           }
 
+          case "felt-firefox-check-for-updates": {
+            lazy.Updates.prepareForRestart().catch(err => {
+              lazy.log.error("Failed to prepare an update before restart", err);
+            });
+            break;
+          }
+
           case "felt-firefox-restarting": {
             if (gFeltProcessParentInstance) {
               gFeltProcessParentInstance.restartReported = true;
@@ -191,101 +200,93 @@ export class FeltProcessParent extends JSProcessActorParent {
               false
             );
 
-            const UM = Cc["@mozilla.org/updates/update-manager;1"].getService(
-              Ci.nsIUpdateManager
+            lazy.log.debug(
+              `ParentProcess: restart notification, restartDisabled=${restartDisabled}`
             );
-            UM.getReadyUpdate()
-              .then(readyUpdate => {
-                let pendingUpdate = false;
-                if (readyUpdate) {
-                  // Updates states when restarting will finish the update
-                  const readyStates = [
-                    "pending",
-                    "pending-service",
-                    "pending-elevate",
-                    "applied",
-                    "applied-service",
-                  ];
-                  pendingUpdate = readyStates.includes(readyUpdate.state);
-                }
-                return pendingUpdate;
-              })
-              .catch(err => {
-                lazy.log.debug(`ParentProcess: getReadyUpdate failed: ${err}`);
-              })
-              .then(pendingUpdate => {
-                lazy.log.debug(
-                  `ParentProcess: restart notification, restartDisabled=${restartDisabled}`
-                );
-                if (proc) {
-                  lazy.log.debug(
-                    `ParentProcess: Waiting for Firefox PID=${proc.pid} to exit for restart`
-                  );
+            if (!proc) {
+              lazy.log.debug("ParentProcess: No proc to wait for!");
+              break;
+            }
 
-                  // exitPromise never rejects and has no timeout. kill after a timeout, set above the
-                  // toolkit.asyncshutdown.crash_timeout, to avoid hangs if the child is truly unresponsive.
-                  const restartShutdownTimeout = Services.prefs.getIntPref(
-                    "enterprise.browser.restart_shutdown_timeout",
-                    90000
-                  );
-                  const forceKillTimer = lazy.setTimeout(() => {
-                    if (proc.exitCode === null) {
-                      lazy.log.error(
-                        `ParentProcess: Firefox PID=${proc.pid} did not exit within ${restartShutdownTimeout}ms; killing for restart`
-                      );
-                      proc.kill();
-                    }
-                  }, restartShutdownTimeout);
-
-                  proc.exitPromise
-                    .then(() => {
-                      lazy.clearTimeout(forceKillTimer);
-                      lazy.log.debug(
-                        `ParentProcess: Firefox exited for restart, restartDisabled=${restartDisabled}`
-                      );
-
-                      if (!restartDisabled && !pendingUpdate) {
-                        lazy.log.debug(`ParentProcess: Starting new Firefox`);
-                        gFeltProcessParentInstance.startFirefox(
-                          PROCESS_START_REASON.RESTART
-                        );
-                      } else if (pendingUpdate) {
-                        lazy.log.debug(
-                          `ParentProcess: Restart requested and pending update, restarting FELT UI`
-                        );
-                        Services.cpmm.sendAsyncMessage(
-                          "FeltParent:FirefoxRestartUpdateExit",
-                          {}
-                        );
-                      } else {
-                        lazy.log.debug(
-                          `ParentProcess: Restart disabled, sending normal exit to restore FELT UI`
-                        );
-                        Services.cpmm.sendAsyncMessage(
-                          "FeltParent:FirefoxNormalExit",
-                          {}
-                        );
-                      }
-                    })
-                    .catch(err => {
-                      lazy.clearTimeout(forceKillTimer);
-                      lazy.log.error(
-                        `ParentProcess: Restart continuation failed after exit: ${err}; sending normal exit`
-                      );
-                      Services.cpmm.sendAsyncMessage(
-                        "FeltParent:FirefoxNormalExit",
-                        {}
-                      );
-                    });
-                } else {
-                  lazy.log.debug(`ParentProcess: No proc to wait for!`);
-                }
-              })
-              .catch(err => {
+            lazy.log.debug(
+              `ParentProcess: Waiting for Firefox PID=${proc.pid} to exit for restart`
+            );
+            // exitPromise never rejects and has no timeout. kill after a timeout, set above the
+            // toolkit.asyncshutdown.crash_timeout, to avoid hangs if the child is truly unresponsive.
+            const restartShutdownTimeout = Services.prefs.getIntPref(
+              "enterprise.browser.restart_shutdown_timeout",
+              90000
+            );
+            const forceKillTimer = lazy.setTimeout(() => {
+              if (proc.exitCode === null) {
                 lazy.log.error(
-                  `ParentProcess: Restart failed: ${err}; killing proc and quitting via normal exit`
+                  `ParentProcess: Firefox PID=${proc.pid} did not exit within ${restartShutdownTimeout}ms; killing for restart`
                 );
-                proc?.kill();
+                proc.kill();
+              }
+            }, restartShutdownTimeout);
+
+            proc.exitPromise
+              .then(async () => {
+                lazy.clearTimeout(forceKillTimer);
+                if (Services.startup.shuttingDown) {
+                  return;
+                }
+                const UM = Cc[
+                  "@mozilla.org/updates/update-manager;1"
+                ].getService(Ci.nsIUpdateManager);
+                const readyUpdate = await UM.getReadyUpdate().catch(err => {
+                  lazy.log.error("ParentProcess: getReadyUpdate failed", err);
+                  return null;
+                });
+                const pendingUpdate = [
+                  "pending",
+                  "pending-service",
+                  "pending-elevate",
+                  "applied",
+                  "applied-service",
+                ].includes(readyUpdate?.state);
+                if (Services.startup.shuttingDown) {
+                  return;
+                }
+
+                lazy.log.debug(
+                  `ParentProcess: Firefox exited for restart, restartDisabled=${restartDisabled}, updateState=${readyUpdate?.state}`
+                );
+                if (pendingUpdate) {
+                  await UM.elevationOptedIn().catch(err => {
+                    lazy.log.error(
+                      "ParentProcess: elevationOptedIn failed",
+                      err
+                    );
+                  });
+                  lazy.log.debug(
+                    "ParentProcess: Restart requested and pending update, restarting FELT UI"
+                  );
+                  Services.cpmm.sendAsyncMessage(
+                    "FeltParent:FirefoxRestartUpdateExit",
+                    {}
+                  );
+                } else if (!restartDisabled) {
+                  lazy.log.debug("ParentProcess: Starting new Firefox");
+                  await gFeltProcessParentInstance.startFirefox(
+                    PROCESS_START_REASON.RESTART
+                  );
+                } else {
+                  lazy.log.debug(
+                    "ParentProcess: Restart disabled, sending normal exit to restore FELT UI"
+                  );
+                  Services.cpmm.sendAsyncMessage(
+                    "FeltParent:FirefoxNormalExit",
+                    {}
+                  );
+                }
+              })
+              .catch(err => {
+                lazy.clearTimeout(forceKillTimer);
+                lazy.log.error(
+                  `ParentProcess: Restart continuation failed after exit: ${err}; sending normal exit`
+                );
                 Services.cpmm.sendAsyncMessage(
                   "FeltParent:FirefoxNormalExit",
                   {}

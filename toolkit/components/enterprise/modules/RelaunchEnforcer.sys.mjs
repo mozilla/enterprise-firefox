@@ -18,6 +18,9 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 const MS_PER_MINUTE = 60 * 1000;
+// Retries after the first update check of a directive double from this spacing
+// up to app.update.interval.
+const UPDATE_CHECK_INTERVAL_MS = 5 * MS_PER_MINUTE;
 
 // Grace granted to a freshly launched session when the console names none.
 const DEFAULT_GRACE_PERIOD_MINUTES = 10;
@@ -55,6 +58,8 @@ const REPLACEABLE_IDS = [
  */
 export const RelaunchEnforcer = {
   _schedule: null,
+  _lastUpdateCheck: null,
+  _updateCheckDelay: UPDATE_CHECK_INTERVAL_MS,
   _restartTask: null,
   _escalationTask: null,
   _countdownTask: null,
@@ -173,12 +178,42 @@ export const RelaunchEnforcer = {
       return;
     }
 
+    const now = Date.now();
+    const isRetry = this._lastUpdateCheck !== null;
+    if (
+      !isRetry ||
+      now - this._lastUpdateCheck >= this._updateCheckDelay ||
+      now < this._lastUpdateCheck
+    ) {
+      try {
+        this._requestUpdateCheck();
+        this._lastUpdateCheck = now;
+        if (isRetry) {
+          this._updateCheckDelay = Math.min(
+            this._updateCheckDelay * 2,
+            Services.prefs.getIntPref("app.update.interval") * 1000
+          );
+        }
+      } catch (e) {
+        if (e.result === Cr.NS_ERROR_NOT_CONNECTED) {
+          lazy.log.warn("Cannot request an update check without FELT", e);
+        } else {
+          lazy.log.error("Failed to request an update check from FELT", e);
+        }
+      }
+    }
     this._schedule = schedule;
     this._arm();
     if (this._restarting) {
       return;
     }
     this._refreshNotification();
+  },
+
+  _requestUpdateCheck() {
+    if (Services.felt.isFeltBrowser()) {
+      Services.felt.requestUpdateCheck();
+    }
   },
 
   /**
@@ -190,6 +225,8 @@ export const RelaunchEnforcer = {
     }
     lazy.log.debug("The console withdrew the restart deadline.");
     this._schedule = null;
+    this._lastUpdateCheck = null;
+    this._updateCheckDelay = UPDATE_CHECK_INTERVAL_MS;
     this._disarm();
     this._stopAwaitingSessionRestore();
     this._hideNotification();
@@ -536,6 +573,8 @@ export const RelaunchEnforcer = {
       throw new Error("this method only usable in testing");
     }
     this._schedule = null;
+    this._lastUpdateCheck = null;
+    this._updateCheckDelay = UPDATE_CHECK_INTERVAL_MS;
     this._disarm();
     this._stopAwaitingSessionRestore();
     this._hideNotification();
