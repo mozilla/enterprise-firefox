@@ -1,0 +1,32 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - taskgraph.transforms.from_deps
+    - gecko_taskgraph.transforms.enterprise_repack_mar_signing
+    - gecko_taskgraph.transforms.task
+
+kind-dependencies:
+    - enterprise-repack-repackage
+
+only-for-build-platforms:
+    - linux64-enterprise-shippable/opt
+    - linux64-aarch64-enterprise-shippable/opt
+    - macosx64-enterprise-shippable/opt
+    - win64-enterprise-shippable/opt
+    - win64-aarch64-enterprise-shippable/opt
+
+tasks:
+    enterprise-repack-repackage-signing:
+        from-deps:
+            group-by: single-with-filters
+            set-name: false
+        run-on-projects: [enterprise-firefox]
+        run-on-git-branches: [enterprise-main, enterprise-beta, enterprise-release]
+        treeherder-group: Rpk-Ent-Ms
+        index:
+            # type and job-name are filled in by the transform, per repack id.
+            product: firefox-enterprise
