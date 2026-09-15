@@ -162,7 +162,7 @@ export class PasswordSettingHelpers {
 
     var button = document.getElementById(buttonId);
     if (button) {
-      button.disabled = noMP;
+      button.disabled = noMP || isEnterpriseManagedPrimaryPassword;
     }
 
     var checkbox = document.getElementById(checkboxId);
@@ -826,7 +826,10 @@ Preferences.addSetting({
     PasswordSettingHelpers.changeMasterPassword();
   },
   disabled: () => {
-    return !Services.policies.isAllowed("createMasterPassword");
+    return (
+      LoginHelper.isEnterpriseManagedPrimaryPassword() ||
+      !Services.policies.isAllowed("createMasterPassword")
+    );
   },
 });
 
@@ -854,7 +857,11 @@ Preferences.addSetting({
     const button = config.options?.find(
       o => o.key === "turnOffPrimaryPassword"
     );
-    if (button && !Services.policies.isAllowed("removeMasterPassword")) {
+    if (
+      button &&
+      (LoginHelper.isEnterpriseManagedPrimaryPassword() ||
+        !Services.policies.isAllowed("removeMasterPassword"))
+    ) {
       button.controlAttrs = { ...button.controlAttrs, disabled: "" };
     }
     return config;
@@ -866,6 +873,9 @@ Preferences.addSetting({
   deps: ["primaryPasswordSet"],
   onUserClick: () => {
     PasswordSettingHelpers.changeMasterPassword();
+  },
+  disabled: () => {
+    return LoginHelper.isEnterpriseManagedPrimaryPassword();
   },
 });
 
