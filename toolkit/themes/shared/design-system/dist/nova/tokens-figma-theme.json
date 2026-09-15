@@ -174,6 +174,16 @@
     "dark": "{Theme$button/background/color}",
     "forcedColors": "{Theme$button/background/color}"
   },
+  "button/background/color/ghost/active": {
+    "light": "{Theme$button/background/color/active}",
+    "dark": "{Theme$button/background/color/active}",
+    "forcedColors": "{Theme$button/background/color/active}"
+  },
+  "button/background/color/ghost/hover": {
+    "light": "{Theme$button/background/color/hover}",
+    "dark": "{Theme$button/background/color/hover}",
+    "forcedColors": "{Theme$button/background/color/hover}"
+  },
   "button/background/color/ghost/selected": {
     "light": "{Theme$button/background/color/selected}",
     "dark": "{Theme$button/background/color/selected}",

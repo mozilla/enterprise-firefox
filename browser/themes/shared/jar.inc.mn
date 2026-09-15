@@ -31,6 +31,7 @@
   skin/classic/browser/sidebar.css                             (../shared/sidebar.css)
   skin/classic/browser/smartbar.css                            (../shared/smartbar.css)
   skin/classic/browser/smartwindowGroupTabs.css                (../shared/smartwindowGroupTabs.css)
+  skin/classic/browser/smartwindowMonitor.css                  (../shared/smartwindowMonitor.css)
   skin/classic/browser/toolbarbuttons.css                      (../shared/toolbarbuttons.css)
   skin/classic/browser/toolbarbutton-icons.css                 (../shared/toolbarbutton-icons.css)
   skin/classic/browser/urlbar/badge-bookmark.svg               (../shared/urlbar/icons/badge-bookmark.svg)
@@ -340,6 +341,7 @@
   skin/classic/browser/privatebrowsing/favicon.svg             (../shared/privatebrowsing/favicon.svg)
   skin/classic/browser/privatebrowsing/fox-tail.svg            (../shared/privatebrowsing/fox-tail.svg)
   skin/classic/browser/privatebrowsing/pbm-logo.svg            (../shared/privatebrowsing/pbm-logo.svg)
+  skin/classic/browser/privatebrowsing/kit-pbw.svg             (../shared/privatebrowsing/kit-pbw.svg)
 
   skin/classic/browser/syncedtabs/sidebar.css                  (../shared/syncedtabs/sidebar.css)
 

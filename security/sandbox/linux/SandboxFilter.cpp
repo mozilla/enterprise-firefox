@@ -1916,6 +1916,9 @@ class GMPSandboxPolicy : public SandboxPolicyCommon {
       case __NR_sched_get_priority_min:
       case __NR_sched_get_priority_max:
         return Allow();
+      // The OpenH264 plugin needs sched_getaffinity() in multithreaded mode;
+      // bug 2071378.
+      case __NR_sched_getaffinity:
       case __NR_sched_getparam:
       case __NR_sched_getscheduler:
       case __NR_sched_setscheduler: {

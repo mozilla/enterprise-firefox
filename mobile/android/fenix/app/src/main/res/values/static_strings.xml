@@ -127,6 +127,8 @@
     <string name="preferences_debug_settings_use_scroll_data_for_dynamic_toolbar" translatable="false">Animate dynamic toolbars based on website scroll data</string>
     <!-- Label for the option to show the toolbar in focus mode when clicked -->
     <string name="preferences_debug_settings_show_toolbar_in_focus_mode" translatable="false">Enable focus mode</string>
+    <!-- Label for the option to enable browser menu customization -->
+    <string name="preferences_debug_settings_enable_menu_customization" translatable="false">Enable menu customization</string>
     <!-- Label for toggling Remote Crash Pull -->
     <string name="preferences_crash_pull_never_show_again" translatable="false">Never show Crash Pull</string>
     <!-- Label for enabling the Debug Drawer -->

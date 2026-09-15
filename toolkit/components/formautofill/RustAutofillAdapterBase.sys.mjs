@@ -146,6 +146,30 @@ export class RustAutofillAdapterBase {
     );
   }
 
+  /**
+   * Announce that sync changed the records underneath this adapter.
+   *
+   * A bridged engine reconciles inside Rust, so none of the writes on this
+   * adapter ran and nothing fired formautofill-storage-changed. The JSON store
+   * notifies for every record sync applies, and FormAutofillStatus listens for
+   * that to refresh FormAutofill:savedFieldNames -- without it, a profile that
+   * receives its records from sync is offered no autofill until the next
+   * restart.
+   *
+   * One announcement per sync rather than one per record: the bridge does not
+   * report which guids it touched. "update" for the same reason -- it is the
+   * action that claims least, and BackupService only regenerates on "remove",
+   * which this must not do speculatively.
+   *
+   * sourceSync so the engine's tracker leaves the score alone: records that
+   * arrived from the server are not a reason to schedule another sync.
+   */
+  async notifySyncApplied() {
+    await this.#notifyAndRecordCount(null, true, "update", {
+      countChanged: true,
+    });
+  }
+
   #notify(guid, sourceSync, action) {
     Services.obs.notifyObservers(
       {

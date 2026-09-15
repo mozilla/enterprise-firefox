@@ -84,6 +84,10 @@ skip-if = [
 
 ["browser_aichat_same_link_click.js"]
 
+["browser_aitab_actions.js"]
+
+["browser_aitab_blocks.js"]
+
 ["browser_aitab_page.js"]
 
 ["browser_aitab_store_integration.js"]
@@ -160,6 +164,8 @@ skip-if = [
 ["browser_aiwindow_memories_toggle_prefs.js"]
 
 ["browser_aiwindow_monitor_button.js"]
+
+["browser_aiwindow_monitor_button_panel.js"]
 
 ["browser_aiwindow_monitor_create.js"]
 
@@ -385,6 +391,10 @@ skip-if = [
 ["browser_smartwindow_smartformfill_telemetry_metadata.js"]
 
 ["browser_smartwindow_smartformfill_telemetry_outcomes.js"]
+
+["browser_smartwindow_smartformfill_telemetry_review.js"]
+
+["browser_smartwindow_smartformfill_telemetry_tab_selection.js"]
 
 ["browser_smartwindow_switcher_telemetry.js"]
 

@@ -3004,6 +3004,13 @@ ParentLayerPoint APZCTreeManager::DispatchFling(
   ParentLayerPoint finalResidualVelocity = aHandoffState.mVelocity;
 
   ParentLayerPoint currentVelocity = aHandoffState.mVelocity;
+
+  // The velocity which the APZCs this handoff has already passed through
+  // refused. It stays part of |currentVelocity|, and therefore of
+  // |availableVelocity| and |residualVelocity| below, but it is never offered
+  // to the rest of the chain again.
+  ParentLayerPoint refusedVelocity;
+
   for (; startIndex < overscrollHandoffChainLength; startIndex++) {
     current = chain->GetApzcAtIndex(startIndex);
 
@@ -3026,18 +3033,20 @@ ParentLayerPoint APZCTreeManager::DispatchFling(
     }
 
     ParentLayerPoint availableVelocity = (endPoint - startPoint);
-    ParentLayerPoint residualVelocity;
 
     FlingHandoffState transformedHandoffState = aHandoffState;
-    transformedHandoffState.mVelocity = availableVelocity;
+    // Don't offer |refusedVelocity|.
+    transformedHandoffState.mVelocity = availableVelocity - refusedVelocity;
 
-    // Obey overscroll-behavior.
     if (prevApzc) {
-      residualVelocity += prevApzc->AdjustHandoffVelocityForOverscrollBehavior(
+      refusedVelocity += prevApzc->AdjustHandoffVelocityForOverscrollBehavior(
           transformedHandoffState.mVelocity);
     }
 
-    residualVelocity += current->AttemptFling(transformedHandoffState);
+    ParentLayerPoint velocityToHandOff =
+        current->AttemptFling(transformedHandoffState);
+
+    ParentLayerPoint residualVelocity = refusedVelocity + velocityToHandOff;
 
     // If there's no residual velocity, there's nothing more to hand off.
     if (current->IsZero(residualVelocity)) {
@@ -3056,6 +3065,12 @@ ParentLayerPoint APZCTreeManager::DispatchFling(
       finalResidualVelocity.y *= (residualVelocity.y / availableVelocity.y);
     }
 
+    // Nothing was left over from |current|, so there is nothing the rest of
+    // the chain could consume. Whatever overscroll-behavior refused along the
+    // way is already part of |finalResidualVelocity| and goes back to |aPrev|.
+    if (current->IsZero(velocityToHandOff)) {
+      break;
+    }
     currentVelocity = residualVelocity;
   }
 

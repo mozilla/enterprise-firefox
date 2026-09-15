@@ -538,11 +538,13 @@ DocAccessible* DocManager::CreateDocOrRootAccessible(Document* aDocument,
   }
 
   // Ignore hidden documents, resource documents, static clone
-  // (printing) documents and documents without a docshell.
+  // (printing) documents, documents without a docshell, and documents that
+  // are no longer current for their WindowGlobal (e.g. the initial about:blank
+  // after its WindowGlobal has been reused for a new document).
   if (!nsCoreUtils::IsDocumentVisibleConsideringInProcessAncestors(aDocument) ||
       aDocument->IsResourceDoc() ||
       (!aAllowStatic && aDocument->IsStaticDocument()) ||
-      !aDocument->IsActive()) {
+      !aDocument->IsActive() || !aDocument->IsCurrentActiveDocument()) {
     return nullptr;
   }
 

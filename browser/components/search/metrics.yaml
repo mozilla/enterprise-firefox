@@ -150,10 +150,12 @@ sap:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1938929
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2008925
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2061005
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2069142
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1938929
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2008925
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2061005
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2069142
     data_sensitivity:
       - interaction
     notification_emails:
@@ -173,9 +175,10 @@ sap:
           `errorpage`,
           `newtab_searchbar`,
           `searchbar`,
-          `smartbar`
-          `smartwindow_assistant`
+          `smartbar`,
+          `smartwindow_assistant`,
           `system`,
+          `text_selection`,
           `urlbar`,
           `urlbar_handoff`,
           `urlbar_persisted`,
@@ -312,12 +315,14 @@ serp:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1851495
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2008925
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2061005
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2069142
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1813162
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1824543
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1851495
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2008925
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2061005
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2069142
     data_sensitivity:
       - interaction
     notification_emails:
@@ -359,6 +364,7 @@ serp:
           `smartwindow_assistant`,
           `newtab_search_widget`,
           `system`,
+          `text_selection`,
           `urlbar`,
           `urlbar_handoff`,
           `urlbar_persisted`,
@@ -1010,6 +1016,22 @@ browser.engagement.navigation:
       - https://bugzil.la/2061005
     data_reviews:
       - https://bugzil.la/2061005
+    notification_emails:
+      - fx-search-telemetry@mozilla.com
+      - rev-data@mozilla.com
+    expires: never
+
+  text_selection:
+    type: labeled_counter
+    description: |
+      The count of URI loads triggered from the actions menu shown when text
+      is selected on a page, broken down by the originating action.
+    data_sensitivity:
+      - interaction
+    bugs:
+      - https://bugzil.la/2069142
+    data_reviews:
+      - https://bugzil.la/2069142
     notification_emails:
       - fx-search-telemetry@mozilla.com
       - rev-data@mozilla.com

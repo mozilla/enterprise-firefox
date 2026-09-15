@@ -176,6 +176,75 @@ add_task(async function same_menu_from_both_triggers() {
   await PlacesUtils.history.clear();
 });
 
+// Every result the menu can open shows a menu button, even one with no
+// commands of its own, except the heuristic result, so that the first Tab press
+// still moves to the second row.
+add_task(async function menu_button_on_openable_rows() {
+  await PlacesTestUtils.addVisits(["https://example.com/"]);
+  let bookmark = await PlacesUtils.bookmarks.insert({
+    parentGuid: PlacesUtils.bookmarks.unfiledGuid,
+    url: "https://example.com/bookmark",
+    title: "example bookmark",
+  });
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    value: "example bookmark",
+    window,
+    fireInputEvent: true,
+  });
+
+  let rowCount = UrlbarTestUtils.getResultCount(window);
+  let bookmarkIndex = -1;
+  for (let i = 0; i < rowCount; i++) {
+    let { element, url, source, heuristic } =
+      await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+    Assert.equal(
+      element.row.hasAttribute("has-menu-button"),
+      !!url && !heuristic,
+      `Menu button on the result at index ${i}`
+    );
+    if (source == UrlbarShared.RESULT_SOURCE.BOOKMARKS) {
+      bookmarkIndex = i;
+    }
+  }
+  Assert.greater(bookmarkIndex, 0, "The bookmark is one of the results");
+
+  await UrlbarTestUtils.openResultMenu(window, {
+    resultIndex: bookmarkIndex,
+    byMouse: true,
+  });
+  Assert.deepEqual(
+    await promiseMenuDescription(),
+    ["tab", "container-tab", "window", "private-window"].map(openIn => ({
+      openIn,
+    })),
+    "The bookmark has no commands of its own, so its menu only opens it"
+  );
+  gURLBar.view.resultMenu.hide(undefined, { force: true });
+
+  Assert.equal(
+    UrlbarTestUtils.getSelectedRowIndex(window),
+    0,
+    "The heuristic result is selected"
+  );
+  EventUtils.synthesizeKey("KEY_Tab");
+  Assert.equal(
+    UrlbarTestUtils.getSelectedRowIndex(window),
+    1,
+    "Tab moves to the second row"
+  );
+  Assert.ok(
+    UrlbarTestUtils.getSelectedElement(window).classList.contains(
+      "urlbarView-row-inner"
+    ),
+    "Tab selects the row rather than a button in it"
+  );
+
+  gURLBar.view.close();
+  await PlacesUtils.bookmarks.remove(bookmark);
+  await PlacesUtils.history.clear();
+});
+
 // With the feature gate off, the three-dot menu holds only the result's own
 // commands and a right-click opens nothing.
 add_task(async function feature_gate_off() {
@@ -323,7 +392,7 @@ async function promiseMenuDescription() {
 }
 
 // Searches for "example" and returns the index of a result that has a menu
-// button, which is also a result the menu can open in a new target.
+// button and commands of its own, and that the menu can open in a new target.
 async function promiseResultWithMenuButton() {
   await UrlbarTestUtils.promiseAutocompleteResultPopup({
     value: "example",
@@ -331,11 +400,15 @@ async function promiseResultWithMenuButton() {
     fireInputEvent: true,
   });
   for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
-    let { element, url } = await UrlbarTestUtils.getDetailsOfResultAt(
+    let { element, url, result } = await UrlbarTestUtils.getDetailsOfResultAt(
       window,
       i
     );
-    if (url && element.row.hasAttribute("has-menu-button")) {
+    if (
+      url &&
+      result.payload.isBlockable &&
+      element.row.hasAttribute("has-menu-button")
+    ) {
       return i;
     }
   }
@@ -390,6 +463,10 @@ async function openContainerSubMenuItem(menuItem, userContextId) {
   await TestUtils.waitForCondition(
     () => subMenuItem.textContent,
     "Waiting for the container item to be labeled"
+  );
+  Assert.ok(
+    subMenuItem.hasAttribute("accesskey"),
+    `The container item for ${userContextId} has an accesskey`
   );
   return subMenuItem;
 }

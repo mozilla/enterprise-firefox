@@ -661,7 +661,7 @@ void nsDOMMutationObserver::Observe(nsINode& aTarget,
     return;
   }
 
-  nsTArray<RefPtr<nsAtom>> filters;
+  AutoTArray<RefPtr<nsAtom>, 2> filters;
   bool allAttrs = true;
   if (aOptions.mAttributeFilter.WasPassed()) {
     allAttrs = false;
@@ -671,7 +671,7 @@ void nsDOMMutationObserver::Observe(nsINode& aTarget,
     filters.SetCapacity(len);
 
     for (uint32_t i = 0; i < len; ++i) {
-      filters.AppendElement(NS_Atomize(filtersAsString[i]));
+      filters.AppendElement(NS_AtomizeMainThread(filtersAsString[i]));
     }
   }
 
@@ -688,11 +688,11 @@ void nsDOMMutationObserver::Observe(nsINode& aTarget,
   r->SetChromeOnlyNodes(chromeOnlyNodes);
   r->RemoveClones();
 
-  if (!aSubjectPrincipal.IsSystemPrincipal() &&
+  if (nsPIDOMWindowInner* window = aTarget.OwnerDoc()->GetInnerWindow();
+      window && !window->MutationObserverHasObservedNodeForTelemetry() &&
+      !aSubjectPrincipal.IsSystemPrincipal() &&
       !aSubjectPrincipal.GetIsAddonOrExpandedAddonPrincipal()) {
-    if (nsPIDOMWindowInner* window = aTarget.OwnerDoc()->GetInnerWindow()) {
-      window->SetMutationObserverHasObservedNodeForTelemetry();
-    }
+    window->SetMutationObserverHasObservedNodeForTelemetry();
   }
 
 #ifdef DEBUG

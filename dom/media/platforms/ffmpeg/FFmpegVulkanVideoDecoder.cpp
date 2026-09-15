@@ -846,6 +846,8 @@ static bool EnsureSharedVulkanInstance(
 }
 
 static bool sVulkanEnumerated = false;
+static uint32_t sCachedRendererDrmMajor = 0;
+static uint32_t sCachedRendererDrmMinor = 0;
 static char sCachedVulkanDeviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {};
 static uint32_t sCachedVulkanVendorID = 0;
 static uint32_t sCachedVulkanDeviceID = 0;
@@ -923,8 +925,12 @@ bool FFmpegVideoDecoder<LIBAV_VER>::FFmpegVulkanVideoDecoder::
   }
 #  endif
 
-  const bool useCache = (rendererDrmMajor == 0 && rendererDrmMinor == 0);
-  if (useCache && sVulkanEnumerated) {
+  // The compositor's GPU doesn't change mid-process, so once we've enumerated
+  // for a given renderer node, later selects for that same node can reuse the
+  // result instead of re-running vkEnumeratePhysicalDevices on the shared
+  // instance while another decoder may still be using libvulkan.
+  if (sVulkanEnumerated && rendererDrmMajor == sCachedRendererDrmMajor &&
+      rendererDrmMinor == sCachedRendererDrmMinor) {
     memcpy(mNegotiatedVulkanDeviceName, sCachedVulkanDeviceName,
            VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
     mNegotiatedCompositorDecoderVendorID = sCachedVulkanVendorID;
@@ -1055,14 +1061,14 @@ bool FFmpegVideoDecoder<LIBAV_VER>::FFmpegVulkanVideoDecoder::
   mNegotiatedCompositorDecoderVendorID = validDevices[0].first.vendorID;
   mNegotiatedCompositorDecoderDeviceID = validDevices[0].first.deviceID;
   mDecoderMatchesCompositor = validDevices[0].second;
-  if (useCache) {
-    memcpy(sCachedVulkanDeviceName, mNegotiatedVulkanDeviceName,
-           VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
-    sCachedVulkanVendorID = mNegotiatedCompositorDecoderVendorID;
-    sCachedVulkanDeviceID = mNegotiatedCompositorDecoderDeviceID;
-    sCachedDecoderMatchesCompositor = mDecoderMatchesCompositor;
-    sVulkanEnumerated = true;
-  }
+  memcpy(sCachedVulkanDeviceName, mNegotiatedVulkanDeviceName,
+         VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
+  sCachedVulkanVendorID = mNegotiatedCompositorDecoderVendorID;
+  sCachedVulkanDeviceID = mNegotiatedCompositorDecoderDeviceID;
+  sCachedDecoderMatchesCompositor = mDecoderMatchesCompositor;
+  sCachedRendererDrmMajor = rendererDrmMajor;
+  sCachedRendererDrmMinor = rendererDrmMinor;
+  sVulkanEnumerated = true;
   FFMPEGV_LOG(
       "Selected Vulkan device for video decoding: {} (vendorID=0x{:x}, "
       "deviceID=0x{:x}), matches renderer: {}",

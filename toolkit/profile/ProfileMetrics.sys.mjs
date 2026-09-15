@@ -112,6 +112,8 @@ export let ProfileMetrics = {
     let otherProfiles = allData.filter(p => !!p);
 
     Glean.profiles.otherProfiles.set(otherProfiles);
+
+    await this._collectInstallData();
   },
 
   async _gatherProfileData(
@@ -184,5 +186,55 @@ export let ProfileMetrics = {
     let installExists = lastDir.exists();
 
     return { isSameInstall, installExists };
+  },
+
+  async _readInstallTimestamp(path, isUTF16LE) {
+    try {
+      let bytes = await IOUtils.read(path);
+      let text;
+      if (isUTF16LE) {
+        text = new TextDecoder("utf-16le").decode(bytes);
+      } else {
+        text = new TextDecoder().decode(bytes);
+      }
+      let data = JSON.parse(text);
+      if (data.install_timestamp != null) {
+        return Number(data.install_timestamp);
+      }
+    } catch (e) {}
+    return null;
+  },
+
+  async _collectInstallData() {
+    let greDir = Services.dirsvc.get("GreD", Ci.nsIFile);
+    let nowMSec = Date.now();
+
+    if (Services.appinfo.OS == "WINNT") {
+      let installPath = PathUtils.join(
+        greDir.path,
+        "installation_telemetry.json"
+      );
+      let filetime = await this._readInstallTimestamp(installPath, true);
+      if (filetime != null) {
+        // Windows FILEMTIME is 100ns intervals since 1601. This offset converts the epoch
+        // to the normal unix 1970.
+        let epochOffset = 116444736000000000;
+        if (filetime > epochOffset) {
+          // Divide by 10000 to convert from 100ns intervals to ms.
+          let installMsec = Math.floor((filetime - epochOffset) / 10000);
+          Glean.profiles.daysSinceInstall.set(
+            Math.floor((nowMSec - installMsec) / MS_PER_DAY)
+          );
+        }
+      }
+    }
+
+    let updatePath = PathUtils.join(greDir.path, "update_telemetry.json");
+    let updateMSec = await this._readInstallTimestamp(updatePath, false);
+    if (updateMSec != null) {
+      Glean.profiles.daysSinceUpdate.set(
+        Math.floor((nowMSec - updateMSec) / MS_PER_DAY)
+      );
+    }
   },
 };

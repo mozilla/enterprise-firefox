@@ -58,6 +58,10 @@ use crate::composite::{CompositorKind, Compositor, NativeTileId};
 use crate::composite::{CompositorConfig, NativeSurfaceOperationDetails, NativeSurfaceId, NativeSurfaceOperation};
 #[cfg(feature = "debugger")]
 use api::debugger::{CompositorDebugInfo, DebuggerTextureContent};
+#[cfg(feature = "debugger")]
+use api::debugger::{ShaderDiagnostic, ShaderFileInfo, ShaderListReply, ShaderReloadReply};
+#[cfg(feature = "debugger")]
+use api::debugger::{ShaderSourceReply, ShaderStage, ShaderVariantInfo};
 use crate::debug_colors;
 use crate::device::{DepthFunction, Device, DrawTarget, ExternalTexture, GpuFrameId, GraphicsApiInfo, UploadBufferPool};
 use crate::device::{LoadOp, ReadTarget, RenderPassDescriptor, ShaderError, StoreOp, Texture, TextureFilter, TextureFlags, TextureSlot, Texel};
@@ -847,6 +851,42 @@ pub enum RendererError {
     OutOfMemory,
 }
 
+/// Flatten a shader build failure into the per-line diagnostics the debugger
+/// client reports. A log that no driver pattern matched yields a single
+/// location-less diagnostic carrying the log itself.
+#[cfg(feature = "debugger")]
+fn shader_diagnostics(error: &ShaderError) -> Vec<ShaderDiagnostic> {
+    let stage = match error {
+        ShaderError::Compilation(..) => ShaderStage::Compile,
+        ShaderError::Link(..) => ShaderStage::Link,
+    };
+    let variant = error.name().to_string();
+
+    if error.diagnostics().is_empty() {
+        return vec![ShaderDiagnostic {
+            variant,
+            stage,
+            file: None,
+            line: None,
+            column: None,
+            message: error.log().to_string(),
+        }];
+    }
+
+    error
+        .diagnostics()
+        .iter()
+        .map(|entry| ShaderDiagnostic {
+            variant: variant.clone(),
+            stage,
+            file: entry.file.clone(),
+            line: entry.line,
+            column: entry.column,
+            message: entry.message.clone(),
+        })
+        .collect()
+}
+
 impl From<ShaderError> for RendererError {
     fn from(err: ShaderError) -> Self {
         RendererError::Shader(err)
@@ -1127,6 +1167,103 @@ impl Renderer {
         self.target_frame_publish_id = Some(publish_id);
     }
 
+    /// Answer a `shader-source` debug query: the raw `.glsl` file when
+    /// `features` is `None`, otherwise the preprocessed source of that variant.
+    #[cfg(feature = "debugger")]
+    fn query_shader_source(
+        &self,
+        name: &str,
+        features: Option<&[String]>,
+    ) -> ShaderSourceReply {
+        if self.device.builtin_shader_source(name).is_none() {
+            return ShaderSourceReply::Error(format!("No shader named \"{}\"", name));
+        }
+
+        let features = match features {
+            None => {
+                return ShaderSourceReply::Source {
+                    name: name.to_string(),
+                    source: self.device.get_shader_source(name).to_string(),
+                    is_override: self.device.shader_source_override(name).is_some(),
+                };
+            }
+            Some(features) => features,
+        };
+
+        // Expanding a variant needs the `'static` feature strings the shader
+        // was registered with, so match the request against the registered
+        // variants rather than trusting the names it sent.
+        let mut requested: Vec<&str> = features.iter().map(String::as_str).collect();
+        requested.sort_unstable();
+
+        let shaders = self.shaders.borrow();
+        let variant = shaders.variants().iter().find(|shader| {
+            shader.name() == name && shader.features() == requested.as_slice()
+        });
+
+        match variant {
+            Some(variant) => {
+                let (vertex, fragment) = self
+                    .device
+                    .expanded_shader_source(variant.name(), variant.features());
+                ShaderSourceReply::Expanded {
+                    variant: variant.full_name(),
+                    vertex,
+                    fragment,
+                }
+            }
+            None => ShaderSourceReply::Error(format!(
+                "No variant of \"{}\" with features [{}]",
+                name,
+                requested.join(", "),
+            )),
+        }
+    }
+
+    /// Replace the source of one `.glsl` file, or drop the override when
+    /// `source` is `None`, and rebuild the shaders it affects.
+    ///
+    /// On failure the override is rolled back, so the shaders still in use and
+    /// the source the client will read next stay in agreement.
+    #[cfg(feature = "debugger")]
+    fn set_shader_source(&mut self, name: &str, source: Option<String>) -> ShaderReloadReply {
+        if !self.device.supports_shader_source_override() {
+            return ShaderReloadReply::Unsupported(
+                "This instance renders with SWGL, whose shaders are transpiled to C++ \
+                 at build time and cannot be recompiled from GLSL"
+                    .into(),
+            );
+        }
+
+        if self.device.builtin_shader_source(name).is_none() {
+            return ShaderReloadReply::Error(format!("No shader named \"{}\"", name));
+        }
+
+        let previous = self.device.shader_source_override(name).map(str::to_string);
+
+        let install = |device: &mut Device, source: Option<String>| match source {
+            Some(source) => device.set_shader_source_override(name, source),
+            None => {
+                device.clear_shader_source_override(name);
+            }
+        };
+
+        self.device.begin_frame();
+        install(&mut self.device, source);
+
+        let reply = match self.shaders.borrow_mut().reload(&mut self.device, name) {
+            Ok(recompiled) => ShaderReloadReply::Ok { recompiled },
+            Err(errors) => {
+                install(&mut self.device, previous);
+                let diagnostics = errors.iter().flat_map(shader_diagnostics).collect();
+                ShaderReloadReply::Errors(diagnostics)
+            }
+        };
+        self.device.end_frame();
+
+        reply
+    }
+
     fn handle_debug_command(&mut self, command: DebugCommand) {
         match command {
             DebugCommand::SetPictureTileSize(_) |
@@ -1167,6 +1304,42 @@ impl Renderer {
                             }
                         };
                         query.result.send(result).ok();
+                    }
+                    DebugQueryKind::Shaders { .. } => {
+                        let shaders = self.shaders.borrow();
+                        let files = self
+                            .device
+                            .shader_file_names()
+                            .iter()
+                            .map(|name| ShaderFileInfo {
+                                name: name.to_string(),
+                                overridden: self.device.shader_source_override(name).is_some(),
+                            })
+                            .collect();
+                        let variants = shaders
+                            .variants()
+                            .iter()
+                            .map(|shader| ShaderVariantInfo {
+                                base_filename: shader.name().to_string(),
+                                features: shader
+                                    .features()
+                                    .iter()
+                                    .map(|feature| feature.to_string())
+                                    .collect(),
+                                compiled: shader.is_compiled(),
+                            })
+                            .collect();
+
+                        let reply = ShaderListReply {
+                            supported: self.device.supports_shader_source_override(),
+                            files,
+                            variants,
+                        };
+                        query.result.send(serde_json::to_string(&reply).unwrap()).ok();
+                    }
+                    DebugQueryKind::ShaderSource { ref name, ref features } => {
+                        let reply = self.query_shader_source(name, features.as_deref());
+                        query.result.send(serde_json::to_string(&reply).unwrap()).ok();
                     }
                     DebugQueryKind::Textures { category } => {
                         let mut texture_list = Vec::new();
@@ -1232,6 +1405,11 @@ impl Renderer {
                 } else if !enabled {
                     self.command_log = None;
                 }
+            }
+            #[cfg(feature = "debugger")]
+            DebugCommand::SetShaderSource(name, source, tx) => {
+                let reply = self.set_shader_source(&name, source);
+                tx.send(reply).unwrap();
             }
             #[cfg(feature = "debugger")]
             DebugCommand::AddDebugClient(client) => {
@@ -1713,11 +1891,27 @@ impl Renderer {
         // If debugger is enabled, collect any profiler updates before value is overwritten
         // during update below.
         #[cfg(feature = "debugger")]
-        self.debugger.update(
-            self.debug_flags,
-            &self.profiler,
-            &self.command_log,
-        );
+        {
+            // Shader failures accumulated while drawing this frame. These are
+            // the ones a source push could not report, because the variant
+            // had not been compiled yet when the push happened.
+            let shader_errors: Vec<ShaderDiagnostic> = self
+                .renderer_errors
+                .iter()
+                .filter_map(|error| match error {
+                    RendererError::Shader(error) => Some(error),
+                    _ => None,
+                })
+                .flat_map(shader_diagnostics)
+                .collect();
+
+            self.debugger.update(
+                self.debug_flags,
+                &self.profiler,
+                &self.command_log,
+                &shader_errors,
+            );
+        }
 
         // Note: profile counters must be set before this or they will count for next frame.
         self.profiler.update();

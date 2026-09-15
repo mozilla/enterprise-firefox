@@ -3251,9 +3251,9 @@ void CanonicalBrowsingContext::CancelSessionStoreUpdate() {
   }
 }
 
-void CanonicalBrowsingContext::SetContainerFeaturePolicy(
-    Maybe<FeaturePolicyInfo>&& aContainerFeaturePolicyInfo) {
-  mContainerFeaturePolicyInfo = std::move(aContainerFeaturePolicyInfo);
+void CanonicalBrowsingContext::SetContainerPermissionsPolicy(
+    Maybe<PermissionsPolicyInfo>&& aContainerPermissionsPolicyInfo) {
+  mContainerPermissionsPolicyInfo = std::move(aContainerPermissionsPolicyInfo);
 }
 
 already_AddRefed<CanonicalBrowsingContext>

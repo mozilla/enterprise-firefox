@@ -2189,17 +2189,19 @@ ImgDrawResult nsImageFrame::DisplayAltFeedbackWithoutLayer(
 
       SVGImageContext svgContext;
       Maybe<ImageIntRegion> region;
+      bool rasterizedForDest = false;
       IntSize decodeSize =
           nsLayoutUtils::ComputeImageContainerDrawingParameters(
-              imgCon, this, destRect, destRect, aSc, aFlags, svgContext,
-              region);
+              imgCon, this, destRect, destRect, aSc, aFlags, svgContext, region,
+              &rasterizedForDest);
       RefPtr<image::WebRenderImageProvider> provider;
       result = imgCon->GetImageProvider(aManager->LayerManager(), decodeSize,
                                         svgContext, region, aFlags,
                                         getter_AddRefs(provider));
       if (provider) {
         bool wrResult = aManager->CommandBuilder().PushImageProvider(
-            aItem, provider, result, aBuilder, aResources, destRect, bounds);
+            aItem, provider, result, aBuilder, aResources, destRect, bounds,
+            rasterizedForDest && !region);
         result &= wrResult ? ImgDrawResult::SUCCESS : ImgDrawResult::NOT_READY;
       } else {
         // We don't use &= here because we want the result to be NOT_READY so
@@ -2495,8 +2497,10 @@ WebRenderCommandsResult nsDisplayImage::CreateWebRenderCommands(
 
   SVGImageContext svgContext;
   Maybe<ImageIntRegion> region;
+  bool rasterizedForDest = false;
   IntSize decodeSize = nsLayoutUtils::ComputeImageContainerDrawingParameters(
-      image, mFrame, destRect, destRect, aSc, flags, svgContext, region);
+      image, mFrame, destRect, destRect, aSc, flags, svgContext, region,
+      &rasterizedForDest);
 
   RefPtr<image::WebRenderImageProvider> provider;
   ImgDrawResult drawResult =
@@ -2572,7 +2576,8 @@ WebRenderCommandsResult nsDisplayImage::CreateWebRenderCommands(
   // failure will be due to resource constraints and fallback is unlikely to
   // help us. Hence we can ignore the return value from PushImage.
   aManager->CommandBuilder().PushImageProvider(
-      this, provider, drawResult, aBuilder, aResources, destRect, destRect);
+      this, provider, drawResult, aBuilder, aResources, destRect, destRect,
+      rasterizedForDest && !region);
   return Ok();
 }
 

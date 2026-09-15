@@ -75,9 +75,9 @@ import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.Components
 import org.mozilla.fenix.components.appstate.AppAction
+import org.mozilla.fenix.components.appstate.AppAction.LensAction.LensDismissed
 import org.mozilla.fenix.components.appstate.AppAction.LensAction.LensRequested
 import org.mozilla.fenix.components.appstate.AppAction.LensAction.LensResultAvailable
-import org.mozilla.fenix.components.appstate.AppAction.LensAction.LensResultConsumed
 import org.mozilla.fenix.components.appstate.AppAction.QrScannerAction.QrScannerInputAvailable
 import org.mozilla.fenix.components.appstate.AppAction.QrScannerAction.QrScannerInputConsumed
 import org.mozilla.fenix.components.appstate.AppAction.QrScannerAction.QrScannerRequested
@@ -1519,8 +1519,7 @@ class BrowserToolbarSearchMiddlewareTest {
     }
 
     @Test
-    fun `GIVEN Lens scan in normal mode WHEN receiving a result THEN open it as a new normal tab`() {
-        val appStoreActionsCaptor = CaptureActionsMiddleware<AppState, AppAction>()
+    fun `GIVEN the Lens button was clicked WHEN a Lens result becomes available THEN it navigates to the browser without loading the url`() {
         val appStore =
             AppStore(
                 initialState =
@@ -1533,8 +1532,7 @@ class BrowserToolbarSearchMiddlewareTest {
                                         isUserSelected = false,
                                     )
                             )
-                    ),
-                middlewares = listOf(appStoreActionsCaptor),
+                    )
             )
         val browserUseCases: FenixBrowserUseCases = mockk(relaxed = true)
         every { components.useCases.fenixBrowserUseCases } returns browserUseCases
@@ -1562,16 +1560,51 @@ class BrowserToolbarSearchMiddlewareTest {
         appStore.dispatch(LensResultAvailable("https://lens.google.com/results"))
         testDispatcher.scheduler.advanceUntilIdle()
 
-        appStoreActionsCaptor.assertLastAction(LensResultConsumed::class)
-        verify {
+        // Opening the tab is LensImageSearch's job now, so the middleware only navigates.
+        verify(exactly = 0) {
             browserUseCases.loadUrlOrSearch(
-                searchTermOrURL = "https://lens.google.com/results",
-                newTab = true,
-                flags = EngineSession.LoadUrlFlags.external(),
-                private = false,
+                searchTermOrURL = any(),
+                newTab = any(),
+                private = any(),
+                flags = any(),
             )
         }
         verify { navController.navigate(R.id.action_global_browser) }
+    }
+
+    @Test
+    fun `GIVEN the Lens button was clicked WHEN edit mode is exited THEN LensDismissed is not dispatched`() {
+        val appStoreActionsCaptor = CaptureActionsMiddleware<AppState, AppAction>()
+        val appStore =
+            AppStore(
+                initialState =
+                    AppState(
+                        searchState =
+                            AppSearchState.EMPTY.copy(
+                                selectedSearchEngine =
+                                    SelectedSearchEngine(
+                                        searchEngine = googleSearchEngine(),
+                                        isUserSelected = false,
+                                    )
+                            )
+                    ),
+                middlewares = listOf(appStoreActionsCaptor),
+            )
+        every { settings.googleLensIntegrationEnabled } returns true
+        every { settings.googleLensIntegrationUserEnabled } returns true
+        val (_, store) = buildMiddlewareAndAddToStore(appStore = appStore, components = components)
+        store.dispatch(EnterEditMode(false))
+        store.dispatch(SearchQueryUpdated(BrowserToolbarQuery("")))
+        val lensButton =
+            store.state.editState.editActionsEnd.filterIsInstance<ActionButtonRes>().find {
+                it.onClick == LensButtonClicked
+            }!!
+        store.dispatch(lensButton.onClick as BrowserToolbarEvent)
+
+        store.dispatch(ExitEditMode)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        appStoreActionsCaptor.assertNotDispatched(LensDismissed::class)
     }
 
     @Test

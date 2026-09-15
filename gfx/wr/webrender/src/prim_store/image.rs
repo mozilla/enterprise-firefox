@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use api::{
-    AlphaType, ColorDepth, ColorF, ColorRange, ExternalImageData, ExternalImageType, ImageBufferKind, ImageKey as ApiImageKey, ImageRendering, YuvColorSpace, YuvFormat
+    AlphaType, ColorDepth, ColorF, ColorRange, ExternalImageData, ExternalImageType, ImageBufferKind, ImageKey as ApiImageKey, ImageRendering, PrimitiveFlags, YuvColorSpace, YuvFormat
 };
 use api::units::*;
 use euclid::point2;
@@ -106,6 +106,67 @@ impl From<Image> for ImageData {
     }
 }
 
+/// The rect to situate `texture_size` texels at 1:1 from `prim_rect`'s origin,
+/// if that is how the image should be drawn: `prim_rect` was snapped to the
+/// device grid edge by edge, while the producer picked the texture size by
+/// rounding the unsnapped rect, so when the rect has a fractional device extent
+/// the two can disagree by a device pixel on an axis, and which way depends on
+/// the rect's sub-pixel position, which the producer cannot know. Stretching
+/// the texture to close that gap resamples the whole image. Drawing it 1:1
+/// instead keeps the geometry (the bounds still come from `prim_rect`): a
+/// surplus texel row is clipped by the bounds, and a shortfall samples past
+/// the texture's edge, where the sampler's clamp repeats the edge texel.
+///
+/// Only when the producer asserts this with `RASTERIZED_FOR_RECT`, for an
+/// image drawn once at its own size (no repetition, spacing or source
+/// adjustment), in a space where device pixels can be counted. The size check
+/// stays as a guard: the producer cannot see the final transform, and may have
+/// been handed a differently sized texture than it asked for.
+fn one_to_one_pattern_rect(
+    texture_size: DeviceIntSize,
+    prim_rect: &LayoutRect,
+    flags: PrimitiveFlags,
+    stretch_size: LayoutSize,
+    tile_spacing: LayoutSize,
+    image_properties: &crate::resource_cache::ImageProperties,
+    quad_transform: &QuadTransformState,
+) -> Option<LayoutRect> {
+    const EPS: f32 = 1e-3;
+
+    if !flags.contains(PrimitiveFlags::RASTERIZED_FOR_RECT) {
+        return None;
+    }
+    if !image_properties.adjustment.is_identity() || tile_spacing != LayoutSize::zero() {
+        return None;
+    }
+
+    let prim_size = prim_rect.size();
+    if stretch_size.width < prim_size.width - EPS || stretch_size.height < prim_size.height - EPS {
+        return None;
+    }
+
+    let scale = quad_transform.as_2d_scale_offset()?.scale;
+    if scale.x <= 0.0 || scale.y <= 0.0 {
+        return None;
+    }
+
+    let tex_w = texture_size.width as f32;
+    let tex_h = texture_size.height as f32;
+    let dw = tex_w - prim_size.width * scale.x;
+    let dh = tex_h - prim_size.height * scale.y;
+    if dw.abs() > 1.0 + EPS || dh.abs() > 1.0 + EPS {
+        return None;
+    }
+    if dw.abs() <= EPS && dh.abs() <= EPS {
+        return None;
+    }
+
+    Some(LayoutRect::from_origin_and_size(
+        prim_rect.min,
+        LayoutSize::new(tex_w / scale.x, tex_h / scale.y),
+    ))
+}
+
 pub fn prepare_image_quads(
     prim_rect: &LayoutRect,
     common_data: &PrimTemplateCommonData,
@@ -206,11 +267,46 @@ pub fn prepare_image_quads(
                 color: image_data.color,
             };
 
+            let bounds = tight_clip_rect.intersection_unchecked(&prim_rect);
+
+            if let Some(pattern_rect) = one_to_one_pattern_rect(
+                size,
+                &prim_rect,
+                common_data.flags,
+                stretch_size,
+                image_data.tile_spacing,
+                &image_properties,
+                quad_transform,
+            ) {
+                // Not `prepare_repeatable_quad`: a pattern rect short of the
+                // bounds would be read as a repetition and wrap the far edge
+                // into the strip.
+                quad::prepare_quad(
+                    &image_pattern,
+                    &QuadDescriptor {
+                        pattern_rect,
+                        bounds,
+                        aligned_aa_edges: common_data.aligned_aa_edges,
+                        transformed_aa_edges: common_data.transformed_aa_edges,
+                    },
+                    &None,
+                    clip_chain,
+                    quad_transform,
+                    frame_context,
+                    pic_context,
+                    targets,
+                    interned_clips,
+                    frame_state,
+                    scratch,
+                );
+                return;
+            }
+
             quad::prepare_repeatable_quad(
                 &image_pattern,
                 &QuadDescriptor {
                     pattern_rect: prim_rect,
-                    bounds: tight_clip_rect.intersection_unchecked(&prim_rect),
+                    bounds,
                     aligned_aa_edges: common_data.aligned_aa_edges,
                     transformed_aa_edges: common_data.transformed_aa_edges,
                 },
@@ -406,6 +502,10 @@ impl AdjustedImageSource {
             x1: 0.0,
             y1: 0.0,
         }
+    }
+
+    pub fn is_identity(&self) -> bool {
+        self.x0 == 0.0 && self.y0 == 0.0 && self.x1 == 0.0 && self.y1 == 0.0
     }
 
     /// An adjustment to render an image item defined in function of the `reference`

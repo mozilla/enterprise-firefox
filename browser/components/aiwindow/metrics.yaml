@@ -2280,6 +2280,20 @@ smart_window:
           Form type the model classified from the page title and url. One of: travel, registration,
           product_search, or other. Absent when the request failed, and while the
           model does not classify the page yet.
+      fields_typed:
+        type: quantity
+        unit: fields
+        description: >
+          Number of the fields sent that came back with a valid field type, so neither missing
+          nor other/unknown. Absent when the request failed.
+      fields_unknown:
+        type: quantity
+        unit: fields
+        description: >
+          Number of the fields sent that the model explicitly declined to name, so came back
+          as other or unknown. A field with no type at all counts in neither this nor
+          fields_typed, so fields_total minus both is how many the response left out.
+          Absent when the request failed.
       latency_ms:
         type: quantity
         unit: ms
@@ -2327,6 +2341,25 @@ smart_window:
         unit: memories
         description: >
           Number of memories included as context.
+      memories_similarity_min:
+        type: quantity
+        unit: percent
+        description: >
+          Lowest similarity score of memories included as context, as a percentage rounded to
+          the nearest whole one. The score is what memory retrieval ranked the
+          memory as. Absent when no memory was included.
+      memories_similarity_max:
+        type: quantity
+        unit: percent
+        description: >
+          Highest similarity score of those memories, in the same units as
+          memories_similarity_min. Absent when no memory was included.
+      memories_similarity_avg:
+        type: quantity
+        unit: percent
+        description: >
+          Mean similarity score of those memories, in the same units as
+          memories_similarity_min. Absent when no memory was included.
       model:
         type: string
         description: >
@@ -2364,6 +2397,26 @@ smart_window:
         description: >
           Number of memories the model reports having used. Absent when the
           generation failed, since no answer came back to report it.
+      memories_used_similarity_min:
+        type: quantity
+        unit: percent
+        description: >
+          Lowest similarity score among the memories the model reports having
+          used, as a percentage rounded to the nearest whole one. Absent when the
+          model used no memory, and when none of the memories it named could be
+          matched back to one that was sent.
+      memories_used_similarity_max:
+        type: quantity
+        unit: percent
+        description: >
+          Highest similarity score among those memories, in the same units as
+          memories_used_similarity_min. Absent for the same reasons.
+      memories_used_similarity_avg:
+        type: quantity
+        unit: percent
+        description: >
+          Mean similarity score among those memories, in the same units as
+          memories_used_similarity_min. Absent for the same reasons.
       tabs_used:
         type: quantity
         unit: tabs
@@ -2430,6 +2483,26 @@ smart_window:
           Model's inferred field classification from the classification request,
           from a closed enum defined with the models team. Absent when the field
           was not classified.
+      pre_llm_field_kind:
+        type: string
+        description: >
+          What the existing autofill system named the field before being sent to
+          an LLM. A field name from autofill's own vocabulary, e.g. email, tel or
+          given-name. Absent when the autofill system named nothing.
+      pre_llm_source:
+        type: string
+        description: >
+          Which autofill heuristic produced pre_llm_field_kind. One of:
+          autocomplete, ml, fathom, regex-heuristic, update-heuristic or
+          update-heuristic-alternate. Absent when the autofill system named
+          nothing.
+      pre_llm_confidence:
+        type: quantity
+        unit: percent
+        description: >
+          How confident that heuristic was, as a percentage rounded to the
+          nearest whole one. Only fathom reports one, so this is absent for
+          every other pre_llm_source.
       token_available:
         type: boolean
         description: >
@@ -2452,6 +2525,42 @@ smart_window:
         type: boolean
         description: >
           Boolean, whether the field was filled
+
+  form_fill_field_review_outcome:
+    type: event
+    description: |
+      Recorded once per generated field when the user submits the review
+      dialog's fill, capturing what the user did with each field.
+    bugs: *smart_form_fill_bugs
+    data_reviews: *smart_form_fill_data_reviews
+    data_sensitivity:
+      - interaction
+    notification_emails: *emails
+    expires: never
+    extra_keys:
+      flow_id: *smart_form_fill_flow_id
+      field_seq:
+        type: quantity
+        unit: count
+        description: >
+          Index of the field, to join with its decision event.
+      outcome:
+        type: string
+        description: >
+          What the user did with the generated value before submitting it. One
+          of: kept, edited, or cleared.
+      generated_length:
+        type: quantity
+        unit: characters
+        description: >
+          Character count of the value the model generated. Only sent when the outcome is edited.
+      reviewed_length:
+        type: quantity
+        unit: characters
+        description: >
+          Character count of the value the user submitted. Read against
+          generated_length it says whether the user cut the generated value down
+          or added to it. Only sent when the outcome is edited, as above.
 
   form_fill_field_outcome:
     type: event
@@ -2489,6 +2598,24 @@ smart_window:
         type: string
         description: >
           Whether the user kept the value. One of: kept, edited, or cleared.
+      filled_length:
+        type: quantity
+        unit: characters
+        description: >
+          Character count of the value the fill wrote into the field. This is
+          the value as approved in the review dialog, which is not necessarily
+          the value the model generated. Sent alongside final_length to give
+          that count something to be read against, so only sent when the
+          outcome is edited.
+      final_length:
+        type: quantity
+        unit: characters
+        description: >
+          Character count of the value the field was left with. Read against
+          filled_length it says whether the user cut the filled value down or
+          added to it, so a value that was consistently too long or too short can
+          be told from one that was simply the wrong value. Only sent when the
+          outcome is edited, as above.
 
   form_relevant_tabs_request:
     type: event
@@ -2560,3 +2687,69 @@ smart_window:
           Lower than tabs_selected when the model repeated a tab, named
           one that was never offered, or picked more than the client accepts.
           Absent when the request failed.
+      tabs_high:
+        type: quantity
+        unit: tabs
+        description: >
+          How many of the tabs the model rated as highly relevant to the form.
+          Absent when the request failed.
+      tabs_medium:
+        type: quantity
+        unit: tabs
+        description: >
+          How many tabs the model rated as medium relevance. Absent when the request
+          failed.
+      tabs_low:
+        type: quantity
+        unit: tabs
+        description: >
+          How many tabs the model rated as low relevance. Absent when the request failed.
+
+  form_relevant_tabs_outcome:
+    type: event
+    description: |
+      Recorded when a fill starts, reporting what the user did with the tabs the
+      model picked. A fill the user never started reports nothing. Sent just
+      before the round's form_fill_generate_request, so a round whose generation
+      never reached the model still reports what the user chose.
+    bugs: *smart_form_fill_bugs
+    data_reviews: *smart_form_fill_data_reviews
+    data_sensitivity:
+      - interaction
+    notification_emails: *emails
+    expires: never
+    extra_keys:
+      flow_id: *smart_form_fill_flow_id
+      tabs_final:
+        type: quantity
+        unit: tabs
+        description: >
+          Number of tabs the fill actually ran with.
+      tabs_kept:
+        type: quantity
+        unit: tabs
+        description: >
+          How many of the model's tabs survived into that selection.
+      tabs_removed:
+        type: quantity
+        unit: tabs
+        description: >
+          How many of the model's tabs the user took out.
+      tabs_added:
+        type: quantity
+        unit: tabs
+        description: >
+          How many tabs the user added that the model had not picked. The user
+          can only add a tab the model chose from, so an addition always means
+          the model saw that tab and passed on it.
+      editor_opens:
+        type: quantity
+        unit: opens
+        description: >
+          How many times the user opened the source editor before this fill
+          started.
+      editor_result:
+        type: string
+        description: >
+          How the last open of the source editor ended. One of done, cancel, or
+          aborted. Absent when the editor was never opened.

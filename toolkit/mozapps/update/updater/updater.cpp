@@ -2804,6 +2804,7 @@ static void LaunchCallbackApp(const NS_tchar* workingDir, int argc,
 #endif
 }
 
+#ifndef XP_MACOSX
 static void WriteUpdateTelemetry(const NS_tchar* aInstallDir) {
   NS_tchar path[MAXPATHLEN];
   NS_tsnprintf(path, sizeof(path) / sizeof(path[0]),
@@ -2821,6 +2822,7 @@ static void WriteUpdateTelemetry(const NS_tchar* aInstallDir) {
     fwrite(content, strlen(content), 1, file);
   }
 }
+#endif
 
 static bool WriteToFile(const NS_tchar* aFilename, const char* aStatus) {
   LOG(("Writing status to file: %s", aStatus));
@@ -3297,7 +3299,9 @@ static int ProcessReplaceRequest() {
 #endif
 
   gSucceeded = true;
+#ifndef XP_MACOSX
   WriteUpdateTelemetry(gInstallDirPath);
+#endif
 
   return 0;
 }
@@ -3494,9 +3498,11 @@ static void UpdateThreadFunc(void* param) {
         LOG(("Couldn't set access/modification time on application bundle."));
       }
 #endif
+#ifndef XP_MACOSX
       if (!sStagedUpdate) {
         WriteUpdateTelemetry(gInstallDirPath);
       }
+#endif
       LOG(("succeeded"));
     }
     WriteStatusFile(rv);

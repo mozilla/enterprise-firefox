@@ -110,6 +110,7 @@ import org.mozilla.fenix.bindings.HomepageTabBinding
 import org.mozilla.fenix.bindings.SummarizeToolbarHighlightBinding
 import org.mozilla.fenix.bookmarks.DesktopFolders
 import org.mozilla.fenix.browser.BrowserFragment
+import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.browser.browsingmode.DefaultBrowsingModeManager
@@ -1340,7 +1341,11 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
                 }
 
                 is BrowserFragment -> {
-                    val action = NavGraphDirections.actionGlobalMenuDialogFragment(MenuAccessPoint.Browser)
+                    val action =
+                        when (getSettings().isMenuCustomizationEnabled) {
+                            true -> BrowserFragmentDirections.actionBrowserFragmentToMenuFragment()
+                            else -> NavGraphDirections.actionGlobalMenuDialogFragment(MenuAccessPoint.Browser)
+                        }
                     navHost.navController.navigate(action)
                     return true
                 }

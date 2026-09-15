@@ -71,6 +71,75 @@ add_task(async function test_a_cleared_value_is_reported_as_cleared() {
   });
 });
 
+add_task(
+  async function test_the_length_an_edit_left_the_value_at_is_recorded() {
+    await withFormPage({}, async ({ win, browser, actor }) => {
+      await addFieldToForm(browser);
+      await fillContactForm(win, browser, actor, CONTACT_FIELDS + 1);
+
+      await focusField(browser, "#email");
+      await blurField(browser, "#email");
+
+      // One character on top of what was filled, so the value ends one longer
+      // wherever the caret happened to be.
+      await typeInFormField(browser, "#phone", "!");
+      await blurField(browser, "#phone");
+
+      const city = '#contact input[name="city"]';
+      await replaceFieldValue(browser, city, "");
+      await blurField(browser, city);
+
+      const outcomes = await waitForEvents(
+        "formFillFieldOutcome",
+        CONTACT_FIELDS + 1
+      );
+      const [kept, edited, cleared] = [0, 1, 2].map(seq =>
+        outcomes.find(outcome => outcome.field_seq === String(seq))
+      );
+
+      Assert.equal(
+        kept.outcome,
+        "kept",
+        "Expected a page outcome of kept for the value focused but not changed"
+      );
+      Assert.equal(
+        edited.outcome,
+        "edited",
+        "Expected a page outcome of edited for the value typed into"
+      );
+      Assert.equal(
+        cleared.outcome,
+        "cleared",
+        "Expected a page outcome of cleared for the value emptied"
+      );
+
+      Assert.equal(
+        edited.final_length,
+        String(GENERATED_VALUE.length + 1),
+        "Expected final_length to be the filled length plus the one typed character"
+      );
+      Assert.equal(
+        edited.filled_length,
+        String(GENERATED_VALUE.length),
+        "Expected filled_length to be the length the edit is measured against"
+      );
+
+      for (const outcome of [kept, cleared]) {
+        Assert.strictEqual(
+          outcome.final_length,
+          undefined,
+          `Expected no final_length on a ${outcome.outcome} page outcome`
+        );
+        Assert.strictEqual(
+          outcome.filled_length,
+          undefined,
+          `Expected no filled_length on a ${outcome.outcome} page outcome`
+        );
+      }
+    });
+  }
+);
+
 add_task(async function test_submitting_reports_every_filled_field() {
   await withFormPage(
     {

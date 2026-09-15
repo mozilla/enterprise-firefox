@@ -668,6 +668,15 @@ customElements.setElementCreationCallback(
   }
 );
 
+// The "Tasks" panel (Smart Window) renders its content with this custom
+// element, which pulls in agent-monitor-item for the create form.
+customElements.setElementCreationCallback("agent-monitor-panel", () => {
+  ChromeUtils.importESModule(
+    "chrome://browser/content/aiwindow/components/agent-monitor-panel.mjs",
+    { global: "current" }
+  );
+});
+
 // The "Group my tabs" panel and flyout (Smart Window) render their content with
 // these light-DOM custom elements; both live in one module.
 for (const smartwindowGroupTabsTag of [

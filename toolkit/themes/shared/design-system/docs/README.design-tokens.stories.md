@@ -111,6 +111,10 @@ $ ./mach npm test --prefix=toolkit/themes/shared/design-system
 
 Style Dictionary works by ingesting JSON files with tokens data and performing various platform-specific transformations to output token files formatted for different languages. The library has certain quirks and limitations that we had to take into consideration when coming up with a JSON format for representing our tokens. The following is a bit of a "how to" guide for reading and adding to [`src/tokens`](https://searchfox.org/firefox-main/source/toolkit/themes/shared/design-system/src/tokens) for anyone who needs to consume our tokens or add new tokens.
 
+Every `*.tokens.css` file in the tree is generated, and the `*.tokens.json` beside it is the source. They are not confined to `dist/`: around eighteen component sheets sit next to the code they style, under `browser/themes/shared/` (`urlbar.tokens.css`, `tab.tokens.css`) and `toolkit/content/widgets/` (`moz-badge.tokens.css`, `panel-list.tokens.css`). Each one opens with a header saying so. The trap is that looking up what a token resolves to lands you in exactly the file you must not edit, so check the filename suffix and the header before changing a token declaration. A hand-written theme file in the same directory, such as `urlbar.css`, is fair game; its `.tokens.css` sibling is not.
+
+Adding one token legitimately dirties four generated files: the component sheet, plus `dist/semantic-categories.mjs`, `dist/tokens-table.mjs` and `dist/tokens-figma-primitives.json`. That is propagation rather than drift - confirm it by checking that each hunk names your token.
+
 ### Naming
 
 When going from token name to JSON, each place we would insert a hyphen, underscore, or case change in a variable name translates to a layer of nesting in our JSON. That means a token with the CSS variable name `--border-radius-circle` would be represented as:
@@ -345,6 +349,15 @@ The "browser theme" values end up in the `tokens-browser-theme` layer, which nee
 }
 ```
 
+### rem is the system font size in chrome
+
+`toolkit/themes/shared/global-shared.css` sets `:root { font: message-box }`, and the `font` shorthand carries `font-size`, so a chrome document's root font size is the system UI font size: roughly 11px on macOS, 12px on Windows, and 14 to 15px on Linux. Only content documents get 16px. Every rem-valued token scales with that.
+
+The space scale is 16px-based, so every space token runs short in chrome - 25% short at a 12px root. That is a property of the scale rather than of any one patch: it was once calibrated to a 15px chrome root and was deliberately rebased onto a clean 16px basis. Two consequences for a patch that swaps a fixed-px value for a space token:
+
+* The two match only at a 16px root, so never call them equivalent without saying at what root size, and never assume 16px for anything in `browser/` or `toolkit/` chrome CSS.
+* Where the quantity must not scale with the system font - a geometric bleed, an overlay inset, an icon box - pick a fixed-px token instead. `--size-item-*`, `--icon-size-*`, `--size-image-*` and `--size-layout-*` are all literal px.
+
 ### Adding new tokens
 
 In order to add a new token you will need to make changes to the appropriate file in `src/tokens` or add a new file if needed - any files generated based on our JSON token definitions should never be modified directly. You should be able to work backwards from the variable name in whatever language you're working with to figure out the correct JSON structure.
@@ -372,6 +385,8 @@ Our build process provides a mechanism to override design tokens behind a pref. 
 
 Then you can create new JSON files in `src/tokens` that end with a suffix using the `name` (e.g. `*.nova.tokens.json`) and follow the JSON format to define the tokens that are different from the design system defaults. They should follow the same structure as the defaults so the tokens end up with the same names.
 
+The high contrast overrides are emitted into cascade layers. A single `@layer` statement at the top of `dist/tokens-shared.css` declares all of them in precedence order, ending `tokens-prefers-contrast`, `tokens-prefers-contrast-nova`, `tokens-forced-colors`, `tokens-forced-colors-nova`, so that forced colors wins when a surface is in both regimes at once. Anything a consumer declares outside a layer beats all of them, whatever the specificity - see the [CSS guidelines](https://firefox-source-docs.mozilla.org/code-quality/coding-style/css_guidelines.html#an-unlayered-declaration-outranks-every-cascade-layer).
+
 When you run `./mach buildtokens`, the CSS output will include the new tokens under a media query using the `pref` that you defined. For example:
 
 ```css
@@ -384,3 +399,26 @@ When you run `./mach buildtokens`, the CSS output will include the new tokens un
   }
 }
 ```
+
+The generator emits only the tokens that actually have an override - `shouldSkipToken` drops the rest - so an override sheet references far more tokens than it defines. The others resolve from the ungated foundation layer, which every consumer of `tokens-shared.css` gets. A token missing from an override sheet is therefore usually not a regression; the question to ask is whether the ungated layer carries the same value, not whether the override sheet still defines it.
+
+`./mach buildtokens` prunes as well as generating. A `build-figma-nova` step re-derives every `*.nova.tokens.json` as a delta against its base `*.tokens.json` and unlinks the ones that come out empty (`writeTokens` in [`src/figma-import.mjs`](https://searchfox.org/firefox-main/source/toolkit/themes/shared/design-system/src/figma-import.mjs)). So once a base token holds the same literal value its override did, the next build deletes that override file. Restoring it by hand does not survive the following build, and the deletion belongs in the patch that made the values agree.
+
+`ignoreFigma` on a base token stops Figma from writing an override for it, on the understanding that the token should use the base value. It does not preserve an existing override. To keep one, declare it as a key named after the override identifier inside the base `*.tokens.json` instead, which the importer keeps:
+
+```json
+{
+  "value": {
+    "default": "...",
+    "nova": { "comment": "why", "value": "..." }
+  }
+}
+```
+
+Whether a token patch is complete comes down to one check:
+
+```sh
+$ ./mach buildtokens && git status --short
+```
+
+Empty output means the committed tree is a fixed point of the generator. Any output means the patch and the generator disagree, and the generator wins. Run it after a rebase too, since an upstream change to the token config can stale generated files your patch owns without touching a line of it.

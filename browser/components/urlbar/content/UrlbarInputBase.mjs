@@ -1722,13 +1722,12 @@ ${
 
   /**
    * Whether pickResult() implements the result menu's commands for opening a
-   * result in a new tab or window. The container-tab submenu is built by a
-   * chrome window helper, so a bar hosted in a content page can't offer them.
+   * result in a new tab or window.
    *
    * @returns {boolean}
    */
   get handlesOpenInCommands() {
-    return typeof this.window.createUserContextMenu == "function";
+    return true;
   }
 
   /**

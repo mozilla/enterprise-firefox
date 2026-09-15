@@ -765,9 +765,9 @@ def apply_raptor_tier_optimization(config, tasks):
             continue
 
         if not task["test-platform"].startswith("android-hw"):
-            task["optimization"] = {"skip-unless-expanded": None}
+            task["optimization"] = {"perf-cadence-expanded": None}
             if task["tier"] > 1:
-                task["optimization"] = {"skip-unless-backstop": None}
+                task["optimization"] = {"perf-cadence-backstop": None}
 
         if task["attributes"].get("unittest_variant"):
             task["tier"] = max(task["tier"], 2)

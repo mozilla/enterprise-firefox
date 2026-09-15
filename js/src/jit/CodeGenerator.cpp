@@ -4384,7 +4384,7 @@ void CodeGenerator::visitStoreDynamicSlotT(LStoreDynamicSlotT* lir) {
   int32_t offset = lir->mir()->slot() * sizeof(js::Value);
   Address dest(base, offset);
 
-  if (lir->mir()->needsBarrier()) {
+  if (lir->mir()->needsPreBarrier()) {
     emitPreBarrier(dest);
   }
 
@@ -4399,7 +4399,7 @@ void CodeGenerator::visitStoreDynamicSlotV(LStoreDynamicSlotV* lir) {
 
   ValueOperand value = ToValue(lir->value());
 
-  if (lir->mir()->needsBarrier()) {
+  if (lir->mir()->needsPreBarrier()) {
     emitPreBarrier(Address(base, offset));
   }
 
@@ -5919,17 +5919,6 @@ void CodeGenerator::emitPostWriteBarrier(const LAllocation* obj) {
   }
 
   EmitPostWriteBarrier(masm, gen->runtime, objreg, object, isGlobal, regs);
-}
-
-// Returns true if `def` might be allocated in the nursery.
-static bool ValueNeedsPostBarrier(MDefinition* def) {
-  if (def->isBox()) {
-    def = def->toBox()->input();
-  }
-  if (def->type() == MIRType::Value) {
-    return true;
-  }
-  return NeedsPostBarrier(def->type());
 }
 
 void CodeGenerator::emitElementPostWriteBarrier(
@@ -9368,7 +9357,7 @@ static bool ShouldInitFixedSlots(MIRGenerator* gen, LNewPlainObject* lir,
       // pre-barrier could read uninitialized memory. Simply disable
       // the barrier for this store: the object was just initialized
       // so the barrier is not necessary.
-      store->setNeedsBarrier(false);
+      store->setNeedsPreBarrier(false);
 
       uint32_t slot = store->slot();
       MOZ_ASSERT(slot < nfixed);
@@ -15928,7 +15917,7 @@ void CodeGenerator::visitStoreElementT(LStoreElementT* store) {
   auto dest = ToAddressOrBaseObjectElementIndex(elements, index);
 
   dest.match([&](const auto& dest) {
-    if (store->mir()->needsBarrier()) {
+    if (store->mir()->needsPreBarrier()) {
       emitPreBarrier(dest);
     }
 
@@ -15948,7 +15937,7 @@ void CodeGenerator::visitStoreElementV(LStoreElementV* lir) {
   auto dest = ToAddressOrBaseObjectElementIndex(elements, index);
 
   dest.match([&](const auto& dest) {
-    if (lir->mir()->needsBarrier()) {
+    if (lir->mir()->needsPreBarrier()) {
       emitPreBarrier(dest);
     }
 
@@ -18044,7 +18033,7 @@ void CodeGenerator::visitStoreFixedSlotFromOffsetV(
   masm.computeEffectiveAddress(baseIndex, temp);
 
   Address slot(temp, 0);
-  if (lir->mir()->needsBarrier()) {
+  if (lir->mir()->needsPreBarrier()) {
     emitPreBarrier(slot);
   }
 
@@ -18064,7 +18053,7 @@ void CodeGenerator::visitStoreFixedSlotFromOffsetT(
   masm.computeEffectiveAddress(baseIndex, temp);
 
   Address slot(temp, 0);
-  if (lir->mir()->needsBarrier()) {
+  if (lir->mir()->needsPreBarrier()) {
     emitPreBarrier(slot);
   }
 
@@ -18437,7 +18426,7 @@ void CodeGenerator::visitStoreFixedSlotV(LStoreFixedSlotV* ins) {
   ValueOperand value = ToValue(ins->value());
 
   Address address(obj, NativeObject::getFixedSlotOffset(slot));
-  if (ins->mir()->needsBarrier()) {
+  if (ins->mir()->needsPreBarrier()) {
     emitPreBarrier(address);
   }
 
@@ -18452,7 +18441,7 @@ void CodeGenerator::visitStoreFixedSlotT(LStoreFixedSlotT* ins) {
   MIRType valueType = ins->mir()->value()->type();
 
   Address address(obj, NativeObject::getFixedSlotOffset(slot));
-  if (ins->mir()->needsBarrier()) {
+  if (ins->mir()->needsPreBarrier()) {
     emitPreBarrier(address);
   }
 

@@ -196,6 +196,12 @@ class SettingsSubMenuAutofillRobot(private val composeTestRule: ComposeTestRule)
 
     @OptIn(ExperimentalTestApi::class)
     fun verifyAddAddressView() {
+        // The address structure arrives from Gecko asynchronously and the form holds no fields until it lands. Gating
+        // on a field existing means the first-field focus - and the keyboard it raises - happens before the dismiss
+        // below rather than after it, while the assertions are running.
+        Log.i(TAG, "verifyAddAddressView: Waiting for $waitingTime ms for the address form to be populated")
+        composeTestRule.waitUntilAtLeastOneExists(hasTestTag(EditAddressTestTag.EMAIL_FIELD), waitingTime)
+        Log.i(TAG, "verifyAddAddressView: The address form was populated")
         Log.i(TAG, "verifyAddAddressView: Trying to perform \"Close soft keyboard\" action")
         // Closing the keyboard to ensure full visibility of the "Add address" view
         waitForKeyboardDismiss()
@@ -1004,38 +1010,48 @@ private fun waitForPopupToDismiss(composeTestRule: ComposeTestRule, timeoutMs: L
     throw AssertionError("waitForPopupToDismiss: popup did not dismiss within ${timeoutMs}ms")
 }
 
+private const val KEYBOARD_POLL_INTERVAL_MS = 300L
+private const val KEYBOARD_ABSENT_STABLE_POLLS = 3
+private const val KEYBOARD_MAX_CLOSE_ATTEMPTS = 5
+
 /**
- * Closes the soft keyboard and waits until the IME window is fully gone from the window hierarchy. On slow emulators
- * (e.g. Firebase Test Lab) the hide animation can take ~9 s; polling here prevents the IME animation from dismissing a
- * dropdown popup that opens immediately after.
+ * Closes the soft keyboard and waits until the IME window has been absent from the window hierarchy for
+ * [KEYBOARD_ABSENT_STABLE_POLLS] consecutive polls. On slow emulators (e.g. Firebase Test Lab) the hide animation can
+ * take ~9 s; polling here prevents the IME animation from dismissing a dropdown popup that opens immediately after.
+ *
+ * Absence has to hold across several polls rather than on a single sample, because a caller can arrive before the
+ * keyboard has appeared at all: a screen that focuses a field once asynchronously loaded data lands will raise the IME
+ * after a single absent sample would already have returned. For the same reason the keyboard is closed on demand
+ * whenever a poll finds it up, instead of once up front when it may not be showing yet.
  */
 private fun waitForKeyboardDismiss(timeoutMs: Long = 15000L) {
-    Log.i(TAG, "waitForKeyboardDismiss: Trying to close the soft keyboard")
-    closeSoftKeyboard()
-    Log.i(TAG, "waitForKeyboardDismiss: Successfully closed the soft keyboard")
+    val deadline = SystemClock.elapsedRealtime() + timeoutMs
+    var absentPolls = 0
+    var closeAttempts = 0
 
-    waitForAppWindowToBeUpdated()
-
-    val startTime = SystemClock.elapsedRealtime()
-    var polled = 0
-    while (SystemClock.elapsedRealtime() - startTime < timeoutMs) {
+    while (SystemClock.elapsedRealtime() < deadline) {
         val hasImeWindow =
             InstrumentationRegistry.getInstrumentation().uiAutomation.windows.any {
                 it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD
             }
-        if (!hasImeWindow) {
-            if (polled > 0) {
-                Log.i(
-                    TAG,
-                    "waitForKeyboardDismiss: keyboard gone after ${SystemClock.elapsedRealtime() - startTime}ms ($polled polls)",
-                )
-            } else {
-                Log.i(TAG, "waitForKeyboardDismiss: keyboard was not present")
+        if (hasImeWindow) {
+            absentPolls = 0
+            if (closeAttempts < KEYBOARD_MAX_CLOSE_ATTEMPTS) {
+                closeAttempts++
+                Log.i(TAG, "waitForKeyboardDismiss: Trying to close the soft keyboard (attempt $closeAttempts)")
+                closeSoftKeyboard()
+                Log.i(TAG, "waitForKeyboardDismiss: Successfully closed the soft keyboard")
+                waitForAppWindowToBeUpdated()
+                continue
             }
-            return
+        } else {
+            absentPolls++
+            if (absentPolls >= KEYBOARD_ABSENT_STABLE_POLLS) {
+                Log.i(TAG, "waitForKeyboardDismiss: keyboard absent for $absentPolls consecutive polls")
+                return
+            }
         }
-        polled++
-        SystemClock.sleep(300)
+        SystemClock.sleep(KEYBOARD_POLL_INTERVAL_MS)
     }
-    throw AssertionError("waitForKeyboardDismiss: keyboard did not dismiss within ${timeoutMs}ms")
+    throw AssertionError("waitForKeyboardDismiss: keyboard did not stay dismissed within ${timeoutMs}ms")
 }

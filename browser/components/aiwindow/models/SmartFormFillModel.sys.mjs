@@ -71,12 +71,16 @@ import { UrlTokenizer } from "moz-src:///browser/components/aiwindow/ui/modules/
  * field
  * @property {string} [localGuess] Result from local deterministic
  * heuristics/local model. The LLM may keep or override it
+ * @property {string} [localSource] Which heuristic produced localGuess, one of
+ * autocomplete, ml, fathom or regex-heuristic. Recorded in telemetry only
  * @property {number} [localConfidence] Confidence score from local model
  */
 
 /**
- * @typedef {Omit<FieldData, "formHistoryName">} FieldDataForClassification
- * Field data sent in a classification request
+ * @typedef {Omit<
+ *   FieldData,
+ *   "formHistoryName" | "localSource"
+ * >} FieldDataForClassification Field data sent in a classification request
  */
 
 /**

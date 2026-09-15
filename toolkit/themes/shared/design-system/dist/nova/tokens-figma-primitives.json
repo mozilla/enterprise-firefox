@@ -15,6 +15,7 @@
   "info-bar/margin": 0,
   "input/search/icon/size": "{Primitives$icon/size/small}",
   "input/search/border/radius": "{Primitives$border/radius/circle}",
+  "link/border/radius/focus": "{Primitives$border/radius/xsmall}",
   "page/main/content/width": 664,
   "panel-menuitem/border/radius": "{Primitives$border/radius/large}",
   "panel/border/radius": "{Primitives$popup/border/radius}",

@@ -164,6 +164,7 @@ void AudioSink::ApplyPlaybackParams(const PlaybackParams& aParams) {
   mAudioStream->SetVolume(aParams.mVolume);
   mAudioStream->SetPlaybackRate(aParams.mPlaybackRate);
   mAudioStream->SetPreservesPitch(aParams.mPreservesPitch);
+  mAudioStream->SetStreamName(aParams.mStreamName);
 }
 
 void AudioSink::ConnectAudioQueues() {

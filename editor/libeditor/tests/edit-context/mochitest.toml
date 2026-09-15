@@ -27,6 +27,8 @@ support-files = ["common.js"]
 
 ["test_editcontext_ime_notifications.html"]
 
+["test_editcontext_ime_state.html"]
+
 ["test_editcontext_query_characters.html"]
 
 ["test_editcontext_query_editor.html"]

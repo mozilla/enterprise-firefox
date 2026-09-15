@@ -395,6 +395,7 @@ function testEngine_setup() {
 
     registerCleanupFunction(async () => {
       Services.prefs.clearUserPref("browser.urlbar.suggest.searches");
+      Services.prefs.clearUserPref("browser.urlbar.suggest.engines");
       Services.prefs.clearUserPref("browser.urlbar.contextualSearch.enabled");
       Services.prefs.clearUserPref(
         "browser.search.separatePrivateDefault.featureGate"
@@ -411,6 +412,7 @@ function testEngine_setup() {
       false
     );
     Services.prefs.setBoolPref("browser.urlbar.suggest.searches", false);
+    Services.prefs.setBoolPref("browser.urlbar.suggest.engines", false);
     Services.prefs.setBoolPref(
       "browser.urlbar.scotchBonnet.enableOverride",
       false

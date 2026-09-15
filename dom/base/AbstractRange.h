@@ -76,7 +76,7 @@ class AbstractRange : public nsISupports,
   const RangeBoundary& EndRef() const { return mEnd; }
   const RangeBoundary& MayCrossShadowBoundaryEndRef() const;
 
-  nsIContent* GetChildAtStartOffset() const {
+  [[nodiscard]] inline nsIContent* GetChildAtStartOffset() const {
     return mStart.GetChildAtOffset();
   }
   nsIContent* GetMayCrossShadowBoundaryChildAtStartOffset() const;
@@ -172,6 +172,98 @@ class AbstractRange : public nsISupports,
         *mEnd.Offset(RangeBoundary::OffsetFilter::kValidOrInvalidOffsets));
   }
   uint32_t MayCrossShadowBoundaryEndOffset() const;
+
+  /**
+   * Return the stored start offset only when it's valid in the current DOM.
+   * Otherwise, return Nothing.
+   */
+  [[nodiscard]] inline Maybe<uint32_t> ValidStartOffset() const {
+    return mStart.Offset(RangeBoundary::OffsetFilter::kValidOffsets);
+  }
+  /**
+   * Return the stored end offset only when it's valid in the current DOM.
+   * Otherwise, return Nothing.
+   */
+  [[nodiscard]] inline Maybe<uint32_t> ValidEndOffset() const {
+    return mEnd.Offset(RangeBoundary::OffsetFilter::kValidOffsets);
+  }
+
+  /**
+   * Accessors with RangeBoundarySide. These members can be template methods
+   * too. However, templating the handlers for start and end boundaries means
+   * that we'd run 2 different paths for them. If you call both handlers in a
+   * place in a hot path, each templated handler may be considered as not in a
+   * hot path because the number of calling is half comparing with methods
+   * checking RangeBoundarySide at the runtime. Actually, making these accessors
+   * and the handlers of nsRange::CharacterDataChanged() templated got worse
+   * performance on Windows PGO build. Therefore, we now have only dynamic check
+   * accessors only.
+   */
+
+  /**
+   * Return the result of StartRef() or EndRef().
+   */
+  [[nodiscard]] const RangeBoundary& BoundaryRef(
+      RangeBoundarySide aSide) const {
+    return aSide == RangeBoundarySide::Start ? StartRef() : EndRef();
+  }
+  /**
+   * Return the result of GetChildAtStartOffset() or GetChildAtEndOffset().
+   */
+  [[nodiscard]] nsIContent* GetChildAtOffset(RangeBoundarySide aSide) const {
+    return aSide == RangeBoundarySide::Start ? GetChildAtStartOffset()
+                                             : GetChildAtEndOffset();
+  }
+  /**
+   * Return the result of GetMayCrossShadowBoundaryChildAtStartOffset() or
+   * GetMayCrossShadowBoundaryChildAtEndOffset().
+   */
+  [[nodiscard]] nsIContent* GetMayCrossShadowBoundaryChildAtOffset(
+      RangeBoundarySide aSide) const {
+    return aSide == RangeBoundarySide::Start
+               ? GetMayCrossShadowBoundaryChildAtStartOffset()
+               : GetMayCrossShadowBoundaryChildAtEndOffset();
+  }
+  /**
+   * Return the result of GetStartContainer() or GetEndContainer().
+   */
+  [[nodiscard]] nsINode* GetContainer(RangeBoundarySide aSide) const {
+    return aSide == RangeBoundarySide::Start ? GetStartContainer()
+                                             : GetEndContainer();
+  }
+  /**
+   * Return the result of GetMayCrossShadowBoundaryStartContainer() or
+   * GetMayCrossShadowBoundaryEndContainer().
+   */
+  [[nodiscard]] nsINode* GetMayCrossShadowBoundaryContainer(
+      RangeBoundarySide aSide) const {
+    return aSide == RangeBoundarySide::Start
+               ? GetMayCrossShadowBoundaryStartContainer()
+               : GetMayCrossShadowBoundaryEndContainer();
+  }
+  /**
+   * Return the result of StartOffset() or EndOffset().
+   */
+  [[nodiscard]] uint32_t Offset(RangeBoundarySide aSide) const {
+    return aSide == RangeBoundarySide::Start ? StartOffset() : EndOffset();
+  }
+  /**
+   * Return the result of MayCrossShadowBoundaryStartOffset() or
+   * MayCrossShadowBoundaryEndOffset().
+   */
+  [[nodiscard]] uint32_t MayCrossShadowBoundaryOffset(
+      RangeBoundarySide aSide) const {
+    return aSide == RangeBoundarySide::Start
+               ? MayCrossShadowBoundaryStartOffset()
+               : MayCrossShadowBoundaryEndOffset();
+  }
+  /**
+   * Return the result of ValidStartOffset() or ValidEndOffset().
+   */
+  [[nodiscard]] Maybe<uint32_t> ValidOffset(RangeBoundarySide aSide) const {
+    return aSide == RangeBoundarySide::Start ? ValidStartOffset()
+                                             : ValidEndOffset();
+  }
 
   bool Collapsed() const {
     return !mIsPositioned || (mStart.GetContainer() == mEnd.GetContainer() &&

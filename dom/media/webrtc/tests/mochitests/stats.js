@@ -1893,11 +1893,13 @@ function pedanticChecks(report) {
     ) {
       info(`candidate is ${JSON.stringify(stat)}`);
 
-      // address
-      ok(
-        stat.address,
-        `${stat.type} has address. value=${stat.address} ` + `(${stat.kind})`
-      );
+      if (stat.candidateType != "prflx") {
+        // address
+        ok(
+          stat.address,
+          `${stat.type} has address. value=${stat.address} (${stat.kind})`
+        );
+      }
 
       // protocol
       ok(

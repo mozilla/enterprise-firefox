@@ -9,23 +9,11 @@ Services.scriptloader.loadSubScript(
   this
 );
 
-const EXPECTED_FORMS = 2;
+const { SmartFormFillTelemetry } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/ui/modules/SmartFormFillTelemetry.sys.mjs"
+);
 
-/**
- * Adds a field to the first form, which the document's observer reports as a
- * form update.
- *
- * @param {MozBrowser} browser
- * @returns {Promise<void>}
- */
-function addFieldToForm(browser) {
-  return SpecialPowers.spawn(browser, [], () => {
-    const input = content.document.createElement("input");
-    input.type = "text";
-    input.name = "city";
-    content.document.getElementById("contact").append(input);
-  });
-}
+const EXPECTED_FORMS = 2;
 
 add_task(async function test_one_classification_flow_per_form() {
   await withFormPage({}, async ({ win, browser, actor }) => {
@@ -95,6 +83,16 @@ add_task(async function test_one_classification_flow_per_form() {
         undefined,
         "A success carries no error code"
       );
+      Assert.equal(
+        response.fields_typed,
+        request.fields_total,
+        `Expected fields_typed to equal fields_total, flow ${request.flow_id} had every field named`
+      );
+      Assert.equal(
+        response.fields_unknown,
+        "0",
+        `Expected no unknown fields, flow ${request.flow_id} had every field named`
+      );
     }
   });
 });
@@ -152,8 +150,42 @@ add_task(async function test_failed_classification_records_the_error() {
           `Flow ${response.flow_id} reports what the failure was attributed to`
         );
       }
+      Assert.equal(
+        recordedExtras("formRelevantTabsOutcome").length,
+        0,
+        "Expected no tab outcome when classification fails, no fill can run"
+      );
     }
   );
+});
+
+add_task(function test_only_a_named_type_counts_as_classified() {
+  const telemetry = new SmartFormFillTelemetry();
+  // A field is either named, explicitly declined, or missing from the answer,
+  // and each of the three lands in at most one of the two counters.
+  for (const [type, typed, unknown] of [
+    ["email", "1", "0"],
+    ["other", "0", "1"],
+    ["unknown", "0", "1"],
+    [undefined, "0", "0"],
+  ]) {
+    Services.fog.testResetFOG();
+    telemetry.sendClassifyResponseTelemetry(
+      { flowId: crypto.randomUUID(), startTime: ChromeUtils.now() },
+      { fields: [{ type }] }
+    );
+    const [response] = recordedExtras("formFillClassifyResponse");
+    Assert.equal(
+      response.fields_typed,
+      typed,
+      `Expected fields_typed to count a field only for a named type, got ${type}`
+    );
+    Assert.equal(
+      response.fields_unknown,
+      unknown,
+      `Expected fields_unknown to count a field only for other/unknown, got ${type}`
+    );
+  }
 });
 
 add_task(async function test_a_round_records_its_relevant_tabs_request() {
@@ -255,7 +287,8 @@ add_task(async function test_tabs_never_offered_are_selected_but_not_used() {
         return {
           selectedTabs: [
             { id: "made-up-1", relevance: "high" },
-            { id: "made-up-2", relevance: "medium" },
+            { id: "made-up-2", relevance: "high" },
+            { id: "made-up-3", relevance: "medium" },
           ],
         };
       },
@@ -265,15 +298,18 @@ add_task(async function test_tabs_never_offered_are_selected_but_not_used() {
 
       const [response] = await waitForEvents("formRelevantTabsResponse", 1);
 
-      Assert.equal(
-        response.tabs_selected,
-        "2",
-        "tabs_selected is what the model returned"
-      );
-      Assert.equal(
-        response.tabs_used,
-        "0",
-        "tabs_used counts only the tabs that survived validation"
+      const { tabs_selected, tabs_used, tabs_high, tabs_medium, tabs_low } =
+        response;
+      Assert.deepEqual(
+        { tabs_selected, tabs_used, tabs_high, tabs_medium, tabs_low },
+        {
+          tabs_selected: "3",
+          tabs_used: "0",
+          tabs_high: "2",
+          tabs_medium: "1",
+          tabs_low: "0",
+        },
+        "Expected relevance counts over all 3 selected tabs, and tabs_used to exclude unoffered ones"
       );
     }
   );

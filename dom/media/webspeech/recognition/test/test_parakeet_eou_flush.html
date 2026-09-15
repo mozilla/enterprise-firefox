@@ -185,6 +185,18 @@ add_task(async function last_word_delivered_at_eou() {
          `${i < beforeStopCount ? "" : " (end-of-stream flush)"}: "${f.text}"`);
   });
 
+  // https://webaudio.github.io/web-speech-api/#dom-speechrecognitionalternative-transcript
+  // "For continuous recognition, leading or trailing whitespace MUST be
+  // included where necessary such that concatenation of consecutive
+  // SpeechRecognitionResults produces a proper transcript of the session."
+  // words() splits on whitespace, so two utterances run together read as one
+  // word and the two sides differ.
+  const concatenated = finals.map(f => f.text).join("");
+  ok(finals.length > 1, `Two utterances, two results. Got ${finals.length}.`);
+  is(words(concatenated).join(" "), finals.flatMap(f => f.words).join(" "),
+     "Concatenating consecutive result transcripts produces a proper " +
+     `transcript. Got: "${concatenated}"`);
+
   const u1End = finals.findIndex(f => f.words.includes(U1_LAST_WORD));
   isnot(u1End, -1,
         `The first sentence was recognized, ending in "${U1_LAST_WORD}". ` +

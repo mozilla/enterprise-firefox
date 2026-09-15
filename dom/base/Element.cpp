@@ -5126,7 +5126,7 @@ CORSMode Element::AttrValueToCORSMode(const nsAttrValue* aValue) {
  * context. Requests are only allowed if the user initiated them (like with
  * a mouse-click or key press), unless this check has been disabled by
  * setting the pref "full-screen-api.allow-trusted-requests-only" to false
- * or if the caller is privileged. Feature policy may also deny requests.
+ * or if the caller is privileged. Permissions policy may also deny requests.
  * If fullscreen is not allowed, a key for the error message is returned.
  */
 static const char* GetFullscreenError(CallerType aCallerType,

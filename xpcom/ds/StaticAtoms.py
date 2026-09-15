@@ -465,7 +465,7 @@ STATIC_ATOMS = [
     Atom("fallback", "fallback"),
     Atom("_false", "false"),
     Atom("farthest", "farthest"),
-    Atom("featurePolicyViolation", "feature-policy-violation"),
+    Atom("permissionsPolicyViolation", "permissions-policy-violation"),
     Atom("fetchpriority", "fetchpriority"),
     Atom("field", "field"),
     Atom("fieldset", "fieldset"),

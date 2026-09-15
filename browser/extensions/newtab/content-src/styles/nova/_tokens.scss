@@ -56,6 +56,8 @@
     --button-background-color-destructive-hover: light-dark(var(--color-red-60), var(--color-red-20));
     --button-background-color-destructive-active: light-dark(var(--color-red-70), var(--color-red-10));
     --button-background-color-ghost: var(--button-background-color);
+    --button-background-color-ghost-hover: var(--button-background-color-hover);
+    --button-background-color-ghost-active: var(--button-background-color-active);
     --button-background-color-ghost-selected: var(--button-background-color-selected);
     --button-background-color-muted: light-dark(var(--color-gray-20), var(--color-gray-55));
     --button-background-color-muted-hover: light-dark(var(--color-gray-30), var(--color-gray-45));
@@ -260,6 +262,9 @@
     --input-search-icon-size: var(--icon-size-small);
     --input-text-background-color: var(--background-color-box);
     --input-text-background-color-disabled: var(--button-background-color-ghost-disabled);
+
+    /** link **/
+    --link-border-radius-focus: var(--border-radius-xsmall);
 
     /** page **/
     --page-main-content-width: 664px;

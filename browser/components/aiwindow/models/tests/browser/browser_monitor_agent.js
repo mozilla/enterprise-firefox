@@ -21,6 +21,14 @@ const { MonitorAgent, NOTIFICATION_ACTIONS } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/agents/MonitorAgent.sys.mjs"
 );
 
+const { MonitorStore } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/agents/MonitorStore.sys.mjs"
+);
+
+const { IndexedDB } = ChromeUtils.importESModule(
+  "resource://gre/modules/IndexedDB.sys.mjs"
+);
+
 const { PURPOSES } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
 );
@@ -116,6 +124,87 @@ async function createMonitorWatching(urls, prompt) {
   const monitors = await MonitorAgent.listMonitors();
   return monitors.at(-1);
 }
+
+add_task(async function test_init_does_not_load_after_uninit() {
+  await resetMonitorAgentForTesting();
+  const listMonitorsSpy = sinon.spy(MonitorStore, "listMonitors");
+
+  try {
+    MonitorAgent.uninit();
+    await MonitorAgent.init();
+    await Assert.rejects(
+      MonitorAgent.listMonitors(),
+      /Monitor agent is shutting down/,
+      "Public operations reject after shutdown starts."
+    );
+
+    Assert.ok(
+      listMonitorsSpy.notCalled,
+      "Initialization does not load monitors after shutdown starts."
+    );
+  } finally {
+    listMonitorsSpy.restore();
+    await resetMonitorAgentForTesting();
+  }
+});
+
+add_task(async function test_uninit_prevents_pending_init_from_loading() {
+  await resetMonitorAgentForTesting();
+
+  try {
+    const monitor = new Monitor({
+      id: "pending-shutdown-monitor",
+      monitorPrompt: "Check for a change.",
+      watchUrls: ["https://example.com/"],
+      schedule: new IntervalSchedule(1),
+    });
+    await MonitorStore.saveMonitor(monitor.toSerializable());
+    await MonitorStore.close();
+
+    const initPromise = MonitorAgent.init();
+    const listPromise = MonitorAgent.listMonitors();
+    MonitorAgent.uninit();
+    await initPromise;
+    await Assert.rejects(
+      listPromise,
+      /Monitor agent is shutting down/,
+      "A public operation sharing the pending load rejects during shutdown."
+    );
+
+    Assert.equal(
+      MonitorAgent._monitorCountForTelemetry(),
+      0,
+      "A pending initialization does not restore monitors after shutdown starts."
+    );
+  } finally {
+    await resetMonitorAgentForTesting();
+  }
+});
+
+add_task(async function test_uninit_ignores_pending_init_failure() {
+  await resetMonitorAgentForTesting();
+
+  try {
+    await MonitorStore.close();
+    const database = await IndexedDB.open(
+      MonitorStore.databaseName,
+      MonitorStore.databaseVersion + 1
+    );
+    database.close();
+
+    const initPromise = MonitorAgent.init();
+    MonitorAgent.uninit();
+    await initPromise;
+
+    Assert.equal(
+      MonitorAgent._monitorCountForTelemetry(),
+      0,
+      "A failed pending initialization remains unloaded during shutdown."
+    );
+  } finally {
+    await resetMonitorAgentForTesting();
+  }
+});
 
 add_task(async function test_run_single_url_monitor() {
   // create mock LLM endpoint
@@ -1473,9 +1562,6 @@ add_task(async function test_notification_dismiss_action_mutes_notifications() {
 add_task(
   async function test_initial_snapshot_captured_and_persisted_on_create() {
     const mockEngineManager = new MockEngineManager();
-    const { MonitorStore } = ChromeUtils.importESModule(
-      "moz-src:///browser/components/aiwindow/models/agents/MonitorStore.sys.mjs"
-    );
 
     const { html } = MLTestUtils.serveHTML();
     const { url, cleanup: stopServing } = html`
@@ -1527,9 +1613,6 @@ add_task(
 
 add_task(async function test_initial_snapshot_refresh_on_definition_edit() {
   const mockEngineManager = new MockEngineManager();
-  const { MonitorStore } = ChromeUtils.importESModule(
-    "moz-src:///browser/components/aiwindow/models/agents/MonitorStore.sys.mjs"
-  );
 
   // the first page is captured more than once (creation + same-URL edit),
   // so serve it from head.js's persistent server instead of the one-shot
@@ -1626,9 +1709,6 @@ add_task(async function test_initial_snapshot_refresh_on_definition_edit() {
 
 add_task(async function test_mid_capture_url_edit_cancels_stale_snapshot() {
   const mockEngineManager = new MockEngineManager();
-  const { MonitorStore } = ChromeUtils.importESModule(
-    "moz-src:///browser/components/aiwindow/models/agents/MonitorStore.sys.mjs"
-  );
 
   // a page that accepts the request and never answers, so the creation-time
   // capture is reliably still in flight when the edit lands
@@ -1684,9 +1764,6 @@ add_task(async function test_mid_capture_url_edit_cancels_stale_snapshot() {
 
 add_task(async function test_run_backfills_missing_snapshot_into_prompt() {
   const mockEngineManager = new MockEngineManager();
-  const { MonitorStore } = ChromeUtils.importESModule(
-    "moz-src:///browser/components/aiwindow/models/agents/MonitorStore.sys.mjs"
-  );
 
   const { url, server } = serveHTML(`
     <!DOCTYPE html>

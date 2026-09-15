@@ -270,7 +270,10 @@ internal class MediaSessionServiceDelegate(
             // the Android 15+ requirement that audio focus requests must come from an app that
             // is either visible or running a foreground service with WIU (While In Use)
             // capabilities, i.e. one that was started while the app was visible to the user.
-            audioFocus.request(sessionState.id)
+            audioFocus.request(
+                sessionState.id,
+                sessionState.mediaSessionState?.audioSessionType ?: MediaSession.AudioSessionType.AUTO,
+            )
         }
     }
 

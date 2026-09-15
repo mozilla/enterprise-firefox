@@ -429,26 +429,19 @@ class AsmFlags(BaseCompileFlags):
         BaseCompileFlags.__init__(self, context)
 
     def _debug_flags(self):
-        debug_flags = []
-        if self._context.config.substs.get(
+        if not self._context.config.substs.get(
             "MOZ_DEBUG"
-        ) or self._context.config.substs.get("MOZ_DEBUG_SYMBOLS"):
-            if self._context.get("USE_NASM"):
-                if self._context.config.substs.get("OS_ARCH") == "WINNT":
-                    debug_flags += ["-F", "cv8"]
-                elif self._context.config.substs.get("OS_ARCH") != "Darwin":
-                    debug_flags += ["-F", "dwarf"]
-            elif self._context.config.substs.get("CC_TYPE") == "clang-cl":
-                if self._context.config.substs.get("TARGET_CPU") == "aarch64":
-                    # armasm64 accepts a paucity of options compared to ml/ml64.
-                    pass
-                else:
-                    # Unintuitively, -Zi for ml/ml64 is equivalent to -Z7 for cl.exe.
-                    # -Zi for cl.exe has a different purpose, so this is only used here.
-                    debug_flags += ["-Zi"]
-            else:
-                debug_flags += self._context.config.substs.get("MOZ_DEBUG_FLAGS", [])
-        return debug_flags
+        ) and not self._context.config.substs.get("MOZ_DEBUG_SYMBOLS"):
+            return []
+
+        if self._context.get("USE_NASM"):
+            if self._context.config.substs.get("OS_ARCH") == "Darwin":
+                return []
+            if self._context.config.substs.get("OS_ARCH") == "WINNT":
+                return ["-F", "cv8"]
+            return ["-F", "dwarf"]
+
+        return self._context.config.substs.get("MOZ_DEBUG_ASFLAGS", [])
 
 
 class LinkFlags(BaseCompileFlags):

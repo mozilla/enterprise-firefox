@@ -57,12 +57,33 @@ const AlertNotification = Components.Constructor(
 
 let gMonitors = null;
 let gLoadPromise = null;
+let gShuttingDown = false;
 const gNotifiedRunIds = new Set();
 
 export const NOTIFICATION_ACTIONS = {
   SNOOZE: "monitor-snooze",
   DISMISS: "monitor-dismiss",
 };
+
+function isShuttingDown() {
+  return (
+    gShuttingDown ||
+    Services.startup.isInOrBeyondShutdownPhase(
+      Ci.nsIAppStartup.SHUTDOWN_PHASE_APPSHUTDOWNCONFIRMED
+    )
+  );
+}
+
+/**
+ * Indicates that a MonitorAgent operation was interrupted by application
+ * shutdown.
+ */
+class MonitorAgentShutdownError extends Error {
+  constructor(options) {
+    super("Monitor agent is shutting down.", options);
+    this.name = "MonitorAgentShutdownError";
+  }
+}
 
 function monitorTelemetryExtra(monitor) {
   return {
@@ -85,7 +106,18 @@ function monitorTelemetryExtra(monitor) {
  */
 export const MonitorAgent = {
   async init() {
-    await this._ensureLoaded();
+    try {
+      await this._ensureLoaded();
+    } catch (error) {
+      if (error instanceof MonitorAgentShutdownError) {
+        return;
+      }
+      throw error;
+    }
+    if (isShuttingDown()) {
+      return;
+    }
+
     for (const monitor of gMonitors.values()) {
       monitor.restore();
       monitor.scheduleNextRun();
@@ -93,6 +125,7 @@ export const MonitorAgent = {
   },
 
   uninit() {
+    gShuttingDown = true;
     if (!gMonitors) {
       return;
     }
@@ -323,6 +356,9 @@ export const MonitorAgent = {
   },
 
   async _ensureLoaded() {
+    if (isShuttingDown()) {
+      throw new MonitorAgentShutdownError();
+    }
     if (gMonitors) {
       return;
     }
@@ -331,7 +367,12 @@ export const MonitorAgent = {
       return;
     }
 
-    gLoadPromise = this._loadMonitors();
+    gLoadPromise = this._loadMonitors().catch(error => {
+      if (isShuttingDown() && !(error instanceof MonitorAgentShutdownError)) {
+        throw new MonitorAgentShutdownError({ cause: error });
+      }
+      throw error;
+    });
     try {
       await gLoadPromise;
     } finally {
@@ -351,6 +392,10 @@ export const MonitorAgent = {
       } catch (error) {
         lazy.log.warn(`Skipping invalid stored monitor: ${error.message}`);
       }
+    }
+
+    if (isShuttingDown()) {
+      throw new MonitorAgentShutdownError();
     }
 
     gMonitors = monitors;
@@ -589,6 +634,7 @@ export const MonitorAgent = {
     gMonitors = null;
     gLoadPromise = null;
     gNotifiedRunIds.clear();
+    gShuttingDown = false;
   },
 
   async _resetForTesting() {

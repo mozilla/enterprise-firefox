@@ -423,35 +423,53 @@ export class LoginManagerRustStorage {
     if (this.#initializationPromise) {
       this.log("rust storage already initialized");
     } else {
-      try {
-        const profilePath = Services.dirsvc.get("ProfD", Ci.nsIFile).path;
-        const path = `${profilePath}/logins.db`;
-
-        this.#initializationPromise = new Promise(resolve => {
-          this.log(`Initializing Rust login storage at ${path}`);
-
-          initRustComponents(profilePath).then(() => {
-            const authenticator = new RustLoginStorageAuthenticator();
-            this.#authenticator = authenticator;
-            const store = createLoginStoreWithNssKeymanager(
-              path,
-              authenticator
-            );
-
-            this.#storageAdapter = new RustLoginsStoreAdapter(store);
-            this.log("Rust login storage ready.");
-
-            this._registerShutdownBlocker().then(() => resolve(this));
-          });
-        });
-      } catch (e) {
-        this.log(`Initialization failed ${e.name}.`);
-        this.log(e);
-        throw new Error("Initialization failed");
-      }
+      this.#initializationPromise = this.#doInitialize();
     }
 
     return this.#initializationPromise;
+  }
+
+  async #doInitialize() {
+    try {
+      // If we are already in the “Profile-Change-Teardown” phase or have
+      // already completed it, “false” is returned and initialization is
+      // aborted.
+      if (!(await this._registerShutdownBlocker())) {
+        throw new Error(
+          "Shutdown is past profile-change-teardown, not opening the store"
+        );
+      }
+
+      const profilePath = Services.dirsvc.get("ProfD", Ci.nsIFile).path;
+      const path = `${profilePath}/logins.db`;
+      this.log(`Initializing Rust login storage at ${path}`);
+
+      await initRustComponents(profilePath);
+
+      this.#authenticator = new RustLoginStorageAuthenticator();
+      const store = await createLoginStoreWithNssKeymanager(
+        path,
+        this.#authenticator
+      );
+      this.#storageAdapter = new RustLoginsStoreAdapter(store);
+
+      this.log("Rust login storage ready.");
+      return this;
+    } catch (e) {
+      this.log(`Initialization failed: ${e}`);
+      // Failing after the store was created leaves it holding the only
+      // reference to the authenticator, and UniFFI asserts at xpcom-shutdown
+      // that no callback object is still registered. Let it go, and report the
+      // original failure rather than anything shutdown runs into.
+      try {
+        await this.#storageAdapter?.shutdown();
+      } catch (shutdownError) {
+        this.log(`Shutdown after failed initialization: ${shutdownError}`);
+      }
+      this.#storageAdapter = null;
+      this.#authenticator = null;
+      throw e;
+    }
   }
 
   /**
@@ -461,29 +479,42 @@ export class LoginManagerRustStorage {
     // TODO: Currently we do not mark the instance as closed, not sure if later
     // calls would be rejected elsewhere.
 
-    await this.#storageAdapter.shutdown();
+    // Null when initialization failed, which shuts the store down itself.
+    await this.#storageAdapter?.shutdown();
   }
 
   /**
    * Ensure the storage is finalized at shutdown. All LoginManager storage
    * backends must have their own shutdown blocker to finalize properly.
    *
+   * Called before the store is opened, so the blocker waits for
+   * initialization to settle before finalizing: the store holds the only
+   * reference to the authenticator, and UniFFI asserts at `xpcom-shutdown`
+   * that no callback object is still registered.
+   *
    * In the corner case where the shutdown phase has already passed by the time
    * we get here, registering a blocker would throw, so we call `finalize()`
-   * immediately instead.
+   * immediately instead and report that nothing is in place to close a store.
    *
    * @param {object} phase An `AsyncShutdown` phase object. Exposed as a
    *   parameter for testing.
+   * @returns {Promise<boolean>} Whether a blocker was registered.
    */
-  _registerShutdownBlocker(phase = lazy.AsyncShutdown.profileChangeTeardown) {
+  async _registerShutdownBlocker(
+    phase = lazy.AsyncShutdown.profileChangeTeardown
+  ) {
     if (phase.isClosed) {
-      return this.finalize();
+      await this.finalize();
+      return false;
     }
     phase.addBlocker(
       "LoginManagerRustStorage: Interrupt IO operations on login store",
-      async () => this.finalize()
+      async () => {
+        await this.initialize().catch(() => {});
+        await this.finalize();
+      }
     );
-    return Promise.resolve();
+    return true;
   }
 
   /**

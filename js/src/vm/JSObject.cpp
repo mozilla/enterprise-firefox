@@ -1786,10 +1786,6 @@ JS_PUBLIC_API bool js::ShouldIgnorePropertyDefinition(JSContext* cx,
   }
 
 #ifdef JS_HAS_INTL_API
-  if (key == JSProto_Date && !JS::Prefs::experimental_temporal() &&
-      id == NameToId(cx->names().toTemporalInstant)) {
-    return true;
-  }
   if (key == JSProto_Locale && !JS::Prefs::experimental_intl_locale_info()) {
     if (id == NameToId(cx->names().firstDayOfWeek) ||
         id == NameToId(cx->names().getTextInfo) ||

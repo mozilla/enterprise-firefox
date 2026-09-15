@@ -1754,6 +1754,7 @@ impl YamlFrameReader {
                 ("scrollbar-container", PrimitiveFlags::IS_SCROLLBAR_CONTAINER),
                 ("prefer-compositor-surface", PrimitiveFlags::PREFER_COMPOSITOR_SURFACE),
                 ("checkerboard-background", PrimitiveFlags::CHECKERBOARD_BACKGROUND),
+                ("rasterized-for-rect", PrimitiveFlags::RASTERIZED_FOR_RECT),
             ] {
                 if let Some(value) = item[key].as_bool() {
                     flags.set(flag, value);

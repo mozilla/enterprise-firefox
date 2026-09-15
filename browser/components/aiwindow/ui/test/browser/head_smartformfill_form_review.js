@@ -243,6 +243,27 @@ function waitForFormReviewTabChange(sourceEvent) {
 }
 
 /**
+ * Opens a foreground tab and waits for the open tab list to have caught up
+ * with it.
+ *
+ * The list reports an open in batches, the last of which trails the tab's
+ * title. A batch that lands later takes the source editor away the way a tab
+ * the user opened would, so every tab a test opens is waited out up to that
+ * last batch.
+ *
+ * @param {Window} win - AI Window to open the tab in.
+ * @param {string} url - Page to open.
+ * @returns {Promise<MozTabbrowserTab>} The opened tab.
+ */
+async function openTabAndWaitForTabList(win, url) {
+  const tabListUpdated = waitForFormReviewTabChange("TabAttrModified");
+  const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, url);
+  await tabListUpdated;
+
+  return tab;
+}
+
+/**
  * Creates an AI Window, source tab, and form tab ready for a review test.
  *
  * @returns {Promise<FormReviewTestContext>} Initialized test context.
@@ -272,16 +293,8 @@ async function setupFormReviewTest() {
 
     context.win = await openAIWindow();
 
-    const sourceTabUpdated = waitForFormReviewTabChange("TabAttrModified");
-    await BrowserTestUtils.openNewForegroundTab(
-      context.win.gBrowser,
-      SOURCE_URL
-    );
-    await sourceTabUpdated;
-
-    const formTabUpdated = waitForFormReviewTabChange("TabAttrModified");
-    await BrowserTestUtils.openNewForegroundTab(context.win.gBrowser, FORM_URL);
-    await formTabUpdated;
+    await openTabAndWaitForTabList(context.win, SOURCE_URL);
+    await openTabAndWaitForTabList(context.win, FORM_URL);
 
     const sidebarBrowser = await BrowserTestUtils.waitForMutationCondition(
       context.win.document.documentElement,
@@ -539,7 +552,12 @@ async function editFormReviewInput(reviewBrowser, index, value) {
 
       EventUtils.synthesizeMouseAtCenter(input.inputEl, {}, content);
       EventUtils.synthesizeKey("a", { accelKey: true }, content);
-      await EventUtils.sendString(inputValue, content);
+      EventUtils.synthesizeKey("KEY_Backspace", {}, content);
+
+      if (inputValue) {
+        await EventUtils.sendString(inputValue, content);
+      }
+
       await review.updateComplete;
     }
   );

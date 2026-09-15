@@ -90,6 +90,17 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // 30 days since user input it as the default.
   ["autoFill.adaptiveHistory.useCountThreshold", [0.47, "float"]],
 
+  // Approximate number of times the user must have picked a URL with a path for
+  // a given input before it becomes an adaptive history autofill candidate.
+  // Converted into a `moz_inputhistory.use_count` threshold by
+  // `inputHistoryPicksToUseCount` in UrlbarProviderAutofill.sys.mjs, so the
+  // exact pick count depends on how the picks were spread over time.
+  ["autoFill.adaptiveHistory.urlMinPicks", 3],
+
+  // Days of idle decay assumed since the last pick when converting
+  // `urlMinPicks` into a use_count threshold.
+  ["autoFill.adaptiveHistory.urlPicksAgeDays", 14],
+
   // Feature gate pref for clipboard suggestions in the urlbar.
   ["clipboard.featureGate", false],
 

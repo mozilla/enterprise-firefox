@@ -425,7 +425,7 @@ def setup_regression_detector(config, jobs):
 @transforms.add
 def apply_perftest_tier_optimization(config, jobs):
     for job in jobs:
-        job["optimization"] = {"skip-unless-backstop": None}
+        job["optimization"] = {"perf-cadence-backstop": None}
         job["treeherder"]["tier"] = max(job["treeherder"]["tier"], 2)
         yield job
 

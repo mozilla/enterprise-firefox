@@ -647,6 +647,26 @@ crash:
     send_in_pings:
     - crash
     type: string
+  shutting_down_threads:
+    bugs:
+    - https://bugzilla.mozilla.org/1950749
+    data_reviews:
+    - https://bugzilla.mozilla.org/1950749
+    data_sensitivity:
+    - technical
+    description: 'JSON array of the nsThread::Shutdown handshakes still in flight
+      when the process crashed during shutdown. Each entry has the joining and closing
+      thread TID and name, the handshake phase ("Joining", "Recv" or "Ack") and when
+      that phase was entered, in seconds since the Epoch. A single entry of {"error":
+      "contended"} means the thread list was locked and could not be read without
+      blocking.'
+    expires: never
+    notification_emails:
+    - crash-reporting-wg@mozilla.org
+    - stability@mozilla.org
+    send_in_pings:
+    - crash
+    type: string
   stack_traces:
     bugs:
     - https://bugzilla.mozilla.org/1950749

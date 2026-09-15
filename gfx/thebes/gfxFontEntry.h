@@ -25,6 +25,7 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/RWLock.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/TypedEnumBits.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/intl/UnicodeScriptCodes.h"
@@ -751,7 +752,10 @@ class gfxFontEntry {
     if (!mSkrifaFontInitialized) {
       mozilla::AutoWriteLock lock(mLock);
       if (!mSkrifaFontInitialized) {
-        InitSkrifaFontFace();
+        if (mozilla::StaticPrefs::
+                gfx_font_rendering_fontations_enabled_AtStartup()) {
+          InitSkrifaFontFace();
+        }
         mSkrifaFontInitialized = true;
       }
     }

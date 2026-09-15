@@ -27,6 +27,7 @@
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/Try.h"
+#include "nsThread.h"
 
 #include "GeckoProfiler.h"
 #include "prprf.h"
@@ -581,6 +582,22 @@ nsAppStartup::IsInOrBeyondShutdownPhase(IDLShutdownPhase aPhase,
 NS_IMETHODIMP
 nsAppStartup::SetImpendingShutdown() {
   AppShutdown::SetImpendingShutdown();
+  return NS_OK;
+}
+
+namespace mozilla {
+
+void CollectShutdownHangAnnotations() {
+#ifdef NS_THREAD_SHUTDOWN_ANNOTATIONS_ENABLED
+  nsThread::CollectShutdownHangAnnotation();
+#endif
+}
+
+}  // namespace mozilla
+
+NS_IMETHODIMP
+nsAppStartup::CollectShutdownHangAnnotations() {
+  mozilla::CollectShutdownHangAnnotations();
   return NS_OK;
 }
 

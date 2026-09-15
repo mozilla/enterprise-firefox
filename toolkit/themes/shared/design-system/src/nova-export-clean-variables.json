@@ -181,6 +181,13 @@
       }
     },
     "link": {
+      "border": {
+        "radius": {
+          "focus": {
+            "Value": "{border/radius/xsmall}"
+          }
+        }
+      },
       "focus": {
         "outline": {
           "offset": {

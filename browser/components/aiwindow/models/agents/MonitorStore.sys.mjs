@@ -257,6 +257,7 @@ function isNewerSchemaError(error) {
 class MonitorStoreImpl {
   #asyncShutdownBlocker;
   #db = null;
+  #pendingWrites = new Set();
   #promiseDb = null;
   #promiseWrite = Promise.resolve();
   #shutdownClient;
@@ -269,7 +270,7 @@ class MonitorStoreImpl {
       this.#shuttingDown = true;
       try {
         await this.#promiseWrite;
-        await this.#closeDatabaseConnection();
+        this.#closeDatabase();
       } finally {
         this.#shutdownBlockerAdded = false;
       }
@@ -307,7 +308,7 @@ class MonitorStoreImpl {
 
   async saveMonitor(monitor) {
     const record = sanitizeMonitorRecord(monitor);
-    return this.#queueWrite(() =>
+    return this.#queueWrite("saveMonitor", () =>
       this.#withWriteStore(store => store.put(record))
     );
   }
@@ -317,7 +318,7 @@ class MonitorStoreImpl {
       throw invalidField("collection");
     }
     const records = monitors.map(sanitizeMonitorRecord);
-    return this.#queueWrite(() =>
+    return this.#queueWrite("saveMonitors", () =>
       this.#withWriteStore(async store => {
         await store.clear();
         for (const record of records) {
@@ -329,13 +330,13 @@ class MonitorStoreImpl {
 
   async deleteMonitor(id) {
     const monitorId = stringField(id, "ID");
-    return this.#queueWrite(() =>
+    return this.#queueWrite("deleteMonitor", () =>
       this.#withWriteStore(store => store.delete(monitorId))
     );
   }
 
   async destroyDatabase() {
-    return this.#queueWrite(async () => {
+    return this.#queueWrite("destroyDatabase", async () => {
       await this.#closeDatabaseConnection();
       await this.#deleteDatabase();
       this.#promiseDb = null;
@@ -374,10 +375,24 @@ class MonitorStoreImpl {
     }
   }
 
-  #queueWrite(task) {
+  #queueWrite(operation, task) {
     this.#prepareForOperation();
-    const promise = this.#promiseWrite.then(task, task);
-    this.#promiseWrite = promise.catch(() => {});
+    const pendingWrite = {
+      operation,
+      queuedAt: Date.now(),
+      startedAt: null,
+    };
+    this.#pendingWrites.add(pendingWrite);
+    const runTask = () => {
+      pendingWrite.startedAt = Date.now();
+      return task();
+    };
+    const promise = this.#promiseWrite.then(runTask, runTask);
+    this.#promiseWrite = promise
+      .finally(() => {
+        this.#pendingWrites.delete(pendingWrite);
+      })
+      .catch(() => {});
     return promise;
   }
 
@@ -389,7 +404,7 @@ class MonitorStoreImpl {
   }
 
   async #openDatabase() {
-    this.#db = await lazy.IndexedDB.open(
+    const database = await lazy.IndexedDB.open(
       DB_NAME,
       CURRENT_SCHEMA_VERSION,
       (db, event) => {
@@ -408,6 +423,16 @@ class MonitorStoreImpl {
       }
     );
 
+    if (this.#shuttingDown && !this.#pendingWrites.size) {
+      try {
+        database.close();
+      } catch (error) {
+        lazy.log.warn(`Error closing database: ${error.message}`);
+      }
+      throw new Error("Monitor store is shutting down.");
+    }
+
+    this.#db = database;
     this.#db.onversionchange = () => {
       this.#closeDatabase();
       this.#promiseDb = null;
@@ -488,6 +513,11 @@ class MonitorStoreImpl {
         fetchState: () => ({
           databaseOpen: !!this.#db,
           shuttingDown: this.#shuttingDown,
+          pendingWrites: Array.from(this.#pendingWrites, pendingWrite => ({
+            operation: pendingWrite.operation,
+            state: pendingWrite.startedAt === null ? "queued" : "active",
+            pendingForMs: Date.now() - pendingWrite.queuedAt,
+          })),
         }),
       }
     );

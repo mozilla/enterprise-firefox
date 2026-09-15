@@ -1411,7 +1411,8 @@ void DocAccessibleParent::SelectionRanges(nsTArray<TextRange>* aRanges) const {
     auto* startAcc =
         const_cast<RemoteAccessible*>(GetAccessible(data.StartID()));
     auto* endAcc = const_cast<RemoteAccessible*>(GetAccessible(data.EndID()));
-    if (!startAcc || !endAcc) {
+    if (!startAcc || !endAcc || !startAcc->IsHyperText() ||
+        !endAcc->IsHyperText()) {
       continue;
     }
     // Offset 0 is always valid, even if the container is empty.

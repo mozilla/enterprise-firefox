@@ -56,6 +56,7 @@ class nsRange final : public mozilla::dom::AbstractRange,
   using DocGroup = mozilla::dom::DocGroup;
   using RangeBoundary = mozilla::RangeBoundary;
   using RangeBoundarySetBy = mozilla::RangeBoundarySetBy;
+  using RangeBoundarySide = mozilla::RangeBoundarySide;
   using RawRangeBoundary = mozilla::RawRangeBoundary;
   using AllowRangeCrossShadowBoundary =
       mozilla::dom::AllowRangeCrossShadowBoundary;
@@ -436,20 +437,58 @@ class nsRange final : public mozilla::dom::AbstractRange,
    */
   bool CanAccess(const nsINode&) const;
 
-  void AdjustNextRefsOnCharacterDataSplit(const nsIContent& aContent,
-                                          const CharacterDataChangeInfo& aInfo);
-
   struct RangeBoundariesAndRoot {
+    [[nodiscard]] bool HasNewBoundaries() const {
+      return mStart.IsSet() || mEnd.IsSet();
+    }
+    void SetUnsetBoundaries(const nsRange& aRange) {
+      if (!mStart.IsSet()) {
+        mStart.CopyFrom(aRange.StartRef(), RangeBoundarySetBy::Ref);
+      }
+      if (!mEnd.IsSet()) {
+        mEnd.CopyFrom(aRange.EndRef(), RangeBoundarySetBy::Ref);
+      }
+      if (!mRoot) {
+        mRoot = aRange.GetRoot();
+      }
+    }
+
+    /**
+     * Assign the start/end boundaries and the new root from aNew if and only if
+     * the corresponding member of aNew is set. In other words, unset members of
+     * aNew does not change the corresponding members of this; in particular,
+     * this never unsets a boundary or the root.
+     */
+    void AssignSetBoundariesAndRootFrom(const RangeBoundariesAndRoot aNew) {
+      if (aNew.mStart.IsSet()) {
+        mStart = aNew.mStart;
+      }
+      if (aNew.mEnd.IsSet()) {
+        mEnd = aNew.mEnd;
+      }
+      if (aNew.mRoot) {
+        mRoot = aNew.mRoot;
+      }
+    }
+
     RawRangeBoundary mStart;
     RawRangeBoundary mEnd;
     nsINode* mRoot = nullptr;
   };
 
-  /**
-   * @param aContent Must be non-nullptr.
-   */
-  RangeBoundariesAndRoot DetermineNewRangeBoundariesAndRootOnCharacterDataMerge(
-      nsIContent* aContent, const CharacterDataChangeInfo& aInfo) const;
+  struct NextSiblings {
+    [[nodiscard]] nsIContent* Get(RangeBoundarySide aSide) const {
+      return aSide == RangeBoundarySide::Start ? mStart : mEnd;
+    }
+    inline void Clear() { mStart = mEnd = nullptr; }
+    [[nodiscard]] inline bool HasSiblings() const { return mStart || mEnd; }
+    nsIContent* MOZ_NON_OWNING_REF mStart = nullptr;
+    nsIContent* MOZ_NON_OWNING_REF mEnd = nullptr;
+  };
+
+  class MOZ_STACK_CLASS AutoCharacterDataChangedHandler;
+  class MOZ_STACK_CLASS AutoNewContentHandler;
+  class MOZ_STACK_CLASS AutoContentWillBeRemovedHandler;
 
   // @return true iff the range is positioned, aContainer belongs to the same
   //         document as the range, aContainer is a DOCUMENT_TYPE_NODE and
@@ -647,7 +686,7 @@ class nsRange final : public mozilla::dom::AbstractRange,
 #ifdef DEBUG
   bool IsCleared() const {
     return !mRoot && !mRegisteredClosestCommonInclusiveAncestor &&
-           mSelections.IsEmpty() && !mNextStartRef && !mNextEndRef;
+           mSelections.IsEmpty() && !mNewCharacterDataOnSplitText.HasSiblings();
   }
 #endif  // #ifdef DEBUG
 
@@ -658,8 +697,7 @@ class nsRange final : public mozilla::dom::AbstractRange,
   // ContentInserted or ContentAppended call. It is safe to store
   // these refs because the caller is guaranteed to trigger both
   // notifications while holding a strong reference to the new child.
-  nsIContent* MOZ_NON_OWNING_REF mNextStartRef;
-  nsIContent* MOZ_NON_OWNING_REF mNextEndRef;
+  NextSiblings mNewCharacterDataOnSplitText;
 
   static nsTArray<RefPtr<nsRange>>* sCachedRanges;
 

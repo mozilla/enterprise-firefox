@@ -4,6 +4,7 @@
 
 #include "WebRenderCommandBuilder.h"
 
+#include <cinttypes>
 #include <cstdint>
 
 #include "MediaInfo.h"
@@ -13,6 +14,7 @@
 #include "mozilla/AutoRestore.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/EffectCompositor.h"
+#include "mozilla/EnumeratedRange.h"
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/SVGGeometryFrame.h"
@@ -613,6 +615,8 @@ struct DIGroup {
     LayoutDeviceRect itemBounds =
         (LayerRect(mVisibleRect) - mResidualOffset) / scale;
 
+    auto& stats = aWrManager->CommandBuilder().mBlobStats;
+
     if (mInvalidRect.IsEmpty() && mVisibleRect.IsEqualEdges(mLastVisibleRect)) {
       GP("Not repainting group because it's empty\n");
       GP("End EndGroup\n");
@@ -624,6 +628,8 @@ struct DIGroup {
             *mKey, ViewAs<ImagePixel>(mVisibleRect,
                                       PixelCastJustification::LayerIsImage));
         mLastVisibleRect = mVisibleRect;
+        stats.mGroupBlobs++;
+        stats.mBlobArea += uint64_t(mVisibleRect.Area());
         PushImage(aBuilder, itemBounds);
       }
       return;
@@ -748,6 +754,9 @@ struct DIGroup {
         *mKey,
         ViewAs<ImagePixel>(mVisibleRect, PixelCastJustification::LayerIsImage));
     mLastVisibleRect = mVisibleRect;
+    stats.mGroupBlobs++;
+    stats.mGroupBlobsPainted++;
+    stats.mBlobArea += uint64_t(mVisibleRect.Area());
     PushImage(aBuilder, itemBounds);
     GP("End EndGroup\n\n");
   }
@@ -767,6 +776,14 @@ struct DIGroup {
 
     aBuilder.PushImage(dest, dest, !backfaceHidden, false, rendering,
                        wr::AsImageKey(*mKey));
+
+    // Fallback blobs are tinted red by PaintItemByDrawTarget. Group blobs get
+    // a green tint pushed on top of the image so that the recording, and its
+    // invalidation, stays untouched.
+    if (StaticPrefs::gfx_webrender_debug_highlight_painted_layers()) {
+      aBuilder.PushRect(dest, dest, !backfaceHidden, false, false,
+                        wr::ColorF{0.0f, 1.0f, 0.0f, 0.3f});
+    }
   }
 
   void PushHitTest(wr::DisplayListBuilder& aBuilder,
@@ -1149,7 +1166,7 @@ static ItemActivity AssessBounds(const StackingContextHelper& aSc,
   // costly enough that it's worth the risk of having more layers. As we
   // move more blob items into wr display items it will become less of a
   // concern.
-  constexpr float largeish = 512;
+  const float largeish = float(StaticPrefs::gfx_webrender_blob_largeish_px());
 
   bool snap = false;
   nsRect bounds = aItem->GetBounds(aDisplayListBuilder, &snap);
@@ -1157,14 +1174,15 @@ static ItemActivity AssessBounds(const StackingContextHelper& aSc,
   float appUnitsPerDevPixel =
       static_cast<float>(aItem->Frame()->PresContext()->AppUnitsPerDevPixel());
 
-  float width =
-      static_cast<float>(bounds.width) * aSc.GetInheritedScale().xScale;
-  float height =
-      static_cast<float>(bounds.height) * aSc.GetInheritedScale().yScale;
+  // Size of the item in device pixels.
+  float width = static_cast<float>(bounds.width) / appUnitsPerDevPixel *
+                aSc.GetInheritedScale().xScale;
+  float height = static_cast<float>(bounds.height) / appUnitsPerDevPixel *
+                 aSc.GetInheritedScale().yScale;
 
   // Webrender doesn't handle primitives smaller than a pixel well, so
   // avoid making them active.
-  if (width >= appUnitsPerDevPixel && height >= appUnitsPerDevPixel) {
+  if (width >= 1.0f && height >= 1.0f) {
     if (aHasActivePrecedingSibling || width > largeish || height > largeish) {
       return ItemActivity::Should;
     }
@@ -1336,7 +1354,9 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
       }
     }
 
-    bool isLast = it.HasNext();
+    auto next = it;
+    ++next;
+    bool isLast = next == aList->end();
 
     // WebRender's anti-aliasing approximation is not very good under
     // non-uniform scales.
@@ -1347,10 +1367,16 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
         item, aBuilder, aResources, aSc, manager, mDisplayListBuilder,
         encounteredActiveItem, uniformlyScaled);
     auto threshold =
-        isFirst || isLast ? ItemActivity::Could : ItemActivity::Should;
+        isFirst || isLast ||
+                StaticPrefs::gfx_webrender_blob_relaxed_active_threshold()
+            ? ItemActivity::Could
+            : ItemActivity::Should;
 
     if (activity >= threshold) {
       encounteredActiveItem = true;
+      if (!isFirst) {
+        aCommandBuilder->mBlobStats.mSplits[item->GetType()]++;
+      }
       // We're going to be starting a new group.
       RefPtr<WebRenderGroupData> groupData =
           aCommandBuilder->CreateOrRecycleWebRenderUserData<WebRenderGroupData>(
@@ -1497,6 +1523,11 @@ bool Grouper::ConstructItemInsideInactive(
   data->mInvalid = false;
   data->mInvisible = aItem->IsInvisible();
   *aOutIsInvisible = data->mInvisible;
+
+  if (!data->mInvisible && !children &&
+      aItem->GetType() != DisplayItemType::TYPE_COMPOSITOR_HITTEST_INFO) {
+    aCommandBuilder->mBlobStats.mGroupedItems[aItem->GetType()]++;
+  }
 
   // we compute the geometry change here because we have the transform around
   // still
@@ -1774,6 +1805,7 @@ void WebRenderCommandBuilder::BuildWebRenderCommands(
   MOZ_ASSERT(mLayerScrollData.empty());
   mClipManager.BeginBuild(mManager, aBuilder);
   mHitTestInfoManager.Reset();
+  mBlobStats.Reset();
 
   mBuilderDumpIndex = 0;
   mLastCanvasDatas.Clear();
@@ -1837,9 +1869,50 @@ void WebRenderCommandBuilder::BuildWebRenderCommands(
   mLayerScrollData.clear();
   mClipManager.EndBuild();
 
+  ReportBlobStats();
+
   // Remove the user data those are not displayed on the screen and
   // also reset the data to unused for next transaction.
   RemoveUnusedAndResetWebRenderUserData();
+}
+
+void WebRenderCommandBuilder::ReportBlobStats() {
+  if (!profiler_thread_is_being_profiled_for_markers()) {
+    return;
+  }
+  const BlobStats& s = mBlobStats;
+  if (s.mGroupBlobs == 0 && s.mFallbackBlobs == 0) {
+    return;
+  }
+
+  nsAutoCString text;
+  text.AppendPrintf(
+      "group blobs: %u (%u painted), fallback blobs: %u, "
+      "blob area: %" PRIu64 " px",
+      s.mGroupBlobs, s.mGroupBlobsPainted, s.mFallbackBlobs, s.mBlobArea);
+
+  bool first = true;
+  for (auto type : MakeEnumeratedRange(DisplayItemType::TYPE_MAX)) {
+    if (s.mGroupedItems[type] == 0) {
+      continue;
+    }
+    text.Append(first ? "; grouped items: " : ", ");
+    first = false;
+    text.AppendPrintf("%s=%u", DisplayItemTypeName(type),
+                      s.mGroupedItems[type]);
+  }
+
+  first = true;
+  for (auto type : MakeEnumeratedRange(DisplayItemType::TYPE_MAX)) {
+    if (s.mSplits[type] == 0) {
+      continue;
+    }
+    text.Append(first ? "; splits by: " : ", ");
+    first = false;
+    text.AppendPrintf("%s=%u", DisplayItemTypeName(type), s.mSplits[type]);
+  }
+
+  PROFILER_MARKER_TEXT("WebRender blob images", GRAPHICS, {}, text);
 }
 
 bool WebRenderCommandBuilder::ShouldDumpDisplayList(
@@ -2368,7 +2441,8 @@ bool WebRenderCommandBuilder::PushImageProvider(
     nsDisplayItem* aItem, image::WebRenderImageProvider* aProvider,
     image::ImgDrawResult aDrawResult, mozilla::wr::DisplayListBuilder& aBuilder,
     mozilla::wr::IpcResourceUpdateQueue& aResources,
-    const LayoutDeviceRect& aRect, const LayoutDeviceRect& aClip) {
+    const LayoutDeviceRect& aRect, const LayoutDeviceRect& aClip,
+    bool aRasterizedForRect) {
   Maybe<wr::ImageKey> key =
       CreateImageProviderKey(aItem, aProvider, aDrawResult, aResources);
   if (!key) {
@@ -2381,7 +2455,8 @@ bool WebRenderCommandBuilder::PushImageProvider(
   auto r = wr::ToLayoutRect(aRect);
   auto c = wr::ToLayoutRect(aClip);
   aBuilder.PushImage(r, c, !aItem->BackfaceIsHidden(), antialiased, rendering,
-                     key.value());
+                     key.value(), true, wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
+                     false, false, aRasterizedForRect);
 
   return true;
 }
@@ -2992,6 +3067,10 @@ bool WebRenderCommandBuilder::PushItemAsImage(
   auto rendering = wr::ToImageRendering(aItem->Frame()->UsedImageRendering());
   mHitTestInfoManager.ProcessItemAsImage(aItem, dest, aBuilder,
                                          aDisplayListBuilder);
+  mBlobStats.mFallbackBlobs++;
+  auto scale = aSc.GetInheritedScale();
+  mBlobStats.mBlobArea += uint64_t(std::max(
+      0.0f, imageRect.width * scale.xScale * imageRect.height * scale.yScale));
   aBuilder.PushImage(dest, dest, !aItem->BackfaceIsHidden(), false, rendering,
                      fallbackData->GetImageKey().value());
   return true;

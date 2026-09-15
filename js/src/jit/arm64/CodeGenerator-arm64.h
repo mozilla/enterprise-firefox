@@ -37,32 +37,9 @@ class CodeGeneratorARM64 : public CodeGeneratorShared {
   template <typename T1, typename T2>
   void bailoutCmpPtr(Assembler::Condition c, T1 lhs, T2 rhs,
                      LSnapshot* snapshot) {
-    if constexpr (std::is_same_v<T1, Register> &&
-                  (std::is_same_v<T2, Imm32> || std::is_same_v<T2, Imm64> ||
-                   std::is_same_v<T2, ImmWord> || std::is_same_v<T2, ImmPtr>)) {
-      if (rhs.value == 0) {
-        switch (c) {
-          case Assembler::Equal:
-          case Assembler::BelowOrEqual:
-            bailoutIfTest(Assembler::Zero, ARMRegister(lhs, 64), snapshot);
-            return;
-          case Assembler::NotEqual:
-          case Assembler::Above:
-            bailoutIfTest(Assembler::NonZero, ARMRegister(lhs, 64), snapshot);
-            return;
-          case Assembler::LessThan:
-            bailoutIfTest(Assembler::Signed, ARMRegister(lhs, 64), snapshot);
-            return;
-          case Assembler::GreaterThanOrEqual:
-            bailoutIfTest(Assembler::NotSigned, ARMRegister(lhs, 64), snapshot);
-            return;
-          default:
-            break;
-        }
-      }
-    }
-    masm.cmpPtr(lhs, rhs);
-    return bailoutIf(c, snapshot);
+    Label bail;
+    masm.branchPtr(c, lhs, rhs, &bail);
+    bailoutFrom(&bail, snapshot);
   }
   template <typename T1, typename T2>
   void bailoutCmp32(Assembler::Condition c, T1 lhs, T2 rhs,
@@ -74,23 +51,9 @@ class CodeGeneratorARM64 : public CodeGeneratorShared {
   template <typename T1, typename T2>
   void bailoutTest32(Assembler::Condition c, T1 lhs, T2 rhs,
                      LSnapshot* snapshot) {
-    if constexpr (std::is_same_v<T1, Register> &&
-                  std::is_same_v<T2, Register>) {
-      if (lhs == rhs) {
-        switch (c) {
-          case Assembler::Zero:
-          case Assembler::NonZero:
-          case Assembler::Signed:
-          case Assembler::NotSigned:
-            bailoutIfTest(c, ARMRegister(lhs, 32), snapshot);
-            return;
-          default:
-            break;
-        }
-      }
-    }
-    masm.test32(lhs, rhs);
-    return bailoutIf(c, snapshot);
+    Label bail;
+    masm.branchTest32(c, lhs, rhs, &bail);
+    bailoutFrom(&bail, snapshot);
   }
   void bailoutIfFalseBool(Register reg, LSnapshot* snapshot) {
     masm.test32(reg, Imm32(0xFF));

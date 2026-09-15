@@ -79,8 +79,16 @@ const TEST_URI = `https://example.org/document-builder.sjs?html=${encodeURICompo
       --css-inherit: dashed;
       /* valid, complex value */
       --js-no-inherit: calc(100px * cos(45deg));
-      /* based on another property */
-      --css-dynamic-registered: var(--css-no-inherit);
+      /* based on subsitution functions */
+      --substitution-1: var(--local-not-a-color);
+      --substitution-2: var(--local-color);
+      --substitution-3: attr(data-not-a-color);
+      --substitution-4: attr(data-color);
+      --substitution-5: env(safe-area-inset-bottom);
+
+      /* non registered */
+      --local-not-a-color: 10px;
+      --local-color: blue;
     }
   </style>
   <main>
@@ -568,6 +576,84 @@ add_task(async function () {
       },
     ].sort((a, b) => (a.header < b.header ? -1 : 1))
   );
+});
+
+// Check that we properly set the invalid at computed value time error icon for custom
+// property declarations that don't match the syntax of the registered property.
+add_task(async function iacvt() {
+  await pushPref("layout.css.properties-and-values.enabled", true);
+  await addTab(
+    `https://example.org/document-builder.sjs?html=${encodeURIComponent(`
+  <style>
+    @property --css-no-inherit {
+      syntax: "<color>";
+      inherits: false;
+      initial-value: ${CSS_NO_INHERIT_INITIAL_VALUE};
+    }
+
+    @property --css-inherit {
+      syntax: "<color>";
+      inherits: true;
+      initial-value: ${CSS_INHERIT_INITIAL_VALUE};
+    }
+
+    @property --color-1 {
+      syntax: "<color>";
+      inherits: false;
+      initial-value: red;
+    }
+
+    @property --color-2 {
+      syntax: "<color>";
+      inherits: false;
+      initial-value: red;
+    }
+
+    @property --color-3 {
+      syntax: "<color>";
+      inherits: false;
+      initial-value: red;
+    }
+
+    @property --color-4 {
+      syntax: "<color>";
+      inherits: false;
+      initial-value: red;
+    }
+
+    @property --color-5 {
+      syntax: "<color>";
+      inherits: false;
+      initial-value: red;
+    }
+
+    @property --color-6 {
+      syntax: "<color>";
+      inherits: false;
+      initial-value: red;
+    }
+
+    aside {
+     /* registered property has <color> syntax, this declaration is invalid at computed-value time */
+      --css-inherit: dashed;
+      /* valid, complex value */
+      --js-no-inherit: calc(100px * cos(45deg));
+      /* based on subsitution functions */
+      --color-1: var(--local-not-a-color);
+      --color-2: var(--local-color);
+      --color-3: attr(data-not-a-color);
+      --color-4: attr(data-color);
+      --color-5: env(safe-area-inset-bottom);
+
+      /* non registered */
+      --local-not-a-color: 10px;
+      --local-color: blue;
+    }
+  </style>
+  <aside data-not-a-color="10" data-color="gold">fries</aside>
+`)}`
+  );
+  const { inspector, view } = await openRuleView();
 
   await selectNode("aside", inspector);
 
@@ -591,11 +677,34 @@ add_task(async function () {
   });
 
   info(
-    "Declaration of variable based on other variable are not marked as invalid"
+    "Declaration of variable based on substitution functions are not marked as invalid"
   );
   checkInvalidAtComputedValueTime(view, {
     ruleIndex: 1,
-    declaration: { "--css-dynamic-registered": "var(--css-no-inherit)" },
+    declaration: { "--color-1": "var(--local-not-a-color)" },
+    // should be true (see Bug 2070169)
+    invalid: false,
+  });
+  checkInvalidAtComputedValueTime(view, {
+    ruleIndex: 1,
+    declaration: { "--color-2": "var(--local-color)" },
+    invalid: false,
+  });
+  checkInvalidAtComputedValueTime(view, {
+    ruleIndex: 1,
+    // should be true (see Bug 2070169)
+    declaration: { "--color-3": "attr(data-not-a-color)" },
+    invalid: false,
+  });
+  checkInvalidAtComputedValueTime(view, {
+    ruleIndex: 1,
+    declaration: { "--color-4": "attr(data-color)" },
+    invalid: false,
+  });
+  checkInvalidAtComputedValueTime(view, {
+    ruleIndex: 1,
+    declaration: { "--color-5": "env(safe-area-inset-bottom)" },
+    // should be true (see Bug 2070169)
     invalid: false,
   });
 });

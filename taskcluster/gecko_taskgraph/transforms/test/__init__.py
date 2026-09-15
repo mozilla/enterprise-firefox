@@ -682,6 +682,8 @@ def make_job_description(config, tasks):
             jobdesc["optimization"] = task["optimization"]
         elif set(schedules) & set(INCLUSIVE_COMPONENTS):
             jobdesc["optimization"] = {"test-inclusive": schedules}
+        elif attributes["unittest_suite"] in ("talos", "awsy"):
+            jobdesc["optimization"] = {"perf-cadence-default": schedules}
         else:
             jobdesc["optimization"] = {"test": schedules}
 

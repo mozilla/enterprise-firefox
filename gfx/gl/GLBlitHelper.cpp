@@ -27,8 +27,10 @@
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "AndroidSurfaceTexture.h"
+#  include "GLContextEGL.h"
 #  include "GLImages.h"
 #  include "GLLibraryEGL.h"
+#  include "mozilla/layers/AndroidHardwareBuffer.h"
 #endif
 
 #ifdef XP_MACOSX
@@ -975,6 +977,22 @@ bool GLBlitHelper::BlitSdToFramebuffer(const layers::SurfaceDescriptor& asd,
     }
 #endif
 #ifdef MOZ_WIDGET_ANDROID
+    case layers::SurfaceDescriptor::TSurfaceDescriptorAndroidHardwareBuffer: {
+      const auto& sd = asd.get_SurfaceDescriptorAndroidHardwareBuffer();
+
+      auto* manager = layers::AndroidHardwareBufferManager::Get();
+      if (!manager) {
+        return false;
+      }
+
+      RefPtr<layers::AndroidHardwareBuffer> buffer =
+          manager->GetBuffer(sd.bufferId());
+      if (!buffer) {
+        return false;
+      }
+
+      return Blit(buffer, destRect, destOrigin, fbSize, convertAlpha);
+    }
     case layers::SurfaceDescriptor::TSurfaceTextureDescriptor: {
       const auto& sd = asd.get_SurfaceTextureDescriptor();
       auto surfaceTexture = java::GeckoSurfaceTexture::Lookup(sd.handle());
@@ -1022,6 +1040,79 @@ const char* GLBlitHelper::GetAlphaMixin(
 }
 
 #ifdef MOZ_WIDGET_ANDROID
+bool GLBlitHelper::Blit(layers::AndroidHardwareBuffer* const buffer,
+                        const gfx::IntRect& destRect,
+                        const OriginPos destOrigin, const gfx::IntSize& fbSize,
+                        const Maybe<gfxAlphaType> convertAlpha) const {
+  MOZ_ASSERT(buffer);
+
+  if (!buffer) {
+    return false;
+  }
+
+  if (!mGL->MakeCurrent()) {
+    return false;
+  }
+
+  const auto& gle = GLContextEGL::Cast(mGL);
+  const auto& egl = gle->mEgl;
+
+  auto fenceFd = buffer->GetAcquireFence();
+  if (fenceFd) {
+    const EGLint attribs[] = {
+        LOCAL_EGL_SYNC_NATIVE_FENCE_FD_ANDROID,
+        fenceFd.get(),
+        LOCAL_EGL_NONE,
+    };
+
+    EGLSync sync =
+        egl->fCreateSyncKHR(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, attribs);
+    if (!sync) {
+      gfxCriticalNote
+          << "GLBlitHelper::Blit: Failed to create EGLSync from acquire fence";
+      return false;
+    }
+
+    // EGL owns the fd after a successful eglCreateSyncKHR().
+    (void)fenceFd.release();
+
+    if (egl->IsExtensionSupported(EGLExtension::KHR_wait_sync)) {
+      egl->fWaitSync(sync, 0);
+    } else {
+      egl->fClientWaitSync(sync, 0, LOCAL_EGL_FOREVER);
+    }
+    egl->fDestroySync(sync);
+  }
+
+  EGLClientBuffer clientBuffer =
+      egl->mLib->fGetNativeClientBufferANDROID(buffer->GetNativeBuffer());
+  if (!clientBuffer) {
+    gfxCriticalNote
+        << "GLBlitHelper::Blit: eglGetNativeClientBufferANDROID failed";
+    return false;
+  }
+
+  const EGLint attrs[] = {
+      LOCAL_EGL_IMAGE_PRESERVED,
+      LOCAL_EGL_TRUE,
+      LOCAL_EGL_NONE,
+  };
+
+  const EGLImage image = egl->fCreateImage(
+      EGL_NO_CONTEXT, LOCAL_EGL_NATIVE_BUFFER_ANDROID, clientBuffer, attrs);
+  if (!image) {
+    gfxCriticalNote << "GLBlitHelper::Blit: eglCreateImage failed";
+    return false;
+  }
+
+  const bool ret = Blit(image, EGL_NO_SYNC, buffer->mSize, destRect, destOrigin,
+                        fbSize, convertAlpha);
+
+  egl->fDestroyImage(image);
+
+  return ret;
+}
+
 bool GLBlitHelper::Blit(const java::GeckoSurfaceTexture::Ref& surfaceTexture,
                         const gfx::IntSize& texSize,
                         const gfx::IntRect& destRect,

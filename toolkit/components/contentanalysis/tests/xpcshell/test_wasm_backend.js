@@ -237,7 +237,7 @@ add_task(async function test_text_paste_is_allowed_when_nothing_triggers() {
       makeRequest({
         analysisType: Ci.nsIContentAnalysisRequest.eBulkDataEntry,
         reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
-        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
+        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.ePasteClipboard,
         urlSpec: "https://example.com/",
         textContent: SPEC_ALLOW,
       }),
@@ -263,7 +263,7 @@ add_task(async function test_text_paste_content_reaches_module() {
       makeRequest({
         analysisType: Ci.nsIContentAnalysisRequest.eBulkDataEntry,
         reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
-        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
+        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.ePasteClipboard,
         urlSpec: "https://example.com/",
         textContent: SPEC_BLOCK,
       }),
@@ -311,7 +311,7 @@ function pasteAndGetResponse(textContent, urlSpec = "https://example.com/") {
         makeRequest({
           analysisType: Ci.nsIContentAnalysisRequest.eBulkDataEntry,
           reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
-          operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
+          operationTypeForDisplay: Ci.nsIContentAnalysisRequest.ePasteClipboard,
           urlSpec,
           textContent,
         }),
@@ -466,7 +466,7 @@ add_task(async function test_diagnostic_info_tracks_successful_analysis() {
       makeRequest({
         analysisType: Ci.nsIContentAnalysisRequest.eBulkDataEntry,
         reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
-        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
+        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.ePasteClipboard,
         urlSpec: "https://example.com/",
         textContent: SPEC_ALLOW,
       }),

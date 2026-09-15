@@ -251,6 +251,19 @@ class LensCameraFragmentTest {
         }
     }
 
+    // --- onSessionConfigureFailed tests ---
+
+    @Test
+    fun `GIVEN the capture session fails to configure WHEN onSessionConfigureFailed is called THEN showCameraError is true`() {
+        val fragment = LensCameraFragment()
+        assertFalse(fragment.showCameraError.value)
+
+        fragment.onSessionConfigureFailed()
+        ShadowLooper.idleMainLooper()
+
+        assertTrue(fragment.showCameraError.value)
+    }
+
     // --- onSessionConfigured tests ---
 
     @Test
@@ -342,7 +355,7 @@ class LensCameraFragmentTest {
     }
 
     @Test
-    fun `GIVEN no aspect ratio match WHEN chooseOptimalSize is called THEN first choice is returned`() {
+    fun `GIVEN no aspect ratio match WHEN chooseOptimalSize is called THEN largest in-bounds size is returned`() {
         val size =
             LensCameraFragment.chooseOptimalSize(
                 arrayOf(Size(1024, 768), Size(786, 480)),
@@ -373,36 +386,90 @@ class LensCameraFragmentTest {
         assertEquals(480, size.height)
     }
 
-    // --- chooseCaptureSizeFromList tests ---
+    @Test
+    fun `GIVEN no size fits the preview bounds WHEN chooseOptimalSize is called THEN the smallest size is returned`() {
+        // Never the largest: an oversized preview stream can fail the whole capture session on LEGACY devices.
+        val size =
+            LensCameraFragment.chooseOptimalSize(
+                arrayOf(Size(4608, 3456), Size(2560, 1920)),
+                640,
+                480,
+                1920,
+                1080,
+                Size(4, 3),
+            )
+
+        assertEquals(2560, size.width)
+        assertEquals(1920, size.height)
+    }
+
+    // --- chooseCaptureSize tests ---
 
     @Test
-    fun `GIVEN sizes within MAX_CAPTURE_DIMENSION WHEN chooseCaptureSizeFromList is called THEN largest valid size is returned`() {
-        val size =
-            LensCameraFragment.chooseCaptureSizeFromList(arrayOf(Size(3264, 2448), Size(1920, 1080), Size(640, 480)))
+    fun `GIVEN several JPEG sizes WHEN chooseCaptureSize is called THEN the sensor maximum is returned`() {
+        val size = LensCameraFragment.chooseCaptureSize(arrayOf(Size(1920, 1080), Size(4608, 3456), Size(640, 480)))
 
-        assertEquals(3264, size.width)
-        assertEquals(2448, size.height)
+        assertEquals(4608, size.width)
+        assertEquals(3456, size.height)
     }
 
     @Test
-    fun `GIVEN sizes exceeding MAX_CAPTURE_DIMENSION WHEN chooseCaptureSizeFromList is called THEN oversized entries are filtered out`() {
-        val size = LensCameraFragment.chooseCaptureSizeFromList(arrayOf(Size(5000, 4000), Size(3264, 2448)))
+    fun `GIVEN a maximum above the old dimension cap WHEN chooseCaptureSize is called THEN it is still returned`() {
+        // Capping the capture size takes the three-stream request outside camera2's guaranteed combinations.
+        val size = LensCameraFragment.chooseCaptureSize(arrayOf(Size(4608, 3456), Size(3840, 2160)))
 
-        assertEquals(3264, size.width)
-        assertEquals(2448, size.height)
+        assertEquals(4608, size.width)
+        assertEquals(3456, size.height)
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `GIVEN empty size array WHEN chooseCaptureSizeFromList is called THEN IllegalArgumentException is thrown`() {
-        LensCameraFragment.chooseCaptureSizeFromList(emptyArray())
+    fun `GIVEN empty size array WHEN chooseCaptureSize is called THEN IllegalArgumentException is thrown`() {
+        LensCameraFragment.chooseCaptureSize(emptyArray())
+    }
+
+    // --- chooseQrSize tests ---
+
+    @Test
+    fun `GIVEN supported YUV sizes WHEN chooseQrSize is called THEN the one closest to the analyzer target is returned`() {
+        val size =
+            LensCameraFragment.chooseQrSize(
+                arrayOf(Size(1920, 1080), Size(800, 600), Size(176, 144)),
+                1920,
+                1080,
+            )
+
+        // 800x600 is nearest QrAnalyzer's 786x786 target area.
+        assertEquals(800, size.width)
+        assertEquals(600, size.height)
     }
 
     @Test
-    fun `GIVEN all sizes exceed MAX_CAPTURE_DIMENSION WHEN chooseCaptureSizeFromList is called THEN first element is returned as fallback`() {
-        val size = LensCameraFragment.chooseCaptureSizeFromList(arrayOf(Size(5000, 5000), Size(4500, 4500)))
+    fun `GIVEN YUV sizes above the preview bounds WHEN chooseQrSize is called THEN an in-bounds size is returned`() {
+        val size =
+            LensCameraFragment.chooseQrSize(
+                arrayOf(Size(4608, 3456), Size(640, 480)),
+                1920,
+                1080,
+            )
 
-        assertEquals(5000, size.width)
-        assertEquals(5000, size.height)
+        assertEquals(640, size.width)
+        assertEquals(480, size.height)
+    }
+
+    @Test
+    fun `GIVEN no YUV size fits the preview bounds WHEN chooseQrSize is called THEN the smallest size is returned`() {
+        val size = LensCameraFragment.chooseQrSize(arrayOf(Size(4608, 3456), Size(2560, 1920)), 1920, 1080)
+
+        assertEquals(2560, size.width)
+        assertEquals(1920, size.height)
+    }
+
+    @Test
+    fun `GIVEN the camera reports no YUV sizes WHEN chooseQrSize is called THEN the analyzer default is returned`() {
+        val size = LensCameraFragment.chooseQrSize(null, 1920, 1080)
+
+        assertEquals(QrAnalyzer.YUV_WIDTH, size.width)
+        assertEquals(QrAnalyzer.YUV_HEIGHT, size.height)
     }
 
     // --- getDisplaySize tests ---

@@ -199,4 +199,44 @@ class StartSearchIntentProcessorTest {
             )
         }
     }
+
+    @Test
+    fun `GIVEN homepage as a new tab is enabled WHEN the intent is from the private browsing pinned shortcut THEN do not process`() {
+        every { settings.enableHomepageAsNewTab } returns true
+        val intent =
+            Intent().apply {
+                putExtra(
+                    HomeActivity.OPEN_TO_SEARCH,
+                    StartSearchIntentProcessor.PRIVATE_BROWSING_PINNED_SHORTCUT,
+                )
+            }
+        createProcessor(userHasBeenOnboarded = true).process(intent, navController, out, settings)
+
+        verify { navController wasNot Called }
+        verify { out wasNot Called }
+    }
+
+    @Test
+    fun `GIVEN homepage as a new tab is disabled WHEN the intent is from the private browsing pinned shortcut THEN navigate home with address bar focused`() {
+        every { settings.enableHomepageAsNewTab } returns false
+        val intent =
+            Intent().apply {
+                putExtra(
+                    HomeActivity.OPEN_TO_SEARCH,
+                    StartSearchIntentProcessor.PRIVATE_BROWSING_PINNED_SHORTCUT,
+                )
+            }
+        createProcessor(userHasBeenOnboarded = true).process(intent, navController, out, settings)
+
+        verify {
+            navController.navigate(
+                NavGraphDirections.actionGlobalHome(
+                    focusOnAddressBar = true,
+                    searchAccessPoint = MetricsUtils.Source.SHORTCUT,
+                ),
+                null,
+            )
+        }
+        verify { out.removeExtra(HomeActivity.OPEN_TO_SEARCH) }
+    }
 }

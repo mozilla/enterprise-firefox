@@ -1990,6 +1990,11 @@ const selectors = {
   excludePatternsInput: ".project-text-search .exclude-patterns-field input",
   fileSearchInput: ".search-bar input",
   fileSearchSummary: ".search-bar .search-field-summary",
+  fileSearchModifiersCaseSensitive:
+    ".search-buttons-bar button.case-sensitive-btn",
+  fileSearchModifiersRegexMatch: ".search-buttons-bar button.regex-match-btn",
+  fileSearchModifiersWholeWordMatch:
+    ".search-buttons-bar button.whole-word-btn",
   watchExpressionsHeader: ".watch-expressions-pane ._header .header-label",
   watchExpressionsAddButton: ".watch-expressions-pane ._header .plus",
   editorNotificationFooter: ".editor-notification-footer",

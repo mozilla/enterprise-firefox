@@ -115,14 +115,14 @@
         "value": {
           "default": "color-mix(in srgb, currentColor 17%, transparent)",
           "forcedColors": "{button.background.color.ghost.hover}",
-          "nativeTheme": "color-mix(in srgb, currentColor 17%, transparent)"
+          "nativeTheme": "{button.background.color.ghost.hover}"
         }
       },
       "active": {
         "value": {
           "default": "color-mix(in srgb, currentColor 30%, transparent)",
           "forcedColors": "{button.background.color.ghost.active}",
-          "nativeTheme": "color-mix(in srgb, currentColor 30%, transparent)"
+          "nativeTheme": "{button.background.color.ghost.active}"
         }
       }
     }

@@ -105,9 +105,7 @@ static bool ToNrIceCandidate(const nr_ice_candidate& candc,
 
   if (!ToNrIceAddr(cand->addr, &out->cand_addr)) return false;
 
-  if (cand->mdns_addr) {
-    out->mdns_addr = cand->mdns_addr;
-  }
+  out->domain_name = cand->addr.fqdn;
 
   if (cand->isock) {
     nr_transport_addr addr;
@@ -285,9 +283,9 @@ nsresult NrIceMediaStream::SetIceCredentials(const std::string& ufrag,
 }
 
 // Parse trickle ICE candidate
-nsresult NrIceMediaStream::ParseTrickleCandidate(const std::string& candidate,
-                                                 const std::string& ufrag,
-                                                 const std::string& mdns_addr) {
+nsresult NrIceMediaStream::ParseTrickleCandidate(
+    const std::string& candidate, const std::string& ufrag,
+    const std::string& resolved_address) {
   nr_ice_media_stream* stream = GetStreamForRemoteUfrag(ufrag);
   if (!stream) {
     return NS_ERROR_FAILURE;
@@ -299,7 +297,7 @@ nsresult NrIceMediaStream::ParseTrickleCandidate(const std::string& candidate,
 
   int r = nr_ice_peer_ctx_parse_trickle_candidate(
       ctx_->peer(), stream, const_cast<char*>(candidate.c_str()),
-      mdns_addr.c_str());
+      resolved_address.empty() ? nullptr : resolved_address.c_str());
 
   if (r) {
     if (r == R_ALREADY) {

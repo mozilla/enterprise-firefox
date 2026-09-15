@@ -185,8 +185,10 @@ add_task(async function test_renders_page_config() {
       await page.updateComplete;
 
       const { shadowRoot } = element;
+      const header = shadowRoot.querySelector("aitab-header");
+      await header.updateComplete;
       Assert.equal(
-        shadowRoot.querySelector(".aitab-title").textContent,
+        header.shadowRoot.querySelector(".aitab-title").textContent,
         config.header.title,
         "The header title is rendered"
       );
@@ -214,6 +216,98 @@ add_task(async function test_renders_page_config() {
       Assert.equal(chips[1].localName, "span", "A non-http href stays inert");
     });
   });
+
+  await SpecialPowers.popPrefEnv();
+});
+
+// Parent-actor branches that the states above do not reach: deleting
+// something already gone, and a store that throws.
+
+const { AITabStore } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/ui/modules/AITabStore.sys.mjs"
+);
+const { ConversationStore } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/ui/modules/ConversationStore.sys.mjs"
+);
+const { Conversation } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/Conversation.sys.mjs"
+);
+
+/**
+ * Reads the page the content document ended up with.
+ *
+ * @param {object} browser
+ * @returns {Promise<object>} status and the resolved page title, if any.
+ */
+function getPageState(browser) {
+  return SpecialPowers.spawn(browser, [], async () => {
+    await content.customElements.whenDefined("aitab-page");
+    const page = content.document.querySelector("aitab-page").wrappedJSObject;
+    await ContentTaskUtils.waitForCondition(
+      () => page.status != "loading",
+      "The page finishes its lookup"
+    );
+    return { status: page.status, title: page.page?.title ?? null };
+  });
+}
+
+add_task(async function test_deleting_an_already_deleted_page_succeeds() {
+  await SpecialPowers.pushPrefEnv({ set: [[AITAB_PREF, true]] });
+
+  await ConversationStore.updateConversation(
+    new Conversation({ id: "conv-twice", feature: "aitab" })
+  );
+  await AITabStore.create({
+    convId: "conv-twice",
+    slug: "twice_page",
+    title: "Twice",
+  });
+
+  // The tab has to be on the page being deleted: the parent reads the name
+  // from the tab URL rather than from the message.
+  await BrowserTestUtils.withNewTab(
+    "about:aitab?page=twice_page",
+    async browser => {
+      const actor =
+        browser.browsingContext.currentWindowGlobal.getActor("AITab");
+
+      const first = await actor.receiveMessage({ name: "AITab:DeletePage" });
+      Assert.ok(first.success, "The first delete succeeds");
+
+      // Deleting again is a no-op, not an error: the reader may retry, or
+      // two tabs may be open on the same page.
+      const second = await actor.receiveMessage({ name: "AITab:DeletePage" });
+      Assert.ok(
+        second.success,
+        "Deleting a page that is already gone succeeds"
+      );
+      Assert.ok(!second.error, "and reports no error");
+    }
+  );
+
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_a_failing_store_surfaces_an_error() {
+  await SpecialPowers.pushPrefEnv({ set: [[AITAB_PREF, true]] });
+
+  const original = AITabStore.getBySlug;
+  AITabStore.getBySlug = () => {
+    throw new Error("simulated store failure");
+  };
+
+  try {
+    await BrowserTestUtils.withNewTab(PAGE_URL, async browser => {
+      const state = await getPageState(browser);
+      Assert.equal(
+        state.status,
+        "error",
+        "A store that throws renders the error state, not an empty page"
+      );
+    });
+  } finally {
+    AITabStore.getBySlug = original;
+  }
 
   await SpecialPowers.popPrefEnv();
 });

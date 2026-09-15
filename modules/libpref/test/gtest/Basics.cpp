@@ -554,3 +554,56 @@ TEST(PrefsCallbackTrie, DeadNodeSkippedAfterCrossNodeUnregister)
   Preferences::UnregisterPrefixCallback(CrossUnregData::Callback,
                                         "test.trie.cross.a"_ns, &ancestor);
 }
+
+// Regression test for bug 2051106. A callback that, mid-notification, both
+// unregisters a co-notified callback and lets the dead-node sweep run frees
+// that callback's trie node while it is still in NotifyCallbacks' snapshot. In
+// the wild the sweep runs because the callback spins a nested event loop in
+// which the idle ReapAndCompactCallbacks task fires; here we run it
+// synchronously via ReapCallbacksForTesting to make the race deterministic.
+// The snapshot now holds strong references, so compaction only unlinks the
+// node and it stays alive (skipped, because unregistration cleared its func)
+// until the round ends. Before the fix the snapshot held raw pointers and the
+// loop dereferenced freed memory -- a use-after-free this asserts against
+// (ASan turns the regression into a hard failure).
+namespace {
+
+struct CompactDuringNotifyData {
+  int ancestorCount = 0;
+  int victimCount = 0;
+
+  static void Victim(const char*, void* aData) {
+    ++static_cast<CompactDuringNotifyData*>(aData)->victimCount;
+  }
+
+  static void Ancestor(const char*, void* aData) {
+    auto* d = static_cast<CompactDuringNotifyData*>(aData);
+    ++d->ancestorCount;
+    // Unregister the co-notified victim (marks it dead, schedules the sweep),
+    // then force the sweep now, while this notification round is still
+    // iterating its snapshot. Compact() frees the victim's trie node here.
+    Preferences::UnregisterCallback(Victim, "test.trie.uaf.a.b"_ns, d);
+    Preferences::ReapCallbacksForTesting();
+  }
+};
+
+}  // namespace
+
+TEST(PrefsCallbackTrie, CompactDuringNotifyDoesNotFreeSnapshot)
+{
+  CompactDuringNotifyData data;
+
+  Preferences::SetBool("test.trie.uaf.a.b", false);
+  // Ancestor (prefix) fires before the victim (exact) in the same round.
+  ASSERT_TRUE(NS_SUCCEEDED(Preferences::RegisterPrefixCallback(
+      CompactDuringNotifyData::Ancestor, "test.trie.uaf.a"_ns, &data)));
+  ASSERT_TRUE(NS_SUCCEEDED(Preferences::RegisterCallback(
+      CompactDuringNotifyData::Victim, "test.trie.uaf.a.b"_ns, &data)));
+
+  Preferences::SetBool("test.trie.uaf.a.b", true);
+  EXPECT_EQ(data.ancestorCount, 1);
+  EXPECT_EQ(data.victimCount, 0);
+
+  Preferences::UnregisterPrefixCallback(CompactDuringNotifyData::Ancestor,
+                                        "test.trie.uaf.a"_ns, &data);
+}

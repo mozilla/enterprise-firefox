@@ -482,7 +482,7 @@ html|a:focus-visible,
 ::part(support-link):focus-visible {
   outline: var(--focus-outline);
   outline-offset: var(--link-focus-outline-offset);
-  border-radius: var(--border-radius-small);
+  border-radius: var(--link-border-radius-focus);
 }
 
 button.text-link {

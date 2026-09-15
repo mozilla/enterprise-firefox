@@ -1381,9 +1381,14 @@ function checkAppBundleModTime() {
 
 /**
  * Checks that the updater wrote update_telemetry.json to the install directory
- * with a valid, recent install_timestamp.
+ * with a valid, recent install_timestamp. On macOS the updater does not write
+ * this file so we assert it is absent instead.
  */
 function checkUpdateTelemetry() {
+  if (AppConstants.platform == "macosx") {
+    checkNoUpdateTelemetry();
+    return;
+  }
   let telemetryFile = getApplyDirFile("update_telemetry.json");
   Assert.ok(
     telemetryFile.exists(),

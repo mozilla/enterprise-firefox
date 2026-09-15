@@ -16,7 +16,7 @@
 #include "mozilla/dom/DocumentFragment.h"
 #include "mozilla/dom/DocumentType.h"
 #include "mozilla/dom/Element.h"
-#include "mozilla/dom/FeaturePolicy.h"
+#include "mozilla/dom/PermissionsPolicy.h"
 #include "mozilla/dom/ProcessingInstruction.h"
 #include "mozilla/dom/ScriptLoader.h"
 #include "nsCharsetSource.h"
@@ -772,7 +772,7 @@ nsresult txMozillaXMLOutput::createResultDocument(const nsAString& aName,
 
   if (mNotifier) {
     MOZ_TRY(mNotifier->SetOutputDocument(mDocument));
-    MOZ_TRY(mDocument->InitFeaturePolicy(mDocument->GetChannel()));
+    MOZ_TRY(mDocument->InitPermissionsPolicy(mDocument->GetChannel()));
   }
 
   // Do this after calling OnDocumentCreated to ensure that the

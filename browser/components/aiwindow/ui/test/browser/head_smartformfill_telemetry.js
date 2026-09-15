@@ -26,6 +26,9 @@ const CONTACT_FIELDS = 2;
 // What the fakes report as the model and prompt a request was built with.
 const TEST_MODEL_INFO = { model: "test-model", promptVersion: "42" };
 
+// What the fakes answer a field with, and so what an edit is measured against.
+const GENERATED_VALUE = "generated value";
+
 /**
  * Classifies every field of the request, so the recorded field_kind has a
  * value.
@@ -52,6 +55,27 @@ async function classifyEveryField(request, { onDispatch } = {}) {
 }
 
 /**
+ * Classifies each field as whatever its name is mapped to, so a round can mix
+ * the fields the model could name with the ones it could not.
+ *
+ * @param {Map<string, string | undefined>} typeByFieldName
+ * @returns {Function} A fake for classifyFields
+ */
+function classifyAs(typeByFieldName) {
+  return async (request, { onDispatch } = {}) => {
+    onDispatch?.(TEST_MODEL_INFO);
+
+    return {
+      fields: request.fields.map(({ id, name }) => ({
+        id,
+        type: typeByFieldName.get(name),
+        confidence: "high",
+      })),
+    };
+  };
+}
+
+/**
  * Finds no tab relevant, which is what the assertions that are not about tab
  * selection expect.
  *
@@ -64,6 +88,25 @@ async function selectNoTabs(request, { onDispatch } = {}) {
   onDispatch?.(TEST_MODEL_INFO);
 
   return { selectedTabs: [] };
+}
+
+/**
+ * Finds the first tab of the request relevant, so a round starts from a
+ * selection the user can then be made to change.
+ *
+ * @param {object} request
+ * @param {object} [param1={}]
+ * @param {Function} [param1.onDispatch]
+ * @returns {Promise<object>}
+ */
+async function selectTheFirstTab(request, { onDispatch } = {}) {
+  onDispatch?.(TEST_MODEL_INFO);
+
+  return {
+    selectedTabs: request.tabs
+      .slice(0, 1)
+      .map(({ id }) => ({ id, relevance: "high" })),
+  };
 }
 
 /**
@@ -83,7 +126,7 @@ async function generateEveryValue(request, { onDispatch } = {}) {
     fields: request.fields.map(({ id }) => ({
       id,
       action: "generate",
-      value: "generated value",
+      value: GENERATED_VALUE,
       confidence: "high",
     })),
     batches: { total: 1, failed: 0 },
@@ -138,7 +181,8 @@ async function closeFormReview(win, browser) {
  * The model is stubbed so the assertions describe the telemetry rather than
  * whatever the model layer currently answers.
  *
- * @param {object} overrides Fakes for the stubbed model calls.
+ * @param {object} overrides Fakes for the stubbed model calls, plus
+ *   contextTabs: urls to open before the form, for the model to choose from.
  * @param {Function} callback Receives { win, browser, actor }.
  * @returns {Promise<void>}
  */
@@ -157,10 +201,14 @@ async function withFormPage(overrides, callback) {
     .callsFake(overrides.generateFormValues ?? generateEveryValue);
 
   const win = await openAIWindow();
-  const tab = await BrowserTestUtils.openNewForegroundTab(
-    win.gBrowser,
-    TEST_PAGE
-  );
+
+  // Opened before the form, so the form is the focused tab once they are all
+  // there.
+  for (const url of overrides.contextTabs ?? []) {
+    await openTabAndWaitForTabList(win, url);
+  }
+
+  const tab = await openTabAndWaitForTabList(win, TEST_PAGE);
   const browser = tab.linkedBrowser;
   const actor =
     browser.browsingContext.currentWindowGlobal.getActor("SmartFormFill");
@@ -289,14 +337,15 @@ async function runRoundOnForm(browser, actor, selector = "#email") {
 }
 
 /**
- * Approves the values the review dialog is holding, which is what makes the
- * page write them.
+ * Waits for the review dialog and hands back the dialog along with the browser
+ * holding the review component, which is what the values are asserted on and
+ * edited through.
  *
  * @param {Window} win
  * @param {MozBrowser} browser
- * @returns {Promise<void>}
+ * @returns {Promise<{dialog: SubDialog, reviewBrowser: MozBrowser}>}
  */
-async function fillFormReview(win, browser) {
+async function getFormReview(win, browser) {
   const dialogManager = win.gBrowser
     .getTabDialogBox(browser)
     .getTabDialogManager();
@@ -311,12 +360,59 @@ async function fillFormReview(win, browser) {
   const reviewBrowser = dialog._frame.contentWindow.document.querySelector(
     "#form-review-browser"
   );
-
   await waitForFormReviewState(reviewBrowser, FORM_REVIEW_STATES.REVIEW);
+
+  return { dialog, reviewBrowser };
+}
+
+/**
+ * Approves the values the review dialog is holding, which is what makes the
+ * page write them.
+ *
+ * @param {Window} win
+ * @param {MozBrowser} browser
+ * @returns {Promise<void>}
+ */
+async function fillFormReview(win, browser) {
+  const { reviewBrowser } = await getFormReview(win, browser);
   // Fill form only enables once the generated values have been scrolled
   // through.
   await scrollFormReviewFieldsToBottom(reviewBrowser);
   await activateFormReviewButton(reviewBrowser, "ai-smart-form-fill-fill-form");
+}
+
+/**
+ * Rejects the values the review dialog is holding, which is what makes the
+ * round end without the page writing anything.
+ *
+ * @param {Window} win
+ * @param {MozBrowser} browser
+ * @returns {Promise<void>}
+ */
+async function cancelFormReview(win, browser) {
+  const { dialog, reviewBrowser } = await getFormReview(win, browser);
+  const closed = waitForFormReviewClose(win, dialog);
+  await activateFormReviewButton(
+    reviewBrowser,
+    "ai-smart-form-fill-cancel-review"
+  );
+  await closed;
+}
+
+/**
+ * Adds a field to the contact form, which the document's observer reports as a
+ * form update.
+ *
+ * @param {MozBrowser} browser
+ * @returns {Promise<void>}
+ */
+function addFieldToForm(browser) {
+  return SpecialPowers.spawn(browser, [], () => {
+    const input = content.document.createElement("input");
+    input.type = "text";
+    input.name = "city";
+    content.document.getElementById("contact").append(input);
+  });
 }
 
 /**
@@ -327,15 +423,22 @@ async function fillFormReview(win, browser) {
  * @param {Window} win
  * @param {MozBrowser} browser
  * @param {object} actor The SmartFormFill parent actor
+ * @param {number} [fieldCount] Fields the round is expected to report, which a
+ *   form a test added a field to has more of
  * @returns {Promise<void>}
  */
-async function fillContactForm(win, browser, actor) {
+async function fillContactForm(
+  win,
+  browser,
+  actor,
+  fieldCount = CONTACT_FIELDS
+) {
   await runRoundOnForm(browser, actor);
   await fillFormReview(win, browser);
 
   // The decision events land when the page reports what it filled, which is
   // also what starts the tracking the outcomes come from.
-  await waitForEvents("formFillField", CONTACT_FIELDS);
+  await waitForEvents("formFillField", fieldCount);
   await closeFormReview(win, browser);
   await SimpleTest.promiseFocus(browser);
 }

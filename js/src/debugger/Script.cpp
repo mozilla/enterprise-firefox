@@ -47,9 +47,9 @@
 #include "wasm/WasmTypeDecls.h"       // for Bytes
 
 #include "debugger/Script-inl.h"
-#include "gc/Marking-inl.h"       // for MaybeForwardedObjectIs
-#include "vm/BytecodeUtil-inl.h"  // for BytecodeRangeWithPosition
-#include "vm/JSAtomUtils-inl.h"   // for PrimitiveValueToId
+#include "gc/Marking-inl.h"           // for MaybeForwardedObjectIs
+#include "vm/BytecodeIterator-inl.h"  // for BytecodeRangeWithPosition
+#include "vm/JSAtomUtils-inl.h"       // for PrimitiveValueToId
 #include "vm/JSObject-inl.h"  // for NewBuiltinClassInstance, NewObjectWithGivenProto
 #include "vm/JSScript-inl.h"          // for JSScript::global
 #include "vm/ObjectOperations-inl.h"  // for GetProperty

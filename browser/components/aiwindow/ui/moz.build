@@ -51,6 +51,7 @@ MOZ_SRC_FILES += [
     "modules/ConversationStore.sys.mjs",
     "modules/FeedbackModal.sys.mjs",
     "modules/MonitorAttention.sys.mjs",
+    "modules/MonitorPanel.sys.mjs",
     "modules/MonitorUIUtils.sys.mjs",
     "modules/ResumeActivityDismissals.sys.mjs",
     "modules/SmartFormFillAutocomplete.sys.mjs",

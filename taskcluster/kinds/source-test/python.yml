@@ -365,6 +365,7 @@ taskgraph-tests:
         subsuite: taskgraph
     when:
         files-changed:
+            - 'build/sparse-profiles/**'
             - 'python/mach/**/*.py'
             - 'taskcluster/**/*.py'
             - 'taskcluster/requirements.txt'

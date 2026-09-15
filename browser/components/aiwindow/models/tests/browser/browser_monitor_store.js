@@ -328,6 +328,54 @@ add_task(async function test_listMonitors_does_not_require_created_at_index() {
   );
 });
 
+add_task(async function test_shutdown_fetch_state_describes_pending_writes() {
+  await resetMonitorStore();
+
+  let fetchState;
+  const shutdownClient = {
+    addBlocker(_name, _blocker, options) {
+      fetchState = options.fetchState;
+    },
+    removeBlocker() {},
+  };
+  const store = new MonitorStoreImpl(shutdownClient);
+  const savePromise = store.saveMonitor(
+    makeMonitor({ id: "private-monitor-id" })
+  );
+  const deletePromise = store.deleteMonitor("private-monitor-id");
+
+  const state = fetchState();
+  Assert.deepEqual(
+    state.pendingWrites.map(write => ({
+      operation: write.operation,
+      state: write.state,
+    })),
+    [
+      { operation: "saveMonitor", state: "queued" },
+      { operation: "deleteMonitor", state: "queued" },
+    ],
+    "Shutdown state identifies queued writes without their data."
+  );
+  Assert.ok(
+    state.pendingWrites.every(
+      write => Number.isInteger(write.pendingForMs) && write.pendingForMs >= 0
+    ),
+    "Shutdown state reports how long each write has been pending."
+  );
+  Assert.ok(
+    !JSON.stringify(state).includes("private-monitor-id"),
+    "Shutdown state does not expose monitor identifiers."
+  );
+
+  await Promise.all([savePromise, deletePromise]);
+  Assert.deepEqual(
+    fetchState().pendingWrites,
+    [],
+    "Completed writes are removed from shutdown state."
+  );
+  await store.close();
+});
+
 add_task(async function test_shutdown_waits_for_pending_real_database_write() {
   await resetMonitorStore();
 
@@ -384,6 +432,79 @@ add_task(async function test_shutdown_waits_for_pending_real_database_write() {
     );
   } finally {
     await verificationStore.close();
+  }
+});
+
+add_task(async function test_shutdown_does_not_wait_for_database_open() {
+  await resetMonitorStore();
+
+  const barrier = new AsyncShutdown.Barrier("MonitorStore test shutdown");
+  const store = new MonitorStoreImpl(barrier.client);
+  const blockingDatabase = await IndexedDB.open(
+    MonitorStore.databaseName,
+    MonitorStore.databaseVersion
+  );
+  const waitForRequest = request =>
+    new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  let deletionPromise;
+
+  try {
+    const deletionRequest = IndexedDB.deleteDatabase(MonitorStore.databaseName);
+    deletionPromise = waitForRequest(deletionRequest);
+    const deletionBlocked = new Promise(resolve => {
+      deletionRequest.onblocked = resolve;
+    });
+    await deletionBlocked;
+
+    const listPromise = store.listMonitors();
+    let listFinished = false;
+    listPromise.then(
+      () => {
+        listFinished = true;
+      },
+      () => {
+        listFinished = true;
+      }
+    );
+    await TestUtils.waitForTick();
+    Assert.ok(!listFinished, "Opening the database is blocked.");
+
+    let shutdownFinished = false;
+    const shutdownPromise = barrier.wait().then(() => {
+      shutdownFinished = true;
+    });
+    for (let attempt = 0; attempt < 10 && !shutdownFinished; attempt++) {
+      await TestUtils.waitForTick();
+    }
+    const shutdownFinishedBeforeOpen = shutdownFinished;
+
+    blockingDatabase.close();
+    await deletionPromise;
+    await Assert.rejects(
+      listPromise,
+      /Monitor store is shutting down/,
+      "The pending read rejects when its database eventually opens."
+    );
+    await shutdownPromise;
+
+    Assert.ok(
+      shutdownFinishedBeforeOpen,
+      "Shutdown does not wait for a read-only database open."
+    );
+
+    let cleanupBlocked = false;
+    const cleanupRequest = IndexedDB.deleteDatabase(MonitorStore.databaseName);
+    cleanupRequest.onblocked = () => {
+      cleanupBlocked = true;
+    };
+    await waitForRequest(cleanupRequest);
+    Assert.ok(!cleanupBlocked, "The late database was closed.");
+  } finally {
+    blockingDatabase.close();
+    await deletionPromise?.catch(() => {});
   }
 });
 

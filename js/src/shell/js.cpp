@@ -13444,7 +13444,6 @@ bool InitOptionParser(OptionParser& op) {
       !op.addBoolOption('\0', "enable-joint-iteration",
                         "Enable Joint Iteration") ||
       !op.addBoolOption('\0', "enable-atomics-pause", "Enable Atomics pause") ||
-      !op.addBoolOption('\0', "enable-temporal", "Enable Temporal") ||
       !op.addBoolOption('\0', "enable-import-bytes", "Enable import bytes") ||
       !op.addBoolOption('\0', "enable-export-star-default",
                         "Include default in export * declarations") ||
@@ -13592,11 +13591,6 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
         setAtStartup_experimental_source_phase_imports_test262_module_source(
             true);
   }
-#ifdef JS_HAS_INTL_API
-  if (op.getBoolOption("enable-temporal")) {
-    JS::Prefs::setAtStartup_experimental_temporal(true);
-  }
-#endif
   JS::Prefs::setAtStartup_experimental_weakrefs_expose_cleanupSome(true);
 
   if (op.getBoolOption("disable-property-error-message-fix")) {

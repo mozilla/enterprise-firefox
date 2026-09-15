@@ -55,6 +55,12 @@ const lazy = XPCOMUtils.declareLazy({
  */
 const gEngineIconDataUrls = new Map();
 
+/*
+ * Factor applied to the previous `moz_inputhistory.use_count` each time a
+ * (url, input) tuple is picked.
+ */
+export const INPUT_HISTORY_USE_DECAY = 0.9;
+
 /**
  * Parses a URL and returns the origin parts needed for moz_origins lookups.
  * Returns null if the URL is unparseable.
@@ -535,13 +541,18 @@ export var UrlbarUtils = {
         return db.executeCached(
           `
           INSERT OR REPLACE INTO moz_inputhistory
-          SELECT h.id, IFNULL(i.input, :input), IFNULL(i.use_count, 0) * .9 + 1
+          SELECT h.id, IFNULL(i.input, :input),
+                 IFNULL(i.use_count, 0) * :useDecay + 1
           FROM moz_places h
           LEFT JOIN moz_inputhistory i ON i.place_id = h.id AND i.input = :input
           WHERE url_hash = hash(:url) AND url = :url
           RETURNING place_id
           `,
-          { url, input: input.toLowerCase() }
+          {
+            url,
+            input: input.toLowerCase(),
+            useDecay: INPUT_HISTORY_USE_DECAY,
+          }
         );
       }
     );

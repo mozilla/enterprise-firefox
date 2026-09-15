@@ -77,7 +77,7 @@ const CONFIDENCE_RANK = new Map([
 
 // The lowest confidence a model's value must reach to be filled. Reported as
 // the threshold of the generation request, so both have to move together.
-const FILL_CONFIDENCE_THRESHOLD = "high";
+const FILL_CONFIDENCE_THRESHOLD = "medium";
 
 /**
  * @typedef {{
@@ -424,8 +424,16 @@ export class SmartFormFillController {
     const page = this.#pageInfo;
 
     // NOTE: These are disabled for v0, will enable in later version
-    //const memories = this.#getMemories(page, fields);
-    const memories = [];
+    //const relevantMemories = await this.#getMemories(page, fields);
+    const relevantMemories = [];
+
+    const memories = relevantMemories.map(memory => ({
+      id: memory.id,
+      memory_summary: memory.memory_summary,
+    }));
+    const similarityByMemory = new Map(
+      relevantMemories.map(memory => [memory.id, memory.similarity])
+    );
 
     const relevantTabs = selectedTabs.map(selectedTab => {
       const { title, url } = this.#tabsById.get(selectedTab.id);
@@ -481,6 +489,7 @@ export class SmartFormFillController {
             valuesByToken,
             modelInfo,
             threshold: FILL_CONFIDENCE_THRESHOLD,
+            similarityByMemory,
           });
         },
       });
@@ -500,6 +509,7 @@ export class SmartFormFillController {
         formFields,
         classifications,
         tokensByFieldId,
+        similarityByMemory,
       });
 
       return {
@@ -526,7 +536,11 @@ export class SmartFormFillController {
    * @param {PageInfo} pageInfo
    * @param {Array<FieldData>} fields
    *
-   * @returns {Promise<Array<{id: string, memory_summary: string}>>}
+   * @returns {Promise<Array<{
+   *   id: string,
+   *   memory_summary: string,
+   *   similarity: number,
+   * }>>}
    */
   // eslint-disable-next-line no-unused-private-class-members -- will be enabled in v0+
   async #getMemories(pageInfo, fields) {
@@ -553,9 +567,9 @@ export class SmartFormFillController {
       await lazy.MemoriesManager.getRelevantMemories(contextMessage);
 
     return relevantMemories.map(relevant_memory => {
-      const { id, memory_summary } = relevant_memory;
+      const { id, memory_summary, similarity } = relevant_memory;
 
-      return { id, memory_summary };
+      return { id, memory_summary, similarity };
     });
   }
 

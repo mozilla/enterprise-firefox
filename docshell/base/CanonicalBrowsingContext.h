@@ -8,7 +8,7 @@
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/MediaControlKeySource.h"
 #include "mozilla/dom/BrowsingContextWebProgress.h"
-#include "mozilla/dom/FeaturePolicy.h"
+#include "mozilla/dom/PermissionsPolicy.h"
 #include "mozilla/dom/ProcessIsolation.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/SessionHistoryEntry.h"
@@ -52,7 +52,7 @@ namespace dom {
 
 class BrowserParent;
 class BrowserBridgeParent;
-class FeaturePolicy;
+class PermissionsPolicy;
 struct LoadURIOptions;
 class MediaController;
 enum class AudioFocusInterruptAction : uint8_t;
@@ -344,10 +344,10 @@ class CanonicalBrowsingContext final : public BrowsingContext {
 
   void ResetScalingZoom();
 
-  void SetContainerFeaturePolicy(
-      Maybe<FeaturePolicyInfo>&& aContainerFeaturePolicyInfo);
-  const Maybe<FeaturePolicyInfo>& GetContainerFeaturePolicy() const {
-    return mContainerFeaturePolicyInfo;
+  void SetContainerPermissionsPolicy(
+      Maybe<PermissionsPolicyInfo>&& aContainerPermissionsPolicyInfo);
+  const Maybe<PermissionsPolicyInfo>& GetContainerPermissionsPolicy() const {
+    return mContainerPermissionsPolicyInfo;
   }
 
   void SetRestoreData(SessionStoreRestoreData* aData, ErrorResult& aError);
@@ -685,7 +685,7 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   nsCOMPtr<nsIWebProgressListener> mDocShellProgressBridge;
   RefPtr<nsBrowserStatusFilter> mStatusFilter;
 
-  Maybe<FeaturePolicyInfo> mContainerFeaturePolicyInfo;
+  Maybe<PermissionsPolicyInfo> mContainerPermissionsPolicyInfo;
 
   friend class BrowserSessionStore;
   WeakPtr<SessionStoreFormData>& GetSessionStoreFormDataRef() {

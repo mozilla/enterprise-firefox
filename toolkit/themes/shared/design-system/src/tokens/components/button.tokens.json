@@ -142,7 +142,11 @@
           }
         },
         "active": {
-          "value": "{button.background.color.active}"
+          "value": {
+            "default": "{button.background.color.active}",
+            "nativeTheme": "color-mix(in srgb, currentColor 30%, transparent)",
+            "forcedColors": "{button.background.color.active}"
+          }
         },
         "disabled": {
           "ignoreFigma": "Preserve token structure that can't be replicated in Figma",
@@ -154,7 +158,11 @@
           }
         },
         "hover": {
-          "value": "{button.background.color.hover}"
+          "value": {
+            "default": "{button.background.color.hover}",
+            "nativeTheme": "color-mix(in srgb, currentColor 17%, transparent)",
+            "forcedColors": "{button.background.color.hover}"
+          }
         },
         "selected": {
           "value": "{button.background.color.ghost.active}"
@@ -602,10 +610,8 @@
         "@base": {
           "value": {
             "default": "inherit",
-            "brand": {
-              "prefersContrast": "{button.text.color.@base}",
-              "forcedColors": "{button.text.color.@base}"
-            },
+            "prefersContrast": "{button.text.color.@base}",
+            "forcedColors": "{button.text.color.@base}",
             "nova": {
               "comment": "Preserve token structure that can't be replicated in Figma",
               "value": {

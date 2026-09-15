@@ -37,6 +37,13 @@ class StartSearchIntentProcessor(
         }
 
         val event = intent.extras?.getString(HomeActivity.OPEN_TO_SEARCH)
+
+        // When the homepage is a new tab, the private browsing shortcut opens the private homepage instead, which
+        // OpenHomeIntentProcessor handles.
+        if (event == PRIVATE_BROWSING_PINNED_SHORTCUT && settings.enableHomepageAsNewTab) {
+            return false
+        }
+
         return if (event != null) {
             val source =
                 when (event) {

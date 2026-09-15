@@ -1975,9 +1975,6 @@ bool WarpCacheIRTranspiler::emitStoreFixedSlotFromOffset(
   MDefinition* offset = getOperand(offsetId);
   MDefinition* rhs = getOperand(rhsId);
 
-  auto* barrier = MPostWriteBarrier::New(alloc(), obj, rhs);
-  add(barrier);
-
   auto* store =
       MStoreFixedSlotFromOffset::NewBarriered(alloc(), obj, offset, rhs);
   addEffectful(store);
@@ -1990,9 +1987,6 @@ bool WarpCacheIRTranspiler::emitStoreDynamicSlotFromOffset(
   MDefinition* obj = getOperand(objId);
   MDefinition* offset = getOperand(offsetId);
   MDefinition* rhs = getOperand(rhsId);
-
-  auto* barrier = MPostWriteBarrier::New(alloc(), obj, rhs);
-  add(barrier);
 
   auto* slots = MSlots::New(alloc(), obj);
   add(slots);
@@ -3074,9 +3068,6 @@ bool WarpCacheIRTranspiler::emitStoreDynamicSlot(ObjOperandId objId,
   size_t slotIndex = NativeObject::getDynamicSlotIndexFromOffset(offset);
   MDefinition* rhs = getOperand(rhsId);
 
-  auto* barrier = MPostWriteBarrier::New(alloc(), obj, rhs);
-  add(barrier);
-
   auto* slots = MSlots::New(alloc(), obj);
   add(slots);
 
@@ -3094,9 +3085,6 @@ bool WarpCacheIRTranspiler::emitStoreFixedSlot(ObjOperandId objId,
   size_t slotIndex = NativeObject::getFixedSlotIndexFromOffset(offset);
   MDefinition* rhs = getOperand(rhsId);
 
-  auto* barrier = MPostWriteBarrier::New(alloc(), obj, rhs);
-  add(barrier);
-
   auto* store = MStoreFixedSlot::NewBarriered(alloc(), obj, slotIndex, rhs);
   addEffectful(store);
   return resumeAfter(store);
@@ -3109,9 +3097,6 @@ bool WarpCacheIRTranspiler::emitStoreFixedSlotUndefinedResult(
   MDefinition* obj = getOperand(objId);
   size_t slotIndex = NativeObject::getFixedSlotIndexFromOffset(offset);
   MDefinition* rhs = getOperand(rhsId);
-
-  auto* barrier = MPostWriteBarrier::New(alloc(), obj, rhs);
-  add(barrier);
 
   auto* store = MStoreFixedSlot::NewBarriered(alloc(), obj, slotIndex, rhs);
   addEffectful(store);
@@ -3130,9 +3115,6 @@ bool WarpCacheIRTranspiler::emitAddAndStoreSlotShared(
 
   MDefinition* obj = getOperand(objId);
   MDefinition* rhs = getOperand(rhsId);
-
-  auto* barrier = MPostWriteBarrier::New(alloc(), obj, rhs);
-  add(barrier);
 
   auto* addAndStore = MAddAndStoreSlot::New(alloc(), obj, rhs, kind, offset,
                                             shape, preserveWrapper);
@@ -3171,9 +3153,6 @@ bool WarpCacheIRTranspiler::emitAllocateAndStoreDynamicSlot(
   MDefinition* obj = getOperand(objId);
   MDefinition* rhs = getOperand(rhsId);
 
-  auto* barrier = MPostWriteBarrier::New(alloc(), obj, rhs);
-  add(barrier);
-
   auto* allocateAndStore = MAllocateAndStoreSlot::New(
       alloc(), obj, rhs, offset, shape, numNewSlots, preserveWrapper);
   addEffectful(allocateAndStore);
@@ -3202,12 +3181,10 @@ bool WarpCacheIRTranspiler::emitStoreDenseElement(ObjOperandId objId,
     add(guardPacked);
   }
 
-  auto* barrier = MPostWriteElementBarrier::New(alloc(), obj, rhs, index);
-  add(barrier);
-
   bool needsHoleCheck = !expectPackedElements;
   auto* store = MStoreElement::NewBarriered(alloc(), elements, index, rhs,
                                             needsHoleCheck);
+  store->setCanUseElementPostBarrier();
   addEffectful(store);
   return resumeAfter(store);
 }
@@ -3233,12 +3210,11 @@ bool WarpCacheIRTranspiler::emitStoreDenseElementHole(ObjOperandId objId,
 
     index = addBoundsCheck(index, length);
 
-    auto* barrier = MPostWriteElementBarrier::New(alloc(), obj, rhs, index);
-    add(barrier);
-
     bool needsHoleCheck = false;
-    store = MStoreElement::NewBarriered(alloc(), elements, index, rhs,
-                                        needsHoleCheck);
+    auto* storeElem = MStoreElement::NewBarriered(alloc(), elements, index, rhs,
+                                                  needsHoleCheck);
+    storeElem->setCanUseElementPostBarrier();
+    store = storeElem;
   }
   addEffectful(store);
 
@@ -6897,12 +6873,11 @@ bool WarpCacheIRTranspiler::emitSpecializedBindFunctionResult(
   MOZ_ASSERT(numBoundArgs <= BoundFunctionObject::MaxInlineBoundArgs);
 
   auto initSlot = [&](size_t slot, MDefinition* value) {
-#ifdef DEBUG
-    // Assert we can elide the post write barrier. See also the comment in
+    // No post barrier is needed here. See the comment in
     // WarpBuilder::buildNamedLambdaEnv.
-    add(MAssertCanElidePostWriteBarrier::New(alloc(), bound, value));
-#endif
-    addUnchecked(MStoreFixedSlot::NewUnbarriered(alloc(), bound, slot, value));
+    auto* store = MStoreFixedSlot::NewNoPreBarrier(alloc(), bound, slot, value);
+    store->setNeedsPostBarrier(false);
+    addUnchecked(store);
   };
 
   initSlot(BoundFunctionObject::targetSlot(), target);

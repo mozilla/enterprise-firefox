@@ -105,7 +105,6 @@ EXPORTS += [
     "nsIFrameInlines.h",
     "nsILineIterator.h",
     "nsIntervalSet.h",
-    "nsIStatefulFrame.h",
     "nsLineBox.h",
     "nsPageSequenceFrame.h",
     "nsPlaceholderFrame.h",

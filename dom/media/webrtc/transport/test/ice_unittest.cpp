@@ -65,6 +65,8 @@ MOZ_RUNINIT const std::string kBogusIceCandidate(
 
 MOZ_RUNINIT const std::string kUnreachableHostIceCandidate(
     (char*)"candidate:0 1 UDP 2113601790 192.168.178.20 50769 typ host");
+MOZ_RUNINIT const std::string kUnreachableMDNSIceCandidate(
+    (char*)"candidate:0 1 UDP 2113601790 host.local 50769 typ host");
 
 namespace {
 
@@ -654,7 +656,7 @@ class IceTestPeer : public sigslot::has_slots<> {
       if (a.find("typ host") != std::string::npos) {
         nr_transport_addr addr;
         std::vector<std::string> tokens = split(a, ' ');
-        int r = nr_str_port_to_transport_addr(tokens.at(4).c_str(), 0,
+        int r = nr_str_port_to_transport_addr(tokens.at(4).c_str(), nullptr, 0,
                                               IPPROTO_UDP, &addr);
         MOZ_ASSERT(!r);
         if (!r && (addr.ip_version == NR_IPV4)) {
@@ -1334,17 +1336,17 @@ class IceTestPeer : public sigslot::has_slots<> {
   }
 
   void ParseCandidate_s(size_t i, const std::string& candidate,
-                        const std::string& mdns_addr) {
+                        const std::string& resolved_address) {
     auto media_stream = GetStream_s(i);
     ASSERT_TRUE(media_stream.get())
     << "No such stream " << i;
-    media_stream->ParseTrickleCandidate(candidate, "", mdns_addr);
+    media_stream->ParseTrickleCandidate(candidate, "", resolved_address);
   }
 
   void ParseCandidate(size_t i, const std::string& candidate,
-                      const std::string& mdns_addr) {
+                      const std::string& resolved_address) {
     test_utils_->SyncDispatchToSTS(WrapRunnable(
-        this, &IceTestPeer::ParseCandidate_s, i, candidate, mdns_addr));
+        this, &IceTestPeer::ParseCandidate_s, i, candidate, resolved_address));
   }
 
   void DisableComponent_s(size_t index, int component_id) {
@@ -1997,8 +1999,8 @@ class WebRtcIcePrioritizerTest : public StunTest {
     local_addr.interface.type = type;
     local_addr.interface.estimated_speed = estimated_speed;
 
-    int r = nr_str_port_to_transport_addr(str_addr.c_str(), 0, IPPROTO_UDP,
-                                          &(local_addr.addr));
+    int r = nr_str_port_to_transport_addr(str_addr.c_str(), nullptr, 0,
+                                          IPPROTO_UDP, &(local_addr.addr));
     ASSERT_EQ(0, r);
     strncpy(local_addr.addr.ifname, ifname.c_str(), MAXIFNAME - 1);
     local_addr.addr.ifname[MAXIFNAME - 1] = '\0';
@@ -2936,7 +2938,7 @@ TEST_F(WebRtcIceConnectTest,
   wifi_addr.interface.type = NR_INTERFACE_TYPE_WIFI;
   wifi_addr.interface.estimated_speed = 1000;
 
-  int r = nr_str_port_to_transport_addr(FAKE_WIFI_ADDR, 0, IPPROTO_UDP,
+  int r = nr_str_port_to_transport_addr(FAKE_WIFI_ADDR, nullptr, 0, IPPROTO_UDP,
                                         &(wifi_addr.addr));
   ASSERT_EQ(0, r);
   strncpy(wifi_addr.addr.ifname, FAKE_WIFI_IF_NAME, MAXIFNAME);
@@ -4258,10 +4260,10 @@ TEST_F(WebRtcIceConnectTest, DISABLED_TestHostCandPairingFilter) {
     std::cerr << "Verifying pair:" << std::endl;
     p1_->DumpCandidatePair(p);
     nr_transport_addr addr;
-    nr_str_port_to_transport_addr(p.local.local_addr.host.c_str(), 0,
+    nr_str_port_to_transport_addr(p.local.local_addr.host.c_str(), nullptr, 0,
                                   IPPROTO_UDP, &addr);
     ASSERT_TRUE(nr_transport_addr_get_private_addr_range(&addr) == host_net);
-    nr_str_port_to_transport_addr(p.remote.cand_addr.host.c_str(), 0,
+    nr_str_port_to_transport_addr(p.remote.cand_addr.host.c_str(), nullptr, 0,
                                   IPPROTO_UDP, &addr);
     ASSERT_TRUE(nr_transport_addr_get_private_addr_range(&addr) == host_net);
   }
@@ -4298,10 +4300,10 @@ TEST_F(WebRtcIceConnectTest, DISABLED_TestSrflxCandPairingFilter) {
     std::cerr << "Verifying P1 pair:" << std::endl;
     p1_->DumpCandidatePair(p);
     nr_transport_addr addr;
-    nr_str_port_to_transport_addr(p.local.local_addr.host.c_str(), 0,
+    nr_str_port_to_transport_addr(p.local.local_addr.host.c_str(), nullptr, 0,
                                   IPPROTO_UDP, &addr);
     ASSERT_TRUE(nr_transport_addr_get_private_addr_range(&addr) != 0);
-    nr_str_port_to_transport_addr(p.remote.cand_addr.host.c_str(), 0,
+    nr_str_port_to_transport_addr(p.remote.cand_addr.host.c_str(), nullptr, 0,
                                   IPPROTO_UDP, &addr);
     ASSERT_TRUE(nr_transport_addr_get_private_addr_range(&addr) == 0);
   }
@@ -4310,10 +4312,10 @@ TEST_F(WebRtcIceConnectTest, DISABLED_TestSrflxCandPairingFilter) {
     std::cerr << "Verifying P2 pair:" << std::endl;
     p2_->DumpCandidatePair(p);
     nr_transport_addr addr;
-    nr_str_port_to_transport_addr(p.local.local_addr.host.c_str(), 0,
+    nr_str_port_to_transport_addr(p.local.local_addr.host.c_str(), nullptr, 0,
                                   IPPROTO_UDP, &addr);
     ASSERT_TRUE(nr_transport_addr_get_private_addr_range(&addr) != 0);
-    nr_str_port_to_transport_addr(p.remote.cand_addr.host.c_str(), 0,
+    nr_str_port_to_transport_addr(p.remote.cand_addr.host.c_str(), nullptr, 0,
                                   IPPROTO_UDP, &addr);
     ASSERT_TRUE(nr_transport_addr_get_private_addr_range(&addr) == 0);
   }
@@ -4421,7 +4423,7 @@ TEST_F(WebRtcIceConnectTest, TestNonMDNSCandidate) {
   nsresult res = p1_->GetCandidatePairs(0, &pairs);
   ASSERT_EQ(NS_OK, res);
   ASSERT_EQ(1U, pairs.size());
-  ASSERT_EQ(pairs[0].remote.mdns_addr, "");
+  ASSERT_EQ(pairs[0].remote.domain_name, "");
 }
 
 TEST_F(WebRtcIceConnectTest, TestMDNSCandidate) {
@@ -4431,13 +4433,13 @@ TEST_F(WebRtcIceConnectTest, TestMDNSCandidate) {
   AddStream(1);
   Gather();
   ConnectTrickle();
-  p1_->ParseCandidate(0, kUnreachableHostIceCandidate, "host.local");
+  p1_->ParseCandidate(0, kUnreachableMDNSIceCandidate, "192.168.178.20");
 
   std::vector<NrIceCandidatePair> pairs;
   nsresult res = p1_->GetCandidatePairs(0, &pairs);
   ASSERT_EQ(NS_OK, res);
   ASSERT_EQ(1U, pairs.size());
-  ASSERT_EQ(pairs[0].remote.mdns_addr, "host.local");
+  ASSERT_EQ(pairs[0].remote.domain_name, "host.local");
 }
 
 TEST_F(WebRtcIcePrioritizerTest, TestPrioritizer) {

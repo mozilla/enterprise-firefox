@@ -613,6 +613,59 @@ class AudioSinkWrapperReuseTest : public ::testing::Test {
   bool mWrapperShutDown = false;
 };
 
+TEST_F(AudioSinkWrapperReuseTest, StreamNameSetBeforeStart) {
+  CreateWrapper();
+  mWrapper->SetStreamName(u"Before playback"_ns);
+  Start(media::TimeUnit::Zero());
+  ASSERT_TRUE(mStream);
+  EXPECT_EQ(mStream->StreamName(), "Before playback"_ns);
+}
+
+TEST_F(AudioSinkWrapperReuseTest, StreamNameAfterMute) {
+  CreateWrapper();
+  Start(media::TimeUnit::Zero());
+  ASSERT_TRUE(mStream);
+  mWrapper->SetStreamName(u"Original name"_ns);
+  EXPECT_EQ(mStream->StreamName(), "Original name"_ns);
+
+  mWrapper->SetVolume(0.0);
+  ProcessPending();
+  EXPECT_EQ(mDestroys, 1);
+  mWrapper->SetVolume(1.0);
+  SpinEventLoopUntil("unmuted stream start"_ns, [&] {
+    return mInits == 2 && mStream->State() == Some(CUBEB_STATE_STARTED);
+  });
+  EXPECT_EQ(mStream->StreamName(), "Original name"_ns);
+}
+
+TEST_F(AudioSinkWrapperReuseTest, StreamNameChangesDuringAsyncInit) {
+  CreateWrapper();
+  mWrapper->SetVolume(0.0);
+  Start(media::TimeUnit::Zero());
+  mWrapper->SetStreamName(u"Before initialization"_ns);
+  mWrapper->SetVolume(1.0);
+  // Change the name before the owner thread handles async initialization.
+  mWrapper->SetStreamName(u"During initialization"_ns);
+  SpinEventLoopUntil("async stream start"_ns, [&] {
+    return mStream && mStream->State() == Some(CUBEB_STATE_STARTED);
+  });
+  EXPECT_EQ(mStream->StreamName(), "During initialization"_ns);
+}
+
+TEST_F(AudioSinkWrapperReuseTest, StreamNameChangesWhileStashed) {
+  CreateWrapper();
+  Start(media::TimeUnit::Zero());
+  ASSERT_TRUE(mStream);
+  mWrapper->SetStreamName(u"Before seeking"_ns);
+  SeekStop();
+  EXPECT_EQ(mDestroys, 0);
+  mWrapper->SetStreamName(u"While seeking"_ns);
+  Start(media::TimeUnit::FromSeconds(10), MediaSink::StartType::SeekResume);
+  EXPECT_EQ(mInits, 1);
+  EXPECT_EQ(mDestroys, 0);
+  EXPECT_EQ(mStream->StreamName(), "While seeking"_ns);
+}
+
 // With stream reuse enabled, a seek keeps the audio stream alive and reuses it
 // across the stop/start cycle; with reuse disabled, the stream is torn down and
 // recreated.

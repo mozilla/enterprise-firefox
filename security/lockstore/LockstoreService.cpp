@@ -20,6 +20,7 @@
 #include "nsIFile.h"
 #include "nsIGlobalObject.h"
 #include "nsIObserverService.h"
+#include "nsNSSComponent.h"
 #include "nsProxyRelease.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
@@ -60,6 +61,12 @@ nsresult LockstoreService::Init() {
     MutexAutoLock lock(mMutex);
     mShutdown = true;
     return NS_OK;
+  }
+
+  // nss-rs does not initialize NSS properly so we must ensure it is
+  // initialized before attempting to use it.
+  if (!EnsureNSSInitializedChromeOrContent()) {
+    return NS_ERROR_FAILURE;
   }
 
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();

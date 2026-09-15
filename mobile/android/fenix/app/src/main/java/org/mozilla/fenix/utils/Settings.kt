@@ -526,6 +526,12 @@ class Settings(
             default = false,
         )
 
+    var isUserPairingCampaignAttributed by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_is_user_pairing_campaign_attributed),
+            default = false,
+        )
+
     /**
      * Whether the `referrals` ping has already been submitted for this profile. A referral code must only ever be
      * reported once.
@@ -3300,6 +3306,13 @@ class Settings(
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_toolbar_focus_mode),
             default = { FxNimbus.features.addressbarFocusMode.value().enabled },
+        )
+
+    /** Whether the customizing the browser menu is allowed. */
+    var isMenuCustomizationEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_enable_menu_customization),
+            default = { false },
         )
 
     /** Whether Longfox is enabled. */

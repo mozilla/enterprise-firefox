@@ -128,3 +128,36 @@ add_task(async function test_trash_button_shows_no_confirmation() {
   Services.obs.removeObserver(observer, "common-dialog-loaded");
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_escape_leaves_secondary_action_before_closing() {
+  await SpecialPowers.pushPrefEnv({ set: [[PREF, true]] });
+  await withFormHistoryPopup(async (browser, autoCompletePopup, itemsBox) => {
+    const rowItem = getRowItem(itemsBox, 0);
+
+    await BrowserTestUtils.synthesizeKey("VK_DOWN", {}, browser);
+    await TestUtils.waitForCondition(() => rowItem.selected);
+
+    await BrowserTestUtils.synthesizeKey("VK_TAB", {}, browser);
+    await TestUtils.waitForCondition(
+      () => rowItem.subfocused,
+      "Tab moves the sub-selection onto the secondary action"
+    );
+
+    await BrowserTestUtils.synthesizeKey("VK_ESCAPE", {}, browser);
+    await TestUtils.waitForCondition(
+      () => !rowItem.subfocused,
+      "Escape drops the sub-selection back to the row"
+    );
+    Assert.ok(
+      autoCompletePopup.popupOpen,
+      "The popup stays open when Escape leaves the secondary action"
+    );
+
+    await BrowserTestUtils.synthesizeKey("VK_ESCAPE", {}, browser);
+    await TestUtils.waitForCondition(
+      () => !autoCompletePopup.popupOpen,
+      "A second Escape closes the popup"
+    );
+  });
+  await SpecialPowers.popPrefEnv();
+});

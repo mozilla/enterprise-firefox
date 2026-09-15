@@ -7,7 +7,7 @@ with Files("*"):
 
 TEST_DIRS += ["test"]
 
-DIRS += ["featurepolicy", "sanitizer", "trusted-types"]
+DIRS += ["permissionspolicy", "sanitizer", "trusted-types"]
 
 EXPORTS.mozilla.dom += [
     "CSPEvalChecker.h",

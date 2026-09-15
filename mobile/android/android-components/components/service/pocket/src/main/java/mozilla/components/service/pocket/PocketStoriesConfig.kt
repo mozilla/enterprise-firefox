@@ -11,13 +11,13 @@ import mozilla.components.service.pocket.mars.api.MarsSpocsRequestConfig
 import mozilla.components.support.base.worker.Frequency
 
 internal const val DEFAULT_SPONSORED_STORIES_REFRESH_INTERVAL = 4L
-internal const val DEFAULT_CONTENT_RECOMMENDATIONS_REFRESH_INTERNAL = 4L
+internal const val DEFAULT_CONTENT_RECOMMENDATIONS_REFRESH_INTERNAL = 30L
 
 internal const val DEFAULT_CONTENT_RECOMMENDATIONS_COUNT = 100
 
 @Suppress("TopLevelPropertyNaming") internal val DEFAULT_SPONSORED_STORIES_REFRESH_TIMEUNIT = TimeUnit.HOURS
 
-@Suppress("TopLevelPropertyNaming") internal val DEFAULT_CONTENT_RECOMMENDATIONS_REFRESH_TIMEUNIT = TimeUnit.HOURS
+@Suppress("TopLevelPropertyNaming") internal val DEFAULT_CONTENT_RECOMMENDATIONS_REFRESH_TIMEUNIT = TimeUnit.MINUTES
 
 /**
  * Indicating all details for how the pocket stories should be refreshed.
@@ -26,7 +26,7 @@ internal const val DEFAULT_CONTENT_RECOMMENDATIONS_COUNT = 100
  * @param sponsoredStoriesRefreshFrequency Optional - The interval at which to try and refresh sponsored stories.
  *   Defaults to 4 hours.
  * @param contentRecommendationsRefreshFrequency Optional - The interval at which to try and refresh content
- *   recommendations. Defaults to 4 hours.
+ *   recommendations. Defaults to 30 minutes.
  * @param contentRecommendationsParams Optional - Configuration containing parameters used to fetch the content
  *   recommendations.
  * @param marsSponsoredContentsParams Optional - configuration contain parameters used to fetch the sponsored contents.

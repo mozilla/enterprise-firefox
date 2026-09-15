@@ -25,6 +25,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/SmartFormFillAutocomplete.sys.mjs",
   SmartFormFillTelemetry:
     "moz-src:///browser/components/aiwindow/ui/modules/SmartFormFillTelemetry.sys.mjs",
+  SOURCE_EDITOR_RESULT:
+    "moz-src:///browser/components/aiwindow/ui/modules/SmartFormFillTelemetry.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "console", function () {
@@ -61,6 +63,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
 /** @typedef {import("moz-src:///browser/components/aiwindow/ui/modules/SmartFormFillTelemetry.sys.mjs").FieldDecision} FieldDecision */
 /** @typedef {import("moz-src:///browser/components/aiwindow/ui/modules/SmartFormFillTelemetry.sys.mjs").ModelInfo} ModelInfo */
 /** @typedef {import("moz-src:///browser/components/aiwindow/ui/modules/SmartFormFillTelemetry.sys.mjs").RequestFlow} RequestFlow */
+/** @typedef {import("moz-src:///browser/components/aiwindow/ui/modules/SmartFormFillTelemetry.sys.mjs").SourceEditorState} SourceEditorState */
 
 /**
  * What a generation round produced, beyond the values the page is asked to
@@ -74,6 +77,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
  *   formFields: Array<FieldData>,
  *   classifications: Map<string, FieldClassification>,
  *   tokensByFieldId: Map<string, string>,
+ *   similarityByMemory: Map<string, number>,
  * }} GenerationResult
  */
 
@@ -163,6 +167,14 @@ export class SmartFormFillParent extends JSWindowActorParent {
   #tabSelectorDialog;
 
   /**
+   * Whether the open tab-selector dialog was taken away rather than closed by
+   * the user, which the two look the same as from the dialog's result alone.
+   *
+   * @type {boolean}
+   */
+  #tabSelectorAborted;
+
+  /**
    * Current generated-value review session.
    *
    * @type {SmartFormFillReviewSession | null}
@@ -226,9 +238,21 @@ export class SmartFormFillParent extends JSWindowActorParent {
    * once the page reports what it filled, and the outcome of each field is only
    * known when the fill is torn down.
    *
-   * @type {Map<string, { flowId: string, decisions: Array<FieldDecision> }>}
+   * @type {Map<string, {
+   *   flowId: string,
+   *   decisions: Array<FieldDecision>,
+   *   reviewValues: Map<string, string> | null,
+   * }>}
    */
   #fieldDecisionsByFormId;
+
+  /**
+   * How many times the source editor was opened in a form's current flow, and
+   * how the last of those opens ended.
+   *
+   * @type {Map<string, SourceEditorState>}
+   */
+  #sourceEditorByFormId;
 
   /**
    * Creates the parent actor.
@@ -241,6 +265,7 @@ export class SmartFormFillParent extends JSWindowActorParent {
     this.#destroyed = false;
     this.#tabsChangedDuringValueGeneration = false;
     this.#tabSelectorDialog = null;
+    this.#tabSelectorAborted = false;
     this.#formReviewSession = null;
     this.#userSelectedTabsByFormId = new Map();
     this.#smartWindowIds = new Set();
@@ -249,6 +274,7 @@ export class SmartFormFillParent extends JSWindowActorParent {
     this.#telemetry = new lazy.SmartFormFillTelemetry();
     this.#flowIdByFormId = new Map();
     this.#fieldDecisionsByFormId = new Map();
+    this.#sourceEditorByFormId = new Map();
   }
 
   /**
@@ -284,7 +310,7 @@ export class SmartFormFillParent extends JSWindowActorParent {
       return;
     }
 
-    this.#tabSelectorDialog?.abort();
+    this.#abortTabSelector();
     this.#userSelectedTabsByFormId.clear();
 
     if (this.#formReviewSession?.generationPending) {
@@ -462,6 +488,11 @@ export class SmartFormFillParent extends JSWindowActorParent {
     }
 
     this.#tabSelectorDialog = dialog;
+    this.#tabSelectorAborted = false;
+
+    const editorState = this.#getSourceEditorState(formId);
+    editorState.opens++;
+
     try {
       await closedPromise;
     } finally {
@@ -478,10 +509,26 @@ export class SmartFormFillParent extends JSWindowActorParent {
       new Set(selectedTabIds).size !== selectedTabIds.length ||
       selectedTabIds.some(id => !selectableTabIds.has(id))
     ) {
+      editorState.result = this.#tabSelectorAborted
+        ? lazy.SOURCE_EDITOR_RESULT.ABORTED
+        : lazy.SOURCE_EDITOR_RESULT.CANCEL;
       return null;
     }
 
+    editorState.result = lazy.SOURCE_EDITOR_RESULT.DONE;
     return selectedTabIds.map(id => ({ id }));
+  }
+
+  /**
+   * Closes the tab selector on the user's behalf.
+   */
+  #abortTabSelector() {
+    if (!this.#tabSelectorDialog) {
+      return;
+    }
+
+    this.#tabSelectorAborted = true;
+    this.#tabSelectorDialog.abort();
   }
 
   /**
@@ -524,7 +571,7 @@ export class SmartFormFillParent extends JSWindowActorParent {
    */
   didDestroy() {
     lazy.NonPrivateTabs.removeEventListener("TabChange", this);
-    this.#tabSelectorDialog?.abort();
+    this.#abortTabSelector();
     this.#tabSelectorDialog = null;
     this.#formReviewSession?.abort();
     this.#formReviewSession = null;
@@ -535,6 +582,7 @@ export class SmartFormFillParent extends JSWindowActorParent {
     this.#formMetadataById.clear();
     this.#flowIdByFormId.clear();
     this.#fieldDecisionsByFormId.clear();
+    this.#sourceEditorByFormId.clear();
     this.#controller?.destroy();
     this.#controller = null;
   }
@@ -640,6 +688,7 @@ export class SmartFormFillParent extends JSWindowActorParent {
     // flow with the ones the next round will record.
     this.#flowIdByFormId.set(formData.id, crypto.randomUUID());
     this.#fieldDecisionsByFormId.delete(formData.id);
+    this.#sourceEditorByFormId.delete(formData.id);
   }
 
   /**
@@ -766,6 +815,8 @@ export class SmartFormFillParent extends JSWindowActorParent {
       return;
     }
 
+    this.#recordTabSelectionOutcome(focusedForm.id, selectedTabs);
+
     // Handle value generation errors here in case it errors before the dialog is
     // ready.
     const generationPromise = this.#controller
@@ -818,6 +869,7 @@ export class SmartFormFillParent extends JSWindowActorParent {
     const fields = generationResult.result
       ? this.#getFormReviewFields(generationResult.result)
       : [];
+    this.#setReviewValues(focusedForm.id, fields);
     this.#finishFormReviewGeneration(
       reviewSession,
       generation,
@@ -989,10 +1041,12 @@ export class SmartFormFillParent extends JSWindowActorParent {
       };
     }
 
+    this.#recordFieldReviewOutcomes(formId, fields);
+
     try {
       const result = await this.sendQuery("SmartFormFill:FillForm", {
         id: formId,
-        fields,
+        fields: fields.filter(({ value }) => value.trim() !== ""),
       });
 
       if (!result) {
@@ -1209,6 +1263,7 @@ export class SmartFormFillParent extends JSWindowActorParent {
         this.#formMetadataById.delete(formId);
         this.#flowIdByFormId.delete(formId);
         this.#fieldDecisionsByFormId.delete(formId);
+        this.#sourceEditorByFormId.delete(formId);
         this.#userSelectedTabsByFormId.delete(formId);
         continue;
       }
@@ -1371,6 +1426,79 @@ export class SmartFormFillParent extends JSWindowActorParent {
   }
 
   /**
+   * Gets how the source editor has been used in a form's current flow,
+   * starting a count for a flow that has not opened it yet.
+   *
+   * @param {string} formId
+   *
+   * @returns {SourceEditorState}
+   */
+  #getSourceEditorState(formId) {
+    let state = this.#sourceEditorByFormId.get(formId);
+
+    if (!state) {
+      state = { opens: 0, result: null };
+      this.#sourceEditorByFormId.set(formId, state);
+    }
+
+    return state;
+  }
+
+  /**
+   * Records what the tab selection ended up being for a fill that is starting.
+   *
+   * @param {string} formId
+   * @param {Array<SelectedTab>} selectedTabs The tabs the fill will run with
+   */
+  #recordTabSelectionOutcome(formId, selectedTabs) {
+    this.#telemetry.sendRelevantTabsOutcomeTelemetry(this.#getFlowId(formId), {
+      suggestedTabs: this.#controller.getRelevantTabsFor(formId),
+      finalTabs: selectedTabs,
+      editor: this.#sourceEditorByFormId.get(formId),
+    });
+  }
+
+  /**
+   * Keeps the values that are presented for review, so what the user
+   * submits can be differentiated from what the model generated.
+   *
+   * @param {string} formId
+   * @param {Array<FormReviewField>} fields The fields the review will show
+   */
+  #setReviewValues(formId, fields) {
+    const round = this.#fieldDecisionsByFormId.get(formId);
+    if (!round) {
+      return;
+    }
+
+    round.reviewValues = new Map(fields.map(({ id, value }) => [id, value]));
+  }
+
+  /**
+   * Records what the user did with each generated value, after they
+   * submitted the review dialog's fill.
+   *
+   * @param {string} formId
+   * @param {Array<{id: string, value: string}>} fields The reviewed values the
+   * dialog was submitted with
+   */
+  #recordFieldReviewOutcomes(formId, fields) {
+    const round = this.#fieldDecisionsByFormId.get(formId);
+    const reviewValues = round?.reviewValues;
+    if (!reviewValues) {
+      return;
+    }
+
+    round.reviewValues = null;
+
+    this.#telemetry.sendFillFieldReviewOutcomeTelemetry(
+      round.flowId,
+      round.decisions,
+      { generated: reviewValues, submitted: fields }
+    );
+  }
+
+  /**
    * Records what the model decided for each field of a form, now that the page
    * has reported which of them it filled.
    *
@@ -1395,7 +1523,13 @@ export class SmartFormFillParent extends JSWindowActorParent {
    * reported the state each one ended in.
    *
    * @param {string} formId
-   * @param {Array<{ id: string, edited: boolean, isEmpty: boolean }>} fields
+   * @param {Array<{
+   *   id: string,
+   *   edited: boolean,
+   *   isEmpty: boolean,
+   *   filledLength: number,
+   *   finalLength: number,
+   * }>} fields
    */
   #onFieldOutcomes(formId, fields) {
     const round = this.#fieldDecisionsByFormId.get(formId);
@@ -1463,12 +1597,14 @@ export class SmartFormFillParent extends JSWindowActorParent {
           formFields,
           classifications,
           tokensByFieldId,
+          similarityByMemory,
         } = result;
 
         this.#telemetry.sendGenerateResponseTelemetry(
           flow,
           fieldsFilled,
-          response
+          response,
+          similarityByMemory
         );
 
         this.#fieldDecisionsByFormId.set(formId, {
@@ -1480,6 +1616,7 @@ export class SmartFormFillParent extends JSWindowActorParent {
             tokensByFieldId,
             values: response,
           }),
+          reviewValues: null,
         });
       },
 

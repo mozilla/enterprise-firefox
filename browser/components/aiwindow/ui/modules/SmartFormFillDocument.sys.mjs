@@ -53,7 +53,13 @@ const MUTATION_OBSERVER_OPTIONS = {
 /**
  * @typedef {{
  *   id: string,
- *   fields: Array<{ id: string, edited: boolean, isEmpty: boolean }>,
+ *   fields: Array<{
+ *     id: string,
+ *     edited: boolean,
+ *     isEmpty: boolean,
+ *     filledLength: number,
+ *     finalLength: number,
+ *   }>,
  * }} FieldOutcomes The state the page saw for the fields one fill wrote to
  */
 
@@ -220,10 +226,10 @@ export class SmartFormFillDocument {
 
   /**
    * The fields the latest fill wrote to, and whether the user has typed in them
-   * since. No filled value is kept: an input event is what tells a field the
-   * user edited from one they left alone.
+   * since. No filled value is kept, only its length: an input event is what
+   * tells a field the user edited from one they left alone.
    *
-   * @type {Map<string, { formId: string, edited: boolean }> | null}
+   * @type {Map<string, { formId: string, edited: boolean, length: number }> | null}
    */
   #filledFields;
 
@@ -504,7 +510,11 @@ export class SmartFormFillDocument {
 
                 // Tracked after setUserInput, so the input event it dispatches is not
                 // mistaken for the user typing.
-                this.#filledFields.set(fieldId, { formId: id, edited: false });
+                this.#filledFields.set(fieldId, {
+                  formId: id,
+                  edited: false,
+                  length: value.length,
+                });
               }
             }
           }
@@ -654,7 +664,7 @@ export class SmartFormFillDocument {
 
     const statesByFormId = new Map();
 
-    for (const [fieldId, { formId, edited }] of this.#filledFields) {
+    for (const [fieldId, { formId, edited, length }] of this.#filledFields) {
       const field = this.#fieldsById.get(fieldId);
       if (!field || !matches(field)) {
         continue;
@@ -667,6 +677,8 @@ export class SmartFormFillDocument {
         id: fieldId,
         edited,
         isEmpty: field.value.trim() === "",
+        filledLength: length,
+        finalLength: field.value.length,
       });
 
       this.#filledFields.delete(fieldId);
@@ -723,6 +735,7 @@ export class SmartFormFillDocument {
       textAfter: this.#utils.findNearbyText(field, false),
       ...(details?.fieldName && {
         localGuess: details.fieldName,
+        localSource: details.reason,
       }),
       ...(details?.confidence && {
         localConfidence: details.confidence,

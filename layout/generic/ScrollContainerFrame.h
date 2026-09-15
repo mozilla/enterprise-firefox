@@ -15,16 +15,16 @@
 #include "mozilla/dom/WindowBinding.h"  // for mozilla::dom::ScrollBehavior
 #include "mozilla/layout/ScrollAnchorContainer.h"
 #include "nsContainerFrame.h"
-#include "nsExpirationTracker.h"
+#include "nsExpirationState.h"
 #include "nsIAnonymousContentCreator.h"
 #include "nsIReflowCallback.h"
 #include "nsIScrollbarMediator.h"
-#include "nsIStatefulFrame.h"
 #include "nsQueryFrame.h"
 #include "nsThreadUtils.h"
 
 class nsPresContext;
 class nsIContent;
+class nsILayoutHistoryState;
 class nsAtom;
 class AutoContainsBlendModeCapturer;
 
@@ -47,7 +47,8 @@ class WebRenderLayerManager;
 namespace layout {
 class ScrollbarActivity;
 }  // namespace layout
-
+enum class CaptureStateFlag : uint8_t;
+using CaptureStateFlags = EnumSet<CaptureStateFlag>;
 }  // namespace mozilla
 
 mozilla::ScrollContainerFrame* NS_NewScrollContainerFrame(
@@ -68,8 +69,7 @@ namespace mozilla {
 class ScrollContainerFrame : public nsContainerFrame,
                              public nsIScrollbarMediator,
                              public nsIAnonymousContentCreator,
-                             public nsIReflowCallback,
-                             public nsIStatefulFrame {
+                             public nsIReflowCallback {
  public:
   using CSSPoint = mozilla::CSSPoint;
   using Element = dom::Element;
@@ -623,7 +623,7 @@ class ScrollContainerFrame : public nsContainerFrame,
   /**
    * Clear the flag so that DidHistoryRestore() returns false until the next
    * RestoreState call.
-   * @see nsIStatefulFrame::RestoreState
+   * @see RestoreState
    */
   void ClearDidHistoryRestore() { mDidHistoryRestore = false; }
 
@@ -950,9 +950,10 @@ class ScrollContainerFrame : public nsContainerFrame,
   bool ReflowFinished() override;
   void ReflowCallbackCanceled() final;
 
-  // nsIStatefulFrame
-  UniquePtr<PresState> SaveState(CaptureStateFlags aFlags) final;
-  NS_IMETHOD RestoreState(PresState* aState) final;
+  UniquePtr<PresState> SaveState(CaptureStateFlags);
+  void RestoreState(PresState*);
+  void SaveState(CaptureStateFlags, nsILayoutHistoryState*);
+  void RestoreState(nsILayoutHistoryState*);
 
   // nsIScrollbarMediator
   void ScrollByPage(

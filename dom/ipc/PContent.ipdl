@@ -82,7 +82,7 @@ include "mozilla/URLClassifierIPCUtils.h";
 include "mozilla/dom/BindingIPCUtils.h";
 include "mozilla/dom/CSPMessageUtils.h";
 include "mozilla/dom/DocShellMessageUtils.h";
-include "mozilla/dom/FeaturePolicyUtils.h";
+include "mozilla/dom/PermissionsPolicyUtils.h";
 include "mozilla/dom/GeolocationIPCUtils.h";
 include "mozilla/dom/MediaSessionIPCUtils.h";
 include "mozilla/dom/NavigationAPIIPCUtils.h";
@@ -178,7 +178,7 @@ using struct nsPoint from "nsPoint.h";
 using mozilla::media::MediaCodecsSupported from "MediaCodecsSupport.h";
 using mozilla::RemoteMediaIn from "mozilla/RemoteMediaManagerChild.h";
 using mozilla::dom::PerformanceTimingData from "mozilla/dom/PerformanceTiming.h";
-using mozilla::dom::MaybeFeaturePolicyInfo from "mozilla/dom/FeaturePolicy.h";
+using mozilla::dom::MaybePermissionsPolicyInfo from "mozilla/dom/PermissionsPolicy.h";
 using mozilla::dom::Wireframe from "mozilla/dom/DocumentBinding.h";
 using mozilla::PerfStats::MetricMask from "mozilla/PerfStats.h";
 using nsIDNSService::ResolverMode from "nsIDNSService.h";
@@ -1993,8 +1993,8 @@ child:
     async SystemPermissionChanged(PermissionName aName, PermissionState aState);
 
 parent:
-    async SetContainerFeaturePolicy(MaybeDiscardedBrowsingContext aContainerContext,
-                                    MaybeFeaturePolicyInfo aContainerFeaturePolicyInfo);
+    async SetContainerPermissionsPolicy(MaybeDiscardedBrowsingContext aContainerContext,
+                                        MaybePermissionsPolicyInfo aContainerPermissionsPolicyInfo);
 
     // Notify parent process that aContext must update its ancestor origins list
     // This is only used for about:blank, because for normal navigations

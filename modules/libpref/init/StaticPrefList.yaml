@@ -1434,6 +1434,27 @@
   value: true
   mirror: always
 
+# Should Firefox use content analysis when web content copies data to the
+# clipboard?
+# Note that this has no effect unless browser.contentanalysis.enabled
+# is true.
+# This defaults to false so as to not break existing content analysis
+# configurations.
+- name: browser.contentanalysis.interception_point.clipboard_copy.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# Should Firefox only analyze plain text contents when web content copies
+# data to the clipboard?
+# If this is false, all formats being copied will be analyzed.
+# Note that regardless of this setting, files being copied
+# will be analyzed.
+- name: browser.contentanalysis.interception_point.clipboard_copy.plain_text_only
+  type: bool
+  value: true
+  mirror: always
+
 # Should Firefox use content analysis for download operations?
 # Note that this has no effect unless browser.contentanalysis.enabled
 # is true.
@@ -4718,7 +4739,7 @@
   value: false
   mirror: always
 
-- name: dom.reporting.featurePolicy.enabled
+- name: dom.reporting.permissionsPolicy.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -4947,19 +4968,19 @@
   value: false
   mirror: always
 
-# This pref enables the featurePolicy header support.
-- name: dom.security.featurePolicy.header.enabled
+# This pref enables Permissions-Policy header support.
+- name: dom.security.permissionsPolicy.header.enabled
   type: bool
   value: false
   mirror: always
 
-- name: dom.security.featurePolicy.experimental.enabled
+- name: dom.security.permissionsPolicy.experimental.enabled
   type: bool
   value: false
   mirror: always
 
 # Expose the 'featurePolicy' attribute in document and HTMLIFrameElement
-- name: dom.security.featurePolicy.webidl.enabled
+- name: dom.security.permissionsPolicy.webidl.enabled
   type: bool
   value: false
   mirror: always
@@ -7871,6 +7892,16 @@
   value: false
   mirror: always
 
+#if defined(MOZ_FONTATIONS)
+  # Should we use the fontations backend to access font data?
+  # Note that this is only checked at startup; toggling it requires a restart
+  # to take effect.
+-   name: gfx.font_rendering.fontations.enabled
+    type: bool
+    value: false
+    mirror: once
+#endif
+
 #if defined(XP_DARWIN)
   # Set to true to revert from HarfBuzz AAT shaping to the old Core Text
   # backend.
@@ -8323,6 +8354,23 @@
 - name: gfx.webrender.svg-shapes
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Items inside an <svg> that could be rendered with WebRender primitives are
+# only pulled out of the blob image when their size exceeds this many device
+# pixels, unless they are first or last in their list. See AssessBounds in
+# WebRenderCommandBuilder.cpp.
+- name: gfx.webrender.blob.largeish-px
+  type: RelaxedAtomicUint32
+  value: 512
+  mirror: always
+
+# When true, an item in the middle of an SVG display list will be promoted to
+# an active WebRender display item more eagerly, even if it risks generating
+# a lot more blob layers.
+- name: gfx.webrender.blob.relaxed-active-threshold
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 - name: gfx.webrender.debug.blob.paint-flashing
@@ -9838,13 +9886,6 @@
   value: false
   mirror: always
   set_spidermonkey_pref: always
-
-  # Experimental support for Temporal in JavaScript.
-- name: javascript.options.experimental.temporal
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: startup
 
   # Experimental support for source phase imports in JavaScript.
 - name: javascript.options.experimental.source_phase_imports
@@ -13294,7 +13335,7 @@
 # When modifying this pref, please update the test_peerConnection_glean.html tests as well.
 - name: media.webrtc.send_mlkem_keyshare
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 # This pref controls whether dispatch testing-only events.

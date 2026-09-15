@@ -420,6 +420,7 @@
     --input-width: var(--size-item-small);
 
     /** link **/
+    --link-border-radius-focus: var(--border-radius-small);
     --link-color: var(--color-accent-primary);
     --link-color-hover: var(--color-accent-primary-hover);
     --link-color-active: var(--color-accent-primary-active);
@@ -581,6 +582,7 @@
       /** button **/
       --button-border-color: var(--button-text-color);
       --button-border-color-ghost: var(--button-border-color);
+      --button-text-color-ghost: var(--button-text-color);
       --button-text-color-ghost-hover: var(--button-text-color-hover);
       --button-text-color-ghost-active: var(--button-text-color-active);
 
@@ -651,6 +653,8 @@
       --button-background-color-destructive-active: var(--button-background-color-primary-active);
       --button-background-color-destructive-disabled: var(--button-background-color-primary-disabled);
       --button-background-color-ghost: ButtonFace;
+      --button-background-color-ghost-hover: var(--button-background-color-hover);
+      --button-background-color-ghost-active: var(--button-background-color-active);
       --button-background-color-menu: Menu;
       --button-background-color-menu-hover: -moz-menuhover;
       --button-background-color-menu-active: var(--button-background-color-menu-hover);
@@ -680,6 +684,7 @@
       --button-text-color-destructive-hover: var(--button-text-color-primary-hover);
       --button-text-color-destructive-active: var(--button-text-color-primary-active);
       --button-text-color-destructive-disabled: var(--button-text-color-primary-disabled);
+      --button-text-color-ghost: var(--button-text-color);
       --button-text-color-ghost-hover: var(--button-text-color-hover);
       --button-text-color-ghost-active: var(--button-text-color-active);
       --button-text-color-menu: MenuText;
@@ -779,6 +784,8 @@
       --button-background-color-destructive-hover: light-dark(var(--color-red-60), var(--color-red-20));
       --button-background-color-destructive-active: light-dark(var(--color-red-70), var(--color-red-10));
       --button-background-color-ghost: var(--button-background-color);
+      --button-background-color-ghost-hover: var(--button-background-color-hover);
+      --button-background-color-ghost-active: var(--button-background-color-active);
       --button-background-color-ghost-selected: var(--button-background-color-selected);
       --button-background-color-muted: light-dark(var(--color-gray-20), var(--color-gray-55));
       --button-background-color-muted-hover: light-dark(var(--color-gray-30), var(--color-gray-45));
@@ -981,6 +988,9 @@
       --input-search-icon-size: var(--icon-size-small);
       --input-text-background-color: var(--background-color-box);
       --input-text-background-color-disabled: var(--button-background-color-ghost-disabled);
+
+      /** link **/
+      --link-border-radius-focus: var(--border-radius-xsmall);
 
       /** page **/
       --page-main-content-width: 664px;

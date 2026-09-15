@@ -248,6 +248,8 @@ void RunWatchdog(void* arg) {
 
     NoteIntentionalCrash(XRE_GetProcessTypeString());
 
+    CollectShutdownHangAnnotations();
+
     MaybeSaveShutdownHangProfile();
 
     // Until we have general log output for crash annotations in treeherder

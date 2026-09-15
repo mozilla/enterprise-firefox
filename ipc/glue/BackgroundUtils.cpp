@@ -612,7 +612,7 @@ nsresult LoadInfoToLoadInfoArgs(nsILoadInfo* aLoadInfo,
       aLoadInfo->GetIsOriginTrialCoepCredentiallessEnabledForTopLevel(),
       unstrippedURI, interceptionInfoArg, aLoadInfo->GetIsNewWindowTarget(),
       aLoadInfo->GetUserNavigationInvolvement(),
-      aLoadInfo->GetContainerFeaturePolicyInfo(), {});
+      aLoadInfo->GetContainerPermissionsPolicyInfo(), {});
 
   return NS_OK;
 }
@@ -873,7 +873,7 @@ nsresult LoadInfoArgsToLoadInfo(const LoadInfoArgs& loadInfoArgs,
   RefPtr<mozilla::net::LoadInfo> loadInfo = new mozilla::net::LoadInfo(
       loadingPrincipal, triggeringPrincipal, principalToInherit,
       topLevelPrincipal, resultPrincipalURI, cookieJarSettings,
-      policyContainerToInherit, loadInfoArgs.containerFeaturePolicyInfo(),
+      policyContainerToInherit, loadInfoArgs.containerPermissionsPolicyInfo(),
       triggeringRemoteType, loadInfoArgs.sandboxedNullPrincipalID(), clientInfo,
       reservedClientInfo, initialClientInfo, controller,
       loadInfoArgs.securityFlags(), loadInfoArgs.sandboxFlags(),
@@ -963,7 +963,7 @@ void LoadInfoToParentLoadInfoForwarder(
       aLoadInfo->GetServiceWorkerTaintingSynthesized(),
       aLoadInfo->GetDocumentHasUserInteracted(),
       aLoadInfo->GetAllowListFutureDocumentsCreatedFromThisRedirectChain(),
-      cookieJarSettingsArgs, aLoadInfo->GetContainerFeaturePolicyInfo(),
+      cookieJarSettingsArgs, aLoadInfo->GetContainerPermissionsPolicyInfo(),
       aLoadInfo->GetRequestBlockingReason(), aLoadInfo->GetStoragePermission(),
       overriddenFingerprintingSettingsArg, aLoadInfo->GetIsMetaRefresh(),
       isThirdPartyContextToTopWindow, aLoadInfo->GetIsInThirdPartyContext(),
@@ -1094,9 +1094,9 @@ nsresult MergeParentLoadInfoForwarder(
   rv = aLoadInfo->SetUnstrippedURI(aForwarderArgs.unstrippedURI());
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (aForwarderArgs.containerFeaturePolicyInfo()) {
-    aLoadInfo->SetContainerFeaturePolicyInfo(
-        *aForwarderArgs.containerFeaturePolicyInfo());
+  if (aForwarderArgs.containerPermissionsPolicyInfo()) {
+    aLoadInfo->SetContainerPermissionsPolicyInfo(
+        *aForwarderArgs.containerPermissionsPolicyInfo());
   }
 
   aLoadInfo->SetUserNavigationInvolvement(

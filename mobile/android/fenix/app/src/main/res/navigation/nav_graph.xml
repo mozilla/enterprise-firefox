@@ -191,7 +191,7 @@
         app:destination="@id/tabsSettingsFragment" />
     <action
         android:id="@+id/action_global_menuDialogFragment"
-        app:destination="@id/menu_graph" />
+        app:destination="@id/menu_dialog_graph" />
     <action
         android:id="@+id/action_global_trustPanelFragment"
         app:destination="@id/trust_panel_graph" />
@@ -437,6 +437,9 @@
             app:popUpTo="@id/storiesFragment"
             app:popUpToInclusive="false"
             app:launchSingleTop="true" />
+        <action
+          android:id="@+id/action_browserFragment_to_menuFragment"
+          app:destination="@id/menu_graph" />
     </fragment>
 
     <fragment
@@ -1767,7 +1770,7 @@
     </navigation>
 
     <navigation
-        android:id="@+id/menu_graph"
+        android:id="@+id/menu_dialog_graph"
         app:startDestination="@id/menuDialogFragment">
         <argument
             android:name="accesspoint"
@@ -1828,6 +1831,15 @@
                 app:destination="@id/ipProtectionFragment" />
         </dialog>
     </navigation>
+
+  <navigation
+    android:id="@+id/menu_graph"
+    app:startDestination="@id/menuFragment">
+    <dialog
+      android:id="@+id/menuFragment"
+      android:name="org.mozilla.fenix.components.menu.MenuFragment">
+    </dialog>
+  </navigation>
 
     <navigation
         android:id="@+id/trust_panel_graph"

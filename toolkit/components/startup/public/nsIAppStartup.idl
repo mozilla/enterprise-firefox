@@ -204,6 +204,12 @@ interface nsIAppStartup : nsISupports
     boolean isInOrBeyondShutdownPhase(in nsIAppStartup_IDLShutdownPhase aPhase);
 
     /**
+     * Refresh the shutdown-hang crash annotations just before a deliberate
+     * crash. See mozilla::CollectShutdownHangAnnotations.
+     */
+    void collectShutdownHangAnnotations();
+
+    /**
      * True if the application is in the process of shutting down.
      * This is functionally equivalent to the C++ call
      * AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed);

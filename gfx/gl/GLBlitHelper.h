@@ -66,6 +66,7 @@ class SurfaceDescriptorDXGIYCbCr;
 #endif
 
 #ifdef MOZ_WIDGET_ANDROID
+class AndroidHardwareBuffer;
 class SurfaceTextureDescriptor;
 #endif
 
@@ -252,6 +253,9 @@ class GLBlitHelper final {
                        const gfx::IntSize& fbSize = gfx::IntSize(),
                        Maybe<gfxAlphaType> convertAlpha = {});
 #ifdef MOZ_WIDGET_ANDROID
+  bool Blit(layers::AndroidHardwareBuffer* buffer, const gfx::IntRect& destRect,
+            OriginPos destOrigin, const gfx::IntSize& fbSize = gfx::IntSize(),
+            Maybe<gfxAlphaType> convertAlpha = {}) const;
   bool Blit(const java::GeckoSurfaceTexture::Ref& surfaceTexture,
             const gfx::IntSize& texSize, const gfx::IntRect& destRect,
             const OriginPos destOrigin,

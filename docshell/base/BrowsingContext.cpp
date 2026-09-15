@@ -781,7 +781,7 @@ static bool OwnerAllowsFullscreen(const Element& aEmbedder) {
     return !aEmbedder.HasAttr(nsGkAtoms::disablefullscreen);
   }
   if (aEmbedder.IsHTMLElement(nsGkAtoms::iframe)) {
-    // This is controlled by feature policy.
+    // This is controlled by permissions policy.
     return true;
   }
   if (const auto* embed = HTMLEmbedElement::FromNode(aEmbedder)) {

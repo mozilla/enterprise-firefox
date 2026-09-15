@@ -12,6 +12,7 @@
 #define GTEST_HAS_RTTI 0
 #include "CodecConfig.h"
 #include "PeerConnectionImpl.h"
+#include "api/rtp_parameters.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "jsep/JsepSession.h"
@@ -4867,7 +4868,7 @@ TEST_F(JsepSessionTest, TestExtmapDefaults) {
   ASSERT_TRUE(
       offerVideoMediaAttrs.HasAttribute(SdpAttribute::kExtmapAttribute));
   auto& offerVideoExtmap = offerVideoMediaAttrs.GetExtmap().mExtmaps;
-  ASSERT_EQ(6U, offerVideoExtmap.size());
+  ASSERT_EQ(7U, offerVideoExtmap.size());
 
   ASSERT_EQ(3U, offerVideoExtmap[0].entry);
   ASSERT_EQ("urn:ietf:params:rtp-hdrext:sdes:mid"_ns,
@@ -4886,6 +4887,12 @@ TEST_F(JsepSessionTest, TestExtmapDefaults) {
       "extensions-01"_ns,
       offerVideoExtmap[4].extensionname);
   ASSERT_EQ(7U, offerVideoExtmap[4].entry);
+  ASSERT_EQ("urn:3gpp:video-orientation"_ns, offerVideoExtmap[5].extensionname);
+  ASSERT_EQ(8U, offerVideoExtmap[5].entry);
+  ASSERT_EQ(nsCString(webrtc::RtpExtension::kDependencyDescriptorUri),
+            offerVideoExtmap[6].extensionname);
+  ASSERT_EQ(9U, offerVideoExtmap[6].entry);
+  ASSERT_EQ(SdpDirectionAttribute::kRecvonly, offerVideoExtmap[6].direction);
 
   UniquePtr<Sdp> parsedAnswer(Parse(answer));
   ASSERT_EQ(2U, parsedAnswer->GetMediaSectionCount());
@@ -4974,6 +4981,39 @@ TEST_F(JsepSessionTest, TestExtmapWithDuplicates) {
   ASSERT_EQ(10U, offerExtmap[5].entry);
   ASSERT_EQ("baz"_ns, offerExtmap[6].extensionname);
   ASSERT_EQ(11U, offerExtmap[6].entry);
+}
+
+TEST_F(JsepSessionTest, TestExtmapMergesDirections) {
+  AddTracks(*mSessionOff, "audio");
+  AddTracks(*mSessionAns, "audio");
+  mSessionOff->AddAudioRtpExtension("foo"_ns, SdpDirectionAttribute::kRecvonly);
+  mSessionOff->AddAudioRtpExtension("foo"_ns, SdpDirectionAttribute::kSendonly);
+  mSessionOff->AddAudioRtpExtension("bar"_ns, SdpDirectionAttribute::kSendrecv);
+  mSessionOff->AddAudioRtpExtension("bar"_ns, SdpDirectionAttribute::kRecvonly);
+  mSessionOff->AddAudioRtpExtension("baz"_ns, SdpDirectionAttribute::kRecvonly);
+  mSessionOff->AddAudioRtpExtension("baz"_ns, SdpDirectionAttribute::kRecvonly);
+
+  std::string offer = CreateOffer();
+  UniquePtr<Sdp> parsedOffer(Parse(offer));
+  ASSERT_EQ(1U, parsedOffer->GetMediaSectionCount());
+
+  auto& offerMediaAttrs = parsedOffer->GetMediaSection(0).GetAttributeList();
+  ASSERT_TRUE(offerMediaAttrs.HasAttribute(SdpAttribute::kExtmapAttribute));
+  auto& offerExtmap = offerMediaAttrs.GetExtmap().mExtmaps;
+  // The four default audio extensions, plus one entry each for foo, bar and
+  // baz.
+  ASSERT_EQ(7U, offerExtmap.size());
+  ASSERT_EQ("foo"_ns, offerExtmap[4].extensionname);
+  ASSERT_EQ(SdpDirectionAttribute::kSendrecv, offerExtmap[4].direction);
+  ASSERT_FALSE(offerExtmap[4].direction_specified);
+  ASSERT_EQ("bar"_ns, offerExtmap[5].extensionname);
+  ASSERT_EQ(SdpDirectionAttribute::kSendrecv, offerExtmap[5].direction);
+  ASSERT_FALSE(offerExtmap[5].direction_specified);
+  ASSERT_EQ("baz"_ns, offerExtmap[6].extensionname);
+  ASSERT_EQ(SdpDirectionAttribute::kRecvonly, offerExtmap[6].direction);
+  ASSERT_TRUE(offerExtmap[6].direction_specified);
+  ASSERT_NE(offerExtmap[4].entry, offerExtmap[5].entry);
+  ASSERT_NE(offerExtmap[5].entry, offerExtmap[6].entry);
 }
 
 TEST_F(JsepSessionTest, TestExtmapZeroId) {

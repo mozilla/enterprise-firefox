@@ -485,9 +485,8 @@ pref("browser.urlbar.focusContentDocumentOnEsc", true);
 pref("browser.urlbar.ipc.chromeMessagePassing", false);
 
 // Feature gate for the <moz-urlbar> on about:newtab and about:home. When
-// enabled, it supersedes New Tab's handoff search bar. Disabled in debug
-// because of bug 2065180.
-#if defined(NIGHTLY_BUILD) && !defined(DEBUG)
+// enabled, it supersedes New Tab's handoff search bar.
+#ifdef NIGHTLY_BUILD
 pref("browser.urlbar.newtab.featureGate", true);
 #else
 pref("browser.urlbar.newtab.featureGate", false);
@@ -1076,6 +1075,12 @@ pref("browser.theme.forced-colors-override.enabled", true);
 // as separate icons in the Windows taskbar.
 pref("browser.privateWindowSeparation.enabled", true);
 
+// Private browsing window redesign experiment; enabled via Nimbus.
+pref("browser.privateWindowRedesign.enabled", false);
+
+// Whether the private-browsing first-run intro animation has been shown.
+pref("browser.privatebrowsing.introAnimationShown", false);
+
 // Controls visibility of the privacy segmentation preferences section.
 pref("browser.privacySegmentation.preferences.show", false);
 
@@ -1484,6 +1489,9 @@ pref("mousewheel.with_meta.action", 1);
 
 pref("browser.xul.error_pages.expert_bad_cert", false);
 pref("browser.xul.error_pages.show_safe_browsing_details_on_load", false);
+
+// Deployments that do not want the artwork on error pages can turn this off
+pref("browser.netError.illustration.enabled", true);
 
 // Enable the one-click search call-to-action on the online dnsNotFound error
 // page. On in Nightly, off elsewhere until a Nimbus rollout (bug 2055718).

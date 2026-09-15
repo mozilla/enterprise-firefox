@@ -5,7 +5,7 @@
 task-defaults:
     worker-type: b-linux-docker-amd
     worker:
-        max-run-time: 3600
+        max-run-time: 5400
     run:
         clone-with: hg
         resources:

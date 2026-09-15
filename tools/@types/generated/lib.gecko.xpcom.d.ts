@@ -2842,8 +2842,6 @@ namespace nsIDocShell {
 interface nsIDocShell extends nsIDocShellTreeItem, Enums<typeof nsIDocShell_DocShellEnumeratorDirection & typeof nsIDocShell_AppType & typeof nsIDocShell_BusyFlags & typeof nsIDocShell_LoadCommand> {
   /** <!-- binding_to(idl, method, XPIDL_nsIDocShell_setCancelContentJSEpoch) --> */
   setCancelContentJSEpoch(aEpoch: i32): void;
-  /** <!-- binding_to(idl, method, XPIDL_nsIDocShell_addState) --> */
-  addState(aData: any, aTitle: string, aURL: string, aReplace: boolean): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIDocShell_prepareForNewContentModel) --> */
   prepareForNewContentModel(): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIDocShell_setCurrentURIForSessionStore) --> */
@@ -3316,6 +3314,8 @@ interface nsIURIFixup extends nsISupports {
   readonly FIXUP_FLAG_PRIVATE_CONTEXT?: 4;
   /** <!-- binding_to(idl, const, XPIDL_nsIURIFixup_FIXUP_FLAG_FIX_SCHEME_TYPOS) --> */
   readonly FIXUP_FLAG_FIX_SCHEME_TYPOS?: 8;
+  /** <!-- binding_to(idl, const, XPIDL_nsIURIFixup_FIXUP_FLAG_FORCE_KEYWORD_LOOKUP) --> */
+  readonly FIXUP_FLAG_FORCE_KEYWORD_LOOKUP?: 16;
 
   /** <!-- binding_to(idl, method, XPIDL_nsIURIFixup_getFixupURIInfo) --> */
   getFixupURIInfo(aURIText: string, aFixupFlags?: u32): nsIURIFixupInfo;
@@ -4196,6 +4196,8 @@ interface nsIBrowserDOMWindow extends nsISupports {
   readonly OPEN_NO_OPENER?: 4;
   /** <!-- binding_to(idl, const, XPIDL_nsIBrowserDOMWindow_OPEN_NO_REFERRER) --> */
   readonly OPEN_NO_REFERRER?: 8;
+  /** <!-- binding_to(idl, const, XPIDL_nsIBrowserDOMWindow_OPEN_FORCE_ALLOW_DATA_URI) --> */
+  readonly OPEN_FORCE_ALLOW_DATA_URI?: 16;
 
   /** <!-- binding_to(idl, method, XPIDL_nsIBrowserDOMWindow_createContentWindow) --> */
   createContentWindow(aURI: nsIURI, aOpenWindowInfo: nsIOpenWindowInfo, aWhere: i16, aFlags: i32, aTriggeringPrincipal: nsIPrincipal, aPolicyContainer?: nsIPolicyContainer): BrowsingContext;
@@ -8358,6 +8360,8 @@ interface nsITypeAheadFind extends nsISupports {
 interface nsIFOG extends nsISupports {
   /** <!-- binding_to(idl, method, XPIDL_nsIFOG_initializeFOG) --> */
   initializeFOG(aDataPathOverride?: string, aAppIdOverride?: string, aDisableInternalPings?: boolean): void;
+  /** <!-- binding_to(idl, attribute, XPIDL_nsIFOG_initialized) --> */
+  readonly initialized: boolean;
   /** <!-- binding_to(idl, method, XPIDL_nsIFOG_registerCustomPings) --> */
   registerCustomPings(): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIFOG_setLogPings) --> */
@@ -11761,8 +11765,6 @@ interface nsILoadInfo extends nsISupports, Enums<typeof nsILoadInfo_StoragePermi
   isOriginTrialCoepCredentiallessEnabledForTopLevel: boolean;
   /** <!-- binding_to(idl, attribute, XPIDL_nsILoadInfo_isMediaRequest) --> */
   isMediaRequest: boolean;
-  /** <!-- binding_to(idl, attribute, XPIDL_nsILoadInfo_isFromObjectOrEmbed) --> */
-  isFromObjectOrEmbed: boolean;
   /** <!-- binding_to(idl, attribute, XPIDL_nsILoadInfo_unstrippedURI) --> */
   unstrippedURI: nsIURI;
   /** <!-- binding_to(idl, attribute, XPIDL_nsILoadInfo_schemelessInput) --> */
@@ -15051,8 +15053,6 @@ interface nsIHttpChannelInternal extends nsISupports, Enums<typeof nsIHttpChanne
   getRequestVersion(major: OutParam<u32>, minor: OutParam<u32>): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIHttpChannelInternal_getResponseVersion) --> */
   getResponseVersion(major: OutParam<u32>, minor: OutParam<u32>): void;
-  /** <!-- binding_to(idl, method, XPIDL_nsIHttpChannelInternal_setCookieHeaders) --> */
-  setCookieHeaders(aCookieHeaders: string[]): void;
   /** <!-- binding_to(idl, attribute, XPIDL_nsIHttpChannelInternal_thirdPartyFlags) --> */
   thirdPartyFlags: u32;
   /** <!-- binding_to(idl, attribute, XPIDL_nsIHttpChannelInternal_forceAllowThirdPartyCookie) --> */
@@ -20890,7 +20890,7 @@ interface nsITransfer extends nsIWebProgressListener2 {
   readonly DOWNLOAD_POTENTIALLY_UNSAFE?: 2;
 
   /** <!-- binding_to(idl, method, XPIDL_nsITransfer_init) --> */
-  init(aSource: nsIURI, aSourceOriginalURI: nsIURI, aTarget: nsIURI, aDisplayName: string, aMIMEInfo: nsIMIMEInfo, startTime: PRTime, aTempFile: nsIFile, aCancelable: nsICancelable, aIsPrivate: boolean, aDownloadClassification: i32, aReferrerInfo: nsIReferrerInfo, aOpenDownloadsListOnStart?: boolean): void;
+  init(aSource: nsIURI, aSourceOriginalURI: nsIURI, aTarget: nsIURI, aDisplayName: string, aMIMEInfo: nsIMIMEInfo, startTime: PRTime, aTempFile: nsIFile, aCancelable: nsICancelable, aIsPrivate: boolean, aDownloadClassification: i32, aReferrerInfo: nsIReferrerInfo, aOpenDownloadsListOnStart: boolean, aFilesFolder: nsIFile): void;
   /** <!-- binding_to(idl, method, XPIDL_nsITransfer_initWithBrowsingContext) --> */
   initWithBrowsingContext(aSource: nsIURI, aTarget: nsIURI, aDisplayName: string, aMIMEInfo: nsIMIMEInfo, startTime: PRTime, aTempFile: nsIFile, aCancelable: nsICancelable, aIsPrivate: boolean, aDownloadClassification: i32, aReferrerInfo: nsIReferrerInfo, aOpenDownloadsListOnStart: boolean, aBrowsingContext: BrowsingContext, aHandleInternally: boolean, aHttpChannel: nsIHttpChannel): void;
   /** <!-- binding_to(idl, method, XPIDL_nsITransfer_setSha256Hash) --> */
@@ -21429,7 +21429,7 @@ interface nsIUrlClassifierUpdateObserver extends nsISupports {
   /** <!-- binding_to(idl, method, XPIDL_nsIUrlClassifierUpdateObserver_updateError) --> */
   updateError(error: nsresult): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIUrlClassifierUpdateObserver_updateSuccess) --> */
-  updateSuccess(requestedTimeout: u32): void;
+  updateSuccess(tables: string[], waitSeconds: u32[]): void;
 }
 
 /** <!-- binding_to(idl, interface_name, XPIDL_nsIUrlClassifierDBService) --> */
@@ -21576,6 +21576,8 @@ interface nsIUrlClassifierTestUtils extends nsISupports {
   makeUpdateResponseV5(aName: string, aSingleHash: u32): string;
   /** <!-- binding_to(idl, method, XPIDL_nsIUrlClassifierTestUtils_makeUpdateResponseV5_32b) --> */
   makeUpdateResponseV5_32b(aName: string, aFullHash: string): string;
+  /** <!-- binding_to(idl, method, XPIDL_nsIUrlClassifierTestUtils_makeUpdateResponseV5WithWaitDurations) --> */
+  makeUpdateResponseV5WithWaitDurations(aNames: string[], aWaitSeconds: u32[]): string;
   /** <!-- binding_to(idl, method, XPIDL_nsIUrlClassifierTestUtils_makeFindFullHashResponseV5) --> */
   makeFindFullHashResponseV5(aFullHash: string): string;
   /** <!-- binding_to(idl, method, XPIDL_nsIUrlClassifierTestUtils_generateLookupHash) --> */
@@ -22152,6 +22154,22 @@ interface nsINativeMessagingPortal extends nsISupports {
   getManifest(aHandle: string, aName: string, aExtension: string): Promise<any>;
   /** <!-- binding_to(idl, method, XPIDL_nsINativeMessagingPortal_start) --> */
   start(aHandle: string, aName: string, aExtension: string): Promise<any>;
+}
+
+// https://searchfox.org/firefox-main/source/toolkit/components/extensions/nsINativeMessagingProxy.idl
+
+/** <!-- binding_to(idl, interface_name, XPIDL_nsINativeMessagingProxy) --> */
+interface nsINativeMessagingProxy extends nsISupports {
+  /** <!-- binding_to(idl, method, XPIDL_nsINativeMessagingProxy_shouldUse) --> */
+  shouldUse(): boolean;
+  /** <!-- binding_to(idl, attribute, XPIDL_nsINativeMessagingProxy_available) --> */
+  readonly available: Promise<any>;
+  /** <!-- binding_to(idl, method, XPIDL_nsINativeMessagingProxy_closeSession) --> */
+  closeSession(aHandle: string): Promise<any>;
+  /** <!-- binding_to(idl, method, XPIDL_nsINativeMessagingProxy_getManifest) --> */
+  getManifest(aName: string, aExtension: string): Promise<any>;
+  /** <!-- binding_to(idl, method, XPIDL_nsINativeMessagingProxy_start) --> */
+  start(aName: string, aExtension: string): Promise<any>;
 }
 
 // https://searchfox.org/firefox-main/source/dom/media/webvtt/nsIWebVTTListener.idl
@@ -27478,6 +27496,7 @@ interface nsIXPCComponents_Interfaces {
   mozIExtensionAPIRequestHandler: nsJSIID<mozIExtensionAPIRequestHandler>;
   mozIExtensionProcessScript: nsJSIID<mozIExtensionProcessScript>;
   nsINativeMessagingPortal: nsJSIID<nsINativeMessagingPortal>;
+  nsINativeMessagingProxy: nsJSIID<nsINativeMessagingProxy>;
   nsIWebVTTListener: nsJSIID<nsIWebVTTListener>;
   nsIWebVTTParserWrapper: nsJSIID<nsIWebVTTParserWrapper>;
   nsIBaseWindow: nsJSIID<nsIBaseWindow>;

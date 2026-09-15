@@ -324,9 +324,6 @@ enum class StackingContextBits : uint8_t {
   ContainsMixBlendMode = 1 << 0,
   // Similar, but for backdrop-filter.
   ContainsBackdropFilter = 1 << 1,
-  // Whether we can contain a non-isolated 3d or perspective transform that
-  // might need explicit flattening.
-  MayContainNonIsolated3DTransform = 1 << 2,
 };
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(StackingContextBits);
 
@@ -1573,10 +1570,6 @@ class nsDisplayListBuilder {
   bool ContainsBlendMode() const {
     return bool(mStackingContextBits &
                 StackingContextBits::ContainsMixBlendMode);
-  }
-  bool MayContainNonIsolated3DTransform() const {
-    return bool(mStackingContextBits &
-                StackingContextBits::MayContainNonIsolated3DTransform);
   }
   bool ContainsBackdropFilter() const {
     return bool(mStackingContextBits &

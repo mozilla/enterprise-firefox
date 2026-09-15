@@ -60,6 +60,20 @@ using ConstRawRangeBoundary =
     RangeBoundaryBase<const nsINode*, const nsIContent*>;
 
 /**
+ * Whether the range boundary is for the start or end boundary of a range.
+ */
+enum class RangeBoundarySide : bool { Start, End };
+
+inline auto format_as(const RangeBoundarySide aSide) {
+  return aSide == RangeBoundarySide::Start ? "Start" : "End";
+}
+
+inline std::ostream& operator<<(std::ostream& aStream,
+                                const RangeBoundarySide aSide) {
+  return aStream << format_as(aSide);
+}
+
+/**
  * There are two ways of ensuring that `mRef` points to the correct node.
  * In most cases, the `RangeBoundary` is used by an object that is a
  * `MutationObserver` (i.e. `nsRange`) and replaces its `RangeBoundary`

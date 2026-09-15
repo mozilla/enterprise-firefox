@@ -63,6 +63,17 @@ run-if = ["os == 'mac'"]
 
 ["test_profile_metrics_after_submission.js"]
 
+["test_profile_metrics_time_since_install.js"]
+run-if = ["os == 'win' && !msix"]
+run-sequentially = ["true"]
+
+["test_profile_metrics_time_since_no_files.js"]
+run-sequentially = ["true"]
+
+["test_profile_metrics_time_since_update.js"]
+run-if = ["!msix"]
+run-sequentially = ["true"]
+
 ["test_profile_metrics_excludes_current.js"]
 
 ["test_profile_metrics_no_compat.js"]

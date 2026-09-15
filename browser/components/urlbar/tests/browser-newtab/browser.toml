@@ -39,6 +39,8 @@ support-files = ["../browser/slow-page.sjs"]
 
 ["browser_resultMenu.js"]
 
+["browser_resultMenuOpenIn.js"]
+
 ["browser_rtl.js"]
 
 ["browser_searchModeSwitcher.js"]

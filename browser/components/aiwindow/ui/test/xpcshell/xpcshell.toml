@@ -5,6 +5,10 @@ run-if = [
   "os != 'android'",
 ]
 
+["test_AITabDate.js"]
+
+["test_AITabDelete.js"]
+
 ["test_AITabStore.js"]
 
 ["test_AutoTabGrouping.js"]

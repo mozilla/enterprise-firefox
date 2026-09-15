@@ -51,6 +51,7 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import mozilla.components.feature.qr.QrAnalyzer
 import mozilla.components.feature.qr.isLowLightBoostSupported
@@ -309,8 +310,12 @@ class LensCameraFragment(private val now: () -> Long = DefaultDateTimeProvider()
 
             val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: continue
 
-            val jpegSizes = map.getOutputSizes(ImageFormat.JPEG)
-            val captureSize = chooseCaptureSizeFromList(jpegSizes)
+            // The three surfaces below are sized together, not independently, so that they land on a single row of
+            // camera2's guaranteed stream combinations: PRIV at PREVIEW + YUV at PREVIEW + JPEG at MAXIMUM, which is
+            // guaranteed from the LEGACY hardware level up. PREVIEW is min(display size, 1920x1080), enforced for the
+            // preview and QR streams by lensPreviewConstraints below; MAXIMUM is the largest JPEG size. Any other mix
+            // works only by the grace of the individual device.
+            val captureSize = chooseCaptureSize(map.getOutputSizes(ImageFormat.JPEG))
 
             imageReader =
                 ImageReader.newInstance(
@@ -321,17 +326,6 @@ class LensCameraFragment(private val now: () -> Long = DefaultDateTimeProvider()
                     )
                     .apply {
                         setOnImageAvailableListener(onImageAvailableListener, backgroundHandler)
-                    }
-
-            qrImageReader =
-                ImageReader.newInstance(
-                        QrAnalyzer.YUV_WIDTH,
-                        QrAnalyzer.YUV_HEIGHT,
-                        ImageFormat.YUV_420_888,
-                        QrAnalyzer.YUV_MAX_IMAGES,
-                    )
-                    .apply {
-                        setOnImageAvailableListener(qrImageAvailableListener, backgroundHandler)
                     }
 
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) as Int
@@ -355,6 +349,24 @@ class LensCameraFragment(private val now: () -> Long = DefaultDateTimeProvider()
                     lensPreviewConstraints.maxHeight,
                     captureSize,
                 )
+
+            val qrSize =
+                chooseQrSize(
+                    map.getOutputSizes(ImageFormat.YUV_420_888),
+                    lensPreviewConstraints.maxWidth,
+                    lensPreviewConstraints.maxHeight,
+                )
+
+            qrImageReader =
+                ImageReader.newInstance(
+                        qrSize.width,
+                        qrSize.height,
+                        ImageFormat.YUV_420_888,
+                        QrAnalyzer.YUV_MAX_IMAGES,
+                    )
+                    .apply {
+                        setOnImageAvailableListener(qrImageAvailableListener, backgroundHandler)
+                    }
 
             previewSize = optimalSize
             previewAspectRatio.value = LensPreviewTransform.displayAspectRatio(optimalSize, swappedDimensions)
@@ -408,12 +420,23 @@ class LensCameraFragment(private val now: () -> Long = DefaultDateTimeProvider()
                         }
 
                         override fun onConfigureFailed(session: CameraCaptureSession) {
-                            logger.error("Failed to configure CameraCaptureSession")
+                            onSessionConfigureFailed()
                         }
                     }
                 createCaptureSessionCompat(camera, imageSurface, qrSurface, previewSurface, sessionStateCallback)
             }
         }
+    }
+
+    /** Shows the camera error state. The repeating request never starts, so the preview stays black. */
+    @VisibleForTesting
+    internal fun onSessionConfigureFailed() {
+        logger.error(
+            "Failed to configure CameraCaptureSession: preview=$previewSize" +
+                ", jpeg=${imageReader?.width}x${imageReader?.height}" +
+                ", yuv=${qrImageReader?.width}x${qrImageReader?.height}"
+        )
+        mainHandler.post { showCameraError.value = true }
     }
 
     @VisibleForTesting
@@ -750,8 +773,9 @@ class LensCameraFragment(private val now: () -> Long = DefaultDateTimeProvider()
         private const val STATE_CAMERA_MODE = "camera_mode"
         private const val STATE_QR_RESULT_SENT = "qr_result_sent"
 
-        private const val MAX_CAPTURE_DIMENSION = 4096
         private const val CAMERA_CLOSE_LOCK_TIMEOUT_MS = 2500L
+
+        private val BY_AREA = compareBy<Size> { it.width.toLong() * it.height }
 
         private const val DEGREES_FULL_ROTATION = 360
 
@@ -763,19 +787,39 @@ class LensCameraFragment(private val now: () -> Long = DefaultDateTimeProvider()
                 Surface.ROTATION_270 to ORIENTATION_270,
             )
 
+        /**
+         * Picks the JPEG capture size. This is the sensor's maximum, deliberately: the guaranteed stream combination
+         * that includes a preview, a YUV analysis stream and a still capture only covers JPEG at MAXIMUM, so capping
+         * the capture size can take the whole session outside what the device promises to support. The uploader
+         * downscales to its own long-edge limit anyway, so nothing downstream depends on the size chosen here.
+         */
         @VisibleForTesting
-        internal fun chooseCaptureSizeFromList(sizes: Array<Size>): Size {
+        internal fun chooseCaptureSize(sizes: Array<Size>): Size {
             require(sizes.isNotEmpty()) { "No capture sizes available from camera" }
-            val filtered = sizes.filter {
-                it.width <= MAX_CAPTURE_DIMENSION && it.height <= MAX_CAPTURE_DIMENSION
-            }
-            return if (filtered.isNotEmpty()) {
-                Collections.max(filtered, compareBy { it.width.toLong() * it.height })
-            } else {
-                sizes[0]
-            }
+            return Collections.max(sizes.asList(), BY_AREA)
         }
 
+        /**
+         * Picks the YUV size for QR analysis: the supported size within the preview bounds whose area is closest to
+         * [QrAnalyzer]'s target, so analysis costs about what it does in the standalone QR scanner. Requesting
+         * [QrAnalyzer.YUV_WIDTH] x [QrAnalyzer.YUV_HEIGHT] directly relies on the platform substituting a supported
+         * size, which not every device does.
+         */
+        @VisibleForTesting
+        internal fun chooseQrSize(choices: Array<Size>?, maxWidth: Int, maxHeight: Int): Size {
+            if (choices.isNullOrEmpty()) return Size(QrAnalyzer.YUV_WIDTH, QrAnalyzer.YUV_HEIGHT)
+            val withinBounds = choices.filter { it.width <= maxWidth && it.height <= maxHeight }
+            val candidates = withinBounds.ifEmpty { listOf(Collections.min(choices.asList(), BY_AREA)) }
+            val target = QrAnalyzer.YUV_WIDTH.toLong() * QrAnalyzer.YUV_HEIGHT
+            return Collections.min(candidates, compareBy { abs(it.width.toLong() * it.height - target) })
+        }
+
+        /**
+         * Picks the preview size: the smallest size that matches [aspectRatio] and covers the view, falling back to
+         * progressively looser criteria. Every branch but the last stays within [maxWidth] x [maxHeight], because a
+         * preview stream above those bounds is not a PREVIEW-size stream and can fail the whole capture session on
+         * LIMITED and LEGACY devices.
+         */
         @VisibleForTesting
         internal fun chooseOptimalSize(
             choices: Array<Size>,
@@ -786,23 +830,19 @@ class LensCameraFragment(private val now: () -> Long = DefaultDateTimeProvider()
             aspectRatio: Size,
         ): Size {
             require(choices.isNotEmpty()) { "No preview sizes available from camera" }
-            val bigEnough = ArrayList<Size>()
-            val notBigEnough = ArrayList<Size>()
+            val withinBounds = choices.filter { it.width <= maxWidth && it.height <= maxHeight }
             val w = aspectRatio.width
             val h = aspectRatio.height
-            for (option in choices) {
-                if (option.width <= maxWidth && option.height <= maxHeight && option.height == option.width * h / w) {
-                    if (option.width >= textureViewWidth && option.height >= textureViewHeight) {
-                        bigEnough.add(option)
-                    } else {
-                        notBigEnough.add(option)
-                    }
-                }
-            }
+            val matching = withinBounds.filter { it.height == it.width * h / w }
+            val bigEnough = matching.filter { it.width >= textureViewWidth && it.height >= textureViewHeight }
             return when {
-                bigEnough.size > 0 -> Collections.min(bigEnough, compareBy { it.width.toLong() * it.height })
-                notBigEnough.size > 0 -> Collections.max(notBigEnough, compareBy { it.width.toLong() * it.height })
-                else -> choices[0]
+                bigEnough.isNotEmpty() -> Collections.min(bigEnough, BY_AREA)
+                // Right aspect ratio, but nothing covers the view, so the preview is upscaled.
+                matching.isNotEmpty() -> Collections.max(matching, BY_AREA)
+                // Nothing shares the capture aspect ratio. A letterboxed preview beats a rejected session.
+                withinBounds.isNotEmpty() -> Collections.max(withinBounds, BY_AREA)
+                // The device offers no size within the preview bounds at all; the smallest is the closest we get.
+                else -> Collections.min(choices.asList(), BY_AREA)
             }
         }
 

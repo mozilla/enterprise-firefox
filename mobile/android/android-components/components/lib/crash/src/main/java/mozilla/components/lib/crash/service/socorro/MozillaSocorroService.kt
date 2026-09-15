@@ -55,6 +55,20 @@ private const val MINI_DUMP_FILE_EXT = "dmp"
 private const val EXTRAS_FILE_EXT = "extra"
 private const val FILE_REGEX = "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\."
 
+private const val MISSING_STACKTRACE_CLASS = "\$Missing"
+private const val MISSING_STACKTRACE_METHOD = "<stackTrace>"
+
+/**
+ * Fills in a placeholder frame when a throwable has no stack trace so that Socorro can process it.
+ *
+ * These report similar to: `[@ kotlinx.coroutines.JobCancellationException: at $Missing.<stackTrace>(Unknown Source) ]`
+ */
+private fun Throwable.withStacktraceIfMissing(): Throwable = also {
+    if (stackTrace.isEmpty()) {
+        stackTrace = arrayOf(StackTraceElement(MISSING_STACKTRACE_CLASS, MISSING_STACKTRACE_METHOD, null, -1))
+    }
+}
+
 /**
  * A [CrashReporterService] implementation uploading crash reports to crash-stats.mozilla.com.
  *
@@ -207,7 +221,7 @@ class MozillaSocorroService(
             }
         }
 
-        val throwable = crash.javaThrowable?.takeIf { it.stackTrace.isNotEmpty() }
+        val throwable = crash.javaThrowable?.withStacktraceIfMissing()
         throwable?.also {
             formDataWriter.sendAnnotation(
                 Annotation.JavaStackTrace,

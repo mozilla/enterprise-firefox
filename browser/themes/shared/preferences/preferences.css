@@ -510,11 +510,6 @@ richlistitem[selected] .actionsMenu:focus-visible {
   margin-inline-end: var(--space-small);
 }
 
-a[is="moz-support-link"] {
-  display: inline-block;
-  white-space: initial;
-}
-
 /* Search Pane */
 
 #engineList > treechildren::-moz-tree-image(engineShown, checked),

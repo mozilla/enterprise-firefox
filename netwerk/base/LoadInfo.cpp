@@ -711,7 +711,7 @@ LoadInfo::LoadInfo(const LoadInfo& rhs)
       mChannelCreationOriginalURI(rhs.mChannelCreationOriginalURI),
       mCookieJarSettings(rhs.mCookieJarSettings),
       mPolicyContainerToInherit(rhs.mPolicyContainerToInherit),
-      mContainerFeaturePolicyInfo(rhs.mContainerFeaturePolicyInfo),
+      mContainerPermissionsPolicyInfo(rhs.mContainerPermissionsPolicyInfo),
       mTriggeringRemoteType(rhs.mTriggeringRemoteType),
       mSandboxedNullPrincipalID(rhs.mSandboxedNullPrincipalID),
       mClientInfo(rhs.mClientInfo),
@@ -762,7 +762,7 @@ LoadInfo::LoadInfo(
     nsIPrincipal* aPrincipalToInherit, nsIPrincipal* aTopLevelPrincipal,
     nsIURI* aResultPrincipalURI, nsICookieJarSettings* aCookieJarSettings,
     nsIPolicyContainer* aPolicyContainerToInherit,
-    const Maybe<dom::FeaturePolicyInfo>& aContainerFeaturePolicyInfo,
+    const Maybe<dom::PermissionsPolicyInfo>& aContainerPermissionsPolicyInfo,
     const RemoteType& aTriggeringRemoteType,
     const nsID& aSandboxedNullPrincipalID, const Maybe<ClientInfo>& aClientInfo,
     const Maybe<ClientInfo>& aReservedClientInfo,
@@ -798,7 +798,7 @@ LoadInfo::LoadInfo(
       mResultPrincipalURI(aResultPrincipalURI),
       mCookieJarSettings(aCookieJarSettings),
       mPolicyContainerToInherit(aPolicyContainerToInherit),
-      mContainerFeaturePolicyInfo(aContainerFeaturePolicyInfo),
+      mContainerPermissionsPolicyInfo(aContainerPermissionsPolicyInfo),
       mTriggeringRemoteType(aTriggeringRemoteType),
       mSandboxedNullPrincipalID(aSandboxedNullPrincipalID),
       mClientInfo(aClientInfo),
@@ -2041,13 +2041,13 @@ already_AddRefed<nsIPolicyContainer> LoadInfo::GetPolicyContainerToInherit() {
   return policyContainerToInherit.forget();
 }
 
-Maybe<FeaturePolicyInfo> LoadInfo::GetContainerFeaturePolicyInfo() {
-  return mContainerFeaturePolicyInfo;
+Maybe<PermissionsPolicyInfo> LoadInfo::GetContainerPermissionsPolicyInfo() {
+  return mContainerPermissionsPolicyInfo;
 }
 
-void LoadInfo::SetContainerFeaturePolicyInfo(
-    const FeaturePolicyInfo& aContainerFeaturePolicyInfo) {
-  mContainerFeaturePolicyInfo = Some(aContainerFeaturePolicyInfo);
+void LoadInfo::SetContainerPermissionsPolicyInfo(
+    const PermissionsPolicyInfo& aContainerPermissionsPolicyInfo) {
+  mContainerPermissionsPolicyInfo = Some(aContainerPermissionsPolicyInfo);
 }
 
 nsIInterceptionInfo* LoadInfo::InterceptionInfo() { return mInterceptionInfo; }

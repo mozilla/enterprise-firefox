@@ -2363,6 +2363,16 @@ ${
   }
 
   /**
+   * Whether pickResult() implements the result menu's commands for opening a
+   * result in a new tab or window. It doesn't, so the menu withholds them.
+   *
+   * @returns {boolean}
+   */
+  get handlesOpenInCommands() {
+    return false;
+  }
+
+  /**
    * Called when an element of the view is picked.
    *
    * @param {HTMLElement} element The element that was picked.

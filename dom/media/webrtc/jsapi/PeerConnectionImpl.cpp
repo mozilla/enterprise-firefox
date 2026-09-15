@@ -3463,10 +3463,11 @@ void PeerConnectionImpl::IceConnectionStateChange(
     RefPtr<RTCIceCandidatePair> newCandidatePair;
     if (aSelectedPair.isSome()) {
       nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
-      RefPtr<RTCIceCandidate> local =
-          RTCIceCandidate::FromAttribute(global, aSelectedPair->local());
+      RefPtr<RTCIceCandidate> local = RTCIceCandidate::FromAttribute(
+          global, aSelectedPair->local(),
+          /*aHidePrflx=*/GetPrefObfuscateHostAddresses());
       RefPtr<RTCIceCandidate> remote = RTCIceCandidate::FromAttribute(
-          global, aSelectedPair->remote(), /*aRemote=*/true);
+          global, aSelectedPair->remote(), /*aHidePrflx=*/true);
       newCandidatePair = new RTCIceCandidatePair(global, local, remote);
     }
 
@@ -4235,20 +4236,9 @@ void PeerConnectionImpl::StunAddrsHandler::OnMDNSQueryComplete(
   if (itor != pcw.impl()->mQueriedMDNSHostnames.end()) {
     if (address) {
       for (auto& cand : itor->second) {
-        // Replace obfuscated address with actual address
-        std::string obfuscatedAddr = cand.mTokenizedCandidate[4];
-        cand.mTokenizedCandidate[4] = address->get();
-        std::ostringstream o;
-        for (size_t i = 0; i < cand.mTokenizedCandidate.size(); ++i) {
-          o << cand.mTokenizedCandidate[i];
-          if (i + 1 != cand.mTokenizedCandidate.size()) {
-            o << " ";
-          }
-        }
-        std::string mungedCandidate = o.str();
         pcw.impl()->StampTimecard("Done looking up mDNS name");
         pcw.impl()->mTransportHandler->AddIceCandidate(
-            cand.mTransportId, mungedCandidate, cand.mUfrag, obfuscatedAddr);
+            cand.mTransportId, cand.mCandidate, cand.mUfrag, address->get());
       }
     } else {
       pcw.impl()->StampTimecard("Failed looking up mDNS name");
@@ -4635,7 +4625,7 @@ void PeerConnectionImpl::AddIceCandidate(const std::string& aCandidate,
           addr.rfind(".local") + dotLocalLength == addr.length()) {
         if (mStunAddrsRequest) {
           PendingIceCandidate cand;
-          cand.mTokenizedCandidate = std::move(tokens);
+          cand.mCandidate = aCandidate;
           cand.mTransportId = aTransportId;
           cand.mUfrag = aUfrag;
           mQueriedMDNSHostnames[addr].push_back(std::move(cand));

@@ -3271,6 +3271,22 @@ def as_outoption(as_info):
 
 set_config("ASOUTOPTION", as_outoption)
 
+
+@depends(as_info, debug_flags)
+def debug_asflags(as_info, debug_flags):
+    if as_info.type == "masm":
+        # Unintuitively, -Zi for ml/ml64 is equivalent to -Z7 for cl.exe.
+        # -Zi for cl.exe has a different purpose, so this is only used here.
+        return ["-Zi"]
+    if as_info.type == "armasm":
+        # armasm64 accepts a paucity of options compared to ml/ml64.
+        return []
+    return debug_flags
+
+
+set_config("MOZ_DEBUG_ASFLAGS", debug_asflags)
+
+
 # clang plugin handling
 # ==============================================================
 

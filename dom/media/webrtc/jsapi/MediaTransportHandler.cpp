@@ -108,7 +108,7 @@ class MediaTransportHandlerSTS : public MediaTransportHandler,
 
   void AddIceCandidate(const std::string& aTransportId,
                        const std::string& aCandidate, const std::string& aUfrag,
-                       const std::string& aObfuscatedAddress) override;
+                       const std::string& aResolvedAddress) override;
 
   void UpdateNetworkState(bool aOnline) override;
 
@@ -187,7 +187,7 @@ class MediaTransportHandlerSTS : public MediaTransportHandler,
   RefPtr<NrIceCtx> mIceCtx;
   RefPtr<NrIceResolver> mDNSResolver;
   std::map<std::string, Transport> mTransports;
-  bool mObfuscateHostAddresses = false;
+  bool mHideLocalPrflx = false;
   bool mTurnDisabled = false;
   uint32_t mMinDtlsVersion = 0;
   uint32_t mMaxDtlsVersion = 0;
@@ -753,7 +753,7 @@ void MediaTransportHandlerSTS::StartIceGathering(
           return;  // Probably due to XPCOM shutdown
         }
 
-        mObfuscateHostAddresses = aObfuscateHostAddresses;
+        mHideLocalPrflx = aObfuscateHostAddresses;
 
         // Belt and suspenders - in e10s mode, the call below to SetStunAddrs
         // needs to have the proper flags set on ice ctx.  For non-e10s,
@@ -821,7 +821,7 @@ void TokenizeCandidate(const std::string& aCandidate,
 
 void MediaTransportHandlerSTS::AddIceCandidate(
     const std::string& aTransportId, const std::string& aCandidate,
-    const std::string& aUfrag, const std::string& aObfuscatedAddress) {
+    const std::string& aUfrag, const std::string& aResolvedAddress) {
   MOZ_RELEASE_ASSERT(mInitPromise);
 
   mInitPromise->Then(
@@ -831,9 +831,6 @@ void MediaTransportHandlerSTS::AddIceCandidate(
           return;  // Probably due to XPCOM shutdown
         }
 
-        std::vector<std::string> tokens;
-        TokenizeCandidate(aCandidate, tokens);
-
         RefPtr<NrIceMediaStream> stream(mIceCtx->GetStream(aTransportId));
         if (!stream) {
           CSFLogError(LOGTAG,
@@ -842,17 +839,17 @@ void MediaTransportHandlerSTS::AddIceCandidate(
           return;
         }
 
-        nsresult rv = stream->ParseTrickleCandidate(aCandidate, aUfrag,
-                                                    aObfuscatedAddress);
-        if (NS_SUCCEEDED(rv)) {
-          // If the address is not obfuscated, we want to track it as
-          // explicitly signaled so that we know it is fine to reveal
-          // the address later on.
-          if (mObfuscateHostAddresses && tokens.size() > 4 &&
-              aObfuscatedAddress.empty()) {
-            mSignaledAddresses.insert(tokens[4]);
-          }
-        } else {
+        // Re-parsing this is kinda silly. We probably want to have
+        // ParseTrickleCandidate actually give us a parsed representation.
+        std::vector<std::string> tokens;
+        TokenizeCandidate(aCandidate, tokens);
+        if (tokens.size() > 4) {
+          mSignaledAddresses.insert(tokens[4]);
+        }
+
+        nsresult rv =
+            stream->ParseTrickleCandidate(aCandidate, aUfrag, aResolvedAddress);
+        if (!NS_SUCCEEDED(rv)) {
           CSFLogError(LOGTAG,
                       "Couldn't process ICE candidate with transport id %s: "
                       "%s",
@@ -1357,11 +1354,14 @@ static void ToRTCIceCandidateStats(
     const std::vector<NrIceCandidate>& candidates,
     dom::RTCStatsType candidateType, const nsString& transportId,
     DOMHighResTimeStamp now, dom::RTCStatsCollection* stats,
-    bool obfuscateHostAddresses,
-    const std::set<std::string>& signaledAddresses) {
+    bool hideLocalPrflx, const std::set<std::string>& signaledAddresses) {
   MOZ_ASSERT(stats);
   for (const auto& candidate : candidates) {
     dom::RTCIceCandidateStats cand;
+    auto hideAddress = [&cand]() {
+      cand.mAddress.Construct();
+      cand.mAddress.Value().SetIsVoid(true);
+    };
     cand.mType.Construct(candidateType);
     NS_ConvertASCIItoUTF16 codeword(candidate.codeword.c_str());
     cand.mTransportId = transportId;
@@ -1371,18 +1371,35 @@ static void ToRTCIceCandidateStats(
     cand.mPriority.Construct(candidate.priority);
     // https://tools.ietf.org/html/draft-ietf-rtcweb-mdns-ice-candidates-03#section-3.3.1
     // This obfuscates the address with the mDNS address if one exists
-    if (!candidate.mdns_addr.empty()) {
+    if (!candidate.domain_name.empty()) {
+      // Stats must contain either the host that appeared in the candidate, or
+      // nothing at all. It is never valid to put a resolved IP address in this
+      // field. If `domain_name` is set, that is what was in the original
+      // candidate, and it is also safe to expose regardless of any of the
+      // stuff checked below.
       cand.mAddress.Construct(
-          NS_ConvertASCIItoUTF16(candidate.mdns_addr.c_str()));
-    } else if (obfuscateHostAddresses &&
-               candidate.type == NrIceCandidate::ICE_PEER_REFLEXIVE &&
+          NS_ConvertASCIItoUTF16(candidate.domain_name.c_str()));
+    } else if (candidateType == dom::RTCStatsType::Remote_candidate &&
                signaledAddresses.find(candidate.cand_addr.host) ==
                    signaledAddresses.end()) {
-      cand.mAddress.Construct(NS_ConvertASCIItoUTF16("(redacted)"));
+      // The address of remote candidates is hidden if it has never been passed
+      // to us from content. In practice this only happens with prflx.
+      hideAddress();
+    } else if (candidateType == dom::RTCStatsType::Local_candidate &&
+               hideLocalPrflx &&
+               candidate.type == NrIceCandidate::ICE_PEER_REFLEXIVE) {
+      // A local prflx candidate is our address as some peer saw it, and that
+      // peer may be another RTCPeerConnection in the same document. Our host
+      // candidates always carry a name when we are hiding addresses, and srflx
+      // is fine because the STUN/TURN server the origin supplied has already
+      // seen our packets.
+      hideAddress();
     } else {
+      // If `domain_name` is not set, this will be an IP address.
       cand.mAddress.Construct(
           NS_ConvertASCIItoUTF16(candidate.cand_addr.host.c_str()));
     }
+
     cand.mPort.Construct(candidate.cand_addr.port);
     cand.mProtocol.Construct(
         NS_ConvertASCIItoUTF16(candidate.cand_addr.transport.c_str()));
@@ -1480,8 +1497,8 @@ void MediaTransportHandlerSTS::GetIceStats(
   std::vector<NrIceCandidate> candidates;
   if (NS_SUCCEEDED(aStream.GetLocalCandidates(&candidates))) {
     ToRTCIceCandidateStats(candidates, dom::RTCStatsType::Local_candidate,
-                           transportId, aNow, aStats, mObfuscateHostAddresses,
-                           mSignaledAddresses);
+                           transportId, aNow, aStats, mHideLocalPrflx,
+                           std::set<std::string>());
     // add the local candidates unparsed string to a sequence
     for (const auto& candidate : candidates) {
       if (!aStats->mRawLocalCandidates.AppendElement(
@@ -1496,8 +1513,10 @@ void MediaTransportHandlerSTS::GetIceStats(
   candidates.clear();
 
   if (NS_SUCCEEDED(aStream.GetRemoteCandidates(&candidates))) {
+    // Remote addresses are hidden unless content gave them to us, regardless
+    // of whether we are hiding our own.
     ToRTCIceCandidateStats(candidates, dom::RTCStatsType::Remote_candidate,
-                           transportId, aNow, aStats, mObfuscateHostAddresses,
+                           transportId, aNow, aStats, /*hideLocalPrflx=*/false,
                            mSignaledAddresses);
     // add the remote candidates unparsed string to a sequence
     for (const auto& candidate : candidates) {
@@ -1679,7 +1698,7 @@ void MediaTransportHandlerSTS::OnCandidateFound(
   NrIceCandidate defaultRtcpCandidate;
   nsresult rv = aStream->GetDefaultCandidate(1, &defaultRtpCandidate);
   if (NS_SUCCEEDED(rv)) {
-    if (!defaultRtpCandidate.mdns_addr.empty()) {
+    if (!defaultRtpCandidate.domain_name.empty()) {
       info.mDefaultHostRtp = "0.0.0.0";
       info.mDefaultPortRtp = 9;
     } else {
@@ -1696,12 +1715,13 @@ void MediaTransportHandlerSTS::OnCandidateFound(
 
   // Optional; component won't exist if doing rtcp-mux
   if (NS_SUCCEEDED(aStream->GetDefaultCandidate(2, &defaultRtcpCandidate))) {
-    if (!defaultRtcpCandidate.mdns_addr.empty()) {
-      info.mDefaultHostRtcp = defaultRtcpCandidate.mdns_addr;
+    if (!defaultRtcpCandidate.domain_name.empty()) {
+      info.mDefaultHostRtcp = "0.0.0.0";
+      info.mDefaultPortRtcp = 9;
     } else {
       info.mDefaultHostRtcp = defaultRtcpCandidate.cand_addr.host;
+      info.mDefaultPortRtcp = defaultRtcpCandidate.cand_addr.port;
     }
-    info.mDefaultPortRtcp = defaultRtcpCandidate.cand_addr.port;
   }
 
   info.mMDNSAddress = aMDNSAddr;

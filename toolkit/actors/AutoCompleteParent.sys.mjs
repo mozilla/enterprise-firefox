@@ -83,6 +83,20 @@ Services.ppmm.addMessageListener(
   }
 );
 
+Services.ppmm.addMessageListener(
+  "AutoComplete:MaybeLeaveSecondaryAction",
+  message => {
+    if (compareContext(message)) {
+      let actor = currentActor;
+      if (actor && actor.openedPopup) {
+        return actor.openedPopup.maybeLeaveSecondaryAction();
+      }
+    }
+
+    return false;
+  }
+);
+
 // AutoCompleteResultView is an abstraction around a list of results.
 // It implements enough of nsIAutoCompleteController and
 // nsIAutoCompleteInput to make the richlistbox popup work. Since only
@@ -167,6 +181,8 @@ var AutoCompleteResultView = {
 };
 
 export class AutoCompleteParent extends JSWindowActorParent {
+  #reportedTelemetryInputs = new Set();
+
   didDestroy() {
     if (this.openedPopup) {
       this.openedPopup.closePopup();
@@ -237,6 +253,7 @@ export class AutoCompleteParent extends JSWindowActorParent {
     isDarkBackground,
     results,
     selectedIndex,
+    inputElementIdentifier,
   }) {
     if (!results.length || this.openedPopup) {
       // We shouldn't ever be showing an empty popup, and if we
@@ -297,7 +314,7 @@ export class AutoCompleteParent extends JSWindowActorParent {
     );
     this.openedPopup.invalidate();
     this.openedPopup.selectedIndex = selectedIndex;
-    this._maybeRecordTelemetryEvents(results);
+    this._maybeRecordTelemetryEvents(results, inputElementIdentifier);
 
     // This is a temporary solution. We should replace it with
     // proper meta information about the popup once such field
@@ -314,10 +331,21 @@ export class AutoCompleteParent extends JSWindowActorParent {
   /**
    * @param {object[]} results - Non-empty array of autocomplete results.
    */
-  _maybeRecordTelemetryEvents(results) {
+  _maybeRecordTelemetryEvents(results, inputElementIdentifier = null) {
     let actor =
       this.browsingContext.currentWindowGlobal.getActor("LoginManager");
     actor.maybeRecordPasswordGenerationShownTelemetryEvent(results);
+
+    if (!inputElementIdentifier) {
+      return;
+    }
+    const inputKey = `${inputElementIdentifier.browsingContextId}|${inputElementIdentifier.id}`;
+    // The event is recorded once per input element: reopening the popup on the
+    // same field tells us nothing new and would skew the duration data.
+    if (this.#reportedTelemetryInputs.has(inputKey)) {
+      return;
+    }
+    this.#reportedTelemetryInputs.add(inputKey);
 
     // Assume the result with the start time (loginsFooter) is last.
     let lastResult = results[results.length - 1];
@@ -332,11 +360,6 @@ export class AutoCompleteParent extends JSWindowActorParent {
     let rawExtraData = JSON.parse(lastResult.comment).telemetryEventData;
     if (!rawExtraData.searchStartTimeMS) {
       throw new Error("Invalid autocomplete search start time");
-    }
-
-    if (rawExtraData.stringLength > 1) {
-      // To reduce event volume, only record for lengths 0 and 1.
-      return;
     }
 
     let duration =
@@ -478,6 +501,7 @@ export class AutoCompleteParent extends JSWindowActorParent {
             dir,
             isDarkBackground,
             selectedIndex,
+            inputElementIdentifier,
           });
           this.notifyListeners();
 

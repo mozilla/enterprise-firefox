@@ -129,6 +129,8 @@ Possible SAPs are:
 > - `smartbar` Used when searching from Smart Window.
 > - `smartwindow_assistant` Used when searching from Smart Window assistant.
 > - `system` Indicates a search from the command line.
+> - `text_selection` Used when searching from the actions menu shown when
+>   text is selected on a page.
 > - `urlbar` Except search mode.
 > - `urlbar_handoff` Used when searching from `about:newtab`.
 > - `urlbar_persisted` Used when searching from the Urlbar while it

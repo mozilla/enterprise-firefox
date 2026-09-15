@@ -51,8 +51,8 @@ add_task(async function test_fullscreen_cross_origin() {
           ["full-screen-api.allow-trusted-requests-only", false],
           ["full-screen-api.transition-duration.enter", "0 0"],
           ["full-screen-api.transition-duration.leave", "0 0"],
-          ["dom.security.featurePolicy.header.enabled", true],
-          ["dom.security.featurePolicy.webidl.enabled", true],
+          ["dom.security.permissionsPolicy.header.enabled", true],
+          ["dom.security.permissionsPolicy.webidl.enabled", true],
         ],
       },
       r

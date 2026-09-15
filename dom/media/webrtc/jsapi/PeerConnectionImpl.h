@@ -925,9 +925,9 @@ class PeerConnectionImpl final
   // web-compat stopgap
   bool mAllowOldSetParameters = false;
 
-  // Used to store the mDNS hostnames that we have queried
+  // For candidates that require an mDNS query before they can be used.
   struct PendingIceCandidate {
-    std::vector<std::string> mTokenizedCandidate;
+    std::string mCandidate;
     std::string mTransportId;
     std::string mUfrag;
   };

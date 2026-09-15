@@ -301,6 +301,30 @@ class MediaSessionServiceDelegateTest {
         }
 
     @Test
+    fun `GIVEN the service is not in foreground WHEN playing media with transient type THEN the focus requested after starting foreground uses that type`() =
+        runTest {
+            val mediaTab =
+                createTab(
+                    url = "https://www.mozilla.org",
+                    mediaSessionState =
+                        MediaSessionState(
+                            mock(),
+                            playbackState = PlaybackState.PLAYING,
+                            audioSessionType = MediaSession.AudioSessionType.TRANSIENT,
+                        ),
+                )
+            val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
+            delegate.onCreate()
+            delegate.audioFocus = mock()
+            delegate.isForegroundService = false
+
+            delegate.handleMediaPlaying(mediaTab)
+            testScheduler.advanceUntilIdle()
+
+            verify(delegate.audioFocus).request(mediaTab.id, MediaSession.AudioSessionType.TRANSIENT)
+        }
+
+    @Test
     fun `GIVEN the service is not in foreground WHEN handling playing media THEN start the media service as foreground`() =
         runTest {
             val mediaTab = getMediaTab()

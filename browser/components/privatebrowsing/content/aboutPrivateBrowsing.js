@@ -421,6 +421,31 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   }
 
+  // Redesign experiment: swap the static mask for the animated intro, played
+  // once per profile (seen-once flag persisted via RPMSetPref) and skipped
+  // under reduced motion.
+  if (RPMGetBoolPref("browser.privateWindowRedesign.enabled", false)) {
+    const maskIntro = document.getElementById(
+      "about-private-browsing-mask-intro"
+    );
+    const staticLogo = document.getElementById("about-private-browsing-logo");
+    staticLogo.hidden = true;
+    maskIntro.hidden = false;
+
+    const alreadyShown = RPMGetBoolPref(
+      "browser.privatebrowsing.introAnimationShown",
+      false
+    );
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    if (!alreadyShown && !reduceMotion) {
+      maskIntro.play = true;
+      RPMSetPref("browser.privatebrowsing.introAnimationShown", true);
+    }
+  }
+
   // We don't do this setup until now, because we don't want to record any impressions until we're
   // sure we're actually running a private window, not just about:privatebrowsing in a normal window.
   setupMessageConfig();

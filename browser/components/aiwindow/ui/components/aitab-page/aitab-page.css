@@ -17,22 +17,6 @@
   padding: var(--space-xlarge);
 }
 
-.aitab-eyebrow {
-  margin: 0;
-  color: var(--text-color-deemphasized);
-  font-size: var(--font-size-small);
-  text-transform: uppercase;
-}
-
-.aitab-title {
-  margin: 0;
-}
-
-.aitab-subhead {
-  margin: 0;
-  color: var(--text-color-deemphasized);
-}
-
 .aitab-blocks {
   display: flex;
   flex-direction: column;

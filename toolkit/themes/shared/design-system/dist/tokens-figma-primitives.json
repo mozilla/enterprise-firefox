@@ -118,6 +118,7 @@
   "input/search/border/radius": "{Primitives$input/text/border/radius}",
   "input/search/icon/size": "{Primitives$input/text/icon/size}",
   "input/width": "{Primitives$size/item/small}",
+  "link/border/radius/focus": "{Primitives$border/radius/small}",
   "link/focus/outline/offset": 1,
   "page/main/content/width": 664,
   "page/space/block/start": 64,

@@ -229,6 +229,48 @@ add_task(async function test_submit_and_delete_dispatch_detail() {
   });
 });
 
+/**
+ * The watching/paused pill is its own element, so every surface that lists
+ * monitors shows the same one. The card only says which status to state.
+ */
+add_task(async function test_status_chip_states_the_status() {
+  await withTestPage(async browser => {
+    await setProps(browser, { agent: AGENT, mode: "display" });
+
+    await SpecialPowers.spawn(browser, [], async () => {
+      const el = content.document.getElementById("test-agent-monitor-item");
+      const chip = el.shadowRoot.querySelector("monitor-status-chip");
+      Assert.ok(chip, "The display card shows a status chip");
+      Assert.equal(chip.kind, "watching", "An active monitor is watching");
+
+      await ContentTaskUtils.waitForCondition(
+        () => chip.shadowRoot.querySelector("span")?.textContent,
+        "the chip is localized"
+      );
+      Assert.equal(
+        chip.shadowRoot.querySelector("span").textContent,
+        "Active",
+        "The chip states the status in words"
+      );
+
+      el.agent = { ...el.agent, status: { kind: "paused" } };
+      await el.updateComplete;
+      Assert.equal(chip.kind, "paused", "A paused monitor says so");
+
+      el.agent = { ...el.agent, status: null };
+      await el.updateComplete;
+      Assert.ok(
+        !chip.shadowRoot.querySelector("span"),
+        "A monitor with no status has no pill"
+      );
+      await ContentTaskUtils.waitForCondition(
+        () => content.getComputedStyle(chip).display === "none",
+        "an empty pill takes up no room"
+      );
+    });
+  });
+});
+
 add_task(async function test_pause_button_toggles_label_and_detail() {
   await withTestPage(async browser => {
     await setProps(browser, { agent: AGENT, mode: "display", expanded: true });
@@ -515,6 +557,119 @@ add_task(async function test_create_mode_renders_form() {
         submitDetail?.mode,
         "create",
         "submit from create mode reports mode 'create'"
+      );
+    });
+  });
+});
+
+/**
+ * A self-contained card frames and titles itself. A host that already does both
+ * - the Tasks panel, which has its own header - sets selfContained to false and
+ * gets just the fields.
+ */
+add_task(async function test_self_contained_frame_and_title() {
+  await withTestPage(async browser => {
+    await setProps(browser, { agent: AGENT, mode: "create" });
+
+    await SpecialPowers.spawn(browser, [], async () => {
+      const el = content.document.getElementById("test-agent-monitor-item");
+      const shadow = el.shadowRoot;
+
+      Assert.ok(
+        el.selfContained,
+        "Cards are self-contained unless a host says otherwise"
+      );
+      Assert.ok(
+        el.hasAttribute("self-contained"),
+        "selfContained is reflected so the stylesheet can drop the frame"
+      );
+      Assert.ok(
+        shadow.querySelector(".title-container"),
+        "A self-contained create card states its own title"
+      );
+
+      el.selfContained = false;
+      await el.updateComplete;
+
+      Assert.ok(
+        !el.hasAttribute("self-contained"),
+        "Turning it off removes the attribute"
+      );
+      Assert.ok(
+        !shadow.querySelector(".title-container"),
+        "A hosted create card leaves the title to its host"
+      );
+      Assert.ok(
+        shadow.querySelector("moz-textarea.monitor-condition-input"),
+        "A hosted create card still shows the fields"
+      );
+
+      const card = shadow.querySelector(".monitor-card");
+      const style = content.getComputedStyle(card);
+      Assert.equal(
+        style.borderTopWidth,
+        "0px",
+        "A hosted card does not draw its own border"
+      );
+      Assert.notEqual(
+        style.paddingTop,
+        "0px",
+        "A hosted card keeps its padding so fields clear the host's edge"
+      );
+    });
+  });
+});
+
+/**
+ * moz-select swaps its native <select> for a popover-based list as soon as an
+ * option has an icon, and a popover renders in the document's top layer - the
+ * wrong place when the host is a XUL panel, which is its own widget. A hosted
+ * card therefore drops the option icons to keep the native dropdown.
+ */
+add_task(async function test_hosted_card_keeps_native_select() {
+  await withTestPage(async browser => {
+    await setProps(browser, { agent: AGENT, mode: "create" });
+
+    await SpecialPowers.spawn(browser, [], async () => {
+      const el = content.document.getElementById("test-agent-monitor-item");
+      const selects = () => [...el.shadowRoot.querySelectorAll("moz-select")];
+      const optionsHaveIcons = () =>
+        selects().every(select =>
+          [...select.querySelectorAll("moz-option")].every(option =>
+            option.hasAttribute("iconsrc")
+          )
+        );
+
+      await Promise.all(selects().map(select => select.updateComplete));
+      Assert.ok(selects().length, "The create form has selects to check");
+      Assert.ok(
+        optionsHaveIcons(),
+        "A self-contained card keeps its option icons"
+      );
+      Assert.ok(
+        selects().every(select => select.usePanelList),
+        "Icons mean moz-select renders its popover list"
+      );
+
+      el.selfContained = false;
+      await el.updateComplete;
+      await Promise.all(selects().map(select => select.updateComplete));
+
+      Assert.ok(
+        selects().every(select =>
+          [...select.querySelectorAll("moz-option")].every(
+            option => !option.hasAttribute("iconsrc")
+          )
+        ),
+        "A hosted card drops the option icons"
+      );
+      Assert.ok(
+        selects().every(select => !select.usePanelList),
+        "Without icons moz-select falls back to the native dropdown"
+      );
+      Assert.ok(
+        selects().every(select => select.shadowRoot.querySelector("select")),
+        "A hosted card renders real native selects"
       );
     });
   });

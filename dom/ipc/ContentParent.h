@@ -1390,9 +1390,9 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvGeckoTraceExport(ByteBuf&& aBuf);
 
-  mozilla::ipc::IPCResult RecvSetContainerFeaturePolicy(
+  mozilla::ipc::IPCResult RecvSetContainerPermissionsPolicy(
       const MaybeDiscardedBrowsingContext& aContainerContext,
-      MaybeFeaturePolicyInfo&& aContainerFeaturePolicyInfo);
+      MaybePermissionsPolicyInfo&& aContainerPermissionsPolicyInfo);
 
   mozilla::ipc::IPCResult RecvUpdateAncestorOriginsList(
       const MaybeDiscardedBrowsingContext& aContext);

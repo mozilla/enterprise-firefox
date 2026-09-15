@@ -239,8 +239,8 @@ instead of leaving them all as one category.
 
 | Events | Who listens |
 | --- | --- |
-| `TabHoverStart`, `TabHoverEnd`, `TabGroupLabelHoverStart`, `TabGroupLabelHoverEnd`, `TabNoteIconHoverStart`, `TabNoteIconHoverEnd` | The strip talking to itself: the tab and group elements dispatch them and `tabs.js` drives the hover preview panel from them. |
-| `TabAnimationEnd`, `TabGroupAnimationComplete` | `tabs.js` and the drag-and-drop code, and directly by name in a dozen strip tests -- `TabGroupAnimationComplete` also through `TabGroupTestUtils`. Waiting for an animation to finish is the only reason to reach for either. |
+| `TabHoverStart`, `TabHoverEnd`, `TabGroupLabelHoverStart`, `TabGroupLabelHoverEnd`, `TabNoteIconHoverStart`, `TabNoteIconHoverEnd` | The strip talking to itself: the tab and group elements dispatch them and `tabs.mjs` drives the hover preview panel from them. |
+| `TabAnimationEnd`, `TabGroupAnimationComplete` | `tabs.mjs` and the drag-and-drop code, and directly by name in a dozen strip tests -- `TabGroupAnimationComplete` also through `TabGroupTestUtils`. Waiting for an animation to finish is the only reason to reach for either. |
 | `TabPreviewUpdated`, `TabPreviewThumbnailUpdated`, `TabGroupPreviewUpdated`, `TabNotePreviewUpdated` | `tab-hover-preview.mjs` and `browser_tab_preview.js`. A repaint has no other observer, which is what they exist for. |
 | `TabSwitched` | `BrowserTestUtils.switchTab`, and nothing else -- so a test waits on it through the helper without ever naming it. It carries the tab as `detail.tab` and fires when the switcher has its layers ready, earlier than `TabSwitchDone` rather than superseded by it; the helper falls back to `TabSwitchDone` when the window is hidden, since a hidden browser dispatches no `TabSwitched` ([Bug 1977993](https://bugzilla.mozilla.org/show_bug.cgi?id=1977993)). |
 | `TabSwapPictureInPicture` | `PictureInPicture.sys.mjs`, and nothing else. A private channel rather than a vocabulary: it does not bubble, that consumer registers on the tab element, and the `detail` is the tab receiving the state while the target is the tab losing it. |

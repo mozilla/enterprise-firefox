@@ -139,6 +139,16 @@ nsresult HTMLEditor::InitEditorContentAndSelection() {
     return NS_OK;
   }
 
+  // Don't create padding BR element if the <body> is an EditContext editing
+  // host. (This can be called even if no element is focused, so we can't
+  // rely on the active EditContext here which would be null in those cases.)
+  if (Element* body = GetBodyElement()) {
+    if (body->HasFlag(ELEMENT_HAS_EDIT_CONTEXT) &&
+        !body->GetParentNode()->IsEditable()) {
+      return NS_OK;
+    }
+  }
+
   nsresult rv = MaybeCreatePaddingBRElementForEmptyEditor();
   if (NS_FAILED(rv)) {
     NS_WARNING(

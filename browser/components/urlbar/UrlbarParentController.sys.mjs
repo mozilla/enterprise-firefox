@@ -27,6 +27,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/search/ConfigSearchEngine.sys.mjs",
   BrowserSearchTelemetry:
     "moz-src:///browser/components/search/BrowserSearchTelemetry.sys.mjs",
+  ContainerCreationPanel:
+    "chrome://browser/content/usercontext/ContainerCreationPanel.mjs",
   ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
   Interactions: "moz-src:///browser/components/places/Interactions.sys.mjs",
   ProvidersManager:
@@ -872,9 +874,22 @@ export class UrlbarParentController {
    *
    * @param {string} paneID
    *   The preferences pane to open, per `openPreferences`.
+   * @param {object} [extraArgs]
+   *   Extra arguments, per `openPreferences`.
    */
-  openPreferences(paneID) {
-    this.browserWindow.openPreferences(paneID);
+  openPreferences(paneID, extraArgs) {
+    this.browserWindow.openPreferences(paneID, extraArgs);
+  }
+
+  /**
+   * Opens the panel that adds a container, anchored in the browser window for
+   * the same reason `openPreferences` is called here.
+   *
+   * @param {string} entrypoint
+   *   The UI entry point the request came from.
+   */
+  openContainerCreationPanel(entrypoint) {
+    lazy.ContainerCreationPanel.open(this.browserWindow, entrypoint);
   }
 
   /**

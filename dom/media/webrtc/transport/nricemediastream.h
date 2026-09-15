@@ -75,7 +75,7 @@ struct NrIceCandidate {
 
   NrIceAddr cand_addr;
   NrIceAddr local_addr;
-  std::string mdns_addr;
+  std::string domain_name;
   Type type;
   TcpType tcp_type;
   std::string codeword;
@@ -164,7 +164,7 @@ class NrIceMediaStream {
   // Parse trickle ICE candidate
   nsresult ParseTrickleCandidate(const std::string& candidate,
                                  const std::string& ufrag,
-                                 const std::string& mdns_addr);
+                                 const std::string& resolved_address);
 
   // Disable a component
   nsresult DisableComponent(int component);

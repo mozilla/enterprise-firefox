@@ -61,7 +61,7 @@ task-defaults:
             # Bug 1635749, disable window recorder temporarily
             - --browsertime-no-ffwindowrecorder
     optimization:
-        skip-unless-android-perftest-backstop: null
+        perf-cadence-android: null
     limit-platforms:
         by-app:
             chrome-m:

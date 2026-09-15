@@ -11,6 +11,7 @@
 #define js_ForOfIterator_h
 
 #include "mozilla/Attributes.h"  // MOZ_STACK_CLASS
+#include "mozilla/Maybe.h"       // mozilla::Maybe
 
 #include <stdint.h>  // UINT32_MAX, uint32_t
 
@@ -108,6 +109,15 @@ class MOZ_STACK_CLASS JS_PUBLIC_API ForOfIterator {
    * the value is iterable.
    */
   bool valueIsIterable() const { return iteratorOrArray_ != nullptr; }
+
+  /**
+   * For an array iterated through the optimized array path, the number of
+   * elements it currently stores densely; Nothing for any other iterable.
+   * Callers use this to reserve storage before iterating. It is only a hint:
+   * the array may change during iteration and holes are still read through
+   * the normal element lookup.
+   */
+  mozilla::Maybe<uint32_t> sizeHint() const;
 
  private:
   inline bool nextFromOptimizedArray(MutableHandle<Value> val, bool* done);

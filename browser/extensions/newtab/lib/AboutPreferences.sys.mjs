@@ -851,7 +851,7 @@ export class AboutPreferences {
             },
             {
               id: "recentSearches",
-              l10nId: "home-prefs-recent-searches-header",
+              l10nId: "home-prefs-search-widget-header",
             },
             ...(novaEnabled && widgetsSystemEnabled ? [weatherItem] : []),
           ],

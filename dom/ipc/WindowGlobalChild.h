@@ -249,7 +249,7 @@ class WindowGlobalChild final : public WindowGlobalActor,
   RefPtr<nsGlobalWindowInner> mWindowGlobal;
   RefPtr<dom::WindowContext> mWindowContext;
   nsCOMPtr<nsIPrincipal> mDocumentPrincipal;
-  RefPtr<dom::FeaturePolicy> mContainerFeaturePolicy;
+  RefPtr<dom::PermissionsPolicy> mContainerPermissionsPolicy;
   nsCOMPtr<nsIURI> mDocumentURI;
   nsTArray<RefPtr<DocumentLanguageMetadataRequest>>
       mDocumentLanguageMetadataRequests;

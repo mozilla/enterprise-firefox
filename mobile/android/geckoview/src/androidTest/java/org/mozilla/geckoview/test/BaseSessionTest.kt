@@ -58,6 +58,7 @@ open class BaseSessionTest(
         const val CC_FORM_HTML_PATH = "/assets/www/cc_form.html"
         const val FEDCM_RP_HTML_PATH = "/assets/www/fedcm_rp.html"
         const val FEDCM_IDP_MANIFEST_PATH = "/assets/www/fedcm_idp_manifest.json"
+        const val FULLPAGE_HTML_PATH = "/assets/www/fullpage.html"
         const val HELLO_HTML_PATH = "/assets/www/hello.html"
         const val HELLO2_HTML_PATH = "/assets/www/hello2.html"
         const val HELLO_IFRAME_HTML_PATH = "/assets/www/iframe_hello.html"

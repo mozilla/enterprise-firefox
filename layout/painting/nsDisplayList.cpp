@@ -6954,10 +6954,12 @@ WebRenderCommandsResult nsDisplayTransform::CreateWebRenderCommands(
       GetTransformForRendering(&position, aDisplayListBuilder);
 
   gfx::Matrix4x4* transformForSC = &newTransformMatrix;
-  if (newTransformMatrix.IsIdentity()) {
+  if (newTransformMatrix.IsIdentity() && !mHasAssociatedPerspective) {
     // If the transform is an identity transform, strip it out so that WR
     // doesn't turn this stacking context into a reference frame, as it
-    // affects positioning.
+    // affects positioning. Keep it when paired with a perspective: the
+    // reference frame is what tells WR to flatten our 3D descendants into
+    // our plane before the perspective applies.
     transformForSC = nullptr;
 
     // In ChooseScaleAndSetTransform, we round the offset from the reference

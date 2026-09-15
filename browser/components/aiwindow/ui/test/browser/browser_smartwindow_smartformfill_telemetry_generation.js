@@ -26,7 +26,7 @@ add_task(async function test_generation_records_a_decision_per_field() {
     const [response] = generateResponses;
     Assert.equal(
       request.threshold,
-      "high",
+      "medium",
       "The recorded threshold is the confidence a value must clear"
     );
     Assert.equal(
@@ -39,6 +39,19 @@ add_task(async function test_generation_records_a_decision_per_field() {
       TEST_MODEL_INFO.promptVersion,
       "The generation request reports the prompt version it was dispatched with"
     );
+    Assert.equal(
+      request.memories,
+      "0",
+      "Expected a round with nothing stored to report no memory sent as context"
+    );
+    for (const key of ["min", "max", "avg"]) {
+      Assert.strictEqual(
+        request[`memories_similarity_${key}`],
+        undefined,
+        `Expected no memories_similarity_${key}, the round sent no memory`
+      );
+    }
+
     Assert.equal(
       response.batches_failed,
       "0",
@@ -134,8 +147,83 @@ add_task(async function test_the_context_the_model_says_it_used_is_recorded() {
         "1",
         "The response reports how many tabs the model says it used"
       );
+
+      for (const key of ["min", "max", "avg"]) {
+        Assert.strictEqual(
+          response[`memories_used_similarity_${key}`],
+          undefined,
+          `Expected no memories_used_similarity_${key}, the round sent no memory to summarise`
+        );
+      }
     }
   );
+});
+
+add_task(async function test_a_field_reports_both_classifications() {
+  await withFormPage(
+    {
+      classifyFields: classifyAs(
+        new Map([
+          ["email", "email"],
+          ["phone", "phone-number"],
+          ["reason", "other"],
+        ])
+      ),
+    },
+    async ({ win, browser, actor }) => {
+      await runRoundOnForm(browser, actor);
+      await fillFormReview(win, browser);
+
+      const [email, phone] = await waitForEvents("formFillField", 2);
+
+      Assert.equal(
+        email.pre_llm_field_kind,
+        "email",
+        "Expected the email field to report the heuristics' guess alongside the model's"
+      );
+      Assert.equal(
+        email.field_kind,
+        "email",
+        "Expected the email field to report the type the model answered with"
+      );
+      Assert.equal(
+        email.pre_llm_source,
+        "regex-heuristic",
+        "Expected a heuristic guess to name the heuristic that made it"
+      );
+
+      Assert.equal(
+        phone.pre_llm_field_kind,
+        "tel",
+        "Expected the phone field to report the heuristics' guess alongside the model's"
+      );
+      Assert.equal(
+        phone.field_kind,
+        "phone-number",
+        "Expected the phone field to report the type the model answered with"
+      );
+    }
+  );
+});
+
+add_task(async function test_a_field_the_heuristics_missed_reports_no_guess() {
+  await withFormPage({}, async ({ win, browser, actor }) => {
+    await runRoundOnForm(browser, actor, "#reason");
+    await fillFormReview(win, browser);
+
+    const [reason] = await waitForEvents("formFillField", 1);
+
+    Assert.strictEqual(
+      reason.pre_llm_field_kind,
+      undefined,
+      "Expected no pre_llm_field_kind for a field the heuristics cannot classify"
+    );
+    Assert.strictEqual(
+      reason.pre_llm_source,
+      undefined,
+      "Expected no pre_llm_source where there is no heuristic guess to attribute"
+    );
+  });
 });
 
 add_task(async function test_a_value_below_the_threshold_is_not_filled() {
@@ -144,7 +232,7 @@ add_task(async function test_a_value_below_the_threshold_is_not_filled() {
       generateFormValues: async (request, { onDispatch }) => {
         onDispatch?.(TEST_MODEL_INFO);
 
-        const confidences = ["medium", "sideways"];
+        const confidences = ["low", "sideways"];
 
         return {
           memories_used: [],
@@ -185,7 +273,7 @@ add_task(async function test_a_rejected_value_does_not_cost_the_round() {
 
         // One value clears the threshold and one does not, so the round proves
         // the threshold filters per field rather than failing as a whole.
-        const confidences = ["high", "medium"];
+        const confidences = ["medium", "low"];
 
         return {
           memories_used: [],

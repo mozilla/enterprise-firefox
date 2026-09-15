@@ -44,7 +44,7 @@ static const nsRoleMapEntry sWAIRoleMaps[] = {
     kUseMapRole,
     eNoValue,
     eNoAction,
-#if defined(XP_MACOSX)
+#if defined(XP_MACOSX) || defined (ANDROID)
     eAssertiveLiveAttr,
 #else
     eNoLiveAttr,

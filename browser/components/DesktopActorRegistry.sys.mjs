@@ -285,7 +285,9 @@ let JSWINDOWACTORS = {
       esModuleURI:
         "moz-src:///browser/components/aiwindow/ui/actors/AITabChild.sys.mjs",
       events: {
-        "AITab:RequestPage": { wantUntrusted: true },
+        "AITab:GetPage": { wantUntrusted: true },
+        "AITab:DeletePage": { wantUntrusted: true },
+        "AITab:OpenLink": { wantUntrusted: true },
       },
     },
     matches: ["about:aitab", "about:aitab?*"],

@@ -1616,6 +1616,20 @@ bool OptimizeMIR(MIRGenerator* mir) {
     }
   }
 
+  // This must run after all passes that can move or insert instructions, so
+  // that nothing ends up between a post write barrier and its store.
+  if (!mir->compilingWasm()) {
+    if (!AddPostWriteBarriers(graph)) {
+      return false;
+    }
+    mir->spewPass("Add Post Write Barriers");
+    AssertGraphCoherency(graph);
+
+    if (mir->shouldCancel("Add Post Write Barriers")) {
+      return false;
+    }
+  }
+
   AssertGraphCoherency(graph, /* force = */ true);
 
   if (JitSpewEnabled(JitSpew_MIRExpressions)) {

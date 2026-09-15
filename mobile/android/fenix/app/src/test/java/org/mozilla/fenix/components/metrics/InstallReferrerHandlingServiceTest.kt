@@ -33,6 +33,7 @@ import org.mozilla.fenix.distributions.DistributionSettings
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.nimbus.MarketingOnboardingCard
+import org.mozilla.fenix.nimbus.PairingSigninPrompt
 import org.mozilla.fenix.utils.Settings
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -865,6 +866,70 @@ internal class InstallReferrerHandlingServiceTest {
                 InstallReferrerHandlingService.shouldShowMarketingOnboarding(skyflagReferrer, distributionIdManager)
             )
         }
+
+    @Test
+    fun `WHEN installReferrerResponse is null or blank THEN isPairingCampaignAttribution returns false`() {
+        assertFalse(InstallReferrerHandlingService.isPairingCampaignAttribution(null, "pairing123"))
+        assertFalse(InstallReferrerHandlingService.isPairingCampaignAttribution("", "pairing123"))
+        assertFalse(InstallReferrerHandlingService.isPairingCampaignAttribution(" ", "pairing123"))
+    }
+
+    @Test
+    fun `WHEN no campaign utm_content is configured THEN isPairingCampaignAttribution returns false`() {
+        assertFalse(
+            InstallReferrerHandlingService.isPairingCampaignAttribution("utm_source=google&utm_content=pairing123", "")
+        )
+    }
+
+    @Test
+    fun `WHEN installReferrerResponse utm_content matches the configured campaign value THEN isPairingCampaignAttribution returns true`() {
+        assertTrue(
+            InstallReferrerHandlingService.isPairingCampaignAttribution(
+                "utm_source=google&utm_content=pairing123",
+                "pairing123",
+            )
+        )
+    }
+
+    @Test
+    fun `WHEN installReferrerResponse utm_content differs only by case THEN isPairingCampaignAttribution returns true`() {
+        assertTrue(InstallReferrerHandlingService.isPairingCampaignAttribution("utm_content=Pairing123", "pairing123"))
+    }
+
+    @Test
+    fun `WHEN installReferrerResponse utm_content does not match the configured campaign value THEN isPairingCampaignAttribution returns false`() {
+        assertFalse(InstallReferrerHandlingService.isPairingCampaignAttribution("utm_content=other", "pairing123"))
+    }
+
+    @Test
+    fun `GIVEN a pairing-attributed referrer on OK response WHEN start is called THEN isUserPairingCampaignAttributed is true`() {
+        FxNimbus.features.pairingSigninPrompt.withCachedValue(PairingSigninPrompt(campaignUtmContent = "pairing123"))
+        val referrer = "utm_source=google&utm_content=pairing123"
+        val service =
+            fakeService(
+                responseCode = InstallReferrerClient.InstallReferrerResponse.OK,
+                referrerResponse = referrer,
+            )
+
+        service.start()
+
+        assertTrue(testContext.components.settings.isUserPairingCampaignAttributed)
+    }
+
+    @Test
+    fun `GIVEN a non-pairing referrer on OK response WHEN start is called THEN isUserPairingCampaignAttributed is false`() {
+        FxNimbus.features.pairingSigninPrompt.withCachedValue(PairingSigninPrompt(campaignUtmContent = "pairing123"))
+        testContext.components.settings.isUserPairingCampaignAttributed = true
+        val service =
+            fakeService(
+                responseCode = InstallReferrerClient.InstallReferrerResponse.OK,
+                referrerResponse = "utm_source=google&utm_content=pairing456",
+            )
+
+        service.start()
+
+        assertFalse(testContext.components.settings.isUserPairingCampaignAttributed)
+    }
 }
 
 private class FakeReferrerClient(

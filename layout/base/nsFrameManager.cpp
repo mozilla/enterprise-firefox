@@ -12,14 +12,13 @@
 #include "mozilla/ComputedStyle.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/PresState.h"
+#include "mozilla/ScrollContainerFrame.h"
 #include "mozilla/ViewportFrame.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
-#include "nsCOMPtr.h"
 #include "nsContainerFrame.h"
 #include "nsError.h"
 #include "nsILayoutHistoryState.h"
-#include "nsIStatefulFrame.h"
 #include "nsPlaceholderFrame.h"
 #include "nsWindowSizes.h"
 #include "nscore.h"
@@ -119,52 +118,15 @@ void nsFrameManager::RemoveFrame(DestroyContext& aContext,
   }
 }
 
-//----------------------------------------------------------------------
-
-// Capture state for a given frame.
-// Accept a content id here, in some cases we may not have content (scroll
-// position)
-void nsFrameManager::CaptureFrameStateFor(nsIFrame* aFrame,
-                                          nsILayoutHistoryState* aState,
-                                          CaptureStateFlags aFlags) {
-  if (!aFrame || !aState) {
-    NS_WARNING("null frame, or state");
-    return;
-  }
-
-  // Only capture state for stateful frames
-  nsIStatefulFrame* statefulFrame = do_QueryFrame(aFrame);
-  if (!statefulFrame) {
-    return;
-  }
-
-  // Capture the state, exit early if we get null (nothing to save)
-  UniquePtr<PresState> frameState = statefulFrame->SaveState(aFlags);
-  if (!frameState) {
-    return;
-  }
-
-  // Generate the hash key to store the state under
-  // Exit early if we get empty key
-  nsAutoCString stateKey;
-  nsIContent* content = aFrame->GetContent();
-  Document* doc = content ? content->GetUncomposedDoc() : nullptr;
-  statefulFrame->GenerateStateKey(content, doc, stateKey);
-  if (stateKey.IsEmpty()) {
-    return;
-  }
-
-  // Store the state. aState owns frameState now.
-  aState->AddState(stateKey, std::move(frameState));
-}
-
 void nsFrameManager::CaptureFrameState(nsIFrame* aFrame,
                                        nsILayoutHistoryState* aState,
                                        CaptureStateFlags aFlags) {
-  MOZ_ASSERT(nullptr != aFrame && nullptr != aState,
-             "null parameters passed in");
+  MOZ_ASSERT(aFrame);
+  MOZ_ASSERT(aState);
 
-  CaptureFrameStateFor(aFrame, aState, aFlags);
+  if (ScrollContainerFrame* scrollFrame = do_QueryFrame(aFrame)) {
+    scrollFrame->SaveState(aFlags, aState);
+  }
 
   // Now capture state recursively for the frame hierarchy rooted at aFrame
   for (const auto& childList : aFrame->ChildLists()) {
@@ -200,42 +162,10 @@ void nsFrameManager::RestoreFrameStateFor(nsIFrame* aFrame,
     return;
   }
 
-  // Only restore state for stateful frames
-  nsIStatefulFrame* statefulFrame = do_QueryFrame(aFrame);
-  if (!statefulFrame) {
-    return;
+  // Only restore state for scroll frames
+  if (ScrollContainerFrame* scrollFrame = do_QueryFrame(aFrame)) {
+    scrollFrame->RestoreState(aState);
   }
-
-  // Generate the hash key the state was stored under
-  // Exit early if we get empty key
-  nsIContent* content = aFrame->GetContent();
-  // If we don't have content, we can't generate a hash
-  // key and there's probably no state information for us.
-  if (!content) {
-    return;
-  }
-
-  nsAutoCString stateKey;
-  Document* doc = content->GetUncomposedDoc();
-  statefulFrame->GenerateStateKey(content, doc, stateKey);
-  if (stateKey.IsEmpty()) {
-    return;
-  }
-
-  // Get the state from the hash
-  PresState* frameState = aState->GetState(stateKey);
-  if (!frameState) {
-    return;
-  }
-
-  // Restore it
-  nsresult rv = statefulFrame->RestoreState(frameState);
-  if (NS_FAILED(rv)) {
-    return;
-  }
-
-  // If we restore ok, remove the state from the state table
-  aState->RemoveState(stateKey);
 }
 
 void nsFrameManager::AddSizeOfIncludingThis(nsWindowSizes& aSizes) const {

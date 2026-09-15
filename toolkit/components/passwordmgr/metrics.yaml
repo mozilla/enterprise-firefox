@@ -1299,16 +1299,22 @@ form_autocomplete:
   show_logins:
     type: event
     description: >
-      An content form autocomplete popup was shown. Details on the timing
-      and context are provided.
+      A login autocomplete popup was shown, with the time from the start of
+      the search until the popup appeared and details on its contents.
+      Since bug 2070466 this is recorded once per input element per page
+      load, on the first opening of its popup, for all search string lengths;
+      before, it was recorded on every result update while the popup was
+      open, capped to search strings of length 0 and 1.
       This event was generated to correspond to the Legacy Telemetry event
       form_autocomplete.show#logins.
     bugs:
       - https://bugzil.la/1619498
       - https://bugzil.la/1628849
+      - https://bugzil.la/2070466
     data_reviews:
       - https://bugzil.la/1619498
       - https://bugzil.la/1628849
+      - https://bugzil.la/2070466
     notification_emails:
       - passwords-dev@mozilla.org
     expires: never

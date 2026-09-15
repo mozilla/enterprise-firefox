@@ -16,6 +16,14 @@
   gap: var(--space-medium);
 }
 
+/* A host that frames the card itself only wants the contents. The padding stays
+   so the fields don't sit against the host's edge. */
+:host(:not([self-contained])) .monitor-card {
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
 .monitor-card-head {
   display: flex;
   align-items: center;
@@ -107,24 +115,6 @@
   color: white;
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-small);
-}
-
-.monitor-value {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-small);
-  flex-wrap: wrap;
-
-  & .now {
-    font-size: var(--font-size-xxxlarge);
-    font-weight: var(--font-weight-bold);
-    line-height: 1;
-  }
-
-  & .from {
-    color: var(--text-color-deemphasized);
-    font-size: var(--font-size-small);
-  }
 }
 
 .field {
@@ -243,26 +233,20 @@ moz-input-text::part(label),
   }
 }
 
-.status-chip {
+.last-result {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xsmall);
   font-size: var(--font-size-small);
-  font-weight: var(--font-weight-semibold);
   padding: var(--space-xxsmall) var(--space-small);
   border-radius: var(--border-radius-circle);
   white-space: nowrap;
   flex: none;
-}
+  color: var(--text-color-deemphasized);
 
-.status-chip.watching {
-  color: var(--icon-color-success);
-  background: var(--background-color-success);
-}
-
-.status-chip.paused {
-  color: var(--icon-color-warning);
-  background: var(--background-color-warning);
+  &.match {
+    font-weight: var(--font-weight-semibold);
+  }
 }
 
 @keyframes pulse {

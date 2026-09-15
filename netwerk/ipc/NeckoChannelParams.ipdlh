@@ -13,7 +13,7 @@ include ProtocolTypes;
 
 include "mozilla/dom/DomSecurityIPCUtils.h";
 include "mozilla/dom/FetchIPCTypes.h";
-include "mozilla/dom/FeaturePolicyUtils.h";
+include "mozilla/dom/PermissionsPolicyUtils.h";
 include "mozilla/dom/NavigationAPIIPCUtils.h";
 include "mozilla/dom/PropertyBagUtils.h";
 include "mozilla/dom/ReferrerInfoUtils.h";
@@ -40,7 +40,7 @@ using nsILoadInfo::IPAddressSpace from "nsILoadInfo.h";
 using struct mozilla::dom::LoadingSessionHistoryInfo from "mozilla/dom/SessionHistoryEntry.h";
 using mozilla::dom::RequestMode from "mozilla/dom/RequestBinding.h";
 using mozilla::net::LinkHeader from "nsNetUtil.h";
-using mozilla::dom::FeaturePolicyInfo from "mozilla/dom/FeaturePolicy.h";
+using mozilla::dom::PermissionsPolicyInfo from "mozilla/dom/PermissionsPolicy.h";
 using nsILoadInfo::HTTPSUpgradeTelemetryType from "nsILoadInfo.h";
 using nsILoadInfo::SchemelessInputType from "nsILoadInfo.h";
 using mozilla::dom::UserNavigationInvolvement from "mozilla/dom/UserNavigationInvolvement.h";
@@ -223,7 +223,7 @@ struct LoadInfoArgs
   InterceptionInfoArg?        interceptionInfo;
   bool                        isNewWindowTarget;
   UserNavigationInvolvement   userNavigationInvolvement;
-  FeaturePolicyInfo?          containerFeaturePolicyInfo;
+  PermissionsPolicyInfo?       containerPermissionsPolicyInfo;
   // https://html.spec.whatwg.org/#dom-location-ancestororigins
   PrincipalInfo?[]             ancestorOrigins;
 };
@@ -305,7 +305,7 @@ struct ParentLoadInfoForwarderArgs
 
   CookieJarSettingsArgs? cookieJarSettings;
 
-  FeaturePolicyInfo? containerFeaturePolicyInfo;
+  PermissionsPolicyInfo? containerPermissionsPolicyInfo;
 
   uint32_t requestBlockingReason;
 

@@ -1016,6 +1016,11 @@ pub enum DebugCommand {
     /// primitives) of the window's documents. Replies with an error message
     /// if the override targets a stale scene generation.
     SetSceneDebugOverride(crate::api::debugger::SceneDebugOverride, Sender<Result<(), String>>),
+    #[cfg(feature = "debugger")]
+    /// Replace the source of one `.glsl` file, or drop the override when the
+    /// source is `None`, and rebuild the shaders it affects. Replies with the
+    /// compile diagnostics if any affected shader failed to build.
+    SetShaderSource(String, Option<String>, Sender<crate::api::debugger::ShaderReloadReply>),
 }
 
 /// Initial state handed to `RenderBackend::register_window`.

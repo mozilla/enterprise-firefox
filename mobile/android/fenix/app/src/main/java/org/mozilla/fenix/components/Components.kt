@@ -58,6 +58,7 @@ import org.mozilla.fenix.components.appstate.setup.checklist.getSetupChecklistCo
 import org.mozilla.fenix.components.bookmarks.lastSavedFolderCache
 import org.mozilla.fenix.components.ipprotection.IPProtection
 import org.mozilla.fenix.components.ipprotection.IPProtectionAuthSources
+import org.mozilla.fenix.components.lens.LensImageSearch
 import org.mozilla.fenix.components.listentopage.ListenToPage
 import org.mozilla.fenix.components.llm.Llm
 import org.mozilla.fenix.components.llm.ext.accessTokenProvider
@@ -377,6 +378,20 @@ class Components(
                 it.dispatch(AppAction.SetupChecklistAction.Init)
                 it.dispatch(AppAction.CrashActionWrapper(CrashAction.Initialize))
             }
+    }
+
+    val lensImageSearch by lazyMonitored {
+        LensImageSearch(
+            appStore = appStore,
+            uploader = {
+                LensImageUploader(
+                    context = context,
+                    client = core.client,
+                    userAgent = core.engine.settings.userAgentString ?: "",
+                )
+            },
+            browserUseCases = { useCases.fenixBrowserUseCases },
+        )
     }
 
     private fun setupChecklistState() =

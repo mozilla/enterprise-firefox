@@ -66,16 +66,16 @@ interface SpeechRecognition : EventTarget {
     attribute ObservableArray<SpeechRecognitionPhrase> phrases;
 
     // methods to drive the speech interaction
-    [Throws, NeedsCallerType]
+    [Throws, NeedsCallerType, UseCounter]
     undefined start();
-    [Throws, NeedsCallerType]
+    [Throws, NeedsCallerType, UseCounter]
     undefined start(MediaStreamTrack audioTrack);
     undefined stop();
     undefined abort();
 
-    [NewObject, Throws]
+    [NewObject, Throws, UseCounter]
     static Promise<AvailabilityStatus> available(SpeechRecognitionOptions options);
-    [NewObject, Throws]
+    [NewObject, Throws, UseCounter]
     static Promise<boolean> install(SpeechRecognitionOptions options);
 
     [ChromeOnly, NewObject, Throws]

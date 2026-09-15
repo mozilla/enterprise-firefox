@@ -537,6 +537,12 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             isChecked = context.components.settings.showAddressBarInFocusMode
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
+
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_menu_customization).apply {
+            isVisible = Config.channel.isDebug
+            isChecked = context.components.settings.isMenuCustomizationEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
     }
 
     override fun onDisplayPreferenceDialog(preference: Preference) {

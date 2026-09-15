@@ -37,9 +37,9 @@ export var UnitTestObjs = {
  * @param {string} canary
  * @param {string} text
  * @param {string} encryptionKey
- * @returns {boolean}
+ * @returns {Promise<boolean>}}
  */
-export function checkCanary(
+export async function checkCanary(
     canary, 
     text, 
     encryptionKey) {
@@ -47,7 +47,7 @@ export function checkCanary(
 FfiConverterString.checkType(canary);
 FfiConverterString.checkType(text);
 FfiConverterString.checkType(encryptionKey);
-const result = UniFFIScaffolding.callSync(
+const result = await UniFFIScaffolding.callAsyncWrapper(
     81, // uniffi_logins_fn_func_check_canary
     FfiConverterString.lower(canary),
     FfiConverterString.lower(text),
@@ -64,15 +64,15 @@ return handleRustResult(
  * Create a "canary" string, which can be used to test if the encryption
  * @param {string} text
  * @param {string} encryptionKey
- * @returns {string}
+ * @returns {Promise<string>}}
  */
-export function createCanary(
+export async function createCanary(
     text, 
     encryptionKey) {
    
 FfiConverterString.checkType(text);
 FfiConverterString.checkType(encryptionKey);
-const result = UniFFIScaffolding.callSync(
+const result = await UniFFIScaffolding.callAsyncWrapper(
     82, // uniffi_logins_fn_func_create_canary
     FfiConverterString.lower(text),
     FfiConverterString.lower(encryptionKey),
@@ -87,11 +87,11 @@ return handleRustResult(
 /**
  * We expose the crypto primitives on the namespace
  * Create a new, random, encryption key.
- * @returns {string}
+ * @returns {Promise<string>}}
  */
-export function createKey() {
+export async function createKey() {
    
-const result = UniFFIScaffolding.callSync(
+const result = await UniFFIScaffolding.callAsyncWrapper(
     83, // uniffi_logins_fn_func_create_key
 )
 return handleRustResult(
@@ -105,15 +105,15 @@ return handleRustResult(
  * createLoginStoreWithNssKeymanager
  * @param {string} path
  * @param {PrimaryPasswordAuthenticator} primaryPasswordAuthenticator
- * @returns {LoginStore}
+ * @returns {Promise<LoginStore>}}
  */
-export function createLoginStoreWithNssKeymanager(
+export async function createLoginStoreWithNssKeymanager(
     path, 
     primaryPasswordAuthenticator) {
    
 FfiConverterString.checkType(path);
 FfiConverterTypePrimaryPasswordAuthenticator.checkType(primaryPasswordAuthenticator);
-const result = UniFFIScaffolding.callSync(
+const result = await UniFFIScaffolding.callAsyncWrapper(
     84, // uniffi_logins_fn_func_create_login_store_with_nss_keymanager
     FfiConverterString.lower(path),
     FfiConverterTypePrimaryPasswordAuthenticator.lower(primaryPasswordAuthenticator),
@@ -130,15 +130,15 @@ return handleRustResult(
  * static key
  * @param {string} path
  * @param {string} key
- * @returns {LoginStore}
+ * @returns {Promise<LoginStore>}}
  */
-export function createLoginStoreWithStaticKeyManager(
+export async function createLoginStoreWithStaticKeyManager(
     path, 
     key) {
    
 FfiConverterString.checkType(path);
 FfiConverterString.checkType(key);
-const result = UniFFIScaffolding.callSync(
+const result = await UniFFIScaffolding.callAsyncWrapper(
     85, // uniffi_logins_fn_func_create_login_store_with_static_key_manager
     FfiConverterString.lower(path),
     FfiConverterString.lower(key),
@@ -154,13 +154,13 @@ return handleRustResult(
  * Similar to create_static_key_manager above, create a
  * ManagedEncryptorDecryptor by passing in a KeyManager
  * @param {KeyManager} keyManager
- * @returns {EncryptorDecryptor}
+ * @returns {Promise<EncryptorDecryptor>}}
  */
-export function createManagedEncdec(
+export async function createManagedEncdec(
     keyManager) {
    
 FfiConverterTypeKeyManager.checkType(keyManager);
-const result = UniFFIScaffolding.callSync(
+const result = await UniFFIScaffolding.callAsyncWrapper(
     86, // uniffi_logins_fn_func_create_managed_encdec
     FfiConverterTypeKeyManager.lower(keyManager),
 )
@@ -177,13 +177,13 @@ return handleRustResult(
  * interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
  * in UniFFI.
  * @param {string} key
- * @returns {KeyManager}
+ * @returns {Promise<KeyManager>}}
  */
-export function createStaticKeyManager(
+export async function createStaticKeyManager(
     key) {
    
 FfiConverterString.checkType(key);
-const result = UniFFIScaffolding.callSync(
+const result = await UniFFIScaffolding.callAsyncWrapper(
     87, // uniffi_logins_fn_func_create_static_key_manager
     FfiConverterString.lower(key),
 )
@@ -4398,13 +4398,13 @@ export class ManagedEncryptorDecryptor extends ManagedEncryptorDecryptorInterfac
     /**
      * init
      * @param {KeyManager} keyManager
-     * @returns {ManagedEncryptorDecryptor}
+     * @returns {Promise<ManagedEncryptorDecryptor>}}
      */
-    static init(
+    static async init(
         keyManager) {
        
         FfiConverterTypeKeyManager.checkType(keyManager);
-        const result = UniFFIScaffolding.callSync(
+        const result = await UniFFIScaffolding.callAsyncWrapper(
             140, // uniffi_logins_fn_constructor_managedencryptordecryptor_new
             FfiConverterTypeKeyManager.lower(keyManager),
         )
@@ -4500,9 +4500,9 @@ export class FfiConverterTypeManagedEncryptorDecryptor extends FfiConverter {
 export class NssKeyManagerInterface {
     /**
      * intoDynKeyManager
-     * @returns {KeyManager}
+     * @returns {Promise<KeyManager>}}
      */
-    intoDynKeyManager() {
+    async intoDynKeyManager() {
       throw Error("intoDynKeyManager not implemented");
     }
 
@@ -4572,13 +4572,13 @@ export class NssKeyManager extends NssKeyManagerInterface {
      * There must be a previous initializiation of NSS before initializing
      * `NSSKeyManager`, otherwise this panics.
      * @param {PrimaryPasswordAuthenticator} primaryPasswordAuthenticator
-     * @returns {NssKeyManager}
+     * @returns {Promise<NssKeyManager>}}
      */
-    static init(
+    static async init(
         primaryPasswordAuthenticator) {
        
         FfiConverterTypePrimaryPasswordAuthenticator.checkType(primaryPasswordAuthenticator);
-        const result = UniFFIScaffolding.callSync(
+        const result = await UniFFIScaffolding.callAsyncWrapper(
             141, // uniffi_logins_fn_constructor_nsskeymanager_new
             FfiConverterTypePrimaryPasswordAuthenticator.lower(primaryPasswordAuthenticator),
         )
@@ -4591,11 +4591,11 @@ export class NssKeyManager extends NssKeyManagerInterface {
 
     /**
      * intoDynKeyManager
-     * @returns {KeyManager}
+     * @returns {Promise<KeyManager>}}
      */
-    intoDynKeyManager() {
+    async intoDynKeyManager() {
        
-        const result = UniFFIScaffolding.callSync(
+        const result = await UniFFIScaffolding.callAsyncWrapper(
             142, // uniffi_logins_fn_method_nsskeymanager_into_dyn_key_manager
             FfiConverterTypeNSSKeyManager.lowerReceiver(this),
         )
@@ -4874,13 +4874,13 @@ export class StaticKeyManager extends StaticKeyManagerInterface {
     /**
      * init
      * @param {string} key
-     * @returns {StaticKeyManager}
+     * @returns {Promise<StaticKeyManager>}}
      */
-    static init(
+    static async init(
         key) {
        
         FfiConverterString.checkType(key);
-        const result = UniFFIScaffolding.callSync(
+        const result = await UniFFIScaffolding.callAsyncWrapper(
             146, // uniffi_logins_fn_constructor_statickeymanager_new
             FfiConverterString.lower(key),
         )

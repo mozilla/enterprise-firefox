@@ -50,20 +50,23 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared {
   template <typename T1, typename T2>
   void bailoutCmpPtr(Assembler::Condition c, T1 lhs, T2 rhs,
                      LSnapshot* snapshot) {
-    masm.cmpPtr(lhs, rhs);
-    bailoutIf(c, snapshot);
+    Label bail;
+    masm.branchPtr(c, lhs, rhs, &bail);
+    bailoutFrom(&bail, snapshot);
   }
   template <typename T1, typename T2>
   void bailoutCmp32(Assembler::Condition c, T1 lhs, T2 rhs,
                     LSnapshot* snapshot) {
-    masm.cmp32(lhs, rhs);
-    bailoutIf(c, snapshot);
+    Label bail;
+    masm.branch32(c, lhs, rhs, &bail);
+    bailoutFrom(&bail, snapshot);
   }
   template <typename T1, typename T2>
   void bailoutTest32(Assembler::Condition c, T1 lhs, T2 rhs,
                      LSnapshot* snapshot) {
-    masm.test32(lhs, rhs);
-    bailoutIf(c, snapshot);
+    Label bail;
+    masm.branchTest32(c, lhs, rhs, &bail);
+    bailoutFrom(&bail, snapshot);
   }
   void bailoutIfFalseBool(Register reg, LSnapshot* snapshot) {
     masm.test32(reg, Imm32(0xFF));

@@ -13,6 +13,8 @@ use euclid::default::Transform3D;
 use gleam::gl;
 use crate::render_api::MemoryReport;
 use crate::internal_types::{FastHashMap, RenderTargetInfo, Swizzle, SwizzleSettings};
+#[cfg(feature = "debugger")]
+use crate::internal_types::FastHashSet;
 use crate::util::round_up_to_multiple;
 use crate::profiler;
 use log::Level;
@@ -35,7 +37,8 @@ use std::{
     time::Duration,
 };
 use webrender_build::shader::{
-    ProgramSourceDigest, ShaderFeatureFlags, ShaderKind, ShaderSourceMap, ShaderVersion,
+    ProgramSourceDigest, ShaderFeatureFlags, ShaderKind, ShaderLogLine, ShaderSourceMap,
+    ShaderVersion,
     build_shader_main_string, build_shader_prefix_string, do_build_shader_string,
     shader_source_from_file,
 };
@@ -698,6 +701,11 @@ pub struct ProgramSourceInfo {
     features: Vec<&'static str>,
     full_name_cstr: Rc<std::ffi::CString>,
     source_type: ProgramSourceType,
+    /// Set when an in-memory source override contributed to this program. Such
+    /// a program must not be written to the binary program cache, so that a
+    /// throwaway edit cannot outlive the session it was made in.
+    #[cfg(feature = "debugger")]
+    from_source_override: bool,
     digest: ProgramSourceDigest,
 }
 
@@ -726,7 +734,12 @@ impl ProgramSourceInfo {
 
         let full_name = Self::make_full_name(name, features);
 
-        let optimized_source = if device.use_optimized_shaders {
+        // An overridden source only exists as `.glsl`, so the build-time
+        // optimized variant no longer describes this program. Without this the
+        // edit would be silently ignored wherever optimized shaders are in use.
+        let has_source_override = device.has_shader_source_override_for(name);
+
+        let optimized_source = if device.use_optimized_shaders && !has_source_override {
             OPTIMIZED_SHADERS.get(&(gl_version, &full_name)).or_else(|| {
                 warn!("Missing optimized shader source for {}", &full_name);
                 None
@@ -764,6 +777,7 @@ impl ProgramSourceInfo {
                 // define, so we don't need to hash both. Second, we precompute the digest of the
                 // expanded source file at build time, and then just hash that digest here.
                 let override_path = device.resource_override_path.as_ref();
+                let overridden = override_path.is_some() || has_source_override;
                 let source_and_digest = UNOPTIMIZED_SHADERS.get(&name).expect("Shader not found");
 
                 let mut source_map = ShaderSourceMap::new();
@@ -780,17 +794,17 @@ impl ProgramSourceInfo {
 
                 // Hash the shader file contents. We use a precomputed digest, and
                 // verify it in debug builds.
-                if override_path.is_some() || cfg!(debug_assertions) {
+                if overridden || cfg!(debug_assertions) {
                     let mut h = DefaultHasher::new();
                     build_shader_main_string(
                         &name,
-                        &|f| get_unoptimized_shader_source(f, override_path),
+                        &|f| device.get_shader_source(f),
                         &mut source_map,
                         &mut |s| h.write(s.as_bytes())
                     );
                     let d: ProgramSourceDigest = h.into();
                     let digest = format!("{}", d);
-                    debug_assert!(override_path.is_some() || digest == source_and_digest.digest);
+                    debug_assert!(overridden || digest == source_and_digest.digest);
                     hasher.write(digest.as_bytes());
                 } else {
                     hasher.write(source_and_digest.digest.as_bytes());
@@ -806,11 +820,20 @@ impl ProgramSourceInfo {
             features: features.to_vec(),
             full_name_cstr: Rc::new(std::ffi::CString::new(full_name).unwrap()),
             source_type,
+            #[cfg(feature = "debugger")]
+            from_source_override: has_source_override,
             digest: hasher.into(),
         }
     }
 
-    fn compute_source(&self, device: &Device, kind: ShaderKind) -> String {
+    /// Build the source to hand to the driver, along with the map needed to
+    /// resolve the driver's log back to the `.glsl` sources. Optimized sources
+    /// are preprocessed at build time and have no map.
+    fn compute_source(
+        &self,
+        device: &Device,
+        kind: ShaderKind,
+    ) -> (String, Option<ShaderSourceMap>) {
         let full_name = self.full_name();
         match self.source_type {
             ProgramSourceType::Optimized(gl_version) => {
@@ -818,20 +841,21 @@ impl ProgramSourceInfo {
                     .get(&(gl_version, &full_name))
                     .unwrap_or_else(|| panic!("Missing optimized shader source for {}", full_name));
 
-                match kind {
+                let source = match kind {
                     ShaderKind::Vertex => shader.vert_source.to_string(),
                     ShaderKind::Fragment => shader.frag_source.to_string(),
-                }
+                };
+                (source, None)
             },
             ProgramSourceType::Unoptimized => {
                 let mut src = String::new();
-                device.build_shader_string(
+                let source_map = device.build_shader_string(
                     &self.features,
                     kind,
                     self.base_filename,
                     |s| src.push_str(s),
                 );
-                src
+                (src, Some(source_map))
             }
         }
     }
@@ -846,6 +870,19 @@ impl ProgramSourceInfo {
 
     fn full_name(&self) -> String {
         Self::make_full_name(self.base_filename, &self.features)
+    }
+
+    /// Whether a runtime source override contributed to this program, and so
+    /// its binary must be kept out of the program cache. Always false when the
+    /// debugger is not built in, since nothing can install an override.
+    #[cfg(feature = "debugger")]
+    fn from_source_override(&self) -> bool {
+        self.from_source_override
+    }
+
+    #[cfg(not(feature = "debugger"))]
+    fn from_source_override(&self) -> bool {
+        false
     }
 }
 
@@ -1148,8 +1185,34 @@ pub struct Capabilities {
 
 #[derive(Clone, Debug)]
 pub enum ShaderError {
-    Compilation(String, String), // name, error message
-    Link(String, String),        // name, error message
+    /// Variant name, the driver's raw log, and the log parsed into per-line
+    /// diagnostics with locations resolved back to the `.glsl` sources.
+    Compilation(String, String, Vec<ShaderLogLine>),
+    /// Variant name, the driver's raw log, and its parsed diagnostics. Link
+    /// logs rarely carry locations, so the diagnostics are usually unmapped.
+    Link(String, String, Vec<ShaderLogLine>),
+}
+
+impl ShaderError {
+    pub fn name(&self) -> &str {
+        match self {
+            ShaderError::Compilation(name, ..) | ShaderError::Link(name, ..) => name,
+        }
+    }
+
+    pub fn log(&self) -> &str {
+        match self {
+            ShaderError::Compilation(_, log, _) | ShaderError::Link(_, log, _) => log,
+        }
+    }
+
+    pub fn diagnostics(&self) -> &[ShaderLogLine] {
+        match self {
+            ShaderError::Compilation(.., diagnostics) | ShaderError::Link(.., diagnostics) => {
+                diagnostics
+            }
+        }
+    }
 }
 
 /// A refcounted depth target, which may be shared by multiple textures across
@@ -1298,6 +1361,18 @@ pub struct Device {
 
     /// Dumps the source of the shader with the given name
     dump_shader_source: Option<String>,
+
+    /// Shader sources pushed at runtime by the remote debugger, keyed by
+    /// `.glsl` file stem. Takes precedence over `resource_override_path` and
+    /// over the sources built into the binary.
+    #[cfg(feature = "debugger")]
+    shader_source_overrides: FastHashMap<String, String>,
+
+    /// `#include` closure of each shader, keyed by base filename. Only
+    /// populated while overrides are installed, and dropped whenever the
+    /// override set changes, since an edit can add or remove an `#include`.
+    #[cfg(feature = "debugger")]
+    shader_include_closures: RefCell<FastHashMap<String, FastHashSet<String>>>,
 
     surface_origin_is_top_left: bool,
 
@@ -2133,6 +2208,10 @@ impl Device {
             is_software_webrender,
             required_transfer_stride,
             dump_shader_source,
+            #[cfg(feature = "debugger")]
+            shader_source_overrides: FastHashMap::default(),
+            #[cfg(feature = "debugger")]
+            shader_include_closures: RefCell::new(FastHashMap::default()),
             surface_origin_is_top_left,
 
             #[cfg(debug_assertions)]
@@ -2323,30 +2402,12 @@ impl Device {
         self.gl.bind_framebuffer(gl::DRAW_FRAMEBUFFER, self.bound_draw_fbo.0);
     }
 
-    #[cfg(debug_assertions)]
-    fn print_shader_errors(source: &str, log: &str) {
-        // hacky way to extract the offending lines
-        if !log.starts_with("0:") && !log.starts_with("0(") {
-            return;
-        }
-        let end_pos = match log[2..].chars().position(|c| !c.is_digit(10)) {
-            Some(pos) => 2 + pos,
-            None => return,
-        };
-        let base_line_number = match log[2 .. end_pos].parse::<usize>() {
-            Ok(number) if number >= 2 => number - 2,
-            _ => return,
-        };
-        for (line, prefix) in source.lines().skip(base_line_number).zip(&["|",">","|"]) {
-            error!("{}\t{}", prefix, line);
-        }
-    }
-
     pub fn compile_shader(
         &self,
         name: &str,
         shader_type: gl::GLenum,
         source: &String,
+        source_map: Option<&ShaderSourceMap>,
     ) -> Result<gl::GLuint, ShaderError> {
         debug!("compile {}", name);
         let id = self.gl.create_shader(shader_type);
@@ -2371,10 +2432,19 @@ impl Device {
                 gl::FRAGMENT_SHADER => "fragment",
                 _ => panic!("Unexpected shader type {:x}", shader_type),
             };
-            error!("Failed to compile {} shader: {}\n{}", type_str, name, log);
-            #[cfg(debug_assertions)]
-            Self::print_shader_errors(source, &log);
-            Err(ShaderError::Compilation(name.to_string(), log))
+            let diagnostics = match source_map {
+                Some(source_map) => source_map.map_log(&log),
+                None => Vec::new(),
+            };
+            error!("Failed to compile {} shader: {}", type_str, name);
+            if diagnostics.is_empty() {
+                error!("{}", log);
+            } else {
+                for diagnostic in &diagnostics {
+                    error!("{}", diagnostic);
+                }
+            }
+            Err(ShaderError::Compilation(name.to_string(), log, diagnostics))
         } else {
             if !log.is_empty() {
                 warn!("Warnings detected on shader: {}\n{}", name, log);
@@ -2726,16 +2796,26 @@ impl Device {
         // If not, we need to do a normal compile + link pass.
         if build_program {
             // Compile the vertex shader
-            let vs_source = info.compute_source(self, ShaderKind::Vertex);
-            let vs_id = match self.compile_shader(&info.full_name(), gl::VERTEX_SHADER, &vs_source) {
+            let (vs_source, vs_source_map) = info.compute_source(self, ShaderKind::Vertex);
+            let vs_id = match self.compile_shader(
+                &info.full_name(),
+                gl::VERTEX_SHADER,
+                &vs_source,
+                vs_source_map.as_ref(),
+            ) {
                     Ok(vs_id) => vs_id,
                     Err(err) => return Err(err),
                 };
 
             // Compile the fragment shader
-            let fs_source = info.compute_source(self, ShaderKind::Fragment);
+            let (fs_source, fs_source_map) = info.compute_source(self, ShaderKind::Fragment);
             let fs_id =
-                match self.compile_shader(&info.full_name(), gl::FRAGMENT_SHADER, &fs_source) {
+                match self.compile_shader(
+                    &info.full_name(),
+                    gl::FRAGMENT_SHADER,
+                    &fs_source,
+                    fs_source_map.as_ref(),
+                ) {
                     Ok(fs_id) => fs_id,
                     Err(err) => {
                         self.gl.delete_shader(vs_id);
@@ -2791,12 +2871,27 @@ impl Device {
                     &info.base_filename,
                     error_log
                 );
+                // The program object is gone, so clear the id rather than
+                // leaving the caller holding a dangling GL name that a later
+                // link or delete would operate on.
                 self.gl.delete_program(program.id);
-                return Err(ShaderError::Link(info.base_filename.to_owned(), error_log));
+                if self.bound_program == program.id {
+                    self.gl.use_program(0);
+                    self.bound_program = 0;
+                }
+                program.id = 0;
+                let diagnostics = ShaderSourceMap::new().map_log(&error_log);
+                return Err(ShaderError::Link(
+                    info.base_filename.to_owned(),
+                    error_log,
+                    diagnostics,
+                ));
             }
 
             if let Some(ref cached_programs) = self.cached_programs {
-                if !cached_programs.entries.borrow().contains_key(&info.digest) {
+                if !info.from_source_override()
+                    && !cached_programs.entries.borrow().contains_key(&info.digest)
+                {
                     let (buffer, format) = self.gl.get_program_binary(program.id);
                     if buffer.len() > 0 {
                         let binary = Arc::new(ProgramBinary::new(buffer, format, info.digest.clone()));
@@ -3273,6 +3368,16 @@ impl Device {
     }
 
     pub fn delete_program(&mut self, mut program: Program) {
+        if program.id == 0 {
+            return;
+        }
+        // GL recycles names, so a program created after this one is deleted can
+        // be handed the same id. Drop the binding cache entry, otherwise
+        // `bind_program` would skip the `use_program` call for the new program.
+        if self.bound_program == program.id {
+            self.gl.use_program(0);
+            self.bound_program = 0;
+        }
         self.gl.delete_program(program.id);
         program.id = 0;
     }
@@ -3325,13 +3430,152 @@ impl Device {
         Ok(program)
     }
 
+    /// Whether shader sources can be replaced at runtime.
+    ///
+    /// SWGL discards the GLSL it is handed and dispatches to a program
+    /// transpiled to C++ at build time (see `swgl::Context::shader_source`),
+    /// so there is nothing for an override to recompile.
+    #[cfg(feature = "debugger")]
+    pub fn supports_shader_source_override(&self) -> bool {
+        !self.is_software_webrender
+    }
+
+    /// Names of every `.glsl` file built into this binary, sorted.
+    #[cfg(feature = "debugger")]
+    pub fn shader_file_names(&self) -> Vec<&'static str> {
+        let mut names: Vec<&'static str> = UNOPTIMIZED_SHADERS.keys().cloned().collect();
+        names.sort_unstable();
+        names
+    }
+
+    /// The source built into the binary for `name`, ignoring any override.
+    #[cfg(feature = "debugger")]
+    pub fn builtin_shader_source(&self, name: &str) -> Option<&'static str> {
+        UNOPTIMIZED_SHADERS.get(name).map(|entry| entry.source)
+    }
+
+    /// The source currently in effect for `name`: the override if one is
+    /// installed, otherwise whatever `get_unoptimized_shader_source` resolves.
+    #[cfg(feature = "debugger")]
+    pub fn get_shader_source(&self, name: &str) -> Cow<'static, str> {
+        match self.shader_source_overrides.get(name) {
+            Some(source) => Cow::Owned(source.clone()),
+            None => get_unoptimized_shader_source(name, self.resource_override_path.as_ref()),
+        }
+    }
+
+    /// The source in effect for `name`. Without the debugger there are no
+    /// runtime overrides, so this is whatever `get_unoptimized_shader_source`
+    /// resolves.
+    #[cfg(not(feature = "debugger"))]
+    pub fn get_shader_source(&self, name: &str) -> Cow<'static, str> {
+        get_unoptimized_shader_source(name, self.resource_override_path.as_ref())
+    }
+
+    #[cfg(feature = "debugger")]
+    pub fn shader_source_override(&self, name: &str) -> Option<&str> {
+        self.shader_source_overrides.get(name).map(String::as_str)
+    }
+
+    #[cfg(feature = "debugger")]
+    pub fn has_shader_source_overrides(&self) -> bool {
+        !self.shader_source_overrides.is_empty()
+    }
+
+    #[cfg(feature = "debugger")]
+    pub fn set_shader_source_override(&mut self, name: &str, source: String) {
+        self.shader_source_overrides.insert(name.to_string(), source);
+        self.shader_include_closures.borrow_mut().clear();
+    }
+
+    /// Drop the override for `name`, returning whether there was one.
+    #[cfg(feature = "debugger")]
+    pub fn clear_shader_source_override(&mut self, name: &str) -> bool {
+        let had_override = self.shader_source_overrides.remove(name).is_some();
+        if had_override {
+            self.shader_include_closures.borrow_mut().clear();
+        }
+        had_override
+    }
+
+    /// The set of `.glsl` files `base_filename` pulls in, including itself.
+    #[cfg(feature = "debugger")]
+    pub fn shader_include_closure(&self, base_filename: &str) -> FastHashSet<String> {
+        if let Some(closure) = self.shader_include_closures.borrow().get(base_filename) {
+            return closure.clone();
+        }
+
+        let closure: FastHashSet<String> =
+            webrender_build::shader::shader_include_closure(
+                base_filename,
+                &|f| self.get_shader_source(f),
+            )
+                .into_iter()
+                .collect();
+        self.shader_include_closures
+            .borrow_mut()
+            .insert(base_filename.to_string(), closure.clone());
+
+        closure
+    }
+
+    /// Whether any file `base_filename` pulls in, including itself, has an
+    /// override installed.
+    #[cfg(feature = "debugger")]
+    fn has_shader_source_override_for(&self, base_filename: &str) -> bool {
+        // The common case is no overrides at all, in which case there is no
+        // need to walk the include graph.
+        if self.shader_source_overrides.is_empty() {
+            return false;
+        }
+
+        if self.shader_source_overrides.contains_key(base_filename) {
+            return true;
+        }
+
+        self.shader_include_closure(base_filename)
+            .iter()
+            .any(|file| self.shader_source_overrides.contains_key(file))
+    }
+
+    /// Nothing can install an override without the debugger, so no shader is
+    /// ever built from one.
+    #[cfg(not(feature = "debugger"))]
+    fn has_shader_source_override_for(&self, _base_filename: &str) -> bool {
+        false
+    }
+
+    /// The preprocessed vertex and fragment source handed to the driver for
+    /// one variant, built from the sources currently in effect.
+    ///
+    /// This is the text a driver log's line numbers refer to when no known
+    /// driver pattern matched it and the location could not be resolved.
+    #[cfg(feature = "debugger")]
+    pub fn expanded_shader_source(
+        &self,
+        base_filename: &str,
+        features: &[&'static str],
+    ) -> (String, String) {
+        let mut vertex = String::new();
+        self.build_shader_string(features, ShaderKind::Vertex, base_filename, |s| {
+            vertex.push_str(s)
+        });
+
+        let mut fragment = String::new();
+        self.build_shader_string(features, ShaderKind::Fragment, base_filename, |s| {
+            fragment.push_str(s)
+        });
+
+        (vertex, fragment)
+    }
+
     fn build_shader_string<F: FnMut(&str)>(
         &self,
         features: &[&'static str],
         kind: ShaderKind,
         base_filename: &str,
         output: F,
-    ) {
+    ) -> ShaderSourceMap {
         let mut source_map = ShaderSourceMap::new();
         do_build_shader_string(
             get_shader_version(&*self.gl),
@@ -3339,9 +3583,10 @@ impl Device {
             kind,
             base_filename,
             &mut source_map,
-            &|f| get_unoptimized_shader_source(f, self.resource_override_path.as_ref()),
+            &|f| self.get_shader_source(f),
             output,
-        )
+        );
+        source_map
     }
 
     pub fn bind_shader_samplers<S>(&mut self, program: &Program, bindings: &[(&'static str, S)])

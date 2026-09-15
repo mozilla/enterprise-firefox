@@ -1,0 +1,17 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Typography shared by every AI Tab block component. A stylesheet linked by
+ * the page document cannot reach into a component's shadow root, so each
+ * block component links this sheet before its own. Gecko's shared stylesheet
+ * cache parses it once and reuses it across every shadow root that links it.
+ * Values that only need to be inherited belong on the page instead, as custom
+ * properties. */
+
+.aitab-eyebrow {
+  margin: 0;
+  color: var(--text-color-deemphasized);
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+}

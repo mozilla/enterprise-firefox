@@ -32,7 +32,7 @@ namespace mozilla {
 namespace dom {
 class ClientInfo;
 class ClientSource;
-struct FeaturePolicyInfo;
+struct PermissionsPolicyInfo;
 class PerformanceStorage;
 struct RemoteType;
 class ServiceWorkerDescriptor;
@@ -61,8 +61,8 @@ native OriginAttributes(mozilla::OriginAttributes);
       native LoadTainting(mozilla::LoadTainting);
       native CSPRef(already_AddRefed<nsIContentSecurityPolicy>);
       native PolicyContainerRef(already_AddRefed<nsIPolicyContainer>);
-      native MaybeFeaturePolicyInfo(mozilla::Maybe<mozilla::dom::FeaturePolicyInfo>);
-[ref] native const_FeaturePolicyInfoRef(const mozilla::dom::FeaturePolicyInfo);
+      native MaybePermissionsPolicyInfo(mozilla::Maybe<mozilla::dom::PermissionsPolicyInfo>);
+[ref] native const_PermissionsPolicyInfoRef(const mozilla::dom::PermissionsPolicyInfo);
       native MaybeRequestMode(mozilla::Maybe<mozilla::dom::RequestMode>);
       native ForceMediaDocument(mozilla::dom::ForceMediaDocument);
 [ref] native RemoteType(mozilla::dom::RemoteType);
@@ -1470,13 +1470,13 @@ interface nsILoadInfo : nsISupports
   [notxpcom,nostdcall] PolicyContainerRef GetPolicyContainerToInherit();
 
   /**
-    * The possibly cross-origin container feature policy required to
-    * initialize the feature policy of a document load.
+    * The possibly cross-origin container permissions policy required to
+    * initialize the permissions policy of a document load.
     */
   [noscript, nostdcall, notxpcom]
-  MaybeFeaturePolicyInfo GetContainerFeaturePolicyInfo();
+  MaybePermissionsPolicyInfo GetContainerPermissionsPolicyInfo();
   [noscript, nostdcall, notxpcom]
-  void SetContainerFeaturePolicyInfo(in const_FeaturePolicyInfoRef aContainerFeaturePolicy);
+  void SetContainerPermissionsPolicyInfo(in const_PermissionsPolicyInfoRef aContainerPermissionsPolicy);
 
   /**
     * The service worker and fetch specifications require returning the

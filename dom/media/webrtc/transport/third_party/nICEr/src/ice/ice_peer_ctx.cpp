@@ -43,7 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ice_reg.h"
 
 static void nr_ice_peer_ctx_parse_stream_attributes_int(nr_ice_peer_ctx *pctx, nr_ice_media_stream *stream, nr_ice_media_stream *pstream, char **attrs, int attr_ct);
-static int nr_ice_ctx_parse_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_stream *pstream, char *candidate, int trickled, const char *mdns_addr);
+static int nr_ice_ctx_parse_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_stream *pstream, char *candidate, int trickled, const char *resolved_address);
 static void nr_ice_peer_ctx_start_trickle_timer(nr_ice_peer_ctx *pctx);
 
 int nr_ice_peer_ctx_create(nr_ice_ctx *ctx, nr_ice_handler *handler,char *label, nr_ice_peer_ctx **pctxp)
@@ -179,25 +179,18 @@ static void nr_ice_peer_ctx_parse_stream_attributes_int(nr_ice_peer_ctx *pctx, n
     /* Doesn't fail because we just skip errors */
   }
 
-static int nr_ice_ctx_parse_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_stream *pstream, char *candidate, int trickled, const char *mdns_addr)
+static int nr_ice_ctx_parse_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_stream *pstream, char *candidate, int trickled, const char *resolved_address)
   {
     nr_ice_candidate *cand=0;
     nr_ice_component *comp;
     int j;
     int r, _status;
 
-    if(r=nr_ice_peer_candidate_from_attribute(pctx->ctx,candidate,pstream,&cand))
+    if(r=nr_ice_peer_candidate_from_attribute(pctx->ctx,candidate,pstream,resolved_address,&cand))
       ABORT(r);
 
     /* set the trickled flag on the candidate */
     cand->trickled = trickled;
-
-    if (mdns_addr) {
-      cand->mdns_addr = strdup(mdns_addr);
-      if (!cand->mdns_addr) {
-        ABORT(R_NO_MEMORY);
-      }
-    }
 
     /* Not the fastest way to find a component, but it's what we got */
     j=1;
@@ -287,7 +280,7 @@ int nr_ice_peer_ctx_remove_pstream(nr_ice_peer_ctx *pctx, nr_ice_media_stream **
     return(_status);
   }
 
-int nr_ice_peer_ctx_parse_trickle_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_stream *stream, char *candidate, const char *mdns_addr)
+int nr_ice_peer_ctx_parse_trickle_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_stream *stream, char *candidate, const char *resolved_address)
   {
     nr_ice_media_stream *pstream;
     int r,_status;
@@ -315,7 +308,7 @@ int nr_ice_peer_ctx_parse_trickle_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_
         break;
     }
 
-    if(r=nr_ice_ctx_parse_candidate(pctx,pstream,candidate,1,mdns_addr)){
+    if(r=nr_ice_ctx_parse_candidate(pctx,pstream,candidate,1,resolved_address)){
       ABORT(r);
     }
 

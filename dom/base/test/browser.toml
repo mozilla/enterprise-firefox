@@ -148,6 +148,14 @@ skip-if = [
   "!nightly_build", # Page load events are only consistently sent in nightly.
 ]
 
+["browser_prefetch_delivery_type.js"]
+# All channels: the test enables the prefs it needs.
+support-files = [
+  "file_pageload_prefetch_plain.html",
+  "file_pageload_prefetch_source.html",
+  "file_pageload_prefetch_target.sjs",
+]
+
 ["browser_pagehide_on_tab_close.js"]
 skip-if = [
   "true", # this tests non-e10s behavior.

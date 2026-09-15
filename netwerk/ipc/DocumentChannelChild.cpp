@@ -326,6 +326,13 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
         aArgs.loadingSessionHistoryInfo().ref());
   }
 
+  // The parent only hands its timing back on a process switch.
+  if (docShell && loadInfo->GetActivatedFromNavigationalPrefetch()) {
+    if (nsDOMNavigationTiming* timing = docShell->GetNavigationTiming()) {
+      timing->SetWasActivatedFromNavigationalPrefetch();
+    }
+  }
+
   // transfer any properties. This appears to be entirely a content-side
   // interface and isn't copied across to the parent. Copying the values
   // for this from this into the new actor will work, since the parent

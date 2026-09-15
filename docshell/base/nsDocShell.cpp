@@ -6804,9 +6804,9 @@ nsresult nsDocShell::CreateAboutBlankDocumentViewer(
       }
 
       if (Element* embedderElement = blankDoc->GetEmbedderElement()) {
-        blankDoc->InitFeaturePolicy(AsVariant(embedderElement));
+        blankDoc->InitPermissionsPolicy(AsVariant(embedderElement));
       } else {
-        blankDoc->InitFeaturePolicy(AsVariant(Nothing{}));
+        blankDoc->InitPermissionsPolicy(AsVariant(Nothing{}));
       }
 
       // Perform redacted location.ancestorOrigins algorithm for about:blank

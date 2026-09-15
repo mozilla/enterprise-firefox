@@ -8,6 +8,7 @@ import android.content.Intent
 import androidx.navigation.NavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.mockk.Called
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.collections.listOf
@@ -172,5 +173,76 @@ class OpenHomeIntentProcessorTest {
         val tab = browserStore.state.tabs[0]
         assertEquals(true, tab.content.private)
         verify { navController.nav(null, NavGraphDirections.actionGlobalHome()) }
+    }
+
+    @Test
+    fun `GIVEN homepage as a new tab is enabled WHEN intent is from the private browsing pinned shortcut THEN process`() {
+        every { settings.enableHomepageAsNewTab } returns true
+        val browsingModeManager = FakeBrowsingModeManager(BrowsingMode.Private)
+        val processor =
+            OpenHomeIntentProcessor(
+                fenixBrowserUseCases = fenixBrowserUseCases,
+                browsingModeManager = browsingModeManager,
+            )
+
+        val initIntent =
+            Intent().apply {
+                putExtra(HomeActivity.PRIVATE_BROWSING_MODE, true)
+                putExtra(
+                    HomeActivity.OPEN_TO_SEARCH,
+                    StartSearchIntentProcessor.PRIVATE_BROWSING_PINNED_SHORTCUT,
+                )
+            }
+        val outIntent = Intent()
+        assertTrue(
+            processor.process(
+                intent = initIntent,
+                navController = navController,
+                out = outIntent,
+                settings = settings,
+            )
+        )
+
+        assertNotNull(outIntent.extras)
+        assertFalse(outIntent.extras!!.getBoolean(HomeActivity.OPEN_TO_HOME))
+        assertNull(outIntent.extras!!.getString(HomeActivity.OPEN_TO_SEARCH))
+        assertTrue(browsingModeManager.hasModeUpdated)
+        assertEquals(1, browserStore.state.tabs.size)
+        val tab = browserStore.state.tabs[0]
+        assertEquals(true, tab.content.private)
+        verify { navController.nav(null, NavGraphDirections.actionGlobalHome()) }
+    }
+
+    @Test
+    fun `GIVEN homepage as a new tab is disabled WHEN intent is from the private browsing pinned shortcut THEN do not process`() {
+        every { settings.enableHomepageAsNewTab } returns false
+        val processor =
+            OpenHomeIntentProcessor(
+                fenixBrowserUseCases = fenixBrowserUseCases,
+                browsingModeManager = browsingModeManager,
+            )
+
+        val initIntent =
+            Intent().apply {
+                putExtra(HomeActivity.PRIVATE_BROWSING_MODE, true)
+                putExtra(
+                    HomeActivity.OPEN_TO_SEARCH,
+                    StartSearchIntentProcessor.PRIVATE_BROWSING_PINNED_SHORTCUT,
+                )
+            }
+        val outIntent = Intent()
+        assertFalse(
+            processor.process(
+                intent = initIntent,
+                navController = navController,
+                out = outIntent,
+                settings = settings,
+            )
+        )
+
+        assertNull(outIntent.extras?.getBoolean(HomeActivity.OPEN_TO_HOME))
+        assertFalse(browsingModeManager.hasModeUpdated)
+        assertEquals(0, browserStore.state.tabs.size)
+        verify { navController wasNot Called }
     }
 }

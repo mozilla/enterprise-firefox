@@ -3747,6 +3747,7 @@ pub extern "C" fn wr_dp_push_image(
     color: ColorF,
     prefer_compositor_surface: bool,
     supports_external_compositing: bool,
+    rasterized_for_rect: bool,
 ) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
 
@@ -3760,6 +3761,9 @@ pub extern "C" fn wr_dp_push_image(
 
     if force_antialiasing {
         flags |= PrimitiveFlags::ANTIALISED;
+    }
+    if rasterized_for_rect {
+        flags |= PrimitiveFlags::RASTERIZED_FOR_RECT;
     }
 
     let prim_info = CommonItemProperties {

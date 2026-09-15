@@ -104,7 +104,7 @@ class XRSystem final : public DOMEventTargetHelper,
 
   void Shutdown();
   void SessionEnded(XRSession* aSession);
-  bool FeaturePolicyBlocked() const;
+  bool PermissionsPolicyBlocked() const;
   bool OnXRPermissionRequestAllow();
   void OnXRPermissionRequestCancel();
   bool HasActiveImmersiveSession() const;

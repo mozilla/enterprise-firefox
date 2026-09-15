@@ -183,8 +183,10 @@ DeviceColor PaintState::GetColor(uint16_t aPaletteIndex, float aAlpha) const {
                               hb_color_get_blue(c), hb_color_get_alpha(c));
   } else if (aPaletteIndex == 0xffff) {
     color = mCurrentColor;
-  } else {  // Palette index out of range! Return transparent black.
-    color = sRGBColor();
+  } else {
+    // Palette index out-of-range (a font bug), or palette failed to load.
+    // Return partially-opaque gray, so shapes are at least somewhat visible.
+    color = sRGBColor(0, 0, 0, 0.25);
   }
   color.a *= aAlpha;
   return ToDeviceColor(color);
@@ -2666,20 +2668,24 @@ nsTArray<hb_color_t> COLRFonts::CreateColorPalette(
   count =
       hb_ot_color_palette_get_colors(aFace, paletteIndex, 0, nullptr, nullptr);
   nsTArray<hb_color_t> palette;
-  palette.SetLength(count);
-  hb_ot_color_palette_get_colors(aFace, paletteIndex, 0, &count,
-                                 palette.Elements());
+  // If palette allocation fails, it will remain zero-length, and GetColor()
+  // will just return semi-opaque gray for everything. This seems preferable
+  // to crashing the process on OOM here.
+  if (palette.SetLength(count, fallible)) {
+    hb_ot_color_palette_get_colors(aFace, paletteIndex, 0, &count,
+                                   palette.Elements());
 
-  // Apply @font-palette-values overrides, if present.
-  if (fpv) {
-    for (const auto overrideColor : fpv->mOverrides) {
-      if (overrideColor.mIndex < palette.Length()) {
-        // Override colors contain nscolor, but the palette uses hb_color_t.
-        // They have different byte packing orders, so we have to explicitly
-        // map the components, not just assign as a 32-bit value.
-        nscolor c = overrideColor.mColor;
-        palette[overrideColor.mIndex] =
-            HB_COLOR(NS_GET_B(c), NS_GET_G(c), NS_GET_R(c), NS_GET_A(c));
+    // Apply @font-palette-values overrides, if present.
+    if (fpv) {
+      for (const auto overrideColor : fpv->mOverrides) {
+        if (overrideColor.mIndex < palette.Length()) {
+          // Override colors contain nscolor, but the palette uses hb_color_t.
+          // They have different byte packing orders, so we have to explicitly
+          // map the components, not just assign as a 32-bit value.
+          nscolor c = overrideColor.mColor;
+          palette[overrideColor.mIndex] =
+              HB_COLOR(NS_GET_B(c), NS_GET_G(c), NS_GET_R(c), NS_GET_A(c));
+        }
       }
     }
   }

@@ -9,6 +9,28 @@ smartwindow-monitor-button =
     .label = Monitors
     .tooltiptext = Monitors
 
+# Title of the panel opened by the toolbar button above
+smartwindow-monitor-panel-title = Tasks
+
+# Label above tasks that newly met their condition since the panel was last opened
+smartwindow-monitor-panel-new-matches = New matches
+# Label above the list of tasks the user has running
+smartwindow-monitor-panel-watching = Recent
+smartwindow-monitor-panel-empty-title = Nothing watched yet.
+smartwindow-monitor-panel-empty-description = { -brand-short-name } can keep an eye on a page and tell you the moment it changes. It only checks while { -brand-short-name } is open. Create new task below to get started.
+# Shown when the task's condition was met on its last check
+smartwindow-monitor-panel-result-match = Match
+smartwindow-monitor-panel-result-no-match = No match
+smartwindow-monitor-panel-result-error = Check failed
+smartwindow-monitor-panel-create = Create new task
+# Panel title while the user is filling in the create form
+smartwindow-monitor-panel-create-title = Create new task
+# Variables:
+#   $used (number) - How many tasks the user has
+#   $max (number) - The maximum number of tasks allowed
+smartwindow-monitor-panel-count = { $used } of { $max }
+smartwindow-monitor-panel-manage = Manage and view all tasks
+
 ## AI Tasks
 
 # Desktop notification shown when a AI Tasks fires. A "monitor" is
@@ -216,8 +238,8 @@ ai-tasks-alert-delete-confirm-button = Delete
 
 ## Used in the header to show the last check result
 
-ai-tasks-alert-last-result-met = Last result: Match
-ai-tasks-alert-last-result-not-met = Last result: No match
+ai-tasks-alert-last-result-met = Match
+ai-tasks-alert-last-result-not-met = No match
 
 ## Used in the history table as a simple status badge
 
@@ -328,3 +350,38 @@ ai-smart-form-fill-error-description = Something went wrong. To try again, selec
 
 ai-smart-form-fill-try-again =
     .label = Try again
+
+## AI Tab generated pages
+
+# Shown above the title of a generated page that was created today.
+aitab-created-today = Created today
+
+# Shown above the title of a generated page created on an earlier date.
+# Variables:
+#   $date (number) - Timestamp of when the page was generated.
+aitab-created-on = Created { DATETIME($date, month: "short", day: "numeric") }
+
+# Button that re-fetches the sources a generated page was built from.
+aitab-page-refresh-sources =
+    .label = Refresh sources
+
+# Replaces the refresh label while the sources are being re-fetched.
+aitab-page-refreshing-sources =
+    .label = Refreshing sources
+
+# Icon-only button that deletes the generated page.
+aitab-page-delete =
+    .aria-label = Delete page
+    .title = Delete page
+
+# TODO: D321710 (bug 2061040) adds `-ai-tab-brand-name`; swap the literal
+# placeholder for that term once it has landed on central.
+# "[AI Tab]" is a placeholder for the final product name.
+aitab-page-delete-dialog-title = Delete this [AI Tab]?
+aitab-page-delete-dialog-message = This generated page will be removed. The sources it was built from aren’t affected.
+
+aitab-page-delete-dialog-cancel =
+    .label = Cancel
+
+aitab-page-delete-dialog-confirm =
+    .label = Delete

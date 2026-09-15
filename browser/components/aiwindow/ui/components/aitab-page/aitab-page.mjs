@@ -4,8 +4,13 @@
 
 import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/aitab-header.mjs";
 
-const REQUEST_PAGE_EVENT = "AITab:RequestPage";
+// The same names the child and parent actors use, so a message can be traced
+// straight through without a translation table.
+const GET_PAGE_EVENT = "AITab:GetPage";
+const DELETE_PAGE_EVENT = "AITab:DeletePage";
 
 /**
  * Returns the href as an http(s) URL, or null for anything else. Footer button
@@ -63,13 +68,12 @@ export class AITabPage extends MozLitElement {
   }
 
   async #loadPage() {
-    const pageName = this.pageName;
-    if (!pageName) {
+    if (!this.pageName) {
       this.status = "unavailable";
       return;
     }
 
-    const response = await this.#requestPage(pageName);
+    const response = await this.#request(GET_PAGE_EVENT);
     if (!response?.success) {
       throw new Error(response?.error ?? "No response from the parent process");
     }
@@ -79,35 +83,44 @@ export class AITabPage extends MozLitElement {
   }
 
   /**
-   * Asks the AITab actor for a stored page config.
+   * Deletes this page, and with it the conversation that produced it. The
+   * page stays open showing the unavailable state rather than closing the
+   * tab, so the deletion is visible.
+   */
+  async #deletePage() {
+    const response = await this.#request(DELETE_PAGE_EVENT);
+    if (!response?.success) {
+      throw new Error(response?.error ?? "No response from the parent process");
+    }
+
+    this.page = null;
+    this.status = "unavailable";
+  }
+
+  /**
+   * Sends a request to the AITab actor and waits for its answer.
    *
-   * @param {string} pageName
+   * @param {string} eventType - Request event the child actor listens for.
+   * @param {object} [detail] - Payload forwarded to the parent actor.
    * @returns {Promise<object>} Resolves with the parent actor's response.
    */
-  #requestPage(pageName) {
+  #request(eventType, detail = null) {
     return new Promise((resolve, reject) => {
       const onResponse = event => {
-        this.removeEventListener(`${REQUEST_PAGE_EVENT}:Error`, onError);
+        this.removeEventListener(`${eventType}:Error`, onError);
         resolve(event.detail);
       };
       const onError = event => {
-        this.removeEventListener(`${REQUEST_PAGE_EVENT}:Response`, onResponse);
-        reject(new Error(event.detail?.error || "Failed to load the page"));
+        this.removeEventListener(`${eventType}:Response`, onResponse);
+        reject(new Error(event.detail?.error || "The request failed"));
       };
 
-      this.addEventListener(`${REQUEST_PAGE_EVENT}:Response`, onResponse, {
+      this.addEventListener(`${eventType}:Response`, onResponse, {
         once: true,
       });
-      this.addEventListener(`${REQUEST_PAGE_EVENT}:Error`, onError, {
-        once: true,
-      });
+      this.addEventListener(`${eventType}:Error`, onError, { once: true });
 
-      this.dispatchEvent(
-        new CustomEvent(REQUEST_PAGE_EVENT, {
-          bubbles: true,
-          detail: { pageName },
-        })
-      );
+      this.dispatchEvent(new CustomEvent(eventType, { bubbles: true, detail }));
     });
   }
 
@@ -126,16 +139,21 @@ export class AITabPage extends MozLitElement {
     if (!header) {
       return nothing;
     }
+    // The header block leaves `eyebrow` blank; the run date comes from the
+    // stored page, already formatted and localized by AITabParent.
     return html`
-      <header class="aitab-header">
-        ${header.eyebrow
-          ? html`<p class="aitab-eyebrow">${header.eyebrow}</p>`
-          : nothing}
-        <h1 class="aitab-title">${header.title}</h1>
-        ${header.subhead
-          ? html`<p class="aitab-subhead">${header.subhead}</p>`
-          : nothing}
-      </header>
+      <aitab-header
+        .createdAt=${this.page?.createdAtLabel ?? ""}
+        .heading=${header.title ?? ""}
+        .subhead=${header.subhead ?? ""}
+        .references=${header.references?.items ?? []}
+        @aitab-page-actions:delete=${() => {
+          this.#deletePage().catch(error => {
+            console.error("Failed to delete AI Tab page:", error);
+            this.status = "error";
+          });
+        }}
+      ></aitab-header>
     `;
   }
 

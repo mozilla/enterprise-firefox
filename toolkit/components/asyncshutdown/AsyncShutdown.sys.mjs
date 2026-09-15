@@ -1063,6 +1063,7 @@ Barrier.prototype = Object.freeze({
               "AsyncShutdownTimeout",
               JSON.stringify(this._gatherCrashReportTimeoutData(topic, state))
             );
+            Services.startup.collectShutdownHangAnnotations();
           } else {
             warn("No crash reporter available");
           }

@@ -11985,7 +11985,19 @@ AttachDecision InlinableNativeIRGenerator::tryAttachIsTypedArray(
 
   ValOperandId argId = loadArgumentIntrinsic(ArgumentKind::Arg0);
   ObjOperandId objArgId = writer.guardToObject(argId);
-  writer.isTypedArrayResult(objArgId, isPossiblyWrapped);
+
+  JSObject* obj = &arg(0).toObject();
+
+  // A shape guard is cheaper than loading the class, so start by
+  // optimistically assuming that this site is monomorphic.
+  bool canGuardShape =
+      isFirstStub() && !(isPossiblyWrapped && obj->is<WrapperObject>());
+  if (canGuardShape) {
+    writer.guardShapeForClass(objArgId, obj->shape());
+    writer.loadBooleanResult(obj->is<TypedArrayObject>());
+  } else {
+    writer.isTypedArrayResult(objArgId, isPossiblyWrapped);
+  }
 
   trackAttached(isPossiblyWrapped ? "IsPossiblyWrappedTypedArray"
                                   : "IsTypedArray");

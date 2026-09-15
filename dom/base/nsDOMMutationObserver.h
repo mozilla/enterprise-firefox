@@ -254,7 +254,7 @@ class nsMutationReceiverBase : public nsStubAnimationObserver {
   nsCOMPtr<nsINode> mKungFuDeathGrip;
 
  private:
-  nsTArray<RefPtr<nsAtom>> mAttributeFilter;
+  AutoTArray<RefPtr<nsAtom>, 2> mAttributeFilter;
   bool mSubtree : 1;
   bool mChildList : 1;
   bool mCharacterData : 1;

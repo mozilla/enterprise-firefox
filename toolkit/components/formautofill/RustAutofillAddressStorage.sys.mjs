@@ -273,7 +273,7 @@ export class RustAutofillAddressesAdapter extends RustAutofillAdapterBase {
    *
    * This is how the Rust store syncs: change detection and reconciliation
    * happen inside Rust, so none of the per-record sync methods on the JSON
-   * collection have a counterpart here. Nothing selects it yet.
+   * collection have a counterpart here. BridgedAddressesEngine drives it.
    *
    * @returns {Promise<AddressesBridgedEngine>}
    */

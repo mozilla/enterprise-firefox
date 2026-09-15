@@ -500,16 +500,18 @@ nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
             aDestStrideU, aDestV, aDestStrideV, aDestSize.width,
             aDestSize.height));
       case ImageBitmapFormat::YUV420SP_NV12:
+        // The scaled chroma is interleaved, so its rows span both temporary
+        // chroma planes.
         rv = MapRv(libyuv::NV12Scale(
             srcY, data->mYStride, srcCb, data->mCbCrStride, imageSize.width,
             imageSize.height, tempBufY, tempBufSize.width, tempBufU,
-            tempBufCbCrSize.width, tempBufSize.width, tempBufSize.height,
+            2 * tempBufCbCrSize.width, tempBufSize.width, tempBufSize.height,
             libyuv::FilterMode::kFilterBox));
         if (NS_FAILED(rv)) {
           return rv;
         }
         return MapRv(libyuv::NV12ToI420(
-            tempBufY, tempBufSize.width, tempBufU, tempBufCbCrSize.width,
+            tempBufY, tempBufSize.width, tempBufU, 2 * tempBufCbCrSize.width,
             aDestY, aDestStrideY, aDestU, aDestStrideU, aDestV, aDestStrideV,
             aDestSize.width, aDestSize.height));
       default:

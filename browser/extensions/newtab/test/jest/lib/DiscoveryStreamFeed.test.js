@@ -401,32 +401,6 @@ describe("DiscoveryStreamFeed", () => {
     });
   });
 
-  describe("#getOrCreateImpressionId", () => {
-    it("should create impression id in constructor", async () => {
-      expect(feed._impressionId).toBe(FAKE_UUID);
-    });
-    it("should create impression id if none exists", async () => {
-      services.prefs.getCharPref.mockReturnValue("");
-      // The constructor already created one, so only count this call.
-      services.prefs.setCharPref.mockClear();
-
-      const result = feed.getOrCreateImpressionId();
-
-      expect(result).toBe(FAKE_UUID);
-      expect(globalThis.Services.prefs.setCharPref).toHaveBeenCalledTimes(1);
-    });
-    it("should use impression id if exists", async () => {
-      services.prefs.getCharPref.mockReturnValue("from get");
-      // The constructor already read the pref, so only count this call.
-      services.prefs.getCharPref.mockClear();
-
-      const result = feed.getOrCreateImpressionId();
-
-      expect(result).toBe("from get");
-      expect(globalThis.Services.prefs.getCharPref).toHaveBeenCalledTimes(1);
-    });
-  });
-
   describe("#parseGridPositions", () => {
     it("should return an equivalent array for an array of non negative integers", async () => {
       expect(feed.parseGridPositions([0, 2, 3])).toEqual([0, 2, 3]);
@@ -919,6 +893,18 @@ describe("DiscoveryStreamFeed", () => {
       expect(feed.store.getState().DiscoveryStream.spocs.data.placement).toBe(
         "data"
       );
+    });
+    it("should not send an impression id in the request body", async () => {
+      jest.spyOn(feed.cache, "get").mockResolvedValue();
+      jest
+        .spyOn(feed, "fetchFromEndpoint")
+        .mockResolvedValue({ placement: "data" });
+      jest.spyOn(feed.cache, "set").mockResolvedValue();
+
+      await feed.loadSpocs(feed.store.dispatch);
+
+      const [[, options]] = feed.fetchFromEndpoint.mock.calls;
+      expect(JSON.parse(options.body)).not.toHaveProperty("pocket_id");
     });
     it("should fetch fresh data if cache is old", async () => {
       const cachedSpoc = {
@@ -1498,39 +1484,50 @@ describe("DiscoveryStreamFeed", () => {
       };
       feed.store.getState = () => defaultState;
     });
-    it("should not fail with no endpoint", async () => {
+
+    const setUnifiedAdsState = values => {
       jest.spyOn(feed.store, "getState").mockReturnValue({
         Prefs: {
-          values: { PREF_SPOCS_CLEAR_ENDPOINT: null },
+          values: {
+            "unifiedAds.spocs.enabled": true,
+            "unifiedAds.adsFeed.enabled": false,
+            "unifiedAds.endpoint": "https://ads.example/",
+            "unifiedAds.ohttp.enabled": true,
+            // Bug 2068990: this pref is gone, but keep it in the fixture so
+            // these tests fail if a legacy Pocket fall-through comes back.
+            "discoverystream.endpointSpocsClear":
+              "https://spocs.getpocket.com/user",
+            ...values,
+          },
         },
       });
+    };
+
+    it("should not send anything when unified ads spocs are disabled", async () => {
+      setUnifiedAdsState({ "unifiedAds.spocs.enabled": false });
       jest.spyOn(feed, "fetchFromEndpoint").mockResolvedValue(null);
 
       await feed.clearSpocs();
 
       expect(feed.fetchFromEndpoint).not.toHaveBeenCalled();
     });
-    it("should call DELETE with endpoint", async () => {
-      jest.spyOn(feed.store, "getState").mockReturnValue({
-        Prefs: {
-          values: {
-            "discoverystream.endpointSpocsClear": "https://spocs/user",
-          },
-        },
-      });
+    it("should not send anything with no MARS endpoint", async () => {
+      setUnifiedAdsState({ "unifiedAds.endpoint": "" });
       jest.spyOn(feed, "fetchFromEndpoint").mockResolvedValue(null);
-      feed._impressionId = "1234";
 
       await feed.clearSpocs();
 
-      expect(feed.fetchFromEndpoint.mock.calls[0][0]).toBe(
-        "https://spocs/user"
-      );
-      expect(feed.fetchFromEndpoint.mock.calls[0][1].method).toBe("DELETE");
-      expect(feed.fetchFromEndpoint.mock.calls[0][1].body).toBe(
-        '{"pocket_id":"1234"}'
-      );
+      expect(feed.fetchFromEndpoint).not.toHaveBeenCalled();
     });
+    it("should not send anything when AdsFeed handles the DELETE", async () => {
+      setUnifiedAdsState({ "unifiedAds.adsFeed.enabled": true });
+      jest.spyOn(feed, "fetchFromEndpoint").mockResolvedValue(null);
+
+      await feed.clearSpocs();
+
+      expect(feed.fetchFromEndpoint).not.toHaveBeenCalled();
+    });
+
     it("should properly call clearSpocs when sponsored content is changed", async () => {
       jest.spyOn(feed, "clearSpocs").mockReturnValue(Promise.resolve());
       jest.spyOn(feed, "loadSpocs").mockImplementation(() => {});

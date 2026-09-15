@@ -120,6 +120,12 @@ skip-if = [
 # the large model artifacts are fetched only for this task. The parakeet-asr tag
 # makes runtests.py start the local model hub (serve_model.py) for them.
 
+["test_speech_recognition_cross_origin.html"]
+subsuite = "speech-recognition"
+tags = "mtg parakeet-asr"
+# No Wayland skip: this asserts the absence of a transcript.
+skip-if = ["verify"]  # skip under test-verify: it runs outside the subsuite, so serve_model.py (the model hub) is never started
+
 ["test_start_after_error.html"]
 
 ["test_stop_returns_result_or_nomatch.html"]

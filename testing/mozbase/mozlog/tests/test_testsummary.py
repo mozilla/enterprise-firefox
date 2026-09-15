@@ -228,6 +228,39 @@ def test_testsummary_emits_test_start_and_end_separately():
     assert result_end["status"] == "OK"
 
 
+def test_testsummary_keeps_a_harness_abort_only_as_a_test_end():
+    """
+    A harness abort reported as a log line cannot reach the summary, which is why
+    RemoteProcessMonitor emits a test_end for it as well.
+    """
+    fmt = TestSummaryFormatter()
+    message = "application timed out after 370 seconds with no output"
+
+    assert (
+        fmt({
+            "action": "log",
+            "level": "ERROR",
+            "message": f"TEST-UNEXPECTED-FAIL | test_foo | {message}",
+        })
+        is None
+    )
+
+    result = json.loads(
+        fmt({
+            "action": "test_end",
+            "test": "test_foo",
+            "status": "TIMEOUT",
+            "expected": "PASS",
+            "message": message,
+            "source": "mozdevice",
+        })
+    )
+    assert result["status"] == "TIMEOUT"
+    assert result["test"] == "test_foo"
+    assert result["message"] == message
+    assert "source" not in result
+
+
 if __name__ == "__main__":
     import mozunit
 

@@ -1271,6 +1271,17 @@ ShutdownReason:
   type: string
   scope: ping
 
+ShuttingDownThreads:
+  description: >
+    JSON array of the nsThread::Shutdown handshakes still in flight when the
+    process crashed during shutdown. Each entry has the joining and closing
+    thread TID and name, the handshake phase ("Joining", "Recv" or "Ack") and
+    when that phase was entered, in seconds since the Epoch.
+    A single entry of {"error": "contended"} means the thread list was locked
+    and could not be read without blocking.
+  type: string
+  scope: ping
+
 SignalOrigin:
   description: >
     Process name of the source of the signal that caused the crash, if applicable.

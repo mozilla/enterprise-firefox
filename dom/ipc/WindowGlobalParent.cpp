@@ -1664,8 +1664,8 @@ mozilla::ipc::IPCResult WindowGlobalParent::RecvSetDocumentDomain(
     return IPC_FAIL(this, "Sandbox disallows domain setting.");
   }
 
-  // Might need to do a featurepolicy check here, like we currently do in the
-  // child process?
+  // Might need to do a permissions policy check here, like we currently do in
+  // the child process?
 
   nsCOMPtr<nsIURI> uri;
   mDocumentPrincipal->GetDomain(getter_AddRefs(uri));
