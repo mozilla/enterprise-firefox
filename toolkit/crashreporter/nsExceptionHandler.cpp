@@ -236,11 +236,12 @@ static CrashHelperClient* gCrashHelperClient
 static google_breakpad::ExceptionHandler* gExceptionHandler = nullptr;
 static mozilla::Atomic<bool> gEncounteredChildException(false);
 constinit static nsCString gServerURL;
-// Full "KEY=VALUE" environment entry for the enterprise auth token, passed only
-// to the crash reporter child process (never set in our own environment).
-// Empty when there is no token. Pre-formatted so the crash path only has to
-// read it, without any allocation.
-constinit static nsCString gAuthTokenEnvEntry;
+// The enterprise console auth token. On POSIX it is handed to the crash
+// reporter child over an inherited pipe fd (only the fd number is placed in the
+// child's environment), so the token itself is never exposed through
+// /proc/<pid>/environ to a same-user process. On Windows it is passed in the
+// child's environment. Empty when there is no token.
+constinit static nsCString gAuthToken;
 
 static MOZ_GLIBCXX_CONSTINIT xpstring pendingDirectory;
 static MOZ_GLIBCXX_CONSTINIT xpstring crashReporterPath;
@@ -1182,7 +1183,7 @@ extern "C" char** environ;
 // `aBlock`, for passing to CreateProcess. Leaves `aBlock` empty when there is
 // no token, so the caller inherits our environment.
 static void BuildChildEnvBlock(nsAString& aBlock) {
-  if (gAuthTokenEnvEntry.IsEmpty()) {
+  if (gAuthToken.IsEmpty()) {
     return;
   }
   LPWCH curEnv = GetEnvironmentStringsW();
@@ -1194,31 +1195,33 @@ static void BuildChildEnvBlock(nsAString& aBlock) {
     aBlock.Append(char16_t(0));
   }
   FreeEnvironmentStringsW(curEnv);
-  AppendUTF8toUTF16(gAuthTokenEnvEntry, aBlock);
+  aBlock.AppendLiteral(u"MOZ_CRASHREPORTER_AUTH_TOKEN=");
+  AppendUTF8toUTF16(gAuthToken, aBlock);
   aBlock.Append(char16_t(0));  // terminate the token entry
   aBlock.Append(char16_t(0));  // terminate the block
 }
 #  else
-// Number of slots (including the token entry and the null terminator) in the
+// Number of slots (including the extra entry and the null terminator) in the
 // stack buffer used to build the crash reporter's environment.
 static const size_t kChildEnvCapacity = 512;
 
 // Copy the null-terminated environment `aSource` into `aBuffer` (which has
-// `aCapacity` slots) and append the auth token. Returns the null-terminated
-// `aBuffer`, or nullptr when there is no token or the environment did not fit,
-// in which case the caller launches with the inherited environment.
+// `aCapacity` slots) and append `aExtraEntry`. Returns the null-terminated
+// `aBuffer`, or nullptr when there is no extra entry, the source is missing, or
+// the environment did not fit, in which case the caller launches with the
+// inherited environment.
 //
 // The caller supplies the buffer so the result lives on the caller's stack: on
 // Linux this runs post-fork in a signal-handler context, where heap allocation
 // is unsafe. macOS and Linux share this logic and differ only in how `aSource`
 // is obtained.
-static char** CopyEnvWithAuthToken(char** aSource, char** aBuffer,
-                                   size_t aCapacity) {
-  if (gAuthTokenEnvEntry.IsEmpty() || !aSource) {
+static char** CopyEnvWithExtraEntry(char** aSource, char** aBuffer,
+                                    size_t aCapacity, const char* aExtraEntry) {
+  if (!aExtraEntry || !aSource) {
     return nullptr;
   }
   size_t n = 0;
-  // Leave room for the token entry and the null terminator.
+  // Leave room for the extra entry and the null terminator.
   while (aSource[n] && n < aCapacity - 2) {
     aBuffer[n] = aSource[n];
     ++n;
@@ -1227,9 +1230,77 @@ static char** CopyEnvWithAuthToken(char** aSource, char** aBuffer,
     // The environment did not fit within aCapacity.
     return nullptr;
   }
-  aBuffer[n++] = const_cast<char*>(gAuthTokenEnvEntry.get());
+  aBuffer[n++] = const_cast<char*>(aExtraEntry);
   aBuffer[n] = nullptr;
   return aBuffer;
+}
+
+// Format "MOZ_CRASHREPORTER_AUTH_TOKEN_FD=<fd>" into `aBuffer` without
+// allocating, so it is safe to call post-fork on the crash path. Returns false
+// when `aFd` is negative or the result does not fit.
+static bool FormatAuthTokenFdEntry(char* aBuffer, size_t aCapacity, int aFd) {
+  static const char kPrefix[] = "MOZ_CRASHREPORTER_AUTH_TOKEN_FD=";
+  const size_t prefixLen = sizeof(kPrefix) - 1;
+  if (aFd < 0) {
+    return false;
+  }
+  char digits[16];
+  size_t d = 0;
+  unsigned int value = static_cast<unsigned int>(aFd);
+  do {
+    digits[d++] = static_cast<char>('0' + (value % 10));
+    value /= 10;
+  } while (value != 0 && d < sizeof(digits));
+  if (prefixLen + d + 1 > aCapacity) {
+    return false;
+  }
+  for (size_t i = 0; i < prefixLen; ++i) {
+    aBuffer[i] = kPrefix[i];
+  }
+  for (size_t i = 0; i < d; ++i) {
+    aBuffer[prefixLen + i] = digits[d - 1 - i];
+  }
+  aBuffer[prefixLen + d] = '\0';
+  return true;
+}
+
+// Create a pipe, write the auth token into it, and return the read end for the
+// crash reporter child to inherit. Returns -1 when there is no token or on
+// failure (the child then uploads unauthenticated). The token bytes only ever
+// live in the pipe buffer and the child's memory; only the fd number is placed
+// in the child's environment, so the token is not exposed via
+// /proc/<pid>/environ. On Linux this uses raw syscalls to stay
+// async-signal-safe on the crash path.
+static int SetupAuthTokenFd() {
+  const size_t len = gAuthToken.Length();
+  // The token has to fit within the pipe capacity so the write never blocks
+  // before the child reads; real bearer tokens are a few KB at most.
+  if (len == 0 || len > 60000) {
+    return -1;
+  }
+  int fds[2];
+#    if defined(XP_LINUX)
+  if (sys_pipe(fds) != 0) {
+    return -1;
+  }
+  ssize_t written = sys_write(fds[1], gAuthToken.get(), len);
+  sys_close(fds[1]);
+  if (written < 0 || static_cast<size_t>(written) != len) {
+    sys_close(fds[0]);
+    return -1;
+  }
+#    else  // macOS
+  if (pipe(fds) != 0) {
+    return -1;
+  }
+  ssize_t written = write(fds[1], gAuthToken.get(), len);
+  close(fds[1]);
+  if (written < 0 || static_cast<size_t>(written) != len) {
+    close(fds[0]);
+    return -1;
+  }
+#    endif
+  return fds[0];
 }
 #  endif  // XP_WIN
 
@@ -1284,34 +1355,65 @@ static bool LaunchProgram(const XP_CHAR* aProgramPath,
     env = *nsEnv;
   }
 
+  // Hand the auth token to the child over an inherited pipe fd, passing only
+  // the fd number in the environment. The pipe fd has no FD_CLOEXEC, so it
+  // survives posix_spawn.
+  int tokenFd = SetupAuthTokenFd();
+  char fdEntry[64];
   char* childEnvBuf[kChildEnvCapacity];
-  if (char** childEnv =
-          CopyEnvWithAuthToken(env, childEnvBuf, kChildEnvCapacity)) {
-    env = childEnv;
+  if (tokenFd >= 0 &&
+      FormatAuthTokenFdEntry(fdEntry, sizeof(fdEntry), tokenFd)) {
+    if (char** childEnv = CopyEnvWithExtraEntry(env, childEnvBuf,
+                                                kChildEnvCapacity, fdEntry)) {
+      env = childEnv;
+    }
   }
 
   int rv = posix_spawnp(&pid, my_argv[0], nullptr, nullptr, my_argv, env);
+
+  if (tokenFd >= 0) {
+    close(tokenFd);
+  }
 
   if (rv != 0) {
     return false;
   }
 #  else   // !XP_MACOSX
+  // Set up the token pipe before forking; the read end is inherited by the
+  // child and its number is passed in the environment. fdEntry lives on this
+  // frame's stack, which the forked child inherits.
+  int tokenFd = SetupAuthTokenFd();
+  char fdEntry[64];
+  bool haveFdEntry =
+      tokenFd >= 0 && FormatAuthTokenFdEntry(fdEntry, sizeof(fdEntry), tokenFd);
+
   pid_t pid = sys_fork();
 
   if (pid == -1) {
+    if (tokenFd >= 0) {
+      sys_close(tokenFd);
+    }
     return false;
   } else if (pid == 0) {
     // Build the replacement environment on the stack: we are post-fork in a
     // signal-handler context, where heap allocation is unsafe.
     char* childEnvBuf[kChildEnvCapacity];
-    if (char** childEnv =
-            CopyEnvWithAuthToken(environ, childEnvBuf, kChildEnvCapacity)) {
+    char** childEnv = haveFdEntry
+                          ? CopyEnvWithExtraEntry(environ, childEnvBuf,
+                                                  kChildEnvCapacity, fdEntry)
+                          : nullptr;
+    if (childEnv) {
       (void)execle(aProgramPath, aProgramPath, aMinidumpPath, nullptr,
                    childEnv);
       // If execle() failed, fall through to the plain execl() below.
     }
     (void)execl(aProgramPath, aProgramPath, aMinidumpPath, nullptr);
     _exit(1);
+  }
+
+  // Parent: close our copy of the read end.
+  if (tokenFd >= 0) {
+    sys_close(tokenFd);
   }
 #  endif  // XP_MACOSX
 
@@ -2479,7 +2581,7 @@ nsresult UnsetExceptionHandler() {
   delete gExceptionHandler;
 
   gServerURL = "";
-  gAuthTokenEnvEntry.Truncate();
+  gAuthToken.Truncate();
   TeardownAppNotes();
 
   if (!gExceptionHandler) return NS_ERROR_NOT_INITIALIZED;
@@ -2805,14 +2907,11 @@ nsresult SetServerURL(const nsACString& aServerURL) {
 
 nsresult SetAuthToken(const nsACString& aToken) {
   if (aToken.IsEmpty() || aToken.FindChar('\0') != kNotFound) {
-    gAuthTokenEnvEntry.Truncate();
+    gAuthToken.Truncate();
     return aToken.IsEmpty() ? NS_OK : NS_ERROR_INVALID_ARG;
   }
 
-  // Pre-format the full environment entry so that LaunchProgram (which runs on
-  // the crash path) only has to reference it without allocating.
-  gAuthTokenEnvEntry.AssignLiteral("MOZ_CRASHREPORTER_AUTH_TOKEN=");
-  gAuthTokenEnvEntry.Append(aToken);
+  gAuthToken.Assign(aToken);
   return NS_OK;
 }
 
@@ -3878,7 +3977,7 @@ bool UnsetRemoteExceptionHandler(bool wasSet) {
   }
 #endif
   gServerURL = "";
-  gAuthTokenEnvEntry.Truncate();
+  gAuthToken.Truncate();
   TeardownAppNotes();
 
   return true;

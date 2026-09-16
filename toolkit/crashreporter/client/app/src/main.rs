@@ -97,6 +97,11 @@ fn main() {
 
 #[cfg(not(mock))]
 fn report_main() {
+    // Read the enterprise auth token first: the fd cleanup below closes every fd
+    // >= 3, which includes the pipe the crashing process passed the token on.
+    #[cfg(feature = "enterprise")]
+    net::auth::init_access_token();
+
     // Close unused fds before doing anything else, which might open some.
     #[cfg(unix)]
     let fd_cleanup_error = fd_cleanup::cleanup_unused_fds();
