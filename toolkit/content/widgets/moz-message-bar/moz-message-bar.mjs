@@ -66,6 +66,7 @@ export default class MozMessageBar extends MozLitElement {
     messageL10nId: { type: String },
     messageL10nArgs: { type: String },
     role: { type: String, reflect: true },
+    iconSrc: { type: String },
   };
 
   constructor() {
@@ -126,6 +127,14 @@ export default class MozMessageBar extends MozLitElement {
      * @type {string}
      */
     this.role = "alert";
+
+    /**
+     * Overrides the icon that `type` would otherwise select. The icon is
+     * treated as decorative, so the heading and message must carry its meaning.
+     *
+     * @type {string | undefined}
+     */
+    this.iconSrc = undefined;
   }
 
   onActionSlotchange() {
@@ -168,6 +177,13 @@ export default class MozMessageBar extends MozLitElement {
   }
 
   iconTemplate() {
+    if (this.iconSrc) {
+      return html`
+        <div class="icon-container">
+          <img class="icon" src=${this.iconSrc} alt="" />
+        </div>
+      `;
+    }
     let iconData = messageTypeToIconData[this.type];
     if (iconData) {
       let { iconSrc, l10nId } = iconData;
