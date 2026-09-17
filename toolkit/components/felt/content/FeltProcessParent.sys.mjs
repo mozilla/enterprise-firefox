@@ -23,6 +23,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   resolveManagedProfile: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
+  StartupPolicies: "resource://gre/modules/enterprise/StartupPolicies.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -611,6 +612,8 @@ export class FeltProcessParent extends JSProcessActorParent {
       return;
     }
 
+    this._startupPolicies = await lazy.StartupPolicies.fetch();
+
     this.firefox = this.startFirefoxProcess();
     this.firefox
       .then(async () => {
@@ -862,7 +865,12 @@ export class FeltProcessParent extends JSProcessActorParent {
       extraRunArgs.push("-purgecaches");
     }
 
-    if (Services.felt.isFeltSafeMode()) {
+    // Withholding --safe-mode enforces DisableSafeMode on every platform; the
+    // environment variable below only covers the Windows-side checks.
+    if (
+      Services.felt.isFeltSafeMode() &&
+      !this._startupPolicies.isEnabled("DisableSafeMode")
+    ) {
       extraRunArgs.push("--safe-mode");
     }
 
@@ -900,8 +908,8 @@ export class FeltProcessParent extends JSProcessActorParent {
       command: firefoxBin,
       arguments: firefoxRunArgs,
       stderr: "pipe",
-      /* environmentAppend: true,
-      environment: env, */
+      environmentAppend: true,
+      environment: this._startupPolicies.environment,
     };
 
     try {
