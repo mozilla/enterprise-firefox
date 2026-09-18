@@ -70,10 +70,11 @@ def populate_repack_manifests_url(config, tasks):
             )
 
             if repack_manifests_url.startswith("git@"):
-                if "enterprise" in task["name"]:
+                if config.kind.startswith("enterprise-repack"):
                     task.setdefault("scopes", []).append(
-                        "secrets:get:project/enterprise/level-{level}/partner-github-ssh".format(
-                            **config.params
+                        "secrets:get:project/{trust_domain}/level-{level}/partner-github-ssh".format(
+                            trust_domain=config.graph_config["trust-domain"],
+                            level=config.params["level"],
                         )
                     )
                 else:

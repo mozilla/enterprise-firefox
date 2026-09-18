@@ -94,10 +94,11 @@ class Repackage(BaseScript):
                     f"--{arg}",
                     os.path.join(dirs["abs_input_dir"], filename),
                 ])
-            command.extend([
-                "--output",
-                os.path.join(dirs["abs_output_dir"], repack_config["output"]),
-            ])
+            # `output` has a subdirectory when a task repackages several
+            # locales, and not every `mach repackage` backend creates it.
+            output = os.path.join(dirs["abs_output_dir"], repack_config["output"])
+            self.mkdir_p(os.path.dirname(output))
+            command.extend(["--output", output])
             self.run_command(
                 command=command,
                 cwd=dirs["abs_src_dir"],

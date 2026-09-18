@@ -45,7 +45,7 @@ from gecko_taskgraph.optimize.schema import (
 )
 from gecko_taskgraph.transforms.job.common import get_expiration
 from gecko_taskgraph.util import docker as dockerutil
-from gecko_taskgraph.util.attributes import TRUNK_PROJECTS
+from gecko_taskgraph.util.attributes import ENTERPRISE_TRY_PROJECTS, TRUNK_PROJECTS
 from gecko_taskgraph.util.chunking import TEST_VARIANTS
 from gecko_taskgraph.util.hash import hash_path
 from gecko_taskgraph.util.partners import get_partners_to_be_published
@@ -2371,6 +2371,16 @@ def add_index_routes(config, tasks):
             extra_index["rank"] = rank
 
         if not index:
+            yield task
+            continue
+
+        # Index namespaces embed the head ref, and on try that is a branch
+        # name of any length, URL-encoded into the route. With the long job
+        # names of the enterprise repacks it goes over the 249 character limit
+        # Taskcluster puts on routes. Nothing reads the try namespaces, so skip
+        # them rather than truncate.
+        if config.params["project"] in ENTERPRISE_TRY_PROJECTS:
+            del task["index"]
             yield task
             continue
 
