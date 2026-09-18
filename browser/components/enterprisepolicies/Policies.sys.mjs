@@ -4016,11 +4016,28 @@ export var Policies = {
         }
       } else {
         lazy.EphemeralContainerWatcher.destroy();
+        lazy.PoliciesUtils.unsetAndUnlockPref("privacy.userContext.enabled");
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "privacy.containers.switchDuringNavigation.enabled"
+        );
       }
     },
 
     onRemove(manager) {
       manager.updateSitePolicies([]);
+
+      lazy.EphemeralContainerWatcher.destroy();
+      lazy.PoliciesUtils.unsetAndUnlockPref("privacy.userContext.enabled");
+      lazy.PoliciesUtils.unsetAndUnlockPref(
+        "privacy.containers.switchDuringNavigation.enabled"
+      );
+
+      const cis = lazy.ContextualIdentityService;
+      cis.ensureDataReady();
+
+      for (const identity of cis.getPolicyIdentities()) {
+        cis.removePolicyIdentity(identity.userContextId);
+      }
     },
   },
 
