@@ -52,6 +52,30 @@ const PROCESS_START_REASON = {
   CRASH: "crash",
 };
 
+// On Windows the process felt spawns is not always the one that runs as the
+// browser and connects to felt's IPC endpoint: with the launcher process
+// interposed, that is the browser child the launcher creates. The launcher
+// (browser/app/winlauncher/LauncherProcessWin.cpp) therefore announces the
+// browser's pid as one line of this form on the spawned process's stderr, a
+// pipe only felt's own process tree can write to. Keep the format in sync.
+const FELT_BROWSER_PID_LINE = /^FELT_BROWSER_PID=(\d{1,10})$/;
+
+/**
+ * Reads the browser pid the Windows launcher process announced, if `line` is
+ * such an announcement.
+ *
+ * @param {string} line - One line of the spawned process's stderr.
+ * @returns {number|null} The announced pid, or null for any other line.
+ */
+export function parseAnnouncedBrowserPid(line) {
+  const match = FELT_BROWSER_PID_LINE.exec(line.trim());
+  if (!match) {
+    return null;
+  }
+  const pid = Number(match[1]);
+  return pid > 0 && pid <= 0xffffffff ? pid : null;
+}
+
 export function queueURL(payload) {
   // If Firefox AND Felt are both ready, forward immediately
   if (
@@ -881,8 +905,10 @@ export class FeltProcessParent extends JSProcessActorParent {
     // --no-deelevate keeps the browser at felt's integrity level so that the ipc
     // socket is accessible to both the browser and felt. (Felt running elevated
     // is probably bad, but unlikely due to felt's own launcher process)
+    const useLauncherProcess =
+      Services.appinfo.OS == "WINNT" && lazy.isBuildAppBrowser();
     let launcherArgs = [];
-    if (Services.appinfo.OS == "WINNT" && lazy.isBuildAppBrowser()) {
+    if (useLauncherProcess) {
       launcherArgs = ["--launcher", "--wait-for-browser", "--no-deelevate"];
     }
 
@@ -916,11 +942,63 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.logProcess.info(`[${pid}]: ${chunk}`);
     });
 
+    // The Windows launcher process announces on stderr which pid runs as the
+    // browser (see parseAnnouncedBrowserPid). Only the first announcement
+    // counts: it precedes any code that is not ours in the process tree (a
+    // later one could come from a content process, which inherits stderr), and
+    // resolve() ignores later calls.
+    let announceBrowserPid;
+    const browserPidAnnounced = new Promise(resolve => {
+      announceBrowserPid = resolve;
+    });
     this.onPipeDataAvailable(this.proc.stderr, this.proc.pid, (pid, chunk) => {
+      const announcedPid = parseAnnouncedBrowserPid(chunk);
+      if (announcedPid !== null) {
+        announceBrowserPid(announcedPid);
+        return;
+      }
       lazy.logProcess.error(`[${pid}]: ${chunk}`);
     });
 
-    Services.felt.ipcChannel();
+    // Authenticate the IPC peer before ipcChannel() hands it any managed
+    // secret. Pass the OS process id of the process that runs as the browser;
+    // on platforms whose transport attests a peer pid, ipcChannel() verifies the
+    // connecting peer's pid against it and refuses any other same-user process
+    // that races to connect, so such a process receives no primarySecret,
+    // tokens, prefs, or cookies. (macOS has no in-band peer pid; there the
+    // endpoint is instead unreachable to unrelated processes as an OS
+    // property.) That process is the one just spawned, except when the Windows
+    // launcher process is interposed: then it is the browser child the launcher
+    // announces, so wait for the announcement.
+    const browserPid = useLauncherProcess
+      ? await this._awaitAnnouncedBrowserPid(browserPidAnnounced)
+      : this.proc.pid;
+    Services.felt.ipcChannel(browserPid);
+  }
+
+  /**
+   * Waits for the Windows launcher process to announce which pid runs as the
+   * browser. Rejects if the spawned process exits first: the browser it was to
+   * announce is gone with it, or was never started.
+   *
+   * @param {Promise<number>} browserPidAnnounced - Resolves with that pid.
+   * @returns {Promise<number>} The announced pid.
+   */
+  async _awaitAnnouncedBrowserPid(browserPidAnnounced) {
+    const proc = this.proc;
+    const browserPid = await Promise.race([
+      browserPidAnnounced,
+      proc.exitPromise.then(() => null),
+    ]);
+    if (browserPid === null) {
+      throw new Error(
+        `Process ${proc.pid} exited with code ${proc.exitCode} before announcing the browser pid`
+      );
+    }
+    lazy.log.debug(
+      `Process ${proc.pid} announced browser pid ${browserPid} for IPC peer authentication`
+    );
+    return browserPid;
   }
 
   /**

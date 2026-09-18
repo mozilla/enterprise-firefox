@@ -86,6 +86,12 @@ impl OsIpcReceiver {
         }
     }
 
+    /// No OS peer process exists for the in-process back-end, so there is no
+    /// peer pid to attest. Always returns `None`.
+    pub fn peer_pid(&self) -> Option<u32> {
+        None
+    }
+
     pub fn recv(&self) -> Result<IpcMessage, ChannelError> {
         let r = self.receiver.borrow();
         let r = r.as_ref().unwrap();

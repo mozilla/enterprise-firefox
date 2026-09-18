@@ -289,6 +289,24 @@ static void MaybeBreakForBrowserDebugging() {
   ::Sleep(pauseLenMs);
 }
 
+// felt, the enterprise launcher UI, hands the browser it spawns an IPC endpoint
+// via -felt and admits only the peer whose pid it expects. That peer is
+// whichever process ends up running as the browser, which with a launcher
+// process interposed is the launcher's child rather than the process felt
+// spawned. Announce that pid to felt on stderr: the stderr felt hands the
+// spawned process is a pipe only felt's own process tree can write to, and felt
+// drains it and parses this line in
+// toolkit/components/felt/content/FeltProcessParent.sys.mjs, so the format must
+// stay in sync with that file.
+static void AnnounceFeltBrowserPid(DWORD aPid) {
+  printf_stderr("\nFELT_BROWSER_PID=%lu\n", aPid);
+}
+
+static bool IsFeltSpawned(int& argc, wchar_t** argv) {
+  return mozilla::CheckArg(argc, argv, "felt", nullptr,
+                           mozilla::CheckArgFlag::None) == mozilla::ARG_FOUND;
+}
+
 static bool DoLauncherProcessChecks(int& argc, wchar_t** argv) {
   // NB: We run all tests in this function instead of returning early in order
   // to ensure that all side effects take place, such as clearing environment
@@ -428,7 +446,10 @@ static bool IsPackagedAppAutostarted() {
   return false;
 }
 
-Maybe<int> LauncherMain(int& argc, wchar_t* argv[]) {
+// The body of LauncherMain. Returns Nothing whenever this process is to go on
+// and run as the browser itself; LauncherMain announces it to felt in that case.
+static Maybe<int> RunLauncherMain(int& argc, wchar_t* argv[],
+                                  const bool aIsFeltSpawned) {
   EnsureBrowserCommandlineSafe(argc, argv);
 
   // return fast when we're a child process.
@@ -662,6 +683,13 @@ Maybe<int> LauncherMain(int& argc, wchar_t* argv[]) {
     return Nothing();
   }
 
+  // Only now is the child certain to be the process that runs as the browser:
+  // each failure above falls back to running it in this process, which
+  // LauncherMain then announces instead.
+  if (aIsFeltSpawned) {
+    AnnounceFeltBrowserPid(pi.dwProcessId);
+  }
+
   if (flags & LauncherFlags::eWaitForBrowser) {
     DWORD exitCode;
     if (::WaitForSingleObject(process.get(), INFINITE) == WAIT_OBJECT_0 &&
@@ -680,6 +708,20 @@ Maybe<int> LauncherMain(int& argc, wchar_t* argv[]) {
   }
 
   return Some(0);
+}
+
+Maybe<int> LauncherMain(int& argc, wchar_t* argv[]) {
+  const bool isFeltSpawned = IsFeltSpawned(argc, argv);
+  Maybe<int> result = RunLauncherMain(argc, argv, isFeltSpawned);
+  // Nothing means this process goes on to run as the browser, either because
+  // no launcher process was interposed or because interposing one failed and
+  // we fell back. A launcher that did interpose has announced this process
+  // already, and it is the only thing that sets gDeelevationStatus.
+  if (result.isNothing() && isFeltSpawned &&
+      gDeelevationStatus == DeelevationStatus::DefaultStaticValue) {
+    AnnounceFeltBrowserPid(::GetCurrentProcessId());
+  }
+  return result;
 }
 
 }  // namespace mozilla

@@ -150,6 +150,40 @@ impl OsIpcReceiver {
         OsIpcReceiver { fd: Cell::new(fd) }
     }
 
+    /// OS process id of the peer on the other end of this receiver's socket.
+    ///
+    /// On Linux this reads `SO_PEERCRED` on the connected socket, which the
+    /// kernel fills with the credentials of the peer at connect time and cannot
+    /// be forged by the peer. Returns `None` when the credentials cannot be
+    /// obtained or on unix targets without `SO_PEERCRED`.
+    #[cfg(target_os = "linux")]
+    pub fn peer_pid(&self) -> Option<u32> {
+        let fd = self.fd.get();
+        if fd < 0 {
+            return None;
+        }
+        let mut cred: libc::ucred = unsafe { mem::zeroed() };
+        let mut len = mem::size_of::<libc::ucred>() as socklen_t;
+        let ret = unsafe {
+            getsockopt(
+                fd,
+                SOL_SOCKET,
+                libc::SO_PEERCRED,
+                &mut cred as *mut libc::ucred as *mut c_void,
+                &mut len as *mut socklen_t,
+            )
+        };
+        if ret != 0 || cred.pid <= 0 {
+            return None;
+        }
+        Some(cred.pid as u32)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    pub fn peer_pid(&self) -> Option<u32> {
+        None
+    }
+
     fn consume_fd(&self) -> c_int {
         let fd = self.fd.get();
         self.fd.set(-1);

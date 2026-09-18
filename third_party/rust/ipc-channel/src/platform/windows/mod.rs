@@ -47,8 +47,9 @@ use windows::{
                 MEMORY_MAPPED_VIEW_ADDRESS, PAGE_READWRITE, SEC_COMMIT,
             },
             Pipes::{
-                ConnectNamedPipe, CreateNamedPipeA, GetNamedPipeServerProcessId,
-                PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE,
+                ConnectNamedPipe, CreateNamedPipeA, GetNamedPipeClientProcessId,
+                GetNamedPipeServerProcessId, PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS,
+                PIPE_TYPE_BYTE,
             },
             Threading::{
                 CreateEventA, GetCurrentProcess, OpenProcess, ResetEvent, INFINITE,
@@ -1155,6 +1156,22 @@ impl OsIpcReceiver {
     fn from_handle(handle: WinHandle) -> OsIpcReceiver {
         OsIpcReceiver {
             reader: RefCell::new(MessageReader::new(handle)),
+        }
+    }
+
+    /// OS process id of the client connected to this receiver's named pipe.
+    ///
+    /// Reads `GetNamedPipeClientProcessId` on the pipe handle, which the kernel
+    /// resolves for the connected client and the client cannot forge. Returns
+    /// `None` when the id cannot be obtained.
+    pub fn peer_pid(&self) -> Option<u32> {
+        let handle = self.reader.borrow().handle.as_raw();
+        let mut client_pid = 0u32;
+        let ok = unsafe { GetNamedPipeClientProcessId(handle, &mut client_pid).is_ok() };
+        if ok && client_pid != 0 {
+            Some(client_pid)
+        } else {
+            None
         }
     }
 

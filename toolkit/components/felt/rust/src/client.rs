@@ -14,7 +14,7 @@ use xpcom::RefPtr;
 
 use log::trace;
 
-use crate::message::{nsICookieWrapper, FeltMessage, FELT_IPC_VERSION};
+use crate::message::{nsICookieWrapper, FeltMessage};
 use crate::utils::{self, Tokens, TOKENS};
 
 #[derive(Default)]
@@ -114,39 +114,8 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn report_version(&self) -> bool {
-        trace!("FeltIpcClient::report_version()");
-        let msg = FeltMessage::VersionProbe(FELT_IPC_VERSION);
-        if let Some(tx) = &self.tx {
-            match tx.send(msg) {
-                Ok(()) => trace!("FeltIpcClient::report_version() SENT"),
-                Err(err) => trace!("FeltIpcClient::report_version() TX ERROR: {}", err),
-            }
-        }
-
-        if let Some(rx) = &self.rx {
-            match rx.recv() {
-                Ok(FeltMessage::VersionValidated(true)) => {
-                    trace!("FeltIpcClient::report_version() VALIDATED");
-                    true
-                }
-                Ok(FeltMessage::VersionValidated(false)) => {
-                    trace!("FeltIpcClient::report_version() REJRECTED");
-                    false
-                }
-                Ok(_) => {
-                    trace!("FeltIpcClient::report_version() UNEXPECTED MSG");
-                    false
-                }
-                Err(err) => {
-                    trace!("FeltIpcClient::report_version() RX ERROR: {}", err);
-                    false
-                }
-            }
-        } else {
-            trace!("FeltIpcClient::report_version() RX MISSING?");
-            false
-        }
+    pub fn is_connected(&self) -> bool {
+        self.tx.is_some() && self.rx.is_some()
     }
 }
 
@@ -162,13 +131,13 @@ impl FeltClientThread {
             felt_server_name.clone()
         );
         let felt_client = FeltIpcClient::new(felt_server_name);
-        if felt_client.report_version() {
+        if felt_client.is_connected() {
             Ok(Self {
                 ipc_client: RefCell::new(felt_client),
                 startup_ready: Arc::new(AtomicBool::new(false)),
             })
         } else {
-            trace!("FeltClientThread::new(): failure to report version");
+            trace!("FeltClientThread::new(): failed to connect to felt");
             Err(())
         }
     }

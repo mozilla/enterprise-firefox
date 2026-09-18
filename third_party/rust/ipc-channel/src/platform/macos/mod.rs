@@ -205,6 +205,18 @@ fn mach_port_extract_right(
 }
 
 impl OsIpcReceiver {
+    /// OS process id of the peer on the other end of this receiver's channel.
+    ///
+    /// Not resolved on the Mach-port back-end: a Mach message does not carry the
+    /// sender's pid unless a receive-time audit trailer is requested, which this
+    /// transport does not do. Peer attestation on macOS instead relies on the
+    /// per-launch bootstrap-namespace isolation of the one-shot server: an
+    /// unrelated process cannot resolve the endpoint name (`bootstrap_look_up`
+    /// returns `BOOTSTRAP_UNKNOWN_SERVICE`). Always returns `None`.
+    pub fn peer_pid(&self) -> Option<u32> {
+        None
+    }
+
     fn new() -> Result<OsIpcReceiver, MachError> {
         let port = mach_port_allocate(MACH_PORT_RIGHT_RECEIVE)?;
         let limits = mach_port_limits_t {

@@ -226,6 +226,18 @@ where
             .map_err(TryRecvError::IpcError)
     }
 
+    /// Returns the OS process id of the peer connected to the other end of this
+    /// receiver's channel, when the platform can attest it.
+    ///
+    /// This is intended for authenticating the connecting peer of an
+    /// [IpcOneShotServer] before trusting it: the accepted receiver's peer pid
+    /// can be matched against the pid of the process the server expected to
+    /// connect. Returns `None` on platforms that cannot resolve a peer pid for
+    /// the underlying transport.
+    pub fn peer_pid(&self) -> Option<u32> {
+        self.os_receiver.peer_pid()
+    }
+
     /// Erase the type of the channel.
     ///
     /// Useful for adding routes to a `RouterProxy`.

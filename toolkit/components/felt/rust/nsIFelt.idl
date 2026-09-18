@@ -34,8 +34,17 @@ interface nsIFelt : nsISupports {
   [must_use]
   boolean isFeltSafeMode();
 
+  /**
+   * Verify the connecting IPC peer against the browser felt spawned and, only
+   * if it matches, retain the channel over which the managed secret and other
+   * state are sent. The caller passes the OS process id of the process running
+   * as the browser: the spawned process itself or, on Windows, the browser
+   * child the launcher process creates and announces to felt. On platforms
+   * whose transport attests a peer pid, an unrelated same-user process that
+   * races to connect has a different pid and is refused.
+   */
   [must_use]
-  void ipcChannel();
+  void ipcChannel(in unsigned long pid);
 
   [must_use]
   void sendBoolPreference(in ACString name, in boolean value);
