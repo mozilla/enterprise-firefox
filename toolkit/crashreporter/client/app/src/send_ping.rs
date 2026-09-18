@@ -7,15 +7,17 @@
 use crate::std::{env, io::stdin, path::PathBuf};
 use crate::{glean, logging, net::ping};
 
-/// The user application data directory, derived from the crash data path.
+/// Resolve the enterprise console address for this run from the crash data
+/// path.
 ///
 /// `CrashManager` always passes `UAppData/Crash Reports`, so the parent of the
-/// given path is the directory holding `felt.json`.
+/// given path is the user application data directory holding `felt.json`.
 #[cfg(all(not(mock), feature = "enterprise"))]
-fn app_data_dir(data_path: &::std::ffi::OsStr) -> Option<::std::path::PathBuf> {
-    ::std::path::Path::new(data_path)
-        .parent()
-        .map(::std::path::Path::to_path_buf)
+fn init_console_address(data_path: &::std::ffi::OsStr) {
+    let app_data_dir = ::std::path::Path::new(data_path).parent();
+    if let Err(e) = crate::enterprise_prefs::init_console_address(app_data_dir) {
+        log::warn!("could not resolve the enterprise console address: {e:#}");
+    }
 }
 
 pub fn main() {
@@ -34,16 +36,15 @@ pub fn main() {
         .map(PathBuf::from);
 
     #[cfg(all(not(mock), feature = "enterprise"))]
-    let app_data_dir = app_data_dir(&data_path);
+    init_console_address(&data_path);
 
     #[cfg_attr(any(mock, not(feature = "enterprise")), allow(unused_mut))]
     let mut options = glean::InitOptions::new(data_path.into()).with_profile_dir(profile_dir);
     // No `ServerURL` annotation is available here, so the endpoint is derived
-    // from the console address in AutoConfig (or, on generic builds, the
-    // environment variable or felt.json).
+    // from the console address resolved above.
     #[cfg(all(not(mock), feature = "enterprise"))]
     options.set_server_endpoint(
-        crate::enterprise_prefs::console_glean_url(None, app_data_dir.as_deref())
+        crate::enterprise_prefs::console_glean_url(None)
             .expect("failed to resolve the enterprise telemetry endpoint"),
     );
     let _glean_handle = options.init().expect("failed to acquire Glean store");
@@ -67,13 +68,13 @@ pub fn cleanup_main() {
     let profile_dir = args.next();
 
     #[cfg(all(not(mock), feature = "enterprise"))]
-    let app_data_dir = app_data_dir(&data_path);
+    init_console_address(&data_path);
 
     #[cfg_attr(any(mock, not(feature = "enterprise")), allow(unused_mut))]
     let mut options = glean::InitOptions::new(data_path.into()).with_profile_dir(profile_dir);
     #[cfg(all(not(mock), feature = "enterprise"))]
     options.set_server_endpoint(
-        crate::enterprise_prefs::console_glean_url(None, app_data_dir.as_deref())
+        crate::enterprise_prefs::console_glean_url(None)
             .expect("failed to resolve the enterprise telemetry endpoint"),
     );
     let _glean_handle = options.init().expect("failed to acquire Glean store");

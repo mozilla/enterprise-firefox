@@ -282,7 +282,6 @@ fn try_run(config: &mut Arc<Config>) -> anyhow::Result<bool> {
             options.set_server_endpoint(
                 enterprise_prefs::console_glean_url(
                     config.report_url.as_ref().and_then(|s| s.to_str()),
-                    config.app_data_dir.as_deref(),
                 )
                 .context("failed to resolve the enterprise telemetry endpoint")?,
             );
