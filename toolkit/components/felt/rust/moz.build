@@ -23,6 +23,7 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
 elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
     SOURCES += [
         "FeltDiskEncryptionWin.cpp",
+        "FeltWidgetUtilsWin.cpp",
     ]
 
 FINAL_LIBRARY = "xul"

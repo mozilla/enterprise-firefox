@@ -69,7 +69,7 @@ impl FeltIpcClient {
 
     pub fn send_felt_ready(&self) {
         trace!("FeltIpcClient::send_felt_ready()");
-        let msg = FeltMessage::FeltReady;
+        let msg = FeltMessage::FeltReady(std::process::id());
         if let Some(tx) = &self.tx {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::send_felt_ready() SENT"),

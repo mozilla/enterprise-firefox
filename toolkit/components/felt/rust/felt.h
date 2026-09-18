@@ -22,7 +22,7 @@ void felt_get_startup_token_or_timestamp(const char** aOutToken,
                                          uint32_t* aOutTimestamp);
 #endif
 
-#ifdef XP_MACOSX
+#if defined(XP_MACOSX) || defined(XP_WIN)
 void felt_activate_app();
 #endif
 

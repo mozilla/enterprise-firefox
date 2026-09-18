@@ -21,7 +21,7 @@ use xpcom::{xpcom_method, RefPtr};
 use log::{error, trace};
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use crate::utils;
 use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
 
@@ -333,6 +333,8 @@ impl FeltXPCOM {
             disposition,
             focus_hint
         );
+        #[cfg(target_os = "windows")]
+        utils::allow_browser_foreground();
         self.send(FeltMessage::OpenURL((url, disposition, focus_hint)))
             .to_result()
     }
@@ -443,7 +445,19 @@ impl FeltXPCOM {
                 trace!("FeltServerThread::start_thread(): felt_server thread runnable");
                 if let Some(rx) = rx_clone {
                     loop {
-                        match rx.recv() {
+                        let msg = rx.recv();
+                        #[cfg(target_os = "windows")]
+                        if matches!(
+                            msg,
+                            Ok(FeltMessage::Restarting
+                                | FeltMessage::Exiting
+                                | FeltMessage::LogoutShutdown)
+                                | Err(ipc_channel::IpcError::Disconnected)
+                        ) {
+                            trace!("FeltServerThread::felt_server::ipc_loop(): browser gone, clearing pid");
+                            crate::utils::BROWSER_PID.store(0, Ordering::Relaxed);
+                        }
+                        match msg {
                             Ok(FeltMessage::Restarting) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Restarting");
                                 crate::utils::notify_observers("felt-firefox-restarting".to_string());
@@ -452,8 +466,10 @@ impl FeltXPCOM {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Exiting");
                                 crate::utils::notify_observers("felt-firefox-exiting".to_string());
                             },
-                            Ok(FeltMessage::FeltReady) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): FeltReady");
+                            Ok(FeltMessage::FeltReady(browser_pid)) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): FeltReady pid={}", browser_pid);
+                                #[cfg(target_os = "windows")]
+                                crate::utils::BROWSER_PID.store(browser_pid, Ordering::Relaxed);
                                 crate::utils::notify_observers("felt-ready".to_string());
                             },
                             Ok(FeltMessage::LogoutShutdown) => {

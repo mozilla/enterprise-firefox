@@ -29,4 +29,4 @@ libc = "0.2"
 plist = "1"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["namedpipeapi", "tlhelp32", "handleapi", "processthreadsapi", "winbase", "winnt", "winsvc", "errhandlingapi", "winerror", "fileapi", "sysinfoapi"] }
+winapi = { version = "0.3", features = ["namedpipeapi", "tlhelp32", "handleapi", "processthreadsapi", "winbase", "winnt", "winsvc", "errhandlingapi", "winerror", "fileapi", "sysinfoapi", "winuser"] }

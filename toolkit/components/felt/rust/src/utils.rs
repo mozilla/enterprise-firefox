@@ -5,6 +5,8 @@
 use nserror::NS_OK;
 use nsstring::{nsACString, nsCString};
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "windows")]
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 use std::{ffi::CString, future::Future};
 use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
@@ -26,7 +28,7 @@ extern "C" {
     );
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 extern "C" {
     fn felt_activate_app();
 }
@@ -83,6 +85,24 @@ pub static TOKEN_EXPIRY_SKEW: i64 = 5 * 60;
 pub static TOKENS: LazyLock<Arc<RwLock<Tokens>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Default::default())));
 pub static CONSOLE_URL: OnceLock<Arc<String>> = OnceLock::new();
+
+#[cfg(target_os = "windows")]
+pub static BROWSER_PID: AtomicU32 = AtomicU32::new(0);
+
+#[cfg(target_os = "windows")]
+pub fn allow_browser_foreground() {
+    let pid = BROWSER_PID.load(Ordering::Relaxed);
+    if pid == 0 {
+        trace!("allow_browser_foreground(): no browser pid yet, not granting");
+        return;
+    }
+    let granted = unsafe { winapi::um::winuser::AllowSetForegroundWindow(pid) } != 0;
+    trace!(
+        "allow_browser_foreground(): pid {} granted={}",
+        pid,
+        granted
+    );
+}
 
 pub fn inject_one_cookie(cookie: nsICookieWrapper) {
     trace!("inject_one_cookie() cookie:{:?}", cookie.clone());
@@ -255,7 +275,7 @@ pub fn open_url_in_firefox(url: String, disposition: i32, focus_hint: Option<Foc
             }
         }
         // Widget interaction needs to be on the main thread.
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         unsafe {
             felt_activate_app();
         }
