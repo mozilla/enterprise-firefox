@@ -117,7 +117,7 @@ already_AddRefed<FOG> FOG::GetSingleton() {
           gFOG->Shutdown();
           gFOG = nullptr;
         },
-        ShutdownPhase::XPCOMShutdown);
+        ShutdownPhase::AppShutdownTelemetry);
   }
   return do_AddRef(gFOG);
 }
