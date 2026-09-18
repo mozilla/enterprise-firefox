@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Array, Process, Value
 
 import requests
-from base_test import EnterpriseTestsBase
+from base_test import EnterpriseTestsBase, Environment
 from felt_consts import firefox_config
 from marionette_driver import expected
 from marionette_driver.by import By
@@ -221,6 +221,15 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 "Watermark": {
                     "Match": ["http://localhost/*"],
                     "Copy": "CONFIDENTIAL",
+                }
+            })
+
+        if self.server.policy_signout_crash_lock.value == 1:
+            policy_content.update({
+                "SignOut": {
+                    "Crash": {
+                        "Action": "lock",
+                    }
                 }
             })
 
@@ -657,6 +666,7 @@ def serve(
     policy_block_about_config=None,
     policy_extensions=None,
     policy_watermark=None,
+    policy_signout_crash_lock=None,
     policy_access_token=None,
     policy_refresh_token=None,
     policy_access_connector=None,
@@ -690,6 +700,8 @@ def serve(
         httpd.policy_extensions = policy_extensions
     if policy_watermark is not None:
         httpd.policy_watermark = policy_watermark
+    if policy_signout_crash_lock is not None:
+        httpd.policy_signout_crash_lock = policy_signout_crash_lock
     if policy_access_token:
         httpd.policy_access_token = policy_access_token
     if policy_access_connector:
@@ -821,6 +833,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_connector = Value("b", 0)
         self.policy_extensions = Value("B", 0)
         self.policy_watermark = Value("b", 0)
+        self.policy_signout_crash_lock = Value("b", 0)
         self.policies_fail_request = Value("B", 0)
         # Serves "{}", a 200 that carries neither policies nor a relaunch key.
         self.policies_omit_policies = Value("B", 0)
@@ -851,6 +864,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 policy_block_about_config=self.policy_block_about_config,
                 policy_extensions=self.policy_extensions,
                 policy_watermark=self.policy_watermark,
+                policy_signout_crash_lock=self.policy_signout_crash_lock,
                 policy_access_token=self.policy_access_token,
                 policy_access_connector=self.policy_access_connector,
                 policy_refresh_token=self.policy_refresh_token,
@@ -1021,6 +1035,25 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self._logger.info(f"Pref value: {rv}")
         self._driver.set_context("content")
         return rv
+
+    def felt_has_locking_token(self, email=None):
+        """Whether FELT persisted an encrypted resume token, for the given
+        email or (by default) the last signed-in user."""
+        driver = self.get_driver(Environment.FELT)
+        driver.set_context("chrome")
+        try:
+            return driver.execute_script(
+                """
+                const { FeltStorage } = ChromeUtils.importESModule(
+                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+                );
+                const email = arguments[0] || FeltStorage.getLastSignedInUser();
+                return !!email && FeltStorage.hasLockingToken(email);
+                """,
+                script_args=[email],
+            )
+        finally:
+            driver.set_context("content")
 
     def _get_elem(self, el, driver, waiter, long_waiter):
         # Windows is slower?

@@ -1531,6 +1531,32 @@ const POLICIES_TESTS = [
       "enterprise.locking.shutdown": false,
     },
   },
+  // Locking on crash keeps the session resumable when repeated crashes stop
+  // the browser from restarting.
+  {
+    policies: {
+      SignOut: {
+        Crash: {
+          Action: "lock",
+        },
+      },
+    },
+    lockedPrefs: {
+      "enterprise.locking.crash": true,
+    },
+  },
+  {
+    policies: {
+      SignOut: {
+        Crash: {
+          Action: "signout",
+        },
+      },
+    },
+    lockedPrefs: {
+      "enterprise.locking.crash": false,
+    },
+  },
 ];
 
 add_task(async function test_policy_simple_prefs() {

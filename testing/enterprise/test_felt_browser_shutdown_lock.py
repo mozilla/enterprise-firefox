@@ -104,23 +104,6 @@ class BrowserShutdownLock(FeltTests):
             """
         )
 
-    def _felt_has_locking_token(self):
-        """Whether FELT persisted an encrypted resume token for the signed-in user."""
-        driver = self.get_driver(Environment.FELT)
-        driver.set_context("chrome")
-        try:
-            return driver.execute_script(
-                """
-                const { FeltStorage } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
-                );
-                const email = FeltStorage.getLastSignedInUser();
-                return !!(email && FeltStorage.hasLockingToken(email));
-                """
-            )
-        finally:
-            driver.set_context("content")
-
     def _settle_after_close(self, browser_pid):
         self.wait_process_exit(browser_pid)
         self.await_felt_auth_window()
@@ -164,20 +147,29 @@ class BrowserShutdownLock(FeltTests):
         self.assert_user_signed_in(env=Environment.FIREFOX)
         return self._child_driver.session_capabilities["moz:processID"]
 
+    def _set_shutdown_lock(self, value):
+        """The locking pref ships locked, so a plain user set is masked; mimic
+        PoliciesUtils.setDefaultPref by unlocking and writing the default
+        branch, like the SignOut policy does."""
+        self._child_driver.set_context("chrome")
+        self._child_driver.execute_script(
+            """
+            const [pref, value] = arguments;
+            if (Services.prefs.prefIsLocked(pref)) {
+                Services.prefs.unlockPref(pref);
+            }
+            Services.prefs.getDefaultBranch("").setBoolPref(pref, value);
+            """,
+            script_args=[PREF_LOCKING_SHUTDOWN, value],
+        )
+
     def _begin_close_test(self, *, locking_enabled, prompt_enabled):
         """Sign in, set the locking/prompt prefs, and assert no signout yet.
 
         Returns the child browser pid for _settle_after_close."""
         browser_pid = self._start_signed_in()
-        # enterprise.locking.shutdown ships locked, and set_prefs can't
-        # modify a locked pref; unlock it so the set_prefs below takes effect.
-        with self._child_driver.using_context("chrome"):
-            self._child_driver.execute_script(
-                "Services.prefs.unlockPref(arguments[0]);",
-                script_args=[PREF_LOCKING_SHUTDOWN],
-            )
+        self._set_shutdown_lock(locking_enabled)
         self._child_driver.set_prefs({
-            PREF_LOCKING_SHUTDOWN: locking_enabled,
             PREF_PROMPT_ON_SIGNOUT: prompt_enabled,
         })
         assert self.signout_count.value == 0, "No signout should have been posted yet"
@@ -188,7 +180,7 @@ class BrowserShutdownLock(FeltTests):
         assert self.signout_count.value == 0, (
             f"Locking must not post a signout, got {self.signout_count.value}"
         )
-        assert self._felt_has_locking_token(), (
+        assert self.felt_has_locking_token(), (
             "Locking must persist an encrypted resume token"
         )
 
@@ -197,7 +189,7 @@ class BrowserShutdownLock(FeltTests):
         assert self.signout_count.value == 1, (
             f"Expected exactly 1 signout request, got {self.signout_count.value}"
         )
-        assert not self._felt_has_locking_token(), (
+        assert not self.felt_has_locking_token(), (
             "Signing out must not leave a resume token behind"
         )
         self.assert_user_signed_out(env=Environment.FELT)

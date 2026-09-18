@@ -4243,6 +4243,9 @@
         {
           "Shutdown": {
             "Action": "lock"
+          },
+          "Crash": {
+            "Action": "lock"
           }
         }
       ],
@@ -4262,6 +4265,27 @@
                   "const": "lock",
                   "title": "Lock",
                   "description": "Lock the session when the browser shuts down, so the next launch only requires the user to unlock."
+                }
+              ]
+            }
+          },
+          "required": ["Action"]
+        },
+        "Crash": {
+          "type": "object",
+          "properties": {
+            "Action": {
+              "type": "string",
+              "oneOf": [
+                {
+                  "const": "signout",
+                  "title": "Sign out",
+                  "description": "Discard the session when repeated crashes stop the browser from restarting, so the next launch requires a full sign-in. This is what happens when the policy is not set."
+                },
+                {
+                  "const": "lock",
+                  "title": "Lock",
+                  "description": "Lock the session when repeated crashes stop the browser from restarting, so the next launch only requires the user to unlock."
                 }
               ]
             }

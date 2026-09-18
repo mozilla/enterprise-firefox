@@ -3,19 +3,25 @@
 
 "use strict";
 
-const PREF_NAME = "enterprise.locking.shutdown";
+const PREF_SHUTDOWN = "enterprise.locking.shutdown";
+const PREF_CRASH = "enterprise.locking.crash";
 
-function checkState(locked, value) {
+function checkPref(prefName, locked, value) {
   Assert.equal(
-    Services.prefs.prefIsLocked(PREF_NAME),
+    Services.prefs.prefIsLocked(prefName),
     locked,
-    `${PREF_NAME} is ${locked ? "locked" : "unlocked"}`
+    `${prefName} is ${locked ? "locked" : "unlocked"}`
   );
   Assert.strictEqual(
-    Services.prefs.getBoolPref(PREF_NAME, false),
+    Services.prefs.getBoolPref(prefName, false),
     value,
-    `${PREF_NAME} is ${value}`
+    `${prefName} is ${value}`
   );
+}
+
+function checkState(locked, value) {
+  checkPref(PREF_SHUTDOWN, locked, value);
+  checkPref(PREF_CRASH, locked, value);
   Assert.strictEqual(
     EnterpriseHandler.willLockOnShutdown,
     value,
@@ -23,14 +29,18 @@ function checkState(locked, value) {
   );
 }
 
-// Changing the SignOut action through a live policy update must take effect on
-// the next browser shutdown without a restart, since willLockOnShutdown reads
-// the pref freshly each time.
+// Changing the SignOut actions through a live policy update must take effect
+// on the next browser shutdown or crash-abort without a restart:
+// willLockOnShutdown reads the pref freshly each time, and the crash pref is
+// re-relayed to FELT on every change.
 add_task(async function test_signout_live_update() {
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
-        SignOut: { Shutdown: { Action: "lock" } },
+        SignOut: {
+          Shutdown: { Action: "lock" },
+          Crash: { Action: "lock" },
+        },
       },
     },
     null
@@ -40,7 +50,10 @@ add_task(async function test_signout_live_update() {
 
   info("Live-updating SignOut to signout");
   await waitForLivePolicyUpdate({
-    SignOut: { Shutdown: { Action: "signout" } },
+    SignOut: {
+      Shutdown: { Action: "signout" },
+      Crash: { Action: "signout" },
+    },
   });
 
   checkState(true, false);
@@ -54,13 +67,17 @@ add_task(async function test_signout_live_removal() {
     null
   );
 
-  // Capture the pre-policy value so the assertion holds regardless of the
-  // build-time default.
-  const baselineValue = Services.prefs.getBoolPref(PREF_NAME, false);
+  // Capture the pre-policy values so the assertions hold regardless of the
+  // build-time defaults.
+  const baselineShutdown = Services.prefs.getBoolPref(PREF_SHUTDOWN, false);
+  const baselineCrash = Services.prefs.getBoolPref(PREF_CRASH, false);
 
-  info("Applying SignOut with a signout action");
+  info("Applying SignOut with signout actions");
   await waitForLivePolicyUpdate({
-    SignOut: { Shutdown: { Action: "signout" } },
+    SignOut: {
+      Shutdown: { Action: "signout" },
+      Crash: { Action: "signout" },
+    },
   });
 
   checkState(true, false);
@@ -68,7 +85,8 @@ add_task(async function test_signout_live_removal() {
   info("Removing SignOut");
   await waitForLivePolicyUpdate({});
 
-  // Removal restores the default value but always re-locks, matching the
-  // locked default enterprise builds ship.
-  checkState(true, baselineValue);
+  // Removal restores the default values but always re-locks, matching the
+  // locked defaults enterprise builds ship.
+  checkPref(PREF_SHUTDOWN, true, baselineShutdown);
+  checkPref(PREF_CRASH, true, baselineCrash);
 });

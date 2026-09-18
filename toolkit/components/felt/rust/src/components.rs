@@ -379,6 +379,21 @@ impl FeltXPCOM {
         NS_OK
     }
 
+    fn SetCrashLockIntent(&self, lock: bool) -> nserror::nsresult {
+        trace!("FeltXPCOM::SetCrashLockIntent({})", lock);
+        let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
+        match &*guard {
+            Some(client) => {
+                client.notify_crash_lock_intent(lock);
+                NS_OK
+            }
+            None => {
+                trace!("setCrashLockIntent(): missing client");
+                NS_ERROR_FAILURE
+            }
+        }
+    }
+
     fn IpcChannel(&self) -> nserror::nsresult {
         let felt_server = match self.one_shot_server.take() {
             Some(f) => f,
@@ -468,6 +483,13 @@ impl FeltXPCOM {
                             Ok(FeltMessage::LogoutShutdown) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for logout");
                                 crate::utils::notify_observers("felt-firefox-logout".to_string());
+                            }
+                            Ok(FeltMessage::CrashLockIntent(lock)) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Crash lock intent {}", lock);
+                                let payload = serde_json::json!({
+                                    "lock": lock,
+                                }).to_string();
+                                crate::utils::notify_observers_with_payload("felt-firefox-crash-lock-intent".to_string(), Some(payload));
                             }
                             Ok(FeltMessage::AccessToken((access_token, expires_at))) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Update tokens from browser");

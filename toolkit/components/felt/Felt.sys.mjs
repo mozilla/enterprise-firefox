@@ -35,6 +35,8 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return lazy.createEnterpriseLogger("Felt");
 });
 
+const LOCKING_CRASH_PREF = "enterprise.locking.crash";
+
 /**
  * Felt is an XPCOM component that manages the lifecycle of the
  * Firefox Enterprise Launcher Tool (FELT) UI and its interaction with the
@@ -254,6 +256,28 @@ export class Felt {
       } catch (e) {
         lazy.log.error("Failed to send Felt ready:", e);
       }
+      // The FELT UI process cannot read this pref and the browser is gone by
+      // the time the crash decision is made, so relay it while the session is
+      // alive, now and on every (live policy) change.
+      this.#relayCrashLockIntent();
+      Services.prefs.addObserver(
+        LOCKING_CRASH_PREF,
+        this.#crashLockIntentObserver
+      );
+    }
+  }
+
+  #crashLockIntentObserver = () => {
+    this.#relayCrashLockIntent();
+  };
+
+  #relayCrashLockIntent() {
+    try {
+      Services.felt.setCrashLockIntent(
+        Services.prefs.getBoolPref(LOCKING_CRASH_PREF, false)
+      );
+    } catch (e) {
+      lazy.log.error("Failed to relay the crash lock intent:", e);
     }
   }
 
@@ -441,6 +465,10 @@ export class Felt {
         Services.obs.removeObserver(this.urlObserver, "felt-open-url");
       }
       Services.obs.removeObserver(this.updateObserver, "felt-update-ready");
+      Services.prefs.removeObserver(
+        LOCKING_CRASH_PREF,
+        this.#crashLockIntentObserver
+      );
     }
 
     if (Services.felt.isFeltUI()) {

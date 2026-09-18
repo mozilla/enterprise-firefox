@@ -129,11 +129,18 @@ const kBrowserObserverTopics = [
   "felt-firefox-check-for-updates",
   "felt-ready",
   "felt-firefox-logout",
+  "felt-firefox-crash-lock-intent",
   "felt-firefox-tokens",
   "felt-firefox-refresh-tokens",
 ];
 
 let gObserversRegistered = false;
+
+// Module-scoped (not instance state) so the browser-relayed value survives
+// actor re-creation and the crash restarts it exists to handle: if the final
+// crash lands before a freshly restarted browser re-relays the pref, an
+// instance reset would silently turn a lock policy into a token wipe.
+let gCrashLockIntent = false;
 
 /**
  * Manages the SSO login and launching Firefox
@@ -317,6 +324,19 @@ export class FeltProcessParent extends JSProcessActorParent {
               lazy.log.error(`Logout failed: ${err}`);
             });
             break;
+
+          case "felt-firefox-crash-lock-intent": {
+            try {
+              gCrashLockIntent = !!JSON.parse(aData).lock;
+            } catch (err) {
+              lazy.log.error(`Malformed crash-lock-intent payload: ${err}`);
+              gCrashLockIntent = false;
+            }
+            lazy.log.debug(
+              `ParentProcess: crashLockIntent=${gCrashLockIntent}`
+            );
+            break;
+          }
 
           case "felt-firefox-tokens": {
             const data = JSON.parse(aData);
@@ -805,10 +825,41 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.log.debug(
         "Abort restarting Firefox and inform the user of the crashes."
       );
-      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxAbnormalExit", {});
+      this.finalizeAbortedRestart();
     } else {
       lazy.log.debug("Trying to restart Firefox again.");
       this.startFirefox(PROCESS_START_REASON.CRASH);
+    }
+  }
+
+  /**
+   * Locks or discards the persisted session per the browser-relayed
+   * crash-locking policy, then informs the FELT UI that restarting was
+   * aborted. FirefoxAbnormalExit is only sent once the token work settles so
+   * the sign-in window renders the correct unlock state.
+   */
+  async finalizeAbortedRestart() {
+    // The session ends here whichever branch runs; logoutReported keeps a
+    // refresh still in flight from tearing the decision down through
+    // endSessionAfterRefreshFailure if it fails after the crash.
+    this.logoutReported = true;
+    try {
+      if (gCrashLockIntent) {
+        await this._persistLockedSession();
+      } else {
+        // Signing out on crash (the policy default) must not leave a stored
+        // token behind, or a session earlier resumed via unlock would still
+        // offer Unlock after the crashes.
+        lazy.FeltLocking.clear();
+      }
+    } catch (err) {
+      // Nothing to unlock later, so degrade to the plain crash behavior of a
+      // full sign-in. A crash is not a user-intended session end, so unlike
+      // _lockAfterExit() there is no server signout fallback.
+      lazy.log.error(`Locking on crash abort failed: ${err}`);
+      lazy.FeltLocking.clear();
+    } finally {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxAbnormalExit", {});
     }
   }
 
@@ -1136,26 +1187,17 @@ export class FeltProcessParent extends JSProcessActorParent {
    * @returns {Promise<void>}
    */
   async _lockAfterExit() {
-    // Reuse logoutReported so the refresh observer stops scheduling refreshes
-    // and endSessionAfterRefreshFailure stays out of the teardown.
-    this.logoutReported = true;
-
     try {
-      await this._drainPendingRefresh();
       // Reaching here means the browser already decided to lock (it owns the
       // locking pref and only declares the intent when enabled), so persist
       // unconditionally; store() still throws if no user is known.
-      await lazy.FeltLocking.store(
-        Services.felt.getRefreshToken(),
-        this.loggedInUserInfo?.id
-      );
+      await this._persistLockedSession();
     } catch (err) {
       lazy.log.error(`Locking failed, falling back to signout: ${err}`);
       Services.cpmm.sendAsyncMessage("FeltParent:FirefoxNormalExit", {});
       return;
     }
 
-    Services.felt.clearTokens();
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLockExit", {});
   }
 
@@ -1220,6 +1262,27 @@ export class FeltProcessParent extends JSProcessActorParent {
     return { posture, measuredAt };
   }
 
+  /**
+   * Persist the (encrypted) refresh token so the session can later be
+   * unlocked, then drop the in-memory tokens so only the persisted copy
+   * remains. Quiesces the refresh machinery first: logoutReported stops new
+   * refreshes and keeps endSessionAfterRefreshFailure out of the teardown,
+   * and draining ensures the token persisted is the current (rotated) one.
+   * Throws (see FeltLocking.store) when nothing usable can be persisted, so
+   * the caller can fall back to its signout or sign-in path.
+   *
+   * @returns {Promise<void>}
+   */
+  async _persistLockedSession() {
+    this.logoutReported = true;
+    await this._drainPendingRefresh();
+    await lazy.FeltLocking.store(
+      Services.felt.getRefreshToken(),
+      this.loggedInUserInfo?.id
+    );
+    Services.felt.clearTokens();
+  }
+
   async receiveMessage(message) {
     lazy.log.debug(
       `ParentProcess: Received message ${message.name} => ${message.data}`
@@ -1227,6 +1290,9 @@ export class FeltProcessParent extends JSProcessActorParent {
     switch (message.name) {
       case "FeltChild:StartFirefox":
         {
+          // A fresh sign-in or unlock must not inherit the previous session's
+          // policy; the newly spawned browser re-relays the real value.
+          gCrashLockIntent = false;
           const {
             user_id,
             email,

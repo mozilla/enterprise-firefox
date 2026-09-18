@@ -113,6 +113,21 @@ interface nsIFelt : nsISupports {
    */
   void setShutdownLockIntent(in boolean lock);
 
+  /**
+   * Called by the spawned Firefox to relay whether the session should be
+   * locked (rather than discarded) when repeated crashes abort the automatic
+   * restart. The browser owns the `enterprise.locking.crash` pref, which the
+   * Felt UI process cannot read, and it is dead by the time the crash
+   * decision is made, so the value must be relayed while the session is
+   * alive: once at startup and again on every pref change. Sends a
+   * CrashLockIntent message over the Felt IPC channel, which the Felt UI
+   * process turns into a `felt-firefox-crash-lock-intent` observer
+   * notification. Returns a failure nsresult (throwing on the caller side) if
+   * the IPC client is not available.
+   */
+  [must_use]
+  void setCrashLockIntent(in boolean lock);
+
   [must_use]
   void shutdownFirefox();
 
