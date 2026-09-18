@@ -43,6 +43,8 @@ static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
 static IS_FELT_SAFE_MODE: AtomicBool = AtomicBool::new(false);
 // Whether a browser shutdown locks the session instead of signing out.
 pub(crate) static SHUTDOWN_LOCK_INTENT: AtomicBool = AtomicBool::new(false);
+// Whether a browser restart locks the session instead of signing out.
+pub(crate) static RESTART_LOCK_INTENT: AtomicBool = AtomicBool::new(false);
 
 fn normalize_arg(arg: String) -> String {
     let mut normalized = arg;

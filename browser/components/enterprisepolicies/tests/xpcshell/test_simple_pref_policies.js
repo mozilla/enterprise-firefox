@@ -1531,6 +1531,31 @@ const POLICIES_TESTS = [
       "enterprise.locking.shutdown": false,
     },
   },
+  {
+    policies: {
+      SignOut: {
+        Restart: {
+          Action: "lock",
+        },
+      },
+    },
+    // Locking on restart persists the session behind OS auth instead of signing out.
+    lockedPrefs: {
+      "enterprise.locking.restart": true,
+    },
+  },
+  {
+    policies: {
+      SignOut: {
+        Restart: {
+          Action: "signout",
+        },
+      },
+    },
+    lockedPrefs: {
+      "enterprise.locking.restart": false,
+    },
+  },
 ];
 
 add_task(async function test_policy_simple_prefs() {

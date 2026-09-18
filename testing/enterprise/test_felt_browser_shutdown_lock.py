@@ -9,13 +9,13 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 
 from base_test import Environment
-from felt_tests import FeltTests
+from felt_lock_tests import FeltLockTests
 
 PREF_LOCKING_SHUTDOWN = "enterprise.locking.shutdown"
 PREF_PROMPT_ON_SIGNOUT = "enterprise.prompt_on_signout"
 
 
-class BrowserShutdownLock(FeltTests):
+class BrowserShutdownLock(FeltLockTests):
     """Verify the lock-vs-signout decision when closing a FELT browser.
 
     The distinguishing signal is whether a server signout is posted (a lock
@@ -104,82 +104,13 @@ class BrowserShutdownLock(FeltTests):
             """
         )
 
-    def _felt_has_locking_token(self):
-        """Whether FELT persisted an encrypted resume token for the signed-in user."""
-        driver = self.get_driver(Environment.FELT)
-        driver.set_context("chrome")
-        try:
-            return driver.execute_script(
-                """
-                const { FeltStorage } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
-                );
-                const email = FeltStorage.getLastSignedInUser();
-                return !!(email && FeltStorage.hasLockingToken(email));
-                """
-            )
-        finally:
-            driver.set_context("content")
-
-    def _settle_after_close(self, browser_pid):
-        self.wait_process_exit(browser_pid)
-        self.await_felt_auth_window()
-        self.force_window()
-
-    def _prepare_felt_keystore(self):
-        """Stub OSKeyStore and clear any leftover tokens on the FELT process.
-
-        The reversible encrypt/decrypt pair avoids coupling this headless run to
-        the machine's keychain. Clearing felt.json (shared via UAppData, so it
-        outlives the per-test profile) stops a prior test's token from turning
-        this sign-in into an unlock."""
-        driver = self.get_driver(Environment.FELT)
-        driver.set_context("chrome")
-        try:
-            driver.execute_script(
-                r"""
-                const { OSKeyStore } = ChromeUtils.importESModule(
-                    "resource://gre/modules/OSKeyStore.sys.mjs"
-                );
-                OSKeyStore.encrypt = async plaintext => `encrypted(${plaintext})`;
-                OSKeyStore.decrypt = async ciphertext =>
-                    String(ciphertext).replace(/^encrypted\((.*)\)$/, "$1");
-
-                const { FeltStorage } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
-                );
-                if (FeltStorage._feltStorage?.data) {
-                    FeltStorage._feltStorage.data.lockingTokens = {};
-                }
-                """
-            )
-        finally:
-            driver.set_context("content")
-
-    def _start_signed_in(self):
-        self._hold_felt_after_child_exit()
-        self.run_felt_base()
-        self._prepare_felt_keystore()
-        self.connect_child_browser()
-        self.assert_user_signed_in(env=Environment.FIREFOX)
-        return self._child_driver.session_capabilities["moz:processID"]
-
     def _begin_close_test(self, *, locking_enabled, prompt_enabled):
         """Sign in, set the locking/prompt prefs, and assert no signout yet.
 
-        Returns the child browser pid for _settle_after_close."""
+        Returns the child browser pid for _settle_after_child_exit."""
         browser_pid = self._start_signed_in()
-        # enterprise.locking.shutdown ships locked, and set_prefs can't
-        # modify a locked pref; unlock it so the set_prefs below takes effect.
-        with self._child_driver.using_context("chrome"):
-            self._child_driver.execute_script(
-                "Services.prefs.unlockPref(arguments[0]);",
-                script_args=[PREF_LOCKING_SHUTDOWN],
-            )
-        self._child_driver.set_prefs({
-            PREF_LOCKING_SHUTDOWN: locking_enabled,
-            PREF_PROMPT_ON_SIGNOUT: prompt_enabled,
-        })
+        self._set_locking_pref(PREF_LOCKING_SHUTDOWN, locking_enabled)
+        self._child_driver.set_pref(PREF_PROMPT_ON_SIGNOUT, prompt_enabled)
         assert self.signout_count.value == 0, "No signout should have been posted yet"
         return browser_pid
 
@@ -207,7 +138,7 @@ class BrowserShutdownLock(FeltTests):
         browser_pid = self._begin_close_test(locking_enabled=True, prompt_enabled=False)
 
         self._trigger_browser_closure()
-        self._settle_after_close(browser_pid)
+        self._settle_after_child_exit(browser_pid)
 
         self._assert_locked()
 
@@ -218,7 +149,7 @@ class BrowserShutdownLock(FeltTests):
         )
 
         self._trigger_browser_closure()
-        self._settle_after_close(browser_pid)
+        self._settle_after_child_exit(browser_pid)
 
         self._assert_signed_out()
 
@@ -232,7 +163,7 @@ class BrowserShutdownLock(FeltTests):
             expected_reauth="You can resume your session after authenticating on this device.",
         )
         self._accept_close_dialog()
-        self._settle_after_close(browser_pid)
+        self._settle_after_child_exit(browser_pid)
 
         self._assert_locked()
 
@@ -246,6 +177,6 @@ class BrowserShutdownLock(FeltTests):
             expected_reauth="To use Firefox Enterprise again, you’ll need to reauthenticate through your organization’s SSO provider.",
         )
         self._accept_close_dialog()
-        self._settle_after_close(browser_pid)
+        self._settle_after_child_exit(browser_pid)
 
         self._assert_signed_out()

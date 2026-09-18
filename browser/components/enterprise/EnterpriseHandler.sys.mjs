@@ -25,6 +25,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.prompt_on_signout";
 const WARN_ON_CLOSE_PREF = "browser.tabs.warnOnClose";
 const LOCK_ON_SHUTDOWN_PREF = "enterprise.locking.shutdown";
+const LOCK_ON_RESTART_PREF = "enterprise.locking.restart";
 
 export const EnterpriseHandler = {
   /**
@@ -103,10 +104,16 @@ export const EnterpriseHandler = {
     if (Services.felt?.isFeltBrowser() && !this._lockObserversInitialized) {
       this._lockObserversInitialized = true;
       this._syncShutdownLockIntent();
+      this._syncRestartLockIntent();
       this._shutdownLockPrefObserver = () => this._syncShutdownLockIntent();
+      this._restartLockPrefObserver = () => this._syncRestartLockIntent();
       Services.prefs.addObserver(
         LOCK_ON_SHUTDOWN_PREF,
         this._shutdownLockPrefObserver
+      );
+      Services.prefs.addObserver(
+        LOCK_ON_RESTART_PREF,
+        this._restartLockPrefObserver
       );
     }
   },
@@ -387,6 +394,25 @@ export const EnterpriseHandler = {
   },
 
   /**
+   * Push the current restart-locking preference to the browser's FELT IPC
+   * client, which attaches it to the restart event when a restart-quit is
+   * observed. The value is cached there rather than read at restart time so
+   * the intent always travels with the restart itself; FELT only honors it
+   * when the restart applies a pending update.
+   */
+  _syncRestartLockIntent() {
+    try {
+      const willLockOnRestart = Services.prefs.getBoolPref(
+        LOCK_ON_RESTART_PREF,
+        false
+      );
+      Services.felt.setRestartLockIntent(willLockOnRestart);
+    } catch (e) {
+      lazy.log.error(`Unable to sync restart lock intent: ${e}`);
+    }
+  },
+
+  /**
    * Ends the FELT session on browser close by either locking it (persisting it
    * behind OS auth to resume later) or signing out, per the synced locking
    * intent that FELT applies once the browser process exits.
@@ -410,6 +436,11 @@ export const EnterpriseHandler = {
         this._shutdownLockPrefObserver
       );
       this._shutdownLockPrefObserver = null;
+      Services.prefs.removeObserver(
+        LOCK_ON_RESTART_PREF,
+        this._restartLockPrefObserver
+      );
+      this._restartLockPrefObserver = null;
     }
   },
 };

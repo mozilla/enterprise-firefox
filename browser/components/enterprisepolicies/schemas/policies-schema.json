@@ -4243,6 +4243,9 @@
         {
           "Shutdown": {
             "Action": "lock"
+          },
+          "Restart": {
+            "Action": "lock"
           }
         }
       ],
@@ -4262,6 +4265,27 @@
                   "const": "lock",
                   "title": "Lock",
                   "description": "Lock the session when the browser shuts down, so the next launch only requires the user to unlock."
+                }
+              ]
+            }
+          },
+          "required": ["Action"]
+        },
+        "Restart": {
+          "type": "object",
+          "properties": {
+            "Action": {
+              "type": "string",
+              "oneOf": [
+                {
+                  "const": "signout",
+                  "title": "Sign out",
+                  "description": "Sign the managed session out when a restart applies a pending update, so the next launch requires a full sign-in. This is what happens when the policy is not set."
+                },
+                {
+                  "const": "lock",
+                  "title": "Lock",
+                  "description": "Lock the managed session when a restart applies a pending update, so the next launch only requires the user to unlock."
                 }
               ]
             }
