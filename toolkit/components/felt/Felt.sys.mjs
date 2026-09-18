@@ -335,6 +335,15 @@ export class Felt {
             // console.
             this.showWindow("felt-browser-error-session-expired");
             break;
+          case "networkLoss":
+            // A locked session can be resumed, so it gets a different notice
+            // from one that was signed out and has to be started over.
+            this.showWindow(
+              message.data?.locked
+                ? "felt-browser-error-network-loss-locked"
+                : "felt-browser-error-network-loss"
+            );
+            break;
           case "tokenRefreshFailed":
           default:
             this.showWindow("felt-browser-error-session-interrupted");

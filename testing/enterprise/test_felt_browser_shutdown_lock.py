@@ -13,6 +13,7 @@ from felt_tests import FeltTests
 
 PREF_LOCKING_SHUTDOWN = "enterprise.locking.shutdown"
 PREF_PROMPT_ON_SIGNOUT = "enterprise.prompt_on_signout"
+PREF_LOCKING_NETWORK_LOSS = "enterprise.locking.network_loss"
 
 
 class BrowserShutdownLock(FeltTests):
@@ -23,11 +24,13 @@ class BrowserShutdownLock(FeltTests):
     FELT. Both are asserted here, with and without the confirmation prompt.
     """
 
-    def _hold_felt_after_child_exit(self):
+    def _hold_felt_after_child_exit(self, keep_window=True):
         # Keep FELT alive after the child exits so we can inspect FELT-side state.
+        # keep_window=False for the paths that end by showing a notice: FELT
+        # opens a fresh window for it, and holding the old one open leaves two.
         self.get_driver(Environment.FELT).set_prefs(
             {
-                "enterprise.felt_tests.should_not_close_window": True,
+                "enterprise.felt_tests.should_not_close_window": keep_window,
                 "enterprise.felt_tests.is_blocking_shutdown": True,
             },
             default_branch=True,
@@ -156,8 +159,8 @@ class BrowserShutdownLock(FeltTests):
         finally:
             driver.set_context("content")
 
-    def _start_signed_in(self):
-        self._hold_felt_after_child_exit()
+    def _start_signed_in(self, keep_felt_window=True):
+        self._hold_felt_after_child_exit(keep_window=keep_felt_window)
         self.run_felt_base()
         self._prepare_felt_keystore()
         self.connect_child_browser()
@@ -249,3 +252,75 @@ class BrowserShutdownLock(FeltTests):
         self._settle_after_close(browser_pid)
 
         self._assert_signed_out()
+
+    def _begin_network_loss_test(self, locking_enabled):
+        """Sign in and set the network-loss locking pref, returning the child pid."""
+        browser_pid = self._start_signed_in(keep_felt_window=False)
+        # The network-loss prefs ship locked, and set_prefs can't modify a
+        # locked pref; unlock it so the set_prefs below takes effect.
+        with self._child_driver.using_context("chrome"):
+            self._child_driver.execute_script(
+                "Services.prefs.unlockPref(arguments[0]);",
+                script_args=[PREF_LOCKING_NETWORK_LOSS],
+            )
+        self._child_driver.set_prefs({PREF_LOCKING_NETWORK_LOSS: locking_enabled})
+        assert self.signout_count.value == 0, "No signout should have been posted yet"
+        return browser_pid
+
+    def _end_session_for_network_loss(self):
+        """Drive the guard's dispatch directly.
+
+        Waiting out a real grace period would tie this test to the console poll
+        cadence; the dispatch is what decides lock vs signout either way. It is
+        run off a dispatch so the script returns before the session tears down.
+        """
+        self._child_driver.set_context("chrome")
+        self._manually_closed_child = True
+        self._child_driver.execute_script(
+            """
+            const { EnterpriseHandler } = ChromeUtils.importESModule(
+                "resource:///modules/enterprise/EnterpriseHandler.sys.mjs"
+            );
+            Services.tm.dispatchToMainThread(() => {
+                EnterpriseHandler.endSessionForNetworkLoss();
+            });
+            """
+        )
+
+    def _assert_felt_notice(self, selector, expected_heading):
+        """Assert FELT surfaced the notice explaining the session ended."""
+        self._driver.set_context("chrome")
+        try:
+            bar = self.get_elem(selector)
+            heading = bar.get_attribute("heading").strip()
+            assert expected_heading in heading, f"Unexpected notice heading: {heading}"
+        finally:
+            self._driver.set_context("content")
+
+    def test_network_loss_lock_explains_itself(self):
+        """Locking enabled: on network loss the session locks and FELT says why.
+
+        Without the notice the browser would just vanish on a user who never
+        asked for anything, leaving them no idea the session is resumable.
+        """
+        browser_pid = self._begin_network_loss_test(locking_enabled=True)
+
+        self._end_session_for_network_loss()
+        self._settle_after_close(browser_pid)
+
+        self._assert_locked()
+        self._assert_felt_notice(
+            ".felt-browser-error-network-loss-locked", "Your session was locked"
+        )
+
+    def test_network_loss_signout_explains_itself(self):
+        """Locking disabled: on network loss the session ends and FELT says why."""
+        browser_pid = self._begin_network_loss_test(locking_enabled=False)
+
+        self._end_session_for_network_loss()
+        self._settle_after_close(browser_pid)
+
+        self._assert_signed_out()
+        self._assert_felt_notice(
+            ".felt-browser-error-network-loss", "You’ve been signed out"
+        )

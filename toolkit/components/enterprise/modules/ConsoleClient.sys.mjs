@@ -14,6 +14,8 @@ const XHR_TIMEOUT_MS = 60000;
 const SSO_LOGIN_VERSION = "v2";
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  ConsoleConnectionGuard:
+    "resource://gre/modules/enterprise/ConsoleConnectionGuard.sys.mjs",
   ConsoleProxyBypassFilter:
     "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs",
   EnterpriseCommon:
@@ -384,6 +386,8 @@ export const ConsoleClient = {
       }
 
       xhr.onload = () => {
+        // Any HTTP response (including 5xx) means the console is reachable.
+        lazy.ConsoleConnectionGuard.recordReachable();
         const response = {
           ok: xhr.status >= 200 && xhr.status < 300,
           status: xhr.status,
@@ -401,6 +405,7 @@ export const ConsoleClient = {
       };
 
       xhr.onerror = () => {
+        lazy.ConsoleConnectionGuard.recordUnreachable();
         const channelStatus = xhr.channel?.status ?? null;
         reject(
           new TypeError("ConsoleClientXHRError", {
@@ -410,6 +415,7 @@ export const ConsoleClient = {
       };
 
       xhr.ontimeout = () => {
+        lazy.ConsoleConnectionGuard.recordUnreachable();
         reject(new TypeError("NS_ERROR_NET_TIMEOUT"));
       };
 

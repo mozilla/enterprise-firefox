@@ -78,9 +78,9 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn notify_signout(&self) {
-        trace!("FeltIpcClient::notify_signout()");
-        let msg = FeltMessage::LogoutShutdown;
+    pub fn notify_signout(&self, reason: Option<String>) {
+        trace!("FeltIpcClient::notify_signout({:?})", reason);
+        let msg = FeltMessage::LogoutShutdown(reason);
         if let Some(tx) = &self.tx {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::notify_signout() SENT"),
@@ -256,7 +256,12 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::start_thread::observe() quit-application: shutdown");
                                     let with_lock =
                                         crate::SHUTDOWN_LOCK_INTENT.load(Ordering::Relaxed);
-                                    if let Err(err) = tx.send(FeltMessage::Exiting(with_lock)) {
+                                    let reason = crate::SHUTDOWN_LOCK_REASON
+                                        .lock()
+                                        .ok()
+                                        .and_then(|guard| guard.clone());
+                                    if let Err(err) = tx.send(FeltMessage::Exiting(with_lock, reason))
+                                    {
                                         trace!("FeltClientThread::start_thread::observe() failed to send shutdown: {:?}", err);
                                     }
                                 }
@@ -489,10 +494,10 @@ impl FeltClientThread {
         client.send_felt_ready();
     }
 
-    pub fn notify_signout(&self) {
-        trace!("FeltClientThread::notify_signout()");
+    pub fn notify_signout(&self, reason: Option<String>) {
+        trace!("FeltClientThread::notify_signout({:?})", reason);
         let client = self.ipc_client.borrow();
-        client.notify_signout();
+        client.notify_signout(reason);
     }
 
     pub fn request_update_check(&self) -> nsresult {

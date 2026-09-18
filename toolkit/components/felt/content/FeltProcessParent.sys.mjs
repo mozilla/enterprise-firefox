@@ -179,10 +179,18 @@ export class FeltProcessParent extends JSProcessActorParent {
         switch (aTopic) {
           case "felt-firefox-exiting": {
             gFeltProcessParentInstance.exitReported = true;
-            // Whether this exit locks the session rides with the exit event
-            // itself (see nsIFelt.setShutdownLockIntent); the exit handler only
-            // acts on it for a clean, non-logout, non-restart exit.
-            gFeltProcessParentInstance.lockOnExit = aData === "true";
+            // Whether this exit locks the session, and why it is happening at
+            // all, ride with the exit event itself (see
+            // nsIFelt.setShutdownLockIntent); the exit handler only acts on
+            // them for a clean, non-logout, non-restart exit.
+            let intent = {};
+            try {
+              intent = JSON.parse(aData);
+            } catch (e) {
+              lazy.log.error(`Unparsable exit intent "${aData}": ${e}`);
+            }
+            gFeltProcessParentInstance.lockOnExit = intent.lock === true;
+            gFeltProcessParentInstance.exitReason = intent.reason ?? "";
             break;
           }
 
@@ -313,7 +321,7 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-logout":
-            gFeltProcessParentInstance.logoutFirefox().catch(err => {
+            gFeltProcessParentInstance.logoutFirefox(aData).catch(err => {
               lazy.log.error(`Logout failed: ${err}`);
             });
             break;
@@ -570,6 +578,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.logoutReported = false;
     this.exitReported = false;
     this.lockOnExit = false;
+    this.exitReason = "";
     this.firefoxReady = false;
     this.feltReady = false;
     if (lazy.isBuildAppBrowser()) {
@@ -1085,9 +1094,12 @@ export class FeltProcessParent extends JSProcessActorParent {
   /**
    * Perform all the logout operations on FELT side.
    *
+   * @param {string} [reason] Why the session ended, empty for a user-initiated
+   *   signout. A non-empty reason routes FELT to the matching error screen
+   *   instead of the plain login window.
    * @returns {Promise<void>} Resolves once the browser shutdown was requested.
    */
-  async logoutFirefox() {
+  async logoutFirefox(reason = "") {
     if (!Services.felt.isFeltUI()) {
       throw new Error("Logout handling should only happen on FELT side.");
     }
@@ -1098,7 +1110,9 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     lazy.log.debug(
-      `Logout, waiting on process ${gFeltProcessParentInstance.proc.pid}`
+      `Logout (reason: ${reason || "user"}), waiting on process ${
+        gFeltProcessParentInstance.proc.pid
+      }`
     );
     gFeltProcessParentInstance.logoutReported = true;
 
@@ -1115,13 +1129,19 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     lazy.FeltLocking.clearLockAndTokens();
     Services.felt.shutdownFirefox();
-    const reportSignedOut = () => {
-      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
+    const reportExit = () => {
+      if (reason) {
+        Services.cpmm.sendAsyncMessage("FeltParent:FirefoxSessionInterrupted", {
+          reason,
+        });
+      } else {
+        Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
+      }
     };
     if (gFeltProcessParentInstance.proc) {
-      gFeltProcessParentInstance.proc.exitPromise.then(reportSignedOut);
+      gFeltProcessParentInstance.proc.exitPromise.then(reportExit);
     } else {
-      reportSignedOut();
+      reportExit();
     }
   }
 
@@ -1132,6 +1152,9 @@ export class FeltProcessParent extends JSProcessActorParent {
    * a lock intent (see the felt-firefox-exiting observer). Never rejects: any
    * failure falls back to the normal-exit report, whose handler posts the
    * server signout and drops the tokens it authenticates with.
+   *
+   * An exit the user did not ask for carries a reason, which is reported so
+   * FELT surfaces a notice instead of quitting silently on them.
    *
    * @returns {Promise<void>}
    */
@@ -1151,11 +1174,27 @@ export class FeltProcessParent extends JSProcessActorParent {
       );
     } catch (err) {
       lazy.log.error(`Locking failed, falling back to signout: ${err}`);
-      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxNormalExit", {});
+      // The reason still matters: the session ended without the user asking,
+      // so report the interruption rather than a plain close. Locking failed,
+      // so there is nothing to resume and this reads as a sign-out.
+      if (this.exitReason) {
+        Services.cpmm.sendAsyncMessage("FeltParent:FirefoxSessionInterrupted", {
+          reason: this.exitReason,
+        });
+      } else {
+        Services.cpmm.sendAsyncMessage("FeltParent:FirefoxNormalExit", {});
+      }
       return;
     }
 
     Services.felt.clearTokens();
+    if (this.exitReason) {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxSessionInterrupted", {
+        reason: this.exitReason,
+        locked: true,
+      });
+      return;
+    }
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLockExit", {});
   }
 

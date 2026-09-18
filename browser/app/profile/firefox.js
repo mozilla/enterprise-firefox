@@ -34,6 +34,10 @@ pref("app.update.checkOnlyInstance.enabled", false);
 pref("app.update.background.enabled", true);
 // Lock the session instead of signing out on browser shutdown.
 pref("enterprise.locking.shutdown", false, locked);
+// Lock the session instead of signing out when the enterprise console has
+// been unreachable for enterprise.network_loss.grace_period_minutes minutes.
+pref("enterprise.locking.network_loss", true, locked);
+pref("enterprise.network_loss.grace_period_minutes", 5, locked);
 #endif
 
 // Set add-ons abuse report related prefs specific to Firefox Desktop.

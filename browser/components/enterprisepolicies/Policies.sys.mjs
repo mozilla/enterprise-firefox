@@ -3848,6 +3848,18 @@ export var Policies = {
           param.Shutdown.Action === "lock"
         );
       }
+      if (param.NetworkLoss) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.locking.network_loss",
+          param.NetworkLoss.Action === "lock"
+        );
+        if (param.NetworkLoss.GracePeriodMinutes !== undefined) {
+          lazy.PoliciesUtils.setAndLockPref(
+            "enterprise.network_loss.grace_period_minutes",
+            param.NetworkLoss.GracePeriodMinutes
+          );
+        }
+      }
     },
     onRemove(manager, oldParams) {
       if (oldParams.Shutdown) {
@@ -3855,6 +3867,18 @@ export var Policies = {
         // unsetAndUnlockPref restores the build default but never re-locks;
         // re-lock to match the locked default the enterprise build ships.
         Services.prefs.lockPref("enterprise.locking.shutdown");
+      }
+      if (oldParams.NetworkLoss) {
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.locking.network_loss"
+        );
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.network_loss.grace_period_minutes"
+        );
+        // Same rationale as Shutdown above: restore the locked defaults the
+        // enterprise build ships.
+        Services.prefs.lockPref("enterprise.locking.network_loss");
+        Services.prefs.lockPref("enterprise.network_loss.grace_period_minutes");
       }
     },
   },

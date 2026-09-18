@@ -43,6 +43,10 @@ static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
 static IS_FELT_SAFE_MODE: AtomicBool = AtomicBool::new(false);
 // Whether a browser shutdown locks the session instead of signing out.
 pub(crate) static SHUTDOWN_LOCK_INTENT: AtomicBool = AtomicBool::new(false);
+// Why the session is ending, when it is not the user shutting the browser down.
+// Rides along with SHUTDOWN_LOCK_INTENT so FELT can explain an exit nobody
+// asked for.
+pub(crate) static SHUTDOWN_LOCK_REASON: Mutex<Option<String>> = Mutex::new(None);
 
 fn normalize_arg(arg: String) -> String {
     let mut normalized = arg;
