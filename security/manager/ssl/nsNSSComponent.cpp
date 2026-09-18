@@ -55,6 +55,8 @@
 #include "nsPrintfCString.h"
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
+#include "nsNetUtil.h"
+#include "nsILineInputStream.h"
 #include "nsXULAppAPI.h"
 #include "nss.h"
 #include "p12plcy.h"
@@ -1359,10 +1361,18 @@ static nsresult InitializeNSSWithFallbacks(const nsACString& profilePath,
 #ifndef ANDROID
   PRErrorCode savedPRErrorCode1;
 #endif  // ifndef ANDROID
-  PKCS11DBConfig safeModeDBConfig =
-      safeMode ? PKCS11DBConfig::DoNotLoadModules : PKCS11DBConfig::LoadModules;
+  // Enterprise builds never auto-load the user-writable profile module DB
+  // (pkcs11.txt): NSS_Initialize would dlopen its entries before the policy
+  // engine starts. Admin modules go through the SecurityDevices policy instead.
+  bool loadProfileModules = !safeMode;
+#ifdef MOZ_ENTERPRISE
+  loadProfileModules = false;
+#endif
+  PKCS11DBConfig profileModuleDBConfig = loadProfileModules
+                                             ? PKCS11DBConfig::LoadModules
+                                             : PKCS11DBConfig::DoNotLoadModules;
   SECStatus srv = ::mozilla::psm::InitializeNSS(
-      profilePath, NSSDBConfig::ReadWrite, safeModeDBConfig);
+      profilePath, NSSDBConfig::ReadWrite, profileModuleDBConfig);
   if (srv == SECSuccess) {
     MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("initialized NSS in r/w mode"));
     return NS_OK;
@@ -1373,7 +1383,7 @@ static nsresult InitializeNSSWithFallbacks(const nsACString& profilePath,
 #endif  // ifndef ANDROID
   // That failed. Try read-only mode.
   srv = ::mozilla::psm::InitializeNSS(profilePath, NSSDBConfig::ReadOnly,
-                                      safeModeDBConfig);
+                                      profileModuleDBConfig);
   if (srv == SECSuccess) {
     mozilla::glean::nss::initialization_fallbacks.Get("READ_ONLY"_ns).Add(1);
     MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("initialized NSS in r-o mode"));
@@ -1429,7 +1439,7 @@ static nsresult InitializeNSSWithFallbacks(const nsACString& profilePath,
         return rv;
       }
       srv = ::mozilla::psm::InitializeNSS(profilePath, NSSDBConfig::ReadWrite,
-                                          PKCS11DBConfig::LoadModules);
+                                          profileModuleDBConfig);
       if (srv == SECSuccess) {
         mozilla::glean::nss::initialization_fallbacks.Get("RENAME_MODULE_DB"_ns)
             .Add(1);
@@ -1437,7 +1447,7 @@ static nsresult InitializeNSSWithFallbacks(const nsACString& profilePath,
         return NS_OK;
       }
       srv = ::mozilla::psm::InitializeNSS(profilePath, NSSDBConfig::ReadOnly,
-                                          PKCS11DBConfig::LoadModules);
+                                          profileModuleDBConfig);
       if (srv == SECSuccess) {
         mozilla::glean::nss::initialization_fallbacks
             .Get("RENAME_MODULE_DB_READ_ONLY"_ns)
@@ -1524,6 +1534,55 @@ bool GetInSafeMode() {
   return inSafeMode;
 }
 
+#ifdef MOZ_ENTERPRISE
+// The profile's PKCS#11 module DB (pkcs11.txt) is not loaded on enterprise
+// builds, so log any third-party modules it names to make a blocked module
+// identifiable. See bug 2068739.
+static void LogDeclinedProfileModules(const nsACString& aProfilePath) {
+  nsCOMPtr<nsIFile> pkcs11txt;
+  if (NS_FAILED(
+          NS_NewNativeLocalFile(aProfilePath, getter_AddRefs(pkcs11txt)))) {
+    return;
+  }
+  pkcs11txt->AppendNative("pkcs11.txt"_ns);
+  nsCOMPtr<nsIInputStream> stream;
+  if (NS_FAILED(NS_NewLocalFileInputStream(getter_AddRefs(stream), pkcs11txt))) {
+    return;
+  }
+  nsCOMPtr<nsILineInputStream> lineStream = do_QueryInterface(stream);
+  if (!lineStream) {
+    return;
+  }
+  nsAutoCString library;
+  nsAutoCString name;
+  auto report = [&library, &name]() {
+    if (!library.IsEmpty()) {
+      MOZ_LOG(gPIPNSSLog, LogLevel::Warning,
+              ("enterprise: declining to load profile PKCS#11 module "
+               "name=\"%s\" library=\"%s\"",
+               name.get(), library.get()));
+    }
+    library.Truncate();
+    name.Truncate();
+  };
+  nsAutoCString line;
+  bool more = true;
+  while (more) {
+    if (NS_FAILED(lineStream->ReadLine(line, &more))) {
+      break;
+    }
+    if (line.IsEmpty()) {
+      report();
+    } else if (StringBeginsWith(line, "library="_ns)) {
+      library = Substring(line, 8);
+    } else if (StringBeginsWith(line, "name="_ns)) {
+      name = Substring(line, 5);
+    }
+  }
+  report();
+}
+#endif  // MOZ_ENTERPRISE
+
 nsresult nsNSSComponent::InitializeNSS() {
   MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("nsNSSComponent::InitializeNSS\n"));
   AUTO_PROFILER_LABEL("nsNSSComponent::InitializeNSS", OTHER);
@@ -1568,6 +1627,10 @@ nsresult nsNSSComponent::InitializeNSS() {
     MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("failed to initialize NSS"));
     return rv;
   }
+
+#ifdef MOZ_ENTERPRISE
+  LogDeclinedProfileModules(profileStr);
+#endif
 
   bool isFIPS = PK11_IsFIPS();
   mozilla::glean::pkcs11::fips_enabled.Set(isFIPS);
