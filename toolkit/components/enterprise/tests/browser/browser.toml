@@ -12,5 +12,3 @@ prefs = [
 ["browser_help_menu.js"]
 
 ["browser_lockdown_mode_page_action.js"]
-
-["browser_relaunch_enforcer.js"]

@@ -9,8 +9,13 @@ with Files("**"):
 
 EXTRA_JS_MODULES.enterprise += [
     "AccessConnectorButton.sys.mjs",
+    "EnterpriseForcedQuit.sys.mjs",
     "EnterpriseHandler.sys.mjs",
 ]
+
+XPCOM_MANIFESTS += ["components.conf"]
+
+BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]
 
 JAR_MANIFESTS += ["jar.mn"]
 

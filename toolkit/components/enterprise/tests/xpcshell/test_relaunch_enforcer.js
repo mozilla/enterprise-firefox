@@ -3,7 +3,7 @@
 
 "use strict";
 
-const { RelaunchEnforcer } = ChromeUtils.importESModule(
+const { RelaunchEnforcer, RelaunchPhase } = ChromeUtils.importESModule(
   "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs"
 );
 
@@ -301,4 +301,279 @@ add_task(function test_update_request_without_felt_is_a_noop() {
     "This test runs without a FELT browser"
   );
   RelaunchEnforcer._requestUpdateCheck();
+});
+
+add_task(async function test_missing_warning_ui_delegate_is_an_error() {
+  RelaunchEnforcer._schedule = { restartAt: Date.now() + 45 * MINUTE };
+  await Assert.rejects(
+    RelaunchEnforcer._updateDelegatedWarning(),
+    /No relaunch warning UI delegate is registered/,
+    "A pending deadline without warning UI is a critical error"
+  );
+  RelaunchEnforcer.testingOnly_reset();
+});
+
+add_task(async function test_warning_ui_delegate_is_singleton() {
+  let updateCount = 0;
+  const delegate = {
+    showOrUpdate() {
+      ++updateCount;
+      return true;
+    },
+    hide() {},
+    isVisible() {
+      return false;
+    },
+  };
+  registerCleanupFunction(() => RelaunchEnforcer.testingOnly_reset());
+
+  RelaunchEnforcer.registerWarningUIDelegate(delegate);
+  Assert.throws(
+    () => RelaunchEnforcer.registerWarningUIDelegate(delegate),
+    /already registered/,
+    "Only one warning UI delegate can be registered"
+  );
+
+  RelaunchEnforcer.testingOnly_reset();
+  RelaunchEnforcer._schedule = { restartAt: Date.now() + 45 * MINUTE };
+  RelaunchEnforcer.registerWarningUIDelegate(delegate);
+  await RelaunchEnforcer._refreshChain;
+  Assert.equal(
+    updateCount,
+    1,
+    "Late registration reconciles a deadline that is already pending"
+  );
+  RelaunchEnforcer.testingOnly_reset();
+});
+
+add_task(async function test_cancel_balances_an_in_flight_warning_show() {
+  let up = false;
+  let hideCount = 0;
+  const showStarted = Promise.withResolvers();
+  const showResult = Promise.withResolvers();
+  RelaunchEnforcer.registerWarningUIDelegate({
+    async showOrUpdate() {
+      showStarted.resolve();
+      await showResult.promise;
+      up = true;
+      return true;
+    },
+    hide() {
+      ++hideCount;
+      up = false;
+    },
+    isVisible() {
+      return false;
+    },
+  });
+  registerCleanupFunction(() => RelaunchEnforcer.testingOnly_reset());
+
+  RelaunchEnforcer._schedule = { restartAt: Date.now() + 45 * MINUTE };
+  const refresh = RelaunchEnforcer._refreshNotification();
+  await showStarted.promise;
+  RelaunchEnforcer.cancel();
+  Assert.equal(
+    hideCount,
+    1,
+    "Cancellation withdraws the warning whether or not the delegate counts it as shown"
+  );
+
+  showResult.resolve();
+  await refresh;
+  Assert.equal(hideCount, 2, "The stale show is hidden once it completes");
+  Assert.ok(!up, "The stale warning is not left visible");
+  RelaunchEnforcer.testingOnly_reset();
+});
+
+// A warning can outlive the bookkeeping that answers isVisible(), and hide() is
+// the only thing that can still take it down.
+add_task(async function test_withdrawal_hides_a_warning_reported_not_visible() {
+  let up = false;
+  const delegate = {
+    showOrUpdate() {
+      up = true;
+      return true;
+    },
+    hide() {
+      up = false;
+    },
+    isVisible() {
+      return false;
+    },
+  };
+  RelaunchEnforcer.registerWarningUIDelegate(delegate);
+  registerCleanupFunction(() => RelaunchEnforcer.testingOnly_reset());
+
+  RelaunchEnforcer._schedule = { restartAt: Date.now() + 45 * MINUTE };
+  await RelaunchEnforcer._refreshNotification();
+  Assert.ok(up, "The warning is up");
+
+  RelaunchEnforcer.cancel();
+  Assert.ok(!up, "Withdrawing the deadline took the warning down");
+  RelaunchEnforcer.testingOnly_reset();
+});
+
+add_task(async function test_application_warning_ui_delegate() {
+  let visible = false;
+  let hideCount = 0;
+  let restartRequested = false;
+  const updates = [];
+  RelaunchEnforcer.registerWarningUIDelegate({
+    showOrUpdate(details) {
+      updates.push(details);
+      visible = true;
+      return true;
+    },
+    hide() {
+      ++hideCount;
+      visible = false;
+    },
+    isVisible() {
+      return visible;
+    },
+  });
+  registerCleanupFunction(() => RelaunchEnforcer.testingOnly_reset());
+
+  const warningRestartAt = Date.now() + 45 * MINUTE;
+  RelaunchEnforcer._schedule = { restartAt: warningRestartAt };
+  await RelaunchEnforcer._refreshNotification();
+
+  Assert.equal(updates.length, 1, "The delegate shows the warning");
+  Assert.equal(
+    updates[0].phase,
+    RelaunchPhase.WARNING,
+    "The warning phase is provided"
+  );
+  Assert.equal(
+    updates[0].restartAt,
+    warningRestartAt,
+    "The deadline is provided"
+  );
+  Assert.equal(updates[0].minutes, 45, "The remaining minutes are provided");
+
+  await RelaunchEnforcer._refreshNotification();
+  Assert.equal(
+    updates.length,
+    1,
+    "Unchanged warning text does not touch the delegated UI"
+  );
+
+  const originalRestart = RelaunchEnforcer._restart;
+  try {
+    RelaunchEnforcer._restart = () => {
+      restartRequested = true;
+    };
+    updates[0].restartNow();
+  } finally {
+    RelaunchEnforcer._restart = originalRestart;
+  }
+  Assert.ok(
+    restartRequested,
+    "The delegated restart action reaches the enforcer"
+  );
+
+  const imminentRestartAt = Date.now() + 4 * MINUTE;
+  RelaunchEnforcer._schedule = { restartAt: imminentRestartAt };
+  await RelaunchEnforcer._refreshNotification();
+
+  Assert.equal(updates.length, 2, "The delegate updates the warning phase");
+  Assert.equal(
+    updates[1].phase,
+    RelaunchPhase.IMMINENT,
+    "The imminent phase is provided"
+  );
+  Assert.equal(updates[1].minutes, 4, "The imminent countdown is provided");
+
+  RelaunchEnforcer.cancel();
+  Assert.equal(hideCount, 1, "Withdrawing the deadline hides the delegated UI");
+  Assert.ok(!visible, "The delegated warning is no longer visible");
+
+  restartRequested = false;
+  try {
+    RelaunchEnforcer._restart = () => {
+      restartRequested = true;
+    };
+    updates[1].restartNow();
+  } finally {
+    RelaunchEnforcer._restart = originalRestart;
+  }
+  Assert.ok(
+    !restartRequested,
+    "A warning action cannot restart after its deadline is withdrawn"
+  );
+  RelaunchEnforcer.testingOnly_reset();
+});
+
+add_task(async function test_visible_delegate_action_survives_failed_update() {
+  let visible = false;
+  let restartRequested = false;
+  const updates = [];
+  const updateStarted = Promise.withResolvers();
+  const updateResult = Promise.withResolvers();
+  RelaunchEnforcer.registerWarningUIDelegate({
+    showOrUpdate(details) {
+      updates.push(details);
+      visible = true;
+      if (updates.length === 2) {
+        updateStarted.resolve();
+        return updateResult.promise;
+      }
+      return true;
+    },
+    hide() {
+      visible = false;
+    },
+    isVisible() {
+      return visible;
+    },
+  });
+  registerCleanupFunction(() => RelaunchEnforcer.testingOnly_reset());
+
+  RelaunchEnforcer._schedule = {
+    restartAt: Date.now() + 45 * MINUTE,
+  };
+  await RelaunchEnforcer._refreshNotification();
+
+  const originalRestart = RelaunchEnforcer._restart;
+  try {
+    RelaunchEnforcer._restart = () => {
+      restartRequested = true;
+    };
+    RelaunchEnforcer._schedule = {
+      restartAt: Date.now() + 4 * MINUTE,
+    };
+    const updatePromise = RelaunchEnforcer._updateDelegatedWarning();
+    await updateStarted.promise;
+
+    updates[0].restartNow();
+    Assert.ok(
+      restartRequested,
+      "The visible warning action works while its update is pending"
+    );
+
+    restartRequested = false;
+    updateResult.reject(new Error("Expected warning update failure"));
+    await Assert.rejects(
+      updatePromise,
+      /Expected warning update failure/,
+      "The delegate update rejects"
+    );
+    updates[0].restartNow();
+    Assert.ok(
+      restartRequested,
+      "The visible warning action survives a failed update"
+    );
+
+    RelaunchEnforcer.cancel();
+    restartRequested = false;
+    updates[0].restartNow();
+    Assert.ok(
+      !restartRequested,
+      "Hiding the warning invalidates its restart action"
+    );
+  } finally {
+    updateResult.resolve(false);
+    RelaunchEnforcer._restart = originalRestart;
+  }
+  RelaunchEnforcer.testingOnly_reset();
 });

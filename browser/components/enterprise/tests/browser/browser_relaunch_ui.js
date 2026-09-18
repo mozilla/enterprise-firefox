@@ -3,8 +3,14 @@
 
 "use strict";
 
-const { RelaunchEnforcer } = ChromeUtils.importESModule(
+const { RelaunchEnforcer, RelaunchPhase } = ChromeUtils.importESModule(
   "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs"
+);
+const { ConsoleClient } = ChromeUtils.importESModule(
+  "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+);
+const { EnterpriseForcedQuit } = ChromeUtils.importESModule(
+  "resource:///modules/enterprise/EnterpriseForcedQuit.sys.mjs"
 );
 const { InfoBar } = ChromeUtils.importESModule(
   "resource:///modules/asrouter/InfoBar.sys.mjs"
@@ -32,6 +38,8 @@ function notificationFluentId(win, value) {
 // Every task starts from here, so a failing task cannot fail the ones after it.
 async function reset(win) {
   RelaunchEnforcer.testingOnly_reset();
+  // The reset dropped the delegate registered at app-startup.
+  RelaunchEnforcer.registerWarningUIDelegate(EnterpriseForcedQuit.warningUI);
   win.gNotificationBox.removeAllNotifications(true);
   await TestUtils.waitForCondition(
     () => !notificationValues(win).length,
@@ -45,6 +53,15 @@ add_setup(async function () {
   registerCleanupFunction(() => {
     RelaunchEnforcer._requestUpdateCheck = requestUpdateCheck;
   });
+  Assert.strictEqual(
+    RelaunchEnforcer._warningUIDelegate,
+    EnterpriseForcedQuit.warningUI,
+    "The warning UI delegate was registered at app-startup"
+  );
+  Assert.ok(
+    ConsoleClient._beforeForcedQuitHook,
+    "The before-forced-quit hook was registered at app-startup"
+  );
   registerCleanupFunction(() =>
     reset(Services.wm.getMostRecentBrowserWindow())
   );
@@ -84,7 +101,11 @@ add_task(async function test_warns_escalates_and_withdraws() {
   let state = RelaunchEnforcer.testingOnly_getState();
   Assert.ok(state.restartArmed, "The restart is armed");
   Assert.ok(state.escalationArmed, "The escalation is armed");
-  Assert.equal(state.shownPhase, WARNING_ID, "The warning phase is recorded");
+  Assert.equal(
+    state.shownPhase,
+    RelaunchPhase.WARNING,
+    "The warning phase is recorded"
+  );
 
   // Re-stating the same budget leaves the bar alone.
   const notification = win.gNotificationBox.allNotifications[0];
@@ -151,7 +172,11 @@ add_task(async function test_warns_escalates_and_withdraws() {
   );
 
   state = RelaunchEnforcer.testingOnly_getState();
-  Assert.equal(state.shownPhase, IMMINENT_ID, "The imminent phase is recorded");
+  Assert.equal(
+    state.shownPhase,
+    RelaunchPhase.IMMINENT,
+    "The imminent phase is recorded"
+  );
   Assert.equal(state.shownMinutes, 4, "The remaining minutes are recorded");
   Assert.ok(
     !state.escalationArmed,
@@ -394,4 +419,24 @@ add_task(async function test_warns_in_a_window_that_can_take_a_bar() {
     "The relaunch bar goes away"
   );
   await BrowserTestUtils.closeWindow(privateWin);
+});
+
+add_task(async function test_forced_quit_hook_suppresses_can_close() {
+  const win = Services.wm.getMostRecentBrowserWindow();
+  await reset(win);
+
+  try {
+    // Run the registered hook, as quitIgnoringCanClose() would.
+    await ConsoleClient._beforeForcedQuitHook(Ci.nsIAppStartup.eForceQuit);
+    for (const w of Services.wm.getEnumerator("navigator:browser")) {
+      Assert.ok(
+        w.skipNextCanClose,
+        "The window will skip its next canClose check"
+      );
+    }
+  } finally {
+    for (const w of Services.wm.getEnumerator("navigator:browser")) {
+      delete w.skipNextCanClose;
+    }
+  }
 });
