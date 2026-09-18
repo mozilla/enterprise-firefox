@@ -6,6 +6,7 @@
 /** @import { _ExperimentFeature } from "../ExperimentAPI.sys.mjs" */
 /** @import { Phase } from "../lib/Migrations.sys.mjs" */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import {
   ExperimentAPI,
   NimbusFeatures,
@@ -33,6 +34,18 @@ const lazy = XPCOMUtils.declareLazy({
 });
 
 const { SYNC_DATA_PREF_BRANCH, SYNC_DEFAULTS_PREF_BRANCH } = ExperimentStore;
+
+// Enterprise builds default these opt-outs off (Bug 2059726), disabling the
+// enrollment paths Nimbus tests exercise. Restored on the default branch because
+// tests clear the user branch during cleanup.
+if (AppConstants.MOZ_ENTERPRISE) {
+  Services.prefs
+    .getDefaultBranch("")
+    .setBoolPref("nimbus.rollouts.enabled", true);
+  Services.prefs
+    .getDefaultBranch("")
+    .setBoolPref("app.shield.optoutstudies.enabled", true);
+}
 
 async function fetchSchema(url) {
   const response = await fetch(url);
