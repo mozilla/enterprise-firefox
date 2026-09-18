@@ -8,6 +8,7 @@
 #include "mozilla/Logging.h"
 #include "mozilla/Components.h"
 #include "mozilla/HelperMacros.h"
+#include "mozilla/Preferences.h"
 #if defined(MOZ_ENTERPRISE)
 #  include "mozilla/Printf.h"
 #  ifdef MOZ_BACKGROUNDTASKS
@@ -161,6 +162,18 @@ NS_IMETHODIMP nsReadConfig::Observe(nsISupports* aSubject, const char* aTopic,
  */
 static const char* gBlockedConfigs[] = {"dsengine.cfg"};
 
+/**
+ * To prevent the administrator's configuration from being disarmed, a
+ * profile's user.js should not be able to make the vendor check fail. The
+ * profile's prefs.js and user.js are parsed before readConfigFile runs, so a
+ * user value present at this point came from the profile and is dropped. The
+ * .cfg evaluated afterwards can still set these inputs with pref().
+ */
+static const char* const gProfileImmunePrefs[] = {
+    "general.config.filename",
+    "general.config.vendor",
+};
+
 nsresult nsReadConfig::readConfigFile() {
   nsresult rv = NS_OK;
   nsAutoCString lockFileName;
@@ -175,6 +188,14 @@ nsresult nsReadConfig::readConfigFile() {
   rv =
       prefService->GetDefaultBranch(nullptr, getter_AddRefs(defaultPrefBranch));
   if (NS_FAILED(rv)) return rv;
+
+  for (const char* prefName : gProfileImmunePrefs) {
+    if (Preferences::HasUserValue(prefName)) {
+      MOZ_LOG(MCD, LogLevel::Debug,
+              ("ignoring profile value of %s\n", prefName));
+      Preferences::ClearUser(prefName);
+    }
+  }
 
   constexpr auto channel = nsLiteralCString{MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL)};
 
@@ -258,9 +279,21 @@ nsresult nsReadConfig::readConfigFile() {
     }
   }
 
-  // get the value of the autoconfig url
+  // To prevent the administrator's configuration from being redirected, a
+  // profile's user.js should not be able to set the AutoConfig URL, so it is
+  // only honored as a default pref, i.e. set from the .cfg with defaultPref()
+  // or lockPref(). A user value, whether from the profile or from a pref()
+  // call in the .cfg, is reported and dropped so it does not linger in the
+  // profile looking like a working setting.
+  if (Preferences::HasUserValue("autoadmin.global_config_url")) {
+    nsContentUtils::ReportToConsoleNonLocalized(
+        u"autoadmin.global_config_url has a user value, which is ignored. "
+        "Set it with defaultPref() or lockPref() in the AutoConfig file."_ns,
+        nsIScriptError::warningFlag, "autoconfig"_ns, nullptr);
+    Preferences::ClearUser("autoadmin.global_config_url");
+  }
   nsAutoCString urlName;
-  rv = prefBranch->GetCharPref("autoadmin.global_config_url", urlName);
+  rv = defaultPrefBranch->GetCharPref("autoadmin.global_config_url", urlName);
   if (NS_SUCCEEDED(rv) && !urlName.IsEmpty()) {
     // Instantiating nsAutoConfig object if the pref is present
     mAutoConfig = new nsAutoConfig();

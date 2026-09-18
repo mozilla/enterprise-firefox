@@ -8,6 +8,10 @@ support-files = [
   "autoconfig-no-sandbox-check.cfg",
   "autoconfig.js",
   "autoconfig-no-sandbox.js",
+  "autoconfig-admin.cfg",
+  "autoconfig-admin-pref.cfg",
+  "autoconfig-admin-url-pref.cfg",
+  "autoconfig-remote.jsc",
 ]
 run-if = [
   "!msix", # AutoConfig is not supported in MSIX builds (bug 1807926)
@@ -44,3 +48,12 @@ skip-if = [
 run-if = [
   "os == 'linux'",
 ]
+
+["test_autoconfig_cfg_pref.js"]
+run-sequentially = ["true"] # shares GreD/autoconfig.cfg with the other tests
+
+["test_autoconfig_user_url.js"]
+run-sequentially = ["true"] # shares GreD/autoconfig.cfg with the other tests
+
+["test_autoconfig_user_vendor.js"]
+run-sequentially = ["true"] # shares GreD/autoconfig.cfg with the other tests
