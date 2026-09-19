@@ -254,5 +254,32 @@ def test_decision_parameters_note_invalid_json(
             decision.get_decision_parameters(FAKE_GRAPH_CONFIG, opts)
 
 
+@patch("gecko_taskgraph.decision.get_repository")
+def test_decision_parameters_git_files_changed_base(mock_get_repository, options):
+    mock_repo = MagicMock()
+    mock_repo.NULL_REVISION = "0" * 40
+    mock_repo.get_commit_message.return_value = "commit message"
+    mock_repo.get_changed_files.return_value = ["python/mozboot/mozboot/debian.py"]
+    mock_get_repository.return_value = mock_repo
+
+    opts = {
+        **options,
+        "base_repository": "https://github.com/mozilla-firefox/firefox",
+        "head_repository": "https://github.com/mozilla-firefox/firefox",
+        "base_rev": "0" * 40,
+        "project": "firefox",
+        "repository_type": "git",
+        "tasks_for": "github-push",
+        "allow_parameter_override": True,
+    }
+    ttc = {"version": 2, "parameters": {"base_rev": "cafe"}}
+    with MockedOpen({TTC_FILE: json.dumps(ttc)}):
+        params = decision.get_decision_parameters(FAKE_GRAPH_CONFIG, opts)
+
+    assert params["base_rev"] == "cafe"
+    mock_repo.get_changed_files.assert_called_once_with(rev="abcd", base="cafe")
+    assert params["files_changed"] == ["python/mozboot/mozboot/debian.py"]
+
+
 if __name__ == "__main__":
     main()

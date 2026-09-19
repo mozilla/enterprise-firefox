@@ -105,6 +105,10 @@ class GitRepository(Repository):
 
             Account for `git-cinnabar` remotes with `hg.mozilla.org` in the name,
             as well as SSH and HTTP remotes for Git-native.
+
+            The Enterprise repository is in the shared `mozilla` organisation, so it
+            is matched on its full name. Matching the end of the path keeps forks and
+            `enterprise-firefox-try` out, and works with SSH host aliases.
             """
             if (
                 is_cinnabar_repo
@@ -113,13 +117,17 @@ class GitRepository(Repository):
             ):
                 return True
 
+            path = url.rstrip("/").removesuffix(".git")
             return any(
                 remote in url
                 for remote in (
                     "github.com/mozilla-firefox/",
                     "github.com:mozilla-firefox/",
                 )
-            )
+            ) or path.endswith((
+                "/mozilla/enterprise-firefox",
+                ":mozilla/enterprise-firefox",
+            ))
 
         for line in remotes:
             parts = line.split()

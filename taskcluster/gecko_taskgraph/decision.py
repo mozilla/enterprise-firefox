@@ -374,10 +374,9 @@ def get_decision_parameters(graph_config, options):
         )
 
     elif parameters["repository_type"] == "git":
+        # `files_changed` is derived further down, once parameter overrides had a
+        # chance to correct `base_rev`.
         parameters["hg_branch"] = None
-        parameters["files_changed"] = repo.get_changed_files(
-            rev=parameters["head_rev"], base=parameters["base_rev"]
-        )
 
     # Define default filter list, as most configurations shouldn't need
     # custom filters.
@@ -513,6 +512,12 @@ def get_decision_parameters(graph_config, options):
             except ValueError as e:
                 raise Exception(f"Failed to parse {note_ref} as JSON: {e}") from e
 
+    # Github reports a null base revision for a push that creates a branch, which would
+    # make the diff cover the whole tree. `mach try` records the real base in the
+    # parameter overrides applied above, so only derive `files_changed` now.
+    if parameters["repository_type"] == "git" and "files_changed" not in parameters:
+        parameters["files_changed"] = get_git_files_changed(repo, parameters)
+
     result = Parameters(**parameters)
     result.check()
     return result
@@ -540,6 +545,47 @@ def get_existing_tasks(rebuild_kinds, parameters, graph_config):
     parameters["existing_tasks"] = find_existing_tasks_from_previous_kinds(
         task_graph, [decision_task], rebuild_kinds
     )
+
+
+def get_git_files_changed(repo, parameters):
+    """
+    List the files the push changed, by diffing `base_rev` against `head_rev`.
+
+    Tasks use this list to decide whether they need to run at all, through the
+    `skip-unless-changed` optimization, so an over-long list means running tasks
+    nothing asked for.
+
+    Two things make this more than a plain `git diff`:
+
+    `base_rev` may be the null revision. Github sends one for a push that
+    creates a branch, because there is no previous tip to point at, and that is
+    what every `mach try` push to a Git try repository looks like. Diffing from
+    the null revision means diffing from the empty tree, so every file in the
+    repository comes back as changed. `mach try` works around this by recording
+    the real base in the push's parameters; we only get the null revision here
+    when it didn't, and then listing everything is the safe answer -- tasks run
+    that needn't have, rather than the push silently skipping tasks it needed.
+
+    The base commit may be missing locally. Decision tasks clone shallow, so the
+    checkout holds the head commit and nothing else, and git cannot diff against
+    a commit it doesn't have. Fetching it at depth 1 is enough, since the diff
+    only needs the two trees and not the history between them. If that fetch
+    fails -- the commit was never pushed, or history was rewritten under us --
+    fall back to the null revision rather than failing the whole decision task
+    over it.
+    """
+    base_rev = parameters["base_rev"]
+    if base_rev != repo.NULL_REVISION and repo.is_shallow:
+        try:
+            repo.run("fetch", "--depth=1", parameters["base_repository"], base_rev)
+        except subprocess.CalledProcessError:
+            logger.warning(
+                f"Could not fetch base revision {base_rev}, "
+                "treating the whole tree as changed."
+            )
+            base_rev = repo.NULL_REVISION
+
+    return repo.get_changed_files(rev=parameters["head_rev"], base=base_rev)
 
 
 def set_try_config(parameters, task_config_file):
