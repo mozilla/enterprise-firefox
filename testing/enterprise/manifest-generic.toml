@@ -38,6 +38,9 @@ subsuite = "enterprise"
 
 ["test_felt_token_refresh_5xx.py"]
 
+["test_felt_ui_scratch_profile_refuses.py"]
+run-if = ["os == 'linux'"]
+
 ["test_felt_ui_scratch_reset.py"]
 disabled = "Bug 1996558: scaffolding for the Felt UI scratch-reset flow; not run in CI yet."
 

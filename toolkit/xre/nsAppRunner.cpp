@@ -2952,6 +2952,25 @@ static nsresult ProfileEncryptionMismatchDialog(const char* aMsgKey,
 }
 
 #if defined(MOZ_ENTERPRISE)
+// Returns NS_OK only if |aDir| is a private per-user directory: a directory
+// (not a symlink) owned by the current user with mode 0700. Desktop-Linux only;
+// a no-op elsewhere, where the OS temporary directory is already per-user.
+static nsresult ValidateFeltScratchDir(nsIFile* aDir) {
+#  if defined(XP_LINUX) && !defined(ANDROID)
+  nsAutoCString path;
+  MOZ_TRY(aDir->GetNativePath(path));
+
+  // lstat rather than stat so a symlink is reported as a symlink instead of
+  // being followed to its target.
+  struct stat st;
+  if (lstat(path.get(), &st) != 0 || !S_ISDIR(st.st_mode) ||
+      st.st_uid != geteuid() || (st.st_mode & 07777) != 0700) {
+    return NS_ERROR_FILE_ACCESS_DENIED;
+  }
+#  endif
+  return NS_OK;
+}
+
 // Wipes the contents of the Felt UI scratch profile directory(ies) so that the
 // next startup behaves like a brand-new profile. Does not delete the directory
 // itself (its path is held in mProfD / mProfLD by the caller); only its direct
@@ -2966,6 +2985,8 @@ static nsresult ResetFeltUIScratchProfile(nsIFile* aProfileDir,
     nsresult rv = aDir->Exists(&exists);
     NS_ENSURE_SUCCESS(rv, rv);
     if (exists) {
+      rv = ValidateFeltScratchDir(aDir);
+      NS_ENSURE_SUCCESS(rv, rv);
       nsCOMPtr<nsIDirectoryEnumerator> entries;
       rv = aDir->GetDirectoryEntries(getter_AddRefs(entries));
       NS_ENSURE_SUCCESS(rv, rv);
@@ -3645,6 +3666,14 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
         // many (thousands) of existing directories, which is unlikely to
         // happen.
         MOZ_TRY(file->CreateUnique(nsIFile::DIRECTORY_TYPE, 0700));
+      }
+
+      // Validate the directory whether it was just created or already existed.
+      if (NS_FAILED(ValidateFeltScratchDir(file))) {
+        Output(true,
+               "Error: refusing to use the Felt UI scratch profile: it is not "
+               "a private directory owned by the current user.\n");
+        return NS_ERROR_FILE_ACCESS_DENIED;
       }
 
       nsCOMPtr<nsIFile> localDir = file;
@@ -6063,6 +6092,11 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
   if (rv == NS_ERROR_LAUNCHED_CHILD_PROCESS || rv == NS_ERROR_ABORT) {
     *aExitFlag = true;
     return 0;
+  }
+
+  if (rv == NS_ERROR_FILE_ACCESS_DENIED) {
+    // SelectProfile already reported the reason; exit non-zero.
+    return 1;
   }
 
   if (NS_FAILED(rv)) {
