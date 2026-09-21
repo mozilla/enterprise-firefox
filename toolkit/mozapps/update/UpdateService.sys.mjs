@@ -579,7 +579,7 @@ function areDirectoryEntriesWriteable(aDir) {
   let items = aDir.directoryEntries;
   while (items.hasMoreElements()) {
     let item = items.nextFile;
-    if (!item.isWritable()) {
+    if (item && item.exists() && !item.isWritable()) {
       LOG("areDirectoryEntriesWriteable - unable to write to " + item.path);
       return false;
     }
