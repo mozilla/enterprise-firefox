@@ -296,8 +296,6 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 "extra_prefs": [
                     # Allow marionette to select a random free port, different from the default 2828 value. Without this, Felt and Browser would not be able to run with marionnette enabled in parallel
                     ["marionette.port", 0],
-                    # Disable initialization of FOG on shutdown: this would add some extra shutdown delays that messes with shutdown path and make tests failing
-                    ["telemetry.fog.init_on_shutdown", False],
                 ],
             }
             m = json.dumps(config)
