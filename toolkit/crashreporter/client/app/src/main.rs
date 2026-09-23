@@ -100,7 +100,7 @@ fn report_main() {
     // Read the enterprise auth token first: the fd cleanup below closes every fd
     // >= 3, which includes the pipe the crashing process passed the token on.
     #[cfg(feature = "enterprise")]
-    net::auth::init_access_token();
+    net::auth::init_access_token(net::auth::TokenSource::CrashingProcess);
 
     // Close unused fds before doing anything else, which might open some.
     #[cfg(unix)]

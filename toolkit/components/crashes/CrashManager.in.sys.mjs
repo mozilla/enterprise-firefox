@@ -9,6 +9,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
+  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   CrashServiceUtils: "resource://gre/modules/CrashService.sys.mjs",
   Log: "resource://gre/modules/Log.sys.mjs",
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
@@ -31,6 +32,26 @@ export function dateToDays(date) {
   return Math.floor(date.getTime() / MILLISECONDS_IN_DAY);
 }
 
+/*
+ * The bearer token the enterprise console authenticates uploads with, or null
+ * when there is none.
+ *
+ * It is written to the crash reporter's stdin rather than passed in its
+ * environment, which another process of the same user can read.
+ */
+async function crashReporterAuthToken() {
+  if (!AppConstants.MOZ_ENTERPRISE) {
+    return null;
+  }
+
+  try {
+    return await lazy.ConsoleClient.getAccessToken();
+  } catch (e) {
+    console.warn(`the crash reporter upload will be unauthenticated: ${e}`);
+  }
+  return null;
+}
+
 // sendGleanPing will sequence calls so that we only have one crash reporter
 // spawned at a time.
 let lastSendPing = Promise.resolve();
@@ -39,13 +60,15 @@ function sendGleanPing(reason, annotations) {
     const uAppDataPath = Services.dirsvc.get("UAppData", Ci.nsIFile).path;
     const crashDataPath = PathUtils.join(uAppDataPath, "Crash Reports");
 
+    const authToken = await crashReporterAuthToken();
+
     const process = await lazy.Subprocess.call({
       command: lazy.CrashServiceUtils.getCrashReporterPath().path,
       arguments: ["--send-ping", crashDataPath, reason],
       stderr: "stdout",
     });
 
-    await process.stdin.write(JSON.stringify(annotations));
+    await process.stdin.write(JSON.stringify({ annotations, authToken }));
     await process.stdin.close();
     const { exitCode } = await process.wait();
 
@@ -102,6 +125,10 @@ async function cleanupPings() {
     args.push(profPath);
   }
 
+  // This flushes pings left pending by earlier sessions, so it uploads to the
+  // console and needs the bearer token just like `sendGleanPing`.
+  const authToken = await crashReporterAuthToken();
+
   const process = await lazy.Subprocess.call({
     command: lazy.CrashServiceUtils.getCrashReporterPath().path,
     arguments: args,
@@ -114,6 +141,7 @@ async function cleanupPings() {
     blocker
   );
 
+  await process.stdin.write(JSON.stringify({ authToken }));
   await process.stdin.close();
   // This is best-effort: we don't care about failure.
   const { exitCode } = await process.wait();

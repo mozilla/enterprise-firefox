@@ -7,6 +7,20 @@
 use crate::std::{env, io::stdin, path::PathBuf};
 use crate::{glean, logging, net::ping};
 
+/// What `CrashManager` writes to our stdin.
+///
+/// The console bearer token travels this way rather than in our environment,
+/// which another process of the same user can read.
+#[derive(Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PingInput {
+    #[serde(default)]
+    annotations: serde_json::Value,
+    #[serde(default)]
+    #[cfg_attr(not(feature = "enterprise"), allow(dead_code))]
+    auth_token: Option<String>,
+}
+
 /// Resolve the enterprise console address for this run from the crash data
 /// path.
 ///
@@ -27,8 +41,11 @@ pub fn main() {
     let data_path = args.next().expect("no data path provided");
     let reason = args.next().expect("no crash reason provided");
 
-    let extra: serde_json::Value =
-        serde_json::from_reader(stdin()).expect("failed to read extra data from stdin");
+    let input: PingInput =
+        serde_json::from_reader(stdin()).expect("failed to read input from stdin");
+    #[cfg(all(not(mock), feature = "enterprise"))]
+    crate::net::auth::init_access_token(crate::net::auth::TokenSource::Stdin(input.auth_token));
+    let extra = input.annotations;
 
     let profile_dir = extra
         .get("ProfileDirectory")
@@ -66,6 +83,14 @@ pub fn cleanup_main() {
     let mut args = env::args_os().skip(2);
     let data_path = args.next().expect("no data path provided");
     let profile_dir = args.next();
+
+    // Unlike `main`, there is nothing on stdin but the token, so a client run
+    // by hand without any input is still able to flush the pending pings.
+    #[cfg(all(not(mock), feature = "enterprise"))]
+    {
+        let input: PingInput = serde_json::from_reader(stdin()).unwrap_or_default();
+        crate::net::auth::init_access_token(crate::net::auth::TokenSource::Stdin(input.auth_token));
+    }
 
     #[cfg(all(not(mock), feature = "enterprise"))]
     init_console_address(&data_path);
