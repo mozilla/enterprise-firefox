@@ -700,6 +700,10 @@ nsresult nsBaseClipboard::SetDataImpl(
               self->OnCopyContentAnalysisResult(
                   aWhichClipboard, pendingCopy,
                   aResult->GetShouldAllowContent());
+            },
+            [self = RefPtr{this}, aWhichClipboard, pendingCopy](nsresult) {
+              self->OnCopyContentAnalysisResult(aWhichClipboard, pendingCopy,
+                                                /* aAllowed */ false);
             });
     mozilla::contentanalysis::ContentAnalysis::
         CheckClipboardCopyContentAnalysis(aWindowContext->Canonical(),
