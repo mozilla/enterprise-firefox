@@ -140,3 +140,56 @@ add_task(async function () {
 
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });
+
+// When the primary password is managed by enterprise storage encryption the
+// user must not be able to add, change or turn it off from the redesigned
+// Passwords and Autofill settings.
+add_task(async function enterprise_managed_primary_password_is_disabled() {
+  await openPreferencesViaOpenPreferencesAPI("panePasswordsAutofill", {
+    leaveOpen: true,
+  });
+
+  let doc = gBrowser.contentDocument;
+  let win = doc.defaultView;
+
+  // Simulate an enterprise-managed browser whose primary password is set
+  // transparently and cannot be modified by the user.
+  win.LoginHelper = {
+    isPrimaryPasswordSet() {
+      return true;
+    },
+    getOSAuthEnabled() {
+      return true;
+    },
+    isEnterpriseManagedPrimaryPassword() {
+      return true;
+    },
+  };
+
+  // Force the primary-password settings to re-evaluate their disabled state.
+  Services.obs.notifyObservers(null, "passwordmgr-primary-pw-changed");
+
+  let addButton = doc.getElementById("addPrimaryPassword");
+  let changeButton = doc.getElementById("changePrimaryPassword");
+  let turnOffButton = doc.querySelector("#turnOffPrimaryPassword");
+
+  await TestUtils.waitForCondition(
+    () => addButton.disabled && changeButton.disabled && turnOffButton.disabled,
+    "waiting for the primary password controls to become disabled"
+  );
+
+  ok(
+    addButton.disabled,
+    "'Add primary password' button should be disabled when enterprise-managed"
+  );
+  ok(
+    changeButton.disabled,
+    "'Change primary password' button should be disabled when enterprise-managed"
+  );
+  ok(
+    turnOffButton.disabled,
+    "'Turn off primary password' button should be disabled when enterprise-managed"
+  );
+
+  BrowserTestUtils.removeTab(gBrowser.selectedTab);
+});
