@@ -1,0 +1,3 @@
+. "$topsrcdir/mobile/android/config/mozconfigs/android-aarch64/debug-searchfox"
+
+ac_add_options --enable-enterprise

@@ -1,0 +1,5 @@
+. "$topsrcdir/tools/rusttests/config/mozconfigs/linux64/rusttests"
+
+# The felt crate is only built (and so only testable) with
+# MOZ_ENTERPRISE, which the rusttests mozconfig does not set.
+ac_add_options --enable-enterprise
