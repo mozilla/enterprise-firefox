@@ -12,4 +12,9 @@ tags = "os_integration"
 
 ["browser_sync_disabled.js"]
 
+["browser_sync_managed_notice.js"]
+# The notice only exists in enterprise builds, where the management console
+# holds the Sync key.
+run-if = ["enterprise"]
+
 ["browser_sync_pairing.js"]
