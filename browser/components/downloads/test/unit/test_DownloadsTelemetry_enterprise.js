@@ -132,12 +132,8 @@ add_task(async function test_enterprise_data_parsing() {
     },
     contentType: "application/pdf",
     saver: {
-      getSha256Hash() {
-        const hardcodedHash =
-          "1234567890abcdef1234567890abcdeffedcba0987654321fedcba0987654321";
-        const hexIntArray = Uint8Array.fromHex(hardcodedHash);
-        const hashBufferCString = String.fromCharCode.apply(null, hexIntArray);
-        return hashBufferCString;
+      getSha256HashHex() {
+        return "1234567890abcdef1234567890abcdeffedcba0987654321fedcba0987654321";
       },
     },
   };
@@ -184,7 +180,7 @@ add_task(async function test_enterprise_data_parsing() {
     Assert.equal(
       event.extra.sha256_hash,
       "1234567890abcdef1234567890abcdeffedcba0987654321fedcba0987654321",
-      "Should record decoded SHA 256 hash"
+      "Should record hex SHA 256 hash"
     );
     Assert.equal(
       event.extra.size_bytes,

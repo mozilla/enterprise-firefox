@@ -224,19 +224,12 @@ export const DownloadsTelemetryEnterprise = {
         sizeBytes = 0;
       }
 
-      const hashBufferCString = download.saver.getSha256Hash();
-      const hashHex = hashBufferCString
-        ? new Uint8Array(
-            Array.from(hashBufferCString, c => c.charCodeAt(0))
-          ).toHex()
-        : "";
-
       const telemetryData = {
         filename: fileInfo.filename,
         file_path: fileInfo.file_path,
         extension: fileInfo.extension,
         mime_type: fileInfo.mime_type,
-        sha256_hash: hashHex,
+        sha256_hash: download.saver.getSha256HashHex(),
         size_bytes: sizeBytes,
         source_url: sourceUrl || "",
         is_private: download.source?.isPrivate || false,
