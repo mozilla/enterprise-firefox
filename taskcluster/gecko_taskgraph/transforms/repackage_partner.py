@@ -213,6 +213,9 @@ def make_job_description(config, jobs):
             repackage_config,
             partner=repack_id,
         )
+        attributes["release_artifacts"] = [
+            artifact["name"] for artifact in worker["artifacts"]
+        ]
 
         description = (
             "Repackaging for repack_id '{repack_id}' for build '"
