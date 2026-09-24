@@ -1506,10 +1506,42 @@ private-browsing-info-panel-description = This helps keep your browsing hidden f
 #   $agentName (String): The name of the DLP agent that is connected
 content-analysis-indicator-tooltip =
     .tooltiptext = Data Loss Prevention (DLP) by { $agentName }. Click for more info.
+# Tooltip (and accessible name) for the content analysis indicator while it has a dot
+# because something the user copied is being kept inside Firefox instead of on the
+# system clipboard. Enterprise builds only.
+# Variables:
+#   $agentName (String): The name of the DLP agent that is connected
+#   $state (String): "pending" while the DLP agent is checking the copy, "warn" if it
+#     flagged the copy (the user can release it from the panel), or "blocked"
+content-analysis-indicator-local-copy-tooltip =
+    .tooltiptext =
+        { $state ->
+            [pending] Data Loss Prevention (DLP) by { $agentName } is checking what you copied. Click for more info.
+            [warn] Data Loss Prevention (DLP) by { $agentName } flagged what you copied. Click to review or release it.
+           *[blocked] Data Loss Prevention (DLP) by { $agentName } blocked what you copied. Click for more info.
+        }
 content-analysis-panel-title2 = Data loss prevention
 # Variables:
 #   $agentName (String): The name of the DLP agent that is connected
 content-analysis-panel-text-styled2 = Your organization uses <b>{ $agentName }</b> to control how sensitive data may be shared. <a data-l10n-name="info">Learn more</a>
+
+## Entry in the content analysis panel about something the user copied to the clipboard
+## that is being kept inside Firefox (pasteable in the tab it was copied from)
+## because the DLP software has not, or not yet, let it onto the system clipboard.
+## Enterprise builds only.
+
+content-analysis-local-copy-status-pending = Checking what you copied. You can paste it in the tab you copied it from in the meantime.
+content-analysis-local-copy-status-warn = Your organization only allows this content where it was copied from. To use it in another tab or another app, release it to your clipboard below.
+content-analysis-local-copy-status-blocked = Your organization only allows this content where it was copied from. Pasting it into another tab or another app gives a message instead of the text.
+
+# Shown in place of a text preview when the copied content has no plain text.
+content-analysis-local-copy-formatted-content = Formatted content
+# Variables:
+#   $host (String): The host name of the page the content was copied from
+content-analysis-local-copy-source = Copied from { $host }
+# Puts the flagged copy on the system clipboard anyway.
+content-analysis-local-copy-release-button =
+    .label = Release
 
 ## Unified extensions (toolbar) button
 
