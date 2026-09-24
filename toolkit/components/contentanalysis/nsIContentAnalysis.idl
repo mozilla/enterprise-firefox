@@ -290,6 +290,15 @@ interface nsIContentAnalysisCallback : nsISupports
   void contentResult(in nsIContentAnalysisResult aResult);
 
   void error(in nsresult aResult);
+
+  /**
+   * Called when the agent issues a warn verdict, before the user has answered
+   * it. contentResult() is still called later with the resolved verdict (allow
+   * or block), so implementations that only care about the final verdict can
+   * ignore this. It may be called at most once per request, and never after
+   * contentResult() or error().
+   */
+  void warnPending(in nsIContentAnalysisResponse aResponse);
 };
 
 [scriptable, builtinclass, uuid(a430f6ef-a526-4055-8a82-7741ea757367)]
@@ -310,8 +319,10 @@ interface nsIContentAnalysisLocalCopyInfo : nsISupports
 {
   // The copy is awaiting its verdict.
   const unsigned long PENDING = 0;
-  // The copy was blocked.
-  const unsigned long BLOCKED = 1;
+  // The agent warned about the copy and the user has yet to release it.
+  const unsigned long WARN = 1;
+  // The copy was blocked (by the agent or by the user denying a warning).
+  const unsigned long BLOCKED = 2;
 
   [infallible] readonly attribute unsigned long state;
 
@@ -324,6 +335,10 @@ interface nsIContentAnalysisLocalCopyInfo : nsISupports
 
   // Host of the copying page, for display.
   readonly attribute AString sourceHost;
+
+  // Identifies the undecided warning for respondToWarnDialog(); empty unless
+  // state is WARN.
+  readonly attribute ACString warnRequestToken;
 };
 
 [scriptable, uuid(61497587-2bba-4a88-acd3-3fbb2cedf163)]
@@ -559,6 +574,23 @@ interface nsIContentAnalysis : nsISupports
    */
   nsIContentAnalysisResponse makeResponseForTest(
       in nsIContentAnalysisResponse_Action aAction,
+      in ACString aToken,
+      in ACString aUserActionId,
+      [optional] in AString aRuleMessage);
+
+  /**
+   * Deliver a warn verdict for an outstanding request as though the agent had
+   * sent it: observers get "dlp-response", the request's callback gets
+   * warnPending(), and the verdict is held until respondToWarnDialog()
+   * answers it, which is when the callback gets the resolved verdict. Nothing
+   * is acknowledged to the agent. For use in tests only, by mocks that stand
+   * in for the agent.
+   *
+   * @param aToken         The request token
+   * @param aUserActionID  The user action ID
+   * @param aRuleMessage   The matched rule's admin-authored message, if any
+   */
+  void testOnlyDeliverWarnVerdict(
       in ACString aToken,
       in ACString aUserActionId,
       [optional] in AString aRuleMessage);

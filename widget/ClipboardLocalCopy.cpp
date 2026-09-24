@@ -73,9 +73,11 @@ ClipboardLocalCopy::~ClipboardLocalCopy() { Reset(); }
 void ClipboardLocalCopy::Remember(State aState, nsITransferable* aTransferable,
                                   nsIClipboardOwner* aOwner,
                                   int32_t aSequenceNumber,
-                                  dom::WindowContext* aSourceWindow) {
+                                  dom::WindowContext* aSourceWindow,
+                                  const nsACString& aWarnRequestToken) {
   MOZ_ASSERT(aTransferable);
   MOZ_ASSERT(aSourceWindow);
+  MOZ_ASSERT_IF(aState == State::eWarn, !aWarnRequestToken.IsEmpty());
   bool hadData = Reset();
   bool setData = false;
   auto exit = MakeScopeExit([&]() {
@@ -95,10 +97,11 @@ void ClipboardLocalCopy::Remember(State aState, nsITransferable* aTransferable,
 
   MOZ_CLIPBOARD_LOG("%s: keeping copy in state %d for sequence number %d",
                     __FUNCTION__, static_cast<int>(aState), aSequenceNumber);
-  mData.emplace(Data{aState, aTransferable, aOwner, aSourceWindow,
-                     aSequenceNumber, aSourceWindow->InnerWindowId(),
-                     aSourceWindow->TopWindowContext()->InnerWindowId(),
-                     principal});
+  mData.emplace(
+      Data{aState, aTransferable, aOwner, aSourceWindow,
+           aState == State::eWarn ? nsCString(aWarnRequestToken) : nsCString(),
+           aSequenceNumber, aSourceWindow->InnerWindowId(),
+           aSourceWindow->TopWindowContext()->InnerWindowId(), principal});
   setData = true;
 
   if (principal->GetIsInPrivateBrowsing()) {
@@ -118,7 +121,19 @@ bool ClipboardLocalCopy::Reset() {
     return false;
   }
   MOZ_CLIPBOARD_LOG("%s", __FUNCTION__);
+  nsCString undecidedWarn;
+  if (mData->mState == State::eWarn) {
+    undecidedWarn = mData->mWarnRequestToken;
+  }
   mData.reset();
+  if (!undecidedWarn.IsEmpty()) {
+    // The user never got to answer, so the agent hears "denied". This runs
+    // the copy's verdict callback re-entrantly, which finds the local copy
+    // empty and does nothing.
+    MOZ_CLIPBOARD_LOG("%s: cancelling undecided warn %s", __FUNCTION__,
+                      undecidedWarn.get());
+    contentanalysis::ContentAnalysis::CancelPendingWarn(undecidedWarn);
+  }
   return true;
 }
 
@@ -161,6 +176,11 @@ nsIClipboardOwner* ClipboardLocalCopy::Owner() const {
 dom::WindowContext* ClipboardLocalCopy::SourceWindow() const {
   MOZ_ASSERT(mData.isSome());
   return mData->mSourceWindow;
+}
+
+const nsCString& ClipboardLocalCopy::WarnRequestToken() const {
+  MOZ_ASSERT(mData.isSome());
+  return mData->mWarnRequestToken;
 }
 
 int32_t ClipboardLocalCopy::SequenceNumber() const {

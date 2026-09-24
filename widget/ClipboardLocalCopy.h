@@ -26,10 +26,14 @@ namespace mozilla::widget {
  * because of content analysis, kept so the copying tab can still paste it
  * inside Firefox.
  *
- * The slot goes through up to two states. While a copy awaits its verdict
+ * The slot goes through up to three states. While a copy awaits its verdict
  * (ePending), the data is remembered, so the copying page need not wait for the
  * agent. If the verdict blocks the copy (eBlocked), the system clipboard gets a
- * placeholder notice and the data is still remembered.
+ * placeholder notice and the data is still remembered. If the verdict is a
+ * warning the user has yet to answer (eWarn), a different placeholder notice is
+ * written and the data, together with what is needed to commit it later, is
+ * kept until the user releases it from the DLP panel (the copy then lands on
+ * the system clipboard) or the clipboard moves on.
  *
  * Whatever the state, the data is current only while its sequence number is
  * still the clipboard's: anything else landing on the clipboard supersedes it.
@@ -48,7 +52,7 @@ namespace mozilla::widget {
  */
 class ClipboardLocalCopy final {
  public:
-  enum class State : uint8_t { ePending, eBlocked };
+  enum class State : uint8_t { ePending, eWarn, eBlocked };
 
   ClipboardLocalCopy() = default;
   ~ClipboardLocalCopy();
@@ -57,9 +61,12 @@ class ClipboardLocalCopy final {
   ClipboardLocalCopy& operator=(const ClipboardLocalCopy&) = delete;
 
   // Remembers the passed-in data.
+  // aWarnRequestToken identifies the undecided warn verdict for eWarn and is
+  // ignored otherwise.
   void Remember(State aState, nsITransferable* aTransferable,
                 nsIClipboardOwner* aOwner, int32_t aSequenceNumber,
-                dom::WindowContext* aSourceWindow);
+                dom::WindowContext* aSourceWindow,
+                const nsACString& aWarnRequestToken = ""_ns);
 
   // Forgets the data.
   void Clear();
@@ -75,6 +82,7 @@ class ClipboardLocalCopy final {
   nsITransferable* Transferable() const;
   nsIClipboardOwner* Owner() const;
   dom::WindowContext* SourceWindow() const;
+  const nsCString& WarnRequestToken() const;
   int32_t SequenceNumber() const;
   uint64_t SourceInnerWindowId() const;
   nsIPrincipal* SourcePrincipal() const;
@@ -95,6 +103,7 @@ class ClipboardLocalCopy final {
     nsCOMPtr<nsITransferable> mTransferable;
     nsCOMPtr<nsIClipboardOwner> mOwner;
     RefPtr<dom::WindowContext> mSourceWindow;
+    nsCString mWarnRequestToken;
     int32_t mSequenceNumber = -1;
     uint64_t mSourceInnerWindowId = 0;
     // Inner window id of the copying window's top-level document

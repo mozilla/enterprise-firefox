@@ -89,6 +89,7 @@ class ContentAnalysisLocalCopyInfo final
   int32_t mSequenceNumber;
   nsString mPreview;
   nsString mSourceHost;
+  nsCString mWarnRequestToken;
 };
 
 class ContentAnalysisRequest final : public nsIContentAnalysisRequest {
@@ -288,6 +289,11 @@ class ContentAnalysis final : public nsIContentAnalysis,
   static bool IsSamePageAndSite(dom::WindowGlobalParent* aRequesting,
                                 uint64_t aSourceTopInnerWindowId,
                                 nsIPrincipal* aSourcePrincipal);
+
+  // Answers an undecided warn verdict with "deny" because whatever it was
+  // about is gone (the copy it concerned was superseded, say).
+  // No-op if aRequestToken is not awaiting an answer.
+  static void CancelPendingWarn(const nsACString& aRequestToken);
 
   using FilesAllowedPromise = MozPromise<nsCOMArray<nsIFile>, nsresult, true>;
   // Checks the passed in files in "batch mode", meaning that all requests will
@@ -657,9 +663,12 @@ class ContentAnalysisCallback final : public nsIContentAnalysisCallback {
   NS_DECL_NSICONTENTANALYSISCALLBACK
   ContentAnalysisCallback(
       std::function<void(nsIContentAnalysisResult*)>&& aContentResponseCallback,
-      std::function<void(nsresult)>&& aErrorCallback)
+      std::function<void(nsresult)>&& aErrorCallback,
+      std::function<void(nsIContentAnalysisResponse*)>&& aWarnPendingCallback =
+          nullptr)
       : mContentResponseCallback(std::move(aContentResponseCallback)),
-        mErrorCallback(std::move(aErrorCallback)) {}
+        mErrorCallback(std::move(aErrorCallback)),
+        mWarnPendingCallback(std::move(aWarnPendingCallback)) {}
 
   explicit ContentAnalysisCallback(
       std::function<void(nsIContentAnalysisResult*)>&&
@@ -667,15 +676,7 @@ class ContentAnalysisCallback final : public nsIContentAnalysisCallback {
 
   // Wrap a given callback, in case it doesn't provide the guarantees that
   // this one does (such as checking that it is eventually called).
-  explicit ContentAnalysisCallback(nsIContentAnalysisCallback* aDecoratedCB) {
-    mContentResponseCallback = [decoratedCB = RefPtr{aDecoratedCB}](
-                                   nsIContentAnalysisResult* aResult) {
-      decoratedCB->ContentResult(aResult);
-    };
-    mErrorCallback = [decoratedCB = RefPtr{aDecoratedCB}](nsresult aRv) {
-      decoratedCB->Error(aRv);
-    };
-  }
+  explicit ContentAnalysisCallback(nsIContentAnalysisCallback* aDecoratedCB);
 
  private:
   virtual ~ContentAnalysisCallback() {
@@ -687,12 +688,14 @@ class ContentAnalysisCallback final : public nsIContentAnalysisCallback {
   void ClearCallbacks() {
     mContentResponseCallback = nullptr;
     mErrorCallback = nullptr;
+    mWarnPendingCallback = nullptr;
     mPromise = nullptr;
   }
 
   explicit ContentAnalysisCallback(dom::Promise* aPromise);
   std::function<void(nsIContentAnalysisResult*)> mContentResponseCallback;
   std::function<void(nsresult)> mErrorCallback;
+  std::function<void(nsIContentAnalysisResponse*)> mWarnPendingCallback;
   RefPtr<dom::Promise> mPromise;
   friend class ContentAnalysis;
 };

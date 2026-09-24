@@ -1120,6 +1120,14 @@ bool ContentAnalysis::IsSamePageAndSite(dom::WindowGlobalParent* aRequesting,
          principal->Subsumes(aSourcePrincipal);
 }
 
+/* static */
+void ContentAnalysis::CancelPendingWarn(const nsACString& aRequestToken) {
+  if (RefPtr<ContentAnalysis> self = GetContentAnalysisFromService()) {
+    self->RespondToWarnDialogInternal(aRequestToken, /* aAllowContent */ false,
+                                      /* aFromCancel */ true);
+  }
+}
+
 NS_IMETHODIMP ContentAnalysis::GetLocalClipboardCopyInfo(
     nsIContentAnalysisLocalCopyInfo** aInfo) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -1459,9 +1467,19 @@ void ContentAnalysis::NotifyResponseObservers(
     nsCString requestToken;
     MOZ_ALWAYS_SUCCEEDS(aResponse->GetRequestToken(requestToken));
 
+    nsCOMPtr<nsIContentAnalysisCallback> callback;
+    if (auto entry = mUserActionMap.Lookup(aUserActionId)) {
+      callback = entry->mCallback;
+    }
+
     mWarnResponseDataMap.InsertOrUpdate(
         requestToken, WarnResponseData{aResponse, std::move(aUserActionId),
                                        aAutoAcknowledge, aIsTimeout});
+    // Tell the caller only once the verdict is stored, so that it can
+    // respond to it from this notification.
+    if (callback) {
+      callback->WarnPending(aResponse);
+    }
   }
 
   nsCOMPtr<nsIObserverService> obsServ =
@@ -2080,6 +2098,16 @@ ContentAnalysis::MultipartRequestCallback::Error(nsresult aRv) {
   mResponded = true;
   mCallback->Error(aRv);
   CancelRequests();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+ContentAnalysis::MultipartRequestCallback::WarnPending(
+    nsIContentAnalysisResponse* aResponse) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mResponded) {
+    mCallback->WarnPending(aResponse);
+  }
   return NS_OK;
 }
 
@@ -3640,6 +3668,20 @@ NS_IMETHODIMP ContentAnalysis::MakeResponseForTest(
   return NS_OK;
 }
 
+NS_IMETHODIMP ContentAnalysis::TestOnlyDeliverWarnVerdict(
+    const nsACString& aToken, const nsACString& aUserActionId,
+    const nsAString& aRuleMessage) {
+  MOZ_ASSERT(NS_IsMainThread());
+  // Not synthetic so dialogs will show in tests.
+  auto response = MakeRefPtr<ContentAnalysisResponse>(
+      nsIContentAnalysisResponse::Action::eWarn, aToken, aUserActionId);
+  response->SetRuleMessage(aRuleMessage);
+  // No agent sent this, so there is no one to acknowledge it to.
+  response->DoNotAcknowledge();
+  HandleResponseFromAgent(response, /* aAutoAcknowledge */ false);
+  return NS_OK;
+}
+
 NS_IMETHODIMP ContentAnalysisCallback::ContentResult(
     nsIContentAnalysisResult* aResult) {
   LOGD("[%p] Called ContentAnalysisCallback::ContentResult", this);
@@ -3671,15 +3713,44 @@ NS_IMETHODIMP ContentAnalysisCallback::Error(nsresult aError) {
   return NS_OK;
 }
 
+NS_IMETHODIMP ContentAnalysisCallback::WarnPending(
+    nsIContentAnalysisResponse* aResponse) {
+  // Still need to call contentResult() after a final response,
+  // so the callbacks are left in place.
+  if (mWarnPendingCallback) {
+    mWarnPendingCallback(aResponse);
+  }
+  return NS_OK;
+}
+
 ContentAnalysisCallback::ContentAnalysisCallback(dom::Promise* aPromise)
     : mPromise(aPromise) {}
 
+ContentAnalysisCallback::ContentAnalysisCallback(
+    nsIContentAnalysisCallback* aDecoratedCB) {
+  mContentResponseCallback =
+      [decoratedCB = RefPtr{aDecoratedCB}](nsIContentAnalysisResult* aResult) {
+        decoratedCB->ContentResult(aResult);
+      };
+  mErrorCallback = [decoratedCB = RefPtr{aDecoratedCB}](nsresult aRv) {
+    decoratedCB->Error(aRv);
+  };
+  mWarnPendingCallback = [decoratedCB = RefPtr{aDecoratedCB}](
+                             nsIContentAnalysisResponse* aResponse) {
+    decoratedCB->WarnPending(aResponse);
+  };
+}
+
 ContentAnalysisLocalCopyInfo::ContentAnalysisLocalCopyInfo(
     const widget::ClipboardLocalCopy& aLocalCopy)
-    : mSequenceNumber(aLocalCopy.SequenceNumber()) {
+    : mSequenceNumber(aLocalCopy.SequenceNumber()),
+      mWarnRequestToken(aLocalCopy.WarnRequestToken()) {
   switch (aLocalCopy.GetState()) {
     case widget::ClipboardLocalCopy::State::ePending:
       mState = nsIContentAnalysisLocalCopyInfo::PENDING;
+      break;
+    case widget::ClipboardLocalCopy::State::eWarn:
+      mState = nsIContentAnalysisLocalCopyInfo::WARN;
       break;
     case widget::ClipboardLocalCopy::State::eBlocked:
       mState = nsIContentAnalysisLocalCopyInfo::BLOCKED;
@@ -3715,6 +3786,11 @@ NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetPreview(nsAString& aPreview) {
 NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetSourceHost(
     nsAString& aSourceHost) {
   aSourceHost = mSourceHost;
+  return NS_OK;
+}
+NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetWarnRequestToken(
+    nsACString& aWarnRequestToken) {
+  aWarnRequestToken = mWarnRequestToken;
   return NS_OK;
 }
 

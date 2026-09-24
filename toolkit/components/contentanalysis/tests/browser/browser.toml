@@ -37,6 +37,12 @@ support-files = [
 ]
 skip-if = ["!enterprise"]
 
+["browser_clipboard_copy_local_warn_content_analysis.js"]
+support-files = [
+  "clipboard_copy.html",
+]
+skip-if = ["!enterprise"]
+
 ["browser_clipboard_copy_no_local_copy_content_analysis.js"]
 support-files = [
   "clipboard_copy.html",
