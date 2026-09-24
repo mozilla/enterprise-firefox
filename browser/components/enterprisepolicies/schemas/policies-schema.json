@@ -1021,7 +1021,8 @@
             },
             "ClipboardCopy": {
               "Enabled": false,
-              "PlainTextOnly": true
+              "PlainTextOnly": true,
+              "KeepBlockedDataForSameSite": true
             },
             "Download": {
               "Enabled": false
@@ -1110,6 +1111,9 @@
                   "type": "boolean"
                 },
                 "PlainTextOnly": {
+                  "type": "boolean"
+                },
+                "KeepBlockedDataForSameSite": {
                   "type": "boolean"
                 }
               }
