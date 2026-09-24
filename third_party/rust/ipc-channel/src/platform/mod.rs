@@ -29,6 +29,16 @@ mod unix;
 mod os {
     pub use super::unix::*;
 }
+#[cfg(all(
+    not(feature = "force-inprocess"),
+    any(
+        target_os = "linux",
+        target_os = "openbsd",
+        target_os = "freebsd",
+        target_os = "illumos",
+    )
+))]
+pub use unix::set_fd_inheritable;
 
 #[cfg(all(not(feature = "force-inprocess"), target_os = "macos"))]
 mod macos;

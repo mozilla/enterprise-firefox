@@ -64,7 +64,7 @@ class AppRestartWorks(FeltTests):
 
         felt_ui_pid = self._driver.session_capabilities["moz:processID"]
         target_exe = psutil.Process(felt_ui_pid).exe()
-        felt_browser_pids = set(self._get_felt_browser_pids(target_exe))
+        felt_browser_pids = set(self._get_felt_browser_pids(target_exe, felt_ui_pid))
 
         assert new_browser_pid in felt_browser_pids, (
             f"Relaunched browser PID {new_browser_pid} is not running"
@@ -87,14 +87,19 @@ class AppRestartWorks(FeltTests):
             "Services.startup.quit(Ci.nsIAppStartup.eForceQuit);"
         )
 
-    def _get_felt_browser_pids(self, target_exe):
+    def _get_felt_browser_pids(self, target_exe, felt_ui_pid):
+        # The FELT browser (and, on Windows, its launcher) are the non-content
+        # descendants of the FELT UI running the same binary. They are no longer
+        # marked by a -felt argument on Linux and Windows.
         pids = []
-        for proc in psutil.process_iter(["pid", "exe", "cmdline"]):
+        try:
+            descendants = psutil.Process(felt_ui_pid).children(recursive=True)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return pids
+        for proc in descendants:
             try:
-                cmdline = proc.info["cmdline"] or []
-                # Check for FELT browser process with -felt.
-                if proc.info["exe"] == target_exe and "-felt" in cmdline:
-                    pids.append(proc.info["pid"])
+                if proc.exe() == target_exe and "-contentproc" not in proc.cmdline():
+                    pids.append(proc.pid)
             except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied):
                 continue
         return pids
@@ -118,14 +123,14 @@ class AppRestartWorks(FeltTests):
 
     def _get_launcher_pid(self, browser_pid):
         """Returns the browser's parent process PID if it is a launcher
-        process (i.e., the command line contains "--launcher" and "-felt").
+        process (i.e., the command line contains "--launcher").
         Returns None when the browser has no launcher.
         """
         try:
             parent = psutil.Process(browser_pid).parent()
             if parent:
                 cmdline = parent.cmdline()
-                if "--launcher" in cmdline and "-felt" in cmdline:
+                if "--launcher" in cmdline:
                     return parent.pid
         except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied):
             pass

@@ -6,7 +6,7 @@
 #include "nsISupports.idl"
 #include "nsICookie.idl"
 
-[scriptable, uuid(373195cb-bbb9-4e01-b276-b799a18ca355)]
+[scriptable, uuid(fcdd9fba-344f-4a55-b758-c1c828163f2c)]
 interface nsIFelt : nsISupports {
   const unsigned long FeltEncryptionExitCode_Archive = 0x93;
   const unsigned long FeltEncryptionExitCode_Delete = 0x94;
@@ -16,8 +16,47 @@ interface nsIFelt : nsISupports {
   // (Bug 2021342).
   const unsigned long FeltEncryptionExitCode_SdrTokenUnlockFailed = 0x95;
 
+  /**
+   * macOS bootstrap: create the published, connect-by-name one-shot IPC server
+   * and return its name for the spawned browser to connect to. Fails on Linux
+   * and Windows, which use the fenced bootstrap (createInheritedChannelFd /
+   * createInheritedChannelHandle, then acceptInheritedChannel) instead.
+   */
   [must_use]
   ACString oneShotIpcServer();
+
+  /**
+   * Linux fenced bootstrap, step 1 (call BEFORE spawning the browser): create a
+   * normal anonymous ipc::channel(), retain the receiver, and return the raw fd
+   * of the sender endpoint with FD_CLOEXEC cleared so it survives exec. The
+   * caller hands this fd to the browser child at spawn (via fdInherit and an env
+   * var); there is no name to publish. Fails on non-Linux platforms.
+   */
+  [must_use]
+  long long createInheritedChannelFd();
+
+  /**
+   * Windows fenced bootstrap, step 1 (call BEFORE spawning the browser): create
+   * a normal ipc::channel() (a single-instance named pipe with a random,
+   * unpublished name, already connected inside this process), retain the
+   * receiver, and return the value of an inheritable duplicate of the sender
+   * endpoint's pipe HANDLE. The caller hands this HANDLE to the browser child at
+   * spawn (via handleInherit and the MOZ_FELT_IPC_HANDLE env var); on the
+   * launcher path it travels felt -> launcher -> browser by handle inheritance.
+   * Fails on non-Windows platforms.
+   */
+  [must_use]
+  long long createInheritedChannelHandle();
+
+  /**
+   * Linux/Windows fenced bootstrap, step 2 (call AFTER spawning the browser):
+   * receive the browser's felt->firefox sender over the retained bootstrap
+   * receiver and start the felt server. Replaces ipcChannel()'s one-shot
+   * accept(): the endpoint is inherited and no name is published, so no peer
+   * can connect by rendezvous. Fails on macOS.
+   */
+  [must_use]
+  void acceptInheritedChannel();
 
   [must_use]
   AString binPath();

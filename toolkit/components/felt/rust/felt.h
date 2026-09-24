@@ -28,7 +28,18 @@ void felt_activate_app();
 
 bool is_felt_browser();
 
+#if defined(XP_LINUX) && !defined(ANDROID)
+// Linux fenced-fd path: connect using the bootstrap endpoint fd inherited from
+// the Felt process (named in the MOZ_FELT_IPC_FD env var).
+bool firefox_connect_to_felt_fd();
+#elif defined(XP_WIN)
+// Windows fenced-handle path: connect using the bootstrap endpoint pipe HANDLE
+// inherited through the launcher (its value carried in the MOZ_FELT_IPC_HANDLE
+// env var).
+bool firefox_connect_to_felt_handle();
+#else
 bool firefox_connect_to_felt(const char* server_name);
+#endif
 
 void firefox_felt_connection_start_thread();
 

@@ -47,6 +47,82 @@ fn simple() {
     assert_eq!(ipc_message.data, data);
 }
 
+// Round-trips both endpoints through into_raw_fd/from_raw_fd (the fenced-endpoint
+// bootstrap primitives) and checks the exported fds are not closed and still
+// carry a message. Also checks that clearing FD_CLOEXEC succeeds on the fd.
+#[cfg(all(
+    not(feature = "force-inprocess"),
+    any(
+        target_os = "linux",
+        target_os = "openbsd",
+        target_os = "freebsd",
+        target_os = "illumos",
+    )
+))]
+#[test]
+fn raw_fd_round_trip() {
+    let (tx, rx) = platform::channel().unwrap();
+    let tx_fd = tx.into_raw_fd().expect("sender should be uniquely owned");
+    let rx_fd = rx.into_raw_fd();
+
+    // On Linux and illumos endpoints are created SOCK_CLOEXEC, so an exported fd
+    // starts with FD_CLOEXEC set; openbsd/freebsd use SOCK_FLAGS = 0.
+    #[cfg(any(target_os = "linux", target_os = "illumos"))]
+    assert_ne!(
+        unsafe { libc::fcntl(tx_fd, libc::F_GETFD) } & libc::FD_CLOEXEC,
+        0,
+        "endpoint fd should start with FD_CLOEXEC set"
+    );
+
+    platform::set_fd_inheritable(tx_fd).unwrap();
+    platform::set_fd_inheritable(rx_fd).unwrap();
+
+    // set_fd_inheritable must clear FD_CLOEXEC on all gated targets.
+    assert_eq!(
+        unsafe { libc::fcntl(tx_fd, libc::F_GETFD) } & libc::FD_CLOEXEC,
+        0,
+        "set_fd_inheritable should clear FD_CLOEXEC"
+    );
+
+    let tx = unsafe { OsIpcSender::from_raw_fd(tx_fd) };
+    let rx = unsafe { platform::OsIpcReceiver::from_raw_fd(rx_fd) };
+
+    let data: &[u8] = b"fenced";
+    tx.send(data, Vec::new(), Vec::new()).unwrap();
+    let ipc_message = rx.recv().unwrap();
+    assert_eq!(ipc_message.data, data);
+}
+
+// A sender that is still shared (has an outstanding clone) must not be
+// exportable, since closing the exported fd would dangle the clone. After the
+// clone is dropped the sender handed back via Err must still work.
+#[cfg(all(
+    not(feature = "force-inprocess"),
+    any(
+        target_os = "linux",
+        target_os = "openbsd",
+        target_os = "freebsd",
+        target_os = "illumos",
+    )
+))]
+#[test]
+fn shared_sender_cannot_be_exported() {
+    let (tx, rx) = platform::channel().unwrap();
+    let tx_clone = tx.clone();
+
+    let tx = match tx.into_raw_fd() {
+        Ok(_) => panic!("a shared sender must not be exportable"),
+        Err(tx) => tx,
+    };
+
+    drop(tx_clone);
+
+    let data: &[u8] = b"fenced";
+    tx.send(data, Vec::new(), Vec::new()).unwrap();
+    let ipc_message = rx.recv().unwrap();
+    assert_eq!(ipc_message.data, data);
+}
+
 #[test]
 fn sender_transfer() {
     let (super_tx, super_rx) = platform::channel().unwrap();

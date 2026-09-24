@@ -580,6 +580,25 @@ Maybe<int> LauncherMain(int& argc, wchar_t* argv[]) {
 
   attrs.AddInheritableHandles(stdHandles);
 
+  // FELT fenced IPC endpoint: when this launcher is starting a Felt browser,
+  // the bootstrap pipe HANDLE was inherited from the Felt process (its value
+  // carried in MOZ_FELT_IPC_HANDLE, which also rides through to the browser).
+  // Add it to the handle list so the browser child inherits it and can
+  // reconstruct the channel.
+  HANDLE feltHandle = nullptr;
+  if (const wchar_t* feltHandleStr = _wgetenv(L"MOZ_FELT_IPC_HANDLE")) {
+    wchar_t* end = nullptr;
+    unsigned long long feltHandleVal = ::wcstoull(feltHandleStr, &end, 10);
+    if (end && *end == L'\0' && feltHandleVal != 0) {
+      feltHandle =
+          reinterpret_cast<HANDLE>(static_cast<uintptr_t>(feltHandleVal));
+      if (!attrs.AddInheritableHandle(feltHandle)) {
+        HandleLauncherError(LAUNCHER_ERROR_FROM_LAST());
+        return Nothing();
+      }
+    }
+  }
+
   DWORD creationFlags = CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT;
 
   STARTUPINFOEXW siex;
@@ -660,6 +679,12 @@ Maybe<int> LauncherMain(int& argc, wchar_t* argv[]) {
     HandleLauncherError(LAUNCHER_ERROR_FROM_LAST());
     ::TerminateProcess(process.get(), 1);
     return Nothing();
+  }
+
+  // The browser child now owns the FELT endpoint and we can no longer fall back
+  // to running as the browser ourselves, so drop our inherited copy.
+  if (feltHandle) {
+    ::CloseHandle(feltHandle);
   }
 
   if (flags & LauncherFlags::eWaitForBrowser) {

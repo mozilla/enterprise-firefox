@@ -4,8 +4,11 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 use log::trace;
+use std::sync::atomic::AtomicBool;
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+use std::ffi::CStr;
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 use std::os::raw::c_char;
-use std::{ffi::CStr, sync::atomic::AtomicBool};
 
 use std::env;
 use std::sync::{atomic::Ordering, Mutex};
@@ -41,6 +44,53 @@ pub use utils::{CONSOLE_URL, TOKENS};
 static IS_FELT_UI: AtomicBool = AtomicBool::new(false);
 static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
 static IS_FELT_SAFE_MODE: AtomicBool = AtomicBool::new(false);
+
+/// Env var carrying the inherited bootstrap-endpoint fd on the Linux fenced-fd
+/// path. Set by FeltProcessParent on the spawned browser; its presence also
+/// marks the process as the felt browser (replacing the `-felt <name>` argv).
+#[cfg(target_os = "linux")]
+const FELT_IPC_FD_ENV: &str = "MOZ_FELT_IPC_FD";
+/// Env var carrying the value of the inherited bootstrap-endpoint pipe HANDLE on
+/// the Windows fenced-handle path. Set by FeltProcessParent on the spawned
+/// launcher and inherited transitively by the browser child; its presence also
+/// marks the process as the felt browser (replacing the `-felt <name>` argv).
+#[cfg(target_os = "windows")]
+const FELT_IPC_HANDLE_ENV: &str = "MOZ_FELT_IPC_HANDLE";
+
+#[cfg(target_os = "linux")]
+type FeltIpcEndpoint = std::os::unix::io::RawFd;
+#[cfg(target_os = "windows")]
+type FeltIpcEndpoint = usize;
+
+/// The inherited bootstrap endpoint, parsed from its env var by felt_init.
+/// None if the var was present but did not hold a usable value.
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+static FELT_IPC_ENDPOINT: std::sync::OnceLock<Option<FeltIpcEndpoint>> =
+    std::sync::OnceLock::new();
+
+/// Parses and removes the inherited-endpoint env var, so that processes this
+/// browser spawns (background tasks, restarts) do not inherit it and mistake
+/// themselves for the felt browser. Returns whether the var was present.
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn take_felt_ipc_endpoint() -> bool {
+    #[cfg(target_os = "linux")]
+    let name = FELT_IPC_FD_ENV;
+    #[cfg(target_os = "windows")]
+    let name = FELT_IPC_HANDLE_ENV;
+    let Some(value) = env::var_os(name) else {
+        return false;
+    };
+    env::remove_var(name);
+    let parsed = value
+        .to_str()
+        .and_then(|v| v.parse::<FeltIpcEndpoint>().ok());
+    #[cfg(target_os = "linux")]
+    let endpoint = parsed.filter(|fd| *fd >= 0);
+    #[cfg(target_os = "windows")]
+    let endpoint = parsed.filter(|handle| *handle != 0);
+    let _ = FELT_IPC_ENDPOINT.set(endpoint);
+    true
+}
 // Whether a browser shutdown locks the session instead of signing out.
 pub(crate) static SHUTDOWN_LOCK_INTENT: AtomicBool = AtomicBool::new(false);
 // Whether a browser restart locks the session instead of signing out.
@@ -88,6 +138,13 @@ pub extern "C" fn felt_init() {
     trace!("felt_init(): force_chrome={}", force_chrome);
 
     let felt_ui_requested = arg_matches("feltui") || found_felt_ui_env;
+
+    // On Linux/Windows the fenced bootstrap replaces the `-felt <name>` argv: the
+    // spawned browser is marked by the inherited-endpoint env var instead. macOS
+    // still uses the argv marker.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    let is_felt_browser = take_felt_ipc_endpoint() && !force_chrome;
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     let is_felt_browser = arg_matches("felt") && !force_chrome;
 
     if is_felt_browser && felt_ui_requested {
@@ -128,21 +185,69 @@ pub extern "C" fn is_felt_browser() -> bool {
 
 pub static FELT_CLIENT: Mutex<Option<client::FeltClientThread>> = Mutex::new(None);
 
+fn store_felt_client(client: client::FeltClientThread) -> bool {
+    let mut state = FELT_CLIENT.lock().expect("Could not lock mutex");
+    trace!("store_felt_client(): connected, storing client");
+    *state = Some(client);
+    true
+}
+
+// macOS: connect to the published one-shot server by name.
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 #[no_mangle]
 pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> bool {
     let srv_name = unsafe { CStr::from_ptr(server_name) };
     let server_socket = String::from_utf8_lossy(srv_name.to_bytes()).to_string();
     trace!("firefox_connect_to_felt({})", server_socket);
     match client::FeltClientThread::new(server_socket) {
-        Ok(client) => {
-            let mut state = FELT_CLIENT.lock().expect("Could not lock mutex");
-            trace!("firefox_connect_to_felt(): connected, storing client");
-            *state = Some(client);
-            trace!("firefox_connect_to_felt() done: success");
-            true
-        }
+        Ok(client) => store_felt_client(client),
         Err(()) => {
             trace!("firefox_connect_to_felt(): error");
+            false
+        }
+    }
+}
+
+// Linux fenced-fd path: reconstruct the bootstrap endpoint from the fd inherited
+// from the Felt process, named in the MOZ_FELT_IPC_FD env var.
+#[cfg(target_os = "linux")]
+#[no_mangle]
+pub extern "C" fn firefox_connect_to_felt_fd() -> bool {
+    let fd = match FELT_IPC_ENDPOINT.get().copied().flatten() {
+        Some(fd) => fd,
+        None => {
+            log::error!("firefox_connect_to_felt_fd(): missing/invalid {FELT_IPC_FD_ENV}");
+            return false;
+        }
+    };
+    trace!("firefox_connect_to_felt_fd({fd})");
+    match client::FeltClientThread::new_from_fd(fd) {
+        Ok(client) => store_felt_client(client),
+        Err(()) => {
+            log::error!("firefox_connect_to_felt_fd(): failed to connect over fd {fd}");
+            false
+        }
+    }
+}
+
+// Windows fenced-handle path: reconstruct the bootstrap endpoint from the pipe
+// HANDLE inherited through the launcher, its value named in the
+// MOZ_FELT_IPC_HANDLE env var.
+#[cfg(target_os = "windows")]
+#[no_mangle]
+pub extern "C" fn firefox_connect_to_felt_handle() -> bool {
+    let handle = match FELT_IPC_ENDPOINT.get().copied().flatten() {
+        Some(handle) => handle,
+        None => {
+            log::error!("firefox_connect_to_felt_handle(): missing/invalid {FELT_IPC_HANDLE_ENV}");
+            return false;
+        }
+    };
+    trace!("firefox_connect_to_felt_handle({handle})");
+    match client::FeltClientThread::new_from_handle(handle) {
+        Ok(client) => store_felt_client(client),
+        Err(()) => {
+            log::error!("firefox_connect_to_felt_handle(): failed to connect over handle {handle}");
             false
         }
     }

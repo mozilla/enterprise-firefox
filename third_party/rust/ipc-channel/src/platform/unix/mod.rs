@@ -117,6 +117,23 @@ pub fn channel() -> Result<(OsIpcSender, OsIpcReceiver), UnixError> {
     }
 }
 
+/// Clear `FD_CLOEXEC` on `fd` so it is inherited across `exec` into a child.
+///
+/// On Linux and illumos endpoints created by `channel()` are `SOCK_CLOEXEC`, so
+/// a fenced bootstrap must clear the flag on the end it hands to the child
+/// before spawning, otherwise the fd is closed by the `exec`.
+pub fn set_fd_inheritable(fd: RawFd) -> io::Result<()> {
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+    if flags < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let res = unsafe { libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) };
+    if res < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
 #[derive(Clone, Copy)]
 struct PollEntry {
     pub id: u64,
@@ -160,6 +177,25 @@ impl OsIpcReceiver {
         OsIpcReceiver::from_fd(self.consume_fd())
     }
 
+    /// Export the underlying socket fd without closing it.
+    ///
+    /// The receiver relinquishes ownership of the fd: it is the caller's
+    /// responsibility to close it (or hand it to a child process). Used by the
+    /// fenced-endpoint bootstrap to pass one channel end to a child as an
+    /// inherited fd instead of via a named rendezvous.
+    pub fn into_raw_fd(self) -> RawFd {
+        self.consume_fd()
+    }
+
+    /// Reconstruct a receiver from a raw socket fd.
+    ///
+    /// # Safety
+    /// `fd` must be a valid `SOCK_SEQPACKET` fd created by this crate's
+    /// `channel()`, and ownership of it is transferred to the returned receiver.
+    pub unsafe fn from_raw_fd(fd: RawFd) -> OsIpcReceiver {
+        OsIpcReceiver::from_fd(fd)
+    }
+
     #[allow(clippy::type_complexity)]
     pub fn recv(&self) -> Result<IpcMessage, UnixError> {
         recv(self.fd.get(), BlockingMode::Blocking)
@@ -198,6 +234,32 @@ impl OsIpcSender {
         OsIpcSender {
             fd: Arc::new(SharedFileDescriptor(fd)),
         }
+    }
+
+    /// Export the underlying socket fd without closing it.
+    ///
+    /// Only succeeds when this sender uniquely owns the fd (no outstanding
+    /// clones share the `Arc`); otherwise the sender is handed back unchanged
+    /// via `Err`, since exporting a shared fd would leave the other clones with
+    /// a dangling reference once the caller closes it.
+    pub fn into_raw_fd(self) -> Result<RawFd, OsIpcSender> {
+        match Arc::try_unwrap(self.fd) {
+            Ok(shared) => {
+                let fd = shared.0;
+                mem::forget(shared);
+                Ok(fd)
+            },
+            Err(fd) => Err(OsIpcSender { fd }),
+        }
+    }
+
+    /// Reconstruct a sender from a raw socket fd.
+    ///
+    /// # Safety
+    /// `fd` must be a valid `SOCK_SEQPACKET` fd created by this crate's
+    /// `channel()`, and ownership of it is transferred to the returned sender.
+    pub unsafe fn from_raw_fd(fd: RawFd) -> OsIpcSender {
+        OsIpcSender::from_fd(fd)
     }
 
     /// Maximum size of the kernel buffer used for transfers over this channel.
@@ -1151,7 +1213,9 @@ fn new_msghdr(iovec: &mut [iovec], cmsg_buffer: *mut cmsghdr, cmsg_space: MsgCon
 
 fn create_shmem(name: CString, length: usize) -> c_int {
     unsafe {
-        let fd = libc::syscall(libc::SYS_memfd_create, name.as_ptr(), libc::MFD_CLOEXEC).try_into().unwrap();
+        let fd = libc::syscall(libc::SYS_memfd_create, name.as_ptr(), libc::MFD_CLOEXEC)
+            .try_into()
+            .unwrap();
         assert!(fd >= 0);
         assert_eq!(libc::ftruncate(fd, length as off_t), 0);
         fd

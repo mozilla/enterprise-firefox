@@ -4168,6 +4168,32 @@ This is patches applied on top of the upstream release, ensuring:
    system headers in tree are not exposing it
 """
 
+[[audits.ipc-channel]]
+who = "John Reitano <jreitano@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.21.0@git:2e47e642b34aebfaaf953497c3834f96c365c8a0 -> 0.21.0@git:929a537c5f1b47b8f4671e3717404f78cacf4e82"
+importable = false
+notes = """
+Adds public raw fd/handle accessors on IpcSender/IpcReceiver (into_raw_fd /
+from_raw_fd on unix, into_raw_handle / from_raw_handle on windows) and a
+platform set_fd_inheritable helper that clears FD_CLOEXEC, so a channel endpoint
+can be handed to a child process at spawn instead of via a published one-shot
+server name (fenced FELT IPC bootstrap, Bug 2072053). No transport behaviour is
+otherwise changed.
+"""
+
+[[audits.ipc-channel]]
+who = "John Reitano <jreitano@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.21.0@git:929a537c5f1b47b8f4671e3717404f78cacf4e82 -> 0.21.0@git:c94d624bded1060078b9b1ffd82ec21937c4300a"
+importable = false
+notes = """
+Review fixes for the raw fd/handle accessors (Bug 2072053): adds Windows
+export-precondition assertions, improves error fidelity, returns an error on an
+invalid source, corrects documentation, and adds two Unix tests. The public API
+surface is unchanged.
+"""
+
 [[audits.itertools]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
