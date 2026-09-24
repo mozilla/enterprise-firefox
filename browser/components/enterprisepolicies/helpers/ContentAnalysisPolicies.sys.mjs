@@ -14,6 +14,8 @@
 // The C++ service reselects its backend on EnterprisePolicies:PolicyUpdatesApplied,
 // after these prefs have settled.
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const PREF_LOGLEVEL = "browser.policies.loglevel";
 
 const lazy = {};
@@ -39,6 +41,10 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 function caPrefName(suffix) {
   return `browser.contentanalysis.${suffix}`;
 }
+
+const KEEP_BLOCKED_DATA_PREF = caPrefName(
+  "interception_point.clipboard_copy.keep_blocked_data_for_same_site"
+);
 
 // The default of browser.contentanalysis.wasm_backend_max_content_bytes. Keep
 // in sync with StaticPrefList.yaml.
@@ -101,6 +107,9 @@ function releaseContentAnalysisPrefs() {
     lazy.PoliciesUtils.unsetAndUnlockPref(
       caPrefName(`interception_point.${suffix}.plain_text_only`)
     );
+  }
+  if (AppConstants.MOZ_ENTERPRISE) {
+    lazy.PoliciesUtils.unsetAndUnlockPref(KEEP_BLOCKED_DATA_PREF);
   }
 }
 
@@ -237,6 +246,11 @@ function applyBuiltinDlp(dlpParam) {
     );
   }
 
+  // The pref only exists in Enterprise builds.
+  if (AppConstants.MOZ_ENTERPRISE) {
+    lazy.PoliciesUtils.setAndLockPref(KEEP_BLOCKED_DATA_PREF, true);
+  }
+
   lazy.PoliciesUtils.setPrefIfPresentAndLock(
     dlpParam,
     "AllowUrlRegexList",
@@ -363,6 +377,15 @@ function applyContentAnalysisConfig(caParam) {
         value
       );
     }
+    // The pref only exists in Enterprise builds.
+    if (AppConstants.MOZ_ENTERPRISE) {
+      let value = true;
+      let point = caParam.InterceptionPoints.ClipboardCopy;
+      if (point && "KeepBlockedDataForSameSite" in point) {
+        value = !!point.KeepBlockedDataForSameSite;
+      }
+      lazy.PoliciesUtils.setAndLockPref(KEEP_BLOCKED_DATA_PREF, value);
+    }
   } else {
     for (let [, suffix] of CA_INTERCEPTION_POINTS) {
       Services.prefs.lockPref(
@@ -373,6 +396,9 @@ function applyContentAnalysisConfig(caParam) {
       Services.prefs.lockPref(
         caPrefName(`interception_point.${suffix}.plain_text_only`)
       );
+    }
+    if (AppConstants.MOZ_ENTERPRISE) {
+      Services.prefs.lockPref(KEEP_BLOCKED_DATA_PREF);
     }
   }
 }
