@@ -573,6 +573,18 @@ def target_tasks_enterprise_firefox_with_tests(
     )
 
     def filter(task):
+        # HACK
+        if "enterprise" in task.label and "shippable" in task.label:
+            if "smp" in task.label:
+                if "stageGCP" in task.label:
+                    return True
+                elif "sbxTb" in task.label:
+                    return True
+                else:
+                    return False
+
+            return True
+
         if parameters["tasks_for"].startswith("github-pull-request"):
             tier = task.task.get("extra", {}).get("treeherder", {}).get("tier", 3)
             platform = (

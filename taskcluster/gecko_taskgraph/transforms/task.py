@@ -2139,6 +2139,8 @@ def validate(config, tasks):
 
 @index_builder("generic")
 def add_generic_index_routes(config, task):
+    return task
+
     index = task.get("index")
     routes = task.setdefault("routes", [])
 

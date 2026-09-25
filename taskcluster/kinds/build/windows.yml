@@ -475,11 +475,11 @@ win64/opt:
 
 win64-enterprise-shippable/opt:
     description: "Win64 Enterprise Shippable Opt"
-    use-pgo: win64-shippable/opt
-    index:
-        product: firefox
-        job-name: win64-enterprise-opt
-        type: shippable
+    #use-pgo: win64-shippable/opt
+    #index:
+    #    product: firefox
+    #    job-name: win64-enterprise-opt
+    #    type: shippable
     attributes:
         shippable: true
         enable-build-signing: true
@@ -702,11 +702,11 @@ win64-aarch64-enterprise/debug:
 
 win64-aarch64-enterprise-shippable/opt:
     description: "AArch64 Win64 Enterprise Shippable"
-    use-pgo: win64-shippable/opt
-    index:
-        product: firefox
-        job-name: win64-aarch64-enterprise-opt
-        type: shippable
+    #use-pgo: win64-shippable/opt
+    #index:
+    #    product: firefox
+    #    job-name: win64-aarch64-enterprise-opt
+    #    type: shippable
     attributes:
         shippable: true
         enable-build-signing: true

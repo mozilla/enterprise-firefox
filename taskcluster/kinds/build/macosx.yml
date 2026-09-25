@@ -245,17 +245,17 @@ macosx64/opt:
 
 macosx64-x64-enterprise-shippable/opt:
     description: "MacOS X x64 Enterprise Shippable"
-    use-pgo: macosx64-shippable/opt
+    #use-pgo: macosx64-shippable/opt
     attributes:
         enable-full-crashsymbols: true
         skip-verify-test-packaging: true
         upload-generated-sources: true
     shipping-phase: build
     shipping-product: firefox-enterprise
-    index:
-        product: firefox
-        job-name: macosx64-x64-enterprise-opt
-        type: shippable
+    #index:
+    #    product: firefox
+    #    job-name: macosx64-x64-enterprise-opt
+    #    type: shippable
     treeherder:
         platform: osx-enterprise-shippable/opt
         symbol: Bpgo(Bxent)
@@ -283,17 +283,17 @@ macosx64-x64-enterprise-shippable/opt:
 
 macosx64-aarch64-enterprise-shippable/opt:
     description: "MacOS X aarch64 Enterprise Shippable"
-    use-pgo: macosx64-aarch64-shippable/opt
+    #use-pgo: macosx64-aarch64-shippable/opt
     attributes:
         enable-full-crashsymbols: true
         skip-verify-test-packaging: true
         upload-generated-sources: true
     shipping-phase: build
     shipping-product: firefox-enterprise
-    index:
-        product: firefox
-        job-name: macosx64-aarch64-enterprise-opt
-        type: shippable
+    #index:
+    #    product: firefox
+    #    job-name: macosx64-aarch64-enterprise-opt
+    #    type: shippable
     treeherder:
         platform: osx-aarch64-enterprise-shippable/opt
         symbol: Bpgo(Bent)
@@ -329,10 +329,10 @@ macosx64-enterprise-shippable/opt:
         skip-verify-test-packaging: true
     shipping-phase: build
     shipping-product: firefox-enterprise
-    index:
-        product: firefox
-        job-name: macosx64-enterprise-opt
-        type: shippable
+    #index:
+    #    product: firefox
+    #    job-name: macosx64-enterprise-opt
+    #    type: shippable
     treeherder:
         platform: osx-enterprise-shippable/opt
         symbol: Bpgo(Bent)
