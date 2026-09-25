@@ -177,12 +177,7 @@ static void RecordBlocklistDomainBrowsedTelemetry(nsIChannel* aChannel,
       .url = Some(blockedUrlTelemetry),
   };
   glean::content_policy::blocklist_domain_browsed.Record(Some(extra));
-
-  if (!Preferences::GetBool(
-          "browser.policies.enterprise.telemetry.testing.disableSubmit",
-          false)) {
-    glean_pings::Enterprise.Submit();
-  }
+  glean_pings::Enterprise.Submit();
 }
 #endif
 
