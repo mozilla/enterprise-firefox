@@ -320,13 +320,15 @@ export var PoliciesPrefTracker = {
       let defaults = new Preferences({ defaultBranch: true });
       let stored = {};
 
-      if (
-        Services.prefs.getDefaultBranch("").getPrefType(prefName) !=
-        Ci.nsIPrefBranch.PREF_INVALID
-      ) {
+      if (Services.prefs.prefHasDefaultValue(prefName)) {
         stored.originalDefaultValue = defaults.get(prefName);
       } else {
         stored.originalDefaultValue = undefined;
+        // Restoring a pref without a default deletes it outright, which would
+        // take a pre-existing user value with it.
+        if (Services.prefs.prefHasUserValue(prefName)) {
+          stored.originalUserValue = Preferences.get(prefName);
+        }
       }
 
       if (
