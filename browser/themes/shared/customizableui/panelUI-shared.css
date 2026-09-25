@@ -3039,6 +3039,34 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   padding: var(--space-small);
 }
 
+#content-analysis-local-copy {
+  margin-top: var(--space-medium);
+  gap: var(--space-xsmall);
+
+  > h2 {
+    font-size: inherit;
+    font-weight: var(--font-weight-bold);
+    margin: 0;
+  }
+
+  > #content-analysis-local-copy-preview {
+    font-family: monospace;
+    padding: var(--space-xsmall) var(--space-small);
+    border: var(--border-width) solid var(--border-color-deemphasized);
+    border-radius: var(--border-radius-small);
+    overflow-wrap: anywhere;
+  }
+
+  > #content-analysis-local-copy-source {
+    color: var(--text-color-deemphasized);
+  }
+
+  > #content-analysis-local-copy-buttons {
+    margin-top: var(--space-small);
+    gap: var(--space-small);
+  }
+}
+
 /* ----- IP Protection panel ----- */
 #PanelUI-ipprotection {
   padding: var(--space-small);

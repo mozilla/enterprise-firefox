@@ -256,6 +256,27 @@ interface nsIClipboard : nsISupports
                                                  [optional] in WindowContext aRequestingWindowContext);
 
    /**
+    * Fills aTransferable from the copy that content analysis has not (yet) let
+    * onto the system clipboard (see mozilla::widget::ClipboardLocalCopy), if
+    * there is one that is still current and that aRequestingWindowContext matches
+    * the tab and site. Like getData(), this fills the first flavor aTransferable
+    * accepts that the copy has (flavors the copy lacks leave it empty, as a native read would).
+    * Callers must still run the paste content analysis check on what they get back.
+    *
+    * @param  aTransferable The transferable to fill.
+    * @param  aWhichClipboard Specifies the clipboard to which this operation applies.
+    * @param  aRequestingWindowContext
+    *         The window asking for the data. Chrome and parent-process windows
+    *         never qualify, nor does null.
+    * @return Whether there is such a copy for the window. When false,
+    *         aTransferable is left untouched and the caller should read the
+    *         clipboard as usual.
+    */
+    boolean getLocalCopyDataFor(in nsITransferable aTransferable,
+                                in nsIClipboard_ClipboardType aWhichClipboard,
+                                in WindowContext aRequestingWindowContext);
+
+   /**
     * This empties the clipboard and notifies the clipboard owner.
     * This empties the "logical" clipboard. It does not clear the native clipboard.
     *

@@ -355,6 +355,23 @@
   -moz-context-properties: fill, stroke;
   stroke: var(--toolbarbutton-icon-fill);
   list-style-image: url("chrome://global/skin/icons/content-analysis.svg");
+
+  /* A copy is being kept on the local clipboard (pending, warned about or
+   * blocked); see ContentAnalysis.sys.mjs. Same dot styling as the
+   * .toolbarbutton-badge.feature-callout rule in toolbarbuttons.css and the
+   * #remote-control-toolbar-button rule above. Keep them in sync. */
+  &[badge-status="local-copy"] > .toolbarbutton-badge-stack > .toolbarbutton-badge {
+    width: 14px;
+    height: 14px;
+    min-width: auto;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    display: block;
+    margin: -7px 0 0 !important;
+    margin-inline-end: -6px !important;
+    background: url("chrome://global/skin/icons/badge-blue.svg");
+  }
 }
 
 #fxms-bmb-button {

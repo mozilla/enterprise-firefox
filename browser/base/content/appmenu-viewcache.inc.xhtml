@@ -1028,6 +1028,19 @@
                 class="learnMore"
                 support-page="data-loss-prevention"/>
       </description>
+#ifdef MOZ_ENTERPRISE
+      <vbox id="content-analysis-local-copy" hidden="true">
+        <html:h2 id="content-analysis-local-copy-status"/>
+        <description id="content-analysis-local-copy-preview"/>
+        <description id="content-analysis-local-copy-source"/>
+        <hbox id="content-analysis-local-copy-buttons" pack="end">
+          <html:moz-button id="content-analysis-local-copy-release"
+                           type="primary"
+                           closemenu="none"
+                           data-l10n-id="content-analysis-local-copy-release-button"/>
+        </hbox>
+      </vbox>
+#endif
     </vbox>
   </panelview>
 

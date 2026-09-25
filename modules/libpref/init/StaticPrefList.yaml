@@ -1455,6 +1455,21 @@
   value: true
   mirror: always
 
+#ifdef MOZ_ENTERPRISE
+# When content analysis blocks a copy from web content, should Firefox keep
+# the blocked data so the same site can still paste it inside Firefox?
+# The system clipboard only ever gets a placeholder notice either way.
+# The kept data still goes through the paste content analysis check.
+#
+# Because the data is kept from the moment the copy happens, this also lets the copying
+# page continue without waiting for the verdict. Has no effect unless
+# browser.contentanalysis.interception_point.clipboard_copy.enabled is true.
+- name: browser.contentanalysis.interception_point.clipboard_copy.keep_blocked_data_for_same_site
+  type: bool
+  value: true
+  mirror: always
+#endif
+
 # Should Firefox use content analysis for download operations?
 # Note that this has no effect unless browser.contentanalysis.enabled
 # is true.

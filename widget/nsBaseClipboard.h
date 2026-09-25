@@ -10,6 +10,7 @@
 #include "mozilla/MoveOnlyFunction.h"
 #include "mozilla/Result.h"
 #include "mozilla/dom/PContent.h"
+#include "mozilla/widget/ClipboardLocalCopy.h"
 #include "nsCOMPtr.h"
 #include "nsIClipboard.h"
 #include "nsITransferable.h"
@@ -20,6 +21,7 @@ extern mozilla::LazyLogModule gWidgetClipboardLog;
 #define MOZ_CLIPBOARD_LOG_ENABLED() \
   MOZ_LOG_TEST(gWidgetClipboardLog, mozilla::LogLevel::Debug)
 
+class nsIContentAnalysisResponse;
 class nsITransferable;
 class nsIClipboardOwner;
 class nsIPrincipal;
@@ -73,6 +75,10 @@ class nsBaseClipboard : public nsIClipboard {
       const nsTArray<nsCString>& aFlavorList, ClipboardType aWhichClipboard,
       mozilla::dom::WindowContext* aRequestingWindowContext,
       nsIClipboardDataSnapshot** _retval) override final;
+  NS_IMETHOD GetLocalCopyDataFor(
+      nsITransferable* aTransferable, ClipboardType aWhichClipboard,
+      mozilla::dom::WindowContext* aRequestingWindowContext,
+      bool* aFound) override final;
   NS_IMETHOD EmptyClipboard(ClipboardType aWhichClipboard) override final;
   NS_IMETHOD HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList,
                                     ClipboardType aWhichClipboard,
@@ -105,10 +111,25 @@ class nsBaseClipboard : public nsIClipboard {
   using GetWebCustomFormatsCallback = mozilla::MoveOnlyFunction<void(
       mozilla::Result<nsTArray<nsCString>, nsresult>)>;
 
+  // The inner window ID of the window whose data is on the clipboard, if we
+  // know it. This is the copying window both for data we put on the native
+  // clipboard and for data content analysis refused to put there (see
+  // GetLocalCopyDataFor), so paste-side content analysis can tell whether
+  // a paste is coming back to the tab it was copied from.
   mozilla::Maybe<uint64_t> GetClipboardCacheInnerWindowId(
       ClipboardType aClipboardType);
   virtual mozilla::Result<int32_t, nsresult> GetNativeClipboardSequenceNumber(
       ClipboardType aWhichClipboard) = 0;
+
+  // Returns mLocalCopy if it holds data keyed to the clipboard's current
+  // sequence number, otherwise null. Only the global clipboard ever has one.
+  mozilla::widget::ClipboardLocalCopy* GetLocalCopyIfCurrent(
+      ClipboardType aWhichClipboard);
+
+  // Fills the first flavor aDest can import that aSource has data for, the
+  // way a native clipboard read would. Returns NS_ERROR_FAILURE if none.
+  static nsresult GetDataFromTransferable(nsITransferable* aSource,
+                                          nsITransferable* aDest);
 
   class ClipboardPopulatedDataSnapshot final : public nsIClipboardDataSnapshot {
    public:
@@ -226,9 +247,38 @@ class nsBaseClipboard : public nsIClipboard {
   void OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
                                    PendingCopy* aPendingCopy, bool aAllowed);
 
-  // Replaces the clipboard contents with a localized notice that the copy was
-  // not permitted.
-  void WriteCopyBlockedPlaceholder(ClipboardType aWhichClipboard);
+  // Called on the main thread when a deferred copy gets a warn verdict the
+  // user has yet to answer. Only used while the local copy is kept
+  // (keep_blocked_data_for_same_site). Writes the warn placeholder, keeps the
+  // copy in mLocalCopy for the copying tab, and completes the copy
+  // so the page can go on.
+  void OnCopyContentAnalysisWarn(ClipboardType aWhichClipboard,
+                                 PendingCopy* aPendingCopy,
+                                 nsIContentAnalysisResponse* aResponse);
+
+  // Replace the clipboard contents with a localized notice that the copy was
+  // not permitted, or that it is waiting for the user's answer to a warning.
+  // Return true if the placeholder is now on the clipboard.
+  bool WriteCopyBlockedPlaceholder(ClipboardType aWhichClipboard);
+  bool WriteCopyWarnPlaceholder(ClipboardType aWhichClipboard);
+  bool WriteCopyPlaceholder(ClipboardType aWhichClipboard,
+                            const nsACString& aL10nId);
+
+  // A Firefox-side source for a clipboard read that takes precedence over the
+  // native clipboard: either the blocked copy (same-site only, see
+  // ClipboardLocalCopy) or the clipboard cache (the transferable we last
+  // wrote natively, when widget.clipboard.use-cached-data.enabled is on).
+  struct LocalClipboardData {
+    nsCOMPtr<nsITransferable> mTransferable;
+    // The native sequence number this data is keyed to; a read is stale once
+    // the clipboard's sequence number differs.
+    int32_t mSequenceNumber = -1;
+    // Who the data came from.
+    nsCOMPtr<nsIPrincipal> mDataPrincipal;
+  };
+  mozilla::Maybe<LocalClipboardData> GetLocalClipboardData(
+      mozilla::dom::WindowGlobalParent* aRequestingWindow,
+      ClipboardType aWhichClipboard);
 
   // Drops any deferred copy for this clipboard type, completing it with
   // aReason.  No-op if there isn't one.
@@ -267,11 +317,19 @@ class nsBaseClipboard : public nsIClipboard {
     nsCOMPtr<nsIAsyncClipboardRequestCallback> mCallback;
   };
 
+  // Where a ClipboardDataSnapshot reads its data from.
+  enum class SnapshotSource {
+    // The native clipboard.
+    eNative,
+    // GetLocalClipboardData(), re-resolved at read time.
+    eLocal,
+  };
+
   class ClipboardDataSnapshot final : public nsIClipboardDataSnapshot {
    public:
     ClipboardDataSnapshot(
         nsIClipboard::ClipboardType aClipboardType, int32_t aSequenceNumber,
-        nsTArray<nsCString>&& aFlavors, bool aFromCache,
+        nsTArray<nsCString>&& aFlavors, SnapshotSource aSource,
         nsBaseClipboard* aClipboard,
         mozilla::dom::WindowContext* aRequestingWindowContext);
 
@@ -296,8 +354,7 @@ class nsBaseClipboard : public nsIClipboard {
     const int32_t mSequenceNumber;
     // List of available data types for clipboard content.
     const nsTArray<nsCString> mFlavors;
-    // Data should be read from cache.
-    const bool mFromCache;
+    const SnapshotSource mSource;
     // This is also used to indicate whether this request is still valid.
     RefPtr<nsBaseClipboard> mClipboard;
     // The requesting window, which is used for Content Analysis purposes.
@@ -330,7 +387,6 @@ class nsBaseClipboard : public nsIClipboard {
     nsIClipboardOwner* GetClipboardOwner() const { return mClipboardOwner; }
     int32_t GetSequenceNumber() const { return mSequenceNumber; }
     mozilla::Maybe<uint64_t> GetInnerWindowId() const { return mInnerWindowId; }
-    nsresult GetData(nsITransferable* aTransferable) const;
 
    private:
     nsCOMPtr<nsITransferable> mTransferable;
@@ -351,22 +407,30 @@ class nsBaseClipboard : public nsIClipboard {
 
   mozilla::Result<nsTArray<nsCString>, nsresult> GetFlavorsFromClipboardCache(
       ClipboardType aClipboardType);
-  nsresult GetDataFromClipboardCache(nsITransferable* aTransferable,
-                                     ClipboardType aClipboardType);
   void RequestUserConfirmation(ClipboardType aClipboardType,
                                const nsTArray<nsCString>& aFlavorList,
                                mozilla::dom::WindowContext* aWindowContext,
                                nsIPrincipal* aRequestingPrincipal,
                                nsIClipboardGetDataSnapshotCallback* aCallback);
 
-  already_AddRefed<nsIClipboardDataSnapshot>
-  MaybeCreateGetRequestFromClipboardCache(
+  // A snapshot over GetLocalClipboardData(), or null if there is none.
+  already_AddRefed<nsIClipboardDataSnapshot> MaybeCreateGetRequestFromLocalData(
       const nsTArray<nsCString>& aFlavorList, ClipboardType aClipboardType,
       mozilla::dom::WindowContext* aRequestingWindowContext);
+
+  // The subset of aFlavorList that aTransferable can provide, expanding the
+  // web custom format map type into the custom formats present.
+  static mozilla::Result<nsTArray<nsCString>, nsresult>
+  FilterFlavorsByTransferable(const nsTArray<nsCString>& aFlavorList,
+                              nsITransferable* aTransferable);
 
   // Clean up data in transferable for posting to clipboard or dragging.  This
   // guarantees that text data does not include NUL characters.
   static nsresult SanitizeForClipboard(nsITransferable* aTransferable);
+
+  // Whether any string data in aTransferable is larger than aThreshold bytes.
+  static bool TransferableExceedsThreshold(nsITransferable* aTransferable,
+                                           uint64_t aThreshold);
 
   // Track the pending request for each clipboard type separately. And only need
   // to track the latest request for each clipboard type as the prior pending
@@ -382,6 +446,9 @@ class nsBaseClipboard : public nsIClipboard {
   // Copies awaiting a content analysis verdict. Only the
   // global clipboard is ever analyzed.
   RefPtr<PendingCopy> mPendingCopy;
+  // The pending or blocked copy kept for same-site paste. Only the global
+  // clipboard is analyzed, so a single slot suffices.
+  mozilla::widget::ClipboardLocalCopy mLocalCopy;
   const mozilla::dom::ClipboardCapabilities mClipboardCaps;
   bool mIgnoreEmptyNotification = false;
 

@@ -14,6 +14,8 @@
 // The C++ service reselects its backend on EnterprisePolicies:PolicyUpdatesApplied,
 // after these prefs have settled.
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const PREF_LOGLEVEL = "browser.policies.loglevel";
 
 const lazy = {};
@@ -95,6 +97,13 @@ function releaseContentAnalysisPrefs() {
   for (let [, suffix] of CA_PLAIN_TEXT_POINTS) {
     lazy.PoliciesUtils.unsetAndUnlockPref(
       caPrefName(`interception_point.${suffix}.plain_text_only`)
+    );
+  }
+  if (AppConstants.MOZ_ENTERPRISE) {
+    lazy.PoliciesUtils.unsetAndUnlockPref(
+      caPrefName(
+        `interception_point.clipboard_copy.keep_blocked_data_for_same_site`
+      )
     );
   }
 }
@@ -225,6 +234,28 @@ function applyBuiltinDlp(dlpParam) {
       caPrefName(`interception_point.${suffix}.plain_text_only`),
       true
     );
+  }
+
+  // The pref only exists in Enterprise builds.
+  if (AppConstants.MOZ_ENTERPRISE) {
+    const keepBlockedDataPref = caPrefName(
+      `interception_point.clipboard_copy.keep_blocked_data_for_same_site`
+    );
+    if ("InterceptionPoints" in dlpParam) {
+      let value = true;
+      if (
+        "ClipboardCopy" in dlpParam.InterceptionPoints &&
+        "KeepBlockedDataForSameSite" in
+          dlpParam.InterceptionPoints.ClipboardCopy
+      ) {
+        value =
+          !!dlpParam.InterceptionPoints.ClipboardCopy
+            .KeepBlockedDataForSameSite;
+      }
+      lazy.PoliciesUtils.setAndLockPref(keepBlockedDataPref, value);
+    } else {
+      lazy.PoliciesUtils.setAndLockPref(keepBlockedDataPref, true);
+    }
   }
 
   lazy.PoliciesUtils.setPrefIfPresentAndLock(
@@ -363,6 +394,25 @@ function applyContentAnalysisConfig(caParam) {
       Services.prefs.lockPref(
         caPrefName(`interception_point.${suffix}.plain_text_only`)
       );
+    }
+  }
+  // The pref only exists in Enterprise builds.
+  if (AppConstants.MOZ_ENTERPRISE) {
+    const keepBlockedDataPref = caPrefName(
+      `interception_point.clipboard_copy.keep_blocked_data_for_same_site`
+    );
+    if ("InterceptionPoints" in caParam) {
+      let value = true;
+      if (
+        "ClipboardCopy" in caParam.InterceptionPoints &&
+        "KeepBlockedDataForSameSite" in caParam.InterceptionPoints.ClipboardCopy
+      ) {
+        value =
+          !!caParam.InterceptionPoints.ClipboardCopy.KeepBlockedDataForSameSite;
+      }
+      lazy.PoliciesUtils.setAndLockPref(keepBlockedDataPref, value);
+    } else {
+      lazy.PoliciesUtils.setAndLockPref(keepBlockedDataPref, true);
     }
   }
 }

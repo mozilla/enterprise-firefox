@@ -48,6 +48,9 @@ XPCOMUtils.defineLazyPreferenceGetter(
   true
 );
 
+const LOCAL_COPY_CHANGED_TOPIC = "clipboard-local-copy-changed";
+const LOCAL_COPY_BADGE = "local-copy";
+
 export const ContentAnalysis = {
   _SHOW_NOTIFICATIONS: true,
 
@@ -118,6 +121,14 @@ export const ContentAnalysis = {
    * @type {Set<string>}
    */
   warnDialogRequestTokens: new Set(),
+
+  /**
+   * Sequence number of the blocked local copy the user has already seen in
+   * the panel, so the indicator dot only draws attention to it once.
+   *
+   * @type {number?}
+   */
+  _seenBlockedLocalCopySequenceNumber: null,
 
   /**
    * The nsIContentAnalysis to use instead of lazy.gContentAnalysis. Should
@@ -216,6 +227,7 @@ export const ContentAnalysis = {
         );
       }
       doc.documentElement.setAttribute("contentanalysisactive", "true");
+      this._updateLocalCopyIndicator(window, this._getLocalCopyInfo());
     } else {
       doc.documentElement.removeAttribute("contentanalysisactive");
     }
@@ -227,6 +239,7 @@ export const ContentAnalysis = {
       this.requestTokenToRequestInfo.clear();
       lazy.ContentAnalysisTelemetry.reset();
       this.userActionToBusyDialogMap.clear();
+      this._seenBlockedLocalCopySequenceNumber = null;
       this.uninitializeObservers();
     }
   },
@@ -242,6 +255,7 @@ export const ContentAnalysis = {
     Services.obs.addObserver(this, "quit-application-granted");
     Services.obs.addObserver(this, "quit-application-requested");
     Services.obs.addObserver(this, "EnterprisePolicies:PolicyUpdatesApplied");
+    Services.obs.addObserver(this, LOCAL_COPY_CHANGED_TOPIC);
   },
 
   /**
@@ -258,6 +272,7 @@ export const ContentAnalysis = {
       this,
       "EnterprisePolicies:PolicyUpdatesApplied"
     );
+    Services.obs.removeObserver(this, LOCAL_COPY_CHANGED_TOPIC);
   },
 
   // nsIObserver
@@ -384,12 +399,18 @@ export const ContentAnalysis = {
             url: request.url?.spec ?? "",
             analysisType: request.analysisType,
             reason: request.reason,
+            clipboardCopyKeptLocally: request.clipboardCopyKeptLocally,
           });
-          this._queueSlowCAMessage(
-            request,
-            resourceNameOrOperationType,
-            browsingContext
-          );
+          // A copy kept on the local clipboard does not hold up the page, so
+          // there is nothing to be busy about; the indicator dot shows the
+          // copy is pending instead.
+          if (!request.clipboardCopyKeptLocally) {
+            this._queueSlowCAMessage(
+              request,
+              resourceNameOrOperationType,
+              browsingContext
+            );
+          }
         }
         break;
       case "dlp-response": {
@@ -415,7 +436,13 @@ export const ContentAnalysis = {
           return;
         }
         this.requestTokenToRequestInfo.delete(response.requestToken);
-        this._removeSlowCAMessage(response.userActionId, response.requestToken);
+        const isLocalClipboardCopy = requestInfo.clipboardCopyKeptLocally;
+        if (!isLocalClipboardCopy) {
+          this._removeSlowCAMessage(
+            response.userActionId,
+            response.requestToken
+          );
+        }
         lazy.ContentAnalysisTelemetry.recordVerdict(requestInfo, response);
         if (
           requestInfo.resourceNameOrOperationType?.operationType ===
@@ -437,7 +464,8 @@ export const ContentAnalysis = {
             responseResult,
             response.isSyntheticResponse,
             response.cancelError,
-            response.ruleMessage
+            response.ruleMessage,
+            isLocalClipboardCopy
           );
         }
         break;
@@ -449,11 +477,24 @@ export const ContentAnalysis = {
             "Got dlp-warn-resolved message but no response object was passed"
           );
         }
+        // A warning answered from the panel, or cancelled because the copy
+        // it was about is gone, no longer needs denying at quit.
+        this.warnDialogRequestTokens.delete(response.requestToken);
         lazy.ContentAnalysisTelemetry.recordWarnResolution(
           response,
           aData,
           this._isRespondingToWarnDialogsForQuit
         );
+        break;
+      }
+      case LOCAL_COPY_CHANGED_TOPIC: {
+        const info = this._getLocalCopyInfo();
+        for (let window of lazy.BrowserWindowTracker.orderedWindows) {
+          this._updateLocalCopyIndicator(window, info);
+          this._updateLocalCopyPanel(window.document, info, {
+            onlyIfShowing: true,
+          });
+        }
         break;
       }
     }
@@ -466,15 +507,176 @@ export const ContentAnalysis = {
    * @param {*} panelUI Maintains state for the main menu panel
    */
   async showPanel(element, panelUI) {
-    element.ownerDocument.l10n.setAttributes(
+    const doc = element.ownerDocument;
+    doc.l10n.setAttributes(
       lazy.PanelMultiView.getViewNode(
-        element.ownerDocument,
+        doc,
         "content-analysis-panel-description"
       ),
       "content-analysis-panel-text-styled",
       { agentName: lazy.agentName }
     );
+    const info = this._getLocalCopyInfo();
+    this._updateLocalCopyPanel(doc, info);
+    if (info?.state === Ci.nsIContentAnalysisLocalCopyInfo.BLOCKED) {
+      // Opening the panel is what the dot for a blocked copy asks for.
+      this._seenBlockedLocalCopySequenceNumber = info.sequenceNumber;
+      for (let window of lazy.BrowserWindowTracker.orderedWindows) {
+        this._updateLocalCopyIndicator(window, info);
+      }
+    }
     panelUI.showSubView("content-analysis-panel", element);
+  },
+
+  /**
+   * @returns {nsIContentAnalysisLocalCopyInfo?} what the clipboard is keeping
+   *   locally, or null if nothing (or the feature is off).
+   */
+  _getLocalCopyInfo() {
+    return this.contentAnalysis.getLocalClipboardCopyInfo();
+  },
+
+  /**
+   * Whether the indicator should carry a dot for the local copy: always while
+   * a verdict or the user's answer to a warning is outstanding, and for a
+   * blocked copy until the user has opened the panel for it (never when
+   * blocked results are not to be shown).
+   *
+   * @param {nsIContentAnalysisLocalCopyInfo?} aInfo
+   * @returns {boolean}
+   */
+  _shouldShowLocalCopyDot(aInfo) {
+    if (!aInfo) {
+      return false;
+    }
+    switch (aInfo.state) {
+      case Ci.nsIContentAnalysisLocalCopyInfo.PENDING:
+      case Ci.nsIContentAnalysisLocalCopyInfo.WARN:
+        return true;
+      case Ci.nsIContentAnalysisLocalCopyInfo.BLOCKED:
+        return (
+          lazy.showBlockedResult &&
+          aInfo.sequenceNumber !== this._seenBlockedLocalCopySequenceNumber
+        );
+    }
+    return false;
+  },
+
+  /**
+   * Sets or removes the dot on a window's indicator button(s).
+   *
+   * @param {Window} aWindow
+   * @param {nsIContentAnalysisLocalCopyInfo?} aInfo
+   */
+  _updateLocalCopyIndicator(aWindow, aInfo) {
+    const show = this._shouldShowLocalCopyDot(aInfo);
+    for (let indicator of aWindow.document.getElementsByClassName(
+      "content-analysis-indicator"
+    )) {
+      if (show) {
+        indicator.setAttribute("badge-status", LOCAL_COPY_BADGE);
+      } else {
+        indicator.removeAttribute("badge-status");
+      }
+    }
+  },
+
+  /**
+   * Fills (or hides) the local copy section of the Data protection panel.
+   *
+   * @param {Document} aDoc
+   * @param {nsIContentAnalysisLocalCopyInfo?} aInfo
+   * @param {object} [aOptions]
+   * @param {boolean} [aOptions.onlyIfShowing] - Do nothing unless the panel
+   *   is currently open in aDoc.
+   */
+  _updateLocalCopyPanel(aDoc, aInfo, { onlyIfShowing = false } = {}) {
+    const view = lazy.PanelMultiView.getViewNode(
+      aDoc,
+      "content-analysis-panel"
+    );
+    const container = lazy.PanelMultiView.getViewNode(
+      aDoc,
+      "content-analysis-local-copy"
+    );
+    if (!view || !container) {
+      return;
+    }
+    if (
+      onlyIfShowing &&
+      !(view.hasAttribute("visible") && view.closest("panel")?.state == "open")
+    ) {
+      return;
+    }
+    if (!container.hasAttribute("data-local-copy-listening")) {
+      container.setAttribute("data-local-copy-listening", "true");
+      lazy.PanelMultiView.getViewNode(
+        aDoc,
+        "content-analysis-local-copy-release"
+      ).addEventListener("click", () => this._releaseLocalCopy());
+    }
+
+    container.hidden = !aInfo;
+    if (!aInfo) {
+      return;
+    }
+    const node = id => lazy.PanelMultiView.getViewNode(aDoc, id);
+
+    let statusId;
+    switch (aInfo.state) {
+      case Ci.nsIContentAnalysisLocalCopyInfo.PENDING:
+        statusId = "content-analysis-local-copy-status-pending";
+        break;
+      case Ci.nsIContentAnalysisLocalCopyInfo.WARN:
+        statusId = "content-analysis-local-copy-status-warn";
+        break;
+      default:
+        statusId = "content-analysis-local-copy-status-blocked";
+        break;
+    }
+    aDoc.l10n.setAttributes(
+      node("content-analysis-local-copy-status"),
+      statusId
+    );
+
+    const preview = node("content-analysis-local-copy-preview");
+    if (aInfo.preview) {
+      preview.removeAttribute("data-l10n-id");
+      preview.textContent = aInfo.preview;
+    } else {
+      aDoc.l10n.setAttributes(
+        preview,
+        "content-analysis-local-copy-formatted-content"
+      );
+    }
+
+    const source = node("content-analysis-local-copy-source");
+    source.hidden = !aInfo.sourceHost;
+    if (aInfo.sourceHost) {
+      aDoc.l10n.setAttributes(source, "content-analysis-local-copy-source", {
+        host: aInfo.sourceHost,
+      });
+    }
+
+    node("content-analysis-local-copy-buttons").hidden =
+      aInfo.state !== Ci.nsIContentAnalysisLocalCopyInfo.WARN;
+  },
+
+  /**
+   * Releases the warned local copy from the panel: answers the warning with
+   * "allow", which puts the copy on the system clipboard. The panel offers no
+   * way to deny; an unanswered warning is denied when the copy is superseded
+   * or at quit.
+   */
+  _releaseLocalCopy() {
+    const info = this._getLocalCopyInfo();
+    if (info?.state !== Ci.nsIContentAnalysisLocalCopyInfo.WARN) {
+      return;
+    }
+    const token = info.warnRequestToken;
+    // As for the dialog, the quit handler may already have answered it.
+    this.warnDialogRequestTokens.delete(token);
+    this.contentAnalysis.respondToWarnDialog(token, true);
   },
 
   /**
@@ -943,6 +1145,10 @@ export const ContentAnalysis = {
    * @param {string} aRuleMessage
    *   Admin-authored message from the rule that produced this verdict, or "" if
    *   it supplied none.
+   * @param {boolean} [aIsLocalClipboardCopy]
+   *   Whether this is a copy the clipboard keeps locally. Warn and block
+   *   verdicts for those are reported through the indicator and
+   *   panel rather than dialogs.
    * @returns {Promise<NotificationInfo?>} a notification object (if shown)
    */
   async _showCAResult(
@@ -953,7 +1159,8 @@ export const ContentAnalysis = {
     aCAResult,
     aIsSyntheticResponse,
     aRequestCancelError,
-    aRuleMessage
+    aRuleMessage,
+    aIsLocalClipboardCopy = false
   ) {
     let message = null;
     let timeoutMs = 0;
@@ -975,6 +1182,13 @@ export const ContentAnalysis = {
         timeoutMs = this._RESULT_NOTIFICATION_FAST_TIMEOUT_MS;
         break;
       case Ci.nsIContentAnalysisResponse.eWarn: {
+        if (aIsLocalClipboardCopy) {
+          // The user answers from the panel (see _releaseLocalCopy);
+          // until then the copy is on the local clipboard only. Track the
+          // token so an unanswered warning is denied at quit like a dialog.
+          this.warnDialogRequestTokens.add(aRequestToken);
+          return null;
+        }
         let allow = false;
         try {
           this.warnDialogRequestTokens.add(aRequestToken);
@@ -1020,6 +1234,12 @@ export const ContentAnalysis = {
         return null;
       }
       case Ci.nsIContentAnalysisResponse.eBlock: {
+        if (aIsLocalClipboardCopy) {
+          // The copy already went on without the page waiting for it; the
+          // panel entry (and dot, subject to show_blocked_result) reports the
+          // block without interrupting.
+          return null;
+        }
         if (!aIsSyntheticResponse && !lazy.showBlockedResult) {
           // Don't show anything
           return null;
