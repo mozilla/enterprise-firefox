@@ -234,6 +234,9 @@ win64-enterprise/debug:
         env:
             PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+    mozconfig:
+        variant: debug-enterprise
+        platform: win64
     run:
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]
@@ -243,9 +246,6 @@ win64-enterprise/debug:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
             - builds/taskcluster_sub_win64/debug.py
-        mozconfig-variant: debug-enterprise
-        extra-config:
-            mozconfig_platform: win64
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
     use-sccache: true
@@ -497,6 +497,8 @@ win64-enterprise-shippable/opt:
             PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+    mozconfig:
+        platform: win64
     run:
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]
@@ -508,7 +510,6 @@ win64-enterprise-shippable/opt:
             - taskcluster_nightly.py
         extra-config:
             stage_platform: win64
-            mozconfig_platform: win64
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
     use-sccache: false
@@ -554,6 +555,8 @@ win64-enterprise/opt:
         env:
             PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+    mozconfig:
+        platform: win64
     run:
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]
@@ -564,7 +567,6 @@ win64-enterprise/opt:
             - builds/releng_base_linux_64_builds.py
         extra-config:
             stage_platform: win64
-            mozconfig_platform: win64
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
     use-sccache: true
@@ -611,6 +613,8 @@ win64-aarch64-enterprise/opt:
         env:
             PERFHERDER_EXTRA_OPTIONS: enterprise
             # MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+    mozconfig:
+        platform: win64-aarch64
     run:
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
@@ -621,7 +625,6 @@ win64-aarch64-enterprise/opt:
             - builds/releng_base_linux_64_builds.py
         extra-config:
             stage_platform: win64-aarch64
-            mozconfig_platform: win64-aarch64
             max_build_output_timeout: 3600
     use-sccache: true
     fetches:
@@ -666,6 +669,9 @@ win64-aarch64-enterprise/debug:
         env:
             PERFHERDER_EXTRA_OPTIONS: enterprise
             # MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+    mozconfig:
+        variant: debug-enterprise
+        platform: win64-aarch64
     run:
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
@@ -674,10 +680,8 @@ win64-aarch64-enterprise/debug:
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
-        mozconfig-variant: debug-enterprise
         extra-config:
             stage_platform: win64-aarch64
-            mozconfig_platform: win64-aarch64
             max_build_output_timeout: 3600
     use-sccache: true
     fetches:
@@ -727,6 +731,8 @@ win64-aarch64-enterprise-shippable/opt:
             PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+    mozconfig:
+        platform: win64-aarch64
     run:
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
@@ -737,7 +743,6 @@ win64-aarch64-enterprise-shippable/opt:
             - builds/releng_base_linux_64_builds.py
         extra-config:
             stage_platform: win64-aarch64
-            mozconfig_platform: win64-aarch64
             max_build_output_timeout: 3600
     use-sccache: false
     fetches:

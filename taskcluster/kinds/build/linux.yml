@@ -525,6 +525,8 @@ linux64-enterprise/debug:
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
             MOZ_ENABLE_FULL_SYMBOLS: "1"
+    mozconfig:
+        variant: debug-enterprise
     run:
         using: mozharness
         actions: [get-secrets, build]
@@ -534,7 +536,6 @@ linux64-enterprise/debug:
         script: "mozharness/scripts/fx_desktop_build.py"
         secrets: true
         custom-build-variant-cfg: debug
-        mozconfig-variant: debug-enterprise
         tooltool-downloads: public
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
@@ -1571,6 +1572,9 @@ linux64-enterprise-rusttests/opt:
         max-run-time: 2700
         env:
             PERFHERDER_EXTRA_OPTIONS: enterprise-rusttests
+    mozconfig:
+        variant: rusttests-enterprise
+        app: tools/rusttests
     run:
         using: mozharness
         actions: [get-secrets, build]
@@ -1580,12 +1584,6 @@ linux64-enterprise-rusttests/opt:
         script: "mozharness/scripts/fx_desktop_build.py"
         secrets: true
         custom-build-variant-cfg: rusttests
-        mozconfig-variant: rusttests
-        # The felt crate is only built (and so only testable) with
-        # MOZ_ENTERPRISE, which the rusttests mozconfig does not set.
-        extra-config:
-            extra_mozconfig_content:
-                - ac_add_options --enable-enterprise
         tooltool-downloads: public
         keep-artifacts: false
     run-on-projects: ["enterprise-firefox"]
@@ -1906,9 +1904,6 @@ linux64-aarch64-enterprise-shippable/opt:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
             - taskcluster_nightly.py
-        extra-config:
-            extra_mozconfig_content:
-                - ac_add_options --target=aarch64
         script: "mozharness/scripts/fx_desktop_build.py"
         secrets: true
         tooltool-downloads: public
