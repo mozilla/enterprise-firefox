@@ -11,6 +11,8 @@ run-if = ["enterprise"]
 
 ["test_live_remote_fetch_error_message.js"]
 
+["test_live_repeated_poll_errors.js"]
+
 ["test_managed_init_fails_closed.js"]
 
 ["test_null_local_policy_preserves_console.js"]
