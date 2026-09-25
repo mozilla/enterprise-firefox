@@ -32,6 +32,7 @@ from . import GECKO
 from .actions import render_actions_json
 from .files_changed import get_changed_files
 from .parameters import (
+    COMM_TASKGRAPH_ROOT,
     get_app_version,
     get_release_type,
     get_version,
@@ -377,6 +378,19 @@ def get_decision_parameters(graph_config, options):
         # `files_changed` is derived further down, once parameter overrides had a
         # chance to correct `base_rev`.
         parameters["hg_branch"] = None
+
+    # A Firefox Enterprise push also spawns a Thunderbird decision task, whose
+    # graph this one knows nothing about. Record how to reach it so actions can
+    # be offered for it here and forwarded (see `actions.forward_comm`); unset
+    # on every push that spawns no such task.
+    if comm_decision_task_id := os.environ.get("COMM_DECISION_TASK_ID"):
+        parameters["comm_graph"] = {
+            "task_id": comm_decision_task_id,
+            "root": COMM_TASKGRAPH_ROOT,
+            "head_repository": os.environ["COMM_HEAD_REPOSITORY"],
+            "head_ref": os.environ["COMM_HEAD_REF"],
+            "head_rev": os.environ["COMM_HEAD_REV"],
+        }
 
     # Define default filter list, as most configurations shouldn't need
     # custom filters.
