@@ -23,6 +23,8 @@ user_pref("toolkit.telemetry.server", "https://%(server)s/telemetry-dummy");
 user_pref("telemetry.fog.test.localhost_port", -1);
 user_pref("telemetry.fog.test.activity_limit", -1);
 user_pref("telemetry.fog.test.inactivity_limit", -1);
+// Slow down early "events" pings to make testing easier.
+user_pref("telemetry.fog.test.decelerate_early_events", true);
 // Prevent Remote Settings to issue non local connections.
 user_pref("services.settings.server", "data:,#remote-settings-dummy/v1");
 // Prevent intermediate preloads to be downloaded on Remote Settings polling.

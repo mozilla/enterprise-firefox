@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { UrlbarUtils } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
+
 import { RealtimeSuggestProvider } from "moz-src:///browser/components/urlbar/private/RealtimeSuggestProvider.sys.mjs";
 
 /**
@@ -90,7 +92,7 @@ export class FlightStatusSuggestions extends RealtimeSuggestProvider {
     ];
   }
 
-  getViewUpdateForPayloadItem(item, index) {
+  getViewUpdateForPayloadItem(item, index, controller) {
     let status;
     switch (item.status) {
       case "Scheduled": {
@@ -145,6 +147,20 @@ export class FlightStatusSuggestions extends RealtimeSuggestProvider {
 
     let foregroundImage;
     let backgroundImage;
+
+    let iconUrl;
+    if (item.airline.icon) {
+      // Leave the desired size undefined so that the image's intrinsic size is
+      // used and we can keep hardcoded icon sizes in CSS and out of JS. Note
+      // that the image load will fail if it's an SVG without an intrinsic size,
+      // i.e., if it doesn't have a `width` and `height` on its `<svg>`!
+      iconUrl = UrlbarUtils.getRemoteIconUrl(
+        item.airline.icon,
+        undefined,
+        controller
+      );
+    }
+
     if (status == "inflight") {
       let backgroundImageId =
         item.progress_percent == 100
@@ -161,16 +177,14 @@ export class FlightStatusSuggestions extends RealtimeSuggestProvider {
       };
       foregroundImage = {
         attributes: {
-          src: item.airline.icon,
+          src: iconUrl,
         },
       };
     } else {
       foregroundImage = {
         attributes: {
-          src:
-            item.airline.icon ??
-            "chrome://browser/skin/urlbar/flight-airline.svg",
-          fallback: !item.airline.icon,
+          src: iconUrl ?? "chrome://browser/skin/urlbar/flight-airline.svg",
+          fallback: !iconUrl,
         },
       };
     }

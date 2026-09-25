@@ -285,6 +285,47 @@
           "Renders the hr as a direct descendant of select"
         );
       });
+
+      // setting-control passes option data to moz-option via property
+      // bindings. Those properties reflect to attributes asynchronously, so a
+      // slotchange can run before the attributes exist.
+      add_task(async function testOptionsSetViaProperties() {
+        let target = await testHelpers.renderTemplate(
+          testHelpers.html`<moz-select></moz-select>`
+        );
+        let mozSelect = target.querySelector("moz-select");
+        await mozSelect.updateComplete;
+
+        mozSelect.value = "brave";
+
+        for (let value of ["google", "brave", "bing"]) {
+          let option = document.createElement("moz-option");
+          option.value = value;
+          option.label = value;
+          option.iconSrc = "chrome://global/skin/icons/search-glass.svg";
+          mozSelect.appendChild(option);
+        }
+        await TestUtils.waitForTick();
+        await mozSelect.updateComplete;
+
+        is(
+          mozSelect.value,
+          "brave",
+          "Value assigned before the options are slotted is preserved"
+        );
+        is(
+          mozSelect.selectedOption?.value,
+          "brave",
+          "The option matching the assigned value is selected"
+        );
+        is(
+          mozSelect.shadowRoot
+            .querySelector(".panel-trigger-text")
+            ?.textContent.trim(),
+          "brave",
+          "The label of the assigned option is displayed"
+        );
+      });
     </script>
   </head>
   <body></body>

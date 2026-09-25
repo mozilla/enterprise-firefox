@@ -181,12 +181,19 @@ fn build_configuration(
         pings_per_interval,
     };
 
+    let acceleration_factor = if static_prefs::pref!("telemetry.fog.test.decelerate_early_events") {
+        0
+    } else {
+        5
+    };
+
     let builder = ConfigurationBuilder::new(false, data_path, application_id)
         .with_delay_ping_lifetime_io(true)
         .with_server_endpoint(server)
         .with_use_core_mps(true)
         .with_trim_data_to_registered_pings(true)
         .with_ping_schedule(pings::ping_schedule())
+        .with_events_ping_acceleration_factor(acceleration_factor)
         .with_rate_limit(rate_limit);
 
     Ok((builder.build(), client_info))

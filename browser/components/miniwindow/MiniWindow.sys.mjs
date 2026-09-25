@@ -149,6 +149,21 @@ export class MiniWindow {
   #abortController = null;
 
   /**
+   * When this mini window was created, for the closed event's duration.
+   *
+   * @type {number}
+   */
+  #createdAt = ChromeUtils.now();
+
+  /**
+   * How this mini window ended; see metrics.yaml. Set by whichever teardown
+   * path runs first, and read by uninit().
+   *
+   * @type {string|null}
+   */
+  #closeMethod = null;
+
+  /**
    * @param {object} manager - The MiniWindowManager singleton.
    * @param {ChromeWindow} originWin - The tab's source window.
    * @param {MozTabbrowserTab} sourceTab - The tab to move.
@@ -327,14 +342,18 @@ export class MiniWindow {
           return;
         }
         // Defer so we don't tear down while session history is mid-update.
-        Services.tm.dispatchToMainThread(() => this.returnToOriginWin(true));
+        Services.tm.dispatchToMainThread(() =>
+          this.returnToOriginWin(true, "navigated_away")
+        );
       },
       OnHistoryReload: () => true,
       OnHistoryGotoIndex: () => {
         if (this._state !== MiniWindowState.ACTIVE) {
           return;
         }
-        Services.tm.dispatchToMainThread(() => this.returnToOriginWin(true));
+        Services.tm.dispatchToMainThread(() =>
+          this.returnToOriginWin(true, "navigated_away")
+        );
       },
       OnHistoryPurge() {},
       OnHistoryTruncate() {},
@@ -389,6 +408,21 @@ export class MiniWindow {
       if (key.localName === "key" && !ALLOWED_KEYS.has(key.id)) {
         key.setAttribute("disabled", "true");
       }
+    }
+
+    const CLOSE_COMMAND_METHODS = {
+      cmd_close: "kbd_close_tab",
+      cmd_closeWindow: "kbd_close_window",
+    };
+    let { signal } = this.#abortController;
+    for (let [id, method] of Object.entries(CLOSE_COMMAND_METHODS)) {
+      this.miniWin.document.getElementById(id)?.addEventListener(
+        "command",
+        () => {
+          this.#closeMethod = method;
+        },
+        { signal }
+      );
     }
   }
 
@@ -822,7 +856,7 @@ export class MiniWindow {
       this._state !== MiniWindowState.CLOSED
     ) {
       lazy.logConsole.debug("#onUnload: falling through to returnToOriginWin");
-      this.returnToOriginWin(false);
+      this.returnToOriginWin(false, "unknown");
     }
   }
 
@@ -837,9 +871,11 @@ export class MiniWindow {
    * Returns as soon as the state is CLOSING, without waiting: the tab state
    * flush, the adopt back into originWin and the teardown all happen
    * afterwards, so the popup is still open when this returns.
+   *
+   * @param {string} [method] - how this was reached; see metrics.yaml.
    */
-  close() {
-    lazy.logConsole.debug("close", { state: this._state });
+  close(method = "close_button") {
+    lazy.logConsole.debug("close", { state: this._state, method });
     if (
       this._state === MiniWindowState.CLOSED ||
       this._state === MiniWindowState.CLOSING
@@ -847,6 +883,7 @@ export class MiniWindow {
       return;
     }
     this._state = MiniWindowState.CLOSING;
+    this.#closeMethod = method;
 
     this.#detachHistoryListener();
     this.#abortController?.abort();
@@ -870,9 +907,14 @@ export class MiniWindow {
    * Put the tab back into its original window and tear the mini window down.
    *
    * @param {boolean} focus - whether to focus the tab in originWin.
+   * @param {string} [method] - how this was reached; see metrics.yaml.
    */
-  returnToOriginWin(focus) {
-    lazy.logConsole.debug("returnToOriginWin", { state: this._state, focus });
+  returnToOriginWin(focus, method = "put_tab_back") {
+    lazy.logConsole.debug("returnToOriginWin", {
+      state: this._state,
+      focus,
+      method,
+    });
     if (
       this._state !== MiniWindowState.OPENING &&
       this._state !== MiniWindowState.FRAMED &&
@@ -881,6 +923,7 @@ export class MiniWindow {
       return;
     }
     this._state = MiniWindowState.RESTORING;
+    this.#closeMethod ??= method;
     let { tab: adopted, win: targetWin } = this.#returnTabToOrigin(focus);
     this.uninit();
     // Focus wherever the tab actually landed (originWin, or the fallback
@@ -933,6 +976,17 @@ export class MiniWindow {
 
     // A throw during teardown must not strand this popup registered;
     try {
+      let flavour = this.#cropped ? "fragment" : "full_tab";
+      let openDuration = Math.round(ChromeUtils.now() - this.#createdAt);
+      Glean.miniWindow.closed.record({
+        type: flavour,
+        method: this.#closeMethod ?? "unknown",
+        duration_ms: openDuration,
+      });
+      Glean.miniWindow.openDuration[flavour].accumulateSingleSample(
+        openDuration
+      );
+
       this.#detachHistoryListener();
       this.#abortController?.abort();
       this.#unwireToolbarReveal();

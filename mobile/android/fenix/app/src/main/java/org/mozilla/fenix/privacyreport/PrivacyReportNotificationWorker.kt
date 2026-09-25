@@ -26,6 +26,7 @@ import mozilla.components.support.base.android.NotificationsDelegate
 import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.utils.DateTimeProvider
 import mozilla.components.support.utils.DefaultDateTimeProvider
+import org.mozilla.fenix.GleanMetrics.TrackingProtection
 import org.mozilla.fenix.utils.Settings
 
 private const val PRIVACY_REPORT_NOTIFICATION_WORK_NAME = "org.mozilla.fenix.privacyreport.work"
@@ -74,6 +75,15 @@ class PrivacyReportNotificationWorker(
         try {
             ensurePrivacyReportNotificationChannelExists(applicationContext)
 
+            val notSentReason = notSentReason()
+            if (notSentReason != null) {
+                logger.info("Not sending the privacy report notification. The reason is : $notSentReason")
+                TrackingProtection.privacyReportNotificationNotSent.record(
+                    TrackingProtection.PrivacyReportNotificationNotSentExtra(reason = notSentReason.telemetryId)
+                )
+                return Result.success()
+            }
+
             // Tracking protection could have been disabled since the worker was scheduled —
             // updatePrivacyReportNotificationWorker() only re-evaluates this on HomeActivity.onResume, so re-check here
             // before doing any work.
@@ -104,6 +114,23 @@ class PrivacyReportNotificationWorker(
         }
 
         return Result.success()
+    }
+
+    /**
+     * Returns why the app could not send a privacy report notification, or `null` if there are no reasons preventing it
+     * from doing so.
+     */
+    private fun notSentReason(): PrivacyReportNotificationAvailability? {
+        // Tracking protection could have been disabled since the worker was scheduled —
+        // updatePrivacyReportNotificationWorker() only re-evaluates this on HomeActivity.onResume, so re-check here
+        // before doing any work.
+        if (!settings.shouldUseTrackingProtection) {
+            return PrivacyReportNotificationAvailability.TRACKING_PROTECTION_DISABLED
+        }
+
+        return privacyReportNotificationAvailability(applicationContext).takeIf {
+            it != PrivacyReportNotificationAvailability.AVAILABLE
+        }
     }
 
     private suspend fun fetchTrackersBlockedThisWeek(): Int {

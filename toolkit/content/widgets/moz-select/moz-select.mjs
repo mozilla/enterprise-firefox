@@ -134,12 +134,18 @@ export default class MozSelect extends MozBaseInputElement {
 
     for (const node of this.slotRef.value.assignedNodes()) {
       if (node.localName === "moz-option") {
+        // Bug 2070217 - Read the properties rather than the attributes.
+        // moz-option reflects them asynchronously, so on the slotchange that
+        // follows an option being created the attributes are still unset. The
+        // resulting valueless, iconless list clears usePanelList and matches
+        // nothing, so update() adopts the inner select's empty value and the
+        // next pass falls back to selecting the first option.
         options.push({
-          value: node.getAttribute("value"),
-          label: node.getAttribute("label"),
-          iconSrc: node.getAttribute("iconsrc"),
-          disabled: node.getAttribute("disabled") !== null,
-          hidden: node.getAttribute("hidden") !== null,
+          value: node.value,
+          label: node.label,
+          iconSrc: node.iconSrc,
+          disabled: node.disabled,
+          hidden: node.hidden,
         });
       } else if (node.localName === "hr") {
         options.push({

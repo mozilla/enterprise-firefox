@@ -1,38 +1,22 @@
 From: Ryan VanderMeulen <rvandermeulen@mozilla.com>
-Date: Sun, 23 Aug 2026 13:55:24 -0400
-Subject: Bug 1974813, Bug 1965053 - abseil-cpp compiler flag adjustments in
- absl.gni.
+Date: Thu, 24 Sep 2026 00:02:08 -0400
+Subject: Bug 2038068 - use the C++11 thread identity mode on mingw.
 
-Drops the prevent_unsafe_narrowing config, which chromium/build now includes
-automatically, and silences -Wcomma and -Wtautological-type-limit-compare.
-Those fire on deliberate comma expressions and on portability range checks that
-are tautological only on 64-bit; abseil does not enable either warning.
+Upstream picks POSIX_SETSPECIFIC for mingw. The rest of the mingw Win32-path fix is upstream now (abseil#2155), but a -DABSL_FORCE_THREAD_IDENTITY_MODE in absl.gni would not reach consumers built outside gn: protobuf inlines absl::call_once, which calls CurrentThreadIdentityIfPresent, and that has no out-of-line definition in the C++11 mode. Changing the header keeps every includer on the same mode.
 ---
- abseil-cpp/absl.gni | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ abseil-cpp/absl/base/internal/thread_identity.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/abseil-cpp/absl.gni b/abseil-cpp/absl.gni
-index 3632789e941..8cb6e8b61d4 100644
---- a/abseil-cpp/absl.gni
-+++ b/abseil-cpp/absl.gni
-@@ -38,6 +38,20 @@ template("absl_source_set") {
-         "//abseil-cpp:absl_define_config",
-       ]
- 
-+      if (moz_webrtc_build) {
-+        configs -= [ "//chromium/build/config/compiler:prevent_unsafe_narrowing" ]
-+
-+        # Silence -Wcomma / -Wtautological-type-limit-compare spam from
-+        # third-party abseil sources. See bug 1965053.
-+        if (!defined(cflags_cc)) {
-+          cflags_cc = []
-+        }
-+        cflags_cc += [
-+          "-Wno-comma",
-+          "-Wno-tautological-type-limit-compare",
-+        ]
-+      }
-+
-       if (!defined(defines)) {
-         defines = []
-       }
+diff --git a/abseil-cpp/absl/base/internal/thread_identity.h b/abseil-cpp/absl/base/internal/thread_identity.h
+index a9f26d06557..86fad8ceaa7 100644
+--- a/abseil-cpp/absl/base/internal/thread_identity.h
++++ b/abseil-cpp/absl/base/internal/thread_identity.h
+@@ -271,7 +271,7 @@ void ClearCurrentThreadIdentity();
+ #error ABSL_THREAD_IDENTITY_MODE cannot be directly set
+ #elif defined(ABSL_FORCE_THREAD_IDENTITY_MODE)
+ #define ABSL_THREAD_IDENTITY_MODE ABSL_FORCE_THREAD_IDENTITY_MODE
+-#elif defined(_WIN32) && !defined(__MINGW32__)
++#elif defined(_WIN32)
+ #define ABSL_THREAD_IDENTITY_MODE ABSL_THREAD_IDENTITY_MODE_USE_CPP11
+ #elif defined(__APPLE__) && defined(ABSL_HAVE_THREAD_LOCAL)
+ #define ABSL_THREAD_IDENTITY_MODE ABSL_THREAD_IDENTITY_MODE_USE_CPP11

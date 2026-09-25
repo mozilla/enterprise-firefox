@@ -57,6 +57,41 @@ const SANDBOXED_STORAGE_ACCESS = 0x8000;
 const SANDBOXED_DOWNLOADS = 0x10000;
 
 /**
+ * Whether a redirect landed on the requested site. A shared name is not
+ * enough: the suffix list hands out github.io, so nytimes.github.io would
+ * match nytimes.com. On a host with no suffix, each port is its own service.
+ *
+ * @param {nsIURI} requested
+ * @param {nsIURI} location
+ * @returns {boolean}
+ */
+function isSameSite(requested, location) {
+  const { eTLD } = Services;
+  if (
+    !eTLD.hasKnownPublicSuffix(requested) ||
+    !eTLD.hasKnownPublicSuffix(location)
+  ) {
+    return requested.asciiHostPort === location.asciiHostPort;
+  }
+  return eTLD.getSchemelessSite(requested) === eTLD.getSchemelessSite(location);
+}
+
+/**
+ * Whether the document a read was bound to has been replaced. A destroyed
+ * actor cannot answer for its window global, so a throw means replaced.
+ *
+ * @param {PageExtractorParent} actor
+ * @returns {boolean}
+ */
+function wasReplaced(actor) {
+  try {
+    return !actor.manager.isCurrentGlobal;
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Extract a variety of content from pages for use in a smart window.
  */
 export class PageExtractorParent extends JSWindowActorParent {
@@ -68,12 +103,15 @@ export class PageExtractorParent extends JSWindowActorParent {
    * @param {TraceId} [traceId] - Correlates this call with an enclosing
    *   headless-extractor request's profiler markers. Internal only, not a
    *   GetTextOptions field: starts its own trace when omitted.
-   * @returns {Promise<void>}
+   * @param {number} [refreshWithinMs] - A refresh only counts as a pending
+   *   navigation when it fires within this many milliseconds.
+   * @returns {Promise<{hasPendingNavigation: boolean}>}
    */
-  async waitForPageReady(traceId) {
+  async waitForPageReady(traceId, refreshWithinMs) {
     return this.#trace(lazy.Phase.waitForReady, { traceId }, event =>
       this.sendQuery("PageExtractorParent:WaitForPageReady", {
         traceId: event.traceId,
+        refreshWithinMs,
       })
     );
   }
@@ -220,6 +258,10 @@ export class PageExtractorParent extends JSWindowActorParent {
    * Get a Headless PageExtractor. It is available until the callback's returned
    * Promise is resolved. Then the headless browser is cleaned up.
    *
+   * A redirect is only followed within the requested site, and an anonymous
+   * fetch is never followed down to http. However the page got there, a
+   * location off the site is never read; the load runs out its timeout.
+   *
    * @see PageExtractorChild#getText
    *
    * @template T - The value resolved in the callback.
@@ -254,6 +296,9 @@ export class PageExtractorParent extends JSWindowActorParent {
         );
       }
     }
+    // Anonymous fetches must not be downgraded to http by a redirect.
+    const allowHttp = !anonymousFetch || url.protocol === "http:";
+
     return lazy.PageExtractorEvent.trace(
       lazy.Phase.headlessExtractor,
       {
@@ -313,8 +358,8 @@ export class PageExtractorParent extends JSWindowActorParent {
                 SANDBOXED_DOWNLOADS;
             }
 
-            const { host } = url;
-
+            const timeoutMs = lazy.headlessTimeoutMs;
+            const deadline = ChromeUtils.now() + timeoutMs;
             /** @type {PromiseWithResolvers<PageExtractorParent>} */
             let actorResolver = Promise.withResolvers();
 
@@ -337,38 +382,30 @@ export class PageExtractorParent extends JSWindowActorParent {
                   );
                   return;
                 }
-                if (URL.fromURI(location).host != host) {
+                const isAllowedScheme =
+                  location.schemeIs("https") ||
+                  (allowHttp && location.schemeIs("http"));
+                if (!isAllowedScheme || !isSameSite(url.URI, location)) {
                   lazy.console.log(
-                    "A location change happened that wasn't the host.",
-                    location.host,
-                    host
+                    "A location change happened that wasn't the same site.",
+                    location.spec,
+                    url.href
                   );
-                  // This is probably overkill, but make sure this is not a spurious
-                  // redirect.
+                  // A chain may bounce through another site, the way a consent or
+                  // single sign-on host hands the request back, so wait for the
+                  // read to fail or time out rather than giving up here.
                   return;
                 }
-                browser.removeProgressListener(
-                  onLocationChange,
-                  locationChangeFlags
-                );
 
                 /** @type {any} - This is reported as an `Element`, but it's a <browser> */
                 const topBrowser = webProgress.browsingContext.topFrameElement;
 
+                let actor;
                 try {
-                  const actor =
+                  actor =
                     topBrowser.browsingContext.currentWindowGlobal.getActor(
                       "PageExtractor"
                     );
-
-                  navigateEvent.finish({ status: "success" });
-                  actor.waitForPageReady(traceId).then(
-                    () => {
-                      lazy.console.log("Headless PageExtractor is ready", url);
-                      actorResolver.resolve(actor);
-                    },
-                    error => actorResolver.reject(error)
-                  );
                 } catch (error) {
                   // TODO (Bug 2001385) - It would be nice to catch if this is the
                   // `about:neterror` page or other similar errors. This will also fail if you
@@ -382,7 +419,30 @@ export class PageExtractorParent extends JSWindowActorParent {
                       "PageExtractor could not run on that page or the page could not be found."
                     )
                   );
+                  return;
                 }
+
+                navigateEvent.finish({ status: "success" });
+                // If the document is about to be replaced, the read of its
+                // replacement takes over from here.
+                actor
+                  .waitForPageReady(traceId, deadline - ChromeUtils.now())
+                  .then(
+                    ({ hasPendingNavigation }) => {
+                      if (!hasPendingNavigation && !wasReplaced(actor)) {
+                        lazy.console.log(
+                          "Headless PageExtractor is ready",
+                          url
+                        );
+                        actorResolver.resolve(actor);
+                      }
+                    },
+                    error => {
+                      if (!wasReplaced(actor)) {
+                        actorResolver.reject(error);
+                      }
+                    }
+                  );
               },
             };
 
@@ -412,7 +472,6 @@ export class PageExtractorParent extends JSWindowActorParent {
 
             // The load may never commit on the requested host: the network can
             // stall, or bot detection can redirect to a challenge page elsewhere.
-            const timeoutMs = lazy.headlessTimeoutMs;
             const timeoutId = lazy.setTimeout(() => {
               navigateEvent.finish({
                 status: "error",
@@ -426,14 +485,15 @@ export class PageExtractorParent extends JSWindowActorParent {
               );
             }, timeoutMs);
 
-            let actor;
             try {
-              actor = await actorResolver.promise;
+              return await callback(await actorResolver.promise, traceId);
             } finally {
               lazy.clearTimeout(timeoutId);
+              browser.removeProgressListener(
+                onLocationChange,
+                locationChangeFlags
+              );
             }
-
-            return callback(actor, traceId);
           },
           {
             // Create a custom message manager group for this browser so that the PageExtractor

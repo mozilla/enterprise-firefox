@@ -12,6 +12,13 @@ const SCREENSHOTS_LAST_SAVED_METHOD_PREF =
   "screenshots.browser.component.last-saved-method";
 const SCREENSHOTS_ENABLED_PREF = "screenshots.browser.component.enabled";
 
+// Screenshots' own `reason` strings, mapped to the entry points
+// mini_window.created reports.
+const MINI_WINDOW_ENTRY_POINTS = {
+  MiniWindowContextMenu: "content_context_menu",
+  MiniWindowToolbarButton: "toolbar_button",
+};
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -139,12 +146,18 @@ export class ScreenshotsComponentParent extends JSWindowActorParent {
         );
         ScreenshotsUtils.exit(browser);
         break;
-      case "Screenshots:MiniWindowCropSelection":
+      case "Screenshots:MiniWindowCropSelection": {
+        let entryPoint = ScreenshotsUtils.miniWindowEntryPoint(browser);
         // Exit the Screenshots UI/state first, while `browser` is still in
         // its origin window.
         ScreenshotsUtils.exit(browser);
-        await ScreenshotsUtils.miniWindowFromRegion(message.data, browser);
+        await ScreenshotsUtils.miniWindowFromRegion(
+          message.data,
+          browser,
+          entryPoint
+        );
         break;
+      }
       case "Screenshots:OverlaySelection":
         ScreenshotsUtils.setPerBrowserState(browser, {
           hasOverlaySelection: message.data.hasSelection,
@@ -576,7 +589,7 @@ export var ScreenshotsUtils = {
    */
   start(browser, reason = "", { mode = SELECTION_MODES.SCREENSHOTS } = {}) {
     const previousMode = this.browserToScreenshotsState.get(browser)?.mode;
-    this.setPerBrowserState(browser, { mode });
+    this.setPerBrowserState(browser, { mode, reason });
     const uiPhase = this.getUIPhase(browser);
     switch (uiPhase) {
       case UIPhases.CLOSED: {
@@ -1429,6 +1442,18 @@ export var ScreenshotsUtils = {
   },
 
   /**
+   * Which entry point started this Screenshots session, in the vocabulary
+   * mini_window.created reports. Only valid before exit().
+   *
+   * @param browser The current browser.
+   * @returns {string}
+   */
+  miniWindowEntryPoint(browser) {
+    let { reason } = this.browserToScreenshotsState.get(browser) ?? {};
+    return MINI_WINDOW_ENTRY_POINTS[reason] ?? "unknown";
+  },
+
+  /**
    * Convert a Screenshots overlay region selection into a Mini Window cropInfo object
    * and pop it into an always-on-top window.
    *
@@ -1438,8 +1463,9 @@ export var ScreenshotsUtils = {
    * @param {number} [data.viewportWidth] Content viewport width.
    * @param {number} [data.viewportHeight] Content viewport height.
    * @param browser The current browser.
+   * @param {string} [entryPoint] What the user acted on; see metrics.yaml.
    */
-  async miniWindowFromRegion(data, browser) {
+  async miniWindowFromRegion(data, browser, entryPoint = "unknown") {
     if (!Services.prefs.getBoolPref("browser.mini-window.enabled", false)) {
       return;
     }
@@ -1463,7 +1489,7 @@ export var ScreenshotsUtils = {
       fullZoom: browser.fullZoom,
     };
 
-    await lazy.MiniWindowManager.popRegion(tab, cropInfo);
+    await lazy.MiniWindowManager.popRegion(tab, cropInfo, entryPoint);
   },
 
   /**

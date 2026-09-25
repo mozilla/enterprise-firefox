@@ -75,8 +75,9 @@ export class WallpaperFeed {
     this.loaded = false;
     // Applying moves several prefs, and this feed reacts to two of them. Held
     // while they move, so the page is told once at the end instead of once per
-    // pref, each time with a directory sweep behind it.
-    this.applyingWallpaper = false;
+    // pref, each time with a directory sweep behind it. Counted, because an
+    // upload holds it across the whole write and an apply can land inside that.
+    this.applyingWallpaper = 0;
     this.wallpaperClient = null;
     this._onSync = this.onSync.bind(this);
   }
@@ -404,10 +405,13 @@ export class WallpaperFeed {
 
   async updateWallpapers(isStartup = false) {
     // Send the applied wallpaper before touching the file system, so the page
-    // has it as early as it did before the library existed.
-    this.broadcastAppliedWallpaper();
+    // has it as early as it did before the library existed. Not mid-upload,
+    // where the applied URL is still the picture being replaced.
+    if (!this.applyingWallpaper) {
+      this.broadcastAppliedWallpaper();
+    }
 
-    if (await this.migrateWallpaperLibrary()) {
+    if ((await this.migrateWallpaperLibrary()) && !this.applyingWallpaper) {
       this.broadcastAppliedWallpaper();
     }
 
@@ -589,14 +593,34 @@ export class WallpaperFeed {
       console.error("wallpaperUpload: invalid type");
       return null;
     }
+    // The picker selects "custom" while this is still writing, but the new URL
+    // only exists at the end. Drop the old one, then hold so the pref answer
+    // below cannot put it straight back.
+    this.store.dispatch(
+      ac.BroadcastToContent({
+        type: at.WALLPAPERS_CUSTOM_SET,
+        data: null,
+      })
+    );
+    this.applyingWallpaper++;
+
+    let savedPath = null;
     try {
-      return await locks.request(WALLPAPER_FILE_LOCK, () =>
+      savedPath = await locks.request(WALLPAPER_FILE_LOCK, () =>
         this.#writeWallpaper(file, wallpaperTheme, type, info, target)
       );
     } catch (error) {
       console.error("Could not take the wallpaper file lock:", error);
-      return null;
+    } finally {
+      this.applyingWallpaper--;
     }
+
+    // Nothing saved, so put back what is still applied. Only once the last
+    // upload is done, or that URL is one another write is about to replace.
+    if (!savedPath && !this.applyingWallpaper) {
+      this.broadcastAppliedWallpaper();
+    }
+    return savedPath;
   }
 
   /**
@@ -937,9 +961,9 @@ export class WallpaperFeed {
       publishedDate = details?.publishedDate || "";
     }
 
-    this.applyingWallpaper = true;
+    this.applyingWallpaper++;
 
-    // In a finally: if any of these throws, leaving the flag up would stop the
+    // In a finally: if any of these throws, leaving the hold up would stop the
     // page being told about a wallpaper change for the rest of the session.
     try {
       Services.prefs.setStringPref(
@@ -963,7 +987,7 @@ export class WallpaperFeed {
         ac.SetPref("widgets.pictureOfTheDay.wallpaperActive", publishedDate)
       );
     } finally {
-      this.applyingWallpaper = false;
+      this.applyingWallpaper--;
     }
 
     // Every pref agrees now, so this is the one picture content is told about.

@@ -23,11 +23,19 @@ import mozilla.components.support.test.fakes.engine.FakeEngine
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.support.utils.FakeDateTimeProvider
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mozilla.fenix.GleanMetrics.TrackingProtection
+import org.mozilla.fenix.helpers.FenixGleanTestRule
+import org.mozilla.fenix.privacyreport.PrivacyReportNotificationAvailability.APP_NOTIFICATIONS_DISABLED
+import org.mozilla.fenix.privacyreport.PrivacyReportNotificationAvailability.AVAILABLE
+import org.mozilla.fenix.privacyreport.PrivacyReportNotificationAvailability.CHANNEL_DISABLED
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
@@ -44,6 +52,8 @@ private const val PRIVACY_REPORT_NOTIFICATION_FAKE_NOW = 1_000L
 
 @RunWith(RobolectricTestRunner::class)
 class PrivacyWorkerSchedulerTest {
+
+    @get:Rule val gleanRule = FenixGleanTestRule(testContext)
 
     private lateinit var scheduler: PrivacyReportNotificationScheduler
     private lateinit var settings: Settings
@@ -230,5 +240,94 @@ class PrivacyWorkerSchedulerTest {
                     .isNotEmpty()
 
             assertFalse(workExists)
+        }
+
+    @Test
+    fun `GIVEN the feature is enabled and notifications are allowed WHEN updatePrivacyReportNotificationWorker is called THEN notifications are reported as available`() =
+        runTest {
+            every { settings.shouldUseTrackingProtection } returns true
+            every { settings.weeklyPrivacyNotificationFeatureFlagEnabled } returns true
+            every { settings.onboardingCompletedTimestamp } returns 1_000L
+
+            shadowOf(testContext.getSystemService(NotificationManager::class.java)).setNotificationsEnabled(true)
+
+            scheduler.updatePrivacyReportNotificationWorker(
+                dateTimeProvider = FakeDateTimeProvider(currentTime = PRIVACY_REPORT_NOTIFICATION_FAKE_NOW)
+            )
+
+            assertEquals(
+                AVAILABLE.telemetryId,
+                TrackingProtection.privacyReportNotificationAvailability.testGetValue(),
+            )
+        }
+
+    @Test
+    fun `GIVEN notifications are not allowed WHEN updatePrivacyReportNotificationWorker is called THEN the app-level opt-out is reported`() =
+        runTest {
+            every { settings.shouldUseTrackingProtection } returns true
+            every { settings.weeklyPrivacyNotificationFeatureFlagEnabled } returns true
+            every { settings.onboardingCompletedTimestamp } returns 1_000L
+
+            shadowOf(testContext.getSystemService(NotificationManager::class.java)).setNotificationsEnabled(false)
+
+            scheduler.updatePrivacyReportNotificationWorker()
+
+            assertEquals(
+                APP_NOTIFICATIONS_DISABLED.telemetryId,
+                TrackingProtection.privacyReportNotificationAvailability.testGetValue(),
+            )
+        }
+
+    @Test
+    fun `GIVEN the privacy report notification channel is disabled WHEN updatePrivacyReportNotificationWorker is called THEN the channel-level opt-out is reported`() =
+        runTest {
+            every { settings.shouldUseTrackingProtection } returns true
+            every { settings.weeklyPrivacyNotificationFeatureFlagEnabled } returns true
+            every { settings.onboardingCompletedTimestamp } returns 1_000L
+
+            shadowOf(testContext.getSystemService(NotificationManager::class.java)).setNotificationsEnabled(true)
+
+            testContext
+                .getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(
+                    NotificationChannel(
+                        PRIVACY_REPORT_NOTIFICATION_CHANNEL_ID,
+                        "Privacy report",
+                        NotificationManager.IMPORTANCE_NONE,
+                    )
+                )
+
+            scheduler.updatePrivacyReportNotificationWorker()
+
+            assertEquals(
+                CHANNEL_DISABLED.telemetryId,
+                TrackingProtection.privacyReportNotificationAvailability.testGetValue(),
+            )
+        }
+
+    @Test
+    fun `GIVEN the feature is disabled WHEN updatePrivacyReportNotificationWorker is called THEN no availability is reported`() =
+        runTest {
+            every { settings.shouldUseTrackingProtection } returns true
+            every { settings.weeklyPrivacyNotificationFeatureFlagEnabled } returns false
+
+            shadowOf(testContext.getSystemService(NotificationManager::class.java)).setNotificationsEnabled(true)
+
+            scheduler.updatePrivacyReportNotificationWorker()
+
+            assertNull(TrackingProtection.privacyReportNotificationAvailability.testGetValue())
+        }
+
+    @Test
+    fun `GIVEN tracking protection is disabled WHEN updatePrivacyReportNotificationWorker is called THEN no availability is reported`() =
+        runTest {
+            every { settings.shouldUseTrackingProtection } returns false
+            every { settings.weeklyPrivacyNotificationFeatureFlagEnabled } returns true
+
+            shadowOf(testContext.getSystemService(NotificationManager::class.java)).setNotificationsEnabled(true)
+
+            scheduler.updatePrivacyReportNotificationWorker()
+
+            assertNull(TrackingProtection.privacyReportNotificationAvailability.testGetValue())
         }
 }

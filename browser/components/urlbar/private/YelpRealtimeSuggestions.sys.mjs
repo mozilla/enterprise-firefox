@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { UrlbarUtils } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
+
 import { RealtimeSuggestProvider } from "moz-src:///browser/components/urlbar/private/RealtimeSuggestProvider.sys.mjs";
 
 /**
@@ -73,7 +75,7 @@ export class YelpRealtimeSuggestions extends RealtimeSuggestProvider {
     ];
   }
 
-  getViewUpdateForPayloadItem(item, index) {
+  getViewUpdateForPayloadItem(item, index, controller) {
     return {
       [`item_${index}`]: {
         attributes: {
@@ -82,7 +84,16 @@ export class YelpRealtimeSuggestions extends RealtimeSuggestProvider {
       },
       [`image_${index}`]: {
         attributes: {
-          src: item.image_url,
+          // Leave the desired size undefined so that the image's intrinsic size
+          // is used and we can keep hardcoded icon sizes in CSS and out of JS.
+          // Note that the image load will fail if it's an SVG without an
+          // intrinsic size, i.e., if it doesn't have a `width` and `height` on
+          // its `<svg>`!
+          src: UrlbarUtils.getRemoteIconUrl(
+            item.image_url,
+            undefined,
+            controller
+          ),
         },
       },
       [`title_${index}`]: {

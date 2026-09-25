@@ -306,12 +306,16 @@ export class PictureOfTheDayFeed {
       // the user's wallpaper display. The wallpaper feature pref
       // (newtabWallpapers.enabled) is deliberately left untouched: the "Set
       // wallpaper" CTA is only shown when it's already enabled, so we never
-      // force the feature on (product decision).
-      this.store.dispatch(ac.SetPref("newtabWallpapers.user.enabled", true));
-      this.store.dispatch(ac.SetPref("newtabWallpapers.wallpaper", "custom"));
-      this.store.dispatch(ac.SetPref("newtabWallpapers.initialWallpaper", ""));
+      // force the feature on (product decision). One transaction, because
+      // content re-renders on every pref broadcast: turning the display on
+      // before "custom" is selected paints whatever wallpaper was chosen last.
       this.store.dispatch(
-        ac.SetPref("widgets.pictureOfTheDay.wallpaperActive", publishedDate)
+        ac.SetMultiplePrefs({
+          "newtabWallpapers.wallpaper": "custom",
+          "newtabWallpapers.initialWallpaper": "",
+          "newtabWallpapers.user.enabled": true,
+          "widgets.pictureOfTheDay.wallpaperActive": publishedDate,
+        })
       );
     } catch (e) {
       console.error("PictureOfTheDayFeed: failed to set wallpaper", e);

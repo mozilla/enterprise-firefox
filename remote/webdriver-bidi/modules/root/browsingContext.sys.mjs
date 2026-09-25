@@ -450,7 +450,9 @@ class BrowsingContextModule extends RootBiDiModule {
       contextId,
       lazy.pprint`Expected "context" to be a string, got ${contextId}`
     );
-    const context = this._getNavigable(contextId);
+    const context = this._getNavigable(contextId, {
+      supportsPrivilegedScope: true,
+    });
 
     const originTypeValues = Object.values(OriginType);
     lazy.assert.that(

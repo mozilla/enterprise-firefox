@@ -561,11 +561,49 @@ add_task(async function test_external_cancel() {
     true
   );
 
+  let cancelPromise = waitForObserver("aswebauthsession-test-cancel");
   let closedPromise = BrowserTestUtils.domWindowClosed(win);
   Services.obs.notifyObservers(null, "aswebauthsession-request-cancel", uuid);
 
+  let data = JSON.parse(await cancelPromise);
+  Assert.equal(data.uuid, uuid, "a native cancel is answered on the request");
+
   await closedPromise;
   Assert.ok(win.closed, "window closes after a native cancel notification");
+});
+
+add_task(async function test_external_cancel_before_window_opens() {
+  let uuid = newUUID();
+  let cancelPromise = waitForObserver("aswebauthsession-test-cancel");
+  let openedPromise = new Promise(resolve => {
+    Services.ww.registerNotification(function observer(subject, topic) {
+      if (topic != "domwindowopened") {
+        return;
+      }
+      Services.ww.unregisterNotification(observer);
+      resolve(subject);
+    });
+  });
+
+  startAuthSession({
+    url: LOGIN_URL,
+    uuid,
+    callbackScheme: CALLBACK_SCHEME,
+    ephemeral: false,
+  });
+  // The window is still opening, so the session is only a pending setup.
+  Services.obs.notifyObservers(null, "aswebauthsession-request-cancel", uuid);
+
+  let data = JSON.parse(await cancelPromise);
+  Assert.equal(
+    data.uuid,
+    uuid,
+    "a native cancel is answered while the window is still opening"
+  );
+
+  let win = await openedPromise;
+  await BrowserTestUtils.domWindowClosed(win);
+  Assert.ok(win.closed, "the half-opened auth window is closed again");
 });
 
 add_task(async function test_original_auth_tab_close_cancels() {

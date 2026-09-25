@@ -3035,11 +3035,32 @@ class BrowserToolbarMiddlewareTest {
             }
 
         every { browserScreenState.readerModeStatus } returns readerModeStatus
+        settings.listenToPageFeatureFlagEnabled = false
         val middleware = buildMiddleware()
 
         val result = middleware.buildAction(toolbarAction = ToolbarAction.ReaderMode) as ActionButtonRes
 
         assertEquals(iconsR.drawable.mozac_ic_reader_view_24, result.drawableResId)
+        assertEquals(R.string.browser_menu_read, result.contentDescription)
+        assertEquals(ActionButton.State.DEFAULT, result.state)
+        assertEquals(ReaderModeClicked(false), result.onClick)
+    }
+
+    @Test
+    fun `GIVEN listen to page enabled WHEN building inactive ReaderMode action THEN uses the audio icon`() {
+        val readerModeStatus: ReaderModeStatus =
+            mockk(relaxed = true) {
+                every { isAvailable } returns true
+                every { isActive } returns false
+            }
+
+        every { browserScreenState.readerModeStatus } returns readerModeStatus
+        settings.listenToPageFeatureFlagEnabled = true
+        val middleware = buildMiddleware()
+
+        val result = middleware.buildAction(toolbarAction = ToolbarAction.ReaderMode) as ActionButtonRes
+
+        assertEquals(iconsR.drawable.mozac_ic_reader_view_audio_24, result.drawableResId)
         assertEquals(R.string.browser_menu_read, result.contentDescription)
         assertEquals(ActionButton.State.DEFAULT, result.state)
         assertEquals(ReaderModeClicked(false), result.onClick)

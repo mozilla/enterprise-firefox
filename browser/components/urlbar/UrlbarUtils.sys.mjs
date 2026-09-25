@@ -301,7 +301,13 @@ export var UrlbarUtils = {
    * protocol, which keeps the decode out of the parent process (bug 2012436).
    *
    * @param {string} iconUrl The URL of the icon.
-   * @param {number} size The desired size of the icon.
+   * @param {number} [size]
+   *   This param is relevant only if `iconUrl` is remote; it's unused
+   *   otherwise. It specifies the desired maximum width and height of the
+   *   decoded image. Pass a falsey value to decode the image at its intrinsic
+   *   size no matter how big it is. Note that SVGs without a `width` and
+   *   `height` on their `<svg>` have no intrinsic size, and a falsey value will
+   *   cause those image loads to fail. See `getMozRemoteImageURL`.
    * @param {UrlbarParentController} [controller]
    *   The controller the query runs on. It supplies the window the icon renders
    *   in, and whether that window is in a content process, which decodes what
@@ -319,23 +325,21 @@ export var UrlbarUtils = {
       !controller?.rendersInContentProcess &&
       !lazy.FaviconUtils.TRUSTED_FAVICON_SCHEMES.includes(scheme)
     ) {
-      if (Services.env.exists("XPCSHELL_TEST_PROFILE_DIR")) {
-        // XPCShell tests don't have a real window, just use fallback values.
-        return lazy.FaviconUtils.getMozRemoteImageURL(iconUrl, {
-          size,
-          stretch: false,
-          colorScheme: "light",
-        });
-      }
-      return lazy.FaviconUtils.getMozRemoteImageURL(iconUrl, {
-        size: Math.floor(size * controller.browserWindow.devicePixelRatio),
+      // XPCShell tests don't have a real window, just use fallback values.
+      let opts = {
         stretch: false,
-        colorScheme: controller.browserWindow.matchMedia(
+        colorScheme: controller?.browserWindow?.matchMedia?.(
           "(prefers-color-scheme: dark)"
         ).matches
           ? "dark"
           : "light",
-      });
+      };
+      if (size) {
+        opts.size = Math.floor(
+          size * (controller?.browserWindow?.devicePixelRatio ?? 1)
+        );
+      }
+      return lazy.FaviconUtils.getMozRemoteImageURL(iconUrl, opts);
     }
     return iconUrl;
   },
@@ -2284,6 +2288,8 @@ export class UrlbarProvider {
    *
    * @param {UrlbarResult} _result
    *   The result whose view will be updated.
+   * @param {UrlbarParentController} _controller
+   *   The controller.
    * @returns {object}
    *   A view update object as described above.  The names of properties are the
    *   the names of elements declared in the view template.  The values of
@@ -2312,7 +2318,7 @@ export class UrlbarProvider {
    *   {string} [textContent]
    *     A string that will be set as `element.textContent`.
    */
-  getViewUpdate(_result) {
+  getViewUpdate(_result, _controller) {
     return null;
   }
 

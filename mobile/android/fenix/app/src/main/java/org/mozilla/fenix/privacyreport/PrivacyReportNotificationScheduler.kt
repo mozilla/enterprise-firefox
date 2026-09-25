@@ -9,9 +9,9 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import mozilla.components.support.base.ext.isNotificationChannelEnabled
 import mozilla.components.support.utils.DateTimeProvider
 import mozilla.components.support.utils.DefaultDateTimeProvider
+import org.mozilla.fenix.GleanMetrics.TrackingProtection
 import org.mozilla.fenix.utils.Settings
 
 /**
@@ -49,19 +49,23 @@ class PrivacyReportNotificationScheduler(
             return
         }
 
-        val notificationManager = NotificationManagerCompat.from(applicationContext)
-        val featureEnabled = settings.weeklyPrivacyNotificationFeatureFlagEnabled
+        if (!settings.weeklyPrivacyNotificationFeatureFlagEnabled) {
+            PrivacyReportNotificationWorker.cancel(applicationContext)
+            return
+        }
 
-        if (featureEnabled && notificationManager.areNotificationsEnabled()) {
+        val notificationManager = NotificationManagerCompat.from(applicationContext)
+
+        if (notificationManager.areNotificationsEnabled()) {
             // Register the channel so that it appears in the Android Settings App even
             // before the first notification is sent.
             ensurePrivacyReportNotificationChannelExists(applicationContext)
         }
 
-        val shouldSchedule =
-            featureEnabled && notificationManager.isNotificationChannelEnabled(PRIVACY_REPORT_NOTIFICATION_CHANNEL_ID)
+        val availability = privacyReportNotificationAvailability(applicationContext)
+        TrackingProtection.privacyReportNotificationAvailability.set(availability.telemetryId)
 
-        if (shouldSchedule) {
+        if (availability == PrivacyReportNotificationAvailability.AVAILABLE) {
             PrivacyReportNotificationWorker.schedule(applicationContext, settings, dateTimeProvider)
         } else {
             PrivacyReportNotificationWorker.cancel(applicationContext)

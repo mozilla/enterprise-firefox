@@ -5056,7 +5056,6 @@ static bool ResolvePromise(JSContext* cx, unsigned argc, Value* vp) {
   return result;
 }
 
-#ifdef NIGHTLY_BUILD
 static bool SafeResolvePromise(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   if (!args.requireAtLeast(cx, "safeResolvePromise", 2)) {
@@ -5082,7 +5081,6 @@ static bool SafeResolvePromise(JSContext* cx, unsigned argc, Value* vp) {
   args.rval().setUndefined();
   return JS::SafeResolve(cx, promise, resolution);
 }
-#endif  // NIGHTLY_BUILD
 
 static bool RejectPromise(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
@@ -10666,13 +10664,11 @@ static const JSFunctionSpecWithHelp TestingFunctions[] = {
 JS_FN_HELP("resolvePromise", ResolvePromise, 2, 0,
 "resolvePromise(promise, resolution)",
 "  Resolve a Promise by calling the JSAPI function JS::ResolvePromise."),
-#ifdef NIGHTLY_BUILD
 JS_FN_HELP("safeResolvePromise", SafeResolvePromise, 2, 0,
 "safeResolvePromise(promise, resolution)",
 "  Resolve a Promise by calling the JSAPI function JS::SafeResolve, which\n"
 "  implements the SafePromiseResolve abstract operation from the\n"
 "  thenable-curtailment proposal."),
-#endif  // NIGHTLY_BUILD
 JS_FN_HELP("rejectPromise", RejectPromise, 2, 0,
 "rejectPromise(promise, reason)",
 "  Reject a Promise by calling the JSAPI function JS::RejectPromise."),

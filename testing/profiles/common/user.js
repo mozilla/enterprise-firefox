@@ -100,6 +100,8 @@ user_pref("browser.smartwindow.autoTabGrouping.preloadModels", false);
 user_pref("telemetry.fog.test.localhost_port", -1);
 user_pref("telemetry.fog.test.activity_limit", -1);
 user_pref("telemetry.fog.test.inactivity_limit", -1);
+// Slow down early "events" pings to make testing easier.
+user_pref("telemetry.fog.test.decelerate_early_events", true);
 // Disable overlay scrollbars on GTK for testing. A bunch of tests (specially
 // mochitests) assume scrollbars take space. We disable them on macOS (where
 // overlay is also the default) at the system level as well, so this is

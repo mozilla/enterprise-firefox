@@ -165,11 +165,11 @@ export let WebsiteFilter = {
 
   shouldLoad(contentLocation, loadInfo) {
     let contentType = loadInfo.externalContentPolicyType;
-    let url = contentLocation.spec.toLowerCase();
+    let url = contentLocation.spec;
     if (contentLocation.scheme == "view-source") {
       url = contentLocation.pathQueryRef;
-    } else if (url.startsWith("about:reader?")) {
-      url = lazy.ReaderMode.getOriginalUrl(url);
+    } else if (url.toLowerCase().startsWith("about:reader?")) {
+      url = lazy.ReaderMode.getOriginalUrl("about:reader?" + url.substring(13));
     }
     if (
       contentType == Ci.nsIContentPolicy.TYPE_DOCUMENT ||

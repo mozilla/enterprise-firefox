@@ -131,6 +131,7 @@ firefox_desktop_metrics = [
     "browser/components/ipprotection/metrics.yaml",
     "browser/components/metrics.yaml",
     "browser/components/migration/metrics.yaml",
+    "browser/components/miniwindow/metrics.yaml",
     "browser/components/newtab/metrics.yaml",
     "browser/components/places/metrics.yaml",
     "browser/components/preferences/metrics.yaml",

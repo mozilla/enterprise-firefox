@@ -327,10 +327,6 @@ class TelemetryHandler {
   // Browser objects mapped to the info in _browserInfoByURL.
   #browserToItemMap = new WeakMap();
 
-  // An array of regular expressions that match urls that could be subframes
-  // on SERPs.
-  #subframeRegexps = [];
-
   /**
    * @type {WeakMap<MozBrowser, keyof KNOWN_SEARCH_SOURCES>}
    *   A map of the latest search source for a particular browser.
@@ -367,9 +363,6 @@ class TelemetryHandler {
 
   constructor() {
     this._contentHandler = new ContentHandler({
-      browserInfoByURL: this._browserInfoByURL,
-      findBrowserItemForURL: this._findBrowserItemForURL.bind(this),
-      checkURLForSerpMatch: this._checkURLForSerpMatch.bind(this),
       findItemForBrowser: this.findItemForBrowser.bind(this),
     });
   }
@@ -550,7 +543,6 @@ class TelemetryHandler {
    *   A raw array of provider information to set.
    */
   _setSearchProviderInfo(providerInfo) {
-    this.#subframeRegexps = [];
     this._searchProviderInfo = providerInfo.map(provider => {
       let newProvider = {
         ...provider,
@@ -582,8 +574,6 @@ class TelemetryHandler {
       newProvider.subframes =
         provider.subframes?.map(obj => {
           let regexp = new RegExp(obj.regexp);
-          // Also add the Regexp to the list of urls to observe.
-          this.#subframeRegexps.push(regexp);
           return { ...obj, regexp };
         }) ?? [];
 
@@ -1086,53 +1076,6 @@ class TelemetryHandler {
     return this.#browserToItemMap.get(browser);
   }
 
-  /**
-   * Parts of the URL, like search params and hashes, may be mutated by scripts
-   * on a page we're tracking. Since we don't want to keep track of that
-   * ourselves in order to keep the list of browser objects a weak-referenced
-   * set, we do optional fuzzy matching of URLs to fetch the most relevant item
-   * that contains tracking information.
-   *
-   * @param {string} urlString URL to fetch the tracking data for.
-   * @returns {object} Map containing the following members:
-   *   - {WeakMap} browsers
-   *     Map of browser elements that belong to `url` and their ad report state.
-   *   - {object} info
-   *     Info dictionary as returned by `_checkURLForSerpMatch`.
-   *   - {number} count
-   *     The number of browser element we can most accurately tell we're
-   *     tracking, since they're inside a WeakMap.
-   */
-  _findBrowserItemForURL(urlString) {
-    let url = URL.parse(urlString);
-    if (!url) {
-      return null;
-    }
-
-    let item;
-    let currentBestMatch = 0;
-    for (let [trackingURL, candidateItem] of this._browserInfoByURL) {
-      if (currentBestMatch === Infinity) {
-        break;
-      }
-      // Make sure to cache the parsed URL object, since there's no reason to
-      // do it twice.
-      trackingURL =
-        candidateItem._trackingURL ||
-        (candidateItem._trackingURL = URL.parse(trackingURL));
-      if (!trackingURL) {
-        continue;
-      }
-      let score = this.compareUrls(url, trackingURL);
-      if (score > currentBestMatch) {
-        item = candidateItem;
-        currentBestMatch = score;
-      }
-    }
-
-    return item;
-  }
-
   // nsIWindowMediatorListener
 
   /**
@@ -1539,19 +1482,10 @@ class ContentHandler {
    *
    * @param {object} options
    *   The options for the handler.
-   * @param {Map} options.browserInfoByURL
-   *   The map of urls from TelemetryHandler.
-   * @param {(urlString: string) => object} options.findBrowserItemForURL
-   *   The function for finding a browser item for the URL.
-   * @param {(url: string) => null|object} options.checkURLForSerpMatch
-   *   The function for checking a URL for a SERP match.
    * @param {(browser: object) => object} options.findItemForBrowser
    *   The function for finding an item for the browser.
    */
   constructor(options) {
-    this._browserInfoByURL = options.browserInfoByURL;
-    this._findBrowserItemForURL = options.findBrowserItemForURL;
-    this._checkURLForSerpMatch = options.checkURLForSerpMatch;
     this._findItemForBrowser = options.findItemForBrowser;
   }
 

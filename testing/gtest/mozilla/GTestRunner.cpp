@@ -255,6 +255,8 @@ int RunGTestFunc(int* argc, char** argv) {
   // storage, making it hard to test instrumentation).
   Preferences::SetInt("telemetry.fog.test.activity_limit", -1);
   Preferences::SetInt("telemetry.fog.test.inactivity_limit", -1);
+  // Slow down early "events" pings to make testing easier.
+  Preferences::SetInt("telemetry.fog.test.decelerate_early_events", true);
   // Prevent idle-daily from firing during tests.
   Preferences::SetInt("idle.lastDailyNotification",
                       int32_t(PR_Now() / PR_USEC_PER_SEC));

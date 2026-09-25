@@ -3499,7 +3499,15 @@ void nsIFrame::BuildDisplayListForStackingContext(
               ->IsMaybeAsynchronouslyScrolled()) {
         shouldFlattenStickyItem = false;
       }
-      stickyScrollContainer->SetShouldFlatten(shouldFlattenStickyItem);
+      // The flattening decision stored on the StickyScrollContainer is shared
+      // by every sticky frame that it scrolls, so only store decisions which
+      // apply to all of them. Being inside a view transition capture flattens
+      // just the captured frame (which gets no display item at all), so
+      // storing that decision would incorrectly flatten the container's other
+      // sticky frames as well.
+      if (!aBuilder->IsInViewTransitionCapture()) {
+        stickyScrollContainer->SetShouldFlatten(shouldFlattenStickyItem);
+      }
     }
 
     if (shouldFlattenStickyItem) {

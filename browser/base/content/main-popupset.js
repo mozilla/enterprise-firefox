@@ -164,7 +164,10 @@ document.addEventListener(
           });
           break;
         case "context_openTabInMiniWindow":
-          lazy.MiniWindowManager.popTab(TabContextMenu.contextTab);
+          lazy.MiniWindowManager.popTab(
+            TabContextMenu.contextTab,
+            "tab_context_menu"
+          );
           break;
         case "context_selectAllTabs":
           gBrowser.selectAllTabs();

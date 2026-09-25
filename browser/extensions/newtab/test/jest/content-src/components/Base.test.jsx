@@ -2105,6 +2105,24 @@ describe("<BaseContent> wallpaper transitions (Bug 2057217)", () => {
     );
   });
 
+  // Bug 2072941: a replacement upload clears the applied URL while the file is
+  // written, so this is the ordinary case, not an edge one.
+  it("keeps a painted wallpaper up when the applied URL is cleared", async () => {
+    const inst = makeInstance({ wallpaper: "custom", uploadedWallpaper: null });
+    document.body.style.setProperty(
+      "--newtab-wallpaper",
+      "url(previous-wallpaper.jpg)"
+    );
+    setPropertySpy.mockClear();
+
+    await inst.updateWallpaper();
+
+    expect(document.body.style.getPropertyValue("--newtab-wallpaper")).toBe(
+      "url(previous-wallpaper.jpg)"
+    );
+    expect(setPropertySpy).not.toHaveBeenCalled();
+  });
+
   it("crops a saved wallpaper the way its position pref says", async () => {
     const filename =
       "v1-builtin-dark-topright-1-550e8400-e29b-41d4-a716-446655440000";

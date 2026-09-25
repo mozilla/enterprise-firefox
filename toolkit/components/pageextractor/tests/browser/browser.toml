@@ -3,8 +3,11 @@ prefs = [
   "browser.ml.logLevel=Info",
 ]
 support-files = [
+  "client_redirect.sjs",
   "head.js",
   "page.pdf",
+  "redirect_target.html",
+  "redirect_to.sjs",
 ]
 
 ["browser_anonymous_headless_extractor.js"]

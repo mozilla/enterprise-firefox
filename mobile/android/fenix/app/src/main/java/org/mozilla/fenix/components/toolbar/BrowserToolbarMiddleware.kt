@@ -1301,7 +1301,11 @@ class BrowserToolbarMiddleware(
                                 iconsR.drawable.mozac_ic_reader_view_fill_24
                             }
                         } else {
-                            iconsR.drawable.mozac_ic_reader_view_24
+                            if (settings.listenToPageFeatureFlagEnabled) {
+                                iconsR.drawable.mozac_ic_reader_view_audio_24
+                            } else {
+                                iconsR.drawable.mozac_ic_reader_view_24
+                            }
                         },
                     contentDescription =
                         if (browserScreenStore.state.readerModeStatus.isActive) {

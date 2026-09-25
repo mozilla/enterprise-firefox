@@ -459,6 +459,10 @@ export class PanelList extends HTMLElement {
     document.addEventListener("keydown", this);
     // Hide when a click is initiated outside the panel.
     document.addEventListener("mousedown", this);
+    // Sync our state when the UA light-dismisses the popover behind our back.
+    if (this.supportsPopover()) {
+      this.addEventListener("toggle", this);
+    }
     // Hide if focus changes and the panel isn't in focus.
     document.addEventListener("focusin", this);
     // Reset for focus tracking, we treat the first focusin differently.
@@ -479,6 +483,7 @@ export class PanelList extends HTMLElement {
     document.removeEventListener("keydown", this);
     document.removeEventListener("mousedown", this);
     document.removeEventListener("focusin", this);
+    this.removeEventListener("toggle", this);
     window.removeEventListener("resize", this);
     window.removeEventListener("scroll", this, { capture: true });
     window.removeEventListener("blur", this);
@@ -508,6 +513,13 @@ export class PanelList extends HTMLElement {
       case "blur":
       case "popuphidden":
         this.hide();
+        break;
+      case "toggle":
+        // A light dismiss closes the popover without hide() ever running,
+        // ensure state stays in sync.
+        if (e.newState === "closed" && this.open) {
+          this.open = false;
+        }
         break;
       case "click": {
         if (!inPanelList) {

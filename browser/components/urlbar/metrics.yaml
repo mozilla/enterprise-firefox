@@ -1379,6 +1379,42 @@ quick_suggest:
     send_in_pings:
       - quick-suggest
 
+  experiment_name:
+    type: string
+    description: |
+      The slug of the active `urlbar` experiment or rollout. (The `urlbar`
+      Nimbus feature does not allow coenrollment.) Other experiments are not
+      included in order to prevent user fingerprinting.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2074507
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2074507
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - najiang@mozilla.com
+    expires: never
+    send_in_pings:
+      - quick-suggest
+
+  experiment_branch:
+    type: string
+    description: |
+      The branch of the active `urlbar` experiment or rollout. (The `urlbar`
+      Nimbus feature does not allow coenrollment.) Other experiments are not
+      included in order to prevent user fingerprinting.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2074507
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2074507
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - najiang@mozilla.com
+    expires: never
+    send_in_pings:
+      - quick-suggest
+
 # Metrics from the Rust suggest component.
 #
 # We can't record metrics from Rust directly.  To work around that we:

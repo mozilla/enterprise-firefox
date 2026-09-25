@@ -1894,6 +1894,12 @@ export class AIWindow extends MozLitElement {
         ? this.#calculateCurrentMentions(contextMentions)
         : null;
     this.#smartbar.clearSmartbarInput();
+    // clearSmartbarInput() doesn't fire an input event, so explicitly clear the
+    // persisted draft to prevent committed text from reappearing on navigation.
+    this.#dispatchChromeEvent(
+      "ai-window:smartbar-input",
+      this.#getAIWindowEventOptions(lazy.EMPTY_SMARTBAR_INPUT_STATE, true)
+    );
 
     if (action === ACTION.CHAT) {
       if (
@@ -2080,10 +2086,6 @@ export class AIWindow extends MozLitElement {
       skipSystemPromptRefresh,
       assistantToolUIData,
     });
-    this.#dispatchChromeEvent(
-      "ai-window:smartbar-input",
-      this.#getAIWindowEventOptions(lazy.EMPTY_SMARTBAR_INPUT_STATE, true)
-    );
   }
 
   #handleMemoriesToggle = async event => {

@@ -738,7 +738,7 @@ add_task(async function nimbusScotchBonnetEnableOverride() {
   info("Setup Numbus value");
   const cleanUpNimbusEnable = await UrlbarTestUtils.initNimbusFeature(
     { scotchBonnetEnableOverride: true },
-    "search"
+    { featureId: "search" }
   );
   await TestUtils.waitForCondition(() => {
     return BrowserTestUtils.isVisible(

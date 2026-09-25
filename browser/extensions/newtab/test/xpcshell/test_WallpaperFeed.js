@@ -542,8 +542,16 @@ add_task(async function test_Wallpaper_protocolURI() {
     "Should dispatch WALLPAPERS_CUSTOM_SET with moz-newtab-wallpaper:// URI"
   );
 
-  // Verify the protocol URI uses the correct scheme and gets stored in state
-  const [action] = feed.store.dispatch.getCall(0).args;
+  // Verify the protocol URI uses the correct scheme and gets stored in state.
+  // Found rather than taken by position: an upload tells the page to drop the
+  // previous URL first, so the first of these carries null.
+  const action = feed.store.dispatch
+    .getCalls()
+    .map(call => call.args[0])
+    .findLast(
+      candidate =>
+        candidate.type === actionTypes.WALLPAPERS_CUSTOM_SET && candidate.data
+    );
   const wallpaperURI = action.data;
 
   Assert.ok(
@@ -3375,3 +3383,279 @@ add_task(async function test_removal_reports_where_the_image_came_from() {
 
   await clearWallpaperDirForTest();
 });
+
+// Bug 2072941: the picker tells the page to show "custom" before the write has
+// produced a URL, so the upload has to drop the old one or the page paints the
+// picture being replaced.
+const test_wallpaperUpload_clears_the_previous_url = async () => {
+  let sandbox = sinon.createSandbox();
+  let feed = getWallpaperFeedForTest();
+  await clearWallpaperDirForTest();
+
+  let clearedBeforeWrite = null;
+  sandbox.stub(feed, "writeFile").callsFake(() => {
+    clearedBeforeWrite ??= feed.store.dispatch
+      .getCalls()
+      .map(call => call.args[0])
+      .find(action => action.type === actionTypes.WALLPAPERS_CUSTOM_SET);
+    throw new Error("write failed");
+  });
+  sandbox.stub(feed, "broadcastAppliedWallpaper");
+
+  const saved = await feed.wallpaperUpload(
+    new Blob(["image"], { type: "image/png" }),
+    "light"
+  );
+
+  Assert.equal(saved, null, "The upload failed");
+  Assert.ok(
+    clearedBeforeWrite,
+    "The page is told to drop the applied URL before the write starts"
+  );
+  Assert.equal(
+    clearedBeforeWrite.data,
+    null,
+    "It is cleared rather than pointed at the picture being replaced"
+  );
+  Assert.ok(
+    feed.broadcastAppliedWallpaper.calledOnce,
+    "A failed upload puts back the URL of whatever is still applied"
+  );
+
+  sandbox.restore();
+  await clearWallpaperDirForTest();
+};
+add_task(test_wallpaperUpload_clears_the_previous_url);
+
+// A file the picker refuses never reaches the write, so the page should not be
+// told to drop the wallpaper it is showing.
+const test_wallpaperUpload_rejected_file_leaves_the_page_alone = async () => {
+  let feed = getWallpaperFeedForTest();
+
+  const saved = await feed.wallpaperUpload({ notABlob: true }, "light");
+
+  Assert.equal(saved, null, "The upload was refused");
+  Assert.ok(
+    !feed.store.dispatch
+      .getCalls()
+      .map(call => call.args[0])
+      .some(action => action.type === actionTypes.WALLPAPERS_CUSTOM_SET),
+    "Nothing was sent to the page"
+  );
+};
+add_task(test_wallpaperUpload_rejected_file_leaves_the_page_alone);
+
+// Bug 2072941: going from a built-in wallpaper to an upload, the picker sets
+// newtabWallpapers.wallpaper to "custom" while the uuid pref still names the
+// previous picture, so answering that pref change would send the page the URL
+// of the picture being replaced.
+const test_wallpaperUpload_ignores_the_pref_it_causes = async () => {
+  let sandbox = sinon.createSandbox();
+  let feed = getWallpaperFeedForTest();
+  await clearWallpaperDirForTest();
+
+  sandbox.stub(feed, "broadcastAppliedWallpaper");
+  sandbox.stub(feed, "cleanWallpaperDirectory").resolves();
+
+  let broadcastsDuringWrite = null;
+  sandbox.stub(feed, "writeFile").callsFake(async (...args) => {
+    await IOUtils.write(...args);
+    if (broadcastsDuringWrite === null) {
+      await feed.onAction({
+        type: actionTypes.PREF_CHANGED,
+        data: { name: "newtabWallpapers.wallpaper", value: "custom" },
+      });
+      broadcastsDuringWrite = feed.broadcastAppliedWallpaper.callCount;
+    }
+  });
+
+  const saved = await feed.wallpaperUpload(
+    new Blob(["image"], { type: "image/png" }),
+    "light"
+  );
+
+  Assert.ok(saved, "The upload saved");
+  Assert.equal(
+    broadcastsDuringWrite,
+    0,
+    "The wallpaper pref moving to custom mid-write tells the page nothing"
+  );
+  Assert.equal(
+    feed.applyingWallpaper,
+    0,
+    "The hold is released once the write is done"
+  );
+
+  sandbox.restore();
+  await clearWallpaperDirForTest();
+};
+add_task(test_wallpaperUpload_ignores_the_pref_it_causes);
+
+// Two uploads can be in flight at once, one waiting on the file lock. The first
+// one failing must not put back the URL of the picture the second is still
+// busy replacing.
+const test_wallpaperUpload_overlapping = async () => {
+  let sandbox = sinon.createSandbox();
+  let feed = getWallpaperFeedForTest();
+  await clearWallpaperDirForTest();
+
+  sandbox.stub(feed, "broadcastAppliedWallpaper");
+
+  let writes = 0;
+  sandbox.stub(feed, "writeFile").callsFake(async (...args) => {
+    if (++writes === 1) {
+      throw new Error("write failed");
+    }
+    await IOUtils.write(...args);
+  });
+
+  const blob = () => new Blob(["image"], { type: "image/png" });
+  const first = feed.wallpaperUpload(blob(), "light");
+  const second = feed.wallpaperUpload(blob(), "dark");
+  Assert.equal(feed.applyingWallpaper, 2, "Both uploads hold the broadcast");
+
+  Assert.equal(await first, null, "The first upload failed");
+  Assert.ok(
+    feed.broadcastAppliedWallpaper.notCalled,
+    "The failed upload says nothing while the other one is still writing"
+  );
+
+  Assert.ok(await second, "The second upload saved");
+  Assert.equal(feed.applyingWallpaper, 0, "Both holds are released");
+  Assert.ok(
+    feed.broadcastAppliedWallpaper.notCalled,
+    "The upload that saved sends its own URL, so nothing is put back"
+  );
+
+  sandbox.restore();
+  await clearWallpaperDirForTest();
+};
+add_task(test_wallpaperUpload_overlapping);
+
+// A settings sync can land while an upload is writing. Answering it would send
+// the page the URL of the picture the upload is replacing.
+const test_updateWallpapers_says_nothing_during_an_upload = async () => {
+  let sandbox = sinon.createSandbox();
+  let feed = getWallpaperFeedForTest();
+  await clearWallpaperDirForTest();
+
+  feed.wallpaperClient = {
+    async get() {
+      return [];
+    },
+  };
+  sandbox.stub(feed, "broadcastAppliedWallpaper");
+  // Resolves true so the second guard is reached rather than short-circuited.
+  sandbox.stub(feed, "migrateWallpaperLibrary").resolves(true);
+
+  let released;
+  const paused = new Promise(resolve => {
+    released = resolve;
+  });
+  let refreshedDuringWrite = null;
+  sandbox.stub(feed, "writeFile").callsFake(async (...args) => {
+    await IOUtils.write(...args);
+    if (refreshedDuringWrite === null) {
+      await feed.updateWallpapers();
+      refreshedDuringWrite = feed.broadcastAppliedWallpaper.callCount;
+      released();
+    }
+  });
+
+  const upload = feed.wallpaperUpload(
+    new Blob(["image"], { type: "image/png" }),
+    "light"
+  );
+  await paused;
+  Assert.equal(
+    refreshedDuringWrite,
+    0,
+    "A refresh mid-write leaves the page on what it is showing"
+  );
+
+  Assert.ok(await upload, "The upload saved");
+  await feed.updateWallpapers();
+  Assert.equal(
+    feed.broadcastAppliedWallpaper.callCount,
+    2,
+    "Once the write is done both refresh points send the applied URL again"
+  );
+
+  sandbox.restore();
+  await clearWallpaperDirForTest();
+};
+add_task(test_updateWallpapers_says_nothing_during_an_upload);
+
+// A plain upload never selects for itself, so a wallpaper picked during the
+// write still wins. The same-day Picture of the Day path applies on purpose.
+const test_wallpaperUpload_does_not_select_for_itself = async () => {
+  let feed = getWallpaperFeedForTest();
+  await clearWallpaperDirForTest();
+
+  Assert.ok(
+    await feed.wallpaperUpload(
+      new Blob(["image"], { type: "image/png" }),
+      "light"
+    ),
+    "The upload saved"
+  );
+
+  const selections = feed.store.dispatch
+    .getCalls()
+    .map(call => call.args[0])
+    .filter(
+      action =>
+        action.type === actionTypes.SET_PREF &&
+        [
+          "newtabWallpapers.wallpaper",
+          "newtabWallpapers.user.enabled",
+        ].includes(action.data?.name)
+    );
+  Assert.deepEqual(
+    selections,
+    [],
+    "A finished upload neither selects nor enables, so a later pick stands"
+  );
+
+  await clearWallpaperDirForTest();
+};
+add_task(test_wallpaperUpload_does_not_select_for_itself);
+
+// The same-day path applies the copy already kept instead of saving again, and
+// that apply runs inside the upload's hold. Its broadcast has to get through.
+const test_potd_same_day_still_tells_the_page = async () => {
+  let feed = getWallpaperFeedForTest();
+  await clearWallpaperDirForTest();
+
+  const press = () =>
+    feed.wallpaperUpload(
+      new Blob(["today"], { type: "image/png" }),
+      "light",
+      "potd",
+      {
+        name: "Today's picture",
+        publishedDate: "2026-07-02",
+      }
+    );
+
+  await press();
+  // The picker sets this, and here the store is a spy so its SetPref never
+  // reaches the real pref. broadcastAppliedWallpaper reads it.
+  Services.prefs.setStringPref(PREF_SELECTED_WALLPAPER, "custom");
+  feed.store.dispatch.resetHistory();
+  Assert.ok(await press(), "The second press applied the kept copy");
+
+  const sent = feed.store.dispatch
+    .getCalls()
+    .map(call => call.args[0])
+    .filter(action => action.type === actionTypes.WALLPAPERS_CUSTOM_SET);
+  Assert.ok(sent.length, "The page was told about the wallpaper");
+  Assert.ok(
+    sent.at(-1).data?.startsWith("moz-newtab-wallpaper://"),
+    "And the last thing it heard was a real URL, not the clear"
+  );
+
+  Services.prefs.clearUserPref(PREF_SELECTED_WALLPAPER);
+  await clearWallpaperDirForTest();
+};
+add_task(test_potd_same_day_still_tells_the_page);
