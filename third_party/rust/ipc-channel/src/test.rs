@@ -358,6 +358,70 @@ fn cross_process_embedded_senders_spawn() {
     target_os = "ios"
 )))]
 #[test]
+fn one_shot_server_reports_connecting_peer_pid() {
+    let (server, server_name) = IpcOneShotServer::<u32>::new().unwrap();
+    let child_pid = unsafe {
+        fork(|| {
+            let tx: IpcSender<u32> = IpcSender::connect(server_name).unwrap();
+            tx.send(42).unwrap();
+        })
+    };
+    let (_rx, received, peer_pid) = server.accept_with_peer_pid().unwrap();
+    child_pid.wait();
+    assert_eq!(received, 42);
+    assert_eq!(peer_pid, Some(child_pid as u32));
+}
+
+#[cfg(not(any(
+    feature = "force-inprocess",
+    target_os = "windows",
+    target_os = "android",
+    target_os = "ios"
+)))]
+#[test]
+fn one_shot_server_reports_peer_pid_for_large_first_message() {
+    // Just under the inline receive buffer, where the trailer no longer fits,
+    // and well past it, where the receive is retried with a larger buffer.
+    for size in [4050, 64 * 1024] {
+        let (server, server_name) = IpcOneShotServer::<Vec<u8>>::new().unwrap();
+        let child_pid = unsafe {
+            fork(|| {
+                let tx: IpcSender<Vec<u8>> = IpcSender::connect(server_name).unwrap();
+                tx.send(vec![0xab; size]).unwrap();
+            })
+        };
+        let (_rx, received, peer_pid) = server.accept_with_peer_pid().unwrap();
+        child_pid.wait();
+        assert_eq!(received, vec![0xab; size]);
+        assert_eq!(peer_pid, Some(child_pid as u32));
+    }
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[test]
+fn one_shot_server_reports_peer_pid_for_same_process_peer() {
+    let (server, server_name) = crate::ipc::IpcOneShotServer::<u32>::new().unwrap();
+    let client = thread::spawn(move || {
+        let tx: IpcSender<u32> = IpcSender::connect(server_name).unwrap();
+        tx.send(7).unwrap();
+    });
+    let (_rx, received, peer_pid) = server.accept_with_peer_pid().unwrap();
+    client.join().unwrap();
+    assert_eq!(received, 7);
+    if cfg!(feature = "force-inprocess") {
+        assert_eq!(peer_pid, None);
+    } else {
+        assert_eq!(peer_pid, Some(std::process::id()));
+    }
+}
+
+#[cfg(not(any(
+    feature = "force-inprocess",
+    target_os = "windows",
+    target_os = "android",
+    target_os = "ios"
+)))]
+#[test]
 fn cross_process_embedded_senders_fork() {
     let person = ("Patrick Walton".to_owned(), 29);
     let (server0, server0_name) = IpcOneShotServer::new().unwrap();

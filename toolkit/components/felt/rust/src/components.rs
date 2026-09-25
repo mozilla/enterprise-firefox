@@ -3,7 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 use nserror::{
     nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_NOT_CONNECTED,
-    NS_ERROR_UNEXPECTED, NS_OK,
+    NS_ERROR_PORT_ACCESS_NOT_ALLOWED, NS_ERROR_UNEXPECTED, NS_OK,
 };
 use nsstring::{nsACString, nsAString, nsCString, nsString};
 use std::cell::RefCell;
@@ -18,7 +18,7 @@ use xpcom::interfaces::{
 };
 use xpcom::{xpcom_method, RefPtr};
 
-use log::{error, trace};
+use log::{error, trace, warn};
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
 use crate::utils;
@@ -34,6 +34,18 @@ pub struct FeltXPCOM {
     is_felt_ui: bool,
     is_felt_browser: bool,
     is_felt_safe_mode: bool,
+}
+
+/// The authorization decision for a connecting peer, made from its OS process id
+/// alone and independently of the protocol-version handshake, so identity and
+/// protocol are not conflated. The peer's pid must equal the pid of the process
+/// felt expects to run as the browser: the process felt spawned, or on Windows
+/// the browser child the launcher process creates and announces to felt (see
+/// FeltProcessParent). An unavailable peer pid means the transport could not
+/// report one (BSD/illumos or the in-process transport), which is a rejection
+/// (fail-closed).
+fn peer_is_authorized(peer_pid: Option<u32>, expected_pid: u32) -> bool {
+    matches!(peer_pid, Some(peer) if peer == expected_pid)
 }
 
 #[allow(non_snake_case)]
@@ -399,32 +411,75 @@ impl FeltXPCOM {
         }
     }
 
-    fn IpcChannel(&self, browser_generation: u32) -> nserror::nsresult {
+    xpcom_method!(ipc_channel => IpcChannel(pid: u32, browser_generation: u32));
+    fn ipc_channel(
+        &self,
+        expected_pid: u32,
+        browser_generation: u32,
+    ) -> Result<(), nserror::nsresult> {
         let felt_server = match self.one_shot_server.take() {
             Some(f) => f,
             None => {
-                return NS_ERROR_FAILURE;
+                return Err(NS_ERROR_FAILURE);
             }
         };
 
         trace!("FeltXPCOM:IpcChannel() waiting on accept()");
-        let (_, tx): (_, ipc_channel::ipc::IpcSender<FeltMessage>) = felt_server.accept().unwrap();
+        // Identify the connecting peer by its OS process id, so the peer can be
+        // matched against the browser child the launcher spawned before any
+        // managed secret is sent. The accept receiver is not used past this
+        // point.
+        let (_, tx, peer_pid): (_, ipc_channel::ipc::IpcSender<FeltMessage>, _) =
+            felt_server.accept_with_peer_pid().unwrap();
 
+        // AUTHORIZATION: decided from the peer's pid alone, before the version
+        // handshake below, and kept separate from it. Any other same-user
+        // process that races to connect has a different pid (or none) and is
+        // refused here, so it never receives the primarySecret,
+        // tokens, prefs, or cookies the launcher sends afterwards over `self.tx`.
+        let authorized = peer_is_authorized(peer_pid, expected_pid);
+        if !authorized {
+            match peer_pid {
+                None => warn!(
+                    "FeltXPCOM:IpcChannel() refused IPC peer: transport reported no peer pid (no attestation)"
+                ),
+                Some(pid) => warn!(
+                    "FeltXPCOM:IpcChannel() refused IPC peer: pid {} does not match expected {}",
+                    pid, expected_pid
+                ),
+            }
+            return Err(NS_ERROR_PORT_ACCESS_NOT_ALLOWED);
+        }
+
+        // The peer is authorized. Hand it the sender it uses to talk back to
+        // felt and retain both ends; the managed secrets are sent afterwards
+        // over `self.tx`.
         let (tx_firefox_to_felt, rx): (
             ipc_channel::ipc::IpcSender<FeltMessage>,
             ipc_channel::ipc::IpcReceiver<FeltMessage>,
         ) = ipc_channel::ipc::channel().unwrap();
-        match tx.send(FeltMessage::ClientChannel(tx_firefox_to_felt)) {
-            Ok(()) => {
-                trace!("FeltXPCOM:YOUPI");
-            }
-            Err(err) => {
-                trace!("FeltXPCOM:ERROR tx0.send() {}", err);
-            }
+        if let Err(err) = tx.send(FeltMessage::ClientChannel(tx_firefox_to_felt)) {
+            trace!(
+                "FeltXPCOM:IpcChannel() failed to send ClientChannel: {}",
+                err
+            );
+            return Err(NS_ERROR_FAILURE);
         }
 
         let versions_match = match rx.recv() {
-            Ok(FeltMessage::VersionProbe(version)) => version == FELT_IPC_VERSION,
+            Ok(FeltMessage::VersionProbe(version)) => {
+                if version == FELT_IPC_VERSION {
+                    trace!("FeltXPCOM: IPC protocol version matches");
+                    true
+                } else {
+                    trace!(
+                        "FeltXPCOM: IPC protocol version mismatch (peer sent {}, expected {})",
+                        version,
+                        FELT_IPC_VERSION
+                    );
+                    false
+                }
+            }
             Ok(msg) => {
                 trace!("FeltXPCOM:rx.recv() INVALID MSG {:?}", msg);
                 false
@@ -434,12 +489,6 @@ impl FeltXPCOM {
                 false
             }
         };
-
-        if versions_match {
-            trace!("FeltXPCOM:YOUPI SAME VERSION");
-        } else {
-            trace!("FeltXPCOM:SAD NOT SAME VERSION");
-        }
 
         match tx.send(FeltMessage::VersionValidated(versions_match)) {
             Ok(()) => {
@@ -457,7 +506,7 @@ impl FeltXPCOM {
                     err
                 );
 
-                return NS_ERROR_FAILURE;
+                return Err(NS_ERROR_FAILURE);
             }
         };
 
@@ -542,9 +591,9 @@ impl FeltXPCOM {
             .may_block(true)
             .dispatch(&thread);
 
-            NS_OK
+            Ok(())
         } else {
-            NS_ERROR_FAILURE
+            Err(NS_ERROR_FAILURE)
         }
     }
 
@@ -786,4 +835,22 @@ impl FeltRestartForced {
 
 fn token_needs_refresh(tokens: &Tokens) -> bool {
     tokens.expires_at.saturating_add(TOKEN_EXPIRY_SKEW) < UtcDateTime::now().unix_timestamp()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Bug 2072053: the launcher must only hand its managed secrets to the
+    // browser it spawned. The connecting peer's pid must equal the expected
+    // pid; a same-user peer with a different pid, or a transport that reports
+    // no pid, is refused. On Windows the expected pid is the browser child the
+    // launcher process announced.
+    #[test]
+    fn only_the_expected_peer_pid_is_authorized() {
+        let child_pid = 4242; // stand-in for the spawned child's pid
+        assert!(peer_is_authorized(Some(child_pid), child_pid));
+        assert!(!peer_is_authorized(Some(child_pid + 1), child_pid));
+        assert!(!peer_is_authorized(None, child_pid));
+    }
 }

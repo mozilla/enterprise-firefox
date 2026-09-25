@@ -148,7 +148,7 @@ impl FeltIpcClient {
                     true
                 }
                 Ok(FeltMessage::VersionValidated(false)) => {
-                    trace!("FeltIpcClient::report_version() REJRECTED");
+                    trace!("FeltIpcClient::report_version() REJECTED");
                     false
                 }
                 Ok(_) => {

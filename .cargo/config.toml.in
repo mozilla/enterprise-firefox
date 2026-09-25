@@ -85,11 +85,6 @@ git = "https://github.com/mozilla/cubeb-pulse-rs"
 rev = "88194f91c8778fa608a19af7b91306094525595d"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]
-git = "https://github.com/mozilla/ipc-channel"
-rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
-replace-with = "vendored-sources"
-
 [source."git+https://github.com/mozilla/glean?tag=v70.0.0"]
 git = "https://github.com/mozilla/glean"
 tag = "v70.0.0"
@@ -100,9 +95,9 @@ git = "https://github.com/mozilla/happy-eyeballs"
 tag = "v1.0.0"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/ipc-channel?rev=2e47e642b34aebfaaf953497c3834f96c365c8a0"]
+[source."git+https://github.com/mozilla/ipc-channel?rev=e27888a6cdde52cdcb0937c462294669013a5e6f"]
 git = "https://github.com/mozilla/ipc-channel"
-rev = "2e47e642b34aebfaaf953497c3834f96c365c8a0"
+rev = "e27888a6cdde52cdcb0937c462294669013a5e6f"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/memtest?rev=ad681ba425beb0aeba95f03e671432b4be932174"]
