@@ -59,6 +59,9 @@ done
 for locale in $REPACK_LIMIT_LOCALES; do
     args+=(--limit-locale "$locale")
 done
+for taskid in $UPSTREAM_TASKIDS; do
+    args+=(--taskid "$taskid")
+done
 
 if [ -n "$LINUX_DEST_DIR" ]; then
     args+=(--linux-dest-dir "$LINUX_DEST_DIR")
