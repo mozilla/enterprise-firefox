@@ -5872,14 +5872,7 @@ AMTelemetry = {
           site_permission: install.newSitePerm,
         })
       );
-      if (
-        !Services.prefs.getBoolPref(
-          "extensions.enterprise.telemetry.testing.disableSubmit",
-          false
-        )
-      ) {
-        GleanPings.enterprise.submit();
-      }
+      GleanPings.enterprise.submit();
     }
   },
 

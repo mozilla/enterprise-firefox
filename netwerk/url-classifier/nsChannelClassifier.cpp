@@ -479,13 +479,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
       .url = Some(nsCString(url)),
   };
   glean::safebrowsing::site_visit.Record(Some(extra));
-
-  // Testing escape hatch: tests record events but never submit
-  if (!Preferences::GetBool(
-          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-          false)) {
-    glean_pings::Enterprise.Submit();
-  }
+  glean_pings::Enterprise.Submit();
 }
 #endif
 

@@ -1562,13 +1562,7 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
       .verdict = mozilla::Some(verdict),
   };
   mozilla::glean::safebrowsing::download.Record(mozilla::Some(extra));
-
-  // Testing escape hatch: tests record events but never submit
-  if (!Preferences::GetBool(
-          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-          false)) {
-    mozilla::glean_pings::Enterprise.Submit();
-  }
+  mozilla::glean_pings::Enterprise.Submit();
 }
 #endif
 

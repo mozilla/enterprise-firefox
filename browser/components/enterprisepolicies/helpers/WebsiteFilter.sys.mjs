@@ -278,14 +278,7 @@ export let WebsiteFilter = {
         referrer: processedReferrer || "",
       };
       Glean.contentPolicy.blocklistDomainBrowsed.record(telemetryData);
-      if (
-        !Services.prefs.getBoolPref(
-          "browser.policies.enterprise.telemetry.testing.disableSubmit",
-          false
-        )
-      ) {
-        GleanPings.enterprise.submit();
-      }
+      GleanPings.enterprise.submit();
     } catch (ex) {
       // Silently fail - telemetry errors should not break website filtering
       lazy.log.error(

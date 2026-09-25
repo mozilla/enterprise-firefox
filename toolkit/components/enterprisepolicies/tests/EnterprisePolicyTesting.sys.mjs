@@ -319,13 +319,15 @@ export var PoliciesPrefTracker = {
       let defaults = new Preferences({ defaultBranch: true });
       let stored = {};
 
-      if (
-        Services.prefs.getDefaultBranch("").getPrefType(prefName) !=
-        Ci.nsIPrefBranch.PREF_INVALID
-      ) {
+      if (Services.prefs.prefHasDefaultValue(prefName)) {
         stored.originalDefaultValue = defaults.get(prefName);
       } else {
         stored.originalDefaultValue = undefined;
+        // Restoring a pref without a default deletes it outright, which would
+        // take a pre-existing user value with it.
+        if (Services.prefs.prefHasUserValue(prefName)) {
+          stored.originalUserValue = Preferences.get(prefName);
+        }
       }
 
       if (
@@ -374,3 +376,128 @@ export var PoliciesPrefTracker = {
     this._originalValues.clear();
   },
 };
+
+/**
+ * Collects, for one event metric, the events the enterprise ping carries each
+ * time it is submitted.
+ *
+ * Every enterprise security event submits the ping right after it is recorded,
+ * which clears the recorded events, so a test can only read them from inside
+ * the submit hook. testBeforeNextSubmit is a one-shot hook that the collector
+ * re-arms after every submit until it is stopped or disposed. The ping holds a
+ * single hook, so only one collector can be live at a time: constructing a
+ * second one throws, and stop() only touches the hook while this collector owns
+ * it. Nothing else may register a hook on the enterprise ping while a collector
+ * is live; the collector cannot detect a hook that was taken over.
+ */
+export class EnterprisePingCollector {
+  static #owner = null;
+  #metric;
+  #pings = [];
+  #error = null;
+
+  /**
+   * @param {object} metric
+   *        The Glean event metric to read from each submitted ping, e.g.
+   *        Glean.safebrowsing.siteVisit.
+   */
+  constructor(metric) {
+    if (
+      typeof metric?.record != "function" ||
+      typeof metric?.testGetValue != "function"
+    ) {
+      throw new TypeError(
+        "metric must be a Glean event metric such as Glean.safebrowsing.siteVisit"
+      );
+    }
+    if (EnterprisePingCollector.#owner) {
+      throw new Error(
+        "Another EnterprisePingCollector is still live; stop() it first"
+      );
+    }
+    this.#metric = metric;
+    this.#arm();
+    EnterprisePingCollector.#owner = this;
+  }
+
+  #arm() {
+    GleanPings.enterprise.testBeforeNextSubmit(() => {
+      // Re-arm before reading so collection continues whatever the read does.
+      this.#arm();
+      try {
+        this.#pings.push(this.#metric.testGetValue("enterprise") ?? []);
+      } catch (e) {
+        this.#error ??= e;
+        this.#pings.push([]);
+      }
+    });
+  }
+
+  // The hook runs inside the recorder's submit() call, where a throw is
+  // swallowed by the recorder, discarded by FOG for the C++ recorders, or
+  // escapes into the recorder's caller rather than failing the test, so a read
+  // that failed there is reported from the getters instead.
+  #rethrow() {
+    if (this.#error) {
+      throw this.#error;
+    }
+  }
+
+  /**
+   * The metric's events carried by every ping submitted so far, in submission
+   * order.
+   *
+   * @returns {object[]}
+   */
+  get events() {
+    this.#rethrow();
+    return this.#pings.flat();
+  }
+
+  /**
+   * How many times submit() has been called on the enterprise ping so far,
+   * whichever metric triggered it.
+   *
+   * @returns {number}
+   */
+  get submitCount() {
+    this.#rethrow();
+    return this.#pings.length;
+  }
+
+  /**
+   * Asserts that the metric recorded nothing: no enterprise ping was submitted
+   * and, since a submit would have cleared them, no events are waiting in the
+   * store either.
+   *
+   * @param {string} message
+   *        Why nothing should have been recorded.
+   */
+  assertNothingRecorded(message) {
+    Assert.equal(
+      this.submitCount,
+      0,
+      `${message}: no enterprise ping was submitted`
+    );
+    Assert.ok(
+      !this.#metric.testGetValue("enterprise")?.length,
+      `${message}: no event is waiting in the store`
+    );
+  }
+
+  /**
+   * Stops collecting and replaces the pending one-shot hook with a no-op so it
+   * does not fire during a later test. Calling it again does nothing.
+   */
+  stop() {
+    if (EnterprisePingCollector.#owner !== this) {
+      return;
+    }
+    EnterprisePingCollector.#owner = null;
+    GleanPings.enterprise.testBeforeNextSubmit(() => {});
+  }
+
+  [Symbol.dispose]() {
+    this.stop();
+  }
+}
