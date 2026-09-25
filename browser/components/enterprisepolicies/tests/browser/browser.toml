@@ -199,12 +199,14 @@ support-files = [
   "sw_fetch_intercept.js",
 ]
 
+["browser_policy_skiptermsofuse.js"]
+
 ["browser_policy_support_menu.js"]
 
 ["browser_policy_translateenabled.js"]
 
 ["browser_policy_usermessaging.js"]
-skip-if = ["enterprise"] # Applies UserMessaging/SkipTermsOfUse, unsupported in enterprise builds
+skip-if = ["enterprise"] # UserMessaging is unsupported in enterprise builds
 
 ["browser_policy_watermark.js"]
 support-files = ["policy_watermark.html", "policy_watermark.sjs"]

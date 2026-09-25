@@ -1314,7 +1314,6 @@ const POLICIES_TESTS = [
 
   // POLICY: SkipTermsOfUse
   {
-    skipInEnterprise: true,
     policies: {
       SkipTermsOfUse: true,
     },
