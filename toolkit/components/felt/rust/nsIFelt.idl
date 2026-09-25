@@ -110,8 +110,16 @@ interface nsIFelt : nsISupports {
    * is observed, so it must be kept in sync with the locking pref (see
    * EnterpriseHandler). Because the intent travels with the exit itself, a
    * quit vetoed by a beforeunload handler leaves nothing to undo.
+   *
+   * @param lockIntent Whether the shutdown locks the session rather than
+   *   signing out.
+   * @param reason Why the session is ending, for an exit the user did not ask
+   *   for (e.g. "networkLoss"), so FELT can explain itself instead of just
+   *   disappearing. Empty for an ordinary browser shutdown, which needs no
+   *   notice.
    */
-  void setShutdownLockIntent(in boolean lockIntent);
+  [must_use]
+  void setShutdownLockIntent(in boolean lockIntent, in ACString reason);
 
   /**
    * Called by the spawned Firefox to tell the Felt UI process whether the
@@ -139,8 +147,19 @@ interface nsIFelt : nsISupports {
   [must_use]
   void setCrashLockIntent(in boolean lockIntent);
 
+  /**
+   * Like performSignout(), but ends the session with a reason (e.g.
+   * "networkLoss") that routes the user to the matching error screen rather than
+   * the silent return to the login screen.
+   */
+  [must_use]
+  void performSignoutWithReason(in ACString reason);
+
   [must_use]
   void shutdownFirefox();
+
+  [must_use]
+  void reportConsoleReachability(in boolean reachable);
 
   [must_use]
   void requestUpdateCheck();

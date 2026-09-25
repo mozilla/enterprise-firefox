@@ -27,6 +27,8 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
 });
 
 export const FeltLocking = {
+  _tokenWriteGeneration: 0,
+
   /**
    * Attempt to resume a previously locked session for the given user. Requires
    * OS-level authentication and a stored, still-valid refresh token. The
@@ -199,7 +201,13 @@ export const FeltLocking = {
         "store: missing refresh token or user id, cannot persist locked session"
       );
     }
+    const generation = FeltLocking._tokenWriteGeneration;
     const email = await FeltLocking.getUserEmail();
+    if (generation !== FeltLocking._tokenWriteGeneration) {
+      throw new Error(
+        "store: session ended before locking token could be saved"
+      );
+    }
     if (!email) {
       throw new Error(
         "store: no signed-in user known, cannot persist locked session"
@@ -217,8 +225,13 @@ export const FeltLocking = {
    * @returns {Promise<void>}
    */
   updateStoredToken: async refresh_token => {
+    const generation = FeltLocking._tokenWriteGeneration;
     const email = await FeltLocking.getUserEmail();
-    if (!email || !lazy.FeltStorage.hasLockingToken(email)) {
+    if (
+      generation !== FeltLocking._tokenWriteGeneration ||
+      !email ||
+      !lazy.FeltStorage.hasLockingToken(email)
+    ) {
       return;
     }
     await lazy.FeltStorage.setLockingToken(email, refresh_token);
@@ -232,6 +245,7 @@ export const FeltLocking = {
    * @returns {void}
    */
   clear: () => {
+    FeltLocking._tokenWriteGeneration += 1;
     const email = lazy.FeltStorage.getLastSignedInUser();
     if (!email) {
       return;
@@ -248,7 +262,10 @@ export const FeltLocking = {
    * @returns {void}
    */
   clearLockAndTokens: () => {
-    FeltLocking.clear();
-    Services.felt.clearTokens();
+    try {
+      FeltLocking.clear();
+    } finally {
+      Services.felt.clearTokens();
+    }
   },
 };

@@ -3,4 +3,6 @@ head = "head.js"
 
 ["test_FeltLocking.js"]
 
+["test_FeltProcessParent_locking.js"]
+
 ["test_FeltStorage_locking.js"]

@@ -16,6 +16,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+  ForcedQuitHandler:
+    "resource://gre/modules/enterprise/ForcedQuitHandler.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -27,6 +29,7 @@ const WARN_ON_CLOSE_PREF = "browser.tabs.warnOnClose";
 const LOCK_ON_SHUTDOWN_PREF = "enterprise.locking.shutdown";
 const LOCK_ON_RESTART_PREF = "enterprise.locking.restart";
 const LOCK_ON_CRASH_PREF = "enterprise.locking.crash";
+const LOCK_ON_NETWORK_LOSS_PREF = "enterprise.locking.network_loss";
 
 export const EnterpriseHandler = {
   /**
@@ -396,14 +399,29 @@ export const EnterpriseHandler = {
   },
 
   /**
+   * Whether a sustained loss of the enterprise console will lock the session
+   * (persist it behind OS auth to resume later) rather than sign out, per the
+   * locking pref.
+   *
+   * @returns {boolean}
+   */
+  get willLockOnNetworkLoss() {
+    return Services.prefs.getBoolPref(LOCK_ON_NETWORK_LOSS_PREF, false);
+  },
+
+  /**
    * Push the current locking preferences to the browser's FELT IPC client,
    * which attaches them to the exit or restart event when one is observed.
    * The values are cached there rather than read at quit time so the intent
    * always travels with the quit itself (a vetoed quit sends nothing).
+   *
+   * The shutdown reason is cleared: an ordinary close is the user's own doing
+   * and needs no explanation, and this also undoes any reason left behind by
+   * an earlier attempt to end the session (see endSessionForNetworkLoss).
    */
   _syncLockIntents() {
     try {
-      Services.felt.setShutdownLockIntent(this.willLockOnShutdown);
+      Services.felt.setShutdownLockIntent(this.willLockOnShutdown, "");
     } catch (e) {
       lazy.log.error(`Unable to sync shutdown lock intent: ${e}`);
     }
@@ -426,7 +444,8 @@ export const EnterpriseHandler = {
    */
   lockOrSignOut() {
     this._skipSignoutPrompt = true;
-    if (!Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit)) {
+    Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+    if (!Services.startup.shuttingDown) {
       // Vetoed by a beforeunload handler; the next close must prompt again.
       this._skipSignoutPrompt = false;
     }
@@ -449,5 +468,62 @@ export const EnterpriseHandler = {
       Services.prefs.removeObserver(LOCK_ON_CRASH_PREF, this._lockPrefObserver);
       this._lockPrefObserver = null;
     }
+  },
+
+  /**
+   * Ends the FELT session because the enterprise console stayed unreachable
+   * past its grace period. Mirrors lockOrSignOut(), but the lock-vs-signout
+   * choice comes from the NetworkLoss policy and the sign-out carries a reason
+   * so FELT can explain why the session ended.
+   *
+   * @param {boolean} [lockSession] The action selected when enforcement began.
+   * @returns {Promise<boolean>} Whether the session was ended.
+   */
+  async endSessionForNetworkLoss(lockSession = this.willLockOnNetworkLoss) {
+    if (!Services.felt?.isFeltBrowser()) {
+      return false;
+    }
+
+    this._skipSignoutPrompt = true;
+    try {
+      if (!lockSession) {
+        Services.felt.setShutdownLockIntent(false, "networkLoss");
+        Services.felt.performSignoutWithReason("networkLoss");
+        return true;
+      }
+
+      // NetworkLoss decides this independently of the shutdown-locking pref
+      // _syncLockIntents() normally derives the intent from, so push it before
+      // the quit it rides out on. The reason goes with it so FELT explains the
+      // lock rather than just vanishing on the user.
+      Services.felt.setShutdownLockIntent(true, "networkLoss");
+      await lazy.ForcedQuitHandler.quitIgnoringCanClose();
+      if (!Services.startup.shuttingDown) {
+        Services.felt.setShutdownLockIntent(false, "networkLoss");
+        Services.felt.performSignoutWithReason("networkLoss");
+      }
+    } catch (e) {
+      // The FELT IPC calls only throw when the browser-side client is missing,
+      // which should not happen in a FELT browser. The console is gone, so
+      // ending the session still matters more than how it ends.
+      lazy.log.warn(`Unable to end the session on network loss: ${e}`);
+      try {
+        // FELT reads a plain quit as an ordinary shutdown, so leaving the
+        // pref-derived intent in place would apply the Shutdown action here
+        // instead of the NetworkLoss one the administrator configured.
+        Services.felt.setShutdownLockIntent(lockSession, "networkLoss");
+      } catch (intentError) {
+        lazy.log.error(
+          `Unable to declare the network-loss intent, so the shutdown action applies instead: ${intentError}`
+        );
+      }
+      await lazy.ForcedQuitHandler.quitIgnoringCanClose();
+      if (!Services.startup.shuttingDown) {
+        this._skipSignoutPrompt = false;
+        this._syncLockIntents();
+        return false;
+      }
+    }
+    return true;
   },
 };

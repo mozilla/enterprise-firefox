@@ -16,6 +16,7 @@ export const FeltStorage = {
   _initialized: false,
 
   _feltStorage: null,
+  _lockingTokenGenerations: new Map(),
   /**
    * Absolute path to the felt.json file in the user's app-data directory (UAppData).
    *
@@ -176,9 +177,12 @@ export const FeltStorage = {
    */
   async setLockingToken(email, token, userId) {
     const existedBefore = this.hasLockingToken(email);
+    const generation = this._lockingTokenGenerations.get(email) ?? 0;
     const ciphertext = await lazy.OSKeyStore.encrypt(token);
-    // A signout may have cleared the record while encrypt() was pending;
-    // writing now would resurrect the credential.
+    // A clear invalidates earlier writes even if a new session stored a token.
+    if (generation !== (this._lockingTokenGenerations.get(email) ?? 0)) {
+      return;
+    }
     if (existedBefore && !this.hasLockingToken(email)) {
       return;
     }
@@ -200,6 +204,10 @@ export const FeltStorage = {
    * @param {string} email
    */
   clearLockingToken(email) {
+    this._lockingTokenGenerations.set(
+      email,
+      (this._lockingTokenGenerations.get(email) ?? 0) + 1
+    );
     if (this._feltStorage.data.lockingTokens?.[email] !== undefined) {
       delete this._feltStorage.data.lockingTokens[email];
       this._feltStorage.saveSoon();

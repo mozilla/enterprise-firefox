@@ -4461,6 +4461,10 @@
           },
           "Crash": {
             "Action": "lock"
+          },
+          "NetworkLoss": {
+            "Action": "lock",
+            "GracePeriodMinutes": 15
           }
         }
       ],
@@ -4524,6 +4528,33 @@
                   "description": "Lock the session when repeated crashes stop the browser from restarting, so the next launch only requires the user to unlock."
                 }
               ]
+            }
+          },
+          "required": ["Action"]
+        },
+        "NetworkLoss": {
+          "type": "object",
+          "properties": {
+            "Action": {
+              "type": "string",
+              "oneOf": [
+                {
+                  "const": "signout",
+                  "title": "Sign out",
+                  "description": "Sign the session out once the enterprise console has been unreachable for the whole grace period, so the next launch requires a full sign-in. This is what happens when the policy is not set."
+                },
+                {
+                  "const": "lock",
+                  "title": "Lock",
+                  "description": "Lock the session once the enterprise console has been unreachable for the whole grace period, so the next launch only requires the user to unlock."
+                }
+              ]
+            },
+            "GracePeriodMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 35791,
+              "description": "How many minutes the enterprise console may stay unreachable before the session is ended. Defaults to 15 when the policy is not set."
             }
           },
           "required": ["Action"]

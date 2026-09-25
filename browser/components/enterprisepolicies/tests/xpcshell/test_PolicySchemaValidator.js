@@ -6,6 +6,9 @@
 const { PolicySchemaValidator } = ChromeUtils.importESModule(
   "resource://gre/modules/policies/PolicySchemaValidator.sys.mjs"
 );
+const { schema: policySchema } = ChromeUtils.importESModule(
+  "resource:///modules/policies/schema.sys.mjs"
+);
 
 const { TestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/TestUtils.sys.mjs"
@@ -23,6 +26,20 @@ function assertInvalid(value, schema, options) {
   Assert.ok(result.error, "An error is returned for invalid values");
   return result.error;
 }
+
+add_task(function test_network_loss_grace_period_is_positive_integer() {
+  const signOutSchema = policySchema.properties.SignOut;
+  const policy = minutes => ({
+    NetworkLoss: { Action: "lock", GracePeriodMinutes: minutes },
+  });
+
+  assertValid(policy(1), signOutSchema);
+  assertValid(policy(35791), signOutSchema);
+  assertInvalid(policy(0), signOutSchema);
+  assertInvalid(policy(-1), signOutSchema);
+  assertInvalid(policy(1.5), signOutSchema);
+  assertInvalid(policy(35792), signOutSchema);
+});
 
 add_task(function test_delegates_structural_validation() {
   const schema = {

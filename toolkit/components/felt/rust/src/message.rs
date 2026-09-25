@@ -68,14 +68,15 @@ pub enum FeltMessage {
     OpenURL((String, i32, Option<FocusHint>)),
     RestartForced,
     Restarting(bool),
-    LogoutShutdown,
+    LogoutShutdown(Option<String>),
     /// Sent by the browser (which owns the locking pref the Felt UI process
     /// cannot read) whenever `enterprise.locking.crash` is applied or
     /// changed, so a crash-abort can lock the session instead of discarding it.
     CrashLockIntent(bool),
-    Exiting(bool),
+    Exiting(bool, Option<String>),
     UpdateReady,
     Shutdown,
+    ConsoleReachability(bool),
     CheckForUpdates,
 }
 
@@ -85,4 +86,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 16;
+pub const FELT_IPC_VERSION: u32 = 17;

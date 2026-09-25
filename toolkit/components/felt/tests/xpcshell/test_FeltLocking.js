@@ -260,6 +260,61 @@ add_task(
   }
 );
 
+add_task(async function test_late_user_lookup_cannot_update_new_session() {
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  const encrypt = sinon
+    .stub(OSKeyStore, "encrypt")
+    .callsFake(async token => `encrypted(${token})`);
+  const decrypt = sinon
+    .stub(OSKeyStore, "decrypt")
+    .callsFake(async token => token.replace(/^encrypted\((.*)\)$/, "$1"));
+  await lazy.FeltStorage.setLockingToken(EMAIL, "old-token");
+
+  const lookup = Promise.withResolvers();
+  const getUserEmail = sinon
+    .stub(FeltLocking, "getUserEmail")
+    .returns(lookup.promise);
+  const staleWrite = FeltLocking.updateStoredToken("stale-token");
+  try {
+    FeltLocking.clear();
+    await lazy.FeltStorage.setLockingToken(EMAIL, "new-token");
+    lookup.resolve(EMAIL);
+    await staleWrite;
+
+    Assert.equal(await lazy.FeltStorage.getLockingToken(EMAIL), "new-token");
+    Assert.ok(
+      encrypt.neverCalledWith("stale-token"),
+      "The old refresh token is not encrypted after signout."
+    );
+  } finally {
+    lookup.resolve(EMAIL);
+    await staleWrite;
+    getUserEmail.restore();
+    decrypt.restore();
+    encrypt.restore();
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
+add_task(async function test_late_user_lookup_cannot_lock_ended_session() {
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  const lookup = Promise.withResolvers();
+  const getUserEmail = sinon
+    .stub(FeltLocking, "getUserEmail")
+    .returns(lookup.promise);
+  const staleWrite = FeltLocking.store("stale-token", "old-user");
+  try {
+    FeltLocking.clear();
+    lookup.resolve(EMAIL);
+    await Assert.rejects(staleWrite, /session ended/);
+    Assert.ok(!lazy.FeltStorage.hasLockingToken(EMAIL));
+  } finally {
+    lookup.resolve(EMAIL);
+    getUserEmail.restore();
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
 add_task(async function test_clear_removes_stored_token() {
   lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
   const encrypt = sinon.stub(OSKeyStore, "encrypt").resolves("ciphertext");

@@ -14,6 +14,8 @@ const XHR_TIMEOUT_MS = 60000;
 const SSO_LOGIN_VERSION = "v2";
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  ConsoleConnectionGuard:
+    "resource://gre/modules/enterprise/ConsoleConnectionGuard.sys.mjs",
   ConsoleProxyBypassFilter:
     "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs",
   EnterpriseCommon:
@@ -98,6 +100,13 @@ class ReauthRequiredError extends Error {
  * Client taking care of the communication with the enterprise console.
  */
 export const ConsoleClient = {
+  isTransportError(error) {
+    return (
+      error instanceof TypeError &&
+      ["ConsoleClientXHRError", "NS_ERROR_NET_TIMEOUT"].includes(error.message)
+    );
+  },
+
   /**
    * This is our guard against concurrent access token refresh operations on the browser side.
    * When a refresh is in progress, this promise encapsulates the ongoing operation.
@@ -120,6 +129,8 @@ export const ConsoleClient = {
    * than starting a new refresh process.
    */
   _feltRefreshPromise: null,
+  _feltRefreshGeneration: 0,
+  _feltRefreshAbortController: null,
 
   /**
    * Base URL of the remote enterprise console
@@ -365,17 +376,34 @@ export const ConsoleClient = {
    * @param {string|null} [options.body=null] - Request body
    * @param {""|"arraybuffer"} [options.responseType=""] - XHR response type -
    *   use "arraybuffer" for binary responses and "" for text responses.
+   * @param {number} [options.timeoutMs] Request timeout in milliseconds.
+   * @param {AbortSignal|null} [options.signal] Cancels the request.
    * @returns {Promise<{ok: boolean, status: number, json: Function, text: Function, arrayBuffer: Function}>}
    */
   _xhrFetch(
     url,
-    { method = "GET", headers = {}, body = null, responseType = "" } = {}
+    {
+      method = "GET",
+      headers = {},
+      body = null,
+      responseType = "",
+      timeoutMs = XHR_TIMEOUT_MS,
+      signal = null,
+    } = {}
   ) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url, true);
-      xhr.timeout = XHR_TIMEOUT_MS;
+      xhr.timeout = timeoutMs;
       xhr.responseType = responseType;
+
+      if (signal?.aborted) {
+        reject(new DOMException("Request cancelled", "AbortError"));
+        return;
+      }
+      const onAbort = () => xhr.abort();
+      signal?.addEventListener("abort", onAbort, { once: true });
+      const finish = () => signal?.removeEventListener("abort", onAbort);
 
       // Handle both plain objects and Headers instances
       const headerEntries = Headers.isInstance(headers)
@@ -386,6 +414,13 @@ export const ConsoleClient = {
       }
 
       xhr.onload = () => {
+        finish();
+        if (signal?.aborted) {
+          reject(new DOMException("Request cancelled", "AbortError"));
+          return;
+        }
+        // Any HTTP response (including 5xx) means the console is reachable.
+        lazy.ConsoleConnectionGuard.recordReachable();
         const response = {
           ok: xhr.status >= 200 && xhr.status < 300,
           status: xhr.status,
@@ -403,6 +438,8 @@ export const ConsoleClient = {
       };
 
       xhr.onerror = () => {
+        finish();
+        lazy.ConsoleConnectionGuard.recordUnreachable();
         const channelStatus = xhr.channel?.status ?? null;
         reject(
           new TypeError("ConsoleClientXHRError", {
@@ -412,10 +449,13 @@ export const ConsoleClient = {
       };
 
       xhr.ontimeout = () => {
+        finish();
+        lazy.ConsoleConnectionGuard.recordUnreachable();
         reject(new TypeError("NS_ERROR_NET_TIMEOUT"));
       };
 
       xhr.onabort = () => {
+        finish();
         reject(new TypeError("NS_BINDING_ABORTED"));
       };
 
@@ -620,7 +660,10 @@ export const ConsoleClient = {
 
     // At this point, we are in the Felt UI context and no
     // felt refresh promise exists, so do the actual refresh.
-    this._feltRefreshPromise = (async () => {
+    const generation = this._feltRefreshGeneration;
+    const controller = new AbortController();
+    this._feltRefreshAbortController = controller;
+    const refreshPromise = (async () => {
       const refreshToken = Services.felt.getRefreshToken();
       if (!refreshToken) {
         const e = new ReauthRequiredError(
@@ -632,6 +675,9 @@ export const ConsoleClient = {
       }
 
       const url = await this.constructURI(this._paths.TOKEN);
+      if (generation !== this._feltRefreshGeneration) {
+        throw new DOMException("Refresh cancelled", "AbortError");
+      }
       const body = {
         grant_type: "refresh_token",
         refresh_token: refreshToken,
@@ -648,7 +694,11 @@ export const ConsoleClient = {
           Accept: "application/json",
         },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
+      if (generation !== this._feltRefreshGeneration) {
+        throw new DOMException("Refresh cancelled", "AbortError");
+      }
 
       // These are concrete HTTP errors that should trigger
       // a full-blown re-authentication.
@@ -673,6 +723,9 @@ export const ConsoleClient = {
         expires_in,
         posture: postureConfig,
       } = await res.json();
+      if (generation !== this._feltRefreshGeneration) {
+        throw new DOMException("Refresh cancelled", "AbortError");
+      }
       const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
       // Store the rotated tokens here rather than in the callers: this runs
       // before the guard below clears, so a refresh starting as this one
@@ -686,10 +739,37 @@ export const ConsoleClient = {
         postureSubmitted: !!posture,
       };
     })().finally(() => {
-      // In any case, clear the felt refresh promise so that a new one can be started.
-      this._feltRefreshPromise = null;
+      if (this._feltRefreshPromise === refreshPromise) {
+        this._feltRefreshPromise = null;
+      }
+      if (this._feltRefreshAbortController === controller) {
+        this._feltRefreshAbortController = null;
+      }
     });
-    return this._feltRefreshPromise;
+    this._feltRefreshPromise = refreshPromise;
+    return refreshPromise;
+  },
+
+  cancelPendingRefresh() {
+    this._feltRefreshGeneration += 1;
+    this._feltRefreshAbortController?.abort();
+    this._feltRefreshPromise = null;
+    this._feltRefreshAbortController = null;
+  },
+
+  async performServerSignoutWithToken(accessToken, timeoutMs) {
+    const url = await this.constructURI(this._paths.SIGNOUT);
+    const response = await this._xhrFetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+      timeoutMs,
+    });
+    if (!response.ok) {
+      throw new Error(`Server signout failed (${response.status})`);
+    }
   },
 
   /**
@@ -717,21 +797,17 @@ export const ConsoleClient = {
     // eventually either coming back successfully and resolving the promise
     // or we get logged out / killed by a failure to refresh the token.
     //
-    // If the timeout fires (Felt did not come back in time and did not log us out),
-    // we reject the promise and log us out ourselves.
+    // If Felt did not respond, let the connection guard enforce the grace period.
     const { promise, resolve, reject } = Promise.withResolvers();
     this._refreshResolve = resolve;
 
     // If we don't get a response within `FELT_REFRESH_TIMEOUT` (should be 60s),
-    // sign out and quit.
+    // reject the blocked request and start the browser-side grace period.
     const timeoutId = lazy.setTimeout(() => {
       this._refreshPromise = null;
       this._refreshResolve = null;
-      Services.felt.performSignout();
-      lazy.ForcedQuitHandler.quitIgnoringCanClose();
-      reject(
-        new Error("_refreshSession: Felt failed to respond to re-auth in time.")
-      );
+      lazy.ConsoleConnectionGuard.recordUnreachable();
+      reject(new TypeError("NS_ERROR_NET_TIMEOUT"));
     }, FELT_REFRESH_TIMEOUT);
 
     this._refreshPromise = promise
@@ -769,6 +845,8 @@ export const ConsoleClient = {
       Services.obs.addObserver(this, "xpcom-shutdown");
       Services.obs.addObserver(this, "felt-firefox-access-token-refreshed");
       Services.obs.addObserver(this, "felt-firefox-shutdown");
+      Services.obs.addObserver(this, "felt-firefox-console-reachable");
+      Services.obs.addObserver(this, "felt-firefox-console-unreachable");
 
       // Seed the crash reporter with any token already available at startup.
       this._syncCrashReporterAuthToken();
@@ -806,6 +884,8 @@ export const ConsoleClient = {
           "felt-firefox-access-token-refreshed"
         );
         Services.obs.removeObserver(this, "felt-firefox-shutdown");
+        Services.obs.removeObserver(this, "felt-firefox-console-reachable");
+        Services.obs.removeObserver(this, "felt-firefox-console-unreachable");
         lazy.ConsoleProxyBypassFilter.unregister();
         this._refreshPromise = null;
         this._refreshResolve = null;
@@ -813,6 +893,14 @@ export const ConsoleClient = {
       }
       case "felt-firefox-shutdown": {
         lazy.ForcedQuitHandler.quitIgnoringCanClose();
+        break;
+      }
+      case "felt-firefox-console-reachable": {
+        lazy.ConsoleConnectionGuard.recordReachable();
+        break;
+      }
+      case "felt-firefox-console-unreachable": {
+        lazy.ConsoleConnectionGuard.recordUnreachable();
         break;
       }
       case "felt-firefox-access-token-refreshed": {

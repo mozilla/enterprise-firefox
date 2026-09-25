@@ -166,6 +166,32 @@ add_task(async function test_set_does_not_resurrect_a_cleared_record() {
   }
 });
 
+add_task(async function test_old_write_cannot_replace_a_new_session_token() {
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "old-token", "old-user");
+
+  const pendingEncryption = Promise.withResolvers();
+  OSKeyStore.encrypt.callsFake(token =>
+    token === "stale-token"
+      ? pendingEncryption.promise
+      : Promise.resolve(`enc(${token})`)
+  );
+  const staleWrite = lazy.FeltStorage.setLockingToken(EMAIL_A, "stale-token");
+  try {
+    lazy.FeltStorage.clearLockingToken(EMAIL_A);
+    await lazy.FeltStorage.setLockingToken(EMAIL_A, "new-token", "new-user");
+    pendingEncryption.resolve("enc(stale-token)");
+    await staleWrite;
+
+    Assert.equal(await lazy.FeltStorage.getLockingToken(EMAIL_A), "new-token");
+    Assert.equal(lazy.FeltStorage.getLockingUserId(EMAIL_A), "new-user");
+  } finally {
+    pendingEncryption.resolve("enc(stale-token)");
+    await staleWrite;
+    OSKeyStore.encrypt.callsFake(async token => `enc(${token})`);
+    lazy.FeltStorage.clearLockingToken(EMAIL_A);
+  }
+});
+
 add_task(async function test_clear_missing_is_noop() {
   // Clearing a token that was never stored must not throw.
   lazy.FeltStorage.clearLockingToken("nobody@example.com");

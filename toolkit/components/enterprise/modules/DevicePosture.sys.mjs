@@ -459,10 +459,9 @@ export const DevicePosture = {
 };
 
 /**
- * Reports device posture to the console for the Felt process: it collects on the
- * policy-poll cadence and submits only what changed, via a posture-carrying token
- * refresh. It also remembers the posture the console holds, which is what the
- * browser-driven refresh reports.
+ * Refreshes the Felt session on the policy-poll cadence to check reachability,
+ * submitting posture only when it changes. It also remembers the posture the
+ * console holds, which is what the browser-driven refresh reports.
  *
  * State lives on the module rather than on the caller: the Felt process actor is
  * re-created when the content process hosting the login page is recycled, and the
@@ -471,6 +470,7 @@ export const DevicePosture = {
 export const PostureMonitor = {
   _timer: null,
   _inFlight: null,
+  _epoch: 0,
   _lastJson: null,
   _lastAt: 0,
   _profileDir: null,
@@ -512,10 +512,16 @@ export const PostureMonitor = {
   },
 
   stop() {
+    this._epoch += 1;
     if (this._timer) {
       lazy.clearInterval(this._timer);
       this._timer = null;
     }
+  },
+
+  abandon() {
+    this.stop();
+    this._inFlight = null;
   },
 
   /**
@@ -526,9 +532,12 @@ export const PostureMonitor = {
    */
   tick() {
     if (!this._inFlight) {
-      this._inFlight = this._submitIfChanged().finally(() => {
-        this._inFlight = null;
+      const flight = this._poll().finally(() => {
+        if (this._inFlight === flight) {
+          this._inFlight = null;
+        }
       });
+      this._inFlight = flight;
     }
     return this._inFlight;
   },
@@ -590,33 +599,46 @@ export const PostureMonitor = {
     }
   },
 
-  async _submitIfChanged() {
+  async _poll() {
+    const epoch = this._epoch;
     try {
       const measuredAt = Date.now();
-      const posture = await DevicePosture.collect({
-        profileDir: this._profileDir,
-      });
-      const postureJson = JSON.stringify(posture);
-      if (postureJson === this._lastJson) {
-        // What the console holds is current as of this measurement, so stamp it
-        // and keep the refresh path replaying.
-        this._lastAt = measuredAt;
+      let posture = null;
+      try {
+        posture = await DevicePosture.collect({
+          profileDir: this._profileDir,
+        });
+      } catch (e) {
+        lazy.log.error("Failed to collect posture for the console check:", e);
+      }
+      const changed =
+        posture !== null && JSON.stringify(posture) !== this._lastJson;
+      if (changed) {
+        lazy.log.debug("Device posture changed; refreshing.");
+      }
+      if (epoch !== this._epoch || this._isSessionOver?.()) {
         return;
       }
-      lazy.log.debug("Device posture changed; refreshing.");
-      const session = await lazy.ConsoleClient.refreshTokens({ posture });
-      if (this._isSessionOver()) {
+      const session = await lazy.ConsoleClient.refreshTokens({
+        posture: changed ? posture : null,
+      });
+      if (epoch !== this._epoch || this._isSessionOver()) {
         lazy.log.debug("Session is over; dropping the posture refresh.");
         return;
       }
       this._onRefreshed(session);
       // A call that piggybacked on an in-flight refresh sent an older posture,
       // so leave the record alone and let the next tick retry.
-      if (session.postureSubmitted) {
+      if (posture !== null && session.postureSubmitted) {
         this.record(posture, measuredAt);
+      } else if (posture !== null && !changed) {
+        this._lastAt = measuredAt;
       }
     } catch (e) {
-      lazy.log.error("Posture-change refresh failed:", e);
+      if (epoch !== this._epoch) {
+        return;
+      }
+      lazy.log.error("Posture refresh failed:", e);
       // The console refusing the refresh token ends the session, as it does on
       // the refresh the browser drives. Posture is reported independently of the
       // browser's credentials, so a network or 5xx failure is left to the next

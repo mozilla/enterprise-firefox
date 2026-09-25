@@ -39,6 +39,10 @@ pref("enterprise.locking.restart", false, locked);
 // Lock the session instead of discarding it when repeated crashes stop the
 // browser from restarting.
 pref("enterprise.locking.crash", false, locked);
+// Lock the session instead of signing out when the enterprise console has
+// been unreachable for enterprise.network_loss.grace_period_minutes minutes.
+pref("enterprise.locking.network_loss", false, locked);
+pref("enterprise.network_loss.grace_period_minutes", 15, locked);
 #endif
 
 // Set add-ons abuse report related prefs specific to Firefox Desktop.
