@@ -421,11 +421,15 @@ def get_task_source_url(config, task):
 
 
 @functools.cache
-def get_default_priority(graph_config, project, shipping):
+def get_default_priority(graph_config, project, head_ref, shipping):
     return evaluate_keyed_by(
         graph_config["task-priority"],
         "Graph Config",
-        {"project": project, "shipping": str(shipping).lower()},
+        {
+            "project": project,
+            "head-ref": head_ref,
+            "shipping": str(shipping).lower(),
+        },
     )
 
 
@@ -2615,6 +2619,7 @@ def build_task(config, tasks):
             task["priority"] = get_default_priority(
                 config.graph_config,
                 config.params["project"],
+                get_head_ref(config)[0],
                 config.params["shipping"],
             )
 

@@ -260,6 +260,16 @@ def test_try_task_config_env_overrides_unrestricted_test_paths(run_transform):
 
 TASK_PRIORITY_CONFIG = {
     "by-project": {
+        "enterprise-firefox": {
+            "by-head-ref": {
+                "enterprise-release": "highest",
+                "enterprise-beta": {
+                    "by-shipping": {"true": "very-high", "default": "low"},
+                },
+                "enterprise-main": "medium",
+                "default": "very-low",
+            },
+        },
         "mozilla-release": "highest",
         "mozilla-esr.*": {
             "by-shipping": {"true": "very-high", "default": "low"},
@@ -275,28 +285,72 @@ TASK_PRIORITY_CONFIG = {
 
 
 @pytest.mark.parametrize(
-    "project,shipping,expected",
+    "project,head_ref,shipping,expected",
     [
         # Beta and ESR are integration branches by default, and are only
         # raised when the push is flagged as shipping.
-        pytest.param("mozilla-beta", False, "low", id="beta"),
-        pytest.param("mozilla-beta", True, "very-high", id="beta-shipping"),
-        pytest.param("mozilla-esr140", False, "low", id="esr"),
-        pytest.param("mozilla-esr140", True, "very-high", id="esr-shipping"),
+        pytest.param("mozilla-beta", "", False, "low", id="beta"),
+        pytest.param("mozilla-beta", "", True, "very-high", id="beta-shipping"),
+        pytest.param("mozilla-esr140", "", False, "low", id="esr"),
+        pytest.param("mozilla-esr140", "", True, "very-high", id="esr-shipping"),
         # Every other project ignores the shipping flag.
-        pytest.param("mozilla-release", True, "highest", id="release-shipping"),
-        pytest.param("mozilla-central", True, "medium", id="central-shipping"),
-        pytest.param("autoland", True, "low", id="autoland-shipping"),
-        pytest.param("try", True, "very-low", id="try-shipping"),
-        pytest.param("mozilla-central", False, "medium", id="central"),
-        pytest.param("autoland", False, "low", id="autoland"),
-        pytest.param("try", False, "very-low", id="try"),
+        pytest.param("mozilla-release", "", True, "highest", id="release-shipping"),
+        pytest.param("mozilla-central", "", True, "medium", id="central-shipping"),
+        pytest.param("autoland", "", True, "low", id="autoland-shipping"),
+        pytest.param("try", "", True, "very-low", id="try-shipping"),
+        pytest.param("mozilla-central", "", False, "medium", id="central"),
+        pytest.param("autoland", "", False, "low", id="autoland"),
+        pytest.param("try", "", False, "very-low", id="try"),
+        # Enterprise keys off the branch rather than the project, mirroring
+        # the mozilla-* priorities.
+        pytest.param(
+            "enterprise-firefox",
+            "enterprise-release",
+            False,
+            "highest",
+            id="enterprise-release",
+        ),
+        pytest.param(
+            "enterprise-firefox",
+            "enterprise-beta",
+            False,
+            "low",
+            id="enterprise-beta",
+        ),
+        pytest.param(
+            "enterprise-firefox",
+            "enterprise-beta",
+            True,
+            "very-high",
+            id="enterprise-beta-shipping",
+        ),
+        pytest.param(
+            "enterprise-firefox",
+            "enterprise-main",
+            True,
+            "medium",
+            id="enterprise-main",
+        ),
+        pytest.param(
+            "enterprise-firefox",
+            "some-branch",
+            False,
+            "very-low",
+            id="enterprise-other-branch",
+        ),
+        pytest.param(
+            "enterprise-firefox-try",
+            "enterprise-main",
+            False,
+            "very-low",
+            id="enterprise-try",
+        ),
     ],
 )
-def test_get_default_priority(project, shipping, expected):
+def test_get_default_priority(project, head_ref, shipping, expected):
     # GraphConfig is hashable, which get_default_priority requires as it is cached.
     graph_config = GraphConfig({"task-priority": TASK_PRIORITY_CONFIG}, root_dir=".")
-    assert get_default_priority(graph_config, project, shipping) == expected
+    assert get_default_priority(graph_config, project, head_ref, shipping) == expected
 
 
 if __name__ == "__main__":

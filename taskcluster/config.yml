@@ -624,6 +624,15 @@ partner-urls:
 # message and raises the priority to get results as quickly as possible.
 task-priority:
     by-project:
+        'enterprise-firefox':
+            by-head-ref:
+                'enterprise-release': 'highest'
+                'enterprise-beta':
+                    by-shipping:
+                        'true': 'very-high'
+                        'default': 'low'
+                'enterprise-main': 'medium'
+                'default': 'very-low'
         'mozilla-release': 'highest'
         'mozilla-esr.*':
             by-shipping:
