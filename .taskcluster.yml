@@ -661,7 +661,7 @@ tasks:
                                       - tasks_for: '${tasks_for}'
 
     # Second task: Comm (Thunderbird) decision task for git events.
-    - $if: 'tasks_for[:11] == "github-push" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git")'
+    - $if: 'tasks_for[:11] == "github-push" || tasks_for[:19] == "github-pull-request" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git")'
       then:
           $let:
               $merge:
@@ -747,7 +747,7 @@ tasks:
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
                   commBaseRev: aa0ee61fc994cb3d494594e162c2d54c74f65092
-                  commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
+                  commHeadRepoUrl: https://github.com/lissyx/thunderbird-desktop
                   commHeadRef:
                       $if: 'project == "enterprise-firefox-try"'
                       then: "refs/heads/main"
@@ -757,7 +757,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commHeadRev: aa0ee61fc994cb3d494594e162c2d54c74f65092
+                  commHeadRev: 5b5bfcb2637ff8c96324bf7dad5086f11614f616
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}
