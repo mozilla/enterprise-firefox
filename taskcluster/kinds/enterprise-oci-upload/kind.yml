@@ -1,0 +1,106 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - taskgraph.transforms.from_deps
+    # Builds the release definition this task uploads. Doing so fans the kind
+    # out into one task per partner repack.
+    - gecko_taskgraph.transforms.enterprise_release_definition
+    - gecko_taskgraph.transforms.enterprise_oci_registry
+    - gecko_taskgraph.transforms.job
+    - gecko_taskgraph.transforms.task
+
+kind-dependencies:
+    - mar-signing
+    - repackage-signing-msi  # msix not supported by console yet
+    - repackage-deb
+    - enterprise-repack-mac-notarization
+    - toolchain
+
+task-defaults:
+    description: "Stage a Firefox Enterprise OCI release in the registry (by digest)."
+    run-on-projects: [enterprise-firefox]
+    shipping-product: firefox-enterprise
+    shipping-phase: push
+    attributes:
+        shippable: true
+    from-deps:
+        # Every artifact the release definition can reference lands in one
+        # group. enterprise_release_definition splits it per partner repack and
+        # keeps only the dependencies that repack uses.
+        kinds:
+            - mar-signing
+            - repackage-signing-msi
+            - repackage-deb
+            - enterprise-repack-mac-notarization
+        group-by: all
+        unique-kinds: false
+        set-name: false
+    worker-type: b-linux
+    worker:
+        docker-image: {in-tree: lint}
+        max-run-time: 3600
+        taskcluster-proxy: true
+        artifacts:
+            # The resulting OCI index digest, handed off to the ship task.
+            - type: file
+              name: public/build/release-index.json
+              path: /builds/worker/artifacts/release-index.json
+            # What was pushed, for the record.
+            - type: file
+              name: public/build/release-definition.json
+              path: /builds/worker/artifacts/release-definition.json
+        env:
+            # RELEASE_DEFINITION, the definition to push, is added by the
+            # enterprise_release_definition transform. The task writes it out
+            # to a file itself.
+            #
+            # The OCI reference to stage the image under (registry/repo, no
+            # tag). Defaults to the dev registry, so only a production release
+            # can reach a partner registry. For those the
+            # enterprise_oci_registry transform replaces it per partner repack
+            # with the registry_reference entry of its repack.cfg. That
+            # transform also sets REGISTRY_SECRET, named after whichever
+            # repository the reference points at.
+            REGISTRY_REFERENCE: harbor.stage.fx-enterprise.nonprod.webservices.mozgcp.net/enterprise-shipit-dev/firefox
+    scopes:
+        # The registry credentials, named here and nowhere else. The
+        # enterprise_oci_registry transform reads REGISTRY_SECRET back from
+        # this scope. `{name}` is the repository of REGISTRY_REFERENCE with its
+        # slashes flattened, which only that transform knows, so it fills it in.
+        - secrets:get:project/enterprise/level-{level}/oci-registry/{name}
+        # moa downloads the (private) enterprise repack artifacts referenced by
+        # the release definition.
+        - queue:get-artifact:project/enterprise/repacks/*
+    run:
+        using: run-task
+        checkout: true
+        cwd: "{checkout}"
+        command: >-
+            bash taskcluster/scripts/enterprise-oci-upload.sh
+    fetches:
+        toolchain:
+            - linux64-mozilla-oci-artifacts-cli
+    treeherder:
+        symbol: "Ent(push)"
+        kind: other
+        tier: 1
+        platform: firefox-release-enterprise/opt
+
+tasks:
+    push:
+        # Metadata shared by every release definition.
+        release-config:
+            product: FirefoxEnterprise
+            vendor: Mozilla
+            license: MPL-2.0
+            documentation-url: https://mozilla.github.io/enterprise-firefox/
+        build-assets:
+            policies-schema: "browser/components/enterprisepolicies/schemas/policies-schema.json"
+            policies-ftl-source: "browser/locales/en-US/browser/policies/policies-descriptions.ftl"
+            policies-ftl-l10n: "browser/browser/policies/policies-descriptions.ftl"
+            l10n-repo: "https://raw.githubusercontent.com/mozilla-l10n/firefox-l10n"
+            enterprise-l10n: "browser/locales/enterprise-l10n-changesets.json"

@@ -15,7 +15,11 @@ from taskgraph.util.schema import Schema, optionally_keyed_by, resolve_keyed_by
 from taskgraph.util.taskcluster import get_artifact_prefix
 from taskgraph.util.treeherder import inherit_treeherder_from_dep
 
-from gecko_taskgraph.transforms.repackage import MOZHARNESS_EXPANSIONS
+from gecko_taskgraph.transforms.repackage import (
+    MOZHARNESS_EXPANSIONS,
+    expand_repackage_config_per_locale,
+    fetch_entry,
+)
 from gecko_taskgraph.transforms.repackage import (
     PACKAGE_FORMATS as PACKAGE_FORMATS_VANILLA,
 )
@@ -152,10 +156,14 @@ def make_job_description(config, jobs):
 
         attributes["repackage_type"] = "repackage"
 
-        repack_id = job["extra"]["repack_id"]
+        # Partner and eme-free repacks are one task per locale, keyed by a
+        # `{partner}/{sub_config}/{locale}` repack id. Enterprise repacks are
+        # one task per `{partner}/{sub_config}`, holding all its locales.
+        repack_locales = job["extra"].get("repack_locales")
+        repack_dir = job["extra"].get("repack_config") or job["extra"]["repack_id"]
 
         partner_config = get_partner_config_by_kind(config, config.kind)
-        partner, subpartner, _ = repack_id.split("/")
+        partner, subpartner = repack_dir.split("/")[:2]
         repack_stub_installer = partner_config[partner][subpartner].get(
             "repack_stub_installer"
         )
@@ -182,6 +190,21 @@ def make_job_description(config, jobs):
             command["args"] = [arg.format(**substs) for arg in command["args"]]
             repackage_config.append(command)
 
+        fetches = _generate_download_config(
+            dep_job,
+            build_platform,
+            signing_task,
+            partner=repack_dir,
+            project=config.params["project"],
+            repack_stub_installer=repack_stub_installer,
+            locales=repack_locales,
+        )
+
+        if repack_locales:
+            repackage_config = expand_repackage_config_per_locale(
+                repackage_config, repack_locales, fetches
+            )
+
         run = job.get("mozharness", {})
         run.update({
             "using": "mozharness",
@@ -199,7 +222,7 @@ def make_job_description(config, jobs):
             "max-run-time": 3600,
             "taskcluster-proxy": True if get_artifact_prefix(dep_job) else False,
             "env": {
-                "REPACK_ID": repack_id,
+                "REPACK_ID": repack_dir,
             },
             # Don't add generic artifact directory.
             "skip-artifacts": True,
@@ -211,13 +234,13 @@ def make_job_description(config, jobs):
             dep_job,
             worker_type_implementation(config.graph_config, config.params, worker_type),
             repackage_config,
-            partner=repack_id,
+            partner=repack_dir,
         )
 
         description = (
             "Repackaging for repack_id '{repack_id}' for build '"
             "{build_platform}/{build_type}'".format(
-                repack_id=job["extra"]["repack_id"],
+                repack_id=repack_dir,
                 build_platform=attributes.get("build_platform"),
                 build_type=attributes.get("build_type"),
             )
@@ -230,8 +253,7 @@ def make_job_description(config, jobs):
         )
 
         if "enterprise-repack-repackage" in job["label"]:
-            repack_id = job.get("extra", {}).get("repack_id")
-            repack_label = "enterprise-repack-repackage-" + repack_id.replace("/", "_")
+            repack_label = "enterprise-repack-repackage-" + repack_dir.replace("/", "_")
             job["label"] = job["label"].replace(
                 "enterprise-repack-repackage", repack_label
             )
@@ -248,20 +270,13 @@ def make_job_description(config, jobs):
             "extra": job.get("extra", {}),
             "worker": worker,
             "run": run,
-            "fetches": _generate_download_config(
-                dep_job,
-                build_platform,
-                signing_task,
-                partner=repack_id,
-                project=config.params["project"],
-                repack_stub_installer=repack_stub_installer,
-            ),
+            "fetches": fetches,
         }
 
         group = job.get("treeherder-group")
         if group is not None:
             task["treeherder"] = inherit_treeherder_from_dep(job, dep_job)
-            task["treeherder"]["symbol"] = f"{group}({repack_id})"
+            task["treeherder"]["symbol"] = f"{group}({repack_dir})"
 
         # we may have reduced the priority for partner jobs, otherwise task.py will set it
         if job.get("priority"):
@@ -301,47 +316,33 @@ def _generate_download_config(
     partner=None,
     project=None,
     repack_stub_installer=False,
+    locales=None,
 ):
-    locale_path = f"{partner}/" if partner else ""
+    # An enterprise repack task covers all the locales of its repack config, so
+    # it takes one set of inputs per locale, each in its own directory.
+    if locales:
+        sources = [(f"{partner}/{locale}/", locale) for locale in locales]
+    else:
+        sources = [(f"{partner}/" if partner else "", None)]
 
     if build_platform.startswith("macosx"):
-        return {
-            signing_task: [
-                {
-                    "artifact": f"{locale_path}target.tar.gz",
-                    "extract": False,
-                },
-            ],
-        }
-    if build_platform.startswith("win"):
-        download_config = [
-            {
-                "artifact": f"{locale_path}target.zip",
-                "extract": False,
-            },
-            f"{locale_path}setup.exe",
-        ]
+        specs = [("target.tar.gz", False)]
+    elif build_platform.startswith("win"):
+        specs = [("target.zip", False), ("setup.exe", None)]
         if build_platform.startswith("win32") and repack_stub_installer:
-            download_config.extend([
-                {
-                    "artifact": f"{locale_path}target-stub.zip",
-                    "extract": False,
-                },
-                f"{locale_path}setup-stub.exe",
-            ])
-        return {signing_task: download_config}
+            specs.extend([("target-stub.zip", False), ("setup-stub.exe", None)])
+    elif build_platform.startswith("linux"):
+        specs = [(f"target{archive_format(build_platform)}", False)]
+    else:
+        raise NotImplementedError(f'Unsupported build_platform: "{build_platform}"')
 
-    if build_platform.startswith("linux"):
-        return {
-            signing_task: [
-                {
-                    "artifact": f"{locale_path}target{archive_format(build_platform)}",
-                    "extract": False,
-                },
-            ],
-        }
-
-    raise NotImplementedError(f'Unsupported build_platform: "{build_platform}"')
+    return {
+        signing_task: [
+            fetch_entry(locale_path, dest, artifact, extract)
+            for locale_path, dest in sources
+            for artifact, extract in specs
+        ]
+    }
 
 
 def _generate_task_output_files(task, worker_implementation, repackage_config, partner):

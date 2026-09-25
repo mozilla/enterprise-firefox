@@ -529,10 +529,10 @@ def make_job_description(config, jobs):
 
             family = "Rpk"
 
-            repack_id = dep_job.task.get("extra").get("repack_id")
-            if repack_id:
+            repack_config = dep_job.task.get("extra", {}).get("repack_config")
+            if repack_config:
                 family = "Rpk-Ent"
-                variant = f"{repack_id}"
+                variant = f"{repack_config}"
 
             if locale:
                 variant = f"{variant}-{locale}"
@@ -548,7 +548,7 @@ def make_job_description(config, jobs):
                 "repack-mac" in job["label"]
             ):
                 bms_bmn = "BMS-Ent" if "signing" in dep_job.label else "BMN-Ent"
-                if not repack_id:
+                if not repack_config:
                     symbol = bms_bmn
 
             if "build-signing-win" in dep_job.label:
@@ -603,8 +603,8 @@ def make_job_description(config, jobs):
 
         if config.kind == "repackage-msi":
             if "enterprise-repack" in dep_job.label:
-                repack_id = dep_job.task.get("extra").get("repack_id")
-                treeherder["symbol"] = f"MSI-Ent({repack_id})"
+                repack_config = dep_job.task.get("extra", {}).get("repack_config")
+                treeherder["symbol"] = f"MSI-Ent({repack_config})"
             else:
                 treeherder["symbol"] = "MSI({})".format(locale or "N")
 
@@ -618,9 +618,8 @@ def make_job_description(config, jobs):
                 attributes["msix_identity_name"] = identity_name
 
             if "enterprise-repack" in dep_job.label:
-                # Similar to DEB, populate later
-                # TODO: I cannot remember when ...
-                treeherder["symbol"] = "MSIX-Ent({repack_id})"
+                # Like DEB, filled in once the repack configs are known.
+                treeherder["symbol"] = "MSIX-Ent({repack_config})"
             else:
                 # Like "MSIXs(Bs)".
                 msix_symbol = (
@@ -692,7 +691,7 @@ def make_job_description(config, jobs):
             if "enterprise-repack" in dep_job.label:
                 if config.kind == "repackage-deb":
                     # will be replaced later
-                    treeherder["symbol"] = "DEB-Ent({repack_id})"
+                    treeherder["symbol"] = "DEB-Ent({repack_config})"
                 attributes["repackage_type"] = f"{config.kind}-enterprise-repack"
 
         elif config.kind == "repackage-flatpak":
@@ -896,43 +895,32 @@ def make_job_description(config, jobs):
         if "shipping-product" in job and job["shipping-product"] is not None:
             task["shipping-product"] = job["shipping-product"]
 
-        repacks = []
+        # The repack configs of this platform, mapped to their locales. All
+        # the locales of a config stay in one task, so this is the whole
+        # fan-out.
+        repacks = {}
         if "enterprise-repack" in dep_job.kind:
-            previous_repack = dep_job.task.get("extra").get("repack_id")
-            if previous_repack and previous_repack not in repacks:
-                repacks += [previous_repack]
+            dep_extra = dep_job.task.get("extra", {})
+            if inherited := dep_extra.get("repack_config"):
+                # The upstream already fanned out (the windows installer
+                # chain), so reuse its config.
+                repacks[inherited] = dep_extra["repack_locales"]
             else:
                 release_partner_config = (
                     config.params.get("release_partner_config") or {}
                 )
-                if this_repack := release_partner_config.get(config.kind):
-                    for enterprise_name, entries in this_repack.items():
-                        for repack_name, entry in entries.items():
-                            for platform_name in entry["platforms"]:
-                                for repack_locale in entry["locales"]:
-                                    if platform_name == build_platform:
-                                        repack_final_name = f"{enterprise_name}/{repack_name}/{repack_locale}"
-                                        if repack_final_name not in repacks:
-                                            repacks += [repack_final_name]
+                for enterprise_name, entries in release_partner_config.get(
+                    config.kind, {}
+                ).items():
+                    for repack_name, entry in entries.items():
+                        if build_platform not in entry["platforms"]:
+                            continue
+                        repacks[f"{enterprise_name}/{repack_name}"] = sorted(
+                            entry["locales"]
+                        )
 
-        if len(repacks) == 0:
-            repacks = [None]
-
-        for repack in repacks:
+        for repack_config, repack_locales in (repacks or {None: None}).items():
             repack_task = copy.deepcopy(task)
-
-            if repack:
-                repack_label = repack.replace("/", "_")
-                build_platform_with_repack = f"{build_platform}-{repack_label}"
-                repack_task["label"] = repack_task["label"].replace(
-                    build_platform, build_platform_with_repack
-                )
-
-                if "{repack_id}" in repack_task["treeherder"]["symbol"]:
-                    repack_task["treeherder"]["symbol"] = repack_task["treeherder"][
-                        "symbol"
-                    ].replace("{repack_id}", repack)
-                    repack_task["attributes"]["repackage_type"] += f"-{repack_label}"
 
             repack_task["fetches"] = _generate_download_config(
                 config,
@@ -942,7 +930,8 @@ def make_job_description(config, jobs):
                 repackage_signing_task,
                 locale=locale,
                 existing_fetch=task["fetches"],
-                enterprise_repack=repack,
+                enterprise_repack=repack_config,
+                enterprise_locales=repack_locales,
                 msi_archive_format="target.installer.exe"
                 if "msi_display_name" in repack_task["attributes"]
                 else None,
@@ -951,7 +940,73 @@ def make_job_description(config, jobs):
                 else None,
             )
 
+            if repack_config:
+                repack_label = repack_config.replace("/", "_")
+                build_platform_with_repack = f"{build_platform}-{repack_label}"
+                repack_task["label"] = repack_task["label"].replace(
+                    build_platform, build_platform_with_repack
+                )
+                repack_task["extra"].update({
+                    "repack_config": repack_config,
+                    "repack_locales": repack_locales,
+                })
+
+                if "{repack_config}" in repack_task["treeherder"]["symbol"]:
+                    repack_task["treeherder"]["symbol"] = repack_task["treeherder"][
+                        "symbol"
+                    ].replace("{repack_config}", repack_config)
+                    repack_task["attributes"]["repackage_type"] += f"-{repack_label}"
+
+                per_locale = expand_repackage_config_per_locale(
+                    repackage_config, repack_locales, repack_task["fetches"]
+                )
+                repack_task["run"]["extra-config"]["repackage_config"] = per_locale
+                repack_task["worker"]["artifacts"] = _generate_task_output_files(
+                    dep_job,
+                    worker_type_implementation(
+                        config.graph_config, config.params, worker_type
+                    ),
+                    repackage_config=per_locale,
+                    locale=locale,
+                )
+                repack_task["attributes"]["release_artifacts"] = [
+                    artifact["name"] for artifact in repack_task["worker"]["artifacts"]
+                ]
+
             yield repack_task
+
+
+def expand_repackage_config_per_locale(repackage_config, locales, fetches):
+    """One command per (format, locale), with the locale in its paths.
+
+    ``mozharness/scripts/repackage.py`` runs every entry of ``repackage_config``
+    in turn. It resolves ``inputs`` under ``MOZ_FETCHES_DIR`` and ``output``
+    under the task's output directory, so a locale subdirectory in both is all
+    it takes to repackage several locales in one task.
+    ``_generate_task_output_files`` builds the artifact paths from ``output``,
+    so those follow.
+
+    Only inputs that ``fetches`` puts in a per-locale ``dest`` move with it.
+    Toolchain inputs like the ``mar`` binary are fetched once, at the root, and
+    shared by every locale.
+    """
+    localized = {
+        entry["artifact"].rsplit("/", 1)[-1]
+        for entries in fetches.values()
+        for entry in entries
+        if isinstance(entry, dict) and entry.get("dest")
+    }
+    expanded = []
+    for locale in locales:
+        for command in repackage_config:
+            command = deepcopy(command)
+            command["inputs"] = {
+                name: f"{locale}/{filename}" if filename in localized else filename
+                for name, filename in command["inputs"].items()
+            }
+            command["output"] = f"{locale}/{command['output']}"
+            expanded.append(command)
+    return expanded
 
 
 def _generate_download_config(
@@ -963,67 +1018,67 @@ def _generate_download_config(
     locale=None,
     existing_fetch=None,
     enterprise_repack=None,
+    enterprise_locales=None,
     msi_archive_format=None,
     msix_archive_format=None,
 ):
-    locale_path = f"{locale}/" if locale else ""
     fetch = {}
     if existing_fetch:
         fetch.update(existing_fetch)
 
+    # Where the upstream published this task's inputs, and where they have to
+    # land under MOZ_FETCHES_DIR. An enterprise repack task covers all the
+    # locales of its repack config, so it takes one set of inputs per locale,
+    # each in its own directory.
     if enterprise_repack:
-        locale_path = f"{enterprise_repack}/"
+        sources = [(f"{enterprise_repack}/{loc}/", loc) for loc in enterprise_locales]
+    else:
+        sources = [(f"{locale}/" if locale else "", None)]
 
+    # Per dependency, the artifacts to fetch from each source, as
+    # (name, extract) pairs.
+    specs = {}
     if build_platform.startswith("linux") or build_platform.startswith("macosx"):
-        signing_fetch = [
-            {
-                "artifact": f"{locale_path}target{archive_format(build_platform)}",
-                "extract": False,
-            },
-        ]
+        specs[signing_task] = [(f"target{archive_format(build_platform)}", False)]
         if config.kind == "repackage-deb-l10n":
-            signing_fetch.append({
-                "artifact": f"{locale_path}target.langpack.xpi",
-                "extract": False,
-            })
-        fetch.update({signing_task: signing_fetch})
+            specs[signing_task].append(("target.langpack.xpi", False))
     elif build_platform.startswith("win"):
         if repackage_signing_task:
-            if msi_archive_format:
-                fetch.update({
-                    repackage_signing_task: [f"{locale_path}{msi_archive_format}"],
-                })
-            else:
+            if not msi_archive_format:
                 raise NotImplementedError("repackage_signing_task with non -msi- task")
+            specs[repackage_signing_task] = [(msi_archive_format, None)]
         if signing_task:
             if msix_archive_format:
-                fetch.update({
-                    signing_task: [
-                        {
-                            "artifact": f"{locale_path}{msix_archive_format}",
-                            "extract": False,
-                        }
-                    ],
-                })
+                specs[signing_task] = [(msix_archive_format, False)]
             else:
-                fetch.update({
-                    signing_task: [
-                        {
-                            "artifact": f"{locale_path}target.zip",
-                            "extract": False,
-                        },
-                        f"{locale_path}setup.exe",
-                    ],
-                })
+                specs[signing_task] = [("target.zip", False), ("setup.exe", None)]
 
-        use_stub = task.attributes.get("stub-installer")
-        if use_stub and signing_task:
-            fetch[signing_task].append(f"{locale_path}setup-stub.exe")
+        if task.attributes.get("stub-installer") and signing_task:
+            specs[signing_task].append(("setup-stub.exe", None))
+
+    for dep, dep_specs in specs.items():
+        fetch[dep] = [
+            fetch_entry(locale_path, dest, artifact, extract)
+            for locale_path, dest in sources
+            for artifact, extract in dep_specs
+        ]
 
     if fetch:
         return fetch
 
     raise NotImplementedError(f'Unsupported build_platform: "{build_platform}"')
+
+
+def fetch_entry(locale_path, dest, artifact, extract=None):
+    """A fetches entry for ``artifact``, published under ``locale_path``."""
+    if extract is None and not dest:
+        return f"{locale_path}{artifact}"
+    entry = {"artifact": f"{locale_path}{artifact}"}
+    if extract is not None:
+        entry["extract"] = extract
+    if dest:
+        entry["dest"] = dest
+    return entry
 
 
 def _generate_task_output_files(

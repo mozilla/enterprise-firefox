@@ -71,11 +71,14 @@ def make_repackage_signing_description(config, jobs):
         if locale:
             treeherder["symbol"] = f"rs({locale})"
 
+        # The repack config the upstream repackaged, if any. Signing keeps the
+        # paths, so this task covers the same locales.
+        repack_config = dep_job.task.get("extra", {}).get("repack_config")
+
         if config.kind == "repackage-signing-msi":
-            if "enterprise-repack" in dep_job.label:
-                dep_symbol = dep_job.task.get("extra").get("treeherder").get("symbol")
-                treeherder["symbol"] = f"MSIs-Ent({dep_symbol})"
-                repack_label = dep_symbol.replace("/", "_")
+            if repack_config:
+                treeherder["symbol"] = f"MSIs-Ent({repack_config})"
+                repack_label = repack_config.replace("/", "_")
                 attributes["repackage_type"] = f"{config.kind}-{repack_label}"
             else:
                 treeherder["symbol"] = "MSIs({})".format(locale or "N")
@@ -85,8 +88,8 @@ def make_repackage_signing_description(config, jobs):
             "repackage-signing-msix",
             "repackage-signing-shippable-l10n-msix",
         ):
-            if "enterprise-repack" in dep_job.label:
-                dep_symbol = dep_job.task.get("extra").get("treeherder").get("symbol")
+            if repack_config:
+                dep_symbol = repack_config
                 group_symbol = "MSIXs-Ent"
             else:
                 # Like "MSIXs(Bs-multi)".
@@ -101,17 +104,12 @@ def make_repackage_signing_description(config, jobs):
             repack_label = dep_symbol.replace("/", "_")
             attributes["repackage_type"] = f"{config.kind}-{repack_label}"
 
-        if "enterprise-repack" in dep_job.label:
-            repack_id = (
-                dep_job.task
-                .get("extra")
-                .get("treeherder")
-                .get("symbol")
-                .replace("/", "_")
-            )
-
+        if repack_config:
             job["label"] = job["label"].replace(
-                "repackage-signing", f"repackage-signing-enterprise-repack-{repack_id}"
+                "repackage-signing",
+                "repackage-signing-enterprise-repack-{}".format(
+                    repack_config.replace("/", "_")
+                ),
             )
 
         label = job["label"]
@@ -186,5 +184,13 @@ def make_repackage_signing_description(config, jobs):
             "optimization": dep_job.optimization,
             "treeherder": treeherder,
         }
+
+        if repack_config:
+            # The release definition reads the repack a task belongs to from
+            # its `extra`.
+            task["extra"] = {
+                "repack_config": repack_config,
+                "repack_locales": dep_job.task["extra"]["repack_locales"],
+            }
 
         yield task
