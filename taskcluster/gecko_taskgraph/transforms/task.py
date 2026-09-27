@@ -1493,6 +1493,21 @@ def build_ship_it_maybe_release_payload(config, task, task_def):
     }
 
 
+@payload_builder("shipit-maybe-release-enterprise", schema=ShipitMaybeReleaseSchema)
+def build_ship_it_maybe_release_enterprise_payload(config, task, task_def):
+    branch = config.params["head_ref"].split("/")[-1]
+    # 'version' is e.g. '71.0b13' (app_version doesn't have beta number)
+    version = config.params["version"]
+
+    task_def["payload"] = {
+        "product": task["shipping-product"],
+        "branch": branch,
+        "phase": task["worker"]["phase"],
+        "version": version,
+        "cron_revision": config.params["head_rev"],
+    }
+
+
 @payload_builder("shipit-nightly-metadata", schema=ShipitNightlyMetadataSchema)
 def build_ship_it_nightly_metadata_payload(_, task, task_def):
     locales_file = task["worker"].get("locales-file")

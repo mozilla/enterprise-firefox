@@ -40,6 +40,10 @@ from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_b
 from .util.bugbug import push_schedules
 from .util.hg import get_hg_revision_metadata
 from .util.partials import populate_release_history
+from .util.partners import (
+    get_release_partner_config,
+    get_release_partners,
+)
 from .util.taskcluster import insert_index
 from .util.taskgraph import find_decision_task, find_existing_tasks_from_previous_kinds
 
@@ -449,6 +453,23 @@ def get_decision_parameters(graph_config, options):
     # `target_tasks_method` has higher precedence than `project` parameters
     if options.get("target_tasks_method"):
         parameters["target_tasks_method"] = options["target_tasks_method"]
+
+    # Resolving the partner config crawls the partner repositories on Github and
+    # needs a token, so only do it for the cron scheduling the repacks that
+    # consume it, the same way `release_promotion` does it for a release. Has to
+    # come after `target_tasks_method` is resolved.
+    if (
+        "enterprise" in project
+        and parameters.get("tasks_for") == "cron"
+        and parameters.get("target_tasks_method") == "nightly_enterprise"
+    ):
+        parameters["release_enable_enterprise_repack"] = True
+        # They silently depend on release_type / release_product parameters
+        parameters["release_partner_config"] = get_release_partner_config(
+            parameters, graph_config
+        )
+        # Depends on the values from the previous call
+        parameters["release_partners"] = get_release_partners(parameters)
 
     if options.get("include_push_tasks"):
         get_existing_tasks(options.get("rebuild_kinds", []), parameters, graph_config)
