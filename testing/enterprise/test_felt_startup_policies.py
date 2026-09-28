@@ -30,6 +30,9 @@ class StartupPolicyDisableSafeMode(FeltTests):
         assert self.get_env_child("MOZ_ENTERPRISE_DISABLE_SAFE_MODE") == "1", (
             "Child should have been spawned with MOZ_ENTERPRISE_DISABLE_SAFE_MODE"
         )
+        assert self.get_env_child("MOZ_DISABLE_AUTO_SAFE_MODE") == "1", (
+            "Child should have been spawned with MOZ_DISABLE_AUTO_SAFE_MODE"
+        )
 
         self._child_driver.set_context("chrome")
         safe_mode_child = self._child_driver.execute_script(

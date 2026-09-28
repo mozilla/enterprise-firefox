@@ -70,13 +70,6 @@ inline Maybe<bool> IsSafeModeRequested(
   }
 #endif  // defined(XP_MACOSX)
 
-#if defined(MOZ_ENTERPRISE)
-  // Felt passes the console-managed policy in the environment so that it is available at startup.
-  if (result && EnvHasValue("MOZ_ENTERPRISE_DISABLE_SAFE_MODE")) {
-    result = false;
-  }
-#endif  // defined(MOZ_ENTERPRISE)
-
   // The Safe Mode Policy should not be enforced for the env var case
   // (used by updater and crash-recovery).
   if (EnvHasValue("MOZ_SAFE_MODE_RESTART")) {
@@ -86,6 +79,15 @@ inline Maybe<bool> IsSafeModeRequested(
       SaveToEnv("MOZ_SAFE_MODE_RESTART=");
     }
   }
+
+#if defined(MOZ_ENTERPRISE)
+  // Felt passes the console-managed policy in the environment so that it is
+  // available at startup. It also overrides MOZ_SAFE_MODE_RESTART, and stays in
+  // the environment of a browser that restarts itself.
+  if (result && EnvHasValue("MOZ_ENTERPRISE_DISABLE_SAFE_MODE")) {
+    result = false;
+  }
+#endif  // defined(MOZ_ENTERPRISE)
 
   return Some(result);
 }
