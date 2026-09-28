@@ -197,6 +197,12 @@ policy-PrimaryPassword = Require or prevent using a Primary Password.
 
 policy-PrintingEnabled = Enable or disable printing.
 
+policy-NativeMessagingAllowlist = Allow extensions to use specific native messaging hosts, even if they are blocked by the native messaging blocklist.
+
+policy-NativeMessagingBlocklist = Block extensions from using specific native messaging hosts.
+
+policy-NativeMessagingUserLevelHosts = Allow or block native messaging hosts installed only for the current user.
+
 policy-NetworkPrediction = Enable or disable network prediction (DNS prefetching).
 
 policy-NewTabPage = Enable or disable the New Tab page.

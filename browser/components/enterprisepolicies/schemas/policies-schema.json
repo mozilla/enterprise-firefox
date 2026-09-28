@@ -3243,6 +3243,53 @@
       "examples": [true]
     },
 
+    "NativeMessagingAllowlist": {
+      "type": "array",
+      "x-category": "Extensions",
+      "x-compatibility": {
+        "firefox": { "version_added": "159" },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "159" }
+      },
+      "x-restart-required": true,
+      "description": "Native messaging hosts that extensions may use even if they match NativeMessagingBlocklist.",
+      "examples": [["com.example.host"]],
+      "items": {
+        "type": "string",
+        "pattern": "^\\w+(\\.\\w+)*$"
+      }
+    },
+
+    "NativeMessagingBlocklist": {
+      "type": "array",
+      "x-category": "Extensions",
+      "x-compatibility": {
+        "firefox": { "version_added": "159" },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "159" }
+      },
+      "x-restart-required": true,
+      "description": "Native messaging hosts that extensions may not use, unless listed in NativeMessagingAllowlist. The value '*' blocks all native messaging hosts that are not in NativeMessagingAllowlist.",
+      "examples": [["*"], ["com.example.host"]],
+      "items": {
+        "type": "string",
+        "pattern": "^(\\*|\\w+(\\.\\w+)*)$"
+      }
+    },
+
+    "NativeMessagingUserLevelHosts": {
+      "type": "boolean",
+      "x-category": "Extensions",
+      "x-compatibility": {
+        "firefox": { "version_added": "159" },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "159" }
+      },
+      "x-restart-required": true,
+      "description": "Allow native messaging hosts installed for the current user only. If false, only native messaging hosts installed system-wide can be used.",
+      "examples": [false]
+    },
+
     "NetworkPrediction": {
       "type": "boolean",
       "x-category": "Network security",

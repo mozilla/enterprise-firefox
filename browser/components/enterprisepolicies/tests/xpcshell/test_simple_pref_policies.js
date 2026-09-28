@@ -585,6 +585,22 @@ const POLICIES_TESTS = [
     },
   },
 
+  // POLICY: NativeMessagingAllowlist, NativeMessagingBlocklist,
+  // NativeMessagingUserLevelHosts
+  {
+    policies: {
+      NativeMessagingAllowlist: ["com.example.allowed", "other_host"],
+      NativeMessagingBlocklist: ["*"],
+      NativeMessagingUserLevelHosts: false,
+    },
+    lockedPrefs: {
+      "webextensions.native-messaging.allowlist":
+        "com.example.allowed,other_host",
+      "webextensions.native-messaging.blocklist": "*",
+      "webextensions.native-messaging.user-level-hosts": false,
+    },
+  },
+
   // POLICY: ExtensionUpdate
   {
     policies: {

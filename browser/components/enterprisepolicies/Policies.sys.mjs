@@ -2785,6 +2785,33 @@ export var Policies = {
     },
   },
 
+  NativeMessagingAllowlist: {
+    onBeforeAddons(manager, param) {
+      lazy.PoliciesUtils.setAndLockPref(
+        "webextensions.native-messaging.allowlist",
+        param.join(",")
+      );
+    },
+  },
+
+  NativeMessagingBlocklist: {
+    onBeforeAddons(manager, param) {
+      lazy.PoliciesUtils.setAndLockPref(
+        "webextensions.native-messaging.blocklist",
+        param.join(",")
+      );
+    },
+  },
+
+  NativeMessagingUserLevelHosts: {
+    onBeforeAddons(manager, param) {
+      lazy.PoliciesUtils.setAndLockPref(
+        "webextensions.native-messaging.user-level-hosts",
+        param
+      );
+    },
+  },
+
   NetworkPrediction: {
     onBeforeAddons(manager, param) {
       lazy.PoliciesUtils.setAndLockPref("network.dns.disablePrefetch", !param);

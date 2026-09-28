@@ -489,6 +489,63 @@ add_task(async function test_forward_slashes_in_path_works() {
   await simpleTest("forwardslash.echo");
 });
 
+add_task(
+  { pref_set: [["webextensions.native-messaging.blocklist", "echo"]] },
+  async function test_blocklist() {
+    await testBrokenApp({
+      appname: "echo",
+      expectedError: "No such native application echo",
+      expectedConsoleMessages: [
+        /Native application echo is blocked by the NativeMessagingBlocklist policy/,
+        /No such native application echo/,
+      ],
+    });
+    await simpleTest("dot.echo");
+  }
+);
+
+add_task(
+  {
+    pref_set: [
+      ["webextensions.native-messaging.blocklist", "*"],
+      ["webextensions.native-messaging.allowlist", "echo"],
+    ],
+  },
+  async function test_blocklist_wildcard_with_allowlist() {
+    await testBrokenApp({
+      appname: "dot.echo",
+      expectedError: "No such native application dot.echo",
+      expectedConsoleMessages: [
+        /Native application dot\.echo is blocked by the NativeMessagingBlocklist policy/,
+        /No such native application dot\.echo/,
+      ],
+    });
+    await simpleTest("echo");
+  }
+);
+
+// setupHosts registers the hosts in HKEY_CURRENT_USER on Windows. On Linux and
+// macOS it uses the same directory for user-specific and system-wide hosts.
+add_task(
+  {
+    skip_if: () => AppConstants.platform != "win",
+    pref_set: [["webextensions.native-messaging.user-level-hosts", false]],
+  },
+  async function test_user_level_hosts_disabled() {
+    await testBrokenApp({
+      appname: "echo",
+      expectedError: "No such native application echo",
+      // MockRegistry logs an error for each of the two missing
+      // HKEY_LOCAL_MACHINE keys.
+      expectedConsoleMessages: [
+        /NS_ERROR_FAILURE/,
+        /NS_ERROR_FAILURE/,
+        /No such native application echo/,
+      ],
+    });
+  }
+);
+
 // Test sendNativeMessage()
 add_task(async function test_sendNativeMessage() {
   async function background() {

@@ -38,8 +38,13 @@ export var NativeManifests = {
           Services.dirsvc.get("XREUserNativeManifests", Ci.nsIFile).path,
           Services.dirsvc.get("XRESysNativeManifests", Ci.nsIFile).path,
         ];
-        this._lookup = (type, name, context) =>
-          this._tryPaths(type, name, dirs, context);
+        this._lookup = (type, name, context, systemOnly) =>
+          this._tryPaths(
+            type,
+            name,
+            systemOnly ? dirs.slice(1) : dirs,
+            context
+          );
       } else {
         throw new Error(
           `Native manifests are not supported on ${AppConstants.platform}`
@@ -50,15 +55,18 @@ export var NativeManifests = {
     return this._initializePromise;
   },
 
-  async _winLookup(type, name, context) {
+  async _winLookup(type, name, context, systemOnly) {
     const REGISTRY = Ci.nsIWindowsRegKey;
     let regPath = `${REGPATH}\\${TYPES[type]}\\${name}`;
-    let path = lazy.WindowsRegistry.readRegKey(
-      REGISTRY.ROOT_KEY_CURRENT_USER,
-      regPath,
-      "",
-      REGISTRY.WOW64_64
-    );
+    let path = null;
+    if (!systemOnly) {
+      path = lazy.WindowsRegistry.readRegKey(
+        REGISTRY.ROOT_KEY_CURRENT_USER,
+        regPath,
+        "",
+        REGISTRY.WOW64_64
+      );
+    }
     if (!path) {
       path = lazy.WindowsRegistry.readRegKey(
         REGISTRY.ROOT_KEY_LOCAL_MACHINE,
@@ -198,10 +206,15 @@ export var NativeManifests = {
    * @param {string} type The type, one of: "pkcs11", "stdio" or "storage".
    * @param {string} name The name of the manifest to search for.
    * @param {object} context A context object as expected by Schemas.normalize.
+   * @param {object} [options]
+   * @param {boolean} [options.systemOnly] Skip user-specific locations and only
+   *                  search system-wide locations.
    * @returns {object} The contents of the validated manifest, or null if
    *                   no valid manifest can be found for this type and name.
    */
-  lookupManifest(type, name, context) {
-    return this.init().then(() => this._lookup(type, name, context));
+  lookupManifest(type, name, context, { systemOnly = false } = {}) {
+    return this.init().then(() =>
+      this._lookup(type, name, context, systemOnly)
+    );
   },
 };

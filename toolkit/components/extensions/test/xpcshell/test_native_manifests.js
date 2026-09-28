@@ -581,6 +581,51 @@ add_task(async function test_user_dir_precedence() {
   );
 });
 
+add_task(async function test_system_only_skips_user_dir() {
+  // User-specific and system-wide entries are still present from the previous
+  // tests.
+  let result = await NativeManifests.lookupManifest("stdio", "test", context, {
+    systemOnly: true,
+  });
+  notEqual(result, null, "systemOnly lookup finds the system-wide manifest");
+  equal(
+    result.path,
+    GLOBAL_TEST_JSON,
+    "systemOnly lookup ignores the user-specific manifest"
+  );
+  deepEqual(
+    result.manifest,
+    globalManifest,
+    "systemOnly lookup returns the system-wide manifest contents"
+  );
+
+  await IOUtils.remove(GLOBAL_TEST_JSON);
+  if (registry) {
+    registry.setValue(
+      Ci.nsIWindowsRegKey.ROOT_KEY_LOCAL_MACHINE,
+      `${REGPATH}\\test`,
+      "",
+      null
+    );
+  }
+
+  result = await NativeManifests.lookupManifest("stdio", "test", context, {
+    systemOnly: true,
+  });
+  equal(
+    result,
+    null,
+    "systemOnly lookup does not find a user-specific only manifest"
+  );
+
+  result = await lookupApplication("test", context);
+  equal(
+    result?.path,
+    USER_TEST_JSON,
+    "Regular lookup still finds the user-specific manifest"
+  );
+});
+
 // Test shutdown handling in NativeApp
 add_task(async function test_native_app_shutdown() {
   const SCRIPT = String.raw`

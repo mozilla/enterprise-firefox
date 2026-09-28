@@ -23,12 +23,29 @@ const PREF_MAX_READ = "webextensions.native-messaging.max-input-message-bytes";
 const PREF_MAX_WRITE =
   "webextensions.native-messaging.max-output-message-bytes";
 
+// Preferences set by the NativeMessagingAllowlist, NativeMessagingBlocklist
+// and NativeMessagingUserLevelHosts enterprise policies.
+const PREF_ALLOWLIST = "webextensions.native-messaging.allowlist";
+const PREF_BLOCKLIST = "webextensions.native-messaging.blocklist";
+const PREF_USER_LEVEL_HOSTS = "webextensions.native-messaging.user-level-hosts";
+
+const parseHostList = value =>
+  new Set(
+    value
+      .split(",")
+      .map(host => host.trim())
+      .filter(Boolean)
+  );
+
 const lazy = XPCOMUtils.declareLazy({
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   NativeManifests: "resource://gre/modules/NativeManifests.sys.mjs",
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   maxRead: { pref: PREF_MAX_READ, default: MAX_READ },
   maxWrite: { pref: PREF_MAX_WRITE, default: MAX_WRITE },
+  allowlist: { pref: PREF_ALLOWLIST, default: "" },
+  blocklist: { pref: PREF_BLOCKLIST, default: "" },
+  userLevelHosts: { pref: PREF_USER_LEVEL_HOSTS, default: true },
   portal: {
     service: "@mozilla.org/extensions/native-messaging-portal;1",
     iid: Ci.nsINativeMessagingPortal,
@@ -51,6 +68,33 @@ export class NativeApp extends EventEmitter {
     // Report a generic error to not leak information about whether a native
     // application is installed to addons that do not have the right permission.
     throw new ExtensionError(`No such native application ${application}`);
+  }
+
+  /**
+   * Throws if enterprise policy forbids connecting to the native application.
+   *
+   * @param {string} application The identifier of the native app.
+   * @param {boolean} viaPortal Whether the app is reached through the native
+   *        messaging portal or proxy, which cannot tell user-specific manifests
+   *        apart from system-wide ones.
+   */
+  _checkPolicy(application, viaPortal) {
+    let allowlist = parseHostList(lazy.allowlist);
+    let blocklist = parseHostList(lazy.blocklist);
+    let reason;
+    if (
+      !allowlist.has(application) &&
+      (blocklist.has("*") || blocklist.has(application))
+    ) {
+      reason = "is blocked by the NativeMessagingBlocklist policy";
+    } else if (viaPortal && !lazy.userLevelHosts) {
+      reason =
+        "cannot be verified as system-wide through the native messaging portal, as required by the NativeMessagingUserLevelHosts policy";
+    }
+    if (reason) {
+      Cu.reportError(`Native application ${application} ${reason}`);
+      this._throwGenericError(application);
+    }
   }
 
   /**
@@ -98,11 +142,16 @@ export class NativeApp extends EventEmitter {
       return;
     }
 
-    this.startupPromise = lazy.NativeManifests.lookupManifest(
-      "stdio",
-      application,
-      context
-    )
+    this.startupPromise = Promise.resolve()
+      .then(() => {
+        this._checkPolicy(application, false);
+        return lazy.NativeManifests.lookupManifest(
+          "stdio",
+          application,
+          context,
+          { systemOnly: !lazy.userLevelHosts }
+        );
+      })
       .then(hostInfo => {
         if (!hostInfo) {
           this._throwGenericError(application);
@@ -152,6 +201,8 @@ export class NativeApp extends EventEmitter {
   }
 
   async _doInitPortalOrNMProxy() {
+    this._checkPolicy(this.name, true);
+
     let available = await this.portalImp.available;
     if (!available) {
       if (this.portalImp === lazy.nmproxy && lazy.portal.shouldUse()) {
