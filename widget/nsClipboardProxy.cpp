@@ -435,6 +435,16 @@ NS_IMETHODIMP nsClipboardProxy::GetDataSnapshot(
   return NS_OK;
 }
 
+NS_IMETHODIMP nsClipboardProxy::GetLocalCopyDataFor(
+    nsITransferable* aTransferable, nsIClipboard::ClipboardType aWhichClipboard,
+    mozilla::dom::WindowContext* aRequestingWindowContext, bool* aFound) {
+  // The kept copy lives in the parent, which substitutes it into content
+  // reads itself (ClipboardContentAnalysisParent); there is nothing to ask
+  // for from here.
+  *aFound = false;
+  return NS_OK;
+}
+
 NS_IMETHODIMP nsClipboardProxy::GetDataSnapshotSync(
     const nsTArray<nsCString>& aFlavorList,
     nsIClipboard::ClipboardType aWhichClipboard,
