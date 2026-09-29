@@ -361,6 +361,7 @@ nsBaseClipboard::~nsBaseClipboard() {
     mPendingCopy->Complete(NS_ERROR_ABORT);
     mPendingCopy = nullptr;
   }
+  mLocalCopy.Clear();
 }
 
 NS_IMPL_ISUPPORTS(nsBaseClipboard, nsIClipboard)
@@ -430,17 +431,20 @@ bool nsBaseClipboard::WriteCopyBlockedPlaceholder(
     ClipboardType aWhichClipboard) {
   // We replace the clipboard contents rather than leaving them alone: if we
   // left them, the user could copy blocked content and then the next paste
-  // would paste whatever happened to be on the clipboard beforehand.
+  // would paste whatever happened to be on the clipboard beforehand. Writing
+  // (rather than emptying) also guarantees a new native sequence number, which
+  // ClipboardLocalCopy keys the blocked data to. (on GTK, emptying a
+  // clipboard another application owns changes nothing)
   nsAutoCString message;
   {
     mozilla::IgnoredErrorResult rv;
     nsTArray<nsCString> resIds = {
+        "branding/brand.ftl"_ns,
         "toolkit/contentanalysis/contentanalysis.ftl"_ns};
     RefPtr<mozilla::intl::Localization> l10n =
         mozilla::intl::Localization::Create(resIds, /* aSync */ true);
-    l10n->FormatValueSync(
-        "contentanalysis-clipboard-copy-blocked-replacement"_ns, {}, message,
-        rv);
+    l10n->FormatValueSync("contentanalysis-clipboard-copy-blocked-replacement"_ns,
+                          {}, message, rv);
   }
   if (message.IsEmpty()) {
     MOZ_CLIPBOARD_LOG("%s: could not load the placeholder string.",
@@ -469,16 +473,39 @@ bool nsBaseClipboard::WriteCopyBlockedPlaceholder(
                                   /* aCheckContentAnalysis */ false));
 }
 
+mozilla::widget::ClipboardLocalCopy* nsBaseClipboard::GetLocalCopyIfCurrent(
+    ClipboardType aWhichClipboard) {
+  if (aWhichClipboard != kGlobalClipboard) {
+    return nullptr;
+  }
+  auto sequenceNumberOrError =
+      GetNativeClipboardSequenceNumber(aWhichClipboard);
+  if (sequenceNumberOrError.isErr()) {
+    mLocalCopy.Clear();
+    return nullptr;
+  }
+  return mLocalCopy.IsCurrent(sequenceNumberOrError.unwrap()) ? &mLocalCopy
+                                                              : nullptr;
+}
+
 mozilla::Maybe<nsBaseClipboard::LocalClipboardData>
 nsBaseClipboard::GetLocalCopyFor(
     mozilla::dom::WindowGlobalParent* aRequestingWindow,
     ClipboardType aWhichClipboard) {
-  return mozilla::Nothing();
+  auto* localCopy = GetLocalCopyIfCurrent(aWhichClipboard);
+  if (!localCopy) {
+    return mozilla::Nothing();
+  }
+  return mozilla::Some(LocalClipboardData{
+      localCopy->GetDataFor(aRequestingWindow), localCopy->SequenceNumber(),
+      localCopy->SourcePrincipal()});
 }
 
 mozilla::Maybe<uint64_t> nsBaseClipboard::GetLocalCopySourceInnerWindowId(
     ClipboardType aWhichClipboard) {
-  return mozilla::Nothing();
+  auto* localCopy = GetLocalCopyIfCurrent(aWhichClipboard);
+  return localCopy ? mozilla::Some(localCopy->SourceInnerWindowId())
+                   : mozilla::Nothing();
 }
 
 NS_IMETHODIMP nsBaseClipboard::GetLocalCopyDataFor(
@@ -549,7 +576,25 @@ void nsBaseClipboard::OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
   if (!aAllowed) {
     MOZ_CLIPBOARD_LOG("%s: copy blocked by content analysis, clipboard=%d",
                       __FUNCTION__, aWhichClipboard);
-    WriteCopyBlockedPlaceholder(aWhichClipboard);
+    bool wrotePlaceholder = WriteCopyBlockedPlaceholder(aWhichClipboard);
+#ifdef MOZ_ENTERPRISE
+    // Keeping the blocked data for same-site paste is Enterprise-only.
+    if (wrotePlaceholder &&
+        mozilla::StaticPrefs::
+            browser_contentanalysis_interception_point_clipboard_copy_keep_blocked_data_for_same_site()) {
+      // The placeholder write just stored the sequence number it produced in
+      // the cache, so we need to overwrite `mLocalCopy` with the real
+      // clipboard data.
+      // This is a little confusing but it maintains the invariant that
+      // `SetDataImpl()` will always update `mLocalCopy`.
+      mLocalCopy.Remember(mozilla::widget::ClipboardLocalCopy::State::eBlocked,
+                          pendingCopy->mTransferable, pendingCopy->mOwner,
+                          mCaches[aWhichClipboard]->GetSequenceNumber(),
+                          pendingCopy->mWindowContext);
+    }
+#else
+    (void)wrotePlaceholder;
+#endif
     pendingCopy->Complete(NS_ERROR_CONTENT_BLOCKED);
     return;
   }
@@ -620,9 +665,11 @@ nsresult nsBaseClipboard::SetDataImpl(
   // Ask Content Analysis whether web content is permitted to copy this data.
   // The check is asynchronous on this (the parent's main) thread, as the agent
   // may be slow, so the clipboard is left as it was until the verdict arrives.
-  // Copies from content processes are nonetheless synchronous from the page's
-  // point of view: the content process blocks in a sync IPC call that
-  // ClipboardContentAnalysisParent only answers once aCompletion has run.
+  // Whether the copying page waits for the verdict is nsClipboardProxy's
+  // decision: it either blocks in a sync IPC call that
+  // ClipboardContentAnalysisParent only answers once aCompletion has run, or
+  // (with keep_blocked_data_for_same_site) returns at once and relies on the
+  // pending data being remembered below.
   if (aCheckContentAnalysis &&
       NeedsCopyContentAnalysis(aTransferable, aWhichClipboard,
                                aWindowContext)) {
@@ -633,6 +680,28 @@ nsresult nsBaseClipboard::SetDataImpl(
     MOZ_ASSERT(aWhichClipboard == kGlobalClipboard);
     mPendingCopy = pendingCopy;
 
+#ifdef MOZ_ENTERPRISE
+    if (mozilla::StaticPrefs::
+            browser_contentanalysis_interception_point_clipboard_copy_keep_blocked_data_for_same_site()) {
+      // Make the data available to same-site pastes right away, so the page
+      // doesn't have to wait for the verdict.
+      auto sequenceNumber = GetNativeClipboardSequenceNumber(aWhichClipboard);
+      if (sequenceNumber.isOk()) {
+        mLocalCopy.Remember(
+            mozilla::widget::ClipboardLocalCopy::State::ePending, aTransferable,
+            aOwner, sequenceNumber.unwrap(), aWindowContext);
+        // Same-site pastes now read different data under the same sequence
+        // number, so clear any cached verdict.
+        mozilla::contentanalysis::ContentAnalysis::
+            ClearCachedClipboardResponse();
+      } else {
+        mLocalCopy.Clear();
+      }
+    }
+#endif
+
+    // mLocalCopy is only ever populated in Enterprise builds.
+    const bool keptLocally = !mLocalCopy.IsEmpty();
     auto callback =
         mozilla::MakeRefPtr<mozilla::contentanalysis::ContentAnalysisCallback>(
             [self = RefPtr{this}, aWhichClipboard,
@@ -640,14 +709,21 @@ nsresult nsBaseClipboard::SetDataImpl(
               self->OnCopyContentAnalysisResult(
                   aWhichClipboard, pendingCopy,
                   aResult->GetShouldAllowContent());
+            },
+            [self = RefPtr{this}, aWhichClipboard, pendingCopy](nsresult) {
+              self->OnCopyContentAnalysisResult(aWhichClipboard, pendingCopy,
+                                                /* aAllowed */ false);
             });
     mozilla::contentanalysis::ContentAnalysis::
         CheckClipboardCopyContentAnalysis(aWindowContext->Canonical(),
-                                          aTransferable, callback);
+                                          aTransferable, keptLocally, callback);
     return NS_OK;
   }
 
   clipboardCache->Clear();
+  // Whatever we're about to write is what the user last copied, so any
+  // pending or blocked copy kept for same-site paste is stale.
+  mLocalCopy.Clear();
 
   nsresult rv = NS_ERROR_FAILURE;
   if (aTransferable) {
@@ -1102,6 +1178,9 @@ NS_IMETHODIMP nsBaseClipboard::EmptyClipboard(ClipboardType aWhichClipboard) {
   // Emptying the clipboard supersedes any copy still awaiting a verdict, so
   // that a late "allow" doesn't repopulate what we just cleared.
   CancelPendingCopy(aWhichClipboard, NS_ERROR_ABORT);
+  if (aWhichClipboard == kGlobalClipboard) {
+    mLocalCopy.Clear();
+  }
 
   {
     mozilla::AutoRestore<bool> mutating(mMutatingNativeClipboard);

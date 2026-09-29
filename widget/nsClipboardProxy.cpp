@@ -52,10 +52,20 @@ nsClipboardProxy::SetData(nsITransferable* aTransferable,
   // avoid deleting the selection for a blocked cut. These conditions mirror
   // nsBaseClipboard::NeedsCopyContentAnalysis so that copies the parent
   // wouldn't analyze anyway don't pay for a sync round trip.
+  //
+  // When the parent keeps the copied data for same-site paste while the
+  // verdict is pending), we have decided the page does not need to wait
+  // since a paste back into the same site can still get the data.
+  bool keepsPendingCopies = false;
+#ifdef MOZ_ENTERPRISE
+  keepsPendingCopies = mozilla::StaticPrefs::
+      browser_contentanalysis_interception_point_clipboard_copy_keep_blocked_data_for_same_site();
+#endif
   if (MOZ_UNLIKELY(nsIContentAnalysis::MightBeActive()) &&
       aWhichClipboard == nsIClipboard::kGlobalClipboard && aWindowContext &&
       mozilla::StaticPrefs::
-          browser_contentanalysis_interception_point_clipboard_copy_enabled()) {
+          browser_contentanalysis_interception_point_clipboard_copy_enabled() &&
+      !keepsPendingCopies) {
     if (aWindowContext->IsDiscarded()) {
       return NS_ERROR_NOT_AVAILABLE;
     }

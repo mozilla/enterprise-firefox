@@ -10,6 +10,7 @@
 #include "mozilla/MoveOnlyFunction.h"
 #include "mozilla/Result.h"
 #include "mozilla/dom/PContent.h"
+#include "mozilla/widget/ClipboardLocalCopy.h"
 #include "nsCOMPtr.h"
 #include "nsIClipboard.h"
 #include "nsITransferable.h"
@@ -118,6 +119,11 @@ class nsBaseClipboard : public nsIClipboard {
       ClipboardType aClipboardType);
   virtual mozilla::Result<int32_t, nsresult> GetNativeClipboardSequenceNumber(
       ClipboardType aWhichClipboard) = 0;
+
+  // Returns mLocalCopy if it holds data keyed to the clipboard's current
+  // sequence number, otherwise null. Only the global clipboard ever has one.
+  mozilla::widget::ClipboardLocalCopy* GetLocalCopyIfCurrent(
+      ClipboardType aWhichClipboard);
 
   // Fills the first flavor aDest can import that aSource has data for, the
   // way a native clipboard read would. Returns NS_ERROR_FAILURE if none.
@@ -439,6 +445,9 @@ class nsBaseClipboard : public nsIClipboard {
   // Copies awaiting a content analysis verdict. Only the
   // global clipboard is ever analyzed.
   RefPtr<PendingCopy> mPendingCopy;
+  // The pending or blocked copy kept for same-site paste. Only the global
+  // clipboard is analyzed, so a single slot suffices.
+  mozilla::widget::ClipboardLocalCopy mLocalCopy;
   const mozilla::dom::ClipboardCapabilities mClipboardCaps;
   bool mIgnoreEmptyNotification = false;
 

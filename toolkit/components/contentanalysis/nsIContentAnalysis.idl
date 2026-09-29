@@ -271,6 +271,12 @@ interface nsIContentAnalysisRequest : nsISupports
   // requests with multiple userActionIds that are logically grouped together.
   attribute uint32_t timeoutMultiplier;
 
+  // True for a clipboard copy that the clipboard keeps locally for the copying
+  // tab while (and after) content analysis decides on it. The page does not wait
+  // for such a copy, so its verdicts are reported through the DLP panel
+  // rather than dialogs.
+  readonly attribute boolean clipboardCopyKeptLocally;
+
   // Tests set this to allow reliably cancelling requests without that
   // triggering CA to skip sending to the agent.  Outside of tests, that is
   // a race where the winner is unimportant.  This must not be set outside
@@ -293,6 +299,31 @@ interface nsIContentAnalysisDiagnosticInfo : nsISupports
   readonly attribute AString agentPath;
   [infallible] readonly attribute boolean failedSignatureVerification;
   [infallible] readonly attribute long long requestCount;
+};
+
+/**
+ * What the clipboard is keeping for the copying tab because content analysis
+ * has not (or not yet) let a copy onto the system clipboard.
+ */
+[scriptable, builtinclass, uuid(6de0ef56-a56a-4654-92c6-da71df6ea487)]
+interface nsIContentAnalysisLocalCopyInfo : nsISupports
+{
+  // The copy is awaiting its verdict.
+  const unsigned long PENDING = 0;
+  // The copy was blocked.
+  const unsigned long BLOCKED = 1;
+
+  [infallible] readonly attribute unsigned long state;
+
+  // The clipboard sequence number when the copy was done.
+  [infallible] readonly attribute long sequenceNumber;
+
+  // The first few code points of the copy's plain text, or empty if the copy
+  // has no text/plain flavor.
+  readonly attribute AString preview;
+
+  // Host of the copying page, for display.
+  readonly attribute AString sourceHost;
 };
 
 [scriptable, uuid(61497587-2bba-4a88-acd3-3fbb2cedf163)]
@@ -438,6 +469,13 @@ interface nsIContentAnalysis : nsISupports
    * since the resolution does not represent a choice the user made.)
    */
   void respondToWarnDialog(in ACString aRequestToken, in boolean aAllowContent);
+
+  /**
+   * What the clipboard is keeping locally for the copying tab, or null if it
+   * is keeping nothing (or what it kept is no longer what is on the
+   * clipboard). Always null outside Enterprise builds.
+   */
+  nsIContentAnalysisLocalCopyInfo getLocalClipboardCopyInfo();
 
   /**
    * Cancels all outstanding DLP requests. Used on shutdown.

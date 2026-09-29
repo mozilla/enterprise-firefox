@@ -384,12 +384,17 @@ export const ContentAnalysis = {
             url: request.url?.spec ?? "",
             analysisType: request.analysisType,
             reason: request.reason,
+            clipboardCopyKeptLocally: request.clipboardCopyKeptLocally,
           });
-          this._queueSlowCAMessage(
-            request,
-            resourceNameOrOperationType,
-            browsingContext
-          );
+          // A copy kept on the local clipboard does not hold up the page, so
+          // there is nothing to be busy about.
+          if (!request.clipboardCopyKeptLocally) {
+            this._queueSlowCAMessage(
+              request,
+              resourceNameOrOperationType,
+              browsingContext
+            );
+          }
         }
         break;
       case "dlp-response": {
@@ -415,7 +420,13 @@ export const ContentAnalysis = {
           return;
         }
         this.requestTokenToRequestInfo.delete(response.requestToken);
-        this._removeSlowCAMessage(response.userActionId, response.requestToken);
+        const isLocalClipboardCopy = requestInfo.clipboardCopyKeptLocally;
+        if (!isLocalClipboardCopy) {
+          this._removeSlowCAMessage(
+            response.userActionId,
+            response.requestToken
+          );
+        }
         lazy.ContentAnalysisTelemetry.recordVerdict(requestInfo, response);
         if (
           requestInfo.resourceNameOrOperationType?.operationType ===
@@ -437,7 +448,8 @@ export const ContentAnalysis = {
             responseResult,
             response.isSyntheticResponse,
             response.cancelError,
-            response.ruleMessage
+            response.ruleMessage,
+            isLocalClipboardCopy
           );
         }
         break;
@@ -943,6 +955,9 @@ export const ContentAnalysis = {
    * @param {string} aRuleMessage
    *   Admin-authored message from the rule that produced this verdict, or "" if
    *   it supplied none.
+   * @param {boolean} [aIsLocalClipboardCopy]
+   *   Whether this is a copy the clipboard keeps locally. Block verdicts
+   *   for those are not reported through dialogs.
    * @returns {Promise<NotificationInfo?>} a notification object (if shown)
    */
   async _showCAResult(
@@ -953,7 +968,8 @@ export const ContentAnalysis = {
     aCAResult,
     aIsSyntheticResponse,
     aRequestCancelError,
-    aRuleMessage
+    aRuleMessage,
+    aIsLocalClipboardCopy = false
   ) {
     let message = null;
     let timeoutMs = 0;
@@ -1020,6 +1036,11 @@ export const ContentAnalysis = {
         return null;
       }
       case Ci.nsIContentAnalysisResponse.eBlock: {
+        if (aIsLocalClipboardCopy) {
+          // The copy already went on without the page waiting for it, so
+          // don't interrupt with a dialog.
+          return null;
+        }
         if (!aIsSyntheticResponse && !lazy.showBlockedResult) {
           // Don't show anything
           return null;
