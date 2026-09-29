@@ -960,21 +960,10 @@ export var Policies = {
         }
       }
 
-      if (param.Block) {
-        const hosts = param.Block.map(url => url.hostname)
-          .sort()
-          .join("\n");
-        lazy.runOncePerModification(
-          "clearCookiesForBlockedHosts",
-          hosts,
-          () => {
-            for (const blocked of param.Block) {
-              Services.cookies.removeCookiesWithOriginAttributes(
-                "{}",
-                blocked.hostname
-              );
-            }
-          }
+      for (const blocked of param.Block ?? []) {
+        Services.cookies.removeCookiesWithOriginAttributes(
+          "{}",
+          blocked.hostname
         );
       }
 
@@ -1070,7 +1059,6 @@ export var Policies = {
       // (see onBeforeUIStartup) are left in place as the shim is being removed
       // in one of the next releases, and SanitizeOnShutdown.Exceptions
       // owns these entries going forward.
-      lazy.clearRunOnceModification("clearCookiesForBlockedHosts");
       lazy.PoliciesUtils.unsetDefaultPref("network.cookie.cookieBehavior");
       lazy.PoliciesUtils.unsetDefaultPref(
         "network.cookie.cookieBehavior.pbmode"

@@ -121,6 +121,45 @@ add_task(async function test_cookies_for_blocked_sites_cleared() {
   );
 });
 
+add_task(async function test_cookies_cleared_with_preset_marker() {
+  const cv = Services.cookies.add(
+    HOSTNAME_DOMAIN,
+    "/",
+    "insecure",
+    "true",
+    false,
+    false,
+    false,
+    Date.now() + 24 * 60 * 60,
+    {},
+    Ci.nsICookie.SAMESITE_UNSET,
+    Ci.nsICookie.SCHEME_HTTP
+  );
+  Assert.equal(cv.result, Ci.nsICookieValidation.eOK);
+
+  const markerPref =
+    "browser.policies.runOncePerModification.clearCookiesForBlockedHosts";
+  Services.prefs.setStringPref(
+    markerPref,
+    [HOSTNAME_DOMAIN, ORIGIN_DOMAIN].sort().join("\n")
+  );
+
+  await setupPolicyEngineWithJson({
+    policies: {
+      Cookies: {
+        Block: [`http://${HOSTNAME_DOMAIN}`, `https://${ORIGIN_DOMAIN}:8080`],
+      },
+    },
+  });
+
+  deepEqual(
+    retrieve_all_cookies(HOSTNAME_DOMAIN),
+    [],
+    "Stored cookies for blocked origins are cleared even if the marker pref is set"
+  );
+  Services.prefs.clearUserPref(markerPref);
+});
+
 add_task(function teardown() {
   for (let host of [HOSTNAME_DOMAIN, ORIGIN_DOMAIN, "example.net"]) {
     Services.cookies.removeCookiesWithOriginAttributes("{}", host);
