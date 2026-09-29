@@ -59,6 +59,11 @@ run-if = [
   "os == 'win'",
 ]
 
+["browser_felt_ui_chrome_flag.js"]
+run-if = [
+  "enterprise",
+]
+
 ["browser_forced_colors.js"]
 
 ["browser_handle_notification.js"]

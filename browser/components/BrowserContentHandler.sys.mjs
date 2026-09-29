@@ -589,7 +589,10 @@ nsBrowserContentHandler.prototype = {
     }
 
     var chromeParam = cmdLine.handleFlagWithParam("chrome", false);
-    if (chromeParam) {
+    if (chromeParam && isFeltUI) {
+      console.error(`Not opening ${chromeParam}: --chrome is not supported`);
+      cmdLine.preventDefault = true;
+    } else if (chromeParam) {
       // Handle old preference dialog URLs.
       if (
         chromeParam == "chrome://browser/content/pref/pref.xul" ||
