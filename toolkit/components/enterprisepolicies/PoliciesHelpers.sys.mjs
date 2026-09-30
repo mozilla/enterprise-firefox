@@ -602,6 +602,27 @@ export function addPolicyPermission(origin, permissionName, permission) {
 }
 
 /**
+ * removePolicyPermission
+ *
+ * Removes a permission set by addPolicyPermission, from both host forms.
+ *
+ * @param {URL|string} origin
+ *        The origin the permission applies to.
+ * @param {string} permissionName
+ *        The name of the permission to remove.
+ */
+export function removePolicyPermission(origin, permissionName) {
+  let principal =
+    Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin);
+
+  for (let prin of [principal, trailingDotPrincipal(principal)]) {
+    if (prin) {
+      Services.perms.removeFromPrincipal(prin, permissionName);
+    }
+  }
+}
+
+/**
  * Returns the principal for aPrincipal's other host form: bare for a host with
  * trailing dots, one trailing dot for a bare host. Null when there is no such
  * principal: no host, an IP address host, or a host setHost rejects.
