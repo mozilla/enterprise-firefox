@@ -5,7 +5,8 @@
 
 // Covers what is specific to applying DisableDeveloperTools through the live
 // policy engine: the dedicated pref (value + lock), the "devtools" feature
-// gate, and the about: pages the policy blocks via the content policy.
+// gate, the remote.policy.disabled lock, and the about: pages the policy
+// blocks via the content policy.
 //
 // The pref-driven DevTools behavior is covered in:
 // - devtools/startup/tests/browser/browser_disable_devtools_live.js
@@ -13,6 +14,7 @@
 // - devtools/startup/tests/browser/browser_disable_devtools_live_browser_toolbox.js
 
 const PREF_DEVTOOLS_DISABLED = "devtools.policy.disabled";
+const PREF_REMOTE_DISABLED = "remote.policy.disabled";
 
 // The about: pages that DisableDeveloperTools blocks via the content policy.
 const DEVTOOLS_ABOUT_PAGES = [
@@ -27,16 +29,16 @@ async function checkDevToolsAboutPages(blocked) {
   }
 }
 
-function checkPref(locked, disabled) {
+function checkPref(pref, locked, disabled) {
   Assert.equal(
-    Services.prefs.prefIsLocked(PREF_DEVTOOLS_DISABLED),
+    Services.prefs.prefIsLocked(pref),
     locked,
-    `${PREF_DEVTOOLS_DISABLED} is ${locked ? "locked" : "unlocked"}`
+    `${pref} is ${locked ? "locked" : "unlocked"}`
   );
   Assert.strictEqual(
-    Services.prefs.getBoolPref(PREF_DEVTOOLS_DISABLED),
+    Services.prefs.getBoolPref(pref, false),
     disabled,
-    `${PREF_DEVTOOLS_DISABLED} is ${disabled}`
+    `${pref} is ${disabled}`
   );
 }
 
@@ -55,27 +57,32 @@ add_task(async function test_disable_developer_tools_live_lifecycle() {
     { policies: {} },
     null
   );
-  checkPref(false, false);
+  checkPref(PREF_DEVTOOLS_DISABLED, false, false);
+  checkPref(PREF_REMOTE_DISABLED, false, false);
   checkFeature(false);
   await checkDevToolsAboutPages(false);
 
   info("Applying DisableDeveloperTools: true");
   await waitForLivePolicyUpdate({ DisableDeveloperTools: true });
-  checkPref(true, true);
+  checkPref(PREF_DEVTOOLS_DISABLED, true, true);
+  checkPref(PREF_REMOTE_DISABLED, true, true);
   checkFeature(true);
   await checkDevToolsAboutPages(true);
 
   info("Live-updating DisableDeveloperTools to false (explicit allow)");
   await waitForLivePolicyUpdate({ DisableDeveloperTools: false });
   // Explicitly allowing keeps the pref locked, but to false.
-  checkPref(true, false);
+  checkPref(PREF_DEVTOOLS_DISABLED, true, false);
+  // The remote pref is only set when disabling, so it is released instead.
+  checkPref(PREF_REMOTE_DISABLED, false, false);
   checkFeature(false);
   await checkDevToolsAboutPages(false);
 
   info("Removing DisableDeveloperTools");
   await waitForLivePolicyUpdate({});
   // Removal unlocks the pref and leaves everything available.
-  checkPref(false, false);
+  checkPref(PREF_DEVTOOLS_DISABLED, false, false);
+  checkPref(PREF_REMOTE_DISABLED, false, false);
   checkFeature(false);
   await checkDevToolsAboutPages(false);
 });
