@@ -38,6 +38,8 @@ subsuite = "enterprise"
 
 ["test_felt_restart_works.py"]
 
+["test_felt_restricted_window.py"]
+
 ["test_felt_safe_mode.py"]
 
 ["test_felt_starts_missing_bin.py"]

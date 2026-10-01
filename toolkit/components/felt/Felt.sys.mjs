@@ -272,6 +272,8 @@ export class Felt {
       defaults.setBoolPref("extensions.getAddons.cache.enabled", false);
       defaults.setBoolPref("browser.region.update.enabled", false);
       defaults.setCharPref("browser.region.network.url", "");
+      // Turn off every DevTools entry point.
+      defaults.setBoolPref("devtools.policy.disabled", true);
       await lazy.FeltStorage.init();
       if (await lazy.FeltStorage.recoverInterruptedSession()) {
         lazy.log.warn(
