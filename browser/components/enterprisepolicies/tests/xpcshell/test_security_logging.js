@@ -9,6 +9,9 @@ const { SecurityLoggingPolicy } = ChromeUtils.importESModule(
 const { PoliciesPrefTracker } = ChromeUtils.importESModule(
   "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
 );
+const { PolicyFailures } = ChromeUtils.importESModule(
+  "resource://gre/modules/PoliciesHelpers.sys.mjs"
+);
 
 const SECURITY_LOGGING_PREFS = {
   "extensions.enterprise.telemetry.addonInstall.enabled": true,
@@ -143,4 +146,35 @@ add_task(async function test_all_events_configured_through_policy_engine() {
   for (const [pref, value] of Object.entries(SECURITY_LOGGING_PREFS)) {
     checkLockedPref(pref, value);
   }
+});
+
+add_task(async function test_preferences_policy_cannot_set_managed_prefs() {
+  const pref = "browser.download.enterprise.telemetry.urlLogging";
+  const preferences = { [pref]: { Value: "none", Status: "locked" } };
+  const securityLogging = { Download: { Enabled: true } };
+  const rejection = `Unable to set preference ${pref}. It is managed by the SecurityLogging policy.`;
+
+  // Policies apply in the order the provider lists them, so try both orders:
+  // SecurityLogging owns the pref either way, and the Preferences entry is
+  // reported as a failure instead of applied.
+  for (const policies of [
+    { Preferences: preferences, SecurityLogging: securityLogging },
+    { SecurityLogging: securityLogging, Preferences: preferences },
+  ]) {
+    await setupPolicyEngineWithJson({ policies });
+    checkLockedPref(pref, "full");
+    Assert.ok(
+      PolicyFailures.getAll().Preferences?.includes(rejection),
+      "the Preferences entry is reported as a failure"
+    );
+  }
+
+  // Without SecurityLogging the pref is left untouched rather than set.
+  await setupPolicyEngineWithJson({ policies: { Preferences: preferences } });
+  checkUnsetPref(pref);
+  Assert.ok(!Preferences.locked(pref), `Pref ${pref} is not locked`);
+  Assert.ok(
+    PolicyFailures.getAll().Preferences?.includes(rejection),
+    "the Preferences entry is reported as a failure"
+  );
 });

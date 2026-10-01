@@ -61,6 +61,12 @@ function forEachSetting(param, callback) {
   }
 }
 
+const MANAGED_PREFS = new Set(
+  Object.values(SECURITY_LOGGING_PREFS).flatMap(settings =>
+    Object.values(settings)
+  )
+);
+
 export const SecurityLoggingPolicy = {
   apply(param) {
     forEachSetting(param, (pref, value) =>
@@ -72,5 +78,17 @@ export const SecurityLoggingPolicy = {
     forEachSetting(oldParam, pref =>
       lazy.PoliciesUtils.unsetAndUnlockPref(pref)
     );
+  },
+
+  /**
+   * Whether this policy owns the given pref. Other policies leave such prefs
+   * alone, so that this policy's settings do not depend on the order in which
+   * policies are applied.
+   *
+   * @param {string} prefName
+   * @returns {boolean}
+   */
+  managesPref(prefName) {
+    return MANAGED_PREFS.has(prefName);
   },
 };
