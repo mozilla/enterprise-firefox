@@ -3144,6 +3144,16 @@ export var Policies = {
           );
           continue;
         }
+        if (
+          AppConstants.MOZ_ENTERPRISE &&
+          lazy.SecurityLoggingPolicy.managesPref(preference)
+        ) {
+          lazy.reportFailure(
+            "Preferences",
+            `Unable to set preference ${preference}. It is managed by the SecurityLogging policy.`
+          );
+          continue;
+        }
         if (preference.startsWith("security.")) {
           if (!allowedSecurityPrefs.includes(preference)) {
             lazy.reportFailure(
