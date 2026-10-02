@@ -21,7 +21,7 @@ const MS_PER_MINUTE = 60 * 1000;
 // up to app.update.interval.
 const UPDATE_CHECK_INTERVAL_MS = 5 * MS_PER_MINUTE;
 
-// Grace granted after a new deadline when the console names none.
+// Grace granted after a warning or a resume when the console names none.
 const DEFAULT_GRACE_PERIOD_MINUTES = 10;
 
 // How close to the deadline the warning escalates to the imminent phase.
@@ -51,8 +51,14 @@ export const RelaunchPhase = Object.freeze({
  */
 export const RelaunchEnforcer = {
   _schedule: null,
-  // When the pending deadline first arrived. The grace period runs from here.
+  // The budget the console last sent, and when it arrived, so a resume can
+  // re-derive the deadline before the next poll.
+  _relaunch: null,
+  _polledAt: null,
+  // When the user last got the chance to act on the pending deadline: when it
+  // first arrived, or the latest resume since. The grace period runs from here.
   _graceStart: null,
+  _observingWake: false,
   _lastUpdateCheck: null,
   _updateCheckDelay: UPDATE_CHECK_INTERVAL_MS,
   _restartTask: null,
@@ -207,7 +213,13 @@ export const RelaunchEnforcer = {
       return;
     }
 
+    this._relaunch = relaunch;
+    this._polledAt = now;
     this._graceStart ??= now;
+    if (!this._observingWake) {
+      this._observingWake = true;
+      Services.obs.addObserver(this, "wake_notification");
+    }
 
     const isRetry = this._lastUpdateCheck !== null;
     if (
@@ -260,21 +272,58 @@ export const RelaunchEnforcer = {
 
   _clearDeadline() {
     this._schedule = null;
+    this._relaunch = null;
+    this._polledAt = null;
     this._graceStart = null;
     this._lastUpdateCheck = null;
     this._updateCheckDelay = UPDATE_CHECK_INTERVAL_MS;
     this._disarm();
     this._stopAwaitingSessionRestore();
+    this._stopObservingWake();
   },
 
   observe(aSubject, aTopic) {
-    if (aTopic !== "sessionstore-windows-restored") {
+    switch (aTopic) {
+      case "sessionstore-windows-restored":
+        this._stopAwaitingSessionRestore();
+        if (this._schedule) {
+          this._restart();
+        }
+        break;
+      case "wake_notification":
+        this._onWake();
+        break;
+    }
+  },
+
+  /**
+   * Restarts the grace period on resume, as the user may not have seen the
+   * warning, or had time to act on it, before the machine went to sleep. There
+   * is no telling how long it slept, so every resume grants the full period.
+   */
+  _onWake() {
+    if (!this._schedule || this._restarting) {
       return;
     }
-    this._stopAwaitingSessionRestore();
-    if (this._schedule) {
-      this._restart();
+    this._graceStart = Date.now();
+    this._schedule = this._computeRestartTime({
+      now: this._polledAt,
+      params: this._relaunch,
+    });
+    lazy.log.debug("Resumed from sleep; restarting the grace period.");
+    this._arm();
+    if (this._restarting) {
+      return;
     }
+    this._refreshNotification();
+  },
+
+  _stopObservingWake() {
+    if (!this._observingWake) {
+      return;
+    }
+    this._observingWake = false;
+    Services.obs.removeObserver(this, "wake_notification");
   },
 
   _stopAwaitingSessionRestore() {

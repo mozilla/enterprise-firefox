@@ -294,6 +294,38 @@ add_task(function test_requests_updates_when_the_console_sets_a_deadline() {
   }
 });
 
+add_task(function test_a_resume_restarts_the_grace_period() {
+  const { sinon } = ChromeUtils.importESModule(
+    "resource://testing-common/Sinon.sys.mjs"
+  );
+  const sandbox = sinon.createSandbox();
+  try {
+    sandbox.stub(RelaunchEnforcer, "_requestUpdateCheck");
+    sandbox.stub(RelaunchEnforcer, "_refreshNotification");
+    const restart = sandbox.stub(RelaunchEnforcer, "_restart");
+
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 0 });
+    // The user saw the warning, then slept through its grace period.
+    RelaunchEnforcer._graceStart -= 15 * MINUTE;
+    RelaunchEnforcer._polledAt -= 15 * MINUTE;
+
+    const before = Date.now();
+    Services.obs.notifyObservers(null, "wake_notification");
+
+    const state = RelaunchEnforcer.testingOnly_getState();
+    Assert.ok(restart.notCalled, "The resume does not restart the browser");
+    Assert.ok(state.restartArmed, "The restart waits on a timer");
+    Assert.greaterOrEqual(
+      state.schedule.restartAt,
+      before + 10 * MINUTE,
+      "The resume grants the full grace period"
+    );
+  } finally {
+    RelaunchEnforcer.testingOnly_reset();
+    sandbox.restore();
+  }
+});
+
 add_task(function test_update_request_without_felt_is_a_noop() {
   Assert.ok(
     !Services.felt.isFeltBrowser(),
