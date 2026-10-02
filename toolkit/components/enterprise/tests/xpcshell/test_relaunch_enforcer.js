@@ -16,17 +16,16 @@ function at(minutes) {
   return NOW + minutes * MINUTE;
 }
 
-add_task(function test_uses_process_start_by_default() {
-  const sessionStart = RelaunchEnforcer._sessionStart;
+add_task(function test_a_new_deadline_starts_the_grace_period() {
   const schedule = RelaunchEnforcer._computeRestartTime({
-    now: sessionStart,
+    now: NOW,
     params: { MinutesRemaining: 0 },
   });
 
   Assert.equal(
     schedule.restartAt,
-    sessionStart + 10 * MINUTE,
-    "The process start supplies the default grace-period floor"
+    at(10),
+    "A deadline that just arrived gets the default grace period"
   );
 });
 
@@ -34,31 +33,31 @@ add_task(function test_derives_the_deadline_from_the_console_budget() {
   const cases = [
     {
       what: "an ordinary countdown uses the soft budget",
-      sessionStart: at(-60),
+      graceStart: at(-60),
       params: { MinutesRemaining: 45 },
       restartAt: at(45),
     },
     {
       what: "the grace period does not extend an unexpired soft budget",
-      sessionStart: NOW,
+      graceStart: NOW,
       params: { MinutesRemaining: 30, GracePeriodMinutes: 10 },
       restartAt: at(30),
     },
     {
-      what: "a fresh session past its soft budget gets the grace period",
-      sessionStart: at(-2),
+      what: "a recent warning past its soft budget gets the grace period",
+      graceStart: at(-2),
       params: { MinutesRemaining: 0, HardMinutesRemaining: 180 },
       restartAt: at(8),
     },
     {
       what: "the grace period floors a budget tighter than itself",
-      sessionStart: NOW,
+      graceStart: NOW,
       params: { MinutesRemaining: 4, GracePeriodMinutes: 10 },
       restartAt: at(10),
     },
     {
       what: "the hard budget caps the grace period",
-      sessionStart: NOW,
+      graceStart: NOW,
       params: {
         MinutesRemaining: 0,
         HardMinutesRemaining: 3,
@@ -67,26 +66,26 @@ add_task(function test_derives_the_deadline_from_the_console_budget() {
       restartAt: at(3),
     },
     {
-      what: "a session past both budgets is overdue",
-      sessionStart: at(-2),
+      what: "a recent warning past both budgets is overdue",
+      graceStart: at(-2),
       params: { MinutesRemaining: -5, HardMinutesRemaining: -1 },
       restartAt: at(-1),
     },
     {
-      what: "an old session past its soft budget is overdue",
-      sessionStart: at(-600),
+      what: "an old warning past its soft budget is overdue",
+      graceStart: at(-600),
       params: { MinutesRemaining: 0 },
       restartAt: NOW,
     },
     {
       what: "a zero grace period grants nothing",
-      sessionStart: NOW,
+      graceStart: NOW,
       params: { MinutesRemaining: 0, GracePeriodMinutes: 0 },
       restartAt: NOW,
     },
     {
       what: "a hard budget tighter than the soft one is widened to match",
-      sessionStart: NOW,
+      graceStart: NOW,
       params: {
         MinutesRemaining: 45,
         HardMinutesRemaining: 10,
@@ -96,13 +95,13 @@ add_task(function test_derives_the_deadline_from_the_console_budget() {
     },
     {
       what: "a missing hard budget leaves the grace period uncapped",
-      sessionStart: at(-2),
+      graceStart: at(-2),
       params: { MinutesRemaining: 0 },
       restartAt: at(8),
     },
     {
       what: "a null optional field takes its default",
-      sessionStart: at(-2),
+      graceStart: at(-2),
       params: {
         MinutesRemaining: 0,
         HardMinutesRemaining: null,
@@ -112,7 +111,7 @@ add_task(function test_derives_the_deadline_from_the_console_budget() {
     },
     {
       what: "a budget past thirty days is capped there",
-      sessionStart: NOW,
+      graceStart: NOW,
       params: {
         MinutesRemaining: 60 * DAY,
         HardMinutesRemaining: 90 * DAY,
@@ -124,13 +123,13 @@ add_task(function test_derives_the_deadline_from_the_console_budget() {
 
   for (const {
     what,
-    sessionStart,
+    graceStart,
     params,
     restartAt: expectedRestartAt,
   } of cases) {
     const schedule = RelaunchEnforcer._computeRestartTime({
       now: NOW,
-      sessionStart,
+      graceStart,
       params,
     });
     Assert.ok(schedule, `${what}: a schedule is produced`);
@@ -175,7 +174,7 @@ add_task(function test_nothing_pending_for_an_unusable_budget() {
     Assert.equal(
       RelaunchEnforcer._computeRestartTime({
         now: NOW,
-        sessionStart: NOW,
+        graceStart: NOW,
         params,
       }),
       null,

@@ -21,7 +21,7 @@ const MS_PER_MINUTE = 60 * 1000;
 // up to app.update.interval.
 const UPDATE_CHECK_INTERVAL_MS = 5 * MS_PER_MINUTE;
 
-// Grace granted to a freshly launched session when the console names none.
+// Grace granted after a new deadline when the console names none.
 const DEFAULT_GRACE_PERIOD_MINUTES = 10;
 
 // How close to the deadline the warning escalates to the imminent phase.
@@ -51,6 +51,8 @@ export const RelaunchPhase = Object.freeze({
  */
 export const RelaunchEnforcer = {
   _schedule: null,
+  // When the pending deadline first arrived. The grace period runs from here.
+  _graceStart: null,
   _lastUpdateCheck: null,
   _updateCheckDelay: UPDATE_CHECK_INTERVAL_MS,
   _restartTask: null,
@@ -103,11 +105,6 @@ export const RelaunchEnforcer = {
     }
   },
 
-  get _sessionStart() {
-    // The real process start.
-    return Services.startup.getStartupInfo().process.getTime();
-  },
-
   /**
    * Derives the deadline this session must restart by, from the budget the
    * console reported on a poll.
@@ -122,14 +119,14 @@ export const RelaunchEnforcer = {
    * @param {object} options
    * @param {number} [options.now=Date.now()] - When the budget arrived, in epoch
    *   ms.
-   * @param {number} [options.sessionStart] - Epoch ms this process started.
-   *   Defaults to this process's start.
+   * @param {number} [options.graceStart] - Epoch ms the grace period runs
+   *   from. Defaults to the pending deadline's, or `now` if none is pending.
    * @param {object|null} options.params - The console's `relaunch` payload.
    * @returns {{restartAt: number}|null} null means nothing is pending.
    */
   _computeRestartTime({
     now = Date.now(),
-    sessionStart = this._sessionStart,
+    graceStart = this._graceStart ?? now,
     params,
   }) {
     if (!params || typeof params !== "object") {
@@ -172,7 +169,7 @@ export const RelaunchEnforcer = {
     );
 
     const softAt = now + softMinutes * MS_PER_MINUTE;
-    const graceEnd = sessionStart + graceMinutes * MS_PER_MINUTE;
+    const graceEnd = graceStart + graceMinutes * MS_PER_MINUTE;
 
     // The grace period floors the deadline, a hard deadline caps it.
     return {
@@ -197,7 +194,8 @@ export const RelaunchEnforcer = {
       return;
     }
 
-    const schedule = this._computeRestartTime({ params: relaunch });
+    const now = Date.now();
+    const schedule = this._computeRestartTime({ now, params: relaunch });
 
     if (!schedule) {
       if (relaunch) {
@@ -209,7 +207,8 @@ export const RelaunchEnforcer = {
       return;
     }
 
-    const now = Date.now();
+    this._graceStart ??= now;
+
     const isRetry = this._lastUpdateCheck !== null;
     if (
       !isRetry ||
@@ -255,12 +254,17 @@ export const RelaunchEnforcer = {
       return;
     }
     lazy.log.debug("The console withdrew the restart deadline.");
+    this._clearDeadline();
+    this._hideNotification();
+  },
+
+  _clearDeadline() {
     this._schedule = null;
+    this._graceStart = null;
     this._lastUpdateCheck = null;
     this._updateCheckDelay = UPDATE_CHECK_INTERVAL_MS;
     this._disarm();
     this._stopAwaitingSessionRestore();
-    this._hideNotification();
   },
 
   observe(aSubject, aTopic) {
@@ -496,6 +500,7 @@ export const RelaunchEnforcer = {
     }
     return {
       schedule: this._schedule,
+      graceStart: this._graceStart,
       shownPhase: this._shownPhase,
       shownMinutes: this._shownMinutes,
       restartArmed: !!this._restartTask?.isArmed,
@@ -514,11 +519,7 @@ export const RelaunchEnforcer = {
     if (!Cu.isInAutomation) {
       throw new Error("this method only usable in testing");
     }
-    this._schedule = null;
-    this._lastUpdateCheck = null;
-    this._updateCheckDelay = UPDATE_CHECK_INTERVAL_MS;
-    this._disarm();
-    this._stopAwaitingSessionRestore();
+    this._clearDeadline();
     this._hideNotification();
     this._warningUIDelegate = null;
     // Tests register the delegate they want, so leave the category alone.

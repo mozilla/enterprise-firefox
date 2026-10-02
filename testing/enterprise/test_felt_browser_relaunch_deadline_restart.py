@@ -39,7 +39,7 @@ class BrowserRelaunchDeadlineRestart(BrowserRelaunchDeadlineBase):
         )
 
         self._logger.info("Console tightens the budget past the escalation threshold")
-        # A zero grace period lets the soft budget govern this seconds-old session.
+        # A zero grace period lets the soft budget govern this seconds-old warning.
         self.serve_relaunch({"MinutesRemaining": 4, "GracePeriodMinutes": 0})
         self._child_wait.until(
             lambda _: self.relaunch_bar() == IMMINENT_ID,
@@ -51,10 +51,10 @@ class BrowserRelaunchDeadlineRestart(BrowserRelaunchDeadlineBase):
         )
 
         self._logger.info("Console leaves seconds on the clock")
-        # A grace period is measured from the session start, so every poll
-        # re-derives the same deadline and the armed timer is what restarts.
-        # Ten seconds of it are left once this poll lands.
-        grace = (self.session_age_ms() + 10_000) / 60_000
+        # A grace period is measured from when the deadline first arrived, so
+        # every poll re-derives the same deadline and the armed timer is what
+        # restarts. Ten seconds of it are left once this poll lands.
+        grace = (self.grace_age_ms() + 10_000) / 60_000
         self.serve_relaunch({"MinutesRemaining": 0, "GracePeriodMinutes": grace})
         assert self.enforcer_state()["restartArmed"], (
             "Expected the restart to be waiting on a timer"
@@ -79,9 +79,9 @@ class BrowserRelaunchDeadlineRestart(BrowserRelaunchDeadlineBase):
         assert self.wait_for_relaunch_bar() == WARNING_ID, (
             "Expected the fresh session to warn for the length of its grace period"
         )
-        schedule = self.enforcer_state()["schedule"]
-        assert schedule["restartAt"] - self.process_start() == 10 * 60 * 1000, (
-            f"Expected the default ten minute grace period, got {schedule}"
+        state = self.enforcer_state()
+        assert state["schedule"]["restartAt"] - state["graceStart"] == 10 * 60 * 1000, (
+            f"Expected the default ten minute grace period, got {state}"
         )
         self.serve_relaunch({"MinutesRemaining": 0})
         assert self.process_alive(new_browser_pid), (
@@ -102,25 +102,20 @@ class BrowserRelaunchDeadlineRestart(BrowserRelaunchDeadlineBase):
             );
             return {
                 schedule: RelaunchEnforcer._schedule,
+                graceStart: RelaunchEnforcer._graceStart,
                 restartArmed: !!RelaunchEnforcer._restartTask?.isArmed,
             };
             """
         )
 
-    def process_start(self):
-        self._child_driver.set_context("chrome")
-        try:
-            return self._child_driver.execute_script(
-                "return Services.startup.getStartupInfo().process.getTime();"
-            )
-        finally:
-            self._child_driver.set_context("content")
-
-    def session_age_ms(self):
+    def grace_age_ms(self):
         self._child_driver.set_context("chrome")
         return self._child_driver.execute_script(
             """
-            return Date.now() - Services.startup.getStartupInfo().process.getTime();
+            const { RelaunchEnforcer } = ChromeUtils.importESModule(
+              "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs"
+            );
+            return Date.now() - RelaunchEnforcer._graceStart;
             """
         )
 
