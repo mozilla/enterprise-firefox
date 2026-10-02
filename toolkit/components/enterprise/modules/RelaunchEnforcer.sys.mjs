@@ -286,7 +286,9 @@ export const RelaunchEnforcer = {
     switch (aTopic) {
       case "sessionstore-windows-restored":
         this._stopAwaitingSessionRestore();
-        if (this._schedule) {
+        // A poll or a resume since the deferral may have pushed the deadline
+        // out, in which case the armed timer restarts.
+        if (this._schedule && this._schedule.restartAt <= Date.now()) {
           this._restart();
         }
         break;

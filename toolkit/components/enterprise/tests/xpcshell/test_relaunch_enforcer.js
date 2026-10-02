@@ -326,6 +326,49 @@ add_task(function test_a_resume_restarts_the_grace_period() {
   }
 });
 
+add_task(function test_a_resume_supersedes_a_deferred_restart() {
+  const { sinon } = ChromeUtils.importESModule(
+    "resource://testing-common/Sinon.sys.mjs"
+  );
+  const sandbox = sinon.createSandbox();
+  try {
+    sandbox.stub(RelaunchEnforcer, "_requestUpdateCheck");
+    sandbox.stub(RelaunchEnforcer, "_refreshNotification");
+    const restart = sandbox.spy(RelaunchEnforcer, "_restart");
+
+    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 0 });
+    RelaunchEnforcer._graceStart -= 15 * MINUTE;
+    RelaunchEnforcer._polledAt -= 15 * MINUTE;
+    // The deadline passes before session restore, which defers the restart.
+    RelaunchEnforcer._schedule = RelaunchEnforcer._computeRestartTime({
+      now: RelaunchEnforcer._polledAt,
+      params: { MinutesRemaining: 0 },
+    });
+    RelaunchEnforcer._arm();
+    Assert.ok(
+      RelaunchEnforcer._awaitingSessionRestore,
+      "The overdue restart waits for session restore"
+    );
+
+    Services.obs.notifyObservers(null, "wake_notification");
+    const calls = restart.callCount;
+    Services.obs.notifyObservers(null, "sessionstore-windows-restored");
+
+    Assert.equal(
+      restart.callCount,
+      calls,
+      "Session restore leaves the renewed grace period standing"
+    );
+    Assert.ok(
+      RelaunchEnforcer.testingOnly_getState().restartArmed,
+      "The restart waits on the renewed deadline"
+    );
+  } finally {
+    RelaunchEnforcer.testingOnly_reset();
+    sandbox.restore();
+  }
+});
+
 add_task(function test_update_request_without_felt_is_a_noop() {
   Assert.ok(
     !Services.felt.isFeltBrowser(),
