@@ -57,6 +57,8 @@ const kInterceptionPointsPlainTextOnly = [
   "clipboard_copy",
   "drag_and_drop",
 ];
+const kKeepBlockedDataPref =
+  "browser.contentanalysis.interception_point.clipboard_copy.keep_blocked_data_for_same_site";
 
 const ca = Cc["@mozilla.org/contentanalysis;1"].getService(
   Ci.nsIContentAnalysis
@@ -117,6 +119,13 @@ add_task(async function test_ca_active() {
       `${interceptionPoint} plain_text_only on by default`
     );
   }
+  if (AppConstants.MOZ_ENTERPRISE) {
+    is(
+      Services.prefs.getBoolPref(kKeepBlockedDataPref),
+      true,
+      "clipboard_copy keep_blocked_data_for_same_site on by default"
+    );
+  }
 
   Services.prefs.setBoolPref(getIndividualPrefName("Enabled"), false);
   PoliciesPrefTracker.stop();
@@ -156,6 +165,13 @@ add_task(async function test_ca_enterprise_config_with_default_prefs() {
       ),
       true,
       `${interceptionPointPlainText} plain_text_only should be locked`
+    );
+  }
+  if (AppConstants.MOZ_ENTERPRISE) {
+    is(
+      Services.prefs.prefIsLocked(kKeepBlockedDataPref),
+      true,
+      "clipboard_copy keep_blocked_data_for_same_site should be locked"
     );
   }
   PoliciesPrefTracker.stop();
@@ -261,6 +277,7 @@ add_task(async function test_ca_enterprise_config() {
           ClipboardCopy: {
             Enabled: true,
             PlainTextOnly: false,
+            KeepBlockedDataForSameSite: false,
           },
           Download: {
             Enabled: true,
@@ -285,6 +302,13 @@ add_task(async function test_ca_enterprise_config() {
     "abc",
     "pipe name match"
   );
+  if (AppConstants.MOZ_ENTERPRISE) {
+    is(
+      Services.prefs.getBoolPref(kKeepBlockedDataPref),
+      false,
+      "clipboard_copy keep_blocked_data_for_same_site match"
+    );
+  }
   is(
     Services.prefs.getIntPref(getIndividualPrefName("Timeout")),
     99,

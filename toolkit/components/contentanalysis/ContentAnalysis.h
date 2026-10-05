@@ -24,6 +24,9 @@
 class nsBaseClipboard;
 class nsIPrincipal;
 class nsIPrintSettings;
+namespace mozilla::widget {
+class ClipboardLocalCopy;
+}  // namespace mozilla::widget
 class ContentAnalysisTest;
 class ContentAnalysisTelemetryTest;
 
@@ -65,6 +68,30 @@ class ContentAnalysisDiagnosticInfo final
   int64_t mRequestCount;
 };
 
+// How much of a locally kept copy's text the DLP panel shows.
+// Note that we don't want to show too much here because the user can copy
+// this text out of the panel.
+constexpr uint32_t kLocalCopyPreviewCodePoints = 8;
+
+// Snapshot of the clipboard's local copy slot for the front end; see
+// nsIContentAnalysis::getLocalClipboardCopyInfo.
+class ContentAnalysisLocalCopyInfo final
+    : public nsIContentAnalysisLocalCopyInfo {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSICONTENTANALYSISLOCALCOPYINFO
+  explicit ContentAnalysisLocalCopyInfo(
+      const widget::ClipboardLocalCopy& aLocalCopy);
+
+ private:
+  virtual ~ContentAnalysisLocalCopyInfo() = default;
+  uint32_t mState;
+  int32_t mSequenceNumber;
+  nsString mPreview;
+  nsString mSourceHost;
+  nsCString mWarnRequestToken;
+};
+
 class ContentAnalysisRequest final : public nsIContentAnalysisRequest {
  public:
   NS_DECL_ISUPPORTS
@@ -95,6 +122,10 @@ class ContentAnalysisRequest final : public nsIContentAnalysisRequest {
 
   static RefPtr<ContentAnalysisRequest> Clone(
       nsIContentAnalysisRequest* aRequest);
+
+  void SetClipboardCopyKeptLocally(bool aKeptLocally) {
+    mClipboardCopyKeptLocally = aKeptLocally;
+  }
 
  private:
   virtual ~ContentAnalysisRequest();
@@ -164,6 +195,8 @@ class ContentAnalysisRequest final : public nsIContentAnalysisRequest {
   // Submit request to agent, even if it was already canceled.  Always false
   // if not in tests.
   bool mTestOnlyAlwaysSubmitToAgent = false;
+
+  bool mClipboardCopyKeptLocally = false;
 
   friend class ::ContentAnalysisTest;
   template <typename T, typename... Args>
@@ -237,9 +270,30 @@ class ContentAnalysis final : public nsIContentAnalysis,
   // Checks data that aWindow is writing to the clipboard. aWindow must be
   // non-null, and parent-process and chrome copies are not analyzed. Only the
   // global clipboard should be checked -- see nsBaseClipboard::SetData.
+  // aKeptLocally says whether the clipboard is keeping the copy locally while
+  // the verdict is pending; it is reported to observers on the requests as
+  // nsIContentAnalysisRequest::clipboardCopyKeptLocally.
   static void CheckClipboardCopyContentAnalysis(
       mozilla::dom::WindowGlobalParent* aWindow, nsITransferable* aTransferable,
-      ContentAnalysisCallback* aResolver);
+      bool aKeptLocally, ContentAnalysisCallback* aResolver);
+
+  // Forgets cached paste verdicts. Needed when what a paste would read changes
+  // without the clipboard sequence number moving, i.e. when nsBaseClipboard
+  // starts serving a pending copy to same-site pastes.
+  static void ClearCachedClipboardResponse();
+
+  // Whether aRequesting is web content in the page whose top-level document
+  // has inner window id aSourceTopInnerWindowId and whose document principal
+  // subsumes aSourcePrincipal. null, chrome and system-principal windows return
+  // false.
+  static bool IsSamePageAndSite(dom::WindowGlobalParent* aRequesting,
+                                uint64_t aSourceTopInnerWindowId,
+                                nsIPrincipal* aSourcePrincipal);
+
+  // Answers an undecided warn verdict with "deny" because whatever it was
+  // about is gone (the copy it concerned was superseded, say).
+  // No-op if aRequestToken is not awaiting an answer.
+  static void CancelPendingWarn(const nsACString& aRequestToken);
 
   using FilesAllowedPromise = MozPromise<nsCOMArray<nsIFile>, nsresult, true>;
   // Checks the passed in files in "batch mode", meaning that all requests will
@@ -441,6 +495,11 @@ class ContentAnalysis final : public nsIContentAnalysis,
   nsTHashMap<nsCString, UserActionData> mUserActionMap;
   void RemoveFromUserActionMap(nsCString&& aUserActionId);
 
+  // The one instance, for GetContentAnalysisFromService() when the component
+  // registration has been overridden (tests mock the service with a JS object
+  // that cannot stand in for this class).
+  static ContentAnalysis* sInstance;
+
   // The agent may respond to actions that we have canceled and we need to
   // remember how we handled them, whether it was to cancel (block) them,
   // or to issue a default response.
@@ -462,11 +521,14 @@ class ContentAnalysis final : public nsIContentAnalysis,
     void SetCachedResponse(const nsCOMPtr<nsIURI>& aURI,
                            int32_t aClipboardSequenceNumber,
                            nsIContentAnalysisResponse::Action aAction);
+    void Clear();
 
    private:
-    Maybe<int32_t> mClipboardSequenceNumber;
+    // Avoid synchronization by making these main thread only
+    Maybe<int32_t> mClipboardSequenceNumber
+        MOZ_GUARDED_BY(sMainThreadCapability);
     nsTArray<std::pair<nsCOMPtr<nsIURI>, nsIContentAnalysisResponse::Action>>
-        mData;
+        mData MOZ_GUARDED_BY(sMainThreadCapability);
   };
   CachedClipboardResponse mCachedClipboardResponse;
 
@@ -601,9 +663,12 @@ class ContentAnalysisCallback final : public nsIContentAnalysisCallback {
   NS_DECL_NSICONTENTANALYSISCALLBACK
   ContentAnalysisCallback(
       std::function<void(nsIContentAnalysisResult*)>&& aContentResponseCallback,
-      std::function<void(nsresult)>&& aErrorCallback)
+      std::function<void(nsresult)>&& aErrorCallback,
+      std::function<void(nsIContentAnalysisResponse*)>&& aWarnPendingCallback =
+          nullptr)
       : mContentResponseCallback(std::move(aContentResponseCallback)),
-        mErrorCallback(std::move(aErrorCallback)) {}
+        mErrorCallback(std::move(aErrorCallback)),
+        mWarnPendingCallback(std::move(aWarnPendingCallback)) {}
 
   explicit ContentAnalysisCallback(
       std::function<void(nsIContentAnalysisResult*)>&&
@@ -611,15 +676,7 @@ class ContentAnalysisCallback final : public nsIContentAnalysisCallback {
 
   // Wrap a given callback, in case it doesn't provide the guarantees that
   // this one does (such as checking that it is eventually called).
-  explicit ContentAnalysisCallback(nsIContentAnalysisCallback* aDecoratedCB) {
-    mContentResponseCallback = [decoratedCB = RefPtr{aDecoratedCB}](
-                                   nsIContentAnalysisResult* aResult) {
-      decoratedCB->ContentResult(aResult);
-    };
-    mErrorCallback = [decoratedCB = RefPtr{aDecoratedCB}](nsresult aRv) {
-      decoratedCB->Error(aRv);
-    };
-  }
+  explicit ContentAnalysisCallback(nsIContentAnalysisCallback* aDecoratedCB);
 
  private:
   virtual ~ContentAnalysisCallback() {
@@ -631,12 +688,14 @@ class ContentAnalysisCallback final : public nsIContentAnalysisCallback {
   void ClearCallbacks() {
     mContentResponseCallback = nullptr;
     mErrorCallback = nullptr;
+    mWarnPendingCallback = nullptr;
     mPromise = nullptr;
   }
 
   explicit ContentAnalysisCallback(dom::Promise* aPromise);
   std::function<void(nsIContentAnalysisResult*)> mContentResponseCallback;
   std::function<void(nsresult)> mErrorCallback;
+  std::function<void(nsIContentAnalysisResponse*)> mWarnPendingCallback;
   RefPtr<dom::Promise> mPromise;
   friend class ContentAnalysis;
 };
