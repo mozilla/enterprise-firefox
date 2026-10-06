@@ -5,6 +5,9 @@ head = "head.js"
 
 ["test_FeltStorage_locking.js"]
 
+["test_felt_browser_ipc_args.js"]
+run-if = ["buildapp == 'browser'"]
+
 ["test_felt_browser_pid_announcement.js"]
 run-if = ["os == 'win' && buildapp == 'browser'"]
 
