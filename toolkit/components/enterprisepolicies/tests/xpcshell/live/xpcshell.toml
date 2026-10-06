@@ -11,6 +11,10 @@ run-if = ["enterprise"]
 
 ["test_live_remote_fetch_error_message.js"]
 
+["test_macos_policy_sources.js"]
+run-if = ["os == 'mac'"]
+run-sequentially = ["true"] # Writes the real macOS user defaults domain read by every policy test
+
 ["test_managed_init_fails_closed.js"]
 
 ["test_null_local_policy_preserves_console.js"]
