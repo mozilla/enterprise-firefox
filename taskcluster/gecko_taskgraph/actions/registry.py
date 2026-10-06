@@ -57,6 +57,7 @@ def register_callback_action(
     schema=None,
     permission="generic",
     cb_name=None,
+    extra_hook_params=None,
 ):
     """
     Register an action callback that can be triggered from supporting
@@ -122,6 +123,12 @@ def register_callback_action(
         The name under which this function should be registered, defaulting to
         `name`.  Unlike `name`, which can appear multiple times, cb_name must be
         unique among all registered callbacks.
+    extra_hook_params : dict or function
+        Extra decision-task parameters to carry in the ``hookPayload``, on top
+        of the handful passed for every action. Given the decision parameters
+        if it is a function. ``.taskcluster.yml`` reads these back as
+        ``parameters`` when it renders the action task, so this is how an
+        action tells it something the standard payload does not cover.
 
     Returns
     -------
@@ -217,6 +224,12 @@ def register_callback_action(
             filtered_params = {
                 "repository_type": parameters["repository_type"],
             }
+            if extra_hook_params:
+                filtered_params.update(
+                    extra_hook_params(parameters)
+                    if callable(extra_hook_params)
+                    else extra_hook_params
+                )
 
             rv = {
                 "name": name,
