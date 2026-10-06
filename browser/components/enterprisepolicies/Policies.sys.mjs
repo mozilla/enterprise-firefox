@@ -3135,6 +3135,10 @@ export var Policies = {
         "app.update.migrated",
         "browser.vpn_promo.disallowed_regions",
       ];
+      const contentAnalysisTelemetryPrefs = [
+        "browser.contentanalysis.enterprise.telemetry.enabled",
+        "browser.contentanalysis.enterprise.telemetry.urlLogging",
+      ];
 
       for (const preference in param) {
         if (blockedPrefs.includes(preference)) {
@@ -3144,15 +3148,20 @@ export var Policies = {
           );
           continue;
         }
-        if (
-          AppConstants.MOZ_ENTERPRISE &&
-          lazy.SecurityLoggingPolicy.managesPref(preference)
-        ) {
-          lazy.reportFailure(
-            "Preferences",
-            `Unable to set preference ${preference}. It is managed by the SecurityLogging policy.`
-          );
-          continue;
+        if (AppConstants.MOZ_ENTERPRISE) {
+          let owningPolicy;
+          if (lazy.SecurityLoggingPolicy.managesPref(preference)) {
+            owningPolicy = "SecurityLogging";
+          } else if (contentAnalysisTelemetryPrefs.includes(preference)) {
+            owningPolicy = "ContentAnalysisTelemetry";
+          }
+          if (owningPolicy) {
+            lazy.reportFailure(
+              "Preferences",
+              `Unable to set preference ${preference}. It is managed by the ${owningPolicy} policy.`
+            );
+            continue;
+          }
         }
         if (preference.startsWith("security.")) {
           if (!allowedSecurityPrefs.includes(preference)) {

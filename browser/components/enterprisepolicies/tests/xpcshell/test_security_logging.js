@@ -178,3 +178,20 @@ add_task(async function test_preferences_policy_cannot_set_managed_prefs() {
     "the Preferences entry is reported as a failure"
   );
 });
+
+add_task(
+  async function test_preferences_policy_cannot_set_dlp_telemetry_prefs() {
+    const pref = "browser.contentanalysis.enterprise.telemetry.enabled";
+    await setupPolicyEngineWithJson({
+      policies: { Preferences: { [pref]: { Value: false, Status: "locked" } } },
+    });
+    checkUnsetPref(pref);
+    Assert.ok(!Preferences.locked(pref), `Pref ${pref} is not locked`);
+    Assert.ok(
+      PolicyFailures.getAll().Preferences?.includes(
+        `Unable to set preference ${pref}. It is managed by the ContentAnalysisTelemetry policy.`
+      ),
+      "the Preferences entry is reported as a failure"
+    );
+  }
+);
