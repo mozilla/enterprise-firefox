@@ -1089,6 +1089,14 @@ bool ContentAnalysis::IsSamePageAndSite(dom::WindowGlobalParent* aRequesting,
          principal->Subsumes(aSourcePrincipal);
 }
 
+/* static */
+void ContentAnalysis::CancelPendingWarn(const nsACString& aRequestToken) {
+  if (RefPtr<ContentAnalysis> self = GetContentAnalysisFromService()) {
+    self->RespondToWarnDialogInternal(aRequestToken, /* aAllowContent */ false,
+                                      /* aFromCancel */ true);
+  }
+}
+
 NS_IMETHODIMP ContentAnalysis::SetCachedResponse(
     nsIURI* aURI, int32_t aClipboardSequenceNumber,
     nsIContentAnalysisResponse::Action aAction) {

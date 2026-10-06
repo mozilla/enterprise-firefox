@@ -67,6 +67,9 @@ static RefPtr<ClipboardResultPromise> GetClipboardImpl(
         transferableToCheck.unwrapErr(), __func__);
   }
   nsCOMPtr<nsITransferable> transferable = transferableToCheck.unwrap();
+  // Every nsIClipboard implementation in the parent derives from
+  // nsBaseClipboard.
+  auto* baseClipboard = static_cast<nsBaseClipboard*>(clipboard.get());
   if (aCheckAllContent) {
     for (const auto& type : aTypes) {
       AutoTArray<nsCString, 1> singleTypeArray{type};
@@ -77,16 +80,14 @@ static RefPtr<ClipboardResultPromise> GetClipboardImpl(
             singleTransferableToCheck.unwrapErr(), __func__);
       }
 
-      // Pass nullptr for the window here because we will be doing
-      // content analysis ourselves asynchronously (so it doesn't block
-      // main thread we're running on now)
+      // Skip content analysis here because we will be doing it ourselves
+      // asynchronously (so it doesn't block main thread we're running on now)
       nsCOMPtr singleTransferable = singleTransferableToCheck.unwrap();
       // Ideally we would be calling GetDataSnapshot() here to avoid blocking
-      // the main thread (and this would mean we could also pass in the window
-      // here so we wouldn't have to duplicate the Content Analysis code below).
-      // See bug 1908280.
-      nsresult rv =
-          clipboard->GetData(singleTransferable, aWhichClipboard, nullptr);
+      // the main thread (and this would mean we wouldn't have to duplicate the
+      // Content Analysis code below). See bug 1908280.
+      nsresult rv = baseClipboard->GetDataWithoutContentAnalysis(
+          singleTransferable, aWhichClipboard, window);
       if (NS_FAILED(rv)) {
         return ClipboardResultPromise::CreateAndReject(rv, __func__);
       }
@@ -102,15 +103,14 @@ static RefPtr<ClipboardResultPromise> GetClipboardImpl(
       }
     }
   } else {
-    // Pass nullptr for the window here because we will be doing
-    // content analysis ourselves asynchronously (so it doesn't block
-    // main thread we're running on now)
+    // Skip content analysis here because we will be doing it ourselves
+    // asynchronously (so it doesn't block main thread we're running on now)
     //
     // Ideally we would be calling GetDataSnapshot() here to avoid blocking the
-    // main thread (and this would mean we could also pass in the window here so
-    // we wouldn't have to duplicate the Content Analysis code below). See
-    // bug 1908280.
-    nsresult rv = clipboard->GetData(transferable, aWhichClipboard, nullptr);
+    // main thread (and this would mean we wouldn't have to duplicate the
+    // Content Analysis code below). See bug 1908280.
+    nsresult rv = baseClipboard->GetDataWithoutContentAnalysis(
+        transferable, aWhichClipboard, window);
     if (NS_FAILED(rv)) {
       return ClipboardResultPromise::CreateAndReject(rv, __func__);
     }
@@ -139,8 +139,8 @@ static RefPtr<ClipboardResultPromise> GetClipboardImpl(
           });
 
   contentanalysis::ContentAnalysis::CheckClipboardContentAnalysis(
-      static_cast<nsBaseClipboard*>(clipboard.get()), window, transferable,
-      aWhichClipboard, contentAnalysisCallback, aCheckAllContent);
+      baseClipboard, window, transferable, aWhichClipboard,
+      contentAnalysisCallback, aCheckAllContent);
   return resultPromise;
 }
 

@@ -249,6 +249,11 @@ class ContentAnalysis final : public nsIContentAnalysis,
                                 uint64_t aSourceTopInnerWindowId,
                                 nsIPrincipal* aSourcePrincipal);
 
+  // Answers an undecided warn verdict with "deny" because whatever it was
+  // about is gone (the copy it concerned was superseded, say).
+  // No-op if aRequestToken is not awaiting an answer.
+  static void CancelPendingWarn(const nsACString& aRequestToken);
+
   using FilesAllowedPromise = MozPromise<nsCOMArray<nsIFile>, nsresult, true>;
   // Checks the passed in files in "batch mode", meaning that all requests will
   // be done even if some of them are BLOCKED.  Unlike the other Check
