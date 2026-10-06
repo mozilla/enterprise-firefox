@@ -36,15 +36,15 @@ pub struct FeltXPCOM {
     is_felt_safe_mode: bool,
 }
 
-/// The authorization decision for a connecting peer, made from its OS process id
-/// alone and independently of the protocol-version handshake, so identity and
-/// protocol are not conflated. The peer's pid must equal the pid of the process
-/// felt expects to run as the browser: the process felt spawned, or on Windows
-/// the browser child the launcher process creates and announces to felt (see
-/// FeltProcessParent). An unavailable peer pid means the transport could not
-/// report one (BSD/illumos or the in-process transport), which is a rejection
-/// (fail-closed).
-fn peer_is_authorized(peer_pid: Option<u32>, expected_pid: u32) -> bool {
+/// Whether the process at the other end of a FELT IPC connection is the one
+/// expected there, decided from its OS process id alone and independently of
+/// the protocol-version handshake, so identity and protocol are not conflated.
+/// felt expects the process it spawned (on Windows the browser child the
+/// launcher process creates and announces, see FeltProcessParent); the browser
+/// expects the felt process named on its command line. An unavailable pid means
+/// the transport could not report one (BSD/illumos or the in-process
+/// transport), which is a rejection (fail-closed).
+pub(crate) fn peer_is_authorized(peer_pid: Option<u32>, expected_pid: u32) -> bool {
     matches!(peer_pid, Some(peer) if peer == expected_pid)
 }
 

@@ -286,6 +286,7 @@ static CommandLineArg<UniqueFileHandle> sSignalPipe{"-signalPipe",
 
 #if defined(MOZ_ENTERPRISE)
 static CommandLineArg<const char*> sFelt{"-felt", "felt"};
+static CommandLineArg<uint32_t> sFeltPid{"-feltPid", "feltpid"};
 static CommandLineArg<bool> sFeltUI{"-feltui", "feltui"};
 #endif
 
