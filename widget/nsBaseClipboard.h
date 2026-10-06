@@ -20,6 +20,7 @@ extern mozilla::LazyLogModule gWidgetClipboardLog;
 #define MOZ_CLIPBOARD_LOG_ENABLED() \
   MOZ_LOG_TEST(gWidgetClipboardLog, mozilla::LogLevel::Debug)
 
+class nsIContentAnalysisResponse;
 class nsITransferable;
 class nsIClipboardOwner;
 class nsIPrincipal;
@@ -259,9 +260,22 @@ class nsBaseClipboard : public nsIClipboard {
   void OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
                                    PendingCopy* aPendingCopy, bool aAllowed);
 
-  // Replaces the clipboard contents with a localized notice that the copy was
-  // not permitted. Returns true if the notice is now on the clipboard.
+  // Called on the main thread when a deferred copy gets a warn verdict the
+  // user has yet to answer. Only used while the copy is cached as local-only
+  // (keep_blocked_data_for_same_site). Writes the warn placeholder, keeps the
+  // copy as local-only data for the copying page, and completes the copy so
+  // the page can go on.
+  void OnCopyContentAnalysisWarn(ClipboardType aWhichClipboard,
+                                 PendingCopy* aPendingCopy,
+                                 nsIContentAnalysisResponse* aResponse);
+
+  // Replace the clipboard contents with a localized notice that the copy was
+  // not permitted, or that it is waiting for the user's answer to a warning.
+  // Return true if the notice is now on the clipboard.
   bool WriteCopyBlockedPlaceholder(ClipboardType aWhichClipboard);
+  bool WriteCopyWarnPlaceholder(ClipboardType aWhichClipboard);
+  bool WriteCopyPlaceholder(ClipboardType aWhichClipboard,
+                            const nsACString& aL10nId);
 
   // Drops any deferred copy for this clipboard type, completing it with
   // aReason.  No-op if there isn't one.

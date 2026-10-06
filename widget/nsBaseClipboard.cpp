@@ -499,6 +499,17 @@ void nsBaseClipboard::CancelPendingCopy(ClipboardType aClipboardType,
 
 bool nsBaseClipboard::WriteCopyBlockedPlaceholder(
     ClipboardType aWhichClipboard) {
+  return WriteCopyPlaceholder(
+      aWhichClipboard, "contentanalysis-clipboard-copy-blocked-replacement"_ns);
+}
+
+bool nsBaseClipboard::WriteCopyWarnPlaceholder(ClipboardType aWhichClipboard) {
+  return WriteCopyPlaceholder(
+      aWhichClipboard, "contentanalysis-clipboard-copy-warn-replacement"_ns);
+}
+
+bool nsBaseClipboard::WriteCopyPlaceholder(ClipboardType aWhichClipboard,
+                                           const nsACString& aL10nId) {
   // We replace the clipboard contents rather than leaving them alone: if we
   // left them, the user could copy blocked content and then the next paste
   // would paste whatever happened to be on the clipboard beforehand. Writing
@@ -509,12 +520,11 @@ bool nsBaseClipboard::WriteCopyBlockedPlaceholder(
   {
     mozilla::IgnoredErrorResult rv;
     nsTArray<nsCString> resIds = {
+        "branding/brand.ftl"_ns,
         "toolkit/contentanalysis/contentanalysis.ftl"_ns};
     RefPtr<mozilla::intl::Localization> l10n =
         mozilla::intl::Localization::Create(resIds, /* aSync */ true);
-    l10n->FormatValueSync(
-        "contentanalysis-clipboard-copy-blocked-replacement"_ns, {}, message,
-        rv);
+    l10n->FormatValueSync(aL10nId, {}, message, rv);
   }
   if (message.IsEmpty()) {
     MOZ_CLIPBOARD_LOG("%s: could not load the placeholder string.",
@@ -558,6 +568,38 @@ void nsBaseClipboard::OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
   MOZ_ASSERT(aWhichClipboard == kGlobalClipboard);
 
   if (mPendingCopy != aPendingCopy) {
+#ifdef MOZ_ENTERPRISE
+    // OnCopyContentAnalysisWarn() clears mPendingCopy, because in some sense
+    // the copy isn't "pending" any more. So check for this case and update
+    // the native clipboard with the user's answer.
+    const auto& clipboardCache = mCaches[aWhichClipboard];
+    if (auto localCopy = GetLocalCopyInfo();
+        localCopy && localCopy->mState == LocalCopyState::eWarn &&
+        localCopy->mTransferable == aPendingCopy->mTransferable) {
+      nsCOMPtr<nsITransferable> trans = localCopy->mTransferable;
+      nsCOMPtr<nsIClipboardOwner> owner =
+          clipboardCache->GetLocalOnlyClipboardOwner();
+      RefPtr<mozilla::dom::WindowContext> window =
+          clipboardCache->GetLocalOnlySourceWindow();
+      if (aAllowed) {
+        // Committing replaces the local-only data with the committed copy.
+        MOZ_CLIPBOARD_LOG("%s: user allowed warned copy, clipboard=%d",
+                          __FUNCTION__, aWhichClipboard);
+        SetDataImpl(trans, owner, aWhichClipboard, window,
+                    /* aCheckContentAnalysis */ false);
+      } else {
+        // Denied: from here on it is an ordinary blocked copy.
+        MOZ_CLIPBOARD_LOG("%s: user denied warned copy, clipboard=%d",
+                          __FUNCTION__, aWhichClipboard);
+        if (WriteCopyBlockedPlaceholder(aWhichClipboard)) {
+          clipboardCache->UpdateLocalOnly(
+              LocalCopyState::eBlocked, trans, owner,
+              clipboardCache->GetSequenceNumber(), window);
+        }
+      }
+      return;
+    }
+#endif
     // A write issued after this one already superseded it.  The newer write
     // wins regardless of which verdict came back first.
     MOZ_CLIPBOARD_LOG("%s: ignoring stale copy verdict, clipboard=%d",
@@ -595,6 +637,50 @@ void nsBaseClipboard::OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
   SetDataImpl(pendingCopy->mTransferable, pendingCopy->mOwner, aWhichClipboard,
               pendingCopy->mWindowContext, /* aCheckContentAnalysis */ false,
               [pendingCopy](nsresult aRv) { pendingCopy->Complete(aRv); });
+}
+
+void nsBaseClipboard::OnCopyContentAnalysisWarn(
+    ClipboardType aWhichClipboard, PendingCopy* aPendingCopy,
+    nsIContentAnalysisResponse* aResponse) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aWhichClipboard == kGlobalClipboard);
+
+  nsAutoCString token;
+  if (NS_FAILED(aResponse->GetRequestToken(token)) || token.IsEmpty()) {
+    return;
+  }
+
+  if (mPendingCopy != aPendingCopy) {
+    // Another copy has started analysis in the meantime, so ignore this one.
+    // (and report it as blocked)
+    MOZ_CLIPBOARD_LOG("%s: ignoring stale copy warning, clipboard=%d",
+                      __FUNCTION__, aWhichClipboard);
+    mozilla::contentanalysis::ContentAnalysis::CancelPendingWarn(token);
+    return;
+  }
+
+  RefPtr<PendingCopy> pendingCopy = std::move(mPendingCopy);
+  MOZ_CLIPBOARD_LOG("%s: copy warned by content analysis, clipboard=%d",
+                    __FUNCTION__, aWhichClipboard);
+
+  // The placeholder tells other applications (and other sites) where the
+  // content went; the copying page keeps pasting the real data.
+  if (!WriteCopyWarnPlaceholder(aWhichClipboard)) {
+    // Nothing is holding the data for the user to decide on, so answer the
+    // agent now; the resulting block verdict finds no matching copy.
+    mozilla::contentanalysis::ContentAnalysis::CancelPendingWarn(token);
+    pendingCopy->Complete(NS_ERROR_CONTENT_BLOCKED);
+    return;
+  }
+  const auto& clipboardCache = mCaches[aWhichClipboard];
+  clipboardCache->UpdateLocalOnly(
+      LocalCopyState::eWarn, pendingCopy->mTransferable, pendingCopy->mOwner,
+      clipboardCache->GetSequenceNumber(), pendingCopy->mWindowContext, token);
+  // From the page's point of view the copy happened: it is pasteable in the
+  // copying page, and the user may yet allow it everywhere. Matches the
+  // execCommand path, so a warned cut deletes its selection like an editor
+  // cut does.
+  pendingCopy->Complete(NS_OK);
 }
 
 nsresult nsBaseClipboard::SetDataImpl(
@@ -691,7 +777,10 @@ nsresult nsBaseClipboard::SetDataImpl(
     }
 #endif
 
-    // Local-only data is only ever cached in Enterprise builds.
+    // With the data cached as local-only (only ever done in Enterprise builds)
+    // a warning need not hold up the page: the user answers it later from the
+    // Data protection panel. Otherwise the warning is left to the modal dialog
+    // and only its resolved verdict arrives here.
     const bool keptLocally = clipboardCache->IsLocalOnly();
     auto callback =
         mozilla::MakeRefPtr<mozilla::contentanalysis::ContentAnalysisCallback>(
@@ -704,6 +793,13 @@ nsresult nsBaseClipboard::SetDataImpl(
             [self = RefPtr{this}, aWhichClipboard, pendingCopy](nsresult) {
               self->OnCopyContentAnalysisResult(aWhichClipboard, pendingCopy,
                                                 /* aAllowed */ false);
+            },
+            [self = RefPtr{this}, aWhichClipboard, pendingCopy,
+             keptLocally](nsIContentAnalysisResponse* aResponse) {
+              if (keptLocally) {
+                self->OnCopyContentAnalysisWarn(aWhichClipboard, pendingCopy,
+                                                aResponse);
+              }
             });
     mozilla::contentanalysis::ContentAnalysis::
         CheckClipboardCopyContentAnalysis(aWindowContext->Canonical(),
