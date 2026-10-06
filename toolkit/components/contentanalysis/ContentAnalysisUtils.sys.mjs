@@ -53,6 +53,7 @@ export const ContentAnalysisUtils = {
       sha256Digest: undefined,
       sourceWindowGlobal: undefined,
       testOnlyIgnoreCanceledAndAlwaysSubmitToAgent: false,
+      clipboardCopyKeptLocally: false,
       textContent: undefined,
       timeoutMultiplier: 1,
       transferable: undefined,
@@ -180,7 +181,7 @@ export const ContentAnalysisUtils = {
    * This works by taking over the copy and writing the text to the clipboard
    * on behalf of the page's window. nsBaseClipboard then treats it like any
    * copy from that page: it runs the content analysis check, and on block
-   * writes the placeholder notice.
+   * writes the placeholder notice and keeps the data for same-site paste.
    *
    * @param {Element} element The DOM element to monitor.
    * @param {CanonicalBrowsingContext} browsingContext The browsing context the

@@ -571,7 +571,23 @@ void nsBaseClipboard::OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
   if (!aAllowed) {
     MOZ_CLIPBOARD_LOG("%s: copy blocked by content analysis, clipboard=%d",
                       __FUNCTION__, aWhichClipboard);
-    WriteCopyBlockedPlaceholder(aWhichClipboard);
+    bool wrotePlaceholder = WriteCopyBlockedPlaceholder(aWhichClipboard);
+#ifdef MOZ_ENTERPRISE
+    // Keeping the blocked data for same-page paste is Enterprise-only. The
+    // placeholder is what is on the native clipboard now, so the blocked data
+    // is cached as local-only, keyed to the placeholder's sequence number.
+    if (wrotePlaceholder &&
+        mozilla::StaticPrefs::
+            browser_contentanalysis_interception_point_clipboard_copy_keep_blocked_data_for_same_site()) {
+      const auto& clipboardCache = mCaches[aWhichClipboard];
+      clipboardCache->UpdateLocalOnly(
+          LocalCopyState::eBlocked, pendingCopy->mTransferable,
+          pendingCopy->mOwner, clipboardCache->GetSequenceNumber(),
+          pendingCopy->mWindowContext);
+    }
+#else
+    (void)wrotePlaceholder;
+#endif
     pendingCopy->Complete(NS_ERROR_CONTENT_BLOCKED);
     return;
   }
@@ -642,9 +658,11 @@ nsresult nsBaseClipboard::SetDataImpl(
   // Ask Content Analysis whether web content is permitted to copy this data.
   // The check is asynchronous on this (the parent's main) thread, as the agent
   // may be slow, so the clipboard is left as it was until the verdict arrives.
-  // Copies from content processes are nonetheless synchronous from the page's
-  // point of view: the content process blocks in a sync IPC call that
-  // ClipboardContentAnalysisParent only answers once aCompletion has run.
+  // Whether the copying page waits for the verdict is nsClipboardProxy's
+  // decision: it either blocks in a sync IPC call that
+  // ClipboardContentAnalysisParent only answers once aCompletion has run, or
+  // (with keep_blocked_data_for_same_site) returns at once and relies on the
+  // pending data being cached as local-only below.
   if (aCheckContentAnalysis &&
       NeedsCopyContentAnalysis(aTransferable, aWhichClipboard,
                                aWindowContext)) {
@@ -655,6 +673,26 @@ nsresult nsBaseClipboard::SetDataImpl(
     MOZ_ASSERT(aWhichClipboard == kGlobalClipboard);
     mPendingCopy = pendingCopy;
 
+#ifdef MOZ_ENTERPRISE
+    if (mozilla::StaticPrefs::
+            browser_contentanalysis_interception_point_clipboard_copy_keep_blocked_data_for_same_site()) {
+      // Make the data available to same-page pastes right away, so the page
+      // doesn't have to wait for the verdict.
+      auto sequenceNumber = GetNativeClipboardSequenceNumber(aWhichClipboard);
+      if (sequenceNumber.isOk()) {
+        clipboardCache->UpdateLocalOnly(LocalCopyState::ePending, aTransferable,
+                                        aOwner, sequenceNumber.unwrap(),
+                                        aWindowContext);
+        // Same-page pastes now read different data under the same sequence
+        // number, so clear any cached verdict.
+        mozilla::contentanalysis::ContentAnalysis::
+            ClearCachedClipboardResponse();
+      }
+    }
+#endif
+
+    // Local-only data is only ever cached in Enterprise builds.
+    const bool keptLocally = clipboardCache->IsLocalOnly();
     auto callback =
         mozilla::MakeRefPtr<mozilla::contentanalysis::ContentAnalysisCallback>(
             [self = RefPtr{this}, aWhichClipboard,
@@ -665,7 +703,7 @@ nsresult nsBaseClipboard::SetDataImpl(
             });
     mozilla::contentanalysis::ContentAnalysis::
         CheckClipboardCopyContentAnalysis(aWindowContext->Canonical(),
-                                          aTransferable, callback);
+                                          aTransferable, keptLocally, callback);
     return NS_OK;
   }
 

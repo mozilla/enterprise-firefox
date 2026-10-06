@@ -23,6 +23,8 @@
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/Logging.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/TextUtils.h"
+#include "mozilla/Utf16.h"
 #include "mozilla/Services.h"
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticMutex.h"
@@ -40,6 +42,8 @@
 #include "nsISupportsPrimitives.h"
 #include "nsITransferable.h"
 #include "nsProxyRelease.h"
+#include "nsQueryObject.h"
+#include "nsServiceManagerUtils.h"
 #include "ScopedNSSTypes.h"
 #include "xpcpublic.h"
 
@@ -312,6 +316,12 @@ ContentAnalysisRequest::SetTimeoutMultiplier(uint32_t aTimeoutMultiplier) {
 }
 
 NS_IMETHODIMP
+ContentAnalysisRequest::GetClipboardCopyKeptLocally(bool* aKeptLocally) {
+  *aKeptLocally = mClipboardCopyKeptLocally;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 ContentAnalysisRequest::GetTestOnlyIgnoreCanceledAndAlwaysSubmitToAgent(
     bool* aAlwaysSubmitToAgent) {
   *aAlwaysSubmitToAgent = mTestOnlyAlwaysSubmitToAgent;
@@ -413,6 +423,8 @@ RefPtr<ContentAnalysisRequest> ContentAnalysisRequest::Clone(
   // Do not copy mTimeoutMultiplier
   MOZ_ALWAYS_SUCCEEDS(aRequest->GetTestOnlyIgnoreCanceledAndAlwaysSubmitToAgent(
       &clone->mTestOnlyAlwaysSubmitToAgent));
+  MOZ_ALWAYS_SUCCEEDS(
+      aRequest->GetClipboardCopyKeptLocally(&clone->mClipboardCopyKeptLocally));
   return clone;
 }
 
@@ -726,16 +738,21 @@ NS_IMPL_ISUPPORTS(ContentAnalysisNoResult, nsIContentAnalysisResult);
 NS_IMPL_ISUPPORTS(ContentAnalysisAcknowledgement,
                   nsIContentAnalysisAcknowledgement);
 NS_IMPL_ISUPPORTS(ContentAnalysisCallback, nsIContentAnalysisCallback);
+NS_IMPL_ISUPPORTS(ContentAnalysisLocalCopyInfo,
+                  nsIContentAnalysisLocalCopyInfo);
 NS_IMPL_ISUPPORTS(ContentAnalysisDiagnosticInfo,
                   nsIContentAnalysisDiagnosticInfo);
 NS_IMPL_ISUPPORTS(ContentAnalysis, nsIContentAnalysis, nsIObserver,
                   ContentAnalysis);
+
+ContentAnalysis* ContentAnalysis::sInstance = nullptr;
 
 ContentAnalysis::ContentAnalysis() : mSetByEnterprise(false) {
   // Limit one per process
   [[maybe_unused]] static bool sCreated = false;
   MOZ_ASSERT(!sCreated);
   sCreated = true;
+  sInstance = this;
 
   nsCOMPtr<nsIObserverService> obsServ =
       mozilla::services::GetObserverService();
@@ -770,6 +787,9 @@ ContentAnalysis::ContentAnalysis() : mSetByEnterprise(false) {
 }
 
 ContentAnalysis::~ContentAnalysis() {
+  if (sInstance == this) {
+    sInstance = nullptr;
+  }
   LOGD("ContentAnalysis::~ContentAnalysis");
   AssertIsOnMainThread();
   MOZ_ASSERT(mUserActionMap.IsEmpty());
@@ -1018,8 +1038,7 @@ ContentAnalysis::TestOnlySetCACmdLineArg(bool aVal) {
 Maybe<nsIContentAnalysisResponse::Action>
 ContentAnalysis::CachedClipboardResponse::GetCachedResponse(
     nsIURI* aURI, int32_t aClipboardSequenceNumber) {
-  MOZ_ASSERT(NS_IsMainThread(),
-             "Expecting main thread access only to avoid synchronization");
+  AssertIsOnMainThread();
   if (Some(aClipboardSequenceNumber) != mClipboardSequenceNumber) {
     LOGD("CachedClipboardResponse seqno does not match cached value");
     return Nothing();
@@ -1041,8 +1060,7 @@ ContentAnalysis::CachedClipboardResponse::GetCachedResponse(
 void ContentAnalysis::CachedClipboardResponse::SetCachedResponse(
     const nsCOMPtr<nsIURI>& aURI, int32_t aClipboardSequenceNumber,
     nsIContentAnalysisResponse::Action aAction) {
-  MOZ_ASSERT(NS_IsMainThread(),
-             "Expecting main thread access only to avoid synchronization");
+  AssertIsOnMainThread();
   if (mClipboardSequenceNumber != Some(aClipboardSequenceNumber)) {
     LOGD("CachedClipboardResponse caching new clipboard seqno");
     mData.Clear();
@@ -1067,6 +1085,20 @@ void ContentAnalysis::CachedClipboardResponse::SetCachedResponse(
   }
 
   mData.AppendElement(std::make_pair(aURI, aAction));
+}
+
+void ContentAnalysis::CachedClipboardResponse::Clear() {
+  AssertIsOnMainThread();
+  LOGD("CachedClipboardResponse cleared");
+  mData.Clear();
+  mClipboardSequenceNumber.reset();
+}
+
+/* static */
+void ContentAnalysis::ClearCachedClipboardResponse() {
+  if (RefPtr<ContentAnalysis> self = GetContentAnalysisFromService()) {
+    self->mCachedClipboardResponse.Clear();
+  }
 }
 
 /* static */
@@ -1095,6 +1127,43 @@ void ContentAnalysis::CancelPendingWarn(const nsACString& aRequestToken) {
     self->RespondToWarnDialogInternal(aRequestToken, /* aAllowContent */ false,
                                       /* aFromCancel */ true);
   }
+}
+
+NS_IMETHODIMP ContentAnalysis::GetLocalClipboardCopyInfo(
+    nsIContentAnalysisLocalCopyInfo** aInfo) {
+  MOZ_ASSERT(NS_IsMainThread());
+  *aInfo = nullptr;
+#ifdef MOZ_ENTERPRISE
+  nsCOMPtr<nsIClipboard> clipboard =
+      do_GetService("@mozilla.org/widget/clipboard;1");
+  if (!clipboard) {
+    return NS_OK;
+  }
+  // Every nsIClipboard implementation derives from nsBaseClipboard.
+  auto* baseClipboard = static_cast<nsBaseClipboard*>(clipboard.get());
+  auto localCopy = baseClipboard->GetLocalCopyInfo();
+  if (!localCopy) {
+    return NS_OK;
+  }
+  uint32_t state = nsIContentAnalysisLocalCopyInfo::PENDING;
+  switch (localCopy->mState) {
+    case nsBaseClipboard::LocalCopyState::ePending:
+      state = nsIContentAnalysisLocalCopyInfo::PENDING;
+      break;
+    case nsBaseClipboard::LocalCopyState::eWarn:
+      state = nsIContentAnalysisLocalCopyInfo::WARN;
+      break;
+    case nsBaseClipboard::LocalCopyState::eBlocked:
+      state = nsIContentAnalysisLocalCopyInfo::BLOCKED;
+      break;
+  }
+  RefPtr<ContentAnalysisLocalCopyInfo> info =
+      MakeRefPtr<ContentAnalysisLocalCopyInfo>(
+          state, localCopy->mSequenceNumber, localCopy->mTransferable,
+          localCopy->mSourcePrincipal);
+  info.forget(aInfo);
+#endif
+  return NS_OK;
 }
 
 NS_IMETHODIMP ContentAnalysis::SetCachedResponse(
@@ -1317,6 +1386,11 @@ NS_IMETHODIMP ContentAnalysis::SendCancelToAgent(
 RefPtr<ContentAnalysis> ContentAnalysis::GetContentAnalysisFromService() {
   RefPtr<ContentAnalysis> contentAnalysisService =
       mozilla::components::nsIContentAnalysis::Service();
+  if (!contentAnalysisService && sInstance) {
+    // The registration is overridden (by a test mock); the instance itself
+    // is still the one holding the state callers here need.
+    contentAnalysisService = sInstance;
+  }
   return contentAnalysisService;
 }
 
@@ -1698,6 +1772,11 @@ static Result<bool, nsresult> AddRequestsFromTransferableIfAny(
   NS_ENSURE_SUCCESS(aOriginalRequest->GetReason(&reason),
                     Err(NS_ERROR_FAILURE));
 
+  bool keptLocally = false;
+  MOZ_ALWAYS_SUCCEEDS(
+      aOriginalRequest->GetClipboardCopyKeptLocally(&keptLocally));
+  const size_t firstNewRequest = aNewRequests->Length();
+
   nsresult rv = AddClipboardCARForCustomData(
       aWindowGlobal, transferable, reason, aUri, aSourceWindowGlobal,
       nsCString(userActionId), aNewRequests);
@@ -1718,6 +1797,12 @@ static Result<bool, nsresult> AddRequestsFromTransferableIfAny(
                               aSourceWindowGlobal, std::move(userActionId),
                               aNewRequests);
   NS_ENSURE_SUCCESS(rv, Err(rv));
+
+  // The requests the helpers above appended are all ContentAnalysisRequests.
+  for (size_t i = firstNewRequest; i < aNewRequests->Length(); ++i) {
+    static_cast<ContentAnalysisRequest*>((*aNewRequests)[i].get())
+        ->SetClipboardCopyKeptLocally(keptLocally);
+  }
   return true;
 }
 
@@ -2944,7 +3029,8 @@ static nsresult CheckClipboard(
     Maybe<int32_t> aClipboardSequenceNumber, bool aStoreInCache,
     nsITransferable* aTransferable,
     mozilla::dom::WindowGlobalParent* aWindowGlobal,
-    mozilla::dom::WindowGlobalParent* aSourceWindowGlobal) {
+    mozilla::dom::WindowGlobalParent* aSourceWindowGlobal,
+    bool aKeptLocally = false) {
   MOZ_ASSERT(aReason == nsIContentAnalysisRequest::Reason::eClipboardCopy ||
              aReason == nsIContentAnalysisRequest::Reason::eClipboardPaste);
   const bool useCache =
@@ -2973,6 +3059,7 @@ static nsresult CheckClipboard(
   auto request = MakeRefPtr<ContentAnalysisRequest>(
       TextAnalysisTypeForReason(aReason), aReason, aTransferable, aWindowGlobal,
       aSourceWindowGlobal);
+  request->SetClipboardCopyKeptLocally(aKeptLocally);
 
   // Don't use the cache if the request can store to the cache -- that
   // is an indication that this is a separate operation from the previous
@@ -3082,7 +3169,7 @@ void ContentAnalysis::CheckClipboardContentAnalysis(
 
 void ContentAnalysis::CheckClipboardCopyContentAnalysis(
     mozilla::dom::WindowGlobalParent* aWindow, nsITransferable* aTransferable,
-    ContentAnalysisCallback* aResolver) {
+    bool aKeptLocally, ContentAnalysisCallback* aResolver) {
   // Make sure we call aResolver on error.  Use the current value of
   // noCAResult.
   NoContentAnalysisResult noCAResult =
@@ -3115,7 +3202,7 @@ void ContentAnalysis::CheckClipboardCopyContentAnalysis(
   CheckClipboard(aResolver, nsIContentAnalysisRequest::Reason::eClipboardCopy,
                  Nothing() /* aClipboardSequenceNumber */,
                  false /* aStoreInCache */, aTransferable, aWindow,
-                 aWindow /* aSourceWindowGlobal */);
+                 aWindow /* aSourceWindowGlobal */, aKeptLocally);
 
   issueNoAnalysisResponse.release();
 }
@@ -3608,6 +3695,95 @@ NS_IMETHODIMP ContentAnalysisCallback::Error(nsresult aError) {
 
 ContentAnalysisCallback::ContentAnalysisCallback(dom::Promise* aPromise)
     : mPromise(aPromise) {}
+
+// The start of aTransferable's text/plain flavor, with runs of whitespace
+// collapsed, for the user to recognize a copy by in the DLP panel.
+static void GetLocalCopyPreviewText(nsITransferable* aTransferable,
+                                    uint32_t aMaxCodePoints,
+                                    nsAString& aPreview) {
+  aPreview.Truncate();
+  if (!aTransferable) {
+    return;
+  }
+  nsCOMPtr<nsISupports> data;
+  if (NS_FAILED(
+          aTransferable->GetTransferData(kTextMime, getter_AddRefs(data)))) {
+    return;
+  }
+  nsCOMPtr<nsISupportsString> text = do_QueryInterface(data);
+  if (!text) {
+    return;
+  }
+  nsAutoString full;
+  if (NS_FAILED(text->GetData(full))) {
+    return;
+  }
+
+  uint32_t codePoints = 0;
+  bool pendingSpace = false;
+  for (size_t i = 0; i < full.Length(); ++i) {
+    char16_t c = full[i];
+    if (IsAsciiWhitespace(c)) {
+      pendingSpace = !aPreview.IsEmpty();
+      continue;
+    }
+    if (pendingSpace) {
+      if (codePoints >= aMaxCodePoints) {
+        aPreview.Append(char16_t(0x2026));
+        return;
+      }
+      // coalesce multiple spaces into one space
+      aPreview.Append(' ');
+      ++codePoints;
+      pendingSpace = false;
+    }
+    if (codePoints >= aMaxCodePoints) {
+      aPreview.Append(char16_t(0x2026));
+      return;
+    }
+    if (IsHighSurrogate(c) && i + 1 < full.Length() &&
+        IsLowSurrogate(full[i + 1])) {
+      aPreview.Append(c);
+      aPreview.Append(full[++i]);
+    } else {
+      aPreview.Append(c);
+    }
+    ++codePoints;
+  }
+}
+
+ContentAnalysisLocalCopyInfo::ContentAnalysisLocalCopyInfo(
+    uint32_t aState, int32_t aSequenceNumber, nsITransferable* aTransferable,
+    nsIPrincipal* aSourcePrincipal)
+    : mState(aState), mSequenceNumber(aSequenceNumber) {
+  GetLocalCopyPreviewText(aTransferable, kLocalCopyPreviewCodePoints, mPreview);
+  if (nsIPrincipal* principal = aSourcePrincipal) {
+    nsAutoCString host;
+    if (NS_FAILED(principal->GetHost(host)) || host.IsEmpty()) {
+      principal->GetExposablePrePath(host);
+    }
+    CopyUTF8toUTF16(host, mSourceHost);
+  }
+}
+
+NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetState(uint32_t* aState) {
+  *aState = mState;
+  return NS_OK;
+}
+NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetSequenceNumber(
+    int32_t* aSequenceNumber) {
+  *aSequenceNumber = mSequenceNumber;
+  return NS_OK;
+}
+NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetPreview(nsAString& aPreview) {
+  aPreview = mPreview;
+  return NS_OK;
+}
+NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetSourceHost(
+    nsAString& aSourceHost) {
+  aSourceHost = mSourceHost;
+  return NS_OK;
+}
 
 ContentAnalysisCallback::ContentAnalysisCallback(
     std::function<void(nsIContentAnalysisResult*)>&& aContentResponseCallback) {

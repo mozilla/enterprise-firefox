@@ -3,6 +3,8 @@ run-if = [
   "os == 'win'",
 ]
 support-files = [
+  "clipboard_copy_helpers.js",
+  "clipboard_copy_prompt_helpers.js",
   "head.js",
 ]
 
@@ -16,6 +18,30 @@ skip-if = [
 support-files = [
   "clipboard_copy.html",
 ]
+
+["browser_clipboard_copy_local_lifecycle_content_analysis.js"]
+support-files = [
+  "clipboard_copy.html",
+]
+skip-if = ["!enterprise"]
+
+["browser_clipboard_copy_local_paste_content_analysis.js"]
+support-files = [
+  "clipboard_copy.html",
+]
+skip-if = ["!enterprise"]
+
+["browser_clipboard_copy_local_prompt_content_analysis.js"]
+support-files = [
+  "clipboard_paste_prompt.html",
+]
+skip-if = ["!enterprise"]
+
+["browser_clipboard_copy_no_local_copy_content_analysis.js"]
+support-files = [
+  "clipboard_copy.html",
+]
+skip-if = ["enterprise"] # The local clipboard only exists in Enterprise builds.
 
 ["browser_clipboard_copy_prompt_content_analysis.js"]
 support-files = [
