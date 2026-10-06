@@ -129,11 +129,11 @@ pub extern "C" fn is_felt_browser() -> bool {
 pub static FELT_CLIENT: Mutex<Option<client::FeltClientThread>> = Mutex::new(None);
 
 #[no_mangle]
-pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> bool {
+pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char, felt_pid: u32) -> bool {
     let srv_name = unsafe { CStr::from_ptr(server_name) };
     let server_socket = String::from_utf8_lossy(srv_name.to_bytes()).to_string();
-    trace!("firefox_connect_to_felt({})", server_socket);
-    match client::FeltClientThread::new(server_socket) {
+    trace!("firefox_connect_to_felt({}, {})", server_socket, felt_pid);
+    match client::FeltClientThread::new(server_socket, felt_pid) {
         Ok(client) => {
             let mut state = FELT_CLIENT.lock().expect("Could not lock mutex");
             trace!("firefox_connect_to_felt(): connected, storing client");

@@ -7351,6 +7351,8 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     // FELT IPC channel
     Maybe<const char*> felt =
         geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
+    Maybe<uint32_t> feltPid =
+        geckoargs::sFeltPid.Get(gArgc, gArgv, CheckArgFlag::None);
     const char* mozFeltEnv = PR_GetEnv("MOZ_FELT_UI");
     if (mozFeltEnv) {
       PR_SetEnv("MOZ_FELT_UI=");
@@ -7358,6 +7360,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 
     // Remove Felt-specific flags from the command line.
     (void)geckoargs::sFelt.Get(gArgc, gArgv);
+    (void)geckoargs::sFeltPid.Get(gArgc, gArgv);
     (void)geckoargs::sFeltUI.Get(gArgc, gArgv);
 
 #  ifdef MOZ_BACKGROUNDTASKS
@@ -7392,7 +7395,14 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
                "Error: Felt browser mode requires a Felt socket connection.\n");
         return 1;
       }
-      if (!firefox_connect_to_felt(*felt)) {
+      // The endpoint name is only trusted if the process at the other end is
+      // the Felt process that spawned this browser.
+      if (!feltPid.isSome() || *feltPid == 0) {
+        Output(true,
+               "Error: Felt browser mode requires the Felt process id.\n");
+        return 1;
+      }
+      if (!firefox_connect_to_felt(*felt, *feltPid)) {
         Output(
             true,
             "Error: Failed to connect to Felt. SSO authentication required.\n");
