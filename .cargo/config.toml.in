@@ -95,9 +95,9 @@ git = "https://github.com/mozilla/happy-eyeballs"
 tag = "v1.0.0"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/ipc-channel?rev=e27888a6cdde52cdcb0937c462294669013a5e6f"]
+[source."git+https://github.com/mozilla/ipc-channel?rev=7136a6f868a80a0342dd345c4c29c5930af98c53"]
 git = "https://github.com/mozilla/ipc-channel"
-rev = "e27888a6cdde52cdcb0937c462294669013a5e6f"
+rev = "7136a6f868a80a0342dd345c4c29c5930af98c53"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/memtest?rev=ad681ba425beb0aeba95f03e671432b4be932174"]

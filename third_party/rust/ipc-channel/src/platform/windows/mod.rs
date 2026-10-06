@@ -1242,6 +1242,13 @@ impl OsIpcReceiver {
         }
     }
 
+    /// Like `recv`. The Windows back-end does not attest the sender of a
+    /// message, so the pid is always `None`; see `peer_pid` for the connected
+    /// client.
+    pub fn recv_with_sender_pid(&self) -> Result<(IpcMessage, Option<u32>), WinIpcError> {
+        Ok((self.recv()?, None))
+    }
+
     pub fn recv(&self) -> Result<IpcMessage, WinIpcError> {
         win32_trace!("recv");
         self.receive_message(BlockingMode::Blocking)
@@ -1354,6 +1361,17 @@ impl OsIpcSender {
 
             Ok(OsIpcSender::from_handle(WinHandle::new(handle)))
         }
+    }
+
+    /// OS process id of the process that created the server end of this
+    /// sender's named pipe, read with `GetNamedPipeServerProcessId`, which the
+    /// kernel resolves and the peer cannot forge. For a sender returned by
+    /// `connect` that is the process that created the one-shot server. Returns
+    /// `None` when the id cannot be obtained.
+    pub fn peer_pid(&self) -> Option<u32> {
+        self.get_pipe_server_process_id()
+            .ok()
+            .filter(|&pid| pid != 0)
     }
 
     fn get_pipe_server_process_id(&self) -> Result<u32, WinError> {

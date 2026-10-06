@@ -156,30 +156,17 @@ impl OsIpcReceiver {
     /// kernel fills with the credentials of the peer at connect time and cannot
     /// be forged by the peer. Returns `None` when the credentials cannot be
     /// obtained or on unix targets without `SO_PEERCRED`.
-    #[cfg(target_os = "linux")]
     pub fn peer_pid(&self) -> Option<u32> {
-        use nix::sys::socket::{getsockopt, sockopt::PeerCredentials};
-        use std::os::fd::BorrowedFd;
-
-        let fd = self.fd.get();
-        if fd < 0 {
-            return None;
-        }
-        // SAFETY: `fd` is a socket owned by this receiver. It is only closed by
-        // `Drop` or handed off by `consume_fd`, neither of which can run while
-        // `&self` is borrowed here (`OsIpcReceiver` is not `Sync`), so the fd
-        // stays open for the lifetime of the `BorrowedFd`.
-        let fd = unsafe { BorrowedFd::borrow_raw(fd) };
-        let pid = getsockopt(&fd, PeerCredentials).ok()?.pid();
-        if pid <= 0 {
-            return None;
-        }
-        Some(pid as u32)
+        // The fd is only closed by `Drop` or handed off by `consume_fd`, neither
+        // of which can run while `&self` is borrowed here (`OsIpcReceiver` is
+        // not `Sync`), so it stays open for the duration of the call.
+        socket_peer_pid(self.fd.get())
     }
 
-    #[cfg(not(target_os = "linux"))]
-    pub fn peer_pid(&self) -> Option<u32> {
-        None
+    /// Like `recv`. The unix back-end does not attest the sender of a message,
+    /// so the pid is always `None`; see `peer_pid` for the connected peer.
+    pub fn recv_with_sender_pid(&self) -> Result<(IpcMessage, Option<u32>), UnixError> {
+        Ok((self.recv()?, None))
     }
 
     fn consume_fd(&self) -> c_int {
@@ -225,11 +212,46 @@ pub struct OsIpcSender {
     fd: Arc<SharedFileDescriptor>,
 }
 
+/// `SO_PEERCRED` pid of the peer of a connected or paired socket, which the
+/// kernel fills in and the peer cannot forge. For a socket returned by
+/// `connect` that is the process that called `listen` on the server socket;
+/// for a `socketpair` end it is the process that created the pair. `None` when
+/// the credentials cannot be obtained. The caller must own `fd` and keep it
+/// open for the duration of the call.
+#[cfg(target_os = "linux")]
+fn socket_peer_pid(fd: c_int) -> Option<u32> {
+    use nix::sys::socket::{getsockopt, sockopt::PeerCredentials};
+    use std::os::fd::BorrowedFd;
+
+    if fd < 0 {
+        return None;
+    }
+    // SAFETY: the caller owns `fd` and keeps it open for the duration of this
+    // call, so it is valid for the lifetime of the `BorrowedFd`.
+    let fd = unsafe { BorrowedFd::borrow_raw(fd) };
+    let pid = getsockopt(&fd, PeerCredentials).ok()?.pid();
+    u32::try_from(pid).ok().filter(|&pid| pid != 0)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn socket_peer_pid(_fd: c_int) -> Option<u32> {
+    None
+}
+
 impl OsIpcSender {
     fn from_fd(fd: c_int) -> OsIpcSender {
         OsIpcSender {
             fd: Arc::new(SharedFileDescriptor(fd)),
         }
+    }
+
+    /// OS process id of the peer on the other end of this sender's socket, see
+    /// `socket_peer_pid`. For a sender returned by `connect` that is the
+    /// process that created the one-shot server.
+    pub fn peer_pid(&self) -> Option<u32> {
+        // The `Arc<SharedFileDescriptor>` held by `self` keeps the fd open for
+        // the duration of the call.
+        socket_peer_pid(self.fd.0)
     }
 
     /// Maximum size of the kernel buffer used for transfers over this channel.

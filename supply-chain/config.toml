@@ -139,7 +139,7 @@ notes = "Patched version of upstream"
 audit-as-crates-io = true
 notes = "Patched version of upstream"
 
-[policy."ipc-channel:0.21.0@git:e27888a6cdde52cdcb0937c462294669013a5e6f"]
+[policy."ipc-channel:0.21.0@git:7136a6f868a80a0342dd345c4c29c5930af98c53"]
 audit-as-crates-io = true
 notes = "Patched version to build with gecko deps"
 
@@ -239,6 +239,10 @@ notes = "Part of the wgpu repository, pinned as the rest of wgpu crates."
 [policy.nimbus-sdk]
 audit-as-crates-io = false
 notes = "This lives in application-services but was pushed to crates.io a very long time ago."
+
+[policy.nss-rs]
+audit-as-crates-io = false
+notes = "Fetched from mozilla/nss-rs on GitHub. The crates.io name only holds a 0.0.0 placeholder reserved by an nss-rs maintainer."
 
 [policy.objc]
 audit-as-crates-io = true

@@ -240,6 +240,21 @@ where
         self.os_receiver.peer_pid()
     }
 
+    /// Blocking receive that also reports the OS process id of the process
+    /// that sent the message, when the transport attests it per message.
+    ///
+    /// On macOS the pid comes from the audit trailer the kernel appends to the
+    /// received Mach message, so the sender cannot forge it. The other
+    /// back-ends do not attest the sender of a message and report `None`; on
+    /// Linux and Windows the peer of an endpoint is fixed when it is created or
+    /// connected, so use [IpcSender::peer_pid] or [IpcReceiver::peer_pid] on
+    /// the endpoint instead.
+    pub fn recv_with_sender_pid(&self) -> Result<(T, Option<u32>), IpcError> {
+        let (ipc_message, sender_pid) = self.os_receiver.recv_with_sender_pid()?;
+        let data = ipc_message.to().map_err(IpcError::SerializationError)?;
+        Ok((data, sender_pid))
+    }
+
     /// Erase the type of the channel.
     ///
     /// Useful for adding routes to a `RouterProxy`.
@@ -327,6 +342,24 @@ where
             os_sender: OsIpcSender::connect(name)?,
             phantom: PhantomData,
         })
+    }
+
+    /// Returns the OS process id of the peer at the other end of this sender's
+    /// channel, when the platform can attest it.
+    ///
+    /// For a sender returned by [IpcSender::connect] that is the process that
+    /// created the [IpcOneShotServer]; for the sending half of [channel] it is
+    /// the process that created the channel. On Linux the pid is read with
+    /// `SO_PEERCRED` and on Windows with `GetNamedPipeServerProcessId`; the
+    /// kernel fills both in and the peer cannot forge them.
+    ///
+    /// On macOS this always returns `None`: a sender is a Mach send right,
+    /// which has no attestable owner. The process that sent a particular
+    /// message can be identified on the receiving side instead, see
+    /// [IpcReceiver::recv_with_sender_pid]. Also `None` where peer pids are
+    /// not implemented.
+    pub fn peer_pid(&self) -> Option<u32> {
+        self.os_sender.peer_pid()
     }
 
     /// Send data across the channel to the receiver.

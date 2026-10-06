@@ -393,6 +393,18 @@ impl OsIpcReceiver {
         self.recv_with_blocking_mode(BlockingMode::Blocking)
     }
 
+    /// Like `recv`, and also returns the pid of the process that sent the
+    /// message, from the audit trailer the kernel appends to it. The kernel
+    /// fills that in from the sending task, so the sender cannot forge it.
+    pub fn recv_with_sender_pid(&self) -> Result<(IpcMessage, Option<u32>), MachError> {
+        let (result, sender_pid) =
+            select_with_sender(self.port.get(), BlockingMode::Blocking, true)?;
+        match result {
+            OsIpcSelectionResult::DataReceived(_, ipc_message) => Ok((ipc_message, sender_pid)),
+            OsIpcSelectionResult::ChannelClosed(_) => Err(MachError::from(MACH_NOTIFY_NO_SENDERS)),
+        }
+    }
+
     pub fn try_recv(&self) -> Result<IpcMessage, MachError> {
         self.recv_with_blocking_mode(BlockingMode::Nonblocking)
     }
@@ -476,6 +488,14 @@ impl Clone for OsIpcSender {
 impl OsIpcSender {
     fn from_name(port: mach_port_t) -> OsIpcSender {
         OsIpcSender { port }
+    }
+
+    /// Always `None` on the Mach-port back-end: a sender is a send right, and
+    /// nothing attests which task holds the matching receive right. The sender
+    /// of a particular message can be identified on the receiving side instead,
+    /// see `OsIpcReceiver::recv_with_sender_pid`.
+    pub fn peer_pid(&self) -> Option<u32> {
+        None
     }
 
     pub fn connect(name: String) -> Result<OsIpcSender, MachError> {
