@@ -89,11 +89,12 @@ impl FeltIpcClient {
         };
         trace!("FeltIpcClient::new() connected!");
 
-        // AUTHENTICATION: the endpoint name came from the command line, and any
-        // same-user process could have claimed it, so only the felt process
-        // that spawned this browser is accepted at the other end. Where the
-        // transport attests the endpoint's owner this is decided before
-        // anything is sent; on macOS it is decided from the sender of the reply.
+        // AUTHORIZATION: any same-user process could have claimed the endpoint
+        // name given on the command line, so the endpoint is only trusted if it
+        // belongs to the felt process named next to it. Everywhere but macOS
+        // this is decided before anything is sent; a Mach send right has no
+        // attestable owner, so on macOS it is decided from the sender of the
+        // reply.
         if !Self::endpoint_belongs_to(&tx0, felt_pid) {
             return Self::default();
         }
@@ -135,8 +136,6 @@ impl FeltIpcClient {
         authorized
     }
 
-    // A Mach send right has no attestable owner, so the reply's sender is
-    // checked instead (see receive_reply_from).
     #[cfg(target_os = "macos")]
     fn endpoint_belongs_to(
         _tx0: &ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
@@ -877,7 +876,7 @@ mod tests {
 
     // Plays the endpoint the browser is told about: accepts the browser's
     // connection and answers with the channel the browser talks back on, as
-    // FeltXPCOM::ipc_channel does. Reports whether a connection arrived.
+    // FeltXPCOM::ipc_channel does. Reports whether it got to answer the browser.
     fn endpoint() -> (thread::JoinHandle<bool>, String) {
         let (server, name) = IpcOneShotServer::<IpcSender<FeltMessage>>::new().unwrap();
         let felt = thread::spawn(move || match server.accept() {
@@ -897,7 +896,7 @@ mod tests {
     fn browser_connects_to_the_endpoint_of_the_expected_pid() {
         let (felt, name) = endpoint();
         let client = FeltIpcClient::new(name, std::process::id());
-        assert!(felt.join().unwrap(), "felt received the browser's connection");
+        assert!(felt.join().unwrap(), "felt answered the browser");
         assert!(client.tx.lock().unwrap().is_some() && client.rx.is_some());
     }
 
@@ -907,8 +906,8 @@ mod tests {
         let client = FeltIpcClient::new(name, std::process::id() + 1);
         let impostor_was_answered = impostor.join().unwrap();
         assert!(client.tx.lock().unwrap().is_none() && client.rx.is_none());
-        // Where the transport attests the endpoint's owner the browser sends
-        // nothing to it; on macOS the browser needs the reply to decide.
+        // Everywhere but macOS the browser sends nothing to a refused endpoint;
+        // on macOS it needs the reply to decide.
         assert_eq!(impostor_was_answered, cfg!(target_os = "macos"));
     }
 }
