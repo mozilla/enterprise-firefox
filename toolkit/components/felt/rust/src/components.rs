@@ -42,10 +42,10 @@ pub struct FeltXPCOM {
 /// felt expects the process it spawned (on Windows the browser child the
 /// launcher process creates and announces, see FeltProcessParent); the browser
 /// expects the felt process named on its command line. An unavailable pid means
-/// the transport could not report one (BSD/illumos or the in-process
-/// transport), which is a rejection (fail-closed).
+/// the transport could not attest one, which is a rejection (fail-closed), and
+/// no process is ever expected under pid 0.
 pub(crate) fn peer_is_authorized(peer_pid: Option<u32>, expected_pid: u32) -> bool {
-    matches!(peer_pid, Some(peer) if peer == expected_pid)
+    expected_pid != 0 && matches!(peer_pid, Some(peer) if peer == expected_pid)
 }
 
 fn accept_ipc_peer(
@@ -870,6 +870,7 @@ mod tests {
         assert!(peer_is_authorized(Some(child_pid), child_pid));
         assert!(!peer_is_authorized(Some(child_pid + 1), child_pid));
         assert!(!peer_is_authorized(None, child_pid));
+        assert!(!peer_is_authorized(Some(0), 0));
     }
 
     // Bug 2072053: a peer that fails the accept must fail the launch instead
