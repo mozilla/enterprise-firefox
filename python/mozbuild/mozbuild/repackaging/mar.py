@@ -26,26 +26,13 @@ _BCJ_OPTIONS = {
 }
 
 
-def repackage_mar(
-    topsrcdir, package, mar, output, arch=None, mar_channel_id=None, exclude=None
-):
-    """Create a complete MAR from `package`.
-
-    `exclude` is a list of basenames that are left out of the MAR, matched at
-    any depth so that the macOS `Contents/Resources/` layout is covered too.
-    """
+def repackage_mar(topsrcdir, package, mar, output, arch=None, mar_channel_id=None):
     if not zipfile.is_zipfile(package) and not tarfile.is_tarfile(package):
         raise Exception("Package file %s is not a valid .zip or .tar file." % package)
     if arch and arch not in _BCJ_OPTIONS:
         raise Exception(
             f"Unknown architecture {arch}, available architectures: {list(_BCJ_OPTIONS.keys())}"
         )
-    for name in exclude or []:
-        if "/" in name or " " in name:
-            raise Exception(
-                f"--exclude takes a basename without spaces, not {name!r}. "
-                "Matching is done on the basename at any depth in the package."
-            )
 
     ensureParentDir(output)
     tmpdir = tempfile.mkdtemp()
@@ -81,8 +68,6 @@ def repackage_mar(
             env["BCJ_OPTIONS"] = " ".join(_BCJ_OPTIONS[arch])
         if mar_channel_id:
             env["MAR_CHANNEL_ID"] = mar_channel_id
-        if exclude:
-            env["MAR_EXCLUDE_FILES"] = " ".join(exclude)
         # The Windows build systems have xz installed but it isn't in the path
         # like it is on Linux and Mac OS X so just use the XZ env var so the mar
         # generation scripts can find it.
