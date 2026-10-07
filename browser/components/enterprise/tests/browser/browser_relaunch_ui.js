@@ -409,7 +409,7 @@ add_task(async function test_takes_the_slot_from_another_infobar() {
   );
 });
 
-add_task(async function test_retries_after_the_browser_window_loads() {
+add_task(async function test_warns_in_a_window_that_is_still_loading() {
   const win = Services.wm.getMostRecentBrowserWindow();
   await reset(win);
 
@@ -433,12 +433,10 @@ add_task(async function test_retries_after_the_browser_window_loads() {
     win.document.documentElement.removeAttribute("taskbartab");
 
     await started;
-    const shown = BrowserTestUtils.waitForGlobalNotificationBar(
-      loadingWin,
-      WARNING_ID
+    await TestUtils.waitForCondition(
+      () => notificationValues(loadingWin).length,
+      "The warning is shown once the window loads"
     );
-    RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 45 });
-    await shown;
 
     Assert.deepEqual(
       notificationValues(loadingWin),
