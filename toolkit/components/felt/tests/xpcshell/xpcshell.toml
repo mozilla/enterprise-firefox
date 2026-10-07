@@ -5,6 +5,12 @@ head = "head.js"
 
 ["test_FeltStorage_locking.js"]
 
+["test_felt_browser_endpoint_refusal.js"]
+# Launches the application binary. On Windows the startup errors it exercises
+# are shown in a message box, so it would hang there.
+run-if = ["os != 'win' && buildapp == 'browser'"]
+run-sequentially = ["true"]
+
 ["test_felt_browser_ipc_args.js"]
 run-if = ["buildapp == 'browser'"]
 
