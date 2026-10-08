@@ -20,6 +20,7 @@
 #include "mozilla/glean/bindings/jog/JOG.h"
 #include "mozilla/glean/GleanMetrics.h"
 #include "mozilla/glean/FOGTransportChild.h"
+#include "mozilla/AppShutdown.h"
 #include "mozilla/Hal.h"
 #include "mozilla/Logging.h"
 #include "mozilla/MozPromise.h"
@@ -155,6 +156,12 @@ void RecordThreadCpuUse(const nsACString& aThreadName, uint64_t aCpuTimeMs,
   // shutting down.
   if (aThreadName.EqualsLiteral("glean.dispatcher") ||
       aThreadName.EqualsLiteral("glean.shutdown")) {
+    return;
+  }
+
+  // Past this point Glean is either shut down or was never started, and
+  // recording could start its dispatcher thread while the process is exiting.
+  if (AppShutdown::IsInOrBeyond(ShutdownPhase::XPCOMShutdownFinal)) {
     return;
   }
 
