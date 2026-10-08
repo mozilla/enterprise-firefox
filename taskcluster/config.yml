@@ -588,6 +588,12 @@ release-promotion:
         ship_android:
             product: firefox-android
             target-tasks-method: ship_android
+        test_ent_cron_nightly:
+            product: firefox-enterprise
+            target-tasks-method: nightly_enterprise
+        test_ent_cron_daily_releases:
+            product: firefox-enterprise
+            target-tasks-method: daily_releases_enterprise
 
 
 scriptworker:
