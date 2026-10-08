@@ -102,6 +102,12 @@ add_task(async function test_enterprise_management_works() {
   await extension.awaitMessage("done");
   await extension.unload();
 
+  // The legacy Extensions policy is unsupported in enterprise builds, so it
+  // never installs the add-on there and this would wait forever.
+  if (AppConstants.MOZ_ENTERPRISE) {
+    return;
+  }
+
   info("Testing add-on installed & locked via Extensions policy");
   extension = ExtensionTestUtils.expectExtension(TEST_ID);
   await Promise.all([
@@ -155,19 +161,28 @@ add_task(async function test_enterprise_management_locked_addon() {
   let xpiFilename = `/locked.xpi`;
   server.registerFile(xpiFilename, originalXpi);
 
+  // Enterprise builds do not support the legacy Extensions policy; there,
+  // force_installed is what makes an add-on undisableable.
+  let lockPolicies = AppConstants.MOZ_ENTERPRISE
+    ? {
+        ExtensionSettings: {
+          [TEST_ADDON_ID]: { installation_mode: "force_installed" },
+        },
+      }
+    : { Extensions: { Locked: [TEST_ADDON_ID] } };
+
   let extension = ExtensionTestUtils.expectExtension(TEST_ID);
   await Promise.all([
     AddonTestUtils.promiseInstallEvent("onInstallEnded"),
     EnterprisePolicyTesting.setupPolicyEngineWithJson({
       policies: {
+        ...lockPolicies,
         ExtensionSettings: {
+          ...lockPolicies.ExtensionSettings,
           [TEST_ID]: {
             installation_mode: "force_installed",
             install_url: serverHost + xpiFilename,
           },
-        },
-        Extensions: {
-          Locked: [TEST_ADDON_ID],
         },
       },
     }),

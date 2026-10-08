@@ -5,12 +5,75 @@
 # Access Connector is an Enterprise feature name and must not be translated.
 -enterprise-feature-access-connector = Access Connector
 
+# Shown in the About dialog on enterprise builds.
+aboutdialog-managed-notice = Your browser is being managed by your organization.
+
+# Shown in the About dialog on enterprise nightly builds.
+warningdesc-version-enterprise-nightly = The { -brand-nightly-channel } release channel is experimental and may be unstable.
+
 # Shown in the about:support "Application Basics" table on enterprise builds.
 app-basics-device-id = Device ID
 
 # Shown in the about:support "Security Software" section on enterprise builds.
 # Endpoint Detection and Response is an industry term and must remain in English.
 security-software-edr = Endpoint Detection and Response
+
+# Shown in the about:support "Security Software" section on enterprise builds.
+security-software-disk-encryption = Disk Encryption
+
+# All relevant storage was checked and is encrypted: the operating-system volume,
+# other mounted fixed volumes (storage areas on non-removable disks), and active
+# Linux swap (disk space used to hold memory contents). Linux boot partitions
+# mounted at /boot, /boot/efi, or /efi are excluded. This variant is used when
+# the encryption technology name is unavailable.
+security-software-disk-encryption-full = Enabled
+
+# All relevant storage was checked and is encrypted, including the operating-system
+# volume, other mounted fixed volumes, and active Linux swap. Linux boot
+# partitions mounted at /boot, /boot/efi, or /efi are excluded.
+# Variables:
+#   $method (String): Encryption technology name: "BitLocker", "FileVault",
+#   "dm-crypt", or "ZFS". Inserted unchanged; do not translate the name.
+security-software-disk-encryption-full-with-method = Enabled ({ $method })
+
+# The operating-system volume is encrypted and no unencrypted storage was found,
+# but Firefox could not verify encryption for all relevant storage. "Inspection
+# incomplete" describes an incomplete check, not encryption still in progress.
+# This variant is used when the encryption technology name is unavailable.
+security-software-disk-encryption-enabled = Enabled; inspection incomplete
+
+# The operating-system volume is encrypted and no unencrypted storage was found,
+# but Firefox could not verify encryption for all relevant storage. "Inspection
+# incomplete" describes an incomplete check, not encryption still in progress.
+# Variables:
+#   $method (String): Encryption technology name: "BitLocker", "FileVault",
+#   "dm-crypt", or "ZFS". Inserted unchanged; do not translate the name.
+security-software-disk-encryption-enabled-with-method = Enabled ({ $method }); inspection incomplete
+
+# The operating-system volume is encrypted, but another mounted fixed volume or
+# active Linux swap is known to be unencrypted. "Partial" describes encryption
+# coverage across storage areas, not the progress of an encryption operation.
+# This variant is used when the encryption technology name is unavailable.
+security-software-disk-encryption-partial = Partial; some storage areas are not encrypted
+
+# The operating-system volume is encrypted, but another mounted fixed volume or
+# active Linux swap is known to be unencrypted. "Partial" describes encryption
+# coverage across storage areas, not the progress of an encryption operation.
+# Variables:
+#   $method (String): Encryption technology name: "BitLocker", "FileVault",
+#   "dm-crypt", or "ZFS". Inserted unchanged; do not translate the name.
+security-software-disk-encryption-partial-with-method = Partial ({ $method }); some storage areas are not encrypted
+
+# The operating-system volume is not encrypted. Other storage may be encrypted.
+security-software-disk-encryption-disabled = Disabled
+
+# An inspected volume is being encrypted or decrypted. This describes an ongoing
+# operation, unlike incomplete inspection or partial encryption coverage.
+security-software-disk-encryption-in-progress = Encryption or decryption in progress
+
+# Firefox could not determine whether the operating-system volume is encrypted.
+# This does not mean that encryption is disabled.
+security-software-disk-encryption-unknown = Unknown
 
 enterprise-toolbar-button =
     .label = { -brand-short-name }
@@ -59,6 +122,23 @@ enterprise-close-prompt-checkbox-label = Warn me when closing { -brand-short-nam
 enterprise-close-prompt-tabs-checkbox-label = Warn me when closing multiple tabs
 enterprise-close-prompt-primary-btn-label = Close and sign out
 
+# Shown instead of the sign-out variants when the session is locked (persisted)
+# on close rather than signed out.
+enterprise-close-prompt-message-lock = Your session will be locked.
+
+# Variables:
+#   $tabCount (Number): The number of tabs to be closed.
+enterprise-close-prompt-message-with-tabcount-and-lock-warning =
+    { $tabCount ->
+        [one] Your session will be locked and { $tabCount } tab will close.
+       *[other] Your session will be locked and { $tabCount } tabs will close.
+    }
+
+enterprise-close-prompt-message-with-tabcount-lock = Closing { -brand-short-name } will lock your session.
+enterprise-close-prompt-message-lock-reauth = You can resume your session after authenticating on this device.
+enterprise-close-prompt-checkbox-label-lock = Warn me when closing { -brand-short-name } locks my session
+enterprise-close-prompt-primary-btn-label-lock = Close and lock
+
 enterprise-quit-shortcut-prompt-title-with-tabs = Quit { -brand-short-name } or close current tab?
 enterprise-quit-shortcut-prompt-title = Close window and quit { -brand-short-name }?
 enterprise-quit-shortcut-prompt-message = Quitting will sign you out of your session. You’ll need to reauthenticate through your organization’s SSO provider.
@@ -85,11 +165,8 @@ enterprise-relaunch-imminent-message =
 
 enterprise-relaunch-restart-now = Restart now
 
-extension-firefox-enterprise-light-name = Firefox Enterprise Light
-extension-firefox-enterprise-light-description = A soft pastel theme with a touch of morning sunlight in the corner.
-
-extension-firefox-enterprise-dark-name = Firefox Enterprise Dark
-extension-firefox-enterprise-dark-description = A deep midnight theme with dark petrol blues and subtle, lighter blue gradients.
+extension-firefox-enterprise-auto-name = { -brand-short-name } theme – auto
+extension-firefox-enterprise-auto-description = Warm blush and apricot in light mode, deep violet and indigo in dark mode.
 
 lockdown-mode-button =
     .aria-label = Viewing with restrictions

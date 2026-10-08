@@ -11,6 +11,13 @@
 // test_sdr_preexisting/key4.db.
 
 function run_test() {
+  if (AppConstants.MOZ_DISABLE_PROFILE_PKCS11_MODULES) {
+    // The profile's PKCS#11 module DB is not loaded in this configuration,
+    // so the FIPS-mode-module-DB recovery this test exercises cannot occur.
+    // Key access without the module DB is covered by the test_sdr* tests.
+    info("Skipping: profile PKCS#11 modules are disabled in this build.");
+    return;
+  }
   // Append a single quote and non-ASCII characters to the profile path.
   let profd = Services.env.get("XPCSHELL_TEST_PROFILE_DIR");
   let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);

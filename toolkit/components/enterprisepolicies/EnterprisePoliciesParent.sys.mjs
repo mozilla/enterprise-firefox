@@ -30,8 +30,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // ${InstallDir}/distribution folder.
 const POLICIES_FILENAME = "policies.json";
 
-// When true browser policy is loaded per-user from
-// /run/user/$UID/appname
+// Load browser policy per-user from /run/user/$UID/appname for
+// testing only.
 const PREF_PER_USER_DIR = "toolkit.policies.perUserDir";
 // For easy testing, modify the helpers/sample.json file,
 // and set PREF_ALTERNATE_PATH in firefox.js as:
@@ -94,7 +94,8 @@ function shouldIgnoreLocalPolicies() {
 // We're only testing for empty objects, not
 // empty strings or empty arrays.
 function isEmptyObject(obj) {
-  if (typeof obj != "object" || Array.isArray(obj)) {
+  // typeof null == "object", so null has to be rejected before Object.keys().
+  if (obj === null || typeof obj != "object" || Array.isArray(obj)) {
     return false;
   }
   for (let key of Object.keys(obj)) {
@@ -114,6 +115,26 @@ class RemotePolicyProviderInitError extends Error {
     super(message, options);
     this.name = "RemotePolicyProviderInitError";
   }
+}
+
+/**
+ * Describe why a console request failed. On an XHR error, ConsoleClient throws
+ * a TypeError whose message is a fixed marker: the host and the nsresult are
+ * only in its cause, which stringifying drops.
+ *
+ * @param {Error} e what ingestPolicies() threw
+ * @returns {string}
+ */
+function describeConsoleRequestError(e) {
+  const { hostname, channelStatus } = e?.cause ?? {};
+  if (!hostname) {
+    return `${e}`;
+  }
+  const status =
+    channelStatus == null
+      ? "an unknown network error"
+      : ChromeUtils.getXPCOMErrorName(channelStatus);
+  return `request to ${hostname} failed with ${status}`;
 }
 
 /**
@@ -194,38 +215,85 @@ EnterprisePoliciesManager.prototype = {
   },
 
   async _initialize() {
+    const previouslyApplied = Services.prefs.getBoolPref(
+      PREF_POLICIES_APPLIED,
+      false
+    );
+
     this._cleanupPolicies();
 
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
+    // The callbacks scheduled so far (the previous session's cleanup) must
+    // survive a failed initialization; only what the failed attempt scheduled
+    // is discarded.
+    const callbacksBeforeInit = Object.fromEntries(
+      Object.entries(this._callbacks).map(([timing, entries]) => [
+        timing,
+        [...entries],
+      ])
+    );
+
     try {
       this._provider = await this._buildProvider();
+
+      // Keep status evaluation and startup activation inside the try: an
+      // unexpected failure here (e.g. a malformed local policy) must not
+      // escape and leave a managed browser running with the successfully
+      // fetched console policies silently unapplied.
+      this._updateStatus();
+
+      if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
+        if (previouslyApplied) {
+          this._runMissingPolicyCallbacks();
+        }
+        return;
+      }
+
+      // Make Web Serial support be opt-in for enterprise policies.
+      Services.prefs
+        .getDefaultBranch("")
+        .setBoolPref("dom.webserial.enabled", false);
+
+      this._activateStartupPolicies(previouslyApplied);
     } catch (e) {
+      // Initialization failed after status may have been set, the provider
+      // built and some startup callbacks scheduled. Discard that partial state
+      // so the engine does not advertise ACTIVE, run a partial policy set, or
+      // re-apply the fetched policies on a later policy update.
+      this.status = Ci.nsIEnterprisePolicies.FAILED;
+      this._discardPolicies();
+      for (const timing of Object.keys(this._callbacks)) {
+        this._callbacks[timing] = callbacksBeforeInit[timing];
+      }
+
+      if (previouslyApplied) {
+        this._runMissingPolicyCallbacks();
+      }
+
+      // about:policies lists the first logged argument only, so the error
+      // goes into the message as well as being passed along for its stack.
       if (e instanceof RemotePolicyProviderInitError) {
         lazy.log.error(
-          `Failed to fetch startup policies when building the policies provider: ${e}`
+          `Failed to fetch startup policies when building the policies provider: ${e}`,
+          e
         );
-        // bug 2027006 will move the fetching of policies to felt
-        // and no shutdown will be needed then
+        // Fail closed rather than run with no policies. This only takes effect
+        // under Felt, which fetched from this console just before launching
+        // Firefox, so a failure here should be rare.
+        lazy.initiateShutdown();
+      } else if (AppConstants.MOZ_ENTERPRISE && Services.felt.isFeltBrowser()) {
+        // A managed (felt) browser that cannot finish policy initialization
+        // fails closed rather than run unmanaged. Otherwise log and continue.
+        lazy.log.error(
+          `Failed to initialize enterprise policies; failing closed: ${e}`,
+          e
+        );
         lazy.initiateShutdown();
       } else {
-        lazy.log.error(`Failed to build the policies provider: ${e}`);
+        lazy.log.error(`Failed to initialize enterprise policies: ${e}`, e);
       }
-      return;
     }
-
-    this._updateStatus();
-
-    if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
-      return;
-    }
-
-    // Make Web Serial support be opt-in for enterprise policies.
-    Services.prefs
-      .getDefaultBranch("")
-      .setBoolPref("dom.webserial.enabled", false);
-
-    this._activateStartupPolicies();
   },
 
   _reportEnterpriseTelemetry() {
@@ -255,7 +323,10 @@ EnterprisePoliciesManager.prototype = {
         // Ingest the startup policies.
         await remoteProvider.ingestPolicies();
       } catch (e) {
-        lazy.log.error(`Failed to fetch remote policies on startup: ${e}`);
+        lazy.log.error(
+          `Failed to fetch remote policies on startup: ${describeConsoleRequestError(e)}`,
+          e
+        );
         remoteProvider._failed = true;
         throw new RemotePolicyProviderInitError(
           "Failed to fetch remote policies on startup",
@@ -337,9 +408,24 @@ EnterprisePoliciesManager.prototype = {
   /**
    * Activates the startup policies that are provided during
    * the initialization of the policy engine.
+   *
+   * @param {boolean} previouslyApplied whether policies were applied during
+   *   the previous session; if so, a policy that is now missing from the set
+   *   is activated with its onMissing() defaults so it can clean up state it
+   *   left behind
    */
-  _activateStartupPolicies() {
-    const effectivePolicies = this._effectivePolicies();
+  _activateStartupPolicies(previouslyApplied) {
+    const effectivePolicies = { ...this._effectivePolicies() };
+
+    if (previouslyApplied) {
+      // Allow a policy to provide a default for when the provider did not set a policy.
+      for (const policyName of Object.keys(lazy.Policies)) {
+        const policyImpl = lazy.Policies[policyName];
+        if (policyImpl.onMissing && !(policyName in effectivePolicies)) {
+          effectivePolicies[policyName] = policyImpl.onMissing();
+        }
+      }
+    }
 
     lazy.log.debug(
       `Parsing ${Object.keys(effectivePolicies).length} startup policies.`
@@ -622,6 +708,14 @@ EnterprisePoliciesManager.prototype = {
       return { isValid: false, parsedParams: null };
     }
 
+    if (!this._isPolicyCompatible(policyName)) {
+      this._reportPolicyError(
+        policyName,
+        `Policy ${policyName} is not supported.`
+      );
+      return { isValid: false, parsedParams: null };
+    }
+
     const policyImpl = lazy.Policies[policyName];
     // A few policies still accept an old syntax that the schema can't
     // describe. Convert it before we validate.
@@ -673,9 +767,41 @@ EnterprisePoliciesManager.prototype = {
    * @returns {boolean} whether policy requires a restart to be applied
    */
   _isStartupPolicy(policyName) {
-    const requiresRestart =
-      lazy.schemaModule.schema.properties[policyName]["x-restart-required"];
-    return requiresRestart ?? true;
+    return lazy.schemaModule.schema.properties[policyName][
+      "x-restart-required"
+    ];
+  },
+
+  /**
+   * The build variant key used by "x-compatibility" in policies-schema.json.
+   *
+   * @returns {"firefox_enterprise"|"firefox_esr"|"firefox"|"thunderbird_enterprise"|"thunderbird_esr"|"thunderbird"} variant key
+   */
+  _currentBuildVariant() {
+    let variant = "firefox";
+    if (AppConstants.MOZ_BUILD_APP != "browser") {
+      variant = "thunderbird";
+    }
+
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return `${variant}_enterprise`;
+    }
+    if (AppConstants.IS_ESR) {
+      return `${variant}_esr`;
+    }
+    return variant;
+  },
+
+  /**
+   * Whether a policy is supported by the running build
+   *
+   * @param {string} policyName policy name
+   * @returns {boolean} whether the policy applies to this build variant
+   */
+  _isPolicyCompatible(policyName) {
+    const compatibility =
+      lazy.schemaModule.schema.properties[policyName]["x-compatibility"];
+    return compatibility[this._currentBuildVariant()].version_added !== false;
   },
 
   /**
@@ -717,6 +843,20 @@ EnterprisePoliciesManager.prototype = {
           params: parsedParams,
         });
       }
+    }
+  },
+
+  _runMissingPolicyCallbacks() {
+    for (const policyName of Object.keys(lazy.Policies)) {
+      const policyImpl = lazy.Policies[policyName];
+      if (!policyImpl.onMissing) {
+        continue;
+      }
+      this._schedulePolicyActivations(
+        policyName,
+        policyImpl,
+        policyImpl.onMissing()
+      );
     }
   },
 
@@ -812,6 +952,20 @@ EnterprisePoliciesManager.prototype = {
     }
   },
 
+  /**
+   * Drops the provider and every parsed policy, so nothing can be applied or
+   * re-applied by a policy update until the engine is initialized again.
+   */
+  _discardPolicies() {
+    this._parsedPolicies = {};
+    this._seenParamHashes = new Map();
+    this._appliedParamHashes = new Map();
+    if (this._isRemotePoliciesSupported()) {
+      RemotePoliciesProvider.dropInstance();
+    }
+    this._provider = null;
+  },
+
   async _resetEngine() {
     lazy.log.debug("Resetting policy engine.");
     DisallowedFeatures = {};
@@ -822,14 +976,8 @@ EnterprisePoliciesManager.prototype = {
     Services.ppmm.sharedData.delete("EnterprisePolicies:SitePolicies");
 
     this.status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
-    this._parsedPolicies = {};
     lazy.PolicyFailures.clearAll();
-    this._seenParamHashes = new Map();
-    this._appliedParamHashes = new Map();
-    if (this._isRemotePoliciesSupported()) {
-      RemotePoliciesProvider.dropInstance();
-    }
-    this._provider = null;
+    this._discardPolicies();
     this._topicsObserved = new Set();
     for (let timing of Object.keys(this._callbacks)) {
       this._callbacks[timing] = [];
@@ -993,6 +1141,26 @@ EnterprisePoliciesManager.prototype = {
 
   hasSitePoliciesForURI(uri) {
     return lazy.SitePolicyUtils.hasSitePoliciesForURI(SitePolicies, uri);
+  },
+
+  getContainerForURI(uri) {
+    for (let policies of SitePolicies) {
+      if (
+        policies.exceptions.matches(uri) ||
+        policies.exceptions.matchesAllWebUrls
+      ) {
+        continue;
+      }
+
+      if (!policies.match.matches(uri) && !policies.match.matchesAllWebUrls) {
+        continue;
+      }
+
+      if ("container" in policies.features) {
+        return policies.features.container;
+      }
+    }
+    return 0;
   },
 
   getActivePolicies() {
@@ -1288,7 +1456,9 @@ class JSONPoliciesProvider extends PoliciesProvider {
 
     try {
       let configFile;
-      let perUserPath = Services.prefs.getBoolPref(PREF_PER_USER_DIR, false);
+      let perUserPath =
+        Cu.isInAutomation &&
+        Services.prefs.getBoolPref(PREF_PER_USER_DIR, false);
       if (perUserPath) {
         configFile = Services.dirsvc.get("XREUserRunTimeDir", Ci.nsIFile);
       } else {
@@ -1495,7 +1665,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
       Services.obs.notifyObservers(null, "EnterprisePolicies:Update");
     } catch (e) {
       lazy.log.error(
-        `RemotePoliciesProvider performPolling() with frequency ${this._pollingFrequency} caused error`,
+        `Failed to poll for remote policies: ${describeConsoleRequestError(e)}`,
         e
       );
     } finally {
@@ -1554,7 +1724,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
     try {
       lazy.RelaunchEnforcer.onConsolePoll(res.relaunch ?? null);
     } catch (e) {
-      lazy.log.error("Failed to apply the restart deadline", e);
+      lazy.log.error(`Failed to apply the restart deadline: ${e}`, e);
     }
 
     // The console returns byte-identical JSON when the remote policy set is

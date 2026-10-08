@@ -55,6 +55,58 @@ async function checkSyncedTabsTool(expectedHidden) {
   );
 }
 
+// The gating runs from a popupshowing handler, and the menubar is drawn natively
+// on macOS where a test can't open its menus, so dispatch the events instead.
+// popuphidden has to follow: showing opens the view's Places container, and
+// leaving it open past the end of the test hangs shutdown.
+function fireMenuPopupCycle(popupId, assertionCallback) {
+  const popup = document.getElementById(popupId);
+  popup.dispatchEvent(new Event("popupshowing", { bubbles: true }));
+  try {
+    assertionCallback();
+  } finally {
+    popup.dispatchEvent(new Event("popuphidden", { bubbles: true }));
+  }
+}
+
+async function withPinnedUIState(state, assertionCallback) {
+  const oldGet = UIState.get;
+  UIState.get = () => state;
+  try {
+    await assertionCallback();
+  } finally {
+    UIState.get = oldGet;
+  }
+}
+
+async function checkHistoryMenuSyncedTabsHidden(expectedHidden) {
+  await withPinnedUIState(SIGNED_IN_SYNC_OFF, () => {
+    fireMenuPopupCycle("historyMenuPopup", () => {
+      is(
+        document.getElementById("historyRemoteTabsPromo").hidden,
+        expectedHidden,
+        `History menu synced tabs promo hidden=${expectedHidden}`
+      );
+      ok(
+        document.getElementById("sync-tabs-menuitem").hidden,
+        "The synced tabs menuitem stays hidden while Sync is off"
+      );
+    });
+  });
+}
+
+async function checkBookmarksMenuPromoHidden(expectedHidden) {
+  await withPinnedUIState(SIGNED_IN_SYNC_OFF, () => {
+    fireMenuPopupCycle("bookmarksMenuPopup", () => {
+      is(
+        document.getElementById("bookmarksRemoteTabsPromo").hidden,
+        expectedHidden,
+        `Bookmarks menu sync promo hidden=${expectedHidden}`
+      );
+    });
+  });
+}
+
 // Firefox View reads the sync-tabs gating on load, so open a fresh tab to check
 // how the "Tabs from other devices" nav renders under the current policy.
 async function checkFirefoxViewSyncedTabsHidden(expectedHidden) {
@@ -183,6 +235,9 @@ function mockSignedInAccount() {
 }
 
 add_setup(async function () {
+  // gSync.init() runs in a requestIdleCallback; the gating no-ops until it has.
+  gSync.init();
+
   await SpecialPowers.pushPrefEnv({
     // The mocked signed-in UIState has no real FxA account, so the urlbar trust
     // panel's breach check logs NO_ACCOUNT errors on the tab switch into the sync
@@ -245,6 +300,19 @@ add_task(async function test_synced_tabs_visibility_follows_sync_policy() {
   checkSyncTabsFeatureAllowed(true);
   await checkSyncedTabsTool(false);
   await checkFirefoxViewSyncedTabsHidden(false);
+  await checkHistoryMenuSyncedTabsHidden(false);
+
+  // Omitting 'Enabled' is the only way to lock the tabs engine off while the
+  // sync feature stays allowed, so it's the only case that gates on sync-tabs.
+  info("Tabs engine locked off on its own: the synced tabs surfaces hide.");
+  await updatePolicies({
+    policies: { Sync: { Locked: true, OpenTabs: false } },
+  });
+  checkSyncTabsFeatureAllowed(false);
+  checkSyncFeatureAllowed(true);
+  await checkSyncedTabsTool(true);
+  await checkFirefoxViewSyncedTabsHidden(true);
+  await checkHistoryMenuSyncedTabsHidden(true);
 
   info("Sync disabled and locked: the synced tabs surfaces are hidden.");
   await updatePolicies({
@@ -253,6 +321,7 @@ add_task(async function test_synced_tabs_visibility_follows_sync_policy() {
   checkSyncTabsFeatureAllowed(false);
   await checkSyncedTabsTool(true);
   await checkFirefoxViewSyncedTabsHidden(true);
+  await checkHistoryMenuSyncedTabsHidden(true);
 
   info("Tabs engine disabled and locked: the synced tabs surfaces are hidden.");
   await updatePolicies({
@@ -261,6 +330,7 @@ add_task(async function test_synced_tabs_visibility_follows_sync_policy() {
   checkSyncTabsFeatureAllowed(false);
   await checkSyncedTabsTool(true);
   await checkFirefoxViewSyncedTabsHidden(true);
+  await checkHistoryMenuSyncedTabsHidden(true);
 
   info("Sync locked on with tabs: the synced tabs surfaces stay visible.");
   await updatePolicies({
@@ -274,10 +344,198 @@ add_task(async function test_synced_tabs_visibility_follows_sync_policy() {
   checkSyncTabsFeatureAllowed(true);
   await checkSyncedTabsTool(false);
   await checkFirefoxViewSyncedTabsHidden(false);
+  // The History menu promo is the exception: locking sync on also locks the sync
+  // feature, and the promo's only call to action here is to turn sync on.
+  await checkHistoryMenuSyncedTabsHidden(true);
 
   info("Policy removed: the synced tabs surfaces are visible again.");
   await updatePolicies({ policies: {} });
   checkSyncTabsFeatureAllowed(true);
   await checkSyncedTabsTool(false);
   await checkFirefoxViewSyncedTabsHidden(false);
+  await checkHistoryMenuSyncedTabsHidden(false);
+});
+
+// The Tools menu sync items (the native menubar on macOS) follow the sync
+// feature gate, since the Sync policy leaves FxA enabled and gSync would
+// otherwise show them (Bug 2061703). Re-gating needs no restart.
+add_task(async function test_tools_menu_sync_items_follow_sync_policy() {
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    { policies: {} },
+    null
+  );
+
+  const syncEnableItem = document.getElementById("sync-enable");
+
+  info("No policy: the turn-on-sync item is shown.");
+  gSync.updateState(SIGNED_IN_SYNC_OFF);
+  ok(!syncEnableItem.hidden, "sync-enable is shown without a policy");
+
+  info("Sync disabled and locked: the sync menu items are hidden.");
+  await updatePolicies({
+    policies: { Sync: { Enabled: false, Locked: true } },
+  });
+  await TestUtils.waitForCondition(
+    () => !Services.policies.isAllowed(SYNC_FEATURE),
+    "the sync feature is locked"
+  );
+  await withPinnedUIState(SIGNED_IN_SYNC_OFF, () =>
+    fireMenuPopupCycle("menu_ToolsPopup", () => {
+      ok(syncEnableItem.hidden, "sync-enable hides once the policy applies");
+    })
+  );
+
+  info("A UIState update while locked keeps the items hidden.");
+  gSync.updateState(SIGNED_IN_SYNC_OFF);
+  ok(
+    syncEnableItem.hidden,
+    "sync-enable stays hidden while sync is disallowed"
+  );
+
+  // Only the menubar items are gated; the app menu's synced tabs views keep
+  // following UIState, since the panel is reachable without the menubar.
+  ok(
+    !PanelMultiView.getViewNode(document, "PanelUI-remotetabs-syncdisabled")
+      .hidden,
+    "the synced tabs panel view is not gated on the policy"
+  );
+
+  info("Policy removed: the items follow UIState again.");
+  await updatePolicies({ policies: {} });
+  checkSyncFeatureAllowed(true);
+  await withPinnedUIState(SIGNED_IN_SYNC_OFF, () =>
+    fireMenuPopupCycle("menu_ToolsPopup", () => {
+      ok(!syncEnableItem.hidden, "sync-enable is shown again without a policy");
+    })
+  );
+
+  gSync.updateState(UIState.get());
+});
+
+// The menubar History and Bookmarks promos and both app menu sync promos all
+// read gSync.getSyncPromoState(), so the gate lives there rather than on each
+// surface. Its sign-in and turn-on-sync states are the ones the policy pins.
+add_task(async function test_sync_promos_follow_sync_policy() {
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    { policies: {} },
+    null
+  );
+
+  const oldGet = UIState.get;
+  try {
+    UIState.get = () => ({ status: UIState.STATUS_NOT_CONFIGURED });
+    is(
+      gSync.getSyncPromoState(),
+      "signin",
+      "Signed out offers the sign-in promo without a policy"
+    );
+
+    UIState.get = () => SIGNED_IN_SYNC_OFF;
+    is(
+      gSync.getSyncPromoState(),
+      "turnonsync",
+      "Sync off offers the turn-on-sync promo without a policy"
+    );
+    is(
+      gSync.getSyncPromoState(["bookmarks"]),
+      "turnonsync",
+      "The bookmarks promo is offered without a policy"
+    );
+    await checkBookmarksMenuPromoHidden(false);
+
+    await updatePolicies({
+      policies: { Sync: { Enabled: false, Locked: true, Bookmarks: true } },
+    });
+    await TestUtils.waitForCondition(
+      () => !Services.policies.isAllowed(SYNC_FEATURE),
+      "the sync feature is locked"
+    );
+
+    UIState.get = () => ({ status: UIState.STATUS_NOT_CONFIGURED });
+    is(
+      gSync.getSyncPromoState(),
+      null,
+      "The sign-in promo is gone while the sync state is locked"
+    );
+
+    UIState.get = () => SIGNED_IN_SYNC_OFF;
+    is(
+      gSync.getSyncPromoState(),
+      null,
+      "The turn-on-sync promo is gone while the sync state is locked"
+    );
+    is(
+      gSync.getSyncPromoState(["bookmarks"]),
+      null,
+      "The bookmarks promo is gone while the sync state is locked"
+    );
+    await checkBookmarksMenuPromoHidden(true);
+
+    info("Policy removed: the promos come back.");
+    await updatePolicies({ policies: {} });
+    checkSyncFeatureAllowed(true);
+    is(
+      gSync.getSyncPromoState(),
+      "turnonsync",
+      "The turn-on-sync promo returns once the policy is removed"
+    );
+    await checkBookmarksMenuPromoHidden(false);
+
+    info("Policy present but unlocked: the promos stay.");
+    await updatePolicies({ policies: { Sync: { Enabled: false } } });
+    checkSyncFeatureAllowed(true);
+    await checkBookmarksMenuPromoHidden(false);
+    await updatePolicies({ policies: {} });
+  } finally {
+    UIState.get = oldGet;
+  }
+});
+
+// Locking sync ON disallows the sync feature too, but syncing now and repairing
+// the account are not state changes, so those items have to survive the lock —
+// the same line the settings sync section draws.
+add_task(async function test_tools_menu_keeps_actions_when_sync_locked_on() {
+  const restoreFxa = mockSignedInAccount();
+
+  try {
+    await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+      { policies: { Sync: { Enabled: true, Locked: true } } },
+      null
+    );
+    // Enabling awaits connectSync before disallowFeature, so wait for the lock.
+    await TestUtils.waitForCondition(
+      () => !Services.policies.isAllowed(SYNC_FEATURE),
+      "the sync feature is locked"
+    );
+
+    gSync.updateState(SIGNED_IN_SYNC_ON);
+    ok(
+      !document.getElementById("sync-syncnowitem").hidden,
+      "sync-syncnowitem stays shown when the policy locks sync on"
+    );
+
+    gSync.updateState({ status: UIState.STATUS_LOGIN_FAILED });
+    ok(
+      !document.getElementById("sync-reauthitem").hidden,
+      "sync-reauthitem stays shown so a locked-on sync can be repaired"
+    );
+
+    gSync.updateState({ status: UIState.STATUS_NOT_VERIFIED });
+    ok(
+      !document.getElementById("sync-unverifieditem").hidden,
+      "sync-unverifieditem stays shown so the account can be verified"
+    );
+
+    gSync.updateState(SIGNED_IN_SYNC_OFF);
+    ok(
+      document.getElementById("sync-enable").hidden,
+      "sync-enable is still gated, since turning sync on is a state change"
+    );
+
+    await updatePolicies({ policies: {} });
+  } finally {
+    restoreFxa();
+    Services.prefs.clearUserPref("services.sync.username");
+    gSync.updateState(UIState.get());
+  }
 });

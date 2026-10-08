@@ -105,6 +105,10 @@ class GitRepository(Repository):
 
             Account for `git-cinnabar` remotes with `hg.mozilla.org` in the name,
             as well as SSH and HTTP remotes for Git-native.
+
+            The Enterprise repository is in the shared `mozilla` organisation, so it
+            is matched on its full name. Matching the end of the path keeps forks and
+            `enterprise-firefox-try` out, and works with SSH host aliases.
             """
             if (
                 is_cinnabar_repo
@@ -113,13 +117,17 @@ class GitRepository(Repository):
             ):
                 return True
 
+            path = url.rstrip("/").removesuffix(".git")
             return any(
                 remote in url
                 for remote in (
                     "github.com/mozilla-firefox/",
                     "github.com:mozilla-firefox/",
                 )
-            )
+            ) or path.endswith((
+                "/mozilla/enterprise-firefox",
+                ":mozilla/enterprise-firefox",
+            ))
 
         for line in remotes:
             parts = line.split()
@@ -626,6 +634,9 @@ class GitRepository(Repository):
 
             # https://git-scm.com/docs/git-config#Documentation/git-config.txt-coreuntrackedCache
             self.set_config_key_value(key="core.untrackedCache", value="true")
+            # https://git-scm.com/docs/git-config#Documentation/git-config.txt-checkoutworkers
+            if not self._run("config", "--get", "checkout.workers", return_codes=[1]):
+                self.set_config_key_value(key="checkout.workers", value="0")
 
             # https://git-scm.com/docs/git-config#Documentation/git-config.txt-corefsmonitor
             if system == "Windows":

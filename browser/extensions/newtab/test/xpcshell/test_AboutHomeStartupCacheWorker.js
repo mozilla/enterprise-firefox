@@ -36,6 +36,8 @@ ChromeUtils.defineESModuleGetters(this, {
 
 const CACHE_WORKER_URL = "resource://newtab/lib/cache.worker.js";
 const NEWTAB_RENDER_URL = "resource://newtab/data/content/newtab-render.js";
+const SYSTEM_TOPSTORIES_FEED = "feeds.system.topstories";
+const SYSTEM_TOPSTORIES_PREF = `browser.newtabpage.activity-stream.${SYSTEM_TOPSTORIES_FEED}`;
 
 NimbusTestUtils.init(this);
 
@@ -58,15 +60,36 @@ add_setup(async function () {
   let server = AddonTestUtils.createHttpServer({ hosts: ["example.com"] });
   server.registerDirectory("/", do_get_cwd());
 
+  // Enterprise builds lock the system topstories feed off in
+  // browser/app/profile/firefox.js. Writes to a locked pref are dropped without
+  // notifying observers, so the feed would stay disabled and the cached
+  // document would render no DSCards. Lift the lock for the run and restore it,
+  // along with the locked-off value, afterwards.
+  if (AppConstants.MOZ_ENTERPRISE) {
+    Assert.ok(
+      Services.prefs.prefIsLocked(SYSTEM_TOPSTORIES_PREF),
+      "feeds.system.topstories should be locked on enterprise builds"
+    );
+    Assert.equal(
+      Services.prefs.getBoolPref(SYSTEM_TOPSTORIES_PREF),
+      false,
+      "feeds.system.topstories should be locked off on enterprise builds"
+    );
+
+    Services.prefs.unlockPref(SYSTEM_TOPSTORIES_PREF);
+
+    registerCleanupFunction(() => {
+      Services.prefs.clearUserPref(SYSTEM_TOPSTORIES_PREF);
+      Services.prefs.lockPref(SYSTEM_TOPSTORIES_PREF);
+    });
+  }
+
   // Top Stories are disabled by default in our testing profiles.
   Services.prefs.setBoolPref(
     "browser.newtabpage.activity-stream.feeds.section.topstories",
     true
   );
-  Services.prefs.setBoolPref(
-    "browser.newtabpage.activity-stream.feeds.system.topstories",
-    true
-  );
+  Services.prefs.setBoolPref(SYSTEM_TOPSTORIES_PREF, true);
   Services.prefs.setStringPref(
     "browser.newtabpage.activity-stream.discoverystream.region-weather-config",
     ""
@@ -248,6 +271,47 @@ add_task(async function test_cache_worker() {
   let placeholders = doc.querySelectorAll(".ds-card.placeholder");
   equal(placeholders.length, 23, "There should be 23 placeholders");
 });
+
+/**
+ * Enterprise builds ship feeds.system.topstories locked off, so a cached
+ * about:home document should contain no story cards at all. add_setup lifts
+ * that lock so the rest of this file can exercise the story path; put the pref
+ * back into its shipped state and check what actually gets rendered.
+ */
+add_task(
+  { skip_if: () => !AppConstants.MOZ_ENTERPRISE },
+  async function test_no_ds_cards_when_topstories_locked_off() {
+    Services.prefs.clearUserPref(SYSTEM_TOPSTORIES_PREF);
+    Services.prefs.lockPref(SYSTEM_TOPSTORIES_PREF);
+
+    equal(
+      Services.prefs.getBoolPref(SYSTEM_TOPSTORIES_PREF),
+      false,
+      "feeds.system.topstories should be back at its locked-off default"
+    );
+
+    await TestUtils.waitForCondition(
+      () => !AboutNewTab.activityStream.store.feeds.has(SYSTEM_TOPSTORIES_FEED),
+      "The system.topstories feed should have been torn down"
+    );
+
+    let state = AboutNewTab.activityStream.store.getState();
+    let cacheWorker = new BasePromiseWorker(CACHE_WORKER_URL);
+    let { page } = await cacheWorker.post("construct", [state]);
+    ok(!!page.length, "Got page content");
+
+    let doc = new DOMParser().parseFromString(page, "text/html");
+    ok(
+      doc.getElementById("root").childElementCount,
+      "There are children on the root node"
+    );
+    equal(
+      Array.from(doc.querySelectorAll(".ds-card")).length,
+      0,
+      "There should be no DSCards when topstories is locked off"
+    );
+  }
+);
 
 /**
  * Tests that if the cache-worker construct method throws an exception

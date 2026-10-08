@@ -2,7 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
+use nserror::{
+    nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_NOT_CONNECTED, NS_OK,
+};
 use nsstring::nsString;
 use std::cell::RefCell;
 use std::ffi::{c_char, CStr, CString};
@@ -67,7 +69,7 @@ impl FeltIpcClient {
 
     pub fn send_felt_ready(&self) {
         trace!("FeltIpcClient::send_felt_ready()");
-        let msg = FeltMessage::FeltReady;
+        let msg = FeltMessage::FeltReady(std::process::id());
         if let Some(tx) = &self.tx {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::send_felt_ready() SENT"),
@@ -84,6 +86,20 @@ impl FeltIpcClient {
                 Ok(()) => trace!("FeltIpcClient::notify_signout() SENT"),
                 Err(err) => trace!("FeltIpcClient::notify_signout() TX ERROR: {}", err),
             }
+        }
+    }
+
+    pub fn request_update_check(&self) -> nsresult {
+        trace!("FeltIpcClient::request_update_check()");
+        match &self.tx {
+            Some(tx) => match tx.send(FeltMessage::CheckForUpdates) {
+                Ok(()) => NS_OK,
+                Err(err) => {
+                    trace!("FeltIpcClient::request_update_check() TX ERROR: {}", err);
+                    NS_ERROR_CONNECTION_REFUSED
+                }
+            },
+            None => NS_ERROR_NOT_CONNECTED,
         }
     }
 
@@ -232,13 +248,17 @@ impl FeltClientThread {
                             match obsData.trim() {
                                 "restart" => {
                                     trace!("FeltClientThread::start_thread::observe() quit-application: restart");
-                                    if let Err(err) = tx.send(FeltMessage::Restarting) {
+                                    let lock_intent =
+                                        crate::RESTART_LOCK_INTENT.load(Ordering::Relaxed);
+                                    if let Err(err) = tx.send(FeltMessage::Restarting(lock_intent)) {
                                         trace!("FeltClientThread::start_thread::observe() failed to send restart: {:?}", err);
                                     }
                                 }
                                 "shutdown" => {
                                     trace!("FeltClientThread::start_thread::observe() quit-application: shutdown");
-                                    if let Err(err) = tx.send(FeltMessage::Exiting) {
+                                    let lock_intent =
+                                        crate::SHUTDOWN_LOCK_INTENT.load(Ordering::Relaxed);
+                                    if let Err(err) = tx.send(FeltMessage::Exiting(lock_intent)) {
                                         trace!("FeltClientThread::start_thread::observe() failed to send shutdown: {:?}", err);
                                     }
                                 }
@@ -393,9 +413,9 @@ impl FeltClientThread {
                                 }
                                 Ok(FeltMessage::PrimarySecret(hex)) => {
                                     // Hand the console-supplied primarySecret straight to
-                                    // storage/SQLiteEncryption.cpp; Felt keeps no copy.
+                                    // its consumers; Felt keeps no copy.
                                     // Do NOT trace the value.
-                                    utils::moz_storage_set_sqlite_primary_secret(hex);
+                                    utils::deliver_primary_secret(hex);
                                     trace!("FeltClientThread::felt_client::ipc_loop(): PrimarySecret delivered to storage");
                                 }
                                 Ok(FeltMessage::Shutdown) => {
@@ -475,6 +495,11 @@ impl FeltClientThread {
         trace!("FeltClientThread::notify_signout()");
         let client = self.ipc_client.borrow();
         client.notify_signout();
+    }
+
+    pub fn request_update_check(&self) -> nsresult {
+        trace!("FeltClientThread::request_update_check()");
+        self.ipc_client.borrow().request_update_check()
     }
 
     pub fn notify_refresh_tokens(&self) {

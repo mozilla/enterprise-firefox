@@ -668,13 +668,12 @@ macosx64-x64-devedition/opt:
         max-run-time: 7200
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            MOZ_GENERATE_SBOM: "1"
     run:
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
             - taskcluster_nightly.py
-        extra-config:
-            stage_platform: macosx64-devedition
         mozconfig-variant: devedition
     run-on-projects: ['mozilla-beta']
     fetches:
@@ -706,6 +705,7 @@ macosx64-aarch64-devedition/opt:
         max-run-time: 7200
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            MOZ_GENERATE_SBOM: "1"
             PERFHERDER_EXTRA_OPTIONS: aarch64
     run:
         config:
@@ -713,7 +713,6 @@ macosx64-aarch64-devedition/opt:
             - builds/releng_base_mac_64_cross_builds.py
             - taskcluster_nightly.py
         extra-config:
-            stage_platform: macosx64-aarch64-devedition
             mozconfig_platform: macosx64-aarch64
         mozconfig-variant: devedition
     run-on-projects: ['mozilla-beta']
@@ -1118,7 +1117,6 @@ macosx64-aarch64-nightlyasrelease/opt:
             - builds/releng_base_mac_64_cross_builds.py
             - taskcluster_nightly.py
         extra-config:
-            stage_platform: macosx64-aarch64-nightlyasrelease
             mozconfig_platform: macosx64-aarch64
         mozconfig-variant: nightly-as-release
     fetches:
@@ -1151,6 +1149,7 @@ macosx64-x64-shippable/opt:
         max-run-time: 7200
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            MOZ_GENERATE_SBOM: "1"
     run:
         config:
             - builds/releng_base_firefox.py
@@ -1185,6 +1184,7 @@ macosx64-aarch64-shippable/opt:
         max-run-time: 7200
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            MOZ_GENERATE_SBOM: "1"
             PERFHERDER_EXTRA_OPTIONS: aarch64
     run:
         config:
@@ -1220,6 +1220,8 @@ macosx64-shippable/opt:
     run-on-projects: ["release", "enterprise-firefox"]
     run-on-repo-type: ["git"]
     worker:
+        # No MOZ_GENERATE_SBOM here: this task only recombines the
+        # per-architecture builds, which each upload their own SBOM.
         max-run-time: 1800
     run:
         job-script: taskcluster/scripts/misc/unify.sh

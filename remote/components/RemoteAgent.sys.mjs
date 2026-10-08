@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -17,6 +19,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 ChromeUtils.defineLazyGetter(lazy, "logger", () => lazy.Log.get());
 
+// A remote client with system access can run privileged JavaScript in the parent
+// process and any other privileged context, such as WebExtension processes, and
+// undo enterprise policy. Deny it on non-default enterprise builds.
+const PREVENT_SYSTEM_ACCESS =
+  AppConstants.MOZ_ENTERPRISE && AppConstants.MOZ_UPDATE_CHANNEL !== "default";
+
 const DEFAULT_HOST = "localhost";
 const DEFAULT_PORT = 9222;
 
@@ -29,6 +37,9 @@ const SHARED_DATA_IS_BROWSER_AUTOMATION_KEY =
   "RemoteAgent:IsBrowserAutomationRunning";
 
 const PREF_DYNAMIC_START_ENABLED = "remote.experimental.dynamicstart.enabled";
+
+// Locked by the DisableDeveloperTools enterprise policy.
+const PREF_POLICY_DISABLED = "remote.policy.disabled";
 
 const EXIT_CODE_NOT_AVAILABLE = 69;
 
@@ -51,7 +62,9 @@ class RemoteAgentParentProcess {
   constructor() {
     this.#allowHosts = null;
     this.#allowOrigins = null;
-    this.#allowSystemAccess = Services.env.get(ENV_ALLOW_SYSTEM_ACCESS) == "1";
+    this.#allowSystemAccess =
+      !PREVENT_SYSTEM_ACCESS &&
+      Services.env.get(ENV_ALLOW_SYSTEM_ACCESS) == "1";
 
     this.#browserStartupFinished = lazy.Deferred();
     this.#enabled = false;
@@ -111,6 +124,13 @@ class RemoteAgentParentProcess {
     // There is also no possibility to disallow once it got allowed except
     // quitting Firefox and starting it again.
     if (this.#allowSystemAccess || !value) {
+      return;
+    }
+
+    if (PREVENT_SYSTEM_ACCESS) {
+      lazy.logger.warn(
+        "Ignoring request for system access: not available on this build."
+      );
       return;
     }
 
@@ -329,7 +349,7 @@ class RemoteAgentParentProcess {
             reject();
           }
         },
-        { interval: 250, timeout: 5000 }
+        { interval: 250, timeout: 5000, throws: null }
       );
 
       if (!this.#server._socket) {
@@ -468,6 +488,12 @@ class RemoteAgentParentProcess {
       case "command-line-startup":
         Services.obs.removeObserver(this, topic);
 
+        // The flags are still consumed by nsICommandLineHandler::handle().
+        if (Services.prefs.getBoolPref(PREF_POLICY_DISABLED, false)) {
+          lazy.logger.warn("Remote Agent is disabled by enterprise policy");
+          break;
+        }
+
         this.#allowHosts = this.#handleAllowHostsFlag(subject);
         this.#allowOrigins = this.#handleAllowOriginsFlag(subject);
         this.allowSystemAccess = this.#handleAllowSystemAccessFlag(subject);
@@ -584,6 +610,11 @@ class RemoteAgentParentProcess {
       lazy.logger.debug(
         `Start aborted, ${PREF_DYNAMIC_START_ENABLED} is disabled`
       );
+      return -1;
+    }
+
+    if (Services.prefs.getBoolPref(PREF_POLICY_DISABLED, false)) {
+      lazy.logger.warn("Start aborted, Remote Agent is disabled by policy");
       return -1;
     }
 

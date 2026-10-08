@@ -10,7 +10,11 @@ const IS_UPDATES_TESTING = "enterprise.felt_tests.is_updates_testing";
 const SHOULD_NOT_CLOSE_WINDOW = "enterprise.felt_tests.should_not_close_window";
 
 export const isTesting = () => {
-  return Services.prefs.getBoolPref(IS_TESTING_ENVIRONMENT, false);
+  // Only honor on non-shipping builds.
+  return (
+    AppConstants.MOZ_UPDATE_CHANNEL === "default" &&
+    Services.prefs.getBoolPref(IS_TESTING_ENVIRONMENT, false)
+  );
 };
 
 export const isUpdatesTesting = () => {

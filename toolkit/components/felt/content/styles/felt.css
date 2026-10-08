@@ -29,20 +29,27 @@ body {
 
 .felt-logo {
   display: flex;
-  background-image: var(--felt-logo-background-gradient);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  flex: 310 0 0;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  min-width: 310px;
   overflow: hidden;
   flex-direction: column;
-  flex-shrink: 0;
   justify-content: center;
+  background-image: var(--felt-background);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
 }
 
 .felt-main {
   display: flex;
   flex-direction: column;
-  flex: 1 0 0;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  flex: 417 0 0;
   position: relative;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  background-color: var(--felt-background-color-tabstrip);
+  background: var(--background-color-canvas, #f7f6fb);
 }
 
 .felt-card {
@@ -54,21 +61,6 @@ body {
   background: var(--background-color-box);
   border-radius: var(--card-border-radius);
   margin: var(--space-large) var(--space-large) 0 var(--space-large);
-}
-
-.felt-logo__container {
-  display: flex;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  width: 310px;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  height: 602px;
-  justify-content: center;
-  align-items: center;
-  background-image: url("chrome://branding/content/enterprise-icon-cropped.svg");
-  background-repeat: no-repeat;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  background-size: contain;
-  background-position: center;
 }
 
 .felt-login,
@@ -94,13 +86,12 @@ body {
 }
 
 .enterprise-wordmark {
-  content: url("chrome://branding/content/enterprise-wordmark.svg");
+  content: url("chrome://branding/content/felt-wordmark.svg");
   -moz-context-properties: fill;
   fill: currentColor;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   width: 265px;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  height: 117px;
+  height: auto;
 }
 
 .felt-form,
@@ -213,6 +204,12 @@ body {
 
 moz-input-text::part(label) {
   font-size: medium;
+}
+
+.felt-login__unlock-hint {
+  margin: var(--space-small) 0 0;
+  font-size: small;
+  color: var(--text-color-deemphasized);
 }
 
 .fill-width {

@@ -7,6 +7,7 @@
 import os
 
 import mozpack.path as mozpath
+import yaml
 
 
 def get_project_topsrcdir(build):
@@ -34,3 +35,9 @@ def is_thunderbird_try(build):
     Return True if this is a Thunderbird try.
     """
     return build.topsrcdir != get_project_topsrcdir(build)
+
+
+def is_enterprise_tree(topsrcdir):
+    """Whether `topsrcdir` is an Enterprise tree, as told by its trust domain."""
+    with open(os.path.join(topsrcdir, "taskcluster", "config.yml")) as fh:
+        return yaml.safe_load(fh).get("trust-domain") == "enterprise"

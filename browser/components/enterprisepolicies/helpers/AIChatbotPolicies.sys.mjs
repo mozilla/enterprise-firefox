@@ -6,7 +6,7 @@ import { PoliciesUtils } from "resource://gre/modules/PoliciesHelpers.sys.mjs";
 import {
   CHAT_PROVIDERS_DEFAULT,
   GenAI,
-} from "resource:///modules/GenAI.sys.mjs";
+} from "moz-src:///browser/components/genai/GenAI.sys.mjs";
 import { getMozRemoteImageURL } from "moz-src:///toolkit/modules/FaviconUtils.sys.mjs";
 
 export const AIChatbotPolicies = {

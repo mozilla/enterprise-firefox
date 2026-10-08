@@ -18,6 +18,8 @@ const policiesToTest = [
     urls: ["about:config", "about:Config"],
   },
   {
+    // BlockAboutProfiles is not supported on enterprise builds.
+    skipInEnterprise: true,
     policies: {
       BlockAboutProfiles: true,
     },
@@ -33,6 +35,9 @@ const policiesToTest = [
 
 add_task(async function testAboutTask() {
   for (let policyToTest of policiesToTest) {
+    if (policyToTest.skipInEnterprise && AppConstants.MOZ_ENTERPRISE) {
+      continue;
+    }
     let policyJSON = { policies: {} };
     policyJSON.policies = policyToTest.policies;
     for (let url of policyToTest.urls) {

@@ -252,6 +252,11 @@ document.addEventListener(
             );
           }
           break;
+        case "menu_ToolsPopup":
+          if (AppConstants.MOZ_ENTERPRISE) {
+            gSync.refreshSyncMenuItems();
+          }
+          break;
         case "menu_HelpPopup":
           buildHelpMenu();
           break;

@@ -6,7 +6,18 @@ import mozunit
 import pytest
 from mach.util import get_state_dir
 from taskgraph.taskgraph import TaskGraph
-from tryselect.tasks import add_chunk_patterns
+from tryselect.tasks import add_chunk_patterns, build
+from tryselect.util.project import is_enterprise_tree
+
+IS_ENTERPRISE = is_enterprise_tree(build.topsrcdir)
+
+skip_if_enterprise = pytest.mark.skipif(
+    IS_ENTERPRISE,
+    reason="`mach try auto` is disabled on Enterprise trees (bug 2068074)",
+)
+skip_unless_enterprise = pytest.mark.skipif(
+    not IS_ENTERPRISE, reason="`mach try auto` is only disabled on Enterprise trees"
+)
 
 
 @pytest.fixture(scope="module")
@@ -396,6 +407,7 @@ def full_task_set(target_task_set):
             """
             ).lstrip(),
             id="auto selector",
+            marks=skip_if_enterprise,
         ),
         pytest.param(
             "auto",
@@ -426,6 +438,7 @@ def full_task_set(target_task_set):
             """
             ).lstrip(),
             id="auto",
+            marks=skip_if_enterprise,
         ),
         pytest.param(
             "auto",
@@ -456,6 +469,24 @@ def full_task_set(target_task_set):
             """
             ).lstrip(),
             id="auto",
+            marks=skip_if_enterprise,
+        ),
+        pytest.param(
+            "auto",
+            ["try", "auto"],
+            dedent(
+                """
+              error: `mach try auto` is disabled on Enterprise trees.
+
+              Tasks are selected by bugbug, which has no training data for these trees: it
+              schedules far too many tasks and some decision tasks fail on missing scopes.
+              See bug 2068074.
+
+              Use an explicit selector such as `mach try fuzzy` instead.
+            """
+            ).lstrip(),
+            id="auto selector is disabled",
+            marks=skip_unless_enterprise,
         ),
         pytest.param(
             "empty",

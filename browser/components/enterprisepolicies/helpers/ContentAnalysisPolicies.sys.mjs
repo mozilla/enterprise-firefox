@@ -41,15 +41,24 @@ function caPrefName(suffix) {
 }
 
 // ContentAnalysis InterceptionPoints member name -> pref suffix.
+// The third element is the value to use when InterceptionPoints is
+// present but this interception point is not mentioned in it.  It is
+// true for everything that predates per-entry defaults; new
+// interception points that are off by default must use false here so
+// that policy files written before they existed don't silently opt in,
+// and similarly we should not change any of these values to avoid
+// changing existing clients.
 const CA_INTERCEPTION_POINTS = [
-  ["Clipboard", "clipboard"],
-  ["Download", "download"],
-  ["DragAndDrop", "drag_and_drop"],
-  ["FileUpload", "file_upload"],
-  ["Print", "print"],
+  ["Clipboard", "clipboard", true],
+  ["ClipboardCopy", "clipboard_copy", false],
+  ["Download", "download", true],
+  ["DragAndDrop", "drag_and_drop", true],
+  ["FileUpload", "file_upload", true],
+  ["Print", "print", true],
 ];
 const CA_PLAIN_TEXT_POINTS = [
   ["Clipboard", "clipboard"],
+  ["ClipboardCopy", "clipboard_copy"],
   ["DragAndDrop", "drag_and_drop"],
 ];
 
@@ -323,8 +332,7 @@ function applyContentAnalysisConfig(caParam) {
     }
   }
   if ("InterceptionPoints" in caParam) {
-    for (let [key, suffix] of CA_INTERCEPTION_POINTS) {
-      let value = true;
+    for (let [key, suffix, value] of CA_INTERCEPTION_POINTS) {
       let point = caParam.InterceptionPoints[key];
       if (point && "Enabled" in point) {
         value = !!point.Enabled;

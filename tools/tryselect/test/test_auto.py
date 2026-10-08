@@ -6,6 +6,10 @@
 import mozunit
 import pytest
 from tryselect.selectors.auto import AutoParser
+from tryselect.tasks import build
+from tryselect.util.project import is_enterprise_tree
+
+IS_ENTERPRISE = is_enterprise_tree(build.topsrcdir)
 
 
 def test_strategy_validation():
@@ -29,6 +33,10 @@ def test_strategy_validation():
         parser.parse_args(["--strategy", "foo:bar"])
 
 
+@pytest.mark.skipif(
+    IS_ENTERPRISE,
+    reason="`mach try auto` is disabled on Enterprise trees (bug 2068074)",
+)
 def test_returns_zero_exit_code(run_mach):
     """Test that mach try auto returns exit code 0 when selector returns None."""
     # Run with --no-push which causes push_to_try to return None
@@ -36,10 +44,25 @@ def test_returns_zero_exit_code(run_mach):
     assert run_mach(["try", "auto", "--no-push"]) == 0
 
 
+@pytest.mark.skipif(
+    IS_ENTERPRISE,
+    reason="`mach try auto` is disabled on Enterprise trees (bug 2068074)",
+)
 def test_returns_zero_with_job_id(run_mach, mock_push_to_lando_try):
     """Test that mach try auto returns 0 even when push_to_lando_try returns job data."""
     with mock_push_to_lando_try:
         assert run_mach(["try", "auto"]) == 0
+
+
+@pytest.mark.skipif(
+    not IS_ENTERPRISE, reason="`mach try auto` is only disabled on Enterprise trees"
+)
+def test_disabled_on_enterprise(run_mach, capfd):
+    """Test that mach try auto refuses to run on an Enterprise tree."""
+    capfd.readouterr()
+    assert run_mach(["try", "auto", "--no-push"]) == 1
+    out, _ = capfd.readouterr()
+    assert "bug 2068074" in out
 
 
 def test_returns_error_exit_code(run_mach):

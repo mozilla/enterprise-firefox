@@ -28,7 +28,6 @@ class FxDesktopBuild(BuildScript):
             "config_options": BUILD_BASE_CONFIG_OPTIONS,
             "all_actions": [
                 "get-secrets",
-                "clobber",
                 "tbrust-vendor",
                 "build",
                 "valgrind-test",
@@ -47,7 +46,6 @@ class FxDesktopBuild(BuildScript):
                 "clone_upstream_url": "https://hg.mozilla.org/mozilla-unified",
                 "repo_base": "https://hg.mozilla.org",
                 "profile_build_resources_path": "%(upload_path)s/profile_build_resources.json",
-                "nightly_promotion_branches": ["mozilla-central", "mozilla-aurora"],
                 # try will overwrite these
                 "clone_with_purge": False,
                 "clone_by_revision": False,

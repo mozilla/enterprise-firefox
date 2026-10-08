@@ -19,10 +19,12 @@ EXTRA_JS_MODULES.enterprise += [
     "modules/EnterpriseStorageEncryption.sys.mjs",
     "modules/ForcedQuitHandler.sys.mjs",
     "modules/RelaunchEnforcer.sys.mjs",
+    "modules/StartupPolicies.sys.mjs",
     "modules/Updates.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]
 
-JAR_MANIFESTS += ["jar.mn"]
 XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]
+
+JAR_MANIFESTS += ["jar.mn"]

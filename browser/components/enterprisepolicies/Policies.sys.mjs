@@ -37,19 +37,26 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AIChatbotPolicies: "resource:///modules/policies/AIChatbotPolicies.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WatermarkPolicy: "resource:///modules/policies/WatermarkPolicy.sys.mjs",
+  ContextualIdentityService:
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
+  EphemeralContainerWatcher:
+    "resource:///modules/policies/EphemeralContainerWatcher.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
   SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
   LaunchOnLogin: "resource://gre/modules/LaunchOnLogin.sys.mjs",
 
   PoliciesUtils: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   addAllowDenyPermissions: "resource://gre/modules/PoliciesHelpers.sys.mjs",
+  addPolicyPermission: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   applyExtensionGuards: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   blockAboutPage: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   clearBlockedAboutPages: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   clearRunOnceModification: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   describePreferenceFailure: "resource://gre/modules/PoliciesHelpers.sys.mjs",
+  discardAMOUpdateURLs: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   installAddonFromURL: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   installAddonFromRepository: "resource://gre/modules/PoliciesHelpers.sys.mjs",
+  installAddonFromUpdateURL: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   pemToBase64: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   processMIMEInfo: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   replacePathVariables: "resource://gre/modules/PoliciesHelpers.sys.mjs",
@@ -57,10 +64,21 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setDefaultPermission: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   runOncePerModification: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   unblockAboutPage: "resource://gre/modules/PoliciesHelpers.sys.mjs",
+  uninstallListedAddons: "resource://gre/modules/PoliciesHelpers.sys.mjs",
 });
 
 export const PREF_LOGLEVEL = "browser.policies.loglevel";
 const BROWSER_DOCUMENT_URL = AppConstants.BROWSER_CHROME_URL;
+
+// The only prefs read when clearing at shutdown.
+const CLEAR_ON_SHUTDOWN_PREFS = {
+  BrowsingHistoryAndDownloads:
+    "privacy.clearOnShutdown_v2.browsingHistoryAndDownloads",
+  CookiesAndStorage: "privacy.clearOnShutdown_v2.cookiesAndStorage",
+  Cache: "privacy.clearOnShutdown_v2.cache",
+  FormData: "privacy.clearOnShutdown_v2.formdata",
+  SiteSettings: "privacy.clearOnShutdown_v2.siteSettings",
+};
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   const { ConsoleAPI } = ChromeUtils.importESModule(
@@ -816,6 +834,39 @@ export var Policies = {
     },
   },
 
+  ClearOnShutdown: {
+    onBeforeUIStartup(manager, param) {
+      if (typeof param === "boolean") {
+        lazy.PoliciesUtils.setAndLockPref(
+          "privacy.sanitize.sanitizeOnShutdown",
+          param
+        );
+        for (const pref of Object.values(CLEAR_ON_SHUTDOWN_PREFS)) {
+          lazy.PoliciesUtils.setAndLockPref(pref, param);
+        }
+        return;
+      }
+
+      // Named categories are enforced; the rest are left to the user.
+      lazy.PoliciesUtils.setAndLockPref(
+        "privacy.sanitize.sanitizeOnShutdown",
+        true
+      );
+      for (const [member, pref] of Object.entries(CLEAR_ON_SHUTDOWN_PREFS)) {
+        if (member in param) {
+          lazy.PoliciesUtils.setAndLockPref(pref, param[member]);
+        }
+      }
+
+      if (param.Exceptions) {
+        lazy.addAllowDenyPermissions(
+          "persist-data-on-shutdown",
+          param.Exceptions
+        );
+      }
+    },
+  },
+
   CNSA2KeyAgreementEnabled: {
     onBeforeAddons(manager, param) {
       lazy.PoliciesUtils.setAndLockPref("security.tls.enable_mlkem1024", param);
@@ -895,13 +946,10 @@ export var Policies = {
       if (param.AllowSession) {
         for (const origin of param.AllowSession) {
           try {
-            Services.perms.addFromPrincipal(
-              Services.scriptSecurityManager.createContentPrincipalFromOrigin(
-                origin
-              ),
+            lazy.addPolicyPermission(
+              origin,
               "cookie",
-              Ci.nsICookiePermission.ACCESS_SESSION,
-              Ci.nsIPermissionManager.EXPIRE_POLICY
+              Ci.nsICookiePermission.ACCESS_SESSION
             );
           } catch (ex) {
             lazy.reportFailure(
@@ -1311,6 +1359,8 @@ export var Policies = {
       if (param) {
         lazy.PoliciesUtils.setAndLockPref("devtools.policy.disabled", true);
         lazy.PoliciesUtils.setAndLockPref("devtools.chrome.enabled", false);
+        // Covers Marionette and the Remote Agent.
+        lazy.PoliciesUtils.setAndLockPref("remote.policy.disabled", true);
 
         manager.disallowFeature("devtools");
         lazy.blockAboutPage(manager, "about:debugging");
@@ -1838,15 +1888,6 @@ export var Policies = {
     },
   },
 
-  EnterpriseStorageEncryption: {
-    onBeforeUIStartup(manager, param) {
-      lazy.PoliciesUtils.setAndLockPref(
-        "security.storage.encryption.enabled",
-        param
-      );
-    },
-  },
-
   ExemptDomainFileTypePairsFromFileTypeDownloadWarnings: {
     // This policy is handled directly in EnterprisePoliciesParent.sys.mjs
     // and requires no validation (It's done by the schema).
@@ -1854,67 +1895,51 @@ export var Policies = {
 
   Extensions: {
     onBeforeUIStartup(manager, param) {
-      let uninstallingPromise = Promise.resolve();
+      let uninstallingPromise = Promise.resolve(false);
       let installingPromise = Promise.resolve();
       if ("Uninstall" in param) {
-        uninstallingPromise = lazy.runOncePerModification(
-          "extensionsUninstall",
-          JSON.stringify(param.Uninstall),
-          async () => {
-            // If we're uninstalling add-ons, re-run the extensionsInstall runOnce even if it hasn't
-            // changed, which will allow add-ons to be updated.
-            Services.prefs.clearUserPref(
-              "browser.policies.runOncePerModification.extensionsInstall"
-            );
-            const addons = await lazy.AddonManager.getAddonsByIDs(
-              param.Uninstall
-            );
-            for (const addon of addons) {
-              if (addon) {
-                try {
-                  await addon.uninstall();
-                } catch (e) {
-                  // This can fail for add-ons that can't be uninstalled.
-                  lazy.log.debug(
-                    `Add-on ID (${addon.id}) couldn't be uninstalled.`
-                  );
-                }
-              }
-            }
-          }
+        uninstallingPromise = lazy.uninstallListedAddons(
+          param.Uninstall,
+          param.Install
         );
       }
       if ("Install" in param) {
-        installingPromise = lazy.runOncePerModification(
-          "extensionsInstall",
-          JSON.stringify(param.Install),
-          async () => {
-            await uninstallingPromise;
-            for (const location of param.Install) {
-              let uri;
-              try {
-                // We need to try as a file first because
-                // Windows paths are valid URIs.
-                // This is done for legacy support (old API)
-                const xpiFile = new lazy.FileUtils.File(location);
-                uri = Services.io.newFileURI(xpiFile);
-              } catch (e) {
-                try {
-                  uri = Services.io.newURI(location);
-                } catch (ex) {
-                  // Keep going so that one bad location doesn't discard the
-                  // add-ons that come after it.
-                  lazy.reportFailure(
-                    "Extensions",
-                    `Invalid add-on location (${location})`
-                  );
-                  continue;
-                }
-              }
-              lazy.installAddonFromURL(uri.spec, null, null, "Extensions");
-            }
+        installingPromise = uninstallingPromise.then(uninstallListChanged => {
+          if (uninstallListChanged) {
+            // Re-run the install even if its list hasn't changed, which is how
+            // an add-on listed in both Uninstall and Install gets updated.
+            lazy.clearRunOnceModification("extensionsInstall");
           }
-        );
+          return lazy.runOncePerModification(
+            "extensionsInstall",
+            JSON.stringify(param.Install),
+            () => {
+              for (const location of param.Install) {
+                let uri;
+                try {
+                  // We need to try as a file first because
+                  // Windows paths are valid URIs.
+                  // This is done for legacy support (old API)
+                  const xpiFile = new lazy.FileUtils.File(location);
+                  uri = Services.io.newFileURI(xpiFile);
+                } catch (e) {
+                  try {
+                    uri = Services.io.newURI(location);
+                  } catch (ex) {
+                    // Keep going so that one bad location doesn't discard the
+                    // add-ons that come after it.
+                    lazy.reportFailure(
+                      "Extensions",
+                      `Invalid add-on location (${location})`
+                    );
+                    continue;
+                  }
+                }
+                lazy.installAddonFromURL(uri.spec, null, null, "Extensions");
+              }
+            }
+          );
+        });
       }
       if ("Locked" in param) {
         for (const ID of param.Locked) {
@@ -1930,6 +1955,7 @@ export var Policies = {
 
   ExtensionSettings: {
     onBeforeAddons(manager, param) {
+      lazy.discardAMOUpdateURLs(param, "ExtensionSettings");
       try {
         manager.setExtensionSettings(param);
       } catch (e) {
@@ -2007,7 +2033,20 @@ export var Policies = {
                 "ExtensionSettings"
               );
             } else if (!existingAddon) {
-              lazy.installAddonFromRepository(extensionID, "ExtensionSettings");
+              // An unusable update_url is an error, not a reason to install a
+              // different build of the add-on from AMO.
+              if (extensionSettings[extensionID].update_url) {
+                lazy.installAddonFromUpdateURL(
+                  extensionSettings[extensionID].update_url,
+                  extensionID,
+                  "ExtensionSettings"
+                );
+              } else {
+                lazy.installAddonFromRepository(
+                  extensionID,
+                  "ExtensionSettings"
+                );
+              }
             }
             manager.disallowFeature(`uninstall-extension:${extensionID}`);
             if (
@@ -3059,7 +3098,6 @@ export var Policies = {
         "security.pki.certificate_transparency.disable_for_hosts",
         "security.pki.certificate_transparency.disable_for_spki_hashes",
         "security.pki.certificate_transparency.mode",
-        "security.storage.encryption.enabled",
         "security.ssl.enable_ocsp_stapling",
         "security.ssl.errorReporting.enabled",
         "security.ssl.require_safe_negotiation",
@@ -3319,6 +3357,12 @@ export var Policies = {
 
   SanitizeOnShutdown: {
     onBeforeUIStartup(manager, param) {
+      if (manager.getActivePolicies().ClearOnShutdown) {
+        lazy.log.error(
+          "SanitizeOnShutdown is ignored when ClearOnShutdown is also set."
+        );
+        return;
+      }
       if (typeof param === "boolean") {
         lazy.PoliciesUtils.setAndLockPref(
           "privacy.sanitize.sanitizeOnShutdown",
@@ -3797,6 +3841,37 @@ export var Policies = {
     },
   },
 
+  SignOut: {
+    onBeforeAddons(manager, param) {
+      if (param.Shutdown) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.locking.shutdown",
+          param.Shutdown.Action === "lock"
+        );
+      }
+      if (param.Restart) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.locking.restart",
+          param.Restart.Action === "lock"
+        );
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams.Shutdown) {
+        lazy.PoliciesUtils.unsetAndUnlockPref("enterprise.locking.shutdown");
+        // unsetAndUnlockPref restores the build default but never re-locks;
+        // re-lock to match the locked default the enterprise build ships.
+        Services.prefs.lockPref("enterprise.locking.shutdown");
+      }
+      if (oldParams.Restart) {
+        lazy.PoliciesUtils.unsetAndUnlockPref("enterprise.locking.restart");
+        // unsetAndUnlockPref restores the build default but never re-locks;
+        // re-lock to match the locked default the enterprise build ships.
+        Services.prefs.lockPref("enterprise.locking.restart");
+      }
+    },
+  },
+
   SitePolicies: {
     /**
      * Converts a wildcard domain into a match pattern.
@@ -3862,8 +3937,25 @@ export var Policies = {
       return features;
     },
 
+    // When no policy is provided we just default to an empty set which allows us
+    // to clean up containers.
+    onMissing() {
+      return [];
+    },
+
     onBeforeAddons(manager, params) {
+      const policyContainerMap = new Map();
+      const cis = lazy.ContextualIdentityService;
+
+      for (const identity of cis.getPolicyIdentities()) {
+        policyContainerMap.set(identity.policyId, identity.userContextId);
+      }
+
+      const unseenContainers = new Set(policyContainerMap.values());
+
       const sitePolicies = [];
+      let hasContainerPolicy = false;
+      const ephemeralUserContextIds = new Set();
 
       for (const policies of params) {
         const matches = policies.Match ?? [];
@@ -3898,18 +3990,76 @@ export var Policies = {
           }
         }
 
+        const features = this.featuresForPolicies(policies.Policies);
+
+        if ("Container" in policies.Policies) {
+          const containerId = policies.Policies.Container.id;
+          let userContextId = policyContainerMap.get(containerId);
+
+          if (!userContextId) {
+            userContextId = cis.createForPolicy(containerId).userContextId;
+            policyContainerMap.set(containerId, userContextId);
+          } else {
+            unseenContainers.delete(userContextId);
+          }
+
+          features.container = userContextId;
+          hasContainerPolicy = true;
+
+          if (policies.Policies.Container.ephemeral) {
+            ephemeralUserContextIds.add(userContextId);
+          }
+        }
+
         sitePolicies.push({
           match: new MatchPatternSet(matchPatterns),
           exceptions: new MatchPatternSet(exceptionPatterns),
-          features: this.featuresForPolicies(policies.Policies),
+          features,
         });
       }
 
       manager.updateSitePolicies(sitePolicies);
+
+      for (const userContextId of unseenContainers) {
+        cis.removePolicyIdentity(userContextId);
+      }
+
+      if (hasContainerPolicy) {
+        lazy.PoliciesUtils.setAndLockPref("privacy.userContext.enabled", true);
+        lazy.PoliciesUtils.setAndLockPref(
+          "privacy.containers.switchDuringNavigation.enabled",
+          true
+        );
+
+        if (ephemeralUserContextIds.size > 0) {
+          lazy.EphemeralContainerWatcher.init(ephemeralUserContextIds);
+        } else {
+          lazy.EphemeralContainerWatcher.destroy();
+        }
+      } else {
+        lazy.EphemeralContainerWatcher.destroy();
+        lazy.PoliciesUtils.unsetAndUnlockPref("privacy.userContext.enabled");
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "privacy.containers.switchDuringNavigation.enabled"
+        );
+      }
     },
 
     onRemove(manager) {
       manager.updateSitePolicies([]);
+
+      lazy.EphemeralContainerWatcher.destroy();
+      lazy.PoliciesUtils.unsetAndUnlockPref("privacy.userContext.enabled");
+      lazy.PoliciesUtils.unsetAndUnlockPref(
+        "privacy.containers.switchDuringNavigation.enabled"
+      );
+
+      const cis = lazy.ContextualIdentityService;
+      cis.ensureDataReady();
+
+      for (const identity of cis.getPolicyIdentities()) {
+        cis.removePolicyIdentity(identity.userContextId);
+      }
     },
   },
 

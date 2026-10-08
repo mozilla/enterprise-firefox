@@ -38,6 +38,20 @@ add_task(async function snapshotSchema() {
   }
 });
 
+add_task(async function enterpriseSecurityCanBeExcluded() {
+  let snapshot = await Troubleshoot.snapshot({
+    includeEnterpriseSecurity: false,
+  });
+  ok(
+    !("presentEdrs" in snapshot.securitySoftware),
+    "EDR products are excluded"
+  );
+  ok(
+    !("diskEncryption" in snapshot.securitySoftware),
+    "disk encryption is excluded"
+  );
+});
+
 add_task(async function modifiedPreferences() {
   let prefs = [
     "javascript.troubleshoot",
@@ -452,6 +466,20 @@ const SNAPSHOT_SCHEMA = {
         presentEdrs: {
           required: false,
           type: "array",
+        },
+        diskEncryption: {
+          required: false,
+          type: "object",
+          properties: {
+            status: {
+              required: true,
+              type: "string",
+            },
+            method: {
+              required: true,
+              type: ["string", "null"],
+            },
+          },
         },
       },
     },

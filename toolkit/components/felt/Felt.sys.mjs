@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   WebAuthnPromptHelper:
     "moz-src:///toolkit/modules/WebAuthnPromptHelper.sys.mjs",
+  FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
 });
 
 if (lazy.isBuildAppBrowser()) {
@@ -207,6 +208,7 @@ export class Felt {
 
   _feltMessageListeners = [
     "FeltParent:FirefoxNormalExit",
+    "FeltParent:FirefoxLockExit",
     "FeltParent:FirefoxRestartUpdateExit",
     "FeltParent:FirefoxLogoutExit",
     "FeltParent:FirefoxAbnormalExit",
@@ -264,23 +266,18 @@ export class Felt {
           this
         );
 
-        lazy.ConsoleClient.performServerSignout()
-          .catch(err => {
-            console.error(`Failed to post signout on exit: ${err}`);
-          })
-          .finally(() => {
-            Services.felt.clearTokens();
-            // This is only useful for testing purpose when we need to exit the
-            // browser cleanly but need to keep felt alive for some processing after
-            if (!lazy.isBlockingShutdown()) {
-              Services.startup.quit(
-                Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
-              );
-            } else if (!this._win) {
-              Services.felt.makeBackgroundProcess(false);
-              this.showWindow();
-            }
-          });
+        this.#signOutAndQuit(
+          Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
+        );
+        break;
+      }
+
+      case "FeltParent:FirefoxLockExit": {
+        Services.ppmm.removeMessageListener("FeltParent:FirefoxLockExit", this);
+
+        // The session stays alive behind the stored token, so unlike a normal
+        // exit this neither signs out nor drops it.
+        this.#quitOrHoldForShutdown();
         break;
       }
 
@@ -289,9 +286,13 @@ export class Felt {
           "FeltParent:FirefoxRestartUpdateExit",
           this
         );
-        Services.startup.quit(
-          Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart
-        );
+        const quitMode =
+          Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart;
+        if (message.data.sessionLocked) {
+          this.#quitOrHoldForShutdown(quitMode);
+        } else {
+          this.#signOutAndQuit(quitMode);
+        }
         break;
       }
 
@@ -364,6 +365,38 @@ export class Felt {
         lazy.log.debug(`${message.name} NOT HANDLED`);
         break;
     }
+  }
+
+  /**
+   * Quit FELT unless a test needs to inspect state after the browser exits.
+   *
+   * @param {number} quitMode nsIAppStartup quit flags.
+   */
+  #quitOrHoldForShutdown(
+    quitMode = Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
+  ) {
+    if (!lazy.isBlockingShutdown()) {
+      Services.startup.quit(quitMode);
+    } else if (!this._win) {
+      Services.felt.makeBackgroundProcess(false);
+      this.showWindow();
+    }
+  }
+
+  /**
+   * Sign out, clear all session credentials, and quit with the requested mode.
+   *
+   * @param {number} quitMode nsIAppStartup quit flags.
+   */
+  #signOutAndQuit(quitMode) {
+    lazy.ConsoleClient.performServerSignout()
+      .catch(err => {
+        lazy.log.error(`Failed to post signout on exit: ${err}`);
+      })
+      .finally(() => {
+        lazy.FeltLocking.clearLockAndTokens();
+        this.#quitOrHoldForShutdown(quitMode);
+      });
   }
 
   windowObserver(subject, topic) {

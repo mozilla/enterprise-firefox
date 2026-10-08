@@ -7,25 +7,17 @@
 #include "ExtraFileParser.h"
 
 #include "json/json.h"
-#include "nsAppDirectoryServiceDefs.h"
-#include "nsComponentManagerUtils.h"
-#include "nsDirectoryServiceDefs.h"
-#include "nsDirectoryService.h"
 #include "nsIDUtils.h"
 #include "nsIFileStreams.h"
 #include "nsNetUtil.h"
 #include "nsReadableUtils.h"
 #include "nsString.h"
-#include "mozilla/DebugOnly.h"
 #include "mozilla/GeckoArgs.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/Services.h"
 #include "nsIObserverService.h"
 #include "mozilla/RuntimeExceptionModule.h"
-#include "mozilla/ScopeExit.h"
-#include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_browser.h"
-#include "mozilla/SyncRunnable.h"
 #include "mozilla/ToString.h"
 #include "mozilla/TimeStamp.h"
 
@@ -34,9 +26,6 @@
 #include "prsystem.h"
 #include "nsThreadUtils.h"
 #include "nsThread.h"
-#include "jsfriendapi.h"
-#include "base/process_util.h"
-#include "common/basictypes.h"
 
 #include "mozilla/toolkit/crashreporter/mozannotation_client_ffi_generated.h"
 #include "mozilla/crash_helper_client_ffi_generated.h"
@@ -55,18 +44,20 @@
 #  endif
 
 #  include "nsXULAppAPI.h"
-#  include "nsIXULAppInfo.h"
-#  include "nsIWindowsRegKey.h"
 #  include "breakpad-client/windows/crash_generation/client_info.h"
 #  include "breakpad-client/windows/crash_generation/crash_generation_server.h"
 #  include "breakpad-client/windows/handler/exception_handler.h"
 #  include <dbghelp.h>
+#  include <filesystem>
 #  include <string.h>
-#  include "nsDirectoryServiceUtils.h"
-
-#  include "nsWindowsDllInterceptor.h"
+#  include "mozilla/DebugOnly.h"
 #  include "mozilla/WindowsDllBlocklist.h"
+#  include "nsDirectoryServiceUtils.h"
+#  include "nsWindowsDllInterceptor.h"
 #  include "psapi.h"  // For PERFORMANCE_INFORMATION and K32GetPerformanceInfo()
+#  if defined(HAVE_64BIT_BUILD)
+#    include "jsfriendapi.h"
+#  endif  // defined(HAVE_64BIT_BUILD)
 #elif defined(XP_MACOSX)
 #  include "breakpad-client/mac/crash_generation/client_info.h"
 #  include "breakpad-client/mac/crash_generation/crash_generation_server.h"
@@ -100,6 +91,7 @@
 #  include "sys/sysinfo.h"
 #  include <sys/wait.h>
 #  include <unistd.h>
+#  include "mozilla/ScopeExit.h"
 
 #  if defined(MOZ_OXIDIZED_BREAKPAD)
 #    include "mozilla/toolkit/crashreporter/rust_minidump_writer_linux_ffi_generated.h"
@@ -110,9 +102,6 @@
 #  error "Not yet implemented for this platform"
 #endif  // defined(XP_WIN)
 
-#ifdef XP_WIN
-#  include <filesystem>
-#endif
 #include <fmt/format.h>
 #include <fstream>
 #include <optional>
@@ -236,11 +225,12 @@ static CrashHelperClient* gCrashHelperClient
 static google_breakpad::ExceptionHandler* gExceptionHandler = nullptr;
 static mozilla::Atomic<bool> gEncounteredChildException(false);
 constinit static nsCString gServerURL;
-// Full "KEY=VALUE" environment entry for the enterprise auth token, passed only
-// to the crash reporter child process (never set in our own environment).
-// Empty when there is no token. Pre-formatted so the crash path only has to
-// read it, without any allocation.
-constinit static nsCString gAuthTokenEnvEntry;
+// The enterprise console auth token. On POSIX it is handed to the crash
+// reporter child over an inherited pipe fd (only the fd number is placed in the
+// child's environment), so the token itself is never exposed through
+// /proc/<pid>/environ to a same-user process. On Windows it is passed in the
+// child's environment. Empty when there is no token.
+constinit static nsCString gAuthToken;
 
 static MOZ_GLIBCXX_CONSTINIT xpstring pendingDirectory;
 static MOZ_GLIBCXX_CONSTINIT xpstring crashReporterPath;
@@ -1182,7 +1172,7 @@ extern "C" char** environ;
 // `aBlock`, for passing to CreateProcess. Leaves `aBlock` empty when there is
 // no token, so the caller inherits our environment.
 static void BuildChildEnvBlock(nsAString& aBlock) {
-  if (gAuthTokenEnvEntry.IsEmpty()) {
+  if (gAuthToken.IsEmpty()) {
     return;
   }
   LPWCH curEnv = GetEnvironmentStringsW();
@@ -1194,31 +1184,33 @@ static void BuildChildEnvBlock(nsAString& aBlock) {
     aBlock.Append(char16_t(0));
   }
   FreeEnvironmentStringsW(curEnv);
-  AppendUTF8toUTF16(gAuthTokenEnvEntry, aBlock);
+  aBlock.AppendLiteral(u"MOZ_CRASHREPORTER_AUTH_TOKEN=");
+  AppendUTF8toUTF16(gAuthToken, aBlock);
   aBlock.Append(char16_t(0));  // terminate the token entry
   aBlock.Append(char16_t(0));  // terminate the block
 }
 #  else
-// Number of slots (including the token entry and the null terminator) in the
+// Number of slots (including the extra entry and the null terminator) in the
 // stack buffer used to build the crash reporter's environment.
 static const size_t kChildEnvCapacity = 512;
 
 // Copy the null-terminated environment `aSource` into `aBuffer` (which has
-// `aCapacity` slots) and append the auth token. Returns the null-terminated
-// `aBuffer`, or nullptr when there is no token or the environment did not fit,
-// in which case the caller launches with the inherited environment.
+// `aCapacity` slots) and append `aExtraEntry`. Returns the null-terminated
+// `aBuffer`, or nullptr when there is no extra entry, the source is missing, or
+// the environment did not fit, in which case the caller launches with the
+// inherited environment.
 //
 // The caller supplies the buffer so the result lives on the caller's stack: on
 // Linux this runs post-fork in a signal-handler context, where heap allocation
 // is unsafe. macOS and Linux share this logic and differ only in how `aSource`
 // is obtained.
-static char** CopyEnvWithAuthToken(char** aSource, char** aBuffer,
-                                   size_t aCapacity) {
-  if (gAuthTokenEnvEntry.IsEmpty() || !aSource) {
+static char** CopyEnvWithExtraEntry(char** aSource, char** aBuffer,
+                                    size_t aCapacity, const char* aExtraEntry) {
+  if (!aExtraEntry || !aSource) {
     return nullptr;
   }
   size_t n = 0;
-  // Leave room for the token entry and the null terminator.
+  // Leave room for the extra entry and the null terminator.
   while (aSource[n] && n < aCapacity - 2) {
     aBuffer[n] = aSource[n];
     ++n;
@@ -1227,9 +1219,77 @@ static char** CopyEnvWithAuthToken(char** aSource, char** aBuffer,
     // The environment did not fit within aCapacity.
     return nullptr;
   }
-  aBuffer[n++] = const_cast<char*>(gAuthTokenEnvEntry.get());
+  aBuffer[n++] = const_cast<char*>(aExtraEntry);
   aBuffer[n] = nullptr;
   return aBuffer;
+}
+
+// Format "MOZ_CRASHREPORTER_AUTH_TOKEN_FD=<fd>" into `aBuffer` without
+// allocating, so it is safe to call post-fork on the crash path. Returns false
+// when `aFd` is negative or the result does not fit.
+static bool FormatAuthTokenFdEntry(char* aBuffer, size_t aCapacity, int aFd) {
+  static const char kPrefix[] = "MOZ_CRASHREPORTER_AUTH_TOKEN_FD=";
+  const size_t prefixLen = sizeof(kPrefix) - 1;
+  if (aFd < 0) {
+    return false;
+  }
+  char digits[16];
+  size_t d = 0;
+  unsigned int value = static_cast<unsigned int>(aFd);
+  do {
+    digits[d++] = static_cast<char>('0' + (value % 10));
+    value /= 10;
+  } while (value != 0 && d < sizeof(digits));
+  if (prefixLen + d + 1 > aCapacity) {
+    return false;
+  }
+  for (size_t i = 0; i < prefixLen; ++i) {
+    aBuffer[i] = kPrefix[i];
+  }
+  for (size_t i = 0; i < d; ++i) {
+    aBuffer[prefixLen + i] = digits[d - 1 - i];
+  }
+  aBuffer[prefixLen + d] = '\0';
+  return true;
+}
+
+// Create a pipe, write the auth token into it, and return the read end for the
+// crash reporter child to inherit. Returns -1 when there is no token or on
+// failure (the child then uploads unauthenticated). The token bytes only ever
+// live in the pipe buffer and the child's memory; only the fd number is placed
+// in the child's environment, so the token is not exposed via
+// /proc/<pid>/environ. On Linux this uses raw syscalls to stay
+// async-signal-safe on the crash path.
+static int SetupAuthTokenFd() {
+  const size_t len = gAuthToken.Length();
+  // The token has to fit within the pipe capacity so the write never blocks
+  // before the child reads; real bearer tokens are a few KB at most.
+  if (len == 0 || len > 60000) {
+    return -1;
+  }
+  int fds[2];
+#    if defined(XP_LINUX)
+  if (sys_pipe(fds) != 0) {
+    return -1;
+  }
+  ssize_t written = sys_write(fds[1], gAuthToken.get(), len);
+  sys_close(fds[1]);
+  if (written < 0 || static_cast<size_t>(written) != len) {
+    sys_close(fds[0]);
+    return -1;
+  }
+#    else  // macOS
+  if (pipe(fds) != 0) {
+    return -1;
+  }
+  ssize_t written = write(fds[1], gAuthToken.get(), len);
+  close(fds[1]);
+  if (written < 0 || static_cast<size_t>(written) != len) {
+    close(fds[0]);
+    return -1;
+  }
+#    endif
+  return fds[0];
 }
 #  endif  // XP_WIN
 
@@ -1284,34 +1344,65 @@ static bool LaunchProgram(const XP_CHAR* aProgramPath,
     env = *nsEnv;
   }
 
+  // Hand the auth token to the child over an inherited pipe fd, passing only
+  // the fd number in the environment. The pipe fd has no FD_CLOEXEC, so it
+  // survives posix_spawn.
+  int tokenFd = SetupAuthTokenFd();
+  char fdEntry[64];
   char* childEnvBuf[kChildEnvCapacity];
-  if (char** childEnv =
-          CopyEnvWithAuthToken(env, childEnvBuf, kChildEnvCapacity)) {
-    env = childEnv;
+  if (tokenFd >= 0 &&
+      FormatAuthTokenFdEntry(fdEntry, sizeof(fdEntry), tokenFd)) {
+    if (char** childEnv = CopyEnvWithExtraEntry(env, childEnvBuf,
+                                                kChildEnvCapacity, fdEntry)) {
+      env = childEnv;
+    }
   }
 
   int rv = posix_spawnp(&pid, my_argv[0], nullptr, nullptr, my_argv, env);
+
+  if (tokenFd >= 0) {
+    close(tokenFd);
+  }
 
   if (rv != 0) {
     return false;
   }
 #  else   // !XP_MACOSX
+  // Set up the token pipe before forking; the read end is inherited by the
+  // child and its number is passed in the environment. fdEntry lives on this
+  // frame's stack, which the forked child inherits.
+  int tokenFd = SetupAuthTokenFd();
+  char fdEntry[64];
+  bool haveFdEntry =
+      tokenFd >= 0 && FormatAuthTokenFdEntry(fdEntry, sizeof(fdEntry), tokenFd);
+
   pid_t pid = sys_fork();
 
   if (pid == -1) {
+    if (tokenFd >= 0) {
+      sys_close(tokenFd);
+    }
     return false;
   } else if (pid == 0) {
     // Build the replacement environment on the stack: we are post-fork in a
     // signal-handler context, where heap allocation is unsafe.
     char* childEnvBuf[kChildEnvCapacity];
-    if (char** childEnv =
-            CopyEnvWithAuthToken(environ, childEnvBuf, kChildEnvCapacity)) {
+    char** childEnv = haveFdEntry
+                          ? CopyEnvWithExtraEntry(environ, childEnvBuf,
+                                                  kChildEnvCapacity, fdEntry)
+                          : nullptr;
+    if (childEnv) {
       (void)execle(aProgramPath, aProgramPath, aMinidumpPath, nullptr,
                    childEnv);
       // If execle() failed, fall through to the plain execl() below.
     }
     (void)execl(aProgramPath, aProgramPath, aMinidumpPath, nullptr);
     _exit(1);
+  }
+
+  // Parent: close our copy of the read end.
+  if (tokenFd >= 0) {
+    sys_close(tokenFd);
   }
 #  endif  // XP_MACOSX
 
@@ -1484,7 +1575,7 @@ static void WriteAnnotations(AnnotationWriter& aWriter,
                              const AnnotationTable& aAnnotations) {
   for (auto key : MakeEnumeratedRange(Annotation::Count)) {
     const nsCString& value = aAnnotations[key];
-    if (!value.IsEmpty()) {
+    if (!value.IsEmpty() && ShouldIncludeAnnotation(key, value.get())) {
       aWriter.Write(key, value.get(), value.Length());
     }
   }
@@ -2479,7 +2570,7 @@ nsresult UnsetExceptionHandler() {
   delete gExceptionHandler;
 
   gServerURL = "";
-  gAuthTokenEnvEntry.Truncate();
+  gAuthToken.Truncate();
   TeardownAppNotes();
 
   if (!gExceptionHandler) return NS_ERROR_NOT_INITIALIZED;
@@ -2805,14 +2896,11 @@ nsresult SetServerURL(const nsACString& aServerURL) {
 
 nsresult SetAuthToken(const nsACString& aToken) {
   if (aToken.IsEmpty() || aToken.FindChar('\0') != kNotFound) {
-    gAuthTokenEnvEntry.Truncate();
+    gAuthToken.Truncate();
     return aToken.IsEmpty() ? NS_OK : NS_ERROR_INVALID_ARG;
   }
 
-  // Pre-format the full environment entry so that LaunchProgram (which runs on
-  // the crash path) only has to reference it without allocating.
-  gAuthTokenEnvEntry.AssignLiteral("MOZ_CRASHREPORTER_AUTH_TOKEN=");
-  gAuthTokenEnvEntry.Append(aToken);
+  gAuthToken.Assign(aToken);
   return NS_OK;
 }
 
@@ -3305,20 +3393,6 @@ bool WriteExtraFile(const nsAString& id, const AnnotationTable& annotations) {
   return WriteExtraFile(pw, annotations);
 }
 
-// This filters out annotations that have specific values we don't want to
-// include and adds common annotations which are present in every crash report
-// including crash time, uptime, etc...
-static void AddSharedAnnotations(AnnotationTable& aAnnotations) {
-  for (auto key : MakeEnumeratedRange(Annotation::Count)) {
-    if (!aAnnotations[key].IsEmpty() &&
-        !ShouldIncludeAnnotation(key, aAnnotations[key].get())) {
-      aAnnotations[key] = EmptyCString();
-    }
-  }
-
-  AddCommonAnnotations(aAnnotations);
-}
-
 // It really only makes sense to call this function when
 // ShouldReport() is true.
 // Uses dumpFile's filename to generate memoryReport's filename (same name
@@ -3671,7 +3745,7 @@ bool TakeMinidumpForChild(GeckoChildID aChildId, nsIFile** dump,
 
   nsresult rv = ReadExtraFile(extra, aAnnotations);
 
-  // Unconditionally remove the temporary .extra file, it will be regenarated
+  // Unconditionally remove the temporary .extra file, it will be regenerated
   // later when we finalize the crash report.
   extra->Remove(false);
 
@@ -3681,7 +3755,7 @@ bool TakeMinidumpForChild(GeckoChildID aChildId, nsIFile** dump,
     return false;
   }
 
-  AddSharedAnnotations(aAnnotations);
+  AddCommonAnnotations(aAnnotations);
 
   if (error.Length() > 0) {
     aAnnotations[Annotation::DumperError] = std::move(error);
@@ -3746,33 +3820,6 @@ static void RenameAdditionalHangMinidump(nsIFile* minidump,
   }
 }
 
-// Stores the minidump in the nsIFile pointed by the |context| parameter.
-static bool PairedDumpCallback(
-#ifdef XP_LINUX
-    const MinidumpDescriptor& descriptor,
-#else
-    const XP_CHAR* dump_path, const XP_CHAR* minidump_id,
-#endif
-    void* context,
-#ifdef XP_WIN
-    EXCEPTION_POINTERS* /*unused*/, MDRawAssertionInfo* /*unused*/,
-#endif
-    const phc::AddrInfo* addrInfo, bool succeeded) {
-  XP_CHAR* path = static_cast<XP_CHAR*>(context);
-  size_t size = XP_PATH_MAX;
-
-#ifdef XP_LINUX
-  Concat(path, descriptor.path(), &size);
-#else
-  path = Concat(path, dump_path, &size);
-  path = Concat(path, XP_PATH_SEPARATOR, &size);
-  path = Concat(path, minidump_id, &size);
-  Concat(path, dumpFileExtension, &size);
-#endif
-
-  return true;
-}
-
 ThreadId CurrentThreadId() {
 #if defined(XP_WIN)
   return ::GetCurrentThreadId();
@@ -3787,8 +3834,7 @@ ThreadId CurrentThreadId() {
 #endif
 }
 
-bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
-                            ThreadId aTargetBlamedThread,
+bool CreateMinidumpsAndPair(GeckoChildID aId, ThreadId aTargetBlamedThread,
                             const nsACString& aIncomingPairName,
                             AnnotationTable& aTargetAnnotations,
                             nsIFile** aMainDumpOut) {
@@ -3797,56 +3843,66 @@ bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
   }
 
   AutoIOInterposerDisable disableIOInterposition;
-
-  xpstring dump_path;
-#ifndef XP_LINUX
-  dump_path = gExceptionHandler->dump_path();
-#else
-  dump_path = gExceptionHandler->minidump_descriptor().directory();
+#if defined(XP_WIN) && defined(DEBUG) && defined(HAS_DLL_BLOCKLIST)
+  DllBlocklist_Shutdown();
 #endif
 
-  // Ugly, but due to Breakpad limitations we can't allocate memory in the
-  // callback when generating a dump of the calling process.
-  XP_CHAR minidumpPath[XP_PATH_MAX] = {};
+  CrashReport* crash_report = nullptr;
 
-  // dump the target
-  if (!google_breakpad::ExceptionHandler::WriteMinidumpForChild(
-          aTargetHandle, aTargetBlamedThread,
-#if defined(XP_LINUX) && defined(MOZ_OXIDIZED_BREAKPAD)
-          /* auxvInfo */ nullptr,
-#endif  // defined(XP_LINUX) && defined(MOZ_OXIDIZED_BREAKPAD)
-          dump_path, PairedDumpCallback, static_cast<void*>(minidumpPath)
-#ifdef XP_WIN
-                                             ,
-          GetMinidumpType()
-#endif
-              )) {
+  {
+    StaticMutexAutoLock lock(gCrashHelperClientMutex);
+    if (gCrashHelperClient) {
+#if defined(XP_DARWIN)
+      // We need to make a copy of this right as the Rust code will take
+      // ownership of it (and eventually dispose of the right).
+      aTargetBlamedThread = RetainMachSendRight(aTargetBlamedThread).release();
+#endif  // defined(XP_DARWIN)
+      crash_report =
+          generate_crash_report(gCrashHelperClient, aId, aTargetBlamedThread);
+    }
+  }
+
+  if (!crash_report) {
     return false;
   }
 
   nsCOMPtr<nsIFile> targetMinidump;
-  CreateFileFromPath(xpstring(minidumpPath), getter_AddRefs(targetMinidump));
+  CreateFileFromPath(xpstring((XP_CHAR*)crash_report->path),
+                     getter_AddRefs(targetMinidump));
+  nsCString error =
+      crash_report->error ? nsCString(crash_report->error) : ""_ns;
+  release_crash_report(crash_report);
   MOZ_ASSERT(targetMinidump);
 
-  // Create a dump of this process.
-  if (!google_breakpad::ExceptionHandler::WriteMinidump(
-          dump_path,
-#ifdef XP_MACOSX
-          true,
-#endif
-          PairedDumpCallback, static_cast<void*>(minidumpPath)
-#ifdef XP_WIN
-                                  ,
-          GetMinidumpType()
-#endif
-              )) {
-    targetMinidump->Remove(false);
+  nsCOMPtr<nsIFile> extra = nullptr;
+  NS_ENSURE_TRUE(GetExtraFileForMinidump(targetMinidump, getter_AddRefs(extra)),
+                 false);
+
+  // Create a dump of the main process.
+  {
+    StaticMutexAutoLock lock(gCrashHelperClientMutex);
+    crash_report =
+        generate_crash_report(gCrashHelperClient, 0, CurrentThreadId());
+  }
+
+  if (!crash_report) {
+    // We're leaving behind a minidump, clean it up?
     return false;
   }
 
   nsCOMPtr<nsIFile> incomingDump;
-  CreateFileFromPath(xpstring(minidumpPath), getter_AddRefs(incomingDump));
+  CreateFileFromPath(xpstring((XP_CHAR*)crash_report->path),
+                     getter_AddRefs(incomingDump));
+  release_crash_report(crash_report);
   MOZ_ASSERT(incomingDump);
+
+  // We're ignoring the errors we might have encountered while dumping the
+  // parent, they're not really important in this context and we don't need
+  // the crash annotations either.
+  nsCOMPtr<nsIFile> incomingExtra = nullptr;
+  if (GetExtraFileForMinidump(incomingDump, getter_AddRefs(incomingExtra))) {
+    incomingExtra->Remove(false);
+  }
 
   RenameAdditionalHangMinidump(incomingDump, targetMinidump, aIncomingPairName);
 
@@ -3854,12 +3910,24 @@ bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
     MoveToPending(targetMinidump, nullptr, nullptr);
     MoveToPending(incomingDump, nullptr, nullptr);
   }
-#if defined(DEBUG) && defined(HAS_DLL_BLOCKLIST)
-  DllBlocklist_Shutdown();
-#endif
 
-  AddSharedAnnotations(aTargetAnnotations);
-  // TODO: Retrieve annotations from child process
+  nsresult rv = ReadExtraFile(extra, aTargetAnnotations);
+
+  // Unconditionally remove the temporary .extra file, it will be regenerated
+  // later when we finalize the crash report.
+  extra->Remove(false);
+
+  if (rv != NS_OK) {
+    // TODO: We failed to read the annotations, this will leave an orphaned
+    // crash that we won't be able to submit. Clean everything up instead?
+    return false;
+  }
+
+  AddCommonAnnotations(aTargetAnnotations);
+
+  if (error.Length() > 0) {
+    aTargetAnnotations[Annotation::DumperError] = std::move(error);
+  }
 
   targetMinidump.forget(aMainDumpOut);
 
@@ -3878,7 +3946,7 @@ bool UnsetRemoteExceptionHandler(bool wasSet) {
   }
 #endif
   gServerURL = "";
-  gAuthTokenEnvEntry.Truncate();
+  gAuthToken.Truncate();
   TeardownAppNotes();
 
   return true;

@@ -4,7 +4,7 @@
 
 //! An entry point for sending a crash ping.
 
-use crate::std::{env, io::stdin};
+use crate::std::{env, io::stdin, path::PathBuf};
 use crate::{glean, logging, net::ping};
 
 /// The user application data directory, derived from the crash data path.
@@ -28,23 +28,21 @@ pub fn main() {
     let extra: serde_json::Value =
         serde_json::from_reader(stdin()).expect("failed to read extra data from stdin");
 
+    let profile_dir = extra
+        .get("ProfileDirectory")
+        .and_then(|v| v.as_str())
+        .map(PathBuf::from);
+
     #[cfg(all(not(mock), feature = "enterprise"))]
     let app_data_dir = app_data_dir(&data_path);
 
     #[cfg_attr(any(mock, not(feature = "enterprise")), allow(unused_mut))]
-    let mut options = glean::InitOptions {
-        data_dir: data_path.into(),
-        locale: None,
-        // Assume that this is only invoked to send a ping when upload is enabled.
-        upload_enabled: true,
-        #[cfg(feature = "enterprise")]
-        server_url: None,
-    };
+    let mut options = glean::InitOptions::new(data_path.into()).with_profile_dir(profile_dir);
     // No `ServerURL` annotation is available here, so the endpoint is derived
     // from the console address in AutoConfig (or, on generic builds, the
     // environment variable or felt.json).
     #[cfg(all(not(mock), feature = "enterprise"))]
-    options.set_server_url(
+    options.set_server_endpoint(
         crate::enterprise_prefs::console_glean_url(None, app_data_dir.as_deref())
             .expect("failed to resolve the enterprise telemetry endpoint"),
     );
@@ -66,27 +64,15 @@ pub fn cleanup_main() {
 
     let mut args = env::args_os().skip(2);
     let data_path = args.next().expect("no data path provided");
-    let upload_enabled: bool = args
-        .next()
-        .expect("upload enabled missing")
-        .to_str()
-        .expect("non-unicode upload enabled value")
-        .parse()
-        .expect("invalid upload enabled value");
+    let profile_dir = args.next();
 
     #[cfg(all(not(mock), feature = "enterprise"))]
     let app_data_dir = app_data_dir(&data_path);
 
     #[cfg_attr(any(mock, not(feature = "enterprise")), allow(unused_mut))]
-    let mut options = glean::InitOptions {
-        data_dir: data_path.into(),
-        locale: None,
-        upload_enabled,
-        #[cfg(feature = "enterprise")]
-        server_url: None,
-    };
+    let mut options = glean::InitOptions::new(data_path.into()).with_profile_dir(profile_dir);
     #[cfg(all(not(mock), feature = "enterprise"))]
-    options.set_server_url(
+    options.set_server_endpoint(
         crate::enterprise_prefs::console_glean_url(None, app_data_dir.as_deref())
             .expect("failed to resolve the enterprise telemetry endpoint"),
     );

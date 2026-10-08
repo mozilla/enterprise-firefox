@@ -21,10 +21,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Array, Process, Value
 
 import requests
-from base_test import EnterpriseTestsBase
+from base_test import EnterpriseTestsBase, Environment
 from felt_consts import firefox_config
 from marionette_driver import expected
 from marionette_driver.by import By
+from marionette_driver.errors import NoSuchWindowException, UnknownException
 from marionette_driver.geckoinstance import DesktopInstance, GeckoInstance
 from mozprofile.prefs import Preferences
 
@@ -216,6 +217,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 }
             })
 
+        if self.server.policy_disable_safe_mode.value >= 0:
+            policy_content.update({
+                "DisableSafeMode": self.server.policy_disable_safe_mode.value == 1
+            })
+
+        if self.server.policy_disable_third_party_module_blocking.value >= 0:
+            policy_content.update({
+                "DisableThirdPartyModuleBlocking": self.server.policy_disable_third_party_module_blocking.value
+                == 1
+            })
+
         if self.server.policy_watermark.value == 1:
             policy_content.update({
                 "Watermark": {
@@ -293,7 +305,12 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     "remote_settings_url": "",
                     "tokenserver_url": "",
                 },
-                "extra_prefs": [["marionette.port", 0]],
+                "extra_prefs": [
+                    # Allow marionette to select a random free port, different from the default 2828 value. Without this, Felt and Browser would not be able to run with marionnette enabled in parallel
+                    ["marionette.port", 0],
+                    # Disable initialization of FOG on shutdown: this would add some extra shutdown delays that messes with shutdown path and make tests failing
+                    ["telemetry.fog.init_on_shutdown", False],
+                ],
             }
             m = json.dumps(config)
             contentType = "application/json"
@@ -652,6 +669,8 @@ def serve(
     policy_block_about_config=None,
     policy_extensions=None,
     policy_watermark=None,
+    policy_disable_safe_mode=None,
+    policy_disable_third_party_module_blocking=None,
     policy_access_token=None,
     policy_refresh_token=None,
     policy_access_connector=None,
@@ -685,6 +704,12 @@ def serve(
         httpd.policy_extensions = policy_extensions
     if policy_watermark is not None:
         httpd.policy_watermark = policy_watermark
+    if policy_disable_safe_mode is not None:
+        httpd.policy_disable_safe_mode = policy_disable_safe_mode
+    if policy_disable_third_party_module_blocking is not None:
+        httpd.policy_disable_third_party_module_blocking = (
+            policy_disable_third_party_module_blocking
+        )
     if policy_access_token:
         httpd.policy_access_token = policy_access_token
     if policy_access_connector:
@@ -816,6 +841,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_connector = Value("b", 0)
         self.policy_extensions = Value("B", 0)
         self.policy_watermark = Value("b", 0)
+        self.policy_disable_safe_mode = Value("b", -1)
+        self.policy_disable_third_party_module_blocking = Value("b", -1)
         self.policies_fail_request = Value("B", 0)
         # Serves "{}", a 200 that carries neither policies nor a relaunch key.
         self.policies_omit_policies = Value("B", 0)
@@ -846,6 +873,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 policy_block_about_config=self.policy_block_about_config,
                 policy_extensions=self.policy_extensions,
                 policy_watermark=self.policy_watermark,
+                policy_disable_safe_mode=self.policy_disable_safe_mode,
+                policy_disable_third_party_module_blocking=self.policy_disable_third_party_module_blocking,
                 policy_access_token=self.policy_access_token,
                 policy_access_connector=self.policy_access_connector,
                 policy_refresh_token=self.policy_refresh_token,
@@ -1007,6 +1036,16 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self._child_driver.set_context("content")
         return rv
 
+    def get_env_child(self, name):
+        self._logger.info(f"Getting env {name}")
+        self._child_driver.set_context("chrome")
+        rv = self._child_driver.execute_script(
+            "return Services.env.get(arguments[0]);", [name]
+        )
+        self._logger.info(f"Env value: {rv}")
+        self._child_driver.set_context("content")
+        return rv
+
     def set_bool_pref(self, pref_name, pref_value):
         self._logger.info(f"Setting {pref_name} to {pref_value}")
         self._driver.set_context("chrome")
@@ -1155,6 +1194,117 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
 
 
 class FeltTests(FeltTestsBase):
+    def _prepare_felt_keystore(self):
+        """Avoid CI keychain stalls and clear tokens shared across test profiles.
+
+        macOS keychain calls can hang in CI (bug 2074879). A token left in
+        felt.json would resume a prior session instead of starting a new one.
+        Runs before the sign-in, which reaches the keystore through
+        FeltLocking.tryUnlock if a token is present.
+        """
+        driver = self.get_driver(Environment.FELT)
+        driver.set_context("chrome")
+        try:
+            driver.execute_script(
+                r"""
+                const { OSKeyStore } = ChromeUtils.importESModule(
+                    "resource://gre/modules/OSKeyStore.sys.mjs"
+                );
+                OSKeyStore.encrypt = async plaintext => `encrypted(${plaintext})`;
+                OSKeyStore.decrypt = async ciphertext =>
+                    String(ciphertext).replace(/^encrypted\((.*)\)$/, "$1");
+                OSKeyStore.ensureLoggedIn = async () => ({ authenticated: true });
+
+                const { FeltStorage } = ChromeUtils.importESModule(
+                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+                );
+                if (FeltStorage._feltStorage?.data) {
+                    FeltStorage._feltStorage.data.lockingTokens = {};
+                }
+                """
+            )
+        finally:
+            driver.set_context("content")
+
+    def _felt_has_locking_token(self):
+        """Whether FELT persisted an encrypted resume token for the signed-in user."""
+        driver = self.get_driver(Environment.FELT)
+        driver.set_context("chrome")
+        try:
+            return driver.execute_script(
+                """
+                const { FeltStorage } = ChromeUtils.importESModule(
+                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+                );
+                const email = FeltStorage.getLastSignedInUser();
+                return !!(email && FeltStorage.hasLockingToken(email));
+                """
+            )
+        finally:
+            driver.set_context("content")
+
+    def _await_felt_locking_token(self, expected, message):
+        """Wait for the token update, which can finish after the child exits."""
+        self._wait.until(
+            lambda _: self._felt_has_locking_token() == expected, message=message
+        )
+
+    def _set_locking_pref(self, pref, enabled):
+        """Set a locked enterprise locking pref and sync its FELT intent."""
+        with self._child_driver.using_context("chrome"):
+            self._child_driver.execute_script(
+                """
+                const pref = arguments[0];
+                Services.prefs.unlockPref(pref);
+                Services.prefs.setBoolPref(pref, arguments[1]);
+                """,
+                script_args=(pref, enabled),
+            )
+
+    def _settle_after_child_exit(self, browser_pid):
+        self.wait_process_exit(browser_pid)
+        self.await_felt_auth_window()
+        self.force_window()
+
+    def _hold_felt_after_child_exit(self):
+        # Keep FELT alive after the child exits so we can inspect FELT-side state.
+        self.get_driver(Environment.FELT).set_prefs(
+            {
+                "enterprise.felt_tests.should_not_close_window": True,
+                "enterprise.felt_tests.is_blocking_shutdown": True,
+            },
+            default_branch=True,
+        )
+
+    def quit_child_browser_for_restart(self):
+        """Issue an eRestart quit on the child browser and let FELT relaunch it.
+
+        The quit usually tears the Marionette connection down before
+        execute_script can reply, so these errors mean the restart is underway
+        rather than that it failed."""
+        self._child_driver.set_context("chrome")
+        self._manually_closed_child = True
+        try:
+            self._child_driver.execute_script(
+                "Services.startup.quit(Ci.nsIAppStartup.eRestart | Ci.nsIAppStartup.eAttemptQuit);"
+            )
+        except UnknownException:
+            self._logger.info("Received expected UnknownException")
+        except NoSuchWindowException:
+            self._logger.info("Received expected NoSuchWindowException")
+        except OSError:
+            self._logger.info(
+                "Firefox quit before execute_script returned, no data received over Marionette socket"
+            )
+
+    def _start_signed_in(self):
+        self._hold_felt_after_child_exit()
+        self._prepare_felt_keystore()
+        self.run_felt_base()
+        self.connect_child_browser()
+        self.assert_user_signed_in(env=Environment.FIREFOX)
+        return self._child_driver.session_capabilities["moz:processID"]
+
     def reload_chrome_window(self):
         # We set a marker before reloading so we can reliably detect when the
         # new page is ready. A simple readyState == "complete" check is not

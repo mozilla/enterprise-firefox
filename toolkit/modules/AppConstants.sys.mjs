@@ -69,6 +69,13 @@ export var AppConstants = Object.freeze({
   false,
 #endif
 
+  MOZ_DISABLE_PROFILE_PKCS11_MODULES:
+#ifdef MOZ_DISABLE_PROFILE_PKCS11_MODULES
+  true,
+#else
+  false,
+#endif
+
   MOZ_WMF_CDM: @MOZ_WMF_CDM_BOOL@,
 
   XP_UNIX:

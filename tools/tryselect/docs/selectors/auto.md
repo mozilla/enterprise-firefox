@@ -9,6 +9,12 @@ autoland.
 It is the officially recommended selector to use when you are unsure of which
 tasks should run on your push.
 
+```{warning}
+This selector is disabled on Enterprise trees: bugbug has no training data for
+them, so it schedules far too many tasks, and some of the resulting decision
+tasks fail on missing scopes. See bug 2068074. Use {doc}`fuzzy <fuzzy>` instead.
+```
+
 To use:
 
 ```bash

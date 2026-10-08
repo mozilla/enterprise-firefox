@@ -97,6 +97,11 @@ fn main() {
 
 #[cfg(not(mock))]
 fn report_main() {
+    // Read the enterprise auth token first: the fd cleanup below closes every fd
+    // >= 3, which includes the pipe the crashing process passed the token on.
+    #[cfg(feature = "enterprise")]
+    net::auth::init_access_token();
+
     // Close unused fds before doing anything else, which might open some.
     #[cfg(unix)]
     let fd_cleanup_error = fd_cleanup::cleanup_unused_fds();
@@ -274,7 +279,7 @@ fn try_run(config: &mut Arc<Config>) -> anyhow::Result<bool> {
             // from the crash submission URL (the `ServerURL` annotation)
             // resolved by `load_extra_file` above.
             #[cfg(all(not(mock), feature = "enterprise"))]
-            options.set_server_url(
+            options.set_server_endpoint(
                 enterprise_prefs::console_glean_url(
                     config.report_url.as_ref().and_then(|s| s.to_str()),
                     config.app_data_dir.as_deref(),

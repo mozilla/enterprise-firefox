@@ -354,7 +354,12 @@ def _drop_redundant_chunks(full_task_graph, labels):
     kept = []
     for label in labels:
         task = full_task_graph.tasks.get(label)
+        suite = task.attributes.get("unittest_suite", "") if task else ""
         if task and task.attributes.get("test-manifests-restricted", False):
+            kept.append(label)
+        elif suite.startswith(("test-verify", "test-coverage")):
+            # Per-test mode slices the requested tests across chunks, so each
+            # chunk runs a different subset.
             kept.append(label)
         elif label.endswith("-1") or not label.rsplit("-", 1)[-1].isnumeric():
             kept.append(label)
@@ -577,6 +582,25 @@ def target_tasks_enterprise_firefox_with_tests(
     )
 
     def filter(task):
+        if parameters["tasks_for"].startswith("github-pull-request"):
+            tier = task.task.get("extra", {}).get("treeherder", {}).get("tier", 3)
+            platform = (
+                task.task
+                .get("extra", {})
+                .get("treeherder", {})
+                .get("machine", {})
+                .get("platform", "build")
+            )
+            allowed_kinds = ["source-test"]
+            return (
+                tier < 2
+                and platform == "lint"
+                and task.kind in allowed_kinds
+                # source-test for android adds a dependency that ends up building
+                # geckoview
+                and "android" not in task.label
+            )
+
         test_platform = task.attributes.get("test_platform")
         # Skip android-hw tests, windows11-aarch64: they require special hardware and credentials
         if (
@@ -1793,8 +1817,15 @@ def target_tasks_perftest_fenix_startup(full_task_graph, parameters, graph_confi
     """
     Select perftest tasks we want to run daily for fenix startup
     """
+    # Bug 2070794 - the shopify applink tests perma-fails on the bitbar p6 and s24
+    FENIX_STARTUP_EXCLUDED_LABELS = {
+        "perftest-android-hw-p6-aarch64-shippable-startup-fenix-shopify-applink-startup",
+        "perftest-android-hw-s24-aarch64-shippable-startup-fenix-shopify-applink-startup",
+    }
     for name, task in full_task_graph.tasks.items():
         if task.kind != "perftest":
+            continue
+        if name in FENIX_STARTUP_EXCLUDED_LABELS:
             continue
         if "fenix" in name and "startup" in name and "profiling" not in name:
             yield name

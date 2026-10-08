@@ -2,7 +2,8 @@
 
 These are the currently implemented try selectors:
 
-- {doc}`auto <auto>`: Have tasks chosen for you automatically.
+- {doc}`auto <auto>`: Have tasks chosen for you automatically. Disabled on
+  Enterprise trees, see bug 2068074.
 - {doc}`fuzzy <fuzzy>`: Select tasks using a fuzzy finding algorithm and
   a terminal interface.
 - {doc}`chooser <chooser>`: Select tasks using a web interface.

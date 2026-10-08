@@ -64,14 +64,15 @@ pub enum FeltMessage {
     /// first IPC handshake, ahead of `AccessToken` / `Ready`.
     PrimarySecret(String),
     RefreshTokens,
-    FeltReady,
+    FeltReady(u32),
     OpenURL((String, i32, Option<FocusHint>)),
     RestartForced,
-    Restarting,
+    Restarting(bool),
     LogoutShutdown,
-    Exiting,
+    Exiting(bool),
     UpdateReady,
     Shutdown,
+    CheckForUpdates,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -80,4 +81,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 12;
+pub const FELT_IPC_VERSION: u32 = 15;

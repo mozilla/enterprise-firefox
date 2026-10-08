@@ -1,11 +1,11 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$comment": "Validation uses standard JSON Schema. Before validating, Firefox normalizes platform input in PolicySchemaValidator.sys.mjs: a value delivered as a JSON string is parsed where contentMediaType is application/json, and 0/1 integers become booleans. After validation, strings with format uri become URL objects, and a list entry that fails validation is dropped and logged rather than discarding the whole policy.",
+  "$comment": "Validation uses standard JSON Schema. Before validating, Firefox normalizes platform input in PolicySchemaValidator.sys.mjs: a value delivered as a JSON string is parsed where contentMediaType is application/json, and 0/1 integers become booleans. After validation, strings with format moz-url (any string the WHATWG URL parser accepts) become URL objects, and a list entry that fails validation is dropped and logged rather than discarding the whole policy.",
   "definitions": {
-    "url": { "type": "string", "format": "uri" },
+    "url": { "type": "string", "format": "moz-url" },
     "urlOrEmpty": {
       "type": "string",
-      "anyOf": [{ "format": "uri" }, { "maxLength": 0 }]
+      "anyOf": [{ "format": "moz-url" }, { "maxLength": 0 }]
     },
     "urlLoggingLevel": {
       "type": "string",
@@ -29,7 +29,7 @@
     },
     "origin": {
       "type": "string",
-      "format": "uri",
+      "format": "moz-url",
       "pattern": "^([Ff][Ii][Ll][Ee]://.*|[Hh][Tt][Tt][Pp][Ss]?://[^/]+/?)$"
     }
   },
@@ -497,7 +497,7 @@
       "x-compatibility": {
         "firefox": { "version_added": "62" },
         "firefox_esr": { "version_added": "60.2.0" },
-        "firefox_enterprise": { "version_added": false }
+        "firefox_enterprise": { "version_added": "149" }
       },
       "x-restart-required": true,
       "description": "Change the URL for application update if you are providing Firefox updates from a custom update server.",
@@ -553,6 +553,11 @@
         },
         "AllowNonFQDN": {
           "type": "object",
+          "x-compatibility": {
+            "firefox": { "version_added": "62" },
+            "firefox_esr": { "version_added": "60.2.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "properties": {
             "SPNEGO": {
               "type": "boolean"
@@ -564,6 +569,11 @@
         },
         "AllowProxies": {
           "type": "object",
+          "x-compatibility": {
+            "firefox": { "version_added": "70" },
+            "firefox_esr": { "version_added": "68.2.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "properties": {
             "SPNEGO": {
               "type": "boolean"
@@ -574,10 +584,20 @@
           }
         },
         "Locked": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "71" },
+            "firefox_esr": { "version_added": "68.3.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "PrivateBrowsing": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "77" },
+            "firefox_esr": { "version_added": "68.9.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         }
       }
     },
@@ -713,7 +733,7 @@
       "x-compatibility": {
         "firefox": { "version_added": "60" },
         "firefox_esr": { "version_added": "60" },
-        "firefox_enterprise": { "version_added": "149" }
+        "firefox_enterprise": { "version_added": false }
       },
       "x-restart-required": true,
       "description": "Add bookmarks in either the bookmarks toolbar or menu. Use 'ManagedBookmarks' instead.",
@@ -816,13 +836,63 @@
       ],
       "properties": {
         "ImportEnterpriseRoots": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "notes": "macOS support was added in Firefox 63 / Firefox ESR 68."
+          }
         },
         "Install": {
           "type": "array",
+          "x-compatibility": {
+            "firefox": { "version_added": "64" },
+            "firefox_esr": { "version_added": "60.4.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+
+    "ClearOnShutdown": {
+      "type": ["boolean", "object"],
+      "x-category": "Local data storage",
+      "x-compatibility": {
+        "firefox": { "version_added": "158" },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "158" }
+      },
+      "x-restart-required": true,
+      "description": "Clear browsing data when the browser closes. Only the named categories are enforced.",
+      "examples": [
+        false,
+        {
+          "BrowsingHistoryAndDownloads": true,
+          "CookiesAndStorage": true,
+          "Cache": true,
+          "Exceptions": ["https://example.com"]
+        }
+      ],
+      "properties": {
+        "BrowsingHistoryAndDownloads": {
+          "type": "boolean"
+        },
+        "CookiesAndStorage": {
+          "type": "boolean"
+        },
+        "Cache": {
+          "type": "boolean"
+        },
+        "FormData": {
+          "type": "boolean"
+        },
+        "SiteSettings": {
+          "type": "boolean"
+        },
+        "Exceptions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/origin" }
         }
       }
     },
@@ -919,7 +989,7 @@
         "firefox_enterprise": { "version_added": "149" }
       },
       "x-restart-required": false,
-      "description": "Configure Firefox to use an agent for Data Loss Prevention (DLP) that is compatible with the Google Chrome Content Analysis Connector Agent SDK.",
+      "description": "Configure Firefox to use a third-party agent for Data Loss Prevention (DLP) that is compatible with the Google Chrome Content Analysis Connector Agent SDK.",
       "examples": [
         {
           "AgentName": "My DLP Product",
@@ -933,6 +1003,10 @@
           "InterceptionPoints": {
             "Clipboard": {
               "Enabled": true,
+              "PlainTextOnly": true
+            },
+            "ClipboardCopy": {
+              "Enabled": false,
               "PlainTextOnly": true
             },
             "Download": {
@@ -1010,6 +1084,17 @@
                 }
               }
             },
+            "ClipboardCopy": {
+              "type": "object",
+              "properties": {
+                "Enabled": {
+                  "type": "boolean"
+                },
+                "PlainTextOnly": {
+                  "type": "boolean"
+                }
+              }
+            },
             "Download": {
               "type": "object",
               "properties": {
@@ -1059,7 +1144,7 @@
         "firefox_enterprise": { "version_added": "155" }
       },
       "x-restart-required": false,
-      "description": "Enable and configure security logging when a DLP rule is triggered.",
+      "description": "Enable and configure security logging when a Data Loss Prevention (DLP) rule is triggered.",
       "examples": [
         {
           "Enabled": true,
@@ -1104,6 +1189,11 @@
         },
         "AllowSession": {
           "type": "array",
+          "x-compatibility": {
+            "firefox": { "version_added": "79" },
+            "firefox_esr": { "version_added": "78.1.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "items": { "$ref": "#/definitions/origin" }
         },
         "Block": {
@@ -1134,7 +1224,12 @@
           ]
         },
         "RejectTracker": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "63" },
+            "firefox_esr": { "version_added": "68" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "ExpireAtSessionEnd": {
           "type": "boolean"
@@ -1144,6 +1239,11 @@
         },
         "Behavior": {
           "type": "string",
+          "x-compatibility": {
+            "firefox": { "version_added": "95" },
+            "firefox_esr": { "version_added": "91.4.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "oneOf": [
             {
               "const": "accept",
@@ -1259,7 +1359,7 @@
         "firefox_enterprise": { "version_added": "155" }
       },
       "x-restart-required": false,
-      "description": "Configure built-in Data Loss Prevention rules that warn on or block data actions (paste, copy, upload, download, print) per domain.",
+      "description": "Configure built-in Data Loss Prevention (DLP) rules to warn or block on data actions (paste, copy, upload, download, print) per domain.",
       "examples": [
         {
           "FallbackResult": "block",
@@ -1626,10 +1726,13 @@
       "x-compatibility": {
         "firefox": { "version_added": "155" },
         "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "155" }
+        "firefox_enterprise": { "version_added": "155" },
+        "notes": [
+          "Windows support added in 155, macOS support added in 156. Has no effect on Linux."
+        ]
       },
       "x-restart-required": true,
-      "description": "Prevent Firefox from launching automatically when the user logs in, and prevent the user from enabling this setting. This policy currently only has an effect on Windows.",
+      "description": "Prevent Firefox from launching automatically when the user logs in, and prevent the user from enabling this setting.",
       "examples": [true]
     },
     "DisableLocalPolicies": {
@@ -1689,7 +1792,7 @@
       "x-compatibility": {
         "firefox": { "version_added": "60" },
         "firefox_esr": { "version_added": "60" },
-        "firefox_enterprise": { "version_added": "149" }
+        "firefox_enterprise": { "version_added": false }
       },
       "x-restart-required": true,
       "description": "Remove access to private browsing.",
@@ -1853,6 +1956,12 @@
         { "type": "boolean" },
         {
           "type": "string",
+          "x-compatibility": {
+            "firefox": { "version_added": "108" },
+            "firefox_esr": { "version_added": "102.7.0" },
+            "firefox_enterprise": { "version_added": "149" },
+            "notes": "Earlier versions accept only `true` / `false`."
+          },
           "oneOf": [
             {
               "const": "always",
@@ -1888,6 +1997,12 @@
         { "type": "boolean" },
         {
           "type": "string",
+          "x-compatibility": {
+            "firefox": { "version_added": "72" },
+            "firefox_esr": { "version_added": "68.5.0" },
+            "firefox_enterprise": { "version_added": "149" },
+            "notes": "Earlier versions accept only `true` / `false`."
+          },
           "oneOf": [
             {
               "const": "always",
@@ -1940,12 +2055,22 @@
         "ProviderURL": { "$ref": "#/definitions/urlOrEmpty" },
         "ExcludedDomains": {
           "type": "array",
+          "x-compatibility": {
+            "firefox": { "version_added": "75" },
+            "firefox_esr": { "version_added": "68.7.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "items": {
             "type": "string"
           }
         },
         "Fallback": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "124" },
+            "firefox_esr": { "version_added": "128" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "Locked": {
           "type": "boolean"
@@ -2011,23 +2136,53 @@
           "type": "boolean"
         },
         "Cryptomining": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "70" },
+            "firefox_esr": { "version_added": "68.2.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "Fingerprinting": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "70" },
+            "firefox_esr": { "version_added": "68.2.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "EmailTracking": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "112" },
+            "firefox_esr": { "version_added": "115" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "SuspectedFingerprinting": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "142" },
+            "firefox_esr": { "version_added": "140.1.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "Exceptions": {
           "type": "array",
+          "x-compatibility": {
+            "firefox": { "version_added": "73" },
+            "firefox_esr": { "version_added": "68.5.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "items": { "$ref": "#/definitions/origin" }
         },
         "Category": {
           "type": "string",
+          "x-compatibility": {
+            "firefox": { "version_added": "141" },
+            "firefox_esr": { "version_added": "140.1.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "oneOf": [
             {
               "const": "standard",
@@ -2042,10 +2197,20 @@
           ]
         },
         "BaselineExceptions": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "143" },
+            "firefox_esr": { "version_added": "153" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "ConvenienceExceptions": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "143" },
+            "firefox_esr": { "version_added": "153" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         }
       }
     },
@@ -2074,19 +2239,6 @@
           "type": "boolean"
         }
       }
-    },
-
-    "EnterpriseStorageEncryption": {
-      "type": "boolean",
-      "x-category": "Miscellaneous",
-      "x-compatibility": {
-        "firefox": { "version_added": false },
-        "firefox_esr": { "version_added": false },
-        "firefox_enterprise": { "version_added": "149" }
-      },
-      "x-restart-required": true,
-      "description": "Enable an enterprise-managed primary password so that stored credentials and other sensitive profile data are kept encrypted at rest.",
-      "examples": [true]
     },
 
     "ExemptDomainFileTypePairsFromFileTypeDownloadWarnings": {
@@ -2332,7 +2484,11 @@
             "updates_disabled": {
               "type": "boolean"
             },
-            "update_url": { "$ref": "#/definitions/url" },
+            "update_url": {
+              "type": "string",
+              "format": "moz-url",
+              "pattern": "^[^%]*(?:%[0-9A-Fa-f]{2}[^%]*)*$"
+            },
             "default_area": {
               "type": "string",
               "oneOf": [
@@ -2429,13 +2585,23 @@
           "type": "boolean"
         },
         "Weather": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "152" },
+            "firefox_esr": { "version_added": "140.12.0" },
+            "firefox_enterprise": { "version_added": "152" }
+          }
         },
         "TopSites": {
           "type": "boolean"
         },
         "SponsoredTopSites": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "95" },
+            "firefox_esr": { "version_added": "91.4.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "Highlights": {
           "type": "boolean"
@@ -2444,19 +2610,48 @@
           "type": "boolean"
         },
         "Stories": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "141" },
+            "firefox_esr": { "version_added": "140.1.0" },
+            "firefox_enterprise": { "version_added": "149" },
+            "notes": "Replaces the `Pocket` property."
+          }
         },
         "SponsoredPocket": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "95" },
+            "firefox_esr": { "version_added": "91.4.0" },
+            "firefox_enterprise": { "version_added": "149" },
+            "notes": "Replaced by the `SponsoredStories` property in Firefox 141."
+          }
         },
         "SponsoredStories": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "141" },
+            "firefox_esr": { "version_added": "140.1.0" },
+            "firefox_enterprise": { "version_added": "149" },
+            "notes": "Replaces the `SponsoredPocket` property in Firefox 141."
+          }
         },
         "Snippets": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "68", "version_removed": "122" },
+            "firefox_esr": { "version_added": "68", "version_removed": "128" },
+            "firefox_enterprise": { "version_added": false },
+            "notes": "Deprecated in Firefox 122."
+          }
         },
         "Widgets": {
           "type": "object",
+          "x-compatibility": {
+            "firefox": { "version_added": "156" },
+            "firefox_esr": { "version_added": false },
+            "firefox_enterprise": { "version_added": "156" }
+          },
           "properties": {
             "Enabled": {
               "type": "boolean"
@@ -2707,6 +2902,12 @@
         },
         "StartPage": {
           "type": "string",
+          "x-compatibility": {
+            "firefox": { "version_added": "64" },
+            "firefox_esr": { "version_added": "60.4.0" },
+            "firefox_enterprise": { "version_added": "149" },
+            "notes": "The `homepage-locked` value was added in Firefox 78."
+          },
           "oneOf": [
             {
               "const": "none",
@@ -2731,7 +2932,12 @@
           ]
         },
         "NewTabOnRestore": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "153" },
+            "firefox_esr": { "version_added": "153" },
+            "firefox_enterprise": { "version_added": "153" }
+          }
         }
       }
     },
@@ -2984,7 +3190,14 @@
             },
             "type": "array"
           },
-          "favicon": { "$ref": "#/definitions/url" },
+          "favicon": {
+            "$ref": "#/definitions/url",
+            "x-compatibility": {
+              "firefox": { "version_added": "152" },
+              "firefox_esr": { "version_added": "153" },
+              "firefox_enterprise": { "version_added": "152" }
+            }
+          },
           "name": {
             "type": "string"
           },
@@ -2992,7 +3205,10 @@
             "type": "string"
           },
           "url": {
-            "type": "string"
+            "type": "string",
+            "x-compatibility": {
+              "notes": "`javascript:` URLs are accepted from Firefox 153."
+            }
           }
         },
         "type": "object"
@@ -3268,6 +3484,12 @@
         },
         "Autoplay": {
           "type": "object",
+          "x-compatibility": {
+            "firefox": { "version_added": "74" },
+            "firefox_esr": { "version_added": "68.6.0" },
+            "firefox_enterprise": { "version_added": "149" },
+            "notes": "`Default` and `Locked` were added in Firefox 76, Firefox ESR 68.8.0."
+          },
           "properties": {
             "Default": {
               "type": "string",
@@ -3342,6 +3564,11 @@
         },
         "VirtualReality": {
           "type": "object",
+          "x-compatibility": {
+            "firefox": { "version_added": "80" },
+            "firefox_esr": { "version_added": "78.2.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "properties": {
             "Allow": {
               "type": "array",
@@ -3361,6 +3588,11 @@
         },
         "ScreenShare": {
           "type": "object",
+          "x-compatibility": {
+            "firefox": { "version_added": "142" },
+            "firefox_esr": { "version_added": "140.2.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "properties": {
             "Allow": {
               "type": "array",
@@ -3809,10 +4041,20 @@
           "type": "boolean"
         },
         "Locked": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-compatibility": {
+            "firefox": { "version_added": "74" },
+            "firefox_esr": { "version_added": "68.6.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          }
         },
         "Exceptions": {
           "type": "array",
+          "x-compatibility": {
+            "firefox": { "version_added": "154" },
+            "firefox_esr": { "version_added": "153.1.0" },
+            "firefox_enterprise": { "version_added": "154" }
+          },
           "items": { "$ref": "#/definitions/origin" }
         }
       }
@@ -3877,6 +4119,12 @@
       "properties": {
         "Add": {
           "type": "array",
+          "x-compatibility": {
+            "notes": [
+              "`Encoding` is available since Firefox ESR 91.",
+              "`Method` listed `POST`, but `POST` (and `PostData`) supported added in Firefox ESR 68."
+            ]
+          },
           "items": {
             "type": "object",
             "required": ["Name", "URLTemplate"],
@@ -3964,6 +4212,11 @@
         },
         "Remove": {
           "type": "array",
+          "x-compatibility": {
+            "firefox": { "version_added": "139" },
+            "firefox_esr": { "version_added": "60.2.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "items": {
             "type": "string"
           },
@@ -4021,12 +4274,22 @@
       "properties": {
         "Add": {
           "type": "object",
+          "x-compatibility": {
+            "firefox": { "version_added": "114" },
+            "firefox_esr": { "version_added": "102.12.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "patternProperties": {
             "^.*$": { "type": "string" }
           }
         },
         "Delete": {
           "type": "array",
+          "x-compatibility": {
+            "firefox": { "version_added": "114" },
+            "firefox_esr": { "version_added": "102.12.0" },
+            "firefox_enterprise": { "version_added": "149" }
+          },
           "items": {
             "type": "string"
           }
@@ -4176,6 +4439,78 @@
       "examples": [true]
     },
 
+    "SignOut": {
+      "type": "object",
+      "x-category": "Authentication",
+      "x-compatibility": {
+        "firefox": {
+          "version_added": false
+        },
+        "firefox_esr": {
+          "version_added": false
+        },
+        "firefox_enterprise": {
+          "version_added": "158"
+        }
+      },
+      "x-restart-required": false,
+      "description": "Configure sign-out behavior for enterprise users.",
+      "examples": [
+        {
+          "Shutdown": {
+            "Action": "lock"
+          },
+          "Restart": {
+            "Action": "lock"
+          }
+        }
+      ],
+      "properties": {
+        "Shutdown": {
+          "type": "object",
+          "properties": {
+            "Action": {
+              "type": "string",
+              "oneOf": [
+                {
+                  "const": "signout",
+                  "title": "Sign out",
+                  "description": "Sign the session out when the browser shuts down, so the next launch requires a full sign-in. This is what happens when the policy is not set."
+                },
+                {
+                  "const": "lock",
+                  "title": "Lock",
+                  "description": "Lock the session when the browser shuts down, so the next launch only requires the user to unlock."
+                }
+              ]
+            }
+          },
+          "required": ["Action"]
+        },
+        "Restart": {
+          "type": "object",
+          "properties": {
+            "Action": {
+              "type": "string",
+              "oneOf": [
+                {
+                  "const": "signout",
+                  "title": "Sign out",
+                  "description": "Sign the session out when a restart applies a pending update, so the next launch requires a full sign-in. This is what happens when the policy is not set."
+                },
+                {
+                  "const": "lock",
+                  "title": "Lock",
+                  "description": "Lock the session when a restart applies a pending update, so the next launch only requires the user to unlock."
+                }
+              ]
+            }
+          },
+          "required": ["Action"]
+        }
+      }
+    },
+
     "SitePolicies": {
       "type": "array",
       "x-category": "Browsing restrictions",
@@ -4204,6 +4539,12 @@
             "Match": ["*.example.net"],
             "Policies": {
               "HttpsOnly": true
+            }
+          },
+          {
+            "Match": ["*.example.com"],
+            "Policies": {
+              "Container": { "id": "work" }
             }
           }
         ]
@@ -4234,6 +4575,19 @@
               },
               "DisableServiceWorkers": {
                 "type": "boolean"
+              },
+              "Container": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ephemeral": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["id"]
               }
             }
           }
@@ -4560,6 +4914,9 @@
       "properties": {
         "Block": {
           "type": "array",
+          "x-compatibility": {
+            "notes": "`file:` URLs are accepted from Firefox 83 / Firefox ESR 78.5."
+          },
           "items": {
             "type": "string"
           }

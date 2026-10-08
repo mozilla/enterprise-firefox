@@ -49,6 +49,11 @@ async function reset(win) {
 }
 
 add_setup(async function () {
+  const requestUpdateCheck = RelaunchEnforcer._requestUpdateCheck;
+  RelaunchEnforcer._requestUpdateCheck = () => {};
+  registerCleanupFunction(() => {
+    RelaunchEnforcer._requestUpdateCheck = requestUpdateCheck;
+  });
   // Both delegates are resolved from their components.conf categories on first
   // use, so asking is what registers them.
   Assert.strictEqual(

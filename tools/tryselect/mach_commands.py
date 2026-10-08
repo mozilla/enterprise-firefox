@@ -13,6 +13,7 @@ from mach.decorators import Command, SubCommand
 from mach.util import get_state_dir
 
 from tryselect import TRYSELECT_METRICS_PATH
+from tryselect.util.project import is_enterprise_tree
 
 CONFIG_ENVIRONMENT_NOT_FOUND = """
 No config environment detected. This means we are unable to properly
@@ -22,6 +23,18 @@ detect test files in the specified paths or tags. Please run:
 
 and try again.
 """.lstrip()
+
+TRY_AUTO_DISABLED = """
+error: `mach try auto` is disabled on Enterprise trees.
+
+Tasks are selected by bugbug, which has no training data for these trees: it
+schedules far too many tasks and some decision tasks fail on missing scopes.
+See bug 2068074.
+
+Use an explicit selector such as `mach try fuzzy` instead.
+
+A good default fuzzy selector would be "'marionette-enterprise".
+""".strip()
 
 
 class get_parser:
@@ -208,9 +221,9 @@ def try_default(command_context, argv=None, **kwargs):
     that provides its own set of command line arguments and are
     listed below.
 
-    If no subcommand is specified, the `auto` selector is run by
-    default. Run |mach try auto --help| for more information on
-    scheduling with the `auto` selector.
+    If no subcommand is specified, the `fuzzy` selector is run by
+    default. Run |mach try fuzzy --help| for more information on
+    scheduling with the `fuzzy` selector.
     """
     init(command_context)
     subcommand = command_context._mach_context.handler.subcommand
@@ -379,13 +392,16 @@ def try_chooser(command_context, **kwargs):
     "auto",
     description="Automatically determine which tasks to run. This runs the same "
     "set of tasks that would be run on autoland. This "
-    "selector is EXPERIMENTAL.",
+    "selector is EXPERIMENTAL, and disabled on Enterprise trees (bug 2068074).",
     parser=get_parser("auto"),
     virtualenv_name="try",
     metrics_path=TRYSELECT_METRICS_PATH,
 )
 def try_auto(command_context, **kwargs):
     init(command_context)
+    if is_enterprise_tree(command_context.topsrcdir):
+        print(TRY_AUTO_DISABLED)
+        return 1
     return run(command_context, **kwargs)
 
 

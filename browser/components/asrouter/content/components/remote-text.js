@@ -15,6 +15,7 @@
       super();
 
       this._content = null;
+      this._translated = Promise.resolve();
     }
 
     get fluentAttributeValues() {
@@ -42,13 +43,16 @@
           this.getAttribute("fluent-remote-id"),
           this.fluentAttributeValues
         );
-        RemoteL10n.l10n.translateFragment(this._content);
+        // RemoteL10n does not observe this shadow root. Queue translations to
+        // preserve render order, and report failures.
+        this._translated = this._translated
+          .then(() => RemoteL10n.l10n.translateFragment(this._content))
+          .catch(console.error);
       }
     }
 
     /**
-     * Puts a new value in one Fluent variable of a rendered message, leaving the
-     * surrounding element in place.
+     * Updates a Fluent variable and rerenders the message.
      *
      * @param {string} name - The variable name, without the attribute prefix.
      * @param {string|number} value - The value to substitute.
@@ -67,8 +71,9 @@
     }
 
     connectedCallback() {
+      // The shadow root retains updates made while disconnected. Translating
+      // again may fail if the message id is no longer available.
       if (this.shadowRoot) {
-        this.render();
         return;
       }
 

@@ -8,6 +8,7 @@
 #include "mozilla/Logging.h"
 #include "mozilla/Components.h"
 #include "mozilla/HelperMacros.h"
+#include "mozilla/Preferences.h"
 #if defined(MOZ_ENTERPRISE)
 #  include "mozilla/Printf.h"
 #  ifdef MOZ_BACKGROUNDTASKS
@@ -127,8 +128,7 @@ NS_IMETHODIMP nsReadConfig::Observe(nsISupports* aSubject, const char* aTopic,
       }
       nsCOMPtr<nsIAppStartup> appStartup = components::AppStartup::Service();
       if (appStartup) {
-        bool userAllowedQuit = true;
-        appStartup->Quit(nsIAppStartup::eForceQuit, 0, &userAllowedQuit);
+        appStartup->Quit(nsIAppStartup::eForceQuit, 0);
       }
 #else
       // Don't show error alerts if the sandbox is enabled, just show
@@ -145,8 +145,7 @@ NS_IMETHODIMP nsReadConfig::Observe(nsISupports* aSubject, const char* aTopic,
           nsCOMPtr<nsIAppStartup> appStartup =
               components::AppStartup::Service();
           if (appStartup) {
-            bool userAllowedQuit = true;
-            appStartup->Quit(nsIAppStartup::eAttemptQuit, 0, &userAllowedQuit);
+            appStartup->Quit(nsIAppStartup::eAttemptQuit, 0);
           }
         }
       }
@@ -160,6 +159,21 @@ NS_IMETHODIMP nsReadConfig::Observe(nsISupports* aSubject, const char* aTopic,
  * This is the blocklist for known bad autoconfig files.
  */
 static const char* gBlockedConfigs[] = {"dsengine.cfg"};
+
+/**
+ * AutoConfig reads its inputs from the installation, not from the profile, so
+ * the user values of these prefs are cleared before the .cfg is evaluated.
+ * prefs.js and user.js have already been parsed at this point (see the
+ * InitializeUserPrefs, UpdateCurrentProfile, InitializeJSContext and
+ * FinishInitializingUserPrefs call chain in XREMain::XRE_mainRun). The .cfg
+ * can still set them with pref().
+ */
+static const char* const gAutoConfigInputPrefs[] = {
+    "general.config.filename",      "general.config.vendor",
+    "autoadmin.global_config_url",  "autoadmin.offline_failover",
+    "autoadmin.append_emailaddr",   "autoadmin.refresh_interval",
+    "autoadmin.failover_to_cached",
+};
 
 nsresult nsReadConfig::readConfigFile() {
   nsresult rv = NS_OK;
@@ -190,6 +204,10 @@ nsresult nsReadConfig::readConfigFile() {
 
   MOZ_LOG(MCD, LogLevel::Debug,
           ("general.config.filename = %s\n", lockFileName.get()));
+
+  for (const char* prefName : gAutoConfigInputPrefs) {
+    Preferences::ClearUser(prefName);
+  }
 
   for (size_t index = 0, len = std::size(gBlockedConfigs); index < len;
        ++index) {

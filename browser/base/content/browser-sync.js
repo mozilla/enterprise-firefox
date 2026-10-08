@@ -38,6 +38,9 @@ var { DEVICE_TYPE_MOBILE, DEVICE_TYPE_TABLET } = ChromeUtils.importESModule(
 
 const MIN_STATUS_ANIMATION_DURATION = 1600;
 
+const APP_MENU_SIGN_IN_PROMO_DISMISSED_PREF =
+  "identity.fxaccounts.toolbar.appMenuSignInPromo.dismissed";
+
 // Campaign params shared by every product CTA in the Mozilla account toolbar
 // panel. The per-variant utm_content is added by gSync._ctaURL.
 const FXA_CTA_UTM_PARAMS = {
@@ -805,6 +808,7 @@ this.FxAMenuDeviceList = class FxAMenuDeviceList {
     viewAllBtn.onclick = () => {
       CustomizableUI.hidePanelForNode(viewAllBtn);
       SidebarController.show("viewTabsSidebar");
+      gSync.emitFxaToolbarTelemetry("view_all_synced_tabs", viewAllBtn);
     };
   }
 
@@ -1184,6 +1188,7 @@ const AVATAR_MENU_ONLY_PROFILES_EVENT_TYPES = new Set([
 
 var gSync = {
   _initialized: false,
+  _lastUIState: null,
   _isCurrentlySyncing: false,
   // The last sync start time. Used to calculate the leftover animation time
   // once syncing completes (bug 1239042).
@@ -1261,6 +1266,18 @@ var gSync = {
     return this.getSendTabTargets().length === 0;
   },
 
+  // The Sync policy disallows the sync feature to pin sync's on/off state, not
+  // to make sync unavailable, so only the UI that changes it is a dead end.
+  get isSyncStateLocked() {
+    return AppConstants.MOZ_ENTERPRISE && !Services.policies.isAllowed("sync");
+  },
+
+  get isSyncTabsLocked() {
+    return (
+      AppConstants.MOZ_ENTERPRISE && !Services.policies.isAllowed("sync-tabs")
+    );
+  },
+
   // Returns the call to action ("signin", "turnonsync", or "connectdevice") for
   // showing the remote tabs promo, or null when the promo should be hidden.
   // Disabled `requiredEngines` also select "turnonsync" when provided.
@@ -1272,14 +1289,14 @@ var gSync = {
     switch (state.status) {
       case UIState.STATUS_NOT_CONFIGURED:
       case UIState.STATUS_NOT_VERIFIED:
-        return "signin";
+        return this.isSyncStateLocked ? null : "signin";
       case UIState.STATUS_SIGNED_IN: {
         const engineDisabled = requiredEngines.some(
           engine =>
             !Services.prefs.getBoolPref(`services.sync.engine.${engine}`, true)
         );
         if (!state.syncEnabled || engineDisabled) {
-          return "turnonsync";
+          return this.isSyncStateLocked ? null : "turnonsync";
         }
         // A null list means it's still loading, so defer to the existing
         // synced-tabs menuitem rather than promoting "connect a device". The
@@ -1370,6 +1387,13 @@ var gSync = {
       this,
       "FXA_CTA_MENU_ENABLED",
       "identity.fxaccounts.toolbar.pxiToolbarEnabled"
+    );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "APP_MENU_SIGN_IN_PROMO_DISMISSED",
+      APP_MENU_SIGN_IN_PROMO_DISMISSED_PREF,
+      false,
+      () => this.updateAppMenuSignInPromo()
     );
   },
 
@@ -1483,11 +1507,17 @@ var gSync = {
 
     EnsureFxAccountsWebChannel();
 
-    // Sign-in promo shown in the app menu (main view) when signed out.
+    // Sign-in promo shown in the app menu (main view) when signed out, unless
+    // the user dismissed it.
     PanelMultiView.getViewNode(
       document,
-      "appMenu-fxa-sign-in-promo-button"
+      "appMenu-fxa-sign-in-promo-link"
     ).addEventListener("click", this);
+    PanelMultiView.getViewNode(
+      document,
+      "appMenu-fxa-sign-in-promo-dismiss-button"
+    ).addEventListener("click", this);
+    this.updateAppMenuSignInPromo();
 
     // Sign-in button shown in the app menu (main view) after signing out.
     PanelMultiView.getViewNode(
@@ -1623,6 +1653,23 @@ var gSync = {
     if (NimbusFeatures.fxaAppMenuItem.getVariable("ctaCopyVariant")) {
       NimbusFeatures.fxaAppMenuItem.recordExposureEvent();
     }
+  },
+
+  /**
+   * Reflects whether the app menu's sign-in promo has been dismissed onto the
+   * root element, which is how CSS knows to show the compact sign-in row in its
+   * place. The dismissal is permanent, and it is shared by every window, so the
+   * pref getter re-runs this when another window dismisses the promo.
+   */
+  updateAppMenuSignInPromo() {
+    document.documentElement.toggleAttribute(
+      "fxa-sign-in-promo-dismissed",
+      this.APP_MENU_SIGN_IN_PROMO_DISMISSED
+    );
+  },
+
+  dismissAppMenuSignInPromo() {
+    Services.prefs.setBoolPref(APP_MENU_SIGN_IN_PROMO_DISMISSED_PREF, true);
   },
 
   onFxAPanelViewShowing(panelview) {
@@ -1884,9 +1931,6 @@ var gSync = {
 
   onCommand(button) {
     switch (button.id) {
-      case "PanelUI-fxa-menu-setup-sync-button":
-        this.openSyncSetup("sync_settings", button);
-        break;
       case "PanelUI-fxa-menu-get-firefox-mobile":
         this.emitFxaToolbarTelemetry("get_firefox_for_mobile_cta", button);
         this.openGetFirefoxMobile();
@@ -1921,11 +1965,14 @@ var gSync = {
       case "PanelUI-fxa-menu-sign-in-promo-button":
         this.openFxAEmailFirstPageFromFxaMenu(button);
         break;
-      case "appMenu-fxa-sign-in-promo-button":
+      case "appMenu-fxa-sign-in-promo-link":
       case "appMenu-fxa-signed-out-sign-in-button":
         // Sign-in from the app menu: go to the sign-in page, close the menu.
         this.openFxAEmailFirstPageFromFxaMenu(button);
         PanelUI.hide();
+        break;
+      case "appMenu-fxa-sign-in-promo-dismiss-button":
+        this.dismissAppMenuSignInPromo();
         break;
       case "PanelUI-fxa-menu-account-signout-button":
         this.disconnect();
@@ -2189,10 +2236,6 @@ var gSync = {
       document,
       "PanelUI-fxa-menu-manage-account-separator"
     );
-    const syncSetupEl = PanelMultiView.getViewNode(
-      document,
-      "PanelUI-fxa-menu-setup-sync-container"
-    );
     const syncStatusBtn = PanelMultiView.getViewNode(
       document,
       "PanelUI-fxa-menu-sync-status-button"
@@ -2200,17 +2243,12 @@ var gSync = {
     const fxaToolbarMenuButton = document.getElementById(
       "fxa-toolbar-menu-button"
     );
-    const syncSetupSeparator = PanelMultiView.getViewNode(
-      document,
-      "PanelUI-set-up-sync-separator"
-    );
 
     let fxaAvatarLabelEl = document.getElementById("fxa-avatar-label");
 
     // Reset FxA/Sync UI elements to default, which is signed out
     syncStatusBtn.hidden = true;
     signedInContainer.prepend(syncStatusBtn);
-    syncSetupEl.setAttribute("hidden", "true");
     signedInContainer.hidden = false;
     manageAccountButtonEl.hidden = true;
     manageAccountSeparator.hidden = true;
@@ -2325,7 +2363,6 @@ var gSync = {
         manageAccountButtonEl.hidden = false;
         signOutSeparator.hidden = false;
         signedInContainer.hidden = false;
-        syncSetupSeparator.setAttribute("hidden", "true");
 
         // Reposition profiles elements
         manageAccountSeparator.remove();
@@ -2646,38 +2683,59 @@ var gSync = {
     appMenuStatus.removeAttribute("tooltiptext");
   },
 
+  /**
+   * Re-gates the Tools menu sync items when the menu opens. The Sync policy can
+   * be applied or removed while the window is open, and nothing else recomputes
+   * these items when it changes.
+   */
+  refreshSyncMenuItems() {
+    // Windows we never init in, like the macOS hidden window, have no app menu
+    // views for updateState to touch; when FxA is disabled onFxaDisabled() has
+    // already hidden these items.
+    if (!this._initialized) {
+      return;
+    }
+    // UIState.get() returns its default until the first refresh resolves.
+    this.updateState(this._lastUIState ?? UIState.get());
+  },
+
   updateState(state) {
-    for (let [shown, menuId, boxId] of [
+    this._lastUIState = state;
+    for (let [shown, menuId, boxId, changesSyncState] of [
       [
         state.status == UIState.STATUS_NOT_CONFIGURED,
         "sync-setup",
         "PanelUI-remotetabs-setupsync",
+        true,
       ],
       [
         state.status == UIState.STATUS_SIGNED_IN && !state.syncEnabled,
         "sync-enable",
         "PanelUI-remotetabs-syncdisabled",
+        true,
       ],
       [
         state.status == UIState.STATUS_LOGIN_FAILED,
         "sync-reauthitem",
         "PanelUI-remotetabs-reauthsync",
+        false,
       ],
       [
         state.status == UIState.STATUS_NOT_VERIFIED,
         "sync-unverifieditem",
         "PanelUI-remotetabs-unverified",
+        false,
       ],
       [
         state.status == UIState.STATUS_SIGNED_IN && state.syncEnabled,
         "sync-syncnowitem",
         "PanelUI-remotetabs-main",
+        false,
       ],
     ]) {
-      document.getElementById(menuId).hidden = PanelMultiView.getViewNode(
-        document,
-        boxId
-      ).hidden = !shown;
+      document.getElementById(menuId).hidden =
+        !shown || (changesSyncState && this.isSyncStateLocked);
+      PanelMultiView.getViewNode(document, boxId).hidden = !shown;
     }
   },
 
@@ -2778,13 +2836,17 @@ var gSync = {
     if (sourceElement.id == "fxa-toolbar-menu-button") {
       return "fxa_avatar_menu";
     }
-    // ... or is in the panel shown by that button (PanelUI-fxa-menu) or one
-    // of its sibling Send Tab panelviews (PanelUI-fxa-menu-sendtab-*).
+    // ... or is in the panel shown by that button (PanelUI-fxa-menu). Its
+    // subviews are siblings of that panel, so they have to be named here too:
+    // the Send Tab panelviews (PanelUI-fxa-menu-sendtab-*) and the per-device recent tabs
+    // "view all tabs" button (#PanelUI-fxa-device-view-all-tabs).
     // PanelUI-profiles is also found in the app menu, but reaching it here
     // means it came from the avatar menu. Profile actions taken in the app menu
     // would have already returned "fxa_app_menu" above.
     if (
-      sourceElement.closest?.('[id^="PanelUI-fxa-menu"], #PanelUI-profiles')
+      sourceElement.closest?.(
+        '[id^="PanelUI-fxa-menu"], #PanelUI-profiles, #PanelUI-fxa-device-view-all-tabs'
+      )
     ) {
       return "fxa_avatar_menu";
     }
@@ -3715,7 +3777,7 @@ var gSync = {
   },
 
   openPrefs(entryPoint = "syncbutton", origin = undefined, urlParams = {}) {
-    window.openPreferences("paneSync", {
+    window.openPreferences("paneSync-sync", {
       origin,
       urlParams: { ...urlParams, entrypoint: entryPoint },
     });
@@ -3781,7 +3843,7 @@ var gSync = {
   },
 
   enableSync() {
-    openTrustedLinkIn("about:preferences#sync", "tab");
+    openTrustedLinkIn("about:preferences#sync-sync", "tab");
   },
 
   async openPairDevice(sourceElement, entryPoint) {
@@ -3940,6 +4002,10 @@ var gSync = {
 
   onFxaDisabled() {
     document.documentElement.setAttribute("fxadisabled", true);
+    // init() returns here before updateAllUI() can run, so correct any startup
+    // guess (see updateFxaToolbarMenu) that assumed a signed-in state from a
+    // persisted device name.
+    document.documentElement.setAttribute("fxastatus", "not_configured");
 
     const toHide = [...document.querySelectorAll(".sync-ui-item")];
     for (const item of toHide) {

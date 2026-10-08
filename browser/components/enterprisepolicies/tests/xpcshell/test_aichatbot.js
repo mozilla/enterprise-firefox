@@ -4,7 +4,7 @@
 "use strict";
 
 const { CHAT_PROVIDERS_DEFAULT } = ChromeUtils.importESModule(
-  "resource:///modules/GenAI.sys.mjs"
+  "moz-src:///browser/components/genai/GenAI.sys.mjs"
 );
 
 add_task(async function test_aichatbot_custom_provider_added() {

@@ -29,7 +29,25 @@ disabled = "Bug 1996558: scaffolding for the browsing-child encryption-mismatch 
 
 ["test_felt_browser_external_link.py"]
 
+["test_felt_browser_external_link_focus.py"]
+run-if = [
+  "os == 'win'",
+]
+
 ["test_felt_browser_fxa.py"]
+
+["test_felt_browser_launcher_process.py"]
+run-if = [
+  "os == 'win'",
+]
+skip-if = [
+  "asan",
+  "os == 'win' && arch == 'aarch64'",
+]
+
+["test_felt_browser_shutdown_lock.py"]
+
+["test_felt_restart_lock.py"]
 
 ["test_felt_browser_new_window_from_cli.py"]
 
@@ -57,7 +75,11 @@ run-if = [
 
 ["test_felt_browser_relaunch_deadline_withdrawn.py"]
 
+["test_felt_browser_relaunch_update_check.py"]
+
 ["test_felt_browser_safe_mode.py"]
+
+["test_felt_browser_sdr_logout.py"]
 
 ["test_felt_browser_shutdown_crash_exit.py"]
 
@@ -73,6 +95,10 @@ run-if = [
 ]
 
 ["test_felt_browser_starts.py"]
+
+["test_felt_browser_startup_policies.py"]
+
+["test_felt_browser_startup_policies_unset.py"]
 
 ["test_felt_browser_token_refresh.py"]
 

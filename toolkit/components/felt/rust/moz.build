@@ -20,10 +20,16 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
     LOCAL_INCLUDES += [
         "/widget/gtk",
     ]
+elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
+    SOURCES += [
+        "FeltDiskEncryptionWin.cpp",
+        "FeltWidgetUtilsWin.cpp",
+    ]
 
 FINAL_LIBRARY = "xul"
 
 XPIDL_SOURCES += [
+    "nsIDiskEncryptionChecker.idl",
     "nsIEdrChecker.idl",
     "nsIFelt.idl",
     "nsIFeltRestartForced.idl",

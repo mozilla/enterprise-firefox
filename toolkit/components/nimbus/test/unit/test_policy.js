@@ -8,6 +8,11 @@ const { EnterprisePolicyTesting } = ChromeUtils.importESModule(
   "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
 );
 
+// DisableFirefoxStudies and UserMessaging are unsupported in enterprise builds.
+//
+// Returns a fresh object per call: add_task() mutates the one it is given.
+const skipEnterprise = () => ({ skip_if: () => AppConstants.MOZ_ENTERPRISE });
+
 const RECIPES = [
   NimbusTestUtils.factories.recipe.withFeatureConfig("experiment", {
     featureId: "no-feature-firefox-desktop",
@@ -128,7 +133,7 @@ async function doTest({
   await cleanup();
 }
 
-add_task(async function testDisableStudiesPolicy() {
+add_task(skipEnterprise(), async function testDisableStudiesPolicy() {
   await doTest({
     policies: { DisableFirefoxStudies: true },
     labsEnabled: true,
@@ -139,7 +144,7 @@ add_task(async function testDisableStudiesPolicy() {
   });
 });
 
-add_task(async function testDisableLabsPolicy() {
+add_task(skipEnterprise(), async function testDisableLabsPolicy() {
   await doTest({
     policies: { UserMessaging: { FirefoxLabs: false } },
     labsEnabled: false,
@@ -150,7 +155,7 @@ add_task(async function testDisableLabsPolicy() {
   });
 });
 
-add_task(async function testNimbusDisabled() {
+add_task(skipEnterprise(), async function testNimbusDisabled() {
   await doTest({
     policies: {
       DisableRemoteImprovements: true,
@@ -165,17 +170,20 @@ add_task(async function testNimbusDisabled() {
   });
 });
 
-add_task(async function testDisableLabsPolicyCausesUnenrollments() {
-  await doTest({
-    policies: { UserMessaging: { FirefoxLabs: false } },
-    labsEnabled: false,
-    rolloutsEnabled: true,
-    studiesEnabled: true,
-    expectedEnrollments: ["experiment", "rollout"],
-    existingEnrollments: ["optin"],
-    expectedOptIns: [],
-  });
-});
+add_task(
+  skipEnterprise(),
+  async function testDisableLabsPolicyCausesUnenrollments() {
+    await doTest({
+      policies: { UserMessaging: { FirefoxLabs: false } },
+      labsEnabled: false,
+      rolloutsEnabled: true,
+      studiesEnabled: true,
+      expectedEnrollments: ["experiment", "rollout"],
+      existingEnrollments: ["optin"],
+      expectedOptIns: [],
+    });
+  }
+);
 
 add_task(async function testDisableRolloutPolicyCausesUnenrollments() {
   await doTest({

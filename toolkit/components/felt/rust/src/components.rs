@@ -21,7 +21,6 @@ use xpcom::{xpcom_method, RefPtr};
 use log::{error, trace};
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
-#[cfg(target_os = "linux")]
 use crate::utils;
 use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
 
@@ -266,6 +265,15 @@ impl FeltXPCOM {
         self.send(FeltMessage::PrimarySecret(hex)).to_result()
     }
 
+    fn RequestUpdateCheck(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::RequestUpdateCheck()");
+        let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
+        match &*guard {
+            Some(client) => client.request_update_check(),
+            None => NS_ERROR_NOT_CONNECTED,
+        }
+    }
+
     fn RefreshTokens(&self) -> nserror::nsresult {
         trace!("FeltXPCOM::RefreshTokens");
         let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
@@ -324,6 +332,9 @@ impl FeltXPCOM {
             disposition,
             focus_hint
         );
+        // Not knowing the browser pid means the handshake is broken, so we
+        // don't send the URL.
+        utils::allow_browser_foreground()?;
         self.send(FeltMessage::OpenURL((url, disposition, focus_hint)))
             .to_result()
     }
@@ -362,6 +373,18 @@ impl FeltXPCOM {
                 NS_ERROR_FAILURE
             }
         }
+    }
+
+    fn SetShutdownLockIntent(&self, lock_intent: bool) -> nserror::nsresult {
+        trace!("FeltXPCOM::SetShutdownLockIntent({})", lock_intent);
+        crate::SHUTDOWN_LOCK_INTENT.store(lock_intent, Ordering::Relaxed);
+        NS_OK
+    }
+
+    fn SetRestartLockIntent(&self, lock_intent: bool) -> nserror::nsresult {
+        trace!("FeltXPCOM::SetRestartLockIntent({})", lock_intent);
+        crate::RESTART_LOCK_INTENT.store(lock_intent, Ordering::Relaxed);
+        NS_OK
     }
 
     fn IpcChannel(&self) -> nserror::nsresult {
@@ -435,20 +458,30 @@ impl FeltXPCOM {
                 if let Some(rx) = rx_clone {
                     loop {
                         match rx.recv() {
-                            Ok(FeltMessage::Restarting) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): Restarting");
-                                crate::utils::notify_observers("felt-firefox-restarting".to_string());
+                            Ok(FeltMessage::Restarting(lock_intent)) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Restarting (lock_intent={})", lock_intent);
+                                crate::utils::BROWSER_PID.store(0, Ordering::Relaxed);
+                                crate::utils::notify_observers_with_payload(
+                                    "felt-firefox-restarting".to_string(),
+                                    Some(lock_intent.to_string()),
+                                );
                             },
-                            Ok(FeltMessage::Exiting) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): Exiting");
-                                crate::utils::notify_observers("felt-firefox-exiting".to_string());
+                            Ok(FeltMessage::Exiting(lock_intent)) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Exiting, lock_intent={}", lock_intent);
+                                crate::utils::BROWSER_PID.store(0, Ordering::Relaxed);
+                                crate::utils::notify_observers_with_payload(
+                                    "felt-firefox-exiting".to_string(),
+                                    Some(lock_intent.to_string()),
+                                );
                             },
-                            Ok(FeltMessage::FeltReady) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): FeltReady");
+                            Ok(FeltMessage::FeltReady(browser_pid)) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): FeltReady pid={}", browser_pid);
+                                crate::utils::BROWSER_PID.store(browser_pid, Ordering::Relaxed);
                                 crate::utils::notify_observers("felt-ready".to_string());
                             },
                             Ok(FeltMessage::LogoutShutdown) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for logout");
+                                crate::utils::BROWSER_PID.store(0, Ordering::Relaxed);
                                 crate::utils::notify_observers("felt-firefox-logout".to_string());
                             }
                             Ok(FeltMessage::AccessToken((access_token, expires_at))) => {
@@ -459,12 +492,16 @@ impl FeltXPCOM {
                                 }).to_string();
                                 crate::utils::notify_observers_with_payload("felt-firefox-tokens".to_string(), Some(payload));
                             },
+                            Ok(FeltMessage::CheckForUpdates) => {
+                                crate::utils::notify_observers("felt-firefox-check-for-updates".to_string());
+                            },
                             Ok(FeltMessage::RefreshTokens) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Browser is requesting token refresh");
                                 crate::utils::notify_observers("felt-firefox-refresh-tokens".to_string());
                             },
                             Err(ipc_channel::IpcError::Disconnected) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): DISCONNECTED");
+                                crate::utils::BROWSER_PID.store(0, Ordering::Relaxed);
                                 break;
                             },
                             Err(ipc_channel::IpcError::SerializationError(deserializeErr)) => {

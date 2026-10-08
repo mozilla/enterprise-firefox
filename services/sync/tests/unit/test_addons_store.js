@@ -811,8 +811,16 @@ add_task(
     _("Ensure sync can't disable or uninstall an add-on locked by policy.");
 
     let addon = await installAddon(XPIS.test_addon1, reconciler);
+    // The legacy Extensions policy is unsupported in enterprise builds; there
+    // a force_installed ExtensionSettings entry is what locks an add-on.
     await EnterprisePolicyTesting.setupPolicyEngineWithJson({
-      policies: { Extensions: { Locked: [ID1] } },
+      policies: AppConstants.MOZ_ENTERPRISE
+        ? {
+            ExtensionSettings: {
+              [ID1]: { installation_mode: "force_installed" },
+            },
+          }
+        : { Extensions: { Locked: [ID1] } },
     });
 
     let countTelemetry = new SyncedRecordsTelemetry();

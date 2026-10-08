@@ -49,12 +49,8 @@ export const BuiltInThemeConfig = new Map([
 ]);
 
 if (AppConstants.MOZ_ENTERPRISE) {
-  BuiltInThemeConfig.set("firefox-enterprise-light@mozilla.org", {
+  BuiltInThemeConfig.set("firefox-enterprise-auto@mozilla.org", {
     version: "1.0.0",
-    path: "resource://builtin-themes/enterprise-light/",
-  });
-  BuiltInThemeConfig.set("firefox-enterprise-dark@mozilla.org", {
-    version: "1.0.0",
-    path: "resource://builtin-themes/enterprise-dark/",
+    path: "resource://builtin-themes/enterprise-auto/",
   });
 }

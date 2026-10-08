@@ -30,6 +30,8 @@ task-defaults:
             in-tree: "partner-repack"
         chain-of-trust: true
         max-run-time: 7200
+        env:
+            XZ_OPT: "-T0 --block-size=16MiB"
     shipping-product: firefox-enterprise
     shipping-phase: build
     run:

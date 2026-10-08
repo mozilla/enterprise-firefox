@@ -35,6 +35,19 @@ function run_test() {
   // Initialize FOG for glean tests
   Services.fog.initializeFOG();
 
+  // Generic enterprise builds only have a placeholder console address, so give
+  // the crashreporter subprocess a resolvable (if unreachable) endpoint.
+  const CONSOLE_URL_ENV = "MOZ_ENTERPRISE_CONSOLE_URL";
+  if (AppConstants.MOZ_ENTERPRISE && !Services.env.exists(CONSOLE_URL_ENV)) {
+    Services.env.set(CONSOLE_URL_ENV, "http://127.0.0.1:1");
+
+    registerCleanupFunction(() => {
+      // An empty value reads as unset to both nsIEnvironment and the
+      // crashreporter.
+      Services.env.set(CONSOLE_URL_ENV, "");
+    });
+  }
+
   // We need a UAppData directory for the glean store.
   //
   // We use `do_test_pending()`/`do_test_finished()` because `run_test()` must

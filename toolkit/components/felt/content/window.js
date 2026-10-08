@@ -11,6 +11,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CaptivePortal: "resource://gre/modules/enterprise/CaptivePortal.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
+  FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
   FeltErrorReport: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
   ERROR_SOURCE: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
@@ -135,6 +136,25 @@ async function connectToConsole(email) {
     return;
   }
 
+  const browser = document.getElementById("browser");
+
+  try {
+    // On success tryUnlock has already committed the resumed tokens and started
+    // Firefox through the parent actor, so return and skip the SSO flow below.
+    if (await lazy.FeltLocking.tryUnlock(email, browser)) {
+      return;
+    }
+  } catch (err) {
+    if (attempt !== signInGeneration) {
+      // Superseded (abandoned on a portal-clear retry); drop silently.
+      return;
+    }
+    // Surface a failed launch instead of leaving the window stuck in-flight.
+    lazy.log.error(`Unlock failed: ${err}`);
+    resetToLoginPageWithError("felt-browser-error-connection");
+    return;
+  }
+
   const ssoLoginURI = await lazy.ConsoleClient.constructSsoLoginURI(email);
 
   if (attempt !== signInGeneration) {
@@ -142,7 +162,6 @@ async function connectToConsole(email) {
     return;
   }
 
-  const browser = document.getElementById("browser");
   browser.setAttribute("maychangeremoteness", "true");
   browser.setAttribute(
     "remoteType",
@@ -304,16 +323,25 @@ async function connectToConsole(email) {
 async function listenFormEmailSubmission() {
   const signInBtn = document.getElementById("felt-form__sign-in-btn");
   const emailInput = document.getElementById("felt-form__email");
+  const unlockHint = document.querySelector(".felt-login__unlock-hint");
 
   const lastUsedUserEmail = lazy.FeltStorage.getLastSignedInUser();
   if (lastUsedUserEmail) {
     emailInput.value = lastUsedUserEmail;
-    signInBtn.disabled = false;
   }
 
-  emailInput.addEventListener("input", () => {
-    signInBtn.disabled = emailInput.value.trim() === "";
-  });
+  const onEmailInput = () => {
+    const email = emailInput.value.trim();
+    signInBtn.disabled = email === "";
+    const locked = lazy.FeltStorage.hasLockingToken(email);
+    signInBtn.setAttribute(
+      "data-l10n-id",
+      locked ? "felt-sso-unlock-btn" : "felt-sso-continue-btn"
+    );
+    unlockHint.classList.toggle("is-hidden", !locked);
+  };
+  emailInput.addEventListener("input", onEmailInput);
+  onEmailInput();
 
   // <moz-button> does not trigger the native "submit" event on <form>
   // so we manually handle submission on button click and when Enter is pressed

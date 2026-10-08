@@ -63,6 +63,7 @@ codespell:
         - uriloader/docs/
         - xpcom/docs/
     exclude:
+        - browser/branding/enterprise/content/felt-wordmark.svg
         - devtools/docs/contributor/tools/storage/
         - docs/mots/index.*
         - remote/test/puppeteer/

@@ -30,8 +30,16 @@ char* RemotePKCS11PasswordPrompt(PK11SlotInfo* slot, PRBool _retry, void* ctx) {
 }
 
 nsresult ConfigureNSSInPKCS11UtilityProcess(const nsACString& profilePath) {
+  // Mirrors the parent process (see InitializeNSSWithFallbacks), minus its
+  // safe-mode term: PKCS11ModuleDB does not start this process in safe mode.
+  PKCS11DBConfig profileModuleDBConfig =
+#if defined(MOZ_DISABLE_PROFILE_PKCS11_MODULES)
+      PKCS11DBConfig::DoNotLoadModules;
+#else
+      PKCS11DBConfig::LoadModules;
+#endif
   if (InitializeNSS(profilePath, NSSDBConfig::ReadWrite,
-                    PKCS11DBConfig::LoadModules) != SECSuccess) {
+                    profileModuleDBConfig) != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
 

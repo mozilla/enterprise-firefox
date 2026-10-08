@@ -437,6 +437,12 @@ Section "Uninstall"
   ExecWait '"$INSTDIR\default-browser-agent.exe" uninstall $AppUserModelID'
   ${RemoveDefaultBrowserAgentShortcut}
 
+!ifdef MOZ_PUSH_NOTIFICATION_HELPER
+  Push $0
+  ${SignalPushNotificationHelperStop} $0
+  Pop $0
+!endif
+
   ; Delete the app exe to prevent launching the app while we are uninstalling.
   ClearErrors
   ${DeleteFile} "$INSTDIR\${FileMainEXE}"

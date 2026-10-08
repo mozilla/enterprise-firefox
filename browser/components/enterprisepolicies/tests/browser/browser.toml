@@ -14,7 +14,11 @@ support-files = [
   "extensionsettings.html",
   "301.sjs",
   "302.sjs",
+  "302exception.sjs",
   "404.sjs",
+  "cached301.sjs",
+  "websitefilter_sw.html",
+  "websitefilter_sw.js",
 ]
 
 ["browser_policies_about_policies.js"]
@@ -51,6 +55,7 @@ run-if = [
 
 ["browser_policy_bookmarks.js"]
 support-files = "favicon.svg"
+skip-if = ["enterprise"] # Applies Bookmarks, unsupported in enterprise builds
 
 ["browser_policy_cookie_settings.js"]
 https_first_disabled = true
@@ -61,9 +66,12 @@ https_first_disabled = true
 
 ["browser_policy_disable_buttons.js"]
 
+["browser_policy_disable_developer_tools.js"]
+
 ["browser_policy_disable_feedback_commands.js"]
 
 ["browser_policy_disable_fxaccounts.js"]
+skip-if = ["enterprise"] # Applies DisableFirefoxAccounts/DisableAccounts, unsupported in enterprise builds
 
 ["browser_policy_disable_launch_on_login.js"]
 run-if = [
@@ -71,6 +79,7 @@ run-if = [
 ]
 
 ["browser_policy_disable_masterpassword.js"]
+skip-if = ["enterprise"] # Applies DisableMasterPasswordCreation, unsupported in enterprise builds
 
 ["browser_policy_disable_password_reveal.js"]
 
@@ -78,11 +87,12 @@ run-if = [
 
 ["browser_policy_disable_popup_blocker_locked.js"]
 support-files = [
-  "!/browser/base/content/test/popups/popup_blocker2.html",
-  "!/browser/base/content/test/popups/popup_blocker_a.html",
+  "!/browser/base/content/test/browser-popups/popup_blocker2.html",
+  "!/browser/base/content/test/browser-popups/popup_blocker_a.html",
 ]
 
 ["browser_policy_disable_privatebrowsing.js"]
+skip-if = ["enterprise"] # Applies DisablePrivateBrowsing, unsupported in enterprise builds
 
 ["browser_policy_disable_profile_import.js"]
 
@@ -93,8 +103,10 @@ support-files = [
 ["browser_policy_disable_safemode.js"]
 
 ["browser_policy_disable_shield.js"]
+skip-if = ["enterprise"] # Applies DisableFirefoxStudies, unsupported in enterprise builds
 
 ["browser_policy_disable_telemetry.js"]
+skip-if = ["enterprise"] # Applies DisableTelemetry, unsupported in enterprise builds
 
 ["browser_policy_display_bookmarks.js"]
 
@@ -107,6 +119,7 @@ support-files = [
 ]
 
 ["browser_policy_extensions.js"]
+skip-if = ["enterprise"] # Applies Extensions, unsupported in enterprise builds
 
 ["browser_policy_extensionsettings.js"]
 https_first_disabled = true
@@ -123,12 +136,16 @@ support-files = [
 ["browser_policy_handlers.js"]
 
 ["browser_policy_masterpassword.js"]
+skip-if = ["enterprise"] # Applies PrimaryPassword, unsupported in enterprise builds
 
 ["browser_policy_masterpassword_aboutlogins.js"]
+skip-if = ["enterprise"] # Applies PrimaryPassword, unsupported in enterprise builds
 
 ["browser_policy_masterpassword_doorhanger.js"]
+skip-if = ["enterprise"] # Applies PrimaryPassword, unsupported in enterprise builds
 
 ["browser_policy_mv3_force_installed_host_permissions.js"]
+skip-if = ["enterprise"] # Applies Extensions, unsupported in enterprise builds
 
 ["browser_policy_offertosavelogins.js"]
 
@@ -148,7 +165,7 @@ support-files = [
 
 ["browser_policy_search_engine.js"]
 support-files = [
-  "!/browser/base/content/test/contextMenu/subtst_contextmenu_add_search_engine.html",
+  "!/browser/base/content/test/browser-contextMenu/subtst_contextmenu_add_search_engine.html",
 ]
 
 ["browser_policy_searchbar.js"]
@@ -156,6 +173,8 @@ support-files = [
 ["browser_policy_set_homepage.js"]
 
 ["browser_policy_set_startpage.js"]
+
+["browser_policy_sitepolicies_container.js"]
 
 ["browser_policy_sitepolicies_https.js"]
 https_first_disabled = true
@@ -185,6 +204,7 @@ support-files = [
 ["browser_policy_translateenabled.js"]
 
 ["browser_policy_usermessaging.js"]
+skip-if = ["enterprise"] # Applies UserMessaging/SkipTermsOfUse, unsupported in enterprise builds
 
 ["browser_policy_watermark.js"]
 support-files = ["policy_watermark.html", "policy_watermark.sjs"]

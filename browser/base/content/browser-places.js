@@ -706,6 +706,16 @@ class HistoryMenu extends PlacesMenu {
       return;
     }
 
+    // Neither the menuitem nor the promo's sign-in flow can lead anywhere once
+    // the policy locks synced tabs off.
+    if (gSync.isSyncTabsLocked) {
+      this.syncTabsMenuitem.hidden = true;
+      if (this.remoteTabsPromo) {
+        this.remoteTabsPromo.hidden = true;
+      }
+      return;
+    }
+
     // Show the promo to users who can't yet see remote tabs (see
     // getSyncPromoState). Clicking it performs the state-specific action, which
     // we stash in a data-action attribute for the command handler. When it

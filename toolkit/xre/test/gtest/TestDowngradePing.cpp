@@ -52,6 +52,10 @@ class DowngradePingTest : public ::testing::Test {
     ASSERT_EQ(NS_OK,
               Preferences::SetBool("datareporting.healthreport.uploadEnabled",
                                    true, PrefValueKind::User));
+#if defined(MOZ_ENTERPRISE)
+    ASSERT_TRUE(Preferences::IsLocked("toolkit.telemetry.server"));
+    ASSERT_EQ(NS_OK, Preferences::Unlock("toolkit.telemetry.server"));
+#endif  // defined(MOZ_ENTERPRISE)
     ASSERT_EQ(NS_OK,
               Preferences::SetCString("toolkit.telemetry.server",
                                       "https://incoming.telemetry.test"_ns,
@@ -71,6 +75,10 @@ class DowngradePingTest : public ::testing::Test {
     }
     Preferences::ClearUser("datareporting.healthreport.uploadEnabled");
     Preferences::ClearUser("toolkit.telemetry.server");
+#if defined(MOZ_ENTERPRISE)
+    ASSERT_FALSE(Preferences::IsLocked("toolkit.telemetry.server"));
+    ASSERT_EQ(NS_OK, Preferences::Lock("toolkit.telemetry.server"));
+#endif  // defined(MOZ_ENTERPRISE)
     Preferences::ClearUser("toolkit.telemetry.cachedClientID");
     Preferences::ClearUser("toolkit.telemetry.cachedProfileGroupID");
     RemoveUpdateTelemetryJson();

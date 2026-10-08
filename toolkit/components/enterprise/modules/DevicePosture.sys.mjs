@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -9,12 +11,86 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+  DiskEncryption: "resource://gre/modules/enterprise/DiskEncryption.sys.mjs",
   EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
   MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
+  WindowsRegistry: "resource://gre/modules/WindowsRegistry.sys.mjs",
 });
+
+function getSysinfoProperty(name) {
+  try {
+    return Services.sysinfo.getProperty(name);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build fields that TelemetryEnvironment reports as placeholders or omits,
+ * merged over its `build` section.
+ */
+function getBuildFields() {
+  return {
+    applicationId: Services.appinfo.ID || null,
+    applicationName: Services.appinfo.name || null,
+    version: Services.appinfo.version || null,
+    vendor: Services.appinfo.vendor || null,
+    displayVersion: AppConstants.MOZ_APP_VERSION_DISPLAY || null,
+    platformVersion: Services.appinfo.platformVersion || null,
+    updaterAvailable: AppConstants.MOZ_UPDATER,
+  };
+}
+
+/**
+ * OS fields that TelemetryEnvironment omits, merged over its `system.os`
+ * section. Everything past `locale` is Windows only.
+ */
+async function getOSFields() {
+  let locale = null;
+  try {
+    locale = Cc["@mozilla.org/intl/ospreferences;1"].getService(
+      Ci.mozIOSPreferences
+    ).systemLocale;
+  } catch {}
+  const os = { locale };
+
+  if (AppConstants.platform == "win") {
+    const ubr = lazy.WindowsRegistry.readRegKey(
+      Ci.nsIWindowsRegKey.ROOT_KEY_LOCAL_MACHINE,
+      "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+      "UBR",
+      Ci.nsIWindowsRegKey.WOW64_64
+    );
+    os.windowsUBR = Number.isInteger(ubr) ? ubr : null;
+    // Resolves to null when the OS information could not be collected.
+    const info = (await Services.sysinfo.osInfo) ?? {};
+    os.installYear = info.installYear ?? null;
+    os.hasPrefetch = info.hasPrefetch ?? null;
+    os.hasSuperfetch = info.hasSuperfetch ?? null;
+  }
+  return os;
+}
+
+/**
+ * Security products registered with the OS (Windows Security Center). Each
+ * value is a list of product names, or null when the OS reports none.
+ */
+function getSecurityInfo() {
+  const keys = [
+    ["registeredAntiVirus", "antivirus"],
+    ["registeredAntiSpyware", "antispyware"],
+    ["registeredFirewall", "firewall"],
+  ];
+  const result = {};
+  for (const [inKey, outKey] of keys) {
+    const prop = getSysinfoProperty(inKey);
+    result[outKey] = prop ? prop.substring(0, 256).split(";") : null;
+  }
+  return result;
+}
 
 // Fallback cadence for posture monitoring if the console config does not
 // specify a polling frequency.
@@ -227,10 +303,31 @@ export const DevicePosture = {
    */
 
   /**
+   * @typedef {object} DeviceDiskEncryption
+   * @property {"full"|"enabled"|"partial"|"disabled"|"in-progress"|"unknown"} status
+   *   Aggregated encryption status.
+   * @property {"filevault"|"bitlocker"|"dm-crypt"|"zfs"|null} method
+   *   Platform mechanism checked, or null for an unknown status.
+   */
+
+  /**
+   * @typedef {object} DeviceSecurity
+   * @property {string[]|null} antivirus Registered antivirus product names.
+   * @property {string[]|null} antispyware Registered antispyware product names.
+   * @property {string[]|null} firewall Registered firewall product names.
+   *   All three are null where the OS reports nothing, which is every
+   *   platform other than Windows.
+   */
+
+  /**
    * @typedef {object} DevicePosture
-   * @property {object} os Telemetry-reported os information.
-   * @property {object|undefined} security Telemetry-reported security software info (windows only)
-   * @property {object} build Telemetry-reported build info info
+   * @property {object} os OS name, version and locale; on Linux distro and
+   *   distroVersion; on Windows windowsBuildNumber, windowsUBR, installYear,
+   *   hasPrefetch and hasSuperfetch.
+   * @property {DeviceSecurity} security Security products registered with the OS.
+   * @property {object} build Application id, name, vendor, version,
+   *   displayVersion, platformVersion, buildId, architecture, xpcomAbi and
+   *   updaterAvailable.
    * @property {DeviceNetwork} network Network posture.
    * @property {DeviceAddon[]|null} extensions Installed browser addons, or null if not yet available.
    * @property {DeviceMachineId|null} machineId Stable machine identifier, or null if unavailable.
@@ -238,6 +335,8 @@ export const DevicePosture = {
    * @property {boolean} isDomainJoined Whether the machine is joined to a domain (Windows on-prem AD or Azure AD/Entra).
    * @property {DeviceEdr[]} presentEdrs Detected EDR agents (empty if none, or if the console asked us to probe none).
    * @property {string} clientSessionId Identifies the browser run reporting this posture; see ClientSession.
+   * @property {DeviceDiskEncryption} diskEncryption Disk encryption for the
+   *   boot and other mounted fixed volumes.
    */
 
   /**
@@ -280,7 +379,10 @@ export const DevicePosture = {
       .getService()
       .QueryInterface(Ci.nsINetworkLinkService).networkInterfaces;
 
-    const baseOs = lazy.TelemetryEnvironment.currentEnvironment.system.os;
+    const baseOs = {
+      ...lazy.TelemetryEnvironment.currentEnvironment.system.os,
+      ...(await getOSFields()),
+    };
     const { long: os_long_name, short: os_short_name } =
       await lazy.composeOSNames(baseOs);
     const os = {
@@ -318,20 +420,27 @@ export const DevicePosture = {
       );
     };
 
-    // These probes are independent, and some are slow (subprocess spawns, an
-    // `ioreg` shell-out), so run them concurrently.
-    const [mobileEquipmentId, extensions, machineId, presentEdrs] =
-      await Promise.all([
-        getImeiValue(),
-        this.getExtensions({ profileDir }),
-        getMachineId(),
-        getPresentEDRs(),
-      ]);
+    const [
+      mobileEquipmentId,
+      extensions,
+      machineId,
+      presentEdrs,
+      diskEncryption,
+    ] = await Promise.all([
+      getImeiValue(),
+      this.getExtensions({ profileDir }),
+      getMachineId(),
+      getPresentEDRs(),
+      lazy.DiskEncryption.getStatus(),
+    ]);
 
     const devicePosturePayload = {
       os,
-      security: lazy.TelemetryEnvironment.currentEnvironment.system.sec,
-      build: lazy.TelemetryEnvironment.currentEnvironment.build,
+      security: getSecurityInfo(),
+      build: {
+        ...lazy.TelemetryEnvironment.currentEnvironment.build,
+        ...getBuildFields(),
+      },
       network: {
         mobileEquipmentId,
         interfaces: networkInterfaces,
@@ -343,6 +452,7 @@ export const DevicePosture = {
       isDomainJoined: Services.sysinfo.getPropertyAsBool("isDomainJoined"),
       presentEdrs,
       clientSessionId: ClientSession.id,
+      diskEncryption,
     };
     return devicePosturePayload;
   },

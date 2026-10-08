@@ -79,13 +79,9 @@ const THEME_L10N_IDS = new Map([
 ]);
 
 if (AppConstants.MOZ_ENTERPRISE) {
-  THEME_L10N_IDS.set("firefox-enterprise-light@mozilla.org", {
-    name: "extension-firefox-enterprise-light-name",
-    description: "extension-firefox-enterprise-light-description",
-  });
-  THEME_L10N_IDS.set("firefox-enterprise-dark@mozilla.org", {
-    name: "extension-firefox-enterprise-dark-name",
-    description: "extension-firefox-enterprise-dark-description",
+  THEME_L10N_IDS.set("firefox-enterprise-auto@mozilla.org", {
+    name: "extension-firefox-enterprise-auto-name",
+    description: "extension-firefox-enterprise-auto-description",
   });
 }
 

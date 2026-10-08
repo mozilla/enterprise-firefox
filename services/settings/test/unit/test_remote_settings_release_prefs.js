@@ -45,7 +45,7 @@ add_task(clear_state);
 
 add_task(
   {
-    skip_if: () => !AppConstants.RELEASE_OR_BETA,
+    skip_if: () => !AppConstants.RELEASE_OR_BETA || AppConstants.MOZ_ENTERPRISE,
   },
   async function test_server_url_cannot_be_toggled_in_release() {
     Services.prefs.setStringPref(
@@ -114,7 +114,7 @@ add_task(clear_state);
 
 add_task(
   {
-    skip_if: () => !AppConstants.RELEASE_OR_BETA,
+    skip_if: () => !AppConstants.RELEASE_OR_BETA || AppConstants.MOZ_ENTERPRISE,
   },
   async function test_load_dumps_will_always_be_loaded_in_release() {
     Services.prefs.setStringPref(

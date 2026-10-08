@@ -3,7 +3,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import json
 import os
 import sys
 import uuid
@@ -44,7 +43,7 @@ class FeltDevicePostureRefreshRejected(FeltTests):
         self.policy_refresh_token.value = str(uuid.uuid4())
 
         # Change the posture the monitor reads, which is what makes it submit.
-        self._add_addon_to_child_profile("posture-refresh@example.com")
+        self.policy_extensions.value = 1
 
         self.wait_process_exit(browser_pid)
 
@@ -68,22 +67,3 @@ class FeltDevicePostureRefreshRejected(FeltTests):
         assert not tokens["refresh"], (
             f"Refresh token was not cleared: {tokens['refresh']}"
         )
-
-    def _add_addon_to_child_profile(self, addon_id):
-        """Adds an entry to the browser profile's add-on database, which is what
-        the posture monitor reads the extension list from."""
-        db_path = os.path.join(self._child_profile_path, "extensions.json")
-        with open(db_path, encoding="utf-8") as fh:
-            db = json.load(fh)
-        db["addons"].append({
-            "id": addon_id,
-            "type": "extension",
-            "version": "1.0",
-            "visible": True,
-            "active": True,
-            "location": "app-profile",
-            "defaultLocale": {"name": "Posture Refresh Extension"},
-            "locales": [],
-        })
-        with open(db_path, "w", encoding="utf-8") as fh:
-            json.dump(db, fh)

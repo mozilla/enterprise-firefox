@@ -39,7 +39,7 @@ add_setup(async () => {
   // (which is installed by disabled) to let this test to run across all builds
   // included the DevEdition beta builds.
   // Similarly in Firefox Enterprise the default theme is expected to be
-  // firefox-enterprise-light@mozilla.org, but it isn't loaded in the minimal
+  // firefox-enterprise-auto@mozilla.org, but it isn't loaded in the minimal
   // xpcshell test environment.
   if (AppConstants.MOZ_DEV_EDITION || AppConstants.MOZ_ENTERPRISE) {
     const defaultTheme = await AddonManager.getAddonByID(

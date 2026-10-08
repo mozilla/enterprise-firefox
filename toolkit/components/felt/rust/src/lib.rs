@@ -25,7 +25,15 @@ mod edr_checker_linux;
 mod edr_checker_macos;
 #[cfg(target_os = "windows")]
 mod edr_checker_win;
+mod disk_encryption;
+#[cfg(target_os = "linux")]
+mod disk_encryption_linux;
+#[cfg(target_os = "macos")]
+mod disk_encryption_macos;
+#[cfg(target_os = "windows")]
+mod disk_encryption_win;
 mod message;
+mod process;
 mod utils;
 
 pub use utils::{CONSOLE_URL, TOKENS};
@@ -33,6 +41,10 @@ pub use utils::{CONSOLE_URL, TOKENS};
 static IS_FELT_UI: AtomicBool = AtomicBool::new(false);
 static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
 static IS_FELT_SAFE_MODE: AtomicBool = AtomicBool::new(false);
+// Whether a browser shutdown locks the session instead of signing out.
+pub(crate) static SHUTDOWN_LOCK_INTENT: AtomicBool = AtomicBool::new(false);
+// Whether a browser restart locks the session instead of signing out.
+pub(crate) static RESTART_LOCK_INTENT: AtomicBool = AtomicBool::new(false);
 
 fn normalize_arg(arg: String) -> String {
     let mut normalized = arg;

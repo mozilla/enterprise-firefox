@@ -1,0 +1,6 @@
+[DEFAULT]
+head = "head.js"
+
+["test_FeltLocking.js"]
+
+["test_FeltStorage_locking.js"]

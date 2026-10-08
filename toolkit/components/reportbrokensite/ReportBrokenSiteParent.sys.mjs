@@ -639,14 +639,18 @@ export class ReportBrokenSiteParent extends JSWindowActorParent {
 
   #getSecurityInfo(troubleshootingInfo) {
     const result = {};
-    for (const [k, v] of Object.entries(troubleshootingInfo.securitySoftware)) {
-      const key = k.replace("registered", "").toLowerCase();
-      if (Array.isArray(v)) {
-        result[key] = v;
-      } else if (v) {
-        result[key] = v.split(";");
+    for (const key of [
+      "registeredAntiVirus",
+      "registeredAntiSpyware",
+      "registeredFirewall",
+    ]) {
+      const value = troubleshootingInfo.securitySoftware[key];
+      const name = key.replace("registered", "").toLowerCase();
+      if (Array.isArray(value)) {
+        result[name] = value;
       } else {
-        result[key] = null;
+        result[name] =
+          typeof value === "string" && value ? value.split(";") : null;
       }
     }
 
@@ -711,7 +715,9 @@ export class ReportBrokenSiteParent extends JSWindowActorParent {
   }
 
   async #getBrowserInfo() {
-    const troubleshootingInfo = await Troubleshoot.snapshot();
+    const troubleshootingInfo = await Troubleshoot.snapshot({
+      includeEnterpriseSecurity: false,
+    });
     return {
       addons: this.#getActiveAddons(troubleshootingInfo),
       app: this.#getAppInfo(troubleshootingInfo),

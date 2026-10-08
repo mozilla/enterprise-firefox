@@ -70,9 +70,31 @@ const resolvedSchema = dereference(
 
 export let schema = resolvedSchema;
 
+// Metadata the meta-schema makes mandatory on every real policy. Fill in
+// permissive defaults because the existing custom test schemas may omit them.
+const TEST_METADATA_DEFAULTS = {
+  "x-compatibility": {
+    firefox: { version_added: "1" },
+    firefox_esr: { version_added: "1" },
+    firefox_enterprise: { version_added: "1" },
+  },
+  "x-restart-required": true,
+};
+
+function withTestMetadataDefaults(customSchema) {
+  for (let entry of Object.values(customSchema.properties ?? {})) {
+    for (let [key, value] of Object.entries(TEST_METADATA_DEFAULTS)) {
+      if (!(key in entry)) {
+        entry[key] = value;
+      }
+    }
+  }
+  return customSchema;
+}
+
 export function modifySchemaForTests(customSchema) {
   if (customSchema) {
-    schema = customSchema;
+    schema = withTestMetadataDefaults(customSchema);
   } else {
     schema = resolvedSchema;
   }

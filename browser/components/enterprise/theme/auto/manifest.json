@@ -1,0 +1,118 @@
+{
+  "manifest_version": 2,
+  "name": "Firefox Enterprise theme — auto",
+  "version": "1.0.0",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "firefox-enterprise-auto@mozilla.org"
+    }
+  },
+  "theme": {
+    "colors": {
+      "frame": "#ffffff",
+      "frame_inactive": "#FFFCF8",
+      "tab_selected": "#ffffff",
+      "tab_text": "#15141a",
+      "tab_background_text": "#15141a",
+      "tab_line": "#B89CFF",
+      "tab_loading": "#764edd",
+      "toolbar": "#ffffff",
+      "toolbar_text": "#15141a",
+      "toolbar_top_separator": "rgba(0, 0, 0, 0.06)",
+      "toolbar_bottom_separator": "rgba(0, 0, 0, 0.06)",
+      "toolbar_vertical_separator": "rgba(0, 0, 0, 0.06)",
+      "toolbar_field": "rgba(255, 255, 255, 0.8)",
+      "toolbar_field_text": "black",
+      "toolbar_field_border": "#D6D5DA",
+      "toolbar_field_focus": "white",
+      "toolbar_field_text_focus": "black",
+      "toolbar_field_border_focus": "#764edd",
+      "toolbar_field_highlight": "#D5C4FF",
+      "toolbar_field_highlight_text": "black",
+      "icons": "#8F8F8F",
+      "icons_attention": "#9977ef",
+      "button_background_hover": "rgba(0, 0, 0, 0.07)",
+      "button_background_active": "rgba(0, 0, 0, 0.14)",
+      "popup": "#ffffff",
+      "popup_text": "#15141a",
+      "popup_border": "rgba(0, 0, 0, 0.06)",
+      "popup_highlight": "#D5C4FF",
+      "popup_highlight_text": "#15141a",
+      "sidebar": "#ffffff",
+      "sidebar_text": "#15141a",
+      "sidebar_border": "rgba(0, 0, 0, 0.06)",
+      "sidebar_highlight": "#D5C4FF",
+      "sidebar_highlight_text": "#15141a",
+      "ntp_background": "#FCF5F0",
+      "ntp_card_background": "#ffffff",
+      "ntp_text": "#15141a"
+    },
+    "images": {
+      "additional_backgrounds": [
+        "background-light.svg",
+        {
+          "linear-gradient": "to right, #FCF5F0, #FDF8F0"
+        }
+      ]
+    },
+    "properties": {
+      "additional_backgrounds_alignment": ["right top", "left top"],
+      "additional_backgrounds_tiling": ["no-repeat", "no-repeat"],
+      "additional_backgrounds_size": ["auto", "cover"]
+    }
+  },
+  "dark_theme": {
+    "colors": {
+      "frame": "#1f2026",
+      "frame_inactive": "#121114",
+      "tab_selected": "#1f2026",
+      "tab_text": "#fbfbfe",
+      "tab_background_text": "#fbfbfe",
+      "tab_line": "#B89CFF",
+      "tab_loading": "#B89CFF",
+      "toolbar": "#1f2026",
+      "toolbar_text": "#fbfbfe",
+      "toolbar_top_separator": "rgba(255, 255, 255, 0.04)",
+      "toolbar_bottom_separator": "rgba(255, 255, 255, 0.04)",
+      "toolbar_vertical_separator": "rgba(255, 255, 255, 0.04)",
+      "toolbar_field": "#1A1D29",
+      "toolbar_field_text": "#ffffff",
+      "toolbar_field_border": "#6B00D5",
+      "toolbar_field_focus": "#1A1D29",
+      "toolbar_field_text_focus": "#ffffff",
+      "toolbar_field_border_focus": "#b89cff",
+      "toolbar_field_highlight": "#583099",
+      "toolbar_field_highlight_text": "#ffffff",
+      "icons": "#E7E1F8",
+      "icons_attention": "#d999ff",
+      "button_background_hover": "rgba(255, 255, 255, 0.1)",
+      "button_background_active": "rgba(255, 255, 255, 0.18)",
+      "popup": "#1f2026",
+      "popup_text": "#fbfbfe",
+      "popup_border": "rgba(255, 255, 255, 0.04)",
+      "popup_highlight": "#583099",
+      "popup_highlight_text": "#fff",
+      "sidebar": "#1f2026",
+      "sidebar_text": "#fbfbfe",
+      "sidebar_border": "rgba(255, 255, 255, 0.04)",
+      "sidebar_highlight": "#583099",
+      "sidebar_highlight_text": "#fff",
+      "ntp_background": "#1E1035",
+      "ntp_card_background": "#1A1D29",
+      "ntp_text": "#fbfbfe"
+    },
+    "images": {
+      "additional_backgrounds": [
+        "background-dark.svg",
+        {
+          "linear-gradient": "to right, #1E1136, #29154A"
+        }
+      ]
+    },
+    "properties": {
+      "additional_backgrounds_alignment": ["right top", "left top"],
+      "additional_backgrounds_tiling": ["no-repeat", "no-repeat"],
+      "additional_backgrounds_size": ["auto", "cover"]
+    }
+  }
+}

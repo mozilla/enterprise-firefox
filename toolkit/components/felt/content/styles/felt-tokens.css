@@ -22,7 +22,3 @@
     --felt-update-checkmark-img-url: url("chrome://felt/content/assets/enterprise-update-checkmark-hcm.svg");
   }
 }
-
-:root {
-  --felt-background-color-tabstrip: light-dark(var(--color-gray-20), var(--color-gray-90));
-}

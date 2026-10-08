@@ -29,6 +29,8 @@ run-if = ["enterprise"]
 
 ["test_clear_blocked_cookies.js"]
 
+["test_clear_on_shutdown.js"]
+
 ["test_containers.js"]
 
 ["test_defaultbrowsercheck.js"]
@@ -38,6 +40,10 @@ run-if = ["enterprise"]
 ["test_exempt_domain_file_type_pairs_from_file_type_download_warnings.js"]
 
 ["test_extensions.js"]
+skip-if = ["enterprise"] # Applies Extensions, unsupported on enterprise (x-compatibility)
+
+["test_extensions_uninstall.js"]
+skip-if = ["enterprise"] # Applies Extensions, unsupported on enterprise (x-compatibility)
 
 ["test_extensionsettings.js"]
 
@@ -65,6 +71,8 @@ support-files = [
   "../../schemas/policies-schema.meta.json",
 ]
 
+["test_policy_compatibility.js"]
+
 ["test_policy_descriptions.js"]
 
 ["test_policy_failures.js"]
@@ -91,6 +99,8 @@ run-if = ["enterprise"]
 ["test_simple_pref_policies.js"]
 
 ["test_sitepolicies.js"]
+
+["test_sitepolicies_container.js"]
 
 ["test_sorted_alphabetically.js"]
 

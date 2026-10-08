@@ -3,6 +3,10 @@
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
+
 /*
  * Use this file to add tests to policies that are
  * simple pref flips.
@@ -593,6 +597,7 @@ const POLICIES_TESTS = [
 
   // POLICY: DisableShield
   {
+    skipInEnterprise: true,
     policies: {
       DisableFirefoxStudies: true,
     },
@@ -625,6 +630,7 @@ const POLICIES_TESTS = [
 
   // POLICY: FirefoxHome
   {
+    skipInEnterprise: true,
     policies: {
       FirefoxHome: {
         Stories: false,
@@ -655,6 +661,7 @@ const POLICIES_TESTS = [
   // POLICY: FirefoxHome (locking both sponsored settings locks the parent
   // "Support Firefox" toggle to their combined value)
   {
+    skipInEnterprise: true,
     policies: {
       FirefoxHome: {
         SponsoredTopSites: false,
@@ -735,6 +742,7 @@ const POLICIES_TESTS = [
 
   // POLICY: UserMessaging
   {
+    skipInEnterprise: true,
     policies: {
       UserMessaging: {
         SkipOnboarding: true,
@@ -748,6 +756,7 @@ const POLICIES_TESTS = [
 
   // POLICY: UserMessaging->SkipOnboarding false (bug 1697566)
   {
+    skipInEnterprise: true,
     policies: {
       UserMessaging: {
         SkipOnboarding: false,
@@ -760,6 +769,7 @@ const POLICIES_TESTS = [
   },
 
   {
+    skipInEnterprise: true,
     policies: {
       UserMessaging: {
         ExtensionRecommendations: false,
@@ -772,6 +782,7 @@ const POLICIES_TESTS = [
   },
 
   {
+    skipInEnterprise: true,
     policies: {
       UserMessaging: {
         FeatureRecommendations: false,
@@ -886,13 +897,6 @@ const POLICIES_TESTS = [
     lockedPrefs: {
       "media.eme.enabled": false,
     },
-  },
-
-  // POLICY: EnterpriseStorageEncryption
-
-  {
-    policies: { EnterpriseStorageEncryption: true },
-    lockedPrefs: { "security.storage.encryption.enabled": true },
   },
 
   // POLICY: PDFjs
@@ -1197,6 +1201,7 @@ const POLICIES_TESTS = [
 
   // Bug 1772503
   {
+    skipInEnterprise: true,
     policies: {
       DisableFirefoxStudies: true,
     },
@@ -1309,6 +1314,7 @@ const POLICIES_TESTS = [
 
   // POLICY: SkipTermsOfUse
   {
+    skipInEnterprise: true,
     policies: {
       SkipTermsOfUse: true,
     },
@@ -1498,6 +1504,58 @@ const POLICIES_TESTS = [
       "browser.contentanalysis.enterprise.telemetry.urlLogging": "none",
     },
   },
+
+  // POLICY: SignOut
+  {
+    policies: {
+      SignOut: {
+        Shutdown: {
+          Action: "lock",
+        },
+      },
+    },
+    // Locking on shutdown persists the session behind OS auth instead of signing out.
+    lockedPrefs: {
+      "enterprise.locking.shutdown": true,
+    },
+  },
+  {
+    policies: {
+      SignOut: {
+        Shutdown: {
+          Action: "signout",
+        },
+      },
+    },
+    lockedPrefs: {
+      "enterprise.locking.shutdown": false,
+    },
+  },
+  {
+    policies: {
+      SignOut: {
+        Restart: {
+          Action: "lock",
+        },
+      },
+    },
+    // Locking on restart persists the session behind OS auth instead of signing out.
+    lockedPrefs: {
+      "enterprise.locking.restart": true,
+    },
+  },
+  {
+    policies: {
+      SignOut: {
+        Restart: {
+          Action: "signout",
+        },
+      },
+    },
+    lockedPrefs: {
+      "enterprise.locking.restart": false,
+    },
+  },
 ];
 
 add_task(async function test_policy_simple_prefs() {
@@ -1512,6 +1570,17 @@ add_task(async function test_policy_simple_prefs() {
   });
 
   for (let test of POLICIES_TESTS) {
+    // Some policies (or subkeys) are not applied on enterprise
+    // builds, so their cases are marked skipInEnterprise.
+    if (test.skipInEnterprise && AppConstants.MOZ_ENTERPRISE) {
+      info(
+        `Skipping ${Object.keys(test.policies).join(
+          ", "
+        )}: not supported on enterprise builds`
+      );
+      continue;
+    }
+
     await setupPolicyEngineWithJson({
       policies: test.policies,
     });

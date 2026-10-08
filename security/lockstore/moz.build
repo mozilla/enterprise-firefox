@@ -19,9 +19,18 @@ EXPORTS += [
     "LockstoreService.h",
 ]
 
+EXPORTS.mozilla.security.lockstore += [
+    "ProfileKek.h",
+]
+
 UNIFIED_SOURCES += [
     "LockstoreService.cpp",
 ]
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    UNIFIED_SOURCES += [
+        "ProfileKekStartup.cpp",
+    ]
 
 FINAL_LIBRARY = "xul"
 

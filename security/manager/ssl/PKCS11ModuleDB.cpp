@@ -23,6 +23,7 @@
 #include "nsThreadUtils.h"
 #include "nss.h"
 #include "pk11pub.h"
+#include "secmod.h"
 #include "xpcpublic.h"
 
 #if defined(XP_MACOSX)
@@ -124,12 +125,24 @@ nsresult PKCS11ModuleDB::DoDeleteModule(const nsCString& moduleName) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
+#ifdef MOZ_DISABLE_PROFILE_PKCS11_MODULES
+  // When profile modules are disabled they are loaded via
+  // SECMOD_LoadUserModule (see DoAddModule), so unload them with its
+  // counterpart SECMOD_UnloadUserModule rather than SECMOD_DeleteModule. Treat
+  // a missing module as failure, matching the SECMOD_DeleteModule contract used
+  // when profile modules are enabled.
+  UniqueSECMODModule module(SECMOD_FindModule(moduleName.get()));
+  if (!module || SECMOD_UnloadUserModule(module.get()) != SECSuccess) {
+    return NS_ERROR_FAILURE;
+  }
+#else
   // modType is an output variable. We ignore it.
   int32_t modType;
   SECStatus srv = SECMOD_DeleteModule(moduleName.get(), &modType);
   if (srv != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
+#endif  // MOZ_DISABLE_PROFILE_PKCS11_MODULES
 
   CollectThirdPartyPKCS11ModuleTelemetry();
 
@@ -275,6 +288,19 @@ void CollectThirdPartyModuleFilename(const nsCString& aModulePath) {
 }
 #endif  // defined(XP_MACOSX)
 
+#ifdef MOZ_DISABLE_PROFILE_PKCS11_MODULES
+// Escapes backslash and double-quote so a value is safe inside the
+// key="value" form of an NSS module spec. Required, not stylistic: the name
+// reaches here unsanitized, so an unescaped quote would inject spec fields and
+// redirect the load.
+static nsCString EscapeNSSModuleSpecValue(const nsCString& aValue) {
+  nsCString escaped(aValue);
+  escaped.ReplaceSubstring("\\", "\\\\");
+  escaped.ReplaceSubstring("\"", "\\\"");
+  return escaped;
+}
+#endif  // MOZ_DISABLE_PROFILE_PKCS11_MODULES
+
 nsresult PKCS11ModuleDB::DoAddModule(const nsCString& moduleName,
                                      const nsCString& libraryPath,
                                      uint32_t mechanismFlags,
@@ -283,6 +309,25 @@ nsresult PKCS11ModuleDB::DoAddModule(const nsCString& moduleName,
     return NS_ERROR_NOT_AVAILABLE;
   }
 
+#ifdef MOZ_DISABLE_PROFILE_PKCS11_MODULES
+  // No persistent module DB exists when profile modules are disabled (see
+  // InitializeNSSWithFallbacks), so load without persisting rather than via
+  // SECMOD_AddNewModule. That path can't express mechanism/cipher flags, so
+  // reject a non-zero value rather than silently dropping it.
+  if (mechanismFlags != 0 || cipherFlags != 0) {
+    return NS_ERROR_INVALID_ARG;
+  }
+  nsAutoCString moduleSpec("name=\"");
+  moduleSpec.Append(EscapeNSSModuleSpecValue(moduleName));
+  moduleSpec.AppendLiteral("\" library=\"");
+  moduleSpec.Append(EscapeNSSModuleSpecValue(libraryPath));
+  moduleSpec.AppendLiteral("\"");
+  UniqueSECMODModule userModule(SECMOD_LoadUserModule(
+      const_cast<char*>(moduleSpec.get()), nullptr, false));
+  if (!userModule || !userModule->loaded) {
+    return NS_ERROR_FAILURE;
+  }
+#else
   uint32_t internalMechanismFlags =
       SECMOD_PubMechFlagstoInternal(mechanismFlags);
   uint32_t internalCipherFlags = SECMOD_PubCipherFlagstoInternal(cipherFlags);
@@ -292,6 +337,7 @@ nsresult PKCS11ModuleDB::DoAddModule(const nsCString& moduleName,
   if (srv != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
+#endif  // MOZ_DISABLE_PROFILE_PKCS11_MODULES
 
 #if defined(XP_MACOSX)
   CollectThirdPartyModuleSignatureType(libraryPath);
@@ -344,6 +390,16 @@ PKCS11ModuleDB::AddModule(const nsAString& aModuleName,
   }
   auto promiseHolder =
       MakeRefPtr<nsMainThreadPtrHolder<Promise>>("AddModule promise", promise);
+
+#ifdef MOZ_DISABLE_PROFILE_PKCS11_MODULES
+  // Refuse in safe mode, where no PKCS#11 modules load. Checked here because
+  // GetInSafeMode() must run on the main thread, not in DoAddModule's runnable.
+  if (GetInSafeMode()) {
+    promise->MaybeReject(NS_ERROR_FAILURE);
+    promise.forget(aPromise);
+    return NS_OK;
+  }
+#endif  // MOZ_DISABLE_PROFILE_PKCS11_MODULES
 
 #if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
   if (StaticPrefs::security_utility_pkcs11_module_process_enabled()) {

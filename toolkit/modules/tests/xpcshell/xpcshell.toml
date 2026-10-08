@@ -50,6 +50,9 @@ skip-if = [
 ["test_DeferredTask_window.js"]
 support-files = ["test_DeferredTask_window/*"]
 
+["test_DiskEncryption.js"]
+run-if = ["enterprise"]
+
 ["test_E10SUtils_getRemoteTypeForURIObject.js"]
 
 ["test_EventEmitter.js"]
@@ -152,6 +155,12 @@ reason = "LOCALE is not defined without MOZ_UPDATER"
 tags = "os_integration"
 
 ["test_UrlUtils.js"]
+
+["test_WindowsLaunchOnLogin_missingExecutables.js"]
+run-if = [
+  "os == 'win'", # Test of a Windows-specific feature
+]
+tags = "os_integration"
 
 ["test_firstStartup.js"]
 

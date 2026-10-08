@@ -96,7 +96,8 @@ class MachSettings:
             ]
 
             return [
-                ("try.default", "string", desc, "auto", {"choices": choices}),
+                # `auto` is disabled on Enterprise trees, see bug 2068074.
+                ("try.default", "string", desc, "fuzzy", {"choices": choices}),
                 (
                     "try.maxhistory",
                     "int",

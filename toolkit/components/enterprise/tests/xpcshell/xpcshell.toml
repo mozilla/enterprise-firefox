@@ -12,3 +12,8 @@ skip-if = [
 ["test_forced_quit_handler.js"]
 
 ["test_relaunch_enforcer.js"]
+
+["test_restart_update_check.js"]
+
+["test_storage_encryption.js"]
+run-if = ["buildapp == 'browser'"]

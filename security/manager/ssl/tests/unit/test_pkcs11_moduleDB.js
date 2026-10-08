@@ -44,3 +44,34 @@ add_task(async function run_test() {
     "Should be able to find builtin roots module by localized name."
   );
 });
+
+// A module name containing characters that are significant inside an NSS
+// module spec (a double-quote and a backslash) must round-trip: the path that
+// loads modules without a profile module DB builds a spec string for
+// SECMOD_LoadUserModule, so it has to quote the name correctly. This is a
+// correctness/regression guard for that quoting, not a security boundary --
+// addModule's callers (the SecurityDevices policy, Device Manager) are trusted.
+// See bug 2068739.
+add_task(async function test_module_name_with_spec_metacharacters() {
+  let libraryFile = Services.dirsvc.get("CurWorkD", Ci.nsIFile);
+  libraryFile.append("pkcs11testmodule");
+  libraryFile.append(ctypes.libraryName("pkcs11testmodule"));
+
+  let moduleDB = Cc["@mozilla.org/security/pkcs11moduledb;1"].getService(
+    Ci.nsIPKCS11ModuleDB
+  );
+
+  // A name whose characters would be significant in an unquoted spec string.
+  let trickyName = 'tricky" library="/other\\path';
+  await moduleDB.addModule(trickyName, libraryFile.path, 0, 0);
+
+  let names = (await moduleDB.listModules()).map(module => module.name);
+  ok(
+    names.includes(trickyName),
+    `module should load under its exact name (got ${JSON.stringify(names)})`
+  );
+
+  await moduleDB.deleteModule(trickyName);
+  names = (await moduleDB.listModules()).map(module => module.name);
+  ok(!names.includes(trickyName), "module should be gone after delete");
+});

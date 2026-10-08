@@ -60,6 +60,10 @@ function assertHasSitePolicy(url, expected) {
   );
 }
 
+add_setup(() => {
+  do_get_profile();
+});
+
 add_task(async function test_isAllowedForSite() {
   // Empty policies don't block anything
   await setupPolicyEngineWithJson({

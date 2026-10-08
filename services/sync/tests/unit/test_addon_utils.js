@@ -127,8 +127,16 @@ add_task(
     // until the policy service is first instantiated.
     Cc["@mozilla.org/enterprisepolicies;1"].getService(Ci.nsIObserver);
 
+    // The legacy Extensions policy is unsupported in enterprise builds; there
+    // a force_installed ExtensionSettings entry is what locks an add-on.
     await EnterprisePolicyTesting.setupPolicyEngineWithJson({
-      policies: { Extensions: { Locked: [ID] } },
+      policies: AppConstants.MOZ_ENTERPRISE
+        ? {
+            ExtensionSettings: {
+              [ID]: { installation_mode: "force_installed" },
+            },
+          }
+        : { Extensions: { Locked: [ID] } },
     });
 
     Assert.ok(!AddonUtils.canDisableAddon(ID));

@@ -302,6 +302,11 @@ skip-if = ["enterprise"] # Relay is not supported in enterprise builds
 support-files = ["browser_relay_utils.js"]
 skip-if = ["enterprise"] # Relay is not supported in enterprise builds
 
+["browser_rust_storage_primary_password.js"]
+skip-if = [
+  "os == 'android'", # The Rust storage backend only runs on desktop
+]
+
 ["browser_telemetry_SignUpFormRuleset.js"]
 
 ["browser_test_changeContentInputValue.js"]

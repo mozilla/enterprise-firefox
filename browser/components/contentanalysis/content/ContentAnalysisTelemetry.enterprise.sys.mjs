@@ -129,11 +129,12 @@ export const ContentAnalysisTelemetryEnterprise = {
   _ALWAYS_RECORDED_TYPES: ["warn_resolution", "warn_cancel", "error_fallback"],
 
   _OPERATION_TYPE_TELEMETRY_STRINGS: {
-    [Ci.nsIContentAnalysisRequest.eClipboard]: "clipboard",
+    [Ci.nsIContentAnalysisRequest.ePasteClipboard]: "clipboard",
     [Ci.nsIContentAnalysisRequest.eDroppedText]: "dropped_text",
     [Ci.nsIContentAnalysisRequest.eOperationPrint]: "print",
     [Ci.nsIContentAnalysisRequest.eUpload]: "upload",
     [Ci.nsIContentAnalysisRequest.eDownload]: "download",
+    [Ci.nsIContentAnalysisRequest.eCopyClipboard]: "clipboard_copy",
   },
 
   _ACTION_TELEMETRY_STRINGS: {

@@ -5,10 +5,7 @@
 
 @template
 def FirefoxBranding():
-    if CONFIG["MOZ_BRANDING_DIRECTORY"] in (
-        "browser/branding/official",
-        "browser/branding/enterprise",
-    ):
+    if CONFIG["MOZ_BRANDING_DIRECTORY"] in ("browser/branding/official",):
         JS_PREFERENCE_PP_FILES += [
             "pref/firefox-branding.js",
         ]

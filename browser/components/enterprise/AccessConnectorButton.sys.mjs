@@ -8,9 +8,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   IPPProxyManager:
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPPrincipalRules:
-    "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs",
-  IPPExceptionsManager:
-    "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPSiteRuleManager.sys.mjs",
+  IPPSiteRuleManager:
+    "moz-src:///toolkit/components/ipprotection/IPPSiteRuleManager.sys.mjs",
 });
 
 const BUTTON_ID = "access-connector-button";
@@ -130,7 +130,7 @@ export class AccessConnectorButton {
       return { isProtected: false, isError: false };
     }
 
-    const rule = lazy.IPPExceptionsManager.getPrincipalRule(principal);
+    const rule = lazy.IPPSiteRuleManager.getRule(principal);
     if (rule === lazy.IPPPrincipalRules.INCLUDED) {
       return { isProtected: true, isError: false };
     }

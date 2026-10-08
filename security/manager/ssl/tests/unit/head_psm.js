@@ -1149,6 +1149,37 @@ async function loadPKCS11Module(
 }
 
 /**
+ * Writes a profile pkcs11.txt naming the given module, as a user with write
+ * access to the profile could. Must be called before NSS is initialized, since
+ * NSS reads this file when it initializes.
+ *
+ * @param {nsIFile} profileDir
+ *                  The profile directory, as returned by do_get_profile().
+ * @param {string} moduleName
+ *                 What to call the module.
+ * @param {string} libraryPath
+ *                 Path to the dynamic library file of the module.
+ */
+async function writeProfilePKCS11ModuleDB(profileDir, moduleName, libraryPath) {
+  // The internal module record mirrors what NSS writes for itself. library=
+  // values are read literally, so the path is written unquoted.
+  let pkcs11txt =
+    "library=\n" +
+    "name=NSS Internal PKCS #11 Module\n" +
+    "parameters=configdir='.' certPrefix='' keyPrefix='' secmod='secmod.db' " +
+    "flags=optimizeSpace\n" +
+    "NSS=Flags=internal,critical trustOrder=75 cipherOrder=100 " +
+    "slotParams=(1={slotFlags=[RSA,DSA,DH,RC2,RC4,DES,RANDOM,SHA1,MD5,MD2,SSL," +
+    "TLS,AES,Camellia,SEED,SHA256,SHA512] askpw=any timeout=30})\n" +
+    "\n" +
+    `library=${libraryPath}\n` +
+    `name=${moduleName}\n`;
+  let pkcs11File = profileDir.clone();
+  pkcs11File.append("pkcs11.txt");
+  await IOUtils.writeUTF8(pkcs11File.path, pkcs11txt);
+}
+
+/**
  * @param {string} data
  * @returns {string}
  */

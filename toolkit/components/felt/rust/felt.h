@@ -15,12 +15,14 @@ void felt_init();
 bool is_felt_ui();
 
 #ifdef MOZ_WIDGET_GTK
-void felt_set_startup_token_or_timestamp(const char* aToken, uint32_t aTimestamp);
-void felt_get_startup_token_or_timestamp(const char** aOutToken, uint32_t* aOutTokenLen,
-                         uint32_t* aOutTimestamp);
+void felt_set_startup_token_or_timestamp(const char* aToken,
+                                         uint32_t aTimestamp);
+void felt_get_startup_token_or_timestamp(const char** aOutToken,
+                                         uint32_t* aOutTokenLen,
+                                         uint32_t* aOutTimestamp);
 #endif
 
-#ifdef XP_MACOSX
+#if defined(XP_MACOSX) || defined(XP_WIN)
 void felt_activate_app();
 #endif
 
@@ -46,6 +48,8 @@ nsresult felt_constructor(REFNSIID iid, void** result);
 nsresult felt_restartforced_constructor(REFNSIID iid, void** result);
 
 nsresult edr_checker_constructor(REFNSIID iid, void** result);
+
+nsresult disk_encryption_checker_constructor(REFNSIID iid, void** result);
 
 }  // extern "C"
 

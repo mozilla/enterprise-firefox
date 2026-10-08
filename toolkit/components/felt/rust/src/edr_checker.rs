@@ -3,9 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use std::collections::HashMap;
-use std::process::Command;
 use std::sync::Mutex;
-use std::thread;
 use std::time::{Duration, Instant};
 
 use moz_task::{DispatchOptions, Task, TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
@@ -304,62 +302,6 @@ const CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 // (captured_at, present? for each agent evaluated in the most recent sweep).
 // Guarded by a Mutex because detection runs on a moz_task background thread.
 static CACHE: Mutex<Option<(Instant, HashMap<EdrId, bool>)>> = Mutex::new(None);
-
-// Upper bound on a single external probe (a service-status command, the
-// system-extension listing, etc.). A probe that exceeds this is treated as
-// "could not determine" so one wedged command cannot stall the whole sweep.
-// Kept shorter than the JS-side detection timeout that bounds the caller.
-pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
-
-// How often run_command_bounded re-checks a still-running child for exit.
-const PROBE_POLL_INTERVAL: Duration = Duration::from_millis(100);
-
-/// Runs an external command, waiting up to `PROBE_TIMEOUT` for it to exit.
-/// Unlike `Command::output()`, a command that overruns the timeout is killed
-/// and reaped rather than left to linger. Returns `None` if the command could
-/// not be spawned, was killed for overrunning, or could not be waited on.
-///
-/// stdout is read only after the child exits, which assumes the small output of
-/// our probes (`sc query`, `systemextensionsctl list`, ...); a child that
-/// flooded the pipe would be killed at the timeout instead.
-pub(crate) fn run_command_bounded(program: &str, args: &[&str]) -> Option<std::process::Output> {
-    use std::io::Read;
-    use std::process::Stdio;
-
-    let mut child = Command::new(program)
-        .args(args)
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .stdout(Stdio::piped())
-        .spawn()
-        .ok()?;
-
-    let start = Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let mut stdout = Vec::new();
-                if let Some(mut out) = child.stdout.take() {
-                    let _ = out.read_to_end(&mut stdout);
-                }
-                return Some(std::process::Output {
-                    status,
-                    stdout,
-                    stderr: Vec::new(),
-                });
-            }
-            Ok(None) => {
-                if start.elapsed() >= PROBE_TIMEOUT {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return None;
-                }
-                thread::sleep(PROBE_POLL_INTERVAL);
-            }
-            Err(_) => return None,
-        }
-    }
-}
 
 // Serializes detection sweeps: the console controls the poll interval, so an
 // interval shorter than a sweep would otherwise let sweeps stack up, each
