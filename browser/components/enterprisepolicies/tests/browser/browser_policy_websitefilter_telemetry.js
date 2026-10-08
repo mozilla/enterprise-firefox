@@ -38,6 +38,13 @@ add_task(async function test_policy_enterprise_telemetry() {
   const referrerURL = SUPPORT_FILES_PATH + SAVELINKAS_PAGE;
   const resolvedURL = SUPPORT_FILES_PATH + BLOCKED_PAGE;
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + BLOCKED_PAGE);
+
+  // A directly blocked URL is only recorded once per RecentBlockedUrlCache window,
+  // and the next check blocks the same one, so await the window to pass.
+  const DEDUPE_WINDOW_MS = 1000;
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(r => setTimeout(r, DEDUPE_WINDOW_MS + 100));
+
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + BLOCKED_PAGE, {
     referrerURL,
   });
@@ -51,6 +58,7 @@ add_task(async function test_policy_enterprise_telemetry() {
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "301.sjs", {
     resolvedURL,
   });
+
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "301.sjs", {
     resolvedURL,
     referrerURL,
@@ -59,6 +67,7 @@ add_task(async function test_policy_enterprise_telemetry() {
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "302.sjs", {
     resolvedURL,
   });
+
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "302.sjs", {
     resolvedURL,
     referrerURL,
