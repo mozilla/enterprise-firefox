@@ -59,6 +59,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   installAddonFromUpdateURL: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   pemToBase64: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   processMIMEInfo: "resource://gre/modules/PoliciesHelpers.sys.mjs",
+  removePolicyPermission: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   replacePathVariables: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   reportFailure: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   setDefaultPermission: "resource://gre/modules/PoliciesHelpers.sys.mjs",
@@ -1043,12 +1044,7 @@ export var Policies = {
         ...(param.AllowSession ?? []),
       ]) {
         try {
-          Services.perms.removeFromPrincipal(
-            Services.scriptSecurityManager.createContentPrincipalFromOrigin(
-              origin
-            ),
-            "cookie"
-          );
+          lazy.removePolicyPermission(origin, "cookie");
         } catch (ex) {
           lazy.log.error(
             `Unable to remove cookie permission - ${origin.href || origin}`

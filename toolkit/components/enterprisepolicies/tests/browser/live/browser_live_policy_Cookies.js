@@ -99,8 +99,7 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
   const sessionOrigin = "https://session.example.com";
 
   registerCleanupFunction(() => {
-    Services.perms.removeByType("cookie");
-    Services.perms.removeByType("persist-data-on-shutdown");
+    Services.perms.removeAll();
   });
 
   info("Applying a Cookies policy config with Allow/Block/AllowSession lists.");
@@ -132,6 +131,11 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
     Ci.nsICookiePermission.ACCESS_SESSION,
     "AllowSession entry was added"
   );
+  Assert.equal(
+    getCurrentCookiePermission(`${allowOrigin}.`),
+    ALLOW,
+    "Trailing dot Allow entry was added"
+  );
 
   info("Removing the Cookies policy.");
   await waitForLivePolicyUpdate({});
@@ -151,6 +155,11 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
     UNKNOWN,
     "AllowSession entry was removed on live removal"
   );
+  Assert.equal(
+    getCurrentCookiePermission(`${allowOrigin}.`),
+    UNKNOWN,
+    "Trailing dot Allow entry was removed on live removal"
+  );
 });
 
 // An update to the Cookies policy that shrinks the Allow list must drop the entry that is no
@@ -160,8 +169,7 @@ add_task(async function test_cookie_permissions_reconciled_on_update() {
   const droppedOrigin = "https://dropped.example.com";
 
   registerCleanupFunction(() => {
-    Services.perms.removeByType("cookie");
-    Services.perms.removeByType("persist-data-on-shutdown");
+    Services.perms.removeAll();
   });
 
   info("Applying a Cookies policy config allowing two origins.");
@@ -214,8 +222,7 @@ add_task(
     const allowOrigin = "https://persist.example.com";
 
     registerCleanupFunction(() => {
-      Services.perms.removeByType("cookie");
-      Services.perms.removeByType("persist-data-on-shutdown");
+      Services.perms.removeAll();
     });
 
     info(
@@ -248,3 +255,44 @@ add_task(
     );
   }
 );
+
+// Clearing site data must leave the Cookies policy entries in place
+add_task(async function test_cookie_permissions_survive_clear_data() {
+  const allowOrigin = "https://allow.example.com";
+  const blockOrigin = "https://block.example.com";
+
+  registerCleanupFunction(() => {
+    Services.perms.removeAll();
+  });
+
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    {
+      policies: {
+        Cookies: {
+          Allow: [allowOrigin],
+          Block: [blockOrigin],
+        },
+      },
+    },
+    null
+  );
+
+  await new Promise(resolve =>
+    Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_PERMISSIONS, {
+      onDataDeleted: resolve,
+    })
+  );
+
+  Assert.equal(
+    getCurrentCookiePermission(allowOrigin),
+    ALLOW,
+    "Allow entry survived clearing site data"
+  );
+  Assert.equal(
+    getCurrentCookiePermission(blockOrigin),
+    DENY,
+    "Block entry survived clearing site data"
+  );
+
+  await waitForLivePolicyUpdate({});
+});
