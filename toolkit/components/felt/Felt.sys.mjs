@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -236,8 +238,10 @@ export class Felt {
       // their main thread demoted to low-priority QoS, which can starve the
       // SSO callback's DOMContentLoaded event and prevent token extraction.
       Services.prefs.setBoolPref("threads.use_low_power.enabled", false);
-      // Turn off every DevTools entry point.
-      Services.prefs.setBoolPref("devtools.policy.disabled", true);
+      // Turn off every DevTools entry point, except in developer builds.
+      if (AppConstants.MOZ_UPDATE_CHANNEL != "default") {
+        Services.prefs.setBoolPref("devtools.policy.disabled", true);
+      }
       await lazy.FeltStorage.init();
       if (await lazy.FeltStorage.recoverInterruptedSession()) {
         lazy.log.warn(

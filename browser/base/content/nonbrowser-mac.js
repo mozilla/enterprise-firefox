@@ -133,6 +133,11 @@ var NonBrowserWindow = {
       // In Felt mode, disable dock menu items until Firefox is ready
       if (Services.felt?.isFeltUI()) {
         this.setupFeltDockMenuState();
+        // The application menu of every window is built from this menubar.
+        const { FeltRestrictedWindow } = ChromeUtils.importESModule(
+          "resource:///modules/enterprise/FeltRestrictedWindow.sys.mjs"
+        );
+        FeltRestrictedWindow.restrictAppMenu(document);
       }
     }
 

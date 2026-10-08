@@ -151,26 +151,6 @@ class SsoHttpHandler(LocalHttpRequestHandler):
                 "</head><body></body></html>"
             )
 
-        elif path == "/popup_opener":
-            # Opens a window from a real click, so the popup blocker lets it
-            # through.
-            m = """
-<html>
-<head>
-    <title>Popup opener</title>
-</head>
-<body>
-    <button id="open-plain">plain</button>
-    <script>
-      const target = new URL("/watermark_blank_page", location.href).href;
-      document.getElementById("open-plain").addEventListener("click", () => {
-        window.open(target, "_blank");
-      });
-    </script>
-</body>
-</html>
-            """
-
         elif path == "/auth":
             expires = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
             cookie_expiry = expires.strftime("%a, %d %b %Y %H:%M:%S GMT")
