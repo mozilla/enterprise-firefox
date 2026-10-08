@@ -6,6 +6,7 @@
 import os
 import sys
 import time
+import unittest
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -26,6 +27,12 @@ ESCAPE_KEYS = [
     "printKb",
 ]
 
+ESCAPE_APP_MENU_ITEMS = [
+    "aboutName",
+    "menu_settings",
+    "menu_preferences",
+]
+
 
 class FeltRestrictedWindow(FeltTests):
     """
@@ -33,9 +40,6 @@ class FeltRestrictedWindow(FeltTests):
     SSO browser cannot be used to reach other content. The FELT UI process
     runs no enterprise policies, so the shortcuts that open other content and
     link drops must not work in it.
-
-    The open is driven by clicking a button so it carries user activation,
-    which keeps the popup blocker from dropping it.
     """
 
     def teardown(self):
@@ -51,14 +55,6 @@ class FeltRestrictedWindow(FeltTests):
         if self._driver.session_capabilities["platformName"] == "mac":
             return Keys.META
         return Keys.CONTROL
-
-    def _goto_opener_page(self):
-        self._driver.set_context("content")
-        self._driver.navigate(self._url("/popup_opener"))
-        self._wait.until(
-            lambda mn: mn.get_url().endswith("/popup_opener"),
-            message="The opener page loads",
-        )
 
     def _window_state(self):
         self._driver.set_context("chrome")
@@ -79,8 +75,11 @@ class FeltRestrictedWindow(FeltTests):
         self.run_wait_until_sso_loaded()
         self._driver.set_context("chrome")
         felt_handle = self._driver.current_chrome_window_handle
-        self._goto_opener_page()
-        self.get_elem("#open-plain").click()
+        self._driver.set_context("content")
+        self._driver.execute_script(
+            "window.open(arguments[0], '_blank');",
+            script_args=[self._url("/watermark_blank_page")],
+        )
 
         self._driver.set_context("chrome")
         self._wait.until(
@@ -129,4 +128,39 @@ class FeltRestrictedWindow(FeltTests):
         assert self._driver.execute_script(
             "return gBrowser.selectedBrowser.droppedLinkHandler === null;"
         ), "The browser has no dropped link handler"
+        self._driver.set_context("content")
+
+    def test_toolbars_are_hidden(self):
+        self._open_restricted_window()
+
+        visible_toolbars = self._driver.execute_script(
+            """
+            return Array.from(
+              document.querySelectorAll("#navigator-toolbox > toolbar")
+            )
+              .filter(toolbar => toolbar.getBoundingClientRect().height > 0)
+              .map(toolbar => toolbar.id);
+            """
+        )
+        assert visible_toolbars == [], f"{visible_toolbars} are hidden"
+        assert not self._driver.execute_script(
+            "return document.documentElement.hasAttribute('customtitlebar');"
+        ), "The browser window uses the native titlebar"
+        self._driver.set_context("content")
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS application menu")
+    def test_app_menu_has_no_escape_items(self):
+        self._open_restricted_window()
+
+        collapsed = self._driver.execute_script(
+            """
+            const doc = Services.appShell.hiddenDOMWindow.document;
+            return arguments[0].filter(
+              id => doc.getElementById(id)?.getAttribute("collapsed") == "true"
+            );
+            """,
+            script_args=[ESCAPE_APP_MENU_ITEMS],
+        )
+        for item_id in ESCAPE_APP_MENU_ITEMS:
+            assert item_id in collapsed, f"{item_id} is not in the application menu"
         self._driver.set_context("content")

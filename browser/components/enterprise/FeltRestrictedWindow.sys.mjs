@@ -2,13 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const HIDDEN_TOOLBARS = [
-  "tabbrowser-tabs",
-  "toolbar-menubar",
-  "nav-bar",
-  "PersonalToolbar",
-];
-
 // Editing, find, navigation, zoom and window management only.
 const ALLOWED_KEYS = new Set([
   "key_undo",
@@ -45,6 +38,15 @@ const ALLOWED_KEYS = new Set([
   "key_quitApplication",
 ]);
 
+// macOS application menu items that need to be removed.
+const APP_MENU_ITEMS = [
+  "aboutName",
+  "menu_referralsPage",
+  "menu_settings",
+  "menu_preferences",
+  "menu_setAsDefault",
+];
+
 /**
  * Restricts the browser windows of the Felt UI process to the content they
  * load, with no toolbars and no shortcuts that open other content.
@@ -56,9 +58,13 @@ export const FeltRestrictedWindow = {
   init(win) {
     const doc = win.document;
     // Hide toolbars
-    for (const id of HIDDEN_TOOLBARS) {
-      doc.getElementById(id)?.setAttribute("hide-in-felt", "true");
+    for (const toolbar of doc.querySelectorAll(
+      "#navigator-toolbox > toolbar"
+    )) {
+      toolbar.setAttribute("hide-in-felt", "true");
     }
+    // Use the native titlebar, as the tabs toolbar that replaces it is hidden.
+    win.CustomTitlebar.allowedBy("felt", false);
     for (const menu of doc.querySelectorAll("#main-menubar > menu")) {
       menu.hidden = true;
     }
@@ -84,5 +90,17 @@ export const FeltRestrictedWindow = {
       },
       { once: true }
     );
+  },
+
+  /**
+   * Removes the entries that open other content from the macOS application
+   * menu. Must run before the native menu bar of the window is built.
+   *
+   * @param {Document} doc The macOS hidden window document.
+   */
+  restrictAppMenu(doc) {
+    for (const id of APP_MENU_ITEMS) {
+      doc.getElementById(id)?.setAttribute("collapsed", "true");
+    }
   },
 };
