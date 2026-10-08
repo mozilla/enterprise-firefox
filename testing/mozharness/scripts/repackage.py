@@ -86,9 +86,6 @@ class Repackage(BaseScript):
         for repack_config in config["repackage_config"]:
             command = [sys.executable, "mach", "--log-no-times", "repackage"]
             command.extend([arg.format(**subst) for arg in repack_config["args"]])
-            if repack_config["args"][0] == "mar":
-                for filename in config.get("mar-exclude", []):
-                    command.extend(["--exclude", filename.format(**subst)])
             for arg, filename in repack_config["inputs"].items():
                 command.extend([
                     f"--{arg}",

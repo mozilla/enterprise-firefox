@@ -171,21 +171,13 @@ append_remove_instructions() {
 
 # List all files in the current directory, stripping leading "./"
 # Pass a variable name and it will be filled as an array.
-# MAR_EXCLUDE_FILES is a space separated list of basenames to leave out of the
-# listing entirely, so that no instruction at all is generated for them and the
-# updater leaves any installed copy alone.
 list_files() {
   count=0
   temp_filelist=$(mktemp)
-  exclude_args=()
-  for exclude_name in $MAR_EXCLUDE_FILES; do
-    exclude_args+=(! -name "$exclude_name")
-  done
   find . -type f \
     ! -name "update.manifest" \
     ! -name "updatev2.manifest" \
     ! -name "updatev3.manifest" \
-    "${exclude_args[@]}" \
     | sed 's/\.\/\(.*\)/\1/' \
     | sort -r > "${temp_filelist}"
   while read file; do
