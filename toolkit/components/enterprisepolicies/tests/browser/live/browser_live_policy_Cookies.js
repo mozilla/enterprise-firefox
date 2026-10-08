@@ -99,8 +99,7 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
   const sessionOrigin = "https://session.example.com";
 
   registerCleanupFunction(() => {
-    Services.perms.removeByType("cookie");
-    Services.perms.removeByType("persist-data-on-shutdown");
+    Services.perms.removeAll();
   });
 
   info("Applying a Cookies policy config with Allow/Block/AllowSession lists.");
@@ -160,8 +159,7 @@ add_task(async function test_cookie_permissions_reconciled_on_update() {
   const droppedOrigin = "https://dropped.example.com";
 
   registerCleanupFunction(() => {
-    Services.perms.removeByType("cookie");
-    Services.perms.removeByType("persist-data-on-shutdown");
+    Services.perms.removeAll();
   });
 
   info("Applying a Cookies policy config allowing two origins.");
@@ -214,8 +212,7 @@ add_task(
     const allowOrigin = "https://persist.example.com";
 
     registerCleanupFunction(() => {
-      Services.perms.removeByType("cookie");
-      Services.perms.removeByType("persist-data-on-shutdown");
+      Services.perms.removeAll();
     });
 
     info(
@@ -248,3 +245,104 @@ add_task(
     );
   }
 );
+
+// Clearing site data must leave the Cookies policy entries in place
+add_task(async function test_cookie_permissions_survive_clear_data() {
+  const allowOrigin = "https://allow.example.com";
+  const blockOrigin = "https://block.example.com";
+
+  registerCleanupFunction(() => {
+    Services.perms.removeAll();
+  });
+
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    {
+      policies: {
+        Cookies: {
+          Allow: [allowOrigin],
+          Block: [blockOrigin],
+        },
+      },
+    },
+    null
+  );
+
+  await new Promise(resolve =>
+    Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_PERMISSIONS, {
+      onDataDeleted: resolve,
+    })
+  );
+  await new Promise(resolve =>
+    Services.clearData.deleteDataFromSite(
+      "example.com",
+      {},
+      true,
+      Ci.nsIClearDataService.CLEAR_PERMISSIONS,
+      { onDataDeleted: resolve }
+    )
+  );
+
+  Assert.equal(
+    getCurrentCookiePermission(allowOrigin),
+    ALLOW,
+    "Allow entry survived clearing site data"
+  );
+  Assert.equal(
+    getCurrentCookiePermission(blockOrigin),
+    DENY,
+    "Block entry survived clearing site data"
+  );
+
+  await waitForLivePolicyUpdate({});
+});
+
+// Moving an origin from Allow to Block must change its entry, and removal must
+// clear the trailing dot host form as well
+add_task(async function test_cookie_permissions_move_and_trailing_dot() {
+  const origin = "https://move.example.com";
+  const trailingDotOrigin = "https://move.example.com.";
+
+  registerCleanupFunction(() => {
+    Services.perms.removeAll();
+  });
+
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    {
+      policies: {
+        Cookies: {
+          Allow: [origin],
+        },
+      },
+    },
+    null
+  );
+
+  Assert.equal(getCurrentCookiePermission(origin), ALLOW, "origin allowed");
+  Assert.equal(
+    getCurrentCookiePermission(trailingDotOrigin),
+    ALLOW,
+    "trailing dot origin allowed"
+  );
+
+  await waitForLivePolicyUpdate({
+    Cookies: {
+      Block: [origin],
+    },
+  });
+
+  Assert.equal(getCurrentCookiePermission(origin), DENY, "origin blocked");
+  Assert.equal(
+    getCurrentCookiePermission(trailingDotOrigin),
+    DENY,
+    "trailing dot origin blocked"
+  );
+
+  await waitForLivePolicyUpdate({});
+
+  Assert.equal(getCurrentCookiePermission(origin), UNKNOWN, "origin removed");
+  Assert.equal(
+    getCurrentCookiePermission(trailingDotOrigin),
+    UNKNOWN,
+    "trailing dot origin removed"
+  );
+});
