@@ -20,15 +20,23 @@ interface nsIMacPreferencesReader : nsISupports
   /**
    * This method checks whether macOS policies are enabled.
    *
+   * @param aAdminOwnedOnly
+   *        If true, only consider values an administrator owns: values from
+   *        device-scope configuration profiles and values in the Any User
+   *        domain (/Library/Preferences). Values from the Current User
+   *        domains and from user-scope configuration profiles are ignored.
    * @return true if macOS policies are enabled, false otherwise.
    */
-  boolean policiesEnabled();
+  boolean policiesEnabled([optional] in boolean aAdminOwnedOnly);
 
   /**
    * This method reads and returns the macOS preferences.
    *
+   * @param aAdminOwnedOnly
+   *        If true, only return values an administrator owns, as for
+   *        policiesEnabled.
    * @return A JSON object containing all macOS preferences.
    */
   [implicit_jscontext]
-  jsval readPreferences();
+  jsval readPreferences([optional] in boolean aAdminOwnedOnly);
 };

@@ -20,8 +20,8 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 export var macOSPoliciesParser = {
-  readPolicies(reader) {
-    let nativePolicies = reader.readPreferences();
+  readPolicies(reader, adminOwnedOnly = false) {
+    let nativePolicies = reader.readPreferences(adminOwnedOnly);
     if (!nativePolicies) {
       return null;
     }

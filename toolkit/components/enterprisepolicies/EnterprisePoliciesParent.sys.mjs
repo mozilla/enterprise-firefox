@@ -348,8 +348,12 @@ EnterprisePoliciesManager.prototype = {
           lazy.log.debug("Adding Windows GPO platform provider.");
           provider.push(new WindowsGPOPoliciesProvider());
         } else if (AppConstants.platform == "macosx") {
-          lazy.log.debug("Adding macOS platform provider.");
-          provider.push(new macOSPoliciesProvider());
+          // Under console management, only take admin-controlled macOS values.
+          const adminOwnedOnly = !!remoteProvider;
+          lazy.log.debug(
+            `Adding macOS platform provider (admin-owned values only: ${adminOwnedOnly}).`
+          );
+          provider.push(new macOSPoliciesProvider(adminOwnedOnly));
         }
       }
     } else {
@@ -1787,15 +1791,44 @@ class WindowsGPOPoliciesProvider extends PoliciesProvider {
 }
 
 class macOSPoliciesProvider extends PoliciesProvider {
-  constructor() {
+  /**
+   * @param {boolean} adminOwnedOnly whether to keep only values from
+   *   device-scope configuration profiles or the Any User domain, ignoring
+   *   the Current User domains and user-scope profiles
+   */
+  constructor(adminOwnedOnly) {
     super();
     let prefReader = Cc["@mozilla.org/mac-preferences-reader;1"].createInstance(
       Ci.nsIMacPreferencesReader
     );
-    if (!prefReader.policiesEnabled()) {
+    if (prefReader.policiesEnabled(adminOwnedOnly)) {
+      this._policies =
+        lazy.macOSPoliciesParser.readPolicies(prefReader, adminOwnedOnly) || {};
+    }
+    if (adminOwnedOnly) {
+      this._logIgnoredPolicies(prefReader);
+    }
+  }
+
+  /**
+   * Log the policies present in the full macOS view that were left out because
+   * an administrator did not set them, so deployments relying on user-scope
+   * sources can be diagnosed.
+   *
+   * @param {nsIMacPreferencesReader} prefReader
+   */
+  _logIgnoredPolicies(prefReader) {
+    if (!prefReader.policiesEnabled(false)) {
       return;
     }
-    this._policies = lazy.macOSPoliciesParser.readPolicies(prefReader) || {};
+    const ignored = Object.keys(
+      lazy.macOSPoliciesParser.readPolicies(prefReader) || {}
+    ).filter(name => !(name in this._policies));
+    if (ignored.length) {
+      lazy.log.warn(
+        `Ignoring macOS policies not set by an administrator: ${ignored.join(", ")}`
+      );
+    }
   }
 }
 
