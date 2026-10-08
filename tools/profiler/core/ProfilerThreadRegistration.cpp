@@ -4,6 +4,7 @@
 
 #include "mozilla/ProfilerThreadRegistration.h"
 
+#include "mozilla/Atomics.h"
 #include "mozilla/FOGIPC.h"
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/ProfilerThreadRegistry.h"
@@ -14,6 +15,17 @@ namespace mozilla::profiler {
 
 /* static */
 MOZ_THREAD_LOCAL(ThreadRegistration*) ThreadRegistration::tlsThreadRegistration;
+
+#ifdef NIGHTLY_BUILD
+static Atomic<bool, Relaxed> sReportCpuUse{true};
+#endif
+
+/* static */
+void ThreadRegistration::StopReportingCpuUse() {
+#ifdef NIGHTLY_BUILD
+  sReportCpuUse = false;
+#endif
+}
 
 ThreadRegistration::ThreadRegistration(const char* aName, const void* aStackTop)
     : mData(aName, aStackTop) {
@@ -73,7 +85,8 @@ ThreadRegistration::~ThreadRegistration() {
     nsAutoCString threadName;
     uint64_t cpuTimeMs;
     uint64_t wakeCount;
-    if (mData.RecordWakeCount(threadName, cpuTimeMs, wakeCount)) {
+    if (sReportCpuUse &&
+        mData.RecordWakeCount(threadName, cpuTimeMs, wakeCount)) {
       glean::RecordThreadCpuUse(threadName, cpuTimeMs, wakeCount);
     }
 #endif
