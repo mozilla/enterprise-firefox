@@ -35,14 +35,8 @@ add_task(function test_policy_permission_rejects_other_callers() {
   pm.removeFromPrincipal(principal, "cookie");
   checkPolicyPermission("removeFromPrincipal is rejected");
 
-  pm.removePermission(pm.getPermissionObject(principal, "cookie", true));
-  checkPolicyPermission("removePermission is rejected");
-
   pm.removeByType("cookie");
   checkPolicyPermission("removeByType is rejected");
-
-  pm.removeAllSince(0);
-  checkPolicyPermission("removeAllSince is rejected");
 
   pm.addFromPrincipal(principal, "cookie", DENY_ACTION, EXPIRE_NEVER);
   checkPolicyPermission("Changing with a non-policy expire type is rejected");

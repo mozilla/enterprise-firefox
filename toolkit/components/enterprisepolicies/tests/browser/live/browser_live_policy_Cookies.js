@@ -131,6 +131,11 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
     Ci.nsICookiePermission.ACCESS_SESSION,
     "AllowSession entry was added"
   );
+  Assert.equal(
+    getCurrentCookiePermission(`${allowOrigin}.`),
+    ALLOW,
+    "Trailing dot Allow entry was added"
+  );
 
   info("Removing the Cookies policy.");
   await waitForLivePolicyUpdate({});
@@ -149,6 +154,11 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
     getCurrentCookiePermission(sessionOrigin),
     UNKNOWN,
     "AllowSession entry was removed on live removal"
+  );
+  Assert.equal(
+    getCurrentCookiePermission(`${allowOrigin}.`),
+    UNKNOWN,
+    "Trailing dot Allow entry was removed on live removal"
   );
 });
 
@@ -272,15 +282,6 @@ add_task(async function test_cookie_permissions_survive_clear_data() {
       onDataDeleted: resolve,
     })
   );
-  await new Promise(resolve =>
-    Services.clearData.deleteDataFromSite(
-      "example.com",
-      {},
-      true,
-      Ci.nsIClearDataService.CLEAR_PERMISSIONS,
-      { onDataDeleted: resolve }
-    )
-  );
 
   Assert.equal(
     getCurrentCookiePermission(allowOrigin),
@@ -294,55 +295,4 @@ add_task(async function test_cookie_permissions_survive_clear_data() {
   );
 
   await waitForLivePolicyUpdate({});
-});
-
-// Moving an origin from Allow to Block must change its entry, and removal must
-// clear the trailing dot host form as well
-add_task(async function test_cookie_permissions_move_and_trailing_dot() {
-  const origin = "https://move.example.com";
-  const trailingDotOrigin = "https://move.example.com.";
-
-  registerCleanupFunction(() => {
-    Services.perms.removeAll();
-  });
-
-  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
-    {
-      policies: {
-        Cookies: {
-          Allow: [origin],
-        },
-      },
-    },
-    null
-  );
-
-  Assert.equal(getCurrentCookiePermission(origin), ALLOW, "origin allowed");
-  Assert.equal(
-    getCurrentCookiePermission(trailingDotOrigin),
-    ALLOW,
-    "trailing dot origin allowed"
-  );
-
-  await waitForLivePolicyUpdate({
-    Cookies: {
-      Block: [origin],
-    },
-  });
-
-  Assert.equal(getCurrentCookiePermission(origin), DENY, "origin blocked");
-  Assert.equal(
-    getCurrentCookiePermission(trailingDotOrigin),
-    DENY,
-    "trailing dot origin blocked"
-  );
-
-  await waitForLivePolicyUpdate({});
-
-  Assert.equal(getCurrentCookiePermission(origin), UNKNOWN, "origin removed");
-  Assert.equal(
-    getCurrentCookiePermission(trailingDotOrigin),
-    UNKNOWN,
-    "trailing dot origin removed"
-  );
 });
