@@ -6443,6 +6443,15 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
       CheckCompatibility(mProfD, version, osABI, mDirProvider.GetGREDir(),
                          mAppData->directory, flagFile);
 
+#if defined(MOZ_ENTERPRISE)
+  // Felt UI cannot switch to another profile from the downgrade dialog, so
+  // wipe its disposable scratch profile and start fresh.
+  if (is_felt_ui() && compatResult.isDowngrade &&
+      NS_SUCCEEDED(ResetFeltUIScratchProfile(mProfD, mProfLD))) {
+    compatResult = CompatCheckResult{};
+  }
+#endif
+
   bool cachesOK = compatResult.cachesOK;
 
   gLastAppVersion = compatResult.lastAppVersion;
