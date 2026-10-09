@@ -14,8 +14,9 @@ verb (``upload``/``tag``) taken from the kind name.
 The upload task also gets the registry to publish to. Its kind defaults
 ``REGISTRY_REFERENCE`` to the dev registry, and only a production release
 replaces it with the ``registry_reference`` the partner declares in repack.cfg.
-The credentials secret follows whichever reference the task ended up with.
-Tagging needs no lookup: it reads the reference back from the upload task's
+A repack whose repack.cfg declares none is not published at all. The
+credentials secret follows whichever reference the task ended up with. Tagging
+needs no lookup: it reads the reference back from the upload task's
 ``release-index.json``.
 """
 
@@ -56,6 +57,41 @@ def set_repack_metadata(config, tasks):
         yield task
 
 
+def _registry_reference(config, task):
+    """The registry a task's repack publishes to, or ``None`` if it declares none.
+
+    Any kind's ``release_partner_config`` view will do for a repack.cfg entry
+    that is not platform-specific. They all hold the same partners, sub
+    configs and values, and differ only in the platform list each kind kept
+    (see ``partners._select_platforms``).
+    """
+    partner_configs = (config.params.get("release_partner_config") or {}).get(
+        "enterprise-repack-repackage", {}
+    )
+    partner, sub_config = task["extra"]["repack_config"].split("/")
+    return (
+        partner_configs.get(partner, {}).get(sub_config, {}).get("registry_reference")
+    )
+
+
+@transforms.add
+def drop_repacks_without_a_registry(config, tasks):
+    """Publish nothing for a repack whose repack.cfg names no registry.
+
+    Leaving ``registry_reference`` out is how a repack opts out of the console;
+    `generic`, the un-customized repack, is the standing example. There is then
+    no registry to upload to and no tag to move, at any release level: the dev
+    registry the kind defaults to is for exercising a repack that has a
+    reference, not for publishing one that has none.
+
+    Only the upload kind is filtered. The tag kind is generated from it one for
+    one, so dropping an upload drops its tag with it.
+    """
+    for task in tasks:
+        if config.kind != UPLOAD_KIND or _registry_reference(config, task):
+            yield task
+
+
 @transforms.add
 def set_registry_reference(config, tasks):
     """Replace the dev ``REGISTRY_REFERENCE`` with the partner's own.
@@ -79,34 +115,17 @@ def set_registry_reference(config, tasks):
         yield from tasks
         return
 
-    # Any kind's `release_partner_config` view will do for a repack.cfg entry
-    # that is not platform-specific. They all hold the same partners, sub
-    # configs and values, and differ only in the platform list each kind kept
-    # (see `partners._select_platforms`).
-    partner_configs = (config.params.get("release_partner_config") or {}).get(
-        "enterprise-repack-repackage", {}
-    )
     for task in tasks:
-        partner, sub_config = task["extra"]["repack_config"].split("/")
-        registry = (
-            partner_configs
-            .get(partner, {})
-            .get(sub_config, {})
-            .get("registry_reference")
-        )
-        if not registry:
-            raise Exception(
-                f"Partner repack '{partner}/{sub_config}' declares no "
-                "registry_reference in its repack.cfg: there is no registry to "
-                "push its enterprise release to."
-            )
-
+        # `drop_repacks_without_a_registry` already dropped the tasks of a
+        # repack that declares no reference.
+        registry = _registry_reference(config, task)
         url = urlparse(registry)
         repository = url.path.strip("/")
         if not repository:
             raise Exception(
                 f"The registry_reference of partner repack "
-                f"'{partner}/{sub_config}' names no repository: {registry!r}."
+                f"'{task['extra']['repack_config']}' names no repository: "
+                f"{registry!r}."
             )
 
         env = task.setdefault("worker", {}).setdefault("env", {})
