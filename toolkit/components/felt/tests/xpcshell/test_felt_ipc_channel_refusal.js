@@ -96,7 +96,7 @@ add_task(async function test_accepted_peer_leaves_the_browser_running() {
 
 // The real browser binary connects to the endpoint, but felt expects this
 // process's pid, so ipcChannel() must refuse the browser and the browser must
-// be terminated. ipcChannel() blocks until the browser connects. On Windows the
+// be terminated. The browser is told to expect this process, so it does connect. ipcChannel() blocks until the browser connects. On Windows the
 // browser is started as felt starts it, through a launcher process that runs
 // it as a child, so the child must be gone too.
 add_task(
@@ -119,6 +119,8 @@ add_task(
         profileDir,
         "-felt",
         endpoint,
+        "-feltPid",
+        String(Services.appinfo.processID),
       ],
       environment: { MOZ_BYPASS_FELT: "", MOZ_FELT_UI: "" },
       environmentAppend: true,

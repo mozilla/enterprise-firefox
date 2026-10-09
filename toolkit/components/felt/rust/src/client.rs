@@ -12,8 +12,9 @@ use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc, Mutex};
 use xpcom::interfaces::{nsIObserver, nsIObserverService, nsISupports};
 use xpcom::RefPtr;
 
-use log::trace;
+use log::{trace, warn};
 
+use crate::components::peer_is_authorized;
 use crate::message::{nsICookieWrapper, FeltMessage, FELT_IPC_VERSION};
 use crate::utils::{self, Tokens, TOKENS};
 
@@ -24,45 +25,108 @@ pub struct FeltIpcClient {
 }
 
 impl FeltIpcClient {
-    pub fn new(felt_server_name: String) -> Self {
+    pub fn new(felt_server_name: String, felt_pid: u32) -> Self {
         trace!("FeltIpcClient::new({})", felt_server_name);
 
         let (tx_felt_to_firefox, rx_firefox_to_felt): (
             ipc_channel::ipc::IpcSender<FeltMessage>,
             ipc_channel::ipc::IpcReceiver<FeltMessage>,
         ) = ipc_channel::ipc::channel().unwrap();
-        match ipc_channel::ipc::IpcSender::connect(felt_server_name) {
-            Ok(tx0) => {
-                trace!("FeltIpcClient::new() connected!");
-
-                match tx0.send(tx_felt_to_firefox) {
-                    Ok(()) => trace!("FeltIpcClient::new() tx0.send(tx_felt_to_firefox) SENT"),
-                    Err(err) => trace!("FeltIpcClient::new() ERROR: {}", err),
-                }
-
-                match rx_firefox_to_felt.recv() {
-                    Ok(msg) => match msg {
-                        FeltMessage::ClientChannel(tx_firefox_to_felt) => {
-                            trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() OK");
-                            Self {
-                                tx: Some(tx_firefox_to_felt),
-                                rx: Some(rx_firefox_to_felt),
-                            }
-                        }
-                        _ => {
-                            trace!("FeltIpcClient::new() unexpected message");
-                            Self { tx: None, rx: None }
-                        }
-                    },
-                    Err(err) => {
-                        trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() ERR {}", err);
-                        Self { tx: None, rx: None }
-                    }
-                }
-            }
+        let tx0 = match ipc_channel::ipc::IpcSender::connect(felt_server_name) {
+            Ok(tx0) => tx0,
             Err(err) => {
                 trace!("FeltIpcClient::new() failed: {}", err);
-                Self { tx: None, rx: None }
+                return Self::default();
+            }
+        };
+        trace!("FeltIpcClient::new() connected!");
+
+        // AUTHORIZATION: any same-user process could have claimed the endpoint
+        // name given on the command line, so the endpoint is only trusted if it
+        // belongs to the felt process named next to it. Everywhere but macOS
+        // this is decided before anything is sent; a Mach send right has no
+        // attestable owner, so on macOS it is decided from the sender of the
+        // reply.
+        if !Self::endpoint_belongs_to(&tx0, felt_pid) {
+            return Self::default();
+        }
+
+        match tx0.send(tx_felt_to_firefox) {
+            Ok(()) => trace!("FeltIpcClient::new() tx0.send(tx_felt_to_firefox) SENT"),
+            Err(err) => trace!("FeltIpcClient::new() ERROR: {}", err),
+        }
+
+        match Self::receive_reply_from(&rx_firefox_to_felt, felt_pid) {
+            Some(FeltMessage::ClientChannel(tx_firefox_to_felt)) => {
+                trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() OK");
+                Self {
+                    tx: Some(tx_firefox_to_felt),
+                    rx: Some(rx_firefox_to_felt),
+                }
+            }
+            Some(_) => {
+                trace!("FeltIpcClient::new() unexpected message");
+                Self::default()
+            }
+            None => Self::default(),
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn endpoint_belongs_to(
+        tx0: &ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
+        felt_pid: u32,
+    ) -> bool {
+        let peer_pid = tx0.peer_pid();
+        let authorized = peer_is_authorized(peer_pid, felt_pid);
+        if !authorized {
+            warn!(
+                "FeltIpcClient::new() refused endpoint: owned by pid {:?}, expected felt pid {}",
+                peer_pid, felt_pid
+            );
+        }
+        authorized
+    }
+
+    #[cfg(target_os = "macos")]
+    fn endpoint_belongs_to(
+        _tx0: &ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
+        _felt_pid: u32,
+    ) -> bool {
+        true
+    }
+
+    #[cfg(target_os = "macos")]
+    fn receive_reply_from(
+        rx: &ipc_channel::ipc::IpcReceiver<FeltMessage>,
+        felt_pid: u32,
+    ) -> Option<FeltMessage> {
+        match rx.recv_with_sender_pid() {
+            Ok((msg, sender_pid)) if peer_is_authorized(sender_pid, felt_pid) => Some(msg),
+            Ok((_, sender_pid)) => {
+                warn!(
+                    "FeltIpcClient::new() refused endpoint: reply sent by pid {:?}, expected felt pid {}",
+                    sender_pid, felt_pid
+                );
+                None
+            }
+            Err(err) => {
+                trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() ERR {}", err);
+                None
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn receive_reply_from(
+        rx: &ipc_channel::ipc::IpcReceiver<FeltMessage>,
+        _felt_pid: u32,
+    ) -> Option<FeltMessage> {
+        match rx.recv() {
+            Ok(msg) => Some(msg),
+            Err(err) => {
+                trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() ERR {}", err);
+                None
             }
         }
     }
@@ -173,12 +237,12 @@ pub struct FeltClientThread {
 }
 
 impl FeltClientThread {
-    pub fn new(felt_server_name: String) -> Result<Self, ()> {
+    pub fn new(felt_server_name: String, felt_pid: u32) -> Result<Self, ()> {
         trace!(
             "FeltClientThread::new(): connecting to {}",
             felt_server_name.clone()
         );
-        let felt_client = FeltIpcClient::new(felt_server_name);
+        let felt_client = FeltIpcClient::new(felt_server_name, felt_pid);
         if felt_client.report_version() {
             Ok(Self {
                 ipc_client: RefCell::new(felt_client),
@@ -529,5 +593,49 @@ impl FeltClientThread {
         trace!("FeltClientThread::refresh_tokens()");
         let client = self.ipc_client.borrow();
         client.notify_refresh_tokens();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ipc_channel::ipc::{channel, IpcOneShotServer, IpcSender};
+    use std::thread;
+
+    // Plays the endpoint the browser is told about: accepts the browser's
+    // connection and answers with the channel the browser talks back on, as
+    // FeltXPCOM::ipc_channel does. Reports whether it got to answer the browser.
+    fn endpoint() -> (thread::JoinHandle<bool>, String) {
+        let (server, name) = IpcOneShotServer::<IpcSender<FeltMessage>>::new().unwrap();
+        let felt = thread::spawn(move || match server.accept() {
+            Ok((_rx, tx)) => {
+                let (tx_firefox_to_felt, _rx_felt) = channel::<FeltMessage>().unwrap();
+                tx.send(FeltMessage::ClientChannel(tx_firefox_to_felt))
+                    .is_ok()
+            }
+            Err(_) => false,
+        });
+        (felt, name)
+    }
+
+    // Bug 2073022: the browser must only complete the handshake with the felt
+    // process that spawned it, whatever process the endpoint name resolves to.
+    #[test]
+    fn browser_connects_to_the_endpoint_of_the_expected_pid() {
+        let (felt, name) = endpoint();
+        let client = FeltIpcClient::new(name, std::process::id());
+        assert!(felt.join().unwrap(), "felt answered the browser");
+        assert!(client.tx.is_some() && client.rx.is_some());
+    }
+
+    #[test]
+    fn browser_refuses_an_endpoint_of_another_pid() {
+        let (impostor, name) = endpoint();
+        let client = FeltIpcClient::new(name, std::process::id() + 1);
+        let impostor_was_answered = impostor.join().unwrap();
+        assert!(client.tx.is_none() && client.rx.is_none());
+        // Everywhere but macOS the browser sends nothing to a refused endpoint;
+        // on macOS it needs the reply to decide.
+        assert_eq!(impostor_was_answered, cfg!(target_os = "macos"));
     }
 }

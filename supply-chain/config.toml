@@ -135,7 +135,7 @@ notes = "Patched version of upstream"
 audit-as-crates-io = true
 notes = "Patched version of upstream"
 
-[policy."ipc-channel:0.21.0@git:e27888a6cdde52cdcb0937c462294669013a5e6f"]
+[policy."ipc-channel:0.21.0@git:02a68f4b91c130fd9cb727a40c70875e9f333bd1"]
 audit-as-crates-io = true
 notes = "Patched version to build with gecko deps"
 

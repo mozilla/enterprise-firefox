@@ -4192,6 +4192,20 @@ which on macOS requests the Mach audit trailer (using mach2's constants and
 types) and reads the sender's pid with libbsm's audit_token_to_pid.
 """
 
+[[audits.ipc-channel]]
+who = "John Reitano <jreitano@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.21.0@git:e27888a6cdde52cdcb0937c462294669013a5e6f -> 0.21.0@git:02a68f4b91c130fd9cb727a40c70875e9f333bd1"
+importable = false
+notes = """
+Adds peer pid reporting from the connecting side, so the FELT browser can
+verify the endpoint it connects to (Bug 2073022): IpcSender::peer_pid()
+(Linux SO_PEERCRED on the sender's socket, Windows
+GetNamedPipeServerProcessId) and IpcReceiver::recv_with_sender_pid(), which
+on macOS reads the sender's pid from the Mach audit trailer the same way
+accept_with_peer_pid() does. No new dependencies.
+"""
+
 [[audits.itertools]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"

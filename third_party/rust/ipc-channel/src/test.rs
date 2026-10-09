@@ -415,6 +415,99 @@ fn one_shot_server_reports_peer_pid_for_same_process_peer() {
     }
 }
 
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[test]
+fn sender_reports_peer_pid_for_same_process_server() {
+    let (server, server_name) = crate::ipc::IpcOneShotServer::<u32>::new().unwrap();
+    let client = thread::spawn(move || {
+        let tx: IpcSender<u32> = IpcSender::connect(server_name).unwrap();
+        let peer_pid = tx.peer_pid();
+        tx.send(7).unwrap();
+        peer_pid
+    });
+    let (_rx, received, _) = server.accept_with_peer_pid().unwrap();
+    let peer_pid = client.join().unwrap();
+    assert_eq!(received, 7);
+    if cfg!(any(feature = "force-inprocess", target_os = "macos")) {
+        assert_eq!(peer_pid, None);
+    } else {
+        assert_eq!(peer_pid, Some(std::process::id()));
+    }
+}
+
+#[cfg(not(any(
+    feature = "force-inprocess",
+    target_os = "windows",
+    target_os = "android",
+    target_os = "ios"
+)))]
+#[test]
+fn sender_reports_peer_pid_for_server_in_another_process() {
+    let (server, server_name) = IpcOneShotServer::<Option<u32>>::new().unwrap();
+    let child_pid = unsafe {
+        fork(|| {
+            let tx: IpcSender<Option<u32>> = IpcSender::connect(server_name).unwrap();
+            tx.send(tx.peer_pid()).unwrap();
+        })
+    };
+    let (_rx, peer_pid_seen_by_child, _) = server.accept_with_peer_pid().unwrap();
+    child_pid.wait();
+    if cfg!(target_os = "macos") {
+        assert_eq!(peer_pid_seen_by_child, None);
+    } else {
+        assert_eq!(peer_pid_seen_by_child, Some(std::process::id()));
+    }
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[test]
+fn receiver_reports_sender_pid_for_same_process_sender() {
+    let (tx, rx) = ipc::channel::<u32>().unwrap();
+    let sender = thread::spawn(move || tx.send(3).unwrap());
+    let (received, sender_pid) = rx.recv_with_sender_pid().unwrap();
+    sender.join().unwrap();
+    assert_eq!(received, 3);
+    if cfg!(all(target_os = "macos", not(feature = "force-inprocess"))) {
+        assert_eq!(sender_pid, Some(std::process::id()));
+    } else {
+        assert_eq!(sender_pid, None);
+    }
+}
+
+#[cfg(not(any(
+    feature = "force-inprocess",
+    target_os = "windows",
+    target_os = "android",
+    target_os = "ios"
+)))]
+#[test]
+fn receiver_reports_sender_pid_for_sender_in_another_process() {
+    // The parent hands the child a sender for one of its receivers over a
+    // one-shot server, as a launcher does with a process it spawned, then checks
+    // which process sent the message that arrives on that receiver.
+    let (parent_tx, parent_rx) = ipc::channel::<u32>().unwrap();
+    let (server, server_name) = IpcOneShotServer::<IpcSender<IpcSender<u32>>>::new().unwrap();
+    let child_pid = unsafe {
+        fork(|| {
+            let (child_tx, child_rx) = ipc::channel::<IpcSender<u32>>().unwrap();
+            let tx0 = IpcSender::connect(server_name).unwrap();
+            tx0.send(child_tx).unwrap();
+            let parent_tx = child_rx.recv().unwrap();
+            parent_tx.send(99).unwrap();
+        })
+    };
+    let (_rx, child_tx, _) = server.accept_with_peer_pid().unwrap();
+    child_tx.send(parent_tx).unwrap();
+    let (received, sender_pid) = parent_rx.recv_with_sender_pid().unwrap();
+    child_pid.wait();
+    assert_eq!(received, 99);
+    if cfg!(target_os = "macos") {
+        assert_eq!(sender_pid, Some(child_pid as u32));
+    } else {
+        assert_eq!(sender_pid, None);
+    }
+}
+
 #[cfg(not(any(
     feature = "force-inprocess",
     target_os = "windows",

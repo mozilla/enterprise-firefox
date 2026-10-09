@@ -4078,7 +4078,7 @@ dependencies = [
 [[package]]
 name = "ipc-channel"
 version = "0.21.0"
-source = "git+https://github.com/mozilla/ipc-channel?rev=e27888a6cdde52cdcb0937c462294669013a5e6f#e27888a6cdde52cdcb0937c462294669013a5e6f"
+source = "git+https://github.com/mozilla/ipc-channel?rev=02a68f4b91c130fd9cb727a40c70875e9f333bd1#02a68f4b91c130fd9cb727a40c70875e9f333bd1"
 dependencies = [
  "crossbeam-channel",
  "libc",
