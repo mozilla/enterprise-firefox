@@ -253,7 +253,7 @@ class CanvasTranslator final : public gfx::InlineTranslator,
       uint64_t aKey) final;
 
   already_AddRefed<gfx::SourceSurface> LookupSourceSurfaceFromSurfaceDescriptor(
-      const SurfaceDescriptor& aDesc) final;
+      gfx::DrawTarget* aDT, const SurfaceDescriptor& aDesc) final;
 
   /**
    * Gets the cached DataSourceSurface, if it exists, associated with a
@@ -479,7 +479,7 @@ class CanvasTranslator final : public gfx::InlineTranslator,
   // on the GPU, returning a directly samplable surface (no CPU download).
   // Falls back to nullptr when GL import is unavailable.
   already_AddRefed<gfx::SourceSurface> GetZeroCopySurfaceFromDMABuf(
-      TextureHost* aTextureHost);
+      gfx::DrawTarget* aDT, TextureHost* aTextureHost);
 #endif
 
   bool UsePendingCanvasTranslatorEvents();
