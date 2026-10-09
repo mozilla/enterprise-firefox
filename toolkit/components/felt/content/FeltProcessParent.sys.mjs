@@ -65,9 +65,7 @@ export function queueURL(payload) {
     Services.felt.makeBackgroundProcess(true);
   } else {
     // Queue at module level until ready
-    lazy.gFeltPendingURLs.push(payload).catch(err => {
-      lazy.log.error("Failed to persist pending Felt URL", err);
-    });
+    lazy.gFeltPendingURLs.push(payload);
     Services.cpmm.sendAsyncMessage("FeltParent:ForceFeltFocus", {});
   }
 }

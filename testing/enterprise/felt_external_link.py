@@ -71,3 +71,9 @@ class BaseBrowserExternalLink(FeltTests):
         self.check_has_external_link_tab()
         self._external_link = "about:logo"
         self.check_has_external_link_tab()
+
+    def run_no_about_pages(self):
+        self._external_link = "about:buildconfig"
+        self.check_no_external_link_tab()
+        self._external_link = "about:logo"
+        self.check_no_external_link_tab()

@@ -1,6 +1,10 @@
 [DEFAULT]
 firefox-appdir = "browser"
 
+["test_felt_pending_urls.js"]
+
+["test_felt_url_sanitizer.js"]
+
 ["test_telemetry_upload_locked.js"]
 
 ["test_theme_migration.js"]
