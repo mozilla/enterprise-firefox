@@ -6,7 +6,12 @@ import unittest
 
 from mozunit import main
 
-from gecko_taskgraph.util.partners import parse_config, parse_registry_reference
+from gecko_taskgraph.util.attributes import repacks_on_release_promotion
+from gecko_taskgraph.util.partners import (
+    check_if_partners_enabled,
+    parse_config,
+    parse_registry_reference,
+)
 
 PLATFORM_MAPPING = {
     "linux-x86_64": "linux64-enterprise-shippable",
@@ -71,6 +76,46 @@ class TestParseConfig(unittest.TestCase):
     def test_without_registry_reference(self):
         config = parse_config('locales="en-US"\nwin64=true\n', PLATFORM_MAPPING)
         self.assertNotIn("registry_reference", config)
+
+
+class TestRepacksOnDemand(unittest.TestCase):
+    """Only Firefox Enterprise waits for a release promotion to repack.
+
+    Thunderbird Enterprise cannot ship from a release promotion action yet,
+    so it has to keep repacking on every push.
+    """
+
+    def params(self, product, enabled=False):
+        return {
+            "release_product": product,
+            "release_enable_enterprise_repack": enabled,
+            "release_enable_partner_repack": False,
+            "release_enable_partner_attribution": False,
+            "release_enable_emefree": False,
+        }
+
+    def enabled_kinds(self, params):
+        config = type("Config", (), {"kind": "enterprise-repack", "params": params})
+        return list(check_if_partners_enabled(config, [{"task": 1}]))
+
+    def test_firefox_enterprise_repacks_on_release_promotion(self):
+        self.assertTrue(repacks_on_release_promotion(self.params("firefox-enterprise")))
+
+    def test_thunderbird_enterprise_repacks_always(self):
+        self.assertFalse(
+            repacks_on_release_promotion(self.params("thunderbird-enterprise"))
+        )
+
+    def test_firefox_enterprise_needs_the_flag(self):
+        self.assertEqual(self.enabled_kinds(self.params("firefox-enterprise")), [])
+        self.assertEqual(
+            len(self.enabled_kinds(self.params("firefox-enterprise", enabled=True))), 1
+        )
+
+    def test_thunderbird_enterprise_ignores_the_flag(self):
+        self.assertEqual(
+            len(self.enabled_kinds(self.params("thunderbird-enterprise"))), 1
+        )
 
 
 if __name__ == "__main__":

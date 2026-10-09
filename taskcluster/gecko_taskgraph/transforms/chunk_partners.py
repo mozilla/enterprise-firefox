@@ -14,6 +14,7 @@ from mozbuild.chunkify import chunkify
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.dependencies import get_primary_dependency
 
+from gecko_taskgraph.util.attributes import repacks_on_release_promotion
 from gecko_taskgraph.util.partners import (
     apply_partner_priority,
     get_repack_configs_by_platform,
@@ -58,7 +59,9 @@ def chunk_partners(config, jobs):
         repack_ids = dep_extra.get("repack_ids")
         copy_repack_ids = job.pop("copy-repack-ids", False)
 
-        if config.kind.startswith("enterprise-repack"):
+        if config.kind.startswith("enterprise-repack") and repacks_on_release_promotion(
+            config.params
+        ):
             yield from _fan_out_repack_configs(config, job, build_platform, dep_extra)
         elif copy_repack_ids:
             assert repack_ids, f"dep_job {dep_job.label} doesn't have repack_ids!"
@@ -73,6 +76,12 @@ def chunk_partners(config, jobs):
                 "release-eme-free-repack-signing",
                 "release-eme-free-repack-mac-signing",
                 "release-partner-repack-mac-signing",
+                # Thunderbird Enterprise only: its `enterprise-repack` tasks
+                # carry no repack id, so mac signing arrives here and has to
+                # be split one repack id per task, which is what
+                # `repacks-per-chunk: 1` does. Firefox Enterprise never gets
+                # this far, it is handled by the first branch above.
+                "enterprise-repack-mac-signing",
             ):
                 repacks_per_chunk = job.get("repacks-per-chunk")
                 chunks, remainder = divmod(len(platform_repack_ids), repacks_per_chunk)

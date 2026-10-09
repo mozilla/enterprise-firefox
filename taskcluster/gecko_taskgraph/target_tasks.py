@@ -29,6 +29,7 @@ from gecko_taskgraph.util.attributes import (
     match_run_on_hg_branches,
     match_run_on_projects,
     match_run_on_repo_type,
+    repacks_on_release_promotion,
 )
 from gecko_taskgraph.util.constants import TEST_KINDS
 from gecko_taskgraph.util.hg import find_hg_revision_push_info, get_hg_commit_message
@@ -610,6 +611,18 @@ def target_tasks_enterprise_firefox_with_tests(
         # Only keep builds that have been explicitely flagged
         if task.kind == "build" and not parameters["project"] in task.attributes.get(
             "run_on_projects"
+        ):
+            return False
+
+        # Only a repack needs the shippable builds and the tasks made
+        # from them, and a push never repacks. They are still built when a
+        # repack runs: depending on the branch, the `nightly_enterprise` cron
+        # or a release promotion action asks for the repack, and the builds
+        # come in as its dependencies. Thunderbird Enterprise runs this same
+        # filter through `enterprise_thunderbird_with_tests_tasks`, so it has
+        # to keep them.
+        if repacks_on_release_promotion(parameters) and "-enterprise-shippable" in (
+            task.attributes.get("build_platform") or ""
         ):
             return False
 

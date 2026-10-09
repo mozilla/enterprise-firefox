@@ -68,6 +68,19 @@ ENTERPRISE_PROMOTION_PROJECTS = {
     "enterprise-firefox",
     "enterprise-thunderbird",
 } | ENTERPRISE_TRY_PROJECTS
+
+
+def repacks_on_release_promotion(params):
+    """Whether this product only builds repacks during a release promotion.
+
+    Firefox Enterprise does, so a push builds no repack and no shippable
+    build. Thunderbird Enterprise cannot: the Comm decision task in
+    `.taskcluster.yml` has no support for the release promotion actions, so
+    it still builds its repacks on every push.
+    """
+    return params["release_product"] == "firefox-enterprise"
+
+
 RELEASE_PROMOTION_PROJECTS = (
     {
         "jamun",
