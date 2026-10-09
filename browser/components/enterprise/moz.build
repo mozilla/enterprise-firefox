@@ -12,6 +12,7 @@ EXTRA_JS_MODULES.enterprise += [
     "EnterpriseForcedQuit.sys.mjs",
     "EnterpriseHandler.sys.mjs",
     "EnterpriseThemeMigration.sys.mjs",
+    "FeltRestrictedWindow.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += ["components.conf"]
