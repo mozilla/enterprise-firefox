@@ -63,19 +63,29 @@ pub enum FeltMessage {
     /// (i.e. before `profile-do-change`); sent unconditionally on the
     /// first IPC handshake, ahead of `AccessToken` / `Ready`.
     PrimarySecret(String),
-    RefreshTokens,
+    RefreshTokens(u32),
+    TokenRefreshResult {
+        request_id: u32,
+        access_token: String,
+        expires_at: i64,
+        error: String,
+    },
     FeltReady(u32),
     OpenURL((String, i32, Option<FocusHint>)),
     RestartForced,
     Restarting(bool),
-    LogoutShutdown,
+    LogoutShutdown(Option<String>),
     /// Sent by the browser (which owns the locking pref the Felt UI process
     /// cannot read) whenever `enterprise.locking.crash` is applied or
     /// changed, so a crash-abort can lock the session instead of discarding it.
     CrashLockIntent(bool),
-    Exiting(bool),
+    Exiting(bool, Option<String>),
     UpdateReady,
     Shutdown,
+    // Report the console's reachability from the FELT UI to the browser process.
+    // The boolean indicates whether the console is reachable (true) or not (false).
+    // This browser side uses this to notify `felt-firefox-console-reachable/unreachable`.
+    ReportConsoleReachability(bool),
     CheckForUpdates,
 }
 
@@ -85,4 +95,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 16;
+pub const FELT_IPC_VERSION: u32 = 17;

@@ -8,7 +8,6 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
-from base_test import Environment
 from felt_tests import FeltTests
 
 PREF_LOCKING_SHUTDOWN = "enterprise.locking.shutdown"
@@ -104,25 +103,6 @@ class BrowserShutdownLock(FeltTests):
         assert self.signout_count.value == 0, "No signout should have been posted yet"
         return browser_pid
 
-    def _assert_locked(self):
-        """Assert the close locked the session: no signout, resume token kept."""
-        self._await_felt_locking_token(
-            True, "Locking must persist an encrypted resume token"
-        )
-        assert self.signout_count.value == 0, (
-            f"Locking must not post a signout, got {self.signout_count.value}"
-        )
-
-    def _assert_signed_out(self):
-        """Assert the close signed out: exactly one signout, no token left behind."""
-        assert self.signout_count.value == 1, (
-            f"Expected exactly 1 signout request, got {self.signout_count.value}"
-        )
-        self._await_felt_locking_token(
-            False, "Signing out must not leave a resume token behind"
-        )
-        self.assert_user_signed_out(env=Environment.FELT)
-
     def test_shutdown_lock_persists_session_without_signout(self):
         """Locking enabled, prompt disabled: closing locks (no signout, token kept)."""
         browser_pid = self._begin_close_test(locking_enabled=True, prompt_enabled=False)
@@ -130,7 +110,7 @@ class BrowserShutdownLock(FeltTests):
         self._trigger_browser_closure()
         self._settle_after_child_exit(browser_pid)
 
-        self._assert_locked()
+        self._assert_session_locked()
 
     def test_shutdown_signout_when_locking_disabled(self):
         """Locking disabled, prompt disabled: closing signs out (no token kept)."""
@@ -141,7 +121,7 @@ class BrowserShutdownLock(FeltTests):
         self._trigger_browser_closure()
         self._settle_after_child_exit(browser_pid)
 
-        self._assert_signed_out()
+        self._assert_session_signed_out()
 
     def test_prompt_lock_dialog_accept_locks(self):
         """Locking enabled, prompt enabled: dialog shows lock wording; accept locks."""
@@ -155,7 +135,7 @@ class BrowserShutdownLock(FeltTests):
         self._accept_close_dialog()
         self._settle_after_child_exit(browser_pid)
 
-        self._assert_locked()
+        self._assert_session_locked()
 
     def test_prompt_signout_dialog_accept_signs_out(self):
         """Locking disabled, prompt enabled: dialog shows signout wording; accept signs out."""
@@ -169,4 +149,4 @@ class BrowserShutdownLock(FeltTests):
         self._accept_close_dialog()
         self._settle_after_child_exit(browser_pid)
 
-        self._assert_signed_out()
+        self._assert_session_signed_out()

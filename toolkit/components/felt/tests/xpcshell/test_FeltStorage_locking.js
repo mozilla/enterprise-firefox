@@ -155,7 +155,11 @@ add_task(async function test_set_does_not_resurrect_a_cleared_record() {
     const pendingUpdate = lazy.FeltStorage.setLockingToken(EMAIL_A, "token-2");
     lazy.FeltStorage.clearLockingToken(EMAIL_A);
     resolveEncrypt("enc(token-2)");
-    await pendingUpdate;
+    Assert.equal(
+      await pendingUpdate,
+      false,
+      "The cancelled write reports failure."
+    );
 
     Assert.ok(
       !lazy.FeltStorage.hasLockingToken(EMAIL_A),
@@ -163,6 +167,32 @@ add_task(async function test_set_does_not_resurrect_a_cleared_record() {
     );
   } finally {
     OSKeyStore.encrypt.callsFake(async plaintext => `enc(${plaintext})`);
+  }
+});
+
+add_task(async function test_old_write_cannot_replace_a_new_session_token() {
+  await lazy.FeltStorage.setLockingToken(EMAIL_A, "old-token", "old-user");
+
+  const pendingEncryption = Promise.withResolvers();
+  OSKeyStore.encrypt.callsFake(token =>
+    token === "stale-token"
+      ? pendingEncryption.promise
+      : Promise.resolve(`enc(${token})`)
+  );
+  const staleWrite = lazy.FeltStorage.setLockingToken(EMAIL_A, "stale-token");
+  try {
+    lazy.FeltStorage.clearLockingToken(EMAIL_A);
+    await lazy.FeltStorage.setLockingToken(EMAIL_A, "new-token", "new-user");
+    pendingEncryption.resolve("enc(stale-token)");
+    Assert.equal(await staleWrite, false, "The stale write reports failure.");
+
+    Assert.equal(await lazy.FeltStorage.getLockingToken(EMAIL_A), "new-token");
+    Assert.equal(lazy.FeltStorage.getLockingUserId(EMAIL_A), "new-user");
+  } finally {
+    pendingEncryption.resolve("enc(stale-token)");
+    await staleWrite;
+    OSKeyStore.encrypt.callsFake(async token => `enc(${token})`);
+    lazy.FeltStorage.clearLockingToken(EMAIL_A);
   }
 });
 

@@ -30,12 +30,17 @@ class BrowserTokenRefresh(FeltTests):
     def trigger_token_refresh(self):
         driver = self.get_driver(Environment.FIREFOX)
         driver.set_context("chrome")
-        try:
-            driver.execute_script("Services.felt.refreshTokens();")
-        except Exception:
-            # refreshTokens() triggers an async IPC message to Felt and may throw
-            # before the refresh completes. The exception is expected and harmless.
-            pass
+        # Go through the browser's own refresh so FELT's reply carries the
+        # request id the browser expects. The promise is left to settle on its
+        # own: a 401 ends the session underneath it.
+        driver.execute_script(
+            """
+            const { ConsoleClient } = ChromeUtils.importESModule(
+                "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+            );
+            ConsoleClient._refreshSession().catch(() => {});
+            """
+        )
         driver.set_context("content")
 
     def assert_felt_tokens_cleared(self):

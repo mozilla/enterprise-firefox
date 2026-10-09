@@ -230,7 +230,14 @@ class FeltDevicePostureElements(FeltTests):
         def refreshed(_):
             nonlocal polls
             if polls % 10 == 0:
-                self._child_driver.execute_script("Services.felt.refreshTokens();")
+                self._child_driver.execute_script(
+                    """
+                    const { ConsoleClient } = ChromeUtils.importESModule(
+                        "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+                    );
+                    ConsoleClient._refreshSession().catch(() => {});
+                    """
+                )
             polls += 1
             value = self._child_driver.execute_script(
                 "return Services.prefs.getStringPref("

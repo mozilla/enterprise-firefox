@@ -6,6 +6,20 @@
 const PREF_SHUTDOWN = "enterprise.locking.shutdown";
 const PREF_RESTART = "enterprise.locking.restart";
 const PREF_CRASH = "enterprise.locking.crash";
+const PREF_NETWORK_LOSS = "enterprise.locking.network_loss";
+const PREF_NETWORK_LOSS_ENABLED = "enterprise.network_loss.enabled";
+const PREF_GRACE_PERIOD = "enterprise.network_loss.grace_period_minutes";
+
+const { ConsoleConnectionGuard } = ChromeUtils.importESModule(
+  "resource://gre/modules/enterprise/ConsoleConnectionGuard.sys.mjs"
+);
+
+// Enabling a NetworkLoss action lets the guard arm off the failing console
+// polls this environment produces, which would end the session once the grace
+// period elapsed. Disarm it so it cannot fire after the tests finish.
+registerCleanupFunction(() => {
+  ConsoleConnectionGuard.reset();
+});
 
 function checkState(prefName, locked, value) {
   Assert.equal(
@@ -47,8 +61,17 @@ function checkCrashState(locked, value) {
   );
 }
 
-// A live SignOut update changes all three locking prefs and their getters
-// without relaunching the browser. Check each action before and after the update.
+function checkNetworkLossState(locked, value) {
+  checkState(PREF_NETWORK_LOSS, locked, value);
+  Assert.strictEqual(
+    EnterpriseHandler.willLockOnNetworkLoss,
+    value,
+    `willLockOnNetworkLoss reflects the pref (${value})`
+  );
+}
+
+// A live SignOut update changes the locking prefs and their getters without
+// relaunching the browser.
 add_task(async function test_signout_live_update() {
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
@@ -130,6 +153,11 @@ add_task(async function test_signout_partial_policy() {
   const restartBaseline = Services.prefs.getBoolPref(PREF_RESTART, false);
   const crashLocked = Services.prefs.prefIsLocked(PREF_CRASH);
   const crashBaseline = Services.prefs.getBoolPref(PREF_CRASH, false);
+  const networkLossLocked = Services.prefs.prefIsLocked(PREF_NETWORK_LOSS);
+  const networkLossBaseline = Services.prefs.getBoolPref(
+    PREF_NETWORK_LOSS,
+    false
+  );
 
   info("Applying SignOut with only a Shutdown action");
   await waitForLivePolicyUpdate({
@@ -139,4 +167,106 @@ add_task(async function test_signout_partial_policy() {
   checkShutdownState(true, true);
   checkRestartState(restartLocked, restartBaseline);
   checkCrashState(crashLocked, crashBaseline);
+  checkNetworkLossState(networkLossLocked, networkLossBaseline);
+});
+
+// Like Shutdown and Restart, the NetworkLoss action maps to a boolean locking
+// pref; unlike them it also carries a grace period.
+add_task(async function test_network_loss_actions() {
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    { policies: {} },
+    null
+  );
+
+  const lockBaseline = Services.prefs.getBoolPref(PREF_NETWORK_LOSS, false);
+  const enabledBaseline = Services.prefs.getBoolPref(
+    PREF_NETWORK_LOSS_ENABLED,
+    false
+  );
+  const graceBaseline = Services.prefs.getIntPref(PREF_GRACE_PERIOD, 0);
+  Assert.strictEqual(
+    Services.prefs.getDefaultBranch("").getIntPref(PREF_GRACE_PERIOD),
+    480,
+    "The shipped network-loss grace period is 8 hours."
+  );
+  Assert.ok(
+    !Services.prefs.getDefaultBranch("").getBoolPref(PREF_NETWORK_LOSS_ENABLED),
+    "Network-loss enforcement ships disabled."
+  );
+
+  for (const action of ["lock", "signout", "none"]) {
+    info(`Applying NetworkLoss with a ${action} action`);
+    await waitForLivePolicyUpdate({
+      SignOut: { NetworkLoss: { Action: action, GracePeriodMinutes: 42 } },
+    });
+
+    checkNetworkLossState(true, action === "lock");
+    checkState(PREF_NETWORK_LOSS_ENABLED, true, action !== "none");
+    Assert.ok(
+      Services.prefs.prefIsLocked(PREF_GRACE_PERIOD),
+      `${PREF_GRACE_PERIOD} is locked`
+    );
+    Assert.strictEqual(
+      Services.prefs.getIntPref(PREF_GRACE_PERIOD, 0),
+      42,
+      `${PREF_GRACE_PERIOD} is 42`
+    );
+  }
+
+  info("Removing SignOut");
+  await waitForLivePolicyUpdate({});
+
+  checkNetworkLossState(true, lockBaseline);
+  checkState(PREF_NETWORK_LOSS_ENABLED, true, enabledBaseline);
+  Assert.strictEqual(
+    Services.prefs.getIntPref(PREF_GRACE_PERIOD, 0),
+    graceBaseline,
+    `${PREF_GRACE_PERIOD} is restored to its pre-policy value`
+  );
+  Assert.ok(
+    Services.prefs.prefIsLocked(PREF_GRACE_PERIOD),
+    `${PREF_GRACE_PERIOD} is re-locked after removal`
+  );
+});
+
+// GracePeriodMinutes is optional, including after a live policy update.
+add_task(async function test_network_loss_grace_period_optional() {
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    { policies: {} },
+    null
+  );
+
+  const graceBaseline = Services.prefs.getIntPref(PREF_GRACE_PERIOD, 0);
+
+  await waitForLivePolicyUpdate({
+    SignOut: { NetworkLoss: { Action: "lock", GracePeriodMinutes: 42 } },
+  });
+  Assert.strictEqual(Services.prefs.getIntPref(PREF_GRACE_PERIOD, 0), 42);
+
+  await waitForLivePolicyUpdate({
+    SignOut: { NetworkLoss: { Action: "signout" } },
+  });
+
+  checkNetworkLossState(true, false);
+  Assert.strictEqual(
+    Services.prefs.getIntPref(PREF_GRACE_PERIOD, 0),
+    graceBaseline,
+    `${PREF_GRACE_PERIOD} keeps its default`
+  );
+
+  await waitForLivePolicyUpdate({
+    SignOut: { NetworkLoss: { Action: "lock", GracePeriodMinutes: 42 } },
+  });
+  await waitForLivePolicyUpdate({
+    SignOut: { Shutdown: { Action: "signout" } },
+  });
+  checkNetworkLossState(true, false);
+  Assert.strictEqual(
+    Services.prefs.getIntPref(PREF_GRACE_PERIOD, 0),
+    graceBaseline,
+    `${PREF_GRACE_PERIOD} restores its default when NetworkLoss is removed`
+  );
+
+  info("Removing SignOut");
+  await waitForLivePolicyUpdate({});
 });

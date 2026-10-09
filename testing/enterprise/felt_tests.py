@@ -1283,11 +1283,14 @@ class FeltTests(FeltTestsBase):
         self.await_felt_auth_window()
         self.force_window()
 
-    def _hold_felt_after_child_exit(self):
+    def _hold_felt_after_child_exit(self, keep_window=True):
         # Keep FELT alive after the child exits so we can inspect FELT-side state.
+        # Pass keep_window=False when the flow under test ends by showing a
+        # notice: FELT opens a fresh window for it, and holding the old one open
+        # leaves two.
         self.get_driver(Environment.FELT).set_prefs(
             {
-                "enterprise.felt_tests.should_not_close_window": True,
+                "enterprise.felt_tests.should_not_close_window": keep_window,
                 "enterprise.felt_tests.is_blocking_shutdown": True,
             },
             default_branch=True,
@@ -1314,13 +1317,32 @@ class FeltTests(FeltTestsBase):
                 "Firefox quit before execute_script returned, no data received over Marionette socket"
             )
 
-    def _start_signed_in(self):
-        self._hold_felt_after_child_exit()
+    def _start_signed_in(self, keep_felt_window=True):
+        self._hold_felt_after_child_exit(keep_window=keep_felt_window)
         self._prepare_felt_keystore()
         self.run_felt_base()
         self.connect_child_browser()
         self.assert_user_signed_in(env=Environment.FIREFOX)
         return self._child_driver.session_capabilities["moz:processID"]
+
+    def _assert_session_locked(self):
+        """Assert the session locked: no signout posted, resume token kept."""
+        self._await_felt_locking_token(
+            True, "Locking must persist an encrypted resume token"
+        )
+        assert self.signout_count.value == 0, (
+            f"Locking must not post a signout, got {self.signout_count.value}"
+        )
+
+    def _assert_session_signed_out(self):
+        """Assert the session signed out: one signout, no token left behind."""
+        assert self.signout_count.value == 1, (
+            f"Expected exactly 1 signout request, got {self.signout_count.value}"
+        )
+        self._await_felt_locking_token(
+            False, "Signing out must not leave a resume token behind"
+        )
+        self.assert_user_signed_out(env=Environment.FELT)
 
     def reload_chrome_window(self):
         # We set a marker before reloading so we can reliably detect when the

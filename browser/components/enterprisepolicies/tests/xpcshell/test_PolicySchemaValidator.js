@@ -6,6 +6,9 @@
 const { PolicySchemaValidator } = ChromeUtils.importESModule(
   "resource://gre/modules/policies/PolicySchemaValidator.sys.mjs"
 );
+const { schema: policySchema } = ChromeUtils.importESModule(
+  "resource:///modules/policies/schema.sys.mjs"
+);
 
 const { TestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/TestUtils.sys.mjs"
@@ -23,6 +26,36 @@ function assertInvalid(value, schema, options) {
   Assert.ok(result.error, "An error is returned for invalid values");
   return result.error;
 }
+
+add_task(function test_network_loss_grace_period_is_positive_integer() {
+  const signOutSchema = policySchema.properties.SignOut;
+  const maxGracePeriodMinutes = Math.floor((2 ** 31 - 1) / (60 * 1000));
+  const policy = minutes => ({
+    NetworkLoss: { Action: "lock", GracePeriodMinutes: minutes },
+  });
+
+  assertValid(policy(1), signOutSchema);
+  Assert.equal(
+    signOutSchema.properties.NetworkLoss.properties.GracePeriodMinutes.maximum,
+    maxGracePeriodMinutes,
+    "The schema caps the grace period at the timer limit."
+  );
+  assertValid(policy(maxGracePeriodMinutes), signOutSchema);
+  assertInvalid(policy(0), signOutSchema);
+  assertInvalid(policy(-1), signOutSchema);
+  assertInvalid(policy(1.5), signOutSchema);
+  assertInvalid(policy(maxGracePeriodMinutes + 1), signOutSchema);
+});
+
+add_task(function test_network_loss_actions() {
+  const signOutSchema = policySchema.properties.SignOut;
+
+  for (const Action of ["signout", "lock", "none"]) {
+    assertValid({ NetworkLoss: { Action } }, signOutSchema);
+  }
+  assertInvalid({ NetworkLoss: { Action: "disabled" } }, signOutSchema);
+  assertInvalid({ NetworkLoss: { GracePeriodMinutes: 42 } }, signOutSchema);
+});
 
 add_task(function test_delegates_structural_validation() {
   const schema = {

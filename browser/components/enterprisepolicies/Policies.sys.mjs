@@ -3850,6 +3850,42 @@ export var Policies = {
           param.Crash.Action === "lock"
         );
       }
+      if (param.NetworkLoss) {
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.network_loss.enabled",
+          param.NetworkLoss.Action !== "none"
+        );
+        lazy.PoliciesUtils.setAndLockPref(
+          "enterprise.locking.network_loss",
+          param.NetworkLoss.Action === "lock"
+        );
+        if (param.NetworkLoss.GracePeriodMinutes !== undefined) {
+          lazy.PoliciesUtils.setAndLockPref(
+            "enterprise.network_loss.grace_period_minutes",
+            param.NetworkLoss.GracePeriodMinutes
+          );
+        } else {
+          lazy.PoliciesUtils.unsetAndUnlockPref(
+            "enterprise.network_loss.grace_period_minutes"
+          );
+          Services.prefs.lockPref(
+            "enterprise.network_loss.grace_period_minutes"
+          );
+        }
+      } else {
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.network_loss.enabled"
+        );
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.locking.network_loss"
+        );
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.network_loss.grace_period_minutes"
+        );
+        Services.prefs.lockPref("enterprise.network_loss.enabled");
+        Services.prefs.lockPref("enterprise.locking.network_loss");
+        Services.prefs.lockPref("enterprise.network_loss.grace_period_minutes");
+      }
     },
     onRemove(manager, oldParams) {
       // unsetAndUnlockPref restores the build default but never re-locks;
@@ -3865,6 +3901,22 @@ export var Policies = {
       if (oldParams.Crash) {
         lazy.PoliciesUtils.unsetAndUnlockPref("enterprise.locking.crash");
         Services.prefs.lockPref("enterprise.locking.crash");
+      }
+      if (oldParams.NetworkLoss) {
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.network_loss.enabled"
+        );
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.locking.network_loss"
+        );
+        lazy.PoliciesUtils.unsetAndUnlockPref(
+          "enterprise.network_loss.grace_period_minutes"
+        );
+        // Same rationale as Shutdown above: restore the locked defaults the
+        // enterprise build ships.
+        Services.prefs.lockPref("enterprise.network_loss.enabled");
+        Services.prefs.lockPref("enterprise.locking.network_loss");
+        Services.prefs.lockPref("enterprise.network_loss.grace_period_minutes");
       }
     },
   },
