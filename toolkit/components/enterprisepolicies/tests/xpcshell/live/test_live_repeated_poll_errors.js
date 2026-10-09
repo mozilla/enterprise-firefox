@@ -141,7 +141,7 @@ add_task(async function test_repeated_malformed_responses_are_logged_once() {
 });
 
 add_task(async function test_malformed_response_keeps_the_last_policies() {
-  const policies = { DisableFeedbackCommands: true };
+  const policies = { DisableSafeMode: true };
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     { policies },
     null
