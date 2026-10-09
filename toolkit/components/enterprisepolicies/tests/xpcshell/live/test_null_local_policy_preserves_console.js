@@ -14,6 +14,9 @@
 // the engine UNINITIALIZED (fail-open). After the fix the null value is ignored
 // and the console policy still applies.
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 const { FileTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/FileTestUtils.sys.mjs"
 );
@@ -58,10 +61,13 @@ add_task(async function test_null_local_policy_preserves_console_policies() {
   );
 
   const active = policiesSvc.getActivePolicies();
-  Assert.ok(
-    "SecurityLogging" in active,
-    "The successfully fetched console policy is still applied"
-  );
+  // SecurityLogging does not exist on Thunderbird
+  if (AppConstants.MOZ_BUILD_APP == "browser") {
+    Assert.ok(
+      "SecurityLogging" in active,
+      "The successfully fetched console policy is still applied"
+    );
+  }
   Assert.ok(
     !("x" in active),
     "The null-valued local policy is ignored, not applied"
