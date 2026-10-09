@@ -12,14 +12,40 @@ use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc, Mutex};
 use xpcom::interfaces::{nsIObserver, nsIObserverService, nsISupports};
 use xpcom::RefPtr;
 
-use log::trace;
+use log::{error, trace};
 
 use crate::message::{nsICookieWrapper, FeltMessage, FELT_IPC_VERSION};
 use crate::utils::{self, Tokens, TOKENS};
 
+/// Once set, IPC failures are expected because the browser is quitting.
+static NORMAL_BROWSER_SHUTDOWN_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+pub fn is_shutdown_requested() -> bool {
+    NORMAL_BROWSER_SHUTDOWN_REQUESTED.load(Ordering::Acquire)
+}
+
+#[cfg(not(test))]
+fn request_browser_shutdown() {
+    utils::notify_observers("felt-firefox-shutdown".to_string());
+}
+
+#[cfg(test)]
+fn request_browser_shutdown() {
+    tests::SHUTDOWN_REQUESTS.fetch_add(1, Ordering::AcqRel);
+}
+
+fn shutdown_browser_on_disconnect(tx: &Mutex<Option<ipc_channel::ipc::IpcSender<FeltMessage>>>) {
+    let was_connected = tx.lock().expect("Could not lock sender").take().is_some();
+    if !was_connected || is_shutdown_requested() {
+        return;
+    }
+    error!("FELT IPC connection lost, shutting down the browser");
+    request_browser_shutdown();
+}
+
 #[derive(Default)]
 pub struct FeltIpcClient {
-    tx: Option<ipc_channel::ipc::IpcSender<FeltMessage>>,
+    tx: Arc<Mutex<Option<ipc_channel::ipc::IpcSender<FeltMessage>>>>,
     rx: Option<ipc_channel::ipc::IpcReceiver<FeltMessage>>,
 }
 
@@ -45,24 +71,24 @@ impl FeltIpcClient {
                         FeltMessage::ClientChannel(tx_firefox_to_felt) => {
                             trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() OK");
                             Self {
-                                tx: Some(tx_firefox_to_felt),
+                                tx: Arc::new(Mutex::new(Some(tx_firefox_to_felt))),
                                 rx: Some(rx_firefox_to_felt),
                             }
                         }
                         _ => {
                             trace!("FeltIpcClient::new() unexpected message");
-                            Self { tx: None, rx: None }
+                            Self::default()
                         }
                     },
                     Err(err) => {
                         trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() ERR {}", err);
-                        Self { tx: None, rx: None }
+                        Self::default()
                     }
                 }
             }
             Err(err) => {
                 trace!("FeltIpcClient::new() failed: {}", err);
-                Self { tx: None, rx: None }
+                Self::default()
             }
         }
     }
@@ -70,7 +96,7 @@ impl FeltIpcClient {
     pub fn send_felt_ready(&self) {
         trace!("FeltIpcClient::send_felt_ready()");
         let msg = FeltMessage::FeltReady(std::process::id());
-        if let Some(tx) = &self.tx {
+        if let Some(tx) = &*self.tx.lock().expect("Could not lock sender") {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::send_felt_ready() SENT"),
                 Err(err) => trace!("FeltIpcClient::send_felt_ready() TX ERROR: {}", err),
@@ -81,7 +107,7 @@ impl FeltIpcClient {
     pub fn notify_signout(&self) {
         trace!("FeltIpcClient::notify_signout()");
         let msg = FeltMessage::LogoutShutdown;
-        if let Some(tx) = &self.tx {
+        if let Some(tx) = &*self.tx.lock().expect("Could not lock sender") {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::notify_signout() SENT"),
                 Err(err) => trace!("FeltIpcClient::notify_signout() TX ERROR: {}", err),
@@ -91,7 +117,7 @@ impl FeltIpcClient {
 
     pub fn request_update_check(&self) -> nsresult {
         trace!("FeltIpcClient::request_update_check()");
-        match &self.tx {
+        match &*self.tx.lock().expect("Could not lock sender") {
             Some(tx) => match tx.send(FeltMessage::CheckForUpdates) {
                 Ok(()) => NS_OK,
                 Err(err) => {
@@ -105,7 +131,7 @@ impl FeltIpcClient {
 
     pub fn notify_crash_lock_intent(&self, lock_intent: bool) -> nsresult {
         trace!("FeltIpcClient::notify_crash_lock_intent({})", lock_intent);
-        match &self.tx {
+        match &*self.tx.lock().expect("Could not lock sender") {
             Some(tx) => match tx.send(FeltMessage::CrashLockIntent(lock_intent)) {
                 Ok(()) => NS_OK,
                 Err(err) => {
@@ -123,7 +149,7 @@ impl FeltIpcClient {
     pub fn notify_refresh_tokens(&self) {
         trace!("FeltIpcClient::notify_refresh_tokens()");
         let msg = FeltMessage::RefreshTokens;
-        if let Some(tx) = &self.tx {
+        if let Some(tx) = &*self.tx.lock().expect("Could not lock sender") {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::notify_refresh_tokens() SENT"),
                 Err(err) => trace!("FeltIpcClient::notify_refresh_tokens() TX ERROR: {}", err),
@@ -134,7 +160,7 @@ impl FeltIpcClient {
     pub fn report_version(&self) -> bool {
         trace!("FeltIpcClient::report_version()");
         let msg = FeltMessage::VersionProbe(FELT_IPC_VERSION);
-        if let Some(tx) = &self.tx {
+        if let Some(tx) = &*self.tx.lock().expect("Could not lock sender") {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::report_version() SENT"),
                 Err(err) => trace!("FeltIpcClient::report_version() TX ERROR: {}", err),
@@ -230,12 +256,9 @@ impl FeltClientThread {
                     }
                     Ok("xpcom-shutdown") => {
                         trace!("FeltClientThread::start_thread::observe() xpcom-shutdown");
+                        NORMAL_BROWSER_SHUTDOWN_REQUESTED.store(true, Ordering::Release);
                         if let Err(err) = self.thread_stop.send(true) {
                             trace!("FeltClientThread::start_thread::observe() xpcom-shutdown thread_stop.send() error: {}", err);
-                            panic!(
-                                "FeltClientThread failed to send stop on xpcom-shutdown. Error: {}",
-                                err
-                            );
                         }
                     }
                     Ok("quit-application") => {
@@ -267,7 +290,8 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::start_thread::observe() quit-application: restart");
                                     let lock_intent =
                                         crate::RESTART_LOCK_INTENT.load(Ordering::Relaxed);
-                                    if let Err(err) = tx.send(FeltMessage::Restarting(lock_intent)) {
+                                    if let Err(err) = tx.send(FeltMessage::Restarting(lock_intent))
+                                    {
                                         trace!("FeltClientThread::start_thread::observe() failed to send restart: {:?}", err);
                                     }
                                 }
@@ -309,7 +333,7 @@ impl FeltClientThread {
 
         // Clone tx for the observer to send messages directly
         let client = self.ipc_client.borrow_mut();
-        let tx_for_observer = client.tx.clone();
+        let tx_for_observer = client.tx.lock().expect("Could not lock sender").clone();
         drop(client);
 
         let (tx_thread, rx_thread) = ipc_channel::ipc::channel::<bool>().unwrap();
@@ -357,6 +381,7 @@ impl FeltClientThread {
         // Take the rx, only needed in the receive thread (and it's not Sync).
         let mut client = self.ipc_client.borrow_mut();
         let rx_for_thread = client.rx.take();
+        let tx_for_thread = client.tx.clone();
         drop(client);
 
         trace!("FeltClientThread::start_thread(): started thread: build runnable");
@@ -371,7 +396,11 @@ impl FeltClientThread {
             'thread_loop: loop {
                 let events = match rx_set.select() {
                     Ok(events) => events,
-                    Err(_) => break,
+                    Err(err) => {
+                        trace!("FELT IPC selection failed: {}", err);
+                        shutdown_browser_on_disconnect(&tx_for_thread);
+                        break;
+                    }
                 };
 
                 for event in events.into_iter() {
@@ -482,6 +511,9 @@ impl FeltClientThread {
 
                         ipc_channel::ipc::IpcSelectionResult::ChannelClosed(id) => {
                             trace!("FeltClientThread::felt_client::ipc_loop(): ChannelClosed id={} rx_client_id={} rx_thread_id={}...", id, rx_client_id, rx_thread_id);
+                            if id == rx_client_id {
+                                shutdown_browser_on_disconnect(&tx_for_thread);
+                            }
                             break 'thread_loop;
                         }
                     }
@@ -495,6 +527,15 @@ impl FeltClientThread {
         trace!("FeltClientThread::start_thread(): task dispatched");
 
         NS_OK
+    }
+
+    pub fn is_disconnected(&self) -> bool {
+        self.ipc_client
+            .borrow()
+            .tx
+            .lock()
+            .expect("Could not lock sender")
+            .is_none()
     }
 
     pub fn is_startup_complete(&self) -> bool {
@@ -520,7 +561,10 @@ impl FeltClientThread {
     }
 
     pub fn notify_crash_lock_intent(&self, lock_intent: bool) -> nsresult {
-        trace!("FeltClientThread::notify_crash_lock_intent({})", lock_intent);
+        trace!(
+            "FeltClientThread::notify_crash_lock_intent({})",
+            lock_intent
+        );
         let client = self.ipc_client.borrow();
         client.notify_crash_lock_intent(lock_intent)
     }
@@ -529,5 +573,111 @@ impl FeltClientThread {
         trace!("FeltClientThread::refresh_tokens()");
         let client = self.ipc_client.borrow();
         client.notify_refresh_tokens();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::MutexGuard;
+
+    pub(super) static SHUTDOWN_REQUESTS: AtomicUsize = AtomicUsize::new(0);
+
+    // The flag and counter are process-wide, so tests must not run concurrently.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn reset_shutdown_state() -> MutexGuard<'static, ()> {
+        let guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        NORMAL_BROWSER_SHUTDOWN_REQUESTED.store(false, Ordering::Release);
+        SHUTDOWN_REQUESTS.store(0, Ordering::Release);
+        guard
+    }
+
+    fn connected_client() -> (FeltClientThread, ipc_channel::ipc::IpcReceiver<FeltMessage>) {
+        let (tx, rx) = ipc_channel::ipc::channel().unwrap();
+        (
+            FeltClientThread {
+                ipc_client: RefCell::new(FeltIpcClient {
+                    tx: Arc::new(Mutex::new(Some(tx))),
+                    rx: None,
+                }),
+                startup_ready: Arc::new(AtomicBool::new(false)),
+            },
+            rx,
+        )
+    }
+
+    #[test]
+    fn channel_closed_requests_shutdown_without_completing_startup() {
+        let _guard = reset_shutdown_state();
+        let (client, _rx) = connected_client();
+        let (server_tx, client_rx) = ipc_channel::ipc::channel::<FeltMessage>().unwrap();
+        let mut receivers = ipc_channel::ipc::IpcReceiverSet::new().unwrap();
+        let client_id = receivers.add(client_rx).unwrap();
+        drop(server_tx);
+
+        let events = receivers.select().unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(
+            matches!(events[0], ipc_channel::ipc::IpcSelectionResult::ChannelClosed(id) if id == client_id)
+        );
+        shutdown_browser_on_disconnect(&client.ipc_client.borrow().tx);
+
+        assert!(client.is_disconnected());
+        assert!(!client.is_startup_complete());
+        assert!(!is_shutdown_requested());
+        assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 1);
+        assert!(client.request_update_check() == NS_ERROR_NOT_CONNECTED);
+
+        shutdown_browser_on_disconnect(&client.ipc_client.borrow().tx);
+        assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 1);
+    }
+
+    #[test]
+    fn channel_closed_during_normal_shutdown_requests_nothing() {
+        let _guard = reset_shutdown_state();
+        let (client, _rx) = connected_client();
+        NORMAL_BROWSER_SHUTDOWN_REQUESTED.store(true, Ordering::Release);
+
+        assert!(!client.is_disconnected());
+        assert!(!client.is_startup_complete());
+        shutdown_browser_on_disconnect(&client.ipc_client.borrow().tx);
+        assert!(client.is_disconnected());
+        assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn send_failure_does_not_request_shutdown() {
+        let _guard = reset_shutdown_state();
+        let (client, rx) = connected_client();
+        drop(rx);
+
+        assert!(client.request_update_check() == NS_ERROR_CONNECTION_REFUSED);
+        assert!(!client.is_disconnected());
+        assert!(!is_shutdown_requested());
+        assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn missing_sender_does_not_request_shutdown() {
+        let _guard = reset_shutdown_state();
+        let client = FeltIpcClient::default();
+
+        assert!(client.request_update_check() == NS_ERROR_NOT_CONNECTED);
+        assert!(!is_shutdown_requested());
+        assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn successful_send_requests_nothing() {
+        let _guard = reset_shutdown_state();
+        let (client, rx) = connected_client();
+
+        assert!(client.request_update_check() == NS_OK);
+        assert!(matches!(rx.recv().unwrap(), FeltMessage::CheckForUpdates));
+        assert!(!client.is_disconnected());
+        assert!(!is_shutdown_requested());
+        assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 0);
     }
 }

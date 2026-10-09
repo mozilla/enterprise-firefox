@@ -6955,8 +6955,18 @@ nsresult XREMain::XRE_mainRun() {
       NS_WARNING("Checking for FELT: start thread");
       firefox_felt_connection_start_thread();
 
-      SpinEventLoopUntil("Waiting for FELT startup to complete"_ns,
-                         []() { return firefox_felt_is_startup_complete(); });
+      SpinEventLoopUntil("Waiting for FELT startup to complete"_ns, []() {
+        return firefox_felt_is_startup_complete() ||
+               firefox_felt_is_disconnected() ||
+               firefox_felt_is_shutdown_requested();
+      });
+      if (firefox_felt_is_shutdown_requested()) {
+        return NS_OK;
+      }
+      if (firefox_felt_is_disconnected()) {
+        Output(true, "Error: Felt connection closed during startup.\n");
+        return NS_ERROR_FAILURE;
+      }
     }
 #endif
 
