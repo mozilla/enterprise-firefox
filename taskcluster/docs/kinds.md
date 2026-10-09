@@ -68,6 +68,23 @@ This kind performs an artifact build: one based on precompiled binaries
 discovered via the TaskCluster index. This task verifies that such builds
 continue to work correctly.
 
+## enterprise-oci-upload
+
+Uploads a Firefox Enterprise OCI release to the registry, addressed by digest.
+One task per console assembles the Mozilla OCI release definition (the JSON
+consumed by ``moa push release``) from the per-variant artifact references of
+its MAR-signing and installer dependencies, runs ``moa push release --no-tag``
+with the prebuilt ``moa`` binary, and emits the definition it pushed as
+``public/build/release-definition.json`` along with the resulting index digest
+as ``public/build/release-index.json``.
+
+## enterprise-oci-tag
+
+Ships a Firefox Enterprise OCI release by tagging the digest that
+``enterprise-oci-upload`` staged with the release channel (a manifest-only
+retag, no re-upload). One task per console consumes that kind's
+``release-index.json`` handoff and runs ``moa tag``.
+
 ## bootstrap
 
 This kind performs a standalone bootstrap of a Firefox build from various system environments.

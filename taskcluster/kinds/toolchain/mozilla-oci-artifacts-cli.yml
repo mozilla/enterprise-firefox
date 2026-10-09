@@ -1,0 +1,32 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+task-defaults:
+    description: "mozilla-oci-artifacts-cli toolchain build"
+    attributes:
+        # Requires glibc 2.36+
+        local-toolchain: true
+    worker-type: b-linux-docker-amd
+    worker:
+        max-run-time: 1800
+    run:
+        script: build-rust-based-toolchain.sh
+        toolchain-artifact: public/build/mozilla-oci-artifacts-cli.tar.zst
+    fetches:
+        fetch:
+            - mozilla-oci-artifacts-cli
+
+linux64-mozilla-oci-artifacts-cli:
+    treeherder:
+        symbol: TL(moa-cli)
+    run:
+        arguments: ['x86_64-unknown-linux-gnu']
+    # The deb12 sysroot rather than the usual jessie one: the crate reaches
+    # openssl-sys through oci-client's native-tls feature, and that crate
+    # rejects jessie's OpenSSL 1.0.1.
+    fetches:
+        toolchain:
+            - linux64-clang-toolchain
+            - linux64-rust
+            - linux64-toolchain-sysroot-deb12

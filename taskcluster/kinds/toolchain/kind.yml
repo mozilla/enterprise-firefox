@@ -54,6 +54,7 @@ tasks-from:
     - minidump-stackwalk.yml
     - misc.yml
     - mozcheck.yml
+    - mozilla-oci-artifacts-cli.yml
     - nasm.yml
     - nimbus-fml.yml
     - node.yml

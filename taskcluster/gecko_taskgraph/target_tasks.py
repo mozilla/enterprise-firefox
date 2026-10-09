@@ -29,6 +29,7 @@ from gecko_taskgraph.util.attributes import (
     match_run_on_hg_branches,
     match_run_on_projects,
     match_run_on_repo_type,
+    repacks_on_release_promotion,
 )
 from gecko_taskgraph.util.constants import TEST_KINDS
 from gecko_taskgraph.util.hg import find_hg_revision_push_info, get_hg_commit_message
@@ -613,6 +614,18 @@ def target_tasks_enterprise_firefox_with_tests(
         ):
             return False
 
+        # Only a repack needs the shippable builds and the tasks made
+        # from them, and a push never repacks. They are still built when a
+        # repack runs: depending on the branch, the `nightly_enterprise` cron
+        # or a release promotion action asks for the repack, and the builds
+        # come in as its dependencies. Thunderbird Enterprise runs this same
+        # filter through `enterprise_thunderbird_with_tests_tasks`, so it has
+        # to keep them.
+        if repacks_on_release_promotion(parameters) and "-enterprise-shippable" in (
+            task.attributes.get("build_platform") or ""
+        ):
+            return False
+
         if task.attributes.get("shipping_product") not in (
             None,
             parameters["release_product"],
@@ -820,6 +833,27 @@ def target_tasks_ship_desktop(full_task_graph, parameters, graph_config):
             return True
 
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
+
+
+# Firefox Enterprise reuses the generic, release_product-driven desktop phase
+# selectors. These thin wrappers give the flavors clear, product-specific names
+# and a place to diverge from desktop if needed.
+@register_target_task("promote_firefox_enterprise_tasks")
+def target_tasks_promote_firefox_enterprise(full_task_graph, parameters, graph_config):
+    """Select the promote-phase tasks for a Firefox Enterprise release."""
+    return target_tasks_promote_desktop(full_task_graph, parameters, graph_config)
+
+
+@register_target_task("push_firefox_enterprise_tasks")
+def target_tasks_push_firefox_enterprise(full_task_graph, parameters, graph_config):
+    """Select the push-phase tasks for a Firefox Enterprise release."""
+    return target_tasks_push_desktop(full_task_graph, parameters, graph_config)
+
+
+@register_target_task("ship_firefox_enterprise_tasks")
+def target_tasks_ship_firefox_enterprise(full_task_graph, parameters, graph_config):
+    """Select the ship-phase tasks for a Firefox Enterprise release."""
+    return target_tasks_ship_desktop(full_task_graph, parameters, graph_config)
 
 
 @register_target_task("cypress_tasks")
@@ -1243,6 +1277,24 @@ def target_tasks_daily_releases(full_task_graph, parameters, graph_config):
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
 
 
+@register_target_task("daily_releases_enterprise")
+def target_tasks_daily_releases_enterprise(full_task_graph, parameters, graph_config):
+    """Select the set of tasks required to identify if we should release.
+    If we determine that we should the task will communicate to ship-it to
+    schedule the release itself."""
+
+    def filter(task):
+        # The kind ships one task per product and this method runs outside of
+        # `standard_filter`, so without matching the product we would ask
+        # ship-it to start a Firefox, Devedition and Fenix release too.
+        return (
+            task.kind == "maybe-release"
+            and task.attributes.get("shipping_product") == parameters["release_product"]
+        )
+
+    return [l for l, t in full_task_graph.tasks.items() if filter(t)]
+
+
 @register_target_task("nightly_desktop")
 def target_tasks_nightly_desktop(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a nightly build of linux, mac,
@@ -1306,6 +1358,121 @@ def target_tasks_appservices(full_task_graph, parameters, graph_config):
         )
         and counterpart_runs(t)
     ]
+
+
+def target_tasks_enterprise_any(
+    full_task_graph, parameters, graph_config, partner_subconfig
+):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Will apply partner/sub_config on required tasks.
+    """
+    if cron_index_exists(graph_config, parameters, "nightly-enterprise"):
+        return []
+
+    def filter(task):
+        """
+        Only target what the nightly actually ships: the enterprise shippable
+        builds and what is derived from them. Everything else they need
+        (toolchains, docker images, fetches, l10n) comes back as dependencies.
+        """
+        if task.attributes.get("shipping_product") != parameters["release_product"]:
+            return False
+
+        if not task.attributes.get("shippable", False):
+            return False
+
+        # Not yet supported setup on Enterprise builds
+        if task.kind == "upload-generated-sources":
+            return False
+
+        extra = task.task.get("extra", {})
+        repack = extra.get("repack_config") or extra.get("repack_id")
+        if repack:
+            """
+            For tasks that defines partner/sub_config, apply filtering. Those that
+            do not defines it are not directly related to repackage
+            """
+            partner, sub_config = repack.split("/")[:2]
+            return sub_config in partner_subconfig.get(partner, [])
+        return True
+
+    return [l for l, t in full_task_graph.tasks.items() if filter(t)]
+
+
+def filter_out_enterprise_oci_tag(full_task_graph, selected_tasks_labels):
+    """
+    Apply filtering to selected_tasks_labels to ensure no enterprise-oci-tag tasks
+    gets scheduled.
+    """
+    return [
+        label
+        for label, task in full_task_graph.tasks.items()
+        if label in selected_tasks_labels and not task.kind == "enterprise-oci-tag"
+    ]
+
+
+def target_tasks_nightly_enterprise_stage(full_task_graph, parameters, graph_config):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Tailored for nightly stage builds to be validated by QA
+    """
+    return target_tasks_enterprise_any(
+        full_task_graph, parameters, graph_config, {"moz": ["stageGCP"]}
+    )
+
+
+def target_tasks_nightly_enterprise_try(full_task_graph, parameters, graph_config):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Tailored for nightly try builds, using the test partner
+    """
+    return target_tasks_enterprise_any(
+        full_task_graph,
+        parameters,
+        graph_config,
+        {"smp": ["prodGCP", "stageGCP"]},
+    )
+
+
+def target_tasks_nightly_enterprise_prod(full_task_graph, parameters, graph_config):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Tailored for nightly prod builds: build will be uploaded to console but
+    make sure it is not tagged ; this justifies the call to
+    filter_out_enterprise_oci_tag()
+    """
+    return filter_out_enterprise_oci_tag(
+        full_task_graph,
+        target_tasks_enterprise_any(
+            full_task_graph, parameters, graph_config, {"moz": ["prodGCP"]}
+        ),
+    )
+
+
+@register_target_task("nightly_enterprise")
+def target_tasks_nightly_enterprise(full_task_graph, parameters, graph_config):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Tailored for nightly stage builds to be validated by QA
+    """
+    return list(
+        set(
+            target_tasks_nightly_enterprise_stage(
+                full_task_graph, parameters, graph_config
+            )
+        )
+        | set(
+            target_tasks_nightly_enterprise_prod(
+                full_task_graph, parameters, graph_config
+            )
+        )
+        | set(
+            target_tasks_nightly_enterprise_try(
+                full_task_graph, parameters, graph_config
+            )
+        )
+    )
 
 
 # Run Searchfox analysis once daily.

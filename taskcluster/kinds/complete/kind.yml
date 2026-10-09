@@ -46,9 +46,11 @@ tasks:
                 - enterprise-repack-mac-notarization
             with-attributes:
                 shipping_product: firefox-enterprise
+        shipping-product: firefox-enterprise
+        shipping-phase: promote
         index:
             type: shippable
-        run-on-projects: [enterprise-firefox]
+        run-on-projects: []
         task-context:
             from-object:
                 symbol: Rpk-Ent

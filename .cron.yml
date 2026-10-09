@@ -19,6 +19,20 @@ jobs:
                   - {weekday: 'Wednesday', hour: 13, minute: 0}
                   - {weekday: 'Friday', hour: 13, minute: 0}
 
+    - name: daily-releases-enterprise
+      job:
+          type: decision-task
+          treeherder-symbol: RPdEnt
+          target-tasks-method: daily_releases_enterprise
+      run-on-projects:
+          - enterprise-firefox
+      when:
+          by-project:
+              # No default
+              enterprise-firefox:
+                  - {weekday: 'Tuesday', hour: 8, minute: 0}
+                  - {weekday: 'Thursday', hour: 8, minute: 0}
+
     - name: nightly-all
       job:
           type: decision-task
@@ -33,6 +47,20 @@ jobs:
               mozilla-central:
                   - {hour: 10, minute: 0}
                   - {hour: 22, minute: 0}
+
+    - name: nightly-enterprise
+      job:
+          type: decision-task
+          treeherder-symbol: Nent
+          target-tasks-method: nightly_enterprise
+          include-push-tasks: true
+      run-on-projects:
+          - enterprise-firefox
+      when:
+          by-project:
+              # No default
+              enterprise-firefox:
+                  - {hour: 6, minute: 0}
 
     - name: merge-beta-to-release-dry-run
       job:

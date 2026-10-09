@@ -24,5 +24,7 @@ tasks:
         from-deps:
             group-by: partner-repack-ids
         shipping-product: firefox-enterprise
-        # TODO: shipping-phase: promote
+        shipping-phase: promote
+        # One repack id per task. Only Thunderbird Enterprise uses this,
+        # Firefox Enterprise is split per repack config in chunk_partners.
         repacks-per-chunk: 1

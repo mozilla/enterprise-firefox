@@ -410,6 +410,7 @@ def get_decision_parameters(graph_config, options):
     parameters["phabricator_diff"] = None
     parameters["release_type"] = get_release_type(parameters)
     parameters["release_eta"] = ""
+    parameters["release_enable_enterprise_repack"] = False
     parameters["release_enable_partner_repack"] = False
     parameters["release_enable_partner_attribution"] = False
     parameters["release_partners"] = []
@@ -444,14 +445,6 @@ def get_decision_parameters(graph_config, options):
         )
         parameters.update(PER_PROJECT_PARAMETERS["default"])
 
-    if "enterprise" in project:
-        # They silently depend on release_type / release_product parameters
-        parameters["release_partner_config"] = get_release_partner_config(
-            parameters, graph_config
-        )
-        # Depends on the values from the previous call
-        parameters["release_partners"] = get_release_partners(parameters)
-
     if parameters.get("tasks_for", "").startswith("github-pull-request"):
         parameters["optimize_strategies"] = (
             "gecko_taskgraph.optimize:project.pull_request"
@@ -460,6 +453,23 @@ def get_decision_parameters(graph_config, options):
     # `target_tasks_method` has higher precedence than `project` parameters
     if options.get("target_tasks_method"):
         parameters["target_tasks_method"] = options["target_tasks_method"]
+
+    # Resolving the partner config crawls the partner repositories on Github and
+    # needs a token, so only do it for the cron scheduling the repacks that
+    # consume it, the same way `release_promotion` does it for a release. Has to
+    # come after `target_tasks_method` is resolved.
+    if (
+        "enterprise" in project
+        and parameters.get("tasks_for") == "cron"
+        and parameters.get("target_tasks_method") == "nightly_enterprise"
+    ):
+        parameters["release_enable_enterprise_repack"] = True
+        # They silently depend on release_type / release_product parameters
+        parameters["release_partner_config"] = get_release_partner_config(
+            parameters, graph_config
+        )
+        # Depends on the values from the previous call
+        parameters["release_partners"] = get_release_partners(parameters)
 
     if options.get("include_push_tasks"):
         get_existing_tasks(options.get("rebuild_kinds", []), parameters, graph_config)

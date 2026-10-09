@@ -49,14 +49,48 @@ PROJECT_RELEASE_BRANCHES: dict[str, Union[list[str], Literal[True]]] = {
     "cypress": True,
     # https://github.com/mozilla/enterprise-firefox
     "enterprise-firefox": True,
+    # https://github.com/mozilla/enterprise-thunderbird
+    "enterprise-thunderbird": True,
 }
 RELEASE_PROJECTS = set(PROJECT_RELEASE_BRANCHES)
-RELEASE_PROMOTION_PROJECTS = {
-    "jamun",
-    "maple",
-    "try",
-    "try-comm-central",
-} | RELEASE_PROJECTS
+# Shipped by the `enterprise-release-promotion` action rather than by the
+# `release-promotion` one. Kept here rather than per-fork because
+# gecko_taskgraph is shared between the enterprise forks.
+ENTERPRISE_PRODUCTS = {
+    "firefox-enterprise",
+    "thunderbird-enterprise",
+}
+ENTERPRISE_TRY_PROJECTS = {
+    "enterprise-firefox-try",
+    "enterprise-thunderbird-try",
+}
+ENTERPRISE_PROMOTION_PROJECTS = {
+    "enterprise-firefox",
+    "enterprise-thunderbird",
+} | ENTERPRISE_TRY_PROJECTS
+
+
+def repacks_on_release_promotion(params):
+    """Whether this product only builds repacks during a release promotion.
+
+    Firefox Enterprise does, so a push builds no repack and no shippable
+    build. Thunderbird Enterprise cannot: the Comm decision task in
+    `.taskcluster.yml` has no support for the release promotion actions, so
+    it still builds its repacks on every push.
+    """
+    return params["release_product"] == "firefox-enterprise"
+
+
+RELEASE_PROMOTION_PROJECTS = (
+    {
+        "jamun",
+        "maple",
+        "try",
+        "try-comm-central",
+    }
+    | RELEASE_PROJECTS
+    | ENTERPRISE_PROMOTION_PROJECTS
+)
 
 TEMPORARY_PROJECTS = set({
     # When using a "Disposable Project Branch" you can specify your branch here. e.g.:

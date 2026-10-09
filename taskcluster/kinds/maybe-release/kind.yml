@@ -58,3 +58,13 @@ tasks:
             phase: ship_android
         treeherder:
             platform: fenix-android-all/opt
+
+    firefox-enterprise:
+        run-on-repo-type: [git]
+        name: maybe-release-firefox-enterprise
+        shipping-product: firefox-enterprise
+        worker:
+            phase: ship_firefox_enterprise
+            implementation: shipit-maybe-release-enterprise
+        treeherder:
+            platform: firefox-enterprise/opt
