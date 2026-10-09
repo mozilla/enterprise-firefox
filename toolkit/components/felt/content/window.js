@@ -11,6 +11,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CaptivePortal: "resource://gre/modules/enterprise/CaptivePortal.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
+  FeltWindowOpenPane: "chrome://felt/content/FeltBrowserDOMWindow.sys.mjs",
   FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
   FeltErrorReport: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
   ERROR_SOURCE: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
@@ -592,6 +593,11 @@ function macosActivateApplication() {
 function setupBackButton() {
   const backButton = document.getElementById("felt-back-button");
   backButton.addEventListener("click", async () => {
+    // Dismiss the window.open pane if showing.
+    if (lazy.FeltWindowOpenPane.isShowing(document)) {
+      lazy.FeltWindowOpenPane.close(document);
+      return;
+    }
     resetToLoginPage();
     await clearSsoSessionData();
     document.getElementById("browser").fixupAndLoadURIString("about:blank", {

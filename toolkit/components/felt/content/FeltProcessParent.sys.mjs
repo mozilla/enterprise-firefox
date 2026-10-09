@@ -1524,6 +1524,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     return Services.cookies.getCookiesWithOriginAttributes(
       JSON.stringify({
         privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
+        userContextId: 0,
       })
     );
   }

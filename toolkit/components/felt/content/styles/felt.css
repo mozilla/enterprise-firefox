@@ -236,7 +236,8 @@ moz-input-text::part(label) {
 }
 
 /* Overlay on .felt-login (position:relative) instead of a flex row item. */
-.felt-login__portal {
+.felt-login__portal,
+.felt-login__window-open {
   position: absolute;
   inset: 0;
   display: flex;
@@ -245,7 +246,8 @@ moz-input-text::part(label) {
   padding: 10px;
 }
 
-.felt-login__portal > browser {
+.felt-login__portal > browser,
+.felt-login__window-open > browser {
   flex: 1 1 auto;
 }
 

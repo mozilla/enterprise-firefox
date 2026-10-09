@@ -20,6 +20,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WebAuthnPromptHelper:
     "moz-src:///toolkit/modules/WebAuthnPromptHelper.sys.mjs",
   FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
+  FeltBrowserDOMWindow: "chrome://felt/content/FeltBrowserDOMWindow.sys.mjs",
 });
 
 if (lazy.isBuildAppBrowser()) {
@@ -457,6 +458,7 @@ export class Felt {
       flags,
       null
     );
+    lazy.FeltBrowserDOMWindow.install(this._win);
     this._winObserver = this.windowObserver.bind(this);
 
     Services.ww.registerNotification(this._winObserver);

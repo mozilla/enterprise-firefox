@@ -63,3 +63,5 @@ disabled = "Bug 1996558: scaffolding for the Felt UI scratch-reset flow; not run
 ["test_felt_verify_neterror.py"]
 
 ["test_felt_version.py"]
+
+["test_felt_window_open_containment.py"]

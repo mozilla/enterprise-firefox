@@ -205,6 +205,18 @@
                 maychangeremoteness="true"
               ></browser>
             </div>
+            <div class="felt-login__window-open is-hidden">
+              <!-- Own cookie jar, kept out of the cookies forwarded after SSO. -->
+              <browser
+                xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+                id="window-open-browser"
+                type="content"
+                disablehistory="true"
+                disableglobalhistory="true"
+                maychangeremoteness="true"
+                usercontextid="1"
+              ></browser>
+            </div>
           </div>
           <div id="felt-statuspanel" class="is-hidden">
             <span
