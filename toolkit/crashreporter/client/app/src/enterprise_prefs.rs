@@ -7,13 +7,16 @@
 //! Concentrates the enterprise console address resolution and the hard-coded
 //! console endpoint paths used for crash report submission and Glean telemetry.
 //!
-//! The console address normally comes from the `ServerURL` crash annotation
-//! (recorded by the browser once AutoConfig has run). A crash before then has
-//! no usable annotation, so we recover the address by reading the AutoConfig
-//! (`.cfg`) file ourselves. The extraction and the resolution of the generic
-//! build placeholder (environment variable, then `felt.json`) live in the
-//! shared enterprise-console crate; this module only does the IO through the
-//! mockable `crate::std`.
+//! The address is read from the installation's AutoConfig (`.cfg`) file, once
+//! per run via [`init_console_address`]. The extraction and the resolution of
+//! the generic build placeholder (environment variable, then `felt.json`) live
+//! in the shared enterprise-console crate; this module only does the IO through
+//! the mockable `crate::std`.
+//!
+//! The submission endpoints additionally honour the `ServerURL` crash
+//! annotation (recorded by the browser once AutoConfig has run), which a crash
+//! before then does not have. [`is_console_url`] never does: it answers what an
+//! upload may be authenticated against, and a URL cannot vouch for itself.
 
 use crate::config::installation_resource_path;
 use crate::std::path::Path;
@@ -31,42 +34,106 @@ const CRASH_SUBMIT_PATH: &str = "api/browser/crash-reports/submit";
 /// Path appended to the console address to form the Glean telemetry endpoint.
 const GLEAN_SUBMIT_PATH: &str = "api/browser/telemetry";
 
+/// The console address for this run, as resolved by [`init_console_address`].
+///
+/// Resolving reads files and needs the user application data directory, which
+/// only the entry points know; doing it once at startup lets the rest of the
+/// run - including the Glean uploader, from its own thread - just compare
+/// against the result.
+#[cfg(not(mock))]
+static CONSOLE_ADDRESS: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+// Mock runs resolve different addresses in the same process, so the address is
+// cached per thread there, just like the mocked state it is resolved from.
+#[cfg(mock)]
+thread_local! {
+    static CONSOLE_ADDRESS: ::std::cell::OnceCell<String> = const { ::std::cell::OnceCell::new() };
+}
+
+#[cfg(not(mock))]
+fn cache_console_address(address: &str) {
+    let _ = CONSOLE_ADDRESS.set(address.to_owned());
+}
+
+#[cfg(not(mock))]
+fn cached_console_address() -> Option<String> {
+    CONSOLE_ADDRESS.get().cloned()
+}
+
+#[cfg(mock)]
+fn cache_console_address(address: &str) {
+    CONSOLE_ADDRESS.with(|cell| {
+        let _ = cell.set(address.to_owned());
+    });
+}
+
+#[cfg(mock)]
+fn cached_console_address() -> Option<String> {
+    CONSOLE_ADDRESS.with(|cell| cell.get().cloned())
+}
+
+/// Resolve the enterprise console address for this run, caching it for
+/// [`is_console_url`] and the endpoint functions below.
+///
+/// Entry points call this before anything is uploaded. `app_data_dir` is the
+/// user application data directory (the top-level Firefox directory holding
+/// `profiles.ini` and the profiles), where `felt.json` is stored on generic
+/// builds.
+///
+/// The `ServerURL` crash annotation is deliberately not an input: the address
+/// recorded here is what an upload URL is checked against, and a URL cannot
+/// vouch for itself.
+pub fn init_console_address(app_data_dir: Option<&Path>) -> anyhow::Result<()> {
+    cache_console_address(&read_console_address(app_data_dir)?);
+    Ok(())
+}
+
+/// The console address for this run, without a trailing slash.
+fn console_address() -> anyhow::Result<String> {
+    if let Some(address) = cached_console_address() {
+        return Ok(address);
+    }
+    // `init_console_address` has not run (in a mock run, possibly not on this
+    // thread). Fall back to what can be resolved without the application data
+    // directory.
+    read_console_address(None)
+}
+
+/// The console address implied by `server_url` (the `ServerURL` crash
+/// annotation), when it is the console submission endpoint.
+fn base_from_server_url(server_url: Option<&str>) -> Option<String> {
+    let trimmed = server_url?.trim_end_matches('/');
+    Some(
+        trimmed
+            .strip_suffix(CRASH_SUBMIT_PATH)?
+            .trim_end_matches('/')
+            .to_owned(),
+    )
+}
+
 /// Resolve the crash report submission URL.
 ///
 /// Prefers `server_url` (the `ServerURL` crash annotation) when it is already
 /// an absolute URL, since that is the submission endpoint itself. Otherwise
 /// (missing, or a domainless placeholder such as `/submit?...`) constructs the
 /// endpoint from the enterprise console address.
-///
-/// `app_data_dir` is the user application data directory (the top-level
-/// Firefox directory holding `profiles.ini` and the profiles), where
-/// `felt.json` is stored on generic builds.
-pub fn console_report_url(
-    server_url: Option<&str>,
-    app_data_dir: Option<&Path>,
-) -> anyhow::Result<String> {
+pub fn console_report_url(server_url: Option<&str>) -> anyhow::Result<String> {
     if let Some(server_url) = server_url {
         if Url::parse(server_url).is_ok() {
             return Ok(server_url.to_owned());
         }
     }
-    Ok(format!(
-        "{}/{}",
-        console_base(None, app_data_dir)?,
-        CRASH_SUBMIT_PATH
-    ))
+    Ok(format!("{}/{}", console_address()?, CRASH_SUBMIT_PATH))
 }
 
 /// Construct the Glean telemetry endpoint from the enterprise console address.
 ///
 /// `server_url` is the `ServerURL` crash annotation, when available.
-/// `app_data_dir` is the user application data directory, see
-/// [`console_report_url`].
-pub fn console_glean_url(
-    server_url: Option<&str>,
-    app_data_dir: Option<&Path>,
-) -> anyhow::Result<String> {
-    let base = console_base(server_url, app_data_dir)?;
+pub fn console_glean_url(server_url: Option<&str>) -> anyhow::Result<String> {
+    let base = match base_from_server_url(server_url) {
+        Some(base) => base,
+        None => console_address()?,
+    };
     let mut url = Url::parse(&base)?;
     url.set_path(&format!(
         "{}/{}",
@@ -76,10 +143,7 @@ pub fn console_glean_url(
     Ok(url.to_string())
 }
 
-/// Whether `url` is on the configured enterprise console.
-///
-/// Unlike [`console_base`], the console address is only taken from AutoConfig:
-/// the URL being validated cannot vouch for itself.
+/// Whether `url` is on the enterprise console resolved for this run.
 pub fn is_console_url(url: &str) -> bool {
     match same_origin_as_console(url) {
         Ok(result) => result,
@@ -92,28 +156,18 @@ pub fn is_console_url(url: &str) -> bool {
 
 fn same_origin_as_console(url: &str) -> anyhow::Result<bool> {
     let url = Url::parse(url)?;
-    let console = Url::parse(&autoconfig_console_address()?)?;
+    let console = Url::parse(&console_address()?)?;
     let origin = url.origin();
     // Opaque origins (such as that of a `data:` URL) must never match, not even
     // each other.
     Ok(origin.is_tuple() && origin == console.origin())
 }
 
-/// Resolve the enterprise console base URL (without a trailing slash).
-///
-/// Resolution order:
-/// 1. `server_url` (the `ServerURL` crash annotation, i.e. the submission
-///    endpoint) by stripping the submission path back to the base;
-/// 2. the AutoConfig file; when it holds the generic build placeholder, the
-///    environment variable and then the felt storage file in `app_data_dir`
-///    (see the enterprise-console crate).
-fn console_base(server_url: Option<&str>, app_data_dir: Option<&Path>) -> anyhow::Result<String> {
-    if let Some(server_url) = server_url {
-        let trimmed = server_url.trim_end_matches('/');
-        if let Some(base) = trimmed.strip_suffix(CRASH_SUBMIT_PATH) {
-            return Ok(base.trim_end_matches('/').to_owned());
-        }
-    }
+/// Read the enterprise console address (without a trailing slash) from the
+/// AutoConfig file; when it holds the generic build placeholder, from the
+/// environment variable and then the felt storage file in `app_data_dir` (see
+/// the enterprise-console crate).
+fn read_console_address(app_data_dir: Option<&Path>) -> anyhow::Result<String> {
     let address = autoconfig_console_address()?;
     let env_value = crate::std::env::var(CONSOLE_ADDRESS_ENV).ok();
     let base = resolve_console_address(&address, env_value.as_deref(), || {
@@ -199,30 +253,32 @@ mod test {
     }
 
     #[test]
-    fn console_base_prefers_annotation() {
+    fn base_from_annotation_strips_submission_path() {
         // No file access needed: the submission path is stripped to the base.
         assert_eq!(
-            console_base(
-                Some("https://console.example.com/foo/api/browser/crash-reports/submit"),
-                None
-            )
+            base_from_server_url(Some(
+                "https://console.example.com/foo/api/browser/crash-reports/submit"
+            ))
             .unwrap(),
             "https://console.example.com/foo"
         );
+        // An annotation that isn't the submission endpoint implies nothing.
+        assert!(base_from_server_url(Some("/submit?id=x")).is_none());
+        assert!(base_from_server_url(None).is_none());
     }
 
     #[test]
-    fn console_base_reads_encoded_autoconfig() {
+    fn console_address_reads_encoded_autoconfig() {
         with_autoconfig(|| {
             assert_eq!(
-                console_base(None, None).unwrap(),
+                read_console_address(None).unwrap(),
                 "https://console.example.com/foo"
             );
         });
     }
 
     #[test]
-    fn console_base_errors_without_source() {
+    fn console_address_errors_without_source() {
         let mock_files = MockFiles::new();
         mock::builder()
             .set(MockFS, mock_files.clone())
@@ -231,12 +287,12 @@ mod test {
                 "work_dir/crashreporter".into(),
             )
             .run(|| {
-                assert!(console_base(None, None).is_err());
+                assert!(read_console_address(None).is_err());
             });
     }
 
     #[test]
-    fn console_base_generic_uses_environment() {
+    fn console_address_generic_uses_environment() {
         with_generic_autoconfig(
             None,
             |builder| {
@@ -247,7 +303,7 @@ mod test {
             },
             || {
                 assert_eq!(
-                    console_base(None, Some((&"app_data").as_ref())).unwrap(),
+                    read_console_address(Some((&"app_data").as_ref())).unwrap(),
                     "https://env.example.com"
                 );
             },
@@ -255,13 +311,13 @@ mod test {
     }
 
     #[test]
-    fn console_base_generic_reads_felt_storage() {
+    fn console_address_generic_reads_felt_storage() {
         with_generic_autoconfig(
             Some(r#"{"consoleAddress": "https://stored.example.com/"}"#),
             |_| {},
             || {
                 assert_eq!(
-                    console_base(None, Some((&"app_data").as_ref())).unwrap(),
+                    read_console_address(Some((&"app_data").as_ref())).unwrap(),
                     "https://stored.example.com"
                 );
             },
@@ -269,23 +325,23 @@ mod test {
     }
 
     #[test]
-    fn console_base_generic_errors_without_stored_address() {
+    fn console_address_generic_errors_without_stored_address() {
         with_generic_autoconfig(
             Some(r#"{"deviceId": "abc"}"#),
             |_| {},
             || {
-                assert!(console_base(None, Some((&"app_data").as_ref())).is_err());
+                assert!(read_console_address(Some((&"app_data").as_ref())).is_err());
             },
         );
     }
 
     #[test]
-    fn console_base_generic_errors_without_app_data_dir() {
+    fn console_address_generic_errors_without_app_data_dir() {
         with_generic_autoconfig(
             Some(r#"{"consoleAddress": "https://stored.example.com/"}"#),
             |_| {},
             || {
-                assert!(console_base(None, None).is_err());
+                assert!(read_console_address(None).is_err());
             },
         );
     }
@@ -294,10 +350,9 @@ mod test {
     fn report_url_uses_valid_annotation() -> anyhow::Result<()> {
         // An absolute annotation is the submission endpoint; return it as-is.
         assert_eq!(
-            console_report_url(
-                Some("https://console.example.com/foo/api/browser/crash-reports/submit"),
-                None
-            )?,
+            console_report_url(Some(
+                "https://console.example.com/foo/api/browser/crash-reports/submit"
+            ))?,
             "https://console.example.com/foo/api/browser/crash-reports/submit"
         );
         anyhow::Ok(())
@@ -308,7 +363,7 @@ mod test {
         // A domainless placeholder is ignored; the URL is built from AutoConfig.
         with_autoconfig(|| {
             assert_eq!(
-                console_report_url(Some("/submit?id=x"), None)?,
+                console_report_url(Some("/submit?id=x"))?,
                 "https://console.example.com/foo/api/browser/crash-reports/submit"
             );
             anyhow::Ok(())
@@ -354,13 +409,51 @@ mod test {
     }
 
     #[test]
+    fn console_url_uses_the_initialized_address() {
+        // On a generic build the AutoConfig address is only a placeholder, so
+        // the check relies on the address resolved at startup.
+        with_generic_autoconfig(
+            Some(r#"{"consoleAddress": "https://stored.example.com/"}"#),
+            |_| {},
+            || {
+                let url = "https://stored.example.com/api/browser/telemetry";
+                // Uninitialized, the placeholder is all there is and nothing matches.
+                assert!(!is_console_url(url));
+
+                init_console_address(Some((&"app_data").as_ref())).unwrap();
+                assert!(is_console_url(url));
+                assert!(!is_console_url("https://evil.example.com/foo"));
+            },
+        );
+    }
+
+    #[test]
+    fn endpoints_use_the_initialized_address() -> anyhow::Result<()> {
+        with_generic_autoconfig(
+            Some(r#"{"consoleAddress": "https://stored.example.com/"}"#),
+            |_| {},
+            || {
+                init_console_address(Some((&"app_data").as_ref()))?;
+                assert_eq!(
+                    console_report_url(None)?,
+                    "https://stored.example.com/api/browser/crash-reports/submit"
+                );
+                assert_eq!(
+                    console_glean_url(None)?,
+                    "https://stored.example.com/api/browser/telemetry"
+                );
+                anyhow::Ok(())
+            },
+        )
+    }
+
+    #[test]
     fn glean_url_appends_telemetry_path_from_annotation() -> anyhow::Result<()> {
         // Derived from the ServerURL annotation without touching the filesystem.
         assert_eq!(
-            console_glean_url(
-                Some("https://console.example.com/foo/api/browser/crash-reports/submit"),
-                None
-            )?,
+            console_glean_url(Some(
+                "https://console.example.com/foo/api/browser/crash-reports/submit"
+            ))?,
             "https://console.example.com/foo/api/browser/telemetry"
         );
         anyhow::Ok(())

@@ -15,6 +15,11 @@
 //! attaches it as an `Authorization` header; the `crashreporterNetworkBackend`
 //! background task receives the already-built header, not the raw token.
 //!
+//! The crash ping entry points are spawned by `CrashManager` rather than by the
+//! crash path, and are handed the token on stdin, which keeps it out of the
+//! environment on every platform. Either way the token for the run is recorded
+//! once through [`init_access_token`]; see [`TokenSource`].
+//!
 //! This is best-effort: only the access token that was valid at crash time is
 //! available (the refresh token never leaves the Felt UI process), so there is
 //! no way to refresh it here. If the token is missing or the server rejects it,
@@ -38,34 +43,55 @@ pub fn enterprise_authorization_header(url: &str) -> Option<(String, String)> {
     Some(("Authorization".to_owned(), format!("Bearer {token}")))
 }
 
-/// The token, read once at startup. See [`init_access_token`].
+/// The token for this run, set once by [`init_access_token`].
 #[cfg(not(mock))]
 static ACCESS_TOKEN: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
 
-/// Read the access token, and must be the very first thing the client does.
-///
-/// This has to run before `fd_cleanup::cleanup_unused_fds()`, which closes every
-/// fd >= 3 and would otherwise close the inherited token pipe before we read it
-/// — and leave the fd number free to be reused by an unrelated file, which we
-/// would then read as if it were the token.
-///
-/// Reading eagerly also drains the pipe immediately, so the token sits in a
-/// kernel buffer reachable through `/proc/<pid>/fd` for a few microseconds of
-/// startup rather than for as long as the crash reporter window is open.
+/// How this invocation is given the console access token, which depends on who
+/// launched it.
 #[cfg(not(mock))]
-pub fn init_access_token() {
-    let _ = ACCESS_TOKEN.set(read_access_token());
+pub enum TokenSource {
+    /// Launched by the crashing process, which handed the token over directly:
+    /// see [`read_crashing_process_token`].
+    CrashingProcess,
+    /// Launched by `CrashManager` to send crash pings, which passes the token
+    /// in the JSON document it writes to our stdin. The entry point parses that
+    /// document (it also carries the crash annotations) and hands the token
+    /// here, so it never reaches our environment on any platform.
+    Stdin(Option<String>),
+}
+
+/// Record the console access token for this run.
+///
+/// Every entry point that can upload calls this once, before the first upload;
+/// an invocation that doesn't uploads unauthenticated.
+///
+/// [`TokenSource::CrashingProcess`] must be read before
+/// `fd_cleanup::cleanup_unused_fds()`, which closes every fd >= 3 and would
+/// otherwise close the inherited token pipe before we read it — and leave the
+/// fd number free to be reused by an unrelated file, which we would then read
+/// as if it were the token. Reading eagerly also drains the pipe immediately,
+/// so the token sits in a kernel buffer reachable through `/proc/<pid>/fd` for
+/// a few microseconds of startup rather than for as long as the crash reporter
+/// window is open.
+#[cfg(not(mock))]
+pub fn init_access_token(source: TokenSource) {
+    let token = match source {
+        TokenSource::CrashingProcess => read_crashing_process_token(),
+        TokenSource::Stdin(token) => token,
+    };
+    let _ = ACCESS_TOKEN.set(token);
 }
 
 #[cfg(not(mock))]
 fn access_token() -> Option<String> {
-    ACCESS_TOKEN.get_or_init(read_access_token).clone()
+    ACCESS_TOKEN.get().cloned().flatten()
 }
 
 /// Each test case sets up its own environment, so don't cache across them.
 #[cfg(mock)]
 fn access_token() -> Option<String> {
-    read_access_token()
+    read_crashing_process_token()
 }
 
 /// Read the console access token the crashing process handed to us. On unix it
@@ -74,7 +100,7 @@ fn access_token() -> Option<String> {
 /// environment (where a same-user process could read it via
 /// `/proc/<pid>/environ`). On Windows it is passed directly in
 /// `MOZ_CRASHREPORTER_AUTH_TOKEN`.
-fn read_access_token() -> Option<String> {
+fn read_crashing_process_token() -> Option<String> {
     #[cfg(unix)]
     if let Ok(fd) = crate::std::env::var(ekey!("AUTH_TOKEN_FD")) {
         return read_token_from_fd(&fd);
