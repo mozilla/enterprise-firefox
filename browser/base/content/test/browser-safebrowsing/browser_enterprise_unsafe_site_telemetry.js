@@ -4,6 +4,10 @@
 
 "use strict";
 
+const { EnterprisePingCollector } = ChromeUtils.importESModule(
+  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+);
+
 // Maps each Safe Browsing threat type to a test URL that is added to the
 // moztest lists in LookupCache.cpp / head.js, along with the moztest list that
 // matches it. Test tables report the provider "test" (TESTING_TABLE_PROVIDER
@@ -50,7 +54,6 @@ add_setup(async function () {
   Services.fog.testResetFOG();
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.safebrowsing.enterprise.telemetry.testing.disableSubmit", true],
       [
         "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.enabled",
         true,
@@ -77,13 +80,19 @@ async function loadUnsafeSite(url) {
   return tab;
 }
 
+function collectSiteVisits() {
+  return new EnterprisePingCollector(Glean.safebrowsing.siteVisit);
+}
+
 add_task(async function test_unsafe_site_visit_records_event() {
   for (const { threatType, url, list } of UNSAFE_SITES) {
-    let tab = await loadUnsafeSite(url);
+    using collector = collectSiteVisits();
+    let tab;
     try {
-      let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
+      tab = await loadUnsafeSite(url);
+      const events = collector.events;
       Assert.equal(
-        events?.length,
+        events.length,
         1,
         `Should record one event for ${threatType}`
       );
@@ -115,7 +124,9 @@ add_task(async function test_unsafe_site_visit_records_event() {
         "Telemetry should include the matching Safe Browsing list"
       );
     } finally {
-      BrowserTestUtils.removeTab(tab);
+      if (tab) {
+        BrowserTestUtils.removeTab(tab);
+      }
       Services.fog.testResetFOG();
     }
   }
@@ -126,6 +137,7 @@ add_task(async function test_records_for_subframe_load() {
   // regardless of frame level, so a subframe load is reported like a top-level
   // one.
   const iframeUrl = UNSAFE_SITES[0].url;
+  using collector = collectSiteVisits();
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
     "data:text/html,<body></body>"
@@ -138,18 +150,19 @@ add_task(async function test_records_for_subframe_load() {
     });
 
     await TestUtils.waitForCondition(
-      () => Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length,
+      () => collector.events.length,
       "Should record an event for the blocked subframe"
     );
 
-    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
     Assert.equal(
-      events.at(-1).extra.threat_type,
+      collector.events.at(-1).extra.threat_type,
       "malware",
       "Subframe block should be recorded with the right threat type"
     );
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
     Services.fog.testResetFOG();
   }
 });
@@ -159,6 +172,7 @@ add_task(async function test_records_referrer_of_embedder() {
   // it in. Load a safe page that embeds an unsafe iframe and confirm the
   // recorded event attributes the hit to that embedding page via the referrer.
   const iframeUrl = UNSAFE_SITES[0].url;
+  using collector = collectSiteVisits();
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, EMBEDDER_URL);
   try {
     await SpecialPowers.spawn(tab.linkedBrowser, [iframeUrl], src => {
@@ -168,11 +182,11 @@ add_task(async function test_records_referrer_of_embedder() {
     });
 
     await TestUtils.waitForCondition(
-      () => Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length,
+      () => collector.events.length,
       "Should record an event for the blocked subframe"
     );
 
-    let event = Glean.safebrowsing.siteVisit.testGetValue("enterprise").at(-1);
+    const event = collector.events.at(-1);
     Assert.equal(
       event.extra.url,
       iframeUrl,
@@ -184,7 +198,9 @@ add_task(async function test_records_referrer_of_embedder() {
       "The embedding page is recorded as the referrer"
     );
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
     Services.fog.testResetFOG();
   }
 });
@@ -201,6 +217,7 @@ add_task(async function test_referrer_redaction_domain() {
   });
 
   const iframeUrl = UNSAFE_SITES[0].url;
+  using collector = collectSiteVisits();
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, EMBEDDER_URL);
   try {
     await SpecialPowers.spawn(tab.linkedBrowser, [iframeUrl], src => {
@@ -210,18 +227,19 @@ add_task(async function test_referrer_redaction_domain() {
     });
 
     await TestUtils.waitForCondition(
-      () => Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length,
+      () => collector.events.length,
       "Should record an event for the blocked subframe"
     );
 
-    let event = Glean.safebrowsing.siteVisit.testGetValue("enterprise").at(-1);
     Assert.equal(
-      event.extra.referrer,
+      collector.events.at(-1).extra.referrer,
       "example.com",
       "Only the referrer hostname is logged in domain mode"
     );
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
     Services.fog.testResetFOG();
     await SpecialPowers.popPrefEnv();
   }
@@ -237,17 +255,21 @@ add_task(async function test_url_logging_domain() {
     ],
   });
 
-  let tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
+  using collector = collectSiteVisits();
+  let tab;
   try {
-    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
-    Assert.equal(events?.length, 1, "Should record one event");
+    tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
+    const events = collector.events;
+    Assert.equal(events.length, 1, "Should record one event");
     Assert.equal(
       events.at(-1).extra.url,
       "www.itisatrap.org",
       "Only the hostname should be logged in domain mode"
     );
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
     Services.fog.testResetFOG();
     await SpecialPowers.popPrefEnv();
   }
@@ -263,48 +285,25 @@ add_task(async function test_url_logging_none() {
     ],
   });
 
-  let tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
+  using collector = collectSiteVisits();
+  let tab;
   try {
-    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
-    Assert.equal(events?.length, 1, "Should record one event");
+    tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
+    const events = collector.events;
+    Assert.equal(events.length, 1, "Should record one event");
     Assert.equal(
       events.at(-1).extra.url,
       "",
       "No URL should be logged in none mode"
     );
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
     Services.fog.testResetFOG();
     await SpecialPowers.popPrefEnv();
   }
 });
-
-// Records the events every enterprise ping carried at submit time.
-// testBeforeNextSubmit is a one-shot hook, so it re-arms itself after every
-// submit: the assertions below need every submit counted, not just the first.
-// The events have to be read inside the hook because submitting the ping clears
-// them.
-function recordEnterpriseSubmits() {
-  const submits = [];
-  function arm() {
-    GleanPings.enterprise.testBeforeNextSubmit(() => {
-      const events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
-      submits.push(events?.map(event => event.extra.referrer) ?? []);
-      arm();
-    });
-  }
-  arm();
-
-  return {
-    // The referrer of every event reported across all pings, which says which
-    // tab each hit came from. Counting these counts the hits that were
-    // reported, however they were spread over pings.
-    reportedReferrers: () => submits.flat(),
-    // Overwrite the pending one-shot hook with a no-op so it does not stay armed
-    // for later tests.
-    disarm: () => GleanPings.enterprise.testBeforeNextSubmit(() => {}),
-  };
-}
 
 // Appends an unsafe iframe per url, all before any of them is classified, so the
 // hits arrive as one burst.
@@ -336,16 +335,7 @@ add_task(async function test_burst_in_one_tab_reports_every_hit() {
   // One page load that trips Safe Browsing several times over, here through
   // several unsafe subframes classified at once. Every hit of the burst is
   // reported, so the load costs one ping and one event per hit.
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [
-        "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-        false,
-      ],
-    ],
-  });
-
-  const recorder = recordEnterpriseSubmits();
+  using collector = collectSiteVisits();
   const burstUrls = UNSAFE_SITES.map(site => site.url);
 
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, EMBEDDER_URL);
@@ -354,19 +344,24 @@ add_task(async function test_burst_in_one_tab_reports_every_hit() {
     await waitForBlockedSubframes(tab.linkedBrowser, burstUrls.length);
 
     await TestUtils.waitForCondition(
-      () => recorder.reportedReferrers().length >= burstUrls.length,
+      () => collector.events.length >= burstUrls.length,
       "Every hit of the burst is reported"
     );
     Assert.deepEqual(
-      recorder.reportedReferrers(),
+      collector.events.map(event => event.extra.referrer),
       burstUrls.map(() => EMBEDDER_URL),
       "The burst reports one event per hit, all attributed to the embedding page"
     );
+    Assert.equal(
+      collector.submitCount,
+      burstUrls.length,
+      "Every hit submits its own ping"
+    );
   } finally {
-    recorder.disarm();
-    BrowserTestUtils.removeTab(tab);
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
     Services.fog.testResetFOG();
-    await SpecialPowers.popPrefEnv();
   }
 });
 
@@ -375,16 +370,7 @@ add_task(async function test_simultaneous_bursts_in_two_tabs() {
   // flight together, so the order the hits arrive in is not fixed. Every hit is
   // still reported, and each one is attributed to the tab whose load produced
   // it rather than to whichever tab happens to be selected.
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [
-        "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-        false,
-      ],
-    ],
-  });
-
-  const recorder = recordEnterpriseSubmits();
+  using collector = collectSiteVisits();
   const burstUrls = UNSAFE_SITES.map(site => site.url);
   const embedders = [EMBEDDER_URL, SECOND_EMBEDDER_URL];
   const expectedReferrers = embedders
@@ -409,21 +395,19 @@ add_task(async function test_simultaneous_bursts_in_two_tabs() {
     );
 
     await TestUtils.waitForCondition(
-      () => recorder.reportedReferrers().length >= expectedReferrers.length,
+      () => collector.events.length >= expectedReferrers.length,
       "Every hit of both bursts is reported"
     );
     Assert.deepEqual(
-      recorder.reportedReferrers().sort(),
+      collector.events.map(event => event.extra.referrer).sort(),
       expectedReferrers,
       "Both bursts report one event per hit, attributed to their own tab"
     );
   } finally {
-    recorder.disarm();
     for (const tab of tabs) {
       BrowserTestUtils.removeTab(tab);
     }
     Services.fog.testResetFOG();
-    await SpecialPowers.popPrefEnv();
   }
 });
 
@@ -434,12 +418,17 @@ add_task(async function test_default_records_nothing() {
     ],
   });
 
-  let tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
+  using collector = collectSiteVisits();
+  let tab;
   try {
-    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
-    Assert.ok(!events?.length, "Should not record without an enabling policy");
+    tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
+    collector.assertNothingRecorded(
+      "Should not record without an enabling policy"
+    );
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
     Services.fog.testResetFOG();
     await SpecialPowers.popPrefEnv();
   }
@@ -455,12 +444,15 @@ add_task(async function test_disabled_records_nothing() {
     ],
   });
 
-  let tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
+  using collector = collectSiteVisits();
+  let tab;
   try {
-    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
-    Assert.ok(!events?.length, "Should not record when disabled");
+    tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
+    collector.assertNothingRecorded("Should not record when disabled");
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
     Services.fog.testResetFOG();
     await SpecialPowers.popPrefEnv();
   }
