@@ -6571,6 +6571,8 @@ void profiler_shutdown(IsFastShutdown aIsFastShutdown) {
   // This is done after all profiling operations and notifications are complete.
   ClearCustomMarkerSchemas();
 
+  ThreadRegistration::StopReportingCpuUse();
+
   // Reverse the registration done in profiler_init.
   ThreadRegistration::UnregisterThread();
 }

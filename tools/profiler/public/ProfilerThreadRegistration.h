@@ -42,6 +42,12 @@ class ThreadRegistration {
                                         const void* aStackTop);
   static void UnregisterThread();
 
+  // Called by profiler_shutdown(): Glean is either already shut down or was
+  // never started at this point, so threads unregistering from now on must not
+  // report their CPU use to it, as that could start Glean's dispatcher thread
+  // while the process is exiting.
+  static void StopReportingCpuUse();
+
   [[nodiscard]] static bool IsRegistered() { return GetFromTLS(); }
 
   // Prevent copies&moves.
