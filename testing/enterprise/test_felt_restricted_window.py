@@ -148,6 +148,19 @@ class FeltRestrictedWindow(FeltTests):
         ), "The browser window uses the native titlebar"
         self._driver.set_context("content")
 
+    def test_window_is_closed_on_sso_timeout(self):
+        # Leave enough time to open the window before the sign-in times out.
+        with self._driver.using_prefs(
+            {"enterprise.sso.timeout_ms": 15000}, default_branch=True
+        ):
+            self._open_restricted_window()
+            self._longwaiter(self._driver).until(
+                lambda _: len(self._driver.chrome_window_handles) == 1,
+                message="The browser window is closed when the sign-in times out",
+            )
+            self._driver.switch_to_window(self._driver.chrome_window_handles[0])
+        self._driver.set_context("content")
+
     @unittest.skipUnless(sys.platform == "darwin", "macOS application menu")
     def test_app_menu_has_no_escape_items(self):
         self._open_restricted_window()
