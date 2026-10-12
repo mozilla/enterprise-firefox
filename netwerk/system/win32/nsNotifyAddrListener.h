@@ -26,7 +26,11 @@
 
 class nsIThreadPool;
 
+#ifdef MOZ_ENTERPRISE
+namespace mozilla::net {
 class NetworkInterface;
+}  // namespace mozilla::net
+#endif
 
 class nsNotifyAddrListener : public nsINetworkLinkService,
                              public nsIRunnable,
@@ -99,7 +103,10 @@ class nsNotifyAddrListener : public nsINetworkLinkService,
   // Time stamp for first event during coalescing
   mozilla::TimeStamp mChangeTime;
 
-  nsTArray<NetworkInterface> mNetworkInterfaces;
+#ifdef MOZ_ENTERPRISE
+  nsTArray<mozilla::net::NetworkInterface> mNetworkInterfaces
+      MOZ_GUARDED_BY(mMutex);
+#endif
 };
 
 #endif /* NSNOTIFYADDRLISTENER_H_ */
