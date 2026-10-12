@@ -12,7 +12,7 @@ use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc, Mutex};
 use xpcom::interfaces::{nsIObserver, nsIObserverService, nsISupports};
 use xpcom::RefPtr;
 
-use log::{error, trace, warn};
+use log::{error, trace};
 
 use crate::components::peer_is_authorized;
 use crate::message::{nsICookieWrapper, FeltMessage, FELT_IPC_VERSION};
@@ -128,7 +128,7 @@ impl FeltIpcClient {
         let peer_pid = tx0.peer_pid();
         let authorized = peer_is_authorized(peer_pid, felt_pid);
         if !authorized {
-            warn!(
+            error!(
                 "FeltIpcClient::new() refused endpoint: owned by pid {:?}, expected felt pid {}",
                 peer_pid, felt_pid
             );
@@ -152,7 +152,7 @@ impl FeltIpcClient {
         match rx.recv_with_sender_pid() {
             Ok((msg, sender_pid)) if peer_is_authorized(sender_pid, felt_pid) => Some(msg),
             Ok((_, sender_pid)) => {
-                warn!(
+                error!(
                     "FeltIpcClient::new() refused endpoint: reply sent by pid {:?}, expected felt pid {}",
                     sender_pid, felt_pid
                 );
