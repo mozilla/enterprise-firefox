@@ -18,7 +18,6 @@
 #include <objbase.h>
 #include <winsock2.h>
 #include <ws2ipdef.h>
-#include <ws2tcpip.h>
 #include <tcpmib.h>
 #include <iphlpapi.h>
 #include <netioapi.h>
@@ -43,12 +42,15 @@
 #include "nsComponentManagerUtils.h"
 #include "nsIObserverService.h"
 #include "nsNetAddr.h"
-#include "nsNetworkInterface.h"
 #include "nsPrintfCString.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
 #include "nsThreadPool.h"
 #include "nsThreadUtils.h"
+
+#ifdef MOZ_ENTERPRISE
+#  include "nsNetworkInterface_win.h"
+#endif
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
 BOOLEAN IN6_IS_ADDR_LOOPBACK(const struct in6_addr* a) {
@@ -454,8 +456,10 @@ nsNotifyAddrListener::CheckAdaptersAddresses(void) {
 
   PIP_ADAPTER_ADDRESSES adapterList = (PIP_ADAPTER_ADDRESSES)moz_xmalloc(len);
 
-  ULONG flags = GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST |
-                GAA_FLAG_INCLUDE_GATEWAYS;
+  ULONG flags = GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST;
+#ifdef MOZ_ENTERPRISE
+  flags |= GAA_FLAG_INCLUDE_GATEWAYS;
+#endif
   if (!StaticPrefs::network_notify_resolvers()) {
     flags |= GAA_FLAG_SKIP_DNS_SERVER;
   }
@@ -484,7 +488,9 @@ nsNotifyAddrListener::CheckAdaptersAddresses(void) {
 
   nsTArray<nsCString> dnsSuffixList;
   nsTArray<mozilla::net::NetAddr> resolvers;
-  nsTArray<NetworkInterface> networkInterfaces;
+#ifdef MOZ_ENTERPRISE
+  nsTArray<mozilla::net::NetworkInterface> networkInterfaces;
+#endif
   uint32_t platformDNSIndications = NONE_DETECTED;
   bool hasNonLocalIPv6 = false;
   if (ret == ERROR_SUCCESS) {
@@ -502,9 +508,8 @@ nsNotifyAddrListener::CheckAdaptersAddresses(void) {
         continue;
       }
 
-#if defined(MOZ_ENTERPRISE)
-      // Skip non up interfaces as well as loopback
-      networkInterfaces.AppendElement(NetworkInterface(adapter));
+#ifdef MOZ_ENTERPRISE
+      networkInterfaces.AppendElement(WinNetworkInterface(adapter));
 #endif
 
       LOG(("Adapter %s type: %lu",
@@ -669,7 +674,9 @@ nsNotifyAddrListener::CheckAdaptersAddresses(void) {
     MutexAutoLock lock(mMutex);
     mDnsSuffixList = std::move(dnsSuffixList);
     mDNSResolvers = std::move(resolvers);
+#ifdef MOZ_ENTERPRISE
     mNetworkInterfaces = std::move(networkInterfaces);
+#endif
     mPlatformDNSIndications = platformDNSIndications;
   }
 
@@ -740,25 +747,17 @@ void nsNotifyAddrListener::CheckLinkStatus(void) {
   }
 }
 
-#if defined(MOZ_ENTERPRISE)
 NS_IMETHODIMP
 nsNotifyAddrListener::GetNetworkInterfaces(
     nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
+#ifdef MOZ_ENTERPRISE
   MutexAutoLock lock(mMutex);
-
-  for (const auto& intf : mNetworkInterfaces) {
-    aNetworkInterfaces.AppendElement(MakeRefPtr<nsNetworkInterface>(&intf));
-  }
-
-  return NS_OK;
-}
+  return mozilla::net::nsNetworkInterface::GetNetworkInterfaces(
+      mNetworkInterfaces, aNetworkInterfaces);
 #else
-NS_IMETHODIMP
-nsNotifyAddrListener::GetNetworkInterfaces(
-    nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
   return NS_ERROR_NOT_IMPLEMENTED;
-}
 #endif
+}
 
 // static
 bool nsINetworkLinkService::HasNonLocalIPv6Address() {
