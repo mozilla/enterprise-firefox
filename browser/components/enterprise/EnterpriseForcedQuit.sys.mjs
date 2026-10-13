@@ -177,12 +177,7 @@ const warningUI = {
    */
   _barWindow() {
     for (const win of Services.wm.getEnumerator("navigator:browser")) {
-      if (
-        win.gBrowser &&
-        // TODO(Bug 2066128): Remove once InfoBar handles loading windows.
-        win.document.readyState === "complete" &&
-        lazy.InfoBar.isValidInfobarWindow(win)
-      ) {
+      if (win.gBrowser && lazy.InfoBar.isValidInfobarWindow(win)) {
         return win;
       }
     }
