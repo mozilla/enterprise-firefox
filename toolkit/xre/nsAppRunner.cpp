@@ -7086,7 +7086,7 @@ nsresult XREMain::XRE_mainRun() {
         return NS_OK;
       }
       if (firefox_felt_is_disconnected()) {
-        Output(true, "Error: Felt connection closed during startup.\n");
+        fprintf(stderr, "Error: Felt connection closed during startup.\n");
         return NS_ERROR_FAILURE;
       }
     }
