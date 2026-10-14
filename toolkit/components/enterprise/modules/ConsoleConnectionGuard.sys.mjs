@@ -50,10 +50,25 @@ export const ConsoleConnectionGuard = {
   _pendingSessionEnd: null,
 
   /**
+   * Whether the NetworkLoss policy is enforced, so a console the browser
+   * cannot reach is left to the grace period instead of ending the session.
+   *
+   * @returns {boolean}
+   */
+  get isEnabled() {
+    return Services.prefs.getBoolPref(ENABLED_PREF, false);
+  },
+
+  /**
    * Record that the console responded, clearing any in-progress grace period.
    */
   recordReachable() {
-    if (this._timer === null && this._outageStartedAt === null) {
+    // Enforcement only starts once the deadline probe found the console gone,
+    // so the outage stands until it settles; a failed attempt then retries.
+    if (
+      this._pendingSessionEnd ||
+      (this._timer === null && this._outageStartedAt === null)
+    ) {
       return;
     }
     lazy.log.debug("Console reachable again; clearing network-loss timer.");
@@ -67,7 +82,7 @@ export const ConsoleConnectionGuard = {
   recordUnreachable() {
     if (
       !Services.felt?.isFeltBrowser() ||
-      !Services.prefs.getBoolPref(ENABLED_PREF, false) ||
+      !this.isEnabled ||
       this._sessionEnded ||
       this._pendingSessionEnd
     ) {
@@ -88,6 +103,11 @@ export const ConsoleConnectionGuard = {
     this._scheduleGraceTimer();
   },
 
+  /**
+   * Time left before the session is ended.
+   *
+   * @returns {number}
+   */
   _remainingGraceMs() {
     const graceMs =
       Math.min(
@@ -105,6 +125,9 @@ export const ConsoleConnectionGuard = {
     return Math.max(0, graceMs - (Date.now() - this._outageStartedAt));
   },
 
+  /**
+   * Arms the timer for the end of the grace period.
+   */
   _scheduleGraceTimer() {
     this._cancelVerification();
     this._firstFailedProbeAt = null;
@@ -121,12 +144,21 @@ export const ConsoleConnectionGuard = {
     );
   },
 
+  /**
+   * Abandons any in-flight reachability probe.
+   */
   _cancelVerification() {
     this._verificationGeneration++;
     this._probeController?.abort();
     this._probeController = null;
   },
 
+  /**
+   * Probes the console once more at the deadline, enforcing only if it is
+   * still unreachable.
+   *
+   * @returns {Promise<void>}
+   */
   async _verifyBeforeEnforcing() {
     if (
       this._outageStartedAt === null ||
@@ -195,6 +227,9 @@ export const ConsoleConnectionGuard = {
     }
   },
 
+  /**
+   * Ends the outage, cancelling its timers.
+   */
   _clearOutage() {
     this._cancelVerification();
     this._firstFailedProbeAt = null;
@@ -263,6 +298,12 @@ export const ConsoleConnectionGuard = {
     }
   },
 
+  /**
+   * Ends the session per the NetworkLoss action, retrying if it fails while
+   * the outage lasts.
+   *
+   * @returns {Promise<boolean>} Whether the session was ended.
+   */
   async _enforce() {
     if (this._sessionEnded) {
       return true;
@@ -270,7 +311,7 @@ export const ConsoleConnectionGuard = {
     if (this._pendingSessionEnd) {
       return this._pendingSessionEnd;
     }
-    if (!Services.prefs.getBoolPref(ENABLED_PREF, false)) {
+    if (!this.isEnabled) {
       this._clearOutage();
       return false;
     }

@@ -20,6 +20,9 @@ const { FeltProcessParent } = ChromeUtils.importESModule(
 const { FeltLocking } = ChromeUtils.importESModule(
   "chrome://felt/content/FeltLocking.sys.mjs"
 );
+const { ForcedQuitHandler } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/enterprise/modules/ForcedQuitHandler.sys.mjs"
+);
 const { FeltStorage } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
 );
@@ -48,6 +51,13 @@ registerCleanupFunction(() => {
     Services.prefs.lockPref(ENABLED_PREF);
   }
 });
+
+// Ending the session really quits, so keep every test from reaching it unless
+// it drives the stub or calls the wrapped method with the quit stubbed.
+const gEndSession = sinon
+  .stub(ConsoleConnectionGuard, "_endSession")
+  .resolves(false);
+registerCleanupFunction(() => gEndSession.restore());
 
 // Built in ConsoleClient's global so its instanceof checks recognize it.
 const transportError = message =>
@@ -295,6 +305,154 @@ add_task(async function test_network_loss_logout_does_not_wait_for_server() {
   } finally {
     finishExit();
     sandbox.restore();
+  }
+});
+
+add_task(async function test_network_loss_enforcement_ends_the_session() {
+  const sandbox = sinon.createSandbox();
+  stubFeltBrowser(sandbox);
+  ConsoleConnectionGuard.reset();
+  gEndSession.resetHistory();
+  try {
+    gEndSession.rejects(new Error("could not end the session"));
+    ConsoleConnectionGuard.recordUnreachable();
+    Assert.strictEqual(
+      await ConsoleConnectionGuard._enforce(),
+      false,
+      "A failed session end is reported as not ended."
+    );
+    Assert.notStrictEqual(
+      ConsoleConnectionGuard._timer,
+      null,
+      "A failed session end is retried."
+    );
+
+    gEndSession.resolves(true);
+    Assert.strictEqual(
+      await ConsoleConnectionGuard._enforce(),
+      true,
+      "The session is ended."
+    );
+    Assert.ok(
+      gEndSession.alwaysCalledWithExactly(false),
+      "The session is signed out, as the locking pref defaults to."
+    );
+
+    ConsoleConnectionGuard.recordUnreachable();
+    Assert.strictEqual(
+      ConsoleConnectionGuard._outageStartedAt,
+      null,
+      "An ended session starts no new grace period."
+    );
+  } finally {
+    ConsoleConnectionGuard.reset();
+    gEndSession.reset();
+    gEndSession.resolves(false);
+    sandbox.restore();
+  }
+});
+
+add_task(async function test_network_loss_recovery_during_enforcement() {
+  // Enforcement starts only after the deadline probe found the console gone,
+  // so a success reported while it runs must not cancel the retry a failed
+  // attempt needs.
+  const sandbox = sinon.createSandbox();
+  stubFeltBrowser(sandbox);
+  ConsoleConnectionGuard.reset();
+  const attempt = Promise.withResolvers();
+  gEndSession.reset();
+  gEndSession.returns(attempt.promise);
+  try {
+    ConsoleConnectionGuard.recordUnreachable();
+    const enforcing = ConsoleConnectionGuard._enforce();
+    ConsoleConnectionGuard.recordReachable();
+    Assert.notStrictEqual(
+      ConsoleConnectionGuard._outageStartedAt,
+      null,
+      "The outage stands while the session is being ended."
+    );
+
+    attempt.resolve(false);
+    Assert.strictEqual(await enforcing, false);
+    Assert.notStrictEqual(
+      ConsoleConnectionGuard._timer,
+      null,
+      "The failed attempt is retried."
+    );
+
+    ConsoleConnectionGuard.recordReachable();
+    Assert.strictEqual(
+      ConsoleConnectionGuard._outageStartedAt,
+      null,
+      "Once enforcement settles, recovery clears the outage."
+    );
+  } finally {
+    attempt.resolve(false);
+    ConsoleConnectionGuard.reset();
+    gEndSession.reset();
+    gEndSession.resolves(false);
+    sandbox.restore();
+  }
+});
+
+add_task(async function test_network_loss_end_session_paths() {
+  const endSession = lock =>
+    gEndSession.wrappedMethod.call(ConsoleConnectionGuard, lock);
+  const SIGNOUT = [false, "networkLoss"];
+  const LOCK = [true, "networkLoss"];
+  for (const [lock, quitStartsShutdown, signoutThrows, ended, intents] of [
+    [false, false, false, true, [SIGNOUT]],
+    [true, true, false, true, [LOCK]],
+    [true, false, false, true, [LOCK, SIGNOUT]],
+    [false, true, true, true, [SIGNOUT, SIGNOUT]],
+    [false, false, true, false, [SIGNOUT, SIGNOUT]],
+  ]) {
+    info(
+      `lock=${lock} quitStartsShutdown=${quitStartsShutdown} signoutThrows=${signoutThrows}`
+    );
+    const sandbox = sinon.createSandbox();
+    const setShutdownLockIntent = sandbox.stub();
+    const performSignoutWithReason = sandbox.stub();
+    if (signoutThrows) {
+      performSignoutWithReason.throws(new Error("no FELT client"));
+    }
+    sandbox.stub(Services, "felt").get(() => ({
+      isFeltBrowser: () => true,
+      setShutdownLockIntent,
+      performSignoutWithReason,
+    }));
+    const startup = { shuttingDown: false };
+    sandbox.stub(Services, "startup").get(() => startup);
+    const quit = sandbox
+      .stub(ForcedQuitHandler, "quitIgnoringCanClose")
+      .callsFake(async () => {
+        startup.shuttingDown = quitStartsShutdown;
+      });
+    try {
+      Assert.strictEqual(await endSession(lock), ended);
+      Assert.ok(quit.called, "Every path quits the browser itself.");
+      Assert.deepEqual(
+        setShutdownLockIntent.args,
+        intents,
+        "The exit carries the NetworkLoss intent."
+      );
+      if (quit.called) {
+        Assert.ok(
+          setShutdownLockIntent.calledBefore(quit),
+          "The intent is declared before the quit it rides out on."
+        );
+      }
+      Assert.equal(
+        performSignoutWithReason.called,
+        !(lock && quitStartsShutdown),
+        "Only a lock that starts shutdown skips the signout."
+      );
+      if (performSignoutWithReason.called) {
+        Assert.ok(performSignoutWithReason.calledWithExactly("networkLoss"));
+      }
+    } finally {
+      sandbox.restore();
+    }
   }
 });
 
@@ -591,6 +749,9 @@ add_task(async function test_browser_refresh_results_are_correlated() {
     refreshTokens: send,
   }));
   const sync = sandbox.stub(ConsoleClient, "_syncCrashReporterAuthToken");
+  sandbox
+    .stub(ConsoleClient, "probeConsoleReachable")
+    .rejects(transportError("ConsoleClientXHRError"));
   const reply = (request, error = "") =>
     ConsoleClient.observe(
       null,
@@ -651,6 +812,95 @@ add_task(async function test_browser_refresh_results_are_correlated() {
   } finally {
     ConsoleClient._finishBrowserRefresh(ConsoleClient._refreshRequest);
     ConsoleConnectionGuard.reset();
+    sandbox.restore();
+  }
+});
+
+add_task(async function test_unanswered_refresh_without_network_loss() {
+  // Without the NetworkLoss policy, a refresh FELT never answers ends the
+  // session, as it did before the policy existed.
+  const sandbox = sinon.createSandbox();
+  const send = sandbox.stub();
+  const performSignout = sandbox.stub();
+  sandbox.stub(Services, "felt").get(() => ({
+    isFeltBrowser: () => true,
+    refreshTokens: send,
+    performSignout,
+  }));
+  const quit = sandbox.stub(ForcedQuitHandler, "quitIgnoringCanClose");
+  const probe = sandbox
+    .stub(ConsoleClient, "probeConsoleReachable")
+    .rejects(transportError("ConsoleClientXHRError"));
+  try {
+    const enforced = ConsoleClient._refreshSession();
+    const enforcedRequest = ConsoleClient._refreshRequest;
+    Assert.ok(
+      send.calledOnceWith(enforcedRequest.id, true),
+      "FELT is told the NetworkLoss policy handles network failures."
+    );
+    ConsoleClient._onBrowserRefreshTimeout(enforcedRequest);
+    await Assert.rejects(enforced, /NS_ERROR_NET_TIMEOUT/);
+    Assert.ok(probe.calledOnce, "The browser checks the console itself.");
+    Assert.ok(performSignout.notCalled, "The grace period decides instead.");
+
+    const pendingProbe = Promise.withResolvers();
+    probe.returns(pendingProbe.promise);
+    const answered = ConsoleClient._refreshSession();
+    const answeredRequest = ConsoleClient._refreshRequest;
+    const timedOut = ConsoleClient._onBrowserRefreshTimeout(answeredRequest);
+    ConsoleClient.observe(
+      null,
+      "felt-firefox-token-refresh-result",
+      JSON.stringify({
+        request_id: answeredRequest.id,
+        error: "ConsoleClientXHRError",
+      })
+    );
+    await Assert.rejects(answered, /ConsoleClientXHRError/);
+    pendingProbe.resolve();
+    await timedOut;
+    Assert.ok(
+      performSignout.notCalled,
+      "A FELT reply during the probe keeps the session."
+    );
+
+    probe.resolves();
+    const unresponsive = ConsoleClient._refreshSession();
+    const unresponsiveRequest = ConsoleClient._refreshRequest;
+    ConsoleClient._onBrowserRefreshTimeout(unresponsiveRequest);
+    await Assert.rejects(unresponsive, /failed to respond/);
+    Assert.ok(
+      performSignout.calledOnce,
+      "A reachable console means FELT is unresponsive, so the session ends."
+    );
+    Assert.ok(quit.calledOnce, "The browser quits.");
+
+    probe.rejects(new Error("Console address unavailable"));
+    const probeFailed = ConsoleClient._refreshSession();
+    const probeFailedRequest = ConsoleClient._refreshRequest;
+    ConsoleClient._onBrowserRefreshTimeout(probeFailedRequest);
+    await Assert.rejects(probeFailed, /failed to respond/);
+    Assert.ok(
+      performSignout.calledTwice,
+      "A probe that fails off the network does not start a grace period."
+    );
+    Assert.ok(quit.calledTwice, "The browser quits.");
+
+    probe.resetHistory();
+    Services.prefs.setBoolPref(ENABLED_PREF, false);
+    const refresh = ConsoleClient._refreshSession();
+    const request = ConsoleClient._refreshRequest;
+    Assert.ok(
+      send.getCall(4).calledWithExactly(request.id, false),
+      "FELT is told to end the session on any failure."
+    );
+    ConsoleClient._onBrowserRefreshTimeout(request);
+    await Assert.rejects(refresh, /failed to respond/);
+    Assert.ok(probe.notCalled, "Without the policy the console is not probed.");
+    Assert.ok(performSignout.calledThrice, "The session is signed out.");
+    Assert.ok(quit.calledThrice, "The browser quits.");
+  } finally {
+    Services.prefs.setBoolPref(ENABLED_PREF, true);
     sandbox.restore();
   }
 });

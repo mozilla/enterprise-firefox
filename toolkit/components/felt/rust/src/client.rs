@@ -172,9 +172,12 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn notify_refresh_tokens(&self, request_id: u32) {
+    pub fn notify_refresh_tokens(&self, request_id: u32, network_loss_enforced: bool) {
         trace!("FeltIpcClient::notify_refresh_tokens()");
-        let msg = FeltMessage::RefreshTokens(request_id);
+        let msg = FeltMessage::RefreshTokens {
+            request_id,
+            network_loss_enforced,
+        };
         if let Some(tx) = &*self.tx.lock().expect("Could not lock sender") {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::notify_refresh_tokens() SENT"),
@@ -611,10 +614,10 @@ impl FeltClientThread {
         client.notify_crash_lock_intent(lock_intent)
     }
 
-    pub fn notify_refresh_tokens(&self, request_id: u32) {
+    pub fn notify_refresh_tokens(&self, request_id: u32, network_loss_enforced: bool) {
         trace!("FeltClientThread::refresh_tokens()");
         let client = self.ipc_client.borrow();
-        client.notify_refresh_tokens(request_id);
+        client.notify_refresh_tokens(request_id, network_loss_enforced);
     }
 }
 

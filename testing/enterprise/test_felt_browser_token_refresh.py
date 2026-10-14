@@ -33,7 +33,7 @@ class BrowserTokenRefresh(FeltTests):
         try:
             # The request id is only echoed back to the browser, which is torn
             # down by the failing refresh before it could act on the reply.
-            driver.execute_script("Services.felt.refreshTokens(0);")
+            driver.execute_script("Services.felt.refreshTokens(0, false);")
         except Exception:
             # refreshTokens() triggers an async IPC message to Felt and may throw
             # before the refresh completes. The exception is expected and harmless.
