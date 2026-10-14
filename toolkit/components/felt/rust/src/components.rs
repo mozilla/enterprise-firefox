@@ -414,7 +414,7 @@ impl FeltXPCOM {
         let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
         match &*guard {
             Some(client) => {
-                client.notify_signout();
+                client.notify_signout(None);
                 NS_OK
             }
             None => {

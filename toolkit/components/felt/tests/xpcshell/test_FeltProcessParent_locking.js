@@ -13,6 +13,54 @@ const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
 );
 
+// An unreachable console is the browser's network-loss grace period's call, not
+// FELT's; only a console that answered and refused ends the session here.
+add_task(function test_transport_refresh_failure_leaves_session_alive() {
+  const { ConsoleClient } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
+  );
+  const { PostureMonitor } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
+  );
+  const sandbox = sinon.createSandbox();
+  const shutdownFirefox = sandbox.stub();
+  const clearLockAndTokens = sandbox.stub(FeltLocking, "clearLockAndTokens");
+  sandbox.stub(PostureMonitor, "stop");
+  sandbox.stub(Services, "felt").get(() => ({ shutdownFirefox }));
+  const actor = new FeltProcessParent();
+  actor.proc = { exitPromise: new Promise(() => {}) };
+  const { TypeError } = Cu.getGlobalForObject(ConsoleClient);
+  try {
+    for (const message of ["ConsoleClientXHRError", "NS_ERROR_NET_TIMEOUT"]) {
+      actor.endSessionAfterRefreshFailure(new TypeError(message));
+    }
+    Assert.ok(
+      shutdownFirefox.notCalled,
+      "A transport failure does not shut the browser down."
+    );
+    Assert.ok(
+      clearLockAndTokens.notCalled,
+      "A transport failure keeps the session credentials."
+    );
+    Assert.ok(!actor.logoutReported, "The session is still live.");
+
+    actor.endSessionAfterRefreshFailure(
+      new Error("Token refresh failed: , Status: 500")
+    );
+    Assert.ok(
+      shutdownFirefox.calledOnce,
+      "A refused refresh ends the session."
+    );
+    Assert.ok(
+      clearLockAndTokens.calledOnce,
+      "A refused refresh drops the credentials."
+    );
+    Assert.ok(actor.logoutReported, "The session is reported as over.");
+  } finally {
+    sandbox.restore();
+  }
+});
+
 add_task(async function test_browser_refresh_replies_echo_request_ids() {
   const { ConsoleClient } = ChromeUtils.importESModule(
     "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
@@ -108,6 +156,8 @@ add_task(
     const { ConsoleClient } = ChromeUtils.importESModule(
       "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
     );
+    const { ConsoleConnectionGuard } = ChromeUtils.importESModule(
+      "moz-src:///toolkit/components/enterprise/modules/ConsoleConnectionGuard.sys.mjs"
     );
     const { PostureMonitor } = ChromeUtils.importESModule(
       "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
@@ -155,6 +205,7 @@ add_task(
         setTokens,
       }));
       sandbox.stub(ConsoleClient, "_syncCrashReporterAuthToken");
+      sandbox.stub(ConsoleConnectionGuard, "recordUnreachable");
       sandbox
         .stub(PostureMonitor, "postureForRefresh")
         .resolves({ posture: null });

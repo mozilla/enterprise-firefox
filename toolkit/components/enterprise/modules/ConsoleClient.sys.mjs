@@ -14,6 +14,8 @@ const XHR_TIMEOUT_MS = 60000;
 const SSO_LOGIN_VERSION = "v2";
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  ConsoleConnectionGuard:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleConnectionGuard.sys.mjs",
   ConsoleProxyBypassFilter:
     "moz-src:///toolkit/components/enterprise/modules/ConsoleProxyBypassFilter.sys.mjs",
   EnterpriseCommon:
@@ -210,16 +212,24 @@ export const ConsoleClient = {
   },
 
   /**
-   * Checks that the configured console is reachable before starting the SSO flow.
+   * Checks that the configured console is reachable.
    * Any HTTP response means the host is reachable; only network-level failures
    * reject, in the shape FeltErrorReport.handleXhrError expects.
    *
+   * @param {object} [options]
+   * @param {number} [options.timeoutMs] Request timeout in milliseconds.
+   * @param {AbortSignal} [options.signal] Cancels the request.
    * @throws {TypeError} On a network-level failure.
    * @returns {Promise<void>}
    */
-  async probeConsoleReachable() {
+  async probeConsoleReachable({ timeoutMs, signal } = {}) {
     const url = await this.constructURI("");
-    await this._xhrFetch(url, { method: "GET" });
+    await this._xhrFetch(url, {
+      method: "GET",
+      timeoutMs,
+      signal,
+      bypassCache: true,
+    });
   },
 
   /**
@@ -367,6 +377,7 @@ export const ConsoleClient = {
    *   use "arraybuffer" for binary responses and "" for text responses.
    * @param {number} [options.timeoutMs] Request timeout in milliseconds.
    * @param {AbortSignal|null} [options.signal] Cancels the request.
+   * @param {boolean} [options.bypassCache=false] Requires a network response.
    * @returns {Promise<{ok: boolean, status: number, json: Function, text: Function, arrayBuffer: Function}>}
    */
   _xhrFetch(
@@ -378,11 +389,15 @@ export const ConsoleClient = {
       responseType = "",
       timeoutMs = XHR_TIMEOUT_MS,
       signal = null,
+      bypassCache = false,
     } = {}
   ) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url, true);
+      if (bypassCache) {
+        xhr.channel.loadFlags |= Ci.nsIRequest.LOAD_BYPASS_CACHE;
+      }
       xhr.timeout = timeoutMs;
       xhr.responseType = responseType;
 
@@ -404,6 +419,17 @@ export const ConsoleClient = {
 
       xhr.onload = () => {
         finish();
+        // Cache hits alone do not prove the console is reachable.
+        if (
+          xhr.channel instanceof Ci.nsICacheInfoChannel &&
+          [
+            Ci.nsICacheInfoChannel.kCacheMissed,
+            Ci.nsICacheInfoChannel.kCacheMissedViaReval,
+            Ci.nsICacheInfoChannel.kCacheHitViaReval,
+          ].includes(xhr.channel.getCacheDisposition())
+        ) {
+          lazy.ConsoleConnectionGuard.recordReachable();
+        }
         const response = {
           ok: xhr.status >= 200 && xhr.status < 300,
           status: xhr.status,
@@ -422,6 +448,7 @@ export const ConsoleClient = {
 
       xhr.onerror = () => {
         finish();
+        lazy.ConsoleConnectionGuard.recordUnreachable();
         const channelStatus = xhr.channel?.status ?? null;
         reject(
           new TypeError("ConsoleClientXHRError", {
@@ -432,6 +459,7 @@ export const ConsoleClient = {
 
       xhr.ontimeout = () => {
         finish();
+        lazy.ConsoleConnectionGuard.recordUnreachable();
         reject(new TypeError("NS_ERROR_NET_TIMEOUT"));
       };
 
@@ -906,15 +934,17 @@ export const ConsoleClient = {
         // The FELT client thread has already stored a successful result's
         // token, even one for a request this process has given up on.
         const { request_id: requestId, error } = JSON.parse(data);
-        if (!error) {
+        const failure = error ? new TypeError(error) : null;
+        if (!failure) {
           this._syncCrashReporterAuthToken();
+        } else if (this.isTransportError(failure)) {
+          // Once the access token expires, the browser's console requests all
+          // wait on this refresh, so it is the only sign of an outage.
+          lazy.ConsoleConnectionGuard.recordUnreachable();
         }
         const request = this._refreshRequest;
         if (request?.id === requestId) {
-          this._finishBrowserRefresh(
-            request,
-            error ? new TypeError(error) : null
-          );
+          this._finishBrowserRefresh(request, failure);
         }
         break;
       }

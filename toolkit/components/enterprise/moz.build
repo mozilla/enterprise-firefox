@@ -10,6 +10,7 @@ with Files("**"):
 MOZ_SRC_FILES += [
     "modules/CaptivePortal.sys.mjs",
     "modules/ConsoleClient.sys.mjs",
+    "modules/ConsoleConnectionGuard.sys.mjs",
     "modules/ConsoleProxyBypassFilter.sys.mjs",
     "modules/DevicePosture.sys.mjs",
     "modules/EnterpriseBadge.sys.mjs",
