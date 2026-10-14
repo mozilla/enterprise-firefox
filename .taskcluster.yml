@@ -501,6 +501,9 @@ tasks:
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}-pr.revision.${headRev}.taskgraph.actions.${ownTaskId}"
                                             'eventType == "cron"':
+                                                - $switch:
+                                                      'project == "enterprise-firefox"': "tc-treeherder.v2.${shortRef}.${headRev}"
+                                                      $default: "tc-treeherder.v2.${project}.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}.branch.${shortRef}.latest.taskgraph.decision-${cron.job_name}"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision-${cron.job_name}"
                                                 # list each cron task on this revision, so actions can find them
