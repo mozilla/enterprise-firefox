@@ -63,7 +63,13 @@ pub enum FeltMessage {
     /// (i.e. before `profile-do-change`); sent unconditionally on the
     /// first IPC handshake, ahead of `AccessToken` / `Ready`.
     PrimarySecret(String),
-    RefreshTokens,
+    RefreshTokens(u32),
+    TokenRefreshResult {
+        request_id: u32,
+        access_token: String,
+        expires_at: i64,
+        error: String,
+    },
     FeltReady(u32),
     OpenURL((String, i32, Option<FocusHint>)),
     RestartForced,
@@ -85,4 +91,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 16;
+pub const FELT_IPC_VERSION: u32 = 17;

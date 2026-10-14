@@ -89,7 +89,10 @@ interface nsIFelt : nsISupports {
   void sendAccessToken();
 
   [must_use]
-  void refreshTokens();
+  void refreshTokens(in unsigned long requestId);
+
+  [must_use]
+  void completeTokenRefresh(in unsigned long requestId, in ACString error);
 
   [must_use]
   ACString getRefreshToken();
