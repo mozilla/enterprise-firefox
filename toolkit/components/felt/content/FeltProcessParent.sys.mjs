@@ -63,6 +63,7 @@ const PROCESS_START_REASON = {
   RESTART: "restart",
   CRASH: "crash",
 };
+const NETWORK_LOSS_SIGNOUT_TIMEOUT_MS = 5000;
 
 /**
  * Reads the browser pid the Windows launcher process announced, if `line` is
@@ -237,10 +238,18 @@ export class FeltProcessParent extends JSProcessActorParent {
         switch (aTopic) {
           case "felt-firefox-exiting": {
             gFeltProcessParentInstance.exitReported = true;
-            // Whether this exit locks the session rides with the exit event
-            // itself (see nsIFelt.setShutdownLockIntent); the exit handler only
-            // acts on it for a clean, non-logout, non-restart exit.
-            gFeltProcessParentInstance.lockOnExit = aData === "true";
+            // Whether this exit locks the session, and why it is happening at
+            // all, ride with the exit event itself (see
+            // nsIFelt.setShutdownLockIntent); the exit handler only acts on
+            // them for a clean, non-logout, non-restart exit.
+            let intent = {};
+            try {
+              intent = JSON.parse(aData);
+            } catch (e) {
+              lazy.log.error(`Unparsable exit intent "${aData}": ${e}`);
+            }
+            gFeltProcessParentInstance.lockOnExit = intent.lockIntent === true;
+            gFeltProcessParentInstance.exitReason = intent.reason ?? "";
             break;
           }
 
@@ -391,7 +400,7 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-logout":
-            gFeltProcessParentInstance.logoutFirefox().catch(err => {
+            gFeltProcessParentInstance.logoutFirefox(aData).catch(err => {
               lazy.log.error(`Logout failed: ${err}`);
             });
             break;
@@ -709,6 +718,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.logoutReported = false;
     this.exitReported = false;
     this.lockOnExit = false;
+    this.exitReason = "";
     this.firefoxReady = false;
     this.feltReady = false;
     if (lazy.isBuildAppBrowser()) {
@@ -851,7 +861,13 @@ export class FeltProcessParent extends JSProcessActorParent {
               this.abnormalExitCounter = 0;
               this.abnormalExitFirstTime = 0;
               if (this.lockOnExit) {
-                this._lockAfterExit();
+                this._lockAfterExit().catch(err => {
+                  lazy.log.error(`Lock after Firefox exit failed: ${err}`);
+                });
+              } else if (this.exitReason === "networkLoss") {
+                this._logoutAfterNetworkLoss().catch(err => {
+                  lazy.log.error(`Signout after Firefox exit failed: ${err}`);
+                });
               } else {
                 Services.cpmm.sendAsyncMessage(
                   "FeltParent:FirefoxNormalExit",
@@ -1344,9 +1360,12 @@ export class FeltProcessParent extends JSProcessActorParent {
   /**
    * Perform all the logout operations on FELT side.
    *
+   * @param {string} [reason] Why the session ended, empty for a user-initiated
+   *   signout. "networkLoss" routes FELT to its error screen instead of the
+   *   plain login window.
    * @returns {Promise<void>} Resolves once the browser shutdown was requested.
    */
-  async logoutFirefox() {
+  async logoutFirefox(reason = "") {
     if (!Services.felt.isFeltUI()) {
       throw new Error("Logout handling should only happen on FELT side.");
     }
@@ -1357,8 +1376,14 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     lazy.log.debug(
-      `Logout, waiting on process ${gFeltProcessParentInstance.proc.pid}`
+      `Logout (reason: ${reason || "user"}), waiting on process ${
+        gFeltProcessParentInstance.proc.pid
+      }`
     );
+    if (reason === "networkLoss") {
+      await this._logoutAfterNetworkLoss();
+      return;
+    }
     await this._signOutSession();
     Services.felt.shutdownFirefox();
     const reportSignedOut = () => {
@@ -1368,6 +1393,58 @@ export class FeltProcessParent extends JSProcessActorParent {
       gFeltProcessParentInstance.proc.exitPromise.then(reportSignedOut);
     } else {
       reportSignedOut();
+    }
+  }
+
+  async _logoutAfterNetworkLoss() {
+    this.logoutReported = true;
+    gSessionGeneration += 1;
+    lazy.PostureMonitor.stop();
+    gBrowserRefresh = null;
+    lazy.ConsoleClient.cancelPendingRefresh();
+
+    const exited = this.proc?.exitPromise;
+    try {
+      Services.felt.shutdownFirefox();
+    } catch (err) {
+      lazy.log.error(`Failed to request Firefox shutdown: ${err}`);
+    }
+
+    let accessToken = "";
+    try {
+      accessToken = Services.felt.getAccessTokenIfValid();
+    } catch (err) {
+      lazy.log.error(`Failed to read signout token: ${err}`);
+    }
+    if (accessToken) {
+      lazy.ConsoleClient.performServerSignoutWithToken(
+        accessToken,
+        NETWORK_LOSS_SIGNOUT_TIMEOUT_MS
+      ).catch(err => {
+        lazy.log.error(`Server signout failed: ${err}`);
+      });
+    }
+
+    try {
+      lazy.FeltLocking.clearLockAndTokens();
+      await lazy.FeltStorage.endSession();
+    } catch (err) {
+      lazy.log.error(`Failed to clear local session: ${err}`);
+    }
+
+    const reportExit = () => {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxSessionInterrupted", {
+        reason: "networkLoss",
+        sessionLocked: false,
+      });
+    };
+    if (exited) {
+      exited.then(reportExit, err => {
+        lazy.log.error(`Failed to observe Firefox shutdown: ${err}`);
+        reportExit();
+      });
+    } else {
+      reportExit();
     }
   }
 
@@ -1406,14 +1483,30 @@ export class FeltProcessParent extends JSProcessActorParent {
   /**
    * Lock the session once the spawned Firefox has exited. Called from the exit
    * handler when the browser declared a lock intent (see the
-   * felt-firefox-exiting observer). Any failure falls back to the normal-exit
-   * report, whose handler posts the server signout and drops the tokens it
-   * authenticates with.
+   * felt-firefox-exiting observer). A failed lock signs out and drops the
+   * tokens; an ordinary exit uses the normal-exit handler for that fallback.
+   *
+   * An exit the user did not ask for carries a reason, which is reported so
+   * FELT surfaces a notice instead of quitting silently on them.
    *
    * @returns {Promise<void>}
    */
   async _lockAfterExit() {
-    if (!(await this._persistLockedSession())) {
+    const sessionLocked = await this._persistLockedSession();
+
+    if (this.exitReason === "networkLoss") {
+      if (!sessionLocked) {
+        await this._logoutAfterNetworkLoss();
+        return;
+      }
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxSessionInterrupted", {
+        reason: this.exitReason,
+        sessionLocked: true,
+      });
+      return;
+    }
+
+    if (!sessionLocked) {
       Services.cpmm.sendAsyncMessage("FeltParent:FirefoxNormalExit", {});
       return;
     }
