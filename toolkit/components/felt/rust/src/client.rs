@@ -509,6 +509,14 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): Shutdown");
                                     utils::notify_observers("felt-firefox-shutdown".to_string());
                                 },
+                                Ok(FeltMessage::ReportConsoleReachability(reachable)) => {
+                                    let topic = if reachable {
+                                        "felt-firefox-console-reachable"
+                                    } else {
+                                        "felt-firefox-console-unreachable"
+                                    };
+                                    utils::notify_observers(topic.to_string());
+                                },
                                 Ok(FeltMessage::OpenURL((url, disposition, focus_hint))) => {
                                     trace!(
                                         "FeltClientThread::felt_client::ipc_loop(): OpenURL({}, {}, {:?})",

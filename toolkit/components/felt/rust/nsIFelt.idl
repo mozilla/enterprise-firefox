@@ -189,5 +189,8 @@ interface nsIFelt : nsISupports {
   void shutdownFirefox();
 
   [must_use]
+  void reportConsoleReachability(in boolean reachable);
+
+  [must_use]
   void requestUpdateCheck();
 };

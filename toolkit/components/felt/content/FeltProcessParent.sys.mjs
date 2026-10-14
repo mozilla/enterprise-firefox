@@ -122,6 +122,14 @@ export function queueURL(payload) {
 
 let gFeltProcessParentInstance = null;
 
+export function hasActiveFirefoxSession() {
+  return !!(
+    gFeltProcessParentInstance?.proc &&
+    gFeltProcessParentInstance.proc.exitCode === null &&
+    !gFeltProcessParentInstance.logoutReported
+  );
+}
+
 // The session a token refresh belongs to, bumped whenever one starts or is torn
 // down. A refresh that resolves after its session is gone must not set tokens,
 // hand one to the browser, or re-arm the posture record. Kept at module level
@@ -543,13 +551,16 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Ends the session a token refresh failed for: the console will not answer for
-   * its tokens any more, so the browser cannot keep running on them.
+   * Ends the session after a non-transport token refresh failure. Transport
+   * failures are handled by the browser's network-loss grace period.
    *
    * @param {Error} error - The failure, whose name picks the notice FELT shows.
    */
   endSessionAfterRefreshFailure(error) {
     if (this.logoutReported) {
+      return;
+    }
+    if (lazy.ConsoleClient.isTransportError(error)) {
       return;
     }
     lazy.log.error(
