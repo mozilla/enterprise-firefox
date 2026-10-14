@@ -82,6 +82,10 @@ pub enum FeltMessage {
     Exiting(bool, Option<String>),
     UpdateReady,
     Shutdown,
+    /// Report the console's reachability from the FELT UI to the browser process.
+    /// The boolean indicates whether the console is reachable (true) or not (false).
+    /// This browser side uses this to notify `felt-firefox-console-reachable/unreachable`.
+    ReportConsoleReachability(bool),
     CheckForUpdates,
 }
 

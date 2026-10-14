@@ -408,14 +408,19 @@ impl FeltXPCOM {
         }
     }
 
+    fn ReportConsoleReachability(&self, reachable: bool) -> nserror::nsresult {
+        if self.is_felt_ui {
+            self.send(FeltMessage::ReportConsoleReachability(reachable))
+        } else {
+            NS_ERROR_FAILURE
+        }
+    }
+
     fn PerformSignout(&self) -> nserror::nsresult {
         trace!("FeltXPCOM::PerformSignout");
         let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
         match &*guard {
-            Some(client) => {
-                client.notify_signout();
-                NS_OK
-            }
+            Some(client) => client.notify_signout(None),
             None => {
                 trace!("performSignout(): missing client");
                 NS_ERROR_FAILURE
