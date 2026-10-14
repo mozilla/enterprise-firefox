@@ -122,6 +122,11 @@ export function queueURL(payload) {
 
 let gFeltProcessParentInstance = null;
 
+/**
+ * Whether FELT is managing a running browser session.
+ *
+ * @returns {boolean}
+ */
 export function hasActiveFirefoxSession() {
   return !!(
     gFeltProcessParentInstance?.proc &&
@@ -439,7 +444,10 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-refresh-tokens": {
-            const requestId = Number(aData);
+            const {
+              request_id: requestId,
+              network_loss_enforced: networkLossEnforced,
+            } = JSON.parse(aData);
             lazy.log.debug(`ParentProcess: Trigger a token refresh in FELT.`);
             if (gFeltProcessParentInstance.logoutReported) {
               lazy.log.debug(
@@ -483,6 +491,7 @@ export class FeltProcessParent extends JSProcessActorParent {
                   return;
                 }
                 lazy.log.debug("refreshTokens successful");
+                Services.felt.completeTokenRefresh(requestId, "");
                 try {
                   // A keystore failure must not tear down an otherwise
                   // healthy session.
@@ -515,7 +524,6 @@ export class FeltProcessParent extends JSProcessActorParent {
                 if (postureSubmitted && measuredAt) {
                   lazy.PostureMonitor.record(posture, measuredAt);
                 }
-                Services.felt.completeTokenRefresh(requestId, "");
               })
               .catch(error => {
                 // cancelPendingRefresh() aborts a refresh only once the session
@@ -537,7 +545,10 @@ export class FeltProcessParent extends JSProcessActorParent {
                 } catch (e) {
                   lazy.log.error("Failed to report token refresh failure", e);
                 }
-                gFeltProcessParentInstance.endSessionAfterRefreshFailure(error);
+                gFeltProcessParentInstance.endSessionAfterRefreshFailure(
+                  error,
+                  networkLossEnforced
+                );
               });
             break;
           }
@@ -551,16 +562,19 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Ends the session after a non-transport token refresh failure. Transport
-   * failures are handled by the browser's network-loss grace period.
+   * Ends the session after a failed token refresh. When the browser enforces
+   * the NetworkLoss policy, a refresh that could not reach the console is left
+   * to its grace period instead.
    *
    * @param {Error} error - The failure, whose name picks the notice FELT shows.
+   * @param {boolean} [networkLossEnforced] - Whether the browser enforces the
+   *   NetworkLoss policy.
    */
-  endSessionAfterRefreshFailure(error) {
+  endSessionAfterRefreshFailure(error, networkLossEnforced = false) {
     if (this.logoutReported) {
       return;
     }
-    if (lazy.ConsoleClient.isTransportError(error)) {
+    if (networkLossEnforced && lazy.ConsoleClient.isTransportError(error)) {
       return;
     }
     lazy.log.error(
@@ -1412,6 +1426,13 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
   }
 
+  /**
+   * Signs out after the console was lost: shuts the browser down without
+   * waiting on in-flight requests, attempts a time-limited server signout,
+   * and clears local credentials.
+   *
+   * @returns {Promise<void>}
+   */
   async _logoutAfterNetworkLoss() {
     gSessionGeneration += 1;
     lazy.PostureMonitor.stop();
@@ -1463,6 +1484,13 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
   }
 
+  /**
+   * Signs out once the browser has exited for the given reason, then shows
+   * FELT's notice for it.
+   *
+   * @param {string} reason - Why the session ended, e.g. "networkLoss".
+   * @returns {Promise<void>}
+   */
   async _signOutAfterExit(reason) {
     this.logoutReported = true;
     if (reason === "networkLoss") {
@@ -1544,6 +1572,11 @@ export class FeltProcessParent extends JSProcessActorParent {
    * @returns {Promise<void>}
    */
   async _lockAfterExit() {
+    if (this.exitReason === "networkLoss") {
+      // A refresh still in flight cannot land with the console gone, and the
+      // lock would otherwise wait out its timeout before FELT reappears.
+      lazy.ConsoleClient.cancelPendingRefresh();
+    }
     const sessionLocked = await this._persistLockedSession();
 
     if (this.exitReason) {

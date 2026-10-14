@@ -63,11 +63,6 @@ function checkCrashState(locked, value) {
 
 function checkNetworkLossState(locked, value) {
   checkState(PREF_NETWORK_LOSS, locked, value);
-  Assert.strictEqual(
-    EnterpriseHandler.willLockOnNetworkLoss,
-    value,
-    `willLockOnNetworkLoss reflects the pref (${value})`
-  );
 }
 
 // A live SignOut update changes the locking prefs and their getters without

@@ -42,11 +42,13 @@ class NetworkLossLock(FeltKeyStoreStub, FeltTests):
         self._manually_closed_child = True
         self._child_driver.execute_script(
             """
-            const { EnterpriseHandler } = ChromeUtils.importESModule(
-                "moz-src:///browser/components/enterprise/EnterpriseHandler.sys.mjs"
+            const { ConsoleConnectionGuard } = ChromeUtils.importESModule(
+                "moz-src:///toolkit/components/enterprise/modules/ConsoleConnectionGuard.sys.mjs"
             );
             Services.tm.dispatchToMainThread(() => {
-                EnterpriseHandler.endSessionForNetworkLoss();
+                ConsoleConnectionGuard._endSession(
+                    Services.prefs.getBoolPref("enterprise.locking.network_loss")
+                );
             });
             """
         )

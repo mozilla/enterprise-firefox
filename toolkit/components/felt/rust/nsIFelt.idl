@@ -88,8 +88,13 @@ interface nsIFelt : nsISupports {
   [must_use]
   void sendAccessToken();
 
+  /**
+   * Asks FELT to refresh the session tokens. `networkLossEnforced` tells FELT
+   * that the browser's NetworkLoss policy handles a refresh that cannot reach
+   * the console, so FELT keeps the session instead of ending it.
+   */
   [must_use]
-  void refreshTokens(in unsigned long requestId);
+  void refreshTokens(in unsigned long requestId, in boolean networkLossEnforced);
 
   [must_use]
   void completeTokenRefresh(in unsigned long requestId, in ACString error);

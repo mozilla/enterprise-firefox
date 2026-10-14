@@ -5,6 +5,7 @@
 const lazy = {};
 
 const FELT_REFRESH_TIMEOUT = 60000;
+const FELT_UNRESPONSIVE_PROBE_TIMEOUT_MS = 5000;
 
 // Bound a single console request so a stalled server can't wedge the poller.
 const XHR_TIMEOUT_MS = 60000;
@@ -100,6 +101,13 @@ class ReauthRequiredError extends Error {
  * Client taking care of the communication with the enterprise console.
  */
 export const ConsoleClient = {
+  /**
+   * Whether a request failed to reach the console, as opposed to the console
+   * rejecting it.
+   *
+   * @param {Error} error
+   * @returns {boolean}
+   */
   isTransportError(error) {
     return (
       error instanceof TypeError &&
@@ -767,6 +775,10 @@ export const ConsoleClient = {
     return refreshPromise;
   },
 
+  /**
+   * Aborts the in-flight FELT token refresh, so its response can no longer
+   * commit tokens. Call once the session that requested it is over.
+   */
   cancelPendingRefresh() {
     this._feltRefreshGeneration += 1;
     this._feltRefreshAbortController?.abort();
@@ -774,6 +786,15 @@ export const ConsoleClient = {
     this._feltRefreshAbortController = null;
   },
 
+  /**
+   * Signs the server session out with an explicit access token, for when the
+   * stored tokens may already be cleared.
+   *
+   * @param {string} accessToken
+   * @param {number} timeoutMs - How long to wait for the console.
+   * @returns {Promise<void>}
+   * @throws {Error} If the console rejects the signout.
+   */
   async performServerSignoutWithToken(accessToken, timeoutMs) {
     const url = await this.constructURI(this._paths.SIGNOUT);
     const response = await this._xhrFetch(url, {
@@ -815,6 +836,7 @@ export const ConsoleClient = {
     const request = {
       ...Promise.withResolvers(),
       id: ++this._refreshRequestId,
+      networkLossEnforced: lazy.ConsoleConnectionGuard.isEnabled,
       timer: null,
     };
     this._refreshRequest = request;
@@ -823,20 +845,64 @@ export const ConsoleClient = {
       FELT_REFRESH_TIMEOUT
     );
     try {
-      Services.felt.refreshTokens(request.id);
+      Services.felt.refreshTokens(request.id, request.networkLossEnforced);
     } catch (error) {
       this._finishBrowserRefresh(request, error);
     }
     return request.promise;
   },
 
-  _onBrowserRefreshTimeout(request) {
+  /**
+   * Fails the browser's refresh if FELT has not answered it in time, signing
+   * out and quitting. Under the NetworkLoss policy, the timeout instead counts
+   * as the console being unreachable unless the console answers the browser,
+   * which shows FELT itself is unresponsive.
+   *
+   * @param {object} request - The refresh request that timed out.
+   * @returns {Promise<void>}
+   */
+  async _onBrowserRefreshTimeout(request) {
     if (this._refreshRequest !== request) {
       return;
     }
-    this._finishBrowserRefresh(request, new TypeError("NS_ERROR_NET_TIMEOUT"));
+    // The policy can change while the request is in flight.
+    if (lazy.ConsoleConnectionGuard.isEnabled) {
+      // On a network that stalls requests, FELT's own console request can
+      // outlast this wait, so only a console that answers rules that out.
+      try {
+        await this.probeConsoleReachable({
+          timeoutMs: FELT_UNRESPONSIVE_PROBE_TIMEOUT_MS,
+        });
+      } catch {
+        this._finishBrowserRefresh(
+          request,
+          new TypeError("NS_ERROR_NET_TIMEOUT")
+        );
+        return;
+      }
+      if (this._refreshRequest !== request) {
+        return;
+      }
+    }
+    try {
+      Services.felt.performSignout();
+    } catch (e) {
+      lazy.log.error(`Unable to sign out after FELT did not respond: ${e}`);
+    }
+    lazy.ForcedQuitHandler.quitIgnoringCanClose();
+    this._finishBrowserRefresh(
+      request,
+      new Error("_refreshSession: Felt failed to respond to re-auth in time.")
+    );
   },
 
+  /**
+   * Settles the browser's pending refresh request, recording the console as
+   * unreachable when it failed on the network. Ignores stale requests.
+   *
+   * @param {object} request - The refresh request to settle.
+   * @param {Error} [error] - Why the refresh failed, if it did.
+   */
   _finishBrowserRefresh(request, error = null) {
     if (!request || this._refreshRequest !== request) {
       return;

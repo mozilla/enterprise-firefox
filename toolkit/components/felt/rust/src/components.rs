@@ -298,13 +298,13 @@ impl FeltXPCOM {
         }
     }
 
-    fn RefreshTokens(&self, request_id: u32) -> nserror::nsresult {
+    fn RefreshTokens(&self, request_id: u32, network_loss_enforced: bool) -> nserror::nsresult {
         trace!("FeltXPCOM::RefreshTokens");
         let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
         match &*guard {
             Some(client) => {
                 trace!("RefreshTokens(): calling client.notify_refresh_tokens()");
-                client.notify_refresh_tokens(request_id)
+                client.notify_refresh_tokens(request_id, network_loss_enforced)
             }
             None => {
                 trace!("firefox_felt_refresh_tokens(): missing client");
@@ -654,9 +654,13 @@ impl FeltXPCOM {
                             Ok(FeltMessage::CheckForUpdates) => {
                                 crate::utils::notify_observers("felt-firefox-check-for-updates".to_string());
                             },
-                            Ok(FeltMessage::RefreshTokens(request_id)) => {
+                            Ok(FeltMessage::RefreshTokens { request_id, network_loss_enforced }) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Browser is requesting token refresh");
-                                crate::utils::notify_observers_with_payload("felt-firefox-refresh-tokens".to_string(), Some(request_id.to_string()));
+                                let payload = serde_json::json!({
+                                    "request_id": request_id,
+                                    "network_loss_enforced": network_loss_enforced,
+                                }).to_string();
+                                crate::utils::notify_observers_with_payload("felt-firefox-refresh-tokens".to_string(), Some(payload));
                             },
                             Err(ipc_channel::IpcError::Disconnected) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): DISCONNECTED");

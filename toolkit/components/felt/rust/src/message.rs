@@ -63,7 +63,10 @@ pub enum FeltMessage {
     /// (i.e. before `profile-do-change`); sent unconditionally on the
     /// first IPC handshake, ahead of `AccessToken` / `Ready`.
     PrimarySecret(String),
-    RefreshTokens(u32),
+    RefreshTokens {
+        request_id: u32,
+        network_loss_enforced: bool,
+    },
     TokenRefreshResult {
         request_id: u32,
         access_token: String,
