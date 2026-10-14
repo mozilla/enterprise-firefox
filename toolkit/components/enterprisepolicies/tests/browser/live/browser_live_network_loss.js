@@ -45,9 +45,8 @@ async function setAction(action) {
 
 // performSignoutWithReason and setShutdownLockIntent are non-configurable XPCOM
 // methods that cannot be stubbed on the real component. Replace the whole
-// Services.felt getter with a minimal fake exposing just what the guard and
-// EnterpriseHandler use, so the session end can be observed without actually
-// ending it.
+// Services.felt getter with a minimal fake exposing just what the guard uses,
+// so the session end can be observed without actually ending it.
 function stubFelt() {
   const lockIntentStub = sinon.stub();
   const signoutStub = sinon.stub();
@@ -67,10 +66,9 @@ function stubFelt() {
     // A successful enforcement arms the real shutdown watchdog, so reset before
     // the engine restart or a slow restart lets it quit the browser. Reset again
     // after: the console is unreachable here, so the restart's own poll failure
-    // arms a fresh timer. The skipped prompt is only cleared by a real quit.
+    // arms a fresh timer.
     async cleanup() {
       ConsoleConnectionGuard.reset();
-      EnterpriseHandler._skipSignoutPrompt = false;
       await clearPolicies();
       ConsoleConnectionGuard.reset();
       feltGetterStub.restore();
@@ -80,7 +78,7 @@ function stubFelt() {
 
 // The lock path really quits, so stub the forced quit and its result only while
 // ending the session; the policy engine also uses Services.startup.
-async function endSessionWithQuitStubbed() {
+async function endSessionWithQuitStubbed(lockSession) {
   const quitStub = sinon
     .stub(ForcedQuitHandler, "quitIgnoringCanClose")
     .resolves();
@@ -89,7 +87,7 @@ async function endSessionWithQuitStubbed() {
     .get(() => ({ shuttingDown: true }));
   try {
     return {
-      ended: await EnterpriseHandler.endSessionForNetworkLoss(),
+      ended: await ConsoleConnectionGuard._endSession(lockSession),
       quitStub,
     };
   } finally {
@@ -100,7 +98,6 @@ async function endSessionWithQuitStubbed() {
 
 registerCleanupFunction(async () => {
   ConsoleConnectionGuard.reset();
-  EnterpriseHandler._skipSignoutPrompt = false;
   await clearPolicies();
   ConsoleConnectionGuard.reset();
 });
@@ -242,7 +239,7 @@ add_task(async function test_lock_action_ends_session_with_intent() {
   try {
     await setAction("lock");
 
-    const { ended, quitStub } = await endSessionWithQuitStubbed();
+    const { ended, quitStub } = await endSessionWithQuitStubbed(true);
 
     Assert.ok(ended, "The session was reported as ended.");
     Assert.ok(
@@ -278,7 +275,7 @@ add_task(async function test_failed_forced_lock_signs_out() {
       .get(() => ({ shuttingDown: false }));
     try {
       Assert.ok(
-        await EnterpriseHandler.endSessionForNetworkLoss(),
+        await ConsoleConnectionGuard._endSession(true),
         "The session is ended even if the forced quit is vetoed."
       );
       Assert.ok(quitStub.calledOnce, "The forced quit was attempted.");
@@ -319,7 +316,7 @@ add_task(async function test_signout_failure_still_applies_network_loss() {
     await setAction("signout");
     signoutStub.throws(new Error("no FELT client"));
 
-    const { ended, quitStub } = await endSessionWithQuitStubbed();
+    const { ended, quitStub } = await endSessionWithQuitStubbed(false);
 
     Assert.ok(ended, "The session is still reported as ended.");
     Assert.ok(quitStub.calledOnce, "The browser was quit anyway.");
@@ -400,7 +397,7 @@ add_task(async function test_failed_enforcement_retries_without_new_grace() {
   ConsoleConnectionGuard.reset();
   const { cleanup } = stubFelt();
   const endStub = sinon
-    .stub(EnterpriseHandler, "endSessionForNetworkLoss")
+    .stub(ConsoleConnectionGuard, "_endSession")
     .resolves(false);
 
   try {
@@ -429,40 +426,44 @@ add_task(async function test_failed_enforcement_retries_without_new_grace() {
   }
 });
 
-add_task(
-  async function test_recovery_during_failed_enforcement_cancels_retry() {
-    ConsoleConnectionGuard.reset();
-    const { cleanup } = stubFelt();
-    const attempt = Promise.withResolvers();
-    const endStub = sinon
-      .stub(EnterpriseHandler, "endSessionForNetworkLoss")
-      .returns(attempt.promise);
-    try {
-      await setAction("lock");
-      ConsoleConnectionGuard.recordUnreachable();
-      const enforcing = ConsoleConnectionGuard._enforce();
-      ConsoleConnectionGuard.recordReachable();
-      attempt.resolve(false);
-      Assert.equal(await enforcing, false);
-      Assert.equal(
-        ConsoleConnectionGuard._timer,
-        null,
-        "Recovery prevents a retry."
-      );
-      Assert.equal(ConsoleConnectionGuard._outageStartedAt, null);
-    } finally {
-      attempt.resolve(false);
-      endStub.restore();
-      await cleanup();
-    }
+add_task(async function test_recovery_during_failed_enforcement_keeps_retry() {
+  ConsoleConnectionGuard.reset();
+  const { cleanup } = stubFelt();
+  const attempt = Promise.withResolvers();
+  const endStub = sinon
+    .stub(ConsoleConnectionGuard, "_endSession")
+    .returns(attempt.promise);
+  try {
+    await setAction("lock");
+    ConsoleConnectionGuard.recordUnreachable();
+    const enforcing = ConsoleConnectionGuard._enforce();
+    ConsoleConnectionGuard.recordReachable();
+    attempt.resolve(false);
+    Assert.equal(await enforcing, false);
+    Assert.notEqual(
+      ConsoleConnectionGuard._timer,
+      null,
+      "A recovery reported mid-enforcement does not cancel the retry."
+    );
+    ConsoleConnectionGuard.recordReachable();
+    Assert.equal(
+      ConsoleConnectionGuard._timer,
+      null,
+      "Recovery after enforcement settles cancels the retry."
+    );
+    Assert.equal(ConsoleConnectionGuard._outageStartedAt, null);
+  } finally {
+    attempt.resolve(false);
+    endStub.restore();
+    await cleanup();
   }
-);
+});
 
 add_task(async function test_enforcement_retry_rechecks_reachability() {
   ConsoleConnectionGuard.reset();
   const { cleanup } = stubFelt();
   const endStub = sinon
-    .stub(EnterpriseHandler, "endSessionForNetworkLoss")
+    .stub(ConsoleConnectionGuard, "_endSession")
     .resolves(false);
   const probe = sinon.stub(ConsoleClient, "probeConsoleReachable").resolves();
   try {

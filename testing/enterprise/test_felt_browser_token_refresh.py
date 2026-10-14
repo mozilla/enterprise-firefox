@@ -33,7 +33,7 @@ class BrowserTokenRefresh(FeltTests):
         try:
             # The request id is only echoed back to the browser, which is torn
             # down by the failing refresh before it could act on the reply.
-            driver.execute_script("Services.felt.refreshTokens(0);")
+            driver.execute_script("Services.felt.refreshTokens(0, false);")
         except Exception:
             # The call can throw if the IPC channel is already closing; the
             # teardown it races is the expected outcome.
