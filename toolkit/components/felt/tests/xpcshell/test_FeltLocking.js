@@ -23,6 +23,9 @@ const { sinon } = ChromeUtils.importESModule(
 const { ConsoleClient } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
 );
+const { TestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/TestUtils.sys.mjs"
+);
 
 // Imported lazily so FeltStorage doesn't resolve its "UAppData"-based path
 // before makeFakeAppDir() runs in the head.js add_setup().
@@ -260,6 +263,61 @@ add_task(
   }
 );
 
+add_task(async function test_late_user_lookup_cannot_update_new_session() {
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  const encrypt = sinon
+    .stub(OSKeyStore, "encrypt")
+    .callsFake(async token => `encrypted(${token})`);
+  const decrypt = sinon
+    .stub(OSKeyStore, "decrypt")
+    .callsFake(async token => token.replace(/^encrypted\((.*)\)$/, "$1"));
+  await lazy.FeltStorage.setLockingToken(EMAIL, "old-token");
+
+  const lookup = Promise.withResolvers();
+  const getUserEmail = sinon
+    .stub(FeltLocking, "getUserEmail")
+    .returns(lookup.promise);
+  const staleWrite = FeltLocking.updateStoredToken("stale-token");
+  try {
+    FeltLocking.clear();
+    await lazy.FeltStorage.setLockingToken(EMAIL, "new-token");
+    lookup.resolve(EMAIL);
+    await staleWrite;
+
+    Assert.equal(await lazy.FeltStorage.getLockingToken(EMAIL), "new-token");
+    Assert.ok(
+      encrypt.neverCalledWith("stale-token"),
+      "The old refresh token is not encrypted after signout."
+    );
+  } finally {
+    lookup.resolve(EMAIL);
+    await staleWrite;
+    getUserEmail.restore();
+    decrypt.restore();
+    encrypt.restore();
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
+add_task(async function test_late_user_lookup_cannot_lock_ended_session() {
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  const lookup = Promise.withResolvers();
+  const getUserEmail = sinon
+    .stub(FeltLocking, "getUserEmail")
+    .returns(lookup.promise);
+  const staleWrite = FeltLocking.store("stale-token", "old-user");
+  try {
+    FeltLocking.clear();
+    lookup.resolve(EMAIL);
+    await Assert.rejects(staleWrite, /session ended/);
+    Assert.ok(!lazy.FeltStorage.hasLockingToken(EMAIL));
+  } finally {
+    lookup.resolve(EMAIL);
+    getUserEmail.restore();
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
 add_task(async function test_clear_removes_stored_token() {
   lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
   const encrypt = sinon.stub(OSKeyStore, "encrypt").resolves("ciphertext");
@@ -291,7 +349,12 @@ function installFakeFelt() {
   const setTokens = sinon.spy();
   const clearTokens = sinon.spy();
   Object.defineProperty(Services, "felt", {
-    value: { setTokens, clearTokens },
+    value: {
+      setTokens,
+      clearTokens,
+      isFeltUI: () => true,
+      getRefreshToken: () => "stored-token",
+    },
     configurable: true,
     writable: true,
   });
@@ -326,8 +389,8 @@ function makeFakeBrowser(messages) {
   };
 }
 
-function setupUnlockStubs({ refreshTokens }) {
-  return [
+function setupUnlockStubs({ refreshTokens } = {}) {
+  const stubs = [
     sinon
       .stub(OSKeyStore, "encrypt")
       .callsFake(async plaintext => `encrypted(${plaintext})`),
@@ -337,9 +400,14 @@ function setupUnlockStubs({ refreshTokens }) {
         String(ciphertext).replace(/^encrypted\((.*)\)$/, "$1")
       ),
     sinon.stub(OSKeyStore, "ensureLoggedIn").resolves({ authenticated: true }),
-    sinon.stub(ConsoleClient, "refreshTokens").resolves(refreshTokens),
     sinon.stub(DevicePosture, "collect"),
   ];
+  if (refreshTokens) {
+    stubs.push(
+      sinon.stub(ConsoleClient, "refreshTokens").resolves(refreshTokens)
+    );
+  }
+  return stubs;
 }
 
 add_task(async function test_try_unlock_submits_posture_with_refresh() {
@@ -515,6 +583,241 @@ add_task(async function test_try_unlock_fails_without_stored_user_id() {
     );
   } finally {
     stubs.forEach(stub => stub.restore());
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
+add_task(async function test_clear_during_encryption_rejects_lock() {
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  const encryption = Promise.withResolvers();
+  const started = Promise.withResolvers();
+  const encrypt = sinon.stub(OSKeyStore, "encrypt").callsFake(() => {
+    started.resolve();
+    return encryption.promise;
+  });
+  const storing = FeltLocking.store("stale-token", "old-user");
+  try {
+    await started.promise;
+    FeltLocking.clear();
+    encryption.resolve("encrypted(stale-token)");
+    await Assert.rejects(storing, /session ended/);
+    Assert.ok(!lazy.FeltStorage.hasLockingToken(EMAIL));
+  } finally {
+    encryption.resolve("encrypted(stale-token)");
+    encrypt.restore();
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
+add_task(async function test_cancelled_unlock_cannot_end_a_newer_session() {
+  // The clear that cancels an unlock can be followed by a fresh sign-in for
+  // the same user before the cancelled write resolves. The stale unlock must
+  // not tear down the session that took over.
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  using felt = installFakeFelt();
+  const stubs = setupUnlockStubs({
+    refreshTokens: {
+      access_token: "access",
+      refresh_token: "rotated",
+      expires_at: 4102444800,
+      postureSubmitted: true,
+    },
+  });
+  DevicePosture.collect.resolves({ os: { name: "test-os" } });
+  const encrypting = Promise.withResolvers();
+  const encrypted = Promise.withResolvers();
+  stubs[0].onSecondCall().callsFake(() => {
+    encrypting.resolve();
+    return encrypted.promise;
+  });
+  const messages = [];
+  try {
+    await lazy.FeltStorage.setLockingToken(EMAIL, "stored-token", "user-123");
+    const unlock = FeltLocking.tryUnlock(EMAIL, makeFakeBrowser(messages));
+    await encrypting.promise;
+    FeltLocking.clearLockAndTokens();
+
+    await lazy.FeltStorage.beginSession(EMAIL);
+    felt.clearTokens.resetHistory();
+
+    encrypted.resolve("encrypted(rotated)");
+    Assert.ok(!(await unlock), "The cancelled unlock still fails");
+    Assert.ok(
+      felt.clearTokens.notCalled,
+      "The newer session's tokens are left alone"
+    );
+    Assert.equal(
+      lazy.FeltStorage._feltStorage.data.activeSessionEmail,
+      EMAIL,
+      "The newer session stays active"
+    );
+    Assert.equal(messages.length, 0, "Firefox is not launched twice");
+  } finally {
+    encrypted.resolve("encrypted(rotated)");
+    stubs.forEach(stub => stub.restore());
+    await lazy.FeltStorage.endSession();
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
+add_task(async function test_try_unlock_cancelled_while_persisting() {
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  using felt = installFakeFelt();
+  const stubs = setupUnlockStubs({
+    refreshTokens: {
+      access_token: "access",
+      refresh_token: "rotated",
+      expires_at: 4102444800,
+      postureSubmitted: true,
+    },
+  });
+  DevicePosture.collect.resolves({ os: { name: "test-os" } });
+  const encrypting = Promise.withResolvers();
+  const encrypted = Promise.withResolvers();
+  stubs[0].onSecondCall().callsFake(() => {
+    encrypting.resolve();
+    return encrypted.promise;
+  });
+  const messages = [];
+  try {
+    await lazy.FeltStorage.setLockingToken(EMAIL, "stored-token", "user-123");
+    const unlock = FeltLocking.tryUnlock(EMAIL, makeFakeBrowser(messages));
+    await encrypting.promise;
+    FeltLocking.clearLockAndTokens();
+    encrypted.resolve("encrypted(rotated)");
+    Assert.ok(!(await unlock), "Clearing credentials cancels the unlock");
+    Assert.equal(
+      messages.length,
+      0,
+      "Firefox is not launched with stale tokens"
+    );
+    Assert.ok(felt.clearTokens.called, "Session tokens are cleared");
+    Assert.ok(
+      !lazy.FeltStorage.hasLockingToken(EMAIL),
+      "Credentials stay cleared"
+    );
+    Assert.ok(
+      !Object.hasOwn(lazy.FeltStorage._feltStorage.data, "activeSessionEmail"),
+      "The cancelled unlock leaves no active session"
+    );
+  } finally {
+    encrypted.resolve("encrypted(rotated)");
+    stubs.forEach(stub => stub.restore());
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
+add_task(async function test_superseded_unlock_cannot_commit_its_refresh() {
+  // A retried sign-in can start a second unlock while the first one's refresh
+  // is still in flight. The stale reply must not overwrite the newer session's
+  // tokens or launch Firefox.
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  using felt = installFakeFelt();
+  const stubs = setupUnlockStubs();
+  DevicePosture.collect.resolves({ os: { name: "test-os" } });
+  const staleReply = Promise.withResolvers();
+  const freshReply = Promise.withResolvers();
+  const xhrStub = sinon.stub(ConsoleClient, "_xhrFetch");
+  xhrStub.onFirstCall().returns(staleReply.promise);
+  xhrStub.onSecondCall().returns(freshReply.promise);
+  stubs.push(
+    xhrStub,
+    sinon.stub(ConsoleClient, "_paths").get(() => ({ TOKEN: "/token" })),
+    sinon
+      .stub(ConsoleClient, "constructURI")
+      .resolves("https://console.example.com/token")
+  );
+  const reply = token => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      access_token: `${token}-access`,
+      refresh_token: `${token}-refresh`,
+      expires_in: 60,
+    }),
+  });
+  const messages = [];
+  try {
+    await lazy.FeltStorage.setLockingToken(EMAIL, "stored-token", "user-123");
+    const staleUnlock = FeltLocking.tryUnlock(EMAIL, makeFakeBrowser(messages));
+    await TestUtils.waitForCondition(() => xhrStub.calledOnce);
+
+    const freshUnlock = FeltLocking.tryUnlock(EMAIL, makeFakeBrowser(messages));
+    await TestUtils.waitForCondition(() => xhrStub.calledTwice);
+    Assert.ok(
+      xhrStub.firstCall.args[1].signal.aborted,
+      "The newer unlock cancels the stale refresh"
+    );
+
+    staleReply.resolve(reply("stale"));
+    Assert.ok(!(await staleUnlock), "The superseded unlock fails");
+    Assert.ok(
+      felt.setTokens.neverCalledWith("stale-access"),
+      "The stale reply does not commit its tokens"
+    );
+
+    freshReply.resolve(reply("fresh"));
+    Assert.ok(await freshUnlock, "The newer unlock succeeds");
+    Assert.equal(messages.length, 1, "Firefox is started once");
+    Assert.equal(
+      messages[0].data.access_token,
+      "fresh-access",
+      "Firefox is started with the newer session's tokens"
+    );
+  } finally {
+    staleReply.resolve(reply("stale"));
+    freshReply.resolve(reply("fresh"));
+    await Promise.resolve(ConsoleClient._feltRefreshPromise).catch(() => {});
+    stubs.forEach(stub => stub.restore());
+    await lazy.FeltStorage.endSession();
+    lazy.FeltStorage.clearLockingToken(EMAIL);
+  }
+});
+
+add_task(async function test_unlock_superseded_while_persisting() {
+  // A newer session can start while the unlock persists its rotated token.
+  // The unlock must not launch Firefox, nor end the session that took over.
+  lazy.FeltStorage.updateLastSignedInUserEmail(EMAIL);
+  using felt = installFakeFelt();
+  const stubs = setupUnlockStubs({
+    refreshTokens: {
+      access_token: "access",
+      refresh_token: "rotated",
+      expires_at: 4102444800,
+      postureSubmitted: true,
+    },
+  });
+  DevicePosture.collect.resolves({ os: { name: "test-os" } });
+  const encrypting = Promise.withResolvers();
+  const encrypted = Promise.withResolvers();
+  stubs[0].onSecondCall().callsFake(() => {
+    encrypting.resolve();
+    return encrypted.promise;
+  });
+  const messages = [];
+  try {
+    await lazy.FeltStorage.setLockingToken(EMAIL, "stored-token", "user-123");
+    const unlock = FeltLocking.tryUnlock(EMAIL, makeFakeBrowser(messages));
+    await encrypting.promise;
+    await lazy.FeltStorage.beginSession(EMAIL);
+    felt.clearTokens.resetHistory();
+
+    encrypted.resolve("encrypted(rotated)");
+    Assert.ok(!(await unlock), "The superseded unlock fails");
+    Assert.equal(messages.length, 0, "Firefox is not launched");
+    Assert.ok(
+      felt.clearTokens.notCalled,
+      "The newer session's tokens are left alone"
+    );
+    Assert.equal(
+      lazy.FeltStorage._feltStorage.data.activeSessionEmail,
+      EMAIL,
+      "The newer session stays active"
+    );
+  } finally {
+    encrypted.resolve("encrypted(rotated)");
+    stubs.forEach(stub => stub.restore());
+    await lazy.FeltStorage.endSession();
     lazy.FeltStorage.clearLockingToken(EMAIL);
   }
 });

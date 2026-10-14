@@ -501,9 +501,12 @@ export class FeltProcessParent extends JSProcessActorParent {
                 Services.felt.completeTokenRefresh(requestId, "");
               })
               .catch(error => {
+                // cancelPendingRefresh() aborts a refresh only once the session
+                // that requested it has been superseded or ended.
                 if (
                   generation !== gSessionGeneration ||
-                  gFeltProcessParentInstance.logoutReported
+                  gFeltProcessParentInstance.logoutReported ||
+                  error?.name === "AbortError"
                 ) {
                   return;
                 }
@@ -846,7 +849,13 @@ export class FeltProcessParent extends JSProcessActorParent {
               this.abnormalExitCounter = 0;
               this.abnormalExitFirstTime = 0;
               if (this.lockOnExit) {
-                this._lockAfterExit();
+                this._lockAfterExit().catch(err => {
+                  lazy.log.error(`Lock after Firefox exit failed: ${err}`);
+                });
+              } else if (this.exitReason) {
+                this._signOutAfterExit(this.exitReason).catch(err => {
+                  lazy.log.error(`Signout after Firefox exit failed: ${err}`);
+                });
               } else {
                 Services.cpmm.sendAsyncMessage(
                   "FeltParent:FirefoxNormalExit",
@@ -1381,14 +1390,25 @@ export class FeltProcessParent extends JSProcessActorParent {
     // Reuse logoutReported so the refresh observer stops scheduling refreshes
     // and endSessionAfterRefreshFailure stays out of the teardown.
     this.logoutReported = true;
+    const generation = gSessionGeneration;
 
     try {
       await this._drainPendingRefresh();
+      // The drain advances the generation once; another change ended this session.
+      if (gSessionGeneration !== generation + 1) {
+        return false;
+      }
       await lazy.FeltLocking.store(
         Services.felt.getRefreshToken(),
         this.loggedInUserInfo?.id
       );
+      if (gSessionGeneration !== generation + 1) {
+        return false;
+      }
       await lazy.FeltStorage.endSession();
+      if (gSessionGeneration !== generation + 1) {
+        return false;
+      }
     } catch (err) {
       lazy.log.error(`Locking failed: ${err}`);
       return false;
@@ -1517,6 +1537,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             ));
           } else {
             try {
+              lazy.ConsoleClient.cancelPendingRefresh();
               await lazy.FeltStorage.beginSession(email);
               ({ posture, measuredAt } = await this._redeemLoginTokens(
                 message.data
