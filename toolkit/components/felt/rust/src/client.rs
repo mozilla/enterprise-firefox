@@ -168,9 +168,9 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn notify_refresh_tokens(&self) {
+    pub fn notify_refresh_tokens(&self, request_id: u32) {
         trace!("FeltIpcClient::notify_refresh_tokens()");
-        let msg = FeltMessage::RefreshTokens;
+        let msg = FeltMessage::RefreshTokens(request_id);
         if let Some(tx) = &*self.tx.lock().expect("Could not lock sender") {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::notify_refresh_tokens() SENT"),
@@ -471,6 +471,24 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): UpdateReady");
                                     utils::notify_observers("felt-update-ready".to_string());
                                 },
+                                Ok(FeltMessage::TokenRefreshResult { request_id, access_token, expires_at, error }) => {
+                                    // Stored here rather than by the observer so a later
+                                    // AccessToken message cannot be overwritten by this older one.
+                                    let error = if !error.is_empty() {
+                                        error
+                                    } else if let Ok(mut tokens) = TOKENS.write() {
+                                        *tokens = Tokens { access_token, refresh_token: String::default(), expires_at };
+                                        error
+                                    } else {
+                                        trace!("FeltClientThread::felt_client::ipc_loop(): ERROR setting refreshed access token");
+                                        "Failed to store the refreshed token".to_string()
+                                    };
+                                    let payload = serde_json::json!({
+                                        "request_id": request_id,
+                                        "error": error,
+                                    }).to_string();
+                                    utils::notify_observers_with_payload("felt-firefox-token-refresh-result".to_string(), Some(payload));
+                                }
                                 Ok(FeltMessage::AccessToken((access_token, expires_at))) => {
                                     if let Ok(mut tokens) = TOKENS.write() {
                                         *tokens = Tokens { access_token, refresh_token: String::default(), expires_at };
@@ -583,10 +601,10 @@ impl FeltClientThread {
         client.notify_crash_lock_intent(lock_intent)
     }
 
-    pub fn notify_refresh_tokens(&self) {
+    pub fn notify_refresh_tokens(&self, request_id: u32) {
         trace!("FeltClientThread::refresh_tokens()");
         let client = self.ipc_client.borrow();
-        client.notify_refresh_tokens();
+        client.notify_refresh_tokens(request_id);
     }
 }
 

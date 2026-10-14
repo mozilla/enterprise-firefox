@@ -31,7 +31,9 @@ class BrowserTokenRefresh(FeltTests):
         driver = self.get_driver(Environment.FIREFOX)
         driver.set_context("chrome")
         try:
-            driver.execute_script("Services.felt.refreshTokens();")
+            # The request id is only echoed back to the browser, which is torn
+            # down by the failing refresh before it could act on the reply.
+            driver.execute_script("Services.felt.refreshTokens(0);")
         except Exception:
             # refreshTokens() triggers an async IPC message to Felt and may throw
             # before the refresh completes. The exception is expected and harmless.
