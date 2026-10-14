@@ -27,6 +27,7 @@ export const FeltStorage = {
    * @type {number}
    */
   _pendingURLsGeneration: 0,
+  _lockingTokenGenerations: new Map(),
   /**
    * Absolute path to the felt.json file in the user's app-data directory (UAppData).
    *
@@ -47,9 +48,18 @@ export const FeltStorage = {
     await this._feltStorage.load();
   },
 
+  /**
+   * Bumped and returned by every beginSession(), so a caller holding an await
+   * across a slow step can tell whether the session it started is still the
+   * active one.
+   */
+  sessionGeneration: 0,
+
   async beginSession(email) {
+    const generation = ++this.sessionGeneration;
     this._feltStorage.data.activeSessionEmail = email || "";
     await this._feltStorage._save();
+    return generation;
   },
 
   async endSession() {
@@ -183,15 +193,18 @@ export const FeltStorage = {
    * @param {string} email
    * @param {string} token The plaintext refresh token.
    * @param {string} [userId] Preserves the existing one if omitted.
-   * @returns {Promise<void>}
+   * @returns {Promise<boolean>} Whether the token was stored.
    */
   async setLockingToken(email, token, userId) {
     const existedBefore = this.hasLockingToken(email);
+    const generation = this._lockingTokenGenerations.get(email) ?? 0;
     const ciphertext = await lazy.OSKeyStore.encrypt(token);
-    // A signout may have cleared the record while encrypt() was pending;
-    // writing now would resurrect the credential.
+    // A clear invalidates earlier writes even if a new session stored a token.
+    if (generation !== (this._lockingTokenGenerations.get(email) ?? 0)) {
+      return false;
+    }
     if (existedBefore && !this.hasLockingToken(email)) {
-      return;
+      return false;
     }
     if (!this._feltStorage.data.lockingTokens) {
       this._feltStorage.data.lockingTokens = {};
@@ -203,6 +216,7 @@ export const FeltStorage = {
     }
     this._feltStorage.data.lockingTokens[email] = record;
     this._feltStorage.saveSoon();
+    return true;
   },
 
   /**
@@ -211,6 +225,10 @@ export const FeltStorage = {
    * @param {string} email
    */
   clearLockingToken(email) {
+    this._lockingTokenGenerations.set(
+      email,
+      (this._lockingTokenGenerations.get(email) ?? 0) + 1
+    );
     if (this._feltStorage.data.lockingTokens?.[email] !== undefined) {
       delete this._feltStorage.data.lockingTokens[email];
       this._feltStorage.saveSoon();
