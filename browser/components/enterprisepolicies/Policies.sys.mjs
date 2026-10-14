@@ -931,6 +931,13 @@ export var Policies = {
       lazy.PoliciesUtils.unsetAndUnlockPref(
         "browser.contentanalysis.enterprise.telemetry.urlLogging"
       );
+      // Restoring the defaults leaves them unlocked, but firefox.js locks them.
+      Services.prefs.lockPref(
+        "browser.contentanalysis.enterprise.telemetry.enabled"
+      );
+      Services.prefs.lockPref(
+        "browser.contentanalysis.enterprise.telemetry.urlLogging"
+      );
     },
   },
 

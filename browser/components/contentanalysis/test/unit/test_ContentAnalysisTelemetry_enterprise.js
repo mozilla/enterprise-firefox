@@ -13,6 +13,7 @@ const { EnterprisePingCollector } = ChromeUtils.importESModule(
   "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
 );
 
+// firefox.js locks both prefs, so tasks that vary them unlock them first.
 const ENABLED_PREF = "browser.contentanalysis.enterprise.telemetry.enabled";
 const URL_LOGGING_PREF =
   "browser.contentanalysis.enterprise.telemetry.urlLogging";
@@ -53,6 +54,26 @@ function recordAndGetExtras(details) {
   }
   return events.map(event => event.extra);
 }
+
+add_task(function test_user_prefs_cannot_change_the_settings() {
+  Assert.ok(Services.prefs.prefIsLocked(ENABLED_PREF), "enabled is locked");
+  Assert.ok(
+    Services.prefs.prefIsLocked(URL_LOGGING_PREF),
+    "urlLogging is locked"
+  );
+  Services.prefs.setBoolPref(ENABLED_PREF, false);
+  Services.prefs.setCharPref(URL_LOGGING_PREF, "none");
+  try {
+    Assert.equal(
+      recordAndGetExtras(BASE_DETAILS)?.[0].url,
+      BASE_DETAILS.url,
+      "a user pref can neither turn recording off nor strip the URL"
+    );
+  } finally {
+    Services.prefs.clearUserPref(ENABLED_PREF);
+    Services.prefs.clearUserPref(URL_LOGGING_PREF);
+  }
+});
 
 add_task(async function test_url_processing_policies() {
   const testCases = [
@@ -99,6 +120,7 @@ add_task(async function test_url_processing_policies() {
     },
   ];
 
+  Services.prefs.unlockPref(URL_LOGGING_PREF);
   for (const testCase of testCases) {
     Services.prefs.setCharPref(URL_LOGGING_PREF, testCase.policy);
 
@@ -118,6 +140,7 @@ add_task(async function test_url_processing_policies() {
   }
 
   Services.prefs.clearUserPref(URL_LOGGING_PREF);
+  Services.prefs.lockPref(URL_LOGGING_PREF);
 });
 
 add_task(async function test_should_record_action() {
@@ -220,6 +243,7 @@ add_task(async function test_optional_keys_are_recorded() {
 });
 
 add_task(async function test_disabled_does_not_record() {
+  Services.prefs.unlockPref(ENABLED_PREF);
   Services.prefs.setBoolPref(ENABLED_PREF, false);
   try {
     Assert.equal(
@@ -240,6 +264,7 @@ add_task(async function test_disabled_does_not_record() {
     );
   } finally {
     Services.prefs.clearUserPref(ENABLED_PREF);
+    Services.prefs.lockPref(ENABLED_PREF);
   }
 });
 
