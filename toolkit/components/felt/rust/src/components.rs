@@ -298,20 +298,44 @@ impl FeltXPCOM {
         }
     }
 
-    fn RefreshTokens(&self) -> nserror::nsresult {
+    fn RefreshTokens(&self, request_id: u32) -> nserror::nsresult {
         trace!("FeltXPCOM::RefreshTokens");
         let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
         match &*guard {
             Some(client) => {
                 trace!("RefreshTokens(): calling client.notify_refresh_tokens()");
-                client.notify_refresh_tokens();
-                NS_OK
+                client.notify_refresh_tokens(request_id)
             }
             None => {
                 trace!("firefox_felt_refresh_tokens(): missing client");
                 NS_ERROR_FAILURE
             }
         }
+    }
+
+    xpcom_method!(complete_token_refresh => CompleteTokenRefresh(
+        request_id: u32,
+        error: *const nsACString
+    ));
+    fn complete_token_refresh(
+        &self,
+        request_id: u32,
+        error: &nsACString,
+    ) -> Result<(), nserror::nsresult> {
+        let error = error.to_string();
+        let (access_token, expires_at) = if error.is_empty() {
+            let tokens = TOKENS.read().map_err(|_| NS_ERROR_FAILURE)?;
+            (tokens.access_token.clone(), tokens.expires_at)
+        } else {
+            (String::new(), 0)
+        };
+        self.send(FeltMessage::TokenRefreshResult {
+            request_id,
+            access_token,
+            expires_at,
+            error,
+        })
+        .to_result()
     }
 
     xpcom_method!(get_refresh_token => GetRefreshToken() -> nsACString);
@@ -574,9 +598,9 @@ impl FeltXPCOM {
                             Ok(FeltMessage::CheckForUpdates) => {
                                 crate::utils::notify_observers("felt-firefox-check-for-updates".to_string());
                             },
-                            Ok(FeltMessage::RefreshTokens) => {
+                            Ok(FeltMessage::RefreshTokens(request_id)) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Browser is requesting token refresh");
-                                crate::utils::notify_observers("felt-firefox-refresh-tokens".to_string());
+                                crate::utils::notify_observers_with_payload("felt-firefox-refresh-tokens".to_string(), Some(request_id.to_string()));
                             },
                             Err(ipc_channel::IpcError::Disconnected) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): DISCONNECTED");

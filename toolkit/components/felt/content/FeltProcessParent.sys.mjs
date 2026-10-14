@@ -422,6 +422,7 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-refresh-tokens": {
+            const requestId = Number(aData);
             lazy.log.debug(`ParentProcess: Trigger a token refresh in FELT.`);
             if (gFeltProcessParentInstance.logoutReported) {
               lazy.log.debug(
@@ -433,51 +434,89 @@ export class FeltProcessParent extends JSProcessActorParent {
             const generation = gSessionGeneration;
             // The browser is blocked until a token comes back, so this reports the
             // last posture rather than measuring a new one (see PostureMonitor).
-            gBrowserRefresh = lazy.PostureMonitor.postureForRefresh()
-              .then(({ posture, measuredAt }) =>
-                client.refreshTokens({ posture }).then(async result => {
-                  const { posture: postureConfig, postureSubmitted } = result;
-                  // The tokens are stored by refreshTokens; a response that
-                  // outlived its session must not reach the dead browser or
-                  // the monitor's baseline.
-                  if (generation !== gSessionGeneration) {
-                    lazy.log.debug(
-                      "Session is over; dropping the token refresh response."
-                    );
+            // Include persistence in the queue, including retries after a browser timeout.
+            gBrowserRefresh = Promise.resolve(gBrowserRefresh)
+              .catch(error =>
+                lazy.log.error("Previous browser refresh failed", error)
+              )
+              .then(async () => {
+                if (
+                  generation !== gSessionGeneration ||
+                  gFeltProcessParentInstance.logoutReported
+                ) {
+                  return;
+                }
+                const { posture, measuredAt } =
+                  await lazy.PostureMonitor.postureForRefresh();
+                if (
+                  generation !== gSessionGeneration ||
+                  gFeltProcessParentInstance.logoutReported
+                ) {
+                  return;
+                }
+                const result = await client.refreshTokens({ posture });
+                const { posture: postureConfig, postureSubmitted } = result;
+                // The tokens are stored by refreshTokens; a response that
+                // outlived its session must not reach the dead browser or
+                // the monitor's baseline.
+                if (generation !== gSessionGeneration) {
+                  lazy.log.debug(
+                    "Session is over; dropping the token refresh response."
+                  );
+                  return;
+                }
+                lazy.log.debug("refreshTokens successful");
+                try {
+                  // A keystore failure must not tear down an otherwise
+                  // healthy session.
+                  await lazy.FeltLocking.updateStoredToken(
+                    result.refresh_token
+                  );
+                } catch (err) {
+                  if (
+                    generation !== gSessionGeneration ||
+                    gFeltProcessParentInstance.logoutReported
+                  ) {
                     return;
                   }
-                  lazy.log.debug("refreshTokens successful");
-                  Services.felt.sendAccessToken();
-                  try {
-                    // Awaited so the gBrowserRefresh drain covers the write
-                    // and teardown cannot race it. A keystore failure must
-                    // not tear down an otherwise healthy session.
-                    await lazy.FeltLocking.updateStoredToken(
-                      result.refresh_token
-                    );
-                  } catch (err) {
-                    lazy.log.error(
-                      `Failed to update the stored locked-session token on refresh: ${err}`
-                    );
-                    lazy.FeltLocking.clear();
-                  }
-                  gFeltProcessParentInstance._storeEdrAgents(
-                    postureConfig?.edr_agents
+                  lazy.log.error(
+                    `Failed to update the stored locked-session token on refresh: ${err}`
                   );
-                  // Only a posture measured here is news to the console; a
-                  // replayed one is already recorded against the session.
-                  if (postureSubmitted && measuredAt) {
-                    lazy.PostureMonitor.record(posture, measuredAt);
-                  }
-                })
-              )
+                  lazy.FeltLocking.clear();
+                }
+                if (
+                  generation !== gSessionGeneration ||
+                  gFeltProcessParentInstance.logoutReported
+                ) {
+                  return;
+                }
+                gFeltProcessParentInstance._storeEdrAgents(
+                  postureConfig?.edr_agents
+                );
+                // Only a posture measured here is news to the console; a
+                // replayed one is already recorded against the session.
+                if (postureSubmitted && measuredAt) {
+                  lazy.PostureMonitor.record(posture, measuredAt);
+                }
+                Services.felt.completeTokenRefresh(requestId, "");
+              })
               .catch(error => {
-                // A refresh the browser is blocked on tears it down whatever
-                // failed.
-                // TODO: define a more refined behaviour for these conditions and implement.
-                // For example, an intermittent network or 5xx error can be handled more
-                // gracefully if the refresh request is still before the actual token expiration
-                // because the known old token still has some validity time left.
+                if (
+                  generation !== gSessionGeneration ||
+                  gFeltProcessParentInstance.logoutReported
+                ) {
+                  return;
+                }
+                try {
+                  Services.felt.completeTokenRefresh(
+                    requestId,
+                    client.isTransportError(error)
+                      ? error.message
+                      : "Token refresh failed"
+                  );
+                } catch (e) {
+                  lazy.log.error("Failed to report token refresh failure", e);
+                }
                 gFeltProcessParentInstance.endSessionAfterRefreshFailure(error);
               });
             break;
