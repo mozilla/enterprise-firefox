@@ -9,6 +9,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
 });
 
+const PENDING_URLS_VERSION = 1;
+// The stored queue only has to outlive the restart that wrote it. Anything
+// older is a leftover from a launch that never restored it, so it is dropped
+// rather than reopened in a session that did not ask for it.
+const PENDING_URLS_MAX_AGE_MS = 30 * 60 * 1000;
+
 /**
  * Storage helper for reading and writing felt-related data to felt.json
  */
@@ -204,6 +210,74 @@ export const FeltStorage = {
       delete this._feltStorage.data.lockingTokens[email];
       this._feltStorage.saveSoon();
     }
+  },
+
+  /**
+   * Stores the queued external URLs so an app restart can carry them over.
+   * Encryption is owned here so felt.json can never hold the plaintext
+   * addresses, matching how the locked-session token is stored.
+   *
+   * @param {Array<object>} urls The pending URL payloads.
+   * @returns {Promise<void>}
+   */
+  async setPendingURLs(urls) {
+    const ciphertext = await lazy.OSKeyStore.encrypt(
+      JSON.stringify({
+        version: PENDING_URLS_VERSION,
+        createdAt: Date.now(),
+        urls,
+      })
+    );
+    this._feltStorage.data.pendingURLs = ciphertext;
+    await this._feltStorage._save();
+  },
+
+  /**
+   * Removes any stored external URLs.
+   *
+   * @returns {Promise<void>}
+   */
+  async clearPendingURLs() {
+    if (this._feltStorage.data?.pendingURLs === undefined) {
+      return;
+    }
+    delete this._feltStorage.data.pendingURLs;
+    await this._feltStorage._save();
+  },
+
+  /**
+   * Reads and removes the stored external URLs. The record is dropped
+   * before it is decrypted, so a value that cannot be read is still consumed
+   * rather than retried on every launch.
+   *
+   * @returns {Promise<Array<object>>} The pending URL payloads, or an empty
+   *   array when there is nothing usable stored.
+   */
+  async takePendingURLs() {
+    const ciphertext = this._feltStorage.data?.pendingURLs;
+    if (ciphertext === undefined) {
+      return [];
+    }
+    delete this._feltStorage.data.pendingURLs;
+    await this._feltStorage._save();
+
+    const plaintext = await lazy.OSKeyStore.decrypt(ciphertext, "", false);
+    const record = JSON.parse(
+      new TextDecoder().decode(
+        Uint8Array.from(plaintext, char => char.charCodeAt(0))
+      )
+    );
+    const age = Date.now() - record.createdAt;
+    if (
+      record.version !== PENDING_URLS_VERSION ||
+      !Number.isFinite(record.createdAt) ||
+      age < 0 ||
+      age > PENDING_URLS_MAX_AGE_MS ||
+      !Array.isArray(record.urls)
+    ) {
+      return [];
+    }
+    return record.urls;
   },
 
   async uninit() {

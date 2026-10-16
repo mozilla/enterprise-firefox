@@ -66,8 +66,10 @@ class BaseBrowserExternalLink(FeltTests):
         self.third_party_open_external_link()
         self.check_has_external_link_tab(tabs)
 
-    def run_open_about_pages(self):
+    def check_planted_urls_not_opened(self):
+        """The URLs from a rejected stored queue must never reach a tab. The scheme
+        is incidental; these just need no server to serve them."""
         self._external_link = "about:buildconfig"
-        self.check_has_external_link_tab()
+        self.check_no_external_link_tab()
         self._external_link = "about:logo"
-        self.check_has_external_link_tab()
+        self.check_no_external_link_tab()

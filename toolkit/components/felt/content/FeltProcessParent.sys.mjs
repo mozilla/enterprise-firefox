@@ -104,9 +104,7 @@ export function queueURL(payload) {
     Services.felt.makeBackgroundProcess(true);
   } else {
     // Queue at module level until ready
-    lazy.gFeltPendingURLs.push(payload).catch(err => {
-      lazy.log.error("Failed to persist pending Felt URL", err);
-    });
+    lazy.gFeltPendingURLs.push(payload);
     Services.cpmm.sendAsyncMessage("FeltParent:ForceFeltFocus", {});
   }
 }
@@ -1277,6 +1275,11 @@ export class FeltProcessParent extends JSProcessActorParent {
       }
     } finally {
       lazy.FeltLocking.clearLockAndTokens();
+      // External URLs queued by the session that is ending must not be waiting
+      // for whoever signs in next.
+      if (lazy.isBuildAppBrowser()) {
+        lazy.gFeltPendingURLs.clear();
+      }
       try {
         if (signedOut) {
           await lazy.FeltStorage.endSession();
