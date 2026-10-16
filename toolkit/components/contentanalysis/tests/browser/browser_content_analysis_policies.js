@@ -427,6 +427,18 @@ add_task(async function test_ca_enterprise_config_omitted_interception_point() {
       `${interceptionPoint} plain_text_only falls back to its default`
     );
   }
+  if (AppConstants.MOZ_ENTERPRISE) {
+    is(
+      Services.prefs.getBoolPref(kKeepBlockedDataPref),
+      true,
+      "clipboard_copy keep_blocked_data_for_same_site falls back to its default"
+    );
+    is(
+      Services.prefs.prefIsLocked(kKeepBlockedDataPref),
+      true,
+      "clipboard_copy keep_blocked_data_for_same_site should be locked"
+    );
+  }
 
   PoliciesPrefTracker.stop();
 });

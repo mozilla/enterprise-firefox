@@ -324,6 +324,12 @@ add_task(async function test_builtin_fixed_prefs_are_set_and_locked() {
       true
     );
   }
+  if (AppConstants.MOZ_ENTERPRISE) {
+    checkLockedPref(
+      `${CA_PREFIX}interception_point.clipboard_copy.keep_blocked_data_for_same_site`,
+      true
+    );
+  }
 });
 
 // External-agent-only prefs must be released when the built-in engine wins, so
