@@ -961,11 +961,23 @@ export var Policies = {
         }
       }
 
-      for (const blocked of param.Block ?? []) {
-        Services.cookies.removeCookiesWithOriginAttributes(
+      for (const { hostname } of param.Block ?? []) {
+        for (const cookie of Services.cookies.getCookiesWithOriginAttributes(
           "{}",
-          blocked.hostname
-        );
+          hostname
+        )) {
+          if (
+            cookie.rawHost == hostname ||
+            cookie.rawHost.endsWith(`.${hostname}`)
+          ) {
+            Services.cookies.remove(
+              cookie.host,
+              cookie.name,
+              cookie.path,
+              cookie.originAttributes
+            );
+          }
+        }
       }
 
       if (param.ExpireAtSessionEnd != undefined) {
