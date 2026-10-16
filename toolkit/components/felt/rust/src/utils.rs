@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 use std::{ffi::CString, future::Future};
-use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
+use xpcom::interfaces::{
+    nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch, nsIPrefService,
+};
 use xpcom::RefPtr;
 
 use log::{error, trace};
@@ -226,6 +228,32 @@ pub fn inject_int_pref(name: String, value: i32) {
         } else {
             trace!(
                 "inject_int_pref(): IntPreference({}, {}) ERROR",
+                name,
+                value
+            );
+        }
+    });
+}
+
+pub fn inject_locked_int_pref(name: String, value: i32) {
+    do_main_thread("felt_inject_locked_int_pref", async move {
+        let c_name = CString::new(name.as_str()).expect("Pref name contained a null byte");
+        let prefs: RefPtr<nsIPrefService> = xpcom::components::Preferences::service().unwrap();
+        let rv = xpcom::getter_addrefs(|p| unsafe { prefs.GetDefaultBranch(std::ptr::null(), p) })
+            .and_then(|branch| unsafe {
+                branch.ClearUserPref(c_name.as_ptr()).to_result()?;
+                branch.SetIntPref(c_name.as_ptr(), value).to_result()?;
+                branch.LockPref(c_name.as_ptr()).to_result()
+            });
+        if rv.is_ok() {
+            trace!(
+                "inject_locked_int_pref(): IntPreference({}, {}) NS_OK",
+                name,
+                value
+            );
+        } else {
+            trace!(
+                "inject_locked_int_pref(): IntPreference({}, {}) ERROR",
                 name,
                 value
             );

@@ -167,6 +167,21 @@ impl FeltXPCOM {
             .to_result()
     }
 
+    xpcom_method!(send_locked_int_preference => SendLockedIntPreference(
+        name: *const nsACString,
+        value: i32
+    ));
+    fn send_locked_int_preference(
+        &self,
+        name: &nsACString,
+        value: i32,
+    ) -> Result<(), nserror::nsresult> {
+        let name = name.to_string();
+        trace!("FeltXPCOM::SendLockedIntPreference: {}", name);
+        self.send(FeltMessage::LockedIntPreference((name, value)))
+            .to_result()
+    }
+
     fn SendReady(&self) -> nserror::nsresult {
         self.send(FeltMessage::StartupReady)
     }

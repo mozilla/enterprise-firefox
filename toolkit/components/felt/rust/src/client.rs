@@ -401,6 +401,10 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): IntPreference({}, {})", name, value);
                                     utils::inject_int_pref(name, value);
                                 },
+                                Ok(FeltMessage::LockedIntPreference((name, value))) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): LockedIntPreference({}, {})", name, value);
+                                    utils::inject_locked_int_pref(name, value);
+                                },
                                 Ok(FeltMessage::StartupReady) => {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady");
                                     let barrier = barrier.clone();

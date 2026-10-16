@@ -554,7 +554,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     if (polling_frequency === null) {
       lazy.log.error("No polling_frequency in Firefox configuration");
     } else {
-      Services.felt.sendIntPreference(
+      Services.felt.sendLockedIntPreference(
         "enterprise.policies.live.polling_interval",
         polling_frequency
       );
