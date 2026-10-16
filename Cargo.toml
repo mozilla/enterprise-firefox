@@ -432,6 +432,7 @@ libcrux-traits = { path = "build/rust/libcrux-traits" }
 libdbus-sys = { path = "third_party/rust/libdbus-sys" }
 
 # Patching to build with windows 0.62.2 dep
+# Placeholder: to be moved to a revision that includes mozilla/ipc-channel#7.
 ipc-channel = { git = "https://github.com/mozilla/ipc-channel", rev = "e27888a6cdde52cdcb0937c462294669013a5e6f" }
 
 # Patching to keep only one embeeded-io dependency
