@@ -60,6 +60,8 @@ export const EnterpriseStorageEncryption = {
     // Ensure the internal token's password is the primarySecret.
     if (!pk11token.hasPassword) {
       try {
+        // Reset so the token only holds keys created under the primarySecret.
+        await pk11token.reset();
         await pk11token.changePassword("", primarySecret);
       } catch (e) {
         fail("Failed to set the primary secret on the token", e);
