@@ -654,16 +654,9 @@ NS_IMETHODIMP ProfileObserver::Observe(nsISupports*, const char* aTopic,
   } else if (!strcmp(aTopic, "profile-after-change")) {
     EnsureProfilePathCached();
     MarkProfileEncryptedIfNeeded();
-  } else if (!strcmp(aTopic, "xpcom-will-shutdown")) {
-    // Tear down lockstore last, at XPCOMWillShutdown. Every in-profile
-    // encrypted database has already closed by now -- Places at
-    // profile-before-change, QuotaManager/IndexedDB/DOM-storage at
-    // profile-before-change-qm -- and nothing writes the profile after
-    // AppShutdownTelemetry, so the keystore stays available for all of those
-    // late writes (including each connection's final WAL checkpoint) and only
-    // then closes. The SQLite WAL checkpoint inside the keystore's own Drop
-    // still has two phases of headroom before LateWriteChecks activates at
-    // XPCOMShutdownThreads (default toolkit.shutdown.lateWriteChecksStage = 2).
+  } else if (!strcmp(aTopic, "xpcom-shutdown")) {
+    // Runs after FOG's XPCOMShutdown cleanup, which may still open databases,
+    // and before late write checks start at XPCOMShutdownThreads.
     ShutdownEncryptionKeystore();
   }
   return NS_OK;
@@ -716,10 +709,10 @@ void InitEncryptionKeystore() {
   sObserver = new ProfileObserver();
   if (NS_FAILED(os->AddObserver(sObserver, "profile-do-change", false)) ||
       NS_FAILED(os->AddObserver(sObserver, "profile-after-change", false)) ||
-      NS_FAILED(os->AddObserver(sObserver, "xpcom-will-shutdown", false))) {
+      NS_FAILED(os->AddObserver(sObserver, "xpcom-shutdown", false))) {
     os->RemoveObserver(sObserver, "profile-do-change");
     os->RemoveObserver(sObserver, "profile-after-change");
-    os->RemoveObserver(sObserver, "xpcom-will-shutdown");
+    os->RemoveObserver(sObserver, "xpcom-shutdown");
     sObserver = nullptr;
   }
 }
@@ -1021,7 +1014,7 @@ void ShutdownEncryptionKeystore() {
     if (os) {
       os->RemoveObserver(observer, "profile-do-change");
       os->RemoveObserver(observer, "profile-after-change");
-      os->RemoveObserver(observer, "xpcom-will-shutdown");
+      os->RemoveObserver(observer, "xpcom-shutdown");
     }
   }
 
