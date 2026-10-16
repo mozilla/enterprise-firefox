@@ -2,6 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import {
+  findBarWindow,
+  removeBars,
+  REPLACEABLE_IDS,
+  setBarVariable,
+} from "resource:///modules/enterprise/EnterpriseWarningBar.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -19,23 +26,6 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 
 const WARNING_ID = "ENTERPRISE_RELAUNCH_WARNING";
 const IMMINENT_ID = "ENTERPRISE_RELAUNCH_IMMINENT";
-
-// InfoBar serves one message at a time, and yields the slot only to a message
-// naming the incumbent. These are the in-tree infobar messages; a message from
-// Nimbus or Remote Settings holds the slot until the next poll retries. Keep it
-// in step with the ids the in-tree message providers author.
-const REPLACEABLE_IDS = [
-  WARNING_ID,
-  IMMINENT_ID,
-  "COMPULSORY_RESTART_SCHEDULED",
-  "INFOBAR_ACTION_86",
-  "INFOBAR_DEFAULT_AND_PIN_87",
-  "INFOBAR_LAUNCH_ON_LOGIN",
-  "INFOBAR_LAUNCH_ON_LOGIN_FINAL",
-  "MULTIPROFILE_DATA_COLLECTION_CHANGED_INFOBAR",
-  "PREF_OBSERVER_MESSAGE_94",
-  "updated-privacy-notice-notification-infobar",
-];
 
 /**
  * The relaunch warning RelaunchEnforcer drives: an InfoBar shown across
@@ -68,7 +58,7 @@ const warningUI = {
     if (
       this.isVisible() &&
       lazy.InfoBar._activeInfobar.message.id === id &&
-      this._setBarVariable(
+      setBarVariable(
         id,
         isImminent ? "minutes" : "datetime",
         isImminent ? minutes : restartAt
@@ -77,7 +67,7 @@ const warningUI = {
       return true;
     }
 
-    const win = this._barWindow();
+    const win = findBarWindow();
     if (!win) {
       // The first poll precedes session restore; the next poll retries.
       return false;
@@ -136,23 +126,7 @@ const warningUI = {
   },
 
   hide() {
-    // A bar InfoBar lost track of is not in the list removeUniversalInfobars()
-    // walks, so take ours out of each window by hand. Skipping the animation
-    // removes the element, and runs InfoBar's own teardown, before returning.
-    let removed = false;
-    for (const win of Services.wm.getEnumerator("navigator:browser")) {
-      for (const id of [WARNING_ID, IMMINENT_ID]) {
-        const bar = win.gNotificationBox?.getNotificationWithValue(id);
-        if (bar) {
-          win.gNotificationBox.removeNotification(bar, true);
-          removed = true;
-        }
-      }
-    }
-    // Releases the slot, and the new-window observer, InfoBar may still hold.
-    if (removed || this.isVisible()) {
-      this._notification?.removeUniversalInfobars();
-    }
+    removeBars([WARNING_ID, IMMINENT_ID], this._notification);
     this._notification = null;
     this._restartNow = null;
   },
@@ -164,59 +138,6 @@ const warningUI = {
       !!this._notification &&
       lazy.InfoBar._activeInfobar?.notification === this._notification
     );
-  },
-
-  /**
-   * The window to show the warning from. The most recent window can be a
-   * private window, a popup or a taskbar tab, and InfoBar refuses all of those.
-   *
-   * InfoBar is only reached once a window exists, so the first poll does not
-   * drag its module graph into "policies-startup".
-   *
-   * @returns {Window|null} null when no open window can take a bar.
-   */
-  _barWindow() {
-    for (const win of Services.wm.getEnumerator("navigator:browser")) {
-      if (
-        win.gBrowser &&
-        // TODO(Bug 2066128): Remove once InfoBar handles loading windows.
-        win.document.readyState === "complete" &&
-        lazy.InfoBar.isValidInfobarWindow(win)
-      ) {
-        return win;
-      }
-    }
-    return null;
-  },
-
-  /**
-   * Puts a new value in one Fluent variable of the bars that are up, in every
-   * window.
-   *
-   * @param {string} barId - The id of the bar to update.
-   * @param {string} name - The Fluent variable name.
-   * @param {string|number} value - The value to substitute.
-   * @returns {boolean} Whether a bar took the new value.
-   */
-  _setBarVariable(barId, name, value) {
-    let updated = false;
-    for (const win of Services.wm.getEnumerator("navigator:browser")) {
-      const bar = win.gNotificationBox?.getNotificationWithValue(barId);
-      const remote = bar?.querySelector("remote-text");
-      if (remote) {
-        remote.setVariable(name, value);
-        updated = true;
-      }
-    }
-    if (updated) {
-      // A window opened from here on is served the stored message, not the DOM.
-      const { attributes } =
-        lazy.InfoBar._activeInfobar?.message?.content ?? {};
-      if (attributes) {
-        attributes[name] = value;
-      }
-    }
-    return updated;
   },
 };
 

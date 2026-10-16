@@ -11,7 +11,9 @@ EXTRA_JS_MODULES.enterprise += [
     "AccessConnectorButton.sys.mjs",
     "EnterpriseForcedQuit.sys.mjs",
     "EnterpriseHandler.sys.mjs",
+    "EnterpriseNetworkLossWarning.sys.mjs",
     "EnterpriseThemeMigration.sys.mjs",
+    "EnterpriseWarningBar.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += ["components.conf"]

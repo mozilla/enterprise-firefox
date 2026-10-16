@@ -230,7 +230,10 @@ class FeltDevicePostureElements(FeltTests):
         def refreshed(_):
             nonlocal polls
             if polls % 10 == 0:
-                self._child_driver.execute_script("Services.felt.refreshTokens();")
+                # The request id is only echoed back to the browser, which
+                # ignores a reply it has no pending request for; this test
+                # only cares that FELT performs the refresh.
+                self._child_driver.execute_script("Services.felt.refreshTokens(0);")
             polls += 1
             value = self._child_driver.execute_script(
                 "return Services.prefs.getStringPref("
