@@ -1166,9 +1166,13 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 self._logger.info(
                     f"Found PID {pid_to_check}: STATUS:{process_status} :: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
                 )
-                # If process basename is not Firefox, then it is just PID re-use
-                assert not process_basename.startswith("firefox"), (
-                    f"Process PID {pid_to_check} should not be Firefox"
+                # A different basename means the PID was re-used. The session
+                # may already be gone, so read the app name from the binary.
+                app_name = os.path.splitext(
+                    os.path.basename(self._driver.instance.binary)
+                )[0]
+                assert not process_basename.startswith(app_name), (
+                    f"Process PID {pid_to_check} should not be {app_name}"
                 )
             except psutil.NoSuchProcess:
                 self._logger.info(f"PID disappeared {pid_to_check}")

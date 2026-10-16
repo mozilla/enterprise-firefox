@@ -175,6 +175,17 @@ pub extern "C" fn firefox_felt_is_startup_complete() -> bool {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn firefox_felt_is_disconnected() -> bool {
+    let guard = FELT_CLIENT.lock().expect("Could not get lock");
+    guard.as_ref().is_none_or(|client| client.is_disconnected())
+}
+
+#[no_mangle]
+pub extern "C" fn firefox_felt_is_shutdown_requested() -> bool {
+    client::is_shutdown_requested()
+}
+
 /// Remove the persisted console URL from felt.json, keeping the other keys.
 /// Returns true when the value is gone (including when it was never there);
 /// false when the file could not be read or updated, so the stale URL may

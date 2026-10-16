@@ -28,6 +28,8 @@ subsuite = "enterprise"
 
 ["test_felt_init_failures.py"]
 
+["test_felt_ipc_disconnect.py"]
+
 ["test_felt_restart_is_quit.py"]
 
 ["test_felt_restart_works.py"]

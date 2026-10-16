@@ -701,6 +701,11 @@ impl FeltXPCOM {
         Ok(self.is_felt_browser)
     }
 
+    xpcom_method!(is_disconnected => IsDisconnected() -> bool);
+    fn is_disconnected(&self) -> Result<bool, nserror::nsresult> {
+        Ok(self.is_felt_browser && crate::firefox_felt_is_disconnected())
+    }
+
     xpcom_method!(is_felt_safe_mode => IsFeltSafeMode() -> bool);
     fn is_felt_safe_mode(&self) -> Result<bool, nserror::nsresult> {
         trace!("FeltXPCOM: IsFeltSafeMode: {}", self.is_felt_safe_mode);

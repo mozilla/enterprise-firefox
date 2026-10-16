@@ -770,6 +770,12 @@ export const ConsoleClient = {
       Services.obs.addObserver(this, "felt-firefox-access-token-refreshed");
       Services.obs.addObserver(this, "felt-firefox-shutdown");
 
+      // A disconnect noticed before this observer existed notified nobody.
+      if (Services.felt.isDisconnected()) {
+        lazy.log.error("FELT IPC connection already lost, shutting down");
+        lazy.ForcedQuitHandler.quitIgnoringCanClose();
+      }
+
       // Seed the crash reporter with any token already available at startup.
       this._syncCrashReporterAuthToken();
 

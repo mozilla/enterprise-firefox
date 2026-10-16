@@ -31,6 +31,13 @@ interface nsIFelt : nsISupports {
   [must_use]
   boolean isFeltBrowser();
 
+  /**
+   * Whether the browser has lost its IPC connection to felt. Always false in
+   * the felt UI process.
+   */
+  [must_use]
+  boolean isDisconnected();
+
   [must_use]
   boolean isFeltSafeMode();
 
