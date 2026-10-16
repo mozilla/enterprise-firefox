@@ -192,7 +192,6 @@ function makeMockContentAnalysis() {
       this.agentCancelCalls = 0;
       this.cancelledUserActions = [];
       this.cancelledRequestTokens = [];
-      this.pendingWarnResponses = new Map();
     },
 
     getAction() {
@@ -314,8 +313,21 @@ function makeMockContentAnalysis() {
           await waitPromise;
         }
 
+        let action = this.getAction();
+        if (action === Ci.nsIContentAnalysisResponse.eWarn) {
+          // Deliver a warn verdict to the real service as the agent would, so
+          // that the service holds it until respondToWarnDialog() is called
+          // (from a dialog, the Data protection panel, a superseded copy or
+          // quit).
+          this.realCAService.testOnlyDeliverWarnVerdict(
+            request.requestToken,
+            request.userActionId,
+            this.ruleMessage
+          );
+          return;
+        }
         let response = this.realCAService.makeResponseForTest(
-          this.getAction(),
+          action,
           request.requestToken,
           request.userActionId,
           this.ruleMessage
@@ -323,38 +335,12 @@ function makeMockContentAnalysis() {
         if (this.showDialogs) {
           Services.obs.notifyObservers(response, "dlp-response");
         }
-        if (response.action === Ci.nsIContentAnalysisResponse.eWarn) {
-          // As in the real content analysis service, a warn verdict doesn't
-          // resolve the request until respondToWarnDialog() is called.
-          this.pendingWarnResponses.set(request.requestToken, {
-            response,
-            callback,
-          });
-        } else {
-          callback.contentResult(response);
-        }
+        callback.contentResult(response);
       }, 0);
     },
 
     respondToWarnDialog(aRequestToken, aAllowContent) {
-      let entry = this.pendingWarnResponses.get(aRequestToken);
-      if (!entry) {
-        return;
-      }
-      this.pendingWarnResponses.delete(aRequestToken);
-      let resolvedResponse = this.realCAService.makeResponseForTest(
-        aAllowContent
-          ? Ci.nsIContentAnalysisResponse.eAllow
-          : Ci.nsIContentAnalysisResponse.eBlock,
-        aRequestToken,
-        entry.response.userActionId
-      );
-      Services.obs.notifyObservers(
-        resolvedResponse,
-        "dlp-warn-resolved",
-        "user"
-      );
-      entry.callback.contentResult(resolvedResponse);
+      this.realCAService.respondToWarnDialog(aRequestToken, aAllowContent);
     },
 
     getLocalClipboardCopyInfo() {

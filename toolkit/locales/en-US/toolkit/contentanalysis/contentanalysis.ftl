@@ -39,6 +39,12 @@ contentanalysis-slow-agent-dialog-body-print = { $agent } is reviewing what you 
 # permitted to copy, so that pasting produces this notice rather than silently
 # producing whatever was on the clipboard beforehand.
 contentanalysis-clipboard-copy-blocked-replacement = Copying this content is restricted by your organization.
+# Written to the system clipboard in place of content that the user's data
+# protection software flagged, until the user releases it from the panel
+# that "Data protection" names (content-analysis-panel-title in browser.ftl)
+# or it is superseded. Firefox-branded because the reader may be in another
+# application.
+contentanalysis-clipboard-copy-warn-replacement = Your organization’s data protection software flagged this content. To use it anyway, open the DLP panel in { -brand-short-name } and choose Release.
 
 contentanalysis-operationtype-clipboard = clipboard
 contentanalysis-operationtype-clipboard-copy = copied content

@@ -461,6 +461,9 @@ export const ContentAnalysis = {
             "Got dlp-warn-resolved message but no response object was passed"
           );
         }
+        // A warning cancelled because the copy it was about is gone no
+        // longer needs denying at quit.
+        this.warnDialogRequestTokens.delete(response.requestToken);
         lazy.ContentAnalysisTelemetry.recordWarnResolution(
           response,
           aData,
@@ -956,8 +959,8 @@ export const ContentAnalysis = {
    *   Admin-authored message from the rule that produced this verdict, or "" if
    *   it supplied none.
    * @param {boolean} [aIsLocalClipboardCopy]
-   *   Whether this is a copy the clipboard keeps locally. Block verdicts
-   *   for those are not reported through dialogs.
+   *   Whether this is a copy the clipboard keeps locally. Warn and block
+   *   verdicts for those are not reported through dialogs.
    * @returns {Promise<NotificationInfo?>} a notification object (if shown)
    */
   async _showCAResult(
@@ -991,6 +994,13 @@ export const ContentAnalysis = {
         timeoutMs = this._RESULT_NOTIFICATION_FAST_TIMEOUT_MS;
         break;
       case Ci.nsIContentAnalysisResponse.eWarn: {
+        if (aIsLocalClipboardCopy) {
+          // Until the warning is answered the copy is on the local clipboard
+          // only. Track the token so an unanswered warning is denied at quit
+          // like a dialog.
+          this.warnDialogRequestTokens.add(aRequestToken);
+          return null;
+        }
         let allow = false;
         try {
           this.warnDialogRequestTokens.add(aRequestToken);
