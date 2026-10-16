@@ -271,6 +271,12 @@ interface nsIContentAnalysisRequest : nsISupports
   // requests with multiple userActionIds that are logically grouped together.
   attribute uint32_t timeoutMultiplier;
 
+  // True for a clipboard copy that the clipboard keeps locally for the copying
+  // tab while (and after) content analysis decides on it. The page does not wait
+  // for such a copy, so its verdicts are reported through the DLP panel
+  // rather than dialogs.
+  readonly attribute boolean clipboardCopyKeptLocally;
+
   // Tests set this to allow reliably cancelling requests without that
   // triggering CA to skip sending to the agent.  Outside of tests, that is
   // a race where the winner is unimportant.  This must not be set outside
@@ -284,6 +290,15 @@ interface nsIContentAnalysisCallback : nsISupports
   void contentResult(in nsIContentAnalysisResult aResult);
 
   void error(in nsresult aResult);
+
+  /**
+   * Called when the agent issues a warn verdict, before the user has answered
+   * it. contentResult() is still called later with the resolved verdict (allow
+   * or block), so implementations that only care about the final verdict can
+   * ignore this. It may be called at most once per request, and never after
+   * contentResult() or error().
+   */
+  void warnPending(in nsIContentAnalysisResponse aResponse);
 };
 
 [scriptable, builtinclass, uuid(a430f6ef-a526-4055-8a82-7741ea757367)]
@@ -293,6 +308,37 @@ interface nsIContentAnalysisDiagnosticInfo : nsISupports
   readonly attribute AString agentPath;
   [infallible] readonly attribute boolean failedSignatureVerification;
   [infallible] readonly attribute long long requestCount;
+};
+
+/**
+ * What the clipboard is keeping for the copying tab because content analysis
+ * has not (or not yet) let a copy onto the system clipboard.
+ */
+[scriptable, builtinclass, uuid(6de0ef56-a56a-4654-92c6-da71df6ea487)]
+interface nsIContentAnalysisLocalCopyInfo : nsISupports
+{
+  // The copy is awaiting its verdict.
+  const unsigned long PENDING = 0;
+  // The agent warned about the copy and the user has yet to release it.
+  const unsigned long WARN = 1;
+  // The copy was blocked (by the agent or by the user denying a warning).
+  const unsigned long BLOCKED = 2;
+
+  [infallible] readonly attribute unsigned long state;
+
+  // The clipboard sequence number when the copy was done.
+  [infallible] readonly attribute long sequenceNumber;
+
+  // The first few code points of the copy's plain text, or empty if the copy
+  // has no text/plain flavor.
+  readonly attribute AString preview;
+
+  // Host of the copying page, for display.
+  readonly attribute AString sourceHost;
+
+  // Identifies the undecided warning for respondToWarnDialog(); empty unless
+  // state is WARN.
+  readonly attribute ACString warnRequestToken;
 };
 
 [scriptable, uuid(61497587-2bba-4a88-acd3-3fbb2cedf163)]
@@ -440,6 +486,13 @@ interface nsIContentAnalysis : nsISupports
   void respondToWarnDialog(in ACString aRequestToken, in boolean aAllowContent);
 
   /**
+   * What the clipboard is keeping locally for the copying tab, or null if it
+   * is keeping nothing (or what it kept is no longer what is on the
+   * clipboard). Always null outside Enterprise builds.
+   */
+  nsIContentAnalysisLocalCopyInfo getLocalClipboardCopyInfo();
+
+  /**
    * Cancels all outstanding DLP requests. Used on shutdown.
    *
    * @param aForbidFutureRequests
@@ -521,6 +574,23 @@ interface nsIContentAnalysis : nsISupports
    */
   nsIContentAnalysisResponse makeResponseForTest(
       in nsIContentAnalysisResponse_Action aAction,
+      in ACString aToken,
+      in ACString aUserActionId,
+      [optional] in AString aRuleMessage);
+
+  /**
+   * Deliver a warn verdict for an outstanding request as though the agent had
+   * sent it: observers get "dlp-response", the request's callback gets
+   * warnPending(), and the verdict is held until respondToWarnDialog()
+   * answers it, which is when the callback gets the resolved verdict. Nothing
+   * is acknowledged to the agent. For use in tests only, by mocks that stand
+   * in for the agent.
+   *
+   * @param aToken         The request token
+   * @param aUserActionID  The user action ID
+   * @param aRuleMessage   The matched rule's admin-authored message, if any
+   */
+  void testOnlyDeliverWarnVerdict(
       in ACString aToken,
       in ACString aUserActionId,
       [optional] in AString aRuleMessage);

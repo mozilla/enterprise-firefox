@@ -98,6 +98,86 @@ async function pasteAndCheckWarnDialog({
   BrowserTestUtils.removeTab(tab);
 }
 
+// A parent-process read, like any other application would do.
+function getClipboardText() {
+  const trans = Cc["@mozilla.org/widget/transferable;1"].createInstance(
+    Ci.nsITransferable
+  );
+  trans.init(null);
+  trans.addDataFlavor("text/plain");
+  let data = {};
+  try {
+    Services.clipboard.getData(
+      trans,
+      Ci.nsIClipboard.kGlobalClipboard,
+      window.browsingContext.currentWindowContext
+    );
+    trans.getTransferData("text/plain", data);
+  } catch (e) {
+    return "";
+  }
+  return data.value.QueryInterface(Ci.nsISupportsString).data;
+}
+
+// With the local clipboard off, a warned copy holds the page and shows the
+// warn dialog; the copy lands on the clipboard once the user allows it.
+add_task(async function testWarnDialogForCopyWithLocalClipboardOff() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.contentanalysis.interception_point.clipboard_copy.enabled",
+        true,
+      ],
+      [
+        "browser.contentanalysis.interception_point.clipboard_copy.keep_blocked_data_for_same_site",
+        false,
+      ],
+    ],
+  });
+  mockCA.setupForTest("warn", /* waitForEvent */ false, /* showDialogs */ true);
+
+  let tab = BrowserTestUtils.addTab(gBrowser);
+  let browser = gBrowser.getBrowserForTab(tab);
+  gBrowser.selectedTab = tab;
+  await BrowserTestUtils.loadURIString({
+    browser: tab.linkedBrowser,
+    uriString: "data:text/html," + escape(testPage),
+  });
+  await SimpleTest.promiseFocus(browser);
+
+  setClipboardData("");
+  await SpecialPowers.spawn(browser, [CLIPBOARD_TEXT_STRING], text => {
+    let input = content.document.getElementById("input");
+    input.value = text;
+    input.focus();
+    input.select();
+  });
+
+  let warnDialogPromise = BrowserTestUtils.promiseAlertDialogOpen();
+  let keyPromise = BrowserTestUtils.synthesizeKey(
+    "c",
+    { accelKey: true },
+    browser
+  );
+  let win = await warnDialogPromise;
+  ok(
+    win.document
+      .getElementById("infoBody")
+      .textContent.includes("flagged this content as unsafe"),
+    "the warn dialog is shown for the copy"
+  );
+  win.document.querySelector("dialog").getButton("accept").click();
+  await keyPromise;
+
+  await TestUtils.waitForCondition(
+    () => getClipboardText() === CLIPBOARD_TEXT_STRING,
+    "waiting for the allowed copy to reach the clipboard"
+  );
+
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
 add_task(async function testWarnDialogShowsRuleMessage() {
   await pasteAndCheckWarnDialog({
     ruleMessage: RULE_MESSAGE,
