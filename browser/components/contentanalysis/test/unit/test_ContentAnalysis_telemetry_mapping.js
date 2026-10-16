@@ -13,16 +13,9 @@
 const { ContentAnalysisTelemetryEnterprise } = ChromeUtils.importESModule(
   "moz-src:///browser/components/contentanalysis/content/ContentAnalysisTelemetry.enterprise.sys.mjs"
 );
-
-const DISABLE_SUBMIT_PREF =
-  "browser.contentanalysis.enterprise.telemetry.testing.disableSubmit";
-
-add_setup(function () {
-  Services.prefs.setBoolPref(DISABLE_SUBMIT_PREF, true);
-  registerCleanupFunction(() => {
-    Services.prefs.clearUserPref(DISABLE_SUBMIT_PREF);
-  });
-});
+const { EnterprisePingCollector } = ChromeUtils.importESModule(
+  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+);
 
 const REQUEST_INFO = {
   resourceNameOrOperationType: {
@@ -51,18 +44,34 @@ function makeResponse(properties) {
   };
 }
 
-function getRecordedExtras() {
-  const events = Glean.contentAnalysis.ruleTriggered.testGetValue("enterprise");
-  return events ? events.map(event => event.extra) : null;
+/**
+ * Runs record() and returns the extras of every event the enterprise ping
+ * carried, or null if nothing was recorded.
+ *
+ * @param {Function} record Records the events under test.
+ * @returns {object[]|null}
+ */
+function recordAndGetExtras(record) {
+  Services.fog.testResetFOG();
+  using collector = new EnterprisePingCollector(
+    Glean.contentAnalysis.ruleTriggered
+  );
+  record();
+  const events = collector.events;
+  if (!events.length) {
+    collector.assertNothingRecorded("nothing was recorded");
+    return null;
+  }
+  return events.map(event => event.extra);
 }
 
 function recordResponseAndGetExtras(properties) {
-  Services.fog.testResetFOG();
-  ContentAnalysisTelemetryEnterprise.recordVerdict(
-    REQUEST_INFO,
-    makeResponse(properties)
+  return recordAndGetExtras(() =>
+    ContentAnalysisTelemetryEnterprise.recordVerdict(
+      REQUEST_INFO,
+      makeResponse(properties)
+    )
   );
-  return getRecordedExtras();
 }
 
 add_task(async function test_request_details_are_mapped_to_enum_names() {
@@ -91,20 +100,20 @@ add_task(async function test_rule_name_is_forwarded_from_response() {
 });
 
 add_task(async function test_rule_name_carries_into_warn_resolution() {
-  Services.fog.testResetFOG();
-  ContentAnalysisTelemetryEnterprise.recordVerdict(
-    REQUEST_INFO,
-    makeResponse({
-      action: Ci.nsIContentAnalysisResponse.eWarn,
-      ruleName: "warn-ai-paste",
-    })
-  );
-  ContentAnalysisTelemetryEnterprise.recordWarnResolution(
-    makeResponse({ action: Ci.nsIContentAnalysisResponse.eAllow }),
-    "user",
-    /* aIsQuitting */ false
-  );
-  const extras = getRecordedExtras();
+  const extras = recordAndGetExtras(() => {
+    ContentAnalysisTelemetryEnterprise.recordVerdict(
+      REQUEST_INFO,
+      makeResponse({
+        action: Ci.nsIContentAnalysisResponse.eWarn,
+        ruleName: "warn-ai-paste",
+      })
+    );
+    ContentAnalysisTelemetryEnterprise.recordWarnResolution(
+      makeResponse({ action: Ci.nsIContentAnalysisResponse.eAllow }),
+      "user",
+      /* aIsQuitting */ false
+    );
+  });
   Assert.equal(extras[0].rule_name, "warn-ai-paste");
   Assert.equal(
     extras[1].rule_name,
@@ -221,21 +230,21 @@ add_task(async function test_cached_response_is_recorded() {
  * @returns {object[]}
  */
 function recordWarnAndResolution(aAllowContent, aData, aIsQuitting = false) {
-  Services.fog.testResetFOG();
-  ContentAnalysisTelemetryEnterprise.recordVerdict(
-    REQUEST_INFO,
-    makeResponse({ action: Ci.nsIContentAnalysisResponse.eWarn })
-  );
-  ContentAnalysisTelemetryEnterprise.recordWarnResolution(
-    makeResponse({
-      action: aAllowContent
-        ? Ci.nsIContentAnalysisResponse.eAllow
-        : Ci.nsIContentAnalysisResponse.eBlock,
-    }),
-    aData,
-    aIsQuitting
-  );
-  return getRecordedExtras();
+  return recordAndGetExtras(() => {
+    ContentAnalysisTelemetryEnterprise.recordVerdict(
+      REQUEST_INFO,
+      makeResponse({ action: Ci.nsIContentAnalysisResponse.eWarn })
+    );
+    ContentAnalysisTelemetryEnterprise.recordWarnResolution(
+      makeResponse({
+        action: aAllowContent
+          ? Ci.nsIContentAnalysisResponse.eAllow
+          : Ci.nsIContentAnalysisResponse.eBlock,
+      }),
+      aData,
+      aIsQuitting
+    );
+  });
 }
 
 add_task(async function test_warn_resolution() {
@@ -272,15 +281,15 @@ add_task(async function test_warn_resolved_during_quit() {
 });
 
 add_task(async function test_unknown_resolution_is_ignored() {
-  Services.fog.testResetFOG();
   ContentAnalysisTelemetryEnterprise.reset();
-  ContentAnalysisTelemetryEnterprise.recordWarnResolution(
-    makeResponse({ action: Ci.nsIContentAnalysisResponse.eAllow }),
-    "user",
-    /* aIsQuitting */ false
-  );
   Assert.equal(
-    getRecordedExtras(),
+    recordAndGetExtras(() =>
+      ContentAnalysisTelemetryEnterprise.recordWarnResolution(
+        makeResponse({ action: Ci.nsIContentAnalysisResponse.eAllow }),
+        "user",
+        /* aIsQuitting */ false
+      )
+    ),
     null,
     "a resolution for a warn we never recorded should be ignored"
   );

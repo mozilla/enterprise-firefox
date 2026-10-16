@@ -239,15 +239,7 @@ export const DownloadsTelemetryEnterprise = {
       Glean.downloads.downloadCompleted.record(telemetryData);
 
       // Submit the enterprise ping
-      // Allow tests to disable submission to inspect recorded telemetry
-      if (
-        !Services.prefs.getBoolPref(
-          "browser.download.enterprise.telemetry.testing.disableSubmit",
-          false
-        )
-      ) {
-        GleanPings.enterprise.submit();
-      }
+      GleanPings.enterprise.submit();
     } catch (ex) {
       // Silently fail - telemetry errors should not break downloads
       console.error(

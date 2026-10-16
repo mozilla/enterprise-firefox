@@ -894,22 +894,18 @@ export var Policies = {
   ContentAnalysisTelemetry: {
     onBeforeAddons(manager, param) {
       if (param && typeof param === "object") {
-        if (typeof param.Enabled === "boolean") {
-          lazy.PoliciesUtils.setAndLockPref(
-            "browser.contentanalysis.enterprise.telemetry.enabled",
-            param.Enabled
-          );
-        }
-
-        if (
-          typeof param.UrlLogging === "string" &&
+        // A setting left out is locked to the default the recorder assumes
+        // when its pref is unset, so no user pref can alter it.
+        lazy.PoliciesUtils.setAndLockPref(
+          "browser.contentanalysis.enterprise.telemetry.enabled",
+          typeof param.Enabled === "boolean" ? param.Enabled : true
+        );
+        lazy.PoliciesUtils.setAndLockPref(
+          "browser.contentanalysis.enterprise.telemetry.urlLogging",
           ["full", "domain", "none"].includes(param.UrlLogging)
-        ) {
-          lazy.PoliciesUtils.setAndLockPref(
-            "browser.contentanalysis.enterprise.telemetry.urlLogging",
-            param.UrlLogging
-          );
-        }
+            ? param.UrlLogging
+            : "full"
+        );
       }
     },
     onRemove(_manager, _oldParams) {
@@ -3103,6 +3099,10 @@ export var Policies = {
         "app.update.migrated",
         "browser.vpn_promo.disallowed_regions",
       ];
+      const contentAnalysisTelemetryPrefs = [
+        "browser.contentanalysis.enterprise.telemetry.enabled",
+        "browser.contentanalysis.enterprise.telemetry.urlLogging",
+      ];
 
       for (const preference in param) {
         if (blockedPrefs.includes(preference)) {
@@ -3111,6 +3111,21 @@ export var Policies = {
             `Unable to set preference ${preference}. Preference not allowed for security reasons.`
           );
           continue;
+        }
+        if (AppConstants.MOZ_ENTERPRISE) {
+          let owningPolicy;
+          if (lazy.SecurityLoggingPolicy.managesPref(preference)) {
+            owningPolicy = "SecurityLogging";
+          } else if (contentAnalysisTelemetryPrefs.includes(preference)) {
+            owningPolicy = "ContentAnalysisTelemetry";
+          }
+          if (owningPolicy) {
+            lazy.reportFailure(
+              "Preferences",
+              `Unable to set preference ${preference}. It is managed by the ${owningPolicy} policy.`
+            );
+            continue;
+          }
         }
         if (preference.startsWith("security.")) {
           if (!allowedSecurityPrefs.includes(preference)) {
