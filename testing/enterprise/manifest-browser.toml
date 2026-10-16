@@ -25,6 +25,10 @@ disabled = "Bug 1996558: scaffolding for the browsing-child encryption-mismatch 
 
 ["test_felt_browser_crash_restart.py"]
 
+["test_felt_browser_disable_auto_safe_mode.py"]
+
+["test_felt_browser_disable_safe_mode.py"]
+
 ["test_felt_browser_enterprise_toolbar_button.py"]
 
 ["test_felt_browser_external_link.py"]

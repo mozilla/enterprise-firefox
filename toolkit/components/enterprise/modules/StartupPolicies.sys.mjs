@@ -21,9 +21,15 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
  * environment; the native side checks each variable at its own read site.
  */
 const STARTUP_POLICY_ENV_VARS = {
-  DisableSafeMode: "MOZ_ENTERPRISE_DISABLE_SAFE_MODE",
-  DisableThirdPartyModuleBlocking:
+  // MOZ_DISABLE_AUTO_SAFE_MODE keeps repeated startup crashes from offering
+  // Safe Mode.
+  DisableSafeMode: [
+    "MOZ_ENTERPRISE_DISABLE_SAFE_MODE",
+    "MOZ_DISABLE_AUTO_SAFE_MODE",
+  ],
+  DisableThirdPartyModuleBlocking: [
     "MOZ_ENTERPRISE_DISABLE_THIRD_PARTY_MODULE_BLOCKING",
+  ],
 };
 
 /**
@@ -74,9 +80,11 @@ export class StartupPolicies {
    */
   get environment() {
     const environment = {};
-    for (const [name, envVar] of Object.entries(STARTUP_POLICY_ENV_VARS)) {
+    for (const [name, envVars] of Object.entries(STARTUP_POLICY_ENV_VARS)) {
       if (this.isEnabled(name)) {
-        environment[envVar] = "1";
+        for (const envVar of envVars) {
+          environment[envVar] = "1";
+        }
       }
     }
     return environment;
