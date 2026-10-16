@@ -89,6 +89,12 @@ function resetToLoginPage({ keepPendingSignIn = false } = {}) {
     // let it proceed (no-op unless it was suspended and we're connected).
     lazy.CaptivePortal.maybeResumeUpdates();
   }
+  // Close the windows opened by the SSO page.
+  for (const win of Services.wm.getEnumerator("navigator:browser")) {
+    if (win != window) {
+      win.close();
+    }
+  }
   FeltStatusPanel.clear();
   document.querySelector(".felt-login__sso").classList.add("is-hidden");
   document
