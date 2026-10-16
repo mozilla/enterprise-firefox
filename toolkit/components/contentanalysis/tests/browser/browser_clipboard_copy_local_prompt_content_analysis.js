@@ -125,3 +125,37 @@ add_task(async function testBlockedCutFromPromptTextboxPastesSameSite() {
     }
   );
 });
+
+// With the local clipboard on, a warned copy out of the prompt does not hold
+// the dialog: the warn placeholder goes on the system clipboard, the opening
+// page can paste the text meanwhile, and allowing the warning later commits
+// it.
+add_task(async function testWarnedCopyFromPromptTextboxKeptForOpeningPage() {
+  mockCA.setupForTest("warn");
+  setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
+
+  await withPrompt(
+    async prompt => {
+      await selectAllAndCopyFromTextbox(prompt);
+      await waitForClipboardText(WARN_REPLACEMENT_TEXT);
+      is(mockCA.calls.length, 1, "one call to content analysis for the copy");
+      assertPromptCopyRequest(mockCA.calls[0], PROMPT_DEFAULT_VALUE);
+    },
+    async browser => {
+      let info = getLocalCopyInfo(mockCA);
+      is(
+        info?.state,
+        Ci.nsIContentAnalysisLocalCopyInfo.WARN,
+        "the copy awaits the user's answer"
+      );
+      let pasted = await pasteIntoTarget(mockCA, browser);
+      is(pasted, PROMPT_DEFAULT_VALUE, "the opening page gets the warned copy");
+
+      let resolved = promiseWarnResolved("user");
+      mockCA.respondToWarnDialog(info.warnRequestToken, true);
+      await resolved;
+      await waitForClipboardText(PROMPT_DEFAULT_VALUE);
+      ok(!getLocalCopyInfo(mockCA), "the committed copy left the local slot");
+    }
+  );
+});
