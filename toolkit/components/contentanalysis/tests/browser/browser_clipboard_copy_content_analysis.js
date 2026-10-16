@@ -5,8 +5,18 @@
 // the clipboard, that the content process waits for the verdict so the copy is
 // complete by the time execCommand("copy") returns, and that a blocked copy
 // replaces the clipboard contents with a notice.
+//
+// The content process only waits when keep_blocked_data_for_same_site is off,
+// so this file pins it off. The asynchronous copy it enables (the local
+// clipboard) is covered by the browser_clipboard_copy_local_*.js files.
 
 "use strict";
+
+/* import-globals-from clipboard_copy_helpers.js */
+Services.scriptloader.loadSubScript(
+  getRootDirectory(gTestPath) + "clipboard_copy_helpers.js",
+  this
+);
 
 let mockCA = makeMockContentAnalysis();
 
@@ -14,59 +24,17 @@ add_setup(async function test_setup() {
   mockCA = await mockContentAnalysisService(mockCA);
 });
 
-const PAGE_URL =
-  "https://example.com/browser/toolkit/components/contentanalysis/tests/browser/clipboard_copy.html";
+const withCopyEnabled = (prefs, testFn) =>
+  withClipboardCopyPrefs(/* keepLocalCopy */ false, prefs, testFn);
+
 const LINK_URL = "https://example.com/some/link";
-// What selecting all of #copySource puts on the clipboard.
-const COPIED_PLAIN_TEXT = "Some bold text";
-const PREVIOUS_CLIPBOARD_TEXT = "Previous clipboard contents";
-// Must match contentanalysis-clipboard-copy-blocked-replacement in
-// toolkit/locales/en-US/toolkit/contentanalysis/contentanalysis.ftl. A blocked
-// copy replaces the clipboard contents with this rather than leaving the
-// previous contents in place, so the user can't silently paste stale data.
-const REPLACEMENT_TEXT =
-  "Copying this content is restricted by your organization.";
-
-function setClipboardText(clipboardString) {
-  const trans = Cc["@mozilla.org/widget/transferable;1"].createInstance(
-    Ci.nsITransferable
-  );
-  trans.init(null);
-  trans.addDataFlavor("text/plain");
-  const str = Cc["@mozilla.org/supports-string;1"].createInstance(
-    Ci.nsISupportsString
-  );
-  str.data = clipboardString;
-  trans.setTransferData("text/plain", str);
-
-  // No window context, so this chrome write is not analyzed.
-  Services.clipboard.setData(trans, null, Ci.nsIClipboard.kGlobalClipboard);
-}
-
-function getClipboardText() {
-  const trans = Cc["@mozilla.org/widget/transferable;1"].createInstance(
-    Ci.nsITransferable
-  );
-  trans.init(null);
-  trans.addDataFlavor("text/plain");
-  let data = {};
-  try {
-    // getData can itself fail when the mock CA service is set up to error,
-    // since this chrome read goes through the paste check too.
-    Services.clipboard.getData(
-      trans,
-      Ci.nsIClipboard.kGlobalClipboard,
-      window.browsingContext.currentWindowContext
-    );
-    trans.getTransferData("text/plain", data);
-  } catch (e) {
-    return "";
-  }
-  return data.value.QueryInterface(Ci.nsISupportsString).data;
-}
 
 function assertCopyRequest(request, expectedText, expectedRequestsCount) {
-  is(request.url.spec, PAGE_URL, "request has correct URL");
+  is(request.url.spec, COPY_PAGE_URL, "request has correct URL");
+  ok(
+    !request.clipboardCopyKeptLocally,
+    "a copy the page waits for is not kept locally"
+  );
   is(
     request.analysisType,
     Ci.nsIContentAnalysisRequest.eDataCopied,
@@ -94,48 +62,6 @@ function assertCopyRequest(request, expectedText, expectedRequestsCount) {
   ok(request.userActionId.length, "request userActionId should not be empty");
   is(request.getPrintData().length, 0, "request should have no print data");
   ok(!!request.requestToken.length, "request requestToken should not be empty");
-}
-
-function waitForCACalls(count) {
-  return TestUtils.waitForCondition(
-    () => mockCA.calls.length >= count,
-    `waiting for ${count} content analysis call(s)`
-  );
-}
-
-// Copies from content processes block until the verdict is in, so their tests
-// can check the clipboard directly. Copies that start in the parent process
-// (e.g. the context menu's Copy Link) are analyzed asynchronously with no
-// completion signal, so wait for the clipboard to settle instead.
-function waitForClipboardText(expected) {
-  return TestUtils.waitForCondition(
-    () => getClipboardText() === expected,
-    `waiting for clipboard to contain "${expected}"`
-  );
-}
-
-async function withCopyEnabled(prefs, testFn) {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [
-        "browser.contentanalysis.interception_point.clipboard_copy.enabled",
-        true,
-      ],
-      ["dom.events.testing.asyncClipboard", true],
-      ...prefs,
-    ],
-  });
-  try {
-    await testFn();
-  } finally {
-    await SpecialPowers.popPrefEnv();
-  }
-}
-
-async function openTestPage() {
-  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE_URL);
-  await SimpleTest.promiseFocus(tab.linkedBrowser);
-  return tab;
 }
 
 // Test that document.execCommand("copy") is scanned
@@ -176,7 +102,7 @@ async function testExecCommandCopy(allowCopy, plainTextOnly, selection) {
       mockCA.setupForTest(allowCopy);
       setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-      let tab = await openTestPage();
+      let tab = await openCopyTestPage();
       let browser = tab.linkedBrowser;
 
       let execCommandResult = await SpecialPowers.spawn(
@@ -232,7 +158,7 @@ async function testExecCommandCopy(allowCopy, plainTextOnly, selection) {
 
       is(
         getClipboardText(),
-        allowCopy ? selection.text : REPLACEMENT_TEXT,
+        allowCopy ? selection.text : BLOCKED_REPLACEMENT_TEXT,
         "clipboard has the expected contents as soon as the copy returns"
       );
 
@@ -280,7 +206,7 @@ add_task(async function testExecCommandCopyCollapsedSelectionNotAnalyzed() {
     mockCA.setupForTest(false);
     setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
     let execCommandResult = await SpecialPowers.spawn(browser, [], () => {
@@ -321,14 +247,6 @@ const TEXT_FIELDS = [
     partial: { start: 5, end: 9, text: "area" },
   },
 ];
-
-async function selectAllIn(browser, elementId) {
-  await SpecialPowers.spawn(browser, [elementId], elementId => {
-    let element = content.document.getElementById(elementId);
-    element.focus();
-    element.select();
-  });
-}
 
 async function selectRangeIn(browser, elementId, start, end, direction) {
   await SpecialPowers.spawn(
@@ -376,7 +294,7 @@ async function testTextFieldCopy(allowCopy, selectionOptions) {
       mockCA.setupForTest(allowCopy);
       setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-      let tab = await openTestPage();
+      let tab = await openCopyTestPage();
       let browser = tab.linkedBrowser;
 
       let selectedText = await selectInField(browser, field, selectionOptions);
@@ -391,7 +309,7 @@ async function testTextFieldCopy(allowCopy, selectionOptions) {
 
       is(
         getClipboardText(),
-        allowCopy ? selectedText : REPLACEMENT_TEXT,
+        allowCopy ? selectedText : BLOCKED_REPLACEMENT_TEXT,
         `${field.id}: clipboard has the expected contents after Ctrl+C`
       );
 
@@ -433,7 +351,7 @@ add_task(async function testTextFieldCaretOnlyCopyNotAnalyzed() {
     mockCA.setupForTest(false);
     setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
     await selectRangeIn(browser, "testInput", 3, 3);
@@ -459,7 +377,7 @@ async function testTextFieldCut(allowCopy, selectionOptions) {
     mockCA.setupForTest(allowCopy);
     setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
     let field = TEXT_FIELDS[0];
@@ -484,7 +402,7 @@ async function testTextFieldCut(allowCopy, selectionOptions) {
     } else {
       is(
         getClipboardText(),
-        REPLACEMENT_TEXT,
+        BLOCKED_REPLACEMENT_TEXT,
         "the blocked content did not reach the clipboard"
       );
       is(
@@ -521,7 +439,7 @@ async function testWriteText(allowCopy) {
     mockCA.setupForTest(allowCopy);
     setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
     let result = await SpecialPowers.spawn(
@@ -549,7 +467,7 @@ async function testWriteText(allowCopy) {
         "NotAllowedError",
         "writeText() rejects with NotAllowedError when the copy is blocked"
       );
-      await waitForClipboardText(REPLACEMENT_TEXT);
+      await waitForClipboardText(BLOCKED_REPLACEMENT_TEXT);
     }
 
     BrowserTestUtils.removeTab(tab);
@@ -578,7 +496,7 @@ async function testWriteMultipleFormats(plainTextOnly) {
       mockCA.setupForTest(true);
       setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-      let tab = await openTestPage();
+      let tab = await openCopyTestPage();
       let browser = tab.linkedBrowser;
 
       let result = await SpecialPowers.spawn(
@@ -645,7 +563,7 @@ add_task(async function testCopyNotAnalyzedWhenPrefOff() {
   mockCA.setupForTest(false);
   setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-  let tab = await openTestPage();
+  let tab = await openCopyTestPage();
   let browser = tab.linkedBrowser;
 
   let result = await SpecialPowers.spawn(
@@ -671,7 +589,7 @@ add_task(async function testCopyNotAnalyzedWhenPrefOff() {
     content.document.getElementById("pasteTarget").focus();
   });
   await BrowserTestUtils.synthesizeKey("v", { accelKey: true }, browser);
-  await waitForCACalls(1);
+  await waitForCACalls(mockCA, 1);
   is(
     mockCA.calls[0].reason,
     Ci.nsIContentAnalysisRequest.eClipboardPaste,
@@ -692,7 +610,7 @@ add_task(async function testCopyIgnoresSameTabBypass() {
       mockCA.setupForTest(false);
       setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-      let tab = await openTestPage();
+      let tab = await openCopyTestPage();
       let browser = tab.linkedBrowser;
 
       let result = await SpecialPowers.spawn(
@@ -715,17 +633,17 @@ add_task(async function testCopyIgnoresSameTabBypass() {
       );
       assertCopyRequest(mockCA.calls[0], COPIED_PLAIN_TEXT, 1);
       is(result, "NotAllowedError", "the copy was blocked");
-      await waitForClipboardText(REPLACEMENT_TEXT);
+      await waitForClipboardText(BLOCKED_REPLACEMENT_TEXT);
 
       BrowserTestUtils.removeTab(tab);
     }
   );
 });
 
-// The same-tab bypass only covers the copying page: after the tab navigates
-// to another URL on the same origin, a paste of the same clipboard data is
-// analyzed again. copyInterception says whether the copy itself goes through
-// content analysis first.
+// Without the local clipboard, the same-tab bypass still only covers the
+// copying page: after the tab navigates to another URL on the same origin, a
+// paste of the same clipboard data is analyzed again. copyInterception says
+// whether the copy itself goes through content analysis first.
 async function testSameTabBypassEndsWithNavigation(copyInterception) {
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -733,6 +651,7 @@ async function testSameTabBypassEndsWithNavigation(copyInterception) {
         "browser.contentanalysis.interception_point.clipboard_copy.enabled",
         copyInterception,
       ],
+      [KEEP_LOCAL_COPY_PREF, false],
       ["browser.contentanalysis.bypass_for_same_tab_operations", true],
     ],
   });
@@ -740,14 +659,10 @@ async function testSameTabBypassEndsWithNavigation(copyInterception) {
     mockCA.setupForTest(/* shouldAllowRequest */ true);
     setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
-    let execCommandResult = await SpecialPowers.spawn(browser, [], () => {
-      content.wrappedJSObject.selectCopySource();
-      return content.document.execCommand("copy");
-    });
-    is(execCommandResult, true, "the copy succeeded");
+    is(await execCommandCopy(browser), true, "the copy succeeded");
     await waitForClipboardText(COPIED_PLAIN_TEXT);
     is(
       mockCA.calls.length,
@@ -756,41 +671,18 @@ async function testSameTabBypassEndsWithNavigation(copyInterception) {
     );
 
     // A paste check would block, so getting the data proves it was skipped.
-    let pasteIntoTarget = async () => {
-      mockCA.setupForTest(/* shouldAllowRequest */ false);
-      await SpecialPowers.spawn(browser, [], () => {
-        let target = content.document.getElementById("pasteTarget");
-        target.textContent = "";
-        target.focus();
-        content.getSelection().collapse(target, 0);
-      });
-      await BrowserTestUtils.synthesizeKey("v", { accelKey: true }, browser);
-      return SpecialPowers.spawn(browser, [], () => {
-        return content.document.getElementById("pasteTarget").textContent;
-      });
-    };
-    let pasted = await pasteIntoTarget();
+    let pasted = await pasteIntoTarget(mockCA, browser, /* allowPaste */ false);
     is(pasted, COPIED_PLAIN_TEXT, "the copying page pastes the copy");
     is(mockCA.calls.length, 0, "the same-page paste was not analyzed");
 
-    let navigated = PAGE_URL + "?navigated";
+    let navigated = COPY_PAGE_URL + "?navigated";
     BrowserTestUtils.startLoadingURIString(browser, navigated);
     await BrowserTestUtils.browserLoaded(browser, false, navigated);
 
-    pasted = await pasteIntoTarget();
+    pasted = await pasteIntoTarget(mockCA, browser, /* allowPaste */ false);
     is(pasted, "", "the navigated page's paste is blocked by the check");
     is(mockCA.calls.length, 1, "the paste was analyzed, not bypassed");
-    is(
-      mockCA.calls[0].reason,
-      Ci.nsIContentAnalysisRequest.eClipboardPaste,
-      "the request is the paste"
-    );
-    is(mockCA.calls[0].url.spec, navigated, "the paste request has the new URL");
-    is(
-      mockCA.calls[0].textContent,
-      COPIED_PLAIN_TEXT,
-      "the paste request has the copied text"
-    );
+    assertPasteRequest(mockCA.calls[0], COPIED_PLAIN_TEXT, navigated);
 
     BrowserTestUtils.removeTab(tab);
   } finally {
@@ -813,7 +705,7 @@ add_task(async function testAllowedCopyDoesNotSeedPasteCache() {
     mockCA.setupForTest(true);
     setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
     await SpecialPowers.spawn(browser, [COPIED_PLAIN_TEXT], async text => {
@@ -826,7 +718,7 @@ add_task(async function testAllowedCopyDoesNotSeedPasteCache() {
       content.document.getElementById("pasteTarget").focus();
     });
     await BrowserTestUtils.synthesizeKey("v", { accelKey: true }, browser);
-    await waitForCACalls(1);
+    await waitForCACalls(mockCA, 1);
     is(
       mockCA.calls[0].reason,
       Ci.nsIContentAnalysisRequest.eClipboardPaste,
@@ -840,15 +732,16 @@ add_task(async function testAllowedCopyDoesNotSeedPasteCache() {
 // Two copies in flight at once: the second must win even though the first
 // verdict arrives last, otherwise a slow-but-allowed earlier copy would
 // overwrite the clipboard with stale data. The async clipboard API is the only
-// way a single page can have two copies outstanding, since the execCommand and
-// keyboard paths block the content process until the verdict is in.
+// way a single page can have two copies outstanding here, since the
+// execCommand and keyboard paths block the content process until the verdict
+// is in while keep_blocked_data_for_same_site is off.
 
 add_task(async function testRacingCopiesLastWriteWins() {
   await withCopyEnabled([], async () => {
     mockCA.setupForTest(true, /* waitForEvent */ true);
     setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
     // Start the first copy and wait until its check is outstanding.
@@ -921,7 +814,7 @@ add_task(async function testCopyFailsClosedOnAgentError() {
     // The mock rethrows the error after reporting it, on every request.
     ignoreAllUncaughtExceptions();
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
     let result = await SpecialPowers.spawn(
@@ -965,7 +858,7 @@ add_task(async function testBlockedCopyDialogSaysCopy() {
     );
     setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
     let blockDialogPromise = BrowserTestUtils.promiseAlertDialogOpen();
@@ -990,6 +883,34 @@ add_task(async function testBlockedCopyDialogSaysCopy() {
   });
 });
 
+// show_blocked_result turns the block dialog off for copies as it does for
+// pastes; the copy is still blocked.
+add_task(async function testBlockedCopyDialogSuppressedByPref() {
+  await withCopyEnabled(
+    [["browser.contentanalysis.show_blocked_result", false]],
+    async () => {
+      mockCA.setupForTest(
+        /* shouldAllowRequest */ false,
+        /* waitForEvent */ false,
+        /* showDialogs */ true
+      );
+      setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
+
+      let tab = await openCopyTestPage();
+      let browser = tab.linkedBrowser;
+
+      await assertNoDialogs(browser, async () => {
+        await selectAllIn(browser, "testInput");
+        await BrowserTestUtils.synthesizeKey("c", { accelKey: true }, browser);
+        await waitForClipboardText(BLOCKED_REPLACEMENT_TEXT);
+      });
+      is(mockCA.calls.length, 1, "the copy was analyzed");
+
+      BrowserTestUtils.removeTab(tab);
+    }
+  );
+});
+
 // Context menu "Copy Link". This copy starts in the parent process, where the
 // check stays asynchronous, so unlike the content-process paths above there is
 // nothing to wait on other than the clipboard itself.
@@ -999,7 +920,7 @@ async function testCopyLink(allowCopy) {
     mockCA.setupForTest(allowCopy);
     setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
 
-    let tab = await openTestPage();
+    let tab = await openCopyTestPage();
     let browser = tab.linkedBrowser;
 
     let contextMenu = document.getElementById("contentAreaContextMenu");
@@ -1015,11 +936,11 @@ async function testCopyLink(allowCopy) {
     contextMenu.activateItem(document.getElementById("context-copylink"));
     await popupHidden;
 
-    await waitForCACalls(1);
+    await waitForCACalls(mockCA, 1);
     is(mockCA.calls.length, 1, "one call to content analysis");
     assertCopyRequest(mockCA.calls[0], LINK_URL, 1);
 
-    await waitForClipboardText(allowCopy ? LINK_URL : REPLACEMENT_TEXT);
+    await waitForClipboardText(allowCopy ? LINK_URL : BLOCKED_REPLACEMENT_TEXT);
 
     BrowserTestUtils.removeTab(tab);
   });
