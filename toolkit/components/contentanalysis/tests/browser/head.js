@@ -357,6 +357,10 @@ function makeMockContentAnalysis() {
       entry.callback.contentResult(resolvedResponse);
     },
 
+    getLocalClipboardCopyInfo() {
+      return this.realCAService.getLocalClipboardCopyInfo();
+    },
+
     cancelAllRequests() {
       // This is called on exit, no need to do anything
     },
