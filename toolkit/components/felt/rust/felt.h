@@ -28,7 +28,7 @@ void felt_activate_app();
 
 bool is_felt_browser();
 
-bool firefox_connect_to_felt(const char* server_name);
+bool firefox_connect_to_felt(const char* server_name, uint32_t felt_pid);
 
 void firefox_felt_connection_start_thread();
 

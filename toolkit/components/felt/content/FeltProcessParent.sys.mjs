@@ -93,6 +93,17 @@ export async function openIpcChannelOrTerminate(proc, openChannel) {
   }
 }
 
+/**
+ * Command line arguments that tell the spawned browser where felt's IPC
+ * endpoint is and which process to expect at its other end.
+ *
+ * @param {string} socket - The endpoint name from Services.felt.oneShotIpcServer().
+ * @returns {string[]} The arguments to add to the browser command line.
+ */
+export function browserIpcArgs(socket) {
+  return ["-felt", socket, "-feltPid", String(Services.appinfo.processID)];
+}
+
 export function queueURL(payload) {
   // If Firefox AND Felt are both ready, forward immediately
   if (
@@ -1035,8 +1046,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       ...launcherArgs,
       "--foreground",
       ...profileArgs,
-      "-felt",
-      socket,
+      ...browserIpcArgs(socket),
       ...extraRunArgs,
     ];
 

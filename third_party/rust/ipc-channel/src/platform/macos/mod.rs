@@ -393,6 +393,18 @@ impl OsIpcReceiver {
         self.recv_with_blocking_mode(BlockingMode::Blocking)
     }
 
+    /// Like `recv`, and also returns the pid of the process that sent the
+    /// message, from the audit trailer the kernel appends to it. The kernel
+    /// fills that in from the sending task, so the sender cannot forge it.
+    pub fn recv_with_sender_pid(&self) -> Result<(IpcMessage, Option<u32>), MachError> {
+        let (result, sender_pid) =
+            select_with_sender(self.port.get(), BlockingMode::Blocking, true)?;
+        match result {
+            OsIpcSelectionResult::DataReceived(_, ipc_message) => Ok((ipc_message, sender_pid)),
+            OsIpcSelectionResult::ChannelClosed(_) => Err(MachError::from(MACH_NOTIFY_NO_SENDERS)),
+        }
+    }
+
     pub fn try_recv(&self) -> Result<IpcMessage, MachError> {
         self.recv_with_blocking_mode(BlockingMode::Nonblocking)
     }
@@ -476,6 +488,14 @@ impl Clone for OsIpcSender {
 impl OsIpcSender {
     fn from_name(port: mach_port_t) -> OsIpcSender {
         OsIpcSender { port }
+    }
+
+    /// Always `None` on the Mach-port back-end: a sender is a send right, and
+    /// nothing attests which task holds the matching receive right. The sender
+    /// of a particular message can be identified on the receiving side instead,
+    /// see `OsIpcReceiver::recv_with_sender_pid`.
+    pub fn peer_pid(&self) -> Option<u32> {
+        None
     }
 
     pub fn connect(name: String) -> Result<OsIpcSender, MachError> {
@@ -908,14 +928,16 @@ fn select_with_sender(
 }
 
 /// The sender's pid from an audit trailer the kernel appended to a received
-/// message. Returns `None` if the kernel supplied a shorter trailer or the pid
-/// does not fit a `u32`.
+/// message. Returns `None` if the kernel supplied a shorter trailer, the pid
+/// is 0 (a kernel-originated message) or it does not fit a `u32`.
 fn audit_trailer_pid(trailer: &mach_msg_audit_trailer_t) -> Option<u32> {
     if (trailer.msgh_trailer_size as usize) < mem::size_of::<mach_msg_audit_trailer_t>() {
         return None;
     }
     // SAFETY: a plain libbsm call that takes the token by value.
-    u32::try_from(unsafe { audit_token_to_pid(trailer.msgh_audit) }).ok()
+    u32::try_from(unsafe { audit_token_to_pid(trailer.msgh_audit) })
+        .ok()
+        .filter(|&pid| pid != 0)
 }
 
 pub struct OsIpcOneShotServer {
