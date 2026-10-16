@@ -549,6 +549,14 @@ void nsBaseClipboard::OnKeptCopyDropped(PendingCopy* aPendingCopy) {
     mPendingCopy = nullptr;
     aPendingCopy->Complete(NS_ERROR_ABORT);
   }
+  if (aPendingCopy->mKeptState == PendingCopy::KeptState::eWarn) {
+    // The user never got to answer, so the agent hears "denied". The
+    // resulting verdict finds the copy superseded.
+    MOZ_CLIPBOARD_LOG("%s: cancelling undecided warn %s", __FUNCTION__,
+                      aPendingCopy->mWarnRequestToken.get());
+    mozilla::contentanalysis::ContentAnalysis::CancelPendingWarn(
+        aPendingCopy->mWarnRequestToken);
+  }
   NotifyKeptCopyChanged();
 }
 
@@ -566,6 +574,9 @@ nsBaseClipboard::GetKeptCopyInfo() {
     case PendingCopy::KeptState::ePending:
       state = nsIContentAnalysisLocalCopyInfo::PENDING;
       break;
+    case PendingCopy::KeptState::eWarn:
+      state = nsIContentAnalysisLocalCopyInfo::WARN;
+      break;
     case PendingCopy::KeptState::eBlocked:
       state = nsIContentAnalysisLocalCopyInfo::BLOCKED;
       break;
@@ -573,7 +584,10 @@ nsBaseClipboard::GetKeptCopyInfo() {
   return mozilla::MakeAndAddRef<
       mozilla::contentanalysis::ContentAnalysisLocalCopyInfo>(
       state, mCaches[kGlobalClipboard]->GetKeptCopySequenceNumber(),
-      mPendingCopy->mTransferable, principal);
+      mPendingCopy->mTransferable, principal,
+      state == nsIContentAnalysisLocalCopyInfo::WARN
+          ? mPendingCopy->mWarnRequestToken
+          : EmptyCString());
 }
 
 void nsBaseClipboard::OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
@@ -632,6 +646,52 @@ void nsBaseClipboard::OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
   SetDataImpl(pendingCopy->mTransferable, pendingCopy->mOwner, aWhichClipboard,
               pendingCopy->mWindowContext, /* aCheckContentAnalysis */ false,
               [pendingCopy](nsresult aRv) { pendingCopy->Complete(aRv); });
+}
+
+void nsBaseClipboard::OnCopyContentAnalysisWarn(
+    ClipboardType aWhichClipboard, PendingCopy* aPendingCopy,
+    nsIContentAnalysisResponse* aResponse) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aWhichClipboard == kGlobalClipboard);
+
+  nsAutoCString token;
+  if (NS_FAILED(aResponse->GetRequestToken(token)) || token.IsEmpty()) {
+    return;
+  }
+
+  if (IsKept(aPendingCopy)) {
+    // Drops the kept data, superseding the copy, if the native clipboard has
+    // changed in the meantime.
+    GetKeptCopyIfValid(aWhichClipboard);
+  }
+
+  if (mPendingCopy != aPendingCopy || !IsKept(aPendingCopy)) {
+    // The copy was superseded, so nobody is left to answer the warning.
+    MOZ_CLIPBOARD_LOG("%s: cancelling stale copy warning, clipboard=%d",
+                      __FUNCTION__, aWhichClipboard);
+    mozilla::contentanalysis::ContentAnalysis::CancelPendingWarn(token);
+    return;
+  }
+
+  MOZ_CLIPBOARD_LOG("%s: copy warned by content analysis, clipboard=%d",
+                    __FUNCTION__, aWhichClipboard);
+  // The placeholder tells other applications (and other sites) where the
+  // content went; the copying page keeps pasting the real data.
+  if (!WriteCopyPlaceholderForKeptCopy(
+          "contentanalysis-clipboard-copy-warn-replacement"_ns)) {
+    // Answer the warning now rather than leave other applications the old
+    // clipboard contents; the resulting block verdict is handled as usual.
+    mozilla::contentanalysis::ContentAnalysis::CancelPendingWarn(token);
+    return;
+  }
+  aPendingCopy->mKeptState = PendingCopy::KeptState::eWarn;
+  aPendingCopy->mWarnRequestToken = token;
+  NotifyKeptCopyChanged();
+  // From the page's point of view the copy happened: it is pasteable in the
+  // copying page, and the user may yet allow it everywhere. Matches the
+  // execCommand path, so a warned cut deletes its selection like an editor
+  // cut does.
+  aPendingCopy->Complete(NS_OK);
 }
 
 nsresult nsBaseClipboard::SetDataImpl(
@@ -712,6 +772,9 @@ nsresult nsBaseClipboard::SetDataImpl(
 
     const bool keptLocally =
         KeepsCopiesLocally() && KeepInClipboardCache(pendingCopy);
+    // A kept copy need not hold up the page for a warning: the user answers
+    // it later from the Data protection panel. Otherwise the warning is left
+    // to the modal dialog and only its resolved verdict arrives here.
     auto callback =
         mozilla::MakeRefPtr<mozilla::contentanalysis::ContentAnalysisCallback>(
             [self = RefPtr{this}, aWhichClipboard,
@@ -723,6 +786,13 @@ nsresult nsBaseClipboard::SetDataImpl(
             [self = RefPtr{this}, aWhichClipboard, pendingCopy](nsresult) {
               self->OnCopyContentAnalysisResult(aWhichClipboard, pendingCopy,
                                                 /* aAllowed */ false);
+            },
+            [self = RefPtr{this}, aWhichClipboard, pendingCopy,
+             keptLocally](nsIContentAnalysisResponse* aResponse) {
+              if (keptLocally) {
+                self->OnCopyContentAnalysisWarn(aWhichClipboard, pendingCopy,
+                                                aResponse);
+              }
             });
     mozilla::contentanalysis::ContentAnalysis::
         CheckClipboardCopyContentAnalysis(aWindowContext->Canonical(),

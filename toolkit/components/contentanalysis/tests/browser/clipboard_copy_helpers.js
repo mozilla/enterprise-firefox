@@ -29,6 +29,9 @@ const PLACEHOLDER_L10N = new Localization(
 const BLOCKED_REPLACEMENT_TEXT = PLACEHOLDER_L10N.formatValueSync(
   "contentanalysis-clipboard-copy-blocked-replacement"
 );
+const WARN_REPLACEMENT_TEXT = PLACEHOLDER_L10N.formatValueSync(
+  "contentanalysis-clipboard-copy-warn-replacement"
+);
 
 const KEEP_LOCAL_COPY_PREF =
   "browser.contentanalysis.interception_point.clipboard_copy.keep_blocked_data_for_same_site";
@@ -280,6 +283,19 @@ function releaseCopyVerdict(mockCA, allow) {
   );
 }
 
+// Copies from the page with a warn verdict, waits for the warn placeholder and
+// returns the local copy info (state WARN, with the request token).
+async function copyWarned(mockCA, browser) {
+  await assertNoDialogs(browser, async () => {
+    await copyFromPage(mockCA, browser, "warn");
+    await waitForClipboardText(WARN_REPLACEMENT_TEXT);
+  });
+  await waitForLocalCopyState(mockCA, Ci.nsIContentAnalysisLocalCopyInfo.WARN);
+  let info = getLocalCopyInfo(mockCA);
+  ok(info.warnRequestToken, "the warned copy has a request token");
+  return info;
+}
+
 async function clearPasteTarget(browsingContext) {
   await SpecialPowers.spawn(browsingContext, [], () => {
     content.document.getElementById("pasteTarget").textContent = "";
@@ -331,5 +347,14 @@ function waitForNoLocalCopy(mockCA) {
   return TestUtils.waitForCondition(
     () => !getLocalCopyInfo(mockCA),
     "waiting for the local copy to be gone"
+  );
+}
+
+// Resolves when "dlp-warn-resolved" fires with the given data ("user" for an
+// answer, "cancel" for a warning that went away unanswered).
+function promiseWarnResolved(expectedData) {
+  return TestUtils.topicObserved(
+    "dlp-warn-resolved",
+    (_subject, data) => data == expectedData
   );
 }

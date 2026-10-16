@@ -1099,6 +1099,14 @@ void ContentAnalysis::ClearCachedClipboardResponse() {
 }
 
 /* static */
+void ContentAnalysis::CancelPendingWarn(const nsACString& aRequestToken) {
+  if (RefPtr<ContentAnalysis> self = GetContentAnalysisFromService()) {
+    self->RespondToWarnDialogInternal(aRequestToken, /* aAllowContent */ false,
+                                      /* aFromCancel */ true);
+  }
+}
+
+/* static */
 bool ContentAnalysis::IsSamePageAndSite(dom::WindowGlobalParent* aRequesting,
                                         uint64_t aSourceTopInnerWindowId,
                                         nsIPrincipal* aSourcePrincipal) {
@@ -1448,9 +1456,19 @@ void ContentAnalysis::NotifyResponseObservers(
     nsCString requestToken;
     MOZ_ALWAYS_SUCCEEDS(aResponse->GetRequestToken(requestToken));
 
+    nsCOMPtr<nsIContentAnalysisCallback> callback;
+    if (auto entry = mUserActionMap.Lookup(aUserActionId)) {
+      callback = entry->mCallback;
+    }
+
     mWarnResponseDataMap.InsertOrUpdate(
         requestToken, WarnResponseData{aResponse, std::move(aUserActionId),
                                        aAutoAcknowledge, aIsTimeout});
+    // Tell the caller only once the verdict is stored, so that it can
+    // respond to it from this notification.
+    if (callback) {
+      callback->WarnPending(aResponse);
+    }
   }
 
   nsCOMPtr<nsIObserverService> obsServ =
@@ -2069,6 +2087,16 @@ ContentAnalysis::MultipartRequestCallback::Error(nsresult aRv) {
   mResponded = true;
   mCallback->Error(aRv);
   CancelRequests();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+ContentAnalysis::MultipartRequestCallback::WarnPending(
+    nsIContentAnalysisResponse* aResponse) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mResponded) {
+    mCallback->WarnPending(aResponse);
+  }
   return NS_OK;
 }
 
@@ -3629,6 +3657,20 @@ NS_IMETHODIMP ContentAnalysis::MakeResponseForTest(
   return NS_OK;
 }
 
+NS_IMETHODIMP ContentAnalysis::TestOnlyDeliverWarnVerdict(
+    const nsACString& aToken, const nsACString& aUserActionId,
+    const nsAString& aRuleMessage) {
+  MOZ_ASSERT(NS_IsMainThread());
+  // Not synthetic so dialogs will show in tests.
+  auto response = MakeRefPtr<ContentAnalysisResponse>(
+      nsIContentAnalysisResponse::Action::eWarn, aToken, aUserActionId);
+  response->SetRuleMessage(aRuleMessage);
+  // No agent sent this, so there is no one to acknowledge it to.
+  response->DoNotAcknowledge();
+  HandleResponseFromAgent(response, /* aAutoAcknowledge */ false);
+  return NS_OK;
+}
+
 NS_IMETHODIMP ContentAnalysisCallback::ContentResult(
     nsIContentAnalysisResult* aResult) {
   LOGD("[%p] Called ContentAnalysisCallback::ContentResult", this);
@@ -3660,8 +3702,33 @@ NS_IMETHODIMP ContentAnalysisCallback::Error(nsresult aError) {
   return NS_OK;
 }
 
+NS_IMETHODIMP ContentAnalysisCallback::WarnPending(
+    nsIContentAnalysisResponse* aResponse) {
+  // Still need to call contentResult() after a final response,
+  // so the callbacks are left in place.
+  if (mWarnPendingCallback) {
+    mWarnPendingCallback(aResponse);
+  }
+  return NS_OK;
+}
+
 ContentAnalysisCallback::ContentAnalysisCallback(dom::Promise* aPromise)
     : mPromise(aPromise) {}
+
+ContentAnalysisCallback::ContentAnalysisCallback(
+    nsIContentAnalysisCallback* aDecoratedCB) {
+  mContentResponseCallback =
+      [decoratedCB = RefPtr{aDecoratedCB}](nsIContentAnalysisResult* aResult) {
+        decoratedCB->ContentResult(aResult);
+      };
+  mErrorCallback = [decoratedCB = RefPtr{aDecoratedCB}](nsresult aRv) {
+    decoratedCB->Error(aRv);
+  };
+  mWarnPendingCallback = [decoratedCB = RefPtr{aDecoratedCB}](
+                             nsIContentAnalysisResponse* aResponse) {
+    decoratedCB->WarnPending(aResponse);
+  };
+}
 
 // The start of aTransferable's text/plain flavor, with runs of whitespace
 // collapsed, for the user to recognize a copy by in the DLP panel.
@@ -3721,8 +3788,10 @@ static void GetLocalCopyPreviewText(nsITransferable* aTransferable,
 
 ContentAnalysisLocalCopyInfo::ContentAnalysisLocalCopyInfo(
     uint32_t aState, int32_t aSequenceNumber, nsITransferable* aTransferable,
-    nsIPrincipal* aSourcePrincipal)
-    : mState(aState), mSequenceNumber(aSequenceNumber) {
+    nsIPrincipal* aSourcePrincipal, const nsACString& aWarnRequestToken)
+    : mState(aState),
+      mSequenceNumber(aSequenceNumber),
+      mWarnRequestToken(aWarnRequestToken) {
   GetLocalCopyPreviewText(aTransferable, kLocalCopyPreviewCodePoints, mPreview);
   if (nsIPrincipal* principal = aSourcePrincipal) {
     nsAutoCString host;
@@ -3749,6 +3818,11 @@ NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetPreview(nsAString& aPreview) {
 NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetSourceHost(
     nsAString& aSourceHost) {
   aSourceHost = mSourceHost;
+  return NS_OK;
+}
+NS_IMETHODIMP ContentAnalysisLocalCopyInfo::GetWarnRequestToken(
+    nsACString& aWarnRequestToken) {
+  aWarnRequestToken = mWarnRequestToken;
   return NS_OK;
 }
 
