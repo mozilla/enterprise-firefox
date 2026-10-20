@@ -16,6 +16,8 @@ const lazy = {};
 
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
+    IPPEnterpriseTelemetry:
+      "moz-src:///toolkit/components/ipprotection/enterprise/IPPEnterpriseTelemetry.sys.mjs",
     IPPAlwaysOn:
       "moz-src:///toolkit/components/ipprotection/enterprise/IPPAlwaysOn.sys.mjs",
   });
@@ -49,6 +51,7 @@ const coreHelpers = [
   IPPSessionPrefManager,
   activationHelper(),
   IPPNimbusHelper,
+  AppConstants.MOZ_ENTERPRISE && lazy.IPPEnterpriseTelemetry,
 ].filter(Boolean);
 
 let extraHelpers = [];
