@@ -157,11 +157,61 @@ add_task(async function test_cookies_cleared_with_preset_marker() {
     [],
     "Stored cookies for blocked origins are cleared even if the marker pref is set"
   );
-  Services.prefs.clearUserPref(markerPref);
+  ok(
+    !Services.prefs.prefHasUserValue(markerPref),
+    "The obsolete marker pref is cleared"
+  );
+});
+
+add_task(async function test_only_blocked_host_and_subdomains_cleared() {
+  const hosts = [
+    "example.org",
+    "www.example.org",
+    "ads.example.org",
+    "tracker.ads.example.org",
+  ];
+  for (const host of hosts) {
+    const cv = Services.cookies.add(
+      host,
+      "/",
+      "insecure",
+      "true",
+      false,
+      false,
+      false,
+      Date.now() + 24 * 60 * 60,
+      {},
+      Ci.nsICookie.SAMESITE_UNSET,
+      Ci.nsICookie.SCHEME_HTTP
+    );
+    Assert.equal(cv.result, Ci.nsICookieValidation.eOK);
+  }
+
+  await setupPolicyEngineWithJson({
+    policies: {
+      Cookies: {
+        Block: ["http://ads.example.org"],
+      },
+    },
+  });
+
+  deepEqual(
+    Services.cookies
+      .getCookiesWithOriginAttributes("{}", "example.org")
+      .map(cookie => cookie.rawHost)
+      .sort(),
+    ["example.org", "www.example.org"],
+    "Only cookies of the blocked host and its subdomains are cleared"
+  );
 });
 
 add_task(function teardown() {
-  for (let host of [HOSTNAME_DOMAIN, ORIGIN_DOMAIN, "example.net"]) {
+  for (let host of [
+    HOSTNAME_DOMAIN,
+    ORIGIN_DOMAIN,
+    "example.net",
+    "example.org",
+  ]) {
     Services.cookies.removeCookiesWithOriginAttributes("{}", host);
   }
 });
