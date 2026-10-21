@@ -611,6 +611,12 @@ def decision(options, parameters):
 
     from gecko_taskgraph.decision import taskgraph_decision
 
+    # WIP - HACK FOR TRY: generate the graph without creating any task.
+    if os.environ.get("TASKGRAPH_DRY_RUN"):
+        from taskgraph import create
+
+        create.testing = True
+
     taskgraph_decision(options, parameters)
 
 
@@ -649,6 +655,100 @@ def action_callback(options):
         )
     except Exception:
         traceback.print_exc()
+        sys.exit(1)
+
+
+@command(
+    "trigger-action", description="Trigger an action registered by a decision task"
+)
+@argument(
+    "--decision-task-id",
+    required=True,
+    help="Task providing the public/actions.json artifact",
+)
+@argument("--task-id", default=None, help="TaskId to which the action applies")
+@argument("--input", default=None, help="Action input, as JSON")
+@argument(
+    "--dry-run",
+    action="store_true",
+    help="Print the hook and its payload without triggering it",
+)
+@argument("name", help="Action name")
+def trigger_action(options):
+    from taskgraph.util import json
+
+    from gecko_taskgraph.actions.util import trigger_action
+
+    try:
+        hook_group_id, hook_id, payload = trigger_action(
+            options["name"],
+            options["decision_task_id"],
+            task_id=options["task_id"],
+            input=json.loads(options["input"]) if options["input"] else {},
+            dry_run=options["dry_run"],
+        )
+        print(f"{hook_group_id}/{hook_id}")
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    except Exception:
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@command(
+    "verify-actions",
+    description="Check that the actions registered by a decision or action task "
+    "target the hooks of the .taskcluster.yml it was created from",
+)
+@argument("task_id", help="Task providing the actions.json artifact")
+@argument(
+    "--artifact",
+    default="public/actions.json",
+    help="Name of the actions.json artifact",
+)
+def verify_actions(options):
+    import hashlib
+
+    import requests
+    from taskcluster.exceptions import TaskclusterRestFailure
+    from taskgraph.util.taskcluster import (
+        get_artifact,
+        get_task_definition,
+        get_taskcluster_client,
+    )
+
+    task_id = options["task_id"]
+    env = get_task_definition(task_id)["payload"]["env"]
+    tcyml_url = (
+        f"{env['GECKO_HEAD_REPOSITORY']}/raw/{env['GECKO_HEAD_REV']}/.taskcluster.yml"
+    )
+    response = requests.get(tcyml_url)
+    response.raise_for_status()
+    tcyml_hash = hashlib.sha256(response.content).hexdigest()[:10]
+    print(f"{tcyml_url}: {tcyml_hash}")
+
+    hooks = get_taskcluster_client("hooks")
+    errors = 0
+    for action in get_artifact(task_id, options["artifact"])["actions"]:
+        hook_group_id, hook_id = action["hookGroupId"], action["hookId"]
+        problems = []
+        if hook_id.rsplit("/", 1)[-1] != tcyml_hash:
+            problems.append("hash mismatch")
+        try:
+            hooks.hook(hook_group_id, hook_id)
+        except TaskclusterRestFailure as e:
+            problems.append(f"hook missing ({e.status_code})")
+        comm = action["hookPayload"]["decision"]["parameters"].get("comm")
+        root = (comm or {}).get("root", "taskcluster")
+        checkout = "comm checkout" if comm else "no comm checkout"
+        status = ", ".join(problems) or "ok"
+        print(
+            f"{action['name']:<32} {hook_group_id}/{hook_id} "
+            f"[root={root}, {checkout}] {status}"
+        )
+        errors += bool(problems)
+
+    if errors:
+        print(f"{errors} action(s) target an unexpected or missing hook")
         sys.exit(1)
 
 

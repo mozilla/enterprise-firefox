@@ -133,6 +133,13 @@ topic.
   is intended to be shipped. This can be used to alter properties of tasks, such as
   their priority.
 
+`comm_checkout`
+
+: The thunderbird-desktop repository, ref and revision of the Enterprise
+  Thunderbird graph scheduled along this push by the `comm-decision` action,
+  with the revision pinned in `taskcluster/comm_rev.yml`. `null` when no
+  Thunderbird graph is scheduled.
+
 ## Tree Information
 
 `project`

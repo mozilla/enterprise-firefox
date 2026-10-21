@@ -353,6 +353,32 @@ def action_callback(command_context, **options):
 
 @SubCommand(
     "taskgraph",
+    "trigger-action",
+    description="Trigger an action registered by a decision task",
+    parser=partial(get_taskgraph_command_parser, "trigger-action"),
+)
+def trigger_action(command_context, **options):
+    from gecko_taskgraph.main import commands as taskgraph_commands
+
+    setup_logging(command_context)
+    taskgraph_commands["trigger-action"].func(options)
+
+
+@SubCommand(
+    "taskgraph",
+    "verify-actions",
+    description="Check the action hooks registered by a decision or action task",
+    parser=partial(get_taskgraph_command_parser, "verify-actions"),
+)
+def verify_actions(command_context, **options):
+    from gecko_taskgraph.main import commands as taskgraph_commands
+
+    setup_logging(command_context)
+    taskgraph_commands["verify-actions"].func(options)
+
+
+@SubCommand(
+    "taskgraph",
     "test-action-callback",
     description="Run an action callback in a testing mode",
     parser=partial(get_taskgraph_command_parser, "test-action-callback"),

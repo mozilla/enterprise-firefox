@@ -67,6 +67,9 @@ class GeckoParametersSchema(Schema, kw_only=True, rename=None):
     backstop: bool
     dontbuild: bool
     build_number: int
+    # Thunderbird checkout scheduled by the `comm-decision` action, see
+    # gecko_taskgraph.util.comm.get_comm_checkout.
+    comm_checkout: Optional[dict[str, str]] = None
     enable_always_target: Union[bool, list[str]]
     files_changed: list[str]
     hg_branch: Optional[str]
@@ -131,6 +134,7 @@ def get_defaults(repo_root=None):
         "dontbuild": False,
         "base_repository": "https://hg.mozilla.org/mozilla-unified",
         "build_number": 1,
+        "comm_checkout": None,
         "enable_always_target": ["docker-image"],
         "files_changed": lambda: sorted(get_locally_changed_files(repo_root)),
         "head_repository": "https://hg.mozilla.org/mozilla-central",
@@ -166,5 +170,9 @@ def register_parameters():
 
 
 def get_decision_parameters(graph_config, parameters):
+    from gecko_taskgraph.util.comm import get_comm_checkout
+
+    parameters["comm_checkout"] = get_comm_checkout(parameters)
+
     if pr_number := os.environ.get("GECKO_PULL_REQUEST_NUMBER", None):
         parameters["pull_request_number"] = int(pr_number)

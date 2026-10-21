@@ -24,7 +24,7 @@ from taskgraph.taskgraph import TaskGraph
 from taskgraph.util import json
 from taskgraph.util.vcs import get_repository
 
-from tryselect.util.project import get_project_topsrcdir
+from tryselect.util.project import get_project_topsrcdir, is_enterprise_tree
 
 here = os.path.abspath(os.path.dirname(__file__))
 build = MozbuildObject.from_environment(cwd=here)
@@ -40,8 +40,13 @@ def comm_parameter_overrides(comm_topsrcdir):
     rev = repo.head_rev
     ref = repo.branch or rev
     src_path = os.path.relpath(comm_topsrcdir, build.topsrcdir).replace(os.sep, "/")
+    project = (
+        "enterprise-thunderbird-try"
+        if is_enterprise_tree(build.topsrcdir)
+        else "try-comm-central"
+    )
     return {
-        "project": "try-comm-central",
+        "project": project,
         "comm_head_repository": "https://hg.mozilla.org/comm-central",
         "comm_head_rev": rev,
         "comm_head_ref": ref,

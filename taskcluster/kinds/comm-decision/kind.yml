@@ -1,0 +1,54 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - gecko_taskgraph.transforms.comm_decision:transforms
+    - gecko_taskgraph.transforms.job:transforms
+    - gecko_taskgraph.transforms.task:transforms
+
+tasks:
+    thunderbird:
+        description: >-
+            Trigger the comm-decision action, which generates the Enterprise
+            Thunderbird task graph of this push.
+        run-on-repo-type: [git]
+        run-on-projects: [enterprise-firefox, enterprise-firefox-try]
+        worker-type: t-linux-docker-amd
+        worker:
+            docker-image: {in-tree: "lint"}
+            max-run-time: 3600
+            taskcluster-proxy: true
+            env:
+                DECISION_TASK_ID: {task-reference: <decision>}
+                # WIP - HACK FOR TRY
+                COMM_DECISION_DRY_RUN: "1"
+            artifacts:
+                - type: directory
+                  name: public/comm-decision
+                  path: /builds/worker/artifacts/comm-decision
+        treeherder:
+            kind: other
+            platform: gecko-decision/opt
+            symbol: DC
+            tier: 1
+        run:
+            using: run-task
+            cwd: '{checkout}'
+            # WIP - HACK FOR TRY: run the comm-decision callback in dry-run
+            # mode instead of triggering its hook.
+            command: >-
+                git init -q comm &&
+                git -C comm fetch -q --depth 1 "$DCT_COMM_REPOSITORY" "$DCT_COMM_REV" &&
+                git -C comm checkout -q FETCH_HEAD &&
+                sed -i 's|^trust-domain: .*|trust-domain: enterprise|g' comm/taskcluster/config.yml &&
+                sed -i 's|^    scope-prefix: .*|    scope-prefix: project:enterprise:releng|g' comm/taskcluster/config.yml &&
+                mkdir -p /builds/worker/artifacts/comm-decision &&
+                ln -s /builds/worker/artifacts/comm-decision artifacts &&
+                ./mach taskgraph test-action-callback
+                --parameters "task-id=$DECISION_TASK_ID"
+                --task-group-id "$DECISION_TASK_ID"
+                comm-decision
+            sparse-profile: taskgraph
