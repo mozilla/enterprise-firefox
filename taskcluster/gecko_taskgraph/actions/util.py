@@ -83,7 +83,12 @@ def _extract_applicable_action(actions_json, action_name, task_group_id, task_id
     )
 
 
-def trigger_action(action_name, decision_task_id, task_id=None, input={}):
+def trigger_action(
+    action_name, decision_task_id, task_id=None, input={}, dry_run=False
+):
+    """Trigger the hook of an action from the actions.json of a decision task.
+
+    Returns the hookGroupId, hookId and payload of the hook."""
     if not decision_task_id:
         raise ValueError("No decision task. We can't find the actions artifact.")
     actions_json = get_artifact(decision_task_id, "public/actions.json")
@@ -102,13 +107,14 @@ def trigger_action(action_name, decision_task_id, task_id=None, input={}):
         actions_json, action_name, decision_task_id, task_id
     )
     kind = action["kind"]
-    if create.testing:
-        logger.info(f"Skipped triggering action for {kind} as testing is enabled")
-    elif kind == "hook":
-        hook_payload = jsone.render(action["hookPayload"], context)
-        trigger_hook(action["hookGroupId"], action["hookId"], hook_payload)
-    else:
+    if kind != "hook":
         raise NotImplementedError(f"Unable to submit actions with {kind} kind.")
+    hook_payload = jsone.render(action["hookPayload"], context)
+    if create.testing or dry_run:
+        logger.info(f"Skipped triggering action for {kind} as testing is enabled")
+    else:
+        trigger_hook(action["hookGroupId"], action["hookId"], hook_payload)
+    return action["hookGroupId"], action["hookId"], hook_payload
 
 
 def get_pushes_from_params_input(parameters, input):

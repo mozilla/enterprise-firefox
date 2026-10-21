@@ -17,7 +17,7 @@ from mozbuild.base import MozbuildObject
 from mozversioncontrol import MissingVCSExtension, get_repository_object
 
 from .lando import push_to_lando_try
-from .util.project import get_project_topsrcdir, is_thunderbird_try
+from .util.project import get_project_topsrcdir, is_enterprise_tree, is_thunderbird_try
 from .util.taskcluster import get_client
 
 GIT_CINNABAR_NOT_FOUND = """
@@ -45,6 +45,15 @@ error: could not detect version control (only `hg` or `git` are supported)
 NO_REMOTE_CONFIGURED = """
 error: no version control remote configured
 """.strip()
+
+NO_COMM_REMOTE_CONFIGURED = """
+error: pushing comm/ to Enterprise try needs a GitHub remote the decision task
+can fetch it from: set MACH_TRY_COMM_REMOTE to a remote name or URL of your
+thunderbird-desktop fork.
+""".strip()
+
+# Label of the gecko task triggering the `comm-decision` action.
+COMM_DECISION_LABEL = "comm-decision-thunderbird"
 
 UNCOMMITTED_CHANGES = """
 error: commit changes before continuing
@@ -256,6 +265,48 @@ def push_to_git_backing(prefix: str) -> str:
         os.remove(keyfile_name)
 
 
+def _github_https_url(url):
+    if url.startswith("git@github.com:"):
+        url = "https://github.com/" + url[len("git@github.com:") :]
+    elif url.startswith("ssh://git@github.com/"):
+        url = "https://github.com/" + url[len("ssh://git@github.com/") :]
+    return url.removesuffix(".git")
+
+
+def push_comm_to_github():
+    """Push the comm/ head where the Enterprise decision task can fetch it.
+
+    Returns the `comm_checkout` parameter of the Gecko decision task."""
+    remote = os.environ.get("MACH_TRY_COMM_REMOTE")
+    if not remote:
+        print(NO_COMM_REMOTE_CONFIGURED)
+        sys.exit(1)
+
+    url = remote if ("://" in remote or "@" in remote) else vcs.get_remote_url(remote)
+    sha = vcs.head_rev
+    branch = f"try/{sha}"
+    vcs.push(remote, ref=sha, dest_branch=branch, force=True)
+    repository = _github_https_url(url)
+    return {
+        "base_repository": repository,
+        "base_ref": f"refs/heads/{branch}",
+        "base_rev": sha,
+        "head_repository": repository,
+        "head_ref": f"refs/heads/{branch}",
+        "head_rev": sha,
+    }
+
+
+def add_comm_decision(try_task_config, comm_checkout):
+    parameters = try_task_config.setdefault("parameters", {})
+    parameters["comm_checkout"] = comm_checkout
+    tasks = parameters.setdefault("try_task_config", {}).setdefault("tasks", [])
+    if COMM_DECISION_LABEL not in tasks:
+        tasks.append(COMM_DECISION_LABEL)
+        tasks.sort()
+    return try_task_config
+
+
 def push_to_try(
     method,
     msg,
@@ -272,7 +323,12 @@ def push_to_try(
 ):
     push = not stage_changes and not dry_run
 
-    if push and is_thunderbird_try(build):
+    # On Enterprise trees, comm/ is pushed along Gecko to the Git try
+    # repository, whose decision task schedules the Thunderbird graph.
+    enterprise_comm = is_thunderbird_try(build) and is_enterprise_tree(build.topsrcdir)
+    push_vcs = get_repository_object(build.topsrcdir) if enterprise_comm else vcs
+
+    if push and is_thunderbird_try(build) and not enterprise_comm:
         remote = HG_TRY_URL + "-comm-central"
     else:
         remote = os.environ.get("MACH_TRY_REMOTE") or MACH_TRY_REMOTE
@@ -294,6 +350,14 @@ def push_to_try(
     commit_message = f"{msg}{closed_tree_string}\n\n{full_commandline_entry}\n\nPushed via `mach try {method}`"
 
     changed_files = {}
+
+    if enterprise_comm and try_task_config:
+        comm_checkout = (
+            push_comm_to_github()
+            if push
+            else {"head_repository": "<MACH_TRY_COMM_REMOTE>", "head_rev": vcs.head_rev}
+        )
+        try_task_config = add_comm_decision(try_task_config, comm_checkout)
 
     if not push:
         print("Commit message:")
@@ -336,7 +400,7 @@ def push_to_try(
         # so the decision task can't tell what the push changed. Record the real base
         # for it.
         try_task_config.setdefault("parameters", {})["base_rev"] = (
-            vcs.base_ref_as_commit()
+            push_vcs.base_ref_as_commit()
         )
 
     if try_task_config:
@@ -348,7 +412,7 @@ def push_to_try(
         )
         changed_files["try_task_config.json"] = try_task_config_file
         if write_task_config:
-            path = os.path.join(vcs.path, "try_task_config.json")
+            path = os.path.join(push_vcs.path, "try_task_config.json")
             with open(path, "w") as fh:
                 fh.write(try_task_config_file)
             print(f"Wrote {path}")
@@ -362,7 +426,7 @@ def push_to_try(
     print("Pushing to try...")
     try:
         if push_to_vcs:
-            vcs.push_to_try(
+            push_vcs.push_to_try(
                 commit_message,
                 changed_files=changed_files,
                 allow_log_capture=allow_log_capture,

@@ -612,5 +612,35 @@ def test_push_to_try_skips_git_backing_when_disabled():
     assert "head_git_rev" not in config.get("parameters", {})
 
 
+@pytest.mark.parametrize(
+    "url",
+    (
+        "git@github.com:someone/thunderbird-desktop.git",
+        "ssh://git@github.com/someone/thunderbird-desktop.git",
+        "https://github.com/someone/thunderbird-desktop",
+    ),
+)
+def test_github_https_url(url):
+    assert (
+        push._github_https_url(url) == "https://github.com/someone/thunderbird-desktop"
+    )
+
+
+def test_add_comm_decision():
+    checkout = {"head_repository": "https://github.com/someone/thunderbird-desktop"}
+    config = push.generate_try_task_config("fuzzy", ["build-linux64/opt"])
+    config = push.add_comm_decision(config, checkout)
+    assert config["parameters"]["comm_checkout"] == checkout
+    assert config["parameters"]["try_task_config"]["tasks"] == [
+        "build-linux64/opt",
+        push.COMM_DECISION_LABEL,
+    ]
+    config = push.add_comm_decision(config, checkout)
+    assert (
+        config["parameters"]["try_task_config"]["tasks"].count(push.COMM_DECISION_LABEL)
+        == 1
+    )
+
+
 if __name__ == "__main__":
     mozunit.main()
