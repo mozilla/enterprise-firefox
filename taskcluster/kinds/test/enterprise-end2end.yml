@@ -9,8 +9,7 @@ task-defaults:
     tier: default
     attributes:
         code-review: true
-    # Smallest worker available in the t-* category
-    worker-type: t-linux-docker-noscratch-amd
+    worker-type: t-linux-arm64-docker
     suite: enterprise-end2end
     allow-software-gl-layers: false
     max-run-time: 7200
