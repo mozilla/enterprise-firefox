@@ -22,3 +22,6 @@ class StartupPolicyDisableSafeModeUnset(FeltTests):
         assert self.get_env_child("MOZ_ENTERPRISE_DISABLE_SAFE_MODE") == "", (
             "No DisableSafeMode policy should mean no environment variable"
         )
+        assert self.get_env_child("MOZ_DISABLE_AUTO_SAFE_MODE") == "", (
+            "No DisableSafeMode policy should mean no MOZ_DISABLE_AUTO_SAFE_MODE"
+        )

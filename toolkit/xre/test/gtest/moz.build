@@ -21,6 +21,13 @@ if CONFIG["OS_TARGET"] == "WINNT":
         "TestAssembleCommandLineWin.cpp",
     ]
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    UNIFIED_SOURCES += [
+        "TestSafeMode.cpp",
+    ]
+    # For PolicyChecks.h, included by SafeMode.h on Windows.
+    DEFINES["MOZ_APP_BASENAME"] = '"%s"' % CONFIG["MOZ_APP_BASENAME"]
+
 if CONFIG["MOZ_BLOCK_PROFILE_DOWNGRADE"]:
     UNIFIED_SOURCES += [
         "TestDowngradePing.cpp",
