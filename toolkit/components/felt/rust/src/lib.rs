@@ -46,18 +46,6 @@ pub(crate) static SHUTDOWN_LOCK_INTENT: AtomicBool = AtomicBool::new(false);
 // Whether a browser restart locks the session instead of signing out.
 pub(crate) static RESTART_LOCK_INTENT: AtomicBool = AtomicBool::new(false);
 
-fn normalize_arg(arg: String) -> String {
-    let mut normalized = arg;
-    normalized.retain(|c| c != '-' && c != '/');
-    normalized.to_lowercase()
-}
-
-fn arg_matches(target: &str) -> bool {
-    env::args()
-        .into_iter()
-        .any(|arg| normalize_arg(arg) == target)
-}
-
 fn has_env(target: &str) -> bool {
     match env::var(target) {
         Ok(v) => v == "1",
@@ -73,6 +61,17 @@ fn bypass_allowed() -> bool {
     matches!(mozbuild::config::MOZ_UPDATE_CHANNEL, "default")
 }
 
+extern "C" {
+    // Defined in toolkit/xre/nsAppRunner.cpp.
+    fn felt_check_arg_exists(arg: *const c_char) -> bool;
+}
+
+/// Whether the command line has the flag `arg` (lowercase), parsed the same
+/// way as every other Gecko flag.
+fn has_arg(arg: &CStr) -> bool {
+    unsafe { felt_check_arg_exists(arg.as_ptr()) }
+}
+
 #[no_mangle]
 pub extern "C" fn felt_init() {
     trace!("felt_init()");
@@ -84,11 +83,11 @@ pub extern "C" fn felt_init() {
 
     // There may be a -chrome ... being passed on the CLI, e.g. for jsdebugger
     // in this case, it is not expected the FELT UI is shown, not the browser UI
-    let force_chrome = arg_matches("chrome");
+    let force_chrome = has_arg(cstr!("chrome"));
     trace!("felt_init(): force_chrome={}", force_chrome);
 
-    let felt_ui_requested = arg_matches("feltui") || found_felt_ui_env;
-    let is_felt_browser = arg_matches("felt") && !force_chrome;
+    let felt_ui_requested = has_arg(cstr!("feltui")) || found_felt_ui_env;
+    let is_felt_browser = has_arg(cstr!("felt")) && !force_chrome;
 
     if is_felt_browser && felt_ui_requested {
         panic!("Cannot have both -feltUI and -felt args");
@@ -101,7 +100,7 @@ pub extern "C" fn felt_init() {
     trace!("felt_init(): is_felt_browser={}", is_felt_browser);
     IS_FELT_BROWSER.store(is_felt_browser, Ordering::Relaxed);
 
-    let is_felt_safe_mode = arg_matches("safemode");
+    let is_felt_safe_mode = has_arg(cstr!("safe-mode"));
     trace!("felt_init(): is_felt_safe_mode={}", is_felt_safe_mode);
     IS_FELT_SAFE_MODE.store(is_felt_safe_mode, Ordering::Relaxed);
 

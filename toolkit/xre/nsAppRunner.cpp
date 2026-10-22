@@ -556,6 +556,12 @@ static ArgResult CheckArgExists(const char* aArg) {
   return CheckArg(aArg, nullptr, CheckArgFlag::None);
 }
 
+#if defined(MOZ_ENTERPRISE)
+bool felt_check_arg_exists(const char* aArg) {
+  return CheckArgExists(aArg) != ARG_NONE;
+}
+#endif
+
 static bool RequestedHeadlessMode() {
   return CheckArgExists("headless") || CheckArgExists("screenshot");
 }
