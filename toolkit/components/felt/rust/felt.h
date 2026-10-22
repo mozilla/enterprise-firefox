@@ -34,6 +34,10 @@ void firefox_felt_connection_start_thread();
 
 bool firefox_felt_is_startup_complete();
 
+bool is_managed_app_disconnected_from_felt();
+
+bool is_managed_app_shutdown_requested();
+
 bool firefox_felt_clear_stored_console_url(const nsACString* aFeltJsonPath);
 
 bool firefox_felt_console_address_from_autoconfig(const nsACString* aContents,
