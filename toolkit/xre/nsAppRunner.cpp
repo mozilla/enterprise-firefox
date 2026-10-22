@@ -7086,7 +7086,7 @@ nsresult XREMain::XRE_mainRun() {
         return NS_OK;
       }
       if (is_managed_app_disconnected_from_felt()) {
-        fprintf(stderr, "Error: Felt connection closed during startup.\n");
+        Output(true, "Error: Felt connection closed during startup.\n");
         return NS_ERROR_FAILURE;
       }
     }

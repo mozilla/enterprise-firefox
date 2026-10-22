@@ -52,9 +52,10 @@ class FeltIpcDisconnect(FeltTests):
     def test_disconnect_before_startup_ready(self):
         self._hold_felt_after_child_exit()
         self._prepare_felt_keystore()
-        # Stall FELT after prefs are sent so Ready is never sent and the browser
-        # stays blocked in its startup wait; publish the browser pid in a FELT
-        # pref so the test can find it.
+        # Both wrappers call the real methods. _awaitAnnouncedBrowserPid records
+        # the browser pid (proc.pid is the launcher on Windows).
+        # sendPrefsToFirefox publishes that pid, then never resolves, so FELT
+        # never sends Ready and the browser stays in its startup wait.
         with self._driver.using_context("chrome"):
             self._driver.execute_script(
                 """
