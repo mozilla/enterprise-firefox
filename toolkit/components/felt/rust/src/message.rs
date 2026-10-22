@@ -53,6 +53,7 @@ pub enum FeltMessage {
     BoolPreference((String, bool)),
     StringPreference((String, String)),
     IntPreference((String, i32)),
+    LockedIntPreference((String, i32)),
     StartupReady,
     AccessToken((String, i64)),
     /// The console-supplied primarySecret (64-char hex string), shipped
@@ -85,4 +86,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 16;
+pub const FELT_IPC_VERSION: u32 = 17;

@@ -67,6 +67,9 @@ interface nsIFelt : nsISupports {
   void sendIntPreference(in ACString name, in int32_t value);
 
   [must_use]
+  void sendLockedIntPreference(in ACString name, in int32_t value);
+
+  [must_use]
   void sendCookies(in Array<nsICookie> cookies);
 
   [must_use]

@@ -11,6 +11,37 @@ from pathlib import Path
 sys.path.append(os.path.dirname(__file__))
 
 from felt_browser_starts import FeltStartsBrowser
+from felt_consts import firefox_config
+
+POLLING_INTERVAL_PREF = firefox_config["polling_frequency"]["pref_id"]
+
+
+def ensure_polling_interval_locked(driver):
+    expected = firefox_config["polling_frequency"]["pref_value"]
+    driver.set_context("chrome")
+    locked, value = driver.execute_script(
+        """
+        const [pref] = arguments;
+        Services.prefs.setIntPref(pref, 2147483647);
+        return [Services.prefs.prefIsLocked(pref), Services.prefs.getIntPref(pref)];
+        """,
+        [POLLING_INTERVAL_PREF],
+    )
+    driver.set_context("content")
+    assert locked, f"{POLLING_INTERVAL_PREF} is not locked"
+    assert value == expected, (
+        f"{POLLING_INTERVAL_PREF} is {value} instead of {expected}"
+    )
+
+
+class FeltStartsBrowserPollingIntervalPlanted(FeltStartsBrowser):
+    # A user value of another type must not prevent Felt from locking the pref.
+    EXTRA_CHILD_PREFS = {POLLING_INTERVAL_PREF: "planted"}
+
+    def test_felt_locks_planted_polling_interval(self):
+        super().run_felt_base()
+        self.run_felt_browser_started()
+        ensure_polling_interval_locked(self._child_driver)
 
 
 class FeltStartsBrowserCli(FeltStartsBrowser):
@@ -18,6 +49,7 @@ class FeltStartsBrowserCli(FeltStartsBrowser):
         super().run_felt_base()
         self.run_felt_browser_started()
         self.run_ensure_firefox_config_set_in_browser()
+        ensure_polling_interval_locked(self._child_driver)
         self.run_ensure_profile_encryption(self._driver.profile)
         self.run_ensure_profile_encryption(self._child_driver.profile)
 
