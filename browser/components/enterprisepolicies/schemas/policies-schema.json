@@ -4486,12 +4486,17 @@
           },
           "Crash": {
             "Action": "lock"
+          },
+          "NetworkLoss": {
+            "Action": "lock",
+            "GracePeriodMinutes": 720
           }
         }
       ],
       "properties": {
         "Shutdown": {
           "type": "object",
+          "description": "Applies when the user quits the browser.",
           "properties": {
             "Action": {
               "type": "string",
@@ -4513,6 +4518,7 @@
         },
         "Restart": {
           "type": "object",
+          "description": "Applies when the browser restarts to apply a pending update.",
           "properties": {
             "Action": {
               "type": "string",
@@ -4534,6 +4540,7 @@
         },
         "Crash": {
           "type": "object",
+          "description": "Applies when repeated crashes stop the browser from restarting.",
           "properties": {
             "Action": {
               "type": "string",
@@ -4549,6 +4556,39 @@
                   "description": "Lock the session when repeated crashes stop the browser from restarting, so the next launch only requires the user to unlock."
                 }
               ]
+            }
+          },
+          "required": ["Action"]
+        },
+        "NetworkLoss": {
+          "type": "object",
+          "description": "Applies when the enterprise console stays unreachable for the whole grace period. Without the console, the browser can't receive policy updates or a remote sign-out, so this keeps a disconnected device from holding on to a session.",
+          "properties": {
+            "Action": {
+              "type": "string",
+              "oneOf": [
+                {
+                  "const": "signout",
+                  "title": "Sign out",
+                  "description": "Sign the session out once the enterprise console has been unreachable for the whole grace period, so the next launch requires a full sign-in."
+                },
+                {
+                  "const": "lock",
+                  "title": "Lock",
+                  "description": "Lock the session once the enterprise console has been unreachable for the whole grace period, so the next launch only requires the user to unlock."
+                },
+                {
+                  "const": "none",
+                  "title": "Do nothing",
+                  "description": "Leave the session running regardless of console availability. This is what happens when the policy is not set."
+                }
+              ]
+            },
+            "GracePeriodMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 35791,
+              "description": "How many minutes the enterprise console may stay unreachable before the session is ended. Ignored when the action is \"none\". Defaults to 720 (12 hours)."
             }
           },
           "required": ["Action"]

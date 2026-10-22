@@ -78,14 +78,18 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn notify_signout(&self) {
-        trace!("FeltIpcClient::notify_signout()");
-        let msg = FeltMessage::LogoutShutdown;
-        if let Some(tx) = &self.tx {
-            match tx.send(msg) {
-                Ok(()) => trace!("FeltIpcClient::notify_signout() SENT"),
-                Err(err) => trace!("FeltIpcClient::notify_signout() TX ERROR: {}", err),
-            }
+    pub fn notify_signout(&self, reason: Option<String>) -> nsresult {
+        trace!("FeltIpcClient::notify_signout({:?})", reason);
+        let msg = FeltMessage::LogoutShutdown(reason);
+        match &self.tx {
+            Some(tx) => match tx.send(msg) {
+                Ok(()) => NS_OK,
+                Err(err) => {
+                    trace!("FeltIpcClient::notify_signout() TX ERROR: {}", err);
+                    NS_ERROR_CONNECTION_REFUSED
+                }
+            },
+            None => NS_ERROR_NOT_CONNECTED,
         }
     }
 
@@ -120,14 +124,13 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn notify_refresh_tokens(&self) {
-        trace!("FeltIpcClient::notify_refresh_tokens()");
-        let msg = FeltMessage::RefreshTokens;
-        if let Some(tx) = &self.tx {
-            match tx.send(msg) {
-                Ok(()) => trace!("FeltIpcClient::notify_refresh_tokens() SENT"),
-                Err(err) => trace!("FeltIpcClient::notify_refresh_tokens() TX ERROR: {}", err),
-            }
+    pub fn notify_refresh_tokens(&self, request_id: u32) -> nsresult {
+        match &self.tx {
+            Some(tx) => match tx.send(FeltMessage::RefreshTokens(request_id)) {
+                Ok(()) => NS_OK,
+                Err(_) => NS_ERROR_CONNECTION_REFUSED,
+            },
+            None => NS_ERROR_NOT_CONNECTED,
         }
     }
 
@@ -275,7 +278,13 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::start_thread::observe() quit-application: shutdown");
                                     let lock_intent =
                                         crate::SHUTDOWN_LOCK_INTENT.load(Ordering::Relaxed);
-                                    if let Err(err) = tx.send(FeltMessage::Exiting(lock_intent)) {
+                                    let reason = crate::SHUTDOWN_LOCK_REASON
+                                        .lock()
+                                        .ok()
+                                        .and_then(|guard| guard.clone());
+                                    if let Err(err) =
+                                        tx.send(FeltMessage::Exiting(lock_intent, reason))
+                                    {
                                         trace!("FeltClientThread::start_thread::observe() failed to send shutdown: {:?}", err);
                                     }
                                 }
@@ -419,6 +428,15 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): UpdateReady");
                                     utils::notify_observers("felt-update-ready".to_string());
                                 },
+                                Ok(FeltMessage::TokenRefreshResult { request_id, access_token, expires_at, error }) => {
+                                    let payload = serde_json::json!({
+                                        "request_id": request_id,
+                                        "access_token": access_token,
+                                        "expires_at": expires_at,
+                                        "error": error,
+                                    }).to_string();
+                                    utils::notify_observers_with_payload("felt-firefox-token-refresh-result".to_string(), Some(payload));
+                                }
                                 Ok(FeltMessage::AccessToken((access_token, expires_at))) => {
                                     if let Ok(mut tokens) = TOKENS.write() {
                                         *tokens = Tokens { access_token, refresh_token: String::default(), expires_at };
@@ -438,6 +456,14 @@ impl FeltClientThread {
                                 Ok(FeltMessage::Shutdown) => {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): Shutdown");
                                     utils::notify_observers("felt-firefox-shutdown".to_string());
+                                },
+                                Ok(FeltMessage::ReportConsoleReachability(reachable)) => {
+                                    let topic = if reachable {
+                                        "felt-firefox-console-reachable"
+                                    } else {
+                                        "felt-firefox-console-unreachable"
+                                    };
+                                    utils::notify_observers(topic.to_string());
                                 },
                                 Ok(FeltMessage::OpenURL((url, disposition, focus_hint))) => {
                                     trace!(
@@ -508,10 +534,10 @@ impl FeltClientThread {
         client.send_felt_ready();
     }
 
-    pub fn notify_signout(&self) {
-        trace!("FeltClientThread::notify_signout()");
+    pub fn notify_signout(&self, reason: Option<String>) -> nsresult {
+        trace!("FeltClientThread::notify_signout({:?})", reason);
         let client = self.ipc_client.borrow();
-        client.notify_signout();
+        client.notify_signout(reason)
     }
 
     pub fn request_update_check(&self) -> nsresult {
@@ -525,9 +551,9 @@ impl FeltClientThread {
         client.notify_crash_lock_intent(lock_intent)
     }
 
-    pub fn notify_refresh_tokens(&self) {
+    pub fn notify_refresh_tokens(&self, request_id: u32) -> nsresult {
         trace!("FeltClientThread::refresh_tokens()");
         let client = self.ipc_client.borrow();
-        client.notify_refresh_tokens();
+        client.notify_refresh_tokens(request_id)
     }
 }
