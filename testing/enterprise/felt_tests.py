@@ -1262,8 +1262,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 self._logger.info(
                     f"Found PID {pid_to_check}: STATUS:{process_status} :: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
                 )
-                # A different basename means the PID was re-used. The session
-                # may already be gone, so read the app name from the binary.
+                # If process basename is not our expected application name, it is just PID re-use
                 app_name = os.path.splitext(
                     os.path.basename(self._driver.instance.binary)
                 )[0]

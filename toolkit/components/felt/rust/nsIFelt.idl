@@ -32,11 +32,11 @@ interface nsIFelt : nsISupports {
   boolean isFeltBrowser();
 
   /**
-   * Whether the browser has lost its IPC connection to felt. Always false in
-   * the felt UI process.
+   * Whether the managed application has lost its IPC connection to felt. Throws
+   * NS_ERROR_UNEXPECTED when called outside the felt browser.
    */
   [must_use]
-  boolean isDisconnected();
+  boolean isManagedAppDisconnectedFromFelt();
 
   [must_use]
   boolean isFeltSafeMode();

@@ -771,7 +771,7 @@ export const ConsoleClient = {
       Services.obs.addObserver(this, "felt-firefox-shutdown");
 
       // A disconnect noticed before this observer existed notified nobody.
-      if (Services.felt.isDisconnected()) {
+      if (Services.felt.isManagedAppDisconnectedFromFelt()) {
         lazy.log.error("FELT IPC connection already lost, shutting down");
         lazy.ForcedQuitHandler.quitIgnoringCanClose();
       }

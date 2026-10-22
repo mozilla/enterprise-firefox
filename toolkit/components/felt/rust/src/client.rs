@@ -17,11 +17,11 @@ use log::{error, trace};
 use crate::message::{nsICookieWrapper, FeltMessage, FELT_IPC_VERSION};
 use crate::utils::{self, Tokens, TOKENS};
 
-/// Once set, IPC failures are expected because the browser is quitting.
-static NORMAL_BROWSER_SHUTDOWN_REQUESTED: AtomicBool = AtomicBool::new(false);
+/// Once set, IPC failures are expected because the managed app is quitting.
+static MANAGED_APP_SHUTDOWN_REQUESTED: AtomicBool = AtomicBool::new(false);
 
-pub fn is_shutdown_requested() -> bool {
-    NORMAL_BROWSER_SHUTDOWN_REQUESTED.load(Ordering::Acquire)
+pub fn is_managed_app_shutdown_requested() -> bool {
+    MANAGED_APP_SHUTDOWN_REQUESTED.load(Ordering::Acquire)
 }
 
 #[cfg(not(test))]
@@ -36,7 +36,7 @@ fn request_browser_shutdown() {
 
 fn shutdown_browser_on_disconnect(tx: &Mutex<Option<ipc_channel::ipc::IpcSender<FeltMessage>>>) {
     let had_sender = tx.lock().expect("Could not lock sender").take().is_some();
-    if !had_sender || is_shutdown_requested() {
+    if !had_sender || is_managed_app_shutdown_requested() {
         return;
     }
     error!("FELT IPC connection lost, shutting down the browser");
@@ -278,7 +278,7 @@ impl FeltClientThread {
                     }
                     Ok("xpcom-shutdown") => {
                         trace!("FeltClientThread::start_thread::observe() xpcom-shutdown");
-                        NORMAL_BROWSER_SHUTDOWN_REQUESTED.store(true, Ordering::Release);
+                        MANAGED_APP_SHUTDOWN_REQUESTED.store(true, Ordering::Release);
                         if let Err(err) = self.thread_stop.send(true) {
                             trace!("FeltClientThread::start_thread::observe() xpcom-shutdown thread_stop.send() error: {}", err);
                         }
@@ -312,8 +312,7 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::start_thread::observe() quit-application: restart");
                                     let lock_intent =
                                         crate::RESTART_LOCK_INTENT.load(Ordering::Relaxed);
-                                    if let Err(err) = tx.send(FeltMessage::Restarting(lock_intent))
-                                    {
+                                    if let Err(err) = tx.send(FeltMessage::Restarting(lock_intent)) {
                                         trace!("FeltClientThread::start_thread::observe() failed to send restart: {:?}", err);
                                     }
                                 }
@@ -533,7 +532,7 @@ impl FeltClientThread {
                             trace!("FeltClientThread::felt_client::ipc_loop(): MessageReceived OTHER id={} rx_client_id={} rx_thread_id={}...", id, rx_client_id, rx_thread_id);
                         },
 
-                        ipc_channel::ipc::IpcSelectionResult::ChannelClosed(_) => unreachable!(),
+                        ipc_channel::ipc::IpcSelectionResult::ChannelClosed(_) => unreachable!("ChannelClosed must be handled by handle_receive_event so the browser shuts down when FELT disconnects"),
                     }
                 }
                 trace!("FeltClientThread::felt_client::ipc_loop(): DONE");
@@ -579,10 +578,7 @@ impl FeltClientThread {
     }
 
     pub fn notify_crash_lock_intent(&self, lock_intent: bool) -> nsresult {
-        trace!(
-            "FeltClientThread::notify_crash_lock_intent({})",
-            lock_intent
-        );
+        trace!("FeltClientThread::notify_crash_lock_intent({})", lock_intent);
         let client = self.ipc_client.borrow();
         client.notify_crash_lock_intent(lock_intent)
     }
@@ -607,7 +603,7 @@ mod tests {
 
     fn reset_shutdown_state() -> MutexGuard<'static, ()> {
         let guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        NORMAL_BROWSER_SHUTDOWN_REQUESTED.store(false, Ordering::Release);
+        MANAGED_APP_SHUTDOWN_REQUESTED.store(false, Ordering::Release);
         SHUTDOWN_REQUESTS.store(0, Ordering::Release);
         guard
     }
@@ -649,7 +645,7 @@ mod tests {
 
         assert!(client.is_disconnected());
         assert!(!client.is_startup_complete());
-        assert!(!is_shutdown_requested());
+        assert!(!is_managed_app_shutdown_requested());
         assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 1);
         assert!(client.request_update_check() == NS_ERROR_NOT_CONNECTED);
 
@@ -668,7 +664,7 @@ mod tests {
     fn channel_closed_during_normal_shutdown_requests_nothing() {
         let _guard = reset_shutdown_state();
         let (client, _rx) = connected_client();
-        NORMAL_BROWSER_SHUTDOWN_REQUESTED.store(true, Ordering::Release);
+        MANAGED_APP_SHUTDOWN_REQUESTED.store(true, Ordering::Release);
 
         assert!(!client.is_disconnected());
         assert!(!client.is_startup_complete());
@@ -754,7 +750,7 @@ mod tests {
 
         assert!(client.request_update_check() == NS_ERROR_CONNECTION_REFUSED);
         assert!(!client.is_disconnected());
-        assert!(!is_shutdown_requested());
+        assert!(!is_managed_app_shutdown_requested());
         assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 0);
     }
 
@@ -764,7 +760,7 @@ mod tests {
         let client = FeltIpcClient::default();
 
         assert!(client.request_update_check() == NS_ERROR_NOT_CONNECTED);
-        assert!(!is_shutdown_requested());
+        assert!(!is_managed_app_shutdown_requested());
         assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 0);
     }
 
@@ -780,7 +776,7 @@ mod tests {
         )
         .is_none());
         assert!(client.tx.lock().unwrap().is_none());
-        assert!(!is_shutdown_requested());
+        assert!(!is_managed_app_shutdown_requested());
         assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 0);
     }
 
@@ -796,7 +792,7 @@ mod tests {
         )
         .is_none());
         assert!(client.tx.lock().unwrap().is_none());
-        assert!(!is_shutdown_requested());
+        assert!(!is_managed_app_shutdown_requested());
         assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 0);
     }
 
@@ -808,7 +804,7 @@ mod tests {
         assert!(client.request_update_check() == NS_OK);
         assert!(matches!(rx.recv().unwrap(), FeltMessage::CheckForUpdates));
         assert!(!client.is_disconnected());
-        assert!(!is_shutdown_requested());
+        assert!(!is_managed_app_shutdown_requested());
         assert_eq!(SHUTDOWN_REQUESTS.load(Ordering::Acquire), 0);
     }
 }

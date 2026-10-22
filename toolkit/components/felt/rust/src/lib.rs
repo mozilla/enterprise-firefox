@@ -175,14 +175,14 @@ pub extern "C" fn firefox_felt_is_startup_complete() -> bool {
 }
 
 #[no_mangle]
-pub extern "C" fn firefox_felt_is_disconnected() -> bool {
+pub extern "C" fn is_managed_app_disconnected_from_felt() -> bool {
     let guard = FELT_CLIENT.lock().expect("Could not get lock");
     guard.as_ref().is_none_or(|client| client.is_disconnected())
 }
 
 #[no_mangle]
-pub extern "C" fn firefox_felt_is_shutdown_requested() -> bool {
-    client::is_shutdown_requested()
+pub extern "C" fn is_managed_app_shutdown_requested() -> bool {
+    client::is_managed_app_shutdown_requested()
 }
 
 /// Remove the persisted console URL from felt.json, keeping the other keys.

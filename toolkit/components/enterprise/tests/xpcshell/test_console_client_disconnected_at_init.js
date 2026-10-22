@@ -33,7 +33,7 @@ add_setup(function () {
     value: {
       isFeltBrowser: () => true,
       isFeltUI: () => false,
-      isDisconnected: () => gDisconnected,
+      isManagedAppDisconnectedFromFelt: () => gDisconnected,
       getAccessTokenIfValid: () => "",
     },
     configurable: true,

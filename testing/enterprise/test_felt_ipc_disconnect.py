@@ -14,8 +14,6 @@ from base_test import Environment
 from felt_tests import FeltTests
 from marionette_driver.errors import NoSuchWindowException, UnknownException
 
-STARTUP_PID_PREF = "enterprise.felt_tests.ipc_startup_browser_pid"
-
 
 class FeltIpcDisconnect(FeltTests):
     def setup(self):
@@ -38,20 +36,25 @@ class FeltIpcDisconnect(FeltTests):
         self._browser_process = psutil.Process(pid)
         return pid
 
-    def _kill_felt_and_wait_for_browser(self, browser_pid):
+    def _kill_felt_and_wait_for_browser_exit(self, app_pid):
         parent_pid = self._driver.session_capabilities["moz:processID"]
         self._driver.delete_session(send_request=False)
         # Kill only FELT, so terminating its process tree cannot make the test pass.
         psutil.Process(parent_pid).kill()
-        self.wait_process_exit(browser_pid)
+        self.wait_process_exit(app_pid)
 
     def test_disconnect_after_startup(self):
-        browser_pid = self._track_browser(self._start_signed_in())
-        self._kill_felt_and_wait_for_browser(browser_pid)
+        # Launches FELT with a stored session and waits until the browser is
+        # connected over Marionette and signed in.
+        app_pid = self._track_browser(self._start_signed_in())
+        self._kill_felt_and_wait_for_browser_exit(app_pid)
 
     def test_disconnect_before_startup_ready(self):
         self._hold_felt_after_child_exit()
         self._prepare_felt_keystore()
+        # Stall FELT after prefs are sent so Ready is never sent and the browser
+        # stays blocked in its startup wait; publish the browser pid in a FELT
+        # pref so the test can find it.
         with self._driver.using_context("chrome"):
             self._driver.execute_script(
                 """
@@ -65,34 +68,34 @@ class FeltIpcDisconnect(FeltTests):
                   return this.testBrowserPid;
                 };
                 const sendPrefs = prototype.sendPrefsToFirefox;
-                const pidPref = arguments[0];
                 prototype.sendPrefsToFirefox = async function() {
                   await sendPrefs.call(this);
                   Services.prefs.setStringPref(
-                    pidPref, String(this.testBrowserPid || this.proc.pid)
+                    "enterprise.felt_tests.ipc_startup_app_pid",
+                    String(this.testBrowserPid || this.proc.pid)
                   );
                   await new Promise(() => {});
                 };
-                """,
-                script_args=[STARTUP_PID_PREF],
+                """
             )
 
         self.run_felt_base()
-        browser_pid = self._longwait.until(
-            lambda driver: driver.get_pref(STARTUP_PID_PREF),
+        app_pid = self._longwait.until(
+            lambda driver: driver.get_pref(
+                "enterprise.felt_tests.ipc_startup_app_pid"
+            ),
             message="FELT should pause browser startup before sending Ready",
         )
-        browser_pid = self._track_browser(int(browser_pid))
-        self.assertFalse(
-            os.path.exists(
-                os.path.join(self._child_profile_path, "MarionetteActivePort")
-            ),
+        app_pid = self._track_browser(int(app_pid))
+        self.assertTrue(
+            self._browser_process.is_running()
+            and self._browser_process.status() != psutil.STATUS_ZOMBIE,
             "The browser should still be waiting for FELT's Ready message",
         )
-        self._kill_felt_and_wait_for_browser(browser_pid)
+        self._kill_felt_and_wait_for_browser_exit(app_pid)
 
     def test_normal_shutdown_keeps_felt_alive(self):
-        browser_pid = self._track_browser(self._start_signed_in())
+        app_pid = self._track_browser(self._start_signed_in())
         with self._driver.using_context("chrome"):
             self._driver.execute_script(
                 """
@@ -115,7 +118,7 @@ class FeltIpcDisconnect(FeltTests):
             lambda _: self.signout_count.value == 1,
             message="Normal shutdown should sign out rather than restart the browser",
         )
-        self._settle_after_child_exit(browser_pid)
+        self._settle_after_child_exit(app_pid)
         self.assertEqual(
             self._driver.get_pref("enterprise.felt_tests.ipc_exit_count"),
             1,

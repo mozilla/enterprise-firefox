@@ -7079,13 +7079,13 @@ nsresult XREMain::XRE_mainRun() {
 
       SpinEventLoopUntil("Waiting for FELT startup to complete"_ns, []() {
         return firefox_felt_is_startup_complete() ||
-               firefox_felt_is_disconnected() ||
-               firefox_felt_is_shutdown_requested();
+               is_managed_app_disconnected_from_felt() ||
+               is_managed_app_shutdown_requested();
       });
-      if (firefox_felt_is_shutdown_requested()) {
+      if (is_managed_app_shutdown_requested()) {
         return NS_OK;
       }
-      if (firefox_felt_is_disconnected()) {
+      if (is_managed_app_disconnected_from_felt()) {
         fprintf(stderr, "Error: Felt connection closed during startup.\n");
         return NS_ERROR_FAILURE;
       }
