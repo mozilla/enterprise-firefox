@@ -25,6 +25,16 @@ class FeltUpdaterErrorsBase(FeltTests):
         self._driver.set_context("content")
         return rv
 
+    def get_app_info(self):
+        self._driver.set_context("chrome")
+        rv = self._driver.execute_script(
+            """
+            return [Services.appinfo.version, Services.appinfo.appBuildID];
+            """
+        )
+        self._driver.set_context("content")
+        return rv
+
     def reload_chrome_window(self):
         self._driver.set_context("chrome")
         self._driver.execute_async_script(
@@ -94,9 +104,9 @@ class FeltUpdaterErrorsBase(FeltTests):
             f"http://localhost:{self.console_port}/api/browser/forced_updates_count"
         )
 
-    def one_xml(self, state):
+    def one_xml(self, state, build_id="22221010555555", app_version="2000.0a1"):
         return f"""
-<update xmlns="http://www.mozilla.org/2005/app-update" appVersion="2000.0a1" buildID="22221010555555" channel="default" detailsURL="https://www.mozilla.org/en-US/firefox/notes" displayVersion="2000.0a1" platformVersion="2000.0a1" installDate="1773852795836" isCompleteUpdate="true" name="Firefox Enterprise 2000.0a1" previousAppVersion="150.0a1" promptWaitTime="691200" serviceURL="http://localhost:8000/api/browser/updates/FirefoxEnterprise/150.0a1/20260317000000/Darwin_aarch64-gcc3/en-US/default/Darwin%252025.3.0/ISET%3ANEON%2CMEM%3A24576/default/default/update.xml?force=1" type="major" statusText="Install Pending" foregroundDownload="true">
+<update xmlns="http://www.mozilla.org/2005/app-update" appVersion="{app_version}" buildID="{build_id}" channel="default" detailsURL="https://www.mozilla.org/en-US/firefox/notes" displayVersion="2000.0a1" platformVersion="2000.0a1" installDate="1773852795836" isCompleteUpdate="true" name="Firefox Enterprise 2000.0a1" previousAppVersion="150.0a1" promptWaitTime="691200" serviceURL="http://localhost:8000/api/browser/updates/FirefoxEnterprise/150.0a1/20260317000000/Darwin_aarch64-gcc3/en-US/default/Darwin%252025.3.0/ISET%3ANEON%2CMEM%3A24576/default/default/update.xml?force=1" type="major" statusText="Install Pending" foregroundDownload="true">
   <patch size="83136062" type="complete" URL="http://localhost:8000/firefox-150.0a1.en-US.mac.complete.mar" errorCode="9" finalURL="http://localhost:8000/firefox-150.0a1.en-US.mac.complete.mar?backgroundTaskMode=0" selected="true" state="{state}" internalResult="0" numTotalInstallAttempts="1"/>
 </update>
 """
