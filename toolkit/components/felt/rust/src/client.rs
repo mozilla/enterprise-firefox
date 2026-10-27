@@ -401,6 +401,10 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): IntPreference({}, {})", name, value);
                                     utils::inject_int_pref(name, value);
                                 },
+                                Ok(FeltMessage::FirefoxConfig(config)) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): FirefoxConfig({:?})", config);
+                                    utils::apply_firefox_config(config);
+                                },
                                 Ok(FeltMessage::StartupReady) => {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): StartupReady");
                                     let barrier = barrier.clone();

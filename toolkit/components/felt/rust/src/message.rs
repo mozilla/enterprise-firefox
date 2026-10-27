@@ -44,6 +44,18 @@ impl nsICookieWrapper {
     }
 }
 
+/// The fixed browser configuration the console serves to Felt. Fields are
+/// `None` when the console sends no valid value for them.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FirefoxConfig {
+    pub learn_more_url: Option<String>,
+    pub company_logo_url: Option<String>,
+    pub polling_frequency: Option<i32>,
+    pub tokenserver_url: Option<String>,
+    pub remote_settings_url: Option<String>,
+    pub push_url: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum FeltMessage {
     VersionProbe(u32),
@@ -53,6 +65,7 @@ pub enum FeltMessage {
     BoolPreference((String, bool)),
     StringPreference((String, String)),
     IntPreference((String, i32)),
+    FirefoxConfig(FirefoxConfig),
     StartupReady,
     AccessToken((String, i64)),
     /// The console-supplied primarySecret (64-char hex string), shipped
@@ -85,4 +98,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 16;
+pub const FELT_IPC_VERSION: u32 = 17;

@@ -5,6 +5,7 @@
 
 import os
 import sys
+from urllib.parse import unquote
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -55,7 +56,7 @@ class EnterpriseBadgeTests(FeltTests):
         self._logger.info("Checking learn more link updated")
         learn_more_link = self.get_elem_child("#enterprise-learn-more-link")
         expected_learn_more_url = firefox_config["learn_more_url"]["pref_value"]
-        actual_learn_more_url = learn_more_link.get_property("href")
+        actual_learn_more_url = unquote(learn_more_link.get_property("href"))
         assert expected_learn_more_url == actual_learn_more_url, (
             f"Expected learn more link to be set to '{expected_learn_more_url}', but was '{actual_learn_more_url}'"
         )

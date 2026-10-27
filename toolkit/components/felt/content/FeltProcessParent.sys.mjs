@@ -531,8 +531,9 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Fetches the configurations for Firefox and sends
-   * each configuration point over to Firefox as preferences
+   * Fetches the configurations for Firefox and sends them over to Firefox,
+   * the fixed values as one configuration object and extra_prefs as
+   * preferences
    */
   async _applyFirefoxConfigs() {
     const {
@@ -543,58 +544,29 @@ export class FeltProcessParent extends JSProcessActorParent {
       extra_prefs,
     } = await lazy.ConsoleClient.getFirefoxConfigs();
 
-    if (learn_more_url === null) {
-      lazy.log.error("No learn_more_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference(
-        "enterprise.configs.learn_more_url",
-        learn_more_url
-      );
+    const isString = value => typeof value === "string";
+    const isInt32 = value => Number.isInteger(value) && value === (value | 0);
+    const config = {};
+    for (const [key, value, isValid] of [
+      ["learn_more_url", learn_more_url, isString],
+      ["company_logo_url", company_logo_url, isString],
+      ["polling_frequency", polling_frequency, isInt32],
+      ["tokenserver_url", tokenserver_url, isString],
+      ["remote_settings_url", remote_settings_url, isString],
+      ["push_url", push_url, isString],
+    ]) {
+      if (value === null || value === undefined) {
+        lazy.log.error(`No ${key} in Firefox configuration`);
+      } else if (!isValid(value)) {
+        lazy.log.error(`Invalid ${key} in Firefox configuration:`, value);
+      } else {
+        config[key] = value;
+      }
     }
+    Services.felt.sendFirefoxConfig(JSON.stringify(config));
 
-    if (company_logo_url === null) {
-      lazy.log.error("No company_logo_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference(
-        "enterprise.configs.company_logo_url",
-        company_logo_url
-      );
-    }
-
-    if (polling_frequency === null) {
-      lazy.log.error("No polling_frequency in Firefox configuration");
-    } else {
-      Services.felt.sendIntPreference(
-        "enterprise.policies.live.polling_interval",
-        polling_frequency
-      );
-    }
     // Monitor device posture on the same cadence as the policy poll.
-    this._posturePollMs = polling_frequency;
-
-    if (tokenserver_url === null) {
-      lazy.log.error("No tokenserver_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference(
-        "identity.sync.tokenserver.uri",
-        tokenserver_url
-      );
-    }
-
-    if (remote_settings_url === null) {
-      lazy.log.error("No remote_settings_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference(
-        "services.settings.server",
-        remote_settings_url
-      );
-    }
-
-    if (push_url === null) {
-      lazy.log.error("No push_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference("dom.push.serverURL", push_url);
-    }
+    this._posturePollMs = config.polling_frequency;
 
     extra_prefs.forEach(pref => {
       this._setPrefInFirefox(pref);
