@@ -19,6 +19,11 @@ constexpr auto kProfileKekId = "profile"_ns;
 constexpr auto kProfilePasswordKek = "lockstore::kek::password:profile"_ns;
 constexpr auto kProfileLocalKek = "lockstore::kek::local:profile"_ns;
 
+// Constants for the sqlite KEK
+constexpr auto kSqliteKekId = "sqlite"_ns;
+constexpr auto kSqlitePasswordKek = "lockstore::kek::password:sqlite"_ns;
+constexpr auto kSqliteLocalKek = "lockstore::kek::local:sqlite"_ns;
+
 enum class PrimaryPasswordSync {
   // Reopen a password KEK this session has not unlocked yet.
   Unlock,
