@@ -308,12 +308,18 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/api/browser/config":
             config = {
                 "learn_more_url": firefox_config["learn_more_url"]["pref_value"],
-                "company_logo_url": "",
-                "policies": {"polling_frequency": 500},
+                "company_logo_url": firefox_config["company_logo_url"]["pref_value"],
+                "policies": {
+                    "polling_frequency": firefox_config["polling_frequency"][
+                        "pref_value"
+                    ]
+                },
                 "services": {
-                    "push_url": "",
-                    "remote_settings_url": "",
-                    "tokenserver_url": "",
+                    "push_url": firefox_config["push_url"]["pref_value"],
+                    "remote_settings_url": firefox_config["remote_settings_url"][
+                        "pref_value"
+                    ],
+                    "tokenserver_url": firefox_config["tokenserver_url"]["pref_value"],
                 },
                 "extra_prefs": [
                     # Allow marionette to select a random free port, different from the default 2828 value. Without this, Felt and Browser would not be able to run with marionnette enabled in parallel
@@ -322,6 +328,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     ["telemetry.fog.init_on_shutdown", False],
                 ],
             }
+            if self.server.config_omit_services.value:
+                config["services"] = {}
             m = json.dumps(config)
             contentType = "application/json"
 
@@ -687,6 +695,7 @@ def serve(
     policy_access_connector=None,
     policies_fail_request=None,
     policies_omit_policies=None,
+    config_omit_services=None,
     key_fail_request=None,
     token_fail_request=None,
     signout_count=None,
@@ -734,6 +743,9 @@ def serve(
     )
     httpd.policies_omit_policies = (
         policies_omit_policies if policies_omit_policies is not None else Value("B", 0)
+    )
+    httpd.config_omit_services = (
+        config_omit_services if config_omit_services is not None else Value("B", 0)
     )
     httpd.key_fail_request = (
         key_fail_request if key_fail_request is not None else Value("B", 0)
@@ -860,6 +872,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policies_fail_request = Value("B", 0)
         # Serves "{}", a 200 that carries neither policies nor a relaunch key.
         self.policies_omit_policies = Value("B", 0)
+        # Serves the Firefox configuration without any service URL.
+        self.config_omit_services = Value("B", 0)
         self.key_fail_request = Value("B", 0)
         self.token_fail_request = Value("B", 0)
         """
@@ -895,6 +909,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 policy_refresh_token=self.policy_refresh_token,
                 policies_fail_request=self.policies_fail_request,
                 policies_omit_policies=self.policies_omit_policies,
+                config_omit_services=self.config_omit_services,
                 key_fail_request=self.key_fail_request,
                 token_fail_request=self.token_fail_request,
                 signout_count=self.signout_count,

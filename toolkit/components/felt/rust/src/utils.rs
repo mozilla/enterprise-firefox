@@ -8,14 +8,16 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 use std::{ffi::CString, future::Future};
-use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
+use xpcom::interfaces::{
+    nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch, nsIPrefService,
+};
 use xpcom::RefPtr;
 
 use log::{error, trace};
 #[cfg(target_os = "linux")]
 use std::os::raw::c_char;
 
-use crate::message::{nsICookieWrapper, FocusHint};
+use crate::message::{nsICookieWrapper, FirefoxConfig, FocusHint};
 
 #[cfg(target_os = "linux")]
 extern "C" {
@@ -84,6 +86,7 @@ pub static TOKEN_EXPIRY_SKEW: i64 = 5 * 60;
 pub static TOKENS: LazyLock<Arc<RwLock<Tokens>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Default::default())));
 pub static CONSOLE_URL: OnceLock<Arc<String>> = OnceLock::new();
+pub static FIREFOX_CONFIG: OnceLock<FirefoxConfig> = OnceLock::new();
 
 pub static BROWSER_PID: AtomicU32 = AtomicU32::new(0);
 
@@ -231,6 +234,58 @@ pub fn inject_int_pref(name: String, value: i32) {
             );
         }
     });
+}
+
+/// Keeps the configuration for getFirefoxConfig() and locks the service URL
+/// prefs, to the configuration's value or else the built-in default, so the
+/// user cannot override them.
+pub fn apply_firefox_config(config: FirefoxConfig) {
+    let service_prefs = [
+        ("identity.sync.tokenserver.uri", config.tokenserver_url.clone()),
+        ("services.settings.server", config.remote_settings_url.clone()),
+        ("dom.push.serverURL", config.push_url.clone()),
+        // Sync prefers this legacy pref over identity.sync.tokenserver.uri,
+        // and falls back to it when this one is empty.
+        ("services.sync.tokenServerURI", Some(String::new())),
+    ];
+    if FIREFOX_CONFIG.set(config).is_err() {
+        error!("apply_firefox_config(): configuration already received, ignoring");
+        return;
+    }
+    do_main_thread("felt_apply_firefox_config", async move {
+        for (name, value) in service_prefs {
+            lock_default_string_pref(name, value.as_deref());
+        }
+    });
+}
+
+/// Locks the default value of a string pref, after setting it to value if any.
+fn lock_default_string_pref(name: &str, value: Option<&str>) {
+    let c_name = CString::new(name).expect("Pref name contained a null byte");
+    let prefs: RefPtr<nsIPrefService> = xpcom::components::Preferences::service().unwrap();
+    let rv = xpcom::getter_addrefs(|p| unsafe { prefs.GetDefaultBranch(std::ptr::null(), p) })
+        .and_then(|branch: RefPtr<nsIPrefBranch>| unsafe {
+            let mut locked = false;
+            branch
+                .PrefIsLocked(c_name.as_ptr(), &mut locked)
+                .to_result()?;
+            if locked {
+                branch.UnlockPref(c_name.as_ptr()).to_result()?;
+            }
+            if let Some(value) = value {
+                let c_value: nsCString = value.into();
+                branch.SetStringPref(c_name.as_ptr(), &*c_value).to_result()?;
+            }
+            branch.LockPref(c_name.as_ptr()).to_result()
+        });
+    if let Err(err) = rv {
+        error!(
+            "lock_default_string_pref(): {} = {:?} failed: {}",
+            name, value, err
+        );
+    } else {
+        trace!("lock_default_string_pref(): {} = {:?} NS_OK", name, value);
+    }
 }
 
 pub fn notify_observers_with_payload(name: String, payload: Option<String>) {

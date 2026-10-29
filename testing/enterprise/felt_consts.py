@@ -5,17 +5,17 @@
 
 WHOAMI_EMAIL = "nobody@mozilla.org"
 
+# Values the mock console serves from /api/browser/config. Entries with a
+# pref_id are applied by the browser as locked default prefs.
 firefox_config = {
     "learn_more_url": {
-        "pref_id": "enterprise.configs.learn_more_url",
-        "pref_value": "http://localhost:0/learnmore",
+        # Non-ASCII, so the configuration's UTF-8 round trip through Felt is tested.
+        "pref_value": "http://localhost:0/découvrir-plus",
     },
     "company_logo_url": {
-        "pref_id": "enterprise.configs.company_logo_url",
         "pref_value": "",
     },
     "polling_frequency": {
-        "pref_id": "enterprise.policies.live.polling_interval",
         "pref_value": 500,
     },
     "tokenserver_url": {
@@ -26,7 +26,8 @@ firefox_config = {
         "pref_id": "dom.push.serverURL",
         "pref_value": "",
     },
-    # Not checking remote settings url (services.settings.server),
-    # it's pre-populated in marionette test environemtns:
-    #  https://searchfox.org/firefox-main/rev/9a3317a65545e83f4e32b94fdf1f6860342423ef/remote/shared/RecommendedPreferences.sys.mjs#381-382
+    "remote_settings_url": {
+        "pref_id": "services.settings.server",
+        "pref_value": "",
+    },
 }

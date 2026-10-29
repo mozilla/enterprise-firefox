@@ -46,6 +46,24 @@ export function createEnterpriseLogger(logPrefix) {
   });
 }
 
+/**
+ * The console's fixed browser configuration, received from Felt.
+ *
+ * @returns {object|null} The configuration, or null outside a browser
+ *          launched by Felt or when Felt sent none.
+ */
+export function getFirefoxConfig() {
+  if (!Services.felt?.isFeltBrowser()) {
+    return null;
+  }
+  try {
+    return JSON.parse(Services.felt.getFirefoxConfig());
+  } catch (e) {
+    console.error(`No Firefox configuration from Felt: ${e}`);
+    return null;
+  }
+}
+
 export function initiateShutdown() {
   // TODO: Bug 2001029 - Assert or force-enable session restore?
   try {

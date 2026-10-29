@@ -21,6 +21,12 @@ class FeltStartsBrowserCli(FeltStartsBrowser):
         self.run_ensure_profile_encryption(self._driver.profile)
         self.run_ensure_profile_encryption(self._child_driver.profile)
 
+    def test_felt_locks_service_urls_missing_from_config(self):
+        self.config_omit_services.value = 1
+        super().run_felt_base()
+        self.run_felt_browser_started()
+        self.run_ensure_service_prefs_locked_to_defaults()
+
     def find_sqlite_files(self, directory, skip_names=("lockstore.keys.sqlite",)):
         return [
             f for f in Path(directory).rglob("*.sqlite") if f.name not in skip_names

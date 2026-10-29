@@ -66,6 +66,25 @@ interface nsIFelt : nsISupports {
   [must_use]
   void sendIntPreference(in ACString name, in int32_t value);
 
+  /**
+   * Send the console's fixed browser configuration to the spawned Firefox.
+   * Felt UI process only.
+   *
+   * @param config JSON object with the optional keys learn_more_url,
+   *        company_logo_url, polling_frequency, tokenserver_url,
+   *        remote_settings_url and push_url.
+   */
+  [must_use]
+  void sendFirefoxConfig(in AUTF8String config);
+
+  /**
+   * The configuration received from Felt, in the format sendFirefoxConfig
+   * takes. Spawned Firefox only. Fails with NS_ERROR_NOT_AVAILABLE before it
+   * has arrived.
+   */
+  [must_use]
+  AUTF8String getFirefoxConfig();
+
   [must_use]
   void sendCookies(in Array<nsICookie> cookies);
 
