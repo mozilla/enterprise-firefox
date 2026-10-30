@@ -701,6 +701,14 @@ impl FeltXPCOM {
         Ok(self.is_felt_browser)
     }
 
+    xpcom_method!(is_managed_app_disconnected_from_felt => IsManagedAppDisconnectedFromFelt() -> bool);
+    fn is_managed_app_disconnected_from_felt(&self) -> Result<bool, nserror::nsresult> {
+        if !self.is_felt_browser {
+            return Err(NS_ERROR_UNEXPECTED);
+        }
+        Ok(crate::is_managed_app_disconnected_from_felt())
+    }
+
     xpcom_method!(is_felt_safe_mode => IsFeltSafeMode() -> bool);
     fn is_felt_safe_mode(&self) -> Result<bool, nserror::nsresult> {
         trace!("FeltXPCOM: IsFeltSafeMode: {}", self.is_felt_safe_mode);
