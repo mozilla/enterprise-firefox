@@ -104,6 +104,76 @@ async function testBusyDialog(cancel) {
   BrowserTestUtils.removeTab(tab);
 }
 
+// With the local clipboard off, a copy holds the page for its verdict and
+// the busy dialog shows for it like for a paste.
+async function testBusyDialogForCopyWithLocalClipboardOff() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.contentanalysis.interception_point.clipboard_copy.enabled",
+        true,
+      ],
+      [
+        "browser.contentanalysis.interception_point.clipboard_copy.keep_blocked_data_for_same_site",
+        false,
+      ],
+    ],
+  });
+  mockCA.setupForTest(true, /* waitForEvent */ true, /* showDialogs */ true);
+  let tab = BrowserTestUtils.addTab(gBrowser);
+  let browser = gBrowser.getBrowserForTab(tab);
+  gBrowser.selectedTab = tab;
+  await BrowserTestUtils.loadURIString({
+    browser: tab.linkedBrowser,
+    uriString: "data:text/html," + escape(testPage),
+  });
+  await SimpleTest.promiseFocus(browser);
+
+  setClipboardData("");
+
+  let scanStartedPromise = new Promise(res => {
+    mockCA.eventTarget.addEventListener(
+      "inAnalyzeContentRequest",
+      () => {
+        res();
+      },
+      { once: true }
+    );
+  });
+
+  await SpecialPowers.spawn(browser, [CLIPBOARD_TEXT_STRING], text => {
+    let input = content.document.getElementById("input");
+    input.value = text;
+    input.focus();
+    input.select();
+  });
+
+  let dialogPromise = BrowserTestUtils.promiseAlertDialogOpen();
+  let doCopyPromise = BrowserTestUtils.synthesizeKey(
+    "c",
+    { accelKey: true },
+    browser
+  );
+  await scanStartedPromise;
+
+  let win = await dialogPromise;
+  let dialog = win.document.querySelector("dialog");
+  is(
+    mockCA.calls[0].reason,
+    Ci.nsIContentAnalysisRequest.eClipboardCopy,
+    "the request is the copy"
+  );
+
+  mockCA.eventTarget.dispatchEvent(
+    new CustomEvent("returnContentAnalysisResponse")
+  );
+  await doCopyPromise;
+  ok(!dialog.open, "the busy dialog closed with the verdict");
+
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+}
+
 async function testClosingTab() {
   mockCA.setupForTest(true, /* waitForEvent */ true, /* showDialogs */ true);
   let tab = BrowserTestUtils.addTab(gBrowser);
@@ -177,4 +247,8 @@ add_task(async function testBusyConfirmationDialogWithNoCancel() {
 // the busy dialog is closed and the request is cancelled.
 add_task(async function testClosingTabCancelsRequest() {
   await testClosingTab();
+});
+
+add_task(async function testBusyDialogShownForCopyWithLocalClipboardOff() {
+  await testBusyDialogForCopyWithLocalClipboardOff();
 });
