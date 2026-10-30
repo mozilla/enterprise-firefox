@@ -21,6 +21,15 @@ if CONFIG["OS_TARGET"] == "WINNT":
         "TestAssembleCommandLineWin.cpp",
     ]
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    UNIFIED_SOURCES += [
+        "TestSafeMode.cpp",
+    ]
+    # TestSafeMode.cpp includes SafeMode.h, which includes PolicyChecks.h on
+    # Windows. That needs MOZ_APP_BASENAME, which is not a global define: each
+    # directory using it defines it, like toolkit/xre and toolkit/profile.
+    DEFINES["MOZ_APP_BASENAME"] = '"%s"' % CONFIG["MOZ_APP_BASENAME"]
+
 if CONFIG["MOZ_BLOCK_PROFILE_DOWNGRADE"]:
     UNIFIED_SOURCES += [
         "TestDowngradePing.cpp",
