@@ -3017,6 +3017,9 @@ static nsresult ResetFeltUIScratchProfile(nsIFile* aProfileDir,
   return NS_OK;
 }
 
+static const char kEnterpriseProperties[] =
+    "chrome://global/locale/enterprise.properties";
+
 // Handles the "build requires encrypted storage but the existing profile is
 // plaintext" case for the browsing-child (full Firefox) case. Presents a
 // three-button dialog asking the user to delete the old data and continue, keep
@@ -3085,6 +3088,11 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
       sbs->CreateBundle(kProfileProperties, getter_AddRefs(sb));
       NS_ENSURE_TRUE_LOG(sb, NS_ERROR_FAILURE);
 
+      nsCOMPtr<nsIStringBundle> enterpriseBundle;
+      sbs->CreateBundle(kEnterpriseProperties,
+                        getter_AddRefs(enterpriseBundle));
+      NS_ENSURE_TRUE_LOG(enterpriseBundle, NS_ERROR_FAILURE);
+
       // Prefer the branded product name (e.g. "Firefox Enterprise")
       // over gAppData->name (the internal binary name, e.g. "Firefox").
       // Fall back to gAppData->name if the branding bundle is unavailable.
@@ -3103,8 +3111,8 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
       AutoTArray<nsString, 1> params = {appName};
 
       nsAutoString msg;
-      rv =
-          sb->FormatStringFromName("profileNotEncryptedButPrefOn", params, msg);
+      rv = enterpriseBundle->FormatStringFromName(
+          "profileNotEncryptedButPrefOnEnterprise", params, msg);
       NS_ENSURE_SUCCESS(rv, rv);
 
       AutoTArray<nsString, 1> titleParams = {appName};
@@ -3114,15 +3122,17 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
       NS_ENSURE_SUCCESS(rv, rv);
 
       nsAutoString btnDelete;
-      rv = sb->GetStringFromName("profileMismatchDeleteAndContinue", btnDelete);
+      rv = enterpriseBundle->GetStringFromName(
+          "profileMismatchDeleteAndContinue", btnDelete);
       NS_ENSURE_SUCCESS(rv, rv);
 
       nsAutoString btnKeep;
-      rv = sb->GetStringFromName("profileMismatchKeepAndContinue", btnKeep);
+      rv = enterpriseBundle->GetStringFromName("profileMismatchKeepAndContinue",
+                                               btnKeep);
       NS_ENSURE_SUCCESS(rv, rv);
 
       nsAutoString btnQuit;
-      rv = sb->GetStringFromName("profileMismatchQuit", btnQuit);
+      rv = enterpriseBundle->GetStringFromName("profileMismatchQuit", btnQuit);
       NS_ENSURE_SUCCESS(rv, rv);
 
       nsCOMPtr<nsIPromptService> ps(do_GetService(NS_PROMPTSERVICE_CONTRACTID));
