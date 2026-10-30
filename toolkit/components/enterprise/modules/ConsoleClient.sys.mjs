@@ -770,7 +770,8 @@ export const ConsoleClient = {
       Services.obs.addObserver(this, "felt-firefox-access-token-refreshed");
       Services.obs.addObserver(this, "felt-firefox-shutdown");
 
-      // A disconnect noticed before this observer existed notified nobody.
+      // FELT can disconnect before this observer is added, while startup runs
+      // queued events (e.g. the primary password prompt), so check here too.
       if (Services.felt.isManagedAppDisconnectedFromFelt()) {
         lazy.log.error("FELT IPC connection already lost, shutting down");
         lazy.ForcedQuitHandler.quitIgnoringCanClose();

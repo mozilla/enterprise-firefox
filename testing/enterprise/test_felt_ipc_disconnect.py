@@ -82,9 +82,7 @@ class FeltIpcDisconnect(FeltTests):
 
         self.run_felt_base()
         app_pid = self._longwait.until(
-            lambda driver: driver.get_pref(
-                "enterprise.felt_tests.ipc_startup_app_pid"
-            ),
+            lambda driver: driver.get_pref("enterprise.felt_tests.ipc_startup_app_pid"),
             message="FELT should pause browser startup before sending Ready",
         )
         app_pid = self._track_browser(int(app_pid))
