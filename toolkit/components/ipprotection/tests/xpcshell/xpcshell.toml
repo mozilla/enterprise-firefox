@@ -19,6 +19,11 @@ prefs = ["browser.ipProtection.override.serverlist=[]"]
 
 ["test_IPPChannelFilter.js"]
 
+["test_IPPConnectionMonitor.js"]
+# The access_connector metrics and the enterprise ping only exist in
+# MOZ_ENTERPRISE builds, so the monitor has nothing to record elsewhere.
+skip-if = ["!enterprise"]
+
 ["test_IPPEnterpriseAuthProvider.js"]
 
 ["test_IPPFxaActivateAuthProvider.js"]

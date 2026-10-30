@@ -76,6 +76,7 @@ gecko_metrics = [
     "toolkit/components/cleardata/metrics.yaml",
     "toolkit/components/doh/metrics.yaml",
     "toolkit/components/downloads/metrics.yaml",
+    "toolkit/components/enterprise/metrics.yaml",
     "toolkit/components/enterprisepolicies/metrics.yaml",
     "toolkit/components/extensions/metrics.yaml",
     "toolkit/components/formautofill/metrics.yaml",

@@ -16,6 +16,8 @@ const lazy = {};
 
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
+    IPPConnectionMonitor:
+      "moz-src:///toolkit/components/ipprotection/enterprise/IPPConnectionMonitor.sys.mjs",
     IPPAlwaysOn:
       "moz-src:///toolkit/components/ipprotection/enterprise/IPPAlwaysOn.sys.mjs",
   });
@@ -48,6 +50,7 @@ const coreHelpers = [
   IPPLifecycleHelper,
   IPPSessionPrefManager,
   activationHelper(),
+  AppConstants.MOZ_ENTERPRISE && lazy.IPPConnectionMonitor,
   IPPNimbusHelper,
 ].filter(Boolean);
 

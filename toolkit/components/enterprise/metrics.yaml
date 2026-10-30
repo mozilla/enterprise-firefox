@@ -1,0 +1,44 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Adding a new metric? We have docs for that!
+# https://firefox-source-docs.mozilla.org/toolkit/components/glean/user/new_definitions_file.html
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+$tags:
+  - 'Enterprise Products :: Firefox'
+
+#ifdef MOZ_ENTERPRISE
+access_connector:
+  domain_accessed:
+    type: event
+    description: >
+      Recorded the first time a top-level page on a domain loads through the
+      Access Connector proxy without a network or proxy error. HTTP error
+      responses from the site, such as a 404, still count as loaded. Each
+      domain is recorded at most once per proxy connection: the record resets
+      whenever the proxy stops, pauses or enters an error state, so domains
+      are recorded again after it reconnects. Only domains provisioned by the
+      AccessConnector policy are routed through the proxy. Loads from private
+      windows are included. Only collected when MOZ_ENTERPRISE is defined and
+      enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2068954
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2068954
+    data_sensitivity:
+      - highly_sensitive
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    expires: never
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      domain:
+        description: >
+          The hostname of the page, without scheme, port, or path.
+        type: string
+#endif

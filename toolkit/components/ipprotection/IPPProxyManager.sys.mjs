@@ -671,7 +671,7 @@ class IPPProxyManagerSingleton extends EventTarget {
     this.#connection.initialize(this.#pass, server);
 
     this.networkErrorObserver.start();
-    this.networkErrorObserver.addIsolationKey(this.#connection.isolationKey);
+    this.#registerIsolationKey();
 
     lazy.logConsole.info("Started");
 
@@ -681,6 +681,16 @@ class IPPProxyManagerSingleton extends EventTarget {
     }
 
     throw ERRORS.CONNECTION_FAILED;
+  }
+
+  #registerIsolationKey() {
+    const isolationKey = this.#connection.isolationKey;
+    this.networkErrorObserver.addIsolationKey(isolationKey);
+    this.dispatchEvent(
+      new CustomEvent("IPPProxyManager:IsolationKeyAdded", {
+        detail: { isolationKey },
+      })
+    );
   }
 
   /**
@@ -803,7 +813,7 @@ class IPPProxyManagerSingleton extends EventTarget {
     this.#connection.suspend();
     this.#connection.initialize(this.#pass, server);
 
-    this.networkErrorObserver.addIsolationKey(this.#connection.isolationKey);
+    this.#registerIsolationKey();
 
     return { switched: true };
   }
@@ -1049,7 +1059,7 @@ class IPPProxyManagerSingleton extends EventTarget {
     // Inject the new token in the current connection
     if (this.#connection?.active) {
       this.#connection.replaceAuthTokenAndResume(pass);
-      this.networkErrorObserver.addIsolationKey(this.#connection.isolationKey);
+      this.#registerIsolationKey();
       resumed = true;
     }
     lazy.logConsole.debug("Successfully rotated token!");

@@ -16,11 +16,13 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
 if CONFIG["MOZ_ENTERPRISE"]:
     MOZ_SRC_FILES += [
         "enterprise/IPPAlwaysOn.sys.mjs",
+        "enterprise/IPPConnectionMonitor.sys.mjs",
         "enterprise/IPPEnterpriseAuthProvider.sys.mjs",
     ]
 
 TESTING_JS_MODULES.ipprotection += [
     "enterprise/IPPAlwaysOn.sys.mjs",
+    "enterprise/IPPConnectionMonitor.sys.mjs",
     "enterprise/IPPEnterpriseAuthProvider.sys.mjs",
     "gpi/IPPGpiAuthProvider.sys.mjs",
     "tests/IPPDummyAuthProvider.sys.mjs",
