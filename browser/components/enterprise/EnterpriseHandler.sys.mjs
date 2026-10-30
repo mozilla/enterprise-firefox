@@ -12,6 +12,8 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
 });
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  ConsoleConnectionGuard:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleConnectionGuard.sys.mjs",
   initiateShutdown:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
@@ -400,6 +402,10 @@ export const EnterpriseHandler = {
    * which attaches them to the exit or restart event when one is observed.
    * The values are cached there rather than read at quit time so the intent
    * always travels with the quit itself (a vetoed quit sends nothing).
+   *
+   * The shutdown reason is cleared: an ordinary close is the user's own doing
+   * and needs no explanation, and this also undoes any reason left behind by
+   * an earlier attempt to end the session (see ConsoleConnectionGuard).
    */
   _syncLockIntents() {
     try {
@@ -426,7 +432,8 @@ export const EnterpriseHandler = {
    */
   lockOrSignOut() {
     this._skipSignoutPrompt = true;
-    if (!Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit)) {
+    Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+    if (!Services.startup.shuttingDown) {
       // Vetoed by a beforeunload handler; the next close must prompt again.
       this._skipSignoutPrompt = false;
     }
@@ -451,3 +458,10 @@ export const EnterpriseHandler = {
     }
   },
 };
+
+/** The "enterprise-network-loss-lock-intents" entry point (see components.conf). */
+export function registerNetworkLossLockIntentDelegate() {
+  lazy.ConsoleConnectionGuard.registerLockIntentDelegate({
+    restoreLockIntents: () => EnterpriseHandler._syncLockIntents(),
+  });
+}

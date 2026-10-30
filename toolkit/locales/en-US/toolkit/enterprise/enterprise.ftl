@@ -165,6 +165,32 @@ enterprise-relaunch-imminent-message =
 
 enterprise-relaunch-restart-now = Restart now
 
+# Shown while the browser cannot reach the enterprise console, ahead of the
+# deadline at which the session ends.
+# Variables:
+#   $datetime (number) - Timestamp of the time the session will be locked at.
+enterprise-network-loss-warning-message-lock = <strong>{ -brand-short-name } can’t reach your organization.</strong> Reconnect by { DATETIME($datetime, dateStyle: "short", timeStyle: "short") } or your session will be locked.
+
+# Variables:
+#   $datetime (number) - Timestamp of the time the session will end at.
+enterprise-network-loss-warning-message-signout = <strong>{ -brand-short-name } can’t reach your organization.</strong> Reconnect by { DATETIME($datetime, dateStyle: "short", timeStyle: "short") } or you’ll be signed out.
+
+# Variables:
+#   $minutes (number) - How many minutes are left before the session is locked.
+enterprise-network-loss-imminent-message-lock =
+    { $minutes ->
+        [one] <strong>Your session will be locked in { $minutes } minute</strong> unless { -brand-short-name } can reach your organization.
+       *[other] <strong>Your session will be locked in { $minutes } minutes</strong> unless { -brand-short-name } can reach your organization.
+    }
+
+# Variables:
+#   $minutes (number) - How many minutes are left before the session ends.
+enterprise-network-loss-imminent-message-signout =
+    { $minutes ->
+        [one] <strong>You’ll be signed out in { $minutes } minute</strong> unless { -brand-short-name } can reach your organization.
+       *[other] <strong>You’ll be signed out in { $minutes } minutes</strong> unless { -brand-short-name } can reach your organization.
+    }
+
 extension-firefox-enterprise-auto-name = { -brand-short-name } theme – auto
 extension-firefox-enterprise-auto-description = Warm blush and apricot in light mode, deep violet and indigo in dark mode.
 
