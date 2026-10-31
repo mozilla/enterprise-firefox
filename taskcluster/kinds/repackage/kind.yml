@@ -35,8 +35,8 @@ only-for-build-platforms:
     - macosx64/debug
     - macosx64-aarch64/opt
     - macosx64-aarch64/debug
-    - macosx64-enterprise/opt
-    - macosx64-enterprise/debug
+    - macosx64-aarch64-enterprise/opt
+    - macosx64-aarch64-enterprise/debug
     - macosx64-enterprise-shippable/opt
     - win32-shippable/opt
     - win32-devedition/opt
@@ -78,11 +78,11 @@ tasks:
                     linux64(?!-enterprise)\b.*:
                         - repackage/base.py
                         - repackage/linux64_signed.py
-                    macosx64-enterprise\b.*:
+                    macosx64(-aarch64)?-enterprise\b.*:
                         - repackage/base.py
                         - repackage/base_enterprise.py
                         - repackage/osx_signed.py
-                    macosx64(?!-enterprise)\b.*:
+                    macosx64(?!(-aarch64)?-enterprise)\b.*:
                         - repackage/base.py
                         - repackage/osx_signed.py
                     win32\b.*:

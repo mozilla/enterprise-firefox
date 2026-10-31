@@ -513,7 +513,7 @@ macosx1500-64-tests:
     - web-platform-tests-eme
     - web-platform-tests-webrtc
 
-macosx1500-64-tests-enterprise:
+macosx1500-aarch64-tests-enterprise:
     - enterprise-end2end-current
     - enterprise-end2end-main
     - enterprise-end2end-minimal

@@ -72,7 +72,7 @@ macosx64/debug:
             - sysroot-wasm32-wasi
             - onnxruntime-x86_64-apple-darwin
 
-macosx64-enterprise/debug:
+macosx64-aarch64-enterprise/debug:
     description: "MacOS X aarch64 Enterprise Cross-compile"
     index:
         job-name: macosx64-aarch64-enterprise-debug
@@ -504,10 +504,10 @@ macosx64-enterprise-shippable/opt:
             - linux64-cctools-port
             - onnxruntime-x86_64-apple-darwin
 
-macosx64-enterprise/opt:
+macosx64-aarch64-enterprise/opt:
     description: "MacOS X aarch64 Enterprise Cross-compile"
     index:
-        job-name: macosx64-enterprise-opt
+        job-name: macosx64-aarch64-enterprise-opt
     attributes:
         enable-build-signing: true
         enable-full-crashsymbols: true
