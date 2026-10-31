@@ -21,6 +21,11 @@ if CONFIG["OS_TARGET"] == "WINNT":
         "TestAssembleCommandLineWin.cpp",
     ]
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    UNIFIED_SOURCES += [
+        "TestFeltCheckArg.cpp",
+    ]
+
 if CONFIG["MOZ_BLOCK_PROFILE_DOWNGRADE"]:
     UNIFIED_SOURCES += [
         "TestDowngradePing.cpp",

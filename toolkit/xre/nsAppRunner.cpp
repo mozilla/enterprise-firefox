@@ -560,6 +560,34 @@ static ArgResult CheckArgExists(const char* aArg) {
 bool felt_check_arg_exists(const char* aArg) {
   return CheckArgExists(aArg) != ARG_NONE;
 }
+
+// -chrome is consumed by nsCommandLine rather than CheckArg, so match it the
+// way nsCommandLine::Init splits arguments: -chrome[=value], --chrome[=value]
+// and, on Windows, /chrome[:value] (but not /chrome=value).
+bool felt_has_chrome_arg() {
+  static const char kChrome[] = "chrome";
+  const size_t len = strlen(kChrome);
+  for (char** arg = gArgv + 1; *arg; ++arg) {
+    const char* option;
+    char separator;
+    if ((*arg)[0] == '-') {
+      option = (*arg)[1] == '-' ? *arg + 2 : *arg + 1;
+      separator = '=';
+#  ifdef XP_WIN
+    } else if ((*arg)[0] == '/') {
+      option = *arg + 1;
+      separator = ':';
+#  endif
+    } else {
+      continue;
+    }
+    if (ArgStartsWith(option, kChrome) &&
+        (option[len] == '\0' || option[len] == separator)) {
+      return true;
+    }
+  }
+  return false;
+}
 #endif
 
 static bool RequestedHeadlessMode() {

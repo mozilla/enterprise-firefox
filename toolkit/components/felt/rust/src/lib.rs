@@ -64,12 +64,19 @@ fn bypass_allowed() -> bool {
 extern "C" {
     // Defined in toolkit/xre/nsAppRunner.cpp.
     fn felt_check_arg_exists(arg: *const c_char) -> bool;
+    fn felt_has_chrome_arg() -> bool;
 }
 
 /// Whether the command line has the flag `arg` (lowercase), parsed the same
 /// way as every other Gecko flag.
 fn has_arg(arg: &CStr) -> bool {
     unsafe { felt_check_arg_exists(arg.as_ptr()) }
+}
+
+/// Whether the browser will handle a `-chrome` flag. nsCommandLine, not
+/// CheckArg, consumes it, and the two split Windows `/` arguments differently.
+fn has_chrome_arg() -> bool {
+    unsafe { felt_has_chrome_arg() }
 }
 
 #[no_mangle]
@@ -83,7 +90,7 @@ pub extern "C" fn felt_init() {
 
     // There may be a -chrome ... being passed on the CLI, e.g. for jsdebugger
     // in this case, it is not expected the FELT UI is shown, not the browser UI
-    let force_chrome = has_arg(cstr!("chrome"));
+    let force_chrome = has_chrome_arg();
     trace!("felt_init(): force_chrome={}", force_chrome);
 
     let felt_ui_requested = has_arg(cstr!("feltui")) || found_felt_ui_env;
