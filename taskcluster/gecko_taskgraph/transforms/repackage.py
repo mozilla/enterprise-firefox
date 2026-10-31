@@ -588,6 +588,8 @@ def make_job_description(config, jobs):
                 dep_th_platform = "linux64-aarch64-enterprise/opt"
             elif "linux64" in build_platform:
                 dep_th_platform = "linux64-enterprise/opt"
+            elif build_platform == "macosx64-aarch64-enterprise":
+                dep_th_platform = "osx-cross-aarch64-enterprise/opt"
             elif "macosx64" in build_platform:
                 dep_th_platform = "osx-cross-enterprise/opt"
             elif "win64" in build_platform:

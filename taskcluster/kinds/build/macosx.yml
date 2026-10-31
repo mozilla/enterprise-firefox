@@ -73,6 +73,39 @@ macosx64/debug:
             - onnxruntime-x86_64-apple-darwin
 
 macosx64-enterprise/debug:
+    description: "MacOS X x64 Enterprise Cross-compile"
+    worker-type: b-linux-docker-xlarge-amd
+    index:
+        job-name: macosx64-enterprise-debug
+    attributes:
+        enable-build-signing: true
+        enable-full-crashsymbols: true
+        code-review: true
+    treeherder:
+        platform: osx-cross-enterprise/debug
+        symbol: Bent
+        tier: 1
+    worker:
+        max-run-time: 5400
+    mozconfig:
+        variant: debug-enterprise
+    run:
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_mac_64_cross_builds.py
+        custom-build-variant-cfg: cross-debug
+    run-on-projects: ['mozilla-central', 'enterprise-firefox']
+    use-sccache: true
+    use-python: "3.11"
+    fetches:
+        toolchain:
+            - linux64-clang
+            - linux64-sccache
+            - macosx64-sdk
+            - sysroot-wasm32-wasi
+            - onnxruntime-x86_64-apple-darwin
+
+macosx64-aarch64-enterprise/debug:
     description: "MacOS X aarch64 Enterprise Cross-compile"
     index:
         job-name: macosx64-aarch64-enterprise-debug
@@ -81,7 +114,7 @@ macosx64-enterprise/debug:
         enable-full-crashsymbols: true
         code-review: true
     treeherder:
-        platform: osx-cross-enterprise/debug
+        platform: osx-cross-aarch64-enterprise/debug
         symbol: Bent
         tier: 1
     worker-type: b-linux-docker-xlarge-amd
@@ -232,6 +265,38 @@ macosx64/opt:
             - builds/releng_base_mac_64_cross_builds.py
     run-on-projects: ['integration', 'enterprise-firefox']
     run-on-repo-type: ['git']
+    use-sccache: true
+    use-python: "3.11"
+    fetches:
+        toolchain:
+            - linux64-clang
+            - linux64-sccache
+            - macosx64-sdk
+            - sysroot-wasm32-wasi
+            - onnxruntime-x86_64-apple-darwin
+
+macosx64-enterprise/opt:
+    description: "MacOS X x64 Enterprise Cross-compile"
+    worker-type: b-linux-docker-xlarge-amd
+    index:
+        job-name: macosx64-enterprise-opt
+    attributes:
+        enable-build-signing: true
+        enable-full-crashsymbols: true
+        code-review: true
+    treeherder:
+        platform: osx-cross-enterprise/opt
+        symbol: Bent
+        tier: 1
+    worker:
+        max-run-time: 7200
+    mozconfig:
+        variant: opt-enterprise
+    run:
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_mac_64_cross_builds.py
+    run-on-projects: ['mozilla-central', 'enterprise-firefox']
     use-sccache: true
     use-python: "3.11"
     fetches:
@@ -504,17 +569,17 @@ macosx64-enterprise-shippable/opt:
             - linux64-cctools-port
             - onnxruntime-x86_64-apple-darwin
 
-macosx64-enterprise/opt:
+macosx64-aarch64-enterprise/opt:
     description: "MacOS X aarch64 Enterprise Cross-compile"
     index:
-        job-name: macosx64-enterprise-opt
+        job-name: macosx64-aarch64-enterprise-opt
     attributes:
         enable-build-signing: true
         enable-full-crashsymbols: true
         code-review: true
     shipping-phase: build
     treeherder:
-        platform: osx-cross-enterprise/opt
+        platform: osx-cross-aarch64-enterprise/opt
         symbol: Bent
         tier: 1
     worker-type: b-linux-docker-xlarge-amd

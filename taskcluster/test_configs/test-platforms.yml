@@ -450,14 +450,14 @@ macosx1500-aarch64-nightlyasrelease/opt:
         - browsertime
 
 macosx1500-64-enterprise/opt:
-    build-platform: macosx64-enterprise/opt
-    build-signing-label: repackage-macosx64-enterprise/opt
+    build-platform: macosx64-aarch64-enterprise/opt
+    build-signing-label: repackage-macosx64-aarch64-enterprise/opt
     test-sets:
         - macosx1500-64-tests-enterprise
 
 macosx1500-64-enterprise/debug:
-    build-platform: macosx64-enterprise/debug
-    build-signing-label: repackage-macosx64-enterprise/debug
+    build-platform: macosx64-aarch64-enterprise/debug
+    build-signing-label: repackage-macosx64-aarch64-enterprise/debug
     test-sets:
         - macosx1500-64-tests-enterprise
 
