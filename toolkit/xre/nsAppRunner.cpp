@@ -7494,8 +7494,8 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     // FELT IPC channel
     Maybe<const char*> felt =
         geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
-    Maybe<uint64_t> feltPid =
-        geckoargs::sFeltPid.Get(gArgc, gArgv, CheckArgFlag::None);
+    // Nothing re-reads the Felt pid, so it is removed here.
+    Maybe<uint64_t> feltPid = geckoargs::sFeltPid.Get(gArgc, gArgv);
     const char* mozFeltEnv = PR_GetEnv("MOZ_FELT_UI");
     if (mozFeltEnv) {
       PR_SetEnv("MOZ_FELT_UI=");
@@ -7503,7 +7503,6 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 
     // Remove Felt-specific flags from the command line.
     (void)geckoargs::sFelt.Get(gArgc, gArgv);
-    (void)geckoargs::sFeltPid.Get(gArgc, gArgv);
     (void)geckoargs::sFeltUI.Get(gArgc, gArgv);
 
 #  ifdef MOZ_BACKGROUNDTASKS
