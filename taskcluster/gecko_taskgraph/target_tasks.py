@@ -1449,18 +1449,21 @@ def target_tasks_nightly_enterprise(full_task_graph, parameters, graph_config):
     Select the set of tasks required for a nightly build of firefox enterprise
     Tailored for nightly stage builds to be validated by QA
     """
-    return list(
-        set(
-            target_tasks_nightly_enterprise_stage(
-                full_task_graph, parameters, graph_config
-            )
-        )
-        | set(
-            target_tasks_nightly_enterprise_prod(
-                full_task_graph, parameters, graph_config
-            )
-        )
+    stage = target_tasks_nightly_enterprise_stage(
+        full_task_graph, parameters, graph_config
     )
+    prod = target_tasks_nightly_enterprise_prod(
+        full_task_graph, parameters, graph_config
+    )
+    # The generic repack is built, but never uploaded nor tagged.
+    generic = [
+        l
+        for l in target_tasks_enterprise_any(
+            full_task_graph, parameters, graph_config, {"moz": ["generic"]}
+        )
+        if not full_task_graph[l].kind.startswith("enterprise-oci-")
+    ]
+    return list(set(stage) | set(prod) | set(generic))
 
 
 # Run Searchfox analysis once daily.
