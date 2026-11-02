@@ -247,7 +247,7 @@ addons_manager:
       - interaction
     notification_emails:
       - addons-dev-internal@mozilla.com
-    extra_keys: &install_update_extra_keys
+    extra_keys:
       addon_id:
         description: Id of the addon (when available).
         type: string
@@ -325,33 +325,6 @@ addons_manager:
           "serial", "midi", "midi-sysex".
         type: string
     expires: 181
-
-#ifdef MOZ_ENTERPRISE
-  install_complete:
-    type: event
-    description: |
-      This event is recorded when an extension or theme is installed
-      in enterprise builds.
-      Contains security-relevant metadata for monitoring and analysis.
-      Only collected when MOZ_ENTERPRISE is defined and enabled.
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - security-telemetry@mozilla.org
-      - enterprise-telemetry@mozilla.org
-    extra_keys:
-      <<: *install_update_extra_keys
-      addon_name:
-        description: Name of the addon (when available).
-        type: string
-    expires: never
-    send_in_pings:
-      - enterprise
-#endif
 
   update: *install_update_event
 

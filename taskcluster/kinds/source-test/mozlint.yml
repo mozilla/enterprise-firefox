@@ -936,7 +936,7 @@ glean-parser:
     when:
         files-changed:
             - '**/*metrics.yaml'
-            - '**/pings.yaml'
+            - '**/*pings.yaml'
             - 'tools/lint/glean-parser.yml'
             - 'tools/lint/glean-parser/**'
 

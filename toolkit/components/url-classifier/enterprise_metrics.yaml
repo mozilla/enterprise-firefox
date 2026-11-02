@@ -1,0 +1,55 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Adding a new metric? We have docs for that!
+# https://firefox-source-docs.mozilla.org/toolkit/components/glean/user/new_definitions_file.html
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+$tags:
+  - 'Toolkit :: Safe Browsing'
+
+safebrowsing:
+  site_visit:
+    type: event
+    data_sensitivity:
+      - highly_sensitive
+    description: >
+      Recorded when the URL classifier blocks a load (top-level, subframe, or
+      subresource) because it matched a Safe Browsing threat list. Only
+      collected when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    expires: never
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      url:
+        description: >
+          The URL of the unsafe site that was blocked. When the complete URL is
+          recorded, any password in it is masked.
+        type: string
+      referrer:
+        description: >
+          The referrer of the blocked load, i.e. the page that embedded or
+          linked to the unsafe resource. Empty when there is no referrer.
+          Collected at the same level of detail as the url key.
+        type: string
+      threat_type:
+        description: >
+          The type of threat detected.
+        type: string
+      provider:
+        description: >
+          The Safe Browsing provider that flagged the site (e.g. "google4").
+        type: string
+      list:
+        description: >
+          The Safe Browsing list that matched the site.
+        type: string

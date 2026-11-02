@@ -125,8 +125,6 @@ firefox_desktop_metrics = [
     "browser/components/customizableui/metrics.yaml",
     "browser/components/customkeys/metrics.yaml",
     "browser/components/downloads/metrics.yaml",
-    "browser/components/enterprise/metrics.yaml",
-    "browser/components/enterprisepolicies/metrics.yaml",
     "browser/components/extensions/metrics.yaml",
     "browser/components/firefoxview/metrics.yaml",
     "browser/components/genai/metrics.yaml",
@@ -190,6 +188,21 @@ background_tasks_metrics = [
     "toolkit/mozapps/defaultagent/metrics.yaml",
 ]
 
+# Metrics that are only sent by Firefox Enterprise, to the enterprise console.
+# They are only built when MOZ_ENTERPRISE is set and must never be part of
+# regular Firefox builds, so they are not included in `metrics_yamls`.
+# Order is lexicographical, enforced by t/c/glean/tests/pytest/test_yaml_indices.py
+firefox_enterprise_metrics = [
+    "browser/components/downloads/enterprise_metrics.yaml",
+    "browser/components/enterprise/enterprise_metrics.yaml",
+    "browser/components/enterprisepolicies/enterprise_metrics.yaml",
+    "toolkit/components/contentanalysis/enterprise_metrics.yaml",
+    "toolkit/components/printing/enterprise_metrics.yaml",
+    "toolkit/components/reputationservice/enterprise_metrics.yaml",
+    "toolkit/components/url-classifier/enterprise_metrics.yaml",
+    "toolkit/mozapps/extensions/enterprise_metrics.yaml",
+]
+
 # Test metrics
 # Order is lexicographical, enforced by t/c/glean/tests/pytest/test_yaml_indices.py
 test_metrics = [
@@ -231,7 +244,6 @@ gecko_pings = [
 firefox_desktop_pings = [
     "browser/components/asrouter/pings.yaml",
     "browser/components/backup/pings.yaml",
-    "browser/components/enterprisepolicies/pings.yaml",
     "browser/components/newtab/pings.yaml",
     "browser/components/profiles/pings.yaml",
     "browser/components/referrals/pings.yaml",
@@ -263,6 +275,15 @@ background_tasks_pings = [
     "toolkit/mozapps/defaultagent/pings.yaml",
 ]
 
+# Pings that are only sent by Firefox Enterprise, to the enterprise console.
+# They are only built when MOZ_ENTERPRISE is set and must never be part of
+# regular Firefox builds, so they are not included in `pings_yamls` or
+# `pings_by_app_or_lib_id`.
+# Order is lexicographical, enforced by t/c/glean/tests/pytest/test_yaml_indices.py
+firefox_enterprise_pings = [
+    "browser/components/enterprisepolicies/enterprise_pings.yaml",
+]
+
 # Test pings
 # Order is lexicographical, enforced by t/c/glean/tests/pytest/test_yaml_indices.py
 test_pings = [
@@ -281,6 +302,15 @@ pings_by_app_or_lib_id = {
     # Not an _actual_ app ID in use,
     # but needed to differentiate ping registration in geckoview builds
     "gecko": gecko_pings + test_pings,
+}
+
+# Map of app ids to lists of pings files for apps that are only built with
+# MOZ_ENTERPRISE. Merged into `pings_by_app_or_lib_id` in enterprise builds.
+enterprise_pings_by_app_id = {
+    "firefox.enterprise.desktop": gecko_pings
+    + firefox_desktop_pings
+    + firefox_enterprise_pings
+    + test_pings,
 }
 
 # The list of all Glean pings.yaml files, relative to the top src dir.
