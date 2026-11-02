@@ -9,12 +9,12 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 
 from base_test import Environment
-from felt_tests import FeltTests
+from felt_tests import FeltKeyStoreStub, FeltTests
 
 PREF_LOCKING_RESTART = "enterprise.locking.restart"
 
 
-class AppRestartLock(FeltTests):
+class AppRestartLock(FeltKeyStoreStub, FeltTests):
     """Verify locking the FELT session on an update-driven restart.
 
     Applying an update relaunches the whole application, so FELT must persist
@@ -57,6 +57,7 @@ class AppRestartLock(FeltTests):
         """Sign in, set the restart-locking pref, and assert no signout yet.
 
         Returns the child browser pid for _settle_after_child_exit."""
+        self._prepare_felt_keystore()
         browser_pid = self._start_signed_in()
         self._stub_pending_update()
         self._set_locking_pref(PREF_LOCKING_RESTART, locking_enabled)
@@ -120,6 +121,7 @@ class AppRestartLock(FeltTests):
         Guards the pendingUpdate gate: FELT relaunches the browser in place and
         keeps the session in memory, so there is nothing to persist and nothing
         to sign out."""
+        self._prepare_felt_keystore()
         browser_pid = self._start_signed_in()
         self._set_locking_pref(PREF_LOCKING_RESTART, True)
         assert not self.felt_has_locking_token(), (

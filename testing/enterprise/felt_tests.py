@@ -21,13 +21,109 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Array, Process, Value
 
 import requests
-from base_test import EnterpriseTestsBase, Environment
+from base_test import EnterpriseTestsBase, Environment, encode_autoconfig
 from felt_consts import firefox_config
 from marionette_driver import expected
 from marionette_driver.by import By
 from marionette_driver.errors import NoSuchWindowException, UnknownException
 from marionette_driver.geckoinstance import DesktopInstance, GeckoInstance
 from mozprofile.prefs import Preferences
+
+
+class FeltKeyStoreStub:
+    """Helpers for tests that reach the OS keystore from FELT."""
+
+    def _prepare_felt_keystore(self):
+        """Avoid CI keychain stalls and clear tokens shared across test profiles.
+
+        macOS keychain calls can hang in CI (bug 2074879). A token left in
+        felt.json would resume a prior session instead of starting a new one.
+        Runs before the sign-in, which reaches the keystore through
+        FeltLocking.tryUnlock if a token is present.
+        """
+        driver = self.get_driver(Environment.FELT)
+        with driver.using_context("chrome"):
+            driver.execute_script(
+                r"""
+                const { OSKeyStore } = ChromeUtils.importESModule(
+                    "resource://gre/modules/OSKeyStore.sys.mjs"
+                );
+                OSKeyStore.encrypt = async plaintext => `encrypted(${plaintext})`;
+                OSKeyStore.decrypt = async ciphertext =>
+                    String(ciphertext).replace(/^encrypted\((.*)\)$/, "$1");
+                OSKeyStore.ensureLoggedIn = async () => ({ authenticated: true });
+
+                const { FeltStorage } = ChromeUtils.importESModule(
+                    "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
+                );
+                if (FeltStorage._feltStorage?.data) {
+                    FeltStorage._feltStorage.data.lockingTokens = {};
+                }
+                """
+            )
+
+    @contextmanager
+    def stub_felt_keystore(self):
+        """Queued URLs are encrypted with the OS keystore. FELT must still have
+        a window to script when the block exits."""
+        with self._driver.using_context("chrome"):
+            self._driver.execute_script(
+                r"""
+                const { OSKeyStore } = ChromeUtils.importESModule(
+                    "resource://gre/modules/OSKeyStore.sys.mjs"
+                );
+                globalThis.original = {
+                    encrypt: OSKeyStore.encrypt,
+                    decrypt: OSKeyStore.decrypt,
+                };
+                OSKeyStore.encrypt = async plaintext => `encrypted(${plaintext})`;
+                OSKeyStore.decrypt = async ciphertext =>
+                    String(ciphertext).replace(/^encrypted\((.*)\)$/, "$1");
+                """,
+                sandbox="felt-keystore-stub",
+            )
+        try:
+            yield
+        finally:
+            with self._driver.using_context("chrome"):
+                self._driver.execute_script(
+                    r"""
+                    const { OSKeyStore } = ChromeUtils.importESModule(
+                        "resource://gre/modules/OSKeyStore.sys.mjs"
+                    );
+                    Object.assign(OSKeyStore, globalThis.original);
+                    """,
+                    sandbox="felt-keystore-stub",
+                    new_sandbox=False,
+                )
+
+    @contextmanager
+    def stub_felt_keystore_on_launch(self):
+        """A restart restores the queue before the test can script FELT, so the
+        stub has to come from AutoConfig, which only the FELT launcher needs."""
+        with open(self.autoconfig_path, "rb") as cfg:
+            original = cfg.read()
+        with open(self.autoconfig_path, "ab") as cfg:
+            cfg.write(
+                encode_autoconfig(
+                    r"""
+                    if (Services.felt?.isFeltUI()) {
+                      const { OSKeyStore } = ChromeUtils.importESModule(
+                        "resource://gre/modules/OSKeyStore.sys.mjs"
+                      );
+                      OSKeyStore.encrypt = async plaintext =>
+                        `encrypted(${plaintext})`;
+                      OSKeyStore.decrypt = async ciphertext =>
+                        String(ciphertext).replace(/^encrypted\((.*)\)$/, "$1");
+                    }
+                    """
+                )
+            )
+        try:
+            yield
+        finally:
+            with open(self.autoconfig_path, "wb") as cfg:
+                cfg.write(original)
 
 
 class SharedString:
@@ -1228,38 +1324,6 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
 
 
 class FeltTests(FeltTestsBase):
-    def _prepare_felt_keystore(self):
-        """Avoid CI keychain stalls and clear tokens shared across test profiles.
-
-        macOS keychain calls can hang in CI (bug 2074879). A token left in
-        felt.json would resume a prior session instead of starting a new one.
-        Runs before the sign-in, which reaches the keystore through
-        FeltLocking.tryUnlock if a token is present.
-        """
-        driver = self.get_driver(Environment.FELT)
-        driver.set_context("chrome")
-        try:
-            driver.execute_script(
-                r"""
-                const { OSKeyStore } = ChromeUtils.importESModule(
-                    "resource://gre/modules/OSKeyStore.sys.mjs"
-                );
-                OSKeyStore.encrypt = async plaintext => `encrypted(${plaintext})`;
-                OSKeyStore.decrypt = async ciphertext =>
-                    String(ciphertext).replace(/^encrypted\((.*)\)$/, "$1");
-                OSKeyStore.ensureLoggedIn = async () => ({ authenticated: true });
-
-                const { FeltStorage } = ChromeUtils.importESModule(
-                    "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
-                );
-                if (FeltStorage._feltStorage?.data) {
-                    FeltStorage._feltStorage.data.lockingTokens = {};
-                }
-                """
-            )
-        finally:
-            driver.set_context("content")
-
     def _await_felt_locking_token(self, expected, message):
         """Wait for the token update, which can finish after the child exits."""
         self._wait.until(
@@ -1316,7 +1380,6 @@ class FeltTests(FeltTestsBase):
 
     def _start_signed_in(self):
         self._hold_felt_after_child_exit()
-        self._prepare_felt_keystore()
         self.run_felt_base()
         self.connect_child_browser()
         self.assert_user_signed_in(env=Environment.FIREFOX)
