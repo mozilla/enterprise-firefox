@@ -454,6 +454,22 @@ export class AutofillTelemetry {
     telemetry?.recordDoorhangerEvent(method, object, flowId);
   }
 
+  static recordCvvPromptShown({ promptType, flowId }) {
+    Glean.formautofillCreditcards.cvvPromptShown.record({
+      prompt_type: promptType,
+      flow_id: flowId,
+    });
+  }
+
+  static recordCvvPromptAction({ promptType, action, savingEnabled, flowId }) {
+    Glean.formautofillCreditcards.cvvPromptAction.record({
+      prompt_type: promptType,
+      action,
+      cvv_saving_enabled: savingEnabled,
+      flow_id: flowId,
+    });
+  }
+
   /**
    * Utility functions for form event (defined in Events.yaml)
    *

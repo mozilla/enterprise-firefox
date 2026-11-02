@@ -6197,6 +6197,13 @@
   value: true
   mirror: always
 
+# If true, when copying, the inline style attribute is normalized by being
+# serialized from its parsed declaration block.
+- name: dom.serializer.normalize_inline_style_when_copying.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # When this pref is enabled:
 #  - Shadow DOM is not pierced by default anymore
 #  - The method accepts optional CaretPositionFromPointOptions to allow piercing
@@ -6331,6 +6338,10 @@
 
 # Domains for which WebGPU is disabled.
 #
+# This is useful for working around web compatibility problems, but
+# because it checks the global's base URI, which content can change
+# freely, it's not suitable for dealing with bad actors.
+#
 # If `nsIGlobalObject::GetBaseURI` returns a base URI in this list,
 # then `GPU::requestAdapter` always rejects.
 #
@@ -6338,12 +6349,15 @@
 # form `*.DOMAIN` blocks all subdomains of `DOMAIN`. It is interpreted
 # by `nsContentUtils::IsURIInList`.
 #
+# For example, for bug 1980392, this pref had the value
+# "easyeda.com,*.easyeda.com".
+#
 # Bugs for the current default contents:
 #
-# easyeda.com: 1980392
+# <none at the moment>
 - name: dom.webgpu.blocked-domains
   type: DataMutexString
-  value: "easyeda.com,*.easyeda.com"
+  value: ""
   mirror: always
 
 # Is support for HTMLInputElement.webkitEntries enabled?
@@ -19426,6 +19440,15 @@
 - name: security.utility_pkcs11_module_process.enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Minimum time (in milliseconds) between IPC scans for remote certificates,
+# keys, and trust. The trade-off here is between how much of a delay there may
+# be before changes in remotely-loaded PKCS#11 modules are reflected in the
+# parent process and how much time is spent querying the remote process.
+- name: security.utility_pkcs11_module_process.scan_delay_ms
+  type: RelaxedAtomicUint32
+  value: 3000
   mirror: always
 
 - name: security.pki.cert_short_lifetime_in_days

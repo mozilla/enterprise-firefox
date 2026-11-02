@@ -2518,7 +2518,11 @@ export class UrlbarView {
 
     item._content.id = item.id + "-inner";
 
-    item.toggleAttribute("is-top-pick", !!result.isBestMatch);
+    if (result.bestMatchType) {
+      item.setAttribute("top-pick-type", result.bestMatchType);
+    } else {
+      item.removeAttribute("top-pick-type");
+    }
 
     if (result.isBottomUrlSuggestion) {
       this.#updateRowContentForBottomUrl(item, result);

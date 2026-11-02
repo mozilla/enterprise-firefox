@@ -2697,6 +2697,15 @@ void MediaFormatReader::Update(TrackType aTrack) {
       LOG("Error: {} needs a new decoder", TrackTypeToStr(aTrack));
       ShutdownDecoder(aTrack);
     }
+    if (!mSeekPromise.IsEmpty() &&
+        (!IsVideoOnlySeeking() || aTrack == TrackType::kVideoTrack) &&
+        (!IsAudioOnlySeeking() || aTrack == TrackType::kAudioTrack)) {
+      LOG("Error: {} is being sought, which will position it",
+          TrackTypeToStr(aTrack));
+      decoder.Flush();
+      ScheduleUpdate(aTrack);
+      return;
+    }
     if (decoder.mFirstFrameTime) {
       TimeInterval seekInterval = TimeInterval(decoder.mFirstFrameTime.ref(),
                                                decoder.mFirstFrameTime.ref());
@@ -2866,8 +2875,23 @@ nsresult MediaFormatReader::ResetDecode(const TrackSet& aTracks) {
   MOZ_ASSERT(OnTaskQueue());
   LOGV("");
 
+  // Abandoning the seek in progress also cancels its demuxer seeks, including
+  // on tracks that are not reset, so that they cannot complete against a later
+  // seek. Internal seeks are left to complete on tracks that are not reset.
   mSeekPromise.RejectIfExists(NS_OK, __func__);
-  mSkipRequest.DisconnectIfExists();
+  if (mVideo.mSeekRequest.Exists() && !mVideo.mTimeThreshold) {
+    mVideo.mSeekRequest.Disconnect();
+    ScheduleUpdate(TrackInfo::kVideoTrack);
+  }
+  if (mAudio.mSeekRequest.Exists() && !mAudio.mTimeThreshold) {
+    mAudio.mSeekRequest.Disconnect();
+    ScheduleUpdate(TrackInfo::kAudioTrack);
+  }
+  // The skip serves a pending video request, which is only rejected when video
+  // is reset.
+  if (aTracks.contains(TrackInfo::kVideoTrack)) {
+    mSkipRequest.DisconnectIfExists();
+  }
 
   // Do the same for any data wait promises.
   if (aTracks.contains(TrackInfo::kAudioTrack)) {
@@ -3166,7 +3190,13 @@ void MediaFormatReader::OnSeekFailed(TrackType aTrack,
     }
     NotifyWaitingForData(aTrack);
   }
-  MOZ_ASSERT(!mVideo.mSeekRequest.Exists() && !mAudio.mSeekRequest.Exists());
+  // A track the seek does not cover may be in an internal seek of its own.
+  MOZ_ASSERT(
+      !mVideo.mSeekRequest.Exists() ||
+      (mOriginalSeekTarget.IsAudioOnly() && mVideo.HasInternalSeekPending()));
+  MOZ_ASSERT(
+      !mAudio.mSeekRequest.Exists() ||
+      (mOriginalSeekTarget.IsVideoOnly() && mAudio.HasInternalSeekPending()));
   mPendingSeekTime.reset();
 
   auto type = aTrack == TrackType::kAudioTrack ? MediaData::Type::AUDIO_DATA

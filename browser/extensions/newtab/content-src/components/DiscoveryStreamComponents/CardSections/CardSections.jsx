@@ -32,6 +32,10 @@ import { FollowSectionButtonHighlight } from "../FeatureHighlight/FollowSectionB
 import { MessageWrapper } from "content-src/components/MessageWrapper/MessageWrapper";
 import { ErrorBoundary } from "content-src/components/ErrorBoundary/ErrorBoundary";
 import { WIDGET_ROW_COMPONENTS } from "content-src/components/Widgets/WidgetsComponentRegistry.jsx";
+import {
+  WIDGET_LOCATIONS,
+  WidgetLocationContext,
+} from "content-src/components/Widgets/WidgetPlacement";
 
 // Prefs
 const PREF_SECTIONS_CARDS_ENABLED = "discoverystream.sections.cards.enabled";
@@ -587,12 +591,14 @@ function CardSection({
             key={`section-widget-${rec.widgetId}`}
             className={`section-widget ${classNames.join(" ")}`}
           >
-            <ErrorBoundary className="widget-error-fallback">
-              <Widget
-                dispatch={dispatch}
-                handleUserInteraction={handleWidgetInteraction}
-              />
-            </ErrorBoundary>
+            <WidgetLocationContext.Provider value={WIDGET_LOCATIONS.STORY_CARD}>
+              <ErrorBoundary className="widget-error-fallback">
+                <Widget
+                  dispatch={dispatch}
+                  handleUserInteraction={handleWidgetInteraction}
+                />
+              </ErrorBoundary>
+            </WidgetLocationContext.Provider>
           </div>
         );
         dataIndex++;

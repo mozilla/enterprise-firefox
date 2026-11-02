@@ -155,7 +155,7 @@ export class IPProtectionPanel {
    * @property {boolean} isActive
    *  True if the VPN proxy is active, else false.
    * @property {boolean} isPremium
-   * True if the current device has Firefox set as the default browser or the user has a Mozilla VPN subscription and/or unlimited bandwidth
+   * True if the current device has Firefox set as the default browser or the user has a Mozilla VPN subscription
    * Initially false; recomputed asynchronously before the panel is shown.
    * @property {boolean} showSiteInclusionPrompt
    * True if the prompt offering to always turn on VPN for the current site
@@ -392,7 +392,6 @@ export class IPProtectionPanel {
 
   async isPremium() {
     let isPremium =
-      !this.#getBandwidthUsage() ||
       lazy.IPProtectionService.authProvider.hasUpgraded ||
       (await this.isDefaultBrowser());
     return isPremium;

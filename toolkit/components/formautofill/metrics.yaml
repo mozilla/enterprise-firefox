@@ -320,6 +320,69 @@ formautofill.creditcards:
           code is changed. "clear": the stored code is removed.
         type: string
 
+  cvv_prompt_shown:
+    type: event
+    description: >
+      Recorded when the credit card doorhanger offers to save a security code
+      the user entered in the form: the save doorhanger for a new card
+      submitted with a security code, or the update doorhanger for a saved card
+      submitted with a new or changed security code.
+    bugs:
+      - https://bugzil.la/2086203
+    data_reviews:
+      - https://bugzil.la/2086203
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - autofill@lists.mozilla.org
+      - passwords-dev@mozilla.org
+    expires: never
+    extra_keys:
+      prompt_type: &cvv_prompt_type
+        description: >
+          "new_card" for the save doorhanger of a new card, "existing_card" for
+          the update doorhanger offering to add a security code to a saved
+          card.
+        type: string
+      flow_id: &cvv_prompt_flow_id
+        description: >
+          Flow id of the interaction session with the credit card form, shared
+          with the credit card form events.
+        type: string
+
+  cvv_prompt_action:
+    type: event
+    description: >
+      Recorded when the user responds to a doorhanger recorded by
+      cvv_prompt_shown, or when it is closed without a response. A button
+      clicked after reopening a closed doorhanger is still recorded.
+    bugs:
+      - https://bugzil.la/2086203
+    data_reviews:
+      - https://bugzil.la/2086203
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - autofill@lists.mozilla.org
+      - passwords-dev@mozilla.org
+    expires: never
+    extra_keys:
+      prompt_type: *cvv_prompt_type
+      action:
+        description: >
+          "save" when the card is saved or updated, "save_new" when an existing
+          card is saved as a new payment method, "not_now" (new_card) or
+          "no_thanks" (existing_card) when the Dismiss button is clicked,
+          "never_save" when the user stops saving cards, and "closed", recorded
+          once, when the doorhanger is closed without a button being clicked,
+          for example with Esc or by closing the tab.
+        type: string
+      cvv_saving_enabled:
+        description: >
+          Whether saving security codes was turned on when the user responded.
+        type: boolean
+      flow_id: *cvv_prompt_flow_id
+
 
 formautofill:
   form_submission_heuristic:

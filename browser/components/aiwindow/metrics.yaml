@@ -549,7 +549,10 @@ smart_window:
   tool_call:
     type: event
     description: |
-      The assistant invokes a tool. The tool_name extra identifies which tool;
+      The assistant requests a tool call. Recorded for successful and failed
+      executions, blocked or invalid requests, and calls skipped or aborted
+      before execution. The error extra distinguishes these outcomes.
+      The tool_name extra identifies the requested tool;
       the prompt_version extra captures the Remote Settings configuration
       version for the chat feature so tool-call behavior can be correlated
       with prompt revisions during debugging.
@@ -570,7 +573,7 @@ smart_window:
       tool_name:
         type: string
         description: >
-          Name of the invoked tool, e.g. "run_search", "get_open_tabs",
+          Name of the requested tool, e.g. "run_search", "get_open_tabs",
           "search_browsing_history", "get_user_memories"
       model: *model
       prompt_version:
@@ -580,11 +583,16 @@ smart_window:
       error:
         type: string
         description: >
-          Canonical tool-call error code, or empty on success. A tool that
-          reports a failure by returning an error-bearing result rather than
-          throwing, as search_the_web does, is also counted as
-          "execution_failed" here; for the reason a search failed, see the
-          error extra on smart_window.search_the_web
+          Canonical tool-call error code, or empty on success.
+          "duplicate_search" and "memories_disabled" identify calls blocked
+          before execution. "invalid_arguments" means the arguments could not
+          be parsed or prepared. "skipped" means the call was not executed
+          because another tool was selected to finish the turn. "aborted"
+          means the call was not started because the response was stopped.
+          "execution_failed" covers thrown errors and tools that report a
+          failure by returning an error-bearing result, as search_the_web does.
+          For the reason a search failed, see the error extra on
+          smart_window.search_the_web
 
   model_request:
     type: event

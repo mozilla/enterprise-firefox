@@ -8358,12 +8358,12 @@ fn relative_selector_invalidated_at(element: GeckoElement, result: &Invalidation
     }
 }
 
-fn add_relative_selector_attribute_dependency<'a>(
+fn add_relative_selector_attribute_dependency<'a, 'b>(
     element: &GeckoElement<'a>,
     scope: &Option<OpaqueElement>,
     invalidation_map: &'a InvalidationMap,
     attribute: &AtomIdent,
-    collector: &mut RelativeSelectorDependencyCollector<'a, GeckoElement<'a>>,
+    collector: &mut RelativeSelectorDependencyCollector<'a, 'b, GeckoElement<'a>>,
 ) {
     match invalidation_map
         .other_attribute_affecting_selectors
@@ -9214,14 +9214,14 @@ pub extern "C" fn Servo_CssUrl_IsLocalRef(url: &url::CssUrl) -> bool {
     url.is_fragment()
 }
 
-fn relative_selector_dependencies_for_id<'a>(
+fn relative_selector_dependencies_for_id<'a, 'b>(
     old_id: *const nsAtom,
     new_id: *const nsAtom,
     element: &GeckoElement<'a>,
     scope: Option<OpaqueElement>,
     quirks_mode: QuirksMode,
     invalidation_map: &'a InvalidationMap,
-    collector: &mut RelativeSelectorDependencyCollector<'a, GeckoElement<'a>>,
+    collector: &mut RelativeSelectorDependencyCollector<'a, 'b, GeckoElement<'a>>,
 ) {
     [old_id, new_id]
         .iter()
@@ -9240,13 +9240,13 @@ fn relative_selector_dependencies_for_id<'a>(
         });
 }
 
-fn relative_selector_dependencies_for_class<'a>(
+fn relative_selector_dependencies_for_class<'a, 'b>(
     classes_changed: &SmallVec<[Atom; 8]>,
     element: &GeckoElement<'a>,
     scope: Option<OpaqueElement>,
     quirks_mode: QuirksMode,
     invalidation_map: &'a InvalidationMap,
-    collector: &mut RelativeSelectorDependencyCollector<'a, GeckoElement<'a>>,
+    collector: &mut RelativeSelectorDependencyCollector<'a, 'b, GeckoElement<'a>>,
 ) {
     classes_changed.iter().for_each(|atom| {
         match invalidation_map.class_to_selector.get(atom, quirks_mode) {
@@ -9260,12 +9260,12 @@ fn relative_selector_dependencies_for_class<'a>(
     });
 }
 
-fn relative_selector_dependencies_for_custom_state<'a>(
+fn relative_selector_dependencies_for_custom_state<'a, 'b>(
     state: *const nsAtom,
     element: GeckoElement<'a>,
     scope: Option<OpaqueElement>,
     invalidation_map: &'a InvalidationMap,
-    collector: &mut RelativeSelectorDependencyCollector<'a, GeckoElement<'a>>,
+    collector: &mut RelativeSelectorDependencyCollector<'a, 'b, GeckoElement<'a>>,
 ) {
     unsafe {
         AtomIdent::with(state, |atom| {
@@ -10786,7 +10786,6 @@ pub unsafe extern "C" fn Servo_Value_Matches_Syntax(
         &mut input,
         &syntax,
         url_data,
-        None,
         AllowComputationallyDependent::Yes,
         /* attr_taint */ Default::default(),
         property_id_ref,
@@ -11536,11 +11535,7 @@ fn compute_arbritrary_substitution_functions(
 
     // Let's check if we have substitution functions (`var()`, `attr()`, `env()`) to handle.
     parser.look_for_arbitrary_substitution_functions(ARBITRARY_SUBSTITUTION_FUNCTIONS);
-    let Ok(variable_value) = VariableValue::parse(
-        &mut parser,
-        Some(&parser_context.namespaces.prefixes),
-        &parser_context.url_data,
-    ) else {
+    let Ok(variable_value) = VariableValue::parse(parser_context, &mut parser) else {
         return None;
     };
 
@@ -11551,25 +11546,35 @@ fn compute_arbritrary_substitution_functions(
     // Build the attributes Map that ComputedSubstitutionFunctions needs
     let stylist = &data.stylist;
     let mut attribute_tracker = AttributeTracker::new(&element);
+    let mut substitution_functions = custom_properties::ComputedSubstitutionFunctions::new(
+        Some(style.custom_properties().clone()),
+        None,
+    );
     let attributes: style::custom_properties_map::OwnMap = variable_value
         .references
         .refs
         .iter()
         .filter_map(|reference| {
-            let attr = match &reference.function {
-                style::substitution::SubstitutionFunction::Attr(attr) if attr.has_type() => attr,
-                _ => return None,
+            let style::substitution::SubstitutionFunction::Attr(attr) = &reference.function else {
+                return None;
             };
-            let value = attr
-                .value_for_cycle_resolution(&variable_value.url_data, &mut attribute_tracker)
+            let mut replacement_context = style::substitution::SubstitutionReplacementContext::new(
+                None,
+                &substitution_functions,
+                stylist,
+                context,
+                &mut attribute_tracker,
+            );
+            let arg = attr.replace_arg(&variable_value, &mut replacement_context);
+            let arg = arg.value.filter(|arg| arg.has_type())?;
+            let value = arg
+                .name
+                .value_for_cycle_resolution(&mut replacement_context, &variable_value.url_data)
                 .ok()?;
-            Some((attr.name.clone(), Some(value)))
+            Some((arg.name.name.clone(), Some(value)))
         })
         .collect();
-    let substitution_functions = custom_properties::ComputedSubstitutionFunctions::new(
-        Some(style.custom_properties().clone()),
-        Some(attributes),
-    );
+    substitution_functions.attributes = attributes;
 
     let Ok(result) = style::substitution::substitute(
         &variable_value,
@@ -11713,7 +11718,7 @@ pub unsafe extern "C" fn Servo_GetComputationSteps(
 
     let property = unsafe { property.as_str_unchecked() };
     let string = unsafe { string.as_str_unchecked() };
-    let mut parser_context = dummy_author_style_rule_context();
+    let parser_context = dummy_author_style_rule_context();
     let property_id = PropertyId::parse(&property, &parser_context).ok();
     let mut substituted = None;
     let element = GeckoElement(raw_element);
@@ -11721,56 +11726,52 @@ pub unsafe extern "C" fn Servo_GetComputationSteps(
     let mut context = ContextForSubstitution::new(element, pseudo_type);
     let context = context.computed_context(&data, style);
 
-    let mut parse_node = |parser_context: &ParserContext| {
-        if let Some(s) = compute_arbritrary_substitution_functions(
-            &string,
-            element,
-            style,
-            &data,
-            &parser_context,
-            &context,
-        ) {
-            // We successfully substituted, let's add the initial string to the result array
-            out.push(nsCString::from(string));
-            // …as well as the substituted string.
-            out.push(nsCString::from(&s));
-            substituted = Some(s.clone());
-        };
+    let node = parser_context.with_property_id(
+        property_id.as_ref().map(PropertyIdRef::from),
+        |parser_context| {
+            if let Some(s) = compute_arbritrary_substitution_functions(
+                &string,
+                element,
+                style,
+                &data,
+                &parser_context,
+                &context,
+            ) {
+                // We successfully substituted, let's add the initial string to the result array
+                out.push(nsCString::from(string));
+                // …as well as the substituted string.
+                out.push(nsCString::from(&s));
+                substituted = Some(s.clone());
+            };
 
-        let substituted_str = substituted.as_deref().unwrap_or(&string);
-        let mut parser = Parser::new(substituted_str);
+            let substituted_str = substituted.as_deref().unwrap_or(&string);
+            let mut parser = Parser::new(substituted_str);
 
-        let flags = CalcParseFlags {
-            percentage_context: PercentageContext::allowed(),
-            in_place_operations: CalcNodeParseInPlaceOperations::No,
-            ..Default::default()
-        };
+            let flags = CalcParseFlags {
+                percentage_context: PercentageContext::allowed(),
+                in_place_operations: CalcNodeParseInPlaceOperations::No,
+                ..Default::default()
+            };
 
-        // Initial parsing
-        Some(match parser.next().ok()? {
-            Token::Function(name) => {
-                let math_func = CalcNode::math_function(&parser_context, name).ok()?;
-                CalcNode::parse(&parser_context, &mut parser, math_func, flags).ok()?
-            },
-            Token::Percentage { unit_value, .. } => CalcNode::Leaf(Leaf::Percentage(
-                CalcPercentageLeaf::new(*unit_value, Optional::None),
-            )),
-            Token::Dimension { value, unit, .. } => {
-                let length =
-                    NoCalcLength::parse_dimension_with_context(&parser_context, *value, unit)
-                        .ok()?;
-                CalcNode::Leaf(Leaf::Length(length))
-            },
-            _ => return None,
-        })
-    };
-
-    let node = match property_id {
-        Some(ref id) => {
-            parser_context.with_property_declaration(PropertyIdRef::from(id), parse_node)
+            // Initial parsing
+            Some(match parser.next().ok()? {
+                Token::Function(name) => {
+                    let math_func = CalcNode::math_function(&parser_context, name).ok()?;
+                    CalcNode::parse(&parser_context, &mut parser, math_func, flags).ok()?
+                },
+                Token::Percentage { unit_value, .. } => CalcNode::Leaf(Leaf::Percentage(
+                    CalcPercentageLeaf::new(*unit_value, Optional::None),
+                )),
+                Token::Dimension { value, unit, .. } => {
+                    let length =
+                        NoCalcLength::parse_dimension_with_context(&parser_context, *value, unit)
+                            .ok()?;
+                    CalcNode::Leaf(Leaf::Length(length))
+                },
+                _ => return None,
+            })
         },
-        None => parse_node(&parser_context),
-    };
+    );
     let Some(mut node) = node else {
         return;
     };

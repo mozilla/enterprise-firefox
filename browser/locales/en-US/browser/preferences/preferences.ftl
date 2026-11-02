@@ -1477,9 +1477,10 @@ sync-engine-history =
     .label = History
     .accesskey = r
 
-sync-engine-tabs =
+# This string is a modified noun (i.e. tabs that are open)
+sync-engine-tabs2 =
     .label = Open tabs
-    .tooltiptext = A list of what’s open on all synced devices
+    .tooltiptext = Open tabs from your other devices
     .accesskey = t
 
 sync-engine-passwords =
@@ -1487,24 +1488,24 @@ sync-engine-passwords =
     .tooltiptext = Passwords you’ve saved
     .accesskey = P
 
-sync-engine-addresses =
+sync-engine-addresses2 =
     .label = Addresses
-    .tooltiptext = Postal addresses you’ve saved (desktop only)
+    .tooltiptext = Addresses you’ve saved in { -brand-short-name }
     .accesskey = e
 
-sync-engine-payment-methods2 =
+sync-engine-payment-methods3 =
     .label = Payment methods
-    .tooltiptext = Names, card numbers, and expiry dates
+    .tooltiptext = Payment methods you’ve saved
     .accesskey = n
 
-sync-engine-addons =
+sync-engine-addons2 =
     .label = Add-ons
-    .tooltiptext = Extensions and themes for Firefox desktop
+    .tooltiptext = Extensions and themes you’ve added to { -brand-short-name } for desktop
     .accesskey = A
 
-sync-engine-settings =
+sync-engine-settings2 =
     .label = Settings
-    .tooltiptext = General, Privacy, and Security settings you’ve changed
+    .tooltiptext = { -brand-short-name } settings where applicable
     .accesskey = s
 
 ## The device name controls.

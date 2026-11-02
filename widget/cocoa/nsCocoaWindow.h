@@ -483,6 +483,9 @@ class nsCocoaWindow final : public nsIWidget {
 
   bool HasModalDescendants() const { return mNumModalDescendants > 0; }
   bool IsModal() const { return mModal; }
+  bool IsMediaPiPWindow() const {
+    return mPiPType == mozilla::widget::PiPType::MediaPiP;
+  }
 
   NSWindow* GetCocoaWindow() { return [[mWindow retain] autorelease]; }
 

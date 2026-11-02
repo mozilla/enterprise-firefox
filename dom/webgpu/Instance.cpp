@@ -142,6 +142,11 @@ already_AddRefed<dom::Promise> Instance::RequestAdapter(
 #endif
 
   // Check if WebGPU is blocked for this global's domain.
+  //
+  // This is useful for managing web compatibility problems, but since the base
+  // URI is under content control, this is not suitable for blocking hostile
+  // sites. For that reason this check is not re-applied in the GPU process (and
+  // would be tricky to get the right URI there anyway).
   {
     const auto prefLock = mozilla::StaticPrefs::dom_webgpu_blocked_domains();
     rejectIf(nsContentUtils::IsURIInList(mGlobal->GetBaseURI(), *prefLock),

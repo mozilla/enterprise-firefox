@@ -183,7 +183,7 @@ nsDocShellLoadState::nsDocShellLoadState(
   mPostDataStream = aLoadState.PostDataStream();
   mHeadersStream = aLoadState.HeadersStream();
   mSrcdocData = aLoadState.SrcdocData();
-  mHasSpeculativeListener = aLoadState.HasSpeculativeListener();
+  mSpeculativeChannelId = aLoadState.SpeculativeChannelId();
   mIsMetaRefresh = aLoadState.IsMetaRefresh();
   if (aLoadState.loadingSessionHistoryInfo().isSome()) {
     mLoadingSessionHistoryInfo = std::make_unique<LoadingSessionHistoryInfo>(
@@ -225,7 +225,7 @@ nsDocShellLoadState::nsDocShellLoadState(
       // The load state matches, steal parent-process-only fields which were on
       // the original state.
       mSpeculativeListener = originalState->TakeSpeculativeListener();
-      MOZ_ASSERT(mHasSpeculativeListener == !!mSpeculativeListener);
+      MOZ_ASSERT(mSpeculativeChannelId.isSome() == !!mSpeculativeListener);
     } else {
       if (!nsContentUtils::IsProcessSpecificIdFrom(mLoadIdentifier,
                                                    cp->ChildID())) {
@@ -392,7 +392,7 @@ nsDocShellLoadState::nsDocShellLoadState(const nsDocShellLoadState& aOther)
       "allowed in the parent process, as it could break triggering remote type "
       "tracking in content.");
   MOZ_DIAGNOSTIC_ASSERT(
-      !aOther.mHasSpeculativeListener && !aOther.mSpeculativeListener,
+      aOther.mSpeculativeChannelId.isNothing() && !aOther.mSpeculativeListener,
       "Cannot copy a load state with a speculative listener");
   if (aOther.mLoadingSessionHistoryInfo) {
     mLoadingSessionHistoryInfo = std::make_unique<LoadingSessionHistoryInfo>(
@@ -1025,7 +1025,7 @@ void nsDocShellLoadState::MaybeStripTrackerQueryStrings(
   // speculative listener in the parent process. This means that this has been
   // loaded speculatively in the parent process before and the stripping was
   // happening by then.
-  if (mHasSpeculativeListener || !aContext->IsTopContent() ||
+  if (mSpeculativeChannelId || !aContext->IsTopContent() ||
       BasePrincipal::Cast(TriggeringPrincipal())->AddonPolicy()) {
     return;
   }
@@ -1225,13 +1225,14 @@ void nsDocShellLoadState::SetSpeculativeListener(
     mozilla::net::DocumentLoadListener* aListener) {
   MOZ_ASSERT(XRE_IsParentProcess(), "parent-process only field");
   mSpeculativeListener = aListener;
-  mHasSpeculativeListener = mSpeculativeListener != nullptr;
+  mSpeculativeChannelId =
+      aListener ? aListener->GetDocumentChannelId() : mozilla::Nothing();
 }
 
 already_AddRefed<mozilla::net::DocumentLoadListener>
 nsDocShellLoadState::TakeSpeculativeListener() {
   MOZ_ASSERT(XRE_IsParentProcess(), "parent-process only field");
-  mHasSpeculativeListener = false;
+  mSpeculativeChannelId.reset();
   return mSpeculativeListener.forget();
 }
 
@@ -1595,8 +1596,8 @@ const char* nsDocShellLoadState::ValidateWithOriginalState(
     return "SourceBrowsingContext";
   }
 
-  if (mHasSpeculativeListener != aOriginalState->mHasSpeculativeListener) {
-    return "HasSpeculativeListener";
+  if (mSpeculativeChannelId != aOriginalState->mSpeculativeChannelId) {
+    return "SpeculativeChannelId";
   }
 
   // FIXME: Consider calculating less information in the target process so
@@ -1662,7 +1663,7 @@ DocShellLoadStateInit nsDocShellLoadState::Serialize(
   loadState.SrcdocData() = mSrcdocData;
   loadState.ResultPrincipalURI() = mResultPrincipalURI;
   loadState.LoadIdentifier() = mLoadIdentifier;
-  loadState.HasSpeculativeListener() = mHasSpeculativeListener;
+  loadState.SpeculativeChannelId() = mSpeculativeChannelId;
   loadState.IsMetaRefresh() = mIsMetaRefresh;
   loadState.forceMediaDocument() = mForceMediaDocument;
   if (mLoadingSessionHistoryInfo) {

@@ -9,9 +9,20 @@ import { INITIAL_STATE, reducers } from "common/Reducers.sys.mjs";
 import { WidgetsSidebar } from "content-src/components/Widgets/WidgetsSidebar";
 import { PAGE_LAYOUT_VARIANTS } from "common/PageLayoutVariants.mjs";
 
-jest.mock("content-src/components/Widgets/Weather/Weather", () => ({
-  Weather: () => <div data-testid="weather-widget" />,
-}));
+jest.mock("content-src/components/Widgets/Weather/Weather", () => {
+  const { useContext } = require("react");
+  const {
+    WidgetLocationContext,
+  } = require("content-src/components/Widgets/WidgetPlacement");
+  return {
+    Weather: () => (
+      <div
+        data-testid="weather-widget"
+        data-location={useContext(WidgetLocationContext) ?? ""}
+      />
+    ),
+  };
+});
 
 let privacyProps;
 jest.mock("content-src/components/Widgets/Privacy/Privacy", () => ({
@@ -57,6 +68,13 @@ describe("WidgetsSidebar", () => {
   it("renders the weather widget when enabled, at small size, with system pref set", () => {
     renderSidebar(makeState(SIDEBAR_PREFS));
     expect(screen.getByTestId("weather-widget")).toBeTruthy();
+  });
+
+  it("tells its widgets they render in the sidebar", () => {
+    renderSidebar(makeState(SIDEBAR_PREFS));
+    expect(screen.getByTestId("weather-widget").dataset.location).toBe(
+      "sidebar"
+    );
   });
 
   it("does not render when size is not small", () => {

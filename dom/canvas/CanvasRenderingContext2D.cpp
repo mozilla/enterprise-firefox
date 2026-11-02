@@ -1076,11 +1076,16 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(CanvasRenderingContext2D)
     ImplCycleCollectionUnlink(state.patternStyles[Style::FILL]);
     ImplCycleCollectionUnlink(state.gradientStyles[Style::STROKE]);
     ImplCycleCollectionUnlink(state.gradientStyles[Style::FILL]);
-    if (auto* autoSVGFiltersObserver = state.autoSVGFiltersObserver.get()) {
-      // We must take this opportunity to set active to false because
-      // we won't be able to once we unlink the pointer and we don't want
-      // any more callbacks after this point.
-      autoSVGFiltersObserver->SetIsActive(false);
+    if (state.autoSVGFiltersObserver) {
+      /*
+       * Before we unlink (null out) state.autoSVGFiltersObserver, we have to
+       * deactivate it, since it has a raw pointer back to us, which we don't
+       * want it to use after our impending destruction. (Our destructor will
+       * also attempt to deactivate it, but it won't be able to, since we're
+       * about to proactively null out state.autoSVGFiltersObserver which is
+       * how our destructor would reach it.)
+       */
+      state.autoSVGFiltersObserver->SetIsActive(false);
     }
     ImplCycleCollectionUnlink(state.autoSVGFiltersObserver);
   }

@@ -1,7 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-requestLongerTimeout(2);
+requestLongerTimeout(3);
 
 const { GenAI } = ChromeUtils.importESModule(
   "moz-src:///browser/components/genai/GenAI.sys.mjs"
@@ -3825,4 +3825,225 @@ add_task(async function test_selection_callout_uses_design_tokens() {
   ]) {
     Assert.ok(shadow?.includes(`var(${token})`), `The shadow uses ${token}`);
   }
+});
+
+async function openAskDropdown(browser) {
+  const popup = document.getElementById("chat-shortcuts-options-panel");
+  const shown = BrowserTestUtils.waitForEvent(popup, "popupshown");
+  EventUtils.synthesizeMouseAtCenter(
+    document.getElementById("ai-action-button"),
+    {},
+    window
+  );
+  await shown;
+  // Let the page hear that a dropdown is open before the next input.
+  await SpecialPowers.spawn(browser, [], () => {});
+  return popup;
+}
+
+/**
+ * Check that Escape closes an open dropdown first and then the bar, whether
+ * the focus is in the page or in the browser window.
+ */
+add_task(async function test_escape_closes_dropdown_then_bar() {
+  await SpecialPowers.pushPrefEnv({ set: MORE_ACTIONS_PREFS });
+
+  await BrowserTestUtils.withNewTab("data:text/plain,hi", async browser => {
+    let panel = await showSelectionMenu(browser);
+    let popup = await openAskDropdown(browser);
+
+    let dropdownHidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
+    await BrowserTestUtils.synthesizeKey("KEY_Escape", {}, browser);
+    await dropdownHidden;
+    await SpecialPowers.spawn(browser, [], () => {});
+    Assert.equal(panel.state, "open", "The first Escape leaves the bar open");
+
+    let barHidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    await BrowserTestUtils.synthesizeKey("KEY_Escape", {}, browser);
+    await barHidden;
+
+    await SpecialPowers.spawn(browser, [], () =>
+      content.getSelection().removeAllRanges()
+    );
+    panel = await showSelectionMenu(browser);
+    popup = await openAskDropdown(browser);
+    dropdownHidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await dropdownHidden;
+    Assert.equal(
+      panel.state,
+      "open",
+      "The first Escape leaves the bar open from the window"
+    );
+    barHidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await barHidden;
+  });
+
+  await SpecialPowers.popPrefEnv();
+});
+
+/**
+ * Check that Escape closes an open dropdown first when the selection is in a
+ * cross-origin iframe, so the dropdown state reaches that frame's actor.
+ */
+add_task(async function test_escape_closes_dropdown_then_bar_in_iframe() {
+  await SpecialPowers.pushPrefEnv({ set: MORE_ACTIONS_PREFS });
+
+  await BrowserTestUtils.withNewTab("https://example.com/", async browser => {
+    await SpecialPowers.spawn(browser, ["https://example.org/"], async src => {
+      const frame = content.document.createElement("iframe");
+      frame.src = src;
+      const loaded = ContentTaskUtils.waitForEvent(frame, "load");
+      content.document.body.appendChild(frame);
+      await loaded;
+    });
+    const frameContext = browser.browsingContext.children[0];
+    await SimpleTest.promiseFocus(browser);
+    await BrowserTestUtils.synthesizeMouse(
+      "body",
+      10,
+      10,
+      { type: "mousedown" },
+      frameContext
+    );
+    await SpecialPowers.spawn(frameContext, [], () => {
+      content.getSelection().selectAllChildren(content.document.body);
+    });
+    await BrowserTestUtils.synthesizeMouse(
+      "body",
+      60,
+      10,
+      { type: "mouseup" },
+      frameContext
+    );
+    const panel = document.getElementById("selection-shortcut-action-panel");
+    await TestUtils.waitForCondition(
+      () => panel.getAttribute("panelopen") === "true",
+      "Selection menu opened for the frame selection"
+    );
+
+    const popup = await openAskDropdown(frameContext);
+
+    const dropdownHidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
+    await BrowserTestUtils.synthesizeKey("KEY_Escape", {}, frameContext);
+    await dropdownHidden;
+    await SpecialPowers.spawn(frameContext, [], () => {});
+    Assert.equal(panel.state, "open", "The first Escape leaves the bar open");
+
+    const barHidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    await BrowserTestUtils.synthesizeKey("KEY_Escape", {}, frameContext);
+    await barHidden;
+  });
+
+  await SpecialPowers.popPrefEnv();
+});
+
+/**
+ * Check that the later presses of a double click do not take the bar down.
+ */
+add_task(async function test_double_click_keeps_bar() {
+  await SpecialPowers.pushPrefEnv({ set: MORE_ACTIONS_PREFS });
+
+  await BrowserTestUtils.withNewTab("data:text/plain,hi", async browser => {
+    const panel = await showSelectionMenu(browser);
+    let hiding = 0;
+    const onHiding = event => {
+      if (event.target == panel) {
+        hiding++;
+      }
+    };
+    panel.addEventListener("popuphiding", onHiding);
+
+    await BrowserTestUtils.synthesizeMouse(
+      browser,
+      20,
+      10,
+      { type: "mousedown", clickCount: 2 },
+      browser
+    );
+    await SpecialPowers.spawn(browser, [], () => {});
+    Assert.equal(panel.state, "open", "The second press keeps the bar open");
+    await BrowserTestUtils.synthesizeMouse(
+      browser,
+      20,
+      10,
+      { type: "mouseup", clickCount: 2 },
+      browser
+    );
+    await SpecialPowers.spawn(browser, [], () => {});
+    panel.removeEventListener("popuphiding", onHiding);
+    Assert.equal(hiding, 0, "The bar never closed during the double click");
+
+    await hideSelectionMenu(panel);
+  });
+
+  await SpecialPowers.popPrefEnv();
+});
+
+/**
+ * Check that a double click that ends with a different selection and nothing
+ * new to show takes the bar down, rather than leaving it for stale text.
+ */
+add_task(async function test_click_burst_ending_without_selection_hides_bar() {
+  await SpecialPowers.pushPrefEnv({
+    set: [...MORE_ACTIONS_PREFS, ["browser.ml.chat.shortcuts.debounce", 50]],
+  });
+
+  await BrowserTestUtils.withNewTab("data:text/plain,hi", async browser => {
+    const panel = await showSelectionMenu(browser);
+
+    await BrowserTestUtils.synthesizeMouse(
+      browser,
+      20,
+      10,
+      { type: "mousedown", clickCount: 2 },
+      browser
+    );
+    await SpecialPowers.spawn(browser, [], () =>
+      content.getSelection().removeAllRanges()
+    );
+    Assert.equal(panel.state, "open", "The bar stays open during the burst");
+
+    const barHidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    await BrowserTestUtils.synthesizeMouse(
+      browser,
+      20,
+      10,
+      { type: "mouseup", clickCount: 2 },
+      browser
+    );
+    await barHidden;
+  });
+
+  await SpecialPowers.popPrefEnv();
+});
+
+/**
+ * Check that with the feature gate off, Escape and the first press outside
+ * behave as they always have.
+ */
+add_task(async function test_dismissal_unchanged_without_feature_gate() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.ml.chat.shortcuts", true],
+      ["browser.ml.chat.shortcut.onboardingMouseoverCount", 2],
+      ["browser.ml.chat.provider", "http://localhost:8080"],
+      ["browser.highlightToSearch.featureGate", false],
+    ],
+  });
+
+  await BrowserTestUtils.withNewTab("data:text/plain,hi", async browser => {
+    let panel = await showSelectionMenu(browser);
+    await BrowserTestUtils.synthesizeKey("KEY_Escape", {}, browser);
+    await SpecialPowers.spawn(browser, [], () => {});
+    Assert.equal(panel.state, "open", "Escape does not close the bar");
+
+    const popup = await openAskDropdown(browser);
+    const barHidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    await BrowserTestUtils.synthesizeMouse(browser, 300, 150, {}, browser);
+    await barHidden;
+    Assert.equal(popup.state, "closed", "A press outside closes both");
+  });
+  await SpecialPowers.popPrefEnv();
 });

@@ -526,13 +526,8 @@ void MacroAssembler::createArrayWithFixedElements(
       Address(result, NativeObject::offsetOfFixedElements()), temp);
   storePtr(temp, Address(result, NativeObject::offsetOfElements()));
 
-  // Initialize elements header.
-  store32(Imm32(ObjectElements::FIXED),
-          Address(temp, ObjectElements::offsetOfFlags()));
-  store32(Imm32(0), Address(temp, ObjectElements::offsetOfInitializedLength()));
-  store32(Imm32(arrayCapacity),
-          Address(temp, ObjectElements::offsetOfCapacity()));
-  store32(Imm32(arrayLength), Address(temp, ObjectElements::offsetOfLength()));
+  storeElementsHeader(Address(temp, ObjectElements::offsetOfFlags()),
+                      ObjectElements::FIXED, 0, arrayCapacity, arrayLength);
 
   // Initialize dynamic slots.
   if (numUsedDynamicSlots > 0) {
@@ -905,6 +900,24 @@ void MacroAssembler::fillSlotsWithUninitialized(Address base, Register temp,
                              MagicValue(JS_UNINITIALIZED_LEXICAL));
 }
 
+void MacroAssembler::storeElementsHeader(const Address& header, uint32_t flags,
+                                         uint32_t initializedLength,
+                                         uint32_t capacity, uint32_t length) {
+  // The four uint32_t fields are stored as two 64-bit words. All JIT targets
+  // are little-endian, so the first field of each pair is the low word.
+  static_assert(ObjectElements::offsetOfInitializedLength() ==
+                ObjectElements::offsetOfFlags() + 4);
+  static_assert(ObjectElements::offsetOfCapacity() ==
+                ObjectElements::offsetOfFlags() + 8);
+  static_assert(ObjectElements::offsetOfLength() ==
+                ObjectElements::offsetOfFlags() + 12);
+  auto pair = [](uint32_t low, uint32_t high) {
+    return Imm64(uint64_t(high) << 32 | low);
+  };
+  store64(pair(flags, initializedLength), header);
+  store64(pair(capacity, length), Address(header.base, header.offset + 8));
+}
+
 static std::pair<uint32_t, uint32_t> FindStartOfUninitializedAndUndefinedSlots(
     const TemplateNativeObject& templateObj, uint32_t nslots) {
   MOZ_ASSERT(nslots == templateObj.slotSpan());
@@ -1140,17 +1153,10 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
       computeEffectiveAddress(Address(obj, elementsOffset), temp);
       storePtr(temp, Address(obj, NativeObject::offsetOfElements()));
 
-      // Fill in the elements header.
-      store32(
-          Imm32(ntemplate.getDenseCapacity()),
-          Address(obj, elementsOffset + ObjectElements::offsetOfCapacity()));
-      store32(Imm32(ntemplate.getDenseInitializedLength()),
-              Address(obj, elementsOffset +
-                               ObjectElements::offsetOfInitializedLength()));
-      store32(Imm32(ntemplate.getArrayLength()),
-              Address(obj, elementsOffset + ObjectElements::offsetOfLength()));
-      store32(Imm32(ObjectElements::FIXED),
-              Address(obj, elementsOffset + ObjectElements::offsetOfFlags()));
+      storeElementsHeader(
+          Address(obj, elementsOffset + ObjectElements::offsetOfFlags()),
+          ObjectElements::FIXED, ntemplate.getDenseInitializedLength(),
+          ntemplate.getDenseCapacity(), ntemplate.getArrayLength());
     } else if (ntemplate.isArgumentsObject()) {
       // The caller will initialize the reserved slots.
       MOZ_ASSERT(!initContents);

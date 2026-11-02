@@ -19,6 +19,7 @@ import {
   resolveCrosswordEndpoint,
 } from "common/WidgetsRegistry.mjs";
 import { MoveSubmenu } from "../MoveSubmenu";
+import { WidgetHideMenuItem } from "../WidgetPlacement";
 import { useWidgetTelemetry } from "../useWidgetTelemetry";
 import { WidgetMenuButton } from "../WidgetMenuButton";
 import { WidgetMenuPoweredBy } from "../WidgetMenuPoweredBy";
@@ -423,9 +424,9 @@ function Crossword({
               widgetEnabledMap={widgetEnabledMap}
             />
 
-            <panel-item
-              data-l10n-id="newtab-widget-menu-hide"
-              onClick={handleCrosswordHide}
+            <WidgetHideMenuItem
+              widgetId="crossword"
+              onHide={handleCrosswordHide}
             />
             <panel-item className="learn-more" onClick={handleLearnMore}>
               Learn more

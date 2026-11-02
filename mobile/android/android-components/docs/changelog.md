@@ -38,6 +38,17 @@ permalink: /changelog/
     * Download filenames from `onExternalResponse` are now validated by Gecko with the same rules as desktop, so `GeckoEngineSession` no longer applies the `String.sanitizeFileName` helper from **support-ktx** to them. [Bug 1822968](https://bugzilla.mozilla.org/show_bug.cgi?id=1822968)
 * **compose-base**
     * 🆕 Added `Slider`, an Acorn implementation of the M3 Slider component for Jetpack Compose. [Bug 2067129](https://bugzilla.mozilla.org/show_bug.cgi?id=2067129)
+* **browser-state**
+    * 🆕 Added `BrowserState.pendingExtensionUpdates`, extension updates waiting for the user to grant new permissions, with actions to update, remove and request the review of them, and the `pendingExtensionUpdatesNeedingAttention` selector. [Bug 2067732](https://bugzilla.mozilla.org/show_bug.cgi?id=2067732)
+* **feature-addons**
+    * ⚠️ **Breaking change**: Extension updates that require new permissions are now reviewed in the app instead of in a system notification. `DefaultAddonUpdater` adds such an update to `BrowserState.pendingExtensionUpdates`, and the app removes it once it answers with `PendingExtensionUpdate.complete`. `AddonsManagerAdapter` shows a banner for it, and `PermissionsDialogFragment` can show its new permissions. [Bug 2067732](https://bugzilla.mozilla.org/show_bug.cgi?id=2067732)
+        * `DefaultAddonUpdater` takes a `BrowserStore` instead of a `NotificationsDelegate`.
+        * `PermissionsDialogFragment.newInstance` takes `mode: PermissionsDialogMode` instead of `forOptionalPermissions`, and an optional `promptInstanceId`.
+        * `AddonsManagerAdapter.bindMessageBars` and `CustomViewHolder.AddonViewHolder` take a new `messageBarUpdateView: ComposeView`, and `bindMessageBars` takes optional `pendingUpdateMessage`, `onReviewUpdateClicked` and `onCancelUpdateClicked`.
+        * Added `AddonsManagerAdapterDelegate.onReviewExtensionUpdateClicked` and `onCancelExtensionUpdateClicked`. Implement them, or the banner's buttons do nothing.
+        * Added the `PendingExtensionUpdateBanner` composable. feature-addons now uses Jetpack Compose and depends on `compose-base`.
+        * Removed `DefaultAddonUpdater.NotificationHandlerService`.
+        * Removed `Addon.permissionToTranslationForUpdate` and the `forUpdate` parameter of `Addon.localizePermissions`.
 
 # 159.0
 * **feature-readerview**

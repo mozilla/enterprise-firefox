@@ -228,7 +228,7 @@ ClippedImage::GetFrame(uint32_t aWhichFrame, uint32_t aFlags) {
 }
 
 NS_IMETHODIMP_(already_AddRefed<SourceSurface>)
-ClippedImage::GetFrameAtSize(const IntSize& aSize, uint32_t aWhichFrame,
+ClippedImage::GetFrameAtSize(const IntSize& /*aSize*/, uint32_t aWhichFrame,
                              uint32_t aFlags) {
   // XXX(seth): It'd be nice to support downscale-during-decode for this case,
   // but right now we just fall back to the intrinsic size.
@@ -237,8 +237,8 @@ ClippedImage::GetFrameAtSize(const IntSize& aSize, uint32_t aWhichFrame,
 
 std::pair<ImgDrawResult, RefPtr<SourceSurface>> ClippedImage::GetFrameInternal(
     const nsIntSize& aSize, const SVGImageContext& aSVGContext,
-    const Maybe<ImageIntRegion>& aRegion, uint32_t aWhichFrame, uint32_t aFlags,
-    float aOpacity) {
+    const Maybe<ImageIntRegion>& /*aRegion*/, uint32_t aWhichFrame,
+    uint32_t aFlags, float aOpacity) {
   if (!ShouldClip()) {
     RefPtr<SourceSurface> surface = InnerImage()->GetFrame(aWhichFrame, aFlags);
     return std::make_pair(

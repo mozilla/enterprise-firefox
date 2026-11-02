@@ -408,6 +408,72 @@ describe("<WidgetsManagementPanel>", () => {
     expect(container.querySelector("moz-box-button")).toBeInTheDocument();
   });
 
+  describe("while the user places widgets on Home", () => {
+    const placement = homeWidgets => ({
+      "pageLayouts.variant": "spaces-thematic-v1",
+      trainhopConfig: {
+        spaces: {
+          order: ["home", "widgets"],
+          default: "home",
+          widgetLibrary: "widgets",
+          spaces: {
+            home: { label: "Home", widgets: ["pictureOfTheDay"] },
+            widgets: { label: "Widgets" },
+          },
+        },
+      },
+      "widgets.home": homeWidgets,
+      "widgets.enabled": true,
+      "widgets.crossword.enabled": true,
+      "widgets.lists.enabled": true,
+    });
+    const homeWrites = store =>
+      store.dispatch.mock.calls
+        .map(([action]) => action)
+        .filter(action => action.data?.name === "widgets.home")
+        .map(action => action.data.value);
+
+    it("keeps the toggles as on/off", async () => {
+      const { container } = await renderPanel(
+        {},
+        allWidgetsVisible({
+          ...placement('["crossword"]'),
+          "widgets.clocks.enabled": false,
+        })
+      );
+      expect(container.querySelector("#lists-toggle")).toHaveAttribute(
+        "pressed"
+      );
+      expect(container.querySelector("#clocks-toggle")).not.toHaveAttribute(
+        "pressed"
+      );
+    });
+
+    // Otherwise a turned-off widget would hold one of Home's two slots.
+    it("unpins a pinned widget it turns off", async () => {
+      const { container, store } = await renderPanel(
+        {},
+        allWidgetsVisible(placement('["crossword"]'))
+      );
+      fireToggle(container.querySelector("#crossword-toggle"), false);
+      expect(props.setPref).toHaveBeenCalledWith(
+        "widgets.crossword.enabled",
+        false
+      );
+      expect(homeWrites(store)).toEqual(["[]"]);
+    });
+
+    it("leaves the Home list alone for widgets that aren't pinned", async () => {
+      const { container, store } = await renderPanel(
+        {},
+        allWidgetsVisible(placement('["crossword"]'))
+      );
+      fireToggle(container.querySelector("#lists-toggle"), false);
+      fireToggle(container.querySelector("#clocks-toggle"), true);
+      expect(homeWrites(store)).toEqual([]);
+    });
+  });
+
   it("calls togglePanel when the manage widgets button is clicked", async () => {
     const { container } = await renderPanel({ showPanel: false });
     fireEvent.click(container.querySelector("moz-box-button"));

@@ -149,7 +149,7 @@ already_AddRefed<Decoder> DecoderFactory::GetDecoder(DecoderType aType,
 /* static */
 nsresult DecoderFactory::CreateDecoder(
     DecoderType aType, NotNull<RasterImage*> aImage,
-    NotNull<SourceBuffer*> aSourceBuffer, const IntSize& aIntrinsicSize,
+    NotNull<SourceBuffer*> aSourceBuffer, const IntSize& /*aIntrinsicSize*/,
     const IntSize& aOutputSize, DecoderFlags aDecoderFlags,
     SurfaceFlags aSurfaceFlags, IDecodingTask** aOutTask) {
   if (aType == DecoderType::UNKNOWN) {

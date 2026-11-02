@@ -380,10 +380,12 @@ imgRequestProxy::GetName(nsACString& aName) {
 }
 
 NS_IMETHODIMP
-imgRequestProxy::IsPending(bool* _retval) { return NS_ERROR_NOT_IMPLEMENTED; }
+imgRequestProxy::IsPending(bool* /*_retval*/) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
 
 NS_IMETHODIMP
-imgRequestProxy::GetStatus(nsresult* aStatus) {
+imgRequestProxy::GetStatus(nsresult* /*aStatus*/) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 

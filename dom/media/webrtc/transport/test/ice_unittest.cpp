@@ -15,6 +15,7 @@
 #include "logging.h"
 #include "mozilla/DataMutex.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/net/WebrtcProxyConfig.h"
 #include "nsThreadUtils.h"
 #include "nsXPCOM.h"
 #include "sigslot.h"
@@ -34,6 +35,7 @@
 #include "ice_media_stream.h"
 #include "ice_peer_ctx.h"
 #include "mozilla/net/DNS.h"
+#include "nr_socket_proxy_config.h"
 #include "nr_socket_prsock.h"
 #include "nricectx.h"
 #include "nricemediastream.h"
@@ -371,6 +373,7 @@ class IceTestPeer : public sigslot::has_slots<> {
         mGatheringStates("IceTestPeer::mGatheringStates"),
         ready_ct_(0),
         ice_reached_checking_(false),
+        expect_gather_failure_(false),
         received_(0),
         sent_(0),
         dns_resolver_(new NrIceResolver()),
@@ -542,6 +545,25 @@ class IceTestPeer : public sigslot::has_slots<> {
   void SetCtxFlags(bool default_route_only) {
     test_utils_->SyncDispatchToSTS(
         WrapRunnable(ice_ctx_, &NrIceCtx::SetCtxFlags, default_route_only));
+  }
+
+  void SetForceProxy() {
+    net::WebrtcProxyConfig config;
+    config.forceProxy() = true;
+    test_utils_->SyncDispatchToSTS(
+        WrapRunnable(this, &IceTestPeer::SetProxyConfig_s, config));
+  }
+
+  void SetProxyConfig_s(const net::WebrtcProxyConfig& aConfig) {
+    ice_ctx_->SetProxyConfig(NrSocketProxyConfig(aConfig));
+  }
+
+  nsresult GatherExpectingFailure(bool default_route_only) {
+    expect_gather_failure_ = true;
+    nsresult res;
+    test_utils_->SyncDispatchToSTS(WrapRunnableRet(
+        &res, ice_ctx_, &NrIceCtx::StartGathering, default_route_only, false));
+    return res;
   }
 
   nsTArray<NrIceStunAddr> GetStunAddrs() { return ice_ctx_->GetStunAddrs(); }
@@ -1327,7 +1349,7 @@ class IceTestPeer : public sigslot::has_slots<> {
       case NrIceCtx::ICE_CTX_FAILED:
         std::cerr << name_ << " ICE reached failed (" << stream->GetId() << ")"
                   << std::endl;
-        MOZ_ASSERT(ice_reached_checking_);
+        MOZ_ASSERT(ice_reached_checking_ || expect_gather_failure_);
         break;
       case NrIceCtx::ICE_CTX_DISCONNECTED:
         std::cerr << name_ << " ICE reached disconnected (" << stream->GetId()
@@ -1512,6 +1534,7 @@ class IceTestPeer : public sigslot::has_slots<> {
       mGatheringStates;
   std::atomic<int> ready_ct_;
   bool ice_reached_checking_;
+  bool expect_gather_failure_;
   std::atomic<size_t> received_;
   std::atomic<size_t> sent_;
   struct timeval consent_timestamp_;
@@ -2553,6 +2576,19 @@ TEST_F(WebRtcIceGatherTest, TestGatherTcpDisabledNoStun) {
   Gather();
   ASSERT_FALSE(StreamHasMatchingCandidate(0, " TCP "));
   ASSERT_TRUE(StreamHasMatchingCandidate(0, " UDP "));
+}
+
+TEST_F(WebRtcIceGatherTest, TestGatherFailureCompletesGathering) {
+  NrIceCtx::GlobalConfig config;
+  NrIceCtx::InitializeGlobals(config);
+  EnsurePeer();
+  // Looking up the default address needs a UDP socket, which a forced proxy
+  // does not allow, so gathering fails to start.
+  peer_->SetForceProxy();
+  peer_->AddStream(1);
+  ASSERT_TRUE(NS_FAILED(peer_->GatherExpectingFailure(true)));
+  WaitForGather();
+  ASSERT_FALSE(StreamHasMatchingCandidate(0, "candidate:"));
 }
 
 TEST_F(WebRtcIceGatherTest, VerifyTestStunServer) {

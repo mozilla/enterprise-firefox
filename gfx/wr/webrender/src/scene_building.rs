@@ -35,15 +35,15 @@
 //!  - backdrop filters (see add_backdrop_filter)
 //!
 
-use api::{AlphaType, BorderDetails, BorderDisplayItem, BuiltDisplayList, BuiltDisplayListIter, PrimitiveFlags, SnapshotInfo};
+use api::{BorderDetails, BorderDisplayItem, BuiltDisplayList, BuiltDisplayListIter, PrimitiveFlags, SnapshotInfo};
 use api::{ClipId, ColorF, CommonItemProperties, ComplexClipRegion, ComponentTransferFuncType, RasterSpace};
 use api::{DebugFlags, DisplayItem, DisplayItemRef, DlParseContext, ExternalScrollId, FilterData};
 use api::{FilterOp, FontInstanceKey, FontSize, GlyphInstance, GlyphOptions, GlyphShadowMode, GradientStop};
-use api::{IdNamespace, IframeDisplayItem, ImageKey, ImageRendering, ItemRange, ColorDepth, QualitySettings};
+use api::{IdNamespace, IframeDisplayItem, ImageKey, ItemRange, QualitySettings};
 use api::{NinePatchBorderSource, PipelineId, MixBlendMode, StackingContextFlags};
 use api::{PropertyBinding, ReferenceFrameKind, ScrollFrameDescriptor};
 use api::{APZScrollGeneration, HasScrollLinkedEffect, SpatialId, StickyFrameDescriptor, ImageMask, ItemTag};
-use api::{ClipMode, TransformStyle, YuvColorSpace, ColorRange, YuvData, TempFilterData};
+use api::{ClipMode, TransformStyle, TempFilterData};
 use api::{ReferenceTransformBinding, Rotation, FillRule, SpatialTreeItem, ReferenceFrameDescriptor};
 use api::{FilterOpGraphPictureBufferId, SVGFE_GRAPH_MAX};
 use api::Path;
@@ -51,7 +51,6 @@ use api::channel::{unbounded_channel, Receiver, Sender};
 use api::units::*;
 use api::prim_geometry::{
     conic_gradient_prim, linear_gradient_prim, radial_gradient_prim,
-    simplify_repeated_primitive,
 };
 use crate::box_shadow::BLUR_SAMPLE_SCALE;
 use crate::clip::{ClipIntern, ClipItemKey, ClipItemKeyKind, ClipStore};
@@ -80,7 +79,6 @@ use crate::prim_store::borders::ImageBorder;
 use crate::prim_store::gradient::{
     GradientStopKey,
 };
-use crate::prim_store::image::{Image, StretchSizeKey, SubRectKey, YuvImage};
 use crate::prim_store::picture::{Picture, PictureKey};
 use crate::picture_composite_mode::{PictureCompositeKey, PictureCompositeMode};
 use crate::prim_store::text_run::TextRun;
@@ -897,7 +895,6 @@ impl<'a> SceneBuilder<'a> {
             StackingContext {
                 sc_info: StackingContextInfo,
             },
-            ReferenceFrame,
             Iframe {
                 parent_traversal: BuiltDisplayListIter<'a>,
                 /// The enclosing pipeline's namespace, to restore on the way
@@ -993,23 +990,6 @@ impl<'a> SceneBuilder<'a> {
                         traversal = subtraversal;
                         continue 'outer;
                     }
-                    DisplayItem::PushReferenceFrame(..) => {
-                        tracy_rs::profile_scope!("build_reference_frame");
-                        let mut subtraversal = item.sub_iter();
-
-                        let new_context = BuildContext {
-                            pipeline_id: bc.pipeline_id,
-                            namespace: bc.namespace,
-                            kind: ContextKind::ReferenceFrame,
-                        };
-                        stack.push(bc);
-                        stack.push(new_context);
-
-                        subtraversal.merge_debug_stats_from(&mut traversal);
-                        traversal = subtraversal;
-                        continue 'outer;
-                    }
-                    DisplayItem::PopReferenceFrame |
                     DisplayItem::PopStackingContext => break,
                     DisplayItem::Iframe(ref info) => {
                         tracy_rs::profile_scope!("iframe");
@@ -1058,8 +1038,6 @@ impl<'a> SceneBuilder<'a> {
                 ContextKind::Root => {}
                 ContextKind::StackingContext { sc_info } => {
                     self.pop_stacking_context(sc_info);
-                }
-                ContextKind::ReferenceFrame => {
                 }
                 ContextKind::Iframe { parent_traversal, parent_dl_namespace } => {
                     self.dl_namespace = parent_dl_namespace;
@@ -1390,48 +1368,27 @@ impl<'a> SceneBuilder<'a> {
             DisplayItem::Image(ref info) => {
                 tracy_rs::profile_scope!("image");
 
-                if !validate_image_key(info.image_key, namespace) {
-                    return;
-                }
-
-                let (layout, spatial_node_index, clip_node_id) = self.process_common_properties_with_bounds(
-                    &info.common,
-                    info.bounds,
-                );
-
-                self.add_image(
-                    spatial_node_index,
-                    clip_node_id,
-                    &layout,
-                    info.stretch_size,
-                    info.tile_spacing,
-                    info.image_key,
-                    info.image_rendering,
-                    info.alpha_type,
-                    info.color,
+                // The key's namespace is checked where the entry is resolved.
+                let stores = self.scene_stores;
+                self.add_dl_prim(
+                    info.spatial_id,
+                    info.clip_chain_id,
+                    &stores.images,
+                    info.image,
+                    |handle| PrimitiveKind::Image { handle },
                 );
             }
             DisplayItem::YuvImage(ref info) => {
                 tracy_rs::profile_scope!("yuv_image");
 
-                if !validate_yuv_data(&info.yuv_data, namespace) {
-                    return;
-                }
-
-                let (layout, spatial_node_index, clip_node_id) = self.process_common_properties_with_bounds(
-                    &info.common,
-                    info.bounds,
-                );
-
-                self.add_yuv_image(
-                    spatial_node_index,
-                    clip_node_id,
-                    &layout,
-                    info.yuv_data,
-                    info.color_depth,
-                    info.color_space,
-                    info.color_range,
-                    info.image_rendering,
+                // The planes' namespaces are checked where the entry is resolved.
+                let stores = self.scene_stores;
+                self.add_dl_prim(
+                    info.spatial_id,
+                    info.clip_chain_id,
+                    &stores.yuv_images,
+                    info.yuv_image,
+                    |handle| PrimitiveKind::YuvImage { handle },
                 );
             }
             DisplayItem::Text(ref info) => {
@@ -1770,8 +1727,6 @@ impl<'a> SceneBuilder<'a> {
 
             // Special items that are handled in the parent method
             DisplayItem::PushStackingContext(..) |
-            DisplayItem::PushReferenceFrame(..) |
-            DisplayItem::PopReferenceFrame |
             DisplayItem::PopStackingContext |
             DisplayItem::Iframe(_) => {
                 unreachable!("Handled in `build_all`")
@@ -3024,119 +2979,6 @@ impl<'a> SceneBuilder<'a> {
         );
     }
 
-    pub fn add_image(
-        &mut self,
-        spatial_node_index: SpatialNodeIndex,
-        clip_node_id: ClipNodeId,
-        info: &LayoutPrimitiveInfo,
-        stretch_size: StretchSizeKey,
-        mut tile_spacing: LayoutSize,
-        image_key: ImageKey,
-        image_rendering: ImageRendering,
-        alpha_type: AlphaType,
-        color: ColorF,
-    ) {
-        let mut prim_rect = info.rect;
-        // Resolved against the unsnapped prim rect, which is what scene
-        // building has.
-        let stretch = stretch_size.resolve(&prim_rect);
-        simplify_repeated_primitive(&stretch, &mut tile_spacing, &mut prim_rect);
-        let info = LayoutPrimitiveInfo {
-            rect: prim_rect,
-            .. *info
-        };
-
-        // Only part of the image may be visible, as with a CSS sprite sheet
-        // positioned by a negative background-position. Restrict sampling to
-        // that part, so that filtering cannot pull in the neighbouring cells.
-        //
-        // The visible part is what the item's clip rect leaves of its bounds, so
-        // it is already implied by the item and does not need sending. Recorded
-        // as a fraction of the image because the size the image is rasterized at
-        // is not known until frame build.
-        //
-        // Only for an image that covers its rect once. When the pattern repeats,
-        // each repetition samples the whole image, so a single fraction is
-        // meaningless.
-        let repeats = stretch.width < prim_rect.width()
-            || stretch.height < prim_rect.height()
-            || tile_spacing != LayoutSize::zero();
-        // The image is mapped onto the stretch size anchored at the prim rect's
-        // origin, which is not the prim rect: Gecko trims the rect of a
-        // repeating background to the fill area while leaving the origin on the
-        // first tile, so it can be narrower than one repetition (bug 2068996).
-        // Take the fraction of this rect, the same rect `prepare_image_quads`
-        // resolves the fraction back against.
-        let image_rect = LayoutRect::from_origin_and_size(
-            prim_rect.min,
-            stretch,
-        );
-        let visible = info.clip_rect.intersection_unchecked(&prim_rect);
-        let sub_rect = if repeats
-            || visible.is_empty()
-            || image_rect.width() <= 0.0
-            || image_rect.height() <= 0.0
-            || visible.contains_box(&prim_rect)
-        {
-            None
-        } else {
-            let fraction = |v: f32, min: f32, extent: f32| ((v - min) / extent).clamp(0.0, 1.0);
-            Some(SubRectKey {
-                min: api::key_types::PointKey {
-                    x: fraction(visible.min.x, image_rect.min.x, image_rect.width()),
-                    y: fraction(visible.min.y, image_rect.min.y, image_rect.height()),
-                },
-                max: api::key_types::PointKey {
-                    x: fraction(visible.max.x, image_rect.min.x, image_rect.width()),
-                    y: fraction(visible.max.y, image_rect.min.y, image_rect.height()),
-                },
-            })
-        };
-
-        self.add_primitive(
-            spatial_node_index,
-            clip_node_id,
-            &info,
-            Image {
-                key: image_key,
-                tile_spacing: tile_spacing.into(),
-                stretch_size,
-                color: color.into(),
-                image_rendering,
-                alpha_type,
-                sub_rect,
-            },
-        );
-    }
-
-    pub fn add_yuv_image(
-        &mut self,
-        spatial_node_index: SpatialNodeIndex,
-        clip_node_id: ClipNodeId,
-        info: &LayoutPrimitiveInfo,
-        yuv_data: YuvData,
-        color_depth: ColorDepth,
-        color_space: YuvColorSpace,
-        color_range: ColorRange,
-        image_rendering: ImageRendering,
-    ) {
-        let format = yuv_data.get_format();
-        let yuv_key = yuv_data.planes();
-
-        self.add_primitive(
-            spatial_node_index,
-            clip_node_id,
-            info,
-            YuvImage {
-                color_depth,
-                yuv_key,
-                format,
-                color_space,
-                color_range,
-                image_rendering,
-            },
-        );
-    }
 
     fn add_primitive_instance_to_3d_root(
         &mut self,
@@ -4147,14 +3989,10 @@ fn validate_resource_namespace(
     false
 }
 
-fn validate_image_key(key: ImageKey, namespace: IdNamespace) -> bool {
+pub(crate) fn validate_image_key(key: ImageKey, namespace: IdNamespace) -> bool {
     validate_resource_namespace(key.0, namespace, "image key")
 }
 
-/// Checks the set of planes `add_yuv_image` uses, by construction.
-fn validate_yuv_data(yuv_data: &YuvData, namespace: IdNamespace) -> bool {
-    yuv_data.planes().iter().all(|key| validate_image_key(*key, namespace))
-}
 
 fn validate_font_instance_key(key: FontInstanceKey, namespace: IdNamespace) -> bool {
     validate_resource_namespace(key.0, namespace, "font instance key")

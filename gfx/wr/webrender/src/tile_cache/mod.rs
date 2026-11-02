@@ -2593,8 +2593,8 @@ impl TileCacheInstance {
                     prim_info.color_binding = Some(color_u.into());
                 }
             }
-            PrimitiveKind::Image { data_handle, .. } => {
-                let image_key = &data_stores.image[data_handle];
+            PrimitiveKind::Image { handle } => {
+                let image_key = &dl_stores.images[handle];
                 let image_data = &image_key.kind;
 
                 // For now, assume that for compositor surface purposes, any RGBA image may be
@@ -2702,9 +2702,9 @@ impl TileCacheInstance {
                     generation: resource_cache.get_image_generation(image_data.key),
                 });
             }
-            PrimitiveKind::YuvImage { data_handle, .. } => {
+            PrimitiveKind::YuvImage { handle } => {
                 let prim_uid = prim_instance.uid(dl_stores);
-                let prim_data = &data_stores.yuv_image[data_handle];
+                let prim_data = &dl_stores.yuv_images[handle];
 
                 let mut promotion_result: Result<CompositorSurfaceKind, SurfacePromotionFailure> = Ok(CompositorSurfaceKind::Blit);
                 if prim_data.common.flags.contains(PrimitiveFlags::PREFER_COMPOSITOR_SURFACE) {

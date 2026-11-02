@@ -7755,7 +7755,14 @@ already_AddRefed<nsIWidget> nsIWidget::CreateChildWindow() {
   nsCocoaWindow* geckoWidget = [windowDelegate geckoWidget];
   NS_ASSERTION(geckoWidget, "Window delegate not returning a gecko widget!");
 
-  if (RefPtr<nsMenuBarX> geckoMenuBar = geckoWidget->GetMenuBar()) {
+  RefPtr<nsMenuBarX> geckoMenuBar = geckoWidget->GetMenuBar();
+  if (!geckoMenuBar && geckoWidget->IsMediaPiPWindow()) {
+    // The Picture-in-Picture player has no menu bar of its own. Show the hidden
+    // window's, as when no window is main, rather than one with only the
+    // application menu.
+    geckoMenuBar = nsMenuUtilsX::GetHiddenWindowMenuBar();
+  }
+  if (geckoMenuBar) {
     // We do an async paint in order to prevent crashes when macOS is actively
     // enumerating the menu items in `NSApp.mainMenu`.
     geckoMenuBar->PaintAsyncIfNeeded();
@@ -8339,6 +8346,23 @@ static NSMutableSet* gSwizzledFrameViewClasses = nil;
   }
   NSUInteger keep = aStyleMask & NSWindowStyleMaskNonactivatingPanel;
   return [super _validateStyleMask:(aStyleMask & ~keep)] | keep;
+}
+
+// The Picture-in-Picture player is non-activating so that it can float over
+// another application's fullscreen Space (bug 1688932). A click into it should
+// still activate the application like a click into any other window, so that
+// the menu bar and window management follow it.
+- (void)sendEvent:(NSEvent*)anEvent {
+  if (anEvent.type == NSEventTypeLeftMouseDown &&
+      (self.styleMask & NSWindowStyleMaskNonactivatingPanel) &&
+      NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier !=
+          getpid()) {
+    // Make the player key first, so that it stays key once the application is
+    // active.
+    [self makeKeyWindow];
+    [NSApp activateIgnoringOtherApps:YES];
+  }
+  [super sendEvent:anEvent];
 }
 
 // The frame of a window is implemented using undocumented NSView subclasses.

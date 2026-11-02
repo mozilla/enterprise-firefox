@@ -125,6 +125,9 @@ export const PREF_LISTS_SIZE = "widgets.lists.size";
 export const PREF_FOCUS_TIMER_SIZE = "widgets.focusTimer.size";
 export const PREF_WEATHER_SIZE = "widgets.weather.size";
 export const PREF_WIDGETS_ORDER = "widgets.order";
+// The widgets pinned to Home where a thematic spaces config names a
+// widgetLibrary, as a JSON array of ids.
+export const PREF_HOME_WIDGETS = "widgets.home";
 export const PREF_WIDGETS_SYSTEM_LISTS_ENABLED = "widgets.system.lists.enabled";
 export const PREF_WIDGETS_SYSTEM_TIMER_ENABLED =
   "widgets.system.focusTimer.enabled";
@@ -483,6 +486,24 @@ export function resolveWidgetOrder(prefs) {
     return getWidgetOrder(trainhopOrder);
   }
   return getWidgetOrder(null);
+}
+
+/**
+ * The widget ids the user has pinned to Home, or null until they first pin or
+ * unpin one, when the spaces config's default applies. An empty array is a
+ * choice, so it is not null.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {string[]|null}
+ */
+export function parsePinnedWidgetIds(prefs) {
+  try {
+    const ids = JSON.parse(prefs?.[PREF_HOME_WIDGETS]);
+    if (Array.isArray(ids)) {
+      return ids.filter(id => typeof id === "string");
+    }
+  } catch {}
+  return null;
 }
 
 /**
