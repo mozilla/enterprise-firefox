@@ -272,6 +272,24 @@ add_task(async function nimbus() {
   await QuickSuggestTestUtils.forceSync();
 });
 
+// Temporal suggestions are part of Suggest, so they aren't shown when
+// `suggest.quicksuggest.all` is false.
+add_task(async function suggestAllDisabled() {
+  gFeature._reset();
+  await checkQuery(["q1", "q2", "q3", "q4", "q5"]);
+
+  UrlbarPrefs.set("suggest.quicksuggest.all", false);
+  Assert.ok(!gFeature.isEnabled, "Feature is disabled");
+  gFeature._reset();
+  await checkQuery([]);
+
+  UrlbarPrefs.set("suggest.quicksuggest.all", true);
+  await QuickSuggestTestUtils.forceSync();
+  Assert.ok(gFeature.isEnabled, "Feature is enabled again");
+  gFeature._reset();
+  await checkQuery(["q1", "q2", "q3", "q4", "q5"]);
+});
+
 // Calls `makeResult()` for a temporal suggestion with the given context.
 function makeResultForContext(context) {
   return gFeature.makeResult(context, {

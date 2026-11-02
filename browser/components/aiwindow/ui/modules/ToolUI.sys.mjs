@@ -466,7 +466,8 @@ export class ToolUI {
       selectedTabs: selectedTabs.map(({ url, title }) => ({ url, title })),
     };
 
-    const pendingAction = conversation.messages.at(-1)?.content?.body?.action;
+    const pendingAction =
+      conversation.getPendingToolConfirmation(toolCallId)?.content.body.action;
     if (pendingAction) {
       confirmationMessage.action = pendingAction;
     }

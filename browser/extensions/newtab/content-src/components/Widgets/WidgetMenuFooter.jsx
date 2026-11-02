@@ -5,6 +5,7 @@
 import React from "react";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { MoveSubmenu } from "./MoveSubmenu";
+import { WidgetHideMenuItem } from "./WidgetPlacement";
 
 const LEARN_MORE_URL = "https://support.mozilla.org/kb/firefox-new-tab-widgets";
 
@@ -63,7 +64,7 @@ export const WidgetMenuFooter = ({
       {showDivider && <hr />}
       {sizeSubmenu}
       <MoveSubmenu widgetId={widgetId} widgetEnabledMap={widgetEnabledMap} />
-      <panel-item data-l10n-id="newtab-widget-menu-hide" onClick={handleHide} />
+      <WidgetHideMenuItem widgetId={widgetId} onHide={handleHide} />
       <panel-item data-l10n-id={learnMoreL10nId} onClick={handleLearnMore} />
     </>
   );

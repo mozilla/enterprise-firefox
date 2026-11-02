@@ -786,6 +786,12 @@ void NrIceMediaStream::OnGatheringComplete(nr_ice_media_stream* stream) {
   }
 }
 
+void NrIceMediaStream::GatheringFailed() {
+  if (stream_) {
+    OnGatheringComplete(stream_);
+  }
+}
+
 void NrIceMediaStream::Close() {
   MOZ_MTLOG(ML_DEBUG, "Marking stream closed '" << name_ << "'");
   state_ = ICE_CLOSED;

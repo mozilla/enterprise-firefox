@@ -26,6 +26,7 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_security.h"
+#include "mozilla/TimeStamp.h"
 #include "mozilla/glean/SecurityManagerSslMetrics.h"
 #include "mozilla/net/SSLTokensCache.h"
 #include "mozilla/psm/EnabledSignatureSchemes.h"
@@ -1891,6 +1892,74 @@ nsresult nsSSLIOLayerAddToSocket(int32_t family, const char* host, int32_t port,
   return NS_OK;
 }
 
+#if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
+struct RemoteCryptokiState {
+  TimeStamp mLastUpdate;
+  nsTArray<CryptokiObject> mCryptokiObjects;
+};
+
+constinit static StaticDataMutex<Maybe<RemoteCryptokiState>>
+    sRemoteCryptokiState("sRemoteCryptokiState");
+
+void CacheRemoteCryptokiObjects(SearchingFor searchingFor) {
+  MOZ_ASSERT(!NS_IsMainThread());
+  if (NS_IsMainThread()) {
+    return;
+  }
+
+  // If a search has been performed within the last scan delay, use the cached
+  // results.
+  auto remoteCryptokiState = sRemoteCryptokiState.Lock();
+  if (remoteCryptokiState->isSome() &&
+      TimeStamp::Now() - (*remoteCryptokiState)->mLastUpdate <
+          TimeDuration::FromMilliseconds(
+              StaticPrefs::
+                  security_utility_pkcs11_module_process_scan_delay_ms())) {
+    return;
+  }
+
+  Monitor monitor{__func__};
+  bool done = false;
+  nsTArray<CryptokiObject> objects;
+  nsresult rv = NS_DispatchToMainThread(NS_NewRunnableFunction(
+      __func__, [searchingFor, &monitor, &done, &objects] {
+        RefPtr<PKCS11ModuleDB> pkcs11ModuleDB(PKCS11ModuleDB::GetSingleton());
+        if (!pkcs11ModuleDB) {
+          MonitorAutoLock lock(monitor);
+          done = true;
+          lock.Notify();
+          return;
+        }
+        pkcs11ModuleDB->FindObjects(searchingFor)
+            ->Then(GetCurrentSerialEventTarget(), __func__,
+                   [&monitor, &done,
+                    &objects](const PKCS11ModuleDB::FindObjectsPromise::
+                                  ResolveOrRejectValue& value) {
+                     MonitorAutoLock lock(monitor);
+                     if (value.IsResolve()) {
+                       objects.Assign(value.ResolveValue());
+                     }
+                     done = true;
+                     lock.Notify();
+                   });
+      }));
+  if (NS_FAILED(rv)) {
+    return;
+  }
+
+  {
+    MonitorAutoLock lock(monitor);
+    while (!done) {
+      lock.Wait();
+    }
+  }
+
+  remoteCryptokiState->reset();
+  remoteCryptokiState->emplace(
+      RemoteCryptokiState{TimeStamp::Now(), std::move(objects)});
+}
+#endif  // NIGHTLY_BUILD && !MOZ_NO_SMART_CARDS
+
 extern "C" {
 
 #if defined(MOZ_WIDGET_ANDROID) || \
@@ -1982,43 +2051,14 @@ void AndroidDoSign(size_t certLen, const uint8_t* cert, size_t dataLen,
 void RemoteCertsDoFindObjects(SearchingFor searchingFor, FindObjectsCallback cb,
                               void* ctx) {
 #if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
-  MOZ_ASSERT(!NS_IsMainThread());
-  if (NS_IsMainThread()) {
-    return;
-  }
-
-  Monitor monitor{__func__};
-  bool done = false;
   nsTArray<CryptokiObject> objects;
-  nsresult rv = NS_DispatchToMainThread(NS_NewRunnableFunction(
-      __func__, [searchingFor, &monitor, &done, &objects] {
-        RefPtr<PKCS11ModuleDB> pkcs11ModuleDB(PKCS11ModuleDB::GetSingleton());
-        if (!pkcs11ModuleDB) {
-          MonitorAutoLock lock(monitor);
-          done = true;
-          lock.Notify();
-          return;
-        }
-        pkcs11ModuleDB->FindObjects(searchingFor)
-            ->Then(GetCurrentSerialEventTarget(), __func__,
-                   [&monitor, &done,
-                    &objects](const PKCS11ModuleDB::FindObjectsPromise::
-                                  ResolveOrRejectValue& value) {
-                     MonitorAutoLock lock(monitor);
-                     if (value.IsResolve()) {
-                       objects.Assign(value.ResolveValue());
-                     }
-                     done = true;
-                     lock.Notify();
-                   });
-      }));
-  if (NS_FAILED(rv)) {
-    return;
-  }
-
-  MonitorAutoLock lock(monitor);
-  while (!done) {
-    lock.Wait();
+  {
+    auto remoteCryptokiState = sRemoteCryptokiState.Lock();
+    // CacheRemoteCryptokiObjects should have run at least once at this point.
+    MOZ_ASSERT(remoteCryptokiState->isSome());
+    if (remoteCryptokiState->isSome()) {
+      objects.Assign((*remoteCryptokiState)->mCryptokiObjects.Clone());
+    }
   }
   for (const auto& object : objects) {
     switch (object.type()) {

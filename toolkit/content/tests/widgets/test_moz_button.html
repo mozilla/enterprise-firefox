@@ -471,6 +471,7 @@
           "Clicking on button's padding must send a click event"
         );
       });
+
       add_task(async function testButtonDisable() {
         const mozButton = document.querySelector("moz-button");
         const nestedButton = mozButton.shadowRoot.querySelector("button");
@@ -510,6 +511,7 @@
           "Button is NOT disabled when parentDisabled and disabled are both false"
         );
       });
+
       add_task(async function testMenuButton() {
         const PANEL_LIST_ID = "panel-list";
         let menuButton = document.querySelector(".four");
@@ -638,6 +640,335 @@
         await hidePromise;
       });
 
+      add_task(async function testPopoverBasic() {
+        const POPOVER_ID = "test-popover";
+        let popoverButton = document.querySelector(".popover-button");
+        let popover = document.querySelector(`#${POPOVER_ID}`);
+
+        popoverButton.popoverTarget = POPOVER_ID;
+        await popoverButton.updateComplete;
+
+        let buttonElUpdated = BrowserTestUtils.waitForMutationCondition(
+          popoverButton.buttonEl,
+          {
+            attributes: true,
+            attributeFilter: ["aria-haspopup", "aria-expanded"],
+          },
+          () => {
+            return (
+              popoverButton.buttonEl.hasAttribute("aria-haspopup") &&
+              popoverButton.buttonEl.hasAttribute("aria-expanded")
+            );
+          }
+        );
+        await buttonElUpdated;
+
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "dialog",
+          "Button element has aria-haspopup attribute set to dialog by default"
+        );
+
+        ok(!popover.matches(":popover-open"), "popover is hidden");
+
+        is(
+          popoverButton.buttonEl.getAttribute("aria-expanded"),
+          "false",
+          "aria-expanded on button is set to false when the popover is hidden"
+        );
+        ok(
+          !popoverButton.hasAttribute("open"),
+          "open attribute is not set on host when the popover is hidden"
+        );
+
+        assertButtonPropertiesMatch(popoverButton, {
+          backgroundColor: "--button-background-color",
+          color: "--button-text-color",
+          borderColor: "--button-border-color",
+        });
+
+        // Open the popover with the mouse.
+        let openPromise = BrowserTestUtils.waitForEvent(popover, "toggle");
+        synthesizeMouseAtCenter(popoverButton, {});
+        await openPromise;
+        synthesizeMouseAtCenter(popover, { type: "mousemove" }, window);
+
+        ok(popover.matches(":popover-open"), "popover is open");
+
+        await popoverButton.updateComplete;
+        is(
+          popoverButton.buttonEl.getAttribute("aria-expanded"),
+          "true",
+          "aria-expanded on button is set to true when the popover is open"
+        );
+        ok(
+          popoverButton.hasAttribute("open"),
+          "open attribute is set on host when the popover is open"
+        );
+
+        assertButtonPropertiesMatch(popoverButton, {
+          backgroundColor: "--button-background-color-selected",
+          color: "--button-text-color-selected",
+          borderColor: "--button-border-color-selected",
+        });
+
+        // Hide the popover with the Escape key.
+        let hidePromise = BrowserTestUtils.waitForEvent(popover, "toggle");
+        synthesizeKey("KEY_Escape", {});
+        await hidePromise;
+
+        ok(!popover.matches(":popover-open"), "popover is hidden");
+
+        is(
+          popoverButton.buttonEl.getAttribute("aria-expanded"),
+          "false",
+          "aria-expanded on button is set to false when the popover is hidden"
+        );
+        ok(
+          !popoverButton.hasAttribute("open"),
+          "open attribute is not set on host when the popover is hidden"
+        );
+
+        // Open the popover with the mouse again.
+        openPromise = BrowserTestUtils.waitForEvent(popover, "toggle");
+        synthesizeMouseAtCenter(popoverButton, {});
+        await openPromise;
+
+        hidePromise = BrowserTestUtils.waitForEvent(popover, "toggle");
+        synthesizeKey("KEY_Escape", {});
+        await hidePromise;
+
+        ok(!popover.matches(":popover-open"), "popover is hidden");
+
+        // Open the popover by focusing the button and pressing the Enter key.
+        popoverButton.focus();
+        is(document.activeElement, popoverButton, "Popover button is focused");
+        is(
+          popoverButton.shadowRoot.activeElement,
+          popoverButton.buttonEl,
+          "Inner button element is focused"
+        );
+
+        openPromise = BrowserTestUtils.waitForEvent(popover, "toggle");
+        synthesizeKey("KEY_Enter", {});
+        await openPromise;
+
+        ok(popover.matches(":popover-open"), "popover is open");
+
+        hidePromise = BrowserTestUtils.waitForEvent(popover, "toggle");
+        synthesizeKey("KEY_Escape", {});
+        await hidePromise;
+
+        ok(!popover.matches(":popover-open"), "popover is hidden");
+
+        // Open the popover by pressing the Space bar.
+        is(
+          document.activeElement,
+          popoverButton,
+          "Popover button remains focused"
+        );
+        is(
+          popoverButton.shadowRoot.activeElement,
+          popoverButton.buttonEl,
+          "Inner button element remains focused"
+        );
+
+        openPromise = BrowserTestUtils.waitForEvent(popover, "toggle");
+        synthesizeKey(" ", {});
+        await openPromise;
+
+        ok(popover.matches(":popover-open"), "popover is open");
+
+        // With the popover open, remove the popoverTarget.
+        popoverButton.popoverTarget = "";
+        await popoverButton.updateComplete;
+
+        buttonElUpdated = BrowserTestUtils.waitForMutationCondition(
+          popoverButton.buttonEl,
+          {
+            attributes: true,
+            attributeFilter: ["aria-haspopup", "aria-expanded"],
+          },
+          () => {
+            return (
+              !popoverButton.buttonEl.hasAttribute("aria-haspopup") &&
+              !popoverButton.buttonEl.hasAttribute("aria-expanded")
+            );
+          }
+        );
+        await buttonElUpdated;
+
+        ok(
+          !popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "Button element doesn't have aria-haspopup attribute"
+        );
+
+        ok(
+          !popoverButton.buttonEl.getAttribute("aria-expanded"),
+          "Button element doesn't have aria-expanded attribute"
+        );
+        ok(
+          !popoverButton.hasAttribute("open"),
+          "open attribute is removed when popoverTarget is removed"
+        );
+        ok(popover.matches(":popover-open"), "popover is still open");
+
+        hidePromise = BrowserTestUtils.waitForEvent(popover, "toggle");
+        synthesizeKey("KEY_Escape", {});
+        await hidePromise;
+
+        popoverButton.blur();
+      });
+
+      add_task(async function testPopoverAriaHasPopupChanged() {
+        const POPOVER_ID = "test-popover";
+        let popoverButton = document.querySelector(".popover-button");
+
+        popoverButton.popoverTarget = POPOVER_ID;
+        await popoverButton.updateComplete;
+
+        let buttonElUpdated = BrowserTestUtils.waitForMutationCondition(
+          popoverButton.buttonEl,
+          {
+            attributes: true,
+            attributeFilter: ["aria-haspopup", "aria-expanded"],
+          },
+          () => {
+            return (
+              popoverButton.buttonEl.hasAttribute("aria-haspopup") &&
+              popoverButton.buttonEl.hasAttribute("aria-expanded")
+            );
+          }
+        );
+        await buttonElUpdated;
+
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "dialog",
+          "Button element has aria-haspopup attribute set to dialog by default"
+        );
+
+        // Set ariaHasPopup a couple of times.
+        popoverButton.ariaHasPopup = "listbox";
+        await popoverButton.updateComplete;
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "listbox",
+          "Button element has aria-haspopup attribute set to listbox"
+        );
+
+        popoverButton.ariaHasPopup = "grid";
+        await popoverButton.updateComplete;
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "grid",
+          "Button element has aria-haspopup attribute set to grid"
+        );
+
+        // Remove ariaHasPopup. The default value should be restored.
+        popoverButton.ariaHasPopup = "";
+        await popoverButton.updateComplete;
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "dialog",
+          "Button element has aria-haspopup reverted to the dialog default"
+        );
+
+        // Set ariaHasPopup again.
+        popoverButton.ariaHasPopup = "tree";
+        await popoverButton.updateComplete;
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "tree",
+          "Button element has aria-haspopup attribute set to tree"
+        );
+
+        // Remove popoverTarget. ariaHasPopup shouldn't change since it was set
+        // by the consumer.
+        popoverButton.popoverTarget = "";
+        await popoverButton.updateComplete;
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "tree",
+          "Button element aria-haspopup attribute remains set to tree"
+        );
+
+        // Remove ariaHasPopup again. Since the button no longer has a popover,
+        // ariaHasPopup should be null.
+        popoverButton.ariaHasPopup = "";
+        await popoverButton.updateComplete;
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          null,
+          "Button element has null aria-haspopup"
+        );
+      });
+
+      add_task(async function testPopoverWithAriaHasPopupInMarkup() {
+        const POPOVER_ID = "test-popover";
+        let popoverButton = document.querySelector(
+          ".popover-button-aria-haspopup-listbox"
+        );
+
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "listbox",
+          "Button element initially has aria-haspopup attribute set to listbox"
+        );
+
+        popoverButton.popoverTarget = POPOVER_ID;
+        await popoverButton.updateComplete;
+
+        let buttonElUpdated = BrowserTestUtils.waitForMutationCondition(
+          popoverButton.buttonEl,
+          {
+            attributes: true,
+            attributeFilter: ["aria-haspopup", "aria-expanded"],
+          },
+          () => {
+            return (
+              popoverButton.buttonEl.hasAttribute("aria-haspopup") &&
+              popoverButton.buttonEl.hasAttribute("aria-expanded")
+            );
+          }
+        );
+        await buttonElUpdated;
+
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "listbox",
+          "Button element still has aria-haspopup attribute set to listbox"
+        );
+
+        popoverButton.ariaHasPopup = "grid";
+        await popoverButton.updateComplete;
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "grid",
+          "Button element has aria-haspopup attribute set to grid"
+        );
+
+        popoverButton.ariaHasPopup = "";
+        await popoverButton.updateComplete;
+        is(
+          popoverButton.buttonEl.getAttribute("aria-haspopup"),
+          "dialog",
+          "Button element has aria-haspopup attribute reverted to the dialog default"
+        );
+      });
+
+      add_task(async function testPopoverWithMissingPopoverEl() {
+        let popoverButton = document.querySelector(".popover-button");
+
+        // The update should complete without throwing an error.
+        popoverButton.popoverTarget = "there is no element with this ID";
+        await popoverButton.updateComplete;
+
+        // Removing the popoverTarget should also complete without throwing.
+        popoverButton.popoverTarget = "";
+        await popoverButton.updateComplete;
+      });
+
       add_task(async function testSplitButton() {
         const PANEL_LIST_ID = "panel-list";
         let splitButton = document.querySelector(".four");
@@ -756,6 +1087,91 @@
         );
       });
 
+      add_task(async function testButtonChangedToSplitButton() {
+        const PANEL_LIST_ID = "panel-list";
+        let button = document.querySelector(".button-changed-to-split-button");
+        let panelList = document.querySelector(`#${PANEL_LIST_ID}`);
+
+        button.menuId = PANEL_LIST_ID;
+        await button.updateComplete;
+
+        is(
+          button.type,
+          "icon",
+          "The type of moz-button is initially set to icon"
+        );
+
+        // Change the button's type to split and verify the menu can be opened
+        // on it.
+        button.type = "split";
+        await button.updateComplete;
+
+        ok(button.chevronButtonEl, "The chevron button renders.");
+
+        let chevronButtonElUpdated = BrowserTestUtils.waitForMutationCondition(
+          button.chevronButtonEl,
+          {
+            attributes: true,
+            attributeFilter: ["aria-haspopup", "aria-expanded"],
+          },
+          () => {
+            return (
+              button.chevronButtonEl.hasAttribute("aria-haspopup") &&
+              button.chevronButtonEl.hasAttribute("aria-expanded")
+            );
+          }
+        );
+        await chevronButtonElUpdated;
+
+        ok(!panelList.open, "panel-list is hidden");
+        ok(
+          !button.buttonEl.hasAttribute("aria-haspopup"),
+          "Button element does not have aria-haspopup attribute"
+        );
+        is(
+          button.chevronButtonEl.getAttribute("aria-haspopup"),
+          "menu",
+          "Chevron button element has aria-haspopup attribute set to menu"
+        );
+        ok(
+          !button.buttonEl.hasAttribute("aria-expanded"),
+          "Button element does not have aria-expanded attribute"
+        );
+        is(
+          button.chevronButtonEl.getAttribute("aria-expanded"),
+          "false",
+          "aria-expanded on chevron button is set to false when the panel-list is hidden"
+        );
+        ok(
+          !button.hasAttribute("open"),
+          "open attribute is not set on host when the panel-list is hidden"
+        );
+
+        button.scrollIntoView();
+        let openPromise = BrowserTestUtils.waitForEvent(panelList, "shown");
+        synthesizeMouseAtCenter(button.chevronButtonEl, {});
+        await openPromise;
+        synthesizeMouseAtCenter(panelList, { type: "mousemove" }, window);
+
+        ok(panelList.open, "panel-list is open");
+
+        let hidePromise = BrowserTestUtils.waitForEvent(panelList, "hidden");
+        synthesizeKey("Escape", {});
+        await hidePromise;
+
+        ok(!panelList.open, "panel-list is hidden");
+
+        is(
+          button.chevronButtonEl.getAttribute("aria-expanded"),
+          "false",
+          "aria-expanded on chevron button is set to false when the panel-list is hidden"
+        );
+        ok(
+          !button.hasAttribute("open"),
+          "open attribute is not set on host when the panel-list is hidden"
+        );
+      });
+
       add_task(async function testMozButtonLabelWithAccesskeyUpdate() {
         const NEW_LABEL = "Updated label";
         const ACCESSKEY = "t";
@@ -835,6 +1251,21 @@
           type="menuitem"
           label="Test button"
         ></moz-button>
+        <moz-button
+          class="popover-button"
+          type="icon"
+          iconsrc="chrome://global/skin/icons/edit.svg"
+        ></moz-button>
+        <moz-button
+          class="popover-button-aria-haspopup-listbox"
+          aria-haspopup="listbox"
+          type="icon"
+          iconsrc="chrome://global/skin/icons/edit.svg"
+        ></moz-button>
+        <moz-button
+          class="button-changed-to-split-button"
+          type="icon"
+        ></moz-button>
       </div>
       <button id="mouse-trap">Mouse goes here</button>
       <panel-list id="panel-list">
@@ -842,6 +1273,7 @@
         <panel-item>Item Two</panel-item>
         <panel-item>Item Three</panel-item>
       </panel-list>
+      <div id="test-popover" popover="auto">Test popover</div>
     </div>
   </body>
 </html>

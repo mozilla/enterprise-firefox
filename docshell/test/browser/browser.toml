@@ -102,6 +102,9 @@ skip-if = [
 ["browser_bfcache_pageswap_target_entry.js"]
 skip-if = ["!fission"]
 
+["browser_bfcache_parent_initiated_load.js"]
+skip-if = ["!fission"]
+
 ["browser_bfcache_previous_entry.js"]
 skip-if = ["!fission"]
 

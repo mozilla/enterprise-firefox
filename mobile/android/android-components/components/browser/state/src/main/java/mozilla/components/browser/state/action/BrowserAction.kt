@@ -30,6 +30,7 @@ import mozilla.components.browser.state.state.content.DownloadState
 import mozilla.components.browser.state.state.content.FindResultState
 import mozilla.components.browser.state.state.content.PermissionHighlightsState
 import mozilla.components.browser.state.state.content.ShareResourceState
+import mozilla.components.browser.state.state.extension.PendingExtensionUpdate
 import mozilla.components.browser.state.state.extension.WebExtensionPromptRequest
 import mozilla.components.browser.state.state.recover.RecoverableTab
 import mozilla.components.browser.state.state.recover.TabState
@@ -915,6 +916,24 @@ sealed class WebExtensionAction : BrowserAction() {
 
     /** Removes the actual [WebExtensionPromptRequest] of the [BrowserState]. */
     object ConsumePromptRequestWebExtensionAction : WebExtensionAction()
+
+    /**
+     * Adds [pendingUpdate], replacing any pending update of the same extension. The replaced update is not completed;
+     * the caller must complete it.
+     */
+    data class UpdatePendingExtensionUpdateAction(val pendingUpdate: PendingExtensionUpdate) : WebExtensionAction()
+
+    /** Removes the pending update of [extensionId] without completing it. */
+    data class RemovePendingExtensionUpdateAction(val extensionId: String) : WebExtensionAction()
+
+    /**
+     * Sets [BrowserState.pendingExtensionUpdateReviewRequest] to [extensionId]: the user asked to review the pending
+     * update of that extension.
+     */
+    data class UpdatePendingExtensionUpdateReviewRequestAction(val extensionId: String) : WebExtensionAction()
+
+    /** Removes the [BrowserState.pendingExtensionUpdateReviewRequest]. */
+    object ConsumePendingExtensionUpdateReviewRequestAction : WebExtensionAction()
 
     /**
      * Removes all state of the uninstalled extension from [BrowserState.extensions] and

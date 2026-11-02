@@ -5440,7 +5440,10 @@ void AsyncPanZoomController::SetScrolledByHandedOffGesture(bool aState) {
 
 void AsyncPanZoomController::ClearScrolledByHandedOffGestureOnChain() {
   if (InputBlockState* block = GetCurrentInputBlock()) {
-    block->GetOverscrollHandoffChain()->ClearScrolledByHandedOffGesture();
+    if (RefPtr<const OverscrollHandoffChain> chain =
+            block->GetOverscrollHandoffChain()) {
+      chain->ClearScrolledByHandedOffGesture();
+    }
   }
 }
 

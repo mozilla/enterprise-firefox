@@ -372,6 +372,9 @@ class nsDocShellLoadState final {
   void SetSpeculativeListener(mozilla::net::DocumentLoadListener* aListener);
   already_AddRefed<mozilla::net::DocumentLoadListener>
   TakeSpeculativeListener();
+  const mozilla::Maybe<uint64_t>& GetSpeculativeChannelId() const {
+    return mSpeculativeChannelId;
+  }
 
   void SetIsMetaRefresh(bool aMetaRefresh) { mIsMetaRefresh = aMetaRefresh; }
 
@@ -760,8 +763,8 @@ class nsDocShellLoadState final {
   RefPtr<mozilla::net::DocumentLoadListener> mSpeculativeListener;
 
   // Optional value available in content to indicate the channel has been
-  // pre-initialized in the parent process.
-  bool mHasSpeculativeListener = false;
+  // pre-initialized in the parent process. Holds the id of that channel.
+  mozilla::Maybe<uint64_t> mSpeculativeChannelId;
 
   // True if the load was triggered by a meta refresh.
   bool mIsMetaRefresh;

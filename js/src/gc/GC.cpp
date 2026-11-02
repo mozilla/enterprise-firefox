@@ -2715,10 +2715,6 @@ void GCRuntime::purgeRuntime() {
 
   rt->caches().purge();
 
-  if (rt->isMainRuntime()) {
-    SharedImmutableStringsCache::getSingleton().purge();
-  }
-
   MOZ_ASSERT(marker().unmarkGrayStack.empty());
   marker().unmarkGrayStack.clearAndFree();
 }

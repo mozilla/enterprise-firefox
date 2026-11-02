@@ -56,8 +56,3 @@ SOURCE_HEADERS += [
     "Script.h",
     "Source.h",
 ]
-
-if CONFIG["ENABLE_WEBDRIVER"]:
-    MOZ_SRC_FILES += [
-        "DebugSession.sys.mjs",
-    ]

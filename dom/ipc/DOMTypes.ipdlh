@@ -224,7 +224,7 @@ struct DocShellLoadStateInit
   // nsIChannel pendingRedirectedChannel; // sent through other mechanism
   // DocumentLoadListener mSpeculativeListener; // parent-process only
 
-  bool HasSpeculativeListener;
+  uint64_t? SpeculativeChannelId;
 
   bool TryToReplaceWithSessionHistoryLoad;
 

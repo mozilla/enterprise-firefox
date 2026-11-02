@@ -109,6 +109,10 @@ function resetKeyEl(window, keyId) {
 
 async function applyToNewWindow(window) {
   await config.load();
+  // The window can close before the configuration has loaded.
+  if (window.closed) {
+    return;
+  }
   for (const keyId in config.data) {
     applyToKeyEl(window, keyId);
   }
@@ -145,8 +149,12 @@ function observe(window) {
     });
     windows.set(window, observer);
   }
+  // XUL documents without an HTML body, such as the macOS hidden window, only
+  // have the document to observe.
   for (const node of [window.document, window.document.body]) {
-    observer.observe(node, { childList: true });
+    if (node) {
+      observer.observe(node, { childList: true });
+    }
   }
   return observer;
 }
@@ -283,7 +291,8 @@ export const CustomKeys = {
   },
 
   uninitWindow(window) {
-    windows.get(window).disconnect();
+    // Nothing to do if the window closed before initWindow finished.
+    windows.get(window)?.disconnect();
     windows.delete(window);
   },
 

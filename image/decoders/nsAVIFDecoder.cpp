@@ -410,7 +410,7 @@ static gfx::ColorRange GetAVIFColorRange(
     const Mp4parseNclxColourInformation* aNclx,
     const gfx::ColorRange av1ColorRange) {
   return ToMaybe(aNclx)
-      .map([=](const auto& nclx) {
+      .map([=](const auto& /*nclx*/) {
         return aNclx->full_range_flag ? gfx::ColorRange::FULL
                                       : gfx::ColorRange::LIMITED;
       })
@@ -678,7 +678,7 @@ class Dav1dDecoder final : AVIFDecoderInterface {
     return r;
   }
 
-  static void Dav1dFreeCallback_s(const uint8_t* aBuf, void* aCookie) {
+  static void Dav1dFreeCallback_s(const uint8_t* /*aBuf*/, void* aCookie) {
     MOZ_ASSERT(aCookie);
     static_cast<MediaRawData*>(aCookie)->Release();
   }

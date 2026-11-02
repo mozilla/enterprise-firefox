@@ -84,6 +84,8 @@ support-files = ["../creditCard/browser_telemetry_utils.js"]
 ["browser_creditCard_telemetry_cvv.js"]
 support-files = ["../creditCard/browser_telemetry_utils.js"]
 
+["browser_creditCard_telemetry_cvv_prompt.js"]
+
 ["browser_creditCard_telemetry_manage.js"]
 support-files = ["../creditCard/browser_telemetry_utils.js"]
 

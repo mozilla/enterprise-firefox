@@ -16,7 +16,8 @@ export class GenAIParent extends JSWindowActorParent {
       name,
       data,
       this.browsingContext.topFrameElement,
-      this.manager.documentURI
+      this.manager.documentURI,
+      this.manager
     );
   }
 }

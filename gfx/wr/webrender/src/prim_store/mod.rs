@@ -39,7 +39,7 @@ pub mod storage;
 use backdrop::{BackdropCaptureDataHandle, BackdropRenderDataHandle};
 use borders::{ImageBorderDataHandle, NormalBorderDataHandle};
 use gradient::{LinearGradientDataHandle, RadialGradientDataHandle, ConicGradientDataHandle};
-use image::{ImageDataHandle, YuvImageDataHandle};
+use image::{ImagePrimKey, YuvImagePrimKey};
 use line_dec::LineDecorationKey;
 use picture::PictureDataHandle;
 use rectangle::RectangleKey;
@@ -258,12 +258,14 @@ pub enum PrimitiveKind {
         handle: DlHandle<RectangleKey>,
     },
     YuvImage {
-        /// Handle to the common interned data for this primitive.
-        data_handle: YuvImageDataHandle,
+        /// Handle into the follower store fed by the content display list
+        /// builder.
+        handle: DlHandle<YuvImagePrimKey>,
     },
     Image {
-        /// Handle to the common interned data for this primitive.
-        data_handle: ImageDataHandle,
+        /// Handle into the follower store fed by the content display list
+        /// builder.
+        handle: DlHandle<ImagePrimKey>,
     },
     LinearGradient {
         /// Handle to the common interned data for this primitive.
@@ -432,8 +434,8 @@ impl PrimitiveInstance {
             PrimitiveKind::Rectangle { handle } => {
                 dl_stores.rectangles.uid(*handle)
             }
-            PrimitiveKind::Image { data_handle, .. } => {
-                data_handle.uid()
+            PrimitiveKind::Image { handle } => {
+                dl_stores.images.uid(*handle)
             }
             PrimitiveKind::ImageBorder { data_handle, .. } => {
                 data_handle.uid()
@@ -459,8 +461,8 @@ impl PrimitiveInstance {
             PrimitiveKind::TextRun { data_handle, .. } => {
                 data_handle.uid()
             }
-            PrimitiveKind::YuvImage { data_handle, .. } => {
-                data_handle.uid()
+            PrimitiveKind::YuvImage { handle } => {
+                dl_stores.yuv_images.uid(*handle)
             }
             PrimitiveKind::BackdropCapture { data_handle, .. } => {
                 data_handle.uid()

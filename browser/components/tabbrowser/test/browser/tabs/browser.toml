@@ -149,9 +149,6 @@ support-files = [
   "wait-a-bit.sjs",
 ]
 tags = "vertical-tabs"
-fail-if =  [
-  "vertical_tab", # Bug 1932786, fails in the "vertical-tabs" variant
-]
 
 ["browser_link_in_tab_title_and_url_prefilled_normal_page_by_script.js"]
 support-files = [
@@ -161,9 +158,6 @@ support-files = [
   "wait-a-bit.sjs",
 ]
 tags = "vertical-tabs"
-fail-if =  [
-  "vertical_tab", # Bug 1932786, fails in the "vertical-tabs" variant
-]
 
 ["browser_link_in_tab_title_and_url_prefilled_normal_page_no_target.js"]
 support-files = [
@@ -173,9 +167,6 @@ support-files = [
   "wait-a-bit.sjs",
 ]
 tags = "vertical-tabs"
-fail-if =  [
-  "vertical_tab", # Bug 1932786, fails in the "vertical-tabs" variant
-]
 
 ["browser_link_in_tab_title_and_url_prefilled_normal_page_other_target.js"]
 support-files = [
@@ -185,9 +176,6 @@ support-files = [
   "wait-a-bit.sjs",
 ]
 tags = "vertical-tabs"
-fail-if =  [
-  "vertical_tab", # Bug 1932786, fails in the "vertical-tabs" variant
-]
 
 ["browser_list_all_tabs_menu_items.js"]
 
@@ -299,7 +287,7 @@ run-if = [
   "os != 'mac'", # Skipped because macOS keyboard support requires changing system settings
 ]
 tags = "vertical-tabs"
-fail-if =  [
+skip-if = [
   "vertical_tab", # Bug 1932790, fails in the "vertical-tabs" variant
 ]
 
@@ -409,9 +397,6 @@ tags = "vertical-tabs"
 
 ["browser_reload_deleted_file.js"]
 tags = "vertical-tabs"
-skip-if = [
-  "os == 'mac' && os_version == '15.30' && arch == 'aarch64' && vertical_tab", # Bug 1936168
-]
 
 ["browser_removeAllTabsBut.js"]
 tags = "vertical-tabs"

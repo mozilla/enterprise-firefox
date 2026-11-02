@@ -1963,6 +1963,9 @@ AutoSearchingForCertificates::AutoSearchingForCertificates() {
     return;
   }
   certificateSearchState.ref() = Some(SearchState{PR_GetCurrentThread()});
+#if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
+  CacheRemoteCryptokiObjects(SearchingFor::CACertificates);
+#endif  // NIGHTLY_BUILD && !MOZ_NO_SMART_CARDS
 }
 
 AutoSearchingForCertificates::~AutoSearchingForCertificates() {
@@ -1982,6 +1985,9 @@ AutoSearchingForClientAuthCertificates::
     return;
   }
   clientCertificateSearchState.ref() = Some(SearchState{PR_GetCurrentThread()});
+#if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
+  CacheRemoteCryptokiObjects(SearchingFor::ClientCertificates);
+#endif  // NIGHTLY_BUILD && !MOZ_NO_SMART_CARDS
 }
 
 AutoSearchingForClientAuthCertificates::

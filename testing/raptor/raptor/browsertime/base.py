@@ -1059,6 +1059,8 @@ class Browsertime(Perftest, metaclass=ABCMeta):
         # Temporary workaround (bug 2083658): browsertime's bundled geckodriver
         # doesn't set this. Remove once browsertime is updated (bug 2083786).
         env["MOZ_REMOTE_ALLOW_SYSTEM_ACCESS"] = "1"
+        if test.get("support_class", None):
+            test.get("support_class").modify_env(env, test)
         if self.browsertime_video and self.browsertime_ffmpeg:
             ffmpeg_dir = os.path.dirname(os.path.abspath(self.browsertime_ffmpeg))
             old_path = env.setdefault("PATH", "")

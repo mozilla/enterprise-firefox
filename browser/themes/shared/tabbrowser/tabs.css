@@ -3288,11 +3288,8 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
   }
 }
 
-#allTabsMenu-groupsView {
-  &:empty,
-  &:empty + #allTabsMenu-groupsSeparator {
-    display: none;
-  }
+#allTabsMenu-groupsView:empty + #allTabsMenu-groupsSeparator {
+  display: none;
 }
 
 .all-tabs-item {

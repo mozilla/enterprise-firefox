@@ -17,6 +17,11 @@ import {
 // eslint-disable-next-line no-shadow
 import { CSSTransition } from "react-transition-group";
 import { useWidgetLabels } from "./useWidgetLabels.jsx";
+import {
+  isWidgetPlacementActive,
+  resolvePinnedWidgetIds,
+} from "common/PageLayoutVariants.mjs";
+import { setWidgetOnHome } from "content-src/components/Widgets/WidgetPlacement";
 
 function WidgetsManagementPanel({ togglePanel, showPanel, setPref }) {
   const prefs = useSelector(state => state.Prefs.values);
@@ -75,6 +80,15 @@ function WidgetsManagementPanel({ togglePanel, showPanel, setPref }) {
     );
 
     setPref(widget.enabledPref, value);
+    // A widget turned off leaves Home, so turning it back on doesn't quietly
+    // put it back there.
+    if (
+      !value &&
+      isWidgetPlacementActive(prefs) &&
+      resolvePinnedWidgetIds(prefs).includes(widget.id)
+    ) {
+      setWidgetOnHome(dispatch, prefs, widget.id, false);
+    }
   };
 
   const isRTL = typeof document !== "undefined" && document.dir === "rtl";

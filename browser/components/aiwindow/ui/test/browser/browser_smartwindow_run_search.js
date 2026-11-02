@@ -11,6 +11,15 @@ registerCleanupFunction(() => {
   Services.prefs.clearUserPref("browser.smartwindow.lastSmartWindowUsageTime");
 });
 
+function stubPreviousSearch(sandbox) {
+  const fetchWithHistory = sandbox.stub(Chat, "fetchWithHistory");
+  fetchWithHistory.callsFake(options => {
+    options.conversation._searchTheWebTurn =
+      options.conversation.currentTurnIndex();
+    return fetchWithHistory.wrappedMethod.call(Chat, options);
+  });
+}
+
 /**
  * Test that run_search tool calls work end-to-end from the AI window.
  *
@@ -23,6 +32,9 @@ registerCleanupFunction(() => {
 // the post-tool handoff in Chat.sys.mjs opens the sidebar to continue streaming.
 add_task(async function test_run_search_fullpage_opens_sidebar() {
   const sb = sinon.createSandbox();
+  stubPreviousSearch(sb);
+  const handoffSpy = sb.spy(AIWindow, "openSidebarAndContinue");
+  let win;
 
   try {
     // Stub run_search to move the full-page conversation to the sidebar and
@@ -38,7 +50,7 @@ add_task(async function test_run_search_fullpage_opens_sidebar() {
     await withServer(
       {
         toolCall: {
-          name: "run_search",
+          name: "search_the_web",
           args: JSON.stringify({ query: "test search query" }),
         },
         followupChunks: ["Here are your search results."],
@@ -50,7 +62,7 @@ add_task(async function test_run_search_fullpage_opens_sidebar() {
         },
       },
       async () => {
-        const win = await openAIWindow();
+        win = await openAIWindow();
         const tab = await BrowserTestUtils.openNewForegroundTab(
           win.gBrowser,
           AIWINDOW_URL
@@ -82,16 +94,21 @@ add_task(async function test_run_search_fullpage_opens_sidebar() {
           "Server should receive follow-up request with tool results"
         );
 
+        Assert.ok(
+          handoffSpy.calledOnce,
+          "The handoff continues in the sidebar"
+        );
         await AIWindowTestUtils.assertSidebarSmartbarFocused(
           win,
           "Full-page search handoff"
         );
-
-        await BrowserTestUtils.closeWindow(win);
       }
     );
   } finally {
     sb.restore();
+    if (win) {
+      await BrowserTestUtils.closeWindow(win);
+    }
   }
 });
 
@@ -133,6 +150,9 @@ add_task(async function test_run_search_skips_search_load_focus() {
 add_task(
   async function test_run_search_from_sidebar_uses_tab_browsingContext() {
     const sb = sinon.createSandbox();
+    stubPreviousSearch(sb);
+    const handoffSpy = sb.spy(AIWindow, "openSidebarAndContinue");
+    let win;
 
     try {
       const runSearchStub = sb
@@ -164,7 +184,7 @@ add_task(
       await withServer(
         {
           toolCall: {
-            name: "run_search",
+            name: "search_the_web",
             args: JSON.stringify({ query: "sidebar search query" }),
           },
           followupChunks: ["Sidebar search results."],
@@ -176,7 +196,7 @@ add_task(
           },
         },
         async () => {
-          const win = await openAIWindow();
+          win = await openAIWindow();
 
           // Open a content tab so there's a real tab adjacent to the sidebar.
           const tab = await BrowserTestUtils.openNewForegroundTab(
@@ -215,16 +235,22 @@ add_task(
           );
 
           Assert.ok(
+            handoffSpy.calledOnce,
+            "The handoff continues in the sidebar"
+          );
+          Assert.ok(
             AIWindowUI.isSidebarOpen(win),
             "Sidebar should remain open after sidebar run_search"
           );
 
           await BrowserTestUtils.removeTab(tab);
-          await BrowserTestUtils.closeWindow(win);
         }
       );
     } finally {
       sb.restore();
+      if (win) {
+        await BrowserTestUtils.closeWindow(win);
+      }
     }
   }
 );

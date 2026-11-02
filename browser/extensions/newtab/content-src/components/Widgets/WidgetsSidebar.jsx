@@ -9,6 +9,7 @@ import { isSpaceOverridden, SPACE_IDS } from "common/PageLayoutVariants.mjs";
 import { Weather as WeatherWidget } from "./Weather/Weather";
 import { ErrorBoundary } from "content-src/components/ErrorBoundary/ErrorBoundary";
 import { WIDGET_SIDEBAR_COMPONENTS } from "./WidgetsComponentRegistry.jsx";
+import { WIDGET_LOCATIONS, WidgetLocationContext } from "./WidgetPlacement";
 
 const PREF_WIDGETS_ENABLED = "widgets.enabled";
 const PREF_NOVA_ENABLED = "nova.enabled";
@@ -28,19 +29,27 @@ function WidgetsSidebar({ dispatch }) {
     return null;
   }
 
+  const inSidebar = widget => (
+    <WidgetLocationContext.Provider value={WIDGET_LOCATIONS.SIDEBAR}>
+      {widget}
+    </WidgetLocationContext.Provider>
+  );
+
   // Keyed so a widget swap gets a fresh ErrorBoundary.
   if (novaEnabled) {
     const Component = WIDGET_SIDEBAR_COMPONENTS[sidebarWidget.id];
-    return Component ? (
-      <ErrorBoundary key={sidebarWidget.id}>
-        <Component dispatch={dispatch} />
-      </ErrorBoundary>
-    ) : null;
+    return Component
+      ? inSidebar(
+          <ErrorBoundary key={sidebarWidget.id}>
+            <Component dispatch={dispatch} />
+          </ErrorBoundary>
+        )
+      : null;
   }
 
   // @nova-cleanup: remove below
   if (sidebarWidget.id === "weather" && prefs.showWeather) {
-    return (
+    return inSidebar(
       <ErrorBoundary key="weather">
         <WeatherWidget dispatch={dispatch} size="small" />
       </ErrorBoundary>

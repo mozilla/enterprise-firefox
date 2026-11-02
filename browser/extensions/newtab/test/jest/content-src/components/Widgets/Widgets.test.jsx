@@ -1,3 +1,6 @@
+import { WIDGET_ROW_COMPONENTS } from "content-src/components/Widgets/WidgetsComponentRegistry.jsx";
+import { WidgetLocationContext } from "content-src/components/Widgets/WidgetPlacement";
+import { useContext } from "react";
 import { render, fireEvent, createEvent, act } from "@testing-library/react";
 import { WrapWithProvider } from "test/jest/test-utils";
 import { Provider } from "react-redux";
@@ -54,12 +57,12 @@ const LEGACY_WEATHER_FORECAST_STATE = {
   },
 };
 
-function renderWidgets(state) {
+function renderWidgets(state, props = {}) {
   const store = createStore(combineReducers(reducers), state);
   jest.spyOn(store, "dispatch");
   const { container } = render(
     <Provider store={store}>
-      <Widgets />
+      <Widgets {...props} />
     </Provider>
   );
   return { container, store };
@@ -839,6 +842,82 @@ describe("<Widgets> handleToggleMaximize", () => {
           action => action.data?.name === PREF_WIDGETS_TIMER_ENABLED
         )
       ).toBeDefined();
+    });
+
+    it.each([
+      [undefined, "widget_container"],
+      ["home", "home_space"],
+      ["library", "widget_space"],
+    ])(
+      "should tell its widgets where they render (placement %s: %s)",
+      (placement, location) => {
+        const original = WIDGET_ROW_COMPONENTS.lists;
+        WIDGET_ROW_COMPONENTS.lists = function Probe() {
+          return (
+            <div
+              className="location-probe"
+              data-location={useContext(WidgetLocationContext) ?? ""}
+            />
+          );
+        };
+        try {
+          const { container } = renderWidgets(novaState(), { placement });
+          expect(
+            container.querySelector(".location-probe").dataset.location
+          ).toBe(location);
+        } finally {
+          WIDGET_ROW_COMPONENTS.lists = original;
+        }
+      }
+    );
+
+    it("should only empty the Home list when hiding all on Home", () => {
+      const { container, store } = renderWidgets(novaState(), {
+        placement: "home",
+      });
+
+      fireEvent.click(
+        container.querySelector(
+          "panel-item[data-l10n-id='newtab-widget-section-menu-hide-all']"
+        )
+      );
+
+      const setPrefCalls = actionsFrom(store).filter(
+        action => action?.type === at.SET_PREF
+      );
+      expect(setPrefCalls.map(action => action.data)).toEqual([
+        { name: "widgets.home", value: "[]" },
+      ]);
+      const actions = actionsFrom(store);
+      expect(
+        actions.find(action => action.type === at.WIDGETS_CONTAINER_ACTION).data
+          .action_type
+      ).toBe("remove_all_from_home");
+      expect(
+        actions.some(
+          action =>
+            action.type === at.WIDGETS_HIDE_ALL ||
+            action.type === at.WIDGETS_ENABLED
+        )
+      ).toBe(false);
+    });
+
+    it("should turn widgets off when hiding all in the widget library", () => {
+      const { container, store } = renderWidgets(novaState(), {
+        placement: "library",
+      });
+
+      fireEvent.click(
+        container.querySelector(
+          "panel-item[data-l10n-id='newtab-widget-section-menu-hide-all']"
+        )
+      );
+
+      const names = actionsFrom(store)
+        .filter(action => action?.type === at.SET_PREF)
+        .map(action => action.data.name);
+      expect(names).toContain(PREF_WIDGETS_LISTS_ENABLED);
+      expect(names).not.toContain("widgets.home");
     });
 
     it("should dispatch Learn more actions from the Nova header menu", () => {

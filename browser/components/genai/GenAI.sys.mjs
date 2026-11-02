@@ -978,12 +978,57 @@ export const GenAI = {
         0
       );
     };
-    panel.hide = () => {
+    panel.hideDropdowns = () => {
       chatShortcutsOptionsPanel.hidePopup();
       moreActionsPanel.hidePopup();
+    };
+    panel.hide = () => {
+      panel.hideDropdowns();
       panel.hideCallout();
       panel.hidePopup();
     };
+
+    // Tell the page whether a dropdown is open, so that Escape in the page
+    // closes just the dropdown.
+    const sendDropdownState = () => {
+      if (!lazy.highlightToSearchFeatureGate) {
+        return;
+      }
+      const open =
+        chatShortcutsOptionsPanel.state != "closed" ||
+        moreActionsPanel.state != "closed";
+      const windowGlobal = panel.selectionData?.windowGlobal;
+      if (windowGlobal?.isCurrentGlobal) {
+        windowGlobal.getActor("GenAI").sendAsyncMessage("DropdownState", open);
+      }
+    };
+    for (const dropdown of [chatShortcutsOptionsPanel, moreActionsPanel]) {
+      for (const type of ["popupshown", "popuphidden"]) {
+        dropdown.addEventListener(type, event => {
+          if (event.target == dropdown) {
+            sendDropdownState();
+          }
+        });
+      }
+    }
+    document.addEventListener("keydown", event => {
+      if (
+        event.key != "Escape" ||
+        event.defaultPrevented ||
+        !lazy.highlightToSearchFeatureGate ||
+        panel.state != "open"
+      ) {
+        return;
+      }
+      if (
+        chatShortcutsOptionsPanel.state != "closed" ||
+        moreActionsPanel.state != "closed"
+      ) {
+        panel.hideDropdowns();
+      } else {
+        panel.hide();
+      }
+    });
     panel.startDisplay = smartWindow => {
       panel.display = {
         start: ChromeUtils.now(),
@@ -1373,8 +1418,9 @@ export const GenAI = {
    * }} data for the message
    * @param {MozBrowser} browser that provided the message
    * @param {nsIURI} [documentURI] URI of the frame that sent the message
+   * @param {WindowGlobalParent} [windowGlobal] frame that sent the message
    */
-  handleShortcutsMessage(name, data, browser, documentURI) {
+  handleShortcutsMessage(name, data, browser, documentURI, windowGlobal) {
     const isInBrowserStack = browser?.closest(".browserStack");
 
     const isSmartWindow =
@@ -1418,6 +1464,9 @@ export const GenAI = {
     }
 
     switch (name) {
+      case "GenAI:HideDropdowns":
+        shortcutPanel.hideDropdowns();
+        break;
       case "GenAI:HideShortcuts": {
         // For an IME selection change, hide via CSS
         // to avoid hidePopup() cancelling the active IME composition.
@@ -1441,7 +1490,7 @@ export const GenAI = {
       }
       case "GenAI:ShowShortcuts": {
         // Save the latest selection so it can be used by popup
-        shortcutPanel.selectionData = { ...data, browser };
+        shortcutPanel.selectionData = { ...data, browser, windowGlobal };
         shortcutPanel.resetCopyConfirmation();
 
         // Smart Window has its own separate gate above and only ever offers

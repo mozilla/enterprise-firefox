@@ -257,6 +257,13 @@ export class AutofillDoorhanger {
     }
   }
 
+  /**
+   * Called when the user clicks one of the doorhanger's buttons.
+   *
+   * @param {string} _state The callbackState of the clicked button
+   */
+  onAction(_state) {}
+
   onEventCallback(state) {
     lazy.log.debug(`Doorhanger receives event callback: ${state}`);
 
@@ -358,6 +365,7 @@ export class AutofillDoorhanger {
         this.constructor.telemetryObject,
         this.flowId
       );
+      this.onAction(mainActionParams.callbackState);
 
       this.resolve(mainActionParams.callbackState);
     };
@@ -378,6 +386,7 @@ export class AutofillDoorhanger {
             this.constructor.telemetryObject,
             this.flowId
           );
+          this.onAction(params.callbackState);
 
           this.resolve(params.callbackState);
         },
@@ -897,8 +906,59 @@ export class CreditCardSaveDoorhanger extends AutofillDoorhanger {
 
   static spotlightURL = "about:preferences#privacy-credit-card-autofill";
 
+  // The cvv_prompt_action action recorded for each button's callbackState.
+  static cvvPromptActions = {
+    new_card: { create: "save", cancel: "not_now", disable: "never_save" },
+    existing_card: {
+      update: "save",
+      create: "save_new",
+      cancel: "no_thanks",
+      disable: "never_save",
+    },
+  };
+
   constructor(browser, oldRecord, newRecord, flowId) {
     super(browser, oldRecord, newRecord, flowId);
+  }
+
+  /**
+   * The prompt_type recorded by the cvv_prompt_* events, or null when the
+   * doorhanger doesn't offer to save a security code the user entered.
+   *
+   * @type {string|null}
+   */
+  get cvvPromptType() {
+    return this.hasSubmittedSecurityCode ? "new_card" : null;
+  }
+
+  #respondedToCvvPrompt = false;
+
+  #recordCvvPromptAction(action) {
+    this.#respondedToCvvPrompt = true;
+    AutofillTelemetry.recordCvvPromptAction({
+      promptType: this.cvvPromptType,
+      action,
+      savingEnabled: FormAutofill.isAutofillCreditCardCVVEnabled,
+      flowId: this.flowId,
+    });
+  }
+
+  async show() {
+    if (this.cvvPromptType) {
+      AutofillTelemetry.recordCvvPromptShown({
+        promptType: this.cvvPromptType,
+        flowId: this.flowId,
+      });
+    }
+    return super.show();
+  }
+
+  onAction(state) {
+    const actions =
+      CreditCardSaveDoorhanger.cvvPromptActions[this.cvvPromptType];
+    if (actions?.[state]) {
+      this.#recordCvvPromptAction(actions[state]);
+    }
   }
 
   /**
@@ -1168,6 +1228,14 @@ export class CreditCardSaveDoorhanger extends AutofillDoorhanger {
     } else if (state == "shown") {
       this.addCheckboxListener();
     }
+
+    if (
+      (state == "removed" || state == "dismissed") &&
+      this.cvvPromptType &&
+      !this.#respondedToCvvPrompt
+    ) {
+      this.#recordCvvPromptAction("closed");
+    }
   }
 
   // The record to be saved by this doorhanger. The security code is left out
@@ -1193,6 +1261,10 @@ export class CreditCardUpdateDoorhanger extends CreditCardSaveDoorhanger {
 
   get showsSecurityCode() {
     return !!this.oldRecord["cc-csc"];
+  }
+
+  get cvvPromptType() {
+    return null;
   }
 
   appendSecurityCodeControl() {}
@@ -1226,6 +1298,10 @@ export class CreditCardSecurityCodeUpdateDoorhanger extends CreditCardUpdateDoor
 
   get showsSecurityCode() {
     return this.savesSecurityCode;
+  }
+
+  get cvvPromptType() {
+    return "existing_card";
   }
 
   appendSecurityCodeControl() {

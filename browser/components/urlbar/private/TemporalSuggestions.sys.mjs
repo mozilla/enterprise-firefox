@@ -88,6 +88,7 @@ export class TemporalSuggestions extends SuggestProvider {
     return [
       "temporal.featureGate",
       "suggest.temporal",
+      "suggest.quicksuggest.all",
       "suggest.searches",
       "browser.search.suggest.enabled",
     ];

@@ -2185,6 +2185,14 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.home",
+    {
+      title:
+        "JSON array of the widget IDs the user has on the Home space, when the thematic spaces config names a widgetLibrary. Empty string means use the config's widgets for the default space.",
+      value: "",
+    },
+  ],
+  [
     "improvesearch.noDefaultSearchTile",
     {
       title: "Remove tiles that are the same as the default search",

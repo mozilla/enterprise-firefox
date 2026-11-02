@@ -9,6 +9,7 @@ import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { useSizeSubmenu } from "../../../lib/utils";
 import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
 import { MoveSubmenu } from "../MoveSubmenu";
+import { WidgetHideMenuItem } from "../WidgetPlacement";
 import { useWidgetTelemetry } from "../useWidgetTelemetry";
 import { WidgetMenuButton } from "../WidgetMenuButton";
 
@@ -455,9 +456,9 @@ const PictureOfTheDay = ({
               widgetEnabledMap={widgetEnabledMap}
             />
 
-            <panel-item
-              data-l10n-id="newtab-widget-menu-hide"
-              onClick={handleHide}
+            <WidgetHideMenuItem
+              widgetId="pictureOfTheDay"
+              onHide={handleHide}
             />
             <panel-item
               data-l10n-id="newtab-picture-menu-learn-more"

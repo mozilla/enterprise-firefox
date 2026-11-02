@@ -15,6 +15,12 @@ XPCOMUtils.defineLazyPreferenceGetter(
 );
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
+  "highlightToSearchFeatureGate",
+  "browser.highlightToSearch.featureGate",
+  false
+);
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
   "shortcutsDebounce",
   "browser.ml.chat.shortcuts.debounce",
   200
@@ -58,6 +64,9 @@ export class GenAIChild extends JSWindowActorChild {
   downX = 0;
   downY = 0;
   pendingHide = false;
+  dropdownOpen = false;
+  inClickBurst = false;
+  shownSelection = "";
   #compositionActive = false;
   #menuObserver = null;
   #menuCandidates = new Map();
@@ -227,6 +236,7 @@ export class GenAIChild extends JSWindowActorChild {
     this.document.addEventListener("selectionchange", this);
     this.document.addEventListener("compositionstart", this);
     this.document.addEventListener("compositionend", this);
+    this.document.addEventListener("keydown", this, true);
     HIDE_EVENTS.forEach(ev =>
       this.contentWindow.addEventListener(ev, this, true)
     );
@@ -237,10 +247,13 @@ export class GenAIChild extends JSWindowActorChild {
     this.document.removeEventListener("selectionchange", this);
     this.document.removeEventListener("compositionstart", this);
     this.document.removeEventListener("compositionend", this);
+    this.document.removeEventListener("keydown", this, true);
     HIDE_EVENTS.forEach(ev =>
       this.contentWindow?.removeEventListener(ev, this, true)
     );
     this.pendingHide = false;
+    this.dropdownOpen = false;
+    this.inClickBurst = false;
     this.#compositionActive = false;
     this.#stopWatchingPageMenus();
   }
@@ -260,6 +273,16 @@ export class GenAIChild extends JSWindowActorChild {
         this.downTimeStamp = event.timeStamp;
         this.downX = event.pageX;
         this.downY = event.pageY;
+        if (
+          lazy.highlightToSearchFeatureGate &&
+          this.pendingHide &&
+          event.detail >= 2
+        ) {
+          // The later presses of a double or triple click are the same
+          // gesture still choosing what to select.
+          this.inClickBurst = true;
+          break;
+        }
         sendHide();
         this.#stopWatchingPageMenus();
         if (this.#isPlainClick(event)) {
@@ -267,9 +290,21 @@ export class GenAIChild extends JSWindowActorChild {
         }
         break;
       case "mouseup": {
+        const endedClickBurst = this.inClickBurst;
+        const hideIfStale = () => {
+          if (
+            endedClickBurst &&
+            this.getSelectionInfo().selection !== this.shownSelection
+          ) {
+            sendHide();
+          }
+        };
+        this.inClickBurst = false;
+
         // Only handle plain clicks
         if (!this.#isPlainClick(event)) {
           this.#stopWatchingPageMenus();
+          hideIfStale();
           return;
         }
 
@@ -332,6 +367,7 @@ export class GenAIChild extends JSWindowActorChild {
             }
           } else {
             this.#stopWatchingPageMenus();
+            hideIfStale();
           }
 
           // Clear the timeout reference after execution
@@ -346,7 +382,19 @@ export class GenAIChild extends JSWindowActorChild {
       case "compositionend":
         this.#compositionActive = false;
         break;
+      case "keydown":
+        if (event.key == "Escape" && lazy.highlightToSearchFeatureGate) {
+          if (this.dropdownOpen) {
+            this.sendAsyncMessage("GenAI:HideDropdowns", {});
+          } else {
+            sendHide();
+          }
+        }
+        break;
       case "selectionchange":
+        if (this.inClickBurst) {
+          break;
+        }
         if (this.#compositionActive) {
           // Visually hide without calling sendHide()
           // sendHide() triggers hidePopup() which issues a focus change event
@@ -374,6 +422,7 @@ export class GenAIChild extends JSWindowActorChild {
     screenYDevPx,
     pageMenu = false
   ) {
+    this.shownSelection = selectionInfo.selection;
     this.sendAsyncMessage("GenAI:ShowShortcuts", {
       ...selectionInfo,
       contentType: "selection",
@@ -436,6 +485,9 @@ export class GenAIChild extends JSWindowActorChild {
     switch (name) {
       case "AutoSubmit":
         return await this.autoSubmitClick(data);
+      case "DropdownState":
+        this.dropdownOpen = data;
+        return null;
       case "ShowSelectionMenu": {
         const selectionInfo = this.getSelectionInfo();
         if (selectionInfo.selection) {
