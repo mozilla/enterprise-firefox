@@ -10,10 +10,10 @@ import time
 
 sys.path.append(os.path.dirname(__file__))
 
-from felt_tests import FeltTests
+from felt_tests import FeltKeyStoreStub, FeltTests
 
 
-class BaseBrowserExternalLink(FeltTests):
+class BaseBrowserExternalLink(FeltKeyStoreStub, FeltTests):
     def run_felt_browser_started(self):
         self.connect_child_browser()
 
