@@ -1,0 +1,9 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+# thunderbird-desktop revision built along each enterprise-firefox branch.
+# Kept out of .taskcluster.yml so bumping it doesn't change the action hooks.
+enterprise-main: b88504cf0368fcf8beef5d03b982e7d23869f2ef
+enterprise-beta: b88504cf0368fcf8beef5d03b982e7d23869f2ef
+enterprise-release: b88504cf0368fcf8beef5d03b982e7d23869f2ef

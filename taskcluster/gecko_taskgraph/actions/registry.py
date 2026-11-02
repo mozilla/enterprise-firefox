@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import functools
+import os
 from collections import namedtuple
 from types import FunctionType
 
@@ -46,6 +47,61 @@ def hash_taskcluster_yml(filename):
     return hash.hash_path(filename)[:10]
 
 
+def taskcluster_yml_path(graph_config):
+    """
+    Path of the .taskcluster.yml the action hooks are rendered from.
+
+    Enterprise Thunderbird graphs live in comm/, a separate repository, but
+    all of their tasks are created through the enterprise-firefox
+    .taskcluster.yml, which is the one ci-admin registers hooks for.
+    """
+    if graph_config["trust-domain"] == "enterprise":
+        from gecko_taskgraph import GECKO
+
+        return os.path.join(GECKO, ".taskcluster.yml")
+    return graph_config.taskcluster_yml
+
+
+def comm_action_parameters(parameters, graph_config, comm_checkout):
+    """
+    Thunderbird checkout the action task needs, consumed as `parameters.comm`
+    by .taskcluster.yml. `root` is only set for actions on an Enterprise
+    Thunderbird graph, so their callbacks run against its graph config.
+    """
+    if (
+        graph_config["trust-domain"] != "enterprise"
+        or parameters["repository_type"] != "git"
+    ):
+        return None
+
+    if "comm_head_repository" in parameters:
+        root = os.path.realpath(graph_config.root_dir)
+        from gecko_taskgraph import GECKO
+
+        return {
+            "base_repository": parameters["comm_base_repository"],
+            "base_rev": parameters["comm_base_rev"],
+            "head_repository": parameters["comm_head_repository"],
+            "head_ref": parameters["comm_head_ref"],
+            "head_rev": parameters["comm_head_rev"],
+            "root": os.path.relpath(root, GECKO).replace(os.sep, "/"),
+        }
+
+    if comm_checkout and parameters.get("comm_checkout"):
+        return {
+            k: parameters["comm_checkout"][k]
+            for k in (
+                "base_repository",
+                "base_rev",
+                "head_repository",
+                "head_ref",
+                "head_rev",
+            )
+        }
+
+    return None
+
+
 def register_callback_action(
     name,
     title,
@@ -57,6 +113,7 @@ def register_callback_action(
     schema=None,
     permission="generic",
     cb_name=None,
+    comm_checkout=False,
 ):
     """
     Register an action callback that can be triggered from supporting
@@ -122,6 +179,9 @@ def register_callback_action(
         The name under which this function should be registered, defaulting to
         `name`.  Unlike `name`, which can appear multiple times, cb_name must be
         unique among all registered callbacks.
+    comm_checkout : bool
+        Whether the action task needs the Thunderbird checkout scheduled by an
+        Enterprise Gecko decision task (``comm_checkout`` parameter).
 
     Returns
     -------
@@ -217,6 +277,8 @@ def register_callback_action(
             filtered_params = {
                 "repository_type": parameters["repository_type"],
             }
+            if comm := comm_action_parameters(parameters, graph_config, comm_checkout):
+                filtered_params["comm"] = comm
 
             rv = {
                 "name": name,
@@ -231,7 +293,7 @@ def register_callback_action(
 
             trustDomain = graph_config["trust-domain"]
             level = parameters["level"]
-            tcyml_hash = hash_taskcluster_yml(graph_config.taskcluster_yml)
+            tcyml_hash = hash_taskcluster_yml(taskcluster_yml_path(graph_config))
 
             # the tcyml_hash is prefixed with `/` in the hookId, so users will be granted
             # hooks:trigger-hook:project-gecko/in-tree-action-3-myaction/*; if another

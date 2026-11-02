@@ -326,6 +326,12 @@ Beetmover-rpm publishes Linux .rpm packages from the Mozilla archive to our RPM 
 
 Beetmover-repackage-rpm publishes Linux .rpm packages (main package and all langpacks) to the candidates directory.
 
+## comm-decision
+
+Triggers the `comm-decision` action of the decision task on Enterprise
+pushes and pull requests, generating the Enterprise Thunderbird task graph
+in the task group of that action.
+
 ## condprof
 
 condprof creates and updates realistic profiles.
