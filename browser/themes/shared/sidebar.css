@@ -329,13 +329,6 @@ menuseparator + #sidebar-extensions-separator {
   animation-timing-function: var(--motion-ease-standard);
 }
 
-/* Expand on hover takes its duration from the
- * sidebar.animation.expand-on-hover.duration-ms pref, which defaults to
- * --motion-dur-sidebar-enter. */
-:root[sidebar-expand-on-hover]:active-view-transition-type(launcher-enter, launcher-exit)::view-transition-group(*) {
-  animation-duration: var(--sidebar-expand-on-hover-duration);
-}
-
 #sidebar-container {
   view-transition-name: sidebar-launcher;
 }
@@ -348,16 +341,32 @@ menuseparator + #sidebar-extensions-separator {
   view-transition-name: tabbrowser-tabbox;
 }
 
-/* Expand on hover only shows the expanded launcher's snapshot, as the collapsed
- * one is transparent and would leave its icons floating over the content area.
- * It stays pinned to the window edge while the group clips it to the animating
- * width, so its icons line up with the collapsed launcher's throughout. */
-:root[sidebar-expand-on-hover]:active-view-transition-type(expand)::view-transition-old(sidebar-launcher),
-:root[sidebar-expand-on-hover]:active-view-transition-type(collapse)::view-transition-new(sidebar-launcher) {
-  display: none;
-}
+:root:active-view-transition-type(expand-on-hover) {
+  /* Expand on hover takes its duration from the
+   * sidebar.animation.expand-on-hover.duration-ms pref, which defaults to
+   * --motion-dur-sidebar-enter. */
+  &::view-transition-group(*) {
+    animation-duration: var(--sidebar-expand-on-hover-duration);
+  }
 
-:root[sidebar-expand-on-hover]:active-view-transition-type(expand, collapse) {
+  /* Expanding on hover overlays the launcher without moving the content area
+   * or panel, so keep them live instead of swapping in their snapshots, which
+   * would freeze the page for the length of the transition. */
+  #sidebar-box,
+  #tabbrowser-tabbox {
+    view-transition-name: none;
+  }
+
+  /* Expand on hover only shows the expanded launcher's snapshot, as the
+   * collapsed one is transparent and would leave its icons floating over the
+   * content area. It stays pinned to the window edge while the group clips it
+   * to the animating width, so its icons line up with the collapsed launcher's
+   * throughout. */
+  &:active-view-transition-type(expand)::view-transition-old(sidebar-launcher),
+  &:active-view-transition-type(collapse)::view-transition-new(sidebar-launcher) {
+    display: none;
+  }
+
   &::view-transition-group(sidebar-launcher) {
     overflow: clip;
   }
@@ -384,7 +393,7 @@ menuseparator + #sidebar-extensions-separator {
  * window edge so its icons stay put, while the content area slides over or off
  * the labels. Otherwise the old snapshot slides along with it and lingers until
  * the transition ends. */
-:root:not([sidebar-expand-on-hover]):active-view-transition-type(collapse, expand) {
+:root:not(:active-view-transition-type(expand-on-hover)):active-view-transition-type(collapse, expand) {
   &::view-transition-group(sidebar-launcher) {
     z-index: auto;
   }

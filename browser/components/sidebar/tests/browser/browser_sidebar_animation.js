@@ -127,6 +127,22 @@ function assertBeneathContentArea(name, description) {
 }
 
 /**
+ * Assert that a transition leaves the content area and panel live, rather than
+ * swapping in their snapshots.
+ *
+ * @param {Animation[]} animations
+ * @param {string} description
+ */
+function assertContentAreaNotCaptured(animations, description) {
+  for (const name of ["tabbrowser-tabbox", "sidebar-box"]) {
+    ok(
+      !animations.some(a => a.effect.pseudoElement.endsWith(`(${name})`)),
+      `${description}: ${name} isn't captured`
+    );
+  }
+}
+
+/**
  * Assert that every group animation in a transition uses a given timing.
  *
  * @param {Animation[]} animations
@@ -474,6 +490,7 @@ add_task(async function test_expand_on_hover_duration_pref() {
       "Expanding is a launcher enter"
     );
     assertGroupTiming(expand.animations, 1234, emphasized, "Hover expand");
+    assertContentAreaNotCaptured(expand.animations, "Hover expand");
 
     await SpecialPowers.pushPrefEnv({
       set: [[EXPAND_ON_HOVER_DURATION_PREF, 4321]],
@@ -498,6 +515,7 @@ add_task(async function test_expand_on_hover_duration_pref() {
       emphasized,
       "Hover collapse after the pref changed"
     );
+    assertContentAreaNotCaptured(collapse.animations, "Hover collapse");
     await SpecialPowers.popPrefEnv();
   } finally {
     win.windowUtils.disableNonTestMouseEvents(false);
