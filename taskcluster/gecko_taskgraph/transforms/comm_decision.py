@@ -20,8 +20,7 @@ def add_hook_scope(config, tasks):
     else:
         hook = f"in-tree-action-{level}-comm-decision"
 
-    for task in tasks:
-        task.setdefault("scopes", []).append(
-            f"hooks:trigger-hook:project-{trust_domain}/{hook}/*"
-        )
-        yield task
+    # WIP - HACK FOR TRY: no decision role can grant the hook scope yet, so
+    # trigger the action with your own credentials instead.
+    del trust_domain, hook
+    yield from tasks
