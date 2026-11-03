@@ -47,6 +47,11 @@ export class ContentAnalysisWasmChild extends JSProcessActorChild {
 
   receiveMessage(message) {
     switch (message.name) {
+      case "NeedsModule":
+        return this.#loadedVersion !== message.data.version;
+      case "LoadModule":
+        this.#loadModule(message.data);
+        return undefined;
       case "Analyze": {
         // Registered now rather than when its turn comes, so that it can be
         // canceled while it is queued.
@@ -69,16 +74,18 @@ export class ContentAnalysisWasmChild extends JSProcessActorChild {
     return undefined;
   }
 
-  async #analyze(analysis, { version, moduleBytes, request, content, rules }) {
-    throwIfCanceled(analysis);
-    const sandbox = this.#ensureSandbox();
-
-    // Recompile only when the module changed since the last request.
+  // Recompile only when the module changed.
+  #loadModule({ version, moduleBytes }) {
     if (this.#loadedVersion !== version) {
+      const sandbox = this.#ensureSandbox();
       sandbox.loadModule(Cu.cloneInto(moduleBytes, sandbox));
       this.#loadedVersion = version;
     }
+  }
 
+  async #analyze(analysis, { request, content, rules }) {
+    throwIfCanceled(analysis);
+    const sandbox = this.#ensureSandbox();
     try {
       sandbox.beginAnalyze(request.size, content ? content.size : 0);
       await this.#writeBlob(sandbox, analysis, "request", request);

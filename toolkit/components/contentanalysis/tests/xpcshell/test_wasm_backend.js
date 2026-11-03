@@ -193,6 +193,36 @@ add_setup(async function () {
   });
 });
 
+// Before each analysis, the runner asks the module's process whether it needs
+// the module, and sends the module's bytes only if it does. This must be the
+// first task to analyze anything, so that the process starts out without the
+// module.
+add_task(async function test_module_bytes_sent_only_when_child_needs_them() {
+  await stubDlpWasmModule();
+  // Analyze a paste, returning the names of the queries it sent to the
+  // module's process.
+  const pasteAndGetQueries = async () => {
+    const queries = [];
+    const stopSpying = await spyOnWasmActorQueries(name => queries.push(name));
+    try {
+      const response = await pasteAndGetResponse(SPEC_BLOCK);
+      Assert.equal(response.ruleName, BLOCK_RULE, "the paste is analyzed");
+    } finally {
+      stopSpying();
+    }
+    return queries;
+  };
+
+  Assert.ok(
+    (await pasteAndGetQueries()).includes("LoadModule"),
+    "the module is sent before the first request"
+  );
+  Assert.ok(
+    !(await pasteAndGetQueries()).includes("LoadModule"),
+    "the module isn't sent again for the next request"
+  );
+});
+
 // A file's contents are streamed to the module's process and passed to the
 // module as content bytes. Putting a blocking spec in the file proves those
 // bytes actually arrive: nothing else in the request could produce this
@@ -378,6 +408,9 @@ add_task(async function test_canceling_stops_streaming_and_later_ones_work() {
   // while the file is still streaming to it.
   let analyzeQuery;
   const stopSpying = await spyOnWasmActorQueries((name, data, query) => {
+    if (name !== "Analyze") {
+      return;
+    }
     analyzeQuery = query;
     contentAnalysis.cancelRequestsByUserAction(data.userActionId);
   });
@@ -436,6 +469,9 @@ add_task(async function test_canceling_a_queued_analysis_skips_it() {
   const queries = [];
   let small;
   const stopSpying = await spyOnWasmActorQueries((name, data, query) => {
+    if (name !== "Analyze") {
+      return;
+    }
     queries.push(query);
     if (queries.length === 1) {
       small = contentAnalysis.analyzeContentRequests(
