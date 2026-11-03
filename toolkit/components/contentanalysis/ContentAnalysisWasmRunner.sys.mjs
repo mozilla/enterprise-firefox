@@ -46,14 +46,10 @@ export class ContentAnalysisWasmRunner {
   }
 
   async analyze(aUserActionId, aRequest, aContent, aRules) {
-    const { moduleBytes, version } = await this.ensureModuleReady();
-
-    const actor = await this.#getActor();
+    const actor = await this.#getAndInitializeActor();
     // Resolves with a Uint8Array, which the C++ caller reads in bulk.
     return actor.sendQuery("Analyze", {
       userActionId: aUserActionId,
-      version,
-      moduleBytes,
       request: aRequest,
       content: aContent,
       rules: toPlainRules(aRules),
@@ -116,6 +112,18 @@ export class ContentAnalysisWasmRunner {
       );
     }
     return keepAlive.domProcess.getActor(ACTOR_NAME);
+  }
+
+  // Get the actor, first making sure the child has the current module loaded.
+  // The module's bytes are only sent when the child doesn't already have this
+  // version, e.g. on the first request to a new process.
+  async #getAndInitializeActor() {
+    const { moduleBytes, version } = await this.ensureModuleReady();
+    const actor = await this.#getActor();
+    if (await actor.sendQuery("NeedsModule", { version })) {
+      await actor.sendQuery("LoadModule", { version, moduleBytes });
+    }
+    return actor;
   }
 }
 
