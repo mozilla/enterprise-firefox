@@ -8,8 +8,9 @@ The registry reference is derived from the repack config
 (``{partner}/{sub_config}``) a task's release belongs to. The upload task gets
 it on its ``extra`` from ``enterprise_release_definition``, which runs just
 before this transform; the tag task reads it from the upload task it depends
-on. Each task also gets its own treeherder symbol and description, with the
-verb (``upload``/``tag``) taken from the kind name.
+on. Each task also gets its own treeherder symbol, with the verb
+(``upload``/``tag``) taken from the kind name, and its description, formatted
+from the kind's with the repack config and the product of the release.
 
 The upload task also gets the registry to publish to. Its kind defaults
 ``REGISTRY_REFERENCE`` to the dev registry, and only a production release
@@ -20,6 +21,7 @@ the same registry. The credentials secret follows whichever reference the task
 ended up with.
 """
 
+import json
 from urllib.parse import urlparse
 
 from mozilla_taskgraph.util.attributes import release_level
@@ -32,6 +34,13 @@ UPLOAD_KIND = "enterprise-oci-upload"
 TAG_KIND = "enterprise-oci-tag"
 
 
+def _release_product(env):
+    """The product of the release definition ``enterprise_release_definition``
+    put in ``env``."""
+    definition = json.loads(env["RELEASE_DEFINITION"]["task-reference"])
+    return definition["product"]
+
+
 @transforms.add
 def set_repack_metadata(config, tasks):
     """Name each task after the repack its release belongs to.
@@ -39,20 +48,26 @@ def set_repack_metadata(config, tasks):
     ``enterprise_release_definition`` hands the upload kind its repack config.
     The tag kind takes it from the upload task it depends on and records it on
     itself, so later transforms can read it from ``extra`` either way.
+
+    The kind's description is a format string, given the ``repack_config`` and
+    the ``product`` of the release, which the tag kind also takes from the
+    upload task.
     """
     # Kind names are `enterprise-oci-upload` / `enterprise-oci-tag`.
     verb = config.kind.rsplit("-", 1)[-1]
     for task in tasks:
         extra = task.setdefault("extra", {})
-        if config.kind != UPLOAD_KIND:
+        if config.kind == UPLOAD_KIND:
+            product = _release_product(task["worker"]["env"])
+        else:
             dep = get_primary_dependency(config, task)
             assert dep
             extra["repack_config"] = dep.task["extra"]["repack_config"]
+            product = _release_product(dep.task["payload"]["env"])
 
         name = task["name"]
-        task["description"] = (
-            f"{verb.capitalize()} the Firefox Enterprise OCI release for "
-            f"partner repack '{extra['repack_config']}'."
+        task["description"] = task["description"].format(
+            product=product, repack_config=extra["repack_config"]
         )
         task.setdefault("treeherder", {})["symbol"] = f"Ent({verb}-{name})"
         yield task
