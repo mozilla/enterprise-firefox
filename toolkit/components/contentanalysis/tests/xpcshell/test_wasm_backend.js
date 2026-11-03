@@ -322,6 +322,105 @@ add_task(async function test_analysis_after_large_file_uses_working_instance() {
   }
 });
 
+// Requests and content over
+// browser.contentanalysis.wasm_backend_max_content_bytes aren't analyzed and
+// get the result for an analysis error instead. With that result set to allow,
+// blocking data that is allowed shows the module was skipped.
+add_task(async function test_data_over_size_limit_gets_default_result() {
+  await stubDlpWasmModule();
+  // Comfortably larger than a request carrying no pasted text.
+  const LIMIT = 4096;
+  Services.prefs.setIntPref(
+    "browser.contentanalysis.wasm_backend_max_content_bytes",
+    LIMIT
+  );
+  Services.prefs.setIntPref("browser.contentanalysis.default_result", 2);
+  registerCleanupFunction(() => {
+    Services.prefs.clearUserPref(
+      "browser.contentanalysis.wasm_backend_max_content_bytes"
+    );
+    Services.prefs.clearUserPref("browser.contentanalysis.default_result");
+  });
+  // SPEC_BLOCK padded at the front to aLength bytes.
+  const padded = aLength =>
+    `${" ".repeat(aLength - SPEC_BLOCK.length - 1)};${SPEC_BLOCK}`;
+
+  const atLimitPath = await makeTempFile("dlp_at_limit.txt", padded(LIMIT));
+  const atLimit = await observeResponse(() => {
+    contentAnalysis.analyzeContentRequests(
+      [uploadRequest("dlp_at_limit.txt", atLimitPath)],
+      true
+    );
+  });
+  Assert.equal(
+    atLimit.ruleName,
+    BLOCK_RULE,
+    "a file at the limit is still analyzed"
+  );
+
+  const overLimitPath = await makeTempFile(
+    "dlp_over_limit.txt",
+    padded(LIMIT + 1)
+  );
+  const overLimit = await contentAnalysis.analyzeContentRequests(
+    [uploadRequest("dlp_over_limit.txt", overLimitPath)],
+    true
+  );
+  Assert.ok(
+    overLimit.shouldAllowContent,
+    "a file over the limit gets the default result without being analyzed"
+  );
+
+  const overLimitPrint = await contentAnalysis.analyzeContentRequests(
+    [
+      makeRequest({
+        analysisType: Ci.nsIContentAnalysisRequest.ePrint,
+        reason: Ci.nsIContentAnalysisRequest.eSystemDialogPrint,
+        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eOperationPrint,
+        urlSpec: "https://example.com/",
+        printData: Array.from(new TextEncoder().encode(padded(LIMIT + 1))),
+        printerName: "Test Printer",
+      }),
+    ],
+    true
+  );
+  Assert.ok(
+    overLimitPrint.shouldAllowContent,
+    "print data over the limit gets the default result without being analyzed"
+  );
+
+  const smallPaste = await pasteAndGetResponse(SPEC_BLOCK);
+  Assert.equal(
+    smallPaste.ruleName,
+    BLOCK_RULE,
+    "a paste whose request is under the limit is still analyzed"
+  );
+
+  // The pasted text alone fills the limit, so the request carrying it is over.
+  const overLimitPaste = await contentAnalysis.analyzeContentRequests(
+    [
+      makeRequest({
+        analysisType: Ci.nsIContentAnalysisRequest.eBulkDataEntry,
+        reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
+        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.ePasteClipboard,
+        urlSpec: "https://example.com/",
+        textContent: padded(LIMIT),
+      }),
+    ],
+    true
+  );
+  Assert.ok(
+    overLimitPaste.shouldAllowContent,
+    "a paste whose request is over the limit gets the default result " +
+      "without being analyzed"
+  );
+
+  Services.prefs.clearUserPref(
+    "browser.contentanalysis.wasm_backend_max_content_bytes"
+  );
+  Services.prefs.clearUserPref("browser.contentanalysis.default_result");
+});
+
 add_task(async function test_empty_file_is_analyzed() {
   await stubDlpWasmModule();
   const filePath = await makeTempFile("dlp_empty_upload.txt", "");

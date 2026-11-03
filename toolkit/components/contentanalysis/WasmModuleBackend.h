@@ -65,6 +65,12 @@ class WasmModuleBackend final : public ContentAnalysisBackend {
                         const nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules,
                         const nsACString& aUserActionId, bool aAutoAcknowledge);
 
+  // Report that aUserActionId's request or content, of aSize bytes, is too
+  // large for the module. This is reported asynchronously, like the runner's
+  // own failures, so that it goes through CancelWithError and gets the same
+  // result as any other analysis error.
+  nsresult ReportTooLarge(const nsACString& aUserActionId, uint64_t aSize);
+
   // Fill aRules with the built-in rule set from the dlp_rules pref, parsing it
   // only when it differs from what is already cached.
   nsresult LoadDlpRules(nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules);

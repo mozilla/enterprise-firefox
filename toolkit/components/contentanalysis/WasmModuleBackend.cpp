@@ -15,6 +15,7 @@
 #include "mozilla/Logging.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Span.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/dom/Blob.h"
 #include "mozilla/dom/MemoryBlobImpl.h"
 #include "mozilla/dom/Promise.h"
@@ -41,6 +42,17 @@ namespace {
 // The pref carrying the built-in DLP rule set (the DLPRules JSON), set by the
 // DataLossPrevention enterprise policy.
 static constexpr char kDlpRulesPref[] = "browser.contentanalysis.dlp_rules";
+
+// The largest request or content the module is given.
+static uint64_t MaxBytes() {
+  return StaticPrefs::browser_contentanalysis_wasm_backend_max_content_bytes();
+}
+
+// The largest request or content held in a MemoryBlobImpl that the module is
+// given, since MemoryBlobImpl can't stream INT32_MAX bytes or more.
+static uint64_t MaxMemoryBlobBytes() {
+  return std::min<uint64_t>(MaxBytes(), INT32_MAX - 1);
+}
 
 // Recover the nsresult from a rejected wasm-runner promise. The runner
 // rejects with a Components.Exception carrying the failure code in its
@@ -167,6 +179,9 @@ nsresult WasmModuleBackend::Analyze(
   if (NS_WARN_IF(!size)) {
     return NS_ERROR_FAILURE;
   }
+  if (size > MaxMemoryBlobBytes()) {
+    return ReportTooLarge(userActionId, size);
+  }
   void* requestBuffer = malloc(size);
   if (!requestBuffer) {
     return NS_ERROR_OUT_OF_MEMORY;
@@ -236,6 +251,11 @@ nsresult WasmModuleBackend::Analyze(
       nsTArray<uint8_t> printContent;
       rv = aRequest->GetPrintData(printContent);
       NS_ENSURE_SUCCESS(rv, rv);
+      // Check before copying, so print data that won't be analyzed isn't
+      // copied.
+      if (printContent.Length() > MaxMemoryBlobBytes()) {
+        return ReportTooLarge(userActionId, printContent.Length());
+      }
       RefPtr<dom::BlobImpl> content;
       if (!printContent.IsEmpty()) {
         // MemoryBlobImpl takes ownership of a malloc'd buffer.
@@ -373,6 +393,15 @@ nsresult WasmModuleBackend::InvokeRunner(
   }
   RefPtr<dom::Blob> content;
   if (aContent) {
+    // The blob's size is stored, so this doesn't touch a file.
+    ErrorResult error;
+    uint64_t size = aContent->GetSize(error);
+    if (NS_WARN_IF(error.Failed())) {
+      return error.StealNSResult();
+    }
+    if (size > MaxBytes()) {
+      return ReportTooLarge(aUserActionId, size);
+    }
     content = dom::Blob::Create(global, aContent);
     if (NS_WARN_IF(!content)) {
       return NS_ERROR_FAILURE;
@@ -413,6 +442,29 @@ nsresult WasmModuleBackend::InvokeRunner(
         owner->CancelWithError(nsCString(userActionId), rv);
       });
   return NS_OK;
+}
+
+nsresult WasmModuleBackend::ReportTooLarge(const nsACString& aUserActionId,
+                                           uint64_t aSize) {
+  AssertIsOnMainThread();
+  MOZ_LOG(gContentAnalysisLog, LogLevel::Warning,
+          ("%" PRIu64 " bytes are too large for the DLP wasm module", aSize));
+  return NS_DispatchToMainThread(NS_NewRunnableFunction(
+      __func__,
+      [self = RefPtr{this}, userActionId = nsCString(aUserActionId)]() mutable {
+        AssertIsOnMainThread();
+        if (self->mInert) {
+          // Backend may be swapped out or shutting down
+          return;
+        }
+        RefPtr<ContentAnalysis> owner =
+            ContentAnalysis::GetContentAnalysisFromService();
+        if (!owner) {
+          // Shutting down.
+          return;
+        }
+        owner->CancelWithError(std::move(userActionId), NS_ERROR_FILE_TOO_BIG);
+      }));
 }
 
 RefPtr<ContentAnalysisBackend::DiagnosticInfoPromise>

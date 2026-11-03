@@ -1327,6 +1327,16 @@
   value: ""
   mirror: never
 
+# The largest request or content, in bytes, that the built-in DLP backend
+# analyzes. Pasted text is part of the request. These must fit in the module's
+# 32-bit linear memory along with the module's own data. Requests and print data
+# are further limited to just under 2 GiB. Anything larger gets the result for
+# an analysis error, i.e. browser.contentanalysis.default_result.
+- name: browser.contentanalysis.wasm_backend_max_content_bytes
+  type: uint32_t
+  value: 3221225472
+  mirror: always
+
 # On Windows, whether to bring the foreground window to the front when printing
 # to avoid a DLP agent stealing focus and cancelling the print (bug 1980225)
 - name: browser.contentanalysis.print_set_foreground_window
