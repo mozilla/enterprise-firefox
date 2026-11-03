@@ -21,7 +21,9 @@ kind-dependencies:
     - toolchain
 
 task-defaults:
-    description: "Stage a Firefox Enterprise OCI release in the registry (by digest)."
+    # Formatted by the enterprise_oci_registry transform, with the
+    # release-config product of the release definition.
+    description: "Stage the {product} OCI release for partner repack '{repack_config}' in the registry (by digest)."
     run-on-projects: [enterprise-firefox]
     shipping-product: firefox-enterprise
     shipping-phase: push

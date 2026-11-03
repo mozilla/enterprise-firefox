@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import json
+
 import pytest
 from mozunit import main
 from taskgraph.task import Task
@@ -152,6 +154,48 @@ def test_the_tag_task_uses_the_registry_of_its_upload_task(run_transform, level)
             f"project/enterprise/level-{level}/oci-registry/firefox_enterprise"
         ),
     }
+
+
+def test_the_description_names_the_product_and_the_repack(run_transform):
+    definition = {"task-reference": json.dumps({"product": "FirefoxEnterprise"})}
+    upload = Task(
+        kind=oci.UPLOAD_KIND,
+        label="enterprise-oci-upload-smp-prodGCP",
+        attributes={},
+        task={
+            "extra": {"repack_config": "smp/prodGCP"},
+            "payload": {"env": {"RELEASE_DEFINITION": definition}},
+        },
+    )
+    description = "{product} release of '{repack_config}'"
+    [upload_task] = run_transform(
+        oci.set_repack_metadata,
+        [
+            {
+                "name": "smp-prodGCP",
+                "description": description,
+                "extra": {"repack_config": "smp/prodGCP"},
+                "worker": {"env": {"RELEASE_DEFINITION": definition}},
+            }
+        ],
+        kind=oci.UPLOAD_KIND,
+        params=params(),
+    )
+    [tag_task] = run_transform(
+        oci.set_repack_metadata,
+        [
+            {
+                "name": "smp-prodGCP",
+                "description": description,
+                "attributes": {"primary-dependency-label": upload.label},
+            }
+        ],
+        kind=oci.TAG_KIND,
+        params=params(),
+        kind_dependencies_tasks={upload.label: upload},
+    )
+    assert upload_task["description"] == "FirefoxEnterprise release of 'smp/prodGCP'"
+    assert tag_task["description"] == "FirefoxEnterprise release of 'smp/prodGCP'"
 
 
 def test_a_registry_naming_no_repository_is_refused(run_transform):
