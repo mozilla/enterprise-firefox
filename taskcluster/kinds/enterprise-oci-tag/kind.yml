@@ -15,7 +15,9 @@ kind-dependencies:
     - toolchain
 
 task-defaults:
-    description: "Ship a Firefox Enterprise OCI release by tagging the staged digest."
+    # Formatted by the enterprise_oci_registry transform, with the
+    # release-config product of the upload task's release definition.
+    description: "Ship the {product} OCI release for partner repack '{repack_config}' by tagging the staged digest."
     run-on-projects: [enterprise-firefox]
     shipping-product: firefox-enterprise
     shipping-phase: ship
