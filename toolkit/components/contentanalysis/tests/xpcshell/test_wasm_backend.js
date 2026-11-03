@@ -266,6 +266,36 @@ add_task(async function test_multi_chunk_file_reaches_module_in_full() {
   );
 });
 
+// Content larger than the sandbox's MAX_RETAINED_MEMORY_BYTES grows the
+// module's memory enough that the instance is replaced once the analysis
+// finishes. Both that analysis and the next one, on the fresh instance, must
+// still get the module's verdict.
+add_task(async function test_analysis_after_large_file_uses_working_instance() {
+  await stubDlpWasmModule();
+  const largePath = await makeTempFile(
+    "dlp_instance_reset_large.txt",
+    `${" ".repeat(72 * 1024 * 1024)};${SPEC_BLOCK}`
+  );
+  const smallPath = await makeTempFile(
+    "dlp_instance_reset_small.txt",
+    SPEC_BLOCK
+  );
+
+  for (const [name, path] of [
+    ["dlp_instance_reset_large.txt", largePath],
+    ["dlp_instance_reset_small.txt", smallPath],
+  ]) {
+    const response = await observeResponse(() => {
+      contentAnalysis.analyzeContentRequests([uploadRequest(name, path)], true);
+    });
+    Assert.equal(
+      response.ruleName,
+      BLOCK_RULE,
+      `${name} gets the module's verdict`
+    );
+  }
+});
+
 add_task(async function test_empty_file_is_analyzed() {
   await stubDlpWasmModule();
   const filePath = await makeTempFile("dlp_empty_upload.txt", "");

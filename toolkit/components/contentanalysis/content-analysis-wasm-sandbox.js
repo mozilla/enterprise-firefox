@@ -42,8 +42,15 @@ const FFI_RULE_PATTERNS_COUNT_OFFSET = 28;
 const FFI_RULE_TYPE_OFFSET = 32;
 const FFI_RULE_MESSAGE_OFFSET = 36;
 
-// The currently loaded module instance, kept across analyze() calls so the
-// module is only recompiled when it changes (see loadModule).
+// Linear memory never shrinks, so once an analysis has grown an instance's
+// memory past this size, the instance is replaced by a fresh one and the old
+// memory is left for the GC to release. Analyses still in progress on the old
+// instance keep using it until they finish.
+const MAX_RETAINED_MEMORY_BYTES = 64 * 1024 * 1024;
+
+// The compiled module and its current instance, kept across analyze() calls so
+// the module is only recompiled when it changes (see loadModule).
+let gModule = null;
 let gInstance = null;
 
 // The analyses in progress between beginAnalyze() and finishAnalyze() or
@@ -88,6 +95,7 @@ function loadModule(moduleBytes) {
   if (instance.exports.ca_abi_version() !== ABI_VERSION) {
     throw new Error("Unexpected DLP wasm ABI version");
   }
+  gModule = module;
   gInstance = instance;
 }
 
@@ -303,5 +311,12 @@ function abortAnalyze(aId) {
     return;
   }
   gPending.delete(aId);
-  freeAll(pending.ex, pending.allocations);
+  const { ex, allocations } = pending;
+  freeAll(ex, allocations);
+  if (
+    ex === gInstance.exports &&
+    ex.memory.buffer.byteLength > MAX_RETAINED_MEMORY_BYTES
+  ) {
+    gInstance = new WebAssembly.Instance(gModule, {});
+  }
 }
