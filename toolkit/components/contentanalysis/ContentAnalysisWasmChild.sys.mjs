@@ -63,8 +63,12 @@ export class ContentAnalysisWasmChild extends JSProcessActorChild {
   }) {
     const sandbox = this.#ensureSandbox();
 
-    // Recompile only when the module changed since the last request.
+    // Recompile only when the module changed since the last request. The
+    // parent only sends the module's bytes once asked for them.
     if (this.#loadedVersion !== version) {
+      if (!moduleBytes) {
+        return { needModule: true };
+      }
       sandbox.loadModule(Cu.cloneInto(moduleBytes, sandbox));
       this.#loadedVersion = version;
     }
@@ -84,7 +88,7 @@ export class ContentAnalysisWasmChild extends JSProcessActorChild {
       );
       // Bulk-copy out of the sandbox compartment into a Uint8Array of our own,
       // which IPC structured-clones and C++ reads directly.
-      return new Uint8Array(responseBytes);
+      return { response: new Uint8Array(responseBytes) };
     } finally {
       if (id) {
         sandbox.abortAnalyze(id);

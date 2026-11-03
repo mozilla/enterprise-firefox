@@ -175,6 +175,32 @@ add_setup(async function () {
   });
 });
 
+// The module's bytes go to the child only when it doesn't have them yet. This
+// must be the first task to analyze anything, so that the child starts out
+// without the module.
+add_task(async function test_module_bytes_sent_only_when_child_needs_them() {
+  await stubDlpWasmModule();
+  const sentModule = [];
+  const stopSpying = await spyOnWasmActorQueries((name, data) => {
+    sentModule.push(!!data.moduleBytes);
+  });
+
+  try {
+    for (let i = 0; i < 2; i++) {
+      const response = await pasteAndGetResponse(SPEC_BLOCK);
+      Assert.equal(response.ruleName, BLOCK_RULE, `request ${i} is analyzed`);
+    }
+  } finally {
+    stopSpying();
+  }
+
+  Assert.deepEqual(
+    sentModule,
+    [false, true, false],
+    "the first request is retried with the module, and the next one isn't"
+  );
+});
+
 // A file's contents are streamed to the module's process and passed to the
 // module as content bytes. Putting a blocking spec in the file proves those
 // bytes actually arrive: nothing else in the request could produce this
