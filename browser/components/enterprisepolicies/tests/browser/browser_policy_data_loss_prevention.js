@@ -316,6 +316,7 @@ add_task(async function test_builtin_fixed_prefs_are_set_and_locked() {
   checkLockedPref(CA_PREFIX + "show_blocked_result", true);
   checkLockedPref(CA_PREFIX + "bypass_for_same_tab_operations", false);
   checkLockedPref(CA_PREFIX + "agent_name", "Firefox Enterprise DLP Engine");
+  checkLockedPref(CA_PREFIX + "wasm_backend_max_content_bytes", 2080374784);
 
   for (let point of ["clipboard", "drag_and_drop"]) {
     checkLockedPref(

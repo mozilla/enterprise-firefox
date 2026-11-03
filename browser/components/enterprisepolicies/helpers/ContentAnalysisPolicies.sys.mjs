@@ -40,6 +40,10 @@ function caPrefName(suffix) {
   return `browser.contentanalysis.${suffix}`;
 }
 
+// The default of browser.contentanalysis.wasm_backend_max_content_bytes. Keep
+// in sync with StaticPrefList.yaml.
+const DLP_MAX_CONTENT_BYTES = 2080374784;
+
 // ContentAnalysis InterceptionPoints member name -> pref suffix.
 // The third element is the value to use when InterceptionPoints is
 // present but this interception point is not mentioned in it.  It is
@@ -80,6 +84,7 @@ const CA_SHARED_PREFS = [
   "client_signature",
   "max_connections",
   "is_per_user",
+  "wasm_backend_max_content_bytes",
 ];
 
 // Return every shared pref to its built-in default, unlocked.
@@ -183,6 +188,11 @@ function applyBuiltinDlp(dlpParam) {
   lazy.PoliciesUtils.setAndLockPref(
     caPrefName("agent_name"),
     "Firefox Enterprise DLP Engine"
+  );
+  // Content over this size gets the fallback result
+  lazy.PoliciesUtils.setAndLockPref(
+    caPrefName("wasm_backend_max_content_bytes"),
+    DLP_MAX_CONTENT_BYTES
   );
 
   // Derive interception points from the union of enabled rules' Actions, using
