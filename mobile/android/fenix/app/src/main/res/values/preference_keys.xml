@@ -150,6 +150,7 @@
     <string name="pref_key_account_category" translatable="false">pref_key_account_category</string>
     <string name="pref_key_sync_manage_account" translatable="false">pref_key_sync_manage_account</string>
     <string name="pref_key_sync_device_name" translatable="false">pref_key_sync_device_name</string>
+    <string name="pref_key_sync_enable_sync" translatable="false">pref_key_sync_enable_sync</string>
     <string name="pref_key_sync_now" translatable="false">pref_key_sync_now</string>
     <string name="pref_key_sync_history" translatable="false">pref_key_sync_history</string>
     <string name="pref_key_sync_bookmarks" translatable="false">pref_key_sync_bookmarks</string>
@@ -636,11 +637,6 @@
     <!-- Tab reload cover -->
     <string name="pref_key_tab_reload_cover_enabled" translatable="false">pref_key_tab_reload_cover_enabled</string>
     <string name="pref_key_tab_reload_cover_scroll_aware_enabled" translatable="false">pref_key_tab_reload_cover_scroll_aware_enabled</string>
-
-    <!-- Private Mode and Stories Entry Point -->
-    <string name="pref_key_private_mode_and_stories_entry_point" translatable="false">pref_key_private_mode_and_stories_entry_point</string>
-    <string name="pref_key_news_button_foreground_count" translatable="false">pref_key_news_button_foreground_count</string>
-    <string name="pref_key_news_button_animation_last_shown" translatable="false">pref_key_news_button_animation_last_shown</string>
 
     <!-- Tab Groups -->
     <string name="pref_key_tab_groups" translatable="false">pref_key_tab_groups_feature</string>
