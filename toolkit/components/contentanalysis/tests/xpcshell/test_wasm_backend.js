@@ -164,6 +164,24 @@ async function makeTempFile(name, contents) {
   return file.path;
 }
 
+// Wrap the ContentAnalysisWasm parent actor's sendQuery with aSpy(name, data,
+// query), where query is the promise sendQuery returned, until the returned
+// function is called.
+async function spyOnWasmActorQueries(aSpy) {
+  const { domProcess } =
+    await ChromeUtils.ensureHeadlessContentProcess("privilegedabout");
+  const actor = domProcess.getActor("ContentAnalysisWasm");
+  const originalSendQuery = actor.sendQuery;
+  actor.sendQuery = function (name, data) {
+    const query = originalSendQuery.call(this, name, data);
+    aSpy(name, data, query);
+    return query;
+  };
+  return () => {
+    delete actor.sendQuery;
+  };
+}
+
 add_setup(async function () {
   contentAnalysis.testOnlySetCACmdLineArg(true);
   Assert.ok(
@@ -175,30 +193,25 @@ add_setup(async function () {
   });
 });
 
-// A file's contents are read off the main thread and passed to the module as
-// content bytes. Putting a blocking spec in the file proves those bytes
-// actually arrive: nothing else in the request could produce this verdict.
+// A file's contents are streamed to the module's process and passed to the
+// module as content bytes. Putting a blocking spec in the file proves those
+// bytes actually arrive: nothing else in the request could produce this
+// verdict.
 add_task(async function test_file_upload_content_reaches_module() {
   await stubDlpWasmModule();
   const filePath = await makeTempFile("dlp_blocked_upload.txt", SPEC_BLOCK);
 
-  const result = await contentAnalysis.analyzeContentRequests(
-    [
-      makeRequest({
-        analysisType: Ci.nsIContentAnalysisRequest.eFileAttached,
-        reason: Ci.nsIContentAnalysisRequest.eFilePickerDialog,
-        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eUpload,
-        fileNameForDisplay: "dlp_blocked_upload.txt",
-        urlSpec: "https://example.com/upload",
-        filePath,
-      }),
-    ],
-    true
-  );
+  const response = await observeResponse(() => {
+    contentAnalysis.analyzeContentRequests(
+      [uploadRequest("dlp_blocked_upload.txt", filePath)],
+      true
+    );
+  });
 
-  Assert.ok(
-    !result.shouldAllowContent,
-    "a file whose contents trigger a block rule is blocked"
+  Assert.equal(
+    response.ruleName,
+    BLOCK_RULE,
+    "a file whose contents trigger a block rule gets that rule's verdict"
   );
 });
 
@@ -225,6 +238,207 @@ add_task(async function test_file_upload_is_allowed_when_nothing_triggers() {
     result.shouldAllowContent,
     "a file upload triggering no rules is allowed"
   );
+});
+
+function uploadRequest(fileName, filePath) {
+  return makeRequest({
+    analysisType: Ci.nsIContentAnalysisRequest.eFileAttached,
+    reason: Ci.nsIContentAnalysisRequest.eFilePickerDialog,
+    operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eUpload,
+    fileNameForDisplay: fileName,
+    urlSpec: "https://example.com/upload",
+    filePath,
+  });
+}
+
+// A file is streamed to the module in many chunks. The test module ignores
+// whitespace and empty entries in its spec, so padding the file puts the
+// blocking spec in its last chunk; the block verdict proves the whole file
+// arrived rather than just its first chunk.
+add_task(async function test_multi_chunk_file_reaches_module_in_full() {
+  await stubDlpWasmModule();
+  const filePath = await makeTempFile(
+    "dlp_large_upload.txt",
+    `${" ".repeat(8 * 1024 * 1024)};${SPEC_BLOCK}`
+  );
+
+  const response = await observeResponse(() => {
+    contentAnalysis.analyzeContentRequests(
+      [uploadRequest("dlp_large_upload.txt", filePath)],
+      true
+    );
+  });
+
+  Assert.equal(
+    response.ruleName,
+    BLOCK_RULE,
+    "a spec at the end of a multi-chunk file reaches the module"
+  );
+});
+
+add_task(async function test_empty_file_is_analyzed() {
+  await stubDlpWasmModule();
+  const filePath = await makeTempFile("dlp_empty_upload.txt", "");
+
+  const result = await contentAnalysis.analyzeContentRequests(
+    [uploadRequest("dlp_empty_upload.txt", filePath)],
+    true
+  );
+
+  Assert.ok(result.shouldAllowContent, "an empty file does not error");
+});
+
+// Files submitted together are queued and analyzed one at a time, while their
+// content streams in; each has to come back with the verdict for its own
+// content.
+add_task(async function test_concurrent_file_uploads_get_their_own_verdicts() {
+  await stubDlpWasmModule();
+  const padding = " ".repeat(4 * 1024 * 1024);
+  const blockedPath = await makeTempFile(
+    "dlp_concurrent_blocked.txt",
+    `${padding};${SPEC_BLOCK}`
+  );
+  const allowedPath = await makeTempFile(
+    "dlp_concurrent_allowed.txt",
+    `${padding};${SPEC_ALLOW}`
+  );
+
+  const ruleNames = [];
+  const observer = subject => {
+    ruleNames.push(
+      subject.QueryInterface(Ci.nsIContentAnalysisResponse).ruleName
+    );
+  };
+  Services.obs.addObserver(observer, "dlp-response");
+  let blocked, allowed;
+  try {
+    [blocked, allowed] = await Promise.all([
+      contentAnalysis.analyzeContentRequests(
+        [uploadRequest("dlp_concurrent_blocked.txt", blockedPath)],
+        true
+      ),
+      contentAnalysis.analyzeContentRequests(
+        [uploadRequest("dlp_concurrent_allowed.txt", allowedPath)],
+        true
+      ),
+    ]);
+  } finally {
+    Services.obs.removeObserver(observer, "dlp-response");
+  }
+
+  Assert.ok(!blocked.shouldAllowContent, "the blocking file is blocked");
+  Assert.ok(
+    ruleNames.includes(BLOCK_RULE),
+    "the block verdict came from the module's rule"
+  );
+  Assert.ok(allowed.shouldAllowContent, "the clean file is allowed");
+});
+
+// Canceling a user action (as a timeout does too) must stop the module's
+// process reading its file, rather than leaving it to finish, and must not
+// disturb later requests.
+add_task(async function test_canceling_stops_streaming_and_later_ones_work() {
+  await stubDlpWasmModule();
+  const largePath = await makeTempFile(
+    "dlp_canceled_upload.txt",
+    `${" ".repeat(64 * 1024 * 1024)};${SPEC_BLOCK}`
+  );
+
+  // Cancel as soon as the analysis has been handed to the module's process,
+  // while the file is still streaming to it.
+  let analyzeQuery;
+  const stopSpying = await spyOnWasmActorQueries((name, data, query) => {
+    analyzeQuery = query;
+    contentAnalysis.cancelRequestsByUserAction(data.userActionId);
+  });
+  let result;
+  try {
+    result = await contentAnalysis.analyzeContentRequests(
+      [uploadRequest("dlp_canceled_upload.txt", largePath)],
+      true
+    );
+  } finally {
+    stopSpying();
+  }
+
+  Assert.ok(!result.shouldAllowContent, "the canceled upload isn't allowed");
+  await Assert.rejects(
+    analyzeQuery,
+    /canceled/,
+    "the module's process stopped analyzing instead of finishing"
+  );
+
+  const smallPath = await makeTempFile("dlp_after_cancel.txt", SPEC_BLOCK);
+  const response = await observeResponse(() => {
+    contentAnalysis.analyzeContentRequests(
+      [uploadRequest("dlp_after_cancel.txt", smallPath)],
+      true
+    );
+  });
+  Assert.equal(
+    response.ruleName,
+    BLOCK_RULE,
+    "a later upload still gets the module's verdict"
+  );
+});
+
+// A queued analysis can be canceled like a running one: it is skipped without
+// affecting the analysis ahead of it.
+add_task(async function test_canceling_a_queued_analysis_skips_it() {
+  await stubDlpWasmModule();
+  const largePath = await makeTempFile(
+    "dlp_queued_large.txt",
+    `${" ".repeat(64 * 1024 * 1024)};${SPEC_BLOCK}`
+  );
+  const smallPath = await makeTempFile("dlp_queued_small.txt", SPEC_BLOCK);
+
+  const ruleNames = [];
+  const observer = subject => {
+    ruleNames.push(
+      subject.QueryInterface(Ci.nsIContentAnalysisResponse).ruleName
+    );
+  };
+  Services.obs.addObserver(observer, "dlp-response");
+
+  // The small upload is only started once the large one has been handed to
+  // the module's process, so it arrives second and is queued behind it. It is
+  // canceled as soon as it has been handed over too.
+  const queries = [];
+  let small;
+  const stopSpying = await spyOnWasmActorQueries((name, data, query) => {
+    queries.push(query);
+    if (queries.length === 1) {
+      small = contentAnalysis.analyzeContentRequests(
+        [uploadRequest("dlp_queued_small.txt", smallPath)],
+        true
+      );
+    } else if (queries.length === 2) {
+      contentAnalysis.cancelRequestsByUserAction(data.userActionId);
+    }
+  });
+  try {
+    const large = await contentAnalysis.analyzeContentRequests(
+      [uploadRequest("dlp_queued_large.txt", largePath)],
+      true
+    );
+    Assert.ok(!large.shouldAllowContent, "the large upload is blocked");
+    Assert.ok(
+      ruleNames.includes(BLOCK_RULE),
+      "the large upload got the module's verdict"
+    );
+    Assert.ok(
+      !(await small).shouldAllowContent,
+      "the canceled small upload isn't allowed"
+    );
+    await Assert.rejects(
+      queries[1],
+      /canceled/,
+      "the queued small upload was skipped instead of running"
+    );
+  } finally {
+    stopSpying();
+    Services.obs.removeObserver(observer, "dlp-response");
+  }
 });
 
 // Text (bulk data entry) requests take the synchronous, no-file path in the
@@ -258,22 +472,29 @@ add_task(async function test_text_paste_is_allowed_when_nothing_triggers() {
 add_task(async function test_text_paste_content_reaches_module() {
   await stubDlpWasmModule();
 
-  const result = await contentAnalysis.analyzeContentRequests(
-    [
-      makeRequest({
-        analysisType: Ci.nsIContentAnalysisRequest.eBulkDataEntry,
-        reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
-        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.ePasteClipboard,
-        urlSpec: "https://example.com/",
-        textContent: SPEC_BLOCK,
-      }),
-    ],
-    true
+  const response = await pasteAndGetResponse(SPEC_BLOCK);
+
+  Assert.equal(
+    response.ruleName,
+    BLOCK_RULE,
+    "pasted text triggering a block rule gets that rule's verdict"
+  );
+});
+
+// Pasted text makes the request itself large, so the request is streamed to
+// the module like file content is. With the spec at the end of the padded text,
+// a verdict from its rule proves the whole request arrived.
+add_task(async function test_large_text_paste_reaches_module_in_full() {
+  await stubDlpWasmModule();
+
+  const response = await pasteAndGetResponse(
+    `${" ".repeat(8 * 1024 * 1024)};${SPEC_BLOCK}`
   );
 
-  Assert.ok(
-    !result.shouldAllowContent,
-    "pasted text triggering a block rule is blocked"
+  Assert.equal(
+    response.ruleName,
+    BLOCK_RULE,
+    "a spec at the end of a large paste reaches the module"
   );
 });
 

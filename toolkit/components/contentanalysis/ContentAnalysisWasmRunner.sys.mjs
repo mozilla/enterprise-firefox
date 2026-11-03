@@ -45,18 +45,30 @@ export class ContentAnalysisWasmRunner {
       : "";
   }
 
-  async analyze(aRequestBytes, aContentBytes, aRules) {
+  async analyze(aUserActionId, aRequest, aContent, aRules) {
     const { moduleBytes, version } = await this.ensureModuleReady();
 
     const actor = await this.#getActor();
     // Resolves with a Uint8Array, which the C++ caller reads in bulk.
     return actor.sendQuery("Analyze", {
+      userActionId: aUserActionId,
       version,
       moduleBytes,
-      requestBytes: Uint8Array.from(aRequestBytes),
-      contentBytes: Uint8Array.from(aContentBytes || []),
+      request: aRequest,
+      content: aContent,
       rules: toPlainRules(aRules),
     });
+  }
+
+  // The child can only stop analyses it has received, so an analysis that is
+  // still waiting to be sent when its user action is canceled is analyzed
+  // anyway, and its verdict is discarded.
+  cancel(aUserActionId) {
+    this.#getActor()
+      .then(actor =>
+        actor.sendAsyncMessage("Cancel", { userActionId: aUserActionId })
+      )
+      .catch(() => {});
   }
 
   /**
