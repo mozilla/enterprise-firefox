@@ -58,8 +58,12 @@ import androidx.navigation.fragment.navArgs
 import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.modifier.thenConditional
@@ -76,6 +80,7 @@ import mozilla.components.feature.ipprotection.IPProtectionWarningBinding
 import mozilla.components.feature.tab.collections.TabCollection
 import mozilla.components.feature.top.sites.presenter.DefaultTopSitesPresenter
 import mozilla.components.lib.state.ext.flow
+import mozilla.components.lib.state.ext.flowScoped
 import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.support.base.feature.UserInteractionHandler
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
@@ -384,6 +389,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         bundleArgs = args.toBundle()
         if (savedInstanceState != null) {
             bundleArgs.putBoolean(FOCUS_ON_ADDRESS_BAR, false)
+            bundleArgs.remove(SESSION_TO_START_SEARCH_FOR)
         }
         bundleArgs.getString(SESSION_TO_DELETE)?.let {
             homeViewModel.sessionToDelete = it
@@ -502,7 +508,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                     startSearch =
                         bundleArgs.getBoolean(FOCUS_ON_ADDRESS_BAR) || FxNimbus.features.oneClickSearch.value().enabled,
                     startVoiceSearch = bundleArgs.getBoolean(START_VOICE_SEARCH),
-                    sessionId = args.sessionToStartSearchFor,
+                    sessionId = bundleArgs.getString(SESSION_TO_START_SEARCH_FOR),
                     source = args.searchAccessPoint,
                 ),
             coroutineScope = view.toScope(),
@@ -602,6 +608,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
 
         if (requireComponents.settings.shouldShowTabGroupsStrip) {
             tabGroupsStripStore.dispatch(TabGroupsStripAction.InitializeDataObservation)
+            observeSelectedTabForNavigation()
         }
 
         privacyNoticeBannerStore =
@@ -1148,6 +1155,22 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         }
     }
 
+    // Navigates from the homepage to the browser when the tab group strip selects a non-homepage tab.
+    private fun observeSelectedTabForNavigation() {
+        requireComponents.core.store.flowScoped(viewLifecycleOwner, Main) { flow ->
+            flow
+                .map { it.selectedTabId }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect {
+                    val url = requireComponents.core.store.state.selectedTab?.content?.url
+                    if (url != null && url != ABOUT_HOME_URL) {
+                        findNavController().nav(R.id.homeFragment, HomeFragmentDirections.actionGlobalBrowser(null))
+                    }
+                }
+        }
+    }
+
     private fun showUndoSnackbar(message: String) {
         viewLifecycleOwner.lifecycleScope.allowUndo(
             snackbarHostState = snackbarHostState,
@@ -1196,11 +1219,6 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
 
     override fun onStart() {
         super.onStart()
-
-        val settings = requireComponents.settings
-        if (settings.privateModeAndStoriesEntryPointEnabled) {
-            settings.incrementNewsButtonForegroundCount()
-        }
 
         findNavController().addOnDestinationChangedListener(destinationChangedListener)
 
@@ -1253,8 +1271,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         lifecycleScope.launch(IO) {
             val settings = components.settings
 
-            val showStories =
-                settings.showPocketRecommendationsFeature || settings.privateModeAndStoriesEntryPointEnabled
+            val showStories = settings.showPocketRecommendationsFeature
 
             val showSponsoredStories = showStories && settings.showPocketSponsoredStories
 
@@ -1428,7 +1445,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                 browserStore = requireComponents.core.store,
                 toolbarStore = toolbarStore,
                 navController = findNavController(),
-                tabId = args.sessionToStartSearchFor,
+                tabId = bundleArgs.getString(SESSION_TO_START_SEARCH_FOR),
                 searchAccessPoint = args.searchAccessPoint,
                 isEdgeToEdgeBackgroundEnabled = isEdgeToEdgeBackgroundEnabled(),
             )
@@ -1835,6 +1852,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         const val FOCUS_ON_ADDRESS_BAR = "focusOnAddressBar"
         const val START_VOICE_SEARCH = "startVoiceSearch"
         private const val SESSION_TO_DELETE = "sessionToDelete"
+        private const val SESSION_TO_START_SEARCH_FOR = "sessionToStartSearchFor"
 
         // Distance over which the homepage content fades out where it meets the toolbars.
         private val HOMEPAGE_EDGE_FADE_LENGTH = 24.dp

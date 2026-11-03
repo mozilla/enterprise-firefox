@@ -9342,9 +9342,10 @@ listen_to_page:
           Session ended due to either the `close_button`, `tab_closed`
           (the listened tab was closed or user navigated elsewhere),
           `reader_mode_closed` when the user left reader mode on the listened tab,
-          or `media_session_ended_outside_app` when the media session ended
+          `media_session_ended_outside_app` when the media session ended
           outside the app, such as when the app was removed from the recent apps
-          or the notification was dismissed.
+          or the notification was dismissed, or `feature_disabled` when the user
+          turned the feature off in AI Controls.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2064878
@@ -18068,12 +18069,14 @@ pdf_viewer:
       reason:
         description: |
           Why the signature could not be handed to the PDF viewer. Possible values
-          are: `no_engine_session` and `engine_error`.
+          are: `no_engine_session`, `engine_error` and `timeout`.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2069504
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2086088
     data_reviews:
       - https://phabricator.services.mozilla.com/D325530
+      - https://phabricator.services.mozilla.com/D338066
     notification_emails:
       - android-probes@mozilla.com
     data_sensitivity:
