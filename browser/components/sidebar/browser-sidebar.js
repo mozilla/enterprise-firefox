@@ -263,6 +263,7 @@ var SidebarController = {
         menuL10nId: "menu-view-resource-monitor",
         revampL10nId: "sidebar-menu-resource-monitor-label",
         iconUrl: "chrome://browser/skin/lightning-bolt.svg",
+        appendOpenType: true,
       }
     );
 
@@ -1229,7 +1230,7 @@ var SidebarController = {
       let commandID = this._state.command;
 
       if (wasOpen && commandID && this.sidebars.has(commandID)) {
-        this.showInitially(commandID);
+        this.showInitially(commandID, "restored");
       } else {
         this._box.removeAttribute("checked");
         // Update the state, because the element it
@@ -2144,7 +2145,8 @@ var SidebarController = {
     if (!this._canShow(commandID)) {
       return false;
     }
-    return this._show(commandID).then(() => {
+    // show() is the user-launch path, so any entry point records as sidebar_launch.
+    return this._show(commandID, "sidebar_launch").then(() => {
       this._loadSidebarExtension(commandID);
 
       if (triggerNode) {
@@ -2165,9 +2167,11 @@ var SidebarController = {
    * when a window opens (not triggered by user interaction).
    *
    * @param {string} commandID ID of the sidebar.
+   * @param {string} [openType] Why the sidebar is being shown, see _show().
+   *   Defaults to "other": most callers aren't restoring a panel.
    * @returns {Promise<boolean>}
    */
-  async showInitially(commandID) {
+  async showInitially(commandID, openType = "other") {
     if (this.inSingleTabWindow) {
       return false;
     }
@@ -2176,7 +2180,7 @@ var SidebarController = {
     if (!this._canShow(commandID)) {
       return false;
     }
-    return this._show(commandID).then(() => {
+    return this._show(commandID, openType).then(() => {
       this._loadSidebarExtension(commandID);
       return true;
     });
@@ -2187,9 +2191,11 @@ var SidebarController = {
    * when a window is opened and we don't want to ping telemetry.
    *
    * @param {string} commandID ID of the sidebar.
+   * @param {string} [openType] Why the sidebar is being shown. Appended to
+   *   the URL of panels registered with appendOpenType; others ignore it.
    * @returns {Promise<void>}
    */
-  _show(commandID) {
+  _show(commandID, openType) {
     return new Promise(resolve => {
       const willShowEvent = new CustomEvent("SidebarWillShow");
       this.browser.contentWindow?.dispatchEvent(willShowEvent);
@@ -2210,8 +2216,11 @@ var SidebarController = {
       this._box.setAttribute("checked", "true");
       this._state.command = commandID;
 
-      let { iconUrl, url, title, sourceL10nEl, contextMenuId } =
+      let { iconUrl, url, title, sourceL10nEl, contextMenuId, appendOpenType } =
         this.sidebars.get(commandID);
+      if (appendOpenType && openType) {
+        url += `${url.includes("?") ? "&" : "?"}openType=${openType}`;
+      }
       if (iconUrl) {
         this._switcherTarget.style.setProperty(
           "--webextension-menuitem-image",

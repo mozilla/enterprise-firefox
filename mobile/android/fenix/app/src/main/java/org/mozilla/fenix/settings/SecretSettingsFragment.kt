@@ -200,11 +200,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_universal_edge_to_edge_wallpapers).apply {
-            isChecked = settings.enableUniversalEdgeToEdgeWallpapers
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_show_more_shortcuts).apply {
             isChecked = settings.showMoreShortcuts
             onPreferenceChangeListener = SharedPreferenceUpdater()
@@ -388,6 +383,12 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_import_passwords).apply {
             isVisible = Config.channel.isNightlyOrDebug
             isChecked = settings.importPasswordsFeatureFlagEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_use_search_config_v3).apply {
+            isVisible = Config.channel.isNightlyOrDebug
+            isChecked = settings.useSearchConfigV3
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 

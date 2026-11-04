@@ -2768,7 +2768,7 @@
 # Master gate for the web custom format support in the Async Clipboard API.
 - name: dom.clipboard.customFormatSupport.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # HTML specification says the level should be 5
@@ -3823,7 +3823,7 @@
 # processes run at THREAD_PRIORITY_ABOVE_NORMAL.
 - name: dom.ipc.processPriorityManager.foregroundRaisesMainThreadPriority
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 #endif
 
@@ -3892,6 +3892,13 @@
 - name: dom.forms.always_allow_key_and_focus_events.enabled
   type: bool
   value: true
+  mirror: always
+
+# Retain existing focus when an element becomes disabled.
+# https://github.com/whatwg/html/issues/13159
+- name: dom.forms.retain_focus_on_disabled.enabled
+  type: bool
+  value: false
   mirror: always
 
 # Whether to disable only the descendants or the parent fieldset element too
@@ -8916,7 +8923,7 @@
 # Same as gfx.webrender.paths, for software WebRender (SWGL).
 - name: gfx.webrender.paths.swgl
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # When gl debug message is a high severity message, forwward it to gfx critical
@@ -11783,6 +11790,13 @@
 - name: layout.css.zoom.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Support the `match-parent` value of CSS `quotes`.
+- name: layout.css.quotes.match-parent.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -16738,13 +16752,19 @@
   value: true
   mirror: always
 
-# Speculatively pre-connect to the TRR server when the app returns to the
-# foreground (application-foreground), so the connection is ready before the
-# first DNS query arrives. Effective on Android; application-foreground is not
-# fired on desktop.
+# Speculatively pre-connect to the TRR server when the app comes to the
+# foreground (application-foreground, geckoview-initial-foreground), so the
+# connection is ready before the first DNS query arrives. Effective on Android;
+# neither topic is fired on desktop.
 - name: network.trr.preconnect_on_foreground
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Allow the TRR pre-connect to RFC1918 and other local addresses.
+- name: network.trr.preconnect_allow_rfc1918
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Allow the network changed event to get sent when a network topology or setup
@@ -16973,6 +16993,13 @@
 - name: network.http.move_to_pending_list_after_network_change
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# When false, application-background only closes idle HTTP/1.x connections.
+# When true, it also marks active connections DontReuse and clears coalescing.
+- name: network.http.close_connections_on_background
+  type: bool
+  value: false
   mirror: always
 
 # Enable HTTP/3
@@ -17599,6 +17626,14 @@
 # upgrade (e.g. WebSocket). Gated separately so the upgrade path can be
 # rolled out independently of the main Happy Eyeballs pref.
 - name: network.http.happy_eyeballs_upgrade_enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# When true, Happy Eyeballs establishes the outer connection to a proxy
+# (Firefox<->proxy) instead of the legacy DnsAndConnectSocket path. Gated
+# separately so it can roll out independently of the main Happy Eyeballs pref.
+- name: network.http.happy_eyeballs_proxy_enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
   mirror: always

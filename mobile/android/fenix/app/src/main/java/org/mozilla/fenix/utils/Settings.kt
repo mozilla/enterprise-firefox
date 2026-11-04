@@ -62,6 +62,7 @@ import org.mozilla.fenix.ext.WIDE_SCREEN_WIDTH_DP
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getPreferenceKey
 import org.mozilla.fenix.home.pocket.ContentRecommendationsFeatureHelper
+import org.mozilla.fenix.home.topsites.FenixDefaultTopSitesProvider
 import org.mozilla.fenix.home.topsites.TopSitesConfigConstants.TOP_SITES_MAX_COUNT
 import org.mozilla.fenix.nimbus.DefaultBrowserPrompt
 import org.mozilla.fenix.nimbus.FxNimbus
@@ -75,7 +76,6 @@ import org.mozilla.fenix.settings.sitepermissions.AUTOPLAY_BLOCK_ALL
 import org.mozilla.fenix.settings.sitepermissions.AUTOPLAY_BLOCK_AUDIBLE
 import org.mozilla.fenix.tabstray.DefaultTabManagementFeatureHelper
 import org.mozilla.fenix.termsofuse.TOU_VERSION
-import org.mozilla.fenix.utils.Settings.Companion.LONGFOX_PEEK_ANIMATION_MAX_SHOWS
 import org.mozilla.fenix.wallpapers.Wallpaper
 
 private const val AUTOPLAY_USER_SETTING = "AUTOPLAY_USER_SETTING"
@@ -321,10 +321,6 @@ class Settings(
 
     private val homescreenSections: Map<HomeScreenSection, Boolean>
         get() = FxNimbus.features.homescreen.value().sectionsEnabled
-
-    /** Indicates whether or not the homepage should use edge to edge background */
-    val enableHomepageEdgeToEdgeBackgroundFeature: Boolean
-        get() = FxNimbus.features.homescreenEdgeToEdgeBackground.value().enabled
 
     var numberOfAppLaunches by
         intPreference(
@@ -572,12 +568,7 @@ class Settings(
     var currentWallpaperName by
         stringPreference(
             appContext.getPreferenceKey(R.string.pref_key_current_wallpaper),
-            default =
-                if (enableHomepageEdgeToEdgeBackgroundFeature) {
-                    Wallpaper.EdgeToEdge.name
-                } else {
-                    Wallpaper.Default.name
-                },
+            default = Wallpaper.EdgeToEdge.name,
         )
 
     /**
@@ -1785,9 +1776,24 @@ class Settings(
             default = true,
         )
 
-    var defaultTopSitesAdded by
+    /**
+     * Whether default pinned top sites that are included in the application on the first run of the application have
+     * been added.
+     */
+    var defaultPinnedTopSitesAdded by
         booleanPreference(
             appContext.getPreferenceKey(R.string.default_top_sites_added),
+            default = false,
+        )
+
+    /**
+     * Whether the default top sites that the user had already removed have been migrated over to the homescreen
+     * blocklist. This applies to existing users that had their default top sites added to the user-pinned sites storage
+     * before they were served as backfills from [FenixDefaultTopSitesProvider].
+     */
+    var removedDefaultPinnedTopSitesMigrated by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_removed_default_pinned_top_sites_migrated),
             default = false,
         )
 
@@ -2017,6 +2023,13 @@ class Settings(
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_search_widget_installed_2),
             default = false,
+        )
+
+    /** The IDs of the search widgets on the home screen at the last check, used to detect newly added widgets. */
+    var searchWidgetIds by
+        stringSetPreference(
+            appContext.getPreferenceKey(R.string.pref_key_search_widget_ids),
+            default = setOf(),
         )
 
     /** The app version code that last published the generated search bar widget previews. */
@@ -2647,13 +2660,6 @@ class Settings(
             default = { FxNimbus.features.homepageAsNewTab.value().enabled },
         )
 
-    /** Whether the universal edge-to-edge wallpapers treatment is enabled. */
-    var enableUniversalEdgeToEdgeWallpapers by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_enable_universal_edge_to_edge_wallpapers),
-            default = { FxNimbus.features.universalEdgeToEdgeWallpapers.value().enabled },
-        )
-
     /** Indicates if the Homepage Search Bar is enabled. */
     var enableHomepageSearchBar by
         booleanPreference(
@@ -2681,6 +2687,10 @@ class Settings(
             key = appContext.getPreferenceKey(R.string.pref_key_show_more_shortcuts),
             default = { FxNimbus.features.showMoreShortcuts.value().enabled },
         )
+
+    /** Indicates if the regional default shortcuts are enabled. */
+    val enableRegionalDefaultShortcuts: Boolean
+        get() = FxNimbus.features.regionalDefaultShortcuts.value().enabled
 
     /** Indicates if the Homepage Weather Widget is enabled. */
     var enableHomepageWeatherWidget by
@@ -2955,6 +2965,17 @@ class Settings(
             key = appContext.getPreferenceKey(R.string.pref_key_has_shown_ip_protection_prompt),
             default = false,
         )
+
+    /**
+     * The reset time of the most recent VPN allowance cycle for which the data limit notice was shown, or `null` if
+     * none has been shown yet. The notice occurs at most one time per cycle.
+     */
+    var ipProtectionLastDataLimitNoticeCycleResetTime: String?
+        get() = preferences.getString(lastDataLimitNoticeCycleResetTimeKey, null)
+        set(value) = preferences.edit { putString(lastDataLimitNoticeCycleResetTimeKey, value) }
+
+    private val lastDataLimitNoticeCycleResetTimeKey =
+        appContext.getPreferenceKey(R.string.pref_key_ip_protection_last_data_limit_notice_cycle_reset_time)
 
     /** Indicates if the IPProtection onboarding bottom sheet feature variable is enabled via Nimbus. */
     val shouldShowIPProtectionOnboardingBottomSheet: Boolean

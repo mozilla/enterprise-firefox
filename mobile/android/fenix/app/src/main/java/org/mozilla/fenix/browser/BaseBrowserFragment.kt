@@ -68,6 +68,7 @@ import mozilla.components.browser.state.state.CustomTabSessionState
 import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.state.content.DownloadState
+import mozilla.components.browser.state.state.selectedOrDefaultSearchEngine
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.browser.thumbnails.BrowserThumbnails
 import mozilla.components.browser.thumbnails.facts.BrowserThumbnailsFacts
@@ -178,6 +179,7 @@ import org.mozilla.fenix.biometricauthentication.AuthenticationStatus
 import org.mozilla.fenix.biometricauthentication.BiometricAuthenticationManager
 import org.mozilla.fenix.browser.applinks.AppLinksPromptFragment
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
+import org.mozilla.fenix.browser.browsingmode.BrowsingModeObserver
 import org.mozilla.fenix.browser.permissions.FenixSitePermissionLearnMoreUrlProvider
 import org.mozilla.fenix.browser.readermode.DefaultReaderModeController
 import org.mozilla.fenix.browser.readermode.ReaderModeController
@@ -196,6 +198,8 @@ import org.mozilla.fenix.components.FindInPageIntegration
 import org.mozilla.fenix.components.accounts.FxaWebChannelIntegration
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.MessagingAction.MicrosurveyAction
+import org.mozilla.fenix.components.metrics.MetricsUtils
+import org.mozilla.fenix.components.metrics.toSearchAccessPoint
 import org.mozilla.fenix.components.share.ShareSource
 import org.mozilla.fenix.components.toolbar.BottomToolbarContainerIntegration
 import org.mozilla.fenix.components.toolbar.BottomToolbarContainerView
@@ -344,6 +348,7 @@ abstract class BaseBrowserFragment :
     private val snackbarBinding = ViewBoundFeatureWrapper<SnackbarBinding>()
     private val standardSnackbarErrorBinding = ViewBoundFeatureWrapper<StandardSnackbarErrorBinding>()
     private val ipProtectionWarningBinding = ViewBoundFeatureWrapper<IPProtectionWarningBinding>()
+    private val browsingModeObserver = ViewBoundFeatureWrapper<BrowsingModeObserver>()
 
     protected val summarizeToolbarCfrBinding = ViewBoundFeatureWrapper<SummarizeToolbarCFRBinding>()
 
@@ -477,10 +482,20 @@ abstract class BaseBrowserFragment :
             observeRestoreComplete(requireComponents.core.store, findNavController())
         }
 
-        observeTabSelection(
-            requireComponents.core.store,
-            isCustomTabSession = customTabSessionId != null,
+        browsingModeObserver.set(
+            feature =
+                BrowsingModeObserver(
+                    store = requireComponents.core.store,
+                    customTabSessionId = customTabSessionId,
+                    onSelectedTabChanged = { tab ->
+                        activity?.runOnUiThread { updateThemeForSession(tab) }
+                    },
+                ),
+            owner = viewLifecycleOwner,
+            view = view,
         )
+
+        observeTabSelection(requireComponents.core.store)
 
         if (customTabSessionId == null) {
             tabGroupsStripStore.dispatch(TabGroupsStripAction.InitializeDataObservation)
@@ -1323,11 +1338,32 @@ abstract class BaseBrowserFragment :
                             requireComponents.useCases.searchUseCases.newTabSearch
                         }
 
+                    store.state.search.selectedOrDefaultSearchEngine(request.isPrivate)?.let { searchEngine ->
+                        MetricsUtils.recordSearchMetrics(
+                            engine = searchEngine,
+                            // The context menu offers no engine to choose, so this is always the default for the
+                            // current browsing mode.
+                            isDefault = true,
+                            searchAccessPoint = MetricsUtils.Source.CONTEXT,
+                            nimbusEventStore = requireComponents.nimbus.events,
+                        )
+                    }
+
+                    val accessPoint = MetricsUtils.Source.CONTEXT.toSearchAccessPoint()
                     if (parentSession is CustomTabSessionState) {
-                        useCase.invoke(request.query)
+                        useCase.invoke(
+                            searchTerms = request.query,
+                            source = SessionState.Source.Internal.None,
+                            accessPoint = accessPoint,
+                        )
                         requireActivity().startActivity(openInFenixIntent)
                     } else {
-                        useCase.invoke(request.query, parentSessionId = parentSession?.id)
+                        useCase.invoke(
+                            searchTerms = request.query,
+                            source = SessionState.Source.Internal.None,
+                            parentSessionId = parentSession?.id,
+                            accessPoint = accessPoint,
+                        )
                     }
                 },
             owner = this,
@@ -1613,6 +1649,17 @@ abstract class BaseBrowserFragment :
         appStore: AppStore,
         settings: org.mozilla.fenix.utils.Settings,
     ): @Composable () -> Unit = {
+        val isSearchActive = appStore.observeAsComposableState { it.searchState.isSearchActive }.value
+        if (!isSearchActive) {
+            BrowserTabStripContent(appStore, settings)
+        }
+    }
+
+    @Composable
+    private fun BrowserTabStripContent(
+        appStore: AppStore,
+        settings: org.mozilla.fenix.utils.Settings,
+    ) {
         FirefoxTheme {
             TabStrip(
                 showTabCounterButton = false,
@@ -1907,7 +1954,7 @@ abstract class BaseBrowserFragment :
             val messagingFeature =
                 MessagingFeature(
                     appStore = requireComponents.appStore,
-                    surface = FenixMessageSurfaceId.MICROSURVEY,
+                    surfaces = listOf(FenixMessageSurfaceId.MICROSURVEY),
                 )
             messagingFeatureMicrosurvey.set(
                 feature = messagingFeature,
@@ -2060,7 +2107,6 @@ abstract class BaseBrowserFragment :
     @VisibleForTesting
     internal fun observeTabSelection(
         store: BrowserStore,
-        isCustomTabSession: Boolean,
         mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
     ) {
         consumeFlow(store, mainDispatcher = mainDispatcher) { flow ->
@@ -2074,7 +2120,7 @@ abstract class BaseBrowserFragment :
                 .collect {
                     dismissDownloadDialogs()
                     dismissRenameDialog()
-                    handleTabSelected(it, isCustomTabSession)
+                    handleTabSelected(it)
                 }
         }
     }
@@ -2091,11 +2137,7 @@ abstract class BaseBrowserFragment :
         downloadDialog?.dismiss()
     }
 
-    private fun handleTabSelected(selectedTab: TabSessionState, isCustomTabSession: Boolean) {
-        if (!this.isRemoving && !isCustomTabSession) {
-            updateThemeForSession(selectedTab)
-        }
-
+    private fun handleTabSelected(selectedTab: TabSessionState) {
         if (browserInitialized) {
             view?.let {
                 fullScreenChanged(false)
@@ -2303,7 +2345,7 @@ abstract class BaseBrowserFragment :
     @VisibleForTesting
     internal fun updateThemeForSession(session: SessionState) {
         val sessionMode = BrowsingMode.fromBoolean(session.content.private)
-        (activity as HomeActivity).browsingModeManager.mode = sessionMode
+        (activity as HomeActivity?)?.browsingModeManager?.mode = sessionMode
     }
 
     /** A safe version of [getCurrentTab] that safely checks for context nullability. */

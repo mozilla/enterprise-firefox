@@ -23,7 +23,9 @@ import mozilla.appservices.search.SearchEngineUrls
 import mozilla.appservices.search.SearchUrlParam
 import mozilla.components.browser.icons.decoder.ICOIconDecoder
 import mozilla.components.browser.icons.decoder.SvgIconDecoder
+import mozilla.components.browser.state.search.SearchAccessPoint
 import mozilla.components.browser.state.search.SearchEngine
+import mozilla.components.browser.state.search.SearchEngineAccessPoint
 import mozilla.components.feature.search.middleware.SearchExtraParams
 import mozilla.components.support.images.DesiredSize
 import mozilla.components.support.locale.LocaleManager
@@ -37,7 +39,6 @@ internal const val URL_TYPE_SEARCH_HTML = "text/html"
 internal const val URL_REL_MOBILE = "mobile"
 internal const val IMAGE_URI_PREFIX = "data:image/png;base64,"
 internal const val GOOGLE_ID = "google"
-internal const val DEFAULT_SEARCH_ACCESS_POINT = "default"
 private const val TARGET_SIZE = 32
 private const val MAX_SIZE = 32
 
@@ -85,6 +86,7 @@ internal class SearchEngineReader(
         var inputEncoding: String? = null
         var isGeneral: Boolean = false
         var isOptional: Boolean = false
+        var accessPoints: Map<String, SearchEngineAccessPoint> = emptyMap()
 
         fun toSearchEngine() =
             SearchEngine(
@@ -99,6 +101,7 @@ internal class SearchEngineReader(
                 isGeneral = isGeneralSearchEngine(identifier, type), // Will be replaced with builder.isGeneral
                 isOptional = isOptional,
                 telemetrySuffix = telemetrySuffix,
+                accessPoints = accessPoints,
             )
 
         /**
@@ -295,7 +298,7 @@ internal class SearchEngineReader(
         builder.inputEncoding = engineDefinition.charset
         builder.isGeneral = engineDefinition.classification == SearchEngineClassification.GENERAL
         builder.isOptional = engineDefinition.optional
-        readUrlAPI(engineDefinition.urls, engineDefinition.partnerCode, builder)
+        applyUrls(readAccessPoint(engineDefinition.urls, engineDefinition.partnerCode, builder.name), builder)
         readImageAPI(attachmentModel, mimetype, builder, defaultIcon)
 
         return builder.toSearchEngine()
@@ -304,8 +307,8 @@ internal class SearchEngineReader(
     /**
      * Loads a <code>SearchEngine</code> from a search-config-v3 <code>engineDefinition</code>.
      *
-     * The partner details of the [DEFAULT_SEARCH_ACCESS_POINT] access point supply the partner code and telemetry
-     * suffix, which search-config-v2 defines once per engine.
+     * The partner details of the [SearchAccessPoint.DEFAULT] access point supply the partner code and telemetry suffix,
+     * which search-config-v2 defines once per engine.
      */
     @Throws(IllegalArgumentException::class)
     fun loadStreamAPIV3(
@@ -318,7 +321,7 @@ internal class SearchEngineReader(
         require(engineDefinition.charset.isNotBlank()) { "Search engine charset cannot be empty" }
         require(engineDefinition.identifier.isNotBlank()) { "Search engine identifier cannot be empty" }
 
-        val partner = engineDefinition.partner?.get(DEFAULT_SEARCH_ACCESS_POINT)
+        val partner = engineDefinition.partner?.get(SearchAccessPoint.DEFAULT)
         val builder =
             SearchEngineBuilder(
                 type,
@@ -329,44 +332,79 @@ internal class SearchEngineReader(
         builder.inputEncoding = engineDefinition.charset
         builder.isGeneral = engineDefinition.classification == SearchEngineClassificationV3.GENERAL
         builder.isOptional = engineDefinition.optional
-        readUrlAPI(engineDefinition.urls, partner?.code?.takeIf { it.isNotEmpty() }, builder)
+        val accessPoints =
+            engineDefinition.partner.orEmpty().mapValues { (_, details) ->
+                readAccessPoint(
+                        urls = engineDefinition.urls,
+                        partnerCode = details.code?.takeIf { it.isNotEmpty() },
+                        engineName = engineDefinition.name,
+                    )
+                    .copy(telemetrySuffix = details.telemetrySuffix)
+            }
+        builder.accessPoints = accessPoints
+        // SearchEngine's own resultUrls, suggestUrl and trendingUrl are the default access point's, so reuse that
+        // entry rather than building the same URLs a second time. An engine with no default entry builds them with no
+        // partner code.
+        applyUrls(
+            accessPoints[SearchAccessPoint.DEFAULT]
+                ?: readAccessPoint(engineDefinition.urls, partnerCode = null, engineName = engineDefinition.name),
+            builder,
+        )
         readImageAPI(attachmentModel, mimetype, builder, defaultIcon)
 
         return builder.toSearchEngine()
     }
 
+    private fun applyUrls(accessPoint: SearchEngineAccessPoint, builder: SearchEngineBuilder) {
+        builder.resultsUrls.addAll(accessPoint.resultUrls)
+        builder.suggestUrl = accessPoint.suggestUrl
+        builder.trendingUrl = accessPoint.trendingUrl
+    }
+
+    /**
+     * Builds the URLs an engine uses with the given [partnerCode]. A null [partnerCode] omits the partner code
+     * parameter from the URLs entirely rather than appending it empty.
+     */
     @Throws(IllegalArgumentException::class)
-    private fun readUrlAPI(urls: SearchEngineUrls, partnerCode: String?, builder: SearchEngineBuilder) {
+    private fun readAccessPoint(
+        urls: SearchEngineUrls,
+        partnerCode: String?,
+        engineName: String?,
+    ): SearchEngineAccessPoint {
         requireNotNull(urls.search) { "Search engine URL cannot be empty" }
-        builder.resultsUrls.add(
-            buildUrlWithParams(
-                searchTermParamName = urls.search.searchTermParamName,
-                params = urls.search.params,
-                template = urls.search.base,
-                partnerCode = partnerCode,
-                builderName = builder.name,
-            )
+        return SearchEngineAccessPoint(
+            resultUrls =
+                listOf(
+                    buildUrlWithParams(
+                        searchTermParamName = urls.search.searchTermParamName,
+                        params = urls.search.params,
+                        template = urls.search.base,
+                        partnerCode = partnerCode,
+                        builderName = engineName,
+                    )
+                ),
+            suggestUrl =
+                urls.suggestions?.let { suggestions ->
+                    buildUrlWithParams(
+                        searchTermParamName = suggestions.searchTermParamName,
+                        params = suggestions.params,
+                        template = suggestions.base,
+                        partnerCode = partnerCode,
+                        builderName = engineName,
+                    )
+                },
+            trendingUrl =
+                urls.trending?.let { trending ->
+                    buildUrlWithParams(
+                        searchTermParamName = trending.searchTermParamName,
+                        params = trending.params,
+                        template = trending.base,
+                        partnerCode = partnerCode,
+                        builderName = engineName,
+                    )
+                },
+            partnerCode = partnerCode,
         )
-        urls.suggestions?.let { suggestions ->
-            builder.suggestUrl =
-                buildUrlWithParams(
-                    searchTermParamName = suggestions.searchTermParamName,
-                    params = suggestions.params,
-                    template = suggestions.base,
-                    partnerCode = partnerCode,
-                    builderName = builder.name,
-                )
-        }
-        urls.trending?.let { trending ->
-            builder.trendingUrl =
-                buildUrlWithParams(
-                    searchTermParamName = trending.searchTermParamName,
-                    params = trending.params,
-                    template = trending.base,
-                    partnerCode = partnerCode,
-                    builderName = builder.name,
-                )
-        }
     }
 
     private fun buildUrlWithParams(

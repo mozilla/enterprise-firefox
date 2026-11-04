@@ -355,31 +355,26 @@ impl DataStores {
             PrimitiveKind::Image { handle } => {
                 &dl_stores.images[handle].common
             }
-            PrimitiveKind::ImageBorder { data_handle, .. } => {
-                let prim_data = &self.image_border[data_handle];
-                &prim_data.common
+            PrimitiveKind::ImageBorder { handle } => {
+                &dl_stores.image_borders[handle].common
             }
             PrimitiveKind::LineDecoration { handle } => {
                 &dl_stores.line_decorations[handle].common
             }
-            PrimitiveKind::LinearGradient { data_handle, .. } => {
-                let prim_data = &self.linear_grad[data_handle];
-                &prim_data.common
+            PrimitiveKind::LinearGradient { handle } => {
+                &dl_stores.linear_gradients[handle].common
             }
-            PrimitiveKind::NormalBorder { data_handle, .. } => {
-                let prim_data = &self.normal_border[data_handle];
-                &prim_data.common
+            PrimitiveKind::NormalBorder { handle } => {
+                &dl_stores.normal_borders[handle].common
             }
             PrimitiveKind::Picture { .. } => {
                 panic!("BUG: picture prims don't have common data!");
             }
-            PrimitiveKind::RadialGradient { data_handle, .. } => {
-                let prim_data = &self.radial_grad[data_handle];
-                &prim_data.common
+            PrimitiveKind::RadialGradient { handle } => {
+                &dl_stores.radial_gradients[handle].common
             }
-            PrimitiveKind::ConicGradient { data_handle, .. } => {
-                let prim_data = &self.conic_grad[data_handle];
-                &prim_data.common
+            PrimitiveKind::ConicGradient { handle } => {
+                &dl_stores.conic_gradients[handle].common
             }
             PrimitiveKind::TextRun { data_handle, .. }  => {
                 let prim_data = &self.text_run[data_handle];

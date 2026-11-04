@@ -1246,8 +1246,6 @@ pref("browser.tabs.hoverPreview.showThumbnails", true);
 pref("browser.tabs.groups.enabled", true);
 pref("browser.tabs.groups.hoverPreview.enabled", true);
 pref("browser.tabs.groups.alternateMenu", true);
-// Bug 2052293: temporarily disabled while tab groups move away from the list all tabs menu.
-pref("browser.tabs.groups.onboardingCallouts.enabled", false);
 // Number of times the "Tab group saved" confirmation hint has been shown
 pref("browser.tabs.groups.saveHintShownCount", 0);
 
@@ -1729,6 +1727,8 @@ pref("browser.places.speculativeConnect.enabled", true);
 // Limit query results in the native macOS menu. Set to 0 to disable the limit.
 // Restart for changes to fully apply to cached queries.
 pref("browser.places.nativeMenu.maxResults", 100);
+// Limit entries in each native bookmark folder menu. Set to 0 to disable.
+pref("browser.places.nativeMenu.maxFolderResults", 500);
 #endif
 
 // if true, use full page zoom instead of text zoom
@@ -2557,6 +2557,8 @@ pref("browser.ml.pageAssist.enabled", false);
 pref("browser.smartwindow.enabled", false);
 // Default endpoint for preset models
 pref("browser.smartwindow.endpoint", "https://mlpa-prod-prod-mozilla.freetls.fastly.net/v1");
+pref("browser.smartwindow.auth.impl", "fxa");
+pref("browser.smartwindow.auth.guest.mode", "fetch");
 pref("browser.smartwindow.memories.generateFromHistory", true);
 pref("browser.smartwindow.memories.generateFromConversation", true);
 pref("browser.smartwindow.memories.hasSeenMemories", false);
@@ -2572,8 +2574,6 @@ pref("browser.smartwindow.sidebar.openByDefault", true);
 pref("browser.smartwindow.isDefaultWindow", false);
 pref("browser.smartwindow.firstrun.explainerURL", "https://www.firefox.com/smart-window/?v=product");
 pref("places.semanticHistory.smartwindow.featureGate", false);
-// TODO Bug 2053495: remove with mistral release pref
-pref("browser.smartwindow.mistralRelease", true);
 
 // Semantic distance threshold for Smart Window history search only.
 pref("places.semanticHistory.smartwindow.distanceThreshold", "0.6");
@@ -3157,6 +3157,9 @@ pref("browser.migrate.canary.enabled", true);
 pref("browser.migrate.chrome.enabled", true);
 // See comments in bug 1340115 on how we got to this number.
 pref("browser.migrate.chrome.history.limit", 2000);
+// Number of recent visits to import per URL from Chrome history, capped at
+// places.frecency.pages.numSampledVisits.
+pref("browser.migrate.chrome.history.visit.limit", 5);
 pref("browser.migrate.chrome.payment_methods.enabled", true);
 pref("browser.migrate.chrome.extensions.enabled", true);
 pref("browser.migrate.chrome.get_permissions.enabled", true);

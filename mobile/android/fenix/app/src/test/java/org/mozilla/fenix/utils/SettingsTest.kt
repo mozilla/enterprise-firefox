@@ -12,6 +12,7 @@ import io.mockk.spyk
 import io.mockk.verify
 import java.io.File
 import java.util.Calendar
+import kotlin.test.assertNull
 import mozilla.components.concept.engine.Engine.HttpsOnlyMode.DISABLED
 import mozilla.components.concept.engine.Engine.HttpsOnlyMode.ENABLED
 import mozilla.components.concept.engine.Engine.HttpsOnlyMode.ENABLED_PRIVATE_ONLY
@@ -35,7 +36,6 @@ import org.mozilla.fenix.nimbus.AutomotiveSensitiveData
 import org.mozilla.fenix.nimbus.DefaultBrowserPrompt
 import org.mozilla.fenix.nimbus.FakeNimbusEventStore
 import org.mozilla.fenix.nimbus.FxNimbus
-import org.mozilla.fenix.nimbus.HomescreenEdgeToEdgeBackground
 import org.mozilla.fenix.settings.PhoneFeature
 import org.mozilla.fenix.settings.ShortcutType
 import org.mozilla.fenix.settings.deletebrowsingdata.DeleteBrowsingDataOnQuitType
@@ -155,23 +155,11 @@ class SettingsTest {
     }
 
     @Test
-    fun defaultWallpaperIsEdgeToEdgeWhenEdgeToEdgeFeatureEnabled() {
-        FxNimbus.features.homescreenEdgeToEdgeBackground.withCachedValue(HomescreenEdgeToEdgeBackground(enabled = true))
+    fun defaultWallpaperIsEdgeToEdge() {
         val settings = Settings(testContext)
 
         // Then
         assertEquals(Wallpaper.EdgeToEdge.name, settings.currentWallpaperName)
-    }
-
-    @Test
-    fun defaultWallpaperIsDefaultWhenEdgeToEdgeDisabled() {
-        FxNimbus.features.homescreenEdgeToEdgeBackground.withCachedValue(
-            HomescreenEdgeToEdgeBackground(enabled = false)
-        )
-        val settings = Settings(testContext)
-
-        // Then
-        assertEquals(Wallpaper.Default.name, settings.currentWallpaperName)
     }
 
     @Test
@@ -1624,5 +1612,17 @@ class SettingsTest {
         settings.openLinksInYoutube = never
 
         assertEquals(never, settings.openLinksInYoutube)
+    }
+
+    @Test
+    fun `GIVEN no data limit notice has been shown WHEN reading the reset time THEN it is null`() {
+        assertNull(settings.ipProtectionLastDataLimitNoticeCycleResetTime)
+    }
+
+    @Test
+    fun `GIVEN a data limit notice has been shown WHEN setting the reset time THEN it is persisted and returned`() {
+        settings.ipProtectionLastDataLimitNoticeCycleResetTime = "2026-11-01T00:00:00Z"
+
+        assertEquals("2026-11-01T00:00:00Z", settings.ipProtectionLastDataLimitNoticeCycleResetTime)
     }
 }

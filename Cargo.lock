@@ -407,6 +407,7 @@ dependencies = [
  "core-foundation 0.10.0",
  "devd-rs",
  "env_logger",
+ "icu_segmenter",
  "libc",
  "libudev",
  "log",
@@ -1425,6 +1426,7 @@ dependencies = [
  "phf",
  "phf_codegen",
  "rand",
+ "regex",
  "serde",
  "serde_json",
  "sha2",
@@ -2106,9 +2108,9 @@ dependencies = [
 
 [[package]]
 name = "encoding_rs"
-version = "0.8.40"
+version = "0.8.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a7a45518d2863d18aa47f4a0cf9faec2aa4304cc09df5e41299f276b3ad135e"
+checksum = "89253175e704ab869b04f9db224d38630e0211a53841a79181deae0889e169f5"
 dependencies = [
  "any_all_workaround",
  "cfg-if",
@@ -9416,9 +9418,9 @@ dependencies = [
 
 [[package]]
 name = "webrtc-sdp"
-version = "0.3.16"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cb8ad9952ef7f45bd25dc9dbd67abea423839235aae154e2b50e08443630475"
+checksum = "f621fded8dbc9e43fcab63e78bdbdf47f7f26a73278d3768d37bbace8803eff6"
 dependencies = [
  "log",
  "url",

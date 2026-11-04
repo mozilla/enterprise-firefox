@@ -39,6 +39,8 @@ subsuite = "taskgraph"
 
 ["test_transforms_enterprise_repack_mar_signing.py"]
 
+["test_transforms_fetch.py"]
+
 ["test_transforms_job.py"]
 
 ["test_transforms_job_common.py"]

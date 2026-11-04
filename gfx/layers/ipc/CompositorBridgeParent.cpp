@@ -430,15 +430,6 @@ mozilla::ipc::IPCResult CompositorBridgeParent::RecvPause() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult CompositorBridgeParent::RecvRequestFxrOutput() {
-#ifdef XP_WIN
-  // Continue forwarding the request to the Widget + SwapChain
-  mWidget->AsWindows()->RequestFxrOutput();
-#endif
-
-  return IPC_OK();
-}
-
 mozilla::ipc::IPCResult CompositorBridgeParent::RecvResume() {
   bool resumed = ResumeComposition();
   LAYERTREE_LOG("Widget resumed compositor for root layer tree {:x}: {}",
@@ -652,8 +643,9 @@ CompositorBridgeParent::AllocateAPZCTreeManagerParent(
   MOZ_RELEASE_ASSERT(aState.mParent == this);
   MOZ_RELEASE_ASSERT(mApzcTreeManager);
   MOZ_RELEASE_ASSERT(mApzUpdater);
-  MOZ_RELEASE_ASSERT(!aState.mApzcTreeManagerParent);
 
+  // BrowserChild::ReinitRendering can create a new PAPZCTreeManager for a
+  // layer tree whose previous actor is still alive. The newest one wins.
   auto treeManager = MakeRefPtr<APZCTreeManagerParent>(
       aLayersId, mApzcTreeManager, mApzUpdater);
   aState.mApzcTreeManagerParent = treeManager;
@@ -918,7 +910,15 @@ void CompositorBridgeParent::ScheduleForcedComposition(
   auto layersId = wr::AsLayersId(aWrBridge->PipelineId());
 
   if (!aWrBridge->IsRootWebRenderBridgeParent()) {
-    EraseLayerState(layersId);
+    bool ownedByOtherBridge = WithIndirectLayerTreesLock(
+        [&](const StaticMonitorAutoLock& aProofOfLock) {
+          LayerTreeState* state =
+              GetLayerTreeStateUnderLock(layersId, aProofOfLock);
+          return state && state->mWrBridge && state->mWrBridge != aWrBridge;
+        });
+    if (!ownedByOtherBridge) {
+      EraseLayerState(layersId);
+    }
     return;
   }
 

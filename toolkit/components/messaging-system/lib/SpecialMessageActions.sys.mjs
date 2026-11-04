@@ -1109,6 +1109,14 @@ export const SpecialMessageActions = {
       case "OPEN_SMARTWINDOW_MONITOR_CREATE":
         lazy.AIWindowUI.showMonitorCreateForm(window);
         break;
+      case "SUBMIT_SMARTWINDOW_PROMPT": {
+        const { prompt, source = "fxms" } = action.data;
+        await lazy.AIWindowUI.submitToSidebar(window, prompt, {
+          submitType: source,
+          aitabSource: source,
+        });
+        break;
+      }
       case "OPEN_PROTECTION_PANEL": {
         let { gProtectionsHandler } = window;
         gProtectionsHandler.showProtectionsPopup({});
@@ -1182,6 +1190,9 @@ export const SpecialMessageActions = {
         break;
       case "SET_TERMS_OF_USE_INTERACTED":
         Services.obs.notifyObservers(null, "termsofuse:interacted");
+        break;
+      case "ACCEPT_SMARTWINDOW_TOU":
+        Services.obs.notifyObservers(null, "smartwindow-tou-accepted");
         break;
       case "CREATE_NEW_SELECTABLE_PROFILE":
         this.createAndOpenProfile();

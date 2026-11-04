@@ -12,6 +12,8 @@ import {
   isWidgetToggleVisible,
   isWidgetsContainerVisible,
   resolveWidgetSize,
+  resolveWidgetDisplaySize,
+  getChosenOption,
   resolveWidgetOrder,
   resolveWidgetHasSidebar,
   resolveSidebarWidget,
@@ -293,6 +295,7 @@ describe("getWidgetOrder", () => {
       "horoscopes",
       "travel",
       "solitaire",
+      "wrexhamAFC",
     ]);
   });
 
@@ -310,6 +313,7 @@ describe("getWidgetOrder", () => {
       "horoscopes",
       "travel",
       "solitaire",
+      "wrexhamAFC",
     ]);
   });
 
@@ -327,6 +331,7 @@ describe("getWidgetOrder", () => {
       "horoscopes",
       "travel",
       "solitaire",
+      "wrexhamAFC",
     ]);
   });
 
@@ -351,6 +356,7 @@ describe("getWidgetOrder", () => {
       "horoscopes",
       "travel",
       "solitaire",
+      "wrexhamAFC",
     ]);
     expect(result.length).toBe(registryIds.length);
   });
@@ -379,6 +385,7 @@ describe("resolveWidgetOrder", () => {
       "horoscopes",
       "travel",
       "solitaire",
+      "wrexhamAFC",
     ]);
   });
 
@@ -401,6 +408,7 @@ describe("resolveWidgetOrder", () => {
       "horoscopes",
       "travel",
       "solitaire",
+      "wrexhamAFC",
     ]);
   });
 
@@ -423,6 +431,7 @@ describe("resolveWidgetOrder", () => {
       "horoscopes",
       "travel",
       "solitaire",
+      "wrexhamAFC",
     ]);
   });
 });
@@ -685,6 +694,69 @@ describe("isWidgetEnabled", () => {
         true
       )
     ).toBe(true);
+  });
+});
+
+describe("getChosenOption and resolveWidgetDisplaySize", () => {
+  const VIEW = {
+    type: "choice",
+    id: "view",
+    l10nId: "tally-view",
+    pref: "widgets.tally.view",
+    options: [
+      { value: "day", l10nId: "tally-view-day" },
+      { value: "week", l10nId: "tally-view-week", size: "large" },
+    ],
+  };
+  const WIDGET = {
+    id: "tally",
+    card: "FramedWidgetCard",
+    sizePref: "widgets.tally.size",
+    defaultSize: "medium",
+    validSizes: ["medium", "large"],
+    menu: [VIEW],
+  };
+
+  it("chooses the option the pref holds, or the first while it holds none", () => {
+    expect(getChosenOption(VIEW, { "widgets.tally.view": "week" }).value).toBe(
+      "week"
+    );
+    expect(getChosenOption(VIEW, {}).value).toBe("day");
+    expect(getChosenOption(VIEW, { "widgets.tally.view": "month" }).value).toBe(
+      "day"
+    );
+  });
+
+  it("grows to the size a chosen option needs", () => {
+    expect(
+      resolveWidgetDisplaySize(WIDGET, { "widgets.tally.view": "week" }, true)
+    ).toBe("large");
+  });
+
+  it("keeps the widget's size for an option without one", () => {
+    expect(resolveWidgetDisplaySize(WIDGET, {}, true)).toBe("medium");
+  });
+
+  it("keeps the widget's size where the layout does not allow resizing", () => {
+    expect(
+      resolveWidgetDisplaySize(WIDGET, { "widgets.tally.view": "week" }, false)
+    ).toBe("medium");
+  });
+
+  it("keeps the size of a widget not drawn by FramedWidgetCard", () => {
+    expect(
+      resolveWidgetDisplaySize(
+        { ...WIDGET, card: undefined },
+        { "widgets.tally.view": "week" },
+        true
+      )
+    ).toBe("medium");
+  });
+
+  it("is the widget's size for a widget without a menu", () => {
+    expect(
+      resolveWidgetDisplaySize({ ...WIDGET, menu: undefined }, {}, true)
+    ).toBe("medium");
   });
 });
 
@@ -1337,6 +1409,7 @@ describe("WIDGET_REGISTRY customize panel fields", () => {
     horoscopes: "WIDGET_HOROSCOPES",
     travel: "WIDGET_TRAVEL",
     solitaire: "WIDGET_SOLITAIRE",
+    wrexhamAFC: "WIDGET_WREXHAMAFC",
   };
 
   it("gives every active entry a customizeL10nId", () => {
