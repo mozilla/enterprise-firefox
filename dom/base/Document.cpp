@@ -13440,6 +13440,20 @@ nsresult Document::CloneDocHelper(Document* clone) const {
     // once, so we don't do that here. However, we do want to act as if there is
     // a script handling object. So we set mHasHadScriptHandlingObject.
     clone->mHasHadScriptHandlingObject = true;
+
+    // Cloning needs to happen after setting mHasHadScriptHandlingObject,
+    // otherwise nsINode::CloneAndAdopt rejects importing from a scriptable source
+    // by setting NS_ERROR_UNEXPECTED and returning null.
+    BooleanOrImportNodeOptions cloneOptions;
+    cloneOptions.SetAsBoolean() = true;
+
+    for (auto& content : mAnonymousContents) {
+      RefPtr destination = clone->InsertAnonymousContent(IgnoreErrors());
+      for (nsIContent* child = content->Root()->GetFirstChild(); child; child = child->GetNextSibling()) {
+        RefPtr clonedChild = clone->ImportNode(*child, cloneOptions, IgnoreErrors());
+        destination->Root()->AppendChild(*clonedChild, IgnoreErrors());
+      }
+    }
   } else if (scriptObject) {
     clone->SetScriptHandlingObject(scriptObject);
   } else {
