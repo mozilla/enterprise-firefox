@@ -561,9 +561,9 @@ bool felt_check_arg_exists(const char* aArg) {
   return CheckArgExists(aArg) != ARG_NONE;
 }
 
-// -chrome is consumed by nsCommandLine rather than CheckArg, so match it the
-// way nsCommandLine::Init splits arguments: -chrome[=value], --chrome[=value]
-// and, on Windows, /chrome[:value] (but not /chrome=value).
+// -chrome is parsed by nsCommandLine rather than CheckArg, so match it in
+// gArgv the way nsCommandLine::Init splits arguments: -chrome[=value],
+// --chrome[=value] and, on Windows, /chrome[:value] (but not /chrome=value).
 bool felt_has_chrome_arg() {
   static const char kChrome[] = "chrome";
   const size_t len = strlen(kChrome);
