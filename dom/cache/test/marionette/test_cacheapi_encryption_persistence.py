@@ -14,6 +14,11 @@ QM_ENCRYPTION_PREF = "dom.quotaManager.encryption.enabled"
 QM_TESTING_PREF = "dom.quotaManager.testing"
 
 
+def skip_if_enterprise(test):
+    if test.marionette.session_capabilities.get("moz:browserFlavor") == "enterprise":
+        test.skipTest("Not supported on enterprise builds")
+
+
 class CacheAPIEncryptionPersistence(QuotaTestCase):
     """
     Verify that encrypted Cache API data persists across a browser restart.
@@ -37,6 +42,8 @@ class CacheAPIEncryptionPersistence(QuotaTestCase):
         self.cacheResponseBody = "persist_cache_value_lockstore"
 
     def test_cache_survives_restart(self):
+        skip_if_enterprise(self)
+
         url = self.marionette.absolute_url("empty.html")
 
         self.marionette.navigate(url)
