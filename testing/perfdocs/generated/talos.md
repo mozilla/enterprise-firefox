@@ -9124,7 +9124,20 @@ For the sample commands found below, note that the capitalization used is import
   ./mach talos-test -a tscrollx_paint_skip
   ```
 
-* TODO: Add a description. See this bug: https://bugzilla.mozilla.org/show_bug.cgi?id=2036344
+* contact: :hiro, :botond, and layout team
+* source: [scroll.manifest](https://searchfox.org/mozilla-central/source/testing/talos/talos/tests/scroll)
+* type: [Page load]
+* measuring: Scroll performance with APZ paint skipping enabled
+* reporting: Average frame interval (1 ÷ fps). Lower is better.
+* data: we load 6 pages 25 times each, collecting 6 sets of 25 data points
+* summarization:
+  * subtest: [ignore first] **5** data points, then take the [median] of the remaining 20
+  * suite: [geometric mean] of the 6 subtest results.
+* description:
+      | This is a variant of [tscrollx](#tscrollx) that runs the same pages in
+        ASAP mode, but with APZ paint skipping enabled
+        (``apz.paint_skipping.enabled = true``). Comparing it with tscrollx shows
+        the effect of paint skipping on scroll throughput.
 * preferences: {'layout.frame_rate': 0, 'docshell.event_starvation_delay_hint': 1, 'dom.send_after_paint_to_content': True, 'apz.paint_skipping.enabled': True, 'layout.css.scroll-snap.spring-constant': "'10'", 'layout.css.scroll-behavior.same-physics-as-user-input': False, 'toolkit.framesRecording.bufferSize': 10000}
 * **Test Task**:
 
@@ -10010,24 +10023,6 @@ For the sample commands found below, note that the capitalization used is import
 :local: true
 ```
 
-### File IO
-
-File IO is tested using the tp5 test set in the [xperf]
-test.
-
-#### Possible regression causes
-
-- **nonmain_startup_fileio opt (with or without e10s) windows7-32** –
-  [bug
-  1274018](https://bugzilla.mozilla.org/show_bug.cgi?id=1274018)
-  This test seems to consistently report a higher result for
-  mozilla-central compared to Try even for an identical revision due to
-  extension signing checks. In other words, if you are comparing Try
-  and Mozilla-Central you may see a false-positive regression on
-  perfherder. Graphs:
-  [non-e10s](https://treeherder.mozilla.org/perf.html#/graphs?timerange=604800&series=%5Bmozilla-central,e5f5eaa174ef22fdd6b6e150e8c450aa827c2ff6,1,1%5D&series=%5Btry,e5f5eaa174ef22fdd6b6e150e8c450aa827c2ff6,1,1%5D)
-  [e10s](https://treeherder.mozilla.org/perf.html#/graphs?series=%5B%22mozilla-central%22,%222f3af3833d55ff371ecf01c41aeee1939ef3a782%22,1,1%5D&series=%5B%22try%22,%222f3af3833d55ff371ecf01c41aeee1939ef3a782%22,1,1%5D&timerange=604800)
-
 ### Xres (X Resource Monitoring)
 
 A memory metric tracked during tp5 test runs. This metric is sampled
@@ -10154,6 +10149,19 @@ Notes:
   large variability. At least 30 runs are likely to be needed to get
   stable statistics (xref [bug
   1616236](https://bugzilla.mozilla.org/show_bug.cgi?id=1616236))
+
+#### Possible regression causes
+
+- **nonmain_startup_fileio opt (with or without e10s) windows7-32** –
+  [bug
+  1274018](https://bugzilla.mozilla.org/show_bug.cgi?id=1274018)
+  This test seems to consistently report a higher result for
+  mozilla-central compared to Try even for an identical revision due to
+  extension signing checks. In other words, if you are comparing Try
+  and Mozilla-Central you may see a false-positive regression on
+  perfherder. Graphs:
+  [non-e10s](https://treeherder.mozilla.org/perf.html#/graphs?timerange=604800&series=%5Bmozilla-central,e5f5eaa174ef22fdd6b6e150e8c450aa827c2ff6,1,1%5D&series=%5Btry,e5f5eaa174ef22fdd6b6e150e8c450aa827c2ff6,1,1%5D)
+  [e10s](https://treeherder.mozilla.org/perf.html#/graphs?series=%5B%22mozilla-central%22,%222f3af3833d55ff371ecf01c41aeee1939ef3a782%22,1,1%5D&series=%5B%22try%22,%222f3af3833d55ff371ecf01c41aeee1939ef3a782%22,1,1%5D&timerange=604800)
 
 ## Build metrics
 

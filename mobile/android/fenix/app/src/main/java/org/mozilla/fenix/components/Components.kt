@@ -44,6 +44,7 @@ import mozilla.components.support.remotesettings.RemoteSettingsServer
 import mozilla.components.support.remotesettings.RemoteSettingsService
 import mozilla.components.support.remotesettings.into
 import mozilla.components.support.utils.BuildManufacturerChecker
+import mozilla.components.support.utils.BuildMetadata
 import mozilla.components.support.utils.ClipboardHandler
 import mozilla.components.support.utils.ext.packageManagerWrapper
 import org.mozilla.fenix.BuildConfig
@@ -247,7 +248,9 @@ class Components(
         AddonManager(core.store, core.engine, addonsProvider, addonUpdater)
     }
 
-    val analytics by lazyMonitored { Analytics(context, settings, nimbus, performance.visualCompletenessQueue) }
+    val analytics by lazyMonitored {
+        Analytics(context, settings, nimbus, performance.visualCompletenessQueue, buildMetadata)
+    }
 
     val remoteSettingsService = lazyMonitored {
         RemoteSettingsService(
@@ -272,6 +275,7 @@ class Components(
     }
     val publicSuffixList by lazyMonitored { PublicSuffixList(context) }
     val clipboardHandler by lazyMonitored { ClipboardHandler(context) }
+    val buildMetadata by lazyMonitored { BuildMetadata.fromAssets(context.assets) }
     val performance by lazyMonitored { PerformanceComponent() }
     val push by lazyMonitored { Push(context, analytics.crashReporter) }
     val wifiConnectionMonitor by lazyMonitored { WifiConnectionMonitor(context as Application) }
@@ -313,9 +317,9 @@ class Components(
 
     val appLinkIntentLaunchTypeProvider by lazyMonitored { AppLinkIntentLaunchTypeProvider(appStartReasonProvider) }
 
-    val appStore by lazyMonitored {
-        val blocklistHandler = BlocklistHandler(settings)
+    val blocklistHandler by lazyMonitored { BlocklistHandler(settings) }
 
+    val appStore by lazyMonitored {
         AppStore(
                 initialState =
                     AppState(

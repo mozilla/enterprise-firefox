@@ -17,12 +17,11 @@ namespace dom {
 
 class CSSAnimation final : public Animation {
  public:
-  explicit CSSAnimation(nsIGlobalObject* aGlobal, nsAtom* aAnimationName)
+  CSSAnimation(nsIGlobalObject* aGlobal, nsAtom* aAnimationName,
+               bool aIsStylePaused)
       : dom::Animation(aGlobal),
         mAnimationName(aAnimationName),
-        mNeedsNewAnimationIndexWhenRun(false),
-        mPreviousPhase(ComputedTiming::AnimationPhase::Idle),
-        mPreviousIteration(0) {
+        mIsStylePaused(aIsStylePaused) {
     // We might need to drop this assertion once we add a script-accessible
     // constructor but for animations generated from CSS markup the
     // animation-name should never be empty.
@@ -129,6 +128,17 @@ class CSSAnimation final : public Animation {
     return mOverriddenProperties;
   }
 
+  // Try to sync with the new style and update the current CSSAnimation. This
+  // ignores the overridden properties.
+  void UpdatePropertiesWithNew(
+      const NonOwningAnimationTarget& aTarget,
+      const ComputedStyle* aComputedStyle, TimingParams&& aNewTiming,
+      nsTArray<Keyframe>&& aNewKeyframes,
+      const StyleComputedTimingFunction& aNewTimingFunction,
+      CompositeOperation aNewComposite, AnimationTimeline* aNewTimeline,
+      const dom::ScopedTimelineName& aNewTimelineName,
+      dom::AnimationRange&& aNewRange, bool aNewIsStylePaused);
+
  protected:
   virtual ~CSSAnimation() {
     MOZ_ASSERT(!mOwningElement.IsSet(),
@@ -173,18 +183,28 @@ class CSSAnimation final : public Animation {
   // For (b) and (c) the owning element will return !IsSet().
   OwningElementRef mOwningElement;
 
-  // When true, indicates that when this animation next leaves the idle state,
-  // its animation index should be updated.
-  bool mNeedsNewAnimationIndexWhenRun;
-
-  // Phase and current iteration from the previous time we queued events.
-  // This is used to determine what new events to dispatch.
-  ComputedTiming::AnimationPhase mPreviousPhase;
-  uint64_t mPreviousIteration;
+  uint64_t mPreviousIteration = 0;
 
   // Properties that would normally be defined by the cascade but which have
   // since been explicitly set via the Web Animations API.
   CSSAnimationProperties mOverriddenProperties = CSSAnimationProperties::None;
+
+  // Phase and current iteration from the previous time we queued events.
+  // This is used to determine what new events to dispatch.
+  ComputedTiming::AnimationPhase mPreviousPhase =
+      ComputedTiming::AnimationPhase::Idle;
+
+  // When true, indicates that when this animation next leaves the idle state,
+  // its animation index should be updated.
+  bool mNeedsNewAnimationIndexWhenRun = false;
+
+  // The animation-play-state for this CSSAnimation. We cache this to determine
+  // if we need to play or pause the animation when there are any animation
+  // style changes.
+  // Note: We cannot just use Animation::PlayState() which may be affected by
+  // the timeline, e.g. null timeline may make it paused even if
+  // animation-play-state is running.
+  bool mIsStylePaused = false;
 };
 
 // A subclass of KeyframeEffect that reports when specific properties have been

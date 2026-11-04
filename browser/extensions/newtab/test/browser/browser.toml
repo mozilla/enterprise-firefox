@@ -93,3 +93,5 @@ tags = "urlbar"
 skip-if = [
   "enterprise", # MARS (sponsored content) is disabled on enterprise builds
 ]
+
+["browser_wrexhamafc_widget.js"]

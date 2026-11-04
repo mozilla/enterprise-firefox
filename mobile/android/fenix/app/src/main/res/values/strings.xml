@@ -3251,12 +3251,6 @@
     <string name="homepage_shortcuts_add_website_title">Enter a Website URL</string>
     <!-- Title for the "Popular sites" section in the "Add to homepage" bottom sheet. -->
     <string name="homepage_shortcuts_popular_sites">Popular sites</string>
-    <!-- Title text displayed in the dialog when shortcuts limit is reached. -->
-    <string name="shortcut_max_limit_title">Shortcut limit reached</string>
-    <!-- Content description text displayed in the dialog when shortcut limit is reached. -->
-    <string name="shortcut_max_limit_content">To add a new shortcut, remove one. Touch and hold the site and select remove.</string>
-    <!-- Confirmation dialog button text when top sites limit is reached. -->
-    <string name="top_sites_max_limit_confirmation_button">OK, Got It</string>
     <!-- Label for the preference to show the shortcuts for the most visited top sites on the homepage -->
     <string name="top_sites_toggle_top_recent_sites_4">Shortcuts</string>
     <!-- Title text displayed in the rename top site dialog. -->
@@ -3610,6 +3604,8 @@
     <string name="protection_panel_privacy_and_security_settings_2">Privacy Settings</string>
     <!-- Title text for the protection panel permissions section. -->
     <string name="protection_panel_permissions_title">Permissions</string>
+    <!-- Certificate panel - Title of the section that contains the website's certificate information (issued to, issued by, etc.) as verified by Firefox (thus guaranteeing the HTTPS connection is secure) -->
+    <string name="certificate_details_panel_secure_connection_title">Secure connection</string>
     <!-- Text for displaying the total number of trackers blocked in the trackers blocked panel.
         %1$d is a placeholder for the number of trackers blocked. -->
     <plurals name="trackers_blocked_panel_total_num_trackers_blocked_2">
@@ -4132,9 +4128,21 @@
     <string name="wrex_widget_match_penalties">Penalties</string>
     <!-- Content description (for accessibility, not displayed) for the overflow (more options) menu button on the sports widget card. -->
     <string name="wrex_widget_more_options_content_description">More options</string>
+    <!-- Content description (for accessibility, not displayed) announcing a soccer match.
+      %1$s is the home team name, %2$s is the away team name, %3$s is trailing context
+      (e.g. formatted score "1 - 2 (Full time)", upcoming match info "Jun 19 5:00 PM",
+      or a match status like "Full time"). -->
+    <string name="wrex_widget_match_content_description">%1$s versus %2$s, %3$s</string>
     <!-- Content description (for accessibility, not displayed) used for the sports widget card header announcing a live match.
       %s is the name of the competition the match belongs to (e.g. "FA Cup"). -->
     <string name="wrex_widget_live_game_content_description">%s, live game</string>
+    <!-- Content description (for accessibility, not displayed) announcing a live score.
+      %1$s is the home team name, %2$d is the home team score, %3$s is the away team name, %4$d is the away team score,
+      and %5$s is the match elapsed time (e.g. 72 minutes). -->
+    <string name="wrex_widget_live_score_content_description">%1$s %2$d, %3$s %4$d, %5$s, live</string>
+    <!-- Content description (for accessibility, not displayed) announcing the elapsed minutes of a live match.
+      %1$s is the clock value, which may be a plain number (e.g. "72") or include extra time (e.g. "90+3"). -->
+    <string name="wrex_widget_match_elapsed_minutes">Elapsed time in minutes: %1$s</string>
     <!-- Content description (for accessibility, not displayed) for a paginated item.
       %1$s is the name of the competition the match belongs to (e.g. "FA Cup"),
       %2$d is the current page number, and %3$d is the total number of pages. -->
@@ -4149,6 +4157,8 @@
     <string name="wrex_widget_error_try_refreshing">Try refreshing or check back later.</string>
     <!-- Sports widget error card title shown when the latest match results fail to load. -->
     <string name="wrex_widget_error_results_load_failed_title">Can’t show results right now</string>
+    <!-- Content description (for accessibility, not displayed) for teams which have not yet been determined in the match schedule. -->
+    <string name="wrex_widget_team_to_be_determined">Team to be determined</string>
 
     <!-- Privacy notice homepage banner -->
     <!-- A message we show the user on the homepage when there is a new version of the privacy notice. 'Firefox' is intentionally hardcoded.

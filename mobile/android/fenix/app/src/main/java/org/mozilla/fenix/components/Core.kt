@@ -128,7 +128,6 @@ import org.mozilla.fenix.gecko.GeckoProvider
 import org.mozilla.fenix.historymetadata.DefaultHistoryMetadataService
 import org.mozilla.fenix.historymetadata.HistoryMetadataMiddleware
 import org.mozilla.fenix.historymetadata.HistoryMetadataService
-import org.mozilla.fenix.home.blocklist.BlocklistHandler
 import org.mozilla.fenix.home.topsites.FenixDefaultTopSitesProvider
 import org.mozilla.fenix.longfox.LongFoxFeature
 import org.mozilla.fenix.media.MediaSessionService
@@ -602,7 +601,14 @@ class Core(
             browserStore = store,
             resources = context.resources,
             crashReporter = context.components.analytics.crashReporter,
-            blocklistHandler = BlocklistHandler(context.components.settings),
+            blocklistHandler = context.components.blocklistHandler,
+            experiments = {
+                buildSet {
+                    if (context.components.settings.enableRegionalDefaultShortcuts) {
+                        add(FenixDefaultTopSitesProvider.REGIONAL_DEFAULT_SHORTCUTS_EXPERIMENT)
+                    }
+                }
+            },
         )
     }
 
@@ -666,6 +672,7 @@ class Core(
             pinnedSitesStorage = pinnedSiteStorage,
             historyStorage = historyStorage,
             topSitesProvider = macTopSitesProvider,
+            defaultTopSitesProvider = defaultTopSitesProvider,
         )
     }
 

@@ -105,6 +105,7 @@ already_AddRefed<PAPZParent> ContentCompositorBridgeParent::AllocPAPZParent(
   }
 
   auto controller = MakeRefPtr<RemoteContentController>(aLayersId);
+  RefPtr<GeckoContentController> previousController;
 
   CompositorBridgeParent::WithIndirectLayerTreesLock(
       [&](const StaticMonitorAutoLock& aProofOfLock) {
@@ -113,9 +114,15 @@ already_AddRefed<PAPZParent> ContentCompositorBridgeParent::AllocPAPZParent(
                                                                   aProofOfLock);
         LAYERTREE_LOG("APZ controller created for layer tree {:x}, content {}",
                       aLayersId, GetContentId());
-        MOZ_RELEASE_ASSERT(!state.mController);
+        // BrowserChild::ReinitRendering can create a new PAPZ for a layer
+        // tree whose previous controller is still registered.
+        previousController = std::move(state.mController);
         state.mController = controller;
       });
+
+  if (previousController) {
+    previousController->Destroy();
+  }
 
   return controller.forget();
 }
@@ -136,21 +143,31 @@ ContentCompositorBridgeParent::AllocPWebRenderBridgeParent(
   RefPtr<CompositorBridgeParent> cbp = nullptr;
   RefPtr<WebRenderBridgeParent> root = nullptr;
 
-  CompositorBridgeParent::WithIndirectLayerTreesLock(
+  bool alreadyHasBridge = CompositorBridgeParent::WithIndirectLayerTreesLock(
       [&](const StaticMonitorAutoLock& aProofOfLock) {
         MOZ_RELEASE_ASSERT(CompositorBridgeParent::GetLayerTreeStateUnderLock(
             layersId, aProofOfLock));
         CompositorBridgeParent::LayerTreeState& state =
             CompositorBridgeParent::EnsureLayerTreeStateUnderLock(layersId,
                                                                   aProofOfLock);
-        MOZ_RELEASE_ASSERT(state.mWrBridge == nullptr);
+        if (state.mWrBridge) {
+          return true;
+        }
         cbp = state.mParent;
         if (cbp) {
           root = CompositorBridgeParent::EnsureLayerTreeStateUnderLock(
                      cbp->RootLayerTreeId(), aProofOfLock)
                      .mWrBridge;
         }
+        return false;
       });
+
+  if (alreadyHasBridge) {
+    NS_ERROR(
+        "Layer tree already has a WebRenderBridgeParent in "
+        "AllocPWebRenderBridgeParent; dropping message...");
+    return nullptr;
+  }
 
   RefPtr<wr::WebRenderAPI> api;
   if (root) {
@@ -172,8 +189,15 @@ ContentCompositorBridgeParent::AllocPWebRenderBridgeParent(
                                                   std::move(error));
   }
 
-  api = api->Clone();
   RefPtr<AsyncImagePipelineManager> holder = root->AsyncImageManager();
+  if (holder->HasLivePipeline(aPipelineId)) {
+    NS_ERROR(
+        "Pipeline already in use in AllocPWebRenderBridgeParent; dropping "
+        "message...");
+    return nullptr;
+  }
+
+  api = api->Clone();
   auto parent = MakeRefPtr<WebRenderBridgeParent>(
       this, aPipelineId, root->CompositorScheduler(), std::move(api),
       std::move(holder), cbp->GetVsyncInterval());

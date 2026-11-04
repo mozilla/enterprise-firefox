@@ -28,6 +28,7 @@
     <string name="pref_key_has_used_ip_protection" translatable="false">pref_key_has_used_vpn</string>
     <string name="pref_key_has_shown_ip_protection_prompt" translatable="false">pref_key_has_shown_ip_protection_prompt</string>
     <string name="pref_key_ip_protection_settings" translatable="false">pref_key_ip_protection_settings</string>
+    <string name="pref_key_ip_protection_last_data_limit_notice_cycle_reset_time" translatable="false">pref_key_ip_protection_last_data_limit_notice_cycle_reset_time</string>
     <string name="pref_key_enable_ip_protection_locations" translatable="false">pref_key_enable_ip_protection_locations</string>
     <string name="pref_key_data_choices" translatable="false">pref_key_data_choices</string>
     <string name="pref_key_delete_browsing_data" translatable="false">pref_key_delete_browsing_data</string>
@@ -160,6 +161,8 @@
     <string name="pref_key_sync_sign_in" translatable="false">pref_key_sync_sign_in</string>
     <string name="pref_key_push_project_id" translatable="false">project_id</string>
     <string name="pref_key_search_widget_installed_2" translatable="false">pref_key_search_widget_installed_2</string>
+    <!-- Key for the IDs of the search widgets known to be on the home screen -->
+    <string name="pref_key_search_widget_ids" translatable="false">pref_key_search_widget_ids</string>
     <!-- Key for the app version code that last published the search bar widget previews -->
     <string name="pref_key_search_bar_widget_previews_version" translatable="false">pref_key_search_bar_widget_previews_version</string>
     <!-- Key for credit cards sync preference in the account settings fragment -->
@@ -406,6 +409,7 @@
 
     <!-- Top Sites -->
     <string name="default_top_sites_added" translatable="false">pref_key_pocket_top_site_added</string>
+    <string name="pref_key_removed_default_pinned_top_sites_migrated" translatable="false">pref_key_removed_default_pinned_top_sites_migrated</string>
     <string name="pref_key_top_sites_size" translatable="false">pref_key_top_sites_size</string>
     <!-- Maximum number of top sites to display -->
     <string name="pref_key_top_sites_max_limit" translatable="false">pref_key_top_sites_max_limit</string>
@@ -499,7 +503,6 @@
     <string name="pref_key_enable_homepage_searchbar2" translatable="false">pref_key_enable_homepage_searchbar2</string>
     <string name="pref_key_should_show_custom_tab_extensions" translatable="false">pref_key_should_show_custom_tab_extensions</string>
     <string name="pref_key_enable_homepage_as_new_tab" translatable="false">pref_key_enable_homepage_as_new_tab</string>
-    <string name="pref_key_enable_universal_edge_to_edge_wallpapers" translatable="false">pref_key_enable_universal_edge_to_edge_wallpapers</string>
     <string name="pref_key_enable_ads_client_for_stories" translatable="false">pref_key_enable_ads_client_for_stories</string>
     <string name="pref_key_show_more_shortcuts" translatable="false">pref_key_show_more_shortcuts</string>
     <string name="pref_key_enable_homepage_weather_widget" translatable="false">pref_key_enable_homepage_weather_widget</string>

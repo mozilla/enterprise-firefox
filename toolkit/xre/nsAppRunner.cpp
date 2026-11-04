@@ -576,7 +576,6 @@ static bool RequestedHeadlessMode() {
 }
 
 bool gSafeMode = false;
-bool gFxREmbedded = false;
 
 enum E10sStatus {
   kE10sEnabledByDefault,
@@ -5082,10 +5081,6 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
     ChaosMode::SetChaosFeature(feature);
     ChaosMode::enterChaosMode();
     MOZ_ASSERT(ChaosMode::isActive(ChaosFeature::Any));
-  }
-
-  if (CheckArgExists("fxr")) {
-    gFxREmbedded = true;
   }
 
   if (ChaosMode::isActive(ChaosFeature::Any)) {

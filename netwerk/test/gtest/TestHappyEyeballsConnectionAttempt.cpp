@@ -134,9 +134,10 @@ class FakeConnectionEstablisher final : public ConnectionEstablisher {
                                        ConnectionEstablisher)
 
   FakeConnectionEstablisher(nsHttpConnectionInfo* aConnInfo,
-                            const NetAddr& aAddr, uint32_t aCaps, bool aIsUDP,
-                            bool aAllow1918, bool aForceRefuseLocal)
-      : ConnectionEstablisher(aConnInfo, aAddr, aCaps, aAllow1918),
+                            const EndpointTarget& aTarget, uint32_t aCaps,
+                            bool aIsUDP, bool aAllow1918,
+                            bool aForceRefuseLocal)
+      : ConnectionEstablisher(aConnInfo, aTarget, aCaps, aAllow1918),
         mIsUDP(aIsUDP),
         mForceRefuseLocal(aForceRefuseLocal) {}
 
@@ -145,7 +146,7 @@ class FakeConnectionEstablisher final : public ConnectionEstablisher {
     // Mirror the real establishers: refuse a local peer when !mAllow1918.
     // mForceRefuseLocal lets a test simulate a refusal made while speculative
     // even after Claim() flipped allow1918 to true.
-    if (mForceRefuseLocal && mAddr.IsIPAddrLocal()) {
+    if (mForceRefuseLocal && !IsByName() && Addr().IsIPAddrLocal()) {
       mRefusedForLocalAddress = true;
       return false;
     }
@@ -178,10 +179,11 @@ class FakeConnectionEstablisherFactory final
  public:
   already_AddRefed<ConnectionEstablisher> Create(
       ConnectionEstablisherType aType, nsHttpConnectionInfo* aConnInfo,
-      const NetAddr& aAddr, uint32_t aCaps, bool, bool aAllow1918) override {
+      const EndpointTarget& aTarget, uint32_t aCaps, bool,
+      bool aAllow1918) override {
     bool isUDP = aType == ConnectionEstablisherType::UDP;
     RefPtr<FakeConnectionEstablisher> e = new FakeConnectionEstablisher(
-        aConnInfo, aAddr, aCaps, isUDP, aAllow1918, mForceRefuseLocal);
+        aConnInfo, aTarget, aCaps, isUDP, aAllow1918, mForceRefuseLocal);
     (isUDP ? mUDP : mTCP).AppendElement(e);
     return e.forget();
   }
@@ -216,7 +218,8 @@ class RecordingConnMgrDelegate final : public HappyEyeballsConnMgrDelegate {
   void AddTransaction(nsHttpTransaction*, int32_t) override {
     mCalls.AppendElement("AddTransaction"_ns);
   }
-  void ReportSpdyConnection(HttpConnectionBase*, bool, bool) override {
+  void ReportSpdyConnection(HttpConnectionBase*, bool, bool,
+                            ConnectionEntry*) override {
     mCalls.AppendElement("ReportSpdyConnection"_ns);
   }
   void ReportHttp3Connection(HttpConnectionBase*, ConnectionEntry*) override {

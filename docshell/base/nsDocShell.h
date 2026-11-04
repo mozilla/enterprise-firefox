@@ -1198,8 +1198,15 @@ class nsDocShell final : public nsDocLoader,
                         UnsetOngoingNavigation aUnsetOngoingNavigation);
 
   MOZ_CAN_RUN_SCRIPT
-  void SetOngoingNavigation(
+  void ResetOngoingNavigation(
       const mozilla::Maybe<OngoingNavigation>& aOngoingNavigation);
+
+  void SetOngoingNavigation(
+      const mozilla::Maybe<OngoingNavigation>& aOngoingNavigation) {
+    mOngoingNavigation = aOngoingNavigation;
+  }
+
+  void ClearNavigationAPIOngoingNavigationForHistoryStep();
 
   void SetCurrentURIInternal(nsIURI* aURI);
 

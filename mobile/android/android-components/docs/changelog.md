@@ -5,16 +5,31 @@ permalink: /changelog/
 ---
 
 # 161.0 (In Development)
+* **browser-state**
+    * Added `TabSessionState.listenToPageActive` and `ListenToPageAction` (`ListenToPageActivated`, `ListenToPageDeactivated`) to track which tab is being read out loud by Listen to Page. [Bug 2072957](https://bugzilla.mozilla.org/show_bug.cgi?id=2072957)
 * **feature-media**
     * ⚠️ **Breaking change**: Added `MediaSessionDelegate.handleMediaUpdated`, which `MediaSessionFeature` calls instead of the playing, paused or stopped handler when only the media tab's title, URL or icon changed. [Bug 2085570](https://bugzilla.mozilla.org/show_bug.cgi?id=2085570)
 * **lib-installation-blockstore**
     * New component that checks for app reinstalls. [Bug 2084343](https://bugzilla.mozilla.org/show_bug.cgi?id=2084343)
+* **browser-state**, **feature-search**
+    * 🆕 Added `SearchEngineAccessPoint.partnerCode`, the partner code the access point's URLs were built with, for consumers that need the code itself rather than a search URL. [Bug 2086236](https://bugzilla.mozilla.org/show_bug.cgi?id=2086236)
+* **browser-state**, **feature-search**
+    * 🆕 Added `SearchEngine.accessPoints`, the per search access point URLs and telemetry suffixes a search-config-v3 engine defines, along with the `SearchEngine.accessPoint` extension that resolves one with a fallback to `default`, and `buildSearchUrl` and `buildSuggestionsURL` overloads that take an access point. Engines from a configuration that does not vary by access point are unaffected. [Bug 2075348](https://bugzilla.mozilla.org/show_bug.cgi?id=2075348)
 * **support-ktx**
     * Added `String.toSnakeCase`, which returns a camelCase or PascalCase string in snake_case. [Bug 2084683](https://bugzilla.mozilla.org/show_bug.cgi?id=2084683)
 * **feature-app-links**
     * ⚠️ **Breaking change**: `launchInApp` on `AppLinksInterceptor`, `AppLinksUseCases` and `AppLinksFeature`, and `shouldPrompt` on `AppLinksFeature` now receive the url being opened so the decision can vary by host. [Bug 2083207](https://bugzilla.mozilla.org/show_bug.cgi?id=2083207)
 * **feature-session**
     * `SwipeRefreshFeature` now disables pull-to-refresh while the observed tab is in fullscreen or showing a PDF. [Bug 2054920](https://bugzilla.mozilla.org/show_bug.cgi?id=2054920)
+* **support-utils**
+    * 🆕 Added `BuildMetadata`, which reads the R8/ProGuard mapping UUID and SHA-256 from the `build-metadata.properties` asset written by the `WriteBuildMetadata` Gradle task.
+* **feature-top-sites**
+    * **Breaking change**: Renamed `totalSites` to `targetSitesCount` in `TopSitesConfig` and `TopSitesStorage.getTopSites`, since it is the number of top sites to fill up to rather than a limit. [Bug 2075033](https://bugzilla.mozilla.org/show_bug.cgi?id=2075033)
+    * **Behavior change**: `DefaultTopSitesStorage.getTopSites` now returns all the pinned sites, even beyond `targetSitesCount`. The provided, frecent and default top sites still only fill the slots left within `targetSitesCount`, so the returned list can be longer than `targetSitesCount`. [Bug 2075033](https://bugzilla.mozilla.org/show_bug.cgi?id=2075033)
+* **concept-storage**
+    * Added `cardCvv`, the credit card security code, to `CreditCard`, `NewCreditCardFields` and `UpdatableCreditCardFields`. When `UpdatableCreditCardFields.cardCvv` is null, `CreditCardsAddressesStorage.updateCreditCard` keeps the stored security code, and an empty string removes it. [Bug 2085145](https://bugzilla.mozilla.org/show_bug.cgi?id=2085145)
+* **service-sync-autofill**
+    * `AutofillCreditCardsAddressesStorage` stores and returns the credit card security code. `updateCreditCard` no longer removes a stored security code that the caller did not set. [Bug 2085145](https://bugzilla.mozilla.org/show_bug.cgi?id=2085145)
 
 # 160.0
 * **concept-engine**
