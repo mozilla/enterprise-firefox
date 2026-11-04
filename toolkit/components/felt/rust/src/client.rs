@@ -72,12 +72,21 @@ pub struct FeltIpcClient {
     rx: Option<ipc_channel::ipc::IpcReceiver<FeltMessage>>,
 }
 
+/// Why the browser could not take the felt endpoint into use.
+#[derive(Debug, PartialEq)]
+pub(crate) enum EndpointError {
+    /// The endpoint could not be reached, or did not answer as felt does.
+    Unavailable,
+    /// The endpoint belongs to another process than the felt pid given.
+    Refused { owner: Option<u32>, expected: u32 },
+}
+
 impl FeltIpcClient {
     /// Connects to the felt endpoint named on the command line and completes
-    /// the channel exchange. `Err` means the connection failed or the endpoint
-    /// was refused (see `verify_from_felt_pid`); nothing has been trusted and
-    /// the caller must not continue.
-    pub fn new(felt_server_name: String, felt_pid: u32) -> Result<Self, ()> {
+    /// the channel exchange. On `Err` nothing has been trusted and the caller
+    /// must not continue: `Unavailable` is an ordinary failure, `Refused` means
+    /// another process sits at felt's endpoint (see `verify_from_felt_pid`).
+    pub fn new(felt_server_name: String, felt_pid: u32) -> Result<Self, EndpointError> {
         trace!("FeltIpcClient::new({})", felt_server_name);
 
         let (tx_felt_to_firefox, rx_firefox_to_felt): (
@@ -88,21 +97,19 @@ impl FeltIpcClient {
             Ok(tx0) => tx0,
             Err(err) => {
                 trace!("FeltIpcClient::new() failed: {}", err);
-                return Err(());
+                return Err(EndpointError::Unavailable);
             }
         };
         trace!("FeltIpcClient::new() connected!");
 
-        if !Self::verify_from_felt_pid(&tx0, felt_pid) {
-            return Err(());
-        }
+        Self::verify_from_felt_pid(&tx0, felt_pid)?;
 
         if let Err(err) = tx0.send(tx_felt_to_firefox) {
             error!(
                 "FeltIpcClient::new() failed to send the browser's channel: {}",
                 err
             );
-            return Err(());
+            return Err(EndpointError::Unavailable);
         }
 
         match Self::receive_reply_from(&rx_firefox_to_felt, felt_pid)? {
@@ -115,7 +122,7 @@ impl FeltIpcClient {
             }
             msg => {
                 error!("FeltIpcClient::new() unexpected first message {:?}", msg);
-                Err(())
+                Err(EndpointError::Unavailable)
             }
         }
     }
@@ -126,21 +133,24 @@ impl FeltIpcClient {
     /// was given next to it. The pid comes from the connected socket or pipe
     /// (`SO_PEERCRED`, `GetNamedPipeServerProcessId`), which the kernel fills
     /// in and the peer cannot forge, and it is checked before anything is sent.
-    /// `false` is logged and ends the connection attempt.
+    /// A mismatch is logged and refused.
     #[cfg(not(target_os = "macos"))]
     fn verify_from_felt_pid(
         tx0: &ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
         felt_pid: u32,
-    ) -> bool {
+    ) -> Result<(), EndpointError> {
         let peer_pid = tx0.peer_pid();
-        let authorized = peer_is_authorized(peer_pid, felt_pid);
-        if !authorized {
-            error!(
-                "FeltIpcClient::new() refused endpoint: owned by pid {:?}, expected felt pid {}",
-                peer_pid, felt_pid
-            );
+        if peer_is_authorized(peer_pid, felt_pid) {
+            return Ok(());
         }
-        authorized
+        error!(
+            "FeltIpcClient::new() refused endpoint: owned by pid {:?}, expected felt pid {}",
+            peer_pid, felt_pid
+        );
+        Err(EndpointError::Refused {
+            owner: peer_pid,
+            expected: felt_pid,
+        })
     }
 
     /// On macOS the endpoint is a Mach send right, which has no attestable
@@ -151,8 +161,8 @@ impl FeltIpcClient {
     fn verify_from_felt_pid(
         _tx0: &ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
         _felt_pid: u32,
-    ) -> bool {
-        true
+    ) -> Result<(), EndpointError> {
+        Ok(())
     }
 
     /// Receives felt's reply to the browser's channel. On macOS this is where
@@ -163,7 +173,7 @@ impl FeltIpcClient {
     fn receive_reply_from(
         rx: &ipc_channel::ipc::IpcReceiver<FeltMessage>,
         felt_pid: u32,
-    ) -> Result<FeltMessage, ()> {
+    ) -> Result<FeltMessage, EndpointError> {
         match rx.recv_with_sender_pid() {
             Ok((msg, sender_pid)) if peer_is_authorized(sender_pid, felt_pid) => Ok(msg),
             Ok((_, sender_pid)) => {
@@ -171,11 +181,14 @@ impl FeltIpcClient {
                     "FeltIpcClient::new() refused endpoint: reply sent by pid {:?}, expected felt pid {}",
                     sender_pid, felt_pid
                 );
-                Err(())
+                Err(EndpointError::Refused {
+                    owner: sender_pid,
+                    expected: felt_pid,
+                })
             }
             Err(err) => {
                 trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() ERR {}", err);
-                Err(())
+                Err(EndpointError::Unavailable)
             }
         }
     }
@@ -187,9 +200,10 @@ impl FeltIpcClient {
     fn receive_reply_from(
         rx: &ipc_channel::ipc::IpcReceiver<FeltMessage>,
         _felt_pid: u32,
-    ) -> Result<FeltMessage, ()> {
+    ) -> Result<FeltMessage, EndpointError> {
         rx.recv().map_err(|err| {
             trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() ERR {}", err);
+            EndpointError::Unavailable
         })
     }
 
@@ -304,7 +318,17 @@ impl FeltClientThread {
             "FeltClientThread::new(): connecting to {}",
             felt_server_name.clone()
         );
-        let felt_client = FeltIpcClient::new(felt_server_name, felt_pid)?;
+        let felt_client = match FeltIpcClient::new(felt_server_name, felt_pid) {
+            Ok(client) => client,
+            Err(EndpointError::Unavailable) => return Err(()),
+            // Another process at felt's endpoint is a signal about the device
+            // that administrators should see, and this early in startup a crash
+            // report is the only channel that reaches them.
+            Err(EndpointError::Refused { owner, expected }) => panic!(
+                "FELT endpoint owned by pid {:?}, expected the felt process {}",
+                owner, expected
+            ),
+        };
         if felt_client.report_version() {
             Ok(Self {
                 ipc_client: RefCell::new(felt_client),
@@ -920,7 +944,10 @@ mod tests {
         let (impostor, name) = endpoint();
         let client = FeltIpcClient::new(name, std::process::id() + 1);
         let impostor_was_answered = impostor.join().unwrap();
-        assert!(client.is_err(), "the browser refuses the impostor");
+        assert!(
+            matches!(client, Err(EndpointError::Refused { .. })),
+            "the browser refuses the impostor"
+        );
         // Everywhere but macOS the browser sends nothing to a refused endpoint;
         // on macOS it needs the reply to decide.
         assert_eq!(impostor_was_answered, cfg!(target_os = "macos"));
