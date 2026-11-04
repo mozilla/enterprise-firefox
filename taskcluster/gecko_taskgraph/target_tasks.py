@@ -612,6 +612,12 @@ def target_tasks_enterprise_firefox_with_tests(
     )
 
     def filter(task):
+        if parameters["release_product"] == "thunderbird-enterprise" and (
+            task.attributes.get("shippable")
+            or "-enterprise-shippable" in (task.attributes.get("build_platform") or "")
+        ):
+            return True
+
         if parameters["tasks_for"].startswith("github-pull-request"):
             tier = task.task.get("extra", {}).get("treeherder", {}).get("tier", 3)
             platform = (
