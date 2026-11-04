@@ -33,7 +33,13 @@ async function launchBrowser(args, afterSpawn = () => {}) {
     command: browserBinary(),
     arguments: ["--foreground", ...args],
     stderr: "pipe",
-    environment: { MOZ_BYPASS_FELT: "", MOZ_FELT_UI: "" },
+    // A refused endpoint is reported as a crash; keep the crash reporter out
+    // of the test.
+    environment: {
+      MOZ_BYPASS_FELT: "",
+      MOZ_FELT_UI: "",
+      MOZ_CRASHREPORTER_DISABLE: "1",
+    },
     environmentAppend: true,
   });
   registerCleanupFunction(() => proc.kill());
@@ -48,6 +54,15 @@ async function launchBrowser(args, afterSpawn = () => {}) {
 
 function assertRefused({ exitCode, stderr }, reason, message) {
   Assert.equal(exitCode, 1, `${message}: exit code`);
+  Assert.ok(stderr.includes(reason), `${message}: stderr says why: ${stderr}`);
+}
+
+// An endpoint owned by another process is reported as a crash, so the browser
+// aborts instead of exiting with status 1. The crash reason goes to the crash
+// report; stderr carries the refusal line logged before the abort.
+function assertAborted({ exitCode, stderr }, reason, message) {
+  Assert.notEqual(exitCode, 0, `${message}: did not exit normally`);
+  Assert.notEqual(exitCode, 1, `${message}: aborted rather than exited`);
   Assert.ok(stderr.includes(reason), `${message}: stderr says why: ${stderr}`);
 }
 
@@ -81,12 +96,12 @@ add_task(async function test_invalid_felt_pid_exits() {
 });
 
 // The endpoint is owned by this process, but the browser is told to expect
-// another pid, so it must refuse it. Everywhere but macOS the browser decides
-// before sending anything, so the endpoint is never read. On macOS the browser
-// decides from the reply, so the endpoint must accept and answer, which
-// ipcChannel does for the spawned pid; whether ipcChannel itself then fails
-// depends on whether the browser has already dropped its end, so only the
-// browser's outcome is asserted.
+// another pid, so it must refuse it and abort with a crash report. Everywhere
+// but macOS the browser decides before sending anything, so the endpoint is
+// never read. On macOS the browser decides from the reply, so the endpoint must
+// accept and answer, which ipcChannel does for the spawned pid; whether
+// ipcChannel itself then fails depends on whether the browser has already
+// dropped its end, so only the browser's outcome is asserted.
 add_task(async function test_endpoint_of_another_pid_is_refused() {
   const endpoint = Services.felt.oneShotIpcServer();
   const args = [
@@ -104,5 +119,5 @@ add_task(async function test_endpoint_of_another_pid_is_refused() {
       }
     }
   });
-  assertRefused(result, "Failed to connect to Felt", "endpoint of another pid");
+  assertAborted(result, "refused endpoint", "endpoint of another pid");
 });
