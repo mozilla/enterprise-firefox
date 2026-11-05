@@ -29,6 +29,8 @@ class CacheAPIEncryptionPersistence(QuotaTestCase):
     def setUp(self):
         super().setUp()
 
+        skip_if_enterprise(self)
+
         # QuotaManager reads encryption.enabled once at startup, so write it to
         # the profile and restart before touching storage.
         self.marionette.instance.profile.set_preferences({
@@ -42,8 +44,6 @@ class CacheAPIEncryptionPersistence(QuotaTestCase):
         self.cacheResponseBody = "persist_cache_value_lockstore"
 
     def test_cache_survives_restart(self):
-        skip_if_enterprise(self)
-
         url = self.marionette.absolute_url("empty.html")
 
         self.marionette.navigate(url)
