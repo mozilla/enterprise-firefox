@@ -16,6 +16,13 @@ QM_TESTING_PREF = "dom.quotaManager.testing"
 
 
 def skip_if_enterprise(test):
+    # Bug 2086038: on enterprise builds, restartWithCleanStorage() removes
+    # storage/ls-archive.sqlite but keeps webappsstore.sqlite, so the next
+    # storage initialization copies it into the LocalStorage archive, which
+    # lockstore cannot decrypt. Storage initialization then fails for the rest
+    # of the profile's lifetime, breaking every later test in the run. This
+    # must be called from setUp() before restartWithCleanStorage().
+    # Bug 2023612 removes the copy.
     if test.marionette.session_capabilities.get("moz:browserFlavor") == "enterprise":
         test.skipTest("Not supported on enterprise builds")
 
@@ -33,6 +40,8 @@ class CacheAPIEncryptionLockstore(QuotaTestCase):
         self.cacheName = "CacheLockstoreTest"
         self.profilePath = self.marionette.instance.profile.profile
         self.cacheAPIStoragePath = None
+
+        skip_if_enterprise(self)
 
         # QuotaManager reads encryption.enabled once at startup, so write it to
         # the profile and restart before touching storage.
@@ -53,8 +62,6 @@ class CacheAPIEncryptionLockstore(QuotaTestCase):
         super().tearDown()
 
     def test_encrypted_cache_sqlite_ondisk(self):
-        skip_if_enterprise(self)
-
         with self.using_new_window(self.testHTML, private=False) as (
             self.origin,
             self.persistenceType,
@@ -192,6 +199,8 @@ class CacheAPIEncryptionLockstoreControl(QuotaTestCase):
         self.profilePath = self.marionette.instance.profile.profile
         self.cacheAPIStoragePath = None
 
+        skip_if_enterprise(self)
+
         self.restartWithCleanStorage({
             QM_ENCRYPTION_PREF: False,
             QM_TESTING_PREF: True,
@@ -207,8 +216,6 @@ class CacheAPIEncryptionLockstoreControl(QuotaTestCase):
         super().tearDown()
 
     def test_unencrypted_cache_sqlite_ondisk(self):
-        skip_if_enterprise(self)
-
         with self.using_new_window(self.testHTML, private=False) as (
             self.origin,
             self.persistenceType,
