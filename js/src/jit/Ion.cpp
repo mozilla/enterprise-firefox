@@ -104,14 +104,15 @@ JitRuntime::~JitRuntime() {
   js_delete(jitHintsMap_.ref());
 }
 
-uint32_t JitRuntime::startTrampolineCode(MacroAssembler& masm) {
+uint32_t JitRuntime::startTrampolineCode(MacroAssembler& masm,
+                                         TargetKind kind) {
   AutoCreatedBy acb(masm, "startTrampolineCode");
 
   masm.assumeUnreachable("Shouldn't get here");
   masm.flushBuffer();
   masm.haltingAlign(CodeAlignment);
   masm.setFramePushed(0);
-  return masm.currentOffset();
+  return masm.indirectTarget(kind).offset();
 }
 
 bool JitRuntime::initialize(JSContext* cx) {
@@ -1722,6 +1723,11 @@ LIRGraph* GenerateLIR(MIRGenerator* mir) {
   if (mir->shouldCancel("Allocate Registers")) {
     return nullptr;
   }
+
+  if (!PropagateIndirectJumpTargets(mir, *lir)) {
+    return nullptr;
+  }
+  mir->spewPass("Propagate Indirect Jump Targets");
 
   return lir;
 }

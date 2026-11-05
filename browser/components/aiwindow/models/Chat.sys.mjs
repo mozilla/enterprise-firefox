@@ -20,6 +20,7 @@ import {
   MANAGE_TABS,
   AITAB_PREF,
   AITAB_TOOLS,
+  INCLUDE_CHAT_TAB_PREF,
   GENERATE_AITAB,
   ADD_MEMORY,
   SEARCH_THE_WEB,
@@ -44,7 +45,8 @@ import { getSmartPageName } from "chrome://browser/content/aiwindow/modules/Trus
  * @param {ChatConversation} conversation - The conversation context
  * @param {BrowsingContext} browsingContext - The browsing context (can be null for some tools)
  * @param {string} mode - The mode of operation (e.g., "fullpage", "sidebar", "urlbar")
- * @returns {Promise<object>} The result of the tool execution
+ * @returns {Promise<object>} The result of the tool execution, or
+ *   `{ toolResult, cardShown }` for manage_tabs
  * @private
  */
 export async function executeToolByName(
@@ -117,7 +119,7 @@ export async function executeToolByName(
       if (uiData) {
         conversation.addUIToolToCurrentMessage(toolCallId, uiData);
       }
-      result = toolResult;
+      result = { toolResult, cardShown: !!uiData };
       break;
     }
     case ADD_MEMORY: {
@@ -294,6 +296,22 @@ function filterFeatureGatedTools(tools, conversation) {
   }
   if (!Services.prefs.getBoolPref(AITAB_PREF, false)) {
     filtered = filtered.filter(t => !AITAB_TOOLS.has(t.function?.name));
+  }
+  if (!Services.prefs.getBoolPref(INCLUDE_CHAT_TAB_PREF, false)) {
+    filtered = filtered.map(t => {
+      if (t.function.name !== MANAGE_TABS) {
+        return t;
+      }
+      const properties = { ...t.function.parameters.properties };
+      delete properties.include_chat_tab;
+      return {
+        ...t,
+        function: {
+          ...t.function,
+          parameters: { ...t.function.parameters, properties },
+        },
+      };
+    });
   }
   return filtered;
 }
@@ -777,6 +795,7 @@ Object.assign(Chat, {
         // try/catch so the conversation can be updated for failed calls.
         let result;
         let aiTabEndsTurn = false;
+        let tabCardShown = false;
         let toolCallError = "";
         // Set when the tool is writing the user-facing reply itself, in which
         // case it is delivered below and the model gets no follow-up turn.
@@ -840,6 +859,10 @@ Object.assign(Chat, {
             }
           } else {
             result = await dispatchTool(toolName);
+            if (toolName === MANAGE_TABS) {
+              tabCardShown = result.cardShown;
+              result = result.toolResult;
+            }
           }
 
           // Debug logging: Record the data returned by the tool before feeding it to the model
@@ -920,7 +943,7 @@ Object.assign(Chat, {
         }
 
         const endsTurn =
-          toolName === MANAGE_TABS ||
+          tabCardShown ||
           aiTabEndsTurn ||
           directAnswerStream ||
           isSearchHandoff;
@@ -937,7 +960,7 @@ Object.assign(Chat, {
           .catch(() => {});
 
         // These successful tools finish their turns in the UI.
-        if (toolName === MANAGE_TABS || aiTabEndsTurn) {
+        if (tabCardShown || aiTabEndsTurn) {
           // These tool calls need to return early so any staged
           // security flags that have accumulated up to this point
           // need to be committed before returning since the commit

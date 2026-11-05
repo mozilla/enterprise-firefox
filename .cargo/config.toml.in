@@ -85,9 +85,9 @@ git = "https://github.com/mozilla/glean"
 tag = "v71.0.0"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/happy-eyeballs?tag=v1.0.0"]
+[source."git+https://github.com/mozilla/happy-eyeballs?tag=v2.0.0"]
 git = "https://github.com/mozilla/happy-eyeballs"
-tag = "v1.0.0"
+tag = "v2.0.0"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/ipc-channel?rev=cbc0a688243230cda9b826976affbc9ad237a23c"]

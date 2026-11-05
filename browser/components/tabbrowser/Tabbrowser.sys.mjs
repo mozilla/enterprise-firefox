@@ -339,10 +339,19 @@ export class Tabbrowser {
     ALL_DUPLICATES: 7,
   };
 
-  /** @type {WeakMap<MozTabbrowserTab, TabProgressListener>} */
+  /**
+   * Static because swapping browsers between windows reads the other window's
+   * entries.
+   *
+   * @type {WeakMap<MozTabbrowserTab, TabProgressListener>}
+   */
   static #tabListeners = new WeakMap();
 
-  /** @type {WeakMap<MozTabbrowserTab, BrowserStatusFilter>} */
+  /**
+   * Static for the same reason as #tabListeners.
+   *
+   * @type {WeakMap<MozTabbrowserTab, BrowserStatusFilter>}
+   */
   static #tabFilters = new WeakMap();
 
   /** @type {WeakMap<MozTabbrowserTab, [boolean, boolean]>} */
@@ -410,7 +419,8 @@ export class Tabbrowser {
   _tabLayerCache = [];
 
   /**
-   * Binding from browser to tab
+   * Binding from browser to tab. Per window, because callers of
+   * getTabForBrowser treat a miss as the browser belonging to another window.
    */
   #tabForBrowser = new WeakMap();
 
@@ -1564,6 +1574,9 @@ export class Tabbrowser {
   }
 
   getTabDialogBox(aBrowser) {
+    // Must not use `this`: ContentDispatchChooser reads this method off
+    // window.gBrowser and calls it without a receiver.
+
     if (!aBrowser) {
       throw new Error("aBrowser is required");
     }
@@ -6312,12 +6325,10 @@ export class Tabbrowser {
       (closeWindowWithLastTab ??
         Services.prefs.getBoolPref("browser.tabs.closeWindowWithLastTab"))
     ) {
-      this.documentGlobal.closeWindow(
-        true,
+      this.#closeWindowForLastTabs(
         suppressWarnAboutClosingWindow
           ? null
-          : this.documentGlobal.warnAboutClosingWindow,
-        "close-last-tab"
+          : this.documentGlobal.warnAboutClosingWindow
       );
       return;
     }
@@ -6678,6 +6689,29 @@ export class Tabbrowser {
     return true;
   }
 
+  /**
+   * Closes the window because the user closed its last tabs.
+   *
+   * @param {Function|null} promptFunction
+   *   Passed to closeWindow() to warn about closing the window.
+   * @returns {boolean}
+   *   `true` if the window closed.
+   */
+  #closeWindowForLastTabs(promptFunction) {
+    let win = this.documentGlobal;
+    // If the user explicitly closes the last tabs in the window close remaining tabs. Bug 490136
+    // Closing the last window doesn't quit the application on OS X.
+    let dontRestoreTabs = AppConstants.platform != "macosx";
+    if (dontRestoreTabs) {
+      lazy.SessionStore.maybeDontRestoreTabs(win);
+    }
+    let closed = win.closeWindow(true, promptFunction, "close-last-tab");
+    if (dontRestoreTabs && !closed) {
+      lazy.SessionStore.clearMaybeDontRestoreTabs(win);
+    }
+    return closed;
+  }
+
   static #hasBeforeUnload(aTab) {
     let browser = aTab.linkedBrowser;
     if (browser.isRemoteBrowser && browser.frameLoader) {
@@ -6806,10 +6840,8 @@ export class Tabbrowser {
       if (closeWindow && closeWindowFastpath && !this._removingTabs.size) {
         // This call actually closes the window, unless the user
         // cancels the operation.  We are finished here in both cases.
-        this.#windowIsClosing = this.documentGlobal.closeWindow(
-          true,
-          this.documentGlobal.warnAboutClosingWindow,
-          "close-last-tab"
+        this.#windowIsClosing = this.#closeWindowForLastTabs(
+          this.documentGlobal.warnAboutClosingWindow
         );
         return false;
       }
@@ -7085,10 +7117,8 @@ export class Tabbrowser {
     }
 
     if (aCloseWindow) {
-      this.#windowIsClosing = this.documentGlobal.closeWindow(
-        true,
-        this.documentGlobal.warnAboutClosingWindow,
-        "close-last-tab"
+      this.#windowIsClosing = this.#closeWindowForLastTabs(
+        this.documentGlobal.warnAboutClosingWindow
       );
     }
   }

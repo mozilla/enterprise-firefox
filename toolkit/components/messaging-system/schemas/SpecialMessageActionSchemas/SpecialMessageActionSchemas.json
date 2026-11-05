@@ -186,6 +186,35 @@
         {
           "type": "object",
           "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "args": {
+                  "type": "string",
+                  "description": "The support page, relative to the app.support.baseURL pref. E.g. \"firefox-backup\" for https://support.mozilla.org/kb/firefox-backup"
+                },
+                "where": {
+                  "type": "string",
+                  "enum": ["current", "save", "tab", "tabshifted", "window"],
+                  "description": "Where the URL is opened",
+                  "default": "current"
+                }
+              },
+              "required": ["args"],
+              "additionalProperties": false
+            },
+            "type": {
+              "type": "string",
+              "enum": ["OPEN_SUPPORT_PAGE"]
+            }
+          },
+          "required": ["data", "type"],
+          "additionalProperties": false,
+          "description": "Opens a support.mozilla.org article"
+        },
+        {
+          "type": "object",
+          "properties": {
             "type": {
               "type": "string",
               "enum": ["OPEN_PRIVATE_BROWSER_WINDOW"]
@@ -317,6 +346,29 @@
           "required": ["data", "type"],
           "additionalProperties": false,
           "description": "Opens given URL"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["SHOW_QR_CODE"]
+            },
+            "data": {
+              "type": "object",
+              "properties": {
+                "args": {
+                  "type": "string",
+                  "description": "URL to encode in the QR code"
+                }
+              },
+              "required": ["args"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["data", "type"],
+          "additionalProperties": false,
+          "description": "Shows a QR code for the given URL in a dialog over the current tab"
         },
         {
           "type": "object",

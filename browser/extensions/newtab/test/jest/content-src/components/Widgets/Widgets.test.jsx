@@ -155,13 +155,44 @@ describe("<Widgets>", () => {
     expect(container.querySelector(".crossword")).not.toBeInTheDocument();
   });
 
-  it("should render <Travel> under Nova when its prefs are enabled", () => {
-    const state = widgetsState({
+  it("renders a framed widget only while the manifest has an entry for it", () => {
+    const prefs = {
       "nova.enabled": true,
       [PREF_WIDGETS_ENABLED]: true,
-      [PREF_WIDGETS_TRAVEL_ENABLED]: true,
-      "widgets.system.travel.enabled": true,
-    });
+      [PREF_WIDGETS_CROSSWORD_ENABLED]: true,
+      "widgets.system.crossword.enabled": true,
+    };
+    const url =
+      "https://prod-games-particle.merino.prod.webservices.mozgcp.net/index.html";
+    for (const [FramedWidgets, rendered] of [
+      [{ crossword: { url } }, true],
+      [{}, false],
+    ]) {
+      const { container } = renderWidgets(
+        widgetsState(prefs, { FramedWidgets })
+      );
+      expect(
+        container.querySelector("[data-widget-id='crossword']") !== null
+      ).toBe(rendered);
+    }
+  });
+
+  it("should render <Travel> under Nova when its prefs are enabled", () => {
+    const state = widgetsState(
+      {
+        "nova.enabled": true,
+        [PREF_WIDGETS_ENABLED]: true,
+        [PREF_WIDGETS_TRAVEL_ENABLED]: true,
+        "widgets.system.travel.enabled": true,
+      },
+      {
+        FramedWidgets: {
+          travel: {
+            url: "https://stage-widgets-kayak-travel.merino.nonprod.webservices.mozgcp.net/1.0.202610272219/index.html",
+          },
+        },
+      }
+    );
     const { container } = renderWidgets(state);
     expect(
       container.querySelector("article.travel.widget")
@@ -184,12 +215,21 @@ describe("<Widgets>", () => {
   });
 
   it("should render <Solitaire> if solitaire prefs are enabled", () => {
-    const state = widgetsState({
-      "nova.enabled": true,
-      [PREF_WIDGETS_ENABLED]: true,
-      [PREF_WIDGETS_SOLITAIRE_ENABLED]: true,
-      "widgets.system.solitaire.enabled": true,
-    });
+    const state = widgetsState(
+      {
+        "nova.enabled": true,
+        [PREF_WIDGETS_ENABLED]: true,
+        [PREF_WIDGETS_SOLITAIRE_ENABLED]: true,
+        "widgets.system.solitaire.enabled": true,
+      },
+      {
+        FramedWidgets: {
+          solitaire: {
+            url: "https://prod-widgets-yahoo-solitaire.merino.prod.webservices.mozgcp.net/1.0.20261030214548/index.html",
+          },
+        },
+      }
+    );
     const { container } = renderWidgets(state);
     expect(
       container.querySelector("article.solitaire.widget")

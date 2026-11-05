@@ -773,6 +773,12 @@ skip-if = [
 
 ["test_gre_resources.js"]
 
+["test_h2_0rtt_early_data_limit.js"]
+run-sequentially = ["true"] # TlsServer listens to the same port
+skip-if = [
+  "os == 'win' && msix", # Bug 1808049
+]
+
 ["test_h2_unclean_shutdown_retry.js"]
 prefs = ["network.http.speculative-parallel-limit=0"]
 
@@ -873,6 +879,9 @@ skip-if = [
 ["test_happy_eyeballs_https_rr_prefetch_reuse.js"]
 
 ["test_happy_eyeballs_ip_preference.js"]
+
+["test_happy_eyeballs_ipv6_link_local.js"]
+run-if = ["os == 'mac'"] # needs a link-local address on the loopback interface
 
 ["test_happy_eyeballs_local_addr_retry.js"]
 skip-if = [

@@ -12,6 +12,8 @@ skip-if = ["enterprise"] # Firefox Labs is disabled on Firefox Enterprise
 
 ["browser_general.js"]
 
+["browser_messaging_actions.js"]
+
 ["browser_mute.js"]
 support-files = ["!/toolkit/content/tests/browser/audio.ogg"]
 
