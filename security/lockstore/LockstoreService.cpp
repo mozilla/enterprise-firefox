@@ -28,9 +28,6 @@
 #include "nsThreadUtils.h"
 #include "secport.h"
 #include "xpcpublic.h"
-#if defined(MOZ_ENTERPRISE)
-#  include "ProfileKekStartup.h"
-#endif
 
 namespace mozilla::security::lockstore {
 
@@ -186,11 +183,6 @@ LockstoreService::Observe(nsISupports* aSubject, const char* aTopic,
     keystore_close(mKeystore);
     mKeystore = nullptr;
   }
-#if defined(MOZ_ENTERPRISE)
-  // Under mMutex, so the off-main unlocks that read the secret have drained.
-  // Nothing can unlock a KEK past this point anyway: the keystore is closed.
-  ProfileKekStartup::ClearSecret();
-#endif
   return NS_OK;
 }
 
