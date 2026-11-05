@@ -71,6 +71,8 @@ run-if = [
 
 ["browser_sma_open_spotlight_dialog.js"]
 
+["browser_sma_open_support_page.js"]
+
 ["browser_sma_open_tab_in_splitview.js"]
 
 ["browser_sma_open_url.js"]
@@ -115,6 +117,8 @@ run-if = [
 ["browser_sma_show_firefox_accounts.js"]
 
 ["browser_sma_show_migration_wizard.js"]
+
+["browser_sma_show_qr_code.js"]
 
 ["browser_sma_submit_onboarding_opt_out_ping.js"]
 

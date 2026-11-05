@@ -6989,6 +6989,8 @@ void nsContentUtils::SetHTMLUnsafe(
   // «Element setHTMLUnsafe» or «ShadowRoot setHTMLUnsafe», and «script»."
   constexpr nsLiteralString elementSink = u"Element setHTMLUnsafe"_ns;
   constexpr nsLiteralString shadowRootSink = u"ShadowRoot setHTMLUnsafe"_ns;
+  // Bug 2072122: Trusted Types readiness experiment only, to be removed.
+  aTarget->OwnerDoc()->RecordTrustedTypesHTMLSink(aSource.IsTrustedHTML());
   Maybe<nsAutoString> compliantStringHolder;
   const nsAString* compliantString =
       TrustedTypeUtils::GetTrustedTypesCompliantString(
@@ -7398,8 +7400,10 @@ nsresult nsContentUtils::SetNodeTextContent(
     // If we have a node, it must be a eTEXT and we reuse it.
     if (aContent->HasChildren()) {
       nsIContent* child = aContent->GetFirstChild();
-      nsresult rv = child->AsText()->SetText(aValue, true);
-      NS_ENSURE_SUCCESS(rv, rv);
+      ErrorResult rv;
+      child->AsText()->SetNodeValueInternal(aValue, rv,
+                                            aMutationEffectOnScript);
+      NS_ENSURE_TRUE(!rv.Failed(), rv.StealNSResult());
 
       // All the following nodes, if they exist, must be deleted.
       while (nsIContent* lastChild = aContent->GetLastChild()) {

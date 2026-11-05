@@ -1086,7 +1086,7 @@ For the sample commands found below, note that the capitalization used is import
         ticks to measure how much time it will spend for a video texture upload
         to be a Canvas2D texture (ctx.drawImage). We run it for 5 times and ignore
         the first found. Lower results are better.
-* gecko_profile_extra_threads: CanvasRenderer,CanvasWorker,MediaSupervisor
+* gecko_profile_extra_threads: CanvasRenderer,MediaSupervisor
 * gecko_profile_interval: 2
 * linux_counters: None
 * mac_counters: None
@@ -2452,7 +2452,7 @@ For the sample commands found below, note that the capitalization used is import
         ticks to measure how much time it will spend for a video texture upload
         to be a WebGL texture (gl.texImage2D). We run it for 5 times and ignore
         the first found. Lower results are better.
-* gecko_profile_extra_threads: CanvasRenderer,CanvasWorker,MediaSupervisor
+* gecko_profile_extra_threads: CanvasRenderer,MediaSupervisor
 * gecko_profile_interval: 2
 * linux_counters: None
 * mac_counters: None
@@ -3078,7 +3078,7 @@ For the sample commands found below, note that the capitalization used is import
         across 100 frames to measure how much time it will spend for a video texture upload to be a
         Canvas2D texture (ctx.drawImage). We run it for 5 times and ignore the first found. Lower
         results are better.
-* gecko_profile_extra_threads: CanvasRenderer,CanvasWorker,MediaSupervisor
+* gecko_profile_extra_threads: CanvasRenderer,MediaSupervisor
 * gecko_profile_interval: 2
 * linux_counters: None
 * mac_counters: None
@@ -3252,7 +3252,7 @@ For the sample commands found below, note that the capitalization used is import
         across 100 frames to measure how much time it will spend for a video texture upload to be a
         Canvas2D texture (ctx.drawImage). We run it for 5 times and ignore the first found. Lower
         results are better.
-* gecko_profile_extra_threads: CanvasRenderer,CanvasWorker,MediaSupervisor
+* gecko_profile_extra_threads: CanvasRenderer,MediaSupervisor
 * gecko_profile_interval: 2
 * linux_counters: None
 * mac_counters: None
@@ -3299,7 +3299,7 @@ For the sample commands found below, note that the capitalization used is import
         across 100 frames to measure how much time it will spend for a video texture upload to be a
         Canvas2D texture (ctx.drawImage). We run it for 5 times and ignore the first found. Lower
         results are better.
-* gecko_profile_extra_threads: CanvasRenderer,CanvasWorker,MediaSupervisor
+* gecko_profile_extra_threads: CanvasRenderer,MediaSupervisor
 * gecko_profile_interval: 2
 * linux_counters: None
 * mac_counters: None
@@ -3995,7 +3995,7 @@ For the sample commands found below, note that the capitalization used is import
         across 100 frames to measure how much time it will spend for a video texture upload to be a
         Canvas2D texture (ctx.drawImage). We run it for 5 times and ignore the first found. Lower
         results are better.
-* gecko_profile_extra_threads: DOM Worker,CanvasRenderer,CanvasWorker,MediaSupervisor
+* gecko_profile_extra_threads: DOM Worker,CanvasRenderer,MediaSupervisor
 * gecko_profile_interval: 2
 * linux_counters: None
 * mac_counters: None
@@ -4169,7 +4169,7 @@ For the sample commands found below, note that the capitalization used is import
         across 100 frames to measure how much time it will spend for a video texture upload to be a
         Canvas2D texture (ctx.drawImage). We run it for 5 times and ignore the first found. Lower
         results are better.
-* gecko_profile_extra_threads: DOM Worker,CanvasRenderer,CanvasWorker,MediaSupervisor
+* gecko_profile_extra_threads: DOM Worker,CanvasRenderer,MediaSupervisor
 * gecko_profile_interval: 2
 * linux_counters: None
 * mac_counters: None
@@ -4216,7 +4216,7 @@ For the sample commands found below, note that the capitalization used is import
         across 100 frames to measure how much time it will spend for a video texture upload to be a
         Canvas2D texture (ctx.drawImage). We run it for 5 times and ignore the first found. Lower
         results are better.
-* gecko_profile_extra_threads: DOM Worker,CanvasRenderer,CanvasWorker,MediaSupervisor
+* gecko_profile_extra_threads: DOM Worker,CanvasRenderer,MediaSupervisor
 * gecko_profile_interval: 2
 * linux_counters: None
 * mac_counters: None
@@ -4894,21 +4894,26 @@ For the sample commands found below, note that the capitalization used is import
 * contact: :calixte and CI and Quality Tools team
 * source:
 * type: [Page load]
-* reporting: time from *performance.timing.navigationStart* to *pagerendered* event in ms (lower is better)
-* data: loads a PDF 5 times
+* reporting: time taken by *PDFPageProxy.render* for the first page in ms (lower is better)
+* data: loads each PDF 15 times
 * description:
-      | Runs through a set of chunks. Each chunk runs 100 PDFs with 5 iterations each.
-        If --pdfPaintChunk is not used when running the test locally, all PDFs will be tested
-        by default with only 1 cycle each. The PDFs that are run are found in a private Mozilla
-        repository. Locally, the artifact from the toolchain task in CI needs to be downloaded and
-        installed manually to run this test. Running the test locally with outdated/non-existent PDFs will
+      | Runs PDFs marked with "talos": true in the pdf.js test manifest, fetched through
+        the talos-pdfs toolchain artifact. All of them run in one task, and
+        --pdfPaintName runs a single PDF locally.
+        The PDFs that are run are found in a private Mozilla repository. Locally, the
+        artifact from the toolchain task in CI needs to be downloaded and installed manually
+        to run this test. Running the test locally with outdated/non-existent PDFs will
         provide a link to the latest artifact that needs to be downloaded and installed.
+        Times PDFPageProxy.render for the first page after loading the document and
+        initializing the renderer worker. Requests worker rendering and canvas
+        acceleration (pdfjs.disableWorkerRendering=false, pdfjs.enableHWA=true).
 * alert_threshold: 6.0
 * pdfpaint: True
+* preferences: {'pdfjs.disableWorkerRendering': False, 'pdfjs.enableHWA': True}
 * subtest_alerts: True
 * timeout: 2000
 * tpmanifest: ${talos}/tests/pdfpaint/pdfpaint.manifest
-* tppagecycles: 1
+* tppagecycles: 15
 * tptimeout: 60000
 * unit: ms
 * **Test Task**:
@@ -4922,102 +4927,7 @@ For the sample commands found below, note that the capitalization used is import
   - autoland
   - mozilla-release
   - mozilla-beta
-* - **talos-pdfpaint-1**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-1-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9-swr**
+* - **talos-pdfpaint**
   - ✅
   - ✅
   - ❌
@@ -5034,102 +4944,7 @@ For the sample commands found below, note that the capitalization used is import
   - autoland
   - mozilla-release
   - mozilla-beta
-* - **talos-pdfpaint-1**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-1-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9-swr**
+* - **talos-pdfpaint**
   - ❌
   - ❌
   - ❌
@@ -5146,104 +4961,9 @@ For the sample commands found below, note that the capitalization used is import
   - autoland
   - mozilla-release
   - mozilla-beta
-* - **talos-pdfpaint-1**
+* - **talos-pdfpaint**
   - ✅
   - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-1-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9-swr**
-  - ❌
-  - ❌
   - ❌
   - ❌
 :::
@@ -5258,102 +4978,7 @@ For the sample commands found below, note that the capitalization used is import
   - autoland
   - mozilla-release
   - mozilla-beta
-* - **talos-pdfpaint-1**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-1-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8-swr**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9**
-  - ✅
-  - ✅
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9-swr**
+* - **talos-pdfpaint**
   - ✅
   - ✅
   - ❌
@@ -5370,102 +4995,226 @@ For the sample commands found below, note that the capitalization used is import
   - autoland
   - mozilla-release
   - mozilla-beta
-* - **talos-pdfpaint-1**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-1-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-10-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-2-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-3-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-4-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-5-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-6-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-7-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-8-swr**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9**
-  - ❌
-  - ❌
-  - ❌
-  - ❌
-* - **talos-pdfpaint-9-swr**
+* - **talos-pdfpaint**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+:::
+
+
+::::
+
+(pdfpaint_main_hwa)=
+
+::::{dropdown} pdfpaint_main_hwa
+:class-container: anchor-id-pdfpaint_main_hwa
+
+* **Command to Run Locally**
+
+  ```
+  ./mach talos-test -a pdfpaint_main_hwa
+  ```
+
+* contact: :calixte and CI and Quality Tools team
+* source:
+* type: [Page load]
+* reporting: time taken by *PDFPageProxy.render* for the first page in ms (lower is better)
+* data: loads each PDF 15 times
+* description:
+      | Same as pdfpaint, with main-thread rendering and canvas acceleration enabled
+        (pdfjs.disableWorkerRendering=true, pdfjs.enableHWA=true).
+        Acceleration depends on platform support.
+* preferences: {'pdfjs.disableWorkerRendering': True, 'pdfjs.enableHWA': True}
+* **Test Task**:
+
+:::{list-table} **{ref}`test-linux2404-64-shippable/opt <hardware-hpe-moonshot>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-hwa**
+  - ✅
+  - ✅
+  - ❌
+  - ❌
+:::
+
+
+:::{list-table} **{ref}`test-linux2404-64/opt <hardware-hpe-moonshot>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-hwa**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+:::
+
+
+:::{list-table} **{ref}`test-macosx1500-aarch64-shippable/opt <hardware-mac-mini-m4>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-hwa**
+  - ✅
+  - ✅
+  - ❌
+  - ❌
+:::
+
+
+:::{list-table} **{ref}`test-windows11-64-24h2-shippable/opt <hardware-nuc13-windows11>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-hwa**
+  - ✅
+  - ✅
+  - ❌
+  - ❌
+:::
+
+
+:::{list-table} **{ref}`test-windows11-64-24h2/opt <hardware-nuc13-windows11>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-hwa**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+:::
+
+
+::::
+
+(pdfpaint_main_sw)=
+
+::::{dropdown} pdfpaint_main_sw
+:class-container: anchor-id-pdfpaint_main_sw
+
+* **Command to Run Locally**
+
+  ```
+  ./mach talos-test -a pdfpaint_main_sw
+  ```
+
+* contact: :calixte and CI and Quality Tools team
+* source:
+* type: [Page load]
+* reporting: time taken by *PDFPageProxy.render* for the first page in ms (lower is better)
+* data: loads each PDF 15 times
+* description:
+      | Same as pdfpaint, with main-thread rendering and a software canvas
+        (pdfjs.disableWorkerRendering=true, pdfjs.enableHWA=false).
+* preferences: {'pdfjs.disableWorkerRendering': True, 'pdfjs.enableHWA': False}
+* **Test Task**:
+
+:::{list-table} **{ref}`test-linux2404-64-shippable/opt <hardware-hpe-moonshot>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-sw**
+  - ✅
+  - ✅
+  - ❌
+  - ❌
+:::
+
+
+:::{list-table} **{ref}`test-linux2404-64/opt <hardware-hpe-moonshot>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-sw**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+:::
+
+
+:::{list-table} **{ref}`test-macosx1500-aarch64-shippable/opt <hardware-mac-mini-m4>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-sw**
+  - ✅
+  - ✅
+  - ❌
+  - ❌
+:::
+
+
+:::{list-table} **{ref}`test-windows11-64-24h2-shippable/opt <hardware-nuc13-windows11>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-sw**
+  - ✅
+  - ✅
+  - ❌
+  - ❌
+:::
+
+
+:::{list-table} **{ref}`test-windows11-64-24h2/opt <hardware-nuc13-windows11>`**
+:widths: 30 15 15 15 15
+:header-rows: 1
+
+* - **Test Name**
+  - mozilla-central
+  - autoland
+  - mozilla-release
+  - mozilla-beta
+* - **talos-pdfpaint-main-sw**
   - ❌
   - ❌
   - ❌

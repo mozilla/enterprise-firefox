@@ -2569,6 +2569,7 @@ pref("browser.smartwindow.resumeActivity.enabled", true);
 pref("browser.smartwindow.resumeCards.enabled", true);
 pref("browser.smartwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.smartwindow.firstrun.hasCompleted", false);
+pref("browser.smartwindow.firstrun.singlePageWithAutoModel", false);
 pref("browser.smartwindow.showThemesNotice", true);
 pref("browser.smartwindow.sidebar.openByDefault", true);
 pref("browser.smartwindow.isDefaultWindow", false);
@@ -2607,6 +2608,9 @@ pref("browser.smartwindow.aitab.menus", true);
 #else
 pref("browser.smartwindow.aitab.menus", false);
 #endif
+
+// Off until the model's use of manage_tabs' include_chat_tab is evaluated.
+pref("browser.smartwindow.manageTabs.includeChatTab", false);
 
 // Smart Window Agent
 pref("browser.smartwindow.agent.enabled", true);

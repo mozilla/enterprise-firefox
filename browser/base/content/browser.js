@@ -2474,7 +2474,11 @@ var XULBrowserWindow = {
       }
     }
 
-    if (TranslationsParent.isFullPageTranslationsRestrictedForPage(gBrowser)) {
+    if (
+      TranslationsParent.isFullPageTranslationsRestrictedForPage(
+        gBrowser.selectedBrowser
+      )
+    ) {
       this._menuItemForTranslations.setAttribute("disabled", "true");
     } else {
       this._menuItemForTranslations.removeAttribute("disabled");
