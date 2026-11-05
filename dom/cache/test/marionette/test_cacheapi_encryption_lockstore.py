@@ -15,11 +15,6 @@ QM_ENCRYPTION_PREF = "dom.quotaManager.encryption.enabled"
 QM_TESTING_PREF = "dom.quotaManager.testing"
 
 
-def skip_if_enterprise(test):
-    if test.marionette.session_capabilities.get("moz:browserFlavor") == "enterprise":
-        test.skipTest("Not supported on enterprise builds")
-
-
 class CacheAPIEncryptionLockstore(QuotaTestCase):
     """
     Verify that Cache API data is encrypted on disk when
@@ -53,8 +48,6 @@ class CacheAPIEncryptionLockstore(QuotaTestCase):
         super().tearDown()
 
     def test_encrypted_cache_sqlite_ondisk(self):
-        skip_if_enterprise(self)
-
         with self.using_new_window(self.testHTML, private=False) as (
             self.origin,
             self.persistenceType,
@@ -207,8 +200,6 @@ class CacheAPIEncryptionLockstoreControl(QuotaTestCase):
         super().tearDown()
 
     def test_unencrypted_cache_sqlite_ondisk(self):
-        skip_if_enterprise(self)
-
         with self.using_new_window(self.testHTML, private=False) as (
             self.origin,
             self.persistenceType,
