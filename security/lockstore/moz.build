@@ -37,10 +37,6 @@ if CONFIG["MOZ_ENTERPRISE"]:
         "ProfileKekStartup.cpp",
     ]
 
-    SOURCE_HEADERS += [
-        "ProfileKekStartup.h",
-    ]
-
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     # For MacApplicationDelegate.h.
     LOCAL_INCLUDES += ["/toolkit/xre"]
