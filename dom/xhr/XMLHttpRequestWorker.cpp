@@ -1091,8 +1091,7 @@ bool EventRunnable::WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) {
     }
   }
 
-  UniquePtr<XMLHttpRequestWorker::StateData> state =
-      std::make_unique<XMLHttpRequestWorker::StateData>();
+  auto state = std::make_unique<XMLHttpRequestWorker::StateData>();
 
   state->mStatusResult = mStatusResult;
   state->mStatus = mStatus;

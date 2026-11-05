@@ -2,6 +2,8 @@
 
 ["browser_access_connector_button.js"]
 
+["browser_fxa_ui_hidden.js"]
+
 ["browser_profile_management_disabled.js"]
 
 ["browser_relaunch_ui.js"]

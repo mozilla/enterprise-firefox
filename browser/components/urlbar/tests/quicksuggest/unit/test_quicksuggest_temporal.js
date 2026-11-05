@@ -211,7 +211,7 @@ add_task(async function filterSuggestions() {
     makeSuggestion(
       makeData({ engines: [engine.id], query: "invalid", type: "x" })
     ),
-    ...makeQueries(5).map(query =>
+    ...makeQueries(7).map(query =>
       makeSuggestion(makeData({ engines: [engine.id], query }))
     ),
     makeSuggestion(
@@ -221,7 +221,7 @@ add_task(async function filterSuggestions() {
   let filtered = await gFeature.filterSuggestions(suggestions);
   Assert.deepEqual(
     filtered.map(s => s.data.query),
-    ["q1", "q2", "q3"],
+    ["q1", "q2", "q3", "q4", "q5"],
     "rowCount queries of the first eligible group are picked"
   );
   for (let s of filtered) {
@@ -234,7 +234,7 @@ add_task(async function filterSuggestions() {
   filtered = await gFeature.filterSuggestions(suggestions);
   Assert.deepEqual(
     filtered.map(s => s.data.query),
-    ["q4"],
+    ["q6"],
     "rowCount is respected and the picked queries are skipped"
   );
   UrlbarPrefs.clear("temporal.rowCount");
@@ -257,4 +257,89 @@ add_task(async function filterSuggestions() {
     oldDefaultEngine,
     SearchService.CHANGE_REASON.ADDON_INSTALL
   );
+});
+
+// Tests that the context's maxResults uses temporal.zeroPrefixMaxRichResults in
+// the zero prefix view when temporal suggestions are enabled, unless the user
+// has set maxRichResults.
+add_task(function temporalZeroPrefix_maxResults() {
+  Services.prefs.clearUserPref("browser.urlbar.maxRichResults");
+  let zeroPrefix = () => createContext("").maxResults;
+  let typed = () => createContext("test").maxResults;
+  let searchMode = () =>
+    createContext("", { searchMode: { engineName: "test" } }).maxResults;
+
+  Assert.equal(zeroPrefix(), 10);
+
+  UrlbarPrefs.set("temporal.featureGate", true);
+  Assert.equal(zeroPrefix(), 13);
+  Assert.equal(typed(), 10);
+  Assert.equal(searchMode(), 10);
+  Assert.equal(
+    createContext("", { maxResults: 1 }).maxResults,
+    1,
+    "A maxResults other than maxRichResults is kept"
+  );
+
+  for (let value of [5, 20]) {
+    UrlbarPrefs.set("maxRichResults", value);
+    Assert.equal(
+      zeroPrefix(),
+      value,
+      "A user-set maxRichResults is respected in the zero prefix view"
+    );
+    Assert.equal(typed(), value);
+  }
+
+  Services.prefs.clearUserPref("browser.urlbar.maxRichResults");
+  Assert.equal(zeroPrefix(), 13);
+
+  for (let sapName of ["smartbar", "searchbar", "newtab_searchbar"]) {
+    let context = createContext("", { sapName });
+    Assert.equal(
+      context.maxResults,
+      10,
+      `maxRichResults is used in the ${sapName} zero prefix view`
+    );
+    Assert.ok(!context.isTemporalZeroPrefix);
+  }
+
+  let context = createContext("");
+  context.maxResults = 4;
+  Assert.equal(context.maxResults, 4, "An assigned maxResults is kept");
+
+  UrlbarPrefs.set("temporal.zeroPrefixMaxRichResults", 8);
+  Assert.equal(zeroPrefix(), 8);
+  Assert.equal(typed(), 10);
+  UrlbarPrefs.clear("temporal.zeroPrefixMaxRichResults");
+
+  UrlbarPrefs.set("suggest.temporal", false);
+  Assert.equal(
+    zeroPrefix(),
+    10,
+    "maxRichResults is used when the user turns off temporal suggestions"
+  );
+  UrlbarPrefs.clear("suggest.temporal");
+
+  UrlbarPrefs.set("suggest.temporal.seasonal", false);
+  Assert.equal(
+    zeroPrefix(),
+    10,
+    "maxRichResults is used when the user turns off every temporal type"
+  );
+  Assert.ok(!createContext("").isTemporalZeroPrefix);
+  UrlbarPrefs.clear("suggest.temporal.seasonal");
+
+  for (let pref of ["suggest.searches", "browser.search.suggest.enabled"]) {
+    UrlbarPrefs.set(pref, false);
+    Assert.equal(
+      zeroPrefix(),
+      10,
+      `maxRichResults is used when ${pref} is false`
+    );
+    Assert.ok(!createContext("").isTemporalZeroPrefix);
+    UrlbarPrefs.clear(pref);
+  }
+
+  UrlbarPrefs.clear("temporal.featureGate");
 });

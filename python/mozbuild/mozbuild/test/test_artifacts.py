@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import json
 import os
 import tempfile
 import zipfile
@@ -304,6 +305,45 @@ class TestFindPushheads(TestCase):
                 (["mozilla-central"], "c"),
             ],
         )
+
+
+class TestTryPushBaseRevision(TestCase):
+    REV = "0123456789abcdef0123456789abcdef01234567"
+
+    def base_revision(self, config, env={"MOZ_AUTOMATION": "1"}):
+        artifacts = Artifacts.__new__(Artifacts)
+        with tempfile.TemporaryDirectory() as topsrcdir:
+            artifacts._topsrcdir = topsrcdir
+            if config is not None:
+                with open(mozpath.join(topsrcdir, "try_task_config.json"), "w") as fh:
+                    fh.write(config)
+            with mock.patch.dict(os.environ, env, clear=True):
+                return artifacts._try_push_base_revision()
+
+    def test_base_revision_is_used(self):
+        config = json.dumps({"version": 2, "parameters": {"base_rev": self.REV}})
+        self.assertEqual(self.base_revision(config), self.REV)
+
+    def test_local_build_ignores_try_task_config(self):
+        config = json.dumps({"version": 2, "parameters": {"base_rev": self.REV}})
+        self.assertIsNone(self.base_revision(config, env={}))
+
+    def test_no_try_task_config(self):
+        self.assertIsNone(self.base_revision(None))
+
+    def test_version_1_try_task_config(self):
+        self.assertIsNone(self.base_revision(json.dumps({"tasks": ["build-linux64"]})))
+
+    def test_hg_push_has_no_base_revision(self):
+        config = json.dumps({"version": 2, "parameters": {"try_task_config": {}}})
+        self.assertIsNone(self.base_revision(config))
+
+    def test_null_base_revision(self):
+        config = json.dumps({"version": 2, "parameters": {"base_rev": "0" * 40}})
+        self.assertIsNone(self.base_revision(config))
+
+    def test_malformed_try_task_config(self):
+        self.assertIsNone(self.base_revision("{"))
 
 
 class TestShallowCloneRevisions(TestCase):

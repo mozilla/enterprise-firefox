@@ -45,7 +45,6 @@ export const EnterpriseHandler = {
    * Handles the enterprise state for each new browser window.
    * On every call:
    *    - Initializes the URL bar buttons on every call
-   *    - Hide FxA toolbar button and FxA item in app menu (hamburger menu)
    *
    * @param {Window} window chrome window
    */
@@ -54,7 +53,6 @@ export const EnterpriseHandler = {
       // Nothing to setup for the felt window
       return;
     }
-    this.restrictEnterpriseView(window);
     this._initLockingPrefObservers();
     this._initUrlbarButtons(window);
   },
@@ -110,19 +108,6 @@ export const EnterpriseHandler = {
       Services.prefs.addObserver(LOCK_ON_RESTART_PREF, this._lockPrefObserver);
       Services.prefs.addObserver(LOCK_ON_CRASH_PREF, this._lockPrefObserver);
     }
-  },
-
-  /**
-   * Hide away FxA appearances in the toolbar and the app menu (hamburger menu)
-   *
-   * @param {Window} window chrome window
-   */
-  restrictEnterpriseView(window) {
-    // Hides fxa toolbar button
-    Services.prefs.setBoolPref("identity.fxaccounts.toolbar.enabled", false);
-
-    // Hides fxa item and separator in main view (hamburg menu)
-    window.PanelUI.mainView.setAttribute("restricted-enterprise-view", true);
   },
 
   /**

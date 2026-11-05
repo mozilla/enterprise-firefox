@@ -29,12 +29,12 @@ UNIFIED_SOURCES += [
 ]
 
 if CONFIG["MOZ_ENTERPRISE"]:
-    UNIFIED_SOURCES += [
-        "ProfileKekStartup.cpp",
+    EXPORTS.mozilla.security.lockstore += [
+        "ProfileKekStartup.h",
     ]
 
-    SOURCE_HEADERS += [
-        "ProfileKekStartup.h",
+    UNIFIED_SOURCES += [
+        "ProfileKekStartup.cpp",
     ]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":

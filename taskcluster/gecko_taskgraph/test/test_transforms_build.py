@@ -140,6 +140,25 @@ def linux_build():
     }
 
 
+@pytest.mark.parametrize(
+    "project,shippable,expected",
+    (
+        pytest.param("enterprise-firefox-try", False, True, id="enterprise"),
+        pytest.param("enterprise-firefox-try", True, False, id="enterprise-shippable"),
+        pytest.param("try", False, False, id="gecko"),
+    ),
+)
+def test_use_artifact_non_shippable(run_transform, project, shippable, expected):
+    params = FakeParameters({
+        "project": project,
+        "try_task_config": {"use-artifact-builds": True},
+    })
+    build = linux_build()
+    build["attributes"]["shippable"] = shippable
+    [job] = run_transform(use_artifact_transform, [build], kind="build", params=params)
+    assert ("MOZ_ARTIFACT_ALLOW_NON_SHIPPABLE" in job["worker"]["env"]) == expected
+
+
 @pytest.mark.parametrize("use_artifact", (True, False))
 def test_use_artifact_toolchains(run_transform, use_artifact):
     params = FakeParameters({

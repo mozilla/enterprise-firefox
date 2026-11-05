@@ -26,6 +26,7 @@
 #include "js/loader/ModuleLoadRequest.h"
 #include "js/loader/ModuleLoaderBase.h"
 #include "js/loader/ScriptLoadRequest.h"
+#include "mozilla/AntiTrackingUtils.h"
 #include "mozilla/AppShutdown.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/AsyncEventDispatcher.h"
@@ -1044,8 +1045,8 @@ nsresult ScriptLoader::PrepareIncrementalStreamLoader(
     ScriptLoadRequest* aRequest) {
   UniquePtr<mozilla::dom::SRICheckDataVerifier> sriDataVerifier;
   if (!aRequest->mIntegrity.IsEmpty()) {
-    sriDataVerifier = MakeUnique<SRICheckDataVerifier>(aRequest->mIntegrity,
-                                                       aChannel, mReporter);
+    sriDataVerifier = std::make_unique<SRICheckDataVerifier>(
+        aRequest->mIntegrity, aChannel, mReporter);
   }
 
   RefPtr<ScriptLoadHandler> handler =
@@ -1379,7 +1380,7 @@ void ScriptLoader::TryUseCache(ReferrerPolicy aReferrerPolicy,
     //           different encoding, and thus this cache entry shouldn't be
     //           used.
     if (aRequestType == ScriptLoadRequestType::Preload &&
-        !aRequest->mClassicScriptHintEncoding && mDocument &&
+        !aRequest->mClassicScriptHintEncoding &&
         mDocument->GetDocumentCharacterSetSource() == 0) {
       // This is the (b-1) case above.
       LOG(
@@ -2419,13 +2420,6 @@ nsresult ScriptLoader::AttemptOffThreadScriptCompile(
       TRACE_FOR_TEST(aRequest, "compile:main thread");
       return NS_OK;
     }
-
-    // Only source phase modules are compiled off-thread. Compilation of
-    // evaluation phase modules is not yet implemented (Bug 2030454).
-    if (!aRequest->AsModuleRequest()->IsSourcePhaseRequest(cx)) {
-      TRACE_FOR_TEST(aRequest, "compile:main thread");
-      return NS_OK;
-    }
   } else {
     MOZ_ASSERT(aRequest->IsRetrievedAsSerializedStencil());
 
@@ -2808,7 +2802,7 @@ bool WasmCompileTask::StealResult(JSContext* aCx,
     return false;
   }
 
-  aModuleOut.set(JS::CreateWasmSourcePhaseModule(aCx, wasmModuleObject));
+  aModuleOut.set(JS::CreateWasmModule(aCx, wasmModuleObject));
   return !!aModuleOut;
 }
 
@@ -3296,7 +3290,9 @@ void ScriptLoader::CalculateCacheFlag(ScriptLoadRequest* aRequest) {
     return;
   }
 
-  if (!net::SchemeIsHttpOrHttps(aRequest->URI())) {
+  bool isHTTPS = aRequest->URI()->SchemeIs("https");
+
+  if (!aRequest->URI()->SchemeIs("http") && !isHTTPS) {
     LOG(("ScriptLoadRequest (%p): Bytecode-cache: Skip all: Unsupported scheme",
          aRequest));
     // Internal resources can be exposed to the web content, but they don't
@@ -3381,6 +3377,13 @@ void ScriptLoader::CalculateCacheFlag(ScriptLoadRequest* aRequest) {
   }
 
   if (mCache) {
+    if (!isHTTPS) {
+      LOG(("ScriptLoadRequest (%p): Bytecode-cache: Skip all: non-https",
+           aRequest));
+      aRequest->MarkNotCacheable();
+      return;
+    }
+
     if (mCache->IsLowMemory()) {
       // During the low-memory situation, we avoid creating another cache,
       // with the following rationale.
@@ -3606,6 +3609,10 @@ nsresult ScriptLoader::EvaluateScriptElement(ScriptLoadRequest* aRequest) {
     }
 
     globalObject = scriptGlobal;
+
+    // Bug 2072122: Trusted Types readiness experiment only, to be removed.
+    mDocument->SetTrustedTypesReadinessSignal(
+        TrustedTypesReadinessSignal::RanScript);
   }
 
   // 5. If el's from an external file is true, or el's type is "module", then
@@ -5540,15 +5547,9 @@ nsresult ScriptLoader::PrepareLoadedRequest(ScriptLoadRequest* aRequest,
       aRequest->SetSourceMapURL(NS_ConvertUTF8toUTF16(sourceMapURL));
     }
 
-    nsCOMPtr<nsIClassifiedChannel> classifiedChannel =
-        do_QueryInterface(aChannel);
-    MOZ_ASSERT(classifiedChannel);
-    if (classifiedChannel &&
-        classifiedChannel->IsThirdPartyTrackingResource()) {
-      net::ClassificationFlags flags{
-          classifiedChannel->GetFirstPartyClassificationFlags(),
-          classifiedChannel->GetThirdPartyClassificationFlags()};
-      aRequest->GetScriptLoadContext()->SetClassificationFlags(flags);
+    if (AntiTrackingUtils::IsThirdPartyTrackingChannel(aChannel)) {
+      aRequest->GetScriptLoadContext()->SetClassificationFlags(
+          AntiTrackingUtils::GetClassificationFlags(aChannel));
     }
   }
 

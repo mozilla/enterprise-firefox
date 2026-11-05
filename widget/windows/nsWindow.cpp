@@ -251,6 +251,7 @@ nsWindow* nsWindow::sCurrentWindow = nullptr;
 bool nsWindow::sJustGotDeactivate = false;
 bool nsWindow::sJustGotActivate = false;
 bool nsWindow::sIsInMouseCapture = false;
+TimeStamp nsWindow::sLastAppDeactivationTime;
 
 // Urgent-message reentrancy depth for the static `WindowProc` callback.
 //
@@ -893,8 +894,8 @@ void nsWindow::SendAnAPZEvent(InputData& aEvent) {
     // Give the swipe tracker a first pass at the event. If a new pan gesture
     // has been started since the beginning of the swipe, the swipe tracker
     // will know to ignore the event.
-    nsEventStatus status =
-        mSwipeTracker->ProcessEvent(aEvent.AsPanGestureInput());
+    nsEventStatus status = mSwipeTracker->ProcessEvent(
+        aEvent.AsPanGestureInput(), SwipeInputSource::Touchpad);
     if (status == nsEventStatus_eConsumeNoDefault) {
       return;
     }
@@ -916,6 +917,9 @@ void nsWindow::SendAnAPZEvent(InputData& aEvent) {
     WidgetWheelEvent event = panInput.ToWidgetEvent(this);
     if (mAPZC) {
       event = MayStartSwipe(panInput, result);
+      if (!panInput.ShouldDispatchToContentAfterAPZ()) {
+        return;
+      }
     }
 
     ProcessUntransformedAPZEvent(&event, result);
@@ -940,7 +944,7 @@ void nsWindow::RecreateDirectManipulationIfNeeded() {
     return;
   }
 
-  mDmOwner = MakeUnique<DirectManipulationOwner>(this);
+  mDmOwner = std::make_unique<DirectManipulationOwner>(this);
 
   LayoutDeviceIntRect bounds = mBounds;
   mDmOwner->Init(bounds);
@@ -3416,6 +3420,12 @@ void nsWindow::TryDwmResizeHack() {
 
   // ---------------------------------------------------------------------------
 
+  // No renderer yet (e.g. sizemode=fullscreen before first paint): skip without
+  // using up the one-shot flag.
+  if (!mWindowRenderer) {
+    return;
+  }
+
   // Regardless of preferences or heuristics, only apply the hack if this is the
   // first time we've entered fullscreen across the entire Firefox session.
   // (Subsequent transitions to fullscreen, even with different windows, don't
@@ -5772,6 +5782,9 @@ bool nsWindow::ProcessMessageInternal(UINT msg, WPARAM& wParam, LPARAM& lParam,
     } break;
 
     case WM_ACTIVATEAPP: {
+      if (!wParam) {
+        sLastAppDeactivationTime = TimeStamp::Now();
+      }
       // Bug 1851991: Sometimes this can be called before gfxPlatform::Init
       // when a window is created very early. In that case we just forego
       // setting this and accept the GPU process might briefly run at a lower
@@ -8634,7 +8647,7 @@ nsresult nsWindow::SynthesizeNativeTouchPoint(
     }
 
     if (!mSynthesizedTouchInput) {
-      mSynthesizedTouchInput = MakeUnique<MultiTouchInput>();
+      mSynthesizedTouchInput = std::make_unique<MultiTouchInput>();
     }
 
     WidgetEventTime time = CurrentMessageWidgetEventTime();
@@ -8662,8 +8675,8 @@ nsresult nsWindow::SynthesizeNativeTouchPoint(
     }
 
     if (!entry) {
-      entry.Insert(MakeUnique<PointerInfo>(aPointerId, aPoint,
-                                           PointerInfo::PointerType::TOUCH));
+      entry.Insert(std::make_unique<PointerInfo>(
+          aPointerId, aPoint, PointerInfo::PointerType::TOUCH));
     } else {
       if (entry.Data()->mType != PointerInfo::PointerType::TOUCH) {
         return NS_ERROR_UNEXPECTED;
@@ -8750,8 +8763,8 @@ nsresult nsWindow::SynthesizeNativePenInput(
     }
 
     if (!entry) {
-      entry.Insert(MakeUnique<PointerInfo>(aPointerId, aPoint,
-                                           PointerInfo::PointerType::PEN));
+      entry.Insert(std::make_unique<PointerInfo>(
+          aPointerId, aPoint, PointerInfo::PointerType::PEN));
     } else {
       if (entry.Data()->mType != PointerInfo::PointerType::PEN) {
         return NS_ERROR_UNEXPECTED;

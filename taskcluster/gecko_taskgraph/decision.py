@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import gc
 import logging
 import os
 import shutil
@@ -15,6 +16,7 @@ from pathlib import Path
 
 import taskgraph
 import yaml
+from mozsystemmonitor.resourcemonitor import SystemResourceMonitor
 from redo import retry
 from taskgraph import create
 from taskgraph.create import create_tasks
@@ -37,7 +39,7 @@ from .parameters import (
     get_version,
 )
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
-from .util.bugbug import push_schedules, start_push_schedules
+from .util.bugbug import PUSH_SCHEDULES_ENV, push_schedules, start_push_schedules
 from .util.hg import get_hg_revision_metadata
 from .util.partials import populate_release_history
 from .util.partners import (
@@ -155,6 +157,7 @@ PER_PROJECT_PARAMETERS = {
         "target_tasks_method": "kaios_tasks",
     },
     "toolchains": {
+        "head_git_repository": "https://github.com/mozilla-firefox/firefox",
         "target_tasks_method": "mozilla_central_tasks",
     },
     # git projects
@@ -164,6 +167,11 @@ PER_PROJECT_PARAMETERS = {
         "target_tasks_method": "firefox_pull_request_tasks",
     },
     "firefox-dev": {
+        "enable_always_target": True,
+        "target_tasks_method": "try_tasks",
+        "release_type": "nightly",
+    },
+    "firefox-dev-secure": {
         "enable_always_target": True,
         "target_tasks_method": "try_tasks",
         "release_type": "nightly",
@@ -237,7 +245,7 @@ def build_decision_perfherder_data(trust_domain, params_time, taskgraph_time):
     }
 
 
-def taskgraph_decision(options, parameters):
+def taskgraph_decision(options, parameters, bugbug_future=None):
     """
     Run the decision task.  This function implements `mach taskgraph decision`,
     and is responsible for
@@ -248,18 +256,11 @@ def taskgraph_decision(options, parameters):
      * calling TaskCluster APIs to create the graph
 
     The ``parameters`` argument must be a pre-resolved ``Parameters`` object.
+    ``bugbug_future`` is the `Future` yielded by ``shared_bugbug_query``, if
+    any; its result is stored as an artifact if it is ready.
     """
 
     decision_task_id = os.environ["TASK_ID"]
-
-    # Start querying bugbug early, so its results are ready sooner for the
-    # optimizers, and so they are stored even on pushes that don't use them
-    # (e.g. backstop pushes).
-    bugbug_future = None
-    if not create.testing and parameters["project"] == "autoland":
-        bugbug_future = start_push_schedules(
-            parameters["project"], parameters["head_rev"]
-        )
 
     with source_bundle(parameters["head_rev"], parameters["repository_type"]):
         # create a TaskGraphGenerator instance
@@ -285,7 +286,12 @@ def taskgraph_decision(options, parameters):
         )
 
         # write out the full graph for reference
-        full_task_json = tgg.full_task_graph.to_json()
+        full_task_graph = tgg.full_task_graph
+        # The generated graph is long-lived and taskgraph collects no garbage
+        # while generating it, so a collection triggered while serializing it
+        # would walk the whole heap for little gain.
+        gc.freeze()
+        full_task_json = full_task_graph.to_json()
         write_artifact("full-task-graph.json", full_task_json)
 
         # write out kind graph
@@ -326,9 +332,13 @@ def taskgraph_decision(options, parameters):
             taskgraph_dir / "run-task" / "run-task": f"{ARTIFACTS_DIR}/run-task-git",
             scripts_dir / "robustcheckout.py": ARTIFACTS_DIR,
             scripts_dir / "run-task-setup.py": ARTIFACTS_DIR,
+            scripts_dir / "run_task_resource_monitor.py": ARTIFACTS_DIR,
+            Path(GECKO, "testing", "mozbase", "mozsystemmonitor")
+            / "mozsystemmonitor"
+            / "resourcemonitor.py": ARTIFACTS_DIR,
         }
         for target, dest in to_copy.items():
-            shutil.copy2(target, dest)
+            shutil.copy(target, dest)
 
         # actually create the graph
         create_tasks(
@@ -532,16 +542,12 @@ def get_decision_parameters(graph_config, options):
     # load extra parameters from file or note if able
     if options.get("allow_parameter_override"):
         note_ref = "refs/notes/decision-parameters"
-        if options.get("try_task_config_file"):
-            task_config_file = os.path.abspath(options.get("try_task_config_file"))
-        else:
-            task_config_file = os.path.join(os.getcwd(), "try_task_config.json")
-
+        task_config_file = get_try_task_config_file(options)
         if os.path.isfile(task_config_file):
             set_try_config(parameters, task_config_file)
             parameters["try_mode"] = "try_task_config"
 
-        elif note_params := repo.get_note(note_ref, parameters["head_repository"]):
+        elif note_params := get_note(repo, note_ref, parameters["head_repository"]):
             try:
                 note_params = json.loads(note_params)
                 logger.info(
@@ -587,9 +593,20 @@ def get_existing_tasks(rebuild_kinds, parameters, graph_config):
     )
 
 
+def get_note(repo, note_ref, remote):
+    text = f"fetch {remote} {note_ref}"
+    SystemResourceMonitor.begin_marker("git", text)
+    try:
+        return repo.get_note(note_ref, remote)
+    finally:
+        SystemResourceMonitor.end_marker("git", text)
+
+
 def get_git_files_changed(repo, parameters):
     base_rev = parameters["base_rev"]
     if base_rev != repo.NULL_REVISION and repo.is_shallow:
+        text = f"fetch --depth=1 {parameters['base_repository']} {base_rev}"
+        SystemResourceMonitor.begin_marker("git", text)
         try:
             repo.run("fetch", "--depth=1", parameters["base_repository"], base_rev)
         except subprocess.CalledProcessError:
@@ -598,8 +615,55 @@ def get_git_files_changed(repo, parameters):
                 "treating the whole tree as changed."
             )
             base_rev = repo.NULL_REVISION
+        finally:
+            SystemResourceMonitor.end_marker("git", text)
 
     return repo.get_changed_files(rev=parameters["head_rev"], base=base_rev)
+
+
+@contextmanager
+def shared_bugbug_query(options):
+    """Start the bugbug query for the push, if the test kinds will use it, and
+    share its result with them for the duration of the context.
+
+    Yields the query's `Future`, or None if it wasn't started.
+    """
+    if create.testing or not uses_bugbug(options):
+        yield None
+        return
+
+    result_dir = tempfile.mkdtemp(prefix="bugbug-")
+    result_path = os.path.join(result_dir, "bugbug-push-schedules.json")
+    os.environ[PUSH_SCHEDULES_ENV] = result_path
+    try:
+        yield start_push_schedules(options["project"], options["head_rev"], result_path)
+    finally:
+        os.environ.pop(PUSH_SCHEDULES_ENV, None)
+        shutil.rmtree(result_dir, ignore_errors=True)
+
+
+def get_try_task_config_file(options):
+    if options.get("try_task_config_file"):
+        return os.path.abspath(options["try_task_config_file"])
+    return os.path.join(os.getcwd(), "try_task_config.json")
+
+
+def uses_bugbug(options):
+    """Whether the test kinds will query bugbug, as far as can be told before
+    the parameters are resolved."""
+    if options["project"] == "autoland":
+        return True
+    if not options.get("allow_parameter_override"):
+        return False
+    try:
+        with open(get_try_task_config_file(options)) as fh:
+            task_config = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    return (
+        task_config.get("version") == 2
+        and task_config["parameters"].get("test_manifest_loader") == "bugbug"
+    )
 
 
 def set_try_config(parameters, task_config_file):

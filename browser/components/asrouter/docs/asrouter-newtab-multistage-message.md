@@ -27,7 +27,7 @@ The mount function exposed by the bundle is `window.mountMultistageMessage`. It 
 | `AWFinish`                       | Calls `handleDismiss` to close the message                                                                            |
 | `AWSendToParent`                 | Forwarded to ASRouter as a `USER_ACTION`                                                                              |
 | `AWAddScreenImpression`          | Forwarded to ASRouter via `window.ASRouterMessage` to record a per-screen impression for frequency capping            |
-| `AWSendEventTelemetry`           | Routes non-impression events to `handleClick`; IMPRESSION events are suppressed because `MessageWrapper` handles them |
+| `AWSendEventTelemetry`           | Forwards events as `newtab_message` pings; IMPRESSION events wait until the tab is visible                            |
 | `AWGetSelectedTheme`             | Returns a resolved promise (themes not applicable in this context)                                                    |
 | `AWGetInstalledAddons`           | Returns a resolved promise (not applicable in this context)                                                           |
 
@@ -93,7 +93,8 @@ Records a CLICK telemetry event for user interaction with the message.
 
 - **Impression**: fired once by `MessageWrapper`'s intersection observer when the component enters the viewport.
 - **Screen impression**: recorded via `AWAddScreenImpression` when each screen becomes active, forwarded to `ASRouter.addScreenImpression` for per-screen frequency capping.
-- **Click**: fired via `AWSendEventTelemetry` for user interactions (e.g. button clicks). IMPRESSION events from `AWSendEventTelemetry` are suppressed because `MessageWrapper` handles the overall message-level impression.
+- **Screen impression telemetry**: an IMPRESSION event fired via `AWSendEventTelemetry` when each screen first renders (deferred until the tab is visible), with a per-screen `message_id` (`<message id>_<index>_<screen id>_<screen initials>`) and screen details in `event_context`, matching about:welcome.
+- **Click**: fired via `AWSendEventTelemetry` for user interactions (e.g. button clicks). The multistage ping is forwarded unchanged as a `newtab_message` ping, so it keeps its event name (e.g. `CLICK_BUTTON`, `AUTO_DISMISS`), the screen-specific `message_id` (`<message id>_<screen index>_<screen id>`) and the clicked button as `event_context.source`.
 - **Dismiss/Block**: fired by `handleDismiss` / `handleBlock` when the user clicks the dismiss button.
 
 ## Strings

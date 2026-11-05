@@ -1882,6 +1882,10 @@ DownloadSource.prototype = {
       serializable.isPrivate = true;
     }
 
+    if (this.userContextId) {
+      serializable.userContextId = this.userContextId;
+    }
+
     if (this.referrerInfo && isString(this.referrerInfo)) {
       serializable.referrerInfo = this.referrerInfo;
     } else if (this.referrerInfo) {
@@ -2024,6 +2028,10 @@ DownloadSource.fromSerializable = function (aSerializable) {
         property != "url" &&
         property != "originalUrl" &&
         property != "isPrivate" &&
+        property != "userContextId" &&
+        property != "browsingContextId" &&
+        property != "triggeredByContentDispositionHeader" &&
+        property != "loadingPrincipal" &&
         property != "referrerInfo" &&
         property != "cookieJarSettings" &&
         property != "authHeader"

@@ -561,7 +561,7 @@ void localEnsureBuffer(UniquePtr<T[]>& buf, uint32_t newSize, uint32_t preserve,
   objSize = (newSize + 2048 + 4095) & ~4095;
 
   static_assert(sizeof(T) == 1, "sizeof(T) must be 1");
-  auto tmp = MakeUnique<T[]>(objSize);
+  auto tmp = std::make_unique<T[]>(objSize);
   if (preserve) {
     memcpy(tmp.get(), buf.get(), preserve);
   }

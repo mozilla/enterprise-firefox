@@ -141,6 +141,8 @@ let interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   "ByteLengthQueuingStrategy",
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "CSS", insecureContext: true, nightly: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "CSSImageValue", insecureContext: true, nightly: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "CSSKeywordValue", insecureContext: true, nightly: true },

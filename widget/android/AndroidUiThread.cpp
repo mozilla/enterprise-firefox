@@ -5,6 +5,8 @@
 #include <android/api-level.h>
 #include <pthread.h>
 
+#include <memory>
+
 #include "GeckoProfiler.h"
 #include "base/message_loop.h"
 #include "mozilla/Atomics.h"
@@ -16,7 +18,6 @@
 #include "mozilla/StaticPtr.h"
 #include "mozilla/ThreadEventQueue.h"
 #include "mozilla/TimeStamp.h"
-#include "mozilla/UniquePtr.h"
 #include "mozilla/java/GeckoThreadWrappers.h"
 #include "nsThread.h"
 #include "nsThreadManager.h"
@@ -56,9 +57,9 @@ class AndroidUiThread : public nsThread {
  public:
   NS_INLINE_DECL_REFCOUNTING_INHERITED(AndroidUiThread, nsThread)
   AndroidUiThread()
-      : nsThread(
-            MakeNotNull<ThreadEventQueue*>(MakeUnique<mozilla::EventQueue>()),
-            nsThread::NOT_MAIN_THREAD, {.stackSize = 0}) {}
+      : nsThread(MakeNotNull<ThreadEventQueue*>(
+                     std::make_unique<mozilla::EventQueue>()),
+                 nsThread::NOT_MAIN_THREAD, {.stackSize = 0}) {}
 
   nsresult Dispatch(already_AddRefed<nsIRunnable> aEvent,
                     DispatchFlags aFlags) override;

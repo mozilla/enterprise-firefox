@@ -28,6 +28,9 @@ if (lazy.isBuildAppBrowser()) {
     FELT_OPEN_WINDOW_DISPOSITION:
       // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
       "moz-src:///browser/components/FeltURLHandler.sys.mjs",
+    sanitizeFeltURLPayload:
+      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+      "moz-src:///browser/components/FeltURLHandler.sys.mjs",
     // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
     BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   });
@@ -100,7 +103,12 @@ export class Felt {
     },
 
     async _handleFeltExternalUrl(data) {
-      let { url, disposition } = this._parseOpenURLData(data);
+      let payload = this._parseOpenURLData(data);
+      if (!payload) {
+        lazy.log.error("Refusing to open invalid forwarded URL");
+        return;
+      }
+      let { url, disposition } = payload;
       if (
         disposition === lazy.FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW ||
         disposition === lazy.FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW
@@ -145,7 +153,7 @@ export class Felt {
       }
 
       try {
-        win.openTrustedLinkIn(url, "tab");
+        win.openTrustedLinkIn(url, "tab", { fromExternal: true });
         win.focus();
       } catch (err) {
         lazy.log.error("Failed to open forwarded URL", url, err);
@@ -153,12 +161,11 @@ export class Felt {
     },
 
     _parseOpenURLData(data) {
-      let parsed = JSON.parse(data);
-      return {
-        url: parsed.url ?? "",
-        disposition:
-          parsed.disposition ?? lazy.FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
-      };
+      try {
+        return lazy.sanitizeFeltURLPayload(JSON.parse(data));
+      } catch {
+        return null;
+      }
     },
 
     _openFeltWindow(url, wantsPrivate) {
@@ -170,10 +177,28 @@ export class Felt {
       try {
         let args = null;
         if (url) {
-          args = Cc["@mozilla.org/supports-string;1"].createInstance(
+          const extraOptions = Cc[
+            "@mozilla.org/hash-property-bag;1"
+          ].createInstance(Ci.nsIWritablePropertyBag2);
+          extraOptions.setPropertyAsBool("fromExternal", true);
+          const urlArg = Cc["@mozilla.org/supports-string;1"].createInstance(
             Ci.nsISupportsString
           );
-          args.data = url;
+          urlArg.data = url;
+          args = Cc["@mozilla.org/array;1"].createInstance(Ci.nsIMutableArray);
+          for (const arg of [
+            urlArg,
+            extraOptions,
+            null,
+            null,
+            undefined,
+            undefined,
+            null,
+            null,
+            Services.scriptSecurityManager.getSystemPrincipal(),
+          ]) {
+            args.appendElement(arg);
+          }
         }
         lazy.BrowserWindowTracker.openWindow({
           private: wantsPrivate,
@@ -238,6 +263,15 @@ export class Felt {
       // their main thread demoted to low-priority QoS, which can starve the
       // SSO callback's DOMContentLoaded event and prevent token extraction.
       Services.prefs.setBoolPref("threads.use_low_power.enabled", false);
+      // FELT must not contact 3rd party services before sign-in.
+      // These must be set before the first await so they land ahead of
+      // Region's idle-dispatched fetch.
+      const defaults = Services.prefs.getDefaultBranch("");
+      defaults.setBoolPref("extensions.systemAddon.update.enabled", false);
+      defaults.setBoolPref("media.gmp-manager.updateEnabled", false);
+      defaults.setBoolPref("extensions.getAddons.cache.enabled", false);
+      defaults.setBoolPref("browser.region.update.enabled", false);
+      defaults.setCharPref("browser.region.network.url", "");
       await lazy.FeltStorage.init();
       if (await lazy.FeltStorage.recoverInterruptedSession()) {
         lazy.log.warn(

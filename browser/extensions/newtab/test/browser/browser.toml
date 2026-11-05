@@ -56,6 +56,8 @@ https_first_disabled = true
 
 ["browser_enabled_newtabpage.js"]
 
+["browser_framed_widgets.js"]
+
 ["browser_getScreenshots.js"]
 
 ["browser_highlights_section.js"]
@@ -93,3 +95,5 @@ tags = "urlbar"
 skip-if = [
   "enterprise", # MARS (sponsored content) is disabled on enterprise builds
 ]
+
+["browser_wrexhamafc_widget.js"]

@@ -820,8 +820,10 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
       }
       if (result.payload.suggestionObject?.suggestionType == "temporal") {
         // Temporal search suggestions are shown as several rows in the zero
-        // prefix view.
-        return true;
+        // prefix view, but they shouldn't dupe recent searches or other
+        // suggestions.
+        let suggestion = result.payload.lowerCaseSuggestion;
+        return !state.suggestions.has(suggestion);
       }
 
       if (state.quickSuggestResult && state.quickSuggestResult != result) {

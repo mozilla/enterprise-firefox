@@ -1889,7 +1889,8 @@ nsresult FetchEventOp::DispatchFetchEvent(JSContext* aCx,
                   aTiming.initiatorType().Equals(u"navigation"_ns)) {
                 performanceStorage->AddEntry(
                     aTiming.entryName(), aTiming.initiatorType(),
-                    MakeUnique<PerformanceTimingData>(aTiming.timingData()));
+                    std::make_unique<PerformanceTimingData>(
+                        aTiming.timingData()));
               }
               self->mPreloadResponseTimingPromiseRequestHolder.Complete();
             },

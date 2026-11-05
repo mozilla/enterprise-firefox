@@ -254,8 +254,8 @@ bool ScriptLoadHandler::TrySetDecoder(nsIChannel* aChannel,
   // JavaScript modules are always UTF-8.
   if (mRequest->IsModuleRequest()) {
     MOZ_ASSERT(!mRequest->getLoadedScript()->ClassicScriptEncoding());
-    mDecoder = MakeUnique<ScriptDecoder>(UTF_8_ENCODING,
-                                         ScriptDecoder::BOMHandling::Remove);
+    mDecoder = std::make_unique<ScriptDecoder>(
+        UTF_8_ENCODING, ScriptDecoder::BOMHandling::Remove);
     return true;
   }
 
@@ -273,8 +273,8 @@ bool ScriptLoadHandler::TrySetDecoder(nsIChannel* aChannel,
   std::tie(encoding, std::ignore) = Encoding::ForBOM(Span(aData, aDataLength));
   if (encoding) {
     mRequest->getLoadedScript()->SetClassicScriptEncodingFromBOM(encoding);
-    mDecoder =
-        MakeUnique<ScriptDecoder>(encoding, ScriptDecoder::BOMHandling::Remove);
+    mDecoder = std::make_unique<ScriptDecoder>(
+        encoding, ScriptDecoder::BOMHandling::Remove);
     return true;
   }
 
@@ -284,15 +284,15 @@ bool ScriptLoadHandler::TrySetDecoder(nsIChannel* aChannel,
       (encoding = Encoding::ForLabel(label))) {
     mRequest->getLoadedScript()->SetClassicScriptEncodingFromCharsetParameter(
         encoding);
-    mDecoder =
-        MakeUnique<ScriptDecoder>(encoding, ScriptDecoder::BOMHandling::Ignore);
+    mDecoder = std::make_unique<ScriptDecoder>(
+        encoding, ScriptDecoder::BOMHandling::Ignore);
     return true;
   }
 
   encoding = mScriptLoader->GetClassicScriptFallbackEncoding(mRequest);
   mRequest->getLoadedScript()->SetClassicScriptEncodingFromFallback(encoding);
-  mDecoder =
-      MakeUnique<ScriptDecoder>(encoding, ScriptDecoder::BOMHandling::Ignore);
+  mDecoder = std::make_unique<ScriptDecoder>(
+      encoding, ScriptDecoder::BOMHandling::Ignore);
   return true;
 }
 

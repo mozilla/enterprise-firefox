@@ -67,6 +67,9 @@ skip-if = [
   "enterprise", # Glean pings are sent to the console without OHTTP on enterprise builds
 ]
 
+["test_PingReset.js"]
+run-if = ["os != 'android'"] # Android does not reload JOG on reset.
+
 ["test_ProfilerMarkers.js"]
 head = "head.js head_ProfilerMarkers.js"
 

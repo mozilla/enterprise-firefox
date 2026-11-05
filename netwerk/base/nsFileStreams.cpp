@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <algorithm>
+#include <memory>
 
 #include "ipc/IPCMessageUtils.h"
 
@@ -17,7 +18,6 @@
 #endif
 
 #include "mozilla/FileUtils.h"
-#include "mozilla/UniquePtr.h"
 #include "mozilla/ipc/InputStreamUtils.h"
 #include "mozilla/ipc/RandomAccessStreamParams.h"
 #include "nsFileStreams.h"
@@ -504,7 +504,7 @@ nsFileInputStream::Read(char* aBuf, uint32_t aCount, uint32_t* _retval) {
 NS_IMETHODIMP
 nsFileInputStream::ReadLine(nsACString& aLine, bool* aResult) {
   if (!mLineBuffer) {
-    mLineBuffer = mozilla::MakeUnique<nsLineBuffer<char>>();
+    mLineBuffer = std::make_unique<nsLineBuffer<char>>();
   }
   return NS_ReadLine(this, mLineBuffer.get(), aLine, aResult);
 }

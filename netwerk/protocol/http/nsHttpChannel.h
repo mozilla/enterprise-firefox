@@ -216,8 +216,6 @@ class nsHttpChannel final : public HttpBaseChannel,
   void SetWarningReporter(HttpChannelSecurityWarningReporter* aReporter);
   HttpChannelSecurityWarningReporter* GetWarningReporter();
 
-  bool DataSentToChildProcess() { return LoadDataSentToChildProcess(); }
-
   enum class SnifferType { Media, Image };
   void DisableIsOpaqueResponseAllowedAfterSniffCheck(SnifferType aType);
 
@@ -754,10 +752,6 @@ class nsHttpChannel final : public HttpBaseChannel,
     // True only when we are between Resume and async fire of mCallOnResume.
     // Used to suspend any newly created pumps in mCallOnResume handler.
     (uint32_t, AsyncResumePending, 1),
-
-    // True if the data will be sent from the socket process to the
-    // content process directly.
-    (uint32_t, DataSentToChildProcess, 1),
 
     (uint32_t, UseHTTPSSVC, 1),
     (uint32_t, WaitHTTPSSVCRecord, 1)

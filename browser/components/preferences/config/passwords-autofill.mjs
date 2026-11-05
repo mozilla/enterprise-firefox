@@ -145,18 +145,6 @@ export class PasswordSettingHelpers {
   static _initMasterPasswordUI() {
     var noMP = !LoginHelper.isPrimaryPasswordSet();
 
-    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
-      const masterPasswordRow = document.getElementById("masterPasswordRow");
-      if (masterPasswordRow) {
-        masterPasswordRow.hidden = true;
-        // Remove the "formerly known as Master Password" note instead of
-        // hiding it: Fluent manages its hidden attribute.
-        document
-          .querySelector('[data-l10n-id="forms-primary-pw-former-name"]')
-          ?.remove();
-      }
-    }
-
     // Check if settings-redesign is enabled to determine which UI is active
     const srdEnabled = Services.prefs.getBoolPref(
       "browser.settings-redesign.enabled",
@@ -214,7 +202,7 @@ const FORM_AUTOFILL_CONFIG = {
         items: [
           {
             id: "requireOSAuthForPayments",
-            l10nId: "autofill-reauth-payment-methods-checkbox-2",
+            l10nId: "autofill-payment-methods-require-device-sign-in-checkbox",
             supportPage:
               "credit-card-autofill#w_require-authentication-for-autofill",
           },
@@ -421,6 +409,9 @@ Preferences.addSetting({
   id: "saveSecurityCodes",
   pref: ENABLED_AUTOFILL_CREDITCARDS_CVV_PREF,
   visible: () => FormAutofill.isAutofillCreditCardCVVSupported,
+  onUserChange(enabled) {
+    lazy.FormAutofillPreferences.recordCvvSavingToggled(enabled, "settings");
+  },
 });
 
 Preferences.addSetting({

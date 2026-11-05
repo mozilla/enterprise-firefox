@@ -2093,7 +2093,7 @@ class CCGraphBuilder final : public nsCycleCollectionTraversalCallback,
   NoteNativeRoot(void* aRoot,
                  nsCycleCollectionParticipant* aParticipant) override;
   NS_IMETHOD_(void)
-  NoteWeakMapping(JSObject* aMap, JS::GCCellPtr aKey, JSObject* aKdelegate,
+  NoteWeakMapping(JSObject* aMap, JS::GCCellPtr aKey, JS::GCCellPtr aDelegate,
                   JS::GCCellPtr aVal) override;
   // This is used to create synthetic non-refcounted references to
   // nsXPCWrappedJS from their wrapped JS objects. No map is needed, because
@@ -2262,7 +2262,7 @@ void CCGraphBuilder::DoneAddingRoots() {
   // We've finished adding roots, and everything in the graph is a root.
   mGraph.mRootCount = mGraph.MapCount();
 
-  mCurrNode = MakeUnique<NodePool::Enumerator>(mGraph.mNodes);
+  mCurrNode = std::make_unique<NodePool::Enumerator>(mGraph.mNodes);
 }
 
 MOZ_NEVER_INLINE bool CCGraphBuilder::BuildGraph(SliceBudget& aBudget) {
@@ -2459,19 +2459,18 @@ PtrInfo* CCGraphBuilder::AddWeakMapNode(JSObject* aObject) {
 
 NS_IMETHODIMP_(void)
 CCGraphBuilder::NoteWeakMapping(JSObject* aMap, JS::GCCellPtr aKey,
-                                JSObject* aKdelegate, JS::GCCellPtr aVal) {
+                                JS::GCCellPtr aDelegate, JS::GCCellPtr aVal) {
   // Don't try to optimize away the entry here, as we've already attempted to
   // do that in TraceWeakMapping in nsXPConnect.
   WeakMapping* mapping = mGraph.mWeakMaps.AppendElement();
   mapping->mMap = aMap ? AddWeakMapNode(aMap) : nullptr;
   mapping->mKey = aKey ? AddWeakMapNode(aKey) : nullptr;
-  mapping->mKeyDelegate =
-      aKdelegate ? AddWeakMapNode(aKdelegate) : mapping->mKey;
+  mapping->mKeyDelegate = aDelegate ? AddWeakMapNode(aDelegate) : mapping->mKey;
   mapping->mVal = aVal ? AddWeakMapNode(aVal) : nullptr;
 
   if (mLogger) {
     mLogger->NoteWeakMapEntry((uint64_t)aMap, aKey ? aKey.unsafeAsInteger() : 0,
-                              (uint64_t)aKdelegate,
+                              aDelegate ? aDelegate.unsafeAsInteger() : 0,
                               aVal ? aVal.unsafeAsInteger() : 0);
   }
 }
@@ -3958,8 +3957,8 @@ void nsCycleCollector::BeginCollection(
   mResults.mMergedZones = mergeZones;
 
   MOZ_ASSERT(!mBuilder, "Forgot to clear mBuilder");
-  mBuilder = MakeUnique<CCGraphBuilder>(mGraph, mResults, mCCJSRuntime, mLogger,
-                                        mergeZones);
+  mBuilder = std::make_unique<CCGraphBuilder>(mGraph, mResults, mCCJSRuntime,
+                                              mLogger, mergeZones);
   timeLog.Checkpoint("BeginCollection prepare graph builder");
 
   if (mCCJSRuntime) {

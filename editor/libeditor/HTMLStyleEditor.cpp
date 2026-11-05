@@ -1960,7 +1960,8 @@ HTMLEditor::AutoInlineStyleSetter::ExtendOrShrinkRangeToApplyTheStyle(
             range.EndRef(),
             // We don't want to wrap only the padding line break into the new
             // styled element.
-            PaddingForEmptyBlock::Unnecessary, aEditingHost);
+            TreatAsUnnecessaryLineBreak{LineBreakFor::PaddingForEmptyBlock},
+            aEditingHost);
     if (nextThing.MaybeIgnoredLineBreak().isSome() &&
         nextThing.MaybeIgnoredLineBreak()->IsInclusiveDescendantOf(
             aEditingHost) &&

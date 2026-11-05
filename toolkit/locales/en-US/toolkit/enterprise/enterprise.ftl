@@ -75,6 +75,11 @@ security-software-disk-encryption-in-progress = Encryption or decryption in prog
 # This does not mean that encryption is disabled.
 security-software-disk-encryption-unknown = Unknown
 
+# Shown in the about:support "Content Analysis (DLP)" section.
+content-analysis-agent-path-does-not-apply = n/a
+content-analysis-agent-builtin-version = Built-In Agent Version
+content-analysis-agent-builtin-version-does-not-apply = n/a
+
 enterprise-toolbar-button =
     .label = { -brand-short-name }
     .tooltiptext = { -brand-short-name }

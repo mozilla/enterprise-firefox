@@ -14,9 +14,18 @@ ChromeUtils.defineESModuleGetters(lazy, {
   DevicePosture:
     "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
   FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
+  isBuildAppBrowser:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   resolveManagedProfile: "chrome://felt/content/FeltCommon.sys.mjs",
 });
+
+if (lazy.isBuildAppBrowser()) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    gFeltPendingURLs: "moz-src:///browser/components/FeltURLHandler.sys.mjs",
+  });
+}
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return lazy.createEnterpriseLogger("FeltLocking");
@@ -253,5 +262,10 @@ export const FeltLocking = {
   clearLockAndTokens: () => {
     FeltLocking.clear();
     Services.felt.clearTokens();
+    // External URLs queued by the session that is ending must not be waiting
+    // for whoever signs in next.
+    if (lazy.isBuildAppBrowser()) {
+      lazy.gFeltPendingURLs.clear();
+    }
   },
 };

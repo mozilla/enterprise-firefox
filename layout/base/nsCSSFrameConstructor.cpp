@@ -51,6 +51,7 @@
 #include "mozilla/dom/HTMLSelectElement.h"
 #include "mozilla/dom/HTMLSharedListElement.h"
 #include "mozilla/dom/HTMLSummaryElement.h"
+#include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/intl/LocaleService.h"
 #include "nsAtom.h"
 #include "nsAutoLayoutPhase.h"
@@ -1510,10 +1511,11 @@ void nsCSSFrameConstructor::CreateGeneratedContent(
         CopyUTF8toUTF16(counters._1.AsString(), separator);
         style = &counters._2;
       }
-      auto node = MakeUnique<nsCounterUseNode>(
+      auto node = std::make_unique<nsCounterUseNode>(
           *style, std::move(separator), aContentIndex,
           /* aAllCounters = */ type == Type::Counters);
-      auto initializer = MakeUnique<nsGenConInitializer>(std::move(node), name);
+      auto initializer =
+          std::make_unique<nsGenConInitializer>(std::move(node), name);
       RefPtr c = CreateGenConTextNode(aState, u""_ns, std::move(initializer));
       aAddChild(c);
       return;
@@ -1522,28 +1524,26 @@ void nsCSSFrameConstructor::CreateGeneratedContent(
     case Type::CloseQuote:
     case Type::NoOpenQuote:
     case Type::NoCloseQuote: {
-      auto node = MakeUnique<nsQuoteNode>(type, aContentIndex);
+      auto node = std::make_unique<nsQuoteNode>(type, aContentIndex);
       auto initializer =
-          MakeUnique<nsGenConInitializer>(std::move(node), nullptr);
+          std::make_unique<nsGenConInitializer>(std::move(node), nullptr);
       RefPtr c = CreateGenConTextNode(aState, u""_ns, std::move(initializer));
       aAddChild(c);
       return;
     }
 
     case Type::MozLabelContent: {
+      nsAutoString value;
+      aOriginatingElement.GetAttr(nsGkAtoms::value, value);
+
       nsAutoString accesskey;
       if (!aOriginatingElement.GetAttr(nsGkAtoms::accesskey, accesskey) ||
           accesskey.IsEmpty() || !LookAndFeel::GetMenuAccessKey()) {
         // Easy path: just return a regular value attribute content.
-        nsCOMPtr<nsIContent> content;
-        NS_NewAttributeContent(mDocument->NodeInfoManager(), nsGkAtoms::value,
-                               getter_AddRefs(content));
-        aAddChild(content);
+        RefPtr c = CreateGenConTextNode(aState, value, nullptr);
+        aAddChild(c);
         return;
       }
-
-      nsAutoString value;
-      aOriginatingElement.GetAttr(nsGkAtoms::value, value);
 
       auto AppendAccessKeyLabel = [&] {
         // Always append accesskey text in uppercase, see bug 1806167.
@@ -1591,10 +1591,12 @@ void nsCSSFrameConstructor::CreateGeneratedContent(
         return;
       }
 
+      RefPtr wrapper = mDocument->CreateHTMLElement(nsGkAtoms::span);
       if (*accessKeyStart != 0) {
         RefPtr beginning = CreateGenConTextNode(
             aState, Substring(value, 0, *accessKeyStart), nullptr);
-        aAddChild(beginning);
+        wrapper->AppendChildTo(beginning, /* aNotify = */ false,
+                               IgnoreErrors());
       }
 
       {
@@ -1605,7 +1607,8 @@ void nsCSSFrameConstructor::CreateGeneratedContent(
             mDocument->CreateHTMLElement(nsGkAtoms::u);
         underline->AppendChildTo(accessKeyText, /* aNotify = */ false,
                                  IgnoreErrors());
-        aAddChild(underline);
+        wrapper->AppendChildTo(underline, /* aNotify = */ false,
+                               IgnoreErrors());
       }
 
       size_t accessKeyEnd = *accessKeyStart + accesskey.Length();
@@ -1613,40 +1616,9 @@ void nsCSSFrameConstructor::CreateGeneratedContent(
         RefPtr valueEnd = CreateGenConTextNode(
             aState, Substring(value, *accessKeyStart + accesskey.Length()),
             nullptr);
-        aAddChild(valueEnd);
+        wrapper->AppendChildTo(valueEnd, /* aNotify = */ false, IgnoreErrors());
       }
-      break;
-    }
-    case Type::MozAltContent: {
-      // Use the "alt" attribute; if that fails and the node is an HTML
-      // <input>, try the value attribute and then fall back to some default
-      // localized text we have.
-      // XXX what if the 'alt' attribute is added later, how will we
-      // detect that and do the right thing here?
-      if (aOriginatingElement.HasAttr(nsGkAtoms::alt)) {
-        nsCOMPtr<nsIContent> content;
-        NS_NewAttributeContent(mDocument->NodeInfoManager(), nsGkAtoms::alt,
-                               getter_AddRefs(content));
-        aAddChild(content);
-        return;
-      }
-
-      if (aOriginatingElement.IsHTMLElement(nsGkAtoms::input)) {
-        if (aOriginatingElement.HasAttr(nsGkAtoms::value)) {
-          nsCOMPtr<nsIContent> content;
-          NS_NewAttributeContent(mDocument->NodeInfoManager(), nsGkAtoms::value,
-                                 getter_AddRefs(content));
-          aAddChild(content);
-          return;
-        }
-
-        nsAutoString temp;
-        nsContentUtils::GetMaybeLocalizedString(
-            PropertiesFile::FORMS_PROPERTIES, "Submit", mDocument, temp);
-        RefPtr c = CreateGenConTextNode(aState, temp, nullptr);
-        aAddChild(c);
-        return;
-      }
+      aAddChild(wrapper);
       break;
     }
   }
@@ -1689,8 +1661,8 @@ void nsCSSFrameConstructor::CreateGeneratedContentFromListStyleType(
       break;
   }
 
-  auto node = MakeUnique<nsCounterUseNode>(nsCounterUseNode::ForLegacyBullet,
-                                           styleType);
+  auto node = std::make_unique<nsCounterUseNode>(
+      nsCounterUseNode::ForLegacyBullet, styleType);
   if (styleType.IsName()) {
     nsAtom* name = styleType.AsName().AsAtom();
     if (name == nsGkAtoms::disc || name == nsGkAtoms::circle ||
@@ -1710,8 +1682,8 @@ void nsCSSFrameConstructor::CreateGeneratedContentFromListStyleType(
     }
   }
 
-  auto initializer =
-      MakeUnique<nsGenConInitializer>(std::move(node), nsGkAtoms::list_item);
+  auto initializer = std::make_unique<nsGenConInitializer>(
+      std::move(node), nsGkAtoms::list_item);
   RefPtr<nsIContent> child =
       CreateGenConTextNode(aState, EmptyString(), std::move(initializer));
   aAddChild(child);
@@ -2287,12 +2259,8 @@ nsIFrame* nsCSSFrameConstructor::ConstructTableCell(
 static inline bool NeedFrameFor(const nsFrameConstructorState& aState,
                                 nsContainerFrame* aParentFrame,
                                 nsIContent* aChildContent) {
-  // XXX the GetContent() != aChildContent check is needed due to bug 135040.
-  // Remove it once that's fixed.
-  MOZ_ASSERT(
-      !aChildContent->GetPrimaryFrame() || aState.mCreatingExtraFrames ||
-          aChildContent->GetPrimaryFrame()->GetContent() != aChildContent,
-      "Why did we get called?");
+  MOZ_ASSERT(!aChildContent->GetPrimaryFrame() || aState.mCreatingExtraFrames,
+             "Why did we get called?");
 
   // don't create a whitespace frame if aParentFrame doesn't want it.
   // always create frames for children in generated content. counter(),
@@ -4903,11 +4871,7 @@ bool nsCSSFrameConstructor::ShouldCreateItemsForChild(
     nsFrameConstructorState& aState, nsIContent* aContent,
     nsContainerFrame* aParentFrame) {
   aContent->UnsetFlags(NODE_DESCENDANTS_NEED_FRAMES | NODE_NEEDS_FRAME);
-  // XXX the GetContent() != aContent check is needed due to bug 135040.
-  // Remove it once that's fixed.
-  if (aContent->GetPrimaryFrame() &&
-      aContent->GetPrimaryFrame()->GetContent() == aContent &&
-      !aState.mCreatingExtraFrames) {
+  if (aContent->GetPrimaryFrame() && !aState.mCreatingExtraFrames) {
     MOZ_ASSERT(false,
                "asked to create frame construction item for a node that "
                "already has a frame");
@@ -5081,8 +5045,7 @@ void nsCSSFrameConstructor::AddFrameConstructionItemsInternal(
   MOZ_ASSERT(aContent->IsText() || aContent->IsElement(),
              "Shouldn't get anything else here!");
   MOZ_ASSERT(aContent->IsInComposedDoc());
-  MOZ_ASSERT(!aContent->GetPrimaryFrame() || aState.mCreatingExtraFrames ||
-             aContent->NodeInfo()->NameAtom() == nsGkAtoms::area);
+  MOZ_ASSERT(!aContent->GetPrimaryFrame() || aState.mCreatingExtraFrames);
 
   const bool withinSVGText = aFlags.contains(ItemFlag::IsWithinSVGText);
   const bool isGeneratedContent = aFlags.contains(ItemFlag::IsGeneratedContent);
@@ -5675,15 +5638,12 @@ nsIFrame* nsCSSFrameConstructor::FindSiblingInternal(
     // IsDisplayContents to get the correct insertion point when multiple
     // siblings go from display: non-none to display: contents.
     if (nsIFrame* primaryFrame = sibling->GetPrimaryFrame()) {
-      // XXX the GetContent() == sibling check is needed due to bug 135040.
-      // Remove it once that's fixed.
       // The rendered legend check is needed because it is conceptually out of
       // flow. There can only be one rendered legend at a time, and we reframe
       // when that changes, so this is ok. Table captions are a similar case,
       // but there can be multiple of them and they instead get pulled out (and
       // the sibling fixed up) after building the frame list.
-      if (primaryFrame->GetContent() == sibling &&
-          !primaryFrame->IsRenderedLegend()) [[likely]] {
+      if (!primaryFrame->IsRenderedLegend()) [[likely]] {
         return primaryFrame;
       }
     }
@@ -5875,13 +5835,6 @@ nsContainerFrame* nsCSSFrameConstructor::GetContentInsertionFrameFor(
     }
   }
 
-  // If the content of the frame is not the desired content then this is not
-  // really a frame for the desired content.
-  // XXX This check is needed due to bug 135040. Remove it once that's fixed.
-  if (frame->GetContent() != aContent) {
-    return nullptr;
-  }
-
   nsContainerFrame* insertionFrame = frame->GetContentInsertionFrame();
 
   NS_ASSERTION(!insertionFrame || insertionFrame == frame || !frame->IsLeaf(),
@@ -5978,7 +5931,7 @@ void nsCSSFrameConstructor::CheckBitsForLazyFrameConstruction(
 //
 // NOTE(emilio): This function assumes that the flattened tree
 // parent of all the appended children is the same, which holds because this
-// gets called after GetRangeInsertionPoint which notifies individually.
+// gets called after GetRangeInsertionPoint which otherwise splits the range.
 void nsCSSFrameConstructor::ConstructLazily(nsIContent* aStartChild,
                                             nsIContent* aEndChild) {
   MOZ_ASSERT(aStartChild->GetParent());
@@ -6003,11 +5956,7 @@ void nsCSSFrameConstructor::ConstructLazily(nsIContent* aStartChild,
   // Set NODE_NEEDS_FRAME on the new nodes.
   for (nsIContent* child = aStartChild; child != aEndChild;
        child = child->GetNextSibling()) {
-    NS_ASSERTION(!child->GetPrimaryFrame() ||
-                     child->GetPrimaryFrame()->GetContent() != child,
-                 // XXX the child->GetPrimaryFrame()->GetContent() != child
-                 // check is needed due to bug 135040. Remove it once that's
-                 // fixed.
+    NS_ASSERTION(!child->GetPrimaryFrame(),
                  "setting NEEDS_FRAME on a node that already has a frame?");
     child->SetFlags(NODE_NEEDS_FRAME);
   }
@@ -6016,19 +5965,25 @@ void nsCSSFrameConstructor::ConstructLazily(nsIContent* aStartChild,
   parent->NoteDescendantsNeedFramesForServo();
 }
 
-void nsCSSFrameConstructor::IssueSingleInsertNofications(
-    nsIContent* aStartChild, nsIContent* aEndChild,
+void nsCSSFrameConstructor::IssueShadowHostChildrenInsertNotifications(
+    const ShadowRoot& aShadow, nsIContent* aStartChild, nsIContent* aEndChild,
     InsertionKind aInsertionKind) {
-  for (nsIContent* child = aStartChild; child != aEndChild;
-       child = child->GetNextSibling()) {
-    // XXX the GetContent() != child check is needed due to bug 135040.
-    // Remove it once that's fixed.
-    MOZ_ASSERT(!child->GetPrimaryFrame() ||
-               child->GetPrimaryFrame()->GetContent() != child);
-
-    // Call ContentRangeInserted with this node.
-    ContentRangeInserted(child, child->GetNextSibling(), aInsertionKind);
-  }
+  // When slots are named we're guaranteed that siblings in the DOM tree are
+  // also siblings in the flat tree as long as they share the slot.
+  const bool namedSlots = aShadow.SlotAssignment() == SlotAssignmentMode::Named;
+  nsIContent* runStart = aStartChild;
+  do {
+    nsIContent* runEnd = runStart->GetNextSibling();
+    auto* slot = runStart->GetAssignedSlot();
+    if (!slot || namedSlots) {
+      while (runEnd != aEndChild && runEnd->GetAssignedSlot() == slot) {
+        runEnd = runEnd->GetNextSibling();
+      }
+    }
+    ContentRangeInserted(runStart, runEnd, aInsertionKind,
+                         SameInsertionPoint::Yes);
+    runStart = runEnd;
+  } while (runStart != aEndChild);
 }
 
 nsCSSFrameConstructor::InsertionPoint
@@ -6038,11 +5993,11 @@ nsCSSFrameConstructor::GetRangeInsertionPoint(nsIContent* aStartChild,
   MOZ_ASSERT(aStartChild);
   MOZ_ASSERT(aStartChild->GetParentNode());
 
-  // If the children of the container may be distributed to different insertion
-  // points, insert them separately and bail out, letting ContentInserted handle
-  // the mess.
-  if (aStartChild->GetParentNode()->GetShadowRoot()) {
-    IssueSingleInsertNofications(aStartChild, aEndChild, aInsertionKind);
+  if (auto* shadow = aStartChild->GetParentNode()->GetShadowRoot()) {
+    // If the children of the container may be distributed to different
+    // insertion points, insert them in separate batches and bail out.
+    IssueShadowHostChildrenInsertNotifications(*shadow, aStartChild, aEndChild,
+                                               aInsertionKind);
     return {};
   }
 
@@ -6187,9 +6142,9 @@ static nsIFrame* FindCaptionPrevSibling(nsTableWrapperFrame* aTable,
 // suitable to have its frames constructed all at once they must meet the same
 // conditions that ContentAppended imposes (GetRangeInsertionPoint checks
 // these), plus more.
-void nsCSSFrameConstructor::ContentRangeInserted(nsIContent* aStartChild,
-                                                 nsIContent* aEndChild,
-                                                 InsertionKind aInsertionKind) {
+void nsCSSFrameConstructor::ContentRangeInserted(
+    nsIContent* aStartChild, nsIContent* aEndChild,
+    InsertionKind aInsertionKind, SameInsertionPoint aSameInsertionPoint) {
   AUTO_PROFILER_LABEL_HOT("nsCSSFrameConstructor::ContentRangeInserted",
                           LAYOUT_FrameConstruction);
   AUTO_LAYOUT_PHASE_ENTRY_POINT(mPresShell->GetPresContext(), FrameC);
@@ -6214,11 +6169,8 @@ void nsCSSFrameConstructor::ContentRangeInserted(nsIContent* aStartChild,
 
   for (nsIContent* child = aStartChild; child != aEndChild;
        child = child->GetNextSibling()) {
-    // XXX the GetContent() != child check is needed due to bug 135040.
-    // Remove it once that's fixed.
     MOZ_ASSERT(
-        !child->GetPrimaryFrame() ||
-            child->GetPrimaryFrame()->GetContent() != child,
+        !child->GetPrimaryFrame(),
         "asked to construct a frame for a node that already has a frame");
   }
 #endif
@@ -6273,11 +6225,18 @@ void nsCSSFrameConstructor::ContentRangeInserted(nsIContent* aStartChild,
 
   const bool isSingleInsert = aStartChild->GetNextSibling() == aEndChild;
   InsertionPoint insertion;
-  if (isSingleInsert) {
+  if (isSingleInsert || aSameInsertionPoint == SameInsertionPoint::Yes) {
     // See if we have a Shadow DOM insertion point. If so, then that's our real
     // parent frame; if not, then the frame hasn't been built yet and we just
     // bail.
     insertion = GetInsertionPoint(aStartChild);
+#ifdef DEBUG
+    for (nsIContent* child = aStartChild->GetNextSibling(); child != aEndChild;
+         child = child->GetNextSibling()) {
+      MOZ_ASSERT(GetInsertionPoint(child) == insertion,
+                 "Caller lied, not the same insertion point");
+    }
+#endif
   } else {
     // Get our insertion point. If we need to issue single ContentInserteds
     // GetRangeInsertionPoint will take care of that for us.
@@ -6805,11 +6764,6 @@ bool nsCSSFrameConstructor::ContentWillBeRemoved(nsIContent* aChild,
 #endif
 
   nsIFrame* childFrame = aChild->GetPrimaryFrame();
-  if (!childFrame || childFrame->GetContent() != aChild) {
-    // XXXbz the GetContent() != aChild check is needed due to bug 135040.
-    // Remove it once that's fixed.
-    childFrame = nullptr;
-  }
 
   // If we're removing the root, then make sure to remove things starting at
   // the viewport's child instead of the primary frame (which might even be
@@ -6949,9 +6903,7 @@ bool nsCSSFrameConstructor::ContentWillBeRemoved(nsIContent* aChild,
 
     // Recover childFrame and parentFrame
     childFrame = aChild->GetPrimaryFrame();
-    if (!childFrame || childFrame->GetContent() != aChild) {
-      // XXXbz the GetContent() != aChild check is needed due to bug 135040.
-      // Remove it once that's fixed.
+    if (!childFrame) {
       return false;
     }
     parentFrame = childFrame->GetParent();
@@ -7266,7 +7218,7 @@ void nsCSSFrameConstructor::WillDestroyFrameTree() {
 // XXXbz I'd really like this method to go away. Once we have inline-block and
 // I can just use that for sized broken images, that can happen, maybe.
 //
-// NOTE(emilio): This needs to match MozAltContent handling.
+// NOTE(emilio): This needs to match the UA sheet.
 void nsCSSFrameConstructor::GetAlternateTextFor(const Element& aElement,
                                                 nsAString& aAltText) {
   // The "alt" attribute specifies alternate text that is rendered

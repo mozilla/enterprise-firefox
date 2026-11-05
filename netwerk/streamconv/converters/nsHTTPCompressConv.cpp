@@ -904,7 +904,7 @@ nsHTTPCompressConv::OnDataAvailable(nsIRequest* request, nsIInputStream* iStr,
     case HTTP_COMPRESS_BROTLI:
     case HTTP_COMPRESS_BROTLI_DICTIONARY: {
       if (!mBrotli) {
-        mBrotli = MakeUnique<BrotliWrapper>();
+        mBrotli = std::make_unique<BrotliWrapper>();
         if (!mBrotli->Init(request, mMode)) {
           return NS_ERROR_FAILURE;
         }
@@ -927,7 +927,7 @@ nsHTTPCompressConv::OnDataAvailable(nsIRequest* request, nsIInputStream* iStr,
     case HTTP_COMPRESS_ZSTD:
     case HTTP_COMPRESS_ZSTD_DICTIONARY: {
       if (!mZstd) {
-        mZstd = MakeUnique<ZstdWrapper>(request, mMode);
+        mZstd = std::make_unique<ZstdWrapper>(request, mMode);
         if (!mZstd->mDStream) {
           return NS_ERROR_OUT_OF_MEMORY;
         }

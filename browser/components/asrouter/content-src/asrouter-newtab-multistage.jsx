@@ -10,8 +10,9 @@ window.mountMultistageMessage = function mountMultistageMessage(
   container,
   props
 ) {
-  const { messageData, handleDismiss, handleBlock, handleClick } = props;
+  const { messageData, handleDismiss, handleBlock } = props;
   const config = messageData.content;
+  const impressionListeners = new AbortController();
 
   const awHandlers = {
     AWEvaluateScreenTargeting: screens =>
@@ -33,8 +34,21 @@ window.mountMultistageMessage = function mountMultistageMessage(
       });
     },
     AWSendEventTelemetry: data => {
-      if (data.event !== "IMPRESSION") {
-        handleClick(data.event);
+      const sendTelemetry = () =>
+        window.ASRouterMessage({
+          type: "AS_ROUTER_TELEMETRY_USER_EVENT",
+          data: { ...data, action: "newtab_message_user_event" },
+        });
+      if (
+        data.event !== "IMPRESSION" ||
+        document.visibilityState === "visible"
+      ) {
+        sendTelemetry();
+      } else {
+        document.addEventListener("visibilitychange", sendTelemetry, {
+          once: true,
+          signal: impressionListeners.signal,
+        });
       }
     },
     AWGetSelectedTheme: () => Promise.resolve(),
@@ -66,6 +80,7 @@ window.mountMultistageMessage = function mountMultistageMessage(
   );
 
   return function cleanup() {
+    impressionListeners.abort();
     root.unmount();
     for (const handlerName of Object.keys(awHandlers)) {
       delete window[handlerName];
