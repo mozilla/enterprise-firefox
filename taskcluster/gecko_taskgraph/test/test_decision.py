@@ -279,6 +279,75 @@ def test_decision_parameters_git_files_changed_base(mock_get_repository, options
     assert params["files_changed"] == ["python/mozboot/mozboot/debian.py"]
 
 
+@pytest.mark.parametrize(
+    "project,tasks_for,target_tasks_method,expected",
+    (
+        pytest.param(
+            "enterprise-firefox", "cron", "nightly_enterprise", True, id="nightly_cron"
+        ),
+        pytest.param(
+            "enterprise-firefox",
+            "cron",
+            "daily_releases_enterprise",
+            False,
+            id="daily_releases_cron",
+        ),
+        pytest.param(
+            "enterprise-firefox", "github-push", None, False, id="enterprise_push"
+        ),
+        pytest.param(
+            "mozilla-central", "cron", "nightly_enterprise", False, id="other_project"
+        ),
+    ),
+)
+@patch("gecko_taskgraph.decision.populate_release_history")
+@patch("gecko_taskgraph.decision.get_release_partners")
+@patch("gecko_taskgraph.decision.get_release_partner_config")
+@patch("gecko_taskgraph.decision.get_repository")
+def test_decision_parameters_enterprise_partner_config(
+    mock_get_repository,
+    mock_get_release_partner_config,
+    mock_get_release_partners,
+    mock_populate_release_history,
+    options,
+    project,
+    tasks_for,
+    target_tasks_method,
+    expected,
+):
+    """The partner config crawls Github, so only the nightly enterprise cron may
+    ask for it."""
+    mock_repo = MagicMock()
+    mock_repo.NULL_REVISION = "0" * 40
+    mock_repo.get_commit_message.return_value = "commit message"
+    mock_repo.get_changed_files.return_value = []
+    mock_get_repository.return_value = mock_repo
+    mock_get_release_partner_config.return_value = {}
+    mock_get_release_partners.return_value = []
+    mock_populate_release_history.return_value = {}
+
+    opts = {
+        **options,
+        "base_repository": "https://github.com/mozilla/enterprise-firefox",
+        "head_repository": "https://github.com/mozilla/enterprise-firefox",
+        "base_rev": "0" * 40,
+        "project": project,
+        "repository_type": "git",
+        "tasks_for": tasks_for,
+        # `test_get_decision_parameters` leaks this into the shared fixture
+        "allow_parameter_override": False,
+    }
+    if target_tasks_method:
+        opts["target_tasks_method"] = target_tasks_method
+
+    with MockedOpen({TTC_FILE: None}):
+        params = decision.get_decision_parameters(FAKE_GRAPH_CONFIG, opts)
+
+    assert mock_get_release_partner_config.called == expected
+    assert mock_get_release_partners.called == expected
+    assert params["release_enable_enterprise_repack"] == expected
+
+
 @pytest.fixture
 def bundle_env(monkeypatch, tmp_path):
     artifacts = tmp_path / "artifacts"

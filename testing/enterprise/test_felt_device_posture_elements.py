@@ -88,10 +88,10 @@ class FeltDevicePostureElements(FeltTests):
                 """
                 const callback = arguments[arguments.length - 1];
                 const edrMod = ChromeUtils.importESModule(
-                  "resource://gre/modules/enterprise/EdrDetection.sys.mjs"
+                  "moz-src:///toolkit/modules/EdrDetection.sys.mjs"
                 );
                 const { DevicePosture } = ChromeUtils.importESModule(
-                  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                  "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
                 );
                 // Spy on getPresentEdrs so we can assert which agents were
                 // requested without depending on what is installed on the host.
@@ -152,7 +152,7 @@ class FeltDevicePostureElements(FeltTests):
                 """
                 const callback = arguments[arguments.length - 1];
                 const { DevicePosture } = ChromeUtils.importESModule(
-                  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                  "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
                 );
                 const { AppConstants } = ChromeUtils.importESModule(
                   "resource://gre/modules/AppConstants.sys.mjs"
@@ -505,7 +505,7 @@ class FeltDevicePostureElements(FeltTests):
                     dbJson
                   );
                   const { DevicePosture } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
                   );
                   try {
                     return {
@@ -645,7 +645,7 @@ class FeltDevicePostureElements(FeltTests):
                 const profileDir = arguments[0];
                 const callback = arguments[arguments.length - 1];
                 const { DevicePosture } = ChromeUtils.importESModule(
-                  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                  "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
                 );
                 DevicePosture.getExtensions({ profileDir }).then(
                   extensions => callback({ extensions }),
@@ -672,7 +672,7 @@ class FeltDevicePostureElements(FeltTests):
                 // Restricted to the types posture reports, read from the module
                 // itself so the comparison covers whatever it claims.
                 const { REPORTED_ADDON_TYPES } = ChromeUtils.importESModule(
-                  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                  "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
                 );
                 AddonManager.getAddonsByTypes(REPORTED_ADDON_TYPES).then(
                   addons =>
@@ -755,7 +755,7 @@ class FeltDevicePostureElements(FeltTests):
                     await IOUtils.writeUTF8(dbPath, dbJson);
                   }
                   const { DevicePosture } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
                   );
                   const dbBefore = await readOrNull(dbPath);
                   const statBefore = await statOrNull(dbPath);
@@ -798,10 +798,10 @@ class FeltDevicePostureElements(FeltTests):
                 + """
                 const callback = arguments[arguments.length - 1];
                 const edrMod = ChromeUtils.importESModule(
-                  "resource://gre/modules/enterprise/EdrDetection.sys.mjs"
+                  "moz-src:///toolkit/modules/EdrDetection.sys.mjs"
                 );
                 const { DevicePosture } = ChromeUtils.importESModule(
-                  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+                  "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
                 );
                 const original = edrMod.EdrDetection.getPresentEdrs;
                 let called = false;

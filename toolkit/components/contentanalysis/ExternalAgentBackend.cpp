@@ -1134,8 +1134,9 @@ ExternalAgentBackend::GetDiagnosticInfo() {
               // Note that if we made it here, we have successfully connected to
               // the agent.
               auto info = MakeRefPtr<ContentAnalysisDiagnosticInfo>(
-                  /* mConnectedToAgent */ true, std::move(agentWidePath), false,
-                  self->mRequestCount);
+                  /* aConnectedToAgent */ true, std::move(agentWidePath),
+                  /* aFailedSignatureVerification */ false, self->mRequestCount,
+                  /* aIsBuiltInAgent */ false);
               diagnosticInfoPromise->Resolve(info, __func__);
             }));
         return nullptr;
@@ -1146,7 +1147,7 @@ ExternalAgentBackend::GetDiagnosticInfo() {
             AssertIsOnMainThread();
             auto info = MakeRefPtr<ContentAnalysisDiagnosticInfo>(
                 false, EmptyString(), rv == NS_ERROR_INVALID_SIGNATURE,
-                self->mRequestCount);
+                self->mRequestCount, /* aIsBuiltInAgent */ false);
             diagnosticInfoPromise->Resolve(info, __func__);
           });
 

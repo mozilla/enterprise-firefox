@@ -6,9 +6,7 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { UrlbarProvider } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 
-const lazy = {};
-
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   AppUpdater: "resource://gre/modules/AppUpdater.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   NLP: "resource://gre/modules/NLP.sys.mjs",
@@ -19,9 +17,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/urlbar/UrlbarProviderGlobalActions.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
+  appUpdater: () => new lazy.AppUpdater(),
 });
 
-ChromeUtils.defineLazyGetter(lazy, "appUpdater", () => new lazy.AppUpdater());
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const EN_LOCALE_MATCH = /^en(-.*)$/;
 
@@ -449,6 +448,8 @@ export class UrlbarProviderInterventions extends UrlbarProvider {
       queryContext.searchString.length > UrlbarShared.MAX_TEXT_LENGTH ||
       lazy.UrlUtils.REGEXP_LIKE_PROTOCOL.test(queryContext.searchString) ||
       !EN_LOCALE_MATCH.test(Services.locale.appLocaleAsBCP47) ||
+      // Urlbar interventions are disabled on Firefox Enterprise.
+      AppConstants.MOZ_ENTERPRISE ||
       !Services.policies.isAllowed("urlbarinterventions") ||
       (await this.queryInstance
         .getProvider(lazy.UrlbarProviderGlobalActions.name)
@@ -701,7 +702,10 @@ export class UrlbarProviderInterventions extends UrlbarProvider {
   static resetAppUpdater() {
     // Reset only if the object has already been initialized.
     if (!Object.getOwnPropertyDescriptor(lazy, "appUpdater").get) {
-      lazy.appUpdater = new lazy.AppUpdater();
+      // eslint-disable-next-line mozilla/valid-lazy
+      Object.defineProperty(lazy, "appUpdater", {
+        value: new lazy.AppUpdater(),
+      });
     }
   }
 }
@@ -741,7 +745,9 @@ function openClearHistoryDialog(window) {
   if (lazy.PrivateBrowsingUtils.isWindowPrivate(window)) {
     return;
   }
-  lazy.Sanitizer.showUI(window);
+  lazy.Sanitizer.showUI(window, undefined, {
+    entryPoint: lazy.Sanitizer.DIALOG_ENTRY_POINTS.ADDRESS_BAR_SUGGESTION,
+  });
 }
 
 function restartBrowser() {

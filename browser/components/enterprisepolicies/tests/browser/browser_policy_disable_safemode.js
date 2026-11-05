@@ -36,19 +36,25 @@ add_task(async function test_safemode_from_about_support() {
   await BrowserTestUtils.removeTab(tab);
 });
 
-add_task(async function test_safemode_from_about_profiles() {
-  let tab = await BrowserTestUtils.openNewForegroundTab(
-    gBrowser,
-    "about:profiles"
-  );
-
-  await SpecialPowers.spawn(tab.linkedBrowser, [], async function () {
-    let button = content.document.getElementById("restart-in-safe-mode-button");
-    ok(
-      button.hasAttribute("disabled"),
-      "The `Restart with Add-ons Disabled...` button should be disabled"
+// about:profiles is blocked on Firefox Enterprise.
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  async function test_safemode_from_about_profiles() {
+    let tab = await BrowserTestUtils.openNewForegroundTab(
+      gBrowser,
+      "about:profiles"
     );
-  });
 
-  await BrowserTestUtils.removeTab(tab);
-});
+    await SpecialPowers.spawn(tab.linkedBrowser, [], async function () {
+      let button = content.document.getElementById(
+        "restart-in-safe-mode-button"
+      );
+      ok(
+        button.hasAttribute("disabled"),
+        "The `Restart with Add-ons Disabled...` button should be disabled"
+      );
+    });
+
+    await BrowserTestUtils.removeTab(tab);
+  }
+);

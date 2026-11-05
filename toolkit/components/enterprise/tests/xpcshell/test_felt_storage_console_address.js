@@ -11,7 +11,7 @@ gDataHome.createUnique(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
 Services.dirsvc.set("UAppData", gDataHome);
 
 const { FeltStorage } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+  "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
 );
 
 const ADDRESS = "https://console.example.com/";

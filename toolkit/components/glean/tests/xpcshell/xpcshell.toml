@@ -18,6 +18,7 @@ run-if = [
 run-if = [
   "os != 'android'", # FOG isn't responsible for monitoring prefs and controlling upload on Android
 ]
+skip-if = ["enterprise"] # Enterprise builds lock datareporting.healthreport.uploadEnabled on
 
 ["test_FOGStoredSubmittedPings.js"]
 run-if = [
@@ -63,8 +64,11 @@ skip-if = [
 ["test_OHTTP.js"]
 skip-if = [
   "os == 'android'", # FOG isn't responsible for monitoring prefs and controlling upload on Android
+  "enterprise", # Glean pings are sent to the console without OHTTP on enterprise builds
 ]
 
 ["test_ProfilerMarkers.js"]
+head = "head.js head_ProfilerMarkers.js"
 
 ["test_ProfilerMarkersIPC.js"]
+head = "head.js head_ProfilerMarkers.js"

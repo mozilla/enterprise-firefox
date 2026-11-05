@@ -1080,7 +1080,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
             return driver.execute_script(
                 """
                 const { FeltStorage } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+                    "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
                 );
                 const email = arguments[0] || FeltStorage.getLastSignedInUser();
                 return !!email && FeltStorage.hasLockingToken(email);
@@ -1250,7 +1250,7 @@ class FeltTests(FeltTestsBase):
                 OSKeyStore.ensureLoggedIn = async () => ({ authenticated: true });
 
                 const { FeltStorage } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+                    "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
                 );
                 if (FeltStorage._feltStorage?.data) {
                     FeltStorage._feltStorage.data.lockingTokens = {};

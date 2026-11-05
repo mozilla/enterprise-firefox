@@ -138,9 +138,9 @@ ChromeUtils.defineLazyGetter(this, "fxAccounts", () => {
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(this, {
     EnterpriseBadge:
-      "resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs",
+      "moz-src:///toolkit/components/enterprise/modules/EnterpriseBadge.sys.mjs",
     EnterpriseHandler:
-      "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
+      "moz-src:///browser/components/enterprise/EnterpriseHandler.sys.mjs",
   });
 }
 
@@ -5029,7 +5029,9 @@ var ConfirmationHint = {
     // IP Protection strings are still in preview (see Bug 2011776).
     // Only insert the preview file if we're showing a hint for IP Protection.
     if (
-      messageId === "confirmation-hint-ipprotection-navigated-to-excluded-site"
+      messageId ===
+        "confirmation-hint-ipprotection-navigated-to-excluded-site" ||
+      messageId === "confirmation-hint-ipprotection-navigated-to-included-site"
     ) {
       MozXULElement.insertFTLIfNeeded("browser/ipProtection.ftl");
     }

@@ -6,9 +6,9 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   ForcedQuitHandler:
-    "resource://gre/modules/enterprise/ForcedQuitHandler.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/ForcedQuitHandler.sys.mjs",
   ScheduledTask: "resource://gre/modules/ScheduledTask.sys.mjs",
 });
 
@@ -21,7 +21,7 @@ const MS_PER_MINUTE = 60 * 1000;
 // up to app.update.interval.
 const UPDATE_CHECK_INTERVAL_MS = 5 * MS_PER_MINUTE;
 
-// Grace granted to a freshly launched session when the console names none.
+// Grace granted after a warning or a resume when the console names none.
 const DEFAULT_GRACE_PERIOD_MINUTES = 10;
 
 // How close to the deadline the warning escalates to the imminent phase.
@@ -51,6 +51,14 @@ export const RelaunchPhase = Object.freeze({
  */
 export const RelaunchEnforcer = {
   _schedule: null,
+  // The budget the console last sent, and when it arrived, so a resume can
+  // re-derive the deadline before the next poll.
+  _relaunch: null,
+  _polledAt: null,
+  // When the user last got the chance to act on the pending deadline: when it
+  // first arrived, or the latest resume since. The grace period runs from here.
+  _graceStart: null,
+  _observingWake: false,
   _lastUpdateCheck: null,
   _updateCheckDelay: UPDATE_CHECK_INTERVAL_MS,
   _restartTask: null,
@@ -103,11 +111,6 @@ export const RelaunchEnforcer = {
     }
   },
 
-  get _sessionStart() {
-    // The real process start.
-    return Services.startup.getStartupInfo().process.getTime();
-  },
-
   /**
    * Derives the deadline this session must restart by, from the budget the
    * console reported on a poll.
@@ -122,14 +125,14 @@ export const RelaunchEnforcer = {
    * @param {object} options
    * @param {number} [options.now=Date.now()] - When the budget arrived, in epoch
    *   ms.
-   * @param {number} [options.sessionStart] - Epoch ms this process started.
-   *   Defaults to this process's start.
+   * @param {number} [options.graceStart] - Epoch ms the grace period runs
+   *   from. Defaults to the pending deadline's, or `now` if none is pending.
    * @param {object|null} options.params - The console's `relaunch` payload.
    * @returns {{restartAt: number}|null} null means nothing is pending.
    */
   _computeRestartTime({
     now = Date.now(),
-    sessionStart = this._sessionStart,
+    graceStart = this._graceStart ?? now,
     params,
   }) {
     if (!params || typeof params !== "object") {
@@ -172,7 +175,7 @@ export const RelaunchEnforcer = {
     );
 
     const softAt = now + softMinutes * MS_PER_MINUTE;
-    const graceEnd = sessionStart + graceMinutes * MS_PER_MINUTE;
+    const graceEnd = graceStart + graceMinutes * MS_PER_MINUTE;
 
     // The grace period floors the deadline, a hard deadline caps it.
     return {
@@ -197,7 +200,8 @@ export const RelaunchEnforcer = {
       return;
     }
 
-    const schedule = this._computeRestartTime({ params: relaunch });
+    const now = Date.now();
+    const schedule = this._computeRestartTime({ now, params: relaunch });
 
     if (!schedule) {
       if (relaunch) {
@@ -209,7 +213,14 @@ export const RelaunchEnforcer = {
       return;
     }
 
-    const now = Date.now();
+    this._relaunch = relaunch;
+    this._polledAt = now;
+    this._graceStart ??= now;
+    if (!this._observingWake) {
+      this._observingWake = true;
+      Services.obs.addObserver(this, "wake_notification");
+    }
+
     const isRetry = this._lastUpdateCheck !== null;
     if (
       !isRetry ||
@@ -255,22 +266,66 @@ export const RelaunchEnforcer = {
       return;
     }
     lazy.log.debug("The console withdrew the restart deadline.");
+    this._clearDeadline();
+    this._hideNotification();
+  },
+
+  _clearDeadline() {
     this._schedule = null;
+    this._relaunch = null;
+    this._polledAt = null;
+    this._graceStart = null;
     this._lastUpdateCheck = null;
     this._updateCheckDelay = UPDATE_CHECK_INTERVAL_MS;
     this._disarm();
     this._stopAwaitingSessionRestore();
-    this._hideNotification();
+    this._stopObservingWake();
   },
 
   observe(aSubject, aTopic) {
-    if (aTopic !== "sessionstore-windows-restored") {
+    switch (aTopic) {
+      case "sessionstore-windows-restored":
+        this._stopAwaitingSessionRestore();
+        // A poll or a resume since the deferral may have pushed the deadline
+        // out, in which case the armed timer restarts.
+        if (this._schedule && this._schedule.restartAt <= Date.now()) {
+          this._restart();
+        }
+        break;
+      case "wake_notification":
+        this._onWake();
+        break;
+    }
+  },
+
+  /**
+   * Restarts the grace period on resume, as the user may not have seen the
+   * warning, or had time to act on it, before the machine went to sleep. There
+   * is no telling how long it slept, so every resume grants the full period.
+   */
+  _onWake() {
+    if (!this._schedule || this._restarting) {
       return;
     }
-    this._stopAwaitingSessionRestore();
-    if (this._schedule) {
-      this._restart();
+    this._graceStart = Date.now();
+    this._schedule = this._computeRestartTime({
+      now: this._polledAt,
+      params: this._relaunch,
+    });
+    lazy.log.debug("Resumed from sleep; restarting the grace period.");
+    this._arm();
+    if (this._restarting) {
+      return;
     }
+    this._refreshNotification();
+  },
+
+  _stopObservingWake() {
+    if (!this._observingWake) {
+      return;
+    }
+    this._observingWake = false;
+    Services.obs.removeObserver(this, "wake_notification");
   },
 
   _stopAwaitingSessionRestore() {
@@ -496,6 +551,7 @@ export const RelaunchEnforcer = {
     }
     return {
       schedule: this._schedule,
+      graceStart: this._graceStart,
       shownPhase: this._shownPhase,
       shownMinutes: this._shownMinutes,
       restartArmed: !!this._restartTask?.isArmed,
@@ -514,11 +570,7 @@ export const RelaunchEnforcer = {
     if (!Cu.isInAutomation) {
       throw new Error("this method only usable in testing");
     }
-    this._schedule = null;
-    this._lastUpdateCheck = null;
-    this._updateCheckDelay = UPDATE_CHECK_INTERVAL_MS;
-    this._disarm();
-    this._stopAwaitingSessionRestore();
+    this._clearDeadline();
     this._hideNotification();
     this._warningUIDelegate = null;
     // Tests register the delegate they want, so leave the category alone.

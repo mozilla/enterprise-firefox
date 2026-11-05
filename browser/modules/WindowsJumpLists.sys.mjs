@@ -378,7 +378,9 @@ export var WinTaskbarJumpList = {
 
   _setupFeltBlocking: function WTBJL__setupFeltBlocking() {
     const { isFeltFirefoxWindowReady, waitForFeltFirefoxWindowReady } =
-      ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
+      ChromeUtils.importESModule(
+        "moz-src:///browser/components/FeltURLHandler.sys.mjs"
+      );
     if (isFeltFirefoxWindowReady()) {
       return;
     }

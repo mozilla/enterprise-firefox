@@ -4,6 +4,8 @@ support-files = [
   "../../../../dom/security/test/csp/dummy.pdf",
 ]
 
+["browser_background_external_url.js"]
+
 ["browser_browserGlue_client_association_ping.js"]
 
 ["browser_browserGlue_fxa_client_info_ping.js"]
@@ -24,6 +26,7 @@ run-if = [
 ["browser_browserGlue_telemetry.js"]
 
 ["browser_browserGlue_upgradeDialog_trigger.js"]
+skip-if = ["enterprise"] # Onboarding is disabled on Firefox Enterprise
 
 ["browser_browserGlue_userNamespacesNotification.js"]
 

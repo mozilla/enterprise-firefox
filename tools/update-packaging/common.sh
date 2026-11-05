@@ -169,23 +169,38 @@ append_remove_instructions() {
   fi
 }
 
+# https://bugzilla.mozilla.org/show_bug.cgi?id=2058197
+# https://bugzilla.mozilla.org/show_bug.cgi?id=2058594
+# Order MAR instructions in a way that minimizes the chance of hitting
+# start-up crashes.
+reorder_instructions() {
+  filev3="$1"
+  appname="$2"
+
+  notice ""
+  notice "Reordering MAR instructions to a safer order"
+  {
+    grep -E '^type '                 "$filev3"
+    grep -E '"dependentlibs\.list"$' "$filev3"
+    grep -vE "^type |\"(dependentlibs\.list|browser/omni\.ja|omni\.ja|xul\.dll|mozglue\.dll|${appname}\.exe)\"$" "$filev3"
+    grep -E '"xul\.dll"$'            "$filev3"
+    grep -E '"browser/omni\.ja"$'    "$filev3"
+    grep -E '"omni\.ja"$'            "$filev3"
+    grep -E '"mozglue\.dll"$'        "$filev3"
+    grep -E "\"${appname}\.exe\"$"   "$filev3"
+  } > "$filev3.reordered"
+  mv -f "$filev3.reordered" "$filev3"
+}
+
 # List all files in the current directory, stripping leading "./"
 # Pass a variable name and it will be filled as an array.
-# MAR_EXCLUDE_FILES is a space separated list of basenames to leave out of the
-# listing entirely, so that no instruction at all is generated for them and the
-# updater leaves any installed copy alone.
 list_files() {
   count=0
   temp_filelist=$(mktemp)
-  exclude_args=()
-  for exclude_name in $MAR_EXCLUDE_FILES; do
-    exclude_args+=(! -name "$exclude_name")
-  done
   find . -type f \
     ! -name "update.manifest" \
     ! -name "updatev2.manifest" \
     ! -name "updatev3.manifest" \
-    "${exclude_args[@]}" \
     | sed 's/\.\/\(.*\)/\1/' \
     | sort -r > "${temp_filelist}"
   while read file; do

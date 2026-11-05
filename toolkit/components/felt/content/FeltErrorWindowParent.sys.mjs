@@ -6,8 +6,8 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
-  FeltErrorReport: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
+  FeltErrorReport: "moz-src:///toolkit/components/felt/FeltErrorReport.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {

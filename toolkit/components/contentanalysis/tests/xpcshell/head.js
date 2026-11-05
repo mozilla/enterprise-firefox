@@ -4,7 +4,7 @@
 "use strict";
 
 const { ConsoleClient } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
 );
 
 // Name the wasm module has as a test support-file. This is a test double, not

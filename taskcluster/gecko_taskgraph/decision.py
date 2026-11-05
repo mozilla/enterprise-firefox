@@ -37,7 +37,7 @@ from .parameters import (
     get_version,
 )
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
-from .util.bugbug import push_schedules
+from .util.bugbug import push_schedules, start_push_schedules
 from .util.hg import get_hg_revision_metadata
 from .util.partials import populate_release_history
 from .util.partners import (
@@ -252,6 +252,15 @@ def taskgraph_decision(options, parameters):
 
     decision_task_id = os.environ["TASK_ID"]
 
+    # Start querying bugbug early, so its results are ready sooner for the
+    # optimizers, and so they are stored even on pushes that don't use them
+    # (e.g. backstop pushes).
+    bugbug_future = None
+    if not create.testing and parameters["project"] == "autoland":
+        bugbug_future = start_push_schedules(
+            parameters["project"], parameters["head_rev"]
+        )
+
     with source_bundle(parameters["head_rev"], parameters["repository_type"]):
         # create a TaskGraphGenerator instance
         tgg = TaskGraphGenerator(
@@ -307,13 +316,6 @@ def taskgraph_decision(options, parameters):
         write_artifact("task-graph.json", tgg.morphed_task_graph.to_json())
         write_artifact("label-to-taskid.json", tgg.label_to_taskid)
 
-        # write bugbug scheduling information if it was invoked
-        if push_schedules.cache_info().currsize > 0:
-            write_artifact(
-                "bugbug-push-schedules.json",
-                push_schedules(tgg.parameters["project"], tgg.parameters["head_rev"]),
-            )
-
         # upload run-task, fetch-content, robustcheckout.py and more as artifacts
         scripts_dir = Path(GECKO, "taskcluster", "scripts")
         taskgraph_dir = Path(taskgraph.__file__).parent
@@ -336,6 +338,19 @@ def taskgraph_decision(options, parameters):
             tgg.parameters,
             decision_task_id=decision_task_id,
         )
+
+        # write bugbug scheduling information if it was invoked or is ready
+        if push_schedules.cache_info().currsize > 0:
+            write_artifact(
+                "bugbug-push-schedules.json",
+                push_schedules(tgg.parameters["project"], tgg.parameters["head_rev"]),
+            )
+        elif bugbug_future and bugbug_future.done() and not bugbug_future.exception():
+            write_artifact("bugbug-push-schedules.json", bugbug_future.result())
+        else:
+            logger.info(
+                "Bugbug results not available, not writing bugbug-push-schedules.json"
+            )
 
 
 def get_decision_parameters(graph_config, options):
@@ -410,6 +425,7 @@ def get_decision_parameters(graph_config, options):
     parameters["phabricator_diff"] = None
     parameters["release_type"] = get_release_type(parameters)
     parameters["release_eta"] = ""
+    parameters["release_enable_enterprise_repack"] = False
     parameters["release_enable_partner_repack"] = False
     parameters["release_enable_partner_attribution"] = False
     parameters["release_partners"] = []
@@ -444,14 +460,6 @@ def get_decision_parameters(graph_config, options):
         )
         parameters.update(PER_PROJECT_PARAMETERS["default"])
 
-    if "enterprise" in project:
-        # They silently depend on release_type / release_product parameters
-        parameters["release_partner_config"] = get_release_partner_config(
-            parameters, graph_config
-        )
-        # Depends on the values from the previous call
-        parameters["release_partners"] = get_release_partners(parameters)
-
     if parameters.get("tasks_for", "").startswith("github-pull-request"):
         parameters["optimize_strategies"] = (
             "gecko_taskgraph.optimize:project.pull_request"
@@ -460,6 +468,23 @@ def get_decision_parameters(graph_config, options):
     # `target_tasks_method` has higher precedence than `project` parameters
     if options.get("target_tasks_method"):
         parameters["target_tasks_method"] = options["target_tasks_method"]
+
+    # Resolving the partner config crawls the partner repositories on Github and
+    # needs a token, so only do it for the cron scheduling the repacks that
+    # consume it, the same way `release_promotion` does it for a release. Has to
+    # come after `target_tasks_method` is resolved.
+    if (
+        "enterprise" in project
+        and parameters.get("tasks_for") == "cron"
+        and parameters.get("target_tasks_method") == "nightly_enterprise"
+    ):
+        parameters["release_enable_enterprise_repack"] = True
+        # They silently depend on release_type / release_product parameters
+        parameters["release_partner_config"] = get_release_partner_config(
+            parameters, graph_config
+        )
+        # Depends on the values from the previous call
+        parameters["release_partners"] = get_release_partners(parameters)
 
     if options.get("include_push_tasks"):
         get_existing_tasks(options.get("rebuild_kinds", []), parameters, graph_config)

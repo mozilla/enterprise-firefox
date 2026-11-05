@@ -150,6 +150,38 @@ impl OsIpcReceiver {
         OsIpcReceiver { fd: Cell::new(fd) }
     }
 
+    /// OS process id of the peer on the other end of this receiver's socket.
+    ///
+    /// On Linux this reads `SO_PEERCRED` on the connected socket, which the
+    /// kernel fills with the credentials of the peer at connect time and cannot
+    /// be forged by the peer. Returns `None` when the credentials cannot be
+    /// obtained or on unix targets without `SO_PEERCRED`.
+    #[cfg(target_os = "linux")]
+    pub fn peer_pid(&self) -> Option<u32> {
+        use nix::sys::socket::{getsockopt, sockopt::PeerCredentials};
+        use std::os::fd::BorrowedFd;
+
+        let fd = self.fd.get();
+        if fd < 0 {
+            return None;
+        }
+        // SAFETY: `fd` is a socket owned by this receiver. It is only closed by
+        // `Drop` or handed off by `consume_fd`, neither of which can run while
+        // `&self` is borrowed here (`OsIpcReceiver` is not `Sync`), so the fd
+        // stays open for the lifetime of the `BorrowedFd`.
+        let fd = unsafe { BorrowedFd::borrow_raw(fd) };
+        let pid = getsockopt(&fd, PeerCredentials).ok()?.pid();
+        if pid <= 0 {
+            return None;
+        }
+        Some(pid as u32)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    pub fn peer_pid(&self) -> Option<u32> {
+        None
+    }
+
     fn consume_fd(&self) -> c_int {
         let fd = self.fd.get();
         self.fd.set(-1);
@@ -726,6 +758,16 @@ impl OsIpcOneShotServer {
             let ipc_message = receiver.recv()?;
             Ok((receiver, ipc_message))
         }
+    }
+
+    /// Like `accept`, and also returns the connected peer's pid, as reported
+    /// by the accepted receiver's `peer_pid()`.
+    pub fn accept_with_peer_pid(
+        self,
+    ) -> Result<(OsIpcReceiver, IpcMessage, Option<u32>), UnixError> {
+        let (receiver, ipc_message) = self.accept()?;
+        let peer_pid = receiver.peer_pid();
+        Ok((receiver, ipc_message, peer_pid))
     }
 }
 

@@ -20,7 +20,7 @@ class FeltStartsBrowserExternalLink(BaseBrowserExternalLink):
         self.run_felt_open_external_link()
 
     def test_browser_pending_external_link(self):
-        self._external_link = "about:welcome"
+        self._external_link = "about:license"
         urls_file = os.path.join(self._driver.profile, "pendingURLs.json")
 
         assert not os.path.exists(urls_file), (

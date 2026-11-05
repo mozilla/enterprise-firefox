@@ -119,7 +119,12 @@ version = "1.0"
 features = ["os-ext"]
 default-features = false
 
+[target.'cfg(target_os = "linux")'.dependencies.nix]
+version = "0.30"
+features = ["socket"]
+
 [target.'cfg(target_os = "macos")'.dependencies]
+mach2 = "0.6"
 rand = "0.8.5"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]

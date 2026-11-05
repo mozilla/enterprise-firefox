@@ -183,6 +183,20 @@ function srdSectionEnabled(section) {
   return srdSectionPrefs.all || srdSectionPrefs[section];
 }
 
+/**
+ * Gate for the in-progress Notifications sub-page. Deliberately not part of
+ * srdSectionPrefs, whose sections are all on once the redesign is enabled.
+ *
+ * @type {Record<string, boolean>}
+ */
+const notificationsSection = {};
+XPCOMUtils.defineLazyPreferenceGetter(
+  notificationsSection,
+  "enabled",
+  "browser.preferences.notifications-section.enabled",
+  false
+);
+
 var { SettingPaneManager, friendlyPrefCategoryNameToInternalName } =
   ChromeUtils.importESModule(
     "chrome://browser/content/preferences/config/SettingPaneManager.mjs",
@@ -393,9 +407,23 @@ const CONFIG_PANES = Object.freeze({
   permissionsData: {
     l10nId: "permissions-data-section",
     iconSrc: "chrome://browser/skin/permissions.svg",
-    groupIds: ["permissions", "dataCollection"],
+    groupIds: ["notificationsEntry", "permissions", "dataCollection"],
     module: "chrome://browser/content/preferences/config/permissions-data.mjs",
     visible: () => srdSectionEnabled("permissionsData"),
+  },
+  notifications: {
+    parent: "permissionsData",
+    l10nId: "notifications-section-header",
+    // The gate has to be the group list rather than `visible`, which
+    // SettingPane.handleVisibility only honors for top-level panes. With no
+    // groups, registerPane creates neither the pane nor its category button,
+    // so about:preferences#notifications falls back to the default pane. The
+    // parent is checked too, or the pane would render orphaned without it.
+    groupIds:
+      notificationsSection.enabled && srdSectionEnabled("permissionsData")
+        ? ["websiteNotifications"]
+        : [],
+    module: "chrome://browser/content/preferences/config/notifications.mjs",
   },
   personalizeSmartWindow: {
     parent: "ai",
@@ -495,7 +523,7 @@ const CONFIG_PANES = Object.freeze({
   },
   vpnSiteRules: {
     parent: "privacy",
-    l10nId: "ip-protection-site-rules-header",
+    l10nId: "ip-protection-site-rules-header-1",
     groupIds: ["vpnSiteRules"],
     replaces: "privacy",
   },

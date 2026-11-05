@@ -13,7 +13,7 @@ const { BuiltInThemeConfig } = ChromeUtils.importESModule(
   "resource:///modules/BuiltInThemeConfig.sys.mjs"
 );
 const { EnterpriseThemeMigration } = ChromeUtils.importESModule(
-  "resource:///modules/enterprise/EnterpriseThemeMigration.sys.mjs"
+  "moz-src:///browser/components/enterprise/EnterpriseThemeMigration.sys.mjs"
 );
 
 const ACTIVE_THEME_PREF = "extensions.activeThemeID";

@@ -145,15 +145,18 @@ def make_task_description(config, jobs):
             th_symbol = None
 
             if "enterprise-repack-mac" in config.kind:
-                # assumes repacks-per-chunk is 1
-                repack_ids = job.get("extra").get("repack_ids")
+                repack_config = job["extra"]["repack_config"]
 
-                assert len(repack_ids) == 1
                 th_group = "BMS-Ent" if "signing" in config.kind else "BMN-Ent"
-                th_symbol = f"{th_group}({repack_ids[0]})"
+                th_symbol = f"{th_group}({repack_config})"
 
-                repack_label = "enterprise-repack-" + repack_ids[0].replace("/", "_")
-                job["label"] = job["label"].replace("enterprise-repack", repack_label)
+                repack_label = "enterprise-repack-" + repack_config.replace("/", "_")
+                # Notarization inherits the signing task's label, which
+                # already names the repack. Don't name it twice.
+                if repack_label not in job["label"]:
+                    job["label"] = job["label"].replace(
+                        "enterprise-repack", repack_label
+                    )
 
                 job.setdefault("attributes", {})["repackage_type"] = f"{repack_label}"
             else:

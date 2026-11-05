@@ -6,11 +6,12 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   InfoBar: "resource:///modules/asrouter/InfoBar.sys.mjs",
   RelaunchEnforcer:
-    "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs",
-  RelaunchPhase: "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/RelaunchEnforcer.sys.mjs",
+  RelaunchPhase:
+    "moz-src:///toolkit/components/enterprise/modules/RelaunchEnforcer.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {

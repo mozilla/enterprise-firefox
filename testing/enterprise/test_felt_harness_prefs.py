@@ -101,6 +101,8 @@ class HarnessPrefs(BaseBrowserSignout):
             "network.connectivity-service.IPv6.url": "http://firefox-portal-detection.com/success.txt?ipv6",
             "browser.ipProtection.guardian.endpoint": base,
             "identity.fxaccounts.remote.root": base,
+            # Locked on in enterprise builds by all.js, overriding the harness value.
+            "datareporting.healthreport.uploadEnabled": True,
             "enterprise.is_testing": True,
             "enterprise.log_level": "Debug",
         }

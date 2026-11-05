@@ -297,7 +297,7 @@ class EnterpriseTestsBase(MarionetteTestCase):
             user = driver.execute_async_script(
                 """
                 const callback = arguments[arguments.length - 1];
-                const { ConsoleClient } = ChromeUtils.importESModule("resource://gre/modules/enterprise/ConsoleClient.sys.mjs");
+                const { ConsoleClient } = ChromeUtils.importESModule("moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs");
                 ConsoleClient.getLoggedInUserInfo()
                     .then(callback)
                     .catch(err => callback({_error: String(err)}))

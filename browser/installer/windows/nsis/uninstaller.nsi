@@ -716,10 +716,6 @@ Section "Uninstall"
   ; Remove the installation directory if it is empty
   RmDir "$INSTDIR"
 
-!ifdef MOZ_ENTERPRISE
-  RmDir /r "$TEMP\felt-${UpdateChannel}\"
-!endif
-
   ; If firefox.exe was successfully deleted yet we still need to restart to
   ; remove other files create a dummy firefox.exe.moz-delete to prevent the
   ; installer from allowing an install without restart when it is required

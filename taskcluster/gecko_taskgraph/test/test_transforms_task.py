@@ -24,6 +24,7 @@ from gecko_taskgraph.transforms.task import (
         pytest.param(
             {
                 "head_ref": "refs/heads/main",
+                "base_repository": "https://github.com/mozilla/test-project",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -35,6 +36,7 @@ from gecko_taskgraph.transforms.task import (
         pytest.param(
             {
                 "head_ref": "refs/heads/main",
+                "base_repository": "https://github.com/mozilla/test-project",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -46,6 +48,7 @@ from gecko_taskgraph.transforms.task import (
         pytest.param(
             {
                 "head_ref": "refs/heads/develop",
+                "base_repository": "https://github.com/mozilla/test-project",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -57,6 +60,7 @@ from gecko_taskgraph.transforms.task import (
         pytest.param(
             {
                 "head_ref": "refs/heads/main",
+                "base_repository": "https://github.com/mozilla/test-project",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -73,6 +77,7 @@ from gecko_taskgraph.transforms.task import (
         pytest.param(
             {
                 "head_ref": "refs/heads/develop",
+                "base_repository": "https://github.com/mozilla/test-project",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -89,6 +94,7 @@ from gecko_taskgraph.transforms.task import (
         pytest.param(
             {
                 "head_ref": "",
+                "base_repository": "https://hg.mozilla.org/test-project",
                 "project": "test-project",
                 "repository_type": "hg",
                 "tasks_for": "hg-push",
@@ -100,6 +106,7 @@ from gecko_taskgraph.transforms.task import (
         pytest.param(
             {
                 "head_ref": "refs/heads/release",
+                "base_repository": "https://github.com/mozilla/test-project",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-pull-request",
@@ -111,6 +118,7 @@ from gecko_taskgraph.transforms.task import (
         pytest.param(
             {
                 "head_ref": "refs/heads/test-branch",
+                "base_repository": "https://github.com/mozilla/test-project",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -122,6 +130,7 @@ from gecko_taskgraph.transforms.task import (
         pytest.param(
             {
                 "head_ref": "refs/heads/release",
+                "base_repository": "https://github.com/mozilla/test-project",
                 "project": "test-project",
                 "repository_type": "git",
                 "tasks_for": "github-push",
@@ -129,6 +138,18 @@ from gecko_taskgraph.transforms.task import (
             {"test-.*": "foo", "default": "bar"},
             "bar",
             id="regex-default",
+        ),
+        pytest.param(
+            {
+                "base_repository": "https://github.com/mozilla/enterprise-firefox",
+                "head_ref": "refs/heads/enterprise-main",
+                "project": "enterprise-thunderbird",
+                "repository_type": "git",
+                "tasks_for": "github-push",
+            },
+            {},
+            "enterprise-firefox",
+            id="triggered_from_other_project",
         ),
     ],
 )

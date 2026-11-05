@@ -19,6 +19,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from mozbuild.repackaging.application_ini import get_application_ini_values
 from mozbuild.repackaging.desktop_file import generate_browser_desktop_entry_file_text
+from mozbuild.util import is_enterprise_tree
 
 
 def application_ini_data_from_directory(application_directory):
@@ -166,30 +167,31 @@ def inject_desktop_entry_file(
 
 def inject_distribution_folder(source_dir, source_type, app_name):
     distribution_ini_path = mozpath.join(source_dir, source_type, "distribution.ini")
-    distribution_ini_dir = mozpath.join(source_dir, app_name.lower(), "distribution")
-    distribution_ini_target = mozpath.join(distribution_ini_dir, "distribution.ini")
 
-    os.makedirs(
-        mozpath.join(source_dir, app_name.lower(), "distribution"), exist_ok=True
-    )
+    distribution_dir = mozpath.join(source_dir, app_name.lower(), "distribution")
+    os.makedirs(distribution_dir, exist_ok=True)
 
-    if not os.path.exists(distribution_ini_target):
-        shutil.move(
-            distribution_ini_path,
-            distribution_ini_dir,
-        )
-    else:
-        print(f"{distribution_ini_target} exists, merging")
-        existing_ini = configparser.ConfigParser()
-        existing_ini.read(distribution_ini_target)
+    destination_path = mozpath.join(distribution_dir, "distribution.ini")
+    if os.path.exists(destination_path):
+        if is_enterprise_tree():
+            print(f"{destination_path} exists, merging")
+            existing_ini = configparser.ConfigParser()
+            existing_ini.read(destination_path)
 
-        debian_ini = configparser.ConfigParser()
-        debian_ini.read(distribution_ini_path)
+            package_ini = configparser.ConfigParser()
+            package_ini.read(distribution_ini_path)
 
-        merge_distribution_ini(debian_ini, existing_ini, distribution_ini_target)
+            merge_distribution_ini(package_ini, existing_ini, destination_path)
 
-        with open(distribution_ini_target, "w") as distribution_ini_modified:
-            existing_ini.write(distribution_ini_modified, space_around_delimiters=False)
+            with open(destination_path, "w") as distribution_ini_modified:
+                existing_ini.write(
+                    distribution_ini_modified, space_around_delimiters=False
+                )
+            return
+
+        os.remove(destination_path)
+
+    shutil.move(distribution_ini_path, destination_path)
 
 
 def merge_distribution_ini(package_ini, existing_ini, distribution_ini_target):

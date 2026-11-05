@@ -51,11 +51,12 @@ class ContentAnalysisDiagnosticInfo final
   NS_DECL_NSICONTENTANALYSISDIAGNOSTICINFO
   ContentAnalysisDiagnosticInfo(bool aConnectedToAgent, nsString aAgentPath,
                                 bool aFailedSignatureVerification,
-                                int64_t aRequestCount)
+                                int64_t aRequestCount, bool aIsBuiltInAgent)
       : mConnectedToAgent(aConnectedToAgent),
         mAgentPath(std::move(aAgentPath)),
         mFailedSignatureVerification(aFailedSignatureVerification),
-        mRequestCount(aRequestCount) {}
+        mRequestCount(aRequestCount),
+        mIsBuiltInAgent(aIsBuiltInAgent) {}
 
  private:
   virtual ~ContentAnalysisDiagnosticInfo() = default;
@@ -63,6 +64,7 @@ class ContentAnalysisDiagnosticInfo final
   nsString mAgentPath;
   bool mFailedSignatureVerification;
   int64_t mRequestCount;
+  bool mIsBuiltInAgent;
 };
 
 class ContentAnalysisRequest final : public nsIContentAnalysisRequest {

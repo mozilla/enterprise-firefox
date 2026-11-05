@@ -13,9 +13,9 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
 
 ChromeUtils.defineESModuleGetters(lazy, {
   initiateShutdown:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {

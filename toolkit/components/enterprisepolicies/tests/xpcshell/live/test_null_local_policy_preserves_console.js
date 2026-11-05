@@ -21,7 +21,7 @@ const { FileTestUtils } = ChromeUtils.importESModule(
 const NULL_LOCAL_POLICIES = { policies: { x: null } };
 const REMOTE_CONSOLE_POLICIES = {
   policies: {
-    SecurityLogging: { Download: { Enabled: true } },
+    BlockAboutConfig: true,
   },
 };
 
@@ -59,7 +59,7 @@ add_task(async function test_null_local_policy_preserves_console_policies() {
 
   const active = policiesSvc.getActivePolicies();
   Assert.ok(
-    "SecurityLogging" in active,
+    "BlockAboutConfig" in active,
     "The successfully fetched console policy is still applied"
   );
   Assert.ok(

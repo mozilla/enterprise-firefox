@@ -25,10 +25,12 @@ from taskgraph.util.taskcluster import (
 from taskgraph.util.yaml import load_yaml
 
 from gecko_taskgraph import GECKO, TEST_CONFIGS
+from gecko_taskgraph.optimize.perf_batching import PERF_CADENCE_STRATEGIES
 from gecko_taskgraph.util.attributes import (
     match_run_on_hg_branches,
     match_run_on_projects,
     match_run_on_repo_type,
+    repacks_on_release_promotion,
 )
 from gecko_taskgraph.util.constants import TEST_KINDS
 from gecko_taskgraph.util.hg import find_hg_revision_push_info, get_hg_commit_message
@@ -473,6 +475,28 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
     ]
 
 
+def filter_shippable_tests_on_non_backstop(task, parameters):
+    """Remove tests running against shippable builds on non-backstop pushes."""
+    if task.kind not in TEST_KINDS:
+        return True
+
+    if parameters["backstop"]:
+        return True
+
+    build_type = task.attributes.get("build_type")
+
+    if not build_type or build_type != "opt" or filter_out_shippable(task):
+        return True
+
+    return False
+
+
+def is_perf_cadence_task(task):
+    """Whether the task is a performance task optimized through one of the
+    perf-cadence-* strategies."""
+    return any(name in PERF_CADENCE_STRATEGIES for name in (task.optimization or {}))
+
+
 @register_target_task("autoland_tasks")
 def target_tasks_autoland(full_task_graph, parameters, graph_config):
     """In addition to doing the filtering by project that the 'default'
@@ -481,22 +505,30 @@ def target_tasks_autoland(full_task_graph, parameters, graph_config):
     filtered_for_project = target_tasks_default(
         full_task_graph, parameters, graph_config
     )
+    return [
+        l
+        for l in filtered_for_project
+        if filter_shippable_tests_on_non_backstop(full_task_graph[l], parameters)
+    ]
 
-    def filter(task):
-        if task.kind not in TEST_KINDS:
-            return True
 
-        if parameters["backstop"]:
-            return True
-
-        build_type = task.attributes.get("build_type")
-
-        if not build_type or build_type != "opt" or filter_out_shippable(task):
-            return True
-
-        return False
-
-    return [l for l in filtered_for_project if filter(full_task_graph[l])]
+@register_target_task("autoland_perf_shadow_scheduler_tasks")
+def target_tasks_autoland_perf_shadow_scheduler(
+    full_task_graph, parameters, graph_config
+):
+    """Same as 'autoland_tasks', except that performance tasks are targeted on
+    every push instead of only on backstop pushes. Used by the perf shadow
+    schedulers so the cadence strategies they evaluate get to judge every
+    push-based performance task."""
+    filtered_for_project = target_tasks_default(
+        full_task_graph, parameters, graph_config
+    )
+    return [
+        l
+        for l in filtered_for_project
+        if is_perf_cadence_task(full_task_graph[l])
+        or filter_shippable_tests_on_non_backstop(full_task_graph[l], parameters)
+    ]
 
 
 @register_target_task("mozilla_central_tasks")
@@ -607,9 +639,33 @@ def target_tasks_enterprise_firefox_with_tests(
         ):
             return False
 
+        # No scopes for proj-autophone workers
+        if task.task.get("provisionerId") == "proj-autophone":
+            return False
+
+        # No scopes for the Gecko secrets used by valgrind builds
+        if task.kind == "valgrind":
+            return False
+
+        # No scopes for the Slack notifications of test-apk tasks
+        if task.kind == "test-apk":
+            return False
+
         # Only keep builds that have been explicitely flagged
         if task.kind == "build" and not parameters["project"] in task.attributes.get(
             "run_on_projects"
+        ):
+            return False
+
+        # Only a repack needs the shippable builds and the tasks made
+        # from them, and a push never repacks. They are still built when a
+        # repack runs: depending on the branch, the `nightly_enterprise` cron
+        # or a release promotion action asks for the repack, and the builds
+        # come in as its dependencies. Thunderbird Enterprise runs this same
+        # filter through `enterprise_thunderbird_with_tests_tasks`, so it has
+        # to keep them.
+        if repacks_on_release_promotion(parameters) and "-enterprise-shippable" in (
+            task.attributes.get("build_platform") or ""
         ):
             return False
 
@@ -822,6 +878,27 @@ def target_tasks_ship_desktop(full_task_graph, parameters, graph_config):
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
 
 
+# Firefox Enterprise reuses the generic, release_product-driven desktop phase
+# selectors. These thin wrappers give the flavors clear, product-specific names
+# and a place to diverge from desktop if needed.
+@register_target_task("promote_firefox_enterprise_tasks")
+def target_tasks_promote_firefox_enterprise(full_task_graph, parameters, graph_config):
+    """Select the promote-phase tasks for a Firefox Enterprise release."""
+    return target_tasks_promote_desktop(full_task_graph, parameters, graph_config)
+
+
+@register_target_task("push_firefox_enterprise_tasks")
+def target_tasks_push_firefox_enterprise(full_task_graph, parameters, graph_config):
+    """Select the push-phase tasks for a Firefox Enterprise release."""
+    return target_tasks_push_desktop(full_task_graph, parameters, graph_config)
+
+
+@register_target_task("ship_firefox_enterprise_tasks")
+def target_tasks_ship_firefox_enterprise(full_task_graph, parameters, graph_config):
+    """Select the ship-phase tasks for a Firefox Enterprise release."""
+    return target_tasks_ship_desktop(full_task_graph, parameters, graph_config)
+
+
 @register_target_task("cypress_tasks")
 def target_tasks_cypress(full_task_graph, parameters, graph_config):
     filtered_for_project = target_tasks_default(
@@ -920,8 +997,6 @@ def target_tasks_custom_car_perf_testing(full_task_graph, parameters, graph_conf
                 return True
         elif accept_raptor_android_build(platform):
             if "browsertime" in try_name and "cstm-car-m" in try_name:
-                if "-nofis" not in try_name:
-                    return False
                 if "hw-s24" in platform and "speedometer3" not in try_name:
                     return False
                 if "jetstream3" in try_name:
@@ -936,8 +1011,8 @@ def target_tasks_custom_car_perf_testing(full_task_graph, parameters, graph_conf
                     and "ebay-kleinanzeigen-search" not in try_name
                 ):
                     return False
-                # Bug 1960921 Disable ebay-kleinanzeigen-search-nofis on custom-car
-                if "ebay-kleinanzeigen-search-nofis" in try_name:
+                # Bug 1960921 Disable ebay-kleinanzeigen-search on custom-car
+                if "ebay-kleinanzeigen-search" in try_name:
                     return False
                 return True
         return False
@@ -989,6 +1064,11 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
             # Bug 1961145 - Disable bing-search for test-windows11-64-24h2-shippable
             if "windows11" in platform and "bing-search" in try_name:
                 return False
+            # Bug 2074111 - Already running on macosx1500
+            if "macosx1470" in platform and (
+                "jetstream3" in try_name or "speedometer3" in try_name
+            ):
+                return False
             if "browsertime" in try_name:
                 if "chrome" in try_name or "custom-car" in try_name:
                     # Bug 2049065: linux2404 chrome/custom-car tp6 and
@@ -1023,16 +1103,10 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
         elif accept_raptor_android_build(platform):
             if "hw-s24" in platform and "speedometer3" not in try_name:
                 return False
-            if "chrome-m" in try_name and "-nofis" not in try_name:
-                return False
             # Bug 1929960 - Enable all chrome-m tp6m tests on a55 only
             if "chrome-m" in try_name and "tp6m" in try_name and "hw-a55" in platform:
                 # Bug 1954923 - Disable ebay-kleinanzeigen
-                if (
-                    "ebay-kleinanzeigen" in try_name
-                    and "search" not in try_name
-                    and "nofis" in try_name
-                ):
+                if "ebay-kleinanzeigen" in try_name and "search" not in try_name:
                     return False
                 return True
             if "chrome-m" in try_name and (
@@ -1109,10 +1183,18 @@ def make_desktop_nightly_filter(platforms, graph_config):
     """Returns a filter that gets all nightly tasks on the given platform."""
 
     def filter(task, parameters):
-        # _filter_by_release_project is used instead of filter_for_project
-        # because it fakes things a bit for Try, and allows tasks that
-        # otherwise wouldn't run there to be run
-        filter_for_target_project = _filter_by_release_project(parameters, graph_config)
+        # On Try, _filter_by_release_project fakes things a bit, and allows
+        # tasks that otherwise wouldn't run there to be run. Elsewhere,
+        # including project branches such as Pine, use the project's own
+        # run-on-projects.
+        if parameters["project"] == "try":
+            filter_for_target_project = _filter_by_release_project(
+                parameters, graph_config
+            )
+        else:
+            filter_for_target_project = functools.partial(
+                filter_for_project, parameters=parameters
+            )
 
         return all([
             filter_on_platforms(task, platforms),
@@ -1157,8 +1239,6 @@ def target_tasks_speedometer_tests(full_task_graph, parameters, graph_config):
                 and "speedometer3" in try_name
                 and "chrome-m" in try_name
             ):
-                if "-nofis" not in try_name:
-                    return False
                 return True
 
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
@@ -1243,6 +1323,24 @@ def target_tasks_daily_releases(full_task_graph, parameters, graph_config):
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
 
 
+@register_target_task("daily_releases_enterprise")
+def target_tasks_daily_releases_enterprise(full_task_graph, parameters, graph_config):
+    """Select the set of tasks required to identify if we should release.
+    If we determine that we should the task will communicate to ship-it to
+    schedule the release itself."""
+
+    def filter(task):
+        # The kind ships one task per product and this method runs outside of
+        # `standard_filter`, so without matching the product we would ask
+        # ship-it to start a Firefox, Devedition and Fenix release too.
+        return (
+            task.kind == "maybe-release"
+            and task.attributes.get("shipping_product") == parameters["release_product"]
+        )
+
+    return [l for l, t in full_task_graph.tasks.items() if filter(t)]
+
+
 @register_target_task("nightly_desktop")
 def target_tasks_nightly_desktop(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a nightly build of linux, mac,
@@ -1306,6 +1404,100 @@ def target_tasks_appservices(full_task_graph, parameters, graph_config):
         )
         and counterpart_runs(t)
     ]
+
+
+def target_tasks_enterprise_any(
+    full_task_graph, parameters, graph_config, partner_subconfig
+):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Will apply partner/sub_config on required tasks.
+    """
+    if cron_index_exists(graph_config, parameters, "nightly-enterprise"):
+        return []
+
+    def filter(task):
+        """
+        Only target what the nightly actually ships: the enterprise shippable
+        builds and what is derived from them. Everything else they need
+        (toolchains, docker images, fetches, l10n) comes back as dependencies.
+        """
+        if task.attributes.get("shipping_product") != parameters["release_product"]:
+            return False
+
+        if not task.attributes.get("shippable", False):
+            return False
+
+        # Not yet supported setup on Enterprise builds
+        if task.kind == "upload-generated-sources":
+            return False
+
+        extra = task.task.get("extra", {})
+        repack = extra.get("repack_config") or extra.get("repack_id")
+        if repack:
+            """
+            For tasks that defines partner/sub_config, apply filtering. Those that
+            do not defines it are not directly related to repackage
+            """
+            partner, sub_config = repack.split("/")[:2]
+            return sub_config in partner_subconfig.get(partner, [])
+        return True
+
+    return [l for l, t in full_task_graph.tasks.items() if filter(t)]
+
+
+def target_tasks_nightly_enterprise_stage(full_task_graph, parameters, graph_config):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Tailored for nightly stage builds to be validated by QA
+    """
+    return target_tasks_enterprise_any(
+        full_task_graph, parameters, graph_config, {"moz": ["stageGCP"]}
+    )
+
+
+@register_target_task("nightly_enterprise_try")
+def target_tasks_nightly_enterprise_try(full_task_graph, parameters, graph_config):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Tailored for nightly try builds, using the test partner
+    """
+    return target_tasks_enterprise_any(
+        full_task_graph,
+        parameters,
+        graph_config,
+        {"smp": ["prodGCP", "stageGCP"]},
+    )
+
+
+def target_tasks_nightly_enterprise_prod(full_task_graph, parameters, graph_config):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Tailored for nightly prod builds
+    """
+    return target_tasks_enterprise_any(
+        full_task_graph, parameters, graph_config, {"moz": ["prodGCP"]}
+    )
+
+
+@register_target_task("nightly_enterprise")
+def target_tasks_nightly_enterprise(full_task_graph, parameters, graph_config):
+    """
+    Select the set of tasks required for a nightly build of firefox enterprise
+    Tailored for nightly stage builds to be validated by QA
+    """
+    return list(
+        set(
+            target_tasks_nightly_enterprise_stage(
+                full_task_graph, parameters, graph_config
+            )
+        )
+        | set(
+            target_tasks_nightly_enterprise_prod(
+                full_task_graph, parameters, graph_config
+            )
+        )
+    )
 
 
 # Run Searchfox analysis once daily.
@@ -1474,6 +1666,19 @@ def _filter_by_release_project(parameters, graph_config):
             "esr153": "comm-esr153",
             "esr140": "comm-esr140",
         },
+        # All Enterprise branches build from the same project. The upstream
+        # release types are mapped too for the upstream test parameters.
+        "enterprise": {
+            release_type: "enterprise-firefox"
+            for release_type in (
+                "nightly",
+                "beta",
+                "release",
+                "nightly-enterprise",
+                "beta-enterprise",
+                "release-enterprise",
+            )
+        },
     }
     trust_domain = graph_config["trust-domain"]
     project_by_release = project_by_release_by_trust_domain.get(trust_domain)
@@ -1536,7 +1741,7 @@ def target_tasks_codereview(full_task_graph, parameters, graph_config):
 
     def filter(task):
         # Ending tasks
-        if task.kind in ["code-review"]:
+        if task.label == "code-review-issues":
             return True
 
         # Analyzer tasks
@@ -1553,6 +1758,10 @@ def target_tasks_codereview_build_test(full_task_graph, parameters, graph_config
     """Select all build and test tasks that should run as part of code review pushes."""
 
     def filter(task):
+        # Ending tasks
+        if task.label == "code-review-build-test-issues":
+            return True
+
         if task.attributes.get("code-review-build-test") is True:
             return True
 
@@ -2087,7 +2296,11 @@ def target_firefox_pull_requests(full_task_graph, parameters, graph_config):
     labels = []
     for label, task in full_task_graph.tasks.items():
         # Always add the code review analysis & ending tasks
-        if task.attributes.get("code-review") or task.kind == "code-review":
+        if (
+            task.attributes.get("code-review")
+            or task.attributes.get("code-review-build-test")
+            or task.kind == "code-review"
+        ):
             labels.append(label)
 
         elif not standard_filter(task, parameters):

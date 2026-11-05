@@ -31,7 +31,6 @@ skip-if = [
 # fundamentally incompatible with verify due to how NSS handles deleting
 # certificates.
 skip-if = [
-  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && debug && msix && verify-standalone",
   "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && debug && msix && verify-standalone",
   "socketprocess_networking",
 ]
@@ -46,6 +45,9 @@ skip-if = [
 ["browser_clientAuth_ui.js"]
 
 ["browser_deleteCert_ui.js"]
+
+["browser_deviceManager_enterprise.js"]
+run-if = ["enterprise"]
 
 ["browser_downloadCert_ui.js"]
 

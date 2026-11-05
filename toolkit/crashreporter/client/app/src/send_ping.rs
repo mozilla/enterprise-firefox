@@ -7,15 +7,31 @@
 use crate::std::{env, io::stdin, path::PathBuf};
 use crate::{glean, logging, net::ping};
 
-/// The user application data directory, derived from the crash data path.
+/// What `CrashManager` writes to our stdin.
+///
+/// The console bearer token travels this way rather than in our environment,
+/// which another process of the same user can read.
+#[derive(Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PingInput {
+    #[serde(default)]
+    annotations: serde_json::Value,
+    #[serde(default)]
+    #[cfg_attr(not(feature = "enterprise"), allow(dead_code))]
+    auth_token: Option<String>,
+}
+
+/// Resolve the enterprise console address for this run from the crash data
+/// path.
 ///
 /// `CrashManager` always passes `UAppData/Crash Reports`, so the parent of the
-/// given path is the directory holding `felt.json`.
+/// given path is the user application data directory holding `felt.json`.
 #[cfg(all(not(mock), feature = "enterprise"))]
-fn app_data_dir(data_path: &::std::ffi::OsStr) -> Option<::std::path::PathBuf> {
-    ::std::path::Path::new(data_path)
-        .parent()
-        .map(::std::path::Path::to_path_buf)
+fn init_console_address(data_path: &::std::ffi::OsStr) {
+    let app_data_dir = ::std::path::Path::new(data_path).parent();
+    if let Err(e) = crate::enterprise_prefs::init_console_address(app_data_dir) {
+        log::warn!("could not resolve the enterprise console address: {e:#}");
+    }
 }
 
 pub fn main() {
@@ -25,8 +41,11 @@ pub fn main() {
     let data_path = args.next().expect("no data path provided");
     let reason = args.next().expect("no crash reason provided");
 
-    let extra: serde_json::Value =
-        serde_json::from_reader(stdin()).expect("failed to read extra data from stdin");
+    let input: PingInput =
+        serde_json::from_reader(stdin()).expect("failed to read input from stdin");
+    #[cfg(all(not(mock), feature = "enterprise"))]
+    crate::net::auth::init_access_token(crate::net::auth::TokenSource::Stdin(input.auth_token));
+    let extra = input.annotations;
 
     let profile_dir = extra
         .get("ProfileDirectory")
@@ -34,16 +53,15 @@ pub fn main() {
         .map(PathBuf::from);
 
     #[cfg(all(not(mock), feature = "enterprise"))]
-    let app_data_dir = app_data_dir(&data_path);
+    init_console_address(&data_path);
 
     #[cfg_attr(any(mock, not(feature = "enterprise")), allow(unused_mut))]
     let mut options = glean::InitOptions::new(data_path.into()).with_profile_dir(profile_dir);
     // No `ServerURL` annotation is available here, so the endpoint is derived
-    // from the console address in AutoConfig (or, on generic builds, the
-    // environment variable or felt.json).
+    // from the console address resolved above.
     #[cfg(all(not(mock), feature = "enterprise"))]
     options.set_server_endpoint(
-        crate::enterprise_prefs::console_glean_url(None, app_data_dir.as_deref())
+        crate::enterprise_prefs::console_glean_url(None)
             .expect("failed to resolve the enterprise telemetry endpoint"),
     );
     let _glean_handle = options.init().expect("failed to acquire Glean store");
@@ -67,13 +85,19 @@ pub fn cleanup_main() {
     let profile_dir = args.next();
 
     #[cfg(all(not(mock), feature = "enterprise"))]
-    let app_data_dir = app_data_dir(&data_path);
+    {
+        let input: PingInput = serde_json::from_reader(stdin()).unwrap_or_default();
+        crate::net::auth::init_access_token(crate::net::auth::TokenSource::Stdin(input.auth_token));
+    }
+
+    #[cfg(all(not(mock), feature = "enterprise"))]
+    init_console_address(&data_path);
 
     #[cfg_attr(any(mock, not(feature = "enterprise")), allow(unused_mut))]
     let mut options = glean::InitOptions::new(data_path.into()).with_profile_dir(profile_dir);
     #[cfg(all(not(mock), feature = "enterprise"))]
     options.set_server_endpoint(
-        crate::enterprise_prefs::console_glean_url(None, app_data_dir.as_deref())
+        crate::enterprise_prefs::console_glean_url(None)
             .expect("failed to resolve the enterprise telemetry endpoint"),
     );
     let _glean_handle = options.init().expect("failed to acquire Glean store");
@@ -84,4 +108,43 @@ pub fn cleanup_main() {
 
     // Glean shutdown will block (for a period) on at least one ping to be sent.
     ::glean::shutdown();
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// Representative of the document `CrashManager` writes for `--send-ping`.
+    #[test]
+    fn ping_input_parses_annotations_and_token() {
+        let input: PingInput =
+            serde_json::from_str(r#"{"annotations":{"ProcessType":"content"},"authToken":"abc"}"#)
+                .expect("failed to parse");
+        assert_eq!(input.auth_token.as_deref(), Some("abc"));
+        assert_eq!(input.annotations["ProcessType"], "content");
+    }
+
+    /// Representative of the document `CrashManager` writes for `--ping-cleanup`,
+    /// which has no annotations.
+    #[test]
+    fn ping_input_parses_just_token() {
+        let input: PingInput =
+            serde_json::from_str(r#"{"authToken":"def"}"#).expect("failed to parse");
+        assert_eq!(input.auth_token.as_deref(), Some("def"));
+        assert!(input.annotations.is_null());
+    }
+
+    /// Representative of the document `CrashManager` writes for `--ping-cleanup`,
+    /// for any build without a token.
+    #[test]
+    fn ping_input_parses_without_a_token() {
+        let input: PingInput =
+            serde_json::from_str(r#"{"authToken":null}"#).expect("failed to parse");
+        assert!(input.auth_token.is_none());
+        assert!(input.annotations.is_null());
+
+        let input: PingInput = serde_json::from_str("{}").expect("failed to parse");
+        assert!(input.auth_token.is_none());
+        assert!(input.annotations.is_null());
+    }
 }

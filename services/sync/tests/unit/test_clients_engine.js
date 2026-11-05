@@ -13,7 +13,7 @@ const { AppConstants } = ChromeUtils.importESModule(
 let MachineId;
 if (AppConstants.MOZ_ENTERPRISE) {
   ({ MachineId } = ChromeUtils.importESModule(
-    "resource://gre/modules/enterprise/MachineId.sys.mjs"
+    "moz-src:///toolkit/modules/MachineId.sys.mjs"
   ));
 }
 const { CryptoWrapper } = ChromeUtils.importESModule(

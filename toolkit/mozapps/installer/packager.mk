@@ -21,15 +21,6 @@ endif
 
 export USE_ELF_HACK
 
-ifdef MOZ_ENTERPRISE
-# The AutoConfig file named by general.config.filename is customized in place
-# by administrators, so a complete update must leave any installed copy alone.
-PRECOMPLETE_EXCLUDE_FILES += $(MOZ_APP_NAME).cfg
-endif
-# Read by config/createprecomplete.py, for both stage-package and the l10n
-# repacks in toolkit/locales/l10n.mk, which includes this makefile.
-export PRECOMPLETE_EXCLUDE_FILES
-
 MOZ_PKG_DUPEFLAGS ?= $(addprefix -f ,$(MOZ_PKG_ALLOWED_DUPES))
 
 stage-package: multilocale.txt locale-manifest.in $(MOZ_PKG_MANIFEST)

@@ -390,6 +390,14 @@ const SNAPSHOT_SCHEMA = {
           required: false,
           type: "boolean",
         },
+        "browser.sessionstore.encryption.available": {
+          required: false,
+          type: "boolean",
+        },
+        "browser.sessionstore.encryption.enabled": {
+          required: false,
+          type: "boolean",
+        },
         ...(AppConstants.MOZ_ENTERPRISE && {
           "network.connectivity-service.IPv4.url": {
             required: false,
@@ -1175,6 +1183,9 @@ const SNAPSHOT_SCHEMA = {
         },
         requestCount: {
           type: "number",
+        },
+        isBuiltInAgent: {
+          type: "boolean",
         },
       },
     },

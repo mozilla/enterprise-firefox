@@ -86,18 +86,16 @@ class Repackage(BaseScript):
         for repack_config in config["repackage_config"]:
             command = [sys.executable, "mach", "--log-no-times", "repackage"]
             command.extend([arg.format(**subst) for arg in repack_config["args"]])
-            if repack_config["args"][0] == "mar":
-                for filename in config.get("mar-exclude", []):
-                    command.extend(["--exclude", filename.format(**subst)])
             for arg, filename in repack_config["inputs"].items():
                 command.extend([
                     f"--{arg}",
                     os.path.join(dirs["abs_input_dir"], filename),
                 ])
-            command.extend([
-                "--output",
-                os.path.join(dirs["abs_output_dir"], repack_config["output"]),
-            ])
+            # `output` has a subdirectory when a task repackages several
+            # locales, and not every `mach repackage` backend creates it.
+            output = os.path.join(dirs["abs_output_dir"], repack_config["output"])
+            self.mkdir_p(os.path.dirname(output))
+            command.extend(["--output", output])
             self.run_command(
                 command=command,
                 cwd=dirs["abs_src_dir"],

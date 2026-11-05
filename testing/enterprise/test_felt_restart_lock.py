@@ -71,7 +71,7 @@ class AppRestartLock(FeltTests):
                 """
                 const callback = arguments[arguments.length - 1];
                 const { FeltStorage } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+                    "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
                 );
                 const email = FeltStorage.getLastSignedInUser();
                 FeltStorage.setLockingToken(email, "stale-token", "stale-user")

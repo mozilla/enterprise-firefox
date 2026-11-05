@@ -86,6 +86,7 @@ skip-if = [
 ["browser_glean_telemetry_engagement_selected_result_action.js"]
 
 ["browser_glean_telemetry_engagement_tips.js"]
+skip-if = ["enterprise"] # Urlbar interventions are disabled on Firefox Enterprise
 
 ["browser_glean_telemetry_engagement_type.js"]
 

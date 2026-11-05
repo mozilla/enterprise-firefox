@@ -12,10 +12,10 @@ Services.dirsvc.set("UAppData", gDataHome);
 
 const { ConsoleClient, CONSOLE_ADDRESS_PREF, CONSOLE_ADDRESS_PLACEHOLDER } =
   ChromeUtils.importESModule(
-    "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
   );
 const { FeltStorage } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+  "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
 );
 const { TestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/TestUtils.sys.mjs"

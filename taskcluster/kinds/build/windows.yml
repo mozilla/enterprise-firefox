@@ -232,7 +232,6 @@ win64-enterprise/debug:
     worker:
         max-run-time: 7200
         env:
-            PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
         variant: debug-enterprise
@@ -602,7 +601,6 @@ win64-enterprise/opt:
     worker:
         max-run-time: 7200
         env:
-            PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
         platform: win64
@@ -659,9 +657,8 @@ win64-aarch64-enterprise/opt:
     worker-type: b-linux-docker-xlarge-amd
     worker:
         max-run-time: 10800
-        env:
-            PERFHERDER_EXTRA_OPTIONS: enterprise
-            # MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+        # env:
+        #     MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
         platform: win64-aarch64
     run:
@@ -715,9 +712,8 @@ win64-aarch64-enterprise/debug:
     worker-type: b-linux-docker-xlarge-amd
     worker:
         max-run-time: 10800
-        env:
-            PERFHERDER_EXTRA_OPTIONS: enterprise
-            # MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+        # env:
+        #     MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
         variant: debug-enterprise
         platform: win64-aarch64
@@ -894,6 +890,7 @@ win32-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
     mozconfig:
         platform: win32
     run:
@@ -948,6 +945,7 @@ win64-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
     mozconfig:
         platform: win64
     run:
@@ -1687,6 +1685,7 @@ win32-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
     mozconfig:
         variant: devedition
         platform: win32
@@ -1742,6 +1741,7 @@ win64-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
     mozconfig:
         variant: devedition
         platform: win64
@@ -1905,6 +1905,7 @@ win64-aarch64-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
     mozconfig:
         platform: win64-aarch64
     run:
@@ -1960,6 +1961,7 @@ win64-aarch64-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
     mozconfig:
         variant: devedition
         platform: win64-aarch64

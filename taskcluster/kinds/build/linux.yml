@@ -168,7 +168,6 @@ linux64-enterprise/opt:
     worker:
         max-run-time: 7200
         env:
-            PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
@@ -567,7 +566,6 @@ linux64-enterprise/debug:
     worker:
         max-run-time: 5400
         env:
-            PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
@@ -710,6 +708,7 @@ linux64-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
@@ -762,6 +761,7 @@ linux64-reproduced/opt:
             # Must match linux64-shippable/opt: configure options end up in
             # buildconfig.html inside omni.ja, which diffoscope compares.
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
     run:
         using: mozharness
         actions: [get-secrets, build]
@@ -1418,6 +1418,7 @@ linux64-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
@@ -1909,6 +1910,7 @@ linux64-aarch64-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
@@ -2015,6 +2017,7 @@ linux64-aarch64-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.

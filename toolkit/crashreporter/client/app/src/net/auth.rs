@@ -15,11 +15,19 @@
 //! attaches it as an `Authorization` header; the `crashreporterNetworkBackend`
 //! background task receives the already-built header, not the raw token.
 //!
+//! The crash ping entry points are spawned by `CrashManager` rather than by the
+//! crash path, and are handed the token on stdin, which keeps it out of the
+//! environment on every platform. Either way the token for the run is recorded
+//! once through [`init_access_token`]; see [`TokenSource`].
+//!
 //! This is best-effort: only the access token that was valid at crash time is
 //! available (the refresh token never leaves the Felt UI process), so there is
 //! no way to refresh it here. If the token is missing or the server rejects it,
 //! the upload is sent unauthenticated (and a pending report is retried later by
 //! an authenticated in-process session).
+
+#[cfg(mock)]
+use crate::std::mock::{mock_key, MockKey};
 
 /// Return an `Authorization: Bearer` header for an upload to `url`, built from
 /// the access token that the crashing process exported into the environment.
@@ -38,34 +46,59 @@ pub fn enterprise_authorization_header(url: &str) -> Option<(String, String)> {
     Some(("Authorization".to_owned(), format!("Bearer {token}")))
 }
 
-/// The token, read once at startup. See [`init_access_token`].
-#[cfg(not(mock))]
-static ACCESS_TOKEN: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+crate::std::mock::mocked_static! {
+    /// The token for this run, set once by [`init_access_token`].
+    static ACCESS_TOKEN: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
 
-/// Read the access token, and must be the very first thing the client does.
-///
-/// This has to run before `fd_cleanup::cleanup_unused_fds()`, which closes every
-/// fd >= 3 and would otherwise close the inherited token pipe before we read it
-/// — and leave the fd number free to be reused by an unrelated file, which we
-/// would then read as if it were the token.
-///
-/// Reading eagerly also drains the pipe immediately, so the token sits in a
-/// kernel buffer reachable through `/proc/<pid>/fd` for a few microseconds of
-/// startup rather than for as long as the crash reporter window is open.
-#[cfg(not(mock))]
-pub fn init_access_token() {
-    let _ = ACCESS_TOKEN.set(read_access_token());
+    impl ACCESS_TOKEN {
+        fn set(self, token: Option<String>) -> Option<Result<(), Option<String>>> {
+            Self.try_get(|cell| cell.set(token))
+        }
+
+        fn get(self) -> Option<Option<String>> {
+            Self.try_get(|cell| cell.get().cloned()).flatten()
+        }
+    }
 }
 
-#[cfg(not(mock))]
-fn access_token() -> Option<String> {
-    ACCESS_TOKEN.get_or_init(read_access_token).clone()
+/// How this invocation is given the console access token, which depends on who
+/// launched it.
+pub enum TokenSource {
+    /// Launched by the crashing process, which handed the token over directly:
+    /// see [`read_crashing_process_token`].
+    CrashingProcess,
+    /// Launched by `CrashManager` to send crash pings, which passes the token
+    /// in the JSON document it writes to our stdin. The entry point parses that
+    /// document (it also carries the crash annotations) and hands the token
+    /// here, so it never reaches our environment on any platform.
+    Stdin(Option<String>),
 }
 
-/// Each test case sets up its own environment, so don't cache across them.
-#[cfg(mock)]
+/// Record the console access token for this run.
+///
+/// Every entry point that can upload calls this once, before the first upload;
+/// an invocation that doesn't call this would upload unauthenticated.
+///
+/// [`TokenSource::CrashingProcess`] must be read before
+/// `fd_cleanup::cleanup_unused_fds()`, which closes every fd >= 3 and would
+/// otherwise close the inherited token pipe before we read it — and leave the
+/// fd number free to be reused by an unrelated file, which we would then read
+/// as if it were the token. Reading eagerly also drains the pipe immediately,
+/// so the token sits in a kernel buffer reachable through `/proc/<pid>/fd` for
+/// a few microseconds of startup rather than for as long as the crash reporter
+/// window is open.
+pub fn init_access_token(source: TokenSource) {
+    let token = match source {
+        TokenSource::CrashingProcess => read_crashing_process_token(),
+        TokenSource::Stdin(token) => token,
+    };
+    let _ = ACCESS_TOKEN.set(token);
+}
+
+/// The token recorded for this run, or `None` for an invocation which recorded
+/// none.
 fn access_token() -> Option<String> {
-    read_access_token()
+    ACCESS_TOKEN.get()?.clone()
 }
 
 /// Read the console access token the crashing process handed to us. On unix it
@@ -74,7 +107,7 @@ fn access_token() -> Option<String> {
 /// environment (where a same-user process could read it via
 /// `/proc/<pid>/environ`). On Windows it is passed directly in
 /// `MOZ_CRASHREPORTER_AUTH_TOKEN`.
-fn read_access_token() -> Option<String> {
+fn read_crashing_process_token() -> Option<String> {
     #[cfg(unix)]
     if let Ok(fd) = crate::std::env::var(ekey!("AUTH_TOKEN_FD")) {
         return read_token_from_fd(&fd);
@@ -111,6 +144,8 @@ mod test {
     use mozbuild::config::MOZ_APP_NAME;
 
     const CONSOLE_URL: &str = "https://console.example.com/api/browser/crash-reports/submit";
+    const PING_URL: &str =
+        "https://console.example.com/api/browser/telemetry/submit/firefox-enterprise-crashreporter/crash/1/id";
 
     fn run_with_env(value: Option<&str>, url: &str) -> Option<(String, String)> {
         let files = MockFiles::new();
@@ -122,11 +157,15 @@ mod test {
         let mut builder = mock::builder();
         builder
             .set(MockFS, files)
-            .set(MockCurrentExe, "work_dir/crashreporter".into());
+            .set(MockCurrentExe, "work_dir/crashreporter".into())
+            .set(ACCESS_TOKEN, Default::default());
         if let Some(value) = value {
             builder.set(MockEnv(ekey!("AUTH_TOKEN").into()), value.to_owned());
         }
-        builder.run(|| enterprise_authorization_header(url))
+        builder.run(|| {
+            init_access_token(TokenSource::CrashingProcess);
+            enterprise_authorization_header(url)
+        })
     }
 
     #[test]
@@ -151,6 +190,66 @@ mod test {
         assert!(run_with_env(Some("abc"), "https://evil.example.com/submit").is_none());
     }
 
+    /// Authenticate a ping upload with a token received the way the crash ping
+    /// entry points do, on stdin.
+    fn run_with_stdin_token(token: Option<&str>, url: &str) -> Option<(String, String)> {
+        let files = MockFiles::new();
+        files.add_dir("work_dir").add_file(
+            format!("work_dir/{}.cfg", MOZ_APP_NAME),
+            crate::test::enterprise_autoconfig("https://console.example.com"),
+        );
+
+        let mut builder = mock::builder();
+        builder
+            .set(MockFS, files)
+            .set(MockCurrentExe, "work_dir/crashreporter".into())
+            .set(ACCESS_TOKEN, Default::default());
+        builder.run(|| {
+            init_access_token(TokenSource::Stdin(token.map(ToOwned::to_owned)));
+            enterprise_authorization_header(url)
+        })
+    }
+
+    #[test]
+    fn stdin_token_yields_ping_header() {
+        let header = run_with_stdin_token(Some("abc"), PING_URL).expect("expected a header");
+        assert_eq!(header.0, "Authorization");
+        assert_eq!(header.1, "Bearer abc");
+    }
+
+    #[test]
+    fn stdin_token_is_not_sent_elsewhere() {
+        assert!(run_with_stdin_token(Some("abc"), "https://evil.example.com/submit").is_none());
+    }
+
+    #[test]
+    fn stdin_without_token_yields_none() {
+        assert!(run_with_stdin_token(None, PING_URL).is_none());
+    }
+
+    #[test]
+    fn stdin_token_wins_over_the_environment() {
+        // The ping entry points are not launched by the crashing process, so
+        // the environment must not stand in for what they were handed.
+        let files = MockFiles::new();
+        files.add_dir("work_dir").add_file(
+            format!("work_dir/{}.cfg", MOZ_APP_NAME),
+            crate::test::enterprise_autoconfig("https://console.example.com"),
+        );
+
+        let header = mock::builder()
+            .set(MockFS, files)
+            .set(MockCurrentExe, "work_dir/crashreporter".into())
+            .set(MockEnv(ekey!("AUTH_TOKEN").into()), "from-env".to_owned())
+            .set(ACCESS_TOKEN, Default::default())
+            .run(|| {
+                init_access_token(TokenSource::Stdin(Some("from-stdin".to_owned())));
+                enterprise_authorization_header(PING_URL)
+            })
+            .expect("expected a header");
+        assert_eq!(header.1, "Bearer from-stdin");
+    }
+
     #[cfg(unix)]
     fn run_with_fd(token: &[u8], url: &str) -> Option<(String, String)> {
         use std::io::Write;
@@ -171,8 +270,12 @@ mod test {
         builder
             .set(MockFS, files)
             .set(MockCurrentExe, "work_dir/crashreporter".into())
-            .set(MockEnv(ekey!("AUTH_TOKEN_FD").into()), fd.to_string());
-        builder.run(|| enterprise_authorization_header(url))
+            .set(MockEnv(ekey!("AUTH_TOKEN_FD").into()), fd.to_string())
+            .set(ACCESS_TOKEN, Default::default());
+        builder.run(|| {
+            init_access_token(TokenSource::CrashingProcess);
+            enterprise_authorization_header(url)
+        })
     }
 
     #[cfg(unix)]

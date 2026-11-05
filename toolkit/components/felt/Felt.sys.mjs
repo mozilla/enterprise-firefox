@@ -6,17 +6,18 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   UpdateListener: "resource://gre/modules/UpdateListener.sys.mjs",
-  FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
+  FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   isBlockingShutdown:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   isBuildAppBrowser:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   shouldNotCloseWindow:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   WebAuthnPromptHelper:
     "moz-src:///toolkit/modules/WebAuthnPromptHelper.sys.mjs",
   FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
@@ -24,8 +25,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 if (lazy.isBuildAppBrowser()) {
   ChromeUtils.defineESModuleGetters(lazy, {
-    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-    FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
+    FELT_OPEN_WINDOW_DISPOSITION:
+      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+      "moz-src:///browser/components/FeltURLHandler.sys.mjs",
     // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
     BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   });
@@ -263,6 +265,12 @@ export class Felt {
   }
 
   receiveMessage(message) {
+    // These are only sent by parent-process code through the Services.cpmm
+    // loopback, so anything from a content process is untrusted.
+    if (!message.target.isInProcess) {
+      lazy.log.error(`Ignoring ${message.name} from a content process`);
+      return;
+    }
     lazy.log.debug(`${message.name} handling ...`);
     switch (message.name) {
       case "FeltParent:FirefoxNormalExit": {

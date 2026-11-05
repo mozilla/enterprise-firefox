@@ -8,32 +8,10 @@
 
 import os
 
-# Space separated list of basenames to leave out of the precomplete file,
-# matched at any depth so that the macOS `Contents/Resources/` layout is
-# covered too. No remove instruction is generated for them at all, so a
-# complete update leaves any installed copy alone. Mirrors MAR_EXCLUDE_FILES
-# in tools/update-packaging/common.sh.
-EXCLUDE_ENV_VAR = "PRECOMPLETE_EXCLUDE_FILES"
 
-
-def get_exclude_names(exclude=None):
-    """Returns the basenames to exclude, defaulting to the EXCLUDE_ENV_VAR
-    environment variable when `exclude` is None.
-    """
-    names = os.environ.get(EXCLUDE_ENV_VAR, "").split() if exclude is None else exclude
-    for name in names:
-        if "/" in name or " " in name:
-            raise Exception(
-                f"{EXCLUDE_ENV_VAR} takes basenames without spaces, not {name!r}. "
-                "Matching is done on the basename at any depth."
-            )
-    return frozenset(names)
-
-
-def get_build_entries(root_path, exclude_names=frozenset()):
+def get_build_entries(root_path):
     """Iterates through the root_path, creating a list for each file and
-    directory. Excludes any file paths ending with channel-prefs.js, and any
-    file whose basename is in exclude_names.
+    directory. Excludes any file paths ending with channel-prefs.js.
     """
     rel_file_path_set = set()
     rel_dir_path_set = set()
@@ -43,8 +21,7 @@ def get_build_entries(root_path, exclude_names=frozenset()):
             rel_path_file = os.path.join(parent_dir_rel_path, file_name)
             rel_path_file = rel_path_file.replace("\\", "/")
             if not (
-                file_name in exclude_names
-                or rel_path_file.endswith("channel-prefs.js")
+                rel_path_file.endswith("channel-prefs.js")
                 or rel_path_file.endswith("update-settings.ini")
                 or "/ChannelPrefs.framework/" in rel_path_file
                 or rel_path_file.startswith("ChannelPrefs.framework/")
@@ -69,15 +46,11 @@ def get_build_entries(root_path, exclude_names=frozenset()):
     return rel_file_path_list, rel_dir_path_list
 
 
-def generate_precomplete(root_path, exclude=None):
+def generate_precomplete(root_path):
     """Creates the precomplete file containing the remove and rmdir
     application update instructions. The given directory is used
     for the location to enumerate and to create the precomplete file.
-
-    `exclude` is a list of basenames to leave out of the file; it defaults to
-    the EXCLUDE_ENV_VAR environment variable.
     """
-    exclude_names = get_exclude_names(exclude)
     rel_path_precomplete = "precomplete"
     # If inside a Mac bundle use the root of the bundle for the path.
     if os.path.basename(root_path) == "Resources":
@@ -88,7 +61,7 @@ def generate_precomplete(root_path, exclude=None):
     # Open the file so it exists before building the list of files and open it
     # in binary mode to prevent OS specific line endings.
     precomplete_file = open(precomplete_file_path, mode="w", newline="\n")
-    rel_file_path_list, rel_dir_path_list = get_build_entries(root_path, exclude_names)
+    rel_file_path_list, rel_dir_path_list = get_build_entries(root_path)
     for rel_file_path in rel_file_path_list:
         precomplete_file.write('remove "' + rel_file_path + '"\n')
 

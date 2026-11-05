@@ -10,6 +10,9 @@ const { IPPPermissionRuleProvider } = ChromeUtils.importESModule(
 
 const PERM_NAME = "ipp-vpn";
 
+do_get_profile();
+Services.fog.initializeFOG();
+
 const makePrincipal = origin =>
   Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin);
 
@@ -218,4 +221,50 @@ add_task(async function test_uninit_stops_observing() {
 
   Assert.equal(seen, 0, "an uninited provider does not notify");
   Services.perms.removeByType(PERM_NAME);
+});
+
+/**
+ * The inclusion and exclusion counts are recorded when the provider is inited
+ * and kept current as rules are added, swapped and removed.
+ */
+add_task(async function test_counts_are_recorded() {
+  Services.fog.testResetFOG();
+  Services.perms.removeByType(PERM_NAME);
+  Services.perms.addFromPrincipal(
+    makePrincipal("https://existing.example.com"),
+    PERM_NAME,
+    Ci.nsIPermissionManager.DENY_ACTION
+  );
+
+  const provider = new IPPPermissionRuleProvider();
+  provider.init();
+  try {
+    const assertCounts = (inclusions, exclusions, message) => {
+      Assert.equal(
+        Glean.ipprotectionInclusions.count.testGetValue(),
+        inclusions,
+        `${message}: inclusions`
+      );
+      Assert.equal(
+        Glean.ipprotectionExclusions.count.testGetValue(),
+        exclusions,
+        `${message}: exclusions`
+      );
+    };
+
+    assertCounts(0, 1, "existing rules are counted at init");
+
+    const site = makePrincipal("https://counted.example.com");
+    provider.setRule(site, IPPPrincipalRules.INCLUDED);
+    assertCounts(1, 1, "an added inclusion is counted");
+
+    provider.setRule(site, IPPPrincipalRules.EXCLUDED);
+    assertCounts(0, 2, "a swapped rule moves between counts");
+
+    provider.setRule(site, IPPPrincipalRules.DEFAULT);
+    assertCounts(0, 1, "a removed rule is no longer counted");
+  } finally {
+    provider.uninit();
+    Services.perms.removeByType(PERM_NAME);
+  }
 });

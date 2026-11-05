@@ -9,6 +9,7 @@ prefs = [
 ]
 skip-if = [
   "appname == 'thunderbird'",
+  "enterprise", # Nimbus is disabled on Firefox Enterprise
 ]
 
 ["browser_SharedDataMap.js"]

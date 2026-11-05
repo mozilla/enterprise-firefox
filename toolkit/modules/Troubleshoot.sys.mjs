@@ -8,9 +8,9 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  DiskEncryption: "resource://gre/modules/enterprise/DiskEncryption.sys.mjs",
-  EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
-  MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
+  DiskEncryption: "moz-src:///toolkit/modules/DiskEncryption.sys.mjs",
+  EdrDetection: "moz-src:///toolkit/modules/EdrDetection.sys.mjs",
+  MachineId: "moz-src:///toolkit/modules/MachineId.sys.mjs",
   PDFJS_VERSION: "resource://pdf.js/PdfJsVersion.sys.mjs",
   PlacesDBUtils: "resource://gre/modules/PlacesDBUtils.sys.mjs",
 });
@@ -1050,6 +1050,7 @@ var dataProviders = {
       agentPath: info.agentPath,
       failedSignatureVerification: info.failedSignatureVerification,
       requestCount: info.requestCount,
+      isBuiltInAgent: info.isBuiltInAgent,
     });
   },
 

@@ -18,7 +18,7 @@ class FeltUpdatesErrorHandling(FeltTests):
         self._driver.execute_script(
             """
             const { AppUpdater } = ChromeUtils.importESModule("resource://gre/modules/AppUpdater.sys.mjs");
-            const { Updates } = ChromeUtils.importESModule("resource://gre/modules/enterprise/Updates.sys.mjs");
+            const { Updates } = ChromeUtils.importESModule("moz-src:///toolkit/components/enterprise/modules/Updates.sys.mjs");
             Updates.appUpdaterCallback(AppUpdater.STATUS[arguments[0]]);
             """,
             [error],

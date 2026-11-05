@@ -14,7 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineLazyGetter(lazy, "AccountsStorageManager", () => {
   if (lazy.AppConstants.MOZ_ENTERPRISE) {
     return ChromeUtils.importESModule(
-      "resource://gre/modules/EnterpriseAccountsStorage.sys.mjs"
+      "moz-src:///services/fxaccounts/EnterpriseAccountsStorage.sys.mjs"
     ).EnterpriseStorageManager;
   }
   return ChromeUtils.importESModule(

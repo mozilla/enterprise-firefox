@@ -109,6 +109,12 @@ TEST(ResistFingerprinting, UserCharacteristics_ClearPref)
 
   auto original_value =
       Preferences::GetBool("datareporting.healthreport.uploadEnabled");
+#if defined(MOZ_ENTERPRISE)
+  ASSERT_TRUE(
+      Preferences::IsLocked("datareporting.healthreport.uploadEnabled"));
+  ASSERT_EQ(NS_OK,
+            Preferences::Unlock("datareporting.healthreport.uploadEnabled"));
+#endif  // defined(MOZ_ENTERPRISE)
   Preferences::SetBool("datareporting.healthreport.uploadEnabled", true);
   Preferences::SetBool("datareporting.healthreport.uploadEnabled", false);
 
@@ -145,6 +151,10 @@ TEST(ResistFingerprinting, UserCharacteristics_ClearPref)
 
   Preferences::SetBool("datareporting.healthreport.uploadEnabled",
                        original_value);
+#if defined(MOZ_ENTERPRISE)
+  ASSERT_EQ(NS_OK,
+            Preferences::Lock("datareporting.healthreport.uploadEnabled"));
+#endif  // defined(MOZ_ENTERPRISE)
 }
 
 const auto* const kLastVersionPref =

@@ -6,7 +6,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   getResolvedErrorConfig: "chrome://global/content/errors/error-lookup.mjs",
   initializeRegistry: "chrome://global/content/errors/error-registry.mjs",
 });

@@ -6,15 +6,18 @@ with Files("**"):
     BUG_COMPONENT = ("Firefox", "Enterprise Policies")
 
 EXTRA_JS_MODULES.policies += [
-    "AIChatbotPolicies.sys.mjs",
     "BookmarksPolicies.sys.mjs",
-    "ContentAnalysisPolicies.sys.mjs",
     "ProxyPolicies.sys.mjs",
     "WebsiteFilter.sys.mjs",
 ]
 
+MOZ_SRC_FILES += [
+    "AIChatbotPolicies.sys.mjs",
+    "ContentAnalysisPolicies.sys.mjs",
+]
+
 if CONFIG["MOZ_ENTERPRISE"]:
-    EXTRA_JS_MODULES.policies += [
+    MOZ_SRC_FILES += [
         "SecurityLoggingPolicy.sys.mjs",
         "SyncPolicy.sys.mjs",
         "WatermarkChild.sys.mjs",

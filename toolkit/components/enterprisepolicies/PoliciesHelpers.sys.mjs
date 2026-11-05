@@ -20,6 +20,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/addons/AddonUpdateChecker.sys.mjs",
   setEnterpriseGuards: "resource://gre/modules/ExtensionPermissions.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
+  SitePolicyUtils: "resource://gre/modules/SitePolicyUtils.sys.mjs",
 });
 
 const PREF_LOGLEVEL = "browser.policies.loglevel";
@@ -602,6 +603,32 @@ export function addPolicyPermission(origin, permissionName, permission) {
 }
 
 /**
+ * removePolicyPermission
+ *
+ * Removes a permission set by addPolicyPermission, from both host forms.
+ *
+ * @param {URL|string} origin
+ *        The origin the permission applies to.
+ * @param {string} permissionName
+ *        The name of the permission to remove.
+ */
+export function removePolicyPermission(origin, permissionName) {
+  let principal =
+    Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin);
+
+  for (let prin of [principal, trailingDotPrincipal(principal)]) {
+    if (prin) {
+      Services.perms.addFromPrincipal(
+        prin,
+        permissionName,
+        Ci.nsIPermissionManager.UNKNOWN_ACTION,
+        Ci.nsIPermissionManager.EXPIRE_POLICY
+      );
+    }
+  }
+}
+
+/**
  * Returns the principal for aPrincipal's other host form: bare for a host with
  * trailing dots, one trailing dot for a bare host. Null when there is no such
  * principal: no host, an IP address host, or a host setHost rejects.
@@ -616,7 +643,7 @@ function trailingDotPrincipal(aPrincipal) {
     return null;
   }
 
-  let bareHost = host.replace(/\.+$/, "");
+  let bareHost = lazy.SitePolicyUtils.stripTrailingDots(host);
   let otherHost = bareHost == host ? `${host}.` : bareHost;
 
   try {
@@ -729,8 +756,6 @@ export async function runOncePerModification(
   policyValue,
   callback
 ) {
-  // Stringify the value so that it matches what we'd get from getStringPref.
-  policyValue = policyValue + "";
   if (isRunOnceModificationApplied(actionName, policyValue)) {
     lazy.log.debug(
       `Not running action ${actionName} again because the policy's value is unchanged`
@@ -756,7 +781,7 @@ export async function runOncePerModification(
  */
 export function setRunOnceModificationApplied(actionName, policyValue) {
   let prefName = `browser.policies.runOncePerModification.${actionName}`;
-  Services.prefs.setStringPref(prefName, policyValue + "");
+  Services.prefs.setStringPref(prefName, policyValue);
 }
 
 /**
@@ -777,7 +802,7 @@ export function setRunOnceModificationApplied(actionName, policyValue) {
  */
 export function isRunOnceModificationApplied(actionName, policyValue) {
   let prefName = `browser.policies.runOncePerModification.${actionName}`;
-  return Services.prefs.getStringPref(prefName, undefined) === policyValue + "";
+  return Services.prefs.getStringPref(prefName, undefined) === policyValue;
 }
 
 /**
@@ -913,8 +938,11 @@ export function installAddonFromRepository(extensionID, policyName) {
       }
       installAddonFromURL(
         repoAddons[0].sourceURI.spec,
-        extensionID,
-        null,
+        {
+          id: extensionID,
+          type: repoAddons[0].type,
+          version: repoAddons[0].version,
+        },
         policyName
       );
     })
@@ -980,10 +1008,12 @@ export function installAddonFromUpdateURL(updateURL, extensionID, policyName) {
         }
         installAddonFromURL(
           update.updateURL,
-          extensionID,
-          null,
-          policyName,
-          update.updateHash
+          {
+            id: extensionID,
+            hash: update.updateHash,
+            version: update.version,
+          },
+          policyName
         );
       } catch (e) {
         reportFailure(
@@ -1004,37 +1034,60 @@ export function installAddonFromUpdateURL(updateURL, extensionID, policyName) {
 }
 
 /**
- * installAddonFromURL
+ * Installs an add-on from a URL, validating any supplied expected details.
  *
- * Helper function that installs an addon from a URL
- * and verifies that the addon ID matches.
- *
- * @param {string} url The URL to install from.
- * @param {string} extensionID The extension ID that is to be installed.
- * @param {object|null} addon Object representing the addon.
- * @param {string} [policyName] The policy requesting the installation.
- * @param {string} [hash] Expected hash of the XPI, if known.
+ * @param {string} url
+ *   The URL to install the add-on from.
+ * @param {object} options
+ * @param {string} [options.id]
+ *   Expected add-on ID, if known. The installation will fail if the add-on
+ *   being installed has a different ID.
+ * @param {object} [options.existingAddon]
+ *   The already-installed add-on, if any. Used to avoid redundant installs and
+ *   downgrades.
+ * @param {string} [options.hash]
+ *   Expected hash of the XPI, if known.
+ * @param {string} [options.type]
+ *   Expected add-on type, if known. The installation will fail if the add-on
+ *   being installed has a different type.
+ * @param {string} [options.version]
+ *   Expected add-on version, if known. The installation will fail if the add-on
+ *   being installed has a different version.
+ * @param {string} [policyName]
+ *   The policy requesting the installation.
  */
-export function installAddonFromURL(url, extensionID, addon, policyName, hash) {
+export function installAddonFromURL(
+  url,
+  { id, existingAddon, hash, type, version },
+  policyName
+) {
   if (
-    addon &&
-    addon.sourceURI &&
-    addon.sourceURI.spec == url &&
-    !addon.sourceURI.schemeIs("file")
+    existingAddon &&
+    existingAddon.sourceURI &&
+    existingAddon.sourceURI.spec == url &&
+    !existingAddon.sourceURI.schemeIs("file")
   ) {
     // It's the same addon, don't reinstall.
     return;
   }
+
   lazy.AddonManager.getInstallForURL(url, {
+    id,
     hash,
     telemetryInfo: { source: "enterprise-policy" },
+    type,
+    version,
   })
     .then(install => {
       if (!install) {
         reportFailure(policyName, `Unable to install add-on from ${url}`);
         return;
       }
-      if (install.addon && install.addon.appDisabled) {
+      if (
+        install.state !== lazy.AddonManager.STATE_DOWNLOAD_FAILED &&
+        install.addon &&
+        install.addon.appDisabled
+      ) {
         reportFailure(policyName, `Incompatible add-on - ${install.addon.id}`);
         install.cancel();
         return;
@@ -1046,15 +1099,6 @@ export function installAddonFromURL(url, extensionID, addon, policyName, hash) {
           if (!install.addon) {
             return;
           }
-          if (extensionID && install.addon.id != extensionID) {
-            reportFailure(
-              policyName,
-              `Add-on downloaded from ${url} had unexpected id (got ${install.addon.id} expected ${extensionID})`
-            );
-            install.removeListener(listener);
-            install.cancel();
-            return;
-          }
           if (install.addon.appDisabled) {
             reportFailure(policyName, `Incompatible add-on - ${url}`);
             install.removeListener(listener);
@@ -1062,8 +1106,9 @@ export function installAddonFromURL(url, extensionID, addon, policyName, hash) {
             return;
           }
           if (
-            addon &&
-            Services.vc.compare(addon.version, install.addon.version) == 0
+            existingAddon &&
+            Services.vc.compare(existingAddon.version, install.addon.version) ==
+              0
           ) {
             lazy.log.debug(
               "Installation cancelled because versions are the same"
@@ -1076,11 +1121,12 @@ export function installAddonFromURL(url, extensionID, addon, policyName, hash) {
           // Cancel install if the addon version downloaded is detected
           // to be a downgrade compared to the version already installed.
           if (
-            addon &&
-            Services.vc.compare(addon.version, install.addon.version) > 0
+            existingAddon &&
+            Services.vc.compare(existingAddon.version, install.addon.version) >
+              0
           ) {
             lazy.log.warn(
-              `Installation cancelled because installed version ${addon.version} is greater than ${install.addon.version} downloaded from ${url}`
+              `Installation cancelled because installed version ${existingAddon.version} is greater than ${install.addon.version} downloaded from ${url}`
             );
             install.removeListener(listener);
             install.cancel();
@@ -1088,12 +1134,32 @@ export function installAddonFromURL(url, extensionID, addon, policyName, hash) {
         },
         onDownloadFailed: () => {
           install.removeListener(listener);
-          reportFailure(
-            policyName,
-            `Download failed - ${lazy.AddonManager.errorToString(
-              install.error
-            )} - ${url}`
-          );
+
+          const failureMessage = [
+            "Download failed",
+            lazy.AddonManager.errorToString(install.error),
+            url,
+          ];
+
+          switch (install.error) {
+            case lazy.AddonManager.ERROR_INCORRECT_ID:
+              failureMessage.push(
+                `Expected ${id || existingAddon?.id} instead of ${install.addon.id}`
+              );
+              break;
+            case lazy.AddonManager.ERROR_UNEXPECTED_ADDON_TYPE:
+              failureMessage.push(
+                `Expected ${type || existingAddon?.type} instead of ${install.addon.type}`
+              );
+              break;
+            case lazy.AddonManager.ERROR_UNEXPECTED_ADDON_VERSION:
+              failureMessage.push(
+                `Expected ${version} instead of ${install.addon.version}`
+              );
+              break;
+          }
+
+          reportFailure(policyName, failureMessage.join(" - "));
           clearRunOnceModification("extensionsInstall");
         },
         onInstallFailed: () => {
@@ -1115,8 +1181,13 @@ export function installAddonFromURL(url, extensionID, addon, policyName, hash) {
         },
       };
       // If it's a local file install, onDownloadEnded is never called.
-      // So we call it manually, to handle some error cases.
-      if (url.startsWith("file:")) {
+      // So we call it manually, to handle some error cases. Except
+      // STATE_DOWNLOAD_FAILED, which triggers onDownloadFailed via install()
+      // below.
+      if (
+        url.startsWith("file:") &&
+        install.state !== lazy.AddonManager.STATE_DOWNLOAD_FAILED
+      ) {
         listener.onDownloadEnded(install);
         if (install.state == lazy.AddonManager.STATE_CANCELLED) {
           return;
@@ -1205,14 +1276,18 @@ export async function uninstallListedAddons(ids, installList = []) {
 
 let gBlockedAboutPages = [];
 
+// About pages blocked for the whole build rather than by a policy. Policy
+// changes and policy engine restarts never remove them.
+let gPermanentlyBlockedAboutPages = [];
+
 export function clearBlockedAboutPages() {
   gBlockedAboutPages = [];
 }
 
-export function blockAboutPage(manager, feature) {
+function addBlockedAboutPage(blockedPages, feature) {
   addChromeURLBlocker();
-  if (!gBlockedAboutPages.includes(feature)) {
-    gBlockedAboutPages.push(feature);
+  if (!blockedPages.includes(feature)) {
+    blockedPages.push(feature);
   }
 
   try {
@@ -1220,12 +1295,20 @@ export function blockAboutPage(manager, feature) {
       Ci.nsIAboutModule
     );
     let chromeURL = aboutModule.getChromeURI(Services.io.newURI(feature)).spec;
-    if (!gBlockedAboutPages.includes(chromeURL)) {
-      gBlockedAboutPages.push(chromeURL);
+    if (!blockedPages.includes(chromeURL)) {
+      blockedPages.push(chromeURL);
     }
   } catch (e) {
     // Some about pages don't have chrome URLS (compat)
   }
+}
+
+export function blockAboutPage(manager, feature) {
+  addBlockedAboutPage(gBlockedAboutPages, feature);
+}
+
+export function permanentlyBlockAboutPage(feature) {
+  addBlockedAboutPage(gPermanentlyBlockedAboutPages, feature);
 }
 
 export function unblockAboutPage(manager, feature) {
@@ -1262,9 +1345,11 @@ let ChromeURLBlockPolicy = {
     }
     let contentLocationSpec = contentLocation.spec.toLowerCase();
     if (
-      gBlockedAboutPages.some(function (aboutPage) {
-        return contentLocationSpec.startsWith(aboutPage.toLowerCase());
-      })
+      [...gPermanentlyBlockedAboutPages, ...gBlockedAboutPages].some(
+        function (aboutPage) {
+          return contentLocationSpec.startsWith(aboutPage.toLowerCase());
+        }
+      )
     ) {
       return Ci.nsIContentPolicy.REJECT_POLICY;
     }

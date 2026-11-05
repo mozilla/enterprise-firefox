@@ -23,6 +23,17 @@ function parseStringMapping(source) {
   return map;
 }
 
+// A policy that no non-enterprise channel ever shipped is described only in
+// enterprise-policies-descriptions.ftl. Every other policy, including the ones
+// that enterprise builds do not support, is described in the main FTL.
+function isEnterpriseOnly(policySchema) {
+  let compatibility = policySchema["x-compatibility"];
+  return (
+    compatibility.firefox.version_added === false &&
+    compatibility.firefox_esr.version_added === false
+  );
+}
+
 function parseDeprecatedPolicies(source) {
   let match = source.match(/let\s+deprecated_policies\s*=\s*\[([\s\S]*?)\];/);
   if (!match) {
@@ -63,6 +74,12 @@ add_task(async function test_policy_descriptions_present() {
 
   for (let policyName of Object.keys(schema.properties)) {
     if (deprecatedPolicies.includes(policyName)) {
+      continue;
+    }
+    if (
+      !AppConstants.MOZ_ENTERPRISE &&
+      isEnterpriseOnly(schema.properties[policyName])
+    ) {
       continue;
     }
     let stringID = stringMapping[policyName] || policyName;

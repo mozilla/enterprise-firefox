@@ -24,9 +24,6 @@ not-for-build-platforms:
     - macosx64-enterprise/debug
     - macosx64-enterprise-shippable/opt
 
-task-defaults:
-    run-on-repo-type: [hg, git]
-
 tasks:
     l10n-signing:
         from-deps:

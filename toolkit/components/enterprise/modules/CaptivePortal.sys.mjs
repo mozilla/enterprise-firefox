@@ -6,7 +6,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
-  FeltErrorReport: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
+  FeltErrorReport: "moz-src:///toolkit/components/felt/FeltErrorReport.sys.mjs",
 });
 
 /**

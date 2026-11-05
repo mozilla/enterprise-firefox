@@ -42,6 +42,7 @@ support-files = [
 ]
 
 ["test_BackupService_crossProfileTypeRecovery.js"]
+skip-if = ["enterprise"] # browser.profiles.enabled is locked on Firefox Enterprise
 prefs = [
   "browser.backup.profiles.force-enable=true",
 ]
@@ -51,6 +52,7 @@ prefs = [
 ["test_BackupService_enabled.js"]
 
 ["test_BackupService_enabledListPref.js"]
+skip-if = ["enterprise"] # Selectable profiles are inapplicable for enterprise builds
 head = "../../../../../toolkit/profile/test/xpcshell/head.js ../../../profiles/tests/unit/head.js head.js"
 prefs = [
   "browser.profiles.created=false",
@@ -112,14 +114,17 @@ run-sequentially = ["true"] # Mock Windows registry interferes with normal opera
 ["test_PreferencesBackupResource.js"]
 
 ["test_PreferencesBackupResource_Nimbus.js"]
+skip-if = ["enterprise"] # Nimbus studies are disabled on Firefox Enterprise
 
 ["test_PreferencesBackupResource_searchEngines.js"]
 
 ["test_PreferencesBackupResource_selectableProfile.js"]
+skip-if = ["enterprise"] # Selectable profiles are inapplicable for enterprise builds
 
 ["test_ResourceFailures.js"]
 
 ["test_SelectableProfileBackupResource.js"]
+skip-if = ["enterprise"] # Selectable profiles are inapplicable for enterprise builds
 head = "../../../../../toolkit/profile/test/xpcshell/head.js ../../../profiles/tests/unit/head.js head.js"
 support-files = ["data/fake_avatar.png"]
 prefs = [

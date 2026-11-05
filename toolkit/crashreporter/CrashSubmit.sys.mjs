@@ -11,8 +11,9 @@ const lazy = {};
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
     CONSOLE_ADDRESS_PREF:
-      "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
-    ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+      "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
+    ConsoleClient:
+      "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   });
 }
 

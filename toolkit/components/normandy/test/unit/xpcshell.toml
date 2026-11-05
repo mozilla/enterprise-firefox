@@ -2,6 +2,7 @@
 run-if = [
   "os != 'android'",
 ]
+skip-if = ["enterprise"] # Normandy is disabled on Firefox Enterprise
 head = "head_xpc.js"
 firefox-appdir = "browser"
 support-files = [

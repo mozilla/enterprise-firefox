@@ -9,6 +9,17 @@ from unittest.mock import MagicMock
 
 import mozunit
 import pytest
+from tryselect.tasks import build
+from tryselect.util.project import is_enterprise_tree
+
+IS_ENTERPRISE = is_enterprise_tree(build.topsrcdir)
+
+# Enterprise trees do not schedule source-test-python-taskgraph-tests by default.
+QUERY_TASK = (
+    "source-test-python-mozharness"
+    if IS_ENTERPRISE
+    else "source-test-python-taskgraph-tests"
+)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="fzf not installed on host")
@@ -116,7 +127,7 @@ def test_query_paths_variants(monkeypatch, run_mach, capfd, variant):
 @pytest.mark.skipif(os.name == "nt", reason="fzf not installed on host")
 @pytest.mark.parametrize("full", [True, False])
 def test_query(run_mach, capfd, full):
-    cmd = ["try", "fuzzy", "--no-push", "-q", "'source-test-python-taskgraph-tests"]
+    cmd = ["try", "fuzzy", "--no-push", "-q", f"'{QUERY_TASK}"]
     if full:
         cmd.append("--full")
     assert run_mach(cmd) == 0
@@ -130,7 +141,7 @@ def test_query(run_mach, capfd, full):
 
     # Should only ever mach one task exactly.
     tasks = result["parameters"]["try_task_config"]["tasks"]
-    assert tasks == ["source-test-python-taskgraph-tests"]
+    assert tasks == [QUERY_TASK]
 
 
 @pytest.mark.skipif(os.name == "nt", reason="fzf not installed on host")
@@ -224,6 +235,7 @@ def test_query_multiple_tags(run_mach, capfd, tag):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="fzf not installed on host")
+@pytest.mark.skipif(IS_ENTERPRISE, reason="Talos does not run on Enterprise projects")
 def test_target_tasks_method_pre_filter(run_mach, capfd):
     cmd = [
         "try",
@@ -252,6 +264,30 @@ def test_target_tasks_method_pre_filter(run_mach, capfd):
     expected_talos_tests = {"other", "xperf", "webgl"}
     for label in tasks:
         assert any(e in label for e in expected_talos_tests)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="fzf not installed on host")
+@pytest.mark.skipif(
+    not IS_ENTERPRISE,
+    reason="Enterprise variant of test_target_tasks_method_pre_filter",
+)
+def test_target_tasks_method_pre_filter_enterprise(run_mach, capfd):
+    def selected_tasks(*extra_args):
+        cmd = ["try", "fuzzy", "--no-push", *extra_args, "-xq", "^test 'xpcshell"]
+        assert run_mach(cmd) == 0
+
+        output = capfd.readouterr().out
+        delim = "Calculated try_task_config.json:"
+        index = output.find(delim)
+        result = json.loads(output[index + len(delim) :])
+        assert "target_tasks_method" not in result["parameters"]
+        return set(result["parameters"]["try_task_config"]["tasks"])
+
+    pre_filtered = selected_tasks("--target-tasks-method=os-integration")
+    full = selected_tasks("--full")
+
+    assert pre_filtered
+    assert pre_filtered < full
 
 
 if __name__ == "__main__":

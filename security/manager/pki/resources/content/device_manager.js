@@ -9,6 +9,10 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
+});
+
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "FIPSUtils",
@@ -218,6 +222,17 @@ function enableButtons() {
         selected_token.isInternalKeyToken &&
         !selected_token.hasPassword
       ) {
+        pw_toggle = true;
+      }
+
+      // The enterprise console provides the primary password, so it is not
+      // user configurable.
+      if (
+        selected_token.isInternalKeyToken &&
+        lazy.LoginHelper.isEnterpriseManagedPrimaryPassword()
+      ) {
+        login_toggle = true;
+        logout_toggle = true;
         pw_toggle = true;
       }
     }

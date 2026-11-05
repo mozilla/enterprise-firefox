@@ -772,28 +772,31 @@ add_task(async function test_glean_crash_ping() {
 
 const TELEMETRY_ENABLE_PREF = "datareporting.healthreport.uploadEnabled";
 
-add_task(async function test_glean_crash_ping_disabled_by_telemetry_pref() {
-  let m = await getManager();
-  m._disableGleanPing = false;
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  async function test_glean_crash_ping_disabled_by_telemetry_pref() {
+    let m = await getManager();
+    m._disableGleanPing = false;
 
-  const originalPref = Services.prefs.getBoolPref(TELEMETRY_ENABLE_PREF);
-  Services.prefs.setBoolPref(TELEMETRY_ENABLE_PREF, false);
+    const originalPref = Services.prefs.getBoolPref(TELEMETRY_ENABLE_PREF);
+    Services.prefs.setBoolPref(TELEMETRY_ENABLE_PREF, false);
 
-  try {
-    let id = await m.createDummyDump();
+    try {
+      let id = await m.createDummyDump();
 
-    await m.addCrash(
-      m.processTypes[Ci.nsIXULRuntime.PROCESS_TYPE_CONTENT],
-      m.CRASH_TYPE_CRASH,
-      id,
-      DUMMY_DATE,
-      {}
-    );
-    Assert.equal(m._gleanPingPromise, null);
-  } finally {
-    Services.prefs.setBoolPref(TELEMETRY_ENABLE_PREF, originalPref);
+      await m.addCrash(
+        m.processTypes[Ci.nsIXULRuntime.PROCESS_TYPE_CONTENT],
+        m.CRASH_TYPE_CRASH,
+        id,
+        DUMMY_DATE,
+        {}
+      );
+      Assert.equal(m._gleanPingPromise, null);
+    } finally {
+      Services.prefs.setBoolPref(TELEMETRY_ENABLE_PREF, originalPref);
+    }
   }
-});
+);
 
 add_task(async function test_generateSubmissionID() {
   let m = await getManager();

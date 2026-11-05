@@ -36,11 +36,7 @@ browser.jar:
   content/activity-stream/data/content/assets/br-fxa-fox-mirror.svg                         (./assets/br-fxa-fox-mirror.svg)
   content/activity-stream/data/content/assets/br-amo-fox-paint.svg                          (./assets/br-amo-fox-paint.svg)
   content/activity-stream/data/content/assets/br-gratitude-fox-rock.svg                     (./assets/br-gratitude-fox-rock.svg)
-#ifdef MOZ_ENTERPRISE
-  content/activity-stream/data/content/assets/splash-logo.svg                               (./assets/splash-logo-enterprise.svg)
-#else
   content/activity-stream/data/content/assets/splash-logo.svg                               (./assets/splash-logo.svg)
-#endif
   content/activity-stream/data/content/assets/splash-screen.webm                             (./assets/splash-screen.webm)
   content/activity-stream/data/content/assets/br-migration-fox-juggle.svg                   (./assets/br-migration-fox-juggle.svg)
   content/activity-stream/data/content/assets/br-backup-fox-in-box.svg                      (./assets/br-backup-fox-in-box.svg)

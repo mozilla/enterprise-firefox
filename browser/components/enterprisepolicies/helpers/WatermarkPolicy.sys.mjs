@@ -49,7 +49,8 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -163,10 +164,12 @@ export let WatermarkPolicy = {
     ChromeUtils.unregisterWindowActor(WATERMARK_ACTOR_NAME);
     ChromeUtils.registerWindowActor(WATERMARK_ACTOR_NAME, {
       parent: {
-        esModuleURI: "resource:///modules/policies/WatermarkParent.sys.mjs",
+        esModuleURI:
+          "moz-src:///browser/components/enterprisepolicies/helpers/WatermarkParent.sys.mjs",
       },
       child: {
-        esModuleURI: "resource:///modules/policies/WatermarkChild.sys.mjs",
+        esModuleURI:
+          "moz-src:///browser/components/enterprisepolicies/helpers/WatermarkChild.sys.mjs",
         events: {
           DOMContentLoaded: {},
           pageshow: {},

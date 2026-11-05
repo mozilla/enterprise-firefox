@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 const { Updates } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/Updates.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/Updates.sys.mjs"
 );
 const { AppUpdater } = ChromeUtils.importESModule(
   "resource://gre/modules/AppUpdater.sys.mjs"

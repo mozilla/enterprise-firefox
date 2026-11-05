@@ -5,7 +5,7 @@
 "use strict";
 
 const { ForcedQuitHandler } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ForcedQuitHandler.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ForcedQuitHandler.sys.mjs"
 );
 
 add_task(async function test_concurrent_quit_requests_preserve_restart() {

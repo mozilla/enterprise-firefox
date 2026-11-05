@@ -24,7 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AddonManagerPrivate: "resource://gre/modules/AddonManager.sys.mjs",
   BookmarksPolicies: "resource:///modules/policies/BookmarksPolicies.sys.mjs",
   ContentAnalysisPolicies:
-    "resource:///modules/policies/ContentAnalysisPolicies.sys.mjs",
+    "moz-src:///browser/components/enterprisepolicies/helpers/ContentAnalysisPolicies.sys.mjs",
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   ExtensionPermissions: "resource://gre/modules/ExtensionPermissions.sys.mjs",
@@ -33,16 +33,19 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ProxyPolicies: "resource:///modules/policies/ProxyPolicies.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SecurityLoggingPolicy:
-    "resource:///modules/policies/SecurityLoggingPolicy.sys.mjs",
-  AIChatbotPolicies: "resource:///modules/policies/AIChatbotPolicies.sys.mjs",
+    "moz-src:///browser/components/enterprisepolicies/helpers/SecurityLoggingPolicy.sys.mjs",
+  AIChatbotPolicies:
+    "moz-src:///browser/components/enterprisepolicies/helpers/AIChatbotPolicies.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
-  WatermarkPolicy: "resource:///modules/policies/WatermarkPolicy.sys.mjs",
+  WatermarkPolicy:
+    "moz-src:///browser/components/enterprisepolicies/helpers/WatermarkPolicy.sys.mjs",
   ContextualIdentityService:
     "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   EphemeralContainerWatcher:
     "resource:///modules/policies/EphemeralContainerWatcher.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
-  SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
+  SyncPolicy:
+    "moz-src:///browser/components/enterprisepolicies/helpers/SyncPolicy.sys.mjs",
   LaunchOnLogin: "resource://gre/modules/LaunchOnLogin.sys.mjs",
 
   PoliciesUtils: "resource://gre/modules/PoliciesHelpers.sys.mjs",
@@ -59,6 +62,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   installAddonFromUpdateURL: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   pemToBase64: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   processMIMEInfo: "resource://gre/modules/PoliciesHelpers.sys.mjs",
+  removePolicyPermission: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   replacePathVariables: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   reportFailure: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   setDefaultPermission: "resource://gre/modules/PoliciesHelpers.sys.mjs",
@@ -960,11 +964,31 @@ export var Policies = {
         }
       }
 
-      for (const blocked of param.Block ?? []) {
-        Services.cookies.removeCookiesWithOriginAttributes(
-          "{}",
-          blocked.hostname
-        );
+      lazy.clearRunOnceModification("clearCookiesForBlockedHosts");
+      for (const { hostname } of param.Block ?? []) {
+        try {
+          for (const cookie of Services.cookies.getCookiesWithOriginAttributes(
+            "{}",
+            hostname
+          )) {
+            if (
+              cookie.rawHost == hostname ||
+              cookie.rawHost.endsWith(`.${hostname}`)
+            ) {
+              Services.cookies.remove(
+                cookie.host,
+                cookie.name,
+                cookie.path,
+                cookie.originAttributes
+              );
+            }
+          }
+        } catch (ex) {
+          lazy.reportFailure(
+            "Cookies",
+            `Unable to clear cookies for blocked host - ${hostname}`
+          );
+        }
       }
 
       if (param.ExpireAtSessionEnd != undefined) {
@@ -1043,12 +1067,7 @@ export var Policies = {
         ...(param.AllowSession ?? []),
       ]) {
         try {
-          Services.perms.removeFromPrincipal(
-            Services.scriptSecurityManager.createContentPrincipalFromOrigin(
-              origin
-            ),
-            "cookie"
-          );
+          lazy.removePolicyPermission(origin, "cookie");
         } catch (ex) {
           lazy.log.error(
             `Unable to remove cookie permission - ${origin.href || origin}`
@@ -1367,6 +1386,7 @@ export var Policies = {
     onRemove(manager, _) {
       lazy.PoliciesUtils.unsetAndUnlockPref("devtools.policy.disabled");
       lazy.PoliciesUtils.unsetAndUnlockPref("devtools.chrome.enabled");
+      lazy.PoliciesUtils.unsetAndUnlockPref("remote.policy.disabled");
 
       manager.allowFeature("devtools");
       lazy.unblockAboutPage(manager, "about:debugging");
@@ -1475,6 +1495,8 @@ export var Policies = {
   // The policy got applied by the policy engine when building the CombinedPoliciesProvider.
   // It skipped any local policy provider (policies.json, Windows GPO and macOS plist)
   DisableLocalPolicies: {},
+
+  DisableMacOSUserPolicies: {},
 
   DisableMasterPasswordCreation: {
     onBeforeUIStartup(manager, param) {
@@ -1660,7 +1682,7 @@ export var Policies = {
         // This policy is meant to change the default behavior, not to force it.
         // If this policy was already applied and the user chose to re-hide the
         // menu bar, do not show it again.
-        lazy.runOncePerModification("displayMenuBar", value, () => {
+        lazy.runOncePerModification("displayMenuBar", String(value), () => {
           Services.xulStore.setValue(
             BROWSER_DOCUMENT_URL,
             "toolbar-menubar",
@@ -1927,7 +1949,7 @@ export var Policies = {
                     continue;
                   }
                 }
-                lazy.installAddonFromURL(uri.spec, null, null, "Extensions");
+                lazy.installAddonFromURL(uri.spec, {}, "Extensions");
               }
             }
           );
@@ -2020,8 +2042,10 @@ export var Policies = {
             if (extensionSettings[extensionID].install_url) {
               lazy.installAddonFromURL(
                 extensionSettings[extensionID].install_url,
-                extensionID,
-                existingAddon,
+                {
+                  id: extensionID,
+                  existingAddon,
+                },
                 "ExtensionSettings"
               );
             } else if (!existingAddon) {

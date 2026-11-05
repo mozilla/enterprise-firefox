@@ -595,6 +595,17 @@ pref("browser.urlbar.suggest.weather", true);
 // trending suggestions are turned on.
 pref("browser.urlbar.suggest.trending", true);
 
+// Feature gate pref for temporal search suggestions in the urlbar.
+pref("browser.urlbar.temporal.featureGate", false);
+
+// If `browser.urlbar.temporal.featureGate` is true, this controls whether
+// temporal search suggestions are turned on.
+pref("browser.urlbar.suggest.temporal", true);
+
+// If `browser.urlbar.suggest.temporal` is true, this controls whether seasonal
+// temporal search suggestions are shown.
+pref("browser.urlbar.suggest.temporal.seasonal", true);
+
 // Whether results that are part of the Firefox Suggest brand are shown in the
 // urlbar. This pref is exposed to the user in the UI, and it's sticky so that
 // its user-branch value persists regardless of whatever Firefox Suggest
@@ -634,30 +645,6 @@ pref("browser.urlbar.quicksuggest.online.available", false);
 // [3] browser.urlbar.merino.ohttpConfigURL
 // [4] browser.urlbar.merino.ohttpRelayURL
 pref("browser.urlbar.quicksuggest.online.enabled", true, sticky);
-
-// Whether the Firefox Suggest contextual opt-in result is enabled.
-pref("browser.urlbar.quicksuggest.contextualOptIn", false);
-
-// Number that the user dismissed the Firefox Suggest contextual opt-in result.
-pref("browser.urlbar.quicksuggest.contextualOptIn.dismissedCount", 0);
-
-// Period until reshow the Firefox Suggest contextual opt-in result when first dismissed.
-pref("browser.urlbar.quicksuggest.contextualOptIn.firstReshowAfterPeriodDays", 7);
-
-// Period until reshow the Firefox Suggest contextual opt-in result when second dismissed.
-pref("browser.urlbar.quicksuggest.contextualOptIn.secondReshowAfterPeriodDays", 14);
-
-// Period until reshow the Firefox Suggest contextual opt-in result when third dismissed.
-pref("browser.urlbar.quicksuggest.contextualOptIn.thirdReshowAfterPeriodDays", 60);
-
-// Number of impression for the Firefox Suggest contextual opt-in result.
-pref("browser.urlbar.quicksuggest.contextualOptIn.impressionCount", 0);
-
-// Limit for impression to dismiss the Firefox Suggest contextual opt-in result.
-pref("browser.urlbar.quicksuggest.contextualOptIn.impressionLimit", 20);
-
-// Days until dismiss the Firefox Suggest contextual opt-in result after first impression.
-pref("browser.urlbar.quicksuggest.contextualOptIn.impressionDaysLimit", 5);
 
 // Whether the quick suggest feature in the urlbar is enabled.
 pref("browser.urlbar.quicksuggest.enabled", false);
@@ -772,10 +759,6 @@ pref("browser.urlbar.showSearchTerms.enabled", true);
 pref("browser.urlbar.shortcuts.bookmarks", true);
 pref("browser.urlbar.shortcuts.tabs", true);
 pref("browser.urlbar.shortcuts.history", true);
-
-// When we send events to Urlbar extensions, we wait this amount of time in
-// milliseconds for them to respond before timing out.
-pref("browser.urlbar.extension.timeout", 400);
 
 // Controls when to DNS resolve single word search strings, after they were
 // searched for. If the string is resolved as a valid host, show a
@@ -1116,6 +1099,7 @@ pref("permissions.default.local-network", 0);
 pref("permissions.default.xr", 0);
 pref("permissions.default.desktop-notification", 0);
 pref("permissions.default.shortcuts", 0);
+pref("permissions.default.register-protocol-handler", 0);
 
 pref("permissions.desktop-notification.postPrompt.enabled", true);
 
@@ -1231,9 +1215,15 @@ pref("browser.tabs.hoverPreview.showThumbnails", true);
 
 pref("browser.tabs.groups.enabled", true);
 pref("browser.tabs.groups.hoverPreview.enabled", true);
+#ifdef NIGHTLY_BUILD
+pref("browser.tabs.groups.alternateMenu", true);
+#else
 pref("browser.tabs.groups.alternateMenu", false);
+#endif
 // Bug 2052293: temporarily disabled while tab groups move away from the list all tabs menu.
 pref("browser.tabs.groups.onboardingCallouts.enabled", false);
+// Number of times the "Tab group saved" confirmation hint has been shown
+pref("browser.tabs.groups.saveHintShownCount", 0);
 
 pref("browser.tabs.groups.smart.enabled", true);
 
@@ -1568,7 +1558,12 @@ pref("accessibility.typeaheadfind.flashBar", 1);
 // Whether we had to hide the "Firefox Labs" section because it would be empty.
 pref("browser.preferences.experimental.hidden", false);
 // Whether we show the "More from Mozilla" section.
+#ifdef MOZ_ENTERPRISE
+// "More from Mozilla" is disabled on Firefox Enterprise
+pref("browser.preferences.moreFromMozilla", false, locked);
+#else
 pref("browser.preferences.moreFromMozilla", true);
+#endif
 // Whether we show the "AI Controls" pane.
 pref("browser.preferences.aiControls", true);
 // Whether to show unavailable AI controls regardless of region/locale
@@ -1601,6 +1596,8 @@ pref("browser.lna.warning.infoURL", "https://support.mozilla.org/%LOCALE%/kb/con
 pref("browser.sessionstore.resume_from_crash", true);
 pref("browser.sessionstore.resume_session_once", false);
 pref("browser.sessionstore.resuming_after_os_restart", false);
+pref("browser.sessionstore.encryption.available", false);
+pref("browser.sessionstore.encryption.enabled", false);
 
 // Determines the behavior for opening new tab when users resume sessions
 pref("browser.sessionstore.newTabOnRestore", false);
@@ -1852,7 +1849,11 @@ pref("services.sync.prefs.sync.accessibility.browsewithcaret", true);
 pref("services.sync.prefs.sync.accessibility.typeaheadfind", true);
 pref("services.sync.prefs.sync.accessibility.typeaheadfind.linksonly", true);
 pref("services.sync.prefs.sync.addons.ignoreUserEnabledChanges", true);
+#ifdef MOZ_ENTERPRISE
+pref("services.sync.prefs.sync.app.shield.optoutstudies.enabled", false, locked);
+#else
 pref("services.sync.prefs.sync.app.shield.optoutstudies.enabled", true);
+#endif
 // The addons prefs related to repository verification are intentionally
 // not synced for security reasons. If a system is compromised, a user
 // could weaken the pref locally, install an add-on from an untrusted
@@ -1867,8 +1868,13 @@ pref("services.sync.prefs.sync.browser.firefox-view.feature-tour", true);
 pref("services.sync.prefs.sync.browser.formfill.enable", true);
 pref("services.sync.prefs.sync.browser.link.open_newwindow", true);
 pref("services.sync.prefs.sync.browser.menu.showViewImageInfo", true);
+#ifdef MOZ_ENTERPRISE
+pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", false, locked);
+pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", false, locked);
+#else
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", true);
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", true);
+#endif
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.showSearch", true);
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.showSponsored", true);
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.showSponsoredTopSites", true);
@@ -1934,7 +1940,11 @@ pref("services.sync.prefs.sync.media.eme.enabled", true);
 pref("services.sync.prefs.sync-seen.media.eme.enabled", false);
 pref("services.sync.prefs.sync.media.videocontrols.picture-in-picture.video-toggle.enabled", true);
 pref("services.sync.prefs.sync.network.cookie.cookieBehavior", true);
+#ifdef MOZ_ENTERPRISE
+pref("services.sync.prefs.sync.nimbus.rollouts.enabled", false, locked);
+#else
 pref("services.sync.prefs.sync.nimbus.rollouts.enabled", true);
+#endif
 pref("services.sync.prefs.sync.permissions.default.image", true);
 pref("services.sync.prefs.sync.pref.downloads.disable_button.edit_actions", true);
 pref("services.sync.prefs.sync.pref.privacy.disable_button.cookie_exceptions", true);
@@ -2078,7 +2088,7 @@ pref("browser.newtabpage.activity-stream.images.smart", true);
 pref("browser.newtabpage.activity-stream.weather.locationSearchEnabled", true);
 
 // List of regions that get weather by default.
-pref("browser.newtabpage.activity-stream.discoverystream.region-weather-config", "AT,BE,BG,CA,CH,CY,CZ,DE,DK,EE,ES,FI,FR,GB,GR,HR,HU,IE,IS,IT,LI,LT,LV,MT,NL,NO,PL,PT,RO,SE,SI,SK,US");
+pref("browser.newtabpage.activity-stream.discoverystream.region-weather-config", "AT,BE,BG,CA,CH,CY,CZ,DE,DK,EE,ES,FI,FR,GB,GR,HR,HU,IE,IS,IT,LI,LT,LV,MT,NL,NO,PL,PT,RO,SE,SG,SI,SK,US");
 
 // List of locales that weather widget supports.
 pref("browser.newtabpage.activity-stream.discoverystream.locale-weather-config", "bg,cs,da,de,el,en-CA,en-GB,en-US,es-ES,et,fi,fr,hr,hu,is,it,lv,nb-NO,nl,pl,pt-PT,ro,sk,sl,sv-SE,tr");
@@ -2169,8 +2179,14 @@ pref("browser.newtabpage.activity-stream.asrouter.providers.cfr", "{\"id\":\"cfr
 pref("browser.newtabpage.activity-stream.asrouter.providers.messaging-experiments", "{\"id\":\"messaging-experiments\",\"enabled\":true,\"type\":\"remote-experiments\",\"updateCycleInMs\":3600000}");
 
 // ASRouter user prefs
+#ifdef MOZ_ENTERPRISE
+// Contextual feature and add-on recommendations are disabled on Firefox Enterprise
+pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", false, locked);
+pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", false, locked);
+#else
 pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", true);
 pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", true);
+#endif
 pref("messaging-system.askForFeedback", true);
 
 // The pref that controls if ASRouter uses the remote fluent files.
@@ -2285,7 +2301,15 @@ pref("browser.newtabpage.activity-stream.telemetry.privatePing.enabled", true);
 // not leave any lingering preferences lying around.
 pref("browser.newtabpage.activity-stream.telemetry.privatePing.redactNewtabPing.enabled", true);
 
-pref("browser.newtabpage.activity-stream.telemetry.privatePing.maxSubmissionDelayMs", 5000);
+pref("browser.newtabpage.activity-stream.telemetry.privatePing.minSubmissionDelayMs", 1000);
+pref("browser.newtabpage.activity-stream.telemetry.privatePing.maxSubmissionDelayMs", 6000);
+
+// Report roughly how long the user read an organic story they opened from
+// New Tab, on the click event in the New Tab content Ping.
+pref("browser.newtabpage.activity-stream.telemetry.privatePing.dwellTime.enabled", false);
+// Scale of the Laplace noise each reported dwell time is multiplied by. A
+// string, since prefs have no floating point type.
+pref("browser.newtabpage.activity-stream.telemetry.privatePing.dwellTime.noiseScale", "0.05");
 
   // Include differentialy private inferred New Tab interests with New Tab content Ping. Only used when user has enabled personalization.
 pref("browser.newtabpage.activity-stream.telemetry.privatePing.inferredInterests.enabled", false);
@@ -2332,7 +2356,12 @@ pref("browser.newtabpage.trainhopAddon.xpiBaseURL", "https://archive.mozilla.org
 pref("browser.newtabpage.sponsor-protection.enabled", true);
 
 // Separate about welcome
+#ifdef MOZ_ENTERPRISE
+// Onboarding is disabled on Firefox Enterprise
+pref("browser.aboutwelcome.enabled", false, locked);
+#else
 pref("browser.aboutwelcome.enabled", true);
+#endif
 // Used to set multistage welcome UX
 pref("browser.aboutwelcome.screens", "");
 // Whether to gate loading about:welcome on Nimbus experiments having loaded.
@@ -2387,7 +2416,8 @@ pref("nimbus.profilesdatastoreservice.sync.enabled", true);
 
 // Enable Rollouts by default.
 #ifdef MOZ_ENTERPRISE
-pref("nimbus.rollouts.enabled", false);
+// Nimbus rollouts are disabled on Firefox Enterprise
+pref("nimbus.rollouts.enabled", false, locked);
 #else
 pref("nimbus.rollouts.enabled", true);
 #endif
@@ -2419,8 +2449,7 @@ pref("pdfjs.handleOctetStream", true);
 pref("sidebar.position_start", true);
 pref("sidebar.revamp", true);
 pref("sidebar.animation.enabled", true);
-pref("sidebar.animation.duration-ms", 200);
-pref("sidebar.animation.expand-on-hover.duration-ms", 400);
+pref("sidebar.animation.expand-on-hover.duration-ms", 200);
 pref("sidebar.animation.expand-on-hover.delay-duration-ms", 200);
 
 // This pref is used to store user customized tools in the sidebar launcher and shouldn't be changed.
@@ -2523,7 +2552,7 @@ pref("browser.smartwindow.memoriesLogLevel", "Warn");
 // Gates resume-activity ("pick up where you left off") starter generation.
 pref("browser.smartwindow.resumeActivity.enabled", true);
 // TODO Bug 2067871: remove once journey store is available.
-pref("browser.smartwindow.resumeCards.enabled", false);
+pref("browser.smartwindow.resumeCards.enabled", true);
 pref("browser.smartwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.smartwindow.firstrun.hasCompleted", false);
 pref("browser.smartwindow.showThemesNotice", true);
@@ -2543,8 +2572,11 @@ pref("browser.smartwindow.autoTabGrouping.preloadModels", true);
 pref("browser.smartwindow.autoTabGrouping.maxGroups", 3);
 pref("browser.smartwindow.autoTabGrouping.minTabsPerGroup", 2);
 pref("browser.smartwindow.autoTabGrouping.minCandidateTabs", 2);
+pref("browser.smartwindow.autoTabGrouping.maxCandidateTabs", 200);
 pref("browser.smartwindow.autoTabGrouping.minCohesion", "0.15");
 pref("browser.smartwindow.autoTabGrouping.timeoutMs", 8000);
+pref("browser.smartwindow.autoTabGrouping.supportedLocales", "en,fr");
+pref("browser.smartwindow.autoTabGrouping.nonEnglishThresholdInt", 550);
 pref("browser.smartwindow.autoTabGrouping.loglevel", "Warn");
 
 // Smart Window: Smart Form Fill (bug 2055009).
@@ -2557,6 +2589,12 @@ pref("browser.smartwindow.smartformfill.disallowedRegions", "FR");
 // which keeps the feature away from the stray inputs a page uses for
 // something other than a form the user fills in.
 pref("browser.smartwindow.smartformfill.minFormFields", 4);
+
+#ifdef NIGHTLY_BUILD
+pref("browser.smartwindow.aitab.menus", true);
+#else
+pref("browser.smartwindow.aitab.menus", false);
+#endif
 
 // Smart Window Agent
 pref("browser.smartwindow.agent.enabled", true);
@@ -2739,7 +2777,7 @@ pref("media.gmp-gmpopenh264.enabled", true);
 
 pref("media.videocontrols.picture-in-picture.enabled", true);
 pref("media.videocontrols.picture-in-picture.audio-toggle.enabled", true);
-pref("media.videocontrols.picture-in-picture.playback-speed.enabled", false);
+pref("media.videocontrols.picture-in-picture.playback-speed.enabled", true);
 pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
 pref("media.videocontrols.picture-in-picture.video-toggle.visibility-threshold", "1.0");
 pref("media.videocontrols.picture-in-picture.keyboard-controls.enabled", true);
@@ -2806,6 +2844,9 @@ pref("privacy.query_stripping.strip_on_share.enabled", true);
 
 pref("browser.contentblocking.cryptomining.preferences.ui.enabled", true);
 pref("browser.contentblocking.fingerprinting.preferences.ui.enabled", true);
+
+// Protections panel redesign experiment; enabled via Nimbus.
+pref("browser.protectionsPanelRedesign.enabled", false);
 
 // Possible values for browser.contentblocking.features.strict pref:
 //   Tracking Protection:
@@ -3217,7 +3258,7 @@ pref("browser.screenshots.folderList", 4);
 pref("browser.screenshots.dir", "");
 
 // Enable/disable opening a tab into a mini window.
-pref("browser.mini-window.enabled", false);
+pref("browser.mini-window.enabled", true);
 pref("browser.mini-window.log", false);
 // How long the toolbar stays up before idling away.
 pref("browser.mini-window.toolbar.hide-delay-ms", 2000);
@@ -3239,7 +3280,12 @@ pref("app.normandy.api_url", "");
 pref("app.normandy.api_url", "https://normandy.cdn.mozilla.net/api/v1");
 #endif
 pref("app.normandy.dev_mode", false);
+#ifdef MOZ_ENTERPRISE
+// Normandy is disabled on Firefox Enterprise
+pref("app.normandy.enabled", false, locked);
+#else
 pref("app.normandy.enabled", true);
+#endif
 pref("app.normandy.first_run", true);
 pref("app.normandy.logging.level", 50); // Warn
 pref("app.normandy.run_interval_seconds", 21600); // 6 hours
@@ -3250,7 +3296,10 @@ pref("app.normandy.shieldLearnMoreUrl", "https://support.mozilla.org/1/firefox/%
 #endif
 pref("app.normandy.last_seen_buildid", "");
 pref("app.normandy.onsync_skew_sec", 600);
-#if defined(MOZ_DATA_REPORTING) && !defined(MOZ_ENTERPRISE)
+#if defined(MOZ_ENTERPRISE)
+  // Nimbus studies are disabled on Firefox Enterprise
+  pref("app.shield.optoutstudies.enabled", false, locked);
+#elif defined(MOZ_DATA_REPORTING)
   pref("app.shield.optoutstudies.enabled", true);
 #else
   pref("app.shield.optoutstudies.enabled", false);
@@ -3320,8 +3369,11 @@ pref("browser.toolbars.share-button.enabled", true);
 // Visibility of the share button in the url bar.
 pref("browser.urlbar.share-button.enabled", false);
 
-pref("security.certerrors.felt-privacy-v1", true);
+// Toggles the availability of the Tab Groups toolbar button.
+// Requires a restart to reflect state changes.
+pref("browser.toolbars.tab-groups.enabled", false);
 
+pref("security.certerrors.felt-privacy-v1", true);
 
 // Prefs to control the Firefox Account toolbar menu.
 // This pref will surface existing Firefox Account information
@@ -3500,6 +3552,9 @@ pref("devtools.anti-tracking.enabled", false);
 
 // Session History panel
 pref("devtools.application.sessionHistory.enabled", false);
+
+// Speculative Loads Panel
+pref("devtools.application.speculativeLoads", false);
 
 // Enable the custom formatters feature
 // This preference represents the user's choice to enable the custom formatters feature.
@@ -3867,6 +3922,15 @@ pref("browser.privatebrowsing.resetPBM.enabled", true);
 // performing the clear action.
 pref("browser.privatebrowsing.resetPBM.showConfirmationDialog", true);
 
+// Whether the fire button, which clears the current browsing session and
+// replaces all open windows with a fresh one, is registered as a navbar
+// widget. Read once at startup, so a change only takes effect on restart.
+pref("browser.fireButton.enabled", false);
+
+// Which flow the fire button starts. "panel" shows the confirmation panel;
+// "direct" skips it and opens the clear browsing data dialog straight away.
+pref("browser.fireButton.flow", "panel");
+
 // the preferences related to the Nimbus experiment, to activate and deactivate
 // the the entire rollout (see: bug 1864216 - two prompts, 1877500 - set two in one prompt)
 pref("browser.mailto.dualPrompt", false);
@@ -3914,7 +3978,8 @@ pref("browser.backup.enabled_on.profiles", "[]");
 
 // Pref to enable the new profiles
 #ifdef MOZ_ENTERPRISE
-pref("browser.profiles.enabled", false);
+// Profile management is disabled on Firefox Enterprise
+pref("browser.profiles.enabled", false, locked);
 #else
 pref("browser.profiles.enabled", true);
 #endif
@@ -3958,6 +4023,8 @@ pref("browser.ipProtection.userEnabled", false);
 pref("browser.ipProtection.userEnableCount", 0);
 // Pref to track if user has ever opened the VPN panel
 pref("browser.ipProtection.everOpenedPanel", false);
+// Pref to track if the user has opened the panel since release 160
+pref("browser.ipProtection.openedPanelSince160", false);
 // Pref to track if the VPN UI has ever been exposed to the user. Once it is
 // true the UI is shown regardless of the l10n coverage of
 // browser/ipProtection.ftl. A profile data upgrade sets it to true on profiles
@@ -3976,8 +4043,8 @@ pref("browser.ipProtection.l10nGateVersion", 0);
 pref("browser.ipProtection.features.siteExceptions", true);
 // Pref to enable support for site inclusions
 pref("browser.ipProtection.features.siteInclusions", false);
-// Pref to show confirmation hints for site exceptions
-pref("browser.ipProtection.siteExceptionsHintsEnabled", true);
+// Pref to track if the site inclusion prompt has been shown in the VPN panel
+pref("browser.ipProtection.siteInclusionPromptShown", false);
 pref("browser.ipProtection.log", false);
 #ifdef MOZ_ENTERPRISE
 pref("browser.ipProtection.guardian.endpoint", "");
@@ -4000,8 +4067,6 @@ pref("browser.ipProtection.bandwidthThreshold", 0);
 // Tracks the highest bandwidth warning threshold (75 or 90) dismissed per surface.
 // Stored as JSON: { infobar: <number>, panel: <number> }. Reset when bandwidth resets.
 pref("browser.ipProtection.bandwidthWarningDismissedThreshold", "");
-// Pref to track if the "NEW" badge on the location selection button should be visible.
-pref("browser.ipProtection.locationButtonBadgeDismissed", false);
 
 // Pref to enable aboug:glean redesign.
 pref("about.glean.redesign.enabled", false);
@@ -4017,6 +4082,11 @@ pref("toolkit.rust-components.logging.internal-level", "Warn");
 
 // Settings Redesign 2025 prefs
 pref("browser.settings-redesign.enabled", true);
+
+// Gates the in-progress Notifications sub-page and its entry card in
+// Permissions and data. Not part of the settings-redesign section scheme, since
+// those are all enabled by browser.settings-redesign.enabled being true.
+pref("browser.preferences.notifications-section.enabled", false);
 
 // A preference that will be locked to reflect whether this build has support
 // for XDG Config Home handling. Mostly used to be able to keep tests around

@@ -5,7 +5,7 @@
 "use strict";
 
 const { FeltStorage } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+  "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
 );
 
 // Result slot read by ShowEnterpriseConsoleSetup() in nsAppRunner.cpp:

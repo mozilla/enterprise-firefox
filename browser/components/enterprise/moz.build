@@ -7,7 +7,7 @@
 with Files("**"):
     BUG_COMPONENT = ("Enterprise Products", "Firefox")
 
-EXTRA_JS_MODULES.enterprise += [
+MOZ_SRC_FILES += [
     "AccessConnectorButton.sys.mjs",
     "EnterpriseForcedQuit.sys.mjs",
     "EnterpriseHandler.sys.mjs",

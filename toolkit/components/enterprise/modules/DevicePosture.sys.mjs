@@ -7,13 +7,15 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  composeOSNames: "resource://gre/modules/enterprise/EnterpriseOSInfo.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  composeOSNames:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseOSInfo.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
-  DiskEncryption: "resource://gre/modules/enterprise/DiskEncryption.sys.mjs",
-  EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
-  MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
+  DiskEncryption: "moz-src:///toolkit/modules/DiskEncryption.sys.mjs",
+  EdrDetection: "moz-src:///toolkit/modules/EdrDetection.sys.mjs",
+  MachineId: "moz-src:///toolkit/modules/MachineId.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",

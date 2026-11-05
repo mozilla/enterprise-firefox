@@ -2,6 +2,7 @@
 run-if = [
   "os != 'android'",
 ]
+skip-if = ["enterprise"] # Onboarding is disabled on Firefox Enterprise
 firefox-appdir = "browser"
 
 ["test_AboutWelcomeAttribution.js"]

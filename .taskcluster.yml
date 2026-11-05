@@ -247,7 +247,7 @@ tasks:
                       # exist in tree so we must hard code the hash
                       image: 'mozillareleases/gecko_decision:5.1.0@sha256:8879ecb7f859e1001b0aa67de440a18c3a896446bfd0e2e87688bb367e590667'
 
-                      maxRunTime: 3600
+                      maxRunTime: 1800
 
                       command:
                           - /builds/worker/bin/run-task-hg
@@ -411,8 +411,8 @@ tasks:
                           $switch:
                               'repoUrl == "https://github.com/mozilla/enterprise-firefox"': "prod"
                               'repoUrl == "https://github.com/mozilla/enterprise-firefox-try"': "dev"
-                              'repoUrl == "https://github.com/mozilla/firefox-dev"': "dev"
                               'repoUrl == "https://github.com/mozilla-releng/staging-firefox"': "dev"
+                              'repoUrl == "https://github.com/mozilla-firefox/firefox-dev"': "dev"
                               'repoUrl == "https://github.com/mozilla-firefox/firefox"': "prod"
                               $default: null
                       shortRef:
@@ -501,6 +501,9 @@ tasks:
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}-pr.revision.${headRev}.taskgraph.actions.${ownTaskId}"
                                             'eventType == "cron"':
+                                                - $switch:
+                                                      'project == "enterprise-firefox"': "tc-treeherder.v2.${shortRef}.${headRev}"
+                                                      $default: "tc-treeherder.v2.${project}.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}.branch.${shortRef}.latest.taskgraph.decision-${cron.job_name}"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision-${cron.job_name}"
                                                 # list each cron task on this revision, so actions can find them
@@ -746,7 +749,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commBaseRev: 860f4af8133bcd1e55d381da977f8b95072b3c7a
+                  commBaseRev: abc08c06c3251b0fc306b01b38ac30ec3be2fd8c
                   commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
                   commHeadRef:
                       $if: 'project == "enterprise-firefox-try"'
@@ -757,7 +760,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commHeadRev: 860f4af8133bcd1e55d381da977f8b95072b3c7a
+                  commHeadRev: abc08c06c3251b0fc306b01b38ac30ec3be2fd8c
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}

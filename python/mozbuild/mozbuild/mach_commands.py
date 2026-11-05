@@ -263,7 +263,7 @@ def cargo(
             build = command_context._spawn(BuildDriver)
             ret = build.build(
                 command_context.metrics,
-                what=["pre-export", "export"],
+                what=["rust-prereqs"],
                 jobs=jobs,
                 verbose=verbose,
                 mach_context=command_context._mach_context,
@@ -1132,7 +1132,7 @@ def gtest(
         return 1
 
     res = command_context._mach_context.commands.dispatch(
-        "build", command_context._mach_context, what=["recurse_gtest"]
+        "build", command_context._mach_context, what=["gtest"]
     )
     if res:
         print("Could not build xul-gtest")
@@ -3649,15 +3649,7 @@ def repackage_sign_msix(command_context, input, force=False, verbose=False):
     "--arch", type=str, required=True, help="The architecture you are building."
 )
 @CommandArgument("--mar-channel-id", type=str, help="Mar channel id")
-@CommandArgument(
-    "--exclude",
-    metavar="FILENAME",
-    action="append",
-    default=[],
-    help="Basename of a file to leave out of the MAR, matched at any depth in "
-    "the package. May be given more than once.",
-)
-def repackage_mar(command_context, input, mar, output, arch, mar_channel_id, exclude):
+def repackage_mar(command_context, input, mar, output, arch, mar_channel_id):
     from mozbuild.repackaging.mar import repackage_mar
 
     repackage_mar(
@@ -3667,7 +3659,6 @@ def repackage_mar(command_context, input, mar, output, arch, mar_channel_id, exc
         output,
         arch=arch,
         mar_channel_id=mar_channel_id,
-        exclude=exclude,
     )
 
 

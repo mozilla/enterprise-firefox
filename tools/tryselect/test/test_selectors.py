@@ -483,6 +483,8 @@ def full_task_set(target_task_set):
               See bug 2068074.
 
               Use an explicit selector such as `mach try fuzzy` instead.
+
+              A good default fuzzy selector would be "'marionette-enterprise".
             """
             ).lstrip(),
             id="auto selector is disabled",

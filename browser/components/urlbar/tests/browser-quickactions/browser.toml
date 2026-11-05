@@ -6,6 +6,7 @@ support-files = [
 ]
 
 ["browser_commands.js"]
+skip-if = ["enterprise"] # Firefox Labs is disabled on Firefox Enterprise
 
 ["browser_devtools.js"]
 

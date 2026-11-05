@@ -44,7 +44,6 @@
   gap: var(--space-small);
 
   border-radius: var(--border-radius-medium);
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   border: 1px solid var(--badge-border-color);
   background: var(--background-color-box);
 
@@ -60,7 +59,6 @@
 #enterprise-company-logo__wrapper {
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   max-width: 80px;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   height: var(--size-item-medium);
   justify-content: center;
   align-items: center;

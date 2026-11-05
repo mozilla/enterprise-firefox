@@ -16,8 +16,16 @@ support-files = ["topstories.json"]
 ["test_ActivityStream_contextualAds.js"]
 
 ["test_AdsClient.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]
 
 ["test_AdsFeed.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]
+
+["test_ExtensionWidgetsFeed.js"]
 
 ["test_ExternalComponentsFeed.js"]
 
@@ -31,9 +39,17 @@ support-files = ["topstories.json"]
 
 ["test_LocalInferredRanking.js"]
 
+["test_LocationInterestGrid.js"]
+
 ["test_NewTabAttributionFeed.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]
 
 ["test_NewTabAttributionService.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]
 
 ["test_NewTabContentPing.js"]
 
@@ -81,6 +97,8 @@ support-files = ["../schemas/*.schema.json"]
 ["test_TopSitesFeed_frecencyRanking.js"]
 
 ["test_TopSitesFeed_glean.js"]
+
+["test_TravelFeed.js"]
 
 ["test_WallpaperFeed.js"]
 tags = "remote-settings"

@@ -256,6 +256,10 @@ impl GuiTest {
         .set(crate::std::time::MockCurrentTime, current_system_time())
         .set(mock::MockHook::new("enable_glean_pings"), false);
 
+        // Mock the storage for the token, which `try_run` initializes below.
+        #[cfg(feature = "enterprise")]
+        mock.set(crate::net::auth::ACCESS_TOKEN, Default::default());
+
         GuiTest {
             config: test_config(),
             mock,
@@ -295,6 +299,10 @@ impl GuiTest {
 
         // Run the mock environment.
         let result = mock.run(|| {
+            // `report_main` records the token before calling `try_run`, mimic that here
+            #[cfg(feature = "enterprise")]
+            crate::net::auth::init_access_token(crate::net::auth::TokenSource::CrashingProcess);
+
             let _glean = if *enable_glean {
                 Some(glean::test_init(&test_config))
             } else {
@@ -944,6 +952,12 @@ fn reads_profile_directory() {
 #[ignore = "This test often passes, however it relies on Glean network scheduling, which has been
     found to be unreliable for testing purposes. A more reliable unit test is in the glean module."]
 fn glean_ping_uses_pref() {
+    const PING_URL: &str = if cfg!(feature = "enterprise") {
+        "https://incoming.glean.example.com/submit/firefox-enterprise-crashreporter-mock/crash"
+    } else {
+        "https://incoming.glean.example.com/submit/firefox-crashreporter-mock/crash"
+    };
+
     for pref_value in [false, true] {
         let mut test = GuiTest::new();
         test.enable_glean_pings();
@@ -961,7 +975,7 @@ fn glean_ping_uses_pref() {
         test.mock.set(
             net::http::MockHttp,
             Box::new(cc! { (submitted_glean_ping) move |_request, url| {
-                if url.starts_with("https://incoming.glean.example.com/submit/firefox-crashreporter-mock/crash") {
+                if url.starts_with(PING_URL) {
                     submitted_glean_ping.inc();
                 }
                 Ok(Ok(vec!()))

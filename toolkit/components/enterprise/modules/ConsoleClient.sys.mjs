@@ -15,14 +15,14 @@ const SSO_LOGIN_VERSION = "v2";
 
 ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleProxyBypassFilter:
-    "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleProxyBypassFilter.sys.mjs",
   EnterpriseCommon:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
-  FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
+  FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
   ForcedQuitHandler:
-    "resource://gre/modules/enterprise/ForcedQuitHandler.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/ForcedQuitHandler.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });

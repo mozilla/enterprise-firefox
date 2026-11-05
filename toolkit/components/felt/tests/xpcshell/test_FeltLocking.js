@@ -12,7 +12,7 @@ const { FeltLocking } = ChromeUtils.importESModule(
   "chrome://felt/content/FeltLocking.sys.mjs"
 );
 const { DevicePosture } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs"
 );
 const { OSKeyStore } = ChromeUtils.importESModule(
   "resource://gre/modules/OSKeyStore.sys.mjs"
@@ -21,14 +21,14 @@ const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
 );
 const { ConsoleClient } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
 );
 
 // Imported lazily so FeltStorage doesn't resolve its "UAppData"-based path
 // before makeFakeAppDir() runs in the head.js add_setup().
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
+  FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
 });
 
 const EMAIL = "user@example.com";

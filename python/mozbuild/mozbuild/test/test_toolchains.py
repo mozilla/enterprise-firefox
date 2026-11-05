@@ -16,7 +16,7 @@ class TestToolchainTaskDefinitions(TestCase):
         # Bypass mach_func_cache (disk) and functools.cache (memory)
         return toolchain_task_definitions.__wrapped__.__wrapped__
 
-    def _capture_params(self, env_patch, clear=False):
+    def _capture_params(self, env_patch, clear=False, enterprise=True):
         captured_params = {}
         original_dump = json.dump
 
@@ -46,19 +46,31 @@ class TestToolchainTaskDefinitions(TestCase):
         ):
             with mock.patch("mozbuild.toolchains.json.dump", side_effect=spy_dump):
                 with mock.patch.dict(os.environ, env_patch, clear=clear):
-                    self._raw_fn()()
+                    with mock.patch(
+                        "mozbuild.toolchains.is_enterprise_tree",
+                        return_value=enterprise,
+                    ):
+                        self._raw_fn()()
 
         return captured_params
 
     def test_moz_scm_level_passed_to_taskgraph(self):
-        params = self._capture_params({"MOZ_SCM_LEVEL": "1"})
-        self.assertEqual(params["level"], "1")
+        params = self._capture_params({"MOZ_SCM_LEVEL": "3"})
+        self.assertEqual(params["level"], "3")
 
     def test_moz_scm_level_defaults_to_3(self):
         env_without_scm_level = os.environ.copy()
         env_without_scm_level.pop("MOZ_SCM_LEVEL", None)
-        params = self._capture_params(env_without_scm_level, clear=True)
+        params = self._capture_params(
+            env_without_scm_level, clear=True, enterprise=False
+        )
         self.assertEqual(params["level"], "3")
+
+    def test_moz_scm_level_defaults_to_1_on_enterprise(self):
+        env_without_scm_level = os.environ.copy()
+        env_without_scm_level.pop("MOZ_SCM_LEVEL", None)
+        params = self._capture_params(env_without_scm_level, clear=True)
+        self.assertEqual(params["level"], "1")
 
 
 if __name__ == "__main__":

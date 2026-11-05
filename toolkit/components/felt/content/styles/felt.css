@@ -48,7 +48,6 @@ body {
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   flex: 417 0 0;
   position: relative;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   background: var(--background-color-canvas, #f7f6fb);
 }
 
@@ -135,7 +134,6 @@ body {
 .felt-updates-checking,
 .felt-updates-application-msg {
   width: 100%;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   color: var(--text-color, #15141a);
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   font-size: 16px;
@@ -308,9 +306,7 @@ moz-input-text::part(label) {
 
 #notification-popup-box {
   position: absolute;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   top: 50%;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   left: 50%;
 }
 
@@ -322,11 +318,11 @@ body.notification-open .felt:not(#notification-popup-box .felt) {
 
 .felt-browser-error {
   position: absolute;
-  /* stylelint-disable-next-line */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   top: 16px;
-  /* stylelint-disable-next-line */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   right: 16px;
-  /* stylelint-disable-next-line */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   left: 16px;
   display: flex;
   flex-direction: column;

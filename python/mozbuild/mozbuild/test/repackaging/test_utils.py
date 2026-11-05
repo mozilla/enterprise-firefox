@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import configparser
 import datetime
 import json
 import os
@@ -356,6 +357,24 @@ def test_render_templates():
         assert not os.path.exists(os.path.join(source_dir, "debian", "ignored_file.in"))
 
 
+_PACKAGE_DISTRIBUTION_INI = """[Global]
+id=mozilla-deb
+version=1.0
+
+[Preferences]
+app.distributor="mozilla-deb"
+intl.locale.requested=""
+"""
+
+_EXISTING_DISTRIBUTION_INI = """[Global]
+id=enterprise
+version=2.0
+
+[Preferences]
+app.distributor="enterprise"
+"""
+
+
 def test_inject_distribution_folder(monkeypatch):
     def mock_makedirs(destination, *, exist_ok):
         assert destination == "/source_dir/firefox/distribution"
@@ -368,12 +387,34 @@ def test_inject_distribution_folder(monkeypatch):
         assert source == "/source_dir/debian/distribution.ini"
         assert destination == "/source_dir/firefox/distribution/distribution.ini"
 
+    monkeypatch.setattr(utils, "is_enterprise_tree", lambda: False)
     monkeypatch.setattr(utils.os.path, "exists", lambda _: True)
     monkeypatch.setattr(utils.os, "remove", mock_remove)
     monkeypatch.setattr(utils.shutil, "move", mock_move)
     monkeypatch.setattr(utils.os, "makedirs", mock_makedirs)
 
     utils.inject_distribution_folder("/source_dir", "debian", "Firefox")
+
+
+def test_inject_distribution_folder_merges_existing_on_enterprise(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(utils, "is_enterprise_tree", lambda: True)
+    (tmp_path / "debian").mkdir()
+    (tmp_path / "debian" / "distribution.ini").write_text(_PACKAGE_DISTRIBUTION_INI)
+    distribution_dir = tmp_path / "firefox" / "distribution"
+    distribution_dir.mkdir(parents=True)
+    (distribution_dir / "distribution.ini").write_text(_EXISTING_DISTRIBUTION_INI)
+
+    utils.inject_distribution_folder(str(tmp_path), "debian", "Firefox")
+
+    merged = configparser.ConfigParser()
+    merged.read(distribution_dir / "distribution.ini")
+    assert dict(merged["Global"]) == {"id": "enterprise", "version": "2.0"}
+    assert dict(merged["Preferences"]) == {
+        "app.distributor": '"enterprise"',
+        "intl.locale.requested": '""',
+    }
 
 
 ZH_TW_FTL = """\

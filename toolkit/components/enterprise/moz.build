@@ -7,7 +7,7 @@
 with Files("**"):
     BUG_COMPONENT = ("Enterprise Products", "Firefox")
 
-EXTRA_JS_MODULES.enterprise += [
+MOZ_SRC_FILES += [
     "modules/CaptivePortal.sys.mjs",
     "modules/ConsoleClient.sys.mjs",
     "modules/ConsoleProxyBypassFilter.sys.mjs",

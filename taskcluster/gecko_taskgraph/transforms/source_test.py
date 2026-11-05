@@ -20,6 +20,7 @@ from taskgraph.util.yaml import load_yaml
 
 from gecko_taskgraph import GECKO
 from gecko_taskgraph.transforms.job import JobDescriptionSchema
+from gecko_taskgraph.transforms.task import TaskDescriptionSchema
 from gecko_taskgraph.util.hash import get_file_finder
 
 
@@ -60,6 +61,13 @@ class SourceTestDescriptionSchema(Schema, forbid_unknown_fields=False, kw_only=T
     # run command and the files-changed patterns are built from this list, in
     # vendor_verify_members below.
     members: Optional[list[str]] = None
+    run_on_repo_type: Optional[  # type: ignore
+        optionally_keyed_by(
+            "trust-domain",
+            TaskDescriptionSchema.__annotations__["run_on_repo_type"],
+            use_msgspec=True,
+        )
+    ] = None
     # A list of artifacts to install from 'fetch' tasks.
     fetches: Optional[  # type: ignore
         dict[
@@ -277,6 +285,18 @@ def handle_platform(config, jobs):
             add_build_dependency(config, job)
 
         del job["platform"]
+        yield job
+
+
+@transforms.add
+def handle_run_on_repo_type(config, jobs):
+    for job in jobs:
+        resolve_keyed_by(
+            job,
+            "run-on-repo-type",
+            item_name=job["name"],
+            **{"trust-domain": config.graph_config["trust-domain"]},
+        )
         yield job
 
 

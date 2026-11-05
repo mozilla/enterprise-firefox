@@ -6,12 +6,13 @@ support-files = ["reference_aboutwelcome_experiment_content.json"]
 run-if = [
   "os != 'android' && appname != 'thunderbird'",
 ]
+skip-if = [
+  "enterprise", # Nimbus is disabled on Firefox Enterprise
+]
 prefs = [
   "app.normandy.run_interval_seconds=0", # This turns off the update interval for fetching recipes from Remote Settings
   "messaging-system.log=all", # Enable all Nimbus logging.
 ]
-
-["test_bug2054546.js"]
 
 ["test_Enrollments.js"]
 
@@ -59,6 +60,8 @@ skip-if = [
   "artifact",
   "os == 'win' && msix", # Bug 1991153
 ]
+
+["test_bug2054546.js"]
 
 ["test_localization.js"]
 

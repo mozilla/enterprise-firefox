@@ -30,11 +30,15 @@ diff:
             base_rev: base_rev
         substitution-fields:
             - run.command
-    run-on-repo-type: [hg]
+    run-on-repo-type:
+        by-trust-domain:
+            enterprise: [git, hg]
+            default: [hg]
     run:
-        clone-with: hg
+        clone-with: git
         using: run-task
         cwd: '{checkout}'
+        # Git checkouts are shallow, so the base revision has to be fetched.
         command: >-
             mkdir -p /builds/worker/artifacts/diffs &&
             ./mach taskgraph target --fast -p "taskcluster/test/params" --force-local-files-changed -o "/builds/worker/artifacts/diffs/diff.txt" --diff {base_rev} &&

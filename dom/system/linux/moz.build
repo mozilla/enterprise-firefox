@@ -8,12 +8,19 @@ with Files("**"):
 if CONFIG["MOZ_ENABLE_DBUS"]:
     SOURCES += ["GeoclueLocationProvider.cpp"]
     SOURCES += ["PortalLocationProvider.cpp"]
+
+    SOURCE_HEADERS += [
+        "GeoclueLocationProvider.h",
+        "PortalLocationProvider.h",
+    ]
+
     LOCAL_INCLUDES += ["/dom/geolocation"]
     CXXFLAGS += CONFIG["MOZ_GTK3_CFLAGS"]
     TEST_DIRS += ["gtest"]
 
 if CONFIG["MOZ_ENTERPRISE"]:
     UNIFIED_SOURCES += ["ModemManagerImeiProvider.cpp"]
+    SOURCE_HEADERS += ["ModemManagerImeiProvider.h"]
 
     XPCOM_MANIFESTS += [
         "components.conf",

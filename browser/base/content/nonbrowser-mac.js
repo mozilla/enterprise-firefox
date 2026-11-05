@@ -7,7 +7,9 @@ function queueFeltDockAction(isPrivate) {
     return;
   }
   const { queueFeltURL, FELT_OPEN_WINDOW_DISPOSITION } =
-    ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
+    ChromeUtils.importESModule(
+      "moz-src:///browser/components/FeltURLHandler.sys.mjs"
+    );
   queueFeltURL({
     disposition: isPrivate
       ? FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW
@@ -141,7 +143,9 @@ var NonBrowserWindow = {
 
   setupFeltDockMenuState() {
     const { isFeltFirefoxWindowReady, waitForFeltFirefoxWindowReady } =
-      ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
+      ChromeUtils.importESModule(
+        "moz-src:///browser/components/FeltURLHandler.sys.mjs"
+      );
 
     // Check if Firefox is already ready (e.g., after restart)
     if (isFeltFirefoxWindowReady()) {

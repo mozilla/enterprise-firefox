@@ -244,6 +244,7 @@ def mock_mozinfo():
         [("linux", "1804", 64, "opt", ["asan"]), None],
         [("win", "10", 64, "opt", ["tsan"]), None],
         [("mac", "1100", 64, "opt", ["ccov"]), None],
+        [("linux", "2404", 64, "opt", ["enterprise"]), None],
         [("android", "13.0", 64, "opt", None, ["fission"]), None],
         [("win", "10", "aarch64", "opt"), None],
     ],
@@ -276,6 +277,7 @@ def test_guess_mozinfo_from_task(params, exception, mock_task_definition):
         assert ("asan" in setting["build"]) == result["asan"]
         assert ("tsan" in setting["build"]) == result["tsan"]
         assert ("ccov" in setting["build"]) == result["ccov"]
+        assert ("enterprise" in setting["build"]) == result["enterprise"]
 
         # Ensure runtime variants match
         assert ("fission" in setting["runtime"]) == result["fission"]

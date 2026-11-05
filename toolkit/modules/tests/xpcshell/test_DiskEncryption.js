@@ -19,7 +19,7 @@ const VALID_STATUSES = [
 ];
 
 const { DiskEncryption } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/DiskEncryption.sys.mjs"
+  "moz-src:///toolkit/modules/DiskEncryption.sys.mjs"
 );
 
 async function withMockChecker(mock, callback) {

@@ -17,6 +17,7 @@ Bugzilla: Bug-<BUG_ID>
 ### Dependencies / Related Issues <!-- OPTIONAL -->
 
 * Depends on:
+* Upstream Lando link: <!-- Put in the link from "View Stack in Lando" (e.g. https://lando.moz.tools/D12345/) if this PR is just adjusting code to match an upcoming upstream change (use the first revision of a stack if applicable). Add the "upstream-changes" label to this PR. -->
 
 ---
 

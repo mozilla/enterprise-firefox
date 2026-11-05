@@ -11,7 +11,7 @@
 // before makeFakeAppDir() runs in the head.js add_setup().
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
+  FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
 });
 
 const { OSKeyStore } = ChromeUtils.importESModule(

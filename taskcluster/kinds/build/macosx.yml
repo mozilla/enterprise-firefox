@@ -88,7 +88,6 @@ macosx64-enterprise/debug:
     worker:
         max-run-time: 5400
         env:
-            PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
         variant: debug-enterprise
@@ -523,7 +522,6 @@ macosx64-enterprise/opt:
         max-run-time: 7200
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
-            PERFHERDER_EXTRA_OPTIONS: enterprise
     mozconfig:
         platform: macosx64-aarch64
     run:
@@ -705,6 +703,7 @@ macosx64-x64-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
     mozconfig:
         variant: devedition
     run:
@@ -743,6 +742,7 @@ macosx64-aarch64-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
             PERFHERDER_EXTRA_OPTIONS: aarch64
     mozconfig:
         variant: devedition
@@ -792,6 +792,12 @@ macosx64-devedition/opt:
     fetches:
         macosx64-x64-devedition-opt:
             - artifact: target.dmg
+              extract: false
+              dest: x64
+            - artifact: sbom.json
+              extract: false
+              dest: x64
+            - artifact: sbom-build-tooling.json
               extract: false
               dest: x64
             - artifact: buildhub.json
@@ -872,6 +878,12 @@ macosx64-devedition/opt:
               dest: ../artifacts
         macosx64-aarch64-devedition-opt:
             - artifact: target.dmg
+              extract: false
+              dest: aarch64
+            - artifact: sbom.json
+              extract: false
+              dest: aarch64
+            - artifact: sbom-build-tooling.json
               extract: false
               dest: aarch64
             - artifact: target.common.tests.tar.zst
@@ -1192,6 +1204,7 @@ macosx64-x64-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
     run:
         config:
             - builds/releng_base_firefox.py
@@ -1227,6 +1240,7 @@ macosx64-aarch64-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
+            SOURCE_DATE_EPOCH: "{build_date}"
             PERFHERDER_EXTRA_OPTIONS: aarch64
     mozconfig:
         platform: macosx64-aarch64
@@ -1263,7 +1277,9 @@ macosx64-shippable/opt:
     run-on-repo-type: ["git"]
     worker:
         # No MOZ_GENERATE_SBOM here: this task only recombines the
-        # per-architecture builds, which each upload their own SBOM.
+        # per-architecture builds, and re-uploads their SBOMs as
+        # sbom-x86_64.json and sbom-aarch64.json, along with their build
+        # tooling counterparts.
         max-run-time: 1800
     mozconfig: null
     run:
@@ -1276,6 +1292,12 @@ macosx64-shippable/opt:
     fetches:
         macosx64-x64-shippable-opt:
             - artifact: target.dmg
+              extract: false
+              dest: x64
+            - artifact: sbom.json
+              extract: false
+              dest: x64
+            - artifact: sbom-build-tooling.json
               extract: false
               dest: x64
             - artifact: buildhub.json
@@ -1356,6 +1378,12 @@ macosx64-shippable/opt:
               dest: ../artifacts
         macosx64-aarch64-shippable-opt:
             - artifact: target.dmg
+              extract: false
+              dest: aarch64
+            - artifact: sbom.json
+              extract: false
+              dest: aarch64
+            - artifact: sbom-build-tooling.json
               extract: false
               dest: aarch64
             - artifact: target.common.tests.tar.zst

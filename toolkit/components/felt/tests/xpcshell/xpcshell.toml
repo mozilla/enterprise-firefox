@@ -4,3 +4,12 @@ head = "head.js"
 ["test_FeltLocking.js"]
 
 ["test_FeltStorage_locking.js"]
+
+["test_felt_browser_pid_announcement.js"]
+run-if = ["os == 'win' && buildapp == 'browser'"]
+
+["test_felt_parent_message_sender.js"]
+
+["test_felt_ipc_channel_refusal.js"]
+run-if = ["buildapp == 'browser'"]
+run-sequentially = ["true"] # Launches the application binary

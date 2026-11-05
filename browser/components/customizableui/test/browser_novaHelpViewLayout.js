@@ -28,6 +28,15 @@ function getLayout(helpView) {
   return [...items.children].map(node => node.id || node.localName);
 }
 
+// Enterprise builds compile out helpSwitchDevice, and with it the Nova promo
+// that replaces that item, so nothing follows the feedback item there.
+const SWITCH_DEVICE_ITEM = AppConstants.MOZ_ENTERPRISE
+  ? null
+  : "appMenu_helpSwitchDevice";
+const NOVA_PROMO_ITEM = AppConstants.MOZ_ENTERPRISE
+  ? null
+  : "appMenu-nova-switch-device-promo";
+
 function expectedLayout(lastItem) {
   let expected = [
     "appMenu_menu_openHelp",
@@ -38,8 +47,10 @@ function expectedLayout(lastItem) {
     "appMenu_troubleShooting",
     "toolbarseparator",
     "appMenu_feedbackPage",
-    lastItem,
   ];
+  if (lastItem) {
+    expected.push(lastItem);
+  }
   // macOS relocates About into the native application menu, which leaves the
   // last group empty and so drops its separator too.
   if (!document.getElementById("aboutName").hidden) {
@@ -55,7 +66,7 @@ add_task(async function testHelpViewOrderWithNova() {
 
   Assert.deepEqual(
     getLayout(helpView),
-    expectedLayout("appMenu-nova-switch-device-promo"),
+    expectedLayout(NOVA_PROMO_ITEM),
     "The Help and Report subview is grouped and ordered as designed"
   );
 
@@ -73,7 +84,7 @@ add_task(async function testHelpViewOrderWithoutNova() {
   // the Switch device item.
   Assert.deepEqual(
     getLayout(helpView),
-    expectedLayout("appMenu_helpSwitchDevice"),
+    expectedLayout(SWITCH_DEVICE_ITEM),
     "The same layout applies when the Nova promo is not substituted in"
   );
 
@@ -89,7 +100,7 @@ add_task(async function testSeparatorsAreVisible() {
   let separators = helpView.querySelectorAll(
     ".panel-subview-body > toolbarseparator"
   );
-  let expectedCount = expectedLayout("appMenu-nova-switch-device-promo").filter(
+  let expectedCount = expectedLayout(NOVA_PROMO_ITEM).filter(
     id => id == "toolbarseparator"
   ).length;
   Assert.equal(
@@ -135,17 +146,24 @@ add_task(async function testNoSeparatorBeforePromo() {
   let helpView = await openHelpView();
 
   let promo = helpView.querySelector("#appMenu-nova-switch-device-promo");
-  Assert.ok(promo, "The Nova switch device promo is present");
-  Assert.equal(
-    promo.previousElementSibling.id,
-    "appMenu_feedbackPage",
-    "The promo sits directly below Share ideas and feedback"
-  );
-  Assert.notEqual(
-    promo.previousElementSibling.localName,
-    "toolbarseparator",
-    "There is no divider between the feedback item and the promo"
-  );
+  if (NOVA_PROMO_ITEM) {
+    Assert.ok(promo, "The Nova switch device promo is present");
+    Assert.equal(
+      promo.previousElementSibling.id,
+      "appMenu_feedbackPage",
+      "The promo sits directly below Share ideas and feedback"
+    );
+    Assert.notEqual(
+      promo.previousElementSibling.localName,
+      "toolbarseparator",
+      "There is no divider between the feedback item and the promo"
+    );
+  } else {
+    Assert.ok(
+      !promo,
+      "The promo is absent with no Switch device item for it to replace"
+    );
+  }
 
   await gCUITestUtils.hideMainMenu();
   await SpecialPowers.popPrefEnv();

@@ -6,10 +6,12 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
-  isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
+  isTesting:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {

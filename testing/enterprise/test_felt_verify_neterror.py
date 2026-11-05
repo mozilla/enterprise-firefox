@@ -18,7 +18,7 @@ class FeltVerifyNetError(FeltConsoleErrorBase):
         self._driver.execute_async_script(
             """
             const callback = arguments[arguments.length - 1];
-            const { FeltErrorReport } = ChromeUtils.importESModule("resource://gre/modules/enterprise/FeltErrorReport.sys.mjs");
+            const { FeltErrorReport } = ChromeUtils.importESModule("moz-src:///toolkit/components/felt/FeltErrorReport.sys.mjs");
             FeltErrorReport.handleNetError({errorPageURI: `about:neterror?e=${arguments[0]}&u=https%3A//www.mozilla.org`}).then(_ => callback());
             """,
             [error],

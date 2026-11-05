@@ -6,25 +6,33 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
-  Updates: "resource://gre/modules/enterprise/Updates.sys.mjs",
-  ClientSession: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
-  DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  EDR_AGENTS_PREF: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  EdrAgents: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  PostureMonitor: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
+  Updates: "moz-src:///toolkit/components/enterprise/modules/Updates.sys.mjs",
+  ClientSession:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
+  DevicePosture:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  EDR_AGENTS_PREF:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  EdrAgents:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  PostureMonitor:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
   CONSOLE_ADDRESS_PREF:
-    "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   isBuildAppBrowser:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
-  isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
+  isTesting:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   resolveManagedProfile: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
-  FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
-  StartupPolicies: "resource://gre/modules/enterprise/StartupPolicies.sys.mjs",
+  FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
+  StartupPolicies:
+    "moz-src:///toolkit/components/enterprise/modules/StartupPolicies.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -32,11 +40,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
 if (lazy.isBuildAppBrowser()) {
   ChromeUtils.defineESModuleGetters(lazy, {
     // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-    gFeltPendingURLs: "resource:///modules/FeltURLHandler.sys.mjs",
-    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-    resetFeltFirefoxWindowReady: "resource:///modules/FeltURLHandler.sys.mjs",
-    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-    FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
+    gFeltPendingURLs: "moz-src:///browser/components/FeltURLHandler.sys.mjs",
+    resetFeltFirefoxWindowReady:
+      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+      "moz-src:///browser/components/FeltURLHandler.sys.mjs",
+    FELT_OPEN_WINDOW_DISPOSITION:
+      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+      "moz-src:///browser/components/FeltURLHandler.sys.mjs",
   });
 }
 
@@ -53,6 +63,45 @@ const PROCESS_START_REASON = {
   RESTART: "restart",
   CRASH: "crash",
 };
+
+/**
+ * Reads the browser pid the Windows launcher process announced, if `line` is
+ * such an announcement. The launcher
+ * (browser/app/winlauncher/LauncherProcessWin.cpp) writes it on the spawned
+ * process's stdout; keep the format in sync.
+ *
+ * @param {string} line - One line of the spawned process's stdout.
+ * @returns {number|null} The announced pid, or null for any other line.
+ */
+export function parseAnnouncedBrowserPid(line) {
+  const match = /^FELT_BROWSER_PID=(\d{1,10})$/.exec(line.trim());
+  if (!match) {
+    return null;
+  }
+  const pid = Number(match[1]);
+  return pid > 0 && pid <= 0xffffffff ? pid : null;
+}
+
+/**
+ * Opens felt's IPC channel to the spawned browser, terminating the spawned
+ * process if that fails. A refused peer has already consumed the one-shot
+ * server, so the browser must not keep starting with its released endpoint
+ * name on its command line.
+ *
+ * @param {object} proc - The spawned process, from Subprocess.call().
+ * @param {Function} openChannel - Opens the channel; throws on failure.
+ */
+export async function openIpcChannelOrTerminate(proc, openChannel) {
+  try {
+    openChannel();
+  } catch (e) {
+    lazy.log.error(
+      `Terminating process ${proc.pid}: opening the IPC channel to it failed (${e.name})`
+    );
+    await proc.kill(0);
+    throw e;
+  }
+}
 
 export function queueURL(payload) {
   // If Firefox AND Felt are both ready, forward immediately
@@ -984,8 +1033,10 @@ export class FeltProcessParent extends JSProcessActorParent {
     // --no-deelevate keeps the browser at felt's integrity level so that the ipc
     // socket is accessible to both the browser and felt. (Felt running elevated
     // is probably bad, but unlikely due to felt's own launcher process)
+    const useLauncherProcess =
+      Services.appinfo.OS == "WINNT" && lazy.isBuildAppBrowser();
     let launcherArgs = [];
-    if (Services.appinfo.OS == "WINNT" && lazy.isBuildAppBrowser()) {
+    if (useLauncherProcess) {
       launcherArgs = ["--launcher", "--wait-for-browser", "--no-deelevate"];
     }
 
@@ -1015,7 +1066,21 @@ export class FeltProcessParent extends JSProcessActorParent {
       throw e;
     }
 
+    // The Windows launcher process announces on stdout which pid runs as the
+    // browser (see parseAnnouncedBrowserPid). Only the first announcement
+    // counts: it precedes any code that is not ours in the process tree (a
+    // later one could come from a content process, which inherits stdout), and
+    // resolve() ignores later calls.
+    let announceBrowserPid;
+    const browserPidAnnounced = new Promise(resolve => {
+      announceBrowserPid = resolve;
+    });
     this.onPipeDataAvailable(this.proc.stdout, this.proc.pid, (pid, chunk) => {
+      const announcedPid = parseAnnouncedBrowserPid(chunk);
+      if (announcedPid !== null) {
+        announceBrowserPid(announcedPid);
+        return;
+      }
       lazy.logProcess.info(`[${pid}]: ${chunk}`);
     });
 
@@ -1023,7 +1088,45 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.logProcess.error(`[${pid}]: ${chunk}`);
     });
 
-    Services.felt.ipcChannel(browserGeneration);
+    // Authenticate the IPC peer before ipcChannel() hands it any managed
+    // secret. Pass the OS process id of the process that runs as the browser;
+    // ipcChannel() verifies the connecting peer's pid against it and refuses
+    // any other same-user process that races to connect, so such a process
+    // receives no primarySecret, tokens, prefs, or cookies. That process is the
+    // one just spawned, except when the Windows
+    // launcher process is interposed: then it is the browser child the launcher
+    // announces, so wait for the announcement.
+    const browserPid = useLauncherProcess
+      ? await this._awaitAnnouncedBrowserPid(browserPidAnnounced)
+      : this.proc.pid;
+    await openIpcChannelOrTerminate(this.proc, () =>
+      Services.felt.ipcChannel(browserPid, browserGeneration)
+    );
+  }
+
+  /**
+   * Waits for the Windows launcher process to announce which pid runs as the
+   * browser. Rejects if the spawned process exits first: the browser it was to
+   * announce is gone with it, or was never started.
+   *
+   * @param {Promise<number>} browserPidAnnounced - Resolves with that pid.
+   * @returns {Promise<number>} The announced pid.
+   */
+  async _awaitAnnouncedBrowserPid(browserPidAnnounced) {
+    const proc = this.proc;
+    const browserPid = await Promise.race([
+      browserPidAnnounced,
+      proc.exitPromise.then(() => null),
+    ]);
+    if (browserPid === null) {
+      throw new Error(
+        `Process ${proc.pid} exited with code ${proc.exitCode} before announcing the browser pid`
+      );
+    }
+    lazy.log.debug(
+      `Process ${proc.pid} announced browser pid ${browserPid} for IPC peer authentication`
+    );
+    return browserPid;
   }
 
   /**

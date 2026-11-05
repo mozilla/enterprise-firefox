@@ -1,14 +1,13 @@
 [DEFAULT]
-dupe-manifest=true
-prefs = [
-  "browser.settings-redesign.enabled=false",
-]
+skip-if = ["enterprise"] # More from Mozilla is disabled on Firefox Enterprise
 support-files = [
   "head.js",
 ]
 tags = "os_integration"
 
 ["browser_moreFromMozilla.js"]
+
+["browser_moreFromMozilla_utm.js"]
 
 ["browser_moreFromMozilla_locales.js"]
 

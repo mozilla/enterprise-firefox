@@ -4,13 +4,13 @@
 "use strict";
 
 const { RelaunchEnforcer, RelaunchPhase } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/RelaunchEnforcer.sys.mjs"
 );
 const { ForcedQuitHandler } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ForcedQuitHandler.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ForcedQuitHandler.sys.mjs"
 );
 const { EnterpriseForcedQuit } = ChromeUtils.importESModule(
-  "resource:///modules/enterprise/EnterpriseForcedQuit.sys.mjs"
+  "moz-src:///browser/components/enterprise/EnterpriseForcedQuit.sys.mjs"
 );
 const { InfoBar } = ChromeUtils.importESModule(
   "resource:///modules/asrouter/InfoBar.sys.mjs"

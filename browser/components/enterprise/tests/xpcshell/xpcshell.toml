@@ -1,4 +1,13 @@
 [DEFAULT]
 firefox-appdir = "browser"
 
+["test_nimbus_disabled.js"]
+head = "../../../../../toolkit/profile/test/xpcshell/head.js ../../../profiles/tests/unit/head.js ../../../../../toolkit/components/nimbus/test/unit/head.js"
+prefs = [
+  "app.normandy.run_interval_seconds=0",
+  "messaging-system.log=all",
+]
+
+["test_telemetry_upload_locked.js"]
+
 ["test_theme_migration.js"]

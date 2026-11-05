@@ -10,7 +10,7 @@
 // the marker, both when a poll fails and when the startup fetch fails.
 
 const { ConsoleClient } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
 );
 const { HttpServer } = ChromeUtils.importESModule(
   "resource://testing-common/httpd.sys.mjs"

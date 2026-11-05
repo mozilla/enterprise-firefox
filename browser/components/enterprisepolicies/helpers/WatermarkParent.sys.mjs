@@ -13,7 +13,8 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  getWatermarkConfig: "resource:///modules/policies/WatermarkPolicy.sys.mjs",
+  getWatermarkConfig:
+    "moz-src:///browser/components/enterprisepolicies/helpers/WatermarkPolicy.sys.mjs",
 });
 
 /**

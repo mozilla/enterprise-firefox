@@ -3,10 +3,10 @@
 "use strict";
 
 const { ConsoleClient } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
 );
 const { WatermarkPolicy, getWatermarkConfig } = ChromeUtils.importESModule(
-  "resource:///modules/policies/WatermarkPolicy.sys.mjs"
+  "moz-src:///browser/components/enterprisepolicies/helpers/WatermarkPolicy.sys.mjs"
 );
 
 // All but one of these tests exercise WatermarkPolicy.init()/cleanup()

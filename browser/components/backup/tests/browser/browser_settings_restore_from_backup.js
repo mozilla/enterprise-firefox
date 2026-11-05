@@ -695,52 +695,59 @@ add_task(async function test_support_links_non_embedded() {
   });
 });
 
-add_task(async function test_selectableProfilesAllowed_toggles_restore_ui() {
-  await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
-    let { restoreFromBackup } = await initializedBackupWidgets(browser);
-    let bs = BackupService.get();
-    let sandbox = sinon.createSandbox();
+// Selectable profiles are inapplicable for enterprise builds.
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  async function test_selectableProfilesAllowed_toggles_restore_ui() {
+    await BrowserTestUtils.withNewTab(
+      "about:preferences#sync",
+      async browser => {
+        let { restoreFromBackup } = await initializedBackupWidgets(browser);
+        let bs = BackupService.get();
+        let sandbox = sinon.createSandbox();
 
-    sandbox.stub(SelectableProfileService, "isEnabled").get(() => false);
-    bs.onUpdateProfilesEnabledState();
+        sandbox.stub(SelectableProfileService, "isEnabled").get(() => false);
+        bs.onUpdateProfilesEnabledState();
 
-    await TestUtils.waitForCondition(
-      () =>
-        restoreFromBackup.shadowRoot.querySelector(
-          "moz-message-bar[type='info']"
-        ),
-      "Waiting for info message bar to appear when profiles are disabled"
+        await TestUtils.waitForCondition(
+          () =>
+            restoreFromBackup.shadowRoot.querySelector(
+              "moz-message-bar[type='info']"
+            ),
+          "Waiting for info message bar to appear when profiles are disabled"
+        );
+
+        Assert.ok(
+          !restoreFromBackup.shadowRoot.querySelector(
+            "#restore-from-backup-type-group"
+          ),
+          "Radio group should not be shown when profiles are disabled"
+        );
+
+        sandbox.restore();
+        sandbox.stub(SelectableProfileService, "isEnabled").get(() => true);
+        bs.onUpdateProfilesEnabledState();
+
+        await TestUtils.waitForCondition(
+          () =>
+            restoreFromBackup.shadowRoot.querySelector(
+              "#restore-from-backup-type-group"
+            ),
+          "Waiting for radio group to appear when profiles are enabled"
+        );
+
+        Assert.ok(
+          !restoreFromBackup.shadowRoot.querySelector(
+            "moz-message-bar[type='info']"
+          ),
+          "Info message bar should not be shown when profiles are enabled"
+        );
+
+        sandbox.restore();
+      }
     );
-
-    Assert.ok(
-      !restoreFromBackup.shadowRoot.querySelector(
-        "#restore-from-backup-type-group"
-      ),
-      "Radio group should not be shown when profiles are disabled"
-    );
-
-    sandbox.restore();
-    sandbox.stub(SelectableProfileService, "isEnabled").get(() => true);
-    bs.onUpdateProfilesEnabledState();
-
-    await TestUtils.waitForCondition(
-      () =>
-        restoreFromBackup.shadowRoot.querySelector(
-          "#restore-from-backup-type-group"
-        ),
-      "Waiting for radio group to appear when profiles are enabled"
-    );
-
-    Assert.ok(
-      !restoreFromBackup.shadowRoot.querySelector(
-        "moz-message-bar[type='info']"
-      ),
-      "Info message bar should not be shown when profiles are enabled"
-    );
-
-    sandbox.restore();
-  });
-});
+  }
+);
 
 add_task(async function test_error_about_welcome() {
   await checkVisibleStatusTemplate({

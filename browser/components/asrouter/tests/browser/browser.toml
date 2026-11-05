@@ -10,6 +10,7 @@ tags = "remote-settings"
 ["browser_asrouter_bug1800087.js"]
 
 ["browser_asrouter_experimentsAPILoader.js"]
+skip-if = ["enterprise"] # Nimbus studies are disabled on Firefox Enterprise
 
 ["browser_asrouter_group_frequency.js"]
 skip-if = [
@@ -17,6 +18,7 @@ skip-if = [
 ]
 
 ["browser_asrouter_group_userprefs.js"]
+skip-if = ["enterprise"] # browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features is locked on Firefox Enterprise
 
 ["browser_asrouter_infobar.js"]
 skip-if = [
@@ -28,6 +30,9 @@ skip-if = ["enterprise"] # Enterprise builds do not support the FxA menu.
 
 ["browser_asrouter_momentspagehub.js"]
 tags = "remote-settings"
+
+["browser_asrouter_newtab_card_stack.js"]
+tags = "newtab"
 
 ["browser_asrouter_newtab_messages.js"]
 tags = "newtab"
@@ -57,6 +62,7 @@ skip-if = [
 ["browser_bookmarks_bar_button.js"]
 
 ["browser_coenrolling_messaging_features.js"]
+skip-if = ["enterprise"] # Nimbus studies are disabled on Firefox Enterprise
 tags = "remote-settings"
 
 ["browser_feature_callout.js"]
@@ -68,7 +74,6 @@ skip-if = [
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && debug", # Bug 1968576
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64' && debug", # Bug 1804349
-  "os == 'mac' && os_version == '14.70' && arch == 'x86_64' && debug", # Bug 1932912
 ]
 
 ["browser_feature_callout_panel.js"]
@@ -86,11 +91,13 @@ skip-if = [
 ["browser_trigger_listeners.js"]
 https_first_disabled = true
 skip-if = [
-  "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && nova", # Bug 2057840
+  "os == 'linux' && os_version == '22.04' && arch == 'x86_64'", # Bug 2057840
 ]
 
 ["browser_trigger_messagesLoaded.js"]
+skip-if = ["enterprise"] # Nimbus studies are disabled on Firefox Enterprise
 tags = "remote-settings"
 
 ["browser_trigger_nimbusUpdate.js"]
+skip-if = ["enterprise"] # Nimbus studies are disabled on Firefox Enterprise
 tags = "remote-settings"

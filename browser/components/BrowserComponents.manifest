@@ -25,9 +25,9 @@ category browser-before-ui-startup resource:///modules/AboutHomeStartupCache.sys
 category browser-before-ui-startup moz-src:///browser/components/AccountsGlue.sys.mjs AccountsGlue.init
 category browser-before-ui-startup moz-src:///browser/modules/ObserverForwarder.sys.mjs ObserverForwarder.init
 #ifdef MOZ_ENTERPRISE
-category browser-before-ui-startup resource://gre/modules/enterprise/EnterpriseEndpoints.sys.mjs EnterpriseEndpoints.init
-category browser-before-ui-startup resource://gre/modules/enterprise/EnterpriseStorageEncryption.sys.mjs EnterpriseStorageEncryption.init
-category browser-before-ui-startup resource:///modules/enterprise/EnterpriseThemeMigration.sys.mjs EnterpriseThemeMigration.migrate
+category browser-before-ui-startup moz-src:///toolkit/components/enterprise/modules/EnterpriseEndpoints.sys.mjs EnterpriseEndpoints.init
+category browser-before-ui-startup moz-src:///toolkit/components/enterprise/modules/EnterpriseStorageEncryption.sys.mjs EnterpriseStorageEncryption.init
+category browser-before-ui-startup moz-src:///browser/components/enterprise/EnterpriseThemeMigration.sys.mjs EnterpriseThemeMigration.migrate
 #endif
 #ifdef XP_WIN
 category browser-before-ui-startup moz-src:///browser/components/shell/StartupOSIntegration.sys.mjs StartupOSIntegration.applyCustomIconOnStartup
@@ -55,9 +55,9 @@ category browser-window-domcontentloaded moz-src:///browser/components/customiza
 category browser-window-domcontentloaded chrome://browser/content/browser-addons.js gUnifiedExtensions.init
 category browser-window-domcontentloaded chrome://browser/content/browser.js FirefoxViewHandler.init
 #ifdef MOZ_ENTERPRISE
-category browser-window-domcontentloaded resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.init
-category browser-window-domcontentloaded resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
-category browser-window-domcontentloaded resource:///modules/enterprise/AccessConnectorButton.sys.mjs AccessConnectorButtonHandler.init
+category browser-window-domcontentloaded moz-src:///toolkit/components/enterprise/modules/EnterpriseBadge.sys.mjs EnterpriseBadge.init
+category browser-window-domcontentloaded moz-src:///browser/components/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
+category browser-window-domcontentloaded moz-src:///browser/components/enterprise/AccessConnectorButton.sys.mjs AccessConnectorButtonHandler.init
 #endif
 
 category browser-window-load-before-sessionstore-init chrome://browser/content/browser-captivePortal.js CaptivePortalWatcher.init
@@ -197,6 +197,7 @@ category browser-first-window-ready moz-src:///browser/components/protections/Co
 category browser-first-window-ready moz-src:///toolkit/components/captchadetection/CaptchaDetectionPingUtils.sys.mjs CaptchaDetectionPingUtils.init
 category browser-first-window-ready moz-src:///browser/components/ipprotection/IPProtectionHelpers.sys.mjs IPProtectionActivator.init
 category browser-first-window-ready moz-src:///browser/components/customizableui/SearchWidgetTracker.sys.mjs SearchWidgetTracker.init
+category browser-first-window-ready moz-src:///toolkit/components/widgets/WidgetManager.sys.mjs WidgetManager.init
 #ifdef MOZ_SANDBOX
 #ifdef XP_LINUX
 category browser-first-window-ready resource://gre/modules/SandboxUtils.sys.mjs SandboxUtils.maybeWarnAboutMissingUserNamespaces
@@ -218,6 +219,7 @@ category browser-idle-startup moz-src:///browser/components/search/SERPCategoriz
 category browser-idle-startup resource://gre/modules/ContentRelevancyManager.sys.mjs ContentRelevancyManager.init
 category browser-idle-startup resource://gre/modules/AppServicesTracing.sys.mjs RustLogForwarder.init
 category browser-idle-startup moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs ContextualIdentityService.load
+category browser-idle-startup resource:///modules/asrouter/ASRouterTargeting.sys.mjs WebPushTargeting.init
 #ifdef MOZ_UPDATER
 category browser-idle-startup resource://gre/modules/UpdateListener.sys.mjs UpdateListener.maybeShowUnsupportedNotification
 category browser-idle-startup resource:///modules/UpdatePolicyEnforcer.sys.mjs UpdatePolicyEnforcer.registerObservers
@@ -254,11 +256,13 @@ category browser-quit-application-granted moz-src:///browser/components/search/S
 category browser-quit-application-granted resource://gre/modules/UpdateListener.sys.mjs UpdateListener.reset
 #endif
 category browser-quit-application-granted moz-src:///browser/components/urlbar/UrlbarSearchTermsPersistence.sys.mjs UrlbarSearchTermsPersistence.uninit
+category browser-quit-application-granted moz-src:///toolkit/components/widgets/WidgetManager.sys.mjs WidgetManager.uninit
 category browser-quit-application-granted moz-src:///browser/components/ipprotection/IPProtectionHelpers.sys.mjs IPProtectionActivator.uninit
+category browser-quit-application-granted moz-src:///browser/components/sessionstore/SessionWindowUI.sys.mjs SessionWindowUI.maybeIncrementRestoreSessionSuggestionCount
 
 #ifdef MOZ_ENTERPRISE
-category browser-quit-application-granted resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.uninit
-category browser-quit-application-granted resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.uninit
+category browser-quit-application-granted moz-src:///toolkit/components/enterprise/modules/EnterpriseBadge.sys.mjs EnterpriseBadge.uninit
+category browser-quit-application-granted moz-src:///browser/components/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.uninit
 #endif
 
 category search-service-notification moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchUIUtils.showSearchServiceNotification

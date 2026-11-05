@@ -200,6 +200,7 @@ EXTRA_JS_MODULES += [
     "PrivateBrowsingUtils.sys.mjs",
     "ProcessType.sys.mjs",
     "ProfileAge.sys.mjs",
+    "ProfileKekPassword.sys.mjs",
     "Region.sys.mjs",
     "RemotePageAccessManager.sys.mjs",
     "ResetProfile.sys.mjs",
@@ -227,7 +228,7 @@ MOZ_SRC_FILES += [
 ]
 
 if CONFIG["MOZ_ENTERPRISE"]:
-    EXTRA_JS_MODULES.enterprise += [
+    MOZ_SRC_FILES += [
         "DiskEncryption.sys.mjs",
         "EdrDetection.sys.mjs",
         "MachineId.sys.mjs",

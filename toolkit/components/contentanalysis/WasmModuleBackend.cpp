@@ -388,14 +388,14 @@ WasmModuleBackend::GetDiagnosticInfo() {
       do_GetService(WASM_RUNNER_CONTRACTID);
   if (runner) {
     MOZ_ALWAYS_SUCCEEDS(runner->GetCachedModuleVersion(version));
-    if (version.Length() > 0) {
-      version.Insert(u"version ", 0);
-    } else {
+    if (version.Length() == 0) {
       version = u"(none)";
     }
   }
   auto info = MakeRefPtr<ContentAnalysisDiagnosticInfo>(
-      mConnectedToAgent, std::move(version), false, mRequestCount);
+      mConnectedToAgent, std::move(version),
+      /* aFailedSignatureVerification */ false, mRequestCount,
+      /* aIsBuiltInAgent */ true);
   return DiagnosticInfoPromise::CreateAndResolve(info, __func__);
 }
 

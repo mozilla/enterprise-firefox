@@ -145,9 +145,17 @@ export class PasswordSettingHelpers {
   static _initMasterPasswordUI() {
     var noMP = !LoginHelper.isPrimaryPasswordSet();
 
-    // Check if enterprise storage encryption is managing the primary password
-    const isEnterpriseManagedPrimaryPassword =
-      LoginHelper.isEnterpriseManagedPrimaryPassword();
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
+      const masterPasswordRow = document.getElementById("masterPasswordRow");
+      if (masterPasswordRow) {
+        masterPasswordRow.hidden = true;
+        // Remove the "formerly known as Master Password" note instead of
+        // hiding it: Fluent manages its hidden attribute.
+        document
+          .querySelector('[data-l10n-id="forms-primary-pw-former-name"]')
+          ?.remove();
+      }
+    }
 
     // Check if settings-redesign is enabled to determine which UI is active
     const srdEnabled = Services.prefs.getBoolPref(
@@ -167,9 +175,8 @@ export class PasswordSettingHelpers {
 
     var checkbox = document.getElementById(checkboxId);
     if (checkbox) {
-      checkbox.checked = !noMP || isEnterpriseManagedPrimaryPassword;
+      checkbox.checked = !noMP;
       checkbox.disabled =
-        isEnterpriseManagedPrimaryPassword ||
         (noMP && !Services.policies.isAllowed("createMasterPassword")) ||
         (!noMP && !Services.policies.isAllowed("removeMasterPassword"));
     }
@@ -823,7 +830,10 @@ Preferences.addSetting({
     return () => Services.obs.removeObserver(emitChange, topic);
   },
   visible: () => {
-    return !lazy.LoginHelper.isPrimaryPasswordSet();
+    return (
+      !lazy.LoginHelper.isEnterpriseManagedPrimaryPassword() &&
+      !lazy.LoginHelper.isPrimaryPasswordSet()
+    );
   },
 });
 
@@ -851,7 +861,10 @@ Preferences.addSetting({
     return () => Services.obs.removeObserver(emitChange, topic);
   },
   visible: () => {
-    return lazy.LoginHelper.isPrimaryPasswordSet();
+    return (
+      !lazy.LoginHelper.isEnterpriseManagedPrimaryPassword() &&
+      lazy.LoginHelper.isPrimaryPasswordSet()
+    );
   },
 });
 

@@ -36,6 +36,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PolicyFailures: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
+  SitePolicyUtils: "resource://gre/modules/SitePolicyUtils.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -156,6 +157,13 @@ export let WebsiteFilter = {
         contentType == Ci.nsIContentPolicy.TYPE_OBJECT) &&
       !this.isAllowed(newChannel.URI.spec)
     ) {
+      if (AppConstants.MOZ_ENTERPRISE) {
+        this._recordBlocklistDomainBrowsed(
+          oldChannel.originalURI.spec,
+          newChannel.URI.spec,
+          this._getReferrerSpec(oldChannel)
+        );
+      }
       oldChannel.cancel(Cr.NS_ERROR_BLOCKED_BY_POLICY);
       callback.onRedirectVerifyCallback(Cr.NS_ERROR_BLOCKED_BY_POLICY);
       return;
@@ -210,20 +218,10 @@ export let WebsiteFilter = {
       }
       if (url && !this.isAllowed(url.href)) {
         if (AppConstants.MOZ_ENTERPRISE) {
-          let referrerSpec = "";
-          try {
-            let referrerInfo = channel.referrerInfo;
-            if (referrerInfo) {
-              let originalReferrer = referrerInfo.originalReferrer;
-              if (originalReferrer) {
-                referrerSpec = originalReferrer.spec;
-              }
-            }
-          } catch (e) {}
           this._recordBlocklistDomainBrowsed(
             channel.originalURI.spec,
             url.href,
-            referrerSpec
+            this._getReferrerSpec(channel)
           );
         }
         channel.cancel(Cr.NS_ERROR_BLOCKED_BY_POLICY);
@@ -258,6 +256,14 @@ export let WebsiteFilter = {
       }
     }
     return true;
+  },
+  _getReferrerSpec(channel) {
+    try {
+      let referrerInfo = channel.QueryInterface(Ci.nsIHttpChannel).referrerInfo;
+      return referrerInfo?.originalReferrer?.spec ?? "";
+    } catch (e) {
+      return "";
+    }
   },
   _recordBlocklistDomainBrowsed(originalUrl, resolvedUrl, referrer) {
     const isEnabled = Services.prefs.getBoolPref(
@@ -337,9 +343,7 @@ export let WebsiteFilter = {
     if (!parsed) {
       return null;
     }
-    if (parsed.hostname.endsWith(".")) {
-      parsed.hostname = parsed.hostname.replace(/\.+$/, "");
-    }
+    parsed.hostname = lazy.SitePolicyUtils.stripTrailingDots(parsed.hostname);
     return parsed.href.toLowerCase();
   },
 

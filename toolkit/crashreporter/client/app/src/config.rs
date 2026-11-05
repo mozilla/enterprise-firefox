@@ -132,9 +132,6 @@ pub struct Config {
     pub run_memtest: bool,
     /// The data directory.
     pub data_dir: Option<PathBuf>,
-    /// The user application data directory: the top-level Firefox directory
-    /// containing `profiles.ini` and the profiles.
-    pub app_data_dir: Option<PathBuf>,
     /// The events directory.
     pub events_dir: Option<PathBuf>,
     /// The profile directory in use when the crash occurred.
@@ -282,14 +279,6 @@ impl Config {
             self.data_dir = Some(self.get_data_dir(vendor, product)?);
             self.update_log_file();
         }
-        // Computed rather than derived from `data_dir`, which may be an
-        // arbitrary directory passed in the environment.
-        if self.app_data_dir.is_none() {
-            match self.get_app_data_dir(vendor, product) {
-                Ok(dir) => self.app_data_dir = Some(dir),
-                Err(e) => log::warn!("could not determine the application data directory: {e:#}"),
-            }
-        }
 
         // Enterprise builds normally get the submission endpoint from the
         // ServerURL annotation. Before the browser derives it from the console
@@ -298,9 +287,21 @@ impl Config {
         // console address from AutoConfig when the annotation isn't usable.
         #[cfg(feature = "enterprise")]
         {
+            // Computed rather than derived from `data_dir`, which may be an
+            // arbitrary directory passed in the environment.
+            let app_data_dir = self
+                .get_app_data_dir(vendor, product)
+                .inspect_err(|e| {
+                    log::warn!("could not determine the application data directory: {e:#}")
+                })
+                .ok();
+
+            if let Err(e) = crate::enterprise_prefs::init_console_address(app_data_dir.as_deref()) {
+                log::warn!("could not resolve the enterprise console address: {e:#}");
+            }
+
             let current = self.report_url.as_deref().and_then(OsStr::to_str);
-            match crate::enterprise_prefs::console_report_url(current, self.app_data_dir.as_deref())
-            {
+            match crate::enterprise_prefs::console_report_url(current) {
                 Ok(url) => self.report_url = Some(url.into()),
                 Err(e) => {
                     log::warn!("could not resolve enterprise console report URL: {e:#}")

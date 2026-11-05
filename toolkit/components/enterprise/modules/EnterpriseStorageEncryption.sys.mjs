@@ -5,16 +5,14 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
 });
 
 export const EnterpriseStorageEncryption = {
   async init() {
     if (
-      Services.prefs.getBoolPref(
-        "security.storage.encryption.enabled",
-        false
-      ) &&
+      Services.prefs.getBoolPref("security.storage.encryption.enabled") &&
       Services.felt?.isFeltBrowser()
     ) {
       await this.load();

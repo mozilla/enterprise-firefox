@@ -21,6 +21,9 @@ const { TestUtils } = ChromeUtils.importESModule(
 const { HttpServer } = ChromeUtils.importESModule(
   "resource://testing-common/httpd.sys.mjs"
 );
+const { ConsoleProxyBypassFilter } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/enterprise/modules/ConsoleProxyBypassFilter.sys.mjs"
+);
 
 const pps = Cc["@mozilla.org/network/protocol-proxy-service;1"].getService(
   Ci.nsIProtocolProxyService
@@ -414,8 +417,11 @@ add_task(async function test_console_address_excluded_from_proxy() {
     "not proxied"
   );
 
-  // The enterprise console must stay reachable on a direct connection while a
-  // proxy is configured, so its host is added to the proxy passthrough list.
+  // ConsoleClient only registers the bypass filter in the Felt browser, so
+  // register it directly here.
+  ConsoleProxyBypassFilter.register("console.example.com");
+  registerCleanupFunction(() => ConsoleProxyBypassFilter.unregister());
+
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
@@ -426,15 +432,6 @@ add_task(async function test_console_address_excluded_from_proxy() {
       },
     },
     null
-  );
-
-  // The console exclusion is applied asynchronously after the policy applies.
-  await TestUtils.waitForCondition(
-    () =>
-      Services.prefs
-        .getStringPref("network.proxy.no_proxies_on", "")
-        .includes("console.example.com"),
-    "console host added to the proxy passthrough list"
   );
 
   checkResolvedProxy(
@@ -453,12 +450,6 @@ add_task(async function test_console_address_excluded_from_proxy() {
   EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
   await updateApplied;
 
-  Assert.ok(
-    !Services.prefs
-      .getStringPref("network.proxy.no_proxies_on", "")
-      .includes("console.example.com"),
-    "console passthrough entry removed after live removal"
-  );
   checkNotProxiedThrough(
     await resolveProxy("http://example.com/"),
     "not proxied"

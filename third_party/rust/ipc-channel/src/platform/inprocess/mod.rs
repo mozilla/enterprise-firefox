@@ -86,6 +86,12 @@ impl OsIpcReceiver {
         }
     }
 
+    /// No OS peer process exists for the in-process back-end, so there is no
+    /// peer pid to attest. Always returns `None`.
+    pub fn peer_pid(&self) -> Option<u32> {
+        None
+    }
+
     pub fn recv(&self) -> Result<IpcMessage, ChannelError> {
         let r = self.receiver.borrow();
         let r = r.as_ref().unwrap();
@@ -350,6 +356,16 @@ impl OsIpcOneShotServer {
         ONE_SHOT_SERVERS.lock().unwrap().remove(&self.name).unwrap();
         let ipc_message = self.receiver.recv()?;
         Ok((self.receiver, ipc_message))
+    }
+
+    /// Like `accept`, and also returns the connected peer's pid, as reported
+    /// by the accepted receiver's `peer_pid()` (always `None` here).
+    pub fn accept_with_peer_pid(
+        self,
+    ) -> Result<(OsIpcReceiver, IpcMessage, Option<u32>), ChannelError> {
+        let (receiver, ipc_message) = self.accept()?;
+        let peer_pid = receiver.peer_pid();
+        Ok((receiver, ipc_message, peer_pid))
     }
 }
 

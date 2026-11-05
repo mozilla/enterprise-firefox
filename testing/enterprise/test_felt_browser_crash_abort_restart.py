@@ -27,7 +27,7 @@ class BrowserCrashAbortRestart(BrowserCrashes):
                 """
                 const callback = arguments[arguments.length - 1];
                 const { FeltStorage } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+                    "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
                 );
                 FeltStorage.setLockingToken(arguments[0], "stale-refresh-token")
                     .then(callback)

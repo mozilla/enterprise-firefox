@@ -227,45 +227,48 @@ add_task(async function test_optIn_debug_disabled() {
   await cleanup();
 });
 
-add_task(async function test_optIn_studies_disabled() {
-  info(
-    "Testing users cannot opt-in when telemetry is disabled or studies are disabled."
-  );
-
-  const recipe = NimbusTestUtils.factories.recipe("foo", {
-    targeting: "false",
-  });
-  const { loader, cleanup } = await NimbusTestUtils.setupTest({
-    init: false,
-    experiments: [recipe],
-    migrationState: NimbusTestUtils.migrationState.LATEST,
-  });
-
-  await ExperimentAPI.init();
-
-  Services.prefs.setBoolPref(DEBUG_PREF, true);
-
-  for (const pref of [UPLOAD_PREF, STUDIES_OPT_OUT_PREF]) {
-    Services.prefs.setBoolPref(UPLOAD_PREF, true);
-    Services.prefs.setBoolPref(STUDIES_OPT_OUT_PREF, true);
-
-    Services.prefs.setBoolPref(pref, false);
-
-    await Assert.rejects(
-      loader._optInToExperiment({
-        slug: recipe.slug,
-        branchSlug: recipe.branches[0].slug,
-      }),
-      /Could not opt in: studies are disabled/
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  async function test_optIn_studies_disabled() {
+    info(
+      "Testing users cannot opt-in when telemetry is disabled or studies are disabled."
     );
+
+    const recipe = NimbusTestUtils.factories.recipe("foo", {
+      targeting: "false",
+    });
+    const { loader, cleanup } = await NimbusTestUtils.setupTest({
+      init: false,
+      experiments: [recipe],
+      migrationState: NimbusTestUtils.migrationState.LATEST,
+    });
+
+    await ExperimentAPI.init();
+
+    Services.prefs.setBoolPref(DEBUG_PREF, true);
+
+    for (const pref of [UPLOAD_PREF, STUDIES_OPT_OUT_PREF]) {
+      Services.prefs.setBoolPref(UPLOAD_PREF, true);
+      Services.prefs.setBoolPref(STUDIES_OPT_OUT_PREF, true);
+
+      Services.prefs.setBoolPref(pref, false);
+
+      await Assert.rejects(
+        loader._optInToExperiment({
+          slug: recipe.slug,
+          branchSlug: recipe.branches[0].slug,
+        }),
+        /Could not opt in: studies are disabled/
+      );
+    }
+
+    Services.prefs.clearUserPref(DEBUG_PREF);
+    Services.prefs.clearUserPref(UPLOAD_PREF);
+    Services.prefs.clearUserPref(STUDIES_OPT_OUT_PREF);
+
+    await cleanup();
   }
-
-  Services.prefs.clearUserPref(DEBUG_PREF);
-  Services.prefs.clearUserPref(UPLOAD_PREF);
-  Services.prefs.clearUserPref(STUDIES_OPT_OUT_PREF);
-
-  await cleanup();
-});
+);
 
 add_task(async function test_enrollment_changed_notification() {
   const recipe = NimbusTestUtils.factories.recipe("foo");

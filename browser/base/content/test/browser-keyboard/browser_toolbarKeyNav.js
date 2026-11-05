@@ -32,6 +32,12 @@ const sidebarRevampEnabled = Services.prefs.getBoolPref(
   "sidebar.revamp",
   false
 );
+// The fire button sits between the FxA button and the app menu button when it
+// is enabled.
+const fireButtonEnabled = Services.prefs.getBoolPref(
+  "browser.fireButton.enabled",
+  false
+);
 // The DevEdition has the DevTools button in the toolbar by default. Remove it
 // to prevent branch-specific rules what button should be focused.
 function resetToolbarWithoutDevEditionButtons() {
@@ -59,23 +65,19 @@ function AddOldMenuSideButtons() {
     document.documentElement.getAttribute("fxastatus")
   );
   document.documentElement.setAttribute("fxastatus", "signed_in");
-  const endOffset = AppConstants.MOZ_ENTERPRISE ? 4 : 3;
-  CustomizableUI.addWidgetToArea(
-    "library-button",
-    "nav-bar",
-    CustomizableUI.getWidgetIdsInArea("nav-bar").length - endOffset
-  );
+  // These buttons go immediately before the FxA button. Position them relative
+  // to it rather than to the end of the toolbar, so that buttons added to the
+  // navbar defaults after the FxA button don't shift them.
+  const beforeFxa = () =>
+    CustomizableUI.getPlacementOfWidget(afterUrlBarButton).position;
+  CustomizableUI.addWidgetToArea("library-button", "nav-bar", beforeFxa());
   if (!sidebarRevampEnabled) {
-    CustomizableUI.addWidgetToArea(
-      "sidebar-button",
-      "nav-bar",
-      CustomizableUI.getWidgetIdsInArea("nav-bar").length - endOffset
-    );
+    CustomizableUI.addWidgetToArea("sidebar-button", "nav-bar", beforeFxa());
   }
   CustomizableUI.addWidgetToArea(
     "unified-extensions-button",
     "nav-bar",
-    CustomizableUI.getWidgetIdsInArea("nav-bar").length - endOffset
+    beforeFxa()
   );
 }
 
@@ -435,6 +437,9 @@ add_task(async function testArrowsToolbarbuttons() {
     }
     await expectFocusAfterKey("ArrowRight", "unified-extensions-button");
     await expectFocusAfterKey("ArrowRight", afterUrlBarButton);
+    if (fireButtonEnabled) {
+      await expectFocusAfterKey("ArrowRight", "fire-button");
+    }
     // This next check also confirms that the overflow menu button is skipped,
     // since it is currently invisible.
     await expectFocusAfterKey("ArrowRight", "PanelUI-menu-button");
@@ -444,6 +449,9 @@ add_task(async function testArrowsToolbarbuttons() {
       "PanelUI-menu-button",
       "ArrowRight at end of button group does nothing"
     );
+    if (fireButtonEnabled) {
+      await expectFocusAfterKey("ArrowLeft", "fire-button");
+    }
     await expectFocusAfterKey("ArrowLeft", afterUrlBarButton);
     await expectFocusAfterKey("ArrowLeft", "unified-extensions-button");
     if (!sidebarRevampEnabled) {
@@ -539,6 +547,9 @@ add_task(async function testArrowsOverflowButton() {
     }
     await expectFocusAfterKey("ArrowRight", "unified-extensions-button");
     await expectFocusAfterKey("ArrowRight", afterUrlBarButton);
+    if (fireButtonEnabled) {
+      await expectFocusAfterKey("ArrowRight", "fire-button");
+    }
     await expectFocusAfterKey("ArrowRight", "nav-bar-overflow-button");
     // Make sure the button is not reachable once it is invisible again.
     await expectFocusAfterKey("ArrowRight", "PanelUI-menu-button");
@@ -546,6 +557,9 @@ add_task(async function testArrowsOverflowButton() {
     // Flush layout so its invisibility can be detected.
     document.getElementById("nav-bar-overflow-button").clientWidth;
     await expectFocusAfterKey("ArrowLeft", "unified-extensions-button");
+    if (fireButtonEnabled) {
+      await expectFocusAfterKey("ArrowLeft", "fire-button");
+    }
     await expectFocusAfterKey("ArrowLeft", afterUrlBarButton);
   });
   RemoveOldMenuSideButtons();

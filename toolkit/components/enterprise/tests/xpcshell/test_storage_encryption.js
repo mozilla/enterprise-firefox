@@ -9,10 +9,10 @@
 // path and every failure path.
 
 const { EnterpriseStorageEncryption } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/EnterpriseStorageEncryption.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/EnterpriseStorageEncryption.sys.mjs"
 );
 const { ConsoleClient } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
 );
 const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"

@@ -7,10 +7,10 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AppUpdater: "resource://gre/modules/AppUpdater.sys.mjs",
   isUpdatesTesting:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
-  FeltErrorReport: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
+  FeltErrorReport: "moz-src:///toolkit/components/felt/FeltErrorReport.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });

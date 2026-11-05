@@ -8,17 +8,19 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
-  CaptivePortal: "resource://gre/modules/enterprise/CaptivePortal.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  CaptivePortal:
+    "moz-src:///toolkit/components/enterprise/modules/CaptivePortal.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
-  FeltErrorReport: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
-  ERROR_SOURCE: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
-  FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
+  FeltErrorReport: "moz-src:///toolkit/components/felt/FeltErrorReport.sys.mjs",
+  ERROR_SOURCE: "moz-src:///toolkit/components/felt/FeltErrorReport.sys.mjs",
+  FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
   PopupNotifications: "resource://gre/modules/PopupNotifications.sys.mjs",
-  Updates: "resource://gre/modules/enterprise/Updates.sys.mjs",
+  Updates: "moz-src:///toolkit/components/enterprise/modules/Updates.sys.mjs",
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {

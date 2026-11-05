@@ -24,7 +24,7 @@ class BrowserRelaunchUpdateCheck(BrowserRelaunchDeadlineBase):
         self._driver.execute_script(
             """
             const { Updates } = ChromeUtils.importESModule(
-              "resource://gre/modules/enterprise/Updates.sys.mjs"
+              "moz-src:///toolkit/components/enterprise/modules/Updates.sys.mjs"
             );
             window.updateChecks = 0;
             window.originalPrepareForRestart = Updates.prepareForRestart;
@@ -51,7 +51,7 @@ class BrowserRelaunchUpdateCheck(BrowserRelaunchDeadlineBase):
             self._driver.execute_script(
                 """
                 const { Updates } = ChromeUtils.importESModule(
-                  "resource://gre/modules/enterprise/Updates.sys.mjs"
+                  "moz-src:///toolkit/components/enterprise/modules/Updates.sys.mjs"
                 );
                 Updates.prepareForRestart = window.originalPrepareForRestart;
                 """

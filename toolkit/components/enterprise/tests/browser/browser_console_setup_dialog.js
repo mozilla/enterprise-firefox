@@ -4,7 +4,7 @@
 "use strict";
 
 const { FeltStorage } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/FeltStorage.sys.mjs"
+  "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs"
 );
 const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"

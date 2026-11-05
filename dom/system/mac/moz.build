@@ -13,6 +13,7 @@ EXPORTS += [
 
 if CONFIG["MOZ_ENTERPRISE"]:
     UNIFIED_SOURCES += ["DummyImeiProvider.cpp"]
+    SOURCE_HEADERS += ["DummyImeiProvider.h"]
 
     XPCOM_MANIFESTS += [
         "components.conf",
@@ -23,4 +24,8 @@ include("/ipc/chromium/chromium-config.mozbuild")
 FINAL_LIBRARY = "xul"
 LOCAL_INCLUDES += [
     "/dom/geolocation",
+]
+
+SOURCE_HEADERS += [
+    "CoreLocationLocationProvider.h",
 ]

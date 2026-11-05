@@ -46,6 +46,7 @@ DIRS += [
     "mozcachedohttp",
     "multilineeditor",
     "newtab",
+    "nimbus",
     "originattributes",
     "pagedata",
     "passwordmgr",
@@ -79,6 +80,7 @@ DIRS += [
     "uitour",
     "urlbar",
     "webrtc",
+    "widgets",
 ]
 
 DIRS += ["build"]
@@ -96,7 +98,7 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
 
 if CONFIG["MOZ_ENTERPRISE"]:
     DIRS += ["enterprise"]
-    EXTRA_JS_MODULES += [
+    MOZ_SRC_FILES += [
         "FeltURLHandler.sys.mjs",
     ]
 

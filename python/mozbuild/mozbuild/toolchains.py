@@ -9,6 +9,8 @@ import tempfile
 
 from mach.func_cache import mach_func_cache
 
+from mozbuild.util import is_enterprise_tree
+
 
 def _extract_resources(tasks_data):
     resources = set()
@@ -28,13 +30,16 @@ def toolchain_task_definitions():
 
     env = os.environ.copy()
     env.pop("MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE", None)
-    params = {
-        "level": os.environ.get("MOZ_SCM_LEVEL", "1"),
-        "files_changed": [],
-        "head_repository": "https://github.com/mozilla/enterprise-firefox",
-        "repository_type": "git",
-        "pull_request_number": 0,
-    }
+    if is_enterprise_tree():
+        params = {
+            "level": os.environ.get("MOZ_SCM_LEVEL", "1"),
+            "files_changed": [],
+            "head_repository": "https://github.com/mozilla/enterprise-firefox",
+            "repository_type": "git",
+            "pull_request_number": 0,
+        }
+    else:
+        params = {"level": os.environ.get("MOZ_SCM_LEVEL", "3"), "files_changed": []}
 
     import sys
 

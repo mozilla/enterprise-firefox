@@ -242,9 +242,11 @@ RefPtr<ContentAnalysisDiagnosticInfo> ContentAnalysisTest::GetDiagnosticInfo(
         EXPECT_TRUE(JS_GetProperty(aCx, obj, "requestCount", &value));
         int64_t requestCount;
         EXPECT_TRUE(JS::ToInt64(aCx, value, &requestCount));
+        EXPECT_TRUE(JS_GetProperty(aCx, obj, "isBuiltInAgent", &value));
+        bool isBuiltInAgent = JS::ToBoolean(value);
         diagnosticInfo = MakeRefPtr<ContentAnalysisDiagnosticInfo>(
             connectedToAgent, agentPath, failedSignatureVerification,
-            requestCount);
+            requestCount, isBuiltInAgent);
 
         gotResponse = true;
         return nullptr;
@@ -1542,6 +1544,7 @@ TEST_F(ContentAnalysisTest, GetDiagnosticInfo_Initial) {
   EXPECT_EQ(agentPath.Length() - (sizeof("content_analysis_sdk_agent.exe") - 1),
             static_cast<size_t>(index));
   EXPECT_GE(info->GetRequestCount(), 0);
+  EXPECT_FALSE(info->GetIsBuiltInAgent());
 }
 
 TEST_F(ContentAnalysisTest,
@@ -1565,6 +1568,7 @@ TEST_F(ContentAnalysisTest,
   MOZ_ALWAYS_SUCCEEDS(info->GetAgentPath(agentPath));
   EXPECT_TRUE(agentPath.IsEmpty());
   EXPECT_GE(info->GetRequestCount(), 0);
+  EXPECT_FALSE(info->GetIsBuiltInAgent());
 
   StartAgent();
   SendSimpleRequestAndWaitForResponse();
@@ -1595,6 +1599,7 @@ TEST_F(ContentAnalysisTest, GetDiagnosticInfo_AfterAgentTerminateAndReconnect) {
   EXPECT_EQ(agentPath.Length() - (sizeof("content_analysis_sdk_agent.exe") - 1),
             static_cast<size_t>(index));
   EXPECT_GE(info->GetRequestCount(), 0);
+  EXPECT_FALSE(info->GetIsBuiltInAgent());
 }
 
 TEST_F(ContentAnalysisTest, GetDiagnosticInfo_RequestCountIncreases) {

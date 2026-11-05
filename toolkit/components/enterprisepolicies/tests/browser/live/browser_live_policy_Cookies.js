@@ -23,6 +23,19 @@ function getCurrentCookiePermission(origin) {
   );
 }
 
+// Policy site list entries are set on both the bare and trailing dot host
+// forms, so check both.
+function checkPolicyCookiePermission(origin, expected, message) {
+  const trailingDotOrigin = `${origin}.`;
+  for (const hostForm of [origin, trailingDotOrigin]) {
+    Assert.equal(
+      getCurrentCookiePermission(hostForm),
+      expected,
+      `${message} (${hostForm})`
+    );
+  }
+}
+
 function getPersistDataPermission(origin) {
   return Services.perms.testPermissionFromPrincipal(
     principalFor(origin),
@@ -117,18 +130,10 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
     null
   );
 
-  Assert.equal(
-    getCurrentCookiePermission(allowOrigin),
-    ALLOW,
-    "Allow entry was added"
-  );
-  Assert.equal(
-    getCurrentCookiePermission(blockOrigin),
-    DENY,
-    "Block entry was added"
-  );
-  Assert.equal(
-    getCurrentCookiePermission(sessionOrigin),
+  checkPolicyCookiePermission(allowOrigin, ALLOW, "Allow entry was added");
+  checkPolicyCookiePermission(blockOrigin, DENY, "Block entry was added");
+  checkPolicyCookiePermission(
+    sessionOrigin,
     Ci.nsICookiePermission.ACCESS_SESSION,
     "AllowSession entry was added"
   );
@@ -136,18 +141,18 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
   info("Removing the Cookies policy.");
   await waitForLivePolicyUpdate({});
 
-  Assert.equal(
-    getCurrentCookiePermission(allowOrigin),
+  checkPolicyCookiePermission(
+    allowOrigin,
     UNKNOWN,
     "Allow entry was removed on live removal"
   );
-  Assert.equal(
-    getCurrentCookiePermission(blockOrigin),
+  checkPolicyCookiePermission(
+    blockOrigin,
     UNKNOWN,
     "Block entry was removed on live removal"
   );
-  Assert.equal(
-    getCurrentCookiePermission(sessionOrigin),
+  checkPolicyCookiePermission(
+    sessionOrigin,
     UNKNOWN,
     "AllowSession entry was removed on live removal"
   );

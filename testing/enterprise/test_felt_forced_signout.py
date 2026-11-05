@@ -12,7 +12,7 @@ from felt_tests import FeltTests
 
 IMPORT_FORCED_QUIT_HANDLER = """
 const { ForcedQuitHandler } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ForcedQuitHandler.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ForcedQuitHandler.sys.mjs"
 );
 """
 

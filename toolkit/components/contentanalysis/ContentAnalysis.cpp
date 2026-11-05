@@ -3608,10 +3608,14 @@ NS_IMETHODIMP ContentAnalysisDiagnosticInfo::GetFailedSignatureVerification(
   *aFailedSignatureVerification = mFailedSignatureVerification;
   return NS_OK;
 }
-
 NS_IMETHODIMP ContentAnalysisDiagnosticInfo::GetRequestCount(
     int64_t* aRequestCount) {
   *aRequestCount = mRequestCount;
+  return NS_OK;
+}
+NS_IMETHODIMP ContentAnalysisDiagnosticInfo::GetIsBuiltInAgent(
+    bool* aIsBuiltInAgent) {
+  *aIsBuiltInAgent = mIsBuiltInAgent;
   return NS_OK;
 }
 

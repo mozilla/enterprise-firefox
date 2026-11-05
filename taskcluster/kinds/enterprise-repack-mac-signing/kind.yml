@@ -24,5 +24,4 @@ tasks:
         from-deps:
             group-by: partner-repack-ids
         shipping-product: firefox-enterprise
-        # TODO: shipping-phase: promote
-        repacks-per-chunk: 1
+        shipping-phase: promote

@@ -1419,6 +1419,15 @@ def ensure_l10n_central(command_context):
                 )
 
 
+@functools.cache
+def is_enterprise_tree():
+    import yaml
+
+    config = Path(__file__).parents[3] / "taskcluster" / "config.yml"
+    with config.open() as f:
+        return yaml.safe_load(f).get("trust-domain") == "enterprise"
+
+
 # Taskcluster API root URL (Firefox's production instance)
 TASKCLUSTER_ROOT_URL = "https://firefox-ci-tc.services.mozilla.com"
 

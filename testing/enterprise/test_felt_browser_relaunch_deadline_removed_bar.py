@@ -42,7 +42,7 @@ class BrowserRelaunchDeadlineRemovedBar(BrowserRelaunchDeadlineBase):
             """
             const resolve = arguments[arguments.length - 1];
             const { RelaunchEnforcer } = ChromeUtils.importESModule(
-              "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs"
+              "moz-src:///toolkit/components/enterprise/modules/RelaunchEnforcer.sys.mjs"
             );
             RelaunchEnforcer._refreshNotification().then(() => resolve(true));
             """

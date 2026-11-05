@@ -32,7 +32,7 @@ class FeltUpdaterErrorsBase(FeltTests):
             const callback = arguments[arguments.length - 1];
             const UM = Cc["@mozilla.org/updates/update-manager;1"].getService(Ci.nsIUpdateManager);
             UM.internal.reload(false).then(() => {
-              const { Updates } = ChromeUtils.importESModule("resource://gre/modules/enterprise/Updates.sys.mjs");
+              const { Updates } = ChromeUtils.importESModule("moz-src:///toolkit/components/enterprise/modules/Updates.sys.mjs");
               Updates.uninit();
               callback();
             });
@@ -62,7 +62,7 @@ class FeltUpdaterErrorsBase(FeltTests):
             const callback = arguments[arguments.length - 1];
             const UM = Cc["@mozilla.org/updates/update-manager;1"].getService(Ci.nsIUpdateManager);
             UM.internal.reload(false).then(() => {
-              const { Updates } = ChromeUtils.importESModule("resource://gre/modules/enterprise/Updates.sys.mjs");
+              const { Updates } = ChromeUtils.importESModule("moz-src:///toolkit/components/enterprise/modules/Updates.sys.mjs");
               Updates.updateCheckingAllowed().then(() => callback(Updates._canDoUpdateChecking));
             });
             """

@@ -4,6 +4,7 @@ support-files = ["head.js"]
 prefs = ["browser.bookmarks.testing.skipDefaultBookmarksImport=true"]
 
 ["browser_interventions.js"]
+skip-if = ["enterprise"] # Urlbar interventions are disabled on Firefox Enterprise
 
 ["browser_picks.js"]
 
@@ -22,21 +23,25 @@ https_first_disabled = true
 ["browser_tip_richSuggestion.js"]
 
 ["browser_updateAsk.js"]
+skip-if = ["enterprise"] # Urlbar interventions are disabled on Firefox Enterprise
 run-if = [
   "!msix", # Updater is disabled in MSIX builds
 ]
 
 ["browser_updateRefresh.js"]
+skip-if = ["enterprise"] # Urlbar interventions are disabled on Firefox Enterprise
 run-if = [
   "!msix", # Updater is disabled in MSIX builds
 ]
 
 ["browser_updateRestart.js"]
+skip-if = ["enterprise"] # Urlbar interventions are disabled on Firefox Enterprise
 run-if = [
   "!msix", # Updater is disabled in MSIX builds
 ]
 
 ["browser_updateWeb.js"]
+skip-if = ["enterprise"] # Urlbar interventions are disabled on Firefox Enterprise
 run-if = [
   "!msix", # Updater is disabled in MSIX builds
 ]

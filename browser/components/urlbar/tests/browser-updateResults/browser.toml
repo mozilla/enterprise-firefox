@@ -8,6 +8,7 @@ support-files = ["head.js"]
 prefs = ["browser.bookmarks.testing.skipDefaultBookmarksImport=true"]
 
 ["browser_appendSpanCount.js"]
+skip-if = ["enterprise"] # Urlbar interventions are disabled on Firefox Enterprise
 
 ["browser_hiddenExposure.js"]
 

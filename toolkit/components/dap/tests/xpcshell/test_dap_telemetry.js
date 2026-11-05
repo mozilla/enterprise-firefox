@@ -4,6 +4,9 @@
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 const { HttpServer } = ChromeUtils.importESModule(
   "resource://testing-common/httpd.sys.mjs"
 );
@@ -72,26 +75,35 @@ add_setup(async function () {
   });
 });
 
-add_task(async function testTelemetryToggle() {
-  server_requests = [];
-  await lazy.DAPTelemetrySender.sendDAPMeasurement(task, 3, { timeout: 5000 });
-  Assert.deepEqual(
-    server_requests,
-    [task_report_size],
-    "Telemetry enabled works."
-  );
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  async function testTelemetryToggle() {
+    server_requests = [];
+    await lazy.DAPTelemetrySender.sendDAPMeasurement(task, 3, {
+      timeout: 5000,
+    });
+    Assert.deepEqual(
+      server_requests,
+      [task_report_size],
+      "Telemetry enabled works."
+    );
 
-  server_requests = [];
-  Services.prefs.setBoolPref(PREF_DATAUPLOAD, false);
-  await lazy.DAPTelemetrySender.sendDAPMeasurement(task, 3, { timeout: 5000 });
-  Assert.deepEqual(server_requests, [], "Telemetry disabled blocks sending.");
+    server_requests = [];
+    Services.prefs.setBoolPref(PREF_DATAUPLOAD, false);
+    await lazy.DAPTelemetrySender.sendDAPMeasurement(task, 3, {
+      timeout: 5000,
+    });
+    Assert.deepEqual(server_requests, [], "Telemetry disabled blocks sending.");
 
-  server_requests = [];
-  Services.prefs.clearUserPref(PREF_DATAUPLOAD);
-  await lazy.DAPTelemetrySender.sendDAPMeasurement(task, 3, { timeout: 5000 });
-  Assert.deepEqual(
-    server_requests,
-    [task_report_size],
-    "Telemetry re-enabled works."
-  );
-});
+    server_requests = [];
+    Services.prefs.clearUserPref(PREF_DATAUPLOAD);
+    await lazy.DAPTelemetrySender.sendDAPMeasurement(task, 3, {
+      timeout: 5000,
+    });
+    Assert.deepEqual(
+      server_requests,
+      [task_report_size],
+      "Telemetry re-enabled works."
+    );
+  }
+);

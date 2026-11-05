@@ -70,7 +70,7 @@ class FeltDevicePosture(FeltTests):
                 """
                 const callback = arguments[arguments.length - 1];
                 const { EdrDetection } = ChromeUtils.importESModule(
-                    "resource://gre/modules/enterprise/EdrDetection.sys.mjs"
+                    "moz-src:///toolkit/modules/EdrDetection.sys.mjs"
                 );
                 // Empty list = probe every known agent. Three concurrent calls
                 // exercise the background-thread sweep, the subprocess service

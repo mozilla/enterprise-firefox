@@ -4,14 +4,14 @@
 "use strict";
 
 const { ConsoleClient, CONSOLE_ADDRESS_PREF } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
 );
 const {
   RELATIVE_CONSOLE_ENDPOINT_PREFS,
   BASE_CONSOLE_URI_PREFS,
   EnterpriseEndpoints,
 } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/EnterpriseEndpoints.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/EnterpriseEndpoints.sys.mjs"
 );
 
 const CONSOLE_ADDRESS_PREF_VALUE =

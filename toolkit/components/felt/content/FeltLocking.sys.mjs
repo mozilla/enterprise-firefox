@@ -6,11 +6,14 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
-  ClientSession: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
-  DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
+  ClientSession:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
+  DevicePosture:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   resolveManagedProfile: "chrome://felt/content/FeltCommon.sys.mjs",
 });

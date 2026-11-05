@@ -1500,14 +1500,27 @@ var snapshotFormatters = {
     $("remote-debugging-url").textContent = data.url;
   },
 
-  contentAnalysis(data) {
+  async contentAnalysis(data) {
     if (AppConstants.platform == "android") {
       return;
     }
     $("content-analysis-active").textContent = data.active;
     if (data.active) {
       $("content-analysis-connected-to-agent").textContent = data.connected;
-      $("content-analysis-agent-path").textContent = data.agentPath;
+      if (data.isBuiltInAgent) {
+        $("content-analysis-agent-path").textContent =
+          await document.l10n.formatValue(
+            "content-analysis-agent-path-does-not-apply"
+          );
+        $("content-analysis-agent-builtin-version").textContent =
+          data.agentPath;
+      } else {
+        $("content-analysis-agent-path").textContent = data.agentPath;
+        $("content-analysis-agent-builtin-version").textContent =
+          await document.l10n.formatValue(
+            "content-analysis-agent-builtin-version-does-not-apply"
+          );
+      }
       $("content-analysis-agent-failed-signature-verification").textContent =
         data.failedSignatureVerification;
       $("content-analysis-request-count").textContent = data.requestCount;

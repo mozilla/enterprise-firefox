@@ -47,7 +47,7 @@ class AppExitTokens(FeltTests):
             """
             const callback = arguments[arguments.length - 1];
             const { ConsoleClient } = ChromeUtils.importESModule(
-                "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+                "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
             );
             ConsoleClient._refreshSession()
                     .then(callback)
