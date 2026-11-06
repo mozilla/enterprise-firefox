@@ -112,6 +112,8 @@ run-if = [
 
 ["test_felt_harness_prefs.py"]
 
+["test_felt_network_loss_lock.py"]
+
 ["test_felt_restart_persists_session.py"]
 
 ["test_firefox_start.py"]

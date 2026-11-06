@@ -31,10 +31,12 @@ class BrowserTokenRefresh(FeltTests):
         driver = self.get_driver(Environment.FIREFOX)
         driver.set_context("chrome")
         try:
-            driver.execute_script("Services.felt.refreshTokens();")
+            # The request id is only echoed back to the browser, which is torn
+            # down by the failing refresh before it could act on the reply.
+            driver.execute_script("Services.felt.refreshTokens(0, false);")
         except Exception:
-            # refreshTokens() triggers an async IPC message to Felt and may throw
-            # before the refresh completes. The exception is expected and harmless.
+            # The call can throw if the IPC channel is already closing; the
+            # teardown it races is the expected outcome.
             pass
         driver.set_context("content")
 
@@ -147,7 +149,7 @@ class BrowserTokenRefresh(FeltTests):
         # Invalidate the server-side refresh token so the next refresh fails with 401
         self.policy_refresh_token.value = "invalid-token"
 
-        # Trigger a token refresh from Firefox via XPCOM IPC to FELT
+        # Ask FELT to refresh; the invalid refresh token makes it fail with a 401
         self.trigger_token_refresh()
         self._manually_closed_child = True
         self.wait_process_exit(browser_pid)
