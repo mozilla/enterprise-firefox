@@ -8,6 +8,7 @@
  * @import {SmartbarInput} from "chrome://browser/content/urlbar/SmartbarInput.mjs"
  */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { AIFeature } from "chrome://global/content/ml/AIFeature.sys.mjs";
 
@@ -1633,6 +1634,9 @@ export const AIWindow = {
    * @returns {boolean}
    */
   get isBlocked() {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return true;
+    }
     if (this.AIControlSmartWindow === "default") {
       return this.AIControlDefault === "blocked";
     }

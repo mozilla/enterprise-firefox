@@ -61,6 +61,7 @@ support-files = [
   "test_context_url_injection_page.html"
 ]
 skip-if = [
+  "enterprise", # Smart Window is disabled in enterprise builds
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && tsan", # Bug 2057552
 ]
 
