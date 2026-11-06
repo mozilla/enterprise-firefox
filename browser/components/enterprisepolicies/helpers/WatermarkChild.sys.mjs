@@ -386,7 +386,7 @@ export class WatermarkPolicyChild extends JSWindowActorChild {
     };
 
     try {
-      this.#content = doc.insertAnonymousContent();
+      this.#content = doc.insertAnonymousContent({ includeInPrint: true });
       this.#node = this.#buildNode(watermarkConfig);
       this.#content.root.appendChild(this.#node);
 
