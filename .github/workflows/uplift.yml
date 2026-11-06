@@ -1,0 +1,231 @@
+name: Auto Uplift
+
+on:
+  # WARNING: pull_request_target MUST NOT be used if running code under control
+  # of the source PR [0], as it could risk leaking the GH_TOKENs.
+  #
+  # In this case, we do it as the job needs to run within the context of the
+  # target repo, so it can get a GH_TOKEN which it can use to create a PR.
+  #
+  # Crucially, no external code is loaded or run as part of this workflow.
+  #
+  # [0] https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_target:~:text=Warning-,Running,websitehttps://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_target:~:text=Warning-,Running,website
+  #
+  pull_request_target:
+    types: [closed]
+
+jobs:
+  build-matrix:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set matrix
+        id: set-matrix
+        run: |
+          # Define all possible uplift paths
+          ALL_ENTRIES='[
+            {"source": "enterprise-main", "target": "enterprise-beta", "trigger_label": "uplift-to-beta", "target_label": "branch:beta"},
+            {"source": "enterprise-main", "target": "enterprise-release", "trigger_label": "uplift-to-release", "target_label": "branch:release"},
+            {"source": "enterprise-beta", "target": "enterprise-release", "trigger_label": "uplift-to-release", "target_label": "branch:release"}
+          ]'
+
+          # Filter based on PR base ref and labels
+          BASE_REF='${{ github.event.pull_request.base.ref }}'
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+
+          # Use jq to filter entries where source matches base.ref AND trigger_label is in labels
+          FILTERED=$(echo "$ALL_ENTRIES" | jq --arg base "$BASE_REF" --argjson labels "$LABELS" '[.[] | select(.source == $base and (.trigger_label as $tl | $labels | index($tl) != null))]')
+          
+          echo "matrix=$(echo $FILTERED | jq -c .)" >> $GITHUB_OUTPUT
+
+  uplift:
+    needs: build-matrix
+    if: fromJson(needs.build-matrix.outputs.matrix).length > 0
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
+    env:
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      REPO_URL: https://github.com/${{ github.repository }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Create uplift script
+        run: |
+          cat << 'EOF' > uplift.sh
+          set -e
+
+          TARGET=$1
+          SHA=$2
+
+          BRANCH="uplift-${TARGET}-${SHA}"
+          SUMMARY_FILE=summary.txt
+
+          echo "---- Uplifting to $TARGET ----"
+
+          git fetch origin $TARGET
+
+          # Skip entire operation if merge commit already in branch
+          if git branch -r --contains $SHA | grep -q "origin/$TARGET"; then
+            echo "Already fully present in $TARGET"
+            echo "summary=Already present, nothing to uplift." >> $GITHUB_OUTPUT
+            echo "branch=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Avoid duplicate branch
+          if git ls-remote --heads origin $BRANCH | grep -q $BRANCH; then
+            echo "Branch already exists, skipping"
+            echo "summary=Uplift branch already exists." >> $GITHUB_OUTPUT
+            echo "branch=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          git checkout -b $BRANCH origin/$TARGET
+
+          touch $SUMMARY_FILE
+
+          # rev-list --parents outputs:
+          # <commit> <parent1> [parent2 ...]
+          # So:
+          # 2 fields → normal commit (1 parent)
+          # >2 fields → merge commit (2+ parents)
+          PARENTS=$(git rev-list --parents -n 1 $SHA)
+          COUNT=$(echo $PARENTS | wc -w)
+          if [ "$COUNT" -gt 2 ]; then
+            echo "Merge commit → multi-commit mode"
+            COMMITS=$(git rev-list --reverse --no-merges $SHA^1..$SHA)
+          else
+            echo "Single commit mode"
+            COMMITS=$SHA
+          fi
+
+          HAS_APPLIED_COMMITS=0
+          HAS_CONFLICTS=0
+
+          for commit in $COMMITS; do
+            SHORT=$(git rev-parse --short $commit)
+            MSG=$(git log -1 --pretty=format:"%s" $commit)
+            LINK="$REPO_URL/commit/$commit"
+
+            if git branch -r --contains $commit | grep -q "origin/$TARGET"; then
+              echo "- [$SHORT]($LINK) $MSG (already in branch)" >> $SUMMARY_FILE
+              continue
+            fi
+
+            set +e
+            git cherry-pick -x $commit
+            STATUS=$?
+            set -e
+
+            if [ $STATUS -ne 0 ]; then
+              # Detect empty cherry-pick
+              if git diff --cached --quiet && git diff --quiet; then
+                echo "Empty cherry-pick for $commit → skipping"
+                git cherry-pick --skip
+                echo "- [$SHORT]($LINK) $MSG (already applied)" >> $SUMMARY_FILE
+                continue
+              fi
+
+              git add -A
+              git cherry-pick --continue
+              echo "- [$SHORT]($LINK) $MSG (⚠️ conflict)" >> $SUMMARY_FILE
+              HAS_CONFLICTS=1
+            else
+              echo "- [$SHORT]($LINK) $MSG" >> $SUMMARY_FILE
+            fi
+
+            HAS_APPLIED_COMMITS=1
+          done
+
+          if [ "$HAS_APPLIED_COMMITS" -eq 0 ]; then
+            echo "No new commits applied"
+            echo "summary=All commits already exist in $TARGET." >> $GITHUB_OUTPUT
+            echo "branch=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          git push origin $BRANCH
+
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "commits=$(echo $COMMITS | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          if [ "$HAS_CONFLICTS" -eq 1 ]; then
+            echo "has_conflicts=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+          fi
+
+          DELIM="GITHUB_OUTPUT_$(uuidgen)"
+          echo "summary<<$DELIM" >> $GITHUB_OUTPUT
+          cat $SUMMARY_FILE >> $GITHUB_OUTPUT
+          echo "$DELIM" >> $GITHUB_OUTPUT
+          EOF
+
+      - name: Uplift
+        id: uplift
+        run: |
+          bash uplift.sh ${{ matrix.target }} $MERGE_SHA
+
+      - name: Create PR
+        if: steps.uplift.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SUMMARY: ${{ steps.uplift.outputs.summary }}
+        run: |
+          BRANCH="${{ steps.uplift.outputs.branch }}"
+
+          DELIM="PR_BODY_$(uuidgen)"
+          cat <<$DELIM > pr_body.txt
+          Uplift from #${{ env.PR_NUMBER }}
+
+          ## Commits
+          $COMMIT_SUMMARY
+          $DELIM
+
+          PR_URL=$(gh pr create \
+            --base "${{ matrix.target }}" \
+            --head "$BRANCH" \
+            --title "[${{ matrix.target }} uplift] $PR_TITLE" \
+            --body-file pr_body.txt \
+            --label "${{ matrix.target_label }}" \
+            --label "uplift")
+
+          gh pr edit "$PR_URL" --add-reviewer "mozilla/enterprise-firefox-engineering"
+
+          if [ "${{ steps.uplift.outputs.has_conflicts }}" = "true" ]; then
+            cat <<'EOF' >> comment_body.txt
+            ⚠️ Commits marked with conflicts require manual resolution, by rebasing locally to edit the commits or by recreating the branch. **DO NOT** fix up by adding an extra commit, only resolve conflicts directly on the cherry-pick commit(s).
+
+            To recreate this branch manually:
+            ```
+            git fetch enterprise-firefox ${{ matrix.target }}
+            git checkout -b ${{ steps.uplift.outputs.branch }} enterprise-firefox/${{ matrix.target }}
+            git cherry-pick ${{ steps.uplift.outputs.commits }}
+            ```
+            EOF
+
+            gh pr comment "$PR_URL" --body-file comment_body.txt
+
+            # Add original author and mark PR as draft since manual resolution is required
+            gh pr edit "$PR_URL" --add-reviewer "${{ github.event.pull_request.user.login }}"
+            gh pr ready "$PR_URL" --undo
+          fi
