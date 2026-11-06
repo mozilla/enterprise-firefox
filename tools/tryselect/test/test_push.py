@@ -612,5 +612,44 @@ def test_push_to_try_skips_git_backing_when_disabled():
     assert "head_git_rev" not in config.get("parameters", {})
 
 
+def test_push_to_try_enterprise_comm(tmp_path):
+    """An Enterprise Thunderbird push selects the comm tasks in their own file,
+    and only the comm decision task in try_task_config.json."""
+    mock_vcs = MagicMock()
+    mock_vcs.name = "git"
+    mock_vcs.path = str(tmp_path)
+    mock_vcs.base_ref_as_commit.return_value = "def456fakebaserev"
+    try_task_config = push.generate_try_task_config("fuzzy", ["build-linux64/opt"])
+
+    with ExitStack() as stack:
+        stack.enter_context(patch("tryselect.push.vcs", mock_vcs))
+        stack.enter_context(
+            patch("tryselect.push.MACH_TRY_REMOTE", "https://example.com/fake-try-repo")
+        )
+        stack.enter_context(patch("tryselect.push.check_working_directory"))
+        stack.enter_context(patch("tryselect.push.write_task_config_history"))
+        stack.enter_context(
+            patch("tryselect.push.is_enterprise_comm_try", return_value=True)
+        )
+        stack.enter_context(
+            patch("tryselect.push.is_thunderbird_try", return_value=True)
+        )
+        push._is_hg_try.cache_clear()
+        push.push_to_try(
+            "fuzzy", "try: test", MagicMock(), try_task_config=try_task_config
+        )
+
+    changed_files = mock_vcs.push_to_try.call_args.kwargs["changed_files"]
+    assert mock_vcs.push_to_try.call_args.kwargs["remote"] == (
+        "https://example.com/fake-try-repo"
+    )
+    gecko = json.loads(changed_files["try_task_config.json"])
+    comm = json.loads(changed_files[push.COMM_TRY_TASK_CONFIG])
+    assert gecko["parameters"]["try_task_config"]["tasks"] == ["comm-decision"]
+    assert gecko["parameters"]["base_rev"] == "def456fakebaserev"
+    assert comm["parameters"]["try_task_config"]["tasks"] == ["build-linux64/opt"]
+    assert comm["parameters"]["base_rev"] == "def456fakebaserev"
+
+
 if __name__ == "__main__":
     mozunit.main()

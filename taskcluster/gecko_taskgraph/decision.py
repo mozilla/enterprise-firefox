@@ -40,6 +40,7 @@ from .parameters import (
 )
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
 from .util.bugbug import PUSH_SCHEDULES_ENV, push_schedules, start_push_schedules
+from .util.comm_decision import NESTED_GRAPH_ENV
 from .util.hg import get_hg_revision_metadata
 from .util.partials import populate_release_history
 from .util.partners import (
@@ -534,10 +535,25 @@ def get_decision_parameters(graph_config, options):
         backstop_strategy="android_perftest_backstop",
     )
 
+    # Set by the task generating this graph from its own graph, see
+    # util/comm_decision.py.
+    if nested_graph := os.environ.get(NESTED_GRAPH_ENV):
+        parameters["nested_graph"] = json.loads(nested_graph)
+
     if "decision-parameters" in graph_config["taskgraph"]:
         find_object(graph_config["taskgraph"]["decision-parameters"])(
             graph_config, parameters
         )
+
+    # WIP: Thunderbird pull requests run the shippable Linux aarch64 build and
+    # its signing, otherwise skipped unless on a backstop push.
+    if "thunderbird" in parameters["project"] and parameters["tasks_for"].startswith(
+        "github-pull-request"
+    ):
+        parameters["do_not_optimize"] = parameters["do_not_optimize"] + [
+            "build-linux64-aarch64-enterprise-shippable/opt",
+            "build-signing-linux64-aarch64-enterprise-shippable/opt",
+        ]
 
     # load extra parameters from file or note if able
     if options.get("allow_parameter_override"):

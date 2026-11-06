@@ -612,7 +612,8 @@ def target_tasks_enterprise_firefox_with_tests(
     )
 
     def filter(task):
-        if parameters["tasks_for"].startswith("github-pull-request"):
+        # WIP: pull requests schedule like pushes.
+        if False and parameters["tasks_for"].startswith("github-pull-request"):
             tier = task.task.get("extra", {}).get("treeherder", {}).get("tier", 3)
             platform = (
                 task.task
@@ -693,7 +694,15 @@ def target_tasks_enterprise_firefox_with_tests(
 
         level = int(parameters["level"])
         if level < 3:
-            if "shippable" in task.label or shippable:
+            # WIP: Thunderbird pull requests also build and sign shippable.
+            wip_shippable_thunderbird_build = (
+                "thunderbird" in parameters["project"]
+                and parameters["tasks_for"].startswith("github-pull-request")
+                and task.kind in ("build", "build-signing", "build-mac-signing")
+            )
+            if (
+                "shippable" in task.label or shippable
+            ) and not wip_shippable_thunderbird_build:
                 return False
 
             if task.kind == "complete":

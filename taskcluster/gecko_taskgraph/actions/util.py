@@ -28,6 +28,7 @@ from taskgraph.util.taskcluster import (
 )
 
 from gecko_taskgraph.decision import read_artifact, rename_artifact, write_artifact
+from gecko_taskgraph.util.comm_decision import nested_graph_index
 from gecko_taskgraph.util.taskcluster import trigger_hook
 from gecko_taskgraph.util.taskgraph import find_decision_task
 
@@ -163,7 +164,7 @@ def get_label_to_taskid_with_actions(project, push_id, graph_config, label=None)
 
     parameters = get_parameters(decision_task_id)
     head_rev_param = "{}head_rev".format(graph_config["project-repo-param-prefix"])
-    namespace = (
+    namespace = nested_graph_index(parameters, "actions") or (
         f"{graph_config['trust-domain']}.v2.{parameters['project']}"
         f".revision.{parameters[head_rev_param]}.taskgraph.actions"
     )
@@ -254,15 +255,19 @@ def fetch_graph_and_labels(parameters, graph_config):
 
         head_rev_param = "{}head_rev".format(graph_config["project-repo-param-prefix"])
 
-        namespace = "{}.v2.{}.revision.{}.taskgraph.actions".format(
-            graph_config["trust-domain"],
-            parameters["project"],
-            parameters[head_rev_param],
+        nested_actions_index = nested_graph_index(parameters, "actions")
+        namespace = (
+            nested_actions_index
+            or "{}.v2.{}.revision.{}.taskgraph.actions".format(
+                graph_config["trust-domain"],
+                parameters["project"],
+                parameters[head_rev_param],
+            )
         )
         for task_id in list_tasks(namespace):
             fetches.append(e.submit(fetch_action, task_id))
 
-        if not fetches:
+        if not fetches and not nested_actions_index:
             pr_namespace = "{}.v2.{}-pr.revision.{}.taskgraph.actions".format(
                 graph_config["trust-domain"],
                 parameters["project"],
@@ -284,13 +289,15 @@ def fetch_graph_and_labels(parameters, graph_config):
                     raise
                 logger.debug(f"No label-to-taskid.json found for {task_id}: {e}")
 
-        namespace = "{}.v2.{}.revision.{}.cron".format(
-            graph_config["trust-domain"],
-            parameters["project"],
-            parameters[head_rev_param],
-        )
-        for task_id in list_tasks(namespace):
-            fetches.append(e.submit(fetch_cron, task_id))
+        # A nested graph is only generated on push.
+        if not nested_actions_index:
+            namespace = "{}.v2.{}.revision.{}.cron".format(
+                graph_config["trust-domain"],
+                parameters["project"],
+                parameters[head_rev_param],
+            )
+            for task_id in list_tasks(namespace):
+                fetches.append(e.submit(fetch_cron, task_id))
 
         # now wait for each fetch to complete, raising an exception if there
         # were any issues

@@ -17,7 +17,11 @@ from mozbuild.base import MozbuildObject
 from mozversioncontrol import MissingVCSExtension, get_repository_object
 
 from .lando import push_to_lando_try
-from .util.project import get_project_topsrcdir, is_thunderbird_try
+from .util.project import (
+    get_project_topsrcdir,
+    is_enterprise_comm_try,
+    is_thunderbird_try,
+)
 from .util.taskcluster import get_client
 
 GIT_CINNABAR_NOT_FOUND = """
@@ -80,14 +84,22 @@ def get_try_repo(topsrcdir):
     """Return the Treeherder repo name to use for a try push."""
 
     # Thunderbird uses try-comm-central.
-    if is_thunderbird_try(build):
+    if is_thunderbird_try(build) and not is_enterprise_comm_try(build):
         return "try-comm-central"
 
     return "try"
 
 
-topsrcdir = get_project_topsrcdir(build)
+# An Enterprise Thunderbird push is a push of the Gecko tree.
+topsrcdir = (
+    build.topsrcdir if is_enterprise_comm_try(build) else get_project_topsrcdir(build)
+)
 vcs = get_repository_object(topsrcdir)
+
+# Selects the Thunderbird tasks of an Enterprise try push, see
+# taskcluster/gecko_taskgraph/util/comm_decision.py.
+COMM_TRY_TASK_CONFIG = "comm_try_task_config.json"
+COMM_DECISION_LABEL = "comm-decision"
 
 history_path = os.path.join(
     get_state_dir(specific_to_topsrcdir=True), "history", "try_task_configs.json"
@@ -256,6 +268,33 @@ def push_to_git_backing(prefix: str) -> str:
         os.remove(keyfile_name)
 
 
+def format_try_task_config(try_task_config):
+    return (
+        json.dumps(try_task_config, indent=4, separators=(",", ": "), sort_keys=True)
+        + "\n"
+    )
+
+
+def split_comm_try_task_config(try_task_config):
+    """Split the configuration of an Enterprise Thunderbird try push.
+
+    The selected Thunderbird tasks go to the comm decision task's own file.
+    The Gecko decision task only needs to schedule the comm decision task:
+    the two graphs share many labels, which would otherwise run in both.
+
+    Returns the Gecko and the comm configurations.
+    """
+    if try_task_config.get("version") != 2:
+        raise Exception(
+            "Enterprise Thunderbird try pushes require a version 2 try_task_config"
+        )
+    gecko_parameters = {
+        "try_task_config": {"tasks": [COMM_DECISION_LABEL]},
+        "optimize_target_tasks": False,
+    }
+    return {"version": 2, "parameters": gecko_parameters}, try_task_config
+
+
 def push_to_try(
     method,
     msg,
@@ -272,7 +311,7 @@ def push_to_try(
 ):
     push = not stage_changes and not dry_run
 
-    if push and is_thunderbird_try(build):
+    if push and is_thunderbird_try(build) and not is_enterprise_comm_try(build):
         remote = HG_TRY_URL + "-comm-central"
     else:
         remote = os.environ.get("MACH_TRY_REMOTE") or MACH_TRY_REMOTE
@@ -295,9 +334,19 @@ def push_to_try(
 
     changed_files = {}
 
+    comm_try_task_config = None
+    if try_task_config and is_enterprise_comm_try(build):
+        try_task_config, comm_try_task_config = split_comm_try_task_config(
+            try_task_config
+        )
+
     if not push:
         print("Commit message:")
         print(commit_message)
+
+        if comm_try_task_config:
+            print(f"Calculated {COMM_TRY_TASK_CONFIG}:")
+            print(format_try_task_config(comm_try_task_config))
 
         if try_task_config:
             print("Calculated try_task_config.json:")
@@ -335,17 +384,18 @@ def push_to_try(
         # Github reports a null `before` revision for a push that creates the branch,
         # so the decision task can't tell what the push changed. Record the real base
         # for it.
-        try_task_config.setdefault("parameters", {})["base_rev"] = (
-            vcs.base_ref_as_commit()
+        base_rev = vcs.base_ref_as_commit()
+        for config in filter(None, (try_task_config, comm_try_task_config)):
+            config.setdefault("parameters", {})["base_rev"] = base_rev
+
+    if comm_try_task_config:
+        files_to_change = dict(files_to_change or {})
+        files_to_change[COMM_TRY_TASK_CONFIG] = format_try_task_config(
+            comm_try_task_config
         )
 
     if try_task_config:
-        try_task_config_file = (
-            json.dumps(
-                try_task_config, indent=4, separators=(",", ": "), sort_keys=True
-            )
-            + "\n"
-        )
+        try_task_config_file = format_try_task_config(try_task_config)
         changed_files["try_task_config.json"] = try_task_config_file
         if write_task_config:
             path = os.path.join(vcs.path, "try_task_config.json")
