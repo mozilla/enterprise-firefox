@@ -7489,6 +7489,8 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     // FELT IPC channel
     Maybe<const char*> felt =
         geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
+    // Nothing re-reads the Felt pid, so it is removed here.
+    Maybe<uint64_t> feltPid = geckoargs::sFeltPid.Get(gArgc, gArgv);
     const char* mozFeltEnv = PR_GetEnv("MOZ_FELT_UI");
     if (mozFeltEnv) {
       PR_SetEnv("MOZ_FELT_UI=");
@@ -7530,7 +7532,19 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
                "Error: Felt browser mode requires a Felt socket connection.\n");
         return 1;
       }
-      if (!firefox_connect_to_felt(*felt)) {
+      // The Felt pid is what the endpoint's owner is verified against, so it
+      // is as mandatory as the endpoint name.
+      if (!feltPid.isSome()) {
+        Output(true,
+               "Error: Felt browser mode requires the Felt process id.\n");
+        return 1;
+      }
+      if (*feltPid == 0 || *feltPid > UINT32_MAX) {
+        Output(true,
+               "Error: Felt browser mode got an invalid Felt process id.\n");
+        return 1;
+      }
+      if (!firefox_connect_to_felt(*felt, static_cast<uint32_t>(*feltPid))) {
         Output(
             true,
             "Error: Failed to connect to Felt. SSO authentication required.\n");
