@@ -20,6 +20,8 @@ subsuite = "enterprise"
 
 ["test_felt_device_posture_session_id.py"]
 
+["test_felt_disable_auto_safe_mode.py"]
+
 ["test_felt_email_input_focus.py"]
 
 ["test_felt_exit_tokens.py"]
@@ -33,6 +35,8 @@ subsuite = "enterprise"
 ["test_felt_restart_is_quit.py"]
 
 ["test_felt_restart_works.py"]
+
+["test_felt_safe_mode.py"]
 
 ["test_felt_starts_missing_bin.py"]
 
