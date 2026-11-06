@@ -545,6 +545,16 @@ def get_decision_parameters(graph_config, options):
             graph_config, parameters
         )
 
+    # WIP: Thunderbird pull requests run the shippable Linux aarch64 build and
+    # its signing, otherwise skipped unless on a backstop push.
+    if "thunderbird" in parameters["project"] and parameters["tasks_for"].startswith(
+        "github-pull-request"
+    ):
+        parameters["do_not_optimize"] = parameters["do_not_optimize"] + [
+            "build-linux64-aarch64-enterprise-shippable/opt",
+            "build-signing-linux64-aarch64-enterprise-shippable/opt",
+        ]
+
     # load extra parameters from file or note if able
     if options.get("allow_parameter_override"):
         note_ref = "refs/notes/decision-parameters"
