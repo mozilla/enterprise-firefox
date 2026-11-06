@@ -83,6 +83,7 @@ gecko_metrics = [
     "toolkit/components/gecko-trace/generated-metrics.yaml",
     "toolkit/components/glean/metrics.yaml",
     "toolkit/components/ipprotection/metrics.yaml",
+    "toolkit/components/ipprotection/metrics_enterprise.yaml",
     "toolkit/components/mediasniffer/metrics.yaml",
     "toolkit/components/messaging-system/metrics.yaml",
     "toolkit/components/ml/metrics.yaml",

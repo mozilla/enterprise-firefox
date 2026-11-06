@@ -1194,18 +1194,50 @@ add_task(async function test_IPPProxyManager_rotateProxyPass_changes_pass() {
     () => IPPProxyManager.state === IPPProxyStates.ACTIVE
   );
 
+  const initialKeyEvent = waitForEvent(
+    IPPProxyManager,
+    "IPPProxyManager:IsolationKeyAdded"
+  );
   IPPProxyManager.start();
   await activeEventPromise;
+  Assert.equal(
+    (await initialKeyEvent).detail.isolationKey,
+    IPPProxyManager.isolationKey,
+    "Activation announces the connection's isolation key"
+  );
+  const initialKey = IPPProxyManager.isolationKey;
 
   setupStubs({ validProxyPass: false });
 
+  const firstKeyEvent = waitForEvent(
+    IPPProxyManager,
+    "IPPProxyManager:IsolationKeyAdded"
+  );
   const firstPass = await IPPProxyManager.rotateProxyPass();
+  const firstKey = (await firstKeyEvent).detail.isolationKey;
+  Assert.equal(
+    firstKey,
+    IPPProxyManager.isolationKey,
+    "Rotation announces its key"
+  );
+  Assert.notEqual(firstKey, initialKey, "Rotation creates a new key");
   Assert.ok(firstPass, "First rotation should return a pass");
   Assert.ok(!firstPass.isValid(), "First pass should be invalid/expired");
 
   setupStubs({ validProxyPass: true });
 
+  const secondKeyEvent = waitForEvent(
+    IPPProxyManager,
+    "IPPProxyManager:IsolationKeyAdded"
+  );
   const secondPass = await IPPProxyManager.rotateProxyPass();
+  const secondKey = (await secondKeyEvent).detail.isolationKey;
+  Assert.equal(
+    secondKey,
+    IPPProxyManager.isolationKey,
+    "A subsequent rotation announces its key"
+  );
+  Assert.notEqual(secondKey, firstKey, "Each rotation creates a new key");
   Assert.ok(secondPass, "Second rotation should return a pass");
   Assert.ok(secondPass.isValid(), "Second pass should be valid");
 
