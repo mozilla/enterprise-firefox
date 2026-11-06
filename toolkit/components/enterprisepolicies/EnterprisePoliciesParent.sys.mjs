@@ -8,6 +8,8 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   CanonicalJSON: "resource://gre/modules/CanonicalJSON.sys.mjs",
+  getFirefoxConfig:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   initiateShutdown:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
@@ -1599,18 +1601,28 @@ class RemotePoliciesProvider extends PoliciesProvider {
     this._updateInProgress = false;
     this._lastPoliciesHash = null;
     this._lastPollError = null;
-    this._pollingFrequency = Services.prefs.getIntPref(
-      this.POLLING_FREQUENCY_PREF,
-      this.POLLING_FREQUENCY_FALLBACK
-    );
-    Services.prefs.addObserver(this.POLLING_FREQUENCY_PREF, this);
+    this._observesPollingPref = !Services.felt.isFeltBrowser();
+    if (this._observesPollingPref) {
+      this._pollingFrequency = Services.prefs.getIntPref(
+        this.POLLING_FREQUENCY_PREF,
+        this.POLLING_FREQUENCY_FALLBACK
+      );
+      Services.prefs.addObserver(this.POLLING_FREQUENCY_PREF, this);
+    } else {
+      // A browser launched by Felt gets the interval from the configuration Felt sent.
+      this._pollingFrequency =
+        lazy.getFirefoxConfig()?.polling_frequency ??
+        this.POLLING_FREQUENCY_FALLBACK;
+    }
     Services.obs.addObserver(this, "EnterprisePolicies:Initialized");
     Services.obs.addObserver(this, "xpcom-shutdown");
   }
 
   _destroy() {
     this._stopPolling();
-    Services.prefs.removeObserver(this.POLLING_FREQUENCY_PREF, this);
+    if (this._observesPollingPref) {
+      Services.prefs.removeObserver(this.POLLING_FREQUENCY_PREF, this);
+    }
     Services.obs.removeObserver(this, "EnterprisePolicies:Initialized");
     Services.obs.removeObserver(this, "xpcom-shutdown");
   }

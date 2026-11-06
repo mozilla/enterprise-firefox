@@ -46,6 +46,21 @@ class BrowserAboutConfigBlocked(FeltTests):
         self.run_change_about_config_policy(-1)
         self.run_about_config_allowed_in_browser()
 
+    def test_polling_interval_pref_ignored(self):
+        self.run_felt_base()
+        self.connect_child_browser()
+        self.run_about_config_blocked_in_browser()
+
+        self._child_driver.set_context("chrome")
+        self._child_driver.execute_script(
+            "Services.prefs.setIntPref('enterprise.policies.live.polling_interval', 2147483647);"
+        )
+        self._child_driver.set_context("content")
+
+        self._logger.info("Unblocking after raising the polling interval pref")
+        self.run_change_about_config_policy(0)
+        self.run_about_config_allowed_in_browser()
+
     def run_change_about_config_policy(self, new_value):
         self._logger.info("Changing BlockAboutConfig policy")
         self.policy_block_about_config.value = new_value
