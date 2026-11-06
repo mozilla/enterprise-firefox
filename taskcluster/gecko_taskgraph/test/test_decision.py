@@ -142,6 +142,33 @@ def _hg_metadata(desc):
             },
             id="try_task_config",
         ),
+        pytest.param(
+            {
+                "project": "enterprise-thunderbird",
+                "tasks_for": "github-pull-request",
+                "allow_parameter_override": False,
+            },
+            None,
+            None,
+            {
+                "do_not_optimize": [
+                    "build-linux64-aarch64-enterprise-shippable/opt",
+                    "build-signing-linux64-aarch64-enterprise-shippable/opt",
+                ],
+            },
+            id="wip_thunderbird_pull_request_aarch64",
+        ),
+        pytest.param(
+            {
+                "project": "enterprise-thunderbird",
+                "tasks_for": "hg-push",
+                "allow_parameter_override": False,
+            },
+            None,
+            None,
+            {"do_not_optimize": []},
+            id="thunderbird_push_optimizes",
+        ),
     ),
 )
 def test_get_decision_parameters(
