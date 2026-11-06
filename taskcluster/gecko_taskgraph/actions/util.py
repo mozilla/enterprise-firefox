@@ -256,10 +256,13 @@ def fetch_graph_and_labels(parameters, graph_config):
         head_rev_param = "{}head_rev".format(graph_config["project-repo-param-prefix"])
 
         nested_actions_index = nested_graph_index(parameters, "actions")
-        namespace = nested_actions_index or "{}.v2.{}.revision.{}.taskgraph.actions".format(
-            graph_config["trust-domain"],
-            parameters["project"],
-            parameters[head_rev_param],
+        namespace = (
+            nested_actions_index
+            or "{}.v2.{}.revision.{}.taskgraph.actions".format(
+                graph_config["trust-domain"],
+                parameters["project"],
+                parameters[head_rev_param],
+            )
         )
         for task_id in list_tasks(namespace):
             fetches.append(e.submit(fetch_action, task_id))

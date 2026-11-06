@@ -252,7 +252,9 @@ def register_callback_action(
 
             trustDomain = graph_config["trust-domain"]
             level = parameters["level"]
-            tcyml_hash = hash_taskcluster_yml(get_taskcluster_yml(parameters, graph_config))
+            tcyml_hash = hash_taskcluster_yml(
+                get_taskcluster_yml(parameters, graph_config)
+            )
 
             # the tcyml_hash is prefixed with `/` in the hookId, so users will be granted
             # hooks:trigger-hook:project-gecko/in-tree-action-3-myaction/*; if another

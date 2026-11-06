@@ -362,9 +362,7 @@ def redirect_action_to_nested_graph(root, task_group_id, task_id, parameters):
 
     # Treeherder routes of this action task, and the index where the comm
     # graph's actions look for the tasks created by earlier actions.
-    routes = [
-        route for route in original["routes"] if not route.startswith("index.")
-    ]
+    routes = [route for route in original["routes"] if not route.startswith("index.")]
     routes.append({
         "task-reference": f"index.{nested_graph_index(target_parameters, 'actions')}.<self>"
     })

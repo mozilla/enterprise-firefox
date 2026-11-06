@@ -631,7 +631,9 @@ def test_push_to_try_enterprise_comm(tmp_path):
         stack.enter_context(
             patch("tryselect.push.is_enterprise_comm_try", return_value=True)
         )
-        stack.enter_context(patch("tryselect.push.is_thunderbird_try", return_value=True))
+        stack.enter_context(
+            patch("tryselect.push.is_thunderbird_try", return_value=True)
+        )
         push._is_hg_try.cache_clear()
         push.push_to_try(
             "fuzzy", "try: test", MagicMock(), try_task_config=try_task_config

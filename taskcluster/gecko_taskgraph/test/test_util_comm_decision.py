@@ -94,8 +94,7 @@ def make_definition(command_args, env, routes, extra):
                 "--",
                 "bash",
                 "-cx",
-                "cd /builds/worker/checkouts/gecko && ./mach taskgraph "
-                + command_args,
+                "cd /builds/worker/checkouts/gecko && ./mach taskgraph " + command_args,
             ],
             "artifacts": {
                 "public": {
