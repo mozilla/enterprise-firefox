@@ -7,7 +7,7 @@ const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "console", () => {
   return console.createInstance({
-    prefix: "CaptchaDetectionChild",
+    logModule: "CaptchaDetectionChild",
     maxLogLevelPref: "captchadetection.loglevel",
   });
 });
@@ -198,7 +198,7 @@ class CFTurnstileHandler extends CaptchaHandler {
   }
 
   static matchesRegex = new RegExp(
-    "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/.+?/turnstile/if/ov2/av0/rcv/"
+    "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/.+?/turnstile/(?:if/ov2/av0/rcv|f/av0/rch)/"
   );
 
   static matches(document) {

@@ -4,8 +4,6 @@
 
 // Import globals from the files imported by the .xul files.
 /* import-globals-from main.js */
-/* import-globals-from search.js */
-/* import-globals-from privacy.js */
 /* import-globals-from sync.js */
 /* import-globals-from moreFromMozilla.js */
 /* import-globals-from findInPage.js */
@@ -313,25 +311,21 @@ const CONFIG_PANES = Object.freeze({
       "browsingProtection",
       "certificates",
     ],
-    replaces: "privacy",
   },
   dnsOverHttps: {
     parent: "privacy",
     l10nId: "preferences-doh-header2",
     groupIds: ["dnsOverHttpsAdvanced"],
-    replaces: "privacy",
   },
   etp: {
     parent: "privacy",
     l10nId: "preferences-etp-header",
     groupIds: ["etpBanner", "etpAdvanced"],
-    replaces: "privacy",
   },
   etpCustomize: {
     parent: "etp",
     l10nId: "preferences-etp-customize-header",
     groupIds: ["etpCustomize", "etpReset"],
-    replaces: "privacy",
   },
   experimental: {
     l10nId: "settings-pane-labs-header",
@@ -348,7 +342,6 @@ const CONFIG_PANES = Object.freeze({
     parent: "privacy",
     l10nId: "history-header2",
     groupIds: ["historyAdvanced"],
-    replaces: "privacy",
   },
   home: {
     l10nId: "home-section",
@@ -449,14 +442,13 @@ const CONFIG_PANES = Object.freeze({
       "securityPrivacyWarnings",
       "etpStatus",
       "ipprotection",
-      "cookiesAndSiteData2",
-      "history2",
-      "nonTechnicalPrivacy2",
+      "cookiesAndSiteData",
+      "history",
+      "nonTechnicalPrivacy",
       "dnsOverHttps",
       "connectionLink",
     ],
     module: "chrome://browser/content/preferences/config/privacy.mjs",
-    replaces: "privacy",
   },
   search: {
     l10nId: "search-section",
@@ -469,7 +461,6 @@ const CONFIG_PANES = Object.freeze({
     ],
     iconSrc: "chrome://browser/skin/preferences/category-search.svg",
     module: "chrome://browser/content/preferences/config/search.mjs",
-    replaces: "search",
   },
   sync: {
     l10nId: "account-sync-section",
@@ -525,7 +516,6 @@ const CONFIG_PANES = Object.freeze({
     parent: "privacy",
     l10nId: "ip-protection-site-rules-header-1",
     groupIds: ["vpnSiteRules"],
-    replaces: "privacy",
   },
   containers: {
     parent: srdSectionEnabled("tabsBrowsing") ? "tabsBrowsing" : "general",
@@ -592,8 +582,6 @@ function init_all() {
     document.getElementById("category-general").hidden = false;
     document.getElementById("nav-separator").hidden = true;
   }
-  register_module("paneSearch", gSearchPane);
-  register_module("panePrivacy", gPrivacyPane);
 
   // Restore the cached Firefox Labs nav button visibility so it shows
   // immediately when recipes are expected to be available, before

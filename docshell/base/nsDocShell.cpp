@@ -1130,8 +1130,7 @@ bool nsDocShell::MaybeHandleSubframeHistory(
   // set. To handle this case we check if mCurrentURI is about:blank.
 
   if (mCurrentURI &&
-      (!NS_IsAboutBlank(mCurrentURI) || mLoadingEntry || mActiveEntry) &&
-      !aLoadState->HistoryBehavior()) {
+      (!NS_IsAboutBlank(mCurrentURI) || mLoadingEntry || mActiveEntry)) {
     // This is a pre-existing subframe. If
     // 1. The load of this frame was not originally initiated by session
     //    history directly (i.e. (!shEntry) condition succeeded, but it can
@@ -1142,12 +1141,14 @@ bool nsDocShell::MaybeHandleSubframeHistory(
     // onLoadHandler is loading a new page in this child. Check parent's and
     // self's busy flag and if it is set, we don't want this onLoadHandler
     // load to get in to session history.
-    BusyFlags parentBusy = parentDS->GetBusyFlags();
-    BusyFlags selfBusy = GetBusyFlags();
+    if (!aLoadState->HistoryBehavior()) {
+      BusyFlags parentBusy = parentDS->GetBusyFlags();
+      BusyFlags selfBusy = GetBusyFlags();
 
-    if (parentBusy & BUSY_FLAGS_BUSY || selfBusy & BUSY_FLAGS_BUSY) {
-      aLoadState->SetLoadType(LOAD_NORMAL_REPLACE);
-      aLoadState->ClearLoadIsFromSessionHistory();
+      if (parentBusy & BUSY_FLAGS_BUSY || selfBusy & BUSY_FLAGS_BUSY) {
+        aLoadState->SetLoadType(LOAD_NORMAL_REPLACE);
+        aLoadState->ClearLoadIsFromSessionHistory();
+      }
     }
     return false;
   }
@@ -8274,29 +8275,37 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
     destinationNavigationAPIState = navigationAPIState;
   }
 
-  if (nsCOMPtr<nsPIDOMWindowInner> window = doc->GetInnerWindow();
-      window && !aState.mHistoryNavBetweenSameDoc) {
-    // https://html.spec.whatwg.org/#navigate-fragid
-    // Step 1
-    if (RefPtr<Navigation> navigation = window->Navigation()) {
-      AutoJSAPI jsapi;
-      if (jsapi.Init(window)) {
-        RefPtr<Element> sourceElement = aLoadState->GetSourceElement();
-        // Step 4
-        RefPtr apiMethodTracker = aLoadState->GetNavigationAPIMethodTracker();
-        bool shouldContinue = navigation->FirePushReplaceReloadNavigateEvent(
-            jsapi.cx(), aLoadState->GetNavigationType(), newURI,
-            /* aIsSameDocument */ true,
-            Some(aLoadState->UserNavigationInvolvement()), sourceElement,
-            /* aFormDataEntryList */ nullptr,
-            /* aNavigationAPIState */ destinationNavigationAPIState,
-            /* aClassicHistoryAPIState */ nullptr, apiMethodTracker);
+  if (nsCOMPtr<nsPIDOMWindowInner> window = doc->GetInnerWindow(); window) {
+    if (!aState.mHistoryNavBetweenSameDoc) {
+      // https://html.spec.whatwg.org/#navigate-fragid
+      // Step 1
+      if (RefPtr<Navigation> navigation = window->Navigation()) {
+        AutoJSAPI jsapi;
+        if (jsapi.Init(window)) {
+          RefPtr<Element> sourceElement = aLoadState->GetSourceElement();
+          // Step 4
+          RefPtr apiMethodTracker = aLoadState->GetNavigationAPIMethodTracker();
+          bool shouldContinue = navigation->FirePushReplaceReloadNavigateEvent(
+              jsapi.cx(), aLoadState->GetNavigationType(), newURI,
+              /* aIsSameDocument */ true,
+              Some(aLoadState->UserNavigationInvolvement()), sourceElement,
+              /* aFormDataEntryList */ nullptr,
+              /* aNavigationAPIState */ destinationNavigationAPIState,
+              /* aClassicHistoryAPIState */ nullptr, apiMethodTracker);
 
-        // Step 5
-        if (!shouldContinue) {
-          return NS_OK;
+          // Step 5
+          if (!shouldContinue) {
+            return NS_OK;
+          }
         }
       }
+    } else if (aLoadState->LoadType() == LOAD_HISTORY) {
+      MaybeFireTraverseHistory(aLoadState);
+    }
+
+    if (mIsBeingDestroyed) {
+      // navigate handler destroyed this docshell.
+      return NS_ERROR_NOT_AVAILABLE;
     }
   }
 
@@ -9152,6 +9161,15 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
 
   if (mTiming && !isDownload) {
     mTiming->NotifyUnloadAccepted(mCurrentURI);
+  }
+
+  if (aLoadState->LoadType() == LOAD_HISTORY) {
+    MaybeFireTraverseHistory(aLoadState);
+
+    if (mIsBeingDestroyed) {
+      // navigate handler destroyed this docshell.
+      return NS_ERROR_NOT_AVAILABLE;
+    }
   }
 
   // In e10s, in the parent process, we refuse to load anything other than
@@ -11747,8 +11765,6 @@ nsresult nsDocShell::LoadHistoryEntry(nsDocShellLoadState* aLoadState,
   if (!aLoadState->TriggeringPrincipal()) {
     return NS_ERROR_FAILURE;
   }
-
-  MaybeFireTraverseHistory(aLoadState);
 
   return InternalLoad(aLoadState);  // No nsIRequest
 }
