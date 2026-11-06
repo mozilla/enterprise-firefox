@@ -1,0 +1,22 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Thunderbird (comm) revision that the `comm-decision` task, and the comm
+# action tasks, check out next to this Gecko tree to generate the Thunderbird
+# task graph. See taskcluster/gecko_taskgraph/util/comm_decision.py.
+---
+# The repository `base-rev` comes from, which `head-rev` is compared against
+# to find the changed Thunderbird files.
+base-repository: https://github.com/thunderbird/thunderbird-desktop
+# The repository checked out at `head-rev`.
+head-repository: https://github.com/thunderbird/thunderbird-desktop
+# The Thunderbird ref matching the Gecko branch (`head_ref` without
+# `refs/heads/`). `default` covers try and any other branch.
+refs:
+    enterprise-main: refs/heads/main
+    enterprise-beta: refs/heads/beta
+    enterprise-release: refs/heads/release
+    default: refs/heads/main
+base-rev: f1c9e5bd4f5a59d59d25316876811365fbfe3c34
+head-rev: f1c9e5bd4f5a59d59d25316876811365fbfe3c34

@@ -40,6 +40,7 @@ from .parameters import (
 )
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
 from .util.bugbug import push_schedules, start_push_schedules
+from .util.comm_decision import CHILD_GRAPH_ENV
 from .util.hg import get_hg_revision_metadata
 from .util.partials import populate_release_history
 from .util.partners import (
@@ -547,6 +548,11 @@ def get_decision_parameters(graph_config, options):
         time_interval=60 * 6,
         backstop_strategy="android_perftest_backstop",
     )
+
+    # Set by the task generating this graph from its own graph, see
+    # util/comm_decision.py.
+    if child_graph := os.environ.get(CHILD_GRAPH_ENV):
+        parameters["child_graph"] = json.loads(child_graph)
 
     if "decision-parameters" in graph_config["taskgraph"]:
         find_object(graph_config["taskgraph"]["decision-parameters"])(
