@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import functools
+import os
 from collections import namedtuple
 from types import FunctionType
 
@@ -13,6 +14,7 @@ from taskgraph.parameters import Parameters
 from taskgraph.util import json, taskcluster, yaml
 from taskgraph.util.python_path import import_sibling_modules
 
+from gecko_taskgraph import GECKO
 from gecko_taskgraph.util import hash
 
 actions = []
@@ -44,6 +46,25 @@ def hash_taskcluster_yml(filename):
     to create a hook based on this content.
     """
     return hash.hash_path(filename)[:10]
+
+
+def get_action_repo_prefix(parameters, graph_config):
+    """Prefix of the parameters of the repository whose action hooks and scopes
+    the actions of this graph use.
+
+    A nested graph is generated from a push to the top-level repository (the
+    unprefixed parameters), whose `.taskcluster.yml` defines the action hooks.
+    """
+    if parameters.get("nested_graph"):
+        return ""
+    return graph_config["project-repo-param-prefix"]
+
+
+def get_taskcluster_yml(parameters, graph_config):
+    """The `.taskcluster.yml` defining the action hooks of this graph."""
+    if parameters.get("nested_graph"):
+        return os.path.join(GECKO, ".taskcluster.yml")
+    return graph_config.taskcluster_yml
 
 
 def register_callback_action(
@@ -169,25 +190,25 @@ def register_callback_action(
                 return None
 
             # gather up the common decision-task-supplied data for this action
-            base_repo_param = "{}base_repository".format(
-                graph_config["project-repo-param-prefix"]
-            )
-            head_repo_param = "{}head_repository".format(
-                graph_config["project-repo-param-prefix"]
-            )
+            repo_prefix = get_action_repo_prefix(parameters, graph_config)
+            project = parameters["project"]
+            if nested_graph := parameters.get("nested_graph"):
+                # Actions on a nested graph are actions of the top-level
+                # repository: its hook renders the top-level decision task,
+                # which runs the action from a copy that can generate the
+                # nested graph (see util/comm_decision.py).
+                project = nested_graph["project"]
+            base_repo_param = f"{repo_prefix}base_repository"
+            head_repo_param = f"{repo_prefix}head_repository"
             repository = {
                 "url": parameters[head_repo_param],
-                "project": parameters["project"],
+                "project": project,
                 "level": parameters["level"],
                 "base_url": parameters[base_repo_param],
             }
 
-            revision = parameters[
-                "{}head_rev".format(graph_config["project-repo-param-prefix"])
-            ]
-            base_revision = parameters[
-                "{}base_rev".format(graph_config["project-repo-param-prefix"])
-            ]
+            revision = parameters[f"{repo_prefix}head_rev"]
+            base_revision = parameters[f"{repo_prefix}base_rev"]
             push = {
                 "owner": "mozilla-taskcluster-maintenance@mozilla.com",
                 "pushlog_id": parameters["pushlog_id"],
@@ -231,7 +252,7 @@ def register_callback_action(
 
             trustDomain = graph_config["trust-domain"]
             level = parameters["level"]
-            tcyml_hash = hash_taskcluster_yml(graph_config.taskcluster_yml)
+            tcyml_hash = hash_taskcluster_yml(get_taskcluster_yml(parameters, graph_config))
 
             # the tcyml_hash is prefixed with `/` in the hookId, so users will be granted
             # hooks:trigger-hook:project-gecko/in-tree-action-3-myaction/*; if another
@@ -322,13 +343,9 @@ def sanity_check_task_scope(callback, parameters, graph_config):
     else:
         raise Exception(f"No action with cb_name {callback}")
 
-    base_repo_param = "{}base_repository".format(
-        graph_config["project-repo-param-prefix"]
-    )
-    parsed_base_url = parse(parameters[base_repo_param])
-    head_repo_param = "{}head_repository".format(
-        graph_config["project-repo-param-prefix"]
-    )
+    repo_prefix = get_action_repo_prefix(parameters, graph_config)
+    parsed_base_url = parse(parameters[f"{repo_prefix}base_repository"])
+    head_repo_param = f"{repo_prefix}head_repository"
     parsed_head_url = parse(parameters[head_repo_param])
     action_scope = (
         f"assume:{parsed_head_url.taskcluster_role_prefix}:action:{action.permission}"

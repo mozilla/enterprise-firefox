@@ -626,6 +626,7 @@ def action_callback(options):
 
     from gecko_taskgraph.actions import trigger_action_callback
     from gecko_taskgraph.actions.util import get_parameters
+    from gecko_taskgraph.util.comm_decision import redirect_action_to_nested_graph
 
     try:
         # the target task for this action (or null if it's a group action)
@@ -637,6 +638,11 @@ def action_callback(options):
         root = options["root"]
 
         parameters = get_parameters(task_group_id)
+
+        # Actions on the Thunderbird graph of Enterprise Firefox repositories
+        # run from a copy of this task that also checks out Thunderbird.
+        if redirect_action_to_nested_graph(root, task_group_id, task_id, parameters):
+            return None
 
         return trigger_action_callback(
             task_group_id=task_group_id,

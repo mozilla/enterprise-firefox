@@ -9,10 +9,15 @@ Tools for interacting with existing taskgraphs.
 from taskcluster import TaskclusterRestFailure
 from taskgraph.util.taskcluster import find_task_id, get_artifact
 
+from gecko_taskgraph.util.comm_decision import nested_graph_index
+
 
 def find_decision_task(parameters, graph_config):
     """Given the parameters for this action, find the taskId of the decision
     task"""
+    if index := nested_graph_index(parameters, "decision"):
+        return find_task_id(index)
+
     head_rev_param = "{}head_rev".format(graph_config["project-repo-param-prefix"])
     try:
         return find_task_id(

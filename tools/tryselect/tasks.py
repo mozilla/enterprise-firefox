@@ -28,7 +28,7 @@ from taskgraph.taskgraph import TaskGraph
 from taskgraph.util import json
 from taskgraph.util.vcs import get_repository
 
-from tryselect.util.project import get_project_topsrcdir
+from tryselect.util.project import get_project_topsrcdir, is_enterprise_tree
 
 here = os.path.abspath(os.path.dirname(__file__))
 build = MozbuildObject.from_environment(cwd=here)
@@ -44,12 +44,23 @@ def comm_parameter_overrides(comm_topsrcdir):
     rev = repo.head_rev
     ref = repo.branch or rev
     src_path = os.path.relpath(comm_topsrcdir, build.topsrcdir).replace(os.sep, "/")
-    return {
-        "project": "try-comm-central",
-        "comm_head_repository": "https://hg.mozilla.org/comm-central",
+    overrides = {}
+    if is_enterprise_tree(build.topsrcdir):
+        # The repository of the `comm-decision` task, see
+        # taskcluster/gecko_taskgraph/util/comm_decision.py. Like the Gecko
+        # tasks of an Enterprise tree, offer the tasks of its pushes.
+        project = "enterprise-thunderbird"
+        overrides["target_tasks_method"] = "enterprise_thunderbird_with_tests_tasks"
+        comm_repository = "https://github.com/thunderbird/thunderbird-desktop"
+    else:
+        project = "try-comm-central"
+        comm_repository = "https://hg.mozilla.org/comm-central"
+    return overrides | {
+        "project": project,
+        "comm_head_repository": comm_repository,
         "comm_head_rev": rev,
         "comm_head_ref": ref,
-        "comm_base_repository": "https://hg.mozilla.org/comm-central",
+        "comm_base_repository": comm_repository,
         "comm_base_rev": rev,
         "comm_base_ref": ref,
         "comm_src_path": f"{src_path}/",
@@ -223,7 +234,8 @@ def generate_tasks(
     project_topsrcdir = get_project_topsrcdir(build)
     comm = project_topsrcdir != build.topsrcdir
     if comm:
-        overrides.update(comm_parameter_overrides(project_topsrcdir))
+        # An explicitly requested target_tasks_method wins.
+        overrides = comm_parameter_overrides(project_topsrcdir) | overrides
         root = os.path.join(project_topsrcdir, "taskcluster")
     else:
         root = os.path.join(build.topsrcdir, "taskcluster")
