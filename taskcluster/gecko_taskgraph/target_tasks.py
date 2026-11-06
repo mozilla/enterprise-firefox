@@ -612,7 +612,8 @@ def target_tasks_enterprise_firefox_with_tests(
     )
 
     def filter(task):
-        if parameters["tasks_for"].startswith("github-pull-request"):
+        # WIP: pull requests schedule like pushes.
+        if False and parameters["tasks_for"].startswith("github-pull-request"):
             tier = task.task.get("extra", {}).get("treeherder", {}).get("tier", 3)
             platform = (
                 task.task

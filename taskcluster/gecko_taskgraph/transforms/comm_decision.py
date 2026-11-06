@@ -19,17 +19,15 @@ from gecko_taskgraph.util.comm_decision import (
 
 transforms = TransformSequence()
 
-# The comm graph is only generated for pushes, like the Gecko graph of
-# `enterprise-firefox` pull requests is restricted to linting.
-COMM_TASKS_FOR = ("github-push",)
+# WIP: pull requests schedule like pushes, see target_tasks.py.
+COMM_TASKS_FOR = ("github-push", "github-pull-request")
 
 
 @transforms.add
 def filter_projects(config, tasks):
-    if (
-        config.params["project"] not in COMM_PROJECTS
-        or config.params["tasks_for"] not in COMM_TASKS_FOR
-    ):
+    if config.params["project"] not in COMM_PROJECTS or not config.params[
+        "tasks_for"
+    ].startswith(COMM_TASKS_FOR):
         return
     yield from tasks
 
