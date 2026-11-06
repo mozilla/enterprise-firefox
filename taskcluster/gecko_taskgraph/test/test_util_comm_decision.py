@@ -247,6 +247,40 @@ def test_make_comm_decision_task_try(monkeypatch, graph_config, task_definitions
     assert "--try-task-config-file=comm_try_task_config.json" in script
 
 
+def test_make_comm_decision_task_pull_request(
+    monkeypatch, graph_config, task_definitions
+):
+    monkeypatch.setenv("TASK_ID", DECISION_ID)
+    task_definitions[DECISION_ID] = definition = copy.deepcopy(DECISION_DEF)
+    definition["routes"] = [
+        "checks",
+        f"tc-treeherder.v2.enterprise-firefox-pr.{REV}",
+        f"index.enterprise.v2.enterprise-firefox-pr.revision.{REV}.taskgraph.decision",
+    ]
+    params = dict(
+        PARAMS,
+        tasks_for="github-pull-request",
+        level="1",
+        base_ref="refs/heads/enterprise-beta",
+        head_ref="refs/heads/some-feature",
+    )
+    taskdesc = comm_decision.make_comm_decision_task(
+        graph_config, Parameters(strict=False, **params)
+    )
+    task = taskdesc["task"]
+    nested_index = f"enterprise.v2.enterprise-firefox-pr.revision.{REV}.taskgraph.comm"
+    assert task["routes"] == [
+        "checks",
+        f"tc-treeherder.v2.enterprise-firefox-pr.{REV}",
+        f"index.{nested_index}-decision",
+    ]
+    env = task["payload"]["env"]
+    assert json.loads(env["TASKGRAPH_NESTED_GRAPH"])["index"] == nested_index
+    # The Thunderbird ref of the pull request's base branch.
+    assert env["COMM_HEAD_REF"] == "refs/heads/beta"
+    assert "--tasks-for=github-pull-request" in task["payload"]["command"][-1]
+
+
 @pytest.mark.parametrize(
     "task_group_id,parameters",
     (

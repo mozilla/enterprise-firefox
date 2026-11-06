@@ -248,30 +248,30 @@ def make_comm_decision_task(graph_config, params):
             f"--try-task-config-file={COMM_TRY_TASK_CONFIG}",
         ]
 
-    nested_index = (
-        f"{trust_domain}.v2.{params['project']}.revision.{params['head_rev']}"
-        ".taskgraph.comm"
-    )
-    env = get_comm_env(params["head_ref"])
+    # Same routes as the Gecko decision task, which put it on the push in
+    # Treeherder and index it as `...taskgraph.decision`.
+    routes = []
+    nested_index = None
+    for route in original["routes"]:
+        if route.endswith(".taskgraph.decision"):
+            route = route.removesuffix(".decision") + ".comm-decision"
+            # `<trust-domain>.v2.<project>[-pr].revision.<rev>.taskgraph`
+            if ".revision." in route:
+                nested_index = route.removeprefix("index.").removesuffix("-decision")
+        elif route.startswith("index."):
+            continue
+        routes.append(route)
+    if not nested_index:
+        raise Exception(
+            f"The decision task routes {original['routes']} don't index it by revision"
+        )
+
+    # A pull request builds against the Thunderbird ref of its base branch.
+    env = get_comm_env(params.get("base_ref") or params["head_ref"])
     env[NESTED_GRAPH_ENV] = json.dumps({
         "project": params["project"],
         "index": nested_index,
     })
-
-    # Same routes as the Gecko decision task, which put it on the push in
-    # Treeherder and index it as `...taskgraph.decision`.
-    routes = []
-    for route in original["routes"]:
-        if route.endswith(".taskgraph.decision"):
-            route = route.removesuffix(".decision") + ".comm-decision"
-        elif route.startswith("index."):
-            continue
-        routes.append(route)
-    if f"index.{nested_index}-decision" not in routes:
-        raise Exception(
-            f"The comm decision task routes {routes} don't index it at "
-            f"{nested_index}-decision"
-        )
 
     treeherder = get_comm_decision_treeherder(original["extra"].get("treeherder"))
 
