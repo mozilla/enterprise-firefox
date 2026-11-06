@@ -356,6 +356,7 @@ def test_make_comm_decision_task_try(monkeypatch, graph_config, task_definitions
     script = taskdesc["task"]["payload"]["command"][-1]
     assert "--project=enterprise-thunderbird-try" in script
     assert "--allow-parameter-override" in script
+    assert "--try-task-config-file=comm_try_task_config.json" in script
 
 
 @pytest.mark.parametrize(
