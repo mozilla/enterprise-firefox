@@ -4,6 +4,8 @@
 
 # Access Connector is an Enterprise feature name and must not be translated.
 -enterprise-feature-access-connector = Access Connector
+# Lockdown Mode is an Enterprise feature name and must not be translated.
+-enterprise-feature-lockdown-mode = Lockdown Mode
 
 # Shown in the About dialog on enterprise builds.
 aboutdialog-managed-notice = Your browser is being managed by your organization.
@@ -178,6 +180,30 @@ lockdown-mode-button =
     .tooltiptext = Viewing with restrictions
 lockdown-mode-popup-header = Viewing with restrictions applied
 lockdown-mode-popup-message = You’re viewing this page with extra security protections applied by your organization. Some features may be limited to help reduce security risks.
+lockdown-mode-details-label = { -enterprise-feature-lockdown-mode } protections
+# Shown at the end of the "Lockdown Mode protections" row.
+# Variables:
+#   $count (number) - Number of protections applied to the current site.
+lockdown-mode-details-count = { $count }
+lockdown-mode-details-header =
+    .title = { -enterprise-feature-lockdown-mode } protections
+lockdown-mode-copy-details-button =
+    .label = Copy details
+# Shown in place of the "Copy details" button for a few seconds after the
+# details are copied to the clipboard.
+lockdown-mode-details-copied = Details copied
+
+## Descriptions of the site protections applied by the organization. Each is
+## shown beneath the name of the enterprise policy that enables it
+## (HttpsOnly, DisableServiceWorkers, Container, DisableJit), which is not
+## localized.
+
+lockdown-mode-protection-https-only = Loads this site only over HTTPS; insecure pages won’t load.
+lockdown-mode-protection-disable-service-workers = Stops background tasks, such as push notifications and offline use.
+lockdown-mode-protection-container = Keeps this site’s cookies and logins separate from other tabs.
+lockdown-mode-protection-disable-jit = Turns off JavaScript speed optimizations; complex sites may run slower.
+
+##
 
 access-connector-button =
     .aria-label = { -enterprise-feature-access-connector } enabled
