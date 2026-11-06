@@ -78,10 +78,6 @@ export class EnterprisePoliciesManagerContent {
     );
   }
 
-  hasSitePoliciesForURI(uri) {
-    return lazy.SitePolicyUtils.hasSitePoliciesForURI(this.sitePolicies, uri);
-  }
-
   getContainerForURI(_uri) {
     throw Components.Exception(
       "getContainerForURI is not available in content processes",
