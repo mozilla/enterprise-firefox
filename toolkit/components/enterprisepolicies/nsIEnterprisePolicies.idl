@@ -39,14 +39,6 @@ interface nsIEnterprisePolicies : nsISupports
   boolean isAllowedForURI(in ACString feature, in nsIURI uri);
 
   /**
-   * Checks if any site policy applies to the given URI.
-   *
-   * @param uri The URI to check against.
-   * @returns A boolean - true if any site policy matches the URI.
-   */
-  boolean hasSitePoliciesForURI(in nsIURI uri);
-
-  /**
    * Get the active policies that have been successfully parsed.
    *
    * @returns A JS object that contains the policies names and
