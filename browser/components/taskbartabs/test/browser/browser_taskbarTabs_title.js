@@ -277,9 +277,12 @@ add_task(SKIP_IF_ENTERPRISE, async function test_profileAndContainer_privacy() {
   return withoutExposingTitle(test_profileAndContainer);
 });
 
-add_task(SKIP_IF_ENTERPRISE, async function test_profileAddedWhileOpen_privacy() {
-  return withoutExposingTitle(test_profileAddedWhileOpen);
-});
+add_task(
+  SKIP_IF_ENTERPRISE,
+  async function test_profileAddedWhileOpen_privacy() {
+    return withoutExposingTitle(test_profileAddedWhileOpen);
+  }
+);
 
 add_task(async function test_containerRenamedWhileOpen_privacy() {
   return withoutExposingTitle(test_containerRenamedWhileOpen);
