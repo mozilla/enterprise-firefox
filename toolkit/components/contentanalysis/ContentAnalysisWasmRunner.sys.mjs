@@ -45,18 +45,35 @@ export class ContentAnalysisWasmRunner {
       : "";
   }
 
-  async analyze(aRequestBytes, aContentBytes, aRules) {
+  async analyze(aUserActionId, aRequest, aContent, aRules) {
     const { moduleBytes, version } = await this.ensureModuleReady();
 
     const actor = await this.#getActor();
-    // Resolves with a Uint8Array, which the C++ caller reads in bulk.
-    return actor.sendQuery("Analyze", {
+    const message = {
+      userActionId: aUserActionId,
       version,
-      moduleBytes,
-      requestBytes: Uint8Array.from(aRequestBytes),
-      contentBytes: Uint8Array.from(aContentBytes || []),
+      // Blobs are sent over IPC as streams the child reads on demand, so the
+      // request and content aren't copied here.
+      request: aRequest,
+      content: aContent,
       rules: toPlainRules(aRules),
-    });
+    };
+    // The module's bytes are only sent when the child doesn't already have
+    // this version loaded, e.g. on the first request to a new process.
+    let reply = await actor.sendQuery("Analyze", message);
+    if (reply.needModule) {
+      reply = await actor.sendQuery("Analyze", { ...message, moduleBytes });
+    }
+    // A Uint8Array, which the C++ caller reads in bulk.
+    return reply.response;
+  }
+
+  cancel(aUserActionId) {
+    this.#getActor()
+      .then(actor =>
+        actor.sendAsyncMessage("Cancel", { userActionId: aUserActionId })
+      )
+      .catch(() => {});
   }
 
   /**

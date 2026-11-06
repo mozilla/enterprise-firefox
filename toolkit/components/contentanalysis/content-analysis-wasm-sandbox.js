@@ -42,9 +42,49 @@ const FFI_RULE_PATTERNS_COUNT_OFFSET = 28;
 const FFI_RULE_TYPE_OFFSET = 32;
 const FFI_RULE_MESSAGE_OFFSET = 36;
 
-// The currently loaded module instance, kept across analyze() calls so the
-// module is only recompiled when it changes (see loadModule).
+// Linear memory never shrinks, so once an analysis has grown an instance's
+// memory past this size, the instance is replaced by a fresh one and the old
+// memory is left for the GC to release. Analyses still in progress on the old
+// instance keep using it until they finish.
+const MAX_RETAINED_MEMORY_BYTES = 64 * 1024 * 1024;
+
+// The compiled module and its current instance, kept across analyze() calls so
+// the module is only recompiled when it changes (see loadModule).
+let gModule = null;
 let gInstance = null;
+
+// The analyses in progress between beginAnalyze() and finishAnalyze() or
+// abortAnalyze(), keyed by the ID beginAnalyze() returned. Each holds the
+// instance it runs against and its request and content buffers in that
+// instance's linear memory. Several can be in progress at once while their
+// data streams in.
+const gPending = new Map();
+let gNextAnalysisId = 1;
+
+// Allocate len bytes in the module's linear memory, recording the allocation
+// in aAllocations so it can be freed later. Returns 0 for a zero-length
+// allocation, and throws if the module fails to allocate.
+function allocIn(ex, aAllocations, len) {
+  if (!len) {
+    return 0;
+  }
+  // wasm32 pointers are unsigned, but i32 results reach JS as signed numbers.
+  const ptr = ex.ca_alloc(len) >>> 0;
+  if (!ptr) {
+    throw new Error(`DLP wasm module failed to allocate ${len} bytes`);
+  }
+  aAllocations.push({ ptr, len });
+  return ptr;
+}
+
+function freeAll(ex, aAllocations) {
+  for (const a of aAllocations) {
+    if (a.ptr) {
+      ex.ca_free(a.ptr, a.len);
+    }
+  }
+  aAllocations.length = 0;
+}
 
 // Compile and instantiate the module, verifying the ABI version. Called by the
 // child actor whenever the configured module changes.
@@ -55,6 +95,7 @@ function loadModule(moduleBytes) {
   if (instance.exports.ca_abi_version() !== ABI_VERSION) {
     throw new Error("Unexpected DLP wasm ABI version");
   }
+  gModule = module;
   gInstance = instance;
 }
 
@@ -62,26 +103,21 @@ function loadModule(moduleBytes) {
  * Lower the caller-supplied rule objects into the module's FfiRule ABI in linear
  * memory. Allocates every buffer up front (linear-memory addresses stay valid as
  * memory grows), then writes them all with a single fresh view. Returns the
- * rules-array pointer/count plus the allocations to free afterward.
+ * rules-array pointer/count.
  *
  * @param {*} ex  The module with ca_alloc entry point
  * @param {Array} aRules The rules to convert
- * @returns {{ptr: number, count: number, allocations: Array<{ptr: number, len: number}>}}
+ * @param {Array<{ptr: number, len: number}>} aAllocations Receives every
+ *   allocation made, including those made before a failure, for the caller to
+ *   free afterward.
+ * @returns {{ptr: number, count: number}}
  */
-function marshalRules(ex, aRules) {
-  const allocations = [];
-  const alloc = len => {
-    if (!len) {
-      return 0;
-    }
-    const ptr = ex.ca_alloc(len);
-    allocations.push({ ptr, len });
-    return ptr;
-  };
+function marshalRules(ex, aRules, aAllocations) {
+  const alloc = len => allocIn(ex, aAllocations, len);
 
   const rules = aRules || [];
   if (!rules.length) {
-    return { ptr: 0, count: 0, allocations };
+    return { ptr: 0, count: 0 };
   }
 
   const encoder = new TextEncoder();
@@ -172,69 +208,115 @@ function marshalRules(ex, aRules) {
     );
   });
 
-  return { ptr: rulesPtr, count: prepared.length, allocations };
+  return { ptr: rulesPtr, count: prepared.length };
 }
 
-// Run the loaded module against a request. Returns the serialized
-// ContentAnalysisResponse as a Uint8Array.
+// Start analyzing a request of aRequestLength bytes whose content is
+// aContentLength bytes, allocating both buffers in the module's linear memory.
+// Their bytes are then supplied with writeBytes(), and the analysis completed
+// with finishAnalyze() or abandoned with abortAnalyze(). Returns the analysis's
+// ID for those calls.
 // eslint-disable-next-line no-unused-vars
-function runAnalyze({ requestBytes, contentBytes, rules }) {
+function beginAnalyze(aRequestLength, aContentLength) {
   if (!gInstance) {
     throw new Error("DLP wasm module not loaded");
   }
-  const ex = gInstance.exports;
-  const req = Uint8Array.from(requestBytes);
-  const content = Uint8Array.from(contentBytes || []);
-
-  // Every buffer allocated so far, freed in the `finally` below even if a
+  // Every buffer allocated for this analysis, freed by abortAnalyze() even if a
   // later step throws (e.g. the module traps during ca_analyze), so a failed
   // analysis can't leak the module's linear memory.
-  const allocations = [];
-  const alloc = len => {
-    if (!len) {
-      return 0;
-    }
-    const ptr = ex.ca_alloc(len);
-    allocations.push({ ptr, len });
-    return ptr;
+  const ex = gInstance.exports;
+  const id = gNextAnalysisId++;
+  const pending = {
+    ex,
+    allocations: [],
+    buffers: {
+      request: { ptr: 0, length: aRequestLength },
+      content: { ptr: 0, length: aContentLength },
+    },
   };
+  gPending.set(id, pending);
+  try {
+    for (const buffer of Object.values(pending.buffers)) {
+      buffer.ptr = allocIn(ex, pending.allocations, buffer.length);
+    }
+  } catch (e) {
+    // The caller never gets the ID, so it can't abort the analysis itself.
+    abortAnalyze(id);
+    throw e;
+  }
+  return id;
+}
+
+// Copy a chunk into the "request" or "content" buffer (aBufferName) of
+// analysis aId, at aOffset.
+// eslint-disable-next-line no-unused-vars
+function writeBytes(aId, aBufferName, aOffset, aChunk) {
+  const pending = gPending.get(aId);
+  if (!pending) {
+    throw new Error("No such DLP wasm analysis is in progress");
+  }
+  const buffer = pending.buffers[aBufferName];
+  if (aOffset < 0 || aOffset + aChunk.length > buffer.length) {
+    throw new Error("DLP wasm analysis chunk is out of bounds");
+  }
+  // WebAssembly.Memory.buffer is detached and replaced when memory grows, so
+  // the view is re-created for every chunk.
+  new Uint8Array(pending.ex.memory.buffer).set(aChunk, buffer.ptr + aOffset);
+}
+
+// Run the module against analysis aId, whose buffers must have been filled
+// with writeBytes(), then release its buffers. Returns the serialized
+// ContentAnalysisResponse as a Uint8Array.
+// eslint-disable-next-line no-unused-vars
+function finishAnalyze(aId, { rules }) {
+  const pending = gPending.get(aId);
+  if (!pending) {
+    throw new Error("No such DLP wasm analysis is in progress");
+  }
+  const { ex, allocations, buffers } = pending;
   let respPtr = 0;
   let outLen = 0;
 
   try {
     // WebAssembly.Memory.buffer is detached and replaced when memory grows, so
     // re-create the view from ex.memory.buffer after every call that allocates.
-    const outLenPtr = alloc(4);
-    const reqPtr = alloc(req.length);
-    if (reqPtr) {
-      new Uint8Array(ex.memory.buffer).set(req, reqPtr);
-    }
-    const contentPtr = alloc(content.length);
-    if (contentPtr) {
-      new Uint8Array(ex.memory.buffer).set(content, contentPtr);
-    }
-    const marshalled = marshalRules(ex, rules);
-    allocations.push(...marshalled.allocations);
+    const outLenPtr = allocIn(ex, allocations, 4);
+    const marshalled = marshalRules(ex, rules, allocations);
 
-    respPtr = ex.ca_analyze(
-      reqPtr,
-      req.length,
-      contentPtr,
-      content.length,
-      marshalled.ptr,
-      marshalled.count,
-      outLenPtr
-    );
+    respPtr =
+      ex.ca_analyze(
+        buffers.request.ptr,
+        buffers.request.length,
+        buffers.content.ptr,
+        buffers.content.length,
+        marshalled.ptr,
+        marshalled.count,
+        outLenPtr
+      ) >>> 0;
     outLen = new DataView(ex.memory.buffer).getUint32(outLenPtr, true);
     return new Uint8Array(ex.memory.buffer, respPtr, outLen).slice();
   } finally {
     if (respPtr) {
       ex.ca_free(respPtr, outLen);
     }
-    for (const a of allocations) {
-      if (a.ptr) {
-        ex.ca_free(a.ptr, a.len);
-      }
-    }
+    abortAnalyze(aId);
+  }
+}
+
+// Release the buffers of analysis aId, if it is still in progress.
+// eslint-disable-next-line no-unused-vars
+function abortAnalyze(aId) {
+  const pending = gPending.get(aId);
+  if (!pending) {
+    return;
+  }
+  gPending.delete(aId);
+  const { ex, allocations } = pending;
+  freeAll(ex, allocations);
+  if (
+    ex === gInstance.exports &&
+    ex.memory.buffer.byteLength > MAX_RETAINED_MEMORY_BYTES
+  ) {
+    gInstance = new WebAssembly.Instance(gModule, {});
   }
 }
