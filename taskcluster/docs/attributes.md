@@ -30,6 +30,12 @@ The types of repositories where this task should be in the target task set. Typi
 This attribute is temporary and will be used during the transition from hg.mozilla.org
 to Github.
 
+## replicate
+
+Set by mozilla_taskgraph's `replicate` transform on the tasks it copies from
+another task or task graph, to the name of the task that requested the copy.
+The `comm-decision` task is such a copy of the decision task.
+
 ## clone_with
 
 The VCS a task uses to clone the checkout, either "hg" or "git".
