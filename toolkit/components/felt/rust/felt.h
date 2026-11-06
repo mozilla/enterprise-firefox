@@ -15,6 +15,9 @@ void felt_init();
 // Implemented in nsAppRunner.cpp for felt_init(). aArg must be lowercase.
 bool felt_check_arg_exists(const char* aArg);
 
+// Implemented in nsAppRunner.cpp. Whether nsCommandLine will see -chrome.
+bool felt_has_chrome_arg();
+
 bool is_felt_ui();
 
 #ifdef MOZ_WIDGET_GTK
