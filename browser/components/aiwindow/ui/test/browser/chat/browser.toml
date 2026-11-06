@@ -1,4 +1,5 @@
 [DEFAULT]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 prefs = [
   "browser.newtab.preload=false",
   "browser.search.suggest.enabled=false",
