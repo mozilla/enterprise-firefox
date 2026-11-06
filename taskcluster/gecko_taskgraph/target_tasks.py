@@ -694,7 +694,15 @@ def target_tasks_enterprise_firefox_with_tests(
 
         level = int(parameters["level"])
         if level < 3:
-            if "shippable" in task.label or shippable:
+            # WIP: Thunderbird pull requests also build shippable.
+            wip_shippable_thunderbird_build = (
+                "thunderbird" in parameters["project"]
+                and parameters["tasks_for"].startswith("github-pull-request")
+                and task.kind == "build"
+            )
+            if (
+                "shippable" in task.label or shippable
+            ) and not wip_shippable_thunderbird_build:
                 return False
 
             if task.kind == "complete":
