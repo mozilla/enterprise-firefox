@@ -318,7 +318,8 @@ def make_comm_decision_task(graph_config, params):
 
     routes, child_index = get_comm_decision_routes(original["routes"])
 
-    env = get_comm_env(params["head_ref"])
+    # A pull request builds against the Thunderbird ref of its base branch.
+    env = get_comm_env(params.get("base_ref") or params["head_ref"])
     env[CHILD_GRAPH_ENV] = json.dumps({
         "project": params["project"],
         "index": child_index,
