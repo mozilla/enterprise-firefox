@@ -6,12 +6,37 @@
  *
  * Note: These tests only run in MOZ_ENTERPRISE builds where the enterprise
  * implementation is actually available. The test manifest (xpcshell.toml)
- * has skip-if = ["!enterprise"] to ensure this.
+ * uses run-if = ["enterprise"] to ensure this.
  */
 
 const { DownloadsTelemetryEnterprise } = ChromeUtils.importESModule(
   "moz-src:///browser/components/downloads/DownloadsTelemetry.enterprise.sys.mjs"
 );
+const { EnterprisePingCollector } = ChromeUtils.importESModule(
+  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+);
+
+const ENABLED_PREF = "browser.download.enterprise.telemetry.enabled";
+const URL_LOGGING_PREF = "browser.download.enterprise.telemetry.urlLogging";
+const FILE_LOGGING_PREF = "browser.download.enterprise.telemetry.fileLogging";
+
+// A stand-in for a completed Download with every field the recorder reads.
+const MOCK_DOWNLOAD = {
+  target: {
+    path: "/home/user/Downloads/document.pdf",
+    size: 12345,
+  },
+  source: {
+    url: "https://example.com/secure/document.pdf?token=abc123",
+    isPrivate: false,
+  },
+  contentType: "application/pdf",
+  saver: {
+    getSha256HashHex() {
+      return "1234567890abcdef1234567890abcdeffedcba0987654321fedcba0987654321";
+    },
+  },
+};
 
 /**
  * Test URL processing with different enterprise policy configurations.
@@ -117,144 +142,211 @@ add_task(async function test_default_policy_behavior() {
 });
 
 /**
+ * Records a download and returns the collector that saw the enterprise pings
+ * submitted meanwhile.
+ *
+ * @param {object} download A stand-in for a Download.
+ * @returns {EnterprisePingCollector}
+ */
+function recordFileDownloaded(download) {
+  Services.fog.testResetFOG();
+  using collector = new EnterprisePingCollector(
+    Glean.downloads.downloadCompleted
+  );
+  DownloadsTelemetryEnterprise.recordFileDownloaded(download);
+  return collector;
+}
+
+/**
  * Test that enterprise telemetry records and parses download data correctly.
  */
 add_task(async function test_enterprise_data_parsing() {
-  // Record a download with complete data
-  const mockDownload = {
+  const events = recordFileDownloaded(MOCK_DOWNLOAD).events;
+
+  // Verify the telemetry was recorded correctly
+  Assert.equal(events.length, 1, "Should record exactly one event");
+
+  const event = events[0];
+  Assert.ok(event.extra, "Event should have extra data");
+
+  // Verify all fields are parsed correctly
+  Assert.equal(
+    event.extra.filename,
+    "document.pdf",
+    "Should extract correct filename"
+  );
+  Assert.equal(
+    event.extra.file_path,
+    "/home/user/Downloads/document.pdf",
+    "Should record correct file path"
+  );
+  Assert.equal(
+    event.extra.extension,
+    "pdf",
+    "Should extract correct extension"
+  );
+  Assert.equal(
+    event.extra.mime_type,
+    "application/pdf",
+    "Should preserve MIME type"
+  );
+  Assert.equal(
+    event.extra.sha256_hash,
+    "1234567890abcdef1234567890abcdeffedcba0987654321fedcba0987654321",
+    "Should record hex SHA 256 hash"
+  );
+  Assert.equal(
+    event.extra.size_bytes,
+    "12345",
+    "Should record correct file size"
+  );
+  Assert.equal(
+    event.extra.source_url,
+    "https://example.com/secure/document.pdf?token=abc123",
+    "Should record full URL by default"
+  );
+  Assert.equal(
+    event.extra.is_private,
+    "false",
+    "Should record private browsing status"
+  );
+
+  // Verify filename extraction works with Windows-style backslash paths
+  const windowsEvents = recordFileDownloaded({
     target: {
-      path: "/home/user/Downloads/document.pdf",
+      path: "C:\\Users\\user\\Downloads\\document.pdf",
       size: 12345,
     },
-    source: {
-      url: "https://example.com/secure/document.pdf?token=abc123",
-      isPrivate: false,
-    },
+    source: { url: "https://example.com/document.pdf", isPrivate: false },
     contentType: "application/pdf",
-    saver: {
-      getSha256HashHex() {
-        return "1234567890abcdef1234567890abcdeffedcba0987654321fedcba0987654321";
-      },
-    },
-  };
+    saver: MOCK_DOWNLOAD.saver,
+  }).events;
 
-  // Disable ping submission to prevent clearing telemetry data before we can inspect it
+  Assert.equal(
+    windowsEvents.length,
+    1,
+    "Should have recorded an event for Windows path"
+  );
+  Assert.equal(
+    windowsEvents[0].extra.filename,
+    "document.pdf",
+    "Should extract filename from Windows path"
+  );
+  Assert.equal(
+    windowsEvents[0].extra.extension,
+    "pdf",
+    "Should extract extension from Windows path"
+  );
+  Assert.equal(
+    windowsEvents[0].extra.file_path,
+    "C:\\Users\\user\\Downloads\\document.pdf",
+    "Should record Windows path as-is"
+  );
+
+  // Test with edge cases - they should be handled gracefully
+  const edgeCases = [
+    { target: {}, source: {}, contentType: "" },
+    { target: { path: "" }, source: { url: "" } },
+    {
+      target: { path: "/test.pdf", size: 0 },
+      source: { url: "invalid-url", isPrivate: true },
+    },
+  ];
+
+  for (const testCase of edgeCases) {
+    try {
+      recordFileDownloaded(testCase);
+      Assert.ok(
+        true,
+        "recordFileDownloaded handles edge cases without throwing"
+      );
+    } catch (e) {
+      Assert.ok(false, `recordFileDownloaded threw with edge case: ${e}`);
+    }
+  }
+});
+
+add_task(async function test_logging_levels_are_read_from_prefs() {
+  const cases = [
+    {
+      urlLogging: "full",
+      fileLogging: "full",
+      source_url: "https://example.com/secure/document.pdf?token=abc123",
+      filename: "document.pdf",
+      file_path: "/home/user/Downloads/document.pdf",
+      extension: "pdf",
+      mime_type: "application/pdf",
+    },
+    {
+      urlLogging: "domain",
+      fileLogging: "metadata",
+      source_url: "example.com",
+      filename: "",
+      file_path: "",
+      extension: "pdf",
+      mime_type: "application/pdf",
+    },
+    {
+      urlLogging: "none",
+      fileLogging: "none",
+      source_url: "",
+      filename: "",
+      file_path: "",
+      extension: "",
+      mime_type: "",
+    },
+  ];
+
+  try {
+    for (const { urlLogging, fileLogging, ...expected } of cases) {
+      Services.prefs.setCharPref(URL_LOGGING_PREF, urlLogging);
+      Services.prefs.setCharPref(FILE_LOGGING_PREF, fileLogging);
+      const { extra } = recordFileDownloaded(MOCK_DOWNLOAD).events[0];
+      for (const [key, value] of Object.entries(expected)) {
+        Assert.equal(
+          extra[key],
+          value,
+          `${key} with urlLogging ${urlLogging} and fileLogging ${fileLogging}`
+        );
+      }
+    }
+  } finally {
+    Services.prefs.clearUserPref(URL_LOGGING_PREF);
+    Services.prefs.clearUserPref(FILE_LOGGING_PREF);
+  }
+});
+
+add_task(async function test_disabled_records_nothing() {
+  // head.js enables the recorder for this directory; without that user pref
+  // it is off by default.
+  try {
+    Services.prefs.clearUserPref(ENABLED_PREF);
+    recordFileDownloaded(MOCK_DOWNLOAD).assertNothingRecorded(
+      "Should not record without an enabling policy"
+    );
+
+    Services.prefs.setBoolPref(ENABLED_PREF, false);
+    recordFileDownloaded(MOCK_DOWNLOAD).assertNothingRecorded(
+      "Should not record when disabled"
+    );
+  } finally {
+    Services.prefs.setBoolPref(ENABLED_PREF, true);
+  }
+});
+
+add_task(async function test_removed_testing_pref_is_inert() {
+  // The pref that once let tests turn submission off must not affect it.
   Services.prefs.setBoolPref(
     "browser.download.enterprise.telemetry.testing.disableSubmit",
     true
   );
-
   try {
-    DownloadsTelemetryEnterprise.recordFileDownloaded(mockDownload);
-
-    // Verify the telemetry was recorded correctly
-    // Note: downloadCompleted events are sent to the "enterprise" ping
-    const events = Glean.downloads.downloadCompleted.testGetValue("enterprise");
-    Assert.ok(events, "Should have recorded events");
-    Assert.equal(events.length, 1, "Should record exactly one event");
-
-    const event = events[0];
-    Assert.ok(event.extra, "Event should have extra data");
-
-    // Verify all fields are parsed correctly
     Assert.equal(
-      event.extra.filename,
-      "document.pdf",
-      "Should extract correct filename"
+      recordFileDownloaded(MOCK_DOWNLOAD).submitCount,
+      1,
+      "The ping is submitted regardless of the pref"
     );
-    Assert.equal(
-      event.extra.file_path,
-      "/home/user/Downloads/document.pdf",
-      "Should record correct file path"
-    );
-    Assert.equal(
-      event.extra.extension,
-      "pdf",
-      "Should extract correct extension"
-    );
-    Assert.equal(
-      event.extra.mime_type,
-      "application/pdf",
-      "Should preserve MIME type"
-    );
-    Assert.equal(
-      event.extra.sha256_hash,
-      "1234567890abcdef1234567890abcdeffedcba0987654321fedcba0987654321",
-      "Should record hex SHA 256 hash"
-    );
-    Assert.equal(
-      event.extra.size_bytes,
-      "12345",
-      "Should record correct file size"
-    );
-    Assert.equal(
-      event.extra.source_url,
-      "https://example.com/secure/document.pdf?token=abc123",
-      "Should record full URL by default"
-    );
-    Assert.equal(
-      event.extra.is_private,
-      "false",
-      "Should record private browsing status"
-    );
-
-    // Verify filename extraction works with Windows-style backslash paths
-    Services.fog.testResetFOG();
-
-    DownloadsTelemetryEnterprise.recordFileDownloaded({
-      target: {
-        path: "C:\\Users\\user\\Downloads\\document.pdf",
-        size: 12345,
-      },
-      source: { url: "https://example.com/document.pdf", isPrivate: false },
-      contentType: "application/pdf",
-      saver: mockDownload.saver,
-    });
-
-    const windowsEvents =
-      Glean.downloads.downloadCompleted.testGetValue("enterprise");
-    Assert.ok(windowsEvents, "Should have recorded events for Windows path");
-    Assert.equal(
-      windowsEvents[0].extra.filename,
-      "document.pdf",
-      "Should extract filename from Windows path"
-    );
-    Assert.equal(
-      windowsEvents[0].extra.extension,
-      "pdf",
-      "Should extract extension from Windows path"
-    );
-    Assert.equal(
-      windowsEvents[0].extra.file_path,
-      "C:\\Users\\user\\Downloads\\document.pdf",
-      "Should record Windows path as-is"
-    );
-
-    // Test with edge cases - they should be handled gracefully
-    Services.fog.testResetFOG();
-
-    const edgeCases = [
-      { target: {}, source: {}, contentType: "" },
-      { target: { path: "" }, source: { url: "" } },
-      {
-        target: { path: "/test.pdf", size: 0 },
-        source: { url: "invalid-url", isPrivate: true },
-      },
-    ];
-
-    for (const testCase of edgeCases) {
-      try {
-        DownloadsTelemetryEnterprise.recordFileDownloaded(testCase);
-        Assert.ok(
-          true,
-          "recordFileDownloaded handles edge cases without throwing"
-        );
-      } catch (e) {
-        Assert.ok(false, `recordFileDownloaded threw with edge case: ${e}`);
-      }
-    }
   } finally {
-    // Clear the testing pref
     Services.prefs.clearUserPref(
       "browser.download.enterprise.telemetry.testing.disableSubmit"
     );
