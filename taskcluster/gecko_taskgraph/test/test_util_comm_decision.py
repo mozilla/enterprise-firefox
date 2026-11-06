@@ -9,7 +9,9 @@ import pytest
 from mozunit import main
 from taskgraph.parameters import Parameters
 
+from gecko_taskgraph.actions import registry
 from gecko_taskgraph.util import comm_decision
+from gecko_taskgraph.util import taskgraph as util_taskgraph
 
 DECISION_ID = "DDDDDDDDDDDDDDDDDDDDDD"
 COMM_DECISION_ID = "XXXXXXXXXXXXXXXXXXXXXX"
@@ -345,6 +347,43 @@ def test_no_redirect_on_gecko_graph(monkeypatch, task_definitions):
     assert not comm_decision.redirect_action_to_child_graph(
         "taskcluster", DECISION_ID, None, PARAMS
     )
+
+
+def test_find_decision_task_child(monkeypatch, graph_config):
+    found = []
+    monkeypatch.setattr(
+        util_taskgraph, "find_task_id", lambda index: found.append(index) or "id"
+    )
+    util_taskgraph.find_decision_task(COMM_PARAMS, graph_config)
+    util_taskgraph.find_decision_task(PARAMS, graph_config)
+    assert found == [
+        f"{CHILD_INDEX}-decision",
+        f"enterprise.v2.enterprise-firefox.revision.{REV}.taskgraph.decision",
+    ]
+
+
+def test_child_actions_json(graph_config):
+    """The actions of a child graph use the top-level repository's hooks."""
+    comm_config = copy.deepcopy(graph_config)
+    comm_config._config["project-repo-param-prefix"] = "comm_"
+    actions = registry.render_actions_json(
+        Parameters(strict=False, **COMM_PARAMS), comm_config, COMM_DECISION_ID
+    )["actions"]
+    gecko_actions = registry.render_actions_json(
+        Parameters(strict=False, **PARAMS), graph_config, DECISION_ID
+    )["actions"]
+    action = actions[0]
+    assert action["hookId"] == gecko_actions[0]["hookId"]
+    decision = action["hookPayload"]["decision"]
+    assert decision["action"]["taskGroupId"] == COMM_DECISION_ID
+    assert decision["repository"] == {
+        "url": PARAMS["head_repository"],
+        "project": "enterprise-firefox",
+        "level": "3",
+        "base_url": PARAMS["base_repository"],
+    }
+    assert decision["push"]["revision"] == REV
+    assert decision["push"]["base_revision"] == PARAMS["base_rev"]
 
 
 if __name__ == "__main__":
