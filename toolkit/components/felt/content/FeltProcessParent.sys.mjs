@@ -1527,11 +1527,12 @@ export class FeltProcessParent extends JSProcessActorParent {
 
   getAllCookies() {
     lazy.log.debug(
-      `collecting cookies from privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID}`
+      `collecting cookies from privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID} userContextId=0`
     );
     return Services.cookies.getCookiesWithOriginAttributes(
       JSON.stringify({
         privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
+        userContextId: 0,
       })
     );
   }
