@@ -615,7 +615,7 @@ SettingGroupManager.registerGroups({
       {
         id: "notificationSettingsEntry",
         control: "moz-box-button",
-        l10nId: "notifications-entry-manage-button",
+        l10nId: "notifications-entry-manage-button-empty",
         loadPane: "notifications",
       },
     ],

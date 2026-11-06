@@ -754,6 +754,19 @@ nsresult nsHttpChannel::PrepareToConnect() {
     return enabled;
   };
 
+  auto deviceOnlyForCurrentContainer = [&]() {
+    uint32_t containerId = mLoadInfo->GetOriginAttributes().mUserContextId;
+    bool deviceOnly = Preferences::GetBool(
+        nsPrintfCString("network.http.microsoft-entra-sso.device-only.%u",
+                        containerId)
+            .get(),
+        StaticPrefs::network_http_microsoft_entra_sso_device_only());
+
+    LOG(("Device-only for container %u is %d\n", containerId, deviceOnly));
+
+    return deviceOnly;
+  };
+
 #endif  // defined(XP_WIN) || defined(XP_MACOSX)
 
 #ifdef XP_WIN
@@ -767,7 +780,7 @@ nsresult nsHttpChannel::PrepareToConnect() {
     if ((type == ExtContentPolicy::TYPE_DOCUMENT ||
          type == ExtContentPolicy::TYPE_SUBDOCUMENT) &&
         prefEnabledForCurrentContainer()) {
-      AddWindowsSSO(this);
+      AddWindowsSSO(this, deviceOnlyForCurrentContainer());
     }
   }
 #endif
@@ -806,7 +819,8 @@ nsresult nsHttpChannel::PrepareToConnect() {
         }
       };
 
-      nsresult rv = AddMicrosoftEntraSSO(this, std::move(resultCallback));
+      nsresult rv = AddMicrosoftEntraSSO(this, deviceOnlyForCurrentContainer(),
+                                         std::move(resultCallback));
 
       // Returns NS_OK if performRequests is called in MicrosoftEntraSSOUtils
       // This temporarily stops the channel setup for the delegate.
@@ -1617,45 +1631,8 @@ nsresult nsHttpChannel::ContinueConnect() {
 }
 
 nsresult nsHttpChannel::DoConnect(HttpTransactionShell* aTransWithStickyConn) {
-  LOG(("nsHttpChannel::DoConnect [this=%p]\n", this));
-
-  if (!mDNSBlockingPromise.IsEmpty()) {
-    LOG(("  waiting for DNS prefetch"));
-
-    // Transaction is passed only from auth retry for which we will definitely
-    // not block on DNS to alter the origin server name for IP; it has already
-    // been done.
-    MOZ_ASSERT(!aTransWithStickyConn);
-    MOZ_ASSERT(mDNSBlockingThenable);
-
-    nsCOMPtr<nsISerialEventTarget> target(do_GetMainThread());
-    RefPtr<nsHttpChannel> self(this);
-    mDNSBlockingThenable->Then(
-        target, __func__,
-        [self](const nsCOMPtr<nsIDNSRecord>& aRec) {
-          nsresult rv = self->DoConnectActual(nullptr);
-          if (NS_FAILED(rv)) {
-            self->CloseCacheEntry(false);
-            (void)self->AsyncAbort(rv);
-          }
-        },
-        [self](nsresult err) {
-          self->CloseCacheEntry(false);
-          (void)self->AsyncAbort(err);
-        });
-
-    // The connection will continue when the promise is resolved in
-    // OnLookupComplete.
-    return NS_OK;
-  }
-
-  return DoConnectActual(aTransWithStickyConn);
-}
-
-nsresult nsHttpChannel::DoConnectActual(
-    HttpTransactionShell* aTransWithStickyConn) {
-  LOG(("nsHttpChannel::DoConnectActual [this=%p, aTransWithStickyConn=%p]\n",
-       this, aTransWithStickyConn));
+  LOG(("nsHttpChannel::DoConnect [this=%p, aTransWithStickyConn=%p]\n", this,
+       aTransWithStickyConn));
 
   nsresult rv = SetupChannelForTransaction();
   if (NS_FAILED(rv)) {
@@ -9505,10 +9482,12 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
     if (NS_SUCCEEDED(rv)) return NS_OK;
   }
 
-  // If this is a system principal request to an essential domain and we
-  // currently have connectivity, then check if there's a fallback domain we
-  // can use to retry. If so we redirect to the fallback domain.
-  if (NS_FAILED(mStatus) && !mCanceled && IsInternalSystemLoad(mLoadInfo)) {
+  // If this is a system principal request to an essential domain, we are not
+  // shutting down and we currently have connectivity, then check if there's a
+  // fallback domain we can use to retry. If so we redirect to the fallback
+  // domain.
+  if (NS_FAILED(mStatus) && !mCanceled && IsInternalSystemLoad(mLoadInfo) &&
+      gHttpHandler->Active()) {
     if (StaticPrefs::network_essential_domains_fallback() &&
         hasConnectivity()) {
       auto passDomainCategory = [&](nsIChannel* aRedirectedChannel) {
@@ -9522,6 +9501,8 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
       };
 
       if (nsCOMPtr<nsIURI> fallbackURI = GetFallbackURI(mURI)) {
+        PushRedirectAsyncFunc(
+            &nsHttpChannel::ContinueOnStartRequestAfterFallback);
         rv = StartRedirectChannelToURI(fallbackURI,
                                        nsIChannelEventSink::REDIRECT_INTERNAL,
                                        passDomainCategory);
@@ -9533,9 +9514,29 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
                                         "httpchannel-fallback", nullptr);
           return NS_OK;
         }
+        PopRedirectAsyncFunc(
+            &nsHttpChannel::ContinueOnStartRequestAfterFallback);
       }
     }
   }
+
+  return ContinueOnStartRequestWithoutFallback();
+}
+
+nsresult nsHttpChannel::ContinueOnStartRequestAfterFallback(nsresult aResult) {
+  if (NS_SUCCEEDED(aResult)) {
+    // The fallback channel took over; this one is canceled by the redirect
+    // handling code.
+    return NS_OK;
+  }
+
+  // The redirect to the fallback domain failed, so report this channel's own
+  // result to the listener.
+  return ContinueOnStartRequestWithoutFallback();
+}
+
+nsresult nsHttpChannel::ContinueOnStartRequestWithoutFallback() {
+  nsresult rv = NS_OK;
 
   // avoid crashing if mListener happens to be null...
   if (!mListener) {
@@ -11601,15 +11602,6 @@ nsHttpChannel::OnLookupComplete(nsICancelable* request, nsIDNSRecord* rec,
     mCaps &= ~NS_HTTP_REFRESH_DNS;
     if (mTransaction) {
       mTransaction->SetDNSWasRefreshed();
-    }
-  }
-
-  if (!mDNSBlockingPromise.IsEmpty()) {
-    if (NS_SUCCEEDED(status)) {
-      nsCOMPtr<nsIDNSRecord> record(rec);
-      mDNSBlockingPromise.Resolve(record, __func__);
-    } else {
-      mDNSBlockingPromise.Reject(status, __func__);
     }
   }
 

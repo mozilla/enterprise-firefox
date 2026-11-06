@@ -827,7 +827,7 @@ pref("browser.urlbar.contextualSearch.enabled", true);
 pref("browser.urlbar.addons.featureGate", false);
 
 // Feature gate pref for semanticHistory
-#if defined(EARLY_BETA_OR_EARLIER) || defined(MOZ_DEV_EDITION)
+#ifdef NIGHTLY_BUILD
 pref("places.semanticHistory.featureGate", true);
 #else
 pref("places.semanticHistory.featureGate", false);
@@ -1046,10 +1046,6 @@ pref("browser.search.serpEventTelemetryCategorization.enabled", true);
 // but not yet submitted in a ping. Needed to prevent sending a ping with only
 // experiment info (and not actual SERP categorizations) at startup.
 pref("browser.search.serpMetricsRecordedCounter", 0);
-
-// Search Bar removal from the toolbar for users who haven’t used it in 120
-// days
-pref("browser.search.widget.removeAfterDaysUnused", 120);
 
 // Feature gate for searchbar based on urlbar code.
 pref("browser.search.widget.new", true);
@@ -2657,6 +2653,10 @@ pref("browser.smartwindow.smartbarMentions.loglevel", "Error");
 pref("browser.smartwindow.telemetryLogLevel", "Error");
 
 pref("browser.widgets.generated.enabled", false);
+pref(
+  "sidebar.newTool.migration.widgets",
+  '{"visibilityPref":"browser.widgets.generated.enabled"}'
+);
 pref("browser.widgets.generated.loglevel", "Warn");
 pref("browser.widgets.generated.endpoint", "");
 pref("browser.widgets.generated.apiKey", "");

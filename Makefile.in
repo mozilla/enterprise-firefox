@@ -112,11 +112,6 @@ default::
 	@echo "==================="
 endif
 
-ifdef MOZ_CRASHREPORTER
-include $(topsrcdir)/toolkit/mozapps/installer/package-name.mk
-
-endif
-
 .PHONY: prepsymbolsarchive
 prepsymbolsarchive:
 	echo packing symbols
@@ -170,9 +165,6 @@ package-generated-sources:
 
 ifdef JS_STANDALONE
 # Delegate js-specific rules to js
-check-%:
-	$(MAKE) -C js/src $@
-
 install:
 	$(MAKE) -C js/src $@
 

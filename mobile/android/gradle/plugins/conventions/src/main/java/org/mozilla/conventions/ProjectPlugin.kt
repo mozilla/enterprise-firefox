@@ -10,6 +10,7 @@ import com.android.build.api.dsl.CommonExtension
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.api.variant.FilterConfiguration
 import org.gradle.api.Action
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
@@ -53,7 +54,6 @@ import java.util.concurrent.Callable
 import java.util.zip.ZipFile
 
 class ProjectPlugin : Plugin<Project> {
-    @Suppress("UNCHECKED_CAST")
     override fun apply(project: Project) {
         val mozilla = project.extensions.create("mozilla", ProjectExtension::class.java)
         mozilla.androidComponentsProject.convention(false)
@@ -63,10 +63,10 @@ class ProjectPlugin : Plugin<Project> {
         mozilla.detektReports.convention(emptyMap())
 
         val extraProperties = project.gradle.extensions.extraProperties
-        val mozconfig = extraProperties["mozconfig"] as Map<String, Any>
+        val mozconfig = extraProperties["mozconfig"] as Map<*, *>
         val topsrcdir = mozconfig["topsrcdir"] as String
         val topobjdir = mozconfig["topobjdir"] as String
-        val substs = mozconfig["substs"] as Map<String, Any>
+        val substs = mozconfig["substs"] as Map<*, *>
         val configureMavenRepositories = extraProperties["configureMavenRepositories"] as groovy.lang.Closure<*>
 
         project.repositories.apply {
@@ -85,6 +85,7 @@ class ProjectPlugin : Plugin<Project> {
         configureKtfmt(project, mozilla)
         configureDetekt(project, mozilla)
         configureAndroidComponentsLint(project, mozilla, topsrcdir)
+        configureRoomImplementationCheck(project)
         configureUnitTests(project)
         configurePackagingResourcesExcludes(project)
         configureBuildMetadata(project)
@@ -131,7 +132,7 @@ class ProjectPlugin : Plugin<Project> {
     private fun configureAppServicesSubstitution(
         project: Project,
         extraProperties: org.gradle.api.plugins.ExtraPropertiesExtension,
-        substs: Map<String, Any>,
+        substs: Map<*, *>,
     ) {
         // Only substitute when the a-s subprojects are part of this Gradle build:
         // either :geckoview is included (so the a-s subprojects are too), or we're
@@ -168,7 +169,7 @@ class ProjectPlugin : Plugin<Project> {
     // Extract native libs from libsForTests JARs so transitive .so dependencies
     // (e.g. libmozsqlite3.so needed by libmegazord.so) can be found by the OS
     // dynamic linker during JVM unit tests.
-    private fun configureNativeLibsForTests(project: Project, substs: Map<String, Any>) {
+    private fun configureNativeLibsForTests(project: Project, substs: Map<*, *>) {
         if (substs["DOWNLOAD_ALL_GRADLE_DEPENDENCIES"].isTruthy()) {
             return
         }
@@ -348,7 +349,7 @@ class ProjectPlugin : Plugin<Project> {
         }
     }
 
-    private fun configureAndroidBuildToolsVersion(project: Project, substs: Map<String, Any>) {
+    private fun configureAndroidBuildToolsVersion(project: Project, substs: Map<*, *>) {
         val buildToolsVersion = substs["ANDROID_BUILD_TOOLS_VERSION"] as String
         project.pluginManager.withPlugin("com.android.base") {
             project.extensions.getByType<CommonExtension>().buildToolsVersion = buildToolsVersion
@@ -554,6 +555,27 @@ class ProjectPlugin : Plugin<Project> {
         project.pluginManager.withPlugin("com.android.application", action)
     }
 
+    private fun configureRoomImplementationCheck(project: Project) {
+        project.pluginManager.withPlugin("com.google.devtools.ksp") {
+            val schemas = project.file("schemas")
+            val kspOutputs = project.layout.buildDirectory.dir("generated/ksp").get().asFile
+            val kspTask = Regex("ksp(\\w+)Kotlin")
+            project.tasks.configureEach {
+                val variant = kspTask.matchEntire(name)?.groupValues?.get(1)?.replaceFirstChar { it.lowercase() }
+                if (variant == null || variant.contains("Test")) return@configureEach
+                doLast {
+                    val missing = missingRoomImplementations(
+                        schemas.listFiles().orEmpty().filter { it.isDirectory }.map { it.name },
+                        File(kspOutputs, variant).walk().filter { it.isFile }.map { it.name }.toList(),
+                    )
+                    if (missing.isNotEmpty()) {
+                        throw GradleException("$path ran but Room generated no implementation for ${missing.joinToString()}")
+                    }
+                }
+            }
+        }
+    }
+
     private fun configureUnitTests(project: Project) {
         val automation = project.providers.environmentVariable("MOZ_AUTOMATION").isPresent
         val fetches = project.providers.environmentVariable("MOZ_FETCHES_DIR")
@@ -730,5 +752,17 @@ abstract class ExtractNativeLibsForTests : TransformAction<ExtractNativeLibsForT
                     }
                 }
         }
+    }
+}
+
+/**
+ * Returns the Room databases, named by their exported schema directories (fully qualified class names), that have
+ * no `_Impl` class among [generatedFiles], the file names KSP generated for one variant.
+ */
+internal fun missingRoomImplementations(databases: List<String>, generatedFiles: List<String>): List<String> {
+    val generated = generatedFiles.map { it.substringBeforeLast('.') }
+    return databases.filterNot { database ->
+        val impl = "${database.substringAfterLast('.')}_Impl"
+        generated.any { it == impl || it.endsWith("_$impl") }
     }
 }

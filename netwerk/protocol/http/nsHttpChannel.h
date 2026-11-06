@@ -50,8 +50,6 @@ namespace net {
 class nsChannelClassifier;
 class HttpChannelSecurityWarningReporter;
 
-using DNSPromise = MozPromise<nsCOMPtr<nsIDNSRecord>, nsresult, false>;
-
 //-----------------------------------------------------------------------------
 // nsHttpChannel
 //-----------------------------------------------------------------------------
@@ -404,6 +402,8 @@ class nsHttpChannel final : public HttpBaseChannel,
   void ProcessSSLInformation();
   bool IsHTTPS();
 
+  [[nodiscard]] nsresult ContinueOnStartRequestAfterFallback(nsresult);
+  [[nodiscard]] nsresult ContinueOnStartRequestWithoutFallback();
   [[nodiscard]] nsresult ContinueOnStartRequest1(nsresult);
   [[nodiscard]] nsresult ContinueOnStartRequest2(nsresult);
   [[nodiscard]] nsresult ContinueOnStartRequest3(nsresult);
@@ -472,8 +472,6 @@ class nsHttpChannel final : public HttpBaseChannel,
           aContinueOnStopRequestFunc);
   [[nodiscard]] MOZ_NEVER_INLINE nsresult
   DoConnect(HttpTransactionShell* aTransWithStickyConn = nullptr);
-  [[nodiscard]] nsresult DoConnectActual(
-      HttpTransactionShell* aTransWithStickyConn);
   [[nodiscard]] nsresult ContinueOnStopRequestAfterAuthRetry(
       nsresult aStatus, bool aAuthRetry, bool aIsFromNet, bool aContentComplete,
       HttpTransactionShell* aTransWithStickyConn);
@@ -916,14 +914,6 @@ class nsHttpChannel final : public HttpBaseChannel,
   bool mBypassCacheWriterSet{false};
 
   TimeStamp mNavigationStartTimeStamp;
-
-  // Promise that blocks connection creation when we want to resolve the
-  // origin host name to be able to give the configured proxy only the
-  // resolved IP to not leak names.
-  MozPromiseHolder<DNSPromise> mDNSBlockingPromise;
-  // When we hit DoConnect before the resolution is done, Then() will be set
-  // here to resume DoConnect.
-  RefPtr<DNSPromise> mDNSBlockingThenable;
 
   // We update the value of mProxyConnectResponseHead when OnStartRequest is
   // called and reset the value when we switch to another failover proxy. It is

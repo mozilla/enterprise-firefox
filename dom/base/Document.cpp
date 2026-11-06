@@ -4624,6 +4624,9 @@ void Document::SetDocumentURI(nsIURI* aURI) {
   if (!equalBases) {
     mCachedURLData = nullptr;
     RefreshLinkHrefs();
+    if (mSpeculationRules) {
+      mSpeculationRules->UpdateForBaseURLChange();
+    }
   }
 
   // Tell our WindowGlobalParent that the document's URI has been changed.
@@ -7631,6 +7634,9 @@ void Document::SetBaseURI(nsIURI* aURI) {
   mDocumentBaseURI = aURI;
   mCachedURLData = nullptr;
   RefreshLinkHrefs();
+  if (mSpeculationRules) {
+    mSpeculationRules->UpdateForBaseURLChange();
+  }
 }
 
 Result<OwningNonNull<nsIURI>, nsresult> Document::ResolveWithBaseURI(
@@ -19943,20 +19949,28 @@ void Document::ScheduleResizeObserversNotification() {
   MaybeScheduleRenderingPhases({RenderingPhase::Layout});
 }
 
-static void FlushLayoutForWholeBrowsingContextTree(Document& aDoc,
-                                                   const ChangesToFlush& aCtf) {
+static MOZ_CAN_RUN_SCRIPT void FlushLayoutForSingleDocument(
+    Document& aDoc, const ChangesToFlush& aCtf) {
+  if (RefPtr ps = aDoc.GetPresShell(); ps && ps->DidInitialize()) {
+    ps->FlushPendingNotifications(aCtf);
+  }
+}
+
+static MOZ_CAN_RUN_SCRIPT void FlushLayoutForWholeBrowsingContextTree(
+    Document& aDoc, const ChangesToFlush& aCtf) {
   BrowsingContext* bc = aDoc.GetBrowsingContext();
   if (bc && bc->GetExtantDocument() == &aDoc) {
     RefPtr<BrowsingContext> top = bc->Top();
-    top->PreOrderWalk([aCtf](BrowsingContext* aCur) {
-      if (Document* doc = aCur->GetExtantDocument()) {
-        doc->FlushPendingNotifications(aCtf);
-      }
-    });
+    top->PreOrderWalk([aCtf](BrowsingContext* aCur)
+                          MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA {
+                            if (RefPtr doc = aCur->GetExtantDocument()) {
+                              FlushLayoutForSingleDocument(*doc, aCtf);
+                            }
+                          });
   } else {
     // If there is no browsing context, or we're not the current document of the
     // browsing context, then we just flush this document itself.
-    aDoc.FlushPendingNotifications(aCtf);
+    FlushLayoutForSingleDocument(aDoc, aCtf);
   }
 }
 
@@ -21427,7 +21441,9 @@ Document::AutomaticStorageAccessPermissionCanBeGranted(
     ContentChild* cc = ContentChild::GetSingleton();
     MOZ_ASSERT(cc);
 
-    return cc->SendAutomaticStorageAccessPermissionCanBeGranted(NodePrincipal())
+    return cc
+        ->SendAutomaticStorageAccessPermissionCanBeGranted(
+            WrapNotNull(NodePrincipal()))
         ->Then(GetCurrentSerialEventTarget(), __func__,
                [](const ContentChild::
                       AutomaticStorageAccessPermissionCanBeGrantedPromise::

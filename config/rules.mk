@@ -102,19 +102,6 @@ LINK_PDBFILE = $(basename $@).pdb
 endif
 endif
 
-ifeq ($(CC_TYPE),clang-cl)
-
-ifdef SIMPLE_PROGRAMS
-COMPILE_PDB_FLAG ?= -Fd$(basename $(@F)).pdb
-COMPILE_CFLAGS += $(COMPILE_PDB_FLAG)
-COMPILE_CXXFLAGS += $(COMPILE_PDB_FLAG)
-endif
-
-ifdef MOZ_DEBUG
-CODFILE=$(basename $(@F)).cod
-endif
-
-endif # CC_TYPE == clang-cl
 endif # WINNT
 
 ifeq ($(OS_ARCH),WINNT)
@@ -209,26 +196,6 @@ endif
 # TAG_PROGRAM := ctags -L -
 #
 TAG_PROGRAM		= xargs etags -a
-
-#
-# MacOS X specific stuff
-#
-
-ifeq ($(OS_ARCH),Darwin)
-ifneq (,$(SHARED_LIBRARY))
-_LOADER_PATH := @rpath
-EXTRA_DSO_LDOPTS	+= -dynamiclib -install_name $(_LOADER_PATH)/$(@F) -compatibility_version 1 -current_version 1
-endif
-endif
-
-#
-# MINGW32
-#
-ifeq ($(OS_ARCH),WINNT)
-ifneq ($(CC_TYPE),clang-cl)
-DSO_LDOPTS += -Wl,--out-implib -Wl,$(IMPORT_LIBRARY)
-endif
-endif
 
 ifeq ($(USE_TVFS),1)
 IFLAGS1 = -rb
@@ -462,7 +429,7 @@ $(SHARED_LIBRARY): $(OBJS) $(call resfile,$(SHARED_LIBRARY)) $(STATIC_LIBS) $(GL
 	$(REPORT_BUILD)
 	$(call BUILDSTATUS,START_SharedLib $@)
 	$(RM) $@
-	$(MKSHLIB) $(if $(filter clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH)),-IMPLIB:$(basename $(@F)).lib )$($(notdir $@)_OBJS) $(filter %.res,$^) $(RELRHACK_LDFLAGS) $(LDFLAGS) $(STATIC_LIBS) $(SHARED_LIBS) $(EXTRA_DSO_LDOPTS) $(OS_LIBS)
+	$(MKSHLIB) $($(notdir $@)_OBJS) $(filter %.res,$^) $(RELRHACK_LDFLAGS) $(LDFLAGS) $(STATIC_LIBS) $(SHARED_LIBS) $(EXTRA_DSO_LDOPTS) $(OS_LIBS)
 	$(call py_action,check_binary,$@)
 
 ifeq (clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH))
@@ -491,13 +458,13 @@ $(OBJS) $(HOST_OBJS) $(PROGOBJS) $(HOST_PROGOBJS): $(GLOBAL_DEPS)
 $(HOST_COBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(HOST_CC) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CFLAGS) $(NSPR_CFLAGS) $<
+	$(HOST_CC) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CFLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(HOST_CPPOBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(HOST_CXX) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CXXFLAGS) $(NSPR_CFLAGS) $<
+	$(HOST_CXX) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CXXFLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(COBJS):
