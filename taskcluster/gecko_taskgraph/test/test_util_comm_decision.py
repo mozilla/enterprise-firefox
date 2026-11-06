@@ -12,7 +12,11 @@ from taskgraph.parameters import Parameters
 from gecko_taskgraph.util import comm_decision
 
 DECISION_ID = "DDDDDDDDDDDDDDDDDDDDDD"
+COMM_DECISION_ID = "XXXXXXXXXXXXXXXXXXXXXX"
+ACTION_ID = "AAAAAAAAAAAAAAAAAAAAAA"
+COMM_TASK_ID = "TTTTTTTTTTTTTTTTTTTTTT"
 REV = "8a7d396c7a8bfb881c82226b8fa85636611cfe84"
+CHILD_INDEX = f"enterprise.v2.enterprise-firefox.revision.{REV}.taskgraph.comm"
 
 PARAMS = {
     "base_repository": "https://github.com/mozilla/enterprise-firefox",
@@ -27,6 +31,17 @@ PARAMS = {
     "repository_type": "git",
     "tasks_for": "github-push",
 }
+COMM_PARAMS = dict(
+    PARAMS,
+    project="enterprise-thunderbird",
+    comm_base_repository="https://github.com/thunderbird/thunderbird-desktop",
+    comm_base_ref="refs/heads/main",
+    comm_base_rev="b38b9f797b910623b3b552ef7b400382fa177c42",
+    comm_head_repository="https://github.com/thunderbird/thunderbird-desktop",
+    comm_head_ref="refs/heads/main",
+    comm_head_rev="b38b9f797b910623b3b552ef7b400382fa177c42",
+    child_graph={"project": "enterprise-firefox", "index": CHILD_INDEX},
+)
 
 
 def make_definition(command_args, env, routes, extra):
@@ -111,6 +126,32 @@ DECISION_DEF = make_definition(
     },
 )
 
+ACTION_DEF = make_definition(
+    "action-callback",
+    {
+        "ACTION_TASK_GROUP_ID": DECISION_ID,
+        "ACTION_TASK_ID": json.dumps(COMM_TASK_ID),
+        "ACTION_INPUT": "{}",
+        "ACTION_CALLBACK": "retrigger",
+    },
+    [
+        "checks",
+        f"tc-treeherder.v2.enterprise-main.{REV}",
+        f"index.enterprise.v2.enterprise-firefox.revision.{REV}.taskgraph.actions.{ACTION_ID}",
+    ],
+    {
+        "tasks_for": "action",
+        "parent": DECISION_ID,
+        "action": {"name": "retrigger"},
+        "treeherder": {
+            "machine": {"platform": "gecko-decision"},
+            "groupSymbol": "AC",
+            "symbol": "rt",
+        },
+    },
+)
+
+
 COMM_REV_FILE_CONTENT = """\
 base-repository: https://github.com/thunderbird/thunderbird-desktop
 head-repository: https://github.com/thunderbird/thunderbird-desktop
@@ -130,7 +171,11 @@ def task_definitions(monkeypatch, tmp_path):
     comm_rev = tmp_path / ".comm_rev.yml"
     comm_rev.write_text(COMM_REV_FILE_CONTENT)
     monkeypatch.setattr(comm_decision, "COMM_REV_FILE", str(comm_rev))
-    definitions = {DECISION_ID: DECISION_DEF}
+    definitions = {
+        DECISION_ID: DECISION_DEF,
+        ACTION_ID: ACTION_DEF,
+        COMM_TASK_ID: {"taskGroupId": COMM_DECISION_ID},
+    }
     monkeypatch.setattr(
         comm_decision,
         "get_task_definition",
@@ -161,6 +206,10 @@ def test_make_comm_decision_task(monkeypatch, graph_config, task_definitions):
         "https://github.com/thunderbird/thunderbird-desktop"
     )
     assert env["COMM_HEAD_REF"] == "refs/heads/main"
+    assert json.loads(env["TASKGRAPH_CHILD_GRAPH"]) == {
+        "project": "enterprise-firefox",
+        "index": CHILD_INDEX,
+    }
     assert json.loads(env["REPOSITORIES"]) == comm_decision.REPOSITORIES
 
     command = task["payload"]["command"]
@@ -178,7 +227,7 @@ def test_make_comm_decision_task(monkeypatch, graph_config, task_definitions):
         "checks",
         f"tc-treeherder.v2.enterprise-main.{REV}",
         "index.enterprise.v2.enterprise-firefox.branch.enterprise-main.latest.taskgraph.comm-decision",
-        f"index.enterprise.v2.enterprise-firefox.revision.{REV}.taskgraph.comm-decision",
+        f"index.{CHILD_INDEX}-decision",
     ]
     assert task["extra"]["treeherder"] == {
         "machine": {"platform": "gecko-decision"},
@@ -236,6 +285,66 @@ def test_make_comm_decision_task_try(monkeypatch, graph_config, task_definitions
     script = taskdesc["task"]["payload"]["command"][-1]
     assert "--project=enterprise-thunderbird-try" in script
     assert "--allow-parameter-override" in script
+
+
+@pytest.mark.parametrize(
+    "task_group_id,parameters",
+    (
+        # From the Taskcluster UI: the action comes from the comm decision task.
+        (COMM_DECISION_ID, COMM_PARAMS),
+        # From Treeherder: the action comes from the Gecko decision task.
+        (DECISION_ID, PARAMS),
+    ),
+)
+def test_redirect_action_to_child_graph(
+    monkeypatch, task_definitions, task_group_id, parameters
+):
+    import gecko_taskgraph.actions.util as actions_util
+
+    monkeypatch.setenv("TASK_ID", ACTION_ID)
+    monkeypatch.setattr(
+        actions_util,
+        "get_parameters",
+        lambda task_id: {COMM_DECISION_ID: COMM_PARAMS}[task_id],
+    )
+    created = []
+    monkeypatch.setattr(
+        actions_util,
+        "create_tasks",
+        lambda graph_config, to_run, graph, label_to_taskid, params, decision_task_id: (
+            created.append((graph[to_run[0]].task, decision_task_id))
+        ),
+    )
+
+    assert comm_decision.redirect_action_to_child_graph(
+        "taskcluster", task_group_id, COMM_TASK_ID, parameters
+    )
+    ((task, group),) = created
+    env = task["payload"]["env"]
+    assert group == COMM_DECISION_ID
+    assert env["ACTION_TASK_GROUP_ID"] == COMM_DECISION_ID
+    assert env["ACTION_CALLBACK"] == "retrigger"
+    assert env["GECKO_HEAD_REV"] == REV
+    assert env["COMM_HEAD_REV"] == COMM_PARAMS["comm_head_rev"]
+    assert task["scopes"] == ACTION_DEF["scopes"]
+    assert "action-callback --root=comm/taskcluster" in task["payload"]["command"][-1]
+    assert task["routes"] == [
+        "checks",
+        f"tc-treeherder.v2.enterprise-main.{REV}",
+        {"task-reference": f"index.{CHILD_INDEX}-actions.<self>"},
+    ]
+    assert task["extra"]["treeherder"]["symbol"] == "rt-comm"
+
+
+def test_no_redirect_on_gecko_graph(monkeypatch, task_definitions):
+    task_definitions[COMM_TASK_ID] = {"taskGroupId": DECISION_ID}
+    monkeypatch.setenv("TASK_ID", ACTION_ID)
+    assert not comm_decision.redirect_action_to_child_graph(
+        "taskcluster", DECISION_ID, COMM_TASK_ID, PARAMS
+    )
+    assert not comm_decision.redirect_action_to_child_graph(
+        "taskcluster", DECISION_ID, None, PARAMS
+    )
 
 
 if __name__ == "__main__":
