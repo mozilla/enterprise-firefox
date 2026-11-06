@@ -54,6 +54,11 @@ COMM_PROJECTS = {
     "enterprise-firefox-try": "enterprise-thunderbird-try",
 }
 
+# Try pushes select comm tasks in this file, next to `try_task_config.json`
+# which selects the Gecko tasks (and `comm-decision`). The two graphs share
+# many labels, so they cannot share a task list.
+COMM_TRY_TASK_CONFIG = "comm_try_task_config.json"
+
 # Environment variable holding the `child_graph` parameter for the comm
 # decision task, see `get_decision_parameters` in gecko_taskgraph.decision.
 CHILD_GRAPH_ENV = "TASKGRAPH_CHILD_GRAPH"
@@ -304,9 +309,12 @@ def make_comm_decision_task(graph_config, params):
     # tasks.
     args += get_cron_decision_options(original["payload"]["command"][-1])
     # The Gecko decision task allows parameter overrides on development
-    # repositories (try).
+    # repositories (try), the comm one takes them from its own file.
     if "--allow-parameter-override" in original["payload"]["command"][-1]:
-        args.append("--allow-parameter-override")
+        args += [
+            "--allow-parameter-override",
+            f"--try-task-config-file={COMM_TRY_TASK_CONFIG}",
+        ]
 
     routes, child_index = get_comm_decision_routes(original["routes"])
 
