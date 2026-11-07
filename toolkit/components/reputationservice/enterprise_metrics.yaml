@@ -8,17 +8,18 @@
 ---
 $schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
 $tags:
-  - 'Firefox :: Enterprise Policies'
+  - 'Toolkit :: Safe Browsing'
 
-#ifdef MOZ_ENTERPRISE
-content_policy:
-  blocklist_domain_browsed:
+safebrowsing:
+  download:
     type: event
     data_sensitivity:
       - highly_sensitive
     description: >
-      Recorded when a domain blocked by policy is browsed.
-      Only collected when MOZ_ENTERPRISE is defined and enabled.
+      Recorded when download protection (the Google Safe Browsing download
+      protection API) flags a download as unsafe, regardless of whether the
+      configured block prefs cause the download to be blocked. Only collected
+      when MOZ_ENTERPRISE is defined and enabled.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
     data_reviews:
@@ -32,15 +33,11 @@ content_policy:
     extra_keys:
       url:
         description: >
-          The url that was blocked by policy.
+          The source URL the download originated from. When the complete URL is
+          recorded, any password in it is masked.
         type: string
-      original_url:
+      verdict:
         description: >
-          The original url, prior to redirects, that was requested resulting in a block,
-          if different from the blocked url.
+          The download protection verdict: "dangerous", "dangerous_host",
+          "uncommon", or "potentially_unwanted".
         type: string
-      referrer:
-        description: >
-          The referrer address from which the url was requested.
-        type: string
-#endif

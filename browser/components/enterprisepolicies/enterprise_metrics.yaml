@@ -8,22 +8,20 @@
 ---
 $schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
 $tags:
-  - 'Enterprise Products :: Firefox'
+  - 'Firefox :: Enterprise Policies'
 
-#ifdef MOZ_ENTERPRISE
-access_connector:
-  proxy_error:
+content_policy:
+  blocklist_domain_browsed:
     type: event
+    data_sensitivity:
+      - highly_sensitive
     description: >
-      Recorded when the Access Connector proxy error state is shown to the
-      user (urlbar button enters error state due to a proxy connection failure).
+      Recorded when a domain blocked by policy is browsed.
       Only collected when MOZ_ENTERPRISE is defined and enabled.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
-    data_sensitivity:
-      - highly_sensitive
     notification_emails:
       - security-telemetry@mozilla.org
       - enterprise-telemetry@mozilla.org
@@ -31,9 +29,16 @@ access_connector:
     send_in_pings:
       - enterprise
     extra_keys:
-      domain:
+      url:
         description: >
-          The hostname of the site that failed to load through the Access
-          Connector proxy.
+          The url that was blocked by policy.
         type: string
-#endif
+      original_url:
+        description: >
+          The original url, prior to redirects, that was requested resulting in a block,
+          if different from the blocked url.
+        type: string
+      referrer:
+        description: >
+          The referrer address from which the url was requested.
+        type: string
