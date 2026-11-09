@@ -109,7 +109,7 @@ Http2StreamBase::Http2StreamBase(uint64_t aTransactionBrowserId,
   mServerReceiveWindow = session->GetServerInitialStreamWindow();
   mClientReceiveWindow = session->PushAllowance();
 
-  mTxInlineFrame = MakeUnique<uint8_t[]>(mTxInlineFrameSize);
+  mTxInlineFrame = std::make_unique<uint8_t[]>(mTxInlineFrameSize);
 
   static_assert(nsISupportsPriority::PRIORITY_LOWEST <= kNormalPriority,
                 "Lowest Priority should be less than kNormalPriority");

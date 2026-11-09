@@ -4,9 +4,13 @@
 
 // eslint-disable-next-line no-unused-vars
 import React, { useCallback } from "react";
-import { useSelector, batch } from "react-redux";
+import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
-import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
+import {
+  WIDGET_REGISTRY,
+  resolveWidgetFrame,
+  resolveWidgetSize,
+} from "common/WidgetsRegistry.mjs";
 import { WidgetMenuButton } from "../WidgetMenuButton";
 import { WidgetMenuFooter } from "../WidgetMenuFooter";
 import { WidgetMenuPoweredBy } from "../WidgetMenuPoweredBy";
@@ -42,6 +46,12 @@ const Horoscopes = ({
   widgetEnabledMap,
 }) => {
   const prefs = useSelector(state => state.Prefs.values);
+  const framedWidgets = useSelector(state => state.FramedWidgets);
+  const { src, state: frameState } = resolveWidgetFrame(
+    HOROSCOPES_ENTRY,
+    prefs,
+    framedWidgets
+  );
 
   const widgetSize = resolveWidgetSize(HOROSCOPES_ENTRY, prefs);
 
@@ -61,22 +71,20 @@ const Horoscopes = ({
 
   const handleChangeSize = useCallback(
     size => {
-      batch(() => {
-        dispatch(
-          ac.OnlyToMain({
-            type: at.SET_PREF,
-            data: { name: HOROSCOPES_ENTRY.sizePref, value: size },
-          })
-        );
-        // `value` is action_value; `size` overrides the reported widget_size,
-        // which would otherwise still be the pre-change size.
-        recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
-          source: "context_menu",
-          value: size,
-          size,
-        });
-        handleInteraction();
+      dispatch(
+        ac.OnlyToMain({
+          type: at.SET_PREF,
+          data: { name: HOROSCOPES_ENTRY.sizePref, value: size },
+        })
+      );
+      // `value` is action_value; `size` overrides the reported widget_size,
+      // which would otherwise still be the pre-change size.
+      recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
+        source: "context_menu",
+        value: size,
+        size,
       });
+      handleInteraction();
     },
     [dispatch, recordUserAction, handleInteraction]
   );
@@ -86,6 +94,10 @@ const Horoscopes = ({
     recordUserAction(USER_ACTION_TYPES.LEARN_MORE, { source: "context_menu" });
     handleInteraction();
   };
+
+  if (frameState === "hidden") {
+    return null;
+  }
 
   return (
     <article
@@ -149,8 +161,16 @@ const Horoscopes = ({
         </div>
       </div>
 
-      {/* The widget iframe goes here. */}
-      <div className="horoscopes-body" />
+      <div className="horoscopes-body">
+        <iframe
+          className="horoscopes-frame"
+          aria-labelledby="horoscopes-widget-label"
+          src={src}
+          // Same sandbox as the Crossword frame, including allow-same-origin,
+          // which is under the same security review.
+          sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+        />
+      </div>
     </article>
   );
 };

@@ -185,6 +185,12 @@ class EditorBase : public nsIEditor,
   }
 
   /**
+   * Like GetSelection(), but returns null for non-normal selections that
+   * weren't created yet instead of creating them.
+   */
+  Selection* GetExistingSelection(SelectionType aSelectionType) const;
+
+  /**
    * Get frame selection from SelectionRef(), but returns null
    * for canvas-based EditContext, where we don't want to touch
    * the DOM selection (since it may be in accessible content.)

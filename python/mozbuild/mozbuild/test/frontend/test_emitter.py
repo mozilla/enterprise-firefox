@@ -8,7 +8,7 @@ import unittest
 import mozpack.path as mozpath
 from mozunit import main
 
-from mozbuild.frontend.context import ObjDirPath, Path, SourcePath
+from mozbuild.frontend.context import CompileFlags, LinkFlags, ObjDirPath, SourcePath
 from mozbuild.frontend.data import (
     ComputedFlags,
     ConfigFileSubstitution,
@@ -17,6 +17,7 @@ from mozbuild.frontend.data import (
     Defines,
     DirectoryTraversal,
     Exports,
+    FinalTargetFiles,
     FinalTargetPreprocessedFiles,
     GeneratedFile,
     Headers,
@@ -25,7 +26,6 @@ from mozbuild.frontend.data import (
     HostRustProgram,
     HostSources,
     IPDLCollection,
-    JARManifest,
     LocalInclude,
     LocalizedFiles,
     LocalizedPreprocessedFiles,
@@ -224,6 +224,26 @@ class TestEmitterBasic(unittest.TestCase):
         self.assertEqual(flags.flags["MOZBUILD_CFLAGS"], ["-Os", "-funroll-loops"])
         self.assertEqual(flags.flags["MOZBUILD_CXXFLAGS"], ["-funroll-loops", "-Os"])
 
+    def test_lto_flags(self):
+        reader = self.reader(
+            "compile-flags",
+            extra_substs={
+                "MOZ_LTO_CFLAGS": ["-flto=thin"],
+                "MOZ_LTO_LDFLAGS": ["-flto=thin"],
+            },
+        )
+        sources, ldflags, lib, flags = self.read_topsrcdir(reader)
+        compile_flags = dict(flags.get_flags())
+        for var in ("CFLAGS", "CXXFLAGS", "CMFLAGS", "CMMFLAGS"):
+            self.assertEqual(compile_flags[var][0], "-flto=thin")
+        self.assertEqual(dict(ldflags.get_flags())["LDFLAGS"][0], "-flto=thin")
+
+    def test_lto_flags_unset(self):
+        reader = self.reader("compile-flags")
+        sources, ldflags, lib, flags = self.read_topsrcdir(reader)
+        self.assertEqual(flags.get_flags(), flags.get_flags(exclude=("LTO",)))
+        self.assertEqual(ldflags.get_flags(), ldflags.get_flags(exclude=("LTO",)))
+
     def test_win32_exe_default_ldflags(self):
         reader = self.reader(
             "host-compile-flags",
@@ -250,6 +270,67 @@ class TestEmitterBasic(unittest.TestCase):
         reader = self.reader("compile-flags")
         sources, ldflags, lib, flags = self.read_topsrcdir(reader)
         self.assertEqual(ldflags.flags["MACOS_RPATH"], [])
+
+    def test_pgo_flags(self):
+        reader = self.reader(
+            "compile-flags",
+            extra_substs={
+                "MOZ_PROFILE_GENERATE": "1",
+                "PROFILE_GEN_CFLAGS": ["-fprofile-generate"],
+                "PROFILE_GEN_LDFLAGS": ["-fprofile-generate"],
+            },
+        )
+        sources, ldflags, lib, flags = self.read_topsrcdir(reader)
+        self.assertEqual(flags.flags["PGO"], ["-fprofile-generate"])
+        self.assertEqual(flags.flags["PGO_DEFINES"], ["-DNS_FREE_PERMANENT_DATA=1"])
+        self.assertEqual(ldflags.flags["PGO"], ["-fprofile-generate"])
+
+    def test_pgo_flags_profile_use(self):
+        reader = self.reader(
+            "compile-flags",
+            extra_substs={
+                "MOZ_PROFILE_USE": "1",
+                "PROFILE_USE_CFLAGS": ["-fprofile-use"],
+                "PROFILE_USE_LDFLAGS": ["-fprofile-use"],
+            },
+        )
+        sources, ldflags, lib, flags = self.read_topsrcdir(reader)
+        self.assertEqual(flags.flags["PGO"], ["-fprofile-use"])
+        self.assertEqual(flags.flags["PGO_DEFINES"], [])
+        self.assertEqual(ldflags.flags["PGO"], ["-fprofile-use"])
+
+    def test_pgo_flags_off(self):
+        reader = self.reader("compile-flags")
+        sources, ldflags, lib, flags = self.read_topsrcdir(reader)
+        self.assertEqual(flags.flags["PGO"], [])
+        self.assertEqual(flags.flags["PGO_DEFINES"], [])
+        self.assertEqual(ldflags.flags["PGO"], [])
+
+    def _assert_pgo_compile_flags_skipped(self, name):
+        reader = self.reader(
+            name,
+            extra_substs={
+                "MOZ_PROFILE_GENERATE": "1",
+                "PROFILE_GEN_CFLAGS": ["-fprofile-generate"],
+                "PROFILE_GEN_LDFLAGS": ["-fprofile-generate"],
+            },
+        )
+        objs = self.read_topsrcdir(reader)
+        computed = [o.flags for o in objs if isinstance(o, ComputedFlags)]
+        (compile_flags,) = [f for f in computed if isinstance(f, CompileFlags)]
+        (link_flags,) = [f for f in computed if isinstance(f, LinkFlags)]
+        self.assertEqual(compile_flags["PGO"], [])
+        self.assertEqual(compile_flags["PGO_DEFINES"], [])
+        self.assertEqual(link_flags["PGO"], ["-fprofile-generate"])
+
+    def test_pgo_flags_simple_programs(self):
+        self._assert_pgo_compile_flags_skipped("program")
+
+    def test_pgo_flags_cpp_unit_tests(self):
+        self._assert_pgo_compile_flags_skipped("pgo-cpp-unit-tests")
+
+    def test_pgo_flags_no_pgo(self):
+        self._assert_pgo_compile_flags_skipped("pgo-no-pgo")
 
     def test_per_source_object_deps(self):
         reader = self.reader("per-source-object-deps")
@@ -391,6 +472,17 @@ class TestEmitterBasic(unittest.TestCase):
         )
         self.assertEqual(host_flags.flags["MOZBUILD_HOST_CXXFLAGS"], [])
         self.assertEqual(host_ldflags.flags["MOZBUILD"], ["-Wl,--gc-sections"])
+
+    def test_host_compile_flags_nspr(self):
+        reader = self.reader(
+            "host-compile-flags", extra_substs={"NSPR_CFLAGS": ["-I/obj/nspr"]}
+        )
+        sources, ldflags, host_flags, host_ldflags, lib, target_flags = (
+            self.read_topsrcdir(reader)
+        )
+        flags = dict(host_flags.get_flags())
+        self.assertEqual(flags["HOST_CFLAGS"][-1], "-I/obj/nspr")
+        self.assertEqual(flags["HOST_CXXFLAGS"][-1], "-I/obj/nspr")
 
     def test_host_no_optimize_flags(self):
         reader = self.reader(
@@ -919,6 +1011,16 @@ class TestEmitterBasic(unittest.TestCase):
             ],
         )
 
+    def test_host_program_lto_object_path_flags(self):
+        reader = self.reader(
+            "host-program-paths", extra_substs={"MOZ_LTO_OBJECT_PATH": "1"}
+        )
+        objs = self.read_topsrcdir(reader)
+        self.assertEqual(
+            [o.lto_object_path_flags for o in objs if isinstance(o, HostProgram)],
+            [[], [], []],
+        )
+
     def test_test_manifest_missing_manifest(self):
         """A missing manifest file should result in an error."""
         reader = self.reader("test-manifest-missing-manifest")
@@ -1255,13 +1357,65 @@ class TestEmitterBasic(unittest.TestCase):
         self.assertEqual(defines, expected)
 
     def test_jar_manifests(self):
+        """An application tree jar manifest becomes ordinary installs."""
         reader = self.reader("jar-manifests")
         objs = self.read_topsrcdir(reader)
 
         self.assertEqual(len(objs), 1)
+        obj = objs[0]
+        self.assertIsInstance(obj, FinalTargetFiles)
+        self.assertEqual(obj.install_target, "dist/bin")
+        self.assertEqual(
+            [dest for dest, _ in obj.files.walk() if dest],
+            ["chrome/test/content/test"],
+        )
+
+    def test_jar_manifests_pp_files_extra_deps(self):
+        """A preprocessed jar entry reads what PP_FILES_EXTRA_DEPS names."""
+        reader = self.reader("jar-manifests-pp-extra-deps")
+        objs = self.read_topsrcdir(reader)
+
+        self.assertEqual(len(objs), 1)
+        obj = objs[0]
+        self.assertIsInstance(obj, FinalTargetPreprocessedFiles)
+        self.assertEqual(
+            [mozpath.basename(d.full_path) for d in obj.extra_deps], ["generated.h"]
+        )
+
+    def test_jar_manifests_non_application(self):
+        """Any install target is expanded, not only the application tree."""
+        reader = self.reader("jar-manifests-non-application")
+        objs = self.read_topsrcdir(reader)
+
+        files = [o for o in objs if isinstance(o, FinalTargetFiles)]
+        self.assertEqual(len(files), 1)
+        self.assertEqual(files[0].install_target, "_tests/jar-manifests")
+
+    def test_jar_manifests_pattern_in_subdir(self):
+        """A pattern resolves beside the jar.mn, like a plain source."""
+        reader = self.reader("jar-manifests-subdirectory")
+        objs = self.read_topsrcdir(reader)
+
+        files = [o for o in objs if isinstance(o, FinalTargetFiles)]
+        self.assertEqual(len(files), 1)
+        sources = [f for _, entries in files[0].files.walk() for f in entries]
+        self.assertEqual(len(sources), 1)
+        self.assertEqual(
+            mozpath.normsep(sources[0].full_path),
+            mozpath.join(mozpath.normsep(reader.config.topsrcdir), "sub/assets/**"),
+        )
+
+    def test_jar_manifests_empty(self):
+        """A jar.mn with no section is still a build input."""
+        reader = self.reader("jar-manifests-empty")
+        objs = self.read_topsrcdir(reader, filter_common=False)
+
+        recorded = set()
         for obj in objs:
-            self.assertIsInstance(obj, JARManifest)
-            self.assertIsInstance(obj.path, Path)
+            recorded |= {mozpath.normsep(p) for p in obj.context_all_paths}
+        self.assertIn(
+            mozpath.join(mozpath.normsep(reader.config.topsrcdir), "jar.mn"), recorded
+        )
 
     def test_jar_manifests_multiple_files(self):
         with self.assertRaisesRegex(SandboxValidationError, "limited to one value"):
@@ -1673,6 +1827,14 @@ class TestEmitterBasic(unittest.TestCase):
             SandboxValidationError,
             "Test.cpp from UNIFIED_SOURCES would have the same object name as"
             " Test.c from UNIFIED_SOURCES in non-unified builds\\.",
+        ):
+            self.read_topsrcdir(reader)
+
+    def test_xpi_pkgname_without_xpi_name(self):
+        """An archive packages a staging area, and only XPI_NAME makes one."""
+        reader = self.reader("xpi-pkgname-without-xpi-name")
+        with self.assertRaisesRegex(
+            SandboxValidationError, "XPI_PKGNAME set but XPI_NAME not set"
         ):
             self.read_topsrcdir(reader)
 

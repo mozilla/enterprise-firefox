@@ -14,6 +14,7 @@ import android.widget.FrameLayout
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.VisibleForTesting
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -65,7 +67,6 @@ import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.modifier.thenConditional
 import mozilla.components.compose.base.snackbar.Snackbar
 import mozilla.components.compose.base.snackbar.displaySnackbar
-import mozilla.components.compose.browser.toolbar.store.BrowserToolbarState
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarStore
 import mozilla.components.concept.engine.utils.ABOUT_HOME_URL
 import mozilla.components.concept.sync.AccountObserver
@@ -191,9 +192,12 @@ import org.mozilla.fenix.search.awesomebar.AwesomeBarComposable
 import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
 import org.mozilla.fenix.tabgroups.TabGroupsStrip
+import org.mozilla.fenix.tabgroups.strip.TabGroupsStripScrollViewModel
+import org.mozilla.fenix.tabgroups.strip.observeSelectedTabForNavigation
 import org.mozilla.fenix.tabgroups.strip.redux.TabGroupsStripAction
 import org.mozilla.fenix.tabgroups.strip.redux.TabGroupsStripMiddleware
 import org.mozilla.fenix.tabgroups.strip.redux.TabGroupsStripStore
+import org.mozilla.fenix.tabgroups.strip.redux.TabGroupsStripTelemetryMiddleware
 import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.ui.AccessPoint
 import org.mozilla.fenix.termsofuse.store.DefaultPrivacyNoticeBannerRepository
@@ -208,7 +212,7 @@ import org.mozilla.fenix.trackingprotection.TrackersBlockedFeature
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.allowUndo
 import org.mozilla.fenix.utils.getUndoDelay
-import org.mozilla.fenix.utils.showAddSearchWidgetPromptIfSupported
+import org.mozilla.fenix.utils.maybeShowAddSearchWidgetPrompt
 import org.mozilla.fenix.wallpapers.LocalWallpaperState
 import org.mozilla.fenix.wallpapers.Wallpaper
 
@@ -220,6 +224,8 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
     @VisibleForTesting internal lateinit var bundleArgs: Bundle
 
     private val homeViewModel: HomeScreenViewModel by activityViewModels()
+
+    private val tabGroupsStripScrollViewModel: TabGroupsStripScrollViewModel by activityViewModels()
 
     private val snackbarHostState = SnackbarHostState()
 
@@ -259,8 +265,12 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                 listOf(
                     TabGroupsStripMiddleware(
                         tabDataCoordinator = requireComponents.tabDataCoordinator,
+                        isHomepageAsNewTabEnabled = { context?.components?.settings?.enableHomepageAsNewTab ?: false },
                         scope = lifecycleScope,
-                    )
+                    ),
+                    TabGroupsStripTelemetryMiddleware(
+                        isHomepageAsNewTabEnabled = { context?.components?.settings?.enableHomepageAsNewTab ?: false }
+                    ),
                 )
         )
     }
@@ -307,7 +317,6 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
     private val ipProtectionWarningBinding = ViewBoundFeatureWrapper<IPProtectionWarningBinding>()
     private val continuousOnboardingFeature = ViewBoundFeatureWrapper<ContinuousOnboardingFeature>()
 
-    private val homepageEdgeToEdgeFeature = ViewBoundFeatureWrapper<HomepageEdgeToEdgeFeature>()
     private var qrScanFenixFeature: ViewBoundFeatureWrapper<QrScanFenixFeature>? = ViewBoundFeatureWrapper()
     private val qrScanLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -384,6 +393,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         bundleArgs = args.toBundle()
         if (savedInstanceState != null) {
             bundleArgs.putBoolean(FOCUS_ON_ADDRESS_BAR, false)
+            bundleArgs.remove(SESSION_TO_START_SEARCH_FOR)
         }
         bundleArgs.getString(SESSION_TO_DELETE)?.let {
             homeViewModel.sessionToDelete = it
@@ -465,25 +475,9 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
     private fun buildToolbar(activity: HomeActivity, view: View): FenixHomeToolbar {
         val toolbarStore by buildToolbarStore(activity)
 
-        if (homepageEdgeToEdgeFeature.get() == null) {
-            homepageEdgeToEdgeFeature.set(
-                feature =
-                    HomepageEdgeToEdgeFeature(
-                        appStore = requireComponents.appStore,
-                        activity = activity,
-                        settings = activity.components.settings,
-                        browsingModeManager = browsingModeManager,
-                        toolbarStore = toolbarStore,
-                    ),
-                owner = viewLifecycleOwner,
-                view = view,
-            )
-        }
-
         homeNavigationBar =
             HomeNavigationBar(
                 toolbarStore = toolbarStore,
-                appStore = activity.components.appStore,
                 browsingModeManager = activity.browsingModeManager,
                 settings = activity.components.settings,
                 hideWhenKeyboardShown = true,
@@ -502,11 +496,11 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                     startSearch =
                         bundleArgs.getBoolean(FOCUS_ON_ADDRESS_BAR) || FxNimbus.features.oneClickSearch.value().enabled,
                     startVoiceSearch = bundleArgs.getBoolean(START_VOICE_SEARCH),
-                    sessionId = args.sessionToStartSearchFor,
+                    sessionId = bundleArgs.getString(SESSION_TO_START_SEARCH_FOR),
                     source = args.searchAccessPoint,
                 ),
             coroutineScope = view.toScope(),
-            tabStripContent = { TabStrip(toolbarStore) },
+            tabStripContent = { TabStrip() },
             searchSuggestionsContent = { modifier ->
                 (awesomeBarComposable ?: initializeAwesomeBarComposable(toolbarStore, modifier))?.SearchSuggestions()
             },
@@ -529,7 +523,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
             val messagingFeature =
                 MessagingFeature(
                     appStore = requireComponents.appStore,
-                    surface = FenixMessageSurfaceId.HOMESCREEN,
+                    surfaces = listOf(FenixMessageSurfaceId.HOMESCREEN),
                 )
             messagingFeatureHomescreen.set(
                 feature = messagingFeature,
@@ -549,7 +543,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
             val messagingFeature =
                 MessagingFeature(
                     appStore = requireComponents.appStore,
-                    surface = FenixMessageSurfaceId.MICROSURVEY,
+                    surfaces = listOf(FenixMessageSurfaceId.MICROSURVEY),
                 )
             messagingFeatureMicrosurvey.set(
                 feature = messagingFeature,
@@ -574,7 +568,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                 .navigate(NavGraphDirections.actionGlobalUnlockPrivateTabsFragment(NavigationOrigin.HOME_PAGE))
         }
 
-        toolbarView.build(requireComponents.settings.enableHomepageSearchBar)
+        toolbarView.build(requireComponents.settings.isHomepageMiddleSearchEnabled)
 
         requireComponents.appStore.state.wasLastTabClosedPrivate?.also {
             showUndoSnackbar(requireContext().tabClosedUndoMessage(it))
@@ -602,6 +596,12 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
 
         if (requireComponents.settings.shouldShowTabGroupsStrip) {
             tabGroupsStripStore.dispatch(TabGroupsStripAction.InitializeDataObservation)
+            observeSelectedTabForNavigation(
+                fragment = this,
+                store = requireComponents.core.store,
+                currentDestinationId = R.id.homeFragment,
+                directions = HomeFragmentDirections.actionGlobalBrowser(null),
+            )
         }
 
         privacyNoticeBannerStore =
@@ -642,7 +642,10 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
      */
     private fun isToolbarSwipeToSwitchTabsEnabled(): Boolean =
         with(requireComponents.settings) {
-            isSwipeToolbarToSwitchTabsEnabled && !isTabStripEnabled && enableHomepageAsNewTab
+            isSwipeToolbarToSwitchTabsEnabled &&
+                !isTabStripEnabled &&
+                !shouldShowTabGroupsStrip &&
+                enableHomepageAsNewTab
         }
 
     @Suppress("ReturnCount")
@@ -712,32 +715,32 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
 
                 val isPrivateMode = appState.value.mode.isPrivate
                 val currentWallpaper = appState.value.wallpaperState.currentWallpaper
-                val universalEdgeToEdge = settings.enableUniversalEdgeToEdgeWallpapers
                 val showToolbarScrim = shouldShowToolbarScrim(appState.value)
                 var topBarHeight by remember { mutableIntStateOf(0) }
                 var bottomBarHeight by remember { mutableIntStateOf(0) }
                 val fadeContentEdges = isOverUniversalEdgeToEdgeWallpaper(appState.value)
+                val searchBackgroundColor = toolbarView.searchBackgroundColor()
 
-                LaunchedEffect(currentWallpaper.name, isPrivateMode, universalEdgeToEdge) {
-                    if (universalEdgeToEdge) {
-                        applyWallpaperSystemBarsTheme(activity as HomeActivity, settings, isPrivateMode)
-                    }
+                LaunchedEffect(currentWallpaper.name, isPrivateMode, searchBackgroundColor) {
+                    applyWallpaperSystemBarsTheme(
+                        activity = activity as HomeActivity,
+                        settings = settings,
+                        isPrivateMode = isPrivateMode,
+                        searchBackgroundColor = searchBackgroundColor,
+                    )
                 }
 
                 CompositionLocalProvider(LocalWallpaperState provides appState.value.wallpaperState) {
-                    Box(
-                        modifier =
-                            Modifier.fillMaxSize().thenConditional(
-                                // Without the universal treatment the wallpaper is inset by the system
-                                // bars; with it, the wallpaper stays edge-to-edge and only the Scaffold
-                                // content is inset (below).
-                                Modifier.systemBarsPadding().displayCutoutPadding()
-                            ) {
-                                !universalEdgeToEdge
-                            }
-                    ) {
+                    // The wallpaper stays edge-to-edge and only the Scaffold content is inset (below).
+                    Box(modifier = Modifier.fillMaxSize()) {
                         if (!isPrivateMode) {
                             WallpaperBackground(currentWallpaper)
+                        }
+
+                        if (searchBackgroundColor != null && searchBackgroundColor.alpha > 0f) {
+                            // The search screen is laid out inside the system bars and display cutout, which can be
+                            // on any edge, so cover the whole wallpaper with its background.
+                            Box(modifier = Modifier.fillMaxSize().background(searchBackgroundColor))
                         }
 
                         if (showToolbarScrim) {
@@ -748,12 +751,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                         }
 
                         Scaffold(
-                            modifier =
-                                Modifier.fillMaxSize()
-                                    .thenConditional(Modifier.systemBarsPadding().displayCutoutPadding()) {
-                                        universalEdgeToEdge
-                                    }
-                                    .imePadding(),
+                            modifier = Modifier.fillMaxSize().systemBarsPadding().displayCutoutPadding().imePadding(),
                             topBar = {
                                 HomeTopBar(
                                     settings = settings,
@@ -846,11 +844,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         captureToolbarBounds: Boolean,
         modifier: Modifier = Modifier,
     ) {
-        val bottomChromeColors =
-            homepageToolbarColors(
-                isPrivateMode = isPrivateMode,
-                shouldUseEdgeToEdgeColors = isEdgeToEdgeBackgroundEnabled(),
-            )
+        val bottomChromeColors = homepageToolbarColors(isPrivateMode = isPrivateMode, shouldUseEdgeToEdgeColors = true)
         Box(modifier = modifier) {
             if (isToolbarAtTop) {
                 HomeNavigationBottomBar(settings, captureToolbarBounds, bottomChromeColors)
@@ -867,9 +861,11 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         captureToolbarBounds: Boolean,
         colors: ColorScheme,
     ) {
+        val isSearchActive = requireComponents.appStore.observeAsComposableState { it.searchState.isSearchActive }.value
         ToolbarSlot(captureToolbarBounds, { navbarBoundsInRoot = it }) {
             TopDividerColumn(
-                showDivider = settings.shouldShowTabStripAtBottom || settings.shouldShowTabGroupsStrip,
+                showDivider =
+                    (settings.shouldShowTabStripAtBottom && !isSearchActive) || settings.shouldShowTabGroupsStrip,
                 modifier = Modifier.fillMaxWidth(),
                 dividerColor = colors.outlineVariant,
             ) {
@@ -877,7 +873,12 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                     TabStrip()
                 }
                 if (settings.shouldShowTabGroupsStrip) {
-                    TabGroupsStrip(store = tabGroupsStripStore, containerColor = colors.surface)
+                    TabGroupsStrip(
+                        store = tabGroupsStripStore,
+                        listState = tabGroupsStripScrollViewModel.listState,
+                        showAddButton = settings.enableHomepageAsNewTab,
+                        containerColor = colors.surface,
+                    )
                 }
                 homeNavigationBar?.Content()
             }
@@ -898,7 +899,12 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                 dividerColor = colors.outlineVariant,
             ) {
                 if (settings.shouldShowTabGroupsStrip) {
-                    TabGroupsStrip(store = tabGroupsStripStore, containerColor = colors.surface)
+                    TabGroupsStrip(
+                        store = tabGroupsStripStore,
+                        listState = tabGroupsStripScrollViewModel.listState,
+                        showAddButton = settings.enableHomepageAsNewTab,
+                        containerColor = colors.surface,
+                    )
                 }
                 toolbarView.Content()
             }
@@ -936,22 +942,31 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
     /**
      * Matches the status bar and navigation bar icon appearance to the current wallpaper's text color so they stay
      * legible over the edge-to-edge wallpaper. Falls back to the theme's system bar appearance when there is no
-     * wallpaper text color or while in private browsing mode.
+     * wallpaper text color or while in private browsing mode. While searching, the system bar icons instead contrast
+     * with [searchBackgroundColor], unless it is transparent and the wallpaper shows through.
      */
     private fun applyWallpaperSystemBarsTheme(
         activity: HomeActivity,
         settings: Settings,
         isPrivateMode: Boolean,
+        searchBackgroundColor: Color?,
     ) {
         val wallpaperTextColor = settings.currentWallpaperTextColor
+        val windowInsetsController = activity.window.createWindowInsetsController()
         if (isPrivateMode || wallpaperTextColor == 0L) {
             activity.themeManager.applyStatusBarTheme(activity)
         } else {
             val isLightAppearance = isDark(wallpaperTextColor.toInt())
-            activity.window.createWindowInsetsController().apply {
+            windowInsetsController.apply {
                 isAppearanceLightStatusBars = isLightAppearance
                 isAppearanceLightNavigationBars = isLightAppearance
             }
+        }
+
+        if (searchBackgroundColor != null && searchBackgroundColor.alpha > 0f) {
+            val isLightAppearance = !isDark(searchBackgroundColor.toArgb())
+            windowInsetsController.isAppearanceLightStatusBars = isLightAppearance
+            windowInsetsController.isAppearanceLightNavigationBars = isLightAppearance
         }
     }
 
@@ -999,6 +1014,9 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                 },
                 onTopSitesItemBound = {
                     StartupTimeline.onTopSitesItemBound(activity = (requireActivity() as HomeActivity))
+                },
+                onMiddleSearchBarVisibilityChanged = { isVisible ->
+                    toolbarView.updateAddressBarVisibility(!isVisible)
                 },
                 modifier =
                     Modifier.thenConditional(Modifier.verticalFadingEdges(HOMEPAGE_EDGE_FADE_LENGTH)) {
@@ -1075,9 +1093,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
 
     /** Whether the homepage is drawn over a universal edge-to-edge wallpaper, outside private mode and search. */
     private fun isOverUniversalEdgeToEdgeWallpaper(appState: AppState): Boolean =
-        requireComponents.settings.enableUniversalEdgeToEdgeWallpapers &&
-            !appState.mode.isPrivate &&
-            !appState.searchState.isSearchActive
+        !appState.mode.isPrivate && !appState.searchState.isSearchActive
 
     /** Whether the gradient scrims are drawn behind the homepage toolbars over a universal edge-to-edge wallpaper. */
     private fun shouldShowToolbarScrim(appState: AppState): Boolean =
@@ -1085,12 +1101,14 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
             !Wallpaper.isLocalWallpaper(appState.wallpaperState.currentWallpaper.name)
 
     @Composable
-    private fun TabStrip(toolbarStore: BrowserToolbarStore? = null) {
+    private fun TabStrip() {
+        val isSearchActive = requireComponents.appStore.observeAsComposableState { it.searchState.isSearchActive }.value
+        if (isSearchActive) return
+
         // Tabs will not be shown as selected on the homepage when Homepage as a New Tab is not
         // enabled.
         val isSelectDisabled = !requireComponents.settings.enableHomepageAsNewTab
-        val toolbarState: BrowserToolbarState? = toolbarStore?.observeAsComposableState { it }?.value
-        // Tab strip doesn't show the gradient when displayed over edge to edge wallpaper.
+        // Tab strip doesn't show its background when displayed over edge to edge wallpaper.
         val isOverEdgeToEdgeWallpaper =
             requireComponents.appStore.observeAsComposableState { isOverUniversalEdgeToEdgeWallpaper(it) }.value
 
@@ -1098,13 +1116,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
             TabStrip(
                 isSelectDisabled = isSelectDisabled,
                 showTabCounterButton = false,
-                tabStripColors =
-                    TabStripColors.build(
-                        toolbarState = toolbarState,
-                        browsingModeManager = (requireActivity() as HomeActivity).browsingModeManager,
-                        settings = requireComponents.settings,
-                        isOverEdgeToEdgeWallpaper = isOverEdgeToEdgeWallpaper,
-                    ),
+                tabStripColors = TabStripColors.build(isOverEdgeToEdgeWallpaper = isOverEdgeToEdgeWallpaper),
                 hideWhenKeyboardShown = requireComponents.settings.shouldUseBottomTabStrip,
                 onAddTabClick = {
                     if (requireComponents.settings.enableHomepageAsNewTab) {
@@ -1194,11 +1206,6 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
     override fun onStart() {
         super.onStart()
 
-        val settings = requireComponents.settings
-        if (settings.privateModeAndStoriesEntryPointEnabled) {
-            settings.incrementNewsButtonForegroundCount()
-        }
-
         findNavController().addOnDestinationChangedListener(destinationChangedListener)
 
         subscribeToTabCollections()
@@ -1250,8 +1257,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         lifecycleScope.launch(IO) {
             val settings = components.settings
 
-            val showStories =
-                settings.showPocketRecommendationsFeature || settings.privateModeAndStoriesEntryPointEnabled
+            val showStories = settings.showPocketRecommendationsFeature
 
             val showSponsoredStories = showStories && settings.showPocketSponsoredStories
 
@@ -1398,18 +1404,12 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
      *
      * This function should be called when the fragment's view is active (e.g., in response to a user interaction). It
      * launches a coroutine within the [viewLifecycleOwner]'s [androidx.lifecycle.LifecycleCoroutineScope] to display
-     * the widget prompt using [showAddSearchWidgetPromptIfSupported].
+     * the widget prompt using [maybeShowAddSearchWidgetPrompt].
      */
     private fun showAddSearchWidgetPrompt() {
         viewLifecycleOwner.lifecycleScope.launch {
-            showAddSearchWidgetPromptIfSupported(requireActivity())
+            maybeShowAddSearchWidgetPrompt(requireActivity())
         }
-    }
-
-    internal fun isEdgeToEdgeBackgroundEnabled(): Boolean {
-        val settings = requireComponents.settings
-        return settings.enableHomepageEdgeToEdgeBackgroundFeature &&
-            settings.currentWallpaperName == Wallpaper.EDGE_TO_EDGE
     }
 
     private fun initializeAwesomeBarComposable(
@@ -1425,9 +1425,8 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                 browserStore = requireComponents.core.store,
                 toolbarStore = toolbarStore,
                 navController = findNavController(),
-                tabId = args.sessionToStartSearchFor,
+                tabId = bundleArgs.getString(SESSION_TO_START_SEARCH_FOR),
                 searchAccessPoint = args.searchAccessPoint,
-                isEdgeToEdgeBackgroundEnabled = isEdgeToEdgeBackgroundEnabled(),
             )
             .also {
                 awesomeBarComposable = it
@@ -1832,6 +1831,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         const val FOCUS_ON_ADDRESS_BAR = "focusOnAddressBar"
         const val START_VOICE_SEARCH = "startVoiceSearch"
         private const val SESSION_TO_DELETE = "sessionToDelete"
+        private const val SESSION_TO_START_SEARCH_FOR = "sessionToStartSearchFor"
 
         // Distance over which the homepage content fades out where it meets the toolbars.
         private val HOMEPAGE_EDGE_FADE_LENGTH = 24.dp

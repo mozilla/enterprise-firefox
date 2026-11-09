@@ -320,7 +320,7 @@ function unregisterVacuumParticipant(connectionData) {
  */
 function createLoggerWithPrefix(prefix) {
   return console.createInstance({
-    prefix: `SQLite JSM (${prefix})`,
+    logModule: `SQLite JSM (${prefix})`,
     maxLogLevelPref: "toolkit.sqlitejsm.loglevel",
   });
 }
@@ -1538,6 +1538,24 @@ function openConnection(options) {
           await options.testDelayedOpenPromise;
         }
 
+        let rejectIfClosed = () => {
+          if (!isClosed()) {
+            return false;
+          }
+          connection.asyncClose();
+          reject(
+            new Error(
+              "Sqlite.sys.mjs has been shutdown. Cannot open connection to: " +
+                options.path
+            )
+          );
+          return true;
+        };
+
+        if (rejectIfClosed()) {
+          return;
+        }
+
         if (options.extensions) {
           for (let extension of options.extensions) {
             try {
@@ -1563,14 +1581,7 @@ function openConnection(options) {
           }
         }
 
-        if (isClosed()) {
-          connection.asyncClose();
-          reject(
-            new Error(
-              "Sqlite.sys.mjs has been shutdown. Cannot open connection to: " +
-                options.path
-            )
-          );
+        if (rejectIfClosed()) {
           return;
         }
 

@@ -1393,14 +1393,47 @@ html {
         border-end-end-radius: 0;
         overflow: hidden;
 
+        &.card-stack-image-float {
+          background: var(--card-stack-bkg);
+        }
+
+        &.card-stack-image-bleed {
+          background: var(--card-stack-bkg);
+
+          @container card-stack (width <= #{$card-stack-narrow-width}) {
+            background: var(--card-stack-bkg-uncropped);
+          }
+        }
+
+        &.card-stack-image-banner {
+          background: var(--card-stack-bkg);
+
+          @container card-stack (width <= #{$card-stack-narrow-width}) {
+            background: var(--card-stack-bkg-medium);
+          }
+
+          @container card-stack (width <= #{$card-stack-stacked-width}) {
+            background: var(--card-stack-bkg-small);
+          }
+        }
+
         @container card-stack (width <= #{$card-stack-narrow-width}) {
           width: 180px;
           margin-inline-start: 12px;
+
+          &.card-stack-image-banner {
+            // A banner style image needs to touch the box edge,
+            // we can also compensate for the width so the text
+            // and buttons don't move
+            width: 192px;
+            margin-inline-start: auto;
+            background-position-y: bottom;
+          }
         }
 
         @container card-stack (width <= #{$card-stack-stacked-width}) {
           height: var(--card-stack-secondary-height);
-          margin-block: 12px;
+          margin-block: 12px 0;
           margin-inline: auto;
         }
       }
@@ -1432,11 +1465,16 @@ html {
           padding-block: var(--space-xxlarge);
           width: auto;
 
+          @container card-stack (width <= #{$card-stack-stacked-width}) {
+            padding-block: var(--space-xlarge);
+          }
+
           .main-content-inner {
             justify-content: center;
 
             @container card-stack (width <= #{$card-stack-stacked-width}) {
               align-items: center;
+              padding-block: var(--space-large);
             }
           }
         }
@@ -1487,6 +1525,18 @@ html {
           font-size: var(--font-size-root);
           font-weight: var(--font-weight-semibold);
           line-height: 1;
+        }
+
+        @container card-stack (width <= #{$card-stack-stacked-width}) {
+          flex-direction: column;
+          gap: var(--space-xxsmall);
+          width: 100%;
+
+          .primary,
+          .secondary,
+          .secondary-cta {
+            width: inherit;
+          }
         }
       }
 
@@ -1815,17 +1865,6 @@ html {
 
           .main-content-inner {
             min-height: 330px;
-
-            .mobile-download-buttons {
-              padding: 0;
-              margin-inline-start: -5px;
-              display: flex;
-
-              button {
-                cursor: pointer;
-                border-radius: 0;
-              }
-            }
 
             .qr-code-image {
               margin: 5px 0 10px;
@@ -3783,40 +3822,6 @@ html {
 
       &:hover {
         background: none;
-      }
-    }
-
-    .ios button {
-      background-image: url('chrome://app-marketplace-icons/locale/ios.svg');
-    }
-
-    .android button {
-      background-image: url('chrome://app-marketplace-icons/locale/android.png');
-    }
-  }
-
-  .mobile-download-buttons {
-    list-style: none;
-    padding: 10px 0;
-    margin: 0;
-
-    li {
-      display: inline-block;
-
-      button {
-        display: inline-block;
-        height: 45px;
-        width: 152px;
-        background-repeat: no-repeat;
-        background-size: contain;
-        background-position: center;
-        box-shadow: none;
-        border: 0;
-        border-radius: 0;
-      }
-
-      &:not(:first-child) {
-        margin-inline: 5px 0;
       }
     }
   }

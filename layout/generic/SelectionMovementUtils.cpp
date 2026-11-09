@@ -30,6 +30,50 @@
 
 namespace mozilla {
 using namespace dom;
+
+/******************************************************************************
+ * mozilla::FrameAndOffset
+ *****************************************************************************/
+
+FrameAndOffset FrameAndOffset::GetNonGeneratedFrameAndOffset() const {
+  if (!mFrame || !mFrame->IsGeneratedContentFrame()) {
+    return *this;
+  }
+  nsIFrame* const generatedRootFrame = mFrame->GetGeneratedRootFrame();
+  if (!generatedRootFrame) [[unlikely]] {
+    return {};
+  }
+  nsIContent* const generatedRootContent = generatedRootFrame->GetContent();
+  if (!generatedRootContent) [[unlikely]] {
+    return {};
+  }
+  nsIContent* const generatedContentHost = generatedRootContent->GetParent();
+  if (!generatedContentHost) [[unlikely]] {
+    return {};
+  }
+  nsIFrame* const generatedContentHostPrimaryFrame =
+      generatedContentHost->GetPrimaryFrame();
+  if (NS_WARN_IF(!generatedContentHostPrimaryFrame)) [[unlikely]] {
+    // XXX Should we handle display:contents case here?
+    return {};
+  }
+  const uint32_t offsetInContent = [&]() {
+    if (generatedContentHost->HasChildren() &&
+        nsContentUtils::CompareTreePosition<TreeKind::DOM>(
+            generatedRootContent, generatedContentHost->GetFirstChild(),
+            generatedContentHost) > 0) {
+      // ::after or ::picker-icon in non-empty element
+      return generatedContentHost->GetChildCount();
+    }
+    return 0u;
+  }();
+  return {generatedContentHostPrimaryFrame, offsetInContent};
+}
+
+/******************************************************************************
+ * mozilla::SelectionMovementUtils
+ *****************************************************************************/
+
 template Result<RangeBoundary, nsresult>
 SelectionMovementUtils::MoveRangeBoundaryToSomewhere(
     const RangeBoundary& aRangeBoundary, nsDirection aDirection,
@@ -99,13 +143,19 @@ SelectionMovementUtils::PeekOffsetForCaretMove(
     return Err(NS_ERROR_FAILURE);
   }
 
+  const FrameAndOffset nonGeneratedContentFrameAndOffset =
+      frameForFocus.GetNonGeneratedFrameAndOffset();
+  if (!nonGeneratedContentFrameAndOffset) [[unlikely]] {
+    return Err(NS_ERROR_FAILURE);
+  }
   aOptions += {PeekOffsetOption::JumpLines, PeekOffsetOption::IsKeyboardSelect};
   PeekOffsetStruct pos(
       aAmount, aDirection,
-      static_cast<int32_t>(frameForFocus.mOffsetInFrameContent),
+      static_cast<int32_t>(
+          nonGeneratedContentFrameAndOffset.mOffsetInFrameContent),
       aDesiredCaretPos, aOptions, eDefaultBehavior, aAncestorLimiter);
-  nsresult rv = frameForFocus->PeekOffset(&pos);
-  if (NS_FAILED(rv)) {
+  nsresult rv = nonGeneratedContentFrameAndOffset->PeekOffset(&pos);
+  if (NS_FAILED(rv)) [[unlikely]] {
     return Err(rv);
   }
   return pos;
@@ -233,12 +283,32 @@ bool SelectionMovementUtils::AdjustFrameForLineStart(nsIFrame*& aFrame,
     return false;
   }
 
-  nsIFrame* nextSibling = aFrame->GetNextSibling();
-  if (!nextSibling) {
+  // The terminal newline may have split an ancestor inline, in which case the
+  // next frame is inside a continuation of that ancestor.
+  nsIFrame* const nextSiblingOrFirstFrameInNextLine = [&]() -> nsIFrame* {
+    nsIFrame* f = aFrame;
+    nsIFrame* next = f->GetNextSibling();
+    while (!next) {
+      f = f->GetParent();
+      if (!f || !f->IsLineParticipant()) {
+        return nullptr;  // Reached current block end
+      }
+      next = f->GetNextSibling();
+    }
+    while (next->IsLineParticipant()) {
+      nsIFrame* firstChild = next->PrincipalChildList().FirstChild();
+      if (!firstChild) {
+        break;  // No content in the new line, the terminal newline is invisible
+      }
+      next = firstChild;
+    }
+    return next;
+  }();
+  if (!nextSiblingOrFirstFrameInNextLine) {
     return false;
   }
 
-  aFrame = nextSibling;
+  aFrame = nextSiblingOrFirstFrameInNextLine;
   std::tie(start, end) = aFrame->GetOffsets();
   aFrameOffset = start;
   return true;

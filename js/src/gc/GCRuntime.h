@@ -612,6 +612,7 @@ class GCRuntime {
 
   bool areGrayBitsValid() const { return grayBitsInvalid == 0; }
   void setGrayBitsInvalid();
+  void setGrayBitsInvalidForReset();
 
   mozilla::TimeStamp lastGCStartTime() const { return lastGCStartTime_; }
   mozilla::TimeStamp lastGCEndTime() const { return lastGCEndTime_; }
@@ -760,6 +761,7 @@ class GCRuntime {
                        Handle<WeakRefObject*> weakRef);
   void traceKeptObjects(JSTracer* trc);
 
+  void noteWeakRefTargets(JS::NoteWeakRefTargetCallback callback, void* data);
   void maybeClearWeakRefTargets(JS::ShouldClearWeakRefTargetCallback callback,
                                 void* data);
 

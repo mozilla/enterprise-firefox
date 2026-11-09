@@ -166,6 +166,43 @@ add_task(async function rowsBelowTopSites() {
   await closeView();
 });
 
+// Temporal rows show the "Search with <engine>" action only when selected.
+add_task(async function actionOnlyWhenSelected() {
+  gFeature._reset();
+  await openZeroPrefix();
+  let rows = await getTemporalRows();
+  Assert.equal(rows.length, 5, "Five temporal rows");
+  for (let row of rows) {
+    let { row: rowElement, action } = row.element;
+    Assert.equal(
+      rowElement.getAttribute("type"),
+      "search",
+      "Temporal rows have the search type"
+    );
+    Assert.ok(
+      rowElement.hasAttribute("has-action"),
+      "Temporal rows have an action"
+    );
+    Assert.equal(
+      row.displayed.action,
+      `Search with ${gEngine.name}`,
+      "Temporal rows have the search action text"
+    );
+    Assert.ok(
+      !BrowserTestUtils.isVisible(action),
+      "The action is hidden when the row isn't selected"
+    );
+
+    UrlbarTestUtils.setSelectedRowIndex(window, row.index);
+    Assert.ok(
+      BrowserTestUtils.isVisible(action),
+      "The action is visible when the row is selected"
+    );
+    UrlbarTestUtils.setSelectedRowIndex(window, -1);
+  }
+  await closeView();
+});
+
 // The first temporal row is labeled, unless group labels are disabled.
 add_task(async function label() {
   gFeature._reset();
@@ -251,24 +288,45 @@ add_task(async function privateWindow() {
   await BrowserTestUtils.closeWindow(win);
 });
 
-// No temporal rows are shown in search mode.
+// No temporal rows are shown in search mode, whether or not Suggest is active
+// in search mode.
 add_task(async function searchMode() {
-  gFeature._reset();
-  await openZeroPrefix();
-  let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
-  await UrlbarTestUtils.activateSearchModeSwitcherItem(
-    window,
-    `panel-item[data-engine-name="${OTHER_ENGINE_NAME}"]`
-  );
-  await searchPromise;
-  Assert.equal(
-    gURLBar.searchMode?.engineName,
-    OTHER_ENGINE_NAME,
-    "In search mode"
-  );
-  Assert.deepEqual(await getTemporalQueries(), [], "No rows in search mode");
-  await UrlbarTestUtils.exitSearchMode(window);
-  await closeView();
+  for (let historyInSearchMode of [false, true]) {
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        [
+          "browser.urlbar.unifiedSearchButton.historyInSearchMode",
+          historyInSearchMode,
+        ],
+      ],
+    });
+    for (let engineName of [gEngine.name, OTHER_ENGINE_NAME]) {
+      info(`historyInSearchMode=${historyInSearchMode} engine=${engineName}`);
+      gFeature._reset();
+      await openZeroPrefix();
+      let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+      await UrlbarTestUtils.activateSearchModeSwitcherItem(
+        window,
+        `panel-item[data-engine-name="${engineName}"]`
+      );
+      await searchPromise;
+      Assert.equal(
+        gURLBar.searchMode?.engineName,
+        engineName,
+        "In search mode"
+      );
+
+      await openZeroPrefix();
+      Assert.deepEqual(
+        await getTemporalQueries(),
+        [],
+        "No rows in search mode"
+      );
+      await UrlbarTestUtils.exitSearchMode(window);
+      await closeView();
+    }
+    await SpecialPowers.popPrefEnv();
+  }
 });
 
 // Picking a temporal row searches for its query with the default engine and

@@ -499,7 +499,7 @@ void NativeObject::shrinkSlots(JSContext* cx, uint32_t oldCapacity,
   uint32_t oldAllocated = ObjectSlots::allocCount(oldCapacity);
 
   if (newCapacity == 0 && uid == 0) {
-    if (gc::IsBufferAlloc(oldHeaderSlots)) {
+    if (gc::IsGCPointerBufferAlloc(oldHeaderSlots)) {
       gc::FreeBuffer(zone(), oldHeaderSlots);
     }
     // dictionarySlotSpan is initialized to the correct value by the callers.

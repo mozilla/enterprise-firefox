@@ -60,6 +60,23 @@ const PREFS_BY_TYPE = new Map([["seasonal", "suggest.temporal.seasonal"]]);
  */
 export class TemporalSuggestions extends SuggestProvider {
   /**
+   * Whether temporal search suggestions are enabled: the feature gate,
+   * `suggest.temporal` and search suggestions are on and at least one temporal
+   * type is enabled.
+   *
+   * @type {boolean}
+   */
+  static get isEnabled() {
+    return (
+      lazy.UrlbarPrefs.get("temporal.featureGate") &&
+      lazy.UrlbarPrefs.get("suggest.temporal") &&
+      lazy.UrlbarPrefs.get("suggest.searches") &&
+      lazy.UrlbarPrefs.get("browser.search.suggest.enabled") &&
+      [...PREFS_BY_TYPE.values()].some(p => lazy.UrlbarPrefs.get(p))
+    );
+  }
+
+  /**
    * The queries picked since the last time every query was picked, shared by
    * all windows.
    *
@@ -71,6 +88,7 @@ export class TemporalSuggestions extends SuggestProvider {
     return [
       "temporal.featureGate",
       "suggest.temporal",
+      "suggest.quicksuggest.all",
       "suggest.searches",
       "browser.search.suggest.enabled",
     ];
@@ -142,13 +160,10 @@ export class TemporalSuggestions extends SuggestProvider {
   async makeResult(queryContext, suggestion) {
     // The Rust component is queried with the search string trimmed at the
     // start, so a whitespace-only search string matches the empty keyword.
-    // Eligibility is determined for the default engine, so only show results in
-    // search mode for that engine.
     if (
       queryContext.searchString ||
       queryContext.sapName != "urlbar" ||
-      (queryContext.searchMode &&
-        queryContext.searchMode.engineName != suggestion.engine)
+      queryContext.searchMode
     ) {
       return null;
     }

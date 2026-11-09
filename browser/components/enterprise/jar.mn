@@ -7,6 +7,7 @@ browser.jar:
 % override chrome://global/locale/enterprise.properties chrome://browser/locale/enterprise.properties
   content/browser/enterprise/enterprise-urlbar-actions.css  (content/enterprise-urlbar-actions.css)
   content/browser/enterprise/enterprise-tokens.css          (content/enterprise-tokens.css)
+  content/browser/enterprise/enterprise-chrome.css          (content/enterprise-chrome.css)
   content/browser/enterprise/site-restrictions.svg          (content/icons/site-restrictions.svg)
   content/browser/enterprise/enterprise-close-dialog.xhtml  (content/enterprise-close-dialog.xhtml)
   content/browser/enterprise/enterprise-close-dialog.js     (content/enterprise-close-dialog.js)

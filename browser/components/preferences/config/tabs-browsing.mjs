@@ -492,6 +492,9 @@ function recordHighlightToSearchToggle(action, enabled, source = "settings") {
  * @param {boolean} checked
  */
 function onHighlightToSearchActionChange(checked) {
+  if (checked) {
+    lazy.GenAI.markSelectionCalloutSeen();
+  }
   if (!checked && !availableHighlightToSearchActions().some(a => a.value)) {
     Preferences.getSetting("highlightToSearchEnabled").value = false;
     recordHighlightToSearchToggle("master", false, "uncheck_all");
@@ -510,6 +513,9 @@ Preferences.addSetting({
     highlightToSearchFeatureGate.value,
   onUserChange(checked) {
     recordHighlightToSearchToggle("master", checked);
+    if (checked) {
+      lazy.GenAI.markSelectionCalloutSeen();
+    }
     const actions = availableHighlightToSearchActions();
     if (checked && !actions.some(action => action.value)) {
       for (const action of actions) {

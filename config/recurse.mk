@@ -165,12 +165,6 @@ recurse:
 
 ifeq (.,$(DEPTH))
 
-# This is required so that the pre-export tier sees the rules in
-# mobile/android
-ifeq ($(MOZ_WIDGET_TOOLKIT),android)
-recurse_pre-export: mobile/android/pre-export
-endif
-
 ifdef ENABLE_CLANG_PLUGIN
 # Only target rules use the clang plugin.
 $(filter %/target %/target-objects,$(filter-out config/export config/host build/unix/stdc++compat/% build/clang-plugin/%,$(compile_targets))) security/rlbox/pre-compile media/libsoundtouch/src/pre-compile: build/clang-plugin/host build/clang-plugin/tests/target-objects
@@ -191,10 +185,6 @@ endif
 # Interdependencies that moz.build world don't know about yet for compilation.
 # Note some others are hardcoded or "guessed" in recursivemake.py and emitter.py
 
-# Most things are built during compile (target/host), but some things happen during export
-# Those need to depend on config/export for system wrappers.
-$(addprefix build/unix/stdc++compat/,target host) build/clang-plugin/host: config/export
-
 # Rust targets, and export targets that run cbindgen need
 # $topobjdir/.cargo/config.toml to be preprocessed first. Ideally, we'd only set it
 # as a dependency of the rust targets, but unfortunately, that pushes Make to
@@ -202,18 +192,8 @@ $(addprefix build/unix/stdc++compat/,target host) build/clang-plugin/host: confi
 # prior to Make running. So we also set it as a dependency of pre-export, which
 # ensures it exists before recursing the rust targets and the export targets
 # that run cbindgen, tricking Make into keeping them early.
-# When $topobjdir/.cargo/config exists from an old build, we also remove it because
-# cargo will prefer to use it rather than config.toml.
-CARGO_CONFIG_DEPS = $(DEPTH)/.cargo/config.toml
-ifneq (,$(wildcard $(DEPTH)/.cargo/config))
-CARGO_CONFIG_DEPS += $(MDDEPDIR)/cargo-config-cleanup.stub
-endif
-$(rust_targets): $(CARGO_CONFIG_DEPS)
+$(rust_targets): $(DEPTH)/.cargo/config.toml
 ifndef TEST_MOZBUILD
-recurse_pre-export: $(CARGO_CONFIG_DEPS)
+recurse_pre-export: $(DEPTH)/.cargo/config.toml
 endif
-
-$(MDDEPDIR)/cargo-config-cleanup.stub:
-	rm $(DEPTH)/.cargo/config
-	touch $@
 endif

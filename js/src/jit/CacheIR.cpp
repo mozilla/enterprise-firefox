@@ -12460,7 +12460,7 @@ AttachDecision InlinableNativeIRGenerator::tryAttachObjectConstructor() {
 
 #ifdef DEBUG
     writer.assertNoAllocationMetadataBuilder(
-        cx_->realm()->addressOfMetadataBuilder());
+        cx_->realm()->addressOfHasAllocationMetadataBuilder());
 #endif
     writer.newPlainObjectResult(numFixedSlots, numDynamicSlots, allocKind,
                                 shape, site);
@@ -16991,7 +16991,7 @@ AttachDecision NewArrayIRGenerator::tryAttachArrayObject() {
 
 #ifdef DEBUG
   writer.assertNoAllocationMetadataBuilder(
-      cx_->realm()->addressOfMetadataBuilder());
+      cx_->realm()->addressOfHasAllocationMetadataBuilder());
 #endif
 
   gc::AllocSite* site = maybeCreateAllocSite();
@@ -17070,7 +17070,7 @@ AttachDecision NewObjectIRGenerator::tryAttachPlainObject() {
 
 #ifdef DEBUG
   writer.assertNoAllocationMetadataBuilder(
-      cx_->realm()->addressOfMetadataBuilder());
+      cx_->realm()->addressOfHasAllocationMetadataBuilder());
 #endif
   writer.newPlainObjectResult(numFixedSlots, numDynamicSlots, allocKind, shape,
                               site);
@@ -17122,7 +17122,7 @@ AttachDecision LambdaIRGenerator::tryAttachFunctionClone() {
 
 #ifdef DEBUG
   writer.assertNoAllocationMetadataBuilder(
-      cx_->realm()->addressOfMetadataBuilder());
+      cx_->realm()->addressOfHasAllocationMetadataBuilder());
 #endif
 
   gc::AllocKind allocKind = canonicalFunction_->getAllocKind();

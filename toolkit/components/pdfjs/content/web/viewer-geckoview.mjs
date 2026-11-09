@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.334
- * pdfjsBuild = 67667f1e4
+ * pdfjsVersion = 6.5.447
+ * pdfjsBuild = c7ca8a32e
  */
 
 ;// ./web/ui_utils.js
@@ -904,7 +904,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "a27af040-4d63-41f5-90b3-b0c747d7cdd3";
+const INTERNAL_EVT = "ba7bc200-d8f4-4157-9972-b20498608fe7";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -6157,7 +6157,20 @@ class AnnotationLayerBuilder {
     const div = this.div = document.createElement("div");
     div.className = "annotationLayer";
     this.#onAppend?.(div);
-    this.#initAnnotationLayer(viewport, structTreeLayer);
+    this.annotationLayer = new AnnotationLayer({
+      div,
+      accessibilityManager: this._accessibilityManager,
+      annotationCanvasMap: this._annotationCanvasMap,
+      annotationEditorUIManager: this._annotationEditorUIManager,
+      annotationStorage: this.annotationStorage,
+      page: this.pdfPage,
+      viewport: viewport.clone({
+        dontFlip: true
+      }),
+      structTreeLayer,
+      commentManager: this.#commentManager,
+      linkService: this.linkService
+    });
     if (annotations.length === 0) {
       this.#annotations = annotations;
       setLayerDimensions(this.div, viewport);
@@ -6169,6 +6182,7 @@ class AnnotationLayerBuilder {
       renderForms: this.renderForms,
       downloadManager: this.downloadManager,
       enableComment: this.enableComment,
+      enableAnnotationEditing: false,
       enableScripting: this.enableScripting,
       hasJSActions,
       fieldObjects,
@@ -6187,22 +6201,6 @@ class AnnotationLayerBuilder {
         ...internalOpt
       });
     }
-  }
-  #initAnnotationLayer(viewport, structTreeLayer) {
-    this.annotationLayer = new AnnotationLayer({
-      div: this.div,
-      accessibilityManager: this._accessibilityManager,
-      annotationCanvasMap: this._annotationCanvasMap,
-      annotationEditorUIManager: this._annotationEditorUIManager,
-      annotationStorage: this.annotationStorage,
-      page: this.pdfPage,
-      viewport: viewport.clone({
-        dontFlip: true
-      }),
-      structTreeLayer,
-      commentManager: this.#commentManager,
-      linkService: this.linkService
-    });
   }
   cancel() {
     this._cancelled = true;
@@ -6230,11 +6228,22 @@ class AnnotationLayerBuilder {
       return;
     }
     this.#linksInjected = true;
-    const newLinks = this.#annotations.length ? this.#checkInferredLinks(inferredLinks) : inferredLinks;
-    if (!newLinks.length) {
+    if (!inferredLinks.length) {
       return;
     }
+    let newLinks;
+    if (this.#annotations.length) {
+      newLinks = this.#checkInferredLinks(inferredLinks);
+      if (!newLinks.length) {
+        return;
+      }
+    } else {
+      newLinks = inferredLinks;
+    }
     await this.annotationLayer.addLinkAnnotations(newLinks);
+  }
+  get linksInjected() {
+    return this.#linksInjected;
   }
   #updatePresentationModeState(state) {
     if (!this.div) {
@@ -6422,7 +6431,14 @@ class Autolinker {
   }
   static processLinks(pdfPageView) {
     const highlighter = pdfPageView._textHighlighter;
-    const links = this.findLinks(highlighter.textContentItemsStr.join("\n"));
+    const textContent = highlighter.textContentItemsStr.join("\n");
+    if (!textContent) {
+      return [];
+    }
+    const links = this.findLinks(textContent);
+    if (!links.length) {
+      return [];
+    }
     const matches = highlighter._convertMatches(links.map(({
       index
     }) => index), links.map(({
@@ -8148,7 +8164,7 @@ class PDFPageView extends BasePDFPageView {
     } finally {
       this.#dispatchLayerRendered("annotationlayerrendered", error);
     }
-    if (this.#enableAutoLinking && textLayerPromise) {
+    if (this.#enableAutoLinking && textLayerPromise && !annotationLayer.linksInjected) {
       this.#injectLinkAnnotations(textLayerPromise, annotationLayer, textLayer);
     }
   }
@@ -8245,7 +8261,7 @@ class PDFPageView extends BasePDFPageView {
     let error = null;
     try {
       const textLayerAborted = await textLayerPromise;
-      if (textLayerAborted || annotationLayer !== this.annotationLayer || textLayer !== this.textLayer) {
+      if (textLayerAborted || annotationLayer !== this.annotationLayer || textLayer !== this.textLayer || annotationLayer.linksInjected) {
         return;
       }
       await annotationLayer.injectLinkAnnotations(Autolinker.processLinks(this));
@@ -8328,19 +8344,7 @@ class PDFPageView extends BasePDFPageView {
       }
     }
   }
-  toggleEditingMode(isEditing) {
-    this.#isEditing = isEditing;
-    if (!this.hasEditableAnnotations()) {
-      return;
-    }
-    this.reset({
-      keepAnnotationLayer: true,
-      keepAnnotationEditorLayer: true,
-      keepXfaLayer: true,
-      keepTextLayer: true,
-      keepCanvasWrapper: true
-    });
-  }
+  toggleEditingMode(isEditing) {}
   updateVisibleArea(visibleArea) {
     if (this.enableDetailCanvas) {
       if (this.#needsRestrictedScaling && this.maxCanvasPixels > 0 && visibleArea) {
@@ -8863,7 +8867,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.5.334";
+    const viewerVersion = "6.5.447";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -9333,7 +9337,7 @@ class PDFViewer {
         if (pdfDocument.isPureXfa) {
           console.warn("Warning: XFA-editing is not implemented.");
         } else if (isValidAnnotationEditorMode(mode)) {
-          this.#annotationEditorUIManager = new AnnotationEditorUIManager(this.container, viewer, this.#viewerAlert, this.#altTextManager, this.#commentManager, this.#signatureManager, eventBus, pdfDocument, pageColors, this.#annotationEditorHighlightColors, this.#enableHighlightFloatingButton, this.#enableUpdatedAddImage, this.#enableNewAltTextWhenAddingImage, this.#mlManager, this.#editorUndoBar, this.#supportsPinchToZoom);
+          this.#annotationEditorUIManager = new AnnotationEditorUIManager(this.container, viewer, this.#viewerAlert, this.#altTextManager, this.#commentManager, this.#signatureManager, eventBus, pdfDocument, pageColors, this.#annotationEditorHighlightColors, this.#enableHighlightFloatingButton, this.#enableUpdatedAddImage, this.#enableNewAltTextWhenAddingImage, this.#mlManager, this.#editorUndoBar, this.#supportsPinchToZoom, true);
           eventBus.dispatch("annotationeditoruimanager", {
             source: this,
             uiManager: this.#annotationEditorUIManager
@@ -9615,6 +9619,7 @@ class PDFViewer {
     const pageNumber = this._currentPageNumber,
       state = this.#scrollModePageState,
       viewer = this.viewer;
+    this.l10n.pause();
     viewer.textContent = "";
     state.pages.length = 0;
     if (this._spreadMode === SpreadMode.NONE && !this.isInPresentationMode) {
@@ -9650,6 +9655,7 @@ class PDFViewer {
       }
       viewer.append(spread);
     }
+    this.l10n.resume();
     state.scrollDown = pageNumber >= state.previousPageNumber;
     state.previousPageNumber = pageNumber;
   }
@@ -10251,6 +10257,7 @@ class PDFViewer {
     if (this._scrollMode === ScrollMode.PAGE) {
       this.#ensurePageViewVisible();
     } else {
+      this.l10n.pause();
       viewer.textContent = "";
       if (this._spreadMode === SpreadMode.NONE) {
         for (const pageView of this._pages) {
@@ -10271,6 +10278,7 @@ class PDFViewer {
           spread.append(pages[i].div);
         }
       }
+      this.l10n.resume();
     }
     if (!pageNumber) {
       return;

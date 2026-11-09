@@ -240,7 +240,7 @@
         --button-background-color-ghost: var(--button-background-color);
         --button-border-color: var(--color-accent-primary);
         --button-text-color: light-dark(var(--color-violet-90), var(--color-gray-0));
-        --button-text-color-menu-selected: light-dark(var(--button-text-color-ghost-selected), var(--button-text-color-selected));
+        --button-text-color-menu-selected: var(--button-text-color-ghost-selected);
         --button-text-color-primary: light-dark(var(--color-white), var(--color-gray-70));
 
         /** color **/

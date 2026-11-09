@@ -215,6 +215,11 @@ Finally, apply the patches:
   graphics when `limit_queues` is unset, so unused compute queues do not
   dominate `vkCreateDevice` time (bug 2068764). Transfer and video families
   are unchanged. Drop this patch if it is ever fixed upstream.
+- vulkan-decode-distinct-dpb-modifiers.patch to keep the output's DRM
+  modifier list off internal DPB images when DPB_AND_OUTPUT_DISTINCT is
+  supported (bug 2085082 / FFmpeg `b7e835e06913`). The DPB pool keeps
+  OPTIMAL tiling and the video profile instead. Drop this patch when ffvpx
+  picks up that upstream commit.
 - vulkan-export-layout-wait.patch to wait the frame timeline at
   `VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT` in `switch_layout()` before the
   export layout transition (bug 2083415 / FFmpeg `dc54ec7a0d`). Waiting at

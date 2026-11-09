@@ -122,7 +122,7 @@ void RemoteDecoderParent::DecodeNextSample(
     DecodedOutputIPDL result;
     MediaResult rv = ProcessDecodedData(std::move(aOutput), result);
     if (NS_FAILED(rv)) {
-      resolver(std::move(rv));  // Out of Memory.
+      resolver(AdjustDecodeError(rv));  // Out of Memory.
     } else {
       resolver(std::move(result));
     }
@@ -149,7 +149,7 @@ void RemoteDecoderParent::DecodeNextSample(
                  if (mPendingDecodeResolver) {
                    auto resolver = std::move(*mPendingDecodeResolver);
                    mPendingDecodeResolver.reset();
-                   resolver(aValue.RejectValue());
+                   resolver(AdjustDecodeError(aValue.RejectValue()));
                  }
                  return;
                }
@@ -244,14 +244,14 @@ mozilla::ipc::IPCResult RemoteDecoderParent::RecvDrain(
               return;
             }
             if (aValue.IsReject()) {
-              resolver(aValue.RejectValue());
+              resolver(AdjustDecodeError(aValue.RejectValue()));
               return;
             }
             DecodedOutputIPDL output;
             MediaResult rv =
                 ProcessDecodedData(std::move(aValue.ResolveValue()), output);
             if (NS_FAILED(rv)) {
-              resolver(rv);
+              resolver(AdjustDecodeError(rv));
             } else {
               resolver(std::move(output));
             }

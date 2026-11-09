@@ -3,16 +3,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 import { useCallback, useContext, useEffect, useRef } from "react";
-import { batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { SpaceActiveContext } from "content-src/lib/SpaceActiveContext";
+import { WidgetLocationContext } from "./WidgetPlacement";
 
 const IMPRESSION_THRESHOLD = 0.3;
 
 /**
  * Shared telemetry hook for function-component widgets. Returns recorders
- * for the four widget telemetry actions (impression, user event, enabled,
- * error) so call sites don't hand-build payloads. `widget` is a
+ * for the five widget telemetry actions (impression, user event, enabled,
+ * error, ready) so call sites don't hand-build payloads. `widget` is a
  * WIDGET_REGISTRY entry; `widget.telemetryName` becomes `widget_name`.
  *
  *   const {
@@ -21,10 +21,14 @@ const IMPRESSION_THRESHOLD = 0.3;
  *     recordUserAction,
  *     recordEnabled,
  *     recordError,
+ *     recordReady,
  *   } = useWidgetTelemetry({ dispatch, widget, widgetSize });
  *
  *   <article ref={impressionRef}>...</article>
  *   recordUserAction("learn_more", { source: "context_menu" });
+ *
+ * Optional `widgetVariant` is sent as `widget_variant` on all five events, and
+ * left off while it's undefined.
  *
  * Per-call options on `recordUserAction`: `value` (action_value), `size`
  * (overrides widgetSize), `alsoToMain: true` (routes via AlsoToMain), and
@@ -41,14 +45,16 @@ const IMPRESSION_THRESHOLD = 0.3;
  * co-dispatches fire legacy first, unified second.
  *
  * `onImpression` (optional) runs once, right after the widget impression fires
- * (from the IntersectionObserver, or a manual recordImpression). Use it to hang
- * extra, view-gated telemetry off the same trigger so it lines up with the
- * impression and never fires on a preloaded tab that was never seen.
+ * (from the IntersectionObserver, or a manual recordImpression), receiving the
+ * impression payload. Use it to hang extra, view-gated telemetry off the same
+ * trigger so it lines up with the impression and never fires on a preloaded
+ * tab that was never seen.
  */
 export const useWidgetTelemetry = ({
   dispatch,
   widget,
   widgetSize,
+  widgetVariant,
   legacyImpressionTypes,
   legacyUserEventType,
   onImpression,
@@ -59,6 +65,11 @@ export const useWidgetTelemetry = ({
   useEffect(() => {
     sizeRef.current = widgetSize;
   }, [widgetSize]);
+
+  const variantRef = useRef(widgetVariant);
+  useEffect(() => {
+    variantRef.current = widgetVariant;
+  }, [widgetVariant]);
 
   // Legacy bridge types are fixed per call site, so capture once at mount;
   // refs keep them out of the recorder callbacks' dependency arrays.
@@ -76,10 +87,20 @@ export const useWidgetTelemetry = ({
     ({ size, rest } = {}) => ({
       widget_name: telemetryName,
       widget_size: size ?? sizeRef.current,
+      ...(variantRef.current !== undefined && {
+        widget_variant: variantRef.current,
+      }),
       ...rest,
     }),
     [telemetryName]
   );
+
+  // Engagement events say where on the page this copy renders.
+  const widgetLocation = useContext(WidgetLocationContext);
+  const locationRef = useRef(null);
+  locationRef.current = widgetLocation
+    ? { widget_location: widgetLocation }
+    : null;
 
   const impressionFired = useRef(false);
   const fireImpression = useCallback(
@@ -88,23 +109,21 @@ export const useWidgetTelemetry = ({
         return;
       }
       impressionFired.current = true;
-      const data = buildPayload({ size });
+      const data = buildPayload({ size, rest: locationRef.current });
       const legacyTypes = legacyImpressionTypesRef.current;
       if (legacyTypes && legacyTypes.length) {
-        batch(() => {
-          // Legacy first, then unified, matching the pre-hook dispatch order
-          // in FocusTimer / Lists so existing tests don't need to flip.
-          for (const type of legacyTypes) {
-            dispatch(ac.AlsoToMain({ type }));
-          }
-          dispatch(ac.AlsoToMain({ type: at.WIDGETS_IMPRESSION, data }));
-        });
+        // Legacy first, then unified, matching the pre-hook dispatch order
+        // in FocusTimer / Lists so existing tests don't need to flip.
+        for (const type of legacyTypes) {
+          dispatch(ac.AlsoToMain({ type }));
+        }
+        dispatch(ac.AlsoToMain({ type: at.WIDGETS_IMPRESSION, data }));
       } else {
         dispatch(ac.AlsoToMain({ type: at.WIDGETS_IMPRESSION, data }));
       }
       // View-gated hook for extra telemetry that must line up with the
       // impression (see the doc comment). Fires once, with the impression.
-      onImpressionRef.current?.();
+      onImpressionRef.current?.(data);
     },
     [dispatch, buildPayload]
   );
@@ -170,6 +189,7 @@ export const useWidgetTelemetry = ({
       const rest = {
         widget_source: source,
         user_action: userAction,
+        ...locationRef.current,
       };
       if (value !== undefined) {
         rest.action_value = value;
@@ -184,10 +204,8 @@ export const useWidgetTelemetry = ({
           type: legacyType,
           data: { userAction },
         });
-        batch(() => {
-          dispatch(legacyAction);
-          dispatch(main);
-        });
+        dispatch(legacyAction);
+        dispatch(main);
       } else {
         dispatch(main);
       }
@@ -214,11 +232,20 @@ export const useWidgetTelemetry = ({
     [dispatch, buildPayload]
   );
 
+  const recordReady = useCallback(
+    ({ size } = {}) => {
+      const data = buildPayload({ size, rest: locationRef.current });
+      dispatch(ac.AlsoToMain({ type: at.WIDGETS_READY, data }));
+    },
+    [dispatch, buildPayload]
+  );
+
   return {
     impressionRef,
     recordImpression,
     recordUserAction,
     recordEnabled,
     recordError,
+    recordReady,
   };
 };

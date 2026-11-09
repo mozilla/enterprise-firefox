@@ -7,6 +7,7 @@
 
 #include <map>
 #include <utility>
+#include <vector>
 
 #include "base/logging.h"
 #include "base/waitable_event.h"
@@ -49,8 +50,8 @@ const UserMessage::TypeInfo TestMessage::kUserMessageTypeInfo = {};
 
 ScopedMessage NewUserMessageEvent(const std::string& payload,
                                   size_t num_ports) {
-  auto event = mozilla::MakeUnique<UserMessageEvent>(num_ports);
-  event->AttachMessage(mozilla::MakeUnique<TestMessage>(payload));
+  auto event = std::make_unique<UserMessageEvent>(num_ports);
+  event->AttachMessage(std::make_unique<TestMessage>(payload));
   return event;
 }
 
@@ -66,7 +67,8 @@ class MessageRouter {
 
   virtual void ForwardEvent(TestNode* from_node, const NodeName& node_name,
                             ScopedEvent event) = 0;
-  virtual void BroadcastEvent(TestNode* from_node, ScopedEvent event) = 0;
+  virtual void BroadcastDeadProxy(TestNode* from_node,
+                                  const PortName& port_name) = 0;
 };
 
 class TestNode : public NodeDelegate {
@@ -213,8 +215,8 @@ class TestNode : public NodeDelegate {
     router_->ForwardEvent(this, node_name, std::move(event));
   }
 
-  void BroadcastEvent(ScopedEvent event) override {
-    router_->BroadcastEvent(this, std::move(event));
+  void BroadcastDeadProxy(const PortName& port_name) override {
+    router_->BroadcastDeadProxy(this, port_name);
   }
 
   void PortStatusChanged(const PortRef& port) override {
@@ -426,29 +428,37 @@ class PortsTest : public testing::Test, public MessageRouter {
       UserMessageEvent* message_copy =
           static_cast<UserMessageEvent*>(copy.get());
 
-      message_copy->AttachMessage(mozilla::MakeUnique<TestMessage>(
+      message_copy->AttachMessage(std::make_unique<TestMessage>(
           message_event->GetMessage<TestMessage>()->payload()));
     }
 
     it->second->EnqueueEvent(from_node->name(), std::move(event));
   }
 
-  void BroadcastEvent(TestNode* from_node, ScopedEvent event) override {
-    mozilla::MutexAutoLock global_lock(global_lock_);
-    mozilla::MutexAutoLock lock(lock_);
+  void BroadcastDeadProxy(TestNode* from_node,
+                          const PortName& port_name) override {
+    std::vector<TestNode*> targets;
+    {
+      mozilla::MutexAutoLock global_lock(global_lock_);
+      mozilla::MutexAutoLock lock(lock_);
 
-    // Drop messages from nodes that have been removed.
-    if (nodes_.find(from_node->name()) == nodes_.end()) {
-      return;
+      // Drop messages from nodes that have been removed.
+      if (nodes_.find(from_node->name()) == nodes_.end()) {
+        return;
+      }
+
+      for (const auto& entry : nodes_) {
+        TestNode* node = entry.second;
+        // Broadcast doesn't deliver to the local node.
+        if (node == from_node) {
+          continue;
+        }
+        targets.push_back(node);
+      }
     }
 
-    for (const auto& entry : nodes_) {
-      TestNode* node = entry.second;
-      // Broadcast doesn't deliver to the local node.
-      if (node == from_node) {
-        continue;
-      }
-      node->EnqueueEvent(from_node->name(), event->CloneForBroadcast());
+    for (TestNode* node : targets) {
+      node->node().CleanupDeadProxy(from_node->name(), port_name);
     }
   }
 

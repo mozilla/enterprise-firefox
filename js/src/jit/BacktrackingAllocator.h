@@ -16,7 +16,7 @@
 #include "jit/SparseBitSet.h"
 #include "jit/StackSlotAllocator.h"
 
-// Gives better traces in Nightly/debug builds (could be EARLY_BETA_OR_EARLIER)
+// Gives better traces in Nightly/debug builds
 #if defined(NIGHTLY_BUILD) || defined(DEBUG)
 #  define AVOID_INLINE_FOR_DEBUGGING MOZ_NEVER_INLINE
 #else

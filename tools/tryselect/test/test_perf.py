@@ -5,8 +5,6 @@
 import contextlib
 import os
 import pathlib
-import shutil
-import tempfile
 from unittest import mock
 
 import mozunit
@@ -93,11 +91,10 @@ class Suites(ClassificationEnum):
 
 
 class Variants(ClassificationEnum):
-    FISSION = {"value": "fission", "index": 0}
-    BYTECODE_CACHED = {"value": "bytecode-cached", "index": 1}
-    LIVE_SITES = {"value": "live-sites", "index": 2}
-    PROFILING = {"value": "profiling", "index": 3}
-    SWR = {"value": "swr", "index": 4}
+    BYTECODE_CACHED = {"value": "bytecode-cached", "index": 0}
+    LIVE_SITES = {"value": "live-sites", "index": 1}
+    PROFILING = {"value": "profiling", "index": 2}
+    SWR = {"value": "swr", "index": 3}
 
 
 # Patch at a global level since we shouldn't need any other settings
@@ -215,7 +212,6 @@ TEST_SUITES = {
         "apps": list(TEST_APPS.keys()),
         "platforms": list(TEST_PLATFORMS.keys()),
         "variants": [
-            Variants.FISSION.value,
             Variants.LIVE_SITES.value,
             Variants.PROFILING.value,
             Variants.BYTECODE_CACHED.value,
@@ -254,14 +250,6 @@ TEST_SUITES = {
 }
 
 TEST_VARIANTS = {
-    # Bug 1837058 - Switch this back to Variants.NO_FISSION when
-    # the default flips to fission on android
-    Variants.FISSION.value: {
-        "query": "'nofis",
-        "negation": "!nofis",
-        "platforms": [Platforms.ANDROID.value],
-        "apps": [Apps.FENIX.value, Apps.GECKOVIEW.value],
-    },
     Variants.BYTECODE_CACHED.value: {
         "query": "'bytecode",
         "negation": "!bytecode",
@@ -303,7 +291,7 @@ TEST_CATEGORIES = {
         "query": {
             Suites.RAPTOR.value: ["'browsertime 'tp6 'essential"],
         },
-        "variant-restrictions": {Suites.RAPTOR.value: [Variants.FISSION.value]},
+        "variant-restrictions": {Suites.RAPTOR.value: []},
         "suites": [Suites.RAPTOR.value],
         "tasks": [],
         "description": "",
@@ -368,7 +356,7 @@ TEST_CATEGORIES = {
             Suites.RAPTOR.value: ["'browsertime 'youtube-playback"],
         },
         "suites": [Suites.TALOS.value, Suites.RAPTOR.value],
-        "variant-restrictions": {Suites.RAPTOR.value: [Variants.FISSION.value]},
+        "variant-restrictions": {Suites.RAPTOR.value: []},
         "tasks": [],
         "description": "",
     },
@@ -666,7 +654,6 @@ def setup_perfparser():
                         "'browsertime 'responsive",
                         "'android 'a55 'shippable 'aarch64",
                         "'geckoview",
-                        "!nofis",
                         "!live",
                         "!profil",
                     ],
@@ -698,7 +685,6 @@ def setup_perfparser():
                         "'browsertime 'responsive",
                         "'android 'a55 'shippable 'aarch64",
                         "'chrome-m",
-                        "!nofis",
                         "!live",
                         "!profil",
                     ],
@@ -744,7 +730,6 @@ def setup_perfparser():
                     "raptor": [
                         "'browsertime 'tp6",
                         "'android 'a55 'shippable 'aarch64",
-                        "!nofis",
                         "!live",
                         "!profil",
                         "!chrom",
@@ -758,7 +743,6 @@ def setup_perfparser():
                         "'browsertime 'tp6",
                         "'android 'a55 'shippable 'aarch64",
                         "'fenix",
-                        "!nofis",
                         "!live",
                         "!profil",
                     ]
@@ -814,7 +798,6 @@ def setup_perfparser():
                         "'browsertime 'tp6",
                         "'android 'a55 'shippable 'aarch64",
                         "'fenix",
-                        "!nofis",
                         "!live",
                         "!profil",
                     ],
@@ -836,7 +819,6 @@ def setup_perfparser():
                         "'browsertime 'benchmark",
                         "'android 'a55 'shippable 'aarch64",
                         "'geckoview",
-                        "!nofis",
                         "!live",
                         "!profil",
                     ],
@@ -846,7 +828,6 @@ def setup_perfparser():
                         "'browsertime 'tp6",
                         "'android 'a55 'shippable 'aarch64",
                         "'fenix",
-                        "!nofis",
                         "!live",
                         "!profil",
                     ],
@@ -854,7 +835,6 @@ def setup_perfparser():
             },
             [
                 "Benchmarks desktop",
-                "Pageload android no-fission",
                 "Pageload android fenix live-sites",
             ],
         ),
@@ -862,73 +842,17 @@ def setup_perfparser():
         # base here for fenix
         (
             {
-                "requested_variants": ["fission"],
+                "requested_variants": ["live-sites"],
                 "requested_apps": ["fenix"],
                 "android": True,
             },
-            32,
+            24,
             {
                 "Pageload android-a55 fenix": {
                     "raptor": [
                         "'browsertime 'tp6",
                         "'android 'a55 'shippable 'aarch64",
                         "'fenix",
-                        "!live",
-                        "!profil",
-                    ],
-                },
-                "Pageload android-a55 fenix fission": {
-                    "raptor": [
-                        "'browsertime 'tp6",
-                        "'android 'a55 'shippable 'aarch64",
-                        "'fenix",
-                        "'nofis",
-                        "!live",
-                        "!profil",
-                    ],
-                },
-                "Pageload (essential) android fenix fission": {
-                    "raptor": [
-                        "'browsertime 'tp6 'essential",
-                        "'android 'a55 'shippable 'aarch64",
-                        "'fenix",
-                        "'nofis",
-                        "!live",
-                        "!profil",
-                    ],
-                },
-            },
-            [
-                "Benchmarks desktop",
-                "Pageload (live) android",
-                "Pageload android-p2 fenix live-sites",
-            ],
-        ),
-        # With multiple variants, we'll see the base variant (with no combinations)
-        # for each of them
-        (
-            {
-                "requested_variants": ["fission", "live-sites"],
-                "requested_apps": ["fenix"],
-                "android": True,
-            },
-            40,
-            {
-                "Pageload android-a55 fenix": {
-                    "raptor": [
-                        "'browsertime 'tp6",
-                        "'android 'a55 'shippable 'aarch64",
-                        "'fenix",
-                        "!profil",
-                    ],
-                },
-                "Pageload android-a55 fenix fission": {
-                    "raptor": [
-                        "'browsertime 'tp6",
-                        "'android 'a55 'shippable 'aarch64",
-                        "'fenix",
-                        "'nofis",
-                        "!live",
                         "!profil",
                     ],
                 },
@@ -938,27 +862,6 @@ def setup_perfparser():
                         "'android 'a55 'shippable 'aarch64",
                         "'fenix",
                         "'live",
-                        "!nofis",
-                        "!profil",
-                    ],
-                },
-                "Pageload (essential) android fenix fission": {
-                    "raptor": [
-                        "'browsertime 'tp6 'essential",
-                        "'android 'a55 'shippable 'aarch64",
-                        "'fenix",
-                        "'nofis",
-                        "!live",
-                        "!profil",
-                    ],
-                },
-                "Pageload android fenix fission+live-sites": {
-                    "raptor": [
-                        "'browsertime 'tp6",
-                        "'android 'a55 'shippable 'aarch64",
-                        "'fenix",
-                        "'nofis",
-                        "'live",
                         "!profil",
                     ],
                 },
@@ -967,35 +870,12 @@ def setup_perfparser():
                 "Benchmarks desktop",
                 "Pageload (live) android",
                 "Pageload android-p2 fenix live-sites",
-                "Pageload (essential) android fenix no-fission+live-sites",
             ],
-        ),
-        # Make sure that no no-fission tasks are selected when a variant cannot
-        # run on a requested platform
-        (
-            {
-                "requested_variants": ["no-fission"],
-                "requested_platforms": ["windows"],
-            },
-            16,
-            {
-                "Responsiveness windows firefox": {
-                    "raptor": [
-                        "'browsertime 'responsive",
-                        "!-32 !10-64 'windows 'shippable",
-                        "!chrom !geckoview !fenix !safari !m-car !safari-tp",
-                        "!bytecode",
-                        "!live",
-                        "!profil",
-                    ],
-                },
-            },
-            ["Benchmarks desktop", "Responsiveness windows firefox no-fisson"],
         ),
         # We should only see the base and the live-site variants here for windows
         (
             {
-                "requested_variants": ["no-fission", "live-sites"],
+                "requested_variants": ["live-sites"],
                 "requested_platforms": ["windows"],
                 "android": True,
             },
@@ -1054,12 +934,10 @@ def setup_perfparser():
             },
             [
                 "Benchmarks desktop",
-                "Responsiveness windows firefox no-fisson",
                 "Pageload (live) android",
                 "Talos desktop live-sites",
                 "Talos android",
                 "Graphics, & Media Playback windows live-sites",
-                "Graphics, & Media Playback android no-fission",
             ],
         ),
     ],
@@ -1545,7 +1423,7 @@ def test_change_detection_task_injection_failure(
                 "query": {
                     # Raptor has all variants available so it
                     # should fail on this category
-                    "raptor": ["browsertime 'live 'no-fission"],
+                    "raptor": ["browsertime 'live"],
                 }
             },
             True,
@@ -1555,7 +1433,7 @@ def test_change_detection_task_injection_failure(
                 "query": {
                     # Awsy has no variants defined so it shouldn't fail
                     # on a query like this
-                    "awsy": ["browsertime 'live 'no-fission"],
+                    "awsy": ["browsertime 'live"],
                 }
             },
             False,
@@ -1576,41 +1454,6 @@ def test_category_rules(query, should_fail):
     # Reset the categories, and variants to expand
     PerfParser.categories = TEST_CATEGORIES
     PerfParser.variants = TEST_VARIANTS
-
-
-@pytest.mark.parametrize(
-    "apk_name, apk_content, should_fail, failure_message",
-    [
-        (
-            "real-file",
-            "file-content",
-            False,
-            None,
-        ),
-        ("bad-file", None, True, "Path does not exist:"),
-    ],
-)
-def test_apk_upload(apk_name, apk_content, should_fail, failure_message):
-    with mock.patch("tryselect.selectors.perf.subprocess") as _, mock.patch(
-        "tryselect.selectors.perf.shutil"
-    ) as _:
-        temp_dir = None
-        try:
-            temp_dir = tempfile.mkdtemp()
-            sample_apk = pathlib.Path(temp_dir, apk_name)
-            if apk_content is not None:
-                with sample_apk.open("w") as f:
-                    f.write(apk_content)
-
-            if should_fail:
-                with pytest.raises(Exception) as exc_info:
-                    PerfParser.setup_apk_upload("browsertime", str(sample_apk))
-                assert failure_message in str(exc_info)
-            else:
-                PerfParser.setup_apk_upload("browsertime", str(sample_apk))
-        finally:
-            if temp_dir is not None:
-                shutil.rmtree(temp_dir)
 
 
 @pytest.mark.parametrize(

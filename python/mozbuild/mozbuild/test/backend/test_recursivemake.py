@@ -607,6 +607,28 @@ class TestRecursiveMakeBackend(BackendTester):
         targets = RecursiveMakeBackend.TARGETS
         self.assertEqual(list(targets), sorted(targets))
 
+    def test_generated_files_pre_export(self):
+        env = self._get_environment(
+            "generated-files-pre-export", substs={"MOZ_WIDGET_TOOLKIT": "android"}
+        )
+        self._consume("generated-files-pre-export", RecursiveMakeBackend, env=env)
+
+        backend_path = mozpath.join(env.topobjdir, "backend.mk")
+        with open(backend_path) as fh:
+            lines = [l.strip() for l in fh.readlines()]
+        self.assertIn("app/pre-export: app/$(MDDEPDIR)/Generated.java.stub", lines)
+
+        root_deps_path = mozpath.join(env.topobjdir, "root-deps.mk")
+        with open(root_deps_path) as fh:
+            lines = [l.strip() for l in fh.readlines()]
+        self.assertIn("recurse_pre-export: app/pre-export", lines)
+
+        env = self._consume("generated-files-pre-export", RecursiveMakeBackend)
+
+        root_deps_path = mozpath.join(env.topobjdir, "root-deps.mk")
+        with open(root_deps_path) as fh:
+            self.assertNotIn("recurse_pre-export", fh.read())
+
     def test_generated_files_force(self):
         """Ensure GENERATED_FILES with .force is handled properly."""
         env = self._consume("generated-files-force", RecursiveMakeBackend)
@@ -652,21 +674,54 @@ class TestRecursiveMakeBackend(BackendTester):
             "MISC_TARGETS += $(MDDEPDIR)/foo.xyz.stub",
             "foo.xyz: $(MDDEPDIR)/foo.xyz.stub ;",
             "EXTRA_MDDEPEND_FILES += $(MDDEPDIR)/foo.xyz.pp",
-            "$(MDDEPDIR)/foo.xyz.stub: %s/generate-foo.py $(call MERGE_FILE,localized-input) $(srcdir)/non-localized-input $(if $(IS_LANGUAGE_REPACK),FORCE)"  # noqa
-            % env.topsrcdir,
+            f"$(MDDEPDIR)/foo.xyz.stub: {env.topsrcdir}/generate-foo.py $(call MERGE_RELATIVE_FILE,localized-input,) $(srcdir)/non-localized-input $(if $(IS_LANGUAGE_REPACK),FORCE)",  # noqa
             "$(REPORT_BUILD)",
-            "$(call py_action,file_generate foo.xyz,--locale=$(AB_CD) %s/generate-foo.py main foo.xyz $(MDDEPDIR)/foo.xyz.pp $(MDDEPDIR)/foo.xyz.stub $(call MERGE_FILE,localized-input) $(srcdir)/non-localized-input)"  # noqa
-            % env.topsrcdir,
+            f"$(call py_action,file_generate foo.xyz,--locale=$(AB_CD) {env.topsrcdir}/generate-foo.py main foo.xyz $(MDDEPDIR)/foo.xyz.pp $(MDDEPDIR)/foo.xyz.stub $(call MERGE_RELATIVE_FILE,localized-input,) $(srcdir)/non-localized-input)",  # noqa
             "@$(TOUCH) $@",
             "",
-            "LOCALIZED_FILES_0_FILES += foo.xyz",
-            "LOCALIZED_FILES_0_DEST = $(FINAL_TARGET)/",
-            "LOCALIZED_FILES_0_TARGET := misc",
-            "INSTALL_TARGETS += LOCALIZED_FILES_0",
         ]
 
         self.maxDiff = None
         self.assertEqual(lines, expected)
+
+        # The output is generated where it was declared and installed from the
+        # top level Makefile, so the install depends on it.
+        m = InstallManifest(
+            path=mozpath.join(env.topobjdir, "_build_manifests", "install", "dist_bin")
+        )
+        reg = FileRegistry()
+        m.populate_registry(reg)
+        self.assertIn("foo.xyz", reg.paths())
+
+        root_deps = mozpath.join(env.topobjdir, "root-deps.mk")
+        rule = [
+            l for l in open(root_deps).readlines() if l.startswith("install-dist/bin:")
+        ]
+        self.assertEqual(len(rule), 1)
+        self.assertIn("$(DEPTH)/foo.xyz", rule[0])
+
+    def test_a_localized_generated_output_is_reachable_from_the_top_level_makefile(
+        self,
+    ):
+        """A localized install runs from the top level Makefile, so the rule
+        producing what it installs cannot live only in the declaring directory.
+        """
+        env = self._consume("localized-generated-root", RecursiveMakeBackend)
+
+        root = open(mozpath.join(env.topobjdir, "backend.mk")).read()
+        self.assertIn("made.txt", root)
+
+        directory = open(mozpath.join(env.topobjdir, "sub", "backend.mk")).read()
+        self.assertNotIn("made.txt", directory)
+
+        root_deps = mozpath.join(env.topobjdir, "root-deps.mk")
+        rule = [
+            l for l in open(root_deps).readlines() if l.startswith("install-dist/bin:")
+        ]
+        self.assertEqual(len(rule), 1)
+        self.assertIn("$(DEPTH)/sub/made.txt", rule[0])
+
+        self.assertIn("$(call MERGE_RELATIVE_FILE,input.txt,sub)", root)
 
     def test_localized_generated_files_force(self):
         """Ensure LOCALIZED_GENERATED_FILES with .force is handled properly."""
@@ -680,21 +735,17 @@ class TestRecursiveMakeBackend(BackendTester):
             "MISC_TARGETS += $(MDDEPDIR)/foo.xyz.stub",
             "foo.xyz: $(MDDEPDIR)/foo.xyz.stub ;",
             "EXTRA_MDDEPEND_FILES += $(MDDEPDIR)/foo.xyz.pp",
-            "$(MDDEPDIR)/foo.xyz.stub: %s/generate-foo.py $(call MERGE_FILE,localized-input) $(srcdir)/non-localized-input $(if $(IS_LANGUAGE_REPACK),FORCE)"  # noqa
-            % env.topsrcdir,
+            f"$(MDDEPDIR)/foo.xyz.stub: {env.topsrcdir}/generate-foo.py $(call MERGE_RELATIVE_FILE,localized-input,) $(srcdir)/non-localized-input $(if $(IS_LANGUAGE_REPACK),FORCE)",  # noqa
             "$(REPORT_BUILD)",
-            "$(call py_action,file_generate foo.xyz,--locale=$(AB_CD) %s/generate-foo.py main foo.xyz $(MDDEPDIR)/foo.xyz.pp $(MDDEPDIR)/foo.xyz.stub $(call MERGE_FILE,localized-input) $(srcdir)/non-localized-input)"  # noqa
-            % env.topsrcdir,
+            f"$(call py_action,file_generate foo.xyz,--locale=$(AB_CD) {env.topsrcdir}/generate-foo.py main foo.xyz $(MDDEPDIR)/foo.xyz.pp $(MDDEPDIR)/foo.xyz.stub $(call MERGE_RELATIVE_FILE,localized-input,) $(srcdir)/non-localized-input)",  # noqa
             "@$(TOUCH) $@",
             "",
             "MISC_TARGETS += $(MDDEPDIR)/abc.xyz.stub",
             "abc.xyz: $(MDDEPDIR)/abc.xyz.stub ;",
             "EXTRA_MDDEPEND_FILES += $(MDDEPDIR)/abc.xyz.pp",
-            "$(MDDEPDIR)/abc.xyz.stub: %s/generate-foo.py $(call MERGE_FILE,localized-input) $(srcdir)/non-localized-input FORCE"  # noqa
-            % env.topsrcdir,
+            f"$(MDDEPDIR)/abc.xyz.stub: {env.topsrcdir}/generate-foo.py $(call MERGE_RELATIVE_FILE,localized-input,) $(srcdir)/non-localized-input FORCE",  # noqa
             "$(REPORT_BUILD)",
-            "$(call py_action,file_generate abc.xyz,--locale=$(AB_CD) %s/generate-foo.py main abc.xyz $(MDDEPDIR)/abc.xyz.pp $(MDDEPDIR)/abc.xyz.stub $(call MERGE_FILE,localized-input) $(srcdir)/non-localized-input)"  # noqa
-            % env.topsrcdir,
+            f"$(call py_action,file_generate abc.xyz,--locale=$(AB_CD) {env.topsrcdir}/generate-foo.py main abc.xyz $(MDDEPDIR)/abc.xyz.pp $(MDDEPDIR)/abc.xyz.stub $(call MERGE_RELATIVE_FILE,localized-input,) $(srcdir)/non-localized-input)",  # noqa
             "@$(TOUCH) $@",
             "",
         ]
@@ -715,11 +766,9 @@ class TestRecursiveMakeBackend(BackendTester):
             "MISC_TARGETS += $(MDDEPDIR)/foo$(AB_CD).xyz.stub",
             "foo$(AB_CD).xyz: $(MDDEPDIR)/foo$(AB_CD).xyz.stub ;",
             "EXTRA_MDDEPEND_FILES += $(MDDEPDIR)/foo$(AB_CD).xyz.pp",
-            "$(MDDEPDIR)/foo$(AB_CD).xyz.stub: %s/generate-foo.py $(call MERGE_FILE,localized-input) $(srcdir)/non-localized-input $(if $(IS_LANGUAGE_REPACK),FORCE)"  # noqa
-            % env.topsrcdir,
+            f"$(MDDEPDIR)/foo$(AB_CD).xyz.stub: {env.topsrcdir}/generate-foo.py $(call MERGE_RELATIVE_FILE,localized-input,) $(srcdir)/non-localized-input $(if $(IS_LANGUAGE_REPACK),FORCE)",  # noqa
             "$(REPORT_BUILD)",
-            "$(call py_action,file_generate foo$(AB_CD).xyz,--locale=$(AB_CD) %s/generate-foo.py main foo$(AB_CD).xyz $(MDDEPDIR)/foo$(AB_CD).xyz.pp $(MDDEPDIR)/foo$(AB_CD).xyz.stub $(call MERGE_FILE,localized-input) $(srcdir)/non-localized-input)"  # noqa
-            % env.topsrcdir,
+            f"$(call py_action,file_generate foo$(AB_CD).xyz,--locale=$(AB_CD) {env.topsrcdir}/generate-foo.py main foo$(AB_CD).xyz $(MDDEPDIR)/foo$(AB_CD).xyz.pp $(MDDEPDIR)/foo$(AB_CD).xyz.stub $(call MERGE_RELATIVE_FILE,localized-input,) $(srcdir)/non-localized-input)",  # noqa
             "@$(TOUCH) $@",
             "",
             "bar$(AB_rCD).xyz: $(MDDEPDIR)/bar$(AB_rCD).xyz.stub ;",
@@ -804,6 +853,7 @@ class TestRecursiveMakeBackend(BackendTester):
             ),
             1,
         )
+        self.assertEqual(lines.count("\t@$(TOUCH) $@"), 1)
         self.assertEqual(
             [l for l in lines if l.startswith(f"{manifest}.track:")],
             [
@@ -1398,6 +1448,63 @@ class TestRecursiveMakeBackend(BackendTester):
         self.assertIn("-DMOZ_RUST_SPEC_HOST_CFLAG", edge["computed_host_cxxflags"])
         self.assertIn("-Wl,--moz-rust-spec-ldflag", edge["link_flags"])
 
+    def _assert_rust_library_spec_flags(self, substs):
+        env = self._get_environment("rust-library-flags", substs=substs)
+        self._consume("rust-library-flags", RecursiveMakeBackend, env=env)
+
+        edge = self._cargo_spec(env, ".cargo-library-spec.json")["edge"]
+
+        cflags = [
+            "-DMOZ_RUST_SPEC_CFLAG",
+            f"-I{env.topsrcdir}",
+            f"-I{env.topobjdir}",
+            f"-I{mozpath.join(env.topobjdir, 'dist', 'include')}",
+            "-fno-strict-aliasing",
+            "-ffp-contract=off",
+        ]
+        self.assertEqual(edge["computed_cflags"], cflags)
+        self.assertEqual(edge["computed_cxxflags"], cflags)
+        self.assertEqual(edge["link_flags"], ["-Wl,--moz-rust-spec-ldflag"])
+
+    def test_rust_library_command_spec_computed_flags_nspr(self):
+        env = self._get_environment(
+            "rust-library-flags", substs={"NSPR_CFLAGS": ["-I/obj/nspr"]}
+        )
+        self._consume("rust-library-flags", RecursiveMakeBackend, env=env)
+
+        edge = self._cargo_spec(env, ".cargo-library-spec.json")["edge"]
+
+        self.assertIn("-DMOZ_RUST_SPEC_HOST_CFLAG", edge["computed_host_cflags"])
+        self.assertNotIn("-I/obj/nspr", edge["computed_host_cflags"])
+        self.assertNotIn("-I/obj/nspr", edge["computed_host_cxxflags"])
+
+    def test_rust_library_command_spec_computed_flags_lto(self):
+        self._assert_rust_library_spec_flags({
+            "MOZ_LTO_CFLAGS": ["-flto=thin"],
+            "MOZ_LTO_LDFLAGS": ["-flto=thin"],
+        })
+
+    def test_rust_library_command_spec_computed_flags_pgo(self):
+        self._assert_rust_library_spec_flags({
+            "MOZ_PROFILE_GENERATE": "1",
+            "PROFILE_GEN_CFLAGS": ["-fprofile-generate"],
+            "PROFILE_GEN_LDFLAGS": ["-fprofile-generate"],
+        })
+
+    def test_computed_pgo_cflags(self):
+        env = self._get_environment(
+            "rust-library-flags",
+            substs={
+                "MOZ_PROFILE_GENERATE": "1",
+                "PROFILE_GEN_CFLAGS": ["-fprofile-generate"],
+            },
+        )
+        self._consume("rust-library-flags", RecursiveMakeBackend, env=env)
+
+        with open(mozpath.join(env.topobjdir, "backend.mk")) as fh:
+            lines = [l.strip() for l in fh if l.startswith("COMPUTED_PGO_CFLAGS")]
+        self.assertEqual(lines, ["COMPUTED_PGO_CFLAGS += -fprofile-generate"])
+
     def test_host_rust_library(self):
         """Test that a Rust library is written to backend.mk correctly."""
         env = self._consume("host-rust-library", RecursiveMakeBackend)
@@ -1614,21 +1721,18 @@ class TestRecursiveMakeBackend(BackendTester):
         """Test that FINAL_TARGET is written to backend.mk correctly."""
         env = self._consume("final_target", RecursiveMakeBackend)
 
-        final_target_rule = "FINAL_TARGET = $(if $(XPI_NAME),$(DIST)/xpi-stage/$(XPI_NAME),$(DIST)/bin)$(DIST_SUBDIR:%=/%)"  # noqa
         expected = dict()
         expected[env.topobjdir] = []
         expected[mozpath.join(env.topobjdir, "both")] = [
-            "XPI_NAME = mycrazyxpi",
             "DIST_SUBDIR = asubdir",
-            final_target_rule,
+            "FINAL_TARGET = $(DEPTH)/dist/xpi-stage/mycrazyxpi/asubdir",
         ]
         expected[mozpath.join(env.topobjdir, "dist-subdir")] = [
             "DIST_SUBDIR = asubdir",
-            final_target_rule,
+            "FINAL_TARGET = $(DEPTH)/dist/bin/asubdir",
         ]
         expected[mozpath.join(env.topobjdir, "xpi-name")] = [
-            "XPI_NAME = mycrazyxpi",
-            final_target_rule,
+            "FINAL_TARGET = $(DEPTH)/dist/xpi-stage/mycrazyxpi",
         ]
         expected[mozpath.join(env.topobjdir, "final-target")] = [
             "FINAL_TARGET = $(DEPTH)/random-final-target"
@@ -1647,21 +1751,81 @@ class TestRecursiveMakeBackend(BackendTester):
 
     def test_final_target_pp_files(self):
         """Test that FINAL_TARGET_PP_FILES is written to backend.mk correctly."""
-        env = self._consume("dist-files", RecursiveMakeBackend)
+        env, reg = self._dist_bin_registry("dist-files")
+        entries = dict(reg)
+
+        self.assertIn("install.rdf", entries)
+        self.assertIn("main.js", entries)
+        self.assertEqual(type(entries["install.rdf"]).__name__, "PreprocessedFile")
 
         backend_path = mozpath.join(env.topobjdir, "backend.mk")
         lines = [l.strip() for l in open(backend_path).readlines()[2:]]
 
-        expected = [
-            "DIST_FILES_0 += $(srcdir)/install.rdf",
-            "DIST_FILES_0 += $(srcdir)/main.js",
-            "DIST_FILES_0_PATH := $(DEPTH)/dist/bin/",
-            "DIST_FILES_0_TARGET := misc",
-            "PP_TARGETS += DIST_FILES_0",
+        self.assertEqual([l for l in lines if "DIST_FILES" in l], [])
+
+    def _dist_bin_registry(self, name, manifest="dist_bin"):
+        env = self._consume(name, RecursiveMakeBackend)
+
+        m = InstallManifest(
+            path=mozpath.join(env.topobjdir, "_build_manifests", "install", manifest)
+        )
+        reg = FileRegistry()
+        m.populate_registry(reg)
+        return env, reg
+
+    def _install_dist_bin_rule(self, name):
+        env = self._consume(name, RecursiveMakeBackend)
+
+        root_deps_path = mozpath.join(env.topobjdir, "root-deps.mk")
+        rule = [
+            l
+            for l in open(root_deps_path).readlines()
+            if l.startswith("install-dist/bin:")
         ]
 
-        found = [str for str in lines if "DIST_FILES" in str]
-        self.assertEqual(found, expected)
+        self.assertEqual(len(rule), 1)
+        return rule[0]
+
+    def test_pp_defines(self):
+        env, reg = self._dist_bin_registry("pp-defines")
+
+        defines = reg["script.js"].defines
+        self.assertEqual(defines["AB_CD"], env.substs["MOZ_UI_LOCALE"])
+        self.assertEqual(defines["FROM_THE_DECLARATION"], "declared")
+        self.assertEqual(defines["A_CONFIGURED_STRING"], "a value")
+
+    def test_pp_defines_digit(self):
+        _, reg = self._dist_bin_registry("pp-defines")
+
+        self.assertEqual(reg["script.js"].defines["A_CONFIGURED_NUMBER"], 1)
+
+    def test_pp_defines_boolean(self):
+        _, reg = self._dist_bin_registry("pp-defines")
+
+        defines = reg["script.js"].defines
+        self.assertEqual(defines["DECLARED_ON"], 1)
+        self.assertNotIn("DECLARED_OFF", defines)
+
+    def test_pp_depfile(self):
+        env, reg = self._dist_bin_registry("pp-defines")
+
+        depfile = mozpath.normsep(reg["script.js"].depfile)
+        self.assertTrue(depfile.endswith("/.deps/dist/bin/script.js.pp"), depfile)
+        self.assertTrue(depfile.startswith(mozpath.normsep(env.topobjdir)), depfile)
+
+    def test_pp_css_marker(self):
+        _, reg = self._dist_bin_registry("pp-defines")
+
+        self.assertEqual(reg["sheet.css"].marker, "%")
+        self.assertEqual(reg["script.js"].marker, "#")
+
+    def test_pp_no_make_rule(self):
+        env = self._consume("pp-defines", RecursiveMakeBackend)
+
+        with open(mozpath.join(env.topobjdir, "backend.mk")) as fh:
+            body = fh.read()
+
+        self.assertNotIn("PP_TARGETS", body)
 
     def test_final_target_files_absolute(self):
         """Absolute FINAL_TARGET_FILES are installed, and libraries checked."""
@@ -1690,72 +1854,122 @@ class TestRecursiveMakeBackend(BackendTester):
         found = [str for str in lines if "libfoo." in str]
         self.assertEqual(found, expected)
 
-    def test_pp_files_extra_deps(self):
-        """Ensure PP_FILES_EXTRA_DEPS is written to backend.mk correctly."""
-        env = self._consume("pp-files-extra-deps", RecursiveMakeBackend)
+    def test_final_target_files_directory_wildcard(self):
+        _, reg = self._dist_bin_registry("final-target-files-directory-wildcard")
 
-        backend_path = mozpath.join(env.topobjdir, "subdir", "backend.mk")
-        lines = [l.strip() for l in open(backend_path).readlines()[2:]]
+        self.assertEqual(
+            sorted(reg.paths()),
+            ["foo/a/config.json", "foo/a/x.js", "foo/b/config.json", "foo/b/y.js"],
+        )
 
-        expected = [
-            "DIST_FILES_0 += $(srcdir)/install.rdf",
-            "DIST_FILES_0 += $(srcdir)/main.js",
-            "DIST_FILES_0_PATH := $(DEPTH)/dist/bin/",
-            "DIST_FILES_0_TARGET := misc",
-            "DIST_FILES_0_EXTRA_DEPS := $(DEPTH)/generated-header.h "
-            "$(srcdir)/source-extra",
-            "PP_TARGETS += DIST_FILES_0",
-        ]
+    def test_final_target_files_renamed_wildcard(self):
+        _, reg = self._dist_bin_registry("final-target-files-renamed-wildcard")
 
-        found = [str for str in lines if "DIST_FILES" in str]
-        self.assertEqual(found, expected)
+        self.assertEqual(sorted(reg.paths()), ["foo/icons/a.svg", "foo/icons/b.svg"])
+
+    def test_chrome_manifest_resource(self):
+        _, reg = self._dist_bin_registry("chrome-manifest-resource")
+        body = reg["chrome/browser.manifest"].open().read().decode("utf-8")
+
+        self.assertEqual(
+            body.splitlines(),
+            [
+                "content testcontent browser/testcontent/",
+                "resource testres browser/testres/ contentaccessible=yes",
+            ],
+        )
+
+    def test_chrome_manifest_installed(self):
+        env, reg = self._dist_bin_registry("chrome-manifest-resource")
+
+        self.assertIn("chrome/browser.manifest", reg.paths())
+        self.assertIn("chrome.manifest", reg.paths())
+        top = reg["chrome.manifest"].open().read().decode("utf-8")
+        self.assertEqual(top.splitlines(), ["manifest chrome/browser.manifest"])
+
+        with open(mozpath.join(env.topobjdir, "backend.mk")) as fh:
+            self.assertNotIn("buildlist", fh.read())
+
+    def test_pp_files_extra_deps_not_generated(self):
+        with self.assertRaisesRegex(Exception, "top level backend file"):
+            self._consume("pp-files-extra-deps", RecursiveMakeBackend)
 
     def test_pp_files_extra_deps_post_process(self):
         """PP_FILES_EXTRA_DEPS pointing at a generated file in another
         directory adds a cross-directory build-order dependency."""
-        env = self._consume("pp-files-extra-deps-generated", RecursiveMakeBackend)
+        # The install runs from the top level Makefile, so the generated file it
+        # reads is a prerequisite of the install rather than of the directory
+        # that uses it.
+        rule = self._install_dist_bin_rule("pp-files-extra-deps-generated")
 
-        root_deps_path = mozpath.join(env.topobjdir, "root-deps.mk")
-        lines = [l.strip() for l in open(root_deps_path).readlines()]
-        self.assertIn("consumer/misc: export", lines)
+        self.assertIn("$(DEPTH)/generated-header.h", rule)
+
+    def test_pp_files_extra_deps_other_directory(self):
+        rule = self._install_dist_bin_rule("pp-files-extra-deps-other-directory")
+
+        self.assertIn("$(DEPTH)/producer/generated-header.h", rule)
+
+    def _dist_bin_manifest(self, srcdir):
+        env = self._consume(srcdir, RecursiveMakeBackend)
+
+        return env, InstallManifest(
+            path=mozpath.join(env.topobjdir, "_build_manifests", "install", "dist_bin")
+        )
 
     def test_localized_files(self):
-        """Test that LOCALIZED_FILES is written to backend.mk correctly."""
-        env = self._consume("localized-files", RecursiveMakeBackend)
+        """A localized install is described the same way as any other, so its
+        destinations are part of what the install recorded.
+        """
+        env, m = self._dist_bin_manifest("localized-files")
+
+        reg = FileRegistry()
+        m.populate_registry(reg)
+        self.assertEqual(sorted(reg.paths()), ["bar.ini", "foo.js"])
+
+        # A pattern is expanded by the install, so it is recorded as one
+        # rather than as the files it happens to match now.
+        patterns = [e for e in m._dests.values() if e[0] == m.PATTERN_LINK]
+        self.assertEqual(len(patterns), 1)
+        self.assertEqual(patterns[0][2], "*.abc")
 
         backend_path = mozpath.join(env.topobjdir, "backend.mk")
-        lines = [l.strip() for l in open(backend_path).readlines()[2:]]
+        body = open(backend_path).read()
+        self.assertNotIn("LOCALIZED_FILES", body)
 
-        expected = [
-            "LOCALIZED_FILES_0_FILES += $(wildcard $(LOCALE_SRCDIR)/abc/*.abc)",
-            "LOCALIZED_FILES_0_FILES += $(call MERGE_FILE,bar.ini)",
-            "LOCALIZED_FILES_0_FILES += $(call MERGE_FILE,foo.js)",
-            "LOCALIZED_FILES_0_DEST = $(FINAL_TARGET)/",
-            "LOCALIZED_FILES_0_TARGET := misc",
-            "INSTALL_TARGETS += LOCALIZED_FILES_0",
-        ]
+    def test_a_localized_install_reads_the_source_locale(self):
+        """A build installs the source locale, en-US, whatever locale it is
+        configured for. Any other locale is staged from the merge tree by the
+        locale staging action.
+        """
+        env = self._get_environment("localized-files", substs={"MOZ_UI_LOCALE": "fr"})
+        self._consume("localized-files", RecursiveMakeBackend, env=env)
+        m = InstallManifest(
+            path=mozpath.join(env.topobjdir, "_build_manifests", "install", "dist_bin")
+        )
+        reg = FileRegistry()
+        m.populate_registry(reg)
 
-        found = [str for str in lines if "LOCALIZED_FILES" in str]
-        self.assertEqual(found, expected)
+        for dest in ("bar.ini", "foo.js"):
+            path = mozpath.normsep(reg[dest].path)
+            self.assertTrue(path.endswith(f"/en-US/{dest}"), path)
 
     def test_localized_pp_files(self):
-        """Test that LOCALIZED_PP_FILES is written to backend.mk correctly."""
-        env = self._consume("localized-pp-files", RecursiveMakeBackend)
+        """A localized preprocessed install carries what it is preprocessed
+        with, and a localization is allowed to hold no directive at all.
+        """
+        env, m = self._dist_bin_manifest("localized-pp-files")
 
-        backend_path = mozpath.join(env.topobjdir, "backend.mk")
-        lines = [l.strip() for l in open(backend_path).readlines()[2:]]
+        reg = FileRegistry()
+        m.populate_registry(reg)
+        self.assertEqual(sorted(reg.paths()), ["bar.ini", "foo.js"])
+        for dest in ("bar.ini", "foo.js"):
+            entry = reg[dest]
+            self.assertEqual(type(entry).__name__, "PreprocessedFile")
+            self.assertTrue(entry.silence_missing_directive_warnings)
+            self.assertEqual(entry.defines["AB_CD"], env.substs["MOZ_UI_LOCALE"])
 
-        expected = [
-            "LOCALIZED_PP_FILES_0 += $(call MERGE_FILE,bar.ini)",
-            "LOCALIZED_PP_FILES_0 += $(call MERGE_FILE,foo.js)",
-            "LOCALIZED_PP_FILES_0_PATH = $(FINAL_TARGET)/",
-            "LOCALIZED_PP_FILES_0_TARGET := misc",
-            "LOCALIZED_PP_FILES_0_FLAGS := --silence-missing-directive-warnings",
-            "PP_TARGETS += LOCALIZED_PP_FILES_0",
-        ]
-
-        found = [str for str in lines if "LOCALIZED_PP_FILES" in str]
-        self.assertEqual(found, expected)
+        body = open(mozpath.join(env.topobjdir, "backend.mk")).read()
+        self.assertNotIn("LOCALIZED_PP_FILES", body)
 
     def test_config(self):
         """Test that CONFIGURE_SUBST_FILES are properly handled."""
@@ -1925,15 +2139,47 @@ class TestRecursiveMakeBackend(BackendTester):
         # after cargo has already looked for the archive in dist/lib.
         self.assertIn("STATIC_LIB_TARGET := target", backend)
 
-    def test_jar_manifests(self):
-        env = self._consume("jar-manifests", RecursiveMakeBackend)
+    def test_jar_manifests_non_application(self):
+        _, reg = self._dist_bin_registry(
+            "jar-manifests-non-application", manifest="_tests"
+        )
 
-        with open(os.path.join(env.topobjdir, "backend.mk")) as fh:
-            lines = fh.readlines()
+        self.assertIn(
+            "jar-manifests/chrome/test/content/test/thing.js",
+            [dest for dest, _ in reg],
+        )
 
-        lines = [line.rstrip() for line in lines]
+    def test_jar_manifests_renamed_wildcard(self):
+        _, reg = self._dist_bin_registry("jar-manifest-renamed-wildcard")
 
-        self.assertIn("JAR_MANIFEST := %s/jar.mn" % env.topsrcdir, lines)
+        self.assertEqual(
+            sorted(reg.paths()),
+            [
+                "chrome/browser/content/browser/icons/a.svg",
+                "chrome/browser/content/browser/icons/b.svg",
+            ],
+        )
+
+    def test_jar_manifests_generated_pp(self):
+        env, reg = self._dist_bin_registry("jar-manifests-generated-pp")
+        self.assertIn("chrome/test/content/test/made.js", reg.paths())
+
+        rule = self._install_dist_bin_rule("jar-manifests-generated-pp")
+        self.assertIn("$(DEPTH)/made.js", rule)
+
+        m = InstallManifest(
+            path=mozpath.join(env.topobjdir, "_build_manifests", "built", "misc")
+        )
+        built = FileRegistry()
+        m.populate_registry(built)
+        self.assertEqual(
+            {dest: f.path for dest, f in built},
+            {
+                "dist/bin/chrome/test/content/test/renamed.js": mozpath.join(
+                    env.topobjdir, "made.js"
+                )
+            },
+        )
 
     def test_test_manifests_duplicate_support_files(self):
         """Ensure duplicate support-files in test manifests work."""
@@ -1987,6 +2233,20 @@ class TestRecursiveMakeBackend(BackendTester):
                 ][0]
                 self.assertEqual(program, expected_program)
 
+    def test_macos_install_name(self):
+        env = self._get_environment(
+            "shared-lib-paths", substs={"OS_ARCH": "Darwin", "DLL_SUFFIX": ".dylib"}
+        )
+        self._consume("shared-lib-paths", RecursiveMakeBackend, env=env)
+
+        with open(os.path.join(env.topobjdir, "dist-bin", "backend.mk")) as fh:
+            content = fh.read()
+        self.assertIn(
+            "EXTRA_DSO_LDOPTS += -dynamiclib -install_name @rpath/libdist-bin.dylib "
+            "-compatibility_version 1 -current_version 1\n",
+            content,
+        )
+
     def test_host_cpp_prog_link(self):
         env = self._consume("host-cpp-link", RecursiveMakeBackend)
 
@@ -2000,6 +2260,34 @@ class TestRecursiveMakeBackend(BackendTester):
             lines = fh.readlines()
         self.assertIn("HOST_SIMPLE_PROGRAMS += host_asimple\n", lines)
         self.assertIn("HOST_CPP_PROG_LINK := 1\n", lines)
+
+    def _windows_shared_lib_backend_mk(self, cc_type):
+        env = self._get_environment(
+            "shared-lib-paths",
+            substs={
+                "OS_ARCH": "WINNT",
+                "CC_TYPE": cc_type,
+                "DLL_PREFIX": "",
+                "DLL_SUFFIX": ".dll",
+                "LIB_PREFIX": "",
+                "IMPORT_LIB_SUFFIX": "lib",
+            },
+        )
+        self._consume("shared-lib-paths", RecursiveMakeBackend, env=env)
+
+        with open(os.path.join(env.topobjdir, "dist-bin", "backend.mk")) as fh:
+            return fh.read()
+
+    def test_mingw_import_library(self):
+        content = self._windows_shared_lib_backend_mk("clang")
+        self.assertIn(
+            "EXTRA_DSO_LDOPTS += -Wl,--out-implib -Wl,dist-bin.lib\n", content
+        )
+
+    def test_clang_cl_import_library(self):
+        content = self._windows_shared_lib_backend_mk("clang-cl")
+        self.assertIn("EXTRA_DSO_LDOPTS += -IMPLIB:dist-bin.lib\n", content)
+        self.assertNotIn("--out-implib", content)
 
     def test_per_source_object_deps(self):
         env = self._consume("per-source-object-deps", RecursiveMakeBackend)
@@ -2016,6 +2304,38 @@ class TestRecursiveMakeBackend(BackendTester):
             "static.$(OBJ_SUFFIX): $(srcdir)/static.s $(srcdir)/included.inc\n", lines
         )
         self.assertEqual([l for l in lines if l.startswith("plain.$(OBJ_SUFFIX)")], [])
+
+    def test_no_pgo_source(self):
+        env = self._consume("no-pgo-source", RecursiveMakeBackend)
+
+        with open(mozpath.join(env.topobjdir, "backend.mk")) as fh:
+            lines = fh.readlines()
+
+        self.assertIn("unprofiled.$(OBJ_SUFFIX): COMPUTED_PGO_CFLAGS :=\n", lines)
+        self.assertNotIn("profiled.$(OBJ_SUFFIX): COMPUTED_PGO_CFLAGS :=\n", lines)
+
+    def test_lto_object_path(self):
+        env = self._consume("lto-object-path", RecursiveMakeBackend)
+
+        expected = {
+            "prog": "$(DEPTH)/dist/bin/aprog.prog: LDFLAGS += "
+            "-Wl,-object_path_lto,aprog.prog.lto.o/\n",
+            "simple": "asimple.prog: LDFLAGS += "
+            "-Wl,-object_path_lto,asimple.prog.lto.o/\n",
+            "shared": "$(DEPTH)/dist/bin/libashared.so: LDFLAGS += "
+            "-Wl,-object_path_lto,libashared.so.lto.o/\n",
+        }
+        for subdir, line in expected.items():
+            with open(os.path.join(env.topobjdir, subdir, "backend.mk")) as fh:
+                self.assertIn(line, fh.readlines())
+
+    def test_lto_object_path_disabled(self):
+        env = self._consume("program-paths", RecursiveMakeBackend)
+
+        for subdir in ("dist-bin", "not-installed"):
+            with open(os.path.join(env.topobjdir, subdir, "backend.mk")) as fh:
+                content = fh.read()
+            self.assertNotIn("-object_path_lto", content)
 
     def test_extra_link_deps(self):
         """Test that EXTRA_LINK_DEPS is handled properly."""

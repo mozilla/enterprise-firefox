@@ -353,7 +353,8 @@ static bool DispatchOffThreadBaselineBatchImpl(JSContext* cx, bool isEager) {
 
     auto* offThreadSnapshot = alloc->new_<OffThreadBaselineSnapshot>(
         script, globalLexical, globalThis, baseWarmUpThreshold,
-        isIonCompileable, compileDebugInstrumentation);
+        isIonCompileable, compileDebugInstrumentation,
+        /* compileDebugModeOSRResumeTargets = */ false);
     if (!offThreadSnapshot) {
       ReportOutOfMemory(cx);
       return false;
@@ -407,6 +408,8 @@ MethodStatus jit::BaselineCompile(JSContext* cx, JSScript* script,
   bool compileDebugInstrumentation =
       script->isDebuggee() ||
       options.hasFlag(BaselineOption::ForceDebugInstrumentation);
+  bool compileDebugModeOSRResumeTargets =
+      options.hasFlag(BaselineOption::CompileDebugModeOSRResumeTargets);
   bool forceMainThread =
       compileDebugInstrumentation ||
       options.hasFlag(BaselineOption::ForceMainThreadCompilation);
@@ -429,9 +432,9 @@ MethodStatus jit::BaselineCompile(JSContext* cx, JSScript* script,
       OptimizationInfo::baseWarmUpThresholdForScript(cx, script);
   bool isIonCompileable = IsIonEnabled(cx) && CanIonCompileScript(cx, script);
 
-  BaselineSnapshot snapshot(script, globalLexical, globalThis,
-                            baseWarmUpThreshold, isIonCompileable,
-                            compileDebugInstrumentation);
+  BaselineSnapshot snapshot(
+      script, globalLexical, globalThis, baseWarmUpThreshold, isIonCompileable,
+      compileDebugInstrumentation, compileDebugModeOSRResumeTargets);
 
   if (BaselineCompileTask::OffThreadBaselineCompilationAvailable(cx, script) &&
       !forceMainThread) {
@@ -581,41 +584,6 @@ bool jit::CanBaselineCompileScript(JSContext* cx, JSScript* script) {
   return true;
 }
 
-static bool MaybeCreateBaselineInterpreterEntryScript(JSContext* cx,
-                                                      JSScript* script) {
-  MOZ_ASSERT(script->hasJitScript());
-
-  Zone* zone = script->zone();
-  EntryTrampolineMap* map =
-      zone->jitZone()->getOrCreateInterpreterEntryMap(zone);
-  if (!map) {
-    return false;
-  }
-
-  JitRuntime* jitRuntime = cx->runtime()->jitRuntime();
-  if (script->jitCodeRaw() != jitRuntime->baselineInterpreter().codeRaw()) {
-    // script already has an updated interpreter trampoline.
-#ifdef DEBUG
-    auto ptr = map->lookup(script);
-    MOZ_ASSERT(ptr);
-    MOZ_ASSERT(ptr->value()->raw() == script->jitCodeRaw());
-#endif
-    return true;
-  }
-
-  auto ptr = map->lookupForAdd(script);
-  if (!ptr) {
-    Rooted<JitCode*> code(
-        cx, jitRuntime->generateEntryTrampolineForScript(cx, script));
-    if (!code || !map->relookupOrAdd(ptr, script, code)) {
-      return false;
-    }
-  }
-
-  script->updateJitCodeRaw(cx->runtime());
-  return true;
-}
-
 static MethodStatus CanEnterBaselineInterpreter(JSContext* cx,
                                                 JSScript* script) {
   MOZ_ASSERT(IsBaselineInterpreterEnabled());
@@ -649,12 +617,6 @@ static MethodStatus CanEnterBaselineInterpreter(JSContext* cx,
     jitHints->setEagerBaselineInterpreterHint(script);
   }
 
-  if (JitOptions.emitInterpreterEntryTrampoline) {
-    if (!MaybeCreateBaselineInterpreterEntryScript(cx, script)) {
-      ReportOutOfMemory(cx);
-      return Method_Error;
-    }
-  }
   return Method_Compiled;
 }
 

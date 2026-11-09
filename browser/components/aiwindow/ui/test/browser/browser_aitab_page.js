@@ -69,12 +69,26 @@ add_task(async function test_unknown_page_reports_unavailable() {
         "unavailable",
         "A name with no stored page renders the unavailable state"
       );
-      Assert.ok(
-        content.document
-          .querySelector("aitab-page")
-          .shadowRoot.querySelector("aitab-error"),
-        "The error component is rendered"
+      const error = content.document
+        .querySelector("aitab-page")
+        .shadowRoot.querySelector("aitab-error");
+      Assert.ok(error, "The error component is rendered");
+      await error.wrappedJSObject.updateComplete;
+
+      const reasons = error.shadowRoot.querySelectorAll(
+        ".aitab-error-reasons li"
       );
+      Assert.equal(reasons.length, 3, "Every possible reason is listed");
+      await ContentTaskUtils.waitForCondition(
+        () => [...reasons].every(reason => reason.querySelector("strong")),
+        "Each reason is localized with a bold lead-in"
+      );
+      for (const reason of reasons) {
+        Assert.ok(
+          !reason.textContent.includes("{"),
+          `Every term in ${reason.dataset.l10nId} resolves`
+        );
+      }
     });
   });
 
@@ -109,9 +123,12 @@ add_task(async function test_path_like_page_name_rejected() {
           "error",
           "A name shaped like a path is refused rather than looked up"
         );
+        const error = element.shadowRoot.querySelector("aitab-error");
+        Assert.ok(error, "The error message is rendered");
+        await error.wrappedJSObject.updateComplete;
         Assert.ok(
-          element.shadowRoot.querySelector("aitab-error"),
-          "The error message is rendered"
+          !error.shadowRoot.querySelector(".aitab-error-reasons"),
+          "The reasons a page goes missing are not offered for a refused name"
         );
         Assert.ok(
           !element.shadowRoot.querySelector(".aitab-sheet"),
@@ -348,6 +365,51 @@ add_task(async function test_visit_recorded_in_history() {
   Assert.ok(title, "The history entry has a title");
 
   await AITabStore.deleteBySlug(slug);
+  await PlacesUtils.history.clear();
+  await SpecialPowers.popPrefEnv();
+});
+
+function getStoredFavicon(url) {
+  return PlacesUtils.favicons.getFaviconForPage(Services.io.newURI(url));
+}
+
+add_task(async function test_favicon_stored_and_removed_with_page() {
+  await SpecialPowers.pushPrefEnv({ set: [[AITAB_PREF, true]] });
+  await PlacesUtils.history.clear();
+
+  await ConversationStore.updateConversation(
+    new Conversation({ id: "conv-favicon", feature: "aitab" })
+  );
+  const { slug } = await AITabStore.create({
+    convId: "conv-favicon",
+    slug: "favicon_page",
+    title: "Favicon",
+    components: { surface: { components: [], dataModel: {} } },
+  });
+  const url = `about:smartpage?page=${slug}`;
+
+  const faviconChanged = PlacesTestUtils.waitForNotification(
+    "favicon-changed",
+    events => events.some(event => event.url == url)
+  );
+
+  await BrowserTestUtils.withNewTab(url, async browser => {
+    await faviconChanged;
+    const favicon = await getStoredFavicon(url);
+    Assert.equal(
+      favicon.uri.spec,
+      "chrome://browser/content/aiwindow/assets/smart-page-16.svg",
+      "The stored icon is the smart page icon"
+    );
+
+    const actor = browser.browsingContext.currentWindowGlobal.getActor("AITab");
+    await actor.receiveMessage({ name: "AITab:DeletePage" });
+    await TestUtils.waitForCondition(
+      async () => !(await getStoredFavicon(url)),
+      "Deleting the page removes its icon"
+    );
+  });
+
   await PlacesUtils.history.clear();
   await SpecialPowers.popPrefEnv();
 });

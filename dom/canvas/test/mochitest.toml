@@ -260,6 +260,9 @@ support-files = [
 
 ["test_filter.html"]
 
+["test_filter_blur_translucent_stroke.html"]
+subsuite = "gpu"
+
 ["test_filter_opacity_a8.html"]
 
 ["test_filter_tainted.html"]
@@ -387,5 +390,12 @@ skip-if = ["os == 'android'"]
 ["test_toDataURL_parameters.html"]
 
 ["test_toDataURL_parameters_png.html"]
+
+["test_webgl_context_loss_gpu_process.html"]
+subsuite = "gpu"
+skip-if = [
+  "os == 'win' && debug",
+  "verify",
+]
 
 ["test_windingRuleUndefined.html"]

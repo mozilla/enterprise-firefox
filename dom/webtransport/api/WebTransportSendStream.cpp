@@ -274,7 +274,7 @@ void WebTransportSendStream::SetSendGroup(WebTransportSendGroup* aSendGroup,
   }
   // Step 2: Set this.[[SendGroup]] to value.
   mSendGroup = aSendGroup;
-  // Propagate the new send group to the network process so the neqo scheduler
+  // Propagate the new send group to the parent process so the neqo scheduler
   // sees the updated group assignment. groupId 0 means no group (null
   // sendGroup).
   uint64_t groupId = aSendGroup ? aSendGroup->GetGroupId() : 0;

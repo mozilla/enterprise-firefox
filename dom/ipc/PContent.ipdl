@@ -47,6 +47,9 @@ include protocol PSpeechRecognition;
 include protocol PRemoteWorkerDebuggerManager;
 include protocol PRemoteWorkerService;
 include protocol PProfiler;
+#ifdef MOZ_WIDGET_ANDROID
+include protocol PProcInfo;
+#endif
 include protocol PScriptCache;
 include protocol PSessionStorageObserver;
 include CrashReporterInitArgs;
@@ -67,7 +70,6 @@ include ClientIPCTypes;
 include HangTypes;
 include PrefsTypes;
 include NeckoChannelParams;
-include PSMIPCTypes;
 include LookAndFeelTypes;
 include ProfilerTypes;
 
@@ -605,6 +607,9 @@ child:
     async InitGMPService(Endpoint<PGMPServiceChild> service);
     async InitProcessHangMonitor(Endpoint<PProcessHangMonitorChild> hangMonitor);
     async InitProfiler(Endpoint<PProfilerChild> aEndpoint);
+#ifdef MOZ_WIDGET_ANDROID
+    async InitProcInfo(Endpoint<PProcInfoChild> aEndpoint);
+#endif
 
     // Give the content process its endpoints to the compositor.
     async InitRendering(
@@ -625,7 +630,6 @@ child:
       uint32_t[] namespaces);
 
     async NetworkLinkTypeChange(uint32_t type);
-    async SocketProcessCrashed();
 
     // Re-create the rendering stack for a device reset.
     async ReinitRenderingForDeviceReset();
@@ -1090,8 +1094,7 @@ child:
         NavigationType aNavigationType,
         TabId aSnapshotTargetTab) returns (bool captured);
     async ReactivateDocuments(MaybeDiscardedBrowsingContext aContext,
-                              SessionHistoryInfo? aReactivatedEntry,
-                              SessionHistoryInfo[] aNewSHEs,
+                              NavigationReactivationData[] aReactivationData,
                               PreviousSessionHistoryInfo? aPreviousEntryForActivation);
     // Fires pageswap without a view transition, for a navigation that does not
     // use BeginOutboundCrossDocumentViewTransition.
@@ -1232,7 +1235,7 @@ parent:
     async ReleaseHWInferenceConnection();
 #endif  // !ANDROID
 
-    sync PURLClassifier(nullable nsIPrincipal principal)
+    sync PURLClassifier(nsIPrincipal principal)
         returns (bool success);
 
     async PURLClassifierLocal(nullable nsIURI uri, IPCURLClassifierFeature[] features);
@@ -1415,8 +1418,8 @@ parent:
      *       provided.
      */
     async PContentPermissionRequest(PermissionRequest[] aRequests,
-                                    nullable nsIPrincipal aPrincipal,
-                                    nullable nsIPrincipal aTopLevelPrincipal,
+                                    [NoTaint="Bug 1501072"] nullable nsIPrincipal aPrincipal,
+                                    [NoTaint="Bug 1501072"] nullable nsIPrincipal aTopLevelPrincipal,
                                     bool aIsHandlingUserInput,
                                     bool aMaybeUnsafePermissionDelegate,
                                     TabId tabId,
@@ -1644,7 +1647,7 @@ parent:
                        nullable nsIURI aURIToLoad,
                        nsCString aFeatures,
                        Modifiers aModifiers,
-                       nullable nsIPrincipal aTriggeringPrincipal,
+                       nsIPrincipal aTriggeringPrincipal,
                        nullable nsIPolicyContainer aPolicyContainer,
                        nullable nsIReferrerInfo aReferrerInfo,
                        OriginAttributes aOriginAttributes,
@@ -1656,7 +1659,7 @@ parent:
      async DeleteGetFilesRequest(nsID aID);
 
      async StoreAndBroadcastBlobURLRegistration(nsCString url, IPCBlob blob,
-                                                nullable nsIPrincipal principal, nsCString aPartitionKey);
+                                                nsIPrincipal principal, nsCString aPartitionKey);
 
      async UnstoreAndBroadcastBlobURLUnregistration(BroadcastBlobURLUnregistrationRequest[] aRequests);
 
@@ -1683,7 +1686,7 @@ parent:
      * Determines whether storage access can be granted automatically by the
      * storage access API without showing a user prompt.
      */
-    async AutomaticStorageAccessPermissionCanBeGranted(nullable nsIPrincipal aPrincipal)
+    async AutomaticStorageAccessPermissionCanBeGranted(nsIPrincipal aPrincipal)
           returns (bool success);
 
     /*
@@ -1692,7 +1695,7 @@ parent:
      */
     async StorageAccessPermissionGrantedForOrigin(uint64_t aTopLevelWindowId,
                                                   MaybeDiscardedBrowsingContext aParentContext,
-                                                  nullable nsIPrincipal aTrackingPrincipal,
+                                                  [NoTaint="Bug 2014105"] nullable nsIPrincipal aTrackingPrincipal,
                                                   nsCString aTrackingOrigin,
                                                   StorageAccessPromptChoices aAllowMode,
                                                   StorageAccessPermissionGrantedReason? aReason,
@@ -1701,17 +1704,17 @@ parent:
 
     async CompleteAllowAccessFor(MaybeDiscardedBrowsingContext aParentContext,
                                  uint64_t aTopLevelWindowId,
-                                 nullable nsIPrincipal aTrackingPrincipal,
+                                 [NoTaint="Bug 2014105"] nullable nsIPrincipal aTrackingPrincipal,
                                  nsCString aTrackingOrigin,
                                  uint32_t aCookieBehavior,
                                  StorageAccessPermissionGrantedReason aReason,
                                  bool? aHadPriorUserInteraction)
           returns (StorageAccessPromptChoices? choice);
 
-    async StoreUserInteractionAsPermission(nullable nsIPrincipal aPrincipal);
+    async StoreUserInteractionAsPermission(nsIPrincipal aPrincipal);
 
     async TestCookiePermissionDecided(MaybeDiscardedBrowsingContext aContext,
-                         nullable nsIPrincipal aPrincipal)
+                         [NoTaint="Bug 2014105"] nullable nsIPrincipal aPrincipal)
           returns (bool? allowed);
 
    /**
@@ -1839,8 +1842,7 @@ parent:
 
     async NotifyOnHistoryReload(MaybeDiscardedBrowsingContext aContext,
                                 uint32_t aReloadFlags)
-            returns (bool canReload, nsDocShellLoadState? loadState,
-                     bool? reloadActiveEntry);
+            returns (bool canReload, nsDocShellLoadState? loadState);
 
     async HistoryCommit(MaybeDiscardedBrowsingContext aContext,
                         uint64_t aLoadID, nsID aChangeID, uint32_t aLoadType,
@@ -1858,8 +1860,8 @@ parent:
       returns(nsresult result);
 
     async BlobURLDataRequest(nsCString aBlobURL,
-                             nsIPrincipal aTriggeringPrincipal,
-                             nullable nsIPrincipal aLoadingPrincipal,
+                             [NoTaint="Bug 2089478"] nsIPrincipal aTriggeringPrincipal,
+                             [NoTaint="Bug 2089478"] nullable nsIPrincipal aLoadingPrincipal,
                              OriginAttributes aOriginAttributes,
                              uint64_t aInnerWindowId,
                              nsCString aPartitionKey)

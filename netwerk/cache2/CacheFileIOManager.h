@@ -181,7 +181,7 @@ class CacheFileHandles {
 
     explicit HandleHashKey(KeyTypePointer aKey) {
       MOZ_COUNT_CTOR(HandleHashKey);
-      mHash = MakeUnique<uint8_t[]>(SHA1Sum::kHashSize);
+      mHash = std::make_unique<uint8_t[]>(SHA1Sum::kHashSize);
       memcpy(mHash.get(), aKey, sizeof(SHA1Sum::Hash));
     }
     HandleHashKey(const HandleHashKey& aOther) {

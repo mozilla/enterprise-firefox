@@ -102,19 +102,6 @@ LINK_PDBFILE = $(basename $@).pdb
 endif
 endif
 
-ifeq ($(CC_TYPE),clang-cl)
-
-ifdef SIMPLE_PROGRAMS
-COMPILE_PDB_FLAG ?= -Fd$(basename $(@F)).pdb
-COMPILE_CFLAGS += $(COMPILE_PDB_FLAG)
-COMPILE_CXXFLAGS += $(COMPILE_PDB_FLAG)
-endif
-
-ifdef MOZ_DEBUG
-CODFILE=$(basename $(@F)).cod
-endif
-
-endif # CC_TYPE == clang-cl
 endif # WINNT
 
 ifeq ($(OS_ARCH),WINNT)
@@ -209,26 +196,6 @@ endif
 # TAG_PROGRAM := ctags -L -
 #
 TAG_PROGRAM		= xargs etags -a
-
-#
-# MacOS X specific stuff
-#
-
-ifeq ($(OS_ARCH),Darwin)
-ifneq (,$(SHARED_LIBRARY))
-_LOADER_PATH := @rpath
-EXTRA_DSO_LDOPTS	+= -dynamiclib -install_name $(_LOADER_PATH)/$(@F) -compatibility_version 1 -current_version 1
-endif
-endif
-
-#
-# MINGW32
-#
-ifeq ($(OS_ARCH),WINNT)
-ifneq ($(CC_TYPE),clang-cl)
-DSO_LDOPTS += -Wl,--out-implib -Wl,$(IMPORT_LIBRARY)
-endif
-endif
 
 ifeq ($(USE_TVFS),1)
 IFLAGS1 = -rb
@@ -462,7 +429,7 @@ $(SHARED_LIBRARY): $(OBJS) $(call resfile,$(SHARED_LIBRARY)) $(STATIC_LIBS) $(GL
 	$(REPORT_BUILD)
 	$(call BUILDSTATUS,START_SharedLib $@)
 	$(RM) $@
-	$(MKSHLIB) $(if $(filter clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH)),-IMPLIB:$(basename $(@F)).lib )$($(notdir $@)_OBJS) $(filter %.res,$^) $(RELRHACK_LDFLAGS) $(LDFLAGS) $(STATIC_LIBS) $(SHARED_LIBS) $(EXTRA_DSO_LDOPTS) $(OS_LIBS)
+	$(MKSHLIB) $($(notdir $@)_OBJS) $(filter %.res,$^) $(RELRHACK_LDFLAGS) $(LDFLAGS) $(STATIC_LIBS) $(SHARED_LIBS) $(EXTRA_DSO_LDOPTS) $(OS_LIBS)
 	$(call py_action,check_binary,$@)
 
 ifeq (clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH))
@@ -491,13 +458,13 @@ $(OBJS) $(HOST_OBJS) $(PROGOBJS) $(HOST_PROGOBJS): $(GLOBAL_DEPS)
 $(HOST_COBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(HOST_CC) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CFLAGS) $(NSPR_CFLAGS) $<
+	$(HOST_CC) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CFLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(HOST_CPPOBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(HOST_CXX) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CXXFLAGS) $(NSPR_CFLAGS) $<
+	$(HOST_CXX) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CXXFLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(COBJS):
@@ -553,6 +520,13 @@ endif # WINCHECKSEC
 endif # WINNT
 endif
 endef
+
+# Binaries installed into dist/bin/gtest (the gtest libxul and the libraries
+# its tests load) are only used by gtest runs. Keep their symbols out of the
+# main symbols archive, so that other tasks don't have to download them.
+ifneq (,$(filter $(DIST)/bin/gtest%,$(FINAL_TARGET)))
+DUMP_SYMBOLS_FLAGS += --symbols-dir=crashreporter-symbols-gtest
+endif
 
 ifneq (,$(filter $(DIST)/bin%,$(FINAL_TARGET)))
 DUMP_SYMS_TARGETS := $(filter-out $(MOZBUILD_NON_DEFAULT_TARGETS),$(SHARED_LIBRARY) $(PROGRAM) $(SIMPLE_PROGRAMS) $(RUST_PROGRAMS))
@@ -741,72 +715,6 @@ endif
 
 EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
-
-###############################################################################
-# Bunch of things that extend the 'export' rule (in order):
-###############################################################################
-
-ifneq ($(XPI_NAME),)
-$(FINAL_TARGET):
-	$(NSINSTALL) -D $@
-
-export:: $(FINAL_TARGET)
-endif
-
-################################################################################
-# CHROME PACKAGING
-
-chrome::
-	$(MAKE) realchrome
-	$(LOOP_OVER_DIRS)
-
-$(FINAL_TARGET)/chrome: $(call mkdir_deps,$(FINAL_TARGET)/chrome)
-
-ifneq (,$(JAR_MANIFEST))
-ifndef NO_DIST_INSTALL
-
-misc realchrome:: $(FINAL_TARGET)/chrome
-	$(call py_action,jar_maker $(subst $(topsrcdir)/,,$(JAR_MANIFEST)),\
-	  $(QUIET) -d $(FINAL_TARGET) \
-	  $(MAKE_JARS_FLAGS) $(DEFINES) $(ACDEFINES) \
-	  $(JAR_MANIFEST))
-
-ifdef AB_CD
-.PHONY: l10n
-l10n: misc ;
-endif
-endif
-
-endif
-
-# Usage:
-# xpi_package_rule(package-name,directory-to-package,relative-target-directory,parent-rule)
-# where:
-#     - package-name is the name of the xpi package, without suffix
-#     - directory-to-package is the path to the directory to package
-#     - relative-target-directory is the path to the directory where
-#       the archive is generated, relative to directory-to-package
-#     - parent-rule is the name(s) of the rule(s) this rule should be added to
-define xpi_package_rule
-$$(abspath $(3))/$(1).xpi: $$(call mkdir_deps,$(3) $$(MDDEPDIR))
-	@echo 'Packaging $(1).xpi...'
-	$$(call py_action,zip $(1).xpi,-C $(2) $$@ '*' --dep-target $$@ --dep-file $$(MDDEPDIR)/$(1).d)
-
-$(4):: $$(abspath $(3))/$(1).xpi
-
--include $$(MDDEPDIR)/$(1).d
-
-endef
-
-ifdef XPI_TESTDIR
-$(eval $(call xpi_package_rule,$(XPI_PKGNAME),$(srcdir),$(XPI_TESTDIR),misc))
-else
-# When you move this out of the tools tier, please remove the corresponding
-# hacks in recursivemake.py that check if Makefile.in sets the variable.
-ifdef XPI_PKGNAME
-$(eval $(call xpi_package_rule,$(XPI_PKGNAME),$(FINAL_TARGET),$(FINAL_TARGET)/..,tools realchrome))
-endif
-endif
 
 #############################################################################
 # MDDEPDIR is the subdirectory where all the dependency files are placed.
@@ -1027,7 +935,7 @@ endif
 # Fake targets.  Always run these rules, even if a file/directory with that
 # name already exists.
 #
-.PHONY: all alltags boot chrome realchrome export install libs makefiles run_apprunner tools $(DIRS) FORCE
+.PHONY: all alltags boot export install libs makefiles run_apprunner tools $(DIRS) FORCE
 
 # Used as a dependency to force targets to rebuild
 FORCE:

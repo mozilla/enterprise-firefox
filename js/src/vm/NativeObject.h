@@ -374,18 +374,18 @@ class ObjectElements {
 
   uint32_t getInitializedLength() const { return initializedLength; }
 
-  static int offsetOfFlags() {
+  static constexpr int offsetOfFlags() {
     return int(offsetof(ObjectElements, flags)) - int(sizeof(ObjectElements));
   }
-  static int offsetOfInitializedLength() {
+  static constexpr int offsetOfInitializedLength() {
     return int(offsetof(ObjectElements, initializedLength)) -
            int(sizeof(ObjectElements));
   }
-  static int offsetOfCapacity() {
+  static constexpr int offsetOfCapacity() {
     return int(offsetof(ObjectElements, capacity)) -
            int(sizeof(ObjectElements));
   }
-  static int offsetOfLength() {
+  static constexpr int offsetOfLength() {
     return int(offsetof(ObjectElements, length)) - int(sizeof(ObjectElements));
   }
 

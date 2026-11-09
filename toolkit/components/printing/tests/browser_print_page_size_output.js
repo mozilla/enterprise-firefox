@@ -10,10 +10,6 @@
  * the paper size in the print settings.
  */
 
-const PSSVC = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(
-  Ci.nsIPrintSettingsService
-);
-
 const PAGE_SIZE_PREF =
   "print.save_as_pdf.use_page_rule_size_as_paper_size.enabled";
 
@@ -24,37 +20,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 const LETTER = [612, 792];
 const LABEL_4x6 = [288, 432];
 const LABEL_6x4 = [432, 288];
-
-/**
- * Print aBrowser to PDF using Letter paper.
- *
- * @param {MozBrowser} aBrowser - the browser to print.
- * @returns {Promise<Uint8Array>} the contents of the PDF.
- */
-async function printToPDF(aBrowser) {
-  let storageStream = Cc["@mozilla.org/storagestream;1"].createInstance(
-    Ci.nsIStorageStream
-  );
-  storageStream.init(4096, 0xffffffff);
-
-  let settings = PSSVC.createNewPrintSettings();
-  settings.printerName = "Mozilla Save to PDF";
-  settings.outputFormat = Ci.nsIPrintSettings.kOutputFormatPDF;
-  settings.outputDestination = Ci.nsIPrintSettings.kOutputDestinationStream;
-  settings.outputStream = storageStream.getOutputStream(0);
-
-  // The paper size the page sizes must win over.
-  settings.paperSizeUnit = Ci.nsIPrintSettings.kPaperSizeInches;
-  settings.paperId = "na_letter";
-  settings.paperWidth = 8.5;
-  settings.paperHeight = 11;
-
-  await aBrowser.browsingContext.print(settings);
-
-  return new Uint8Array(
-    NetUtil.readInputStream(storageStream.newInputStream(0))
-  );
-}
 
 /**
  * Read the size of every page of a PDF.
@@ -77,7 +42,13 @@ async function testPageRuleSizes(prefValue, expectedSizes) {
   await BrowserTestUtils.withNewTab(
     PrintHelper.getTestPageUrl("page_size_mixed.html"),
     async function (browser) {
-      let data = await printToPDF(browser);
+      // The paper size the page sizes must win over.
+      let data = await PrintHelper.printToPDF(browser, settings => {
+        settings.paperSizeUnit = Ci.nsIPrintSettings.kPaperSizeInches;
+        settings.paperId = "na_letter";
+        settings.paperWidth = 8.5;
+        settings.paperHeight = 11;
+      });
       Assert.deepEqual(await readPageSizes(data), expectedSizes);
     }
   );

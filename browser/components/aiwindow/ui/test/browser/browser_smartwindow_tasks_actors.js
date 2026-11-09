@@ -122,6 +122,87 @@ add_task(async function test_smartwindow_tasks_actor_communication() {
 });
 
 /**
+ * Test that the tasks page is unavailable when Smart Window is blocked by AI
+ * Controls.
+ */
+add_task(async function test_smartwindow_tasks_blocked_by_ai_controls() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.smartwindow.enabled", true],
+      ["browser.ai.control.smartWindow", "blocked"],
+    ],
+  });
+
+  await BrowserTestUtils.withNewTab("about:smartwindowtasks", async browser => {
+    await SpecialPowers.spawn(browser, [], async () => {
+      await content.customElements.whenDefined("ai-tasks");
+      const aiTasks = content.document.querySelector("ai-tasks");
+
+      const actor = content.windowGlobalChild.getActor("SmartWindowTasks");
+      const result = await actor.sendQuery("SmartWindowTasks:GetConstants");
+      Assert.ok(result.constants.isBlocked, "Constants report blocked");
+
+      await ContentTaskUtils.waitForCondition(
+        () => aiTasks.shadowRoot.querySelector(".unavailable-wrapper"),
+        "The unavailable state is shown"
+      );
+      Assert.ok(
+        !aiTasks.shadowRoot.querySelector(".page-wrapper"),
+        "The tasks page is not shown"
+      );
+
+      const createResult = await actor.sendQuery(
+        "SmartWindowTasks:CreateMonitor",
+        {
+          prompt: "Blocked monitor",
+          watchUrls: ["https://example.com/"],
+          schedule: { type: "daily", hour: 9, minute: 0 },
+          source: "test",
+        }
+      );
+      Assert.ok(!createResult.success, "Creating a monitor fails");
+    });
+  });
+
+  await SpecialPowers.popPrefEnv();
+});
+
+/**
+ * Test that an open tasks page updates when Smart Window is blocked and
+ * unblocked by AI Controls.
+ */
+add_task(async function test_smartwindow_tasks_page_reacts_to_block_changes() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.smartwindow.enabled", true],
+      ["browser.ai.control.smartWindow", "default"],
+    ],
+  });
+
+  await BrowserTestUtils.withNewTab("about:smartwindowtasks", async browser => {
+    const waitForPage = selector =>
+      SpecialPowers.spawn(browser, [selector], async sel => {
+        await content.customElements.whenDefined("ai-tasks");
+        const aiTasks = content.document.querySelector("ai-tasks");
+        await ContentTaskUtils.waitForCondition(
+          () => aiTasks.shadowRoot?.querySelector(sel),
+          `${sel} is shown`
+        );
+      });
+
+    await waitForPage(".page-wrapper");
+
+    Services.prefs.setStringPref("browser.ai.control.smartWindow", "blocked");
+    await waitForPage(".unavailable-wrapper");
+
+    Services.prefs.setStringPref("browser.ai.control.smartWindow", "default");
+    await waitForPage(".page-wrapper");
+  });
+
+  await SpecialPowers.popPrefEnv();
+});
+
+/**
  * Test that SmartWindowTasks actor can handle monitor operations
  */
 add_task(async function test_smartwindow_tasks_monitor_operations() {

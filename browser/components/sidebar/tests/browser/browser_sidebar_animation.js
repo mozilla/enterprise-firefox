@@ -57,7 +57,7 @@ function getToken(name) {
  * @returns {number}
  */
 function getDurationToken(name) {
-  return parseFloat(getToken(name)) * 1000;
+  return parseFloat(getToken(name));
 }
 
 /**
@@ -127,6 +127,22 @@ function assertBeneathContentArea(name, description) {
 }
 
 /**
+ * Assert that a transition leaves the content area and panel live, rather than
+ * swapping in their snapshots.
+ *
+ * @param {Animation[]} animations
+ * @param {string} description
+ */
+function assertContentAreaNotCaptured(animations, description) {
+  for (const name of ["tabbrowser-tabbox", "sidebar-box"]) {
+    ok(
+      !animations.some(a => a.effect.pseudoElement.endsWith(`(${name})`)),
+      `${description}: ${name} isn't captured`
+    );
+  }
+}
+
+/**
  * Assert that every group animation in a transition uses a given timing.
  *
  * @param {Animation[]} animations
@@ -179,7 +195,7 @@ registerCleanupFunction(() => {
 });
 
 add_task(async function test_toolbar_button_toggle_uses_launcher_tokens() {
-  const emphasized = getToken("--motion-ease-emphasized");
+  const emphasized = getToken("--sidebar-motion-easing");
 
   const hide = await captureTransition(
     () => toggleWithShortcut(),
@@ -207,7 +223,7 @@ add_task(async function test_toolbar_button_toggle_uses_launcher_tokens() {
   );
   assertGroupTiming(
     hide.animations,
-    getDurationToken("--motion-dur-sidebar-exit"),
+    getDurationToken("--sidebar-motion-duration-exit"),
     emphasized,
     "Launcher exit"
   );
@@ -225,7 +241,7 @@ add_task(async function test_toolbar_button_toggle_uses_launcher_tokens() {
   ok(show.types.includes("launcher-show"), "Showing is a launcher show");
   assertGroupTiming(
     show.animations,
-    getDurationToken("--motion-dur-sidebar-enter"),
+    getDurationToken("--sidebar-motion-duration-enter"),
     emphasized,
     "Launcher enter"
   );
@@ -297,13 +313,13 @@ add_task(async function test_expand_on_hover_duration_default() {
     Services.prefs
       .getDefaultBranch("")
       .getIntPref(EXPAND_ON_HOVER_DURATION_PREF),
-    getDurationToken("--motion-dur-sidebar-enter"),
+    getDurationToken("--sidebar-motion-duration-enter"),
     "Expand on hover defaults to the same duration as expanding by click"
   );
 });
 
 add_task(async function test_panel_transitions_use_panel_tokens() {
-  const emphasized = getToken("--motion-ease-emphasized");
+  const emphasized = getToken("--sidebar-motion-easing");
 
   const open = await captureTransition(
     () => pressShortcut("key_gotoHistory"),
@@ -314,7 +330,7 @@ add_task(async function test_panel_transitions_use_panel_tokens() {
   ok(open.types.includes("panel-open"), "Opening is a panel open");
   assertGroupTiming(
     open.animations,
-    getDurationToken("--motion-dur-sidebar-panel-enter"),
+    getDurationToken("--sidebar-panel-motion-duration-enter"),
     emphasized,
     "Panel open"
   );
@@ -329,9 +345,9 @@ add_task(async function test_panel_transitions_use_panel_tokens() {
   );
   ok(switched.types.includes("panel-switch"), "Switching is a panel switch");
   const contentFade = getDurationToken(
-    "--motion-dur-sidebar-panel-content-fade"
+    "--sidebar-panel-content-motion-duration-fade"
   );
-  const standard = getToken("--motion-ease-standard");
+  const standard = getToken("--sidebar-panel-content-motion-easing-fade");
   assertGroupTiming(switched.animations, contentFade, standard, "Panel switch");
   const fades = switched.animations.filter(a =>
     /^::view-transition-(old|new)\(sidebar-box\)$/.test(a.effect.pseudoElement)
@@ -352,7 +368,7 @@ add_task(async function test_panel_transitions_use_panel_tokens() {
   ok(close.types.includes("panel-close"), "Closing is a panel close");
   assertGroupTiming(
     close.animations,
-    getDurationToken("--motion-dur-sidebar-panel-exit"),
+    getDurationToken("--sidebar-panel-motion-duration-exit"),
     emphasized,
     "Panel close"
   );
@@ -395,6 +411,76 @@ add_task(async function test_panel_transitions_show_only_new_launcher() {
   ok(!SidebarController.isOpen, "The panel was closed");
 
   await SpecialPowers.popPrefEnv();
+  await ensureLauncherVisibleWithoutAnimating();
+});
+
+/**
+ * Assert which content corner type, if any, a transition has, and that the
+ * content area's corner animates to match.
+ *
+ * @param {{types: string[], animations: Animation[]}} transition
+ * @param {"content-corner-round"|"content-corner-square"|null} expected
+ * @param {string} description
+ */
+function assertContentCorner({ types, animations }, expected, description) {
+  for (const type of ["content-corner-round", "content-corner-square"]) {
+    is(
+      types.includes(type),
+      type == expected,
+      `${description}: ${type} is ${type == expected ? "" : "not "}a type`
+    );
+  }
+  const corner = animations.find(
+    a =>
+      a.effect.pseudoElement ==
+      "::view-transition-image-pair(tabbrowser-tabbox)"
+  );
+  is(
+    corner?.animationName,
+    expected?.replace("content-corner-", "sidebar-content-corner-start-"),
+    `${description}: the content area's corner animates as expected`
+  );
+}
+
+add_task(async function test_content_corner_transitions() {
+  const hide = await captureTransition(() => toggleWithShortcut());
+  ok(SidebarController.sidebarContainer.hidden, "The launcher was hidden");
+  assertContentCorner(hide, "content-corner-square", "Launcher hide");
+
+  const show = await captureTransition(() => toggleWithShortcut());
+  ok(!SidebarController.sidebarContainer.hidden, "The launcher was shown");
+  assertContentCorner(show, "content-corner-round", "Launcher show");
+
+  const open = await captureTransition(() => pressShortcut("key_gotoHistory"));
+  ok(SidebarController.isOpen, "The panel was opened");
+  assertContentCorner(open, null, "Panel open next to the launcher");
+  await captureTransition(() => pressShortcut("key_gotoHistory"));
+  ok(!SidebarController.isOpen, "The panel was closed");
+
+  const originalTab = gBrowser.selectedTab;
+  const tabs = await Promise.all(
+    [1, 2].map(i =>
+      BrowserTestUtils.openNewForegroundTab(gBrowser, `data:text/plain,${i}`)
+    )
+  );
+  gBrowser.addTabSplitView(tabs);
+  await BrowserTestUtils.switchTab(gBrowser, tabs[0]);
+  ok(
+    gBrowser.selectedBrowser.closest(".split-view-panel"),
+    "The selected tab is in a split view"
+  );
+
+  const splitHide = await captureTransition(() => toggleWithShortcut());
+  ok(SidebarController.sidebarContainer.hidden, "The launcher was hidden");
+  assertContentCorner(splitHide, null, "Launcher hide in a split view");
+
+  const splitShow = await captureTransition(() => toggleWithShortcut());
+  ok(!SidebarController.sidebarContainer.hidden, "The launcher was shown");
+  assertContentCorner(splitShow, null, "Launcher show in a split view");
+
+  await BrowserTestUtils.switchTab(gBrowser, originalTab);
+  tabs.forEach(tab => BrowserTestUtils.removeTab(tab));
+  Services.prefs.clearUserPref("browser.tabs.splitview.hasUsed");
   await ensureLauncherVisibleWithoutAnimating();
 });
 
@@ -454,7 +540,7 @@ add_task(async function test_expand_on_hover_duration_pref() {
       "Waiting for expand on hover to be enabled"
     );
     await controller.waitUntilStable();
-    const emphasized = getToken("--motion-ease-emphasized");
+    const emphasized = getToken("--sidebar-motion-easing");
 
     win.windowUtils.disableNonTestMouseEvents(true);
     const expand = await captureTransition(
@@ -474,6 +560,7 @@ add_task(async function test_expand_on_hover_duration_pref() {
       "Expanding is a launcher enter"
     );
     assertGroupTiming(expand.animations, 1234, emphasized, "Hover expand");
+    assertContentAreaNotCaptured(expand.animations, "Hover expand");
 
     await SpecialPowers.pushPrefEnv({
       set: [[EXPAND_ON_HOVER_DURATION_PREF, 4321]],
@@ -498,6 +585,7 @@ add_task(async function test_expand_on_hover_duration_pref() {
       emphasized,
       "Hover collapse after the pref changed"
     );
+    assertContentAreaNotCaptured(collapse.animations, "Hover collapse");
     await SpecialPowers.popPrefEnv();
   } finally {
     win.windowUtils.disableNonTestMouseEvents(false);

@@ -458,7 +458,7 @@ class WatchdogManager {
 
   void StartWatchdog() {
     MOZ_ASSERT(!mWatchdog);
-    mWatchdog = mozilla::MakeUnique<Watchdog>(this);
+    mWatchdog = std::make_unique<Watchdog>(this);
     mWatchdog->Init();
   }
 

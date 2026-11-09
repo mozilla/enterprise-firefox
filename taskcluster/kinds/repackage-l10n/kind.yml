@@ -60,11 +60,11 @@ tasks:
                     linux64(?!-enterprise).*:
                         - repackage/base.py
                         - repackage/linux64_signed.py
-                    macosx64-enterprise.*:
+                    macosx64(-aarch64)?-enterprise.*:
                         - repackage/base.py
                         - repackage/base_enterprise.py
                         - repackage/osx_signed.py
-                    macosx64(?!-enterprise).*:
+                    macosx64(?!(-aarch64)?-enterprise).*:
                         - repackage/base.py
                         - repackage/osx_signed.py
                     win32\b.*:

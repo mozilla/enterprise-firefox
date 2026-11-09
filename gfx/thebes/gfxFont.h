@@ -2064,6 +2064,7 @@ class gfxFont {
       int32_t aAppUnitsPerDevPixel) const;
 
   bool HasColorGlyphFor(uint32_t aCh, uint32_t aNextCh);
+  bool HasMetricsOverride() const { return mHasMetricsOverride; }
 
  protected:
   const Metrics& GetHorizontalMetrics() const { return mMetrics; }
@@ -2398,6 +2399,8 @@ class gfxFont {
 
   bool mKerningSet;      // kerning explicitly set?
   bool mKerningEnabled;  // if set, on or off?
+
+  bool mHasMetricsOverride = false;  // ascent/descent/line-gap override used
 
   mozilla::Atomic<bool> mMathInitialized;  // TryGetMathTable() called?
 

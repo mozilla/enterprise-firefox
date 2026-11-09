@@ -4447,7 +4447,11 @@ nsresult HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak(
 
   const WSScanResult nextThing =
       HTMLEditUtils::ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
-          aNextOrAfterModifiedPoint, aPaddingForEmptyBlock, aEditingHost);
+          aNextOrAfterModifiedPoint,
+          aPaddingForEmptyBlock == PaddingForEmptyBlock::Unnecessary
+              ? TreatAsUnnecessaryLineBreak{LineBreakFor::PaddingForEmptyBlock}
+              : TreatAsUnnecessaryLineBreak{},
+          aEditingHost);
   const Maybe<EditorLineBreak>& unnecessaryLineBreak =
       nextThing.MaybeIgnoredLineBreak();
   if (unnecessaryLineBreak.isNothing() ||
@@ -5351,7 +5355,7 @@ Result<SplitNodeResult, nsresult> HTMLEditor::DoSplitNode(
   AutoTArray<SavedRange, 10> savedRanges;
   for (SelectionType selectionType : kPresentSelectionTypes) {
     SavedRange savingRange;
-    savingRange.mSelection = GetSelection(selectionType);
+    savingRange.mSelection = GetExistingSelection(selectionType);
     if (NS_WARN_IF(!savingRange.mSelection &&
                    selectionType == SelectionType::eNormal)) {
       return Err(NS_ERROR_FAILURE);
@@ -5705,7 +5709,7 @@ nsresult HTMLEditor::DoJoinNodes(nsIContent& aContentToKeep,
     EditorRawDOMPoint atNodeToKeep(&aContentToKeep);
     for (SelectionType selectionType : kPresentSelectionTypes) {
       SavedRange savingRange;
-      savingRange.mSelection = GetSelection(selectionType);
+      savingRange.mSelection = GetExistingSelection(selectionType);
       if (selectionType == SelectionType::eNormal) {
         if (NS_WARN_IF(!savingRange.mSelection)) {
           return NS_ERROR_FAILURE;
@@ -7311,7 +7315,7 @@ Element* HTMLEditor::ComputeEditingHostInternal(
     return body && body->IsEditable() ? body : nullptr;
   }
 
-  if (NS_WARN_IF(!content)) {
+  if (!content) {
     return nullptr;
   }
 

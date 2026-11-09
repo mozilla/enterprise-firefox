@@ -8,14 +8,14 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
-from felt_tests import FeltTests
+from felt_safe_mode import SafeModeBase
 
 # DisableSafeMode is read before the policy engine exists, so Felt fetches it
 # before spawning the child and passes it in the environment. The policy applies
 # to both Firefox and Thunderbird, hence the generic manifest.
 
 
-class StartupPolicyDisableSafeMode(FeltTests):
+class StartupPolicyDisableSafeMode(SafeModeBase):
     def setUp(self):
         self._extra_cli_args = ["--safe-mode"]
         super().setUp()
@@ -31,14 +31,6 @@ class StartupPolicyDisableSafeMode(FeltTests):
             "Child should have been spawned with MOZ_ENTERPRISE_DISABLE_SAFE_MODE"
         )
 
-        self._child_driver.set_context("chrome")
-        safe_mode_child = self._child_driver.execute_script(
-            "return Services.appinfo.inSafeMode;"
-        )
-        self._child_driver.set_context("content")
-
-        # test_felt_browser_safe_mode.py covers the same launch without the
+        # test_felt_safe_mode.py covers the same launch without the
         # policy and asserts the child *is* in safe mode.
-        assert safe_mode_child is False, (
-            "DisableSafeMode should have kept the child out of safe mode"
-        )
+        self.assert_child_safe_mode(False)

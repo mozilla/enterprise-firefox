@@ -57,7 +57,7 @@ var SelectTranslationsPanel = new (class {
       try {
         this.#console = console.createInstance({
           maxLogLevelPref: "browser.translations.logLevel",
-          prefix: "Translations",
+          logModule: "Translations",
         });
       } catch {
         // The console may not be initialized yet.
@@ -348,7 +348,9 @@ var SelectTranslationsPanel = new (class {
     }
 
     this.#isFullPageTranslationsRestrictedForPage =
-      TranslationsParent.isFullPageTranslationsRestrictedForPage(gBrowser);
+      TranslationsParent.isFullPageTranslationsRestrictedForPage(
+        gBrowser.selectedBrowser
+      );
     this.#activeFullPageTranslationsTargetLanguage = this
       .#isFullPageTranslationsRestrictedForPage
       ? undefined
@@ -381,7 +383,9 @@ var SelectTranslationsPanel = new (class {
       // Select Translations is often still available, so we can safely continue to
       // the final return fallback.
       if (
-        !TranslationsParent.isFullPageTranslationsRestrictedForPage(gBrowser)
+        !TranslationsParent.isFullPageTranslationsRestrictedForPage(
+          gBrowser.selectedBrowser
+        )
       ) {
         // If we failed to retrieve the TranslationsParent actor on a non-restricted page,
         // we should warn about this, because it is unexpected. The SelectTranslationsPanel

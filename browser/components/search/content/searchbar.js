@@ -406,21 +406,16 @@
         );
       }
 
-      let submission = engine.getSubmission(aData, null);
+      let submission = engine.getSubmission(aData, null, "searchbar");
 
       // If we hit here, we come either from a one-off, a plain search or a suggestion.
       const details = {
         isOneOff,
         isSuggestion: !isOneOff && this.telemetrySelectedIndex != -1,
+        submission,
       };
 
       this.telemetrySelectedIndex = -1;
-
-      // Record when the user uses the search bar
-      Services.prefs.setStringPref(
-        "browser.search.widget.lastUsed",
-        new Date().toISOString()
-      );
 
       // null parameter below specifies HTML response for search
       let params = {

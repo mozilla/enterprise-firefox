@@ -15,7 +15,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 if (AppConstants.platform == "android") {
   ChromeUtils.defineESModuleGetters(lazy, {
-    AndroidAppender: "resource://gre/modules/AndroidLog.sys.mjs",
+    AndroidAppender:
+      "moz-src:///mobile/android/modules/geckoview/AndroidLog.sys.mjs",
   });
 }
 
@@ -376,7 +377,7 @@ export var GeckoViewUtils = {
     // when logging is off, which is not a ConsoleLogLevel. Debug messages are
     // gated on the MOZ_LOG module instead.
     const instance = console.createInstance({
-      prefix: tag,
+      logModule: tag,
       maxLogLevel: "Warn",
     });
 

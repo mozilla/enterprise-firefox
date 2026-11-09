@@ -35,7 +35,7 @@ WebRenderBridgeChild::WebRenderBridgeChild(const wr::PipelineId& aPipelineId)
       mFontInstanceKeysDeleted(0) {}
 
 WebRenderBridgeChild::~WebRenderBridgeChild() {
-  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mDestroyed);
 }
 
@@ -121,8 +121,11 @@ bool WebRenderBridgeChild::EndTransaction(
 
   TimeStamp fwdTime = TimeStamp::Now();
 
+  // Destroyed actors stay queued with the destroy commands that reference them.
+  nsTArray<OpDestroy> destroyedActors;
   if (!aRenderOffscreen) {
     MergeWebRenderParentCommands();
+    destroyedActors = std::move(mDestroyedActors);
   }
   aDisplayListData.mCommands = std::move(mParentCommands);
   aDisplayListData.mIdNamespace = mIdNamespace;
@@ -134,7 +137,7 @@ bool WebRenderBridgeChild::EndTransaction(
 
   mSentDisplayList = true;
   bool ret = this->SendSetDisplayList(
-      std::move(aDisplayListData), mDestroyedActors, GetFwdTransactionId(),
+      std::move(aDisplayListData), destroyedActors, GetFwdTransactionId(),
       aTransactionId, aContainsSVGGroup, aVsyncId, aVsyncStartTime,
       aRefreshStartTime, aTxnStartTime, aTxnURL, fwdTime, payloads,
       aRenderOffscreen);
@@ -146,7 +149,6 @@ bool WebRenderBridgeChild::EndTransaction(
   if (!aRenderOffscreen) {
     ProcessWebRenderParentCommands();
   }
-  mDestroyedActors.Clear();
   mIsInTransaction = false;
 
   return ret;
@@ -525,7 +527,7 @@ void WebRenderBridgeChild::EndClearCachedResources() {
 void WebRenderBridgeChild::SetWebRenderLayerManager(
     WebRenderLayerManager* aManager) {
   MOZ_ASSERT(aManager && !mManager);
-  MOZ_ASSERT(NS_IsMainThread() || !XRE_IsContentProcess());
+  MOZ_RELEASE_ASSERT(NS_IsMainThread() || !XRE_IsContentProcess());
   mManager = aManager;
 }
 
@@ -537,7 +539,7 @@ ipc::IShmemAllocator* WebRenderBridgeChild::GetShmemAllocator() {
 }
 
 RefPtr<KnowsCompositor> WebRenderBridgeChild::GetForMedia() {
-  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
   // Ensure device initialization for video playback unless they are all remote.
   // The devices are lazily initialized with WebRender to reduce memory usage.

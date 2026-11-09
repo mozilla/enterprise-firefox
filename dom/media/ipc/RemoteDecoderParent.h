@@ -57,6 +57,12 @@ class RemoteDecoderParent : public ShmemRecycleAllocator<RemoteDecoderParent>,
   virtual MediaResult ProcessDecodedData(MediaDataDecoder::DecodedData&& aData,
                                          DecodedOutputIPDL& aDecodedData) = 0;
 
+  // Gives subclasses a chance to replace a decode or drain error before it is
+  // returned to the child, e.g. to make it recoverable.
+  virtual MediaResult AdjustDecodeError(const MediaResult& aError) {
+    return aError;
+  }
+
   const RefPtr<RemoteMediaManagerParent> mParent;
   const CreateDecoderParams::OptionSet mOptions;
   const RefPtr<TaskQueue> mDecodeTaskQueue;

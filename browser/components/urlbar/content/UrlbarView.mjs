@@ -1570,7 +1570,8 @@ export class UrlbarView {
           includeHiddenExposures: true,
         });
       let canBeVisible =
-        newSpanCount <= this.#queryContext.maxResults && !seenMisplacedResult;
+        newSpanCount <= this.#queryContext.maxResultsActual &&
+        !seenMisplacedResult;
       if (result.isHiddenExposure) {
         if (canBeVisible) {
           this.controller.engagementEvent.addExposure(
@@ -2518,7 +2519,11 @@ export class UrlbarView {
 
     item._content.id = item.id + "-inner";
 
-    item.toggleAttribute("is-top-pick", !!result.isBestMatch);
+    if (result.bestMatchType) {
+      item.setAttribute("top-pick-type", result.bestMatchType);
+    } else {
+      item.removeAttribute("top-pick-type");
+    }
 
     if (result.isBottomUrlSuggestion) {
       this.#updateRowContentForBottomUrl(item, result);
@@ -2551,7 +2556,8 @@ export class UrlbarView {
       result.type == UrlbarShared.RESULT_TYPE.SEARCH &&
       !result.payload.providesSearchMode &&
       !result.payload.inPrivateWindow &&
-      result.providerName != "UrlbarProviderQuickSuggest"
+      (result.providerName != "UrlbarProviderQuickSuggest" ||
+        result.payload.suggestionObject?.suggestionType == "temporal")
     ) {
       item.setAttribute(
         "type",
@@ -4280,14 +4286,20 @@ export class UrlbarView {
    * The commands that open a result in a new tab or window. They're offered
    * alongside a result's own menu commands, gated on `contextMenu.featureGate`.
    *
+   * @param {UrlbarResult} result
    * @returns {UrlbarResultCommand[]}
    */
-  get #openInCommands() {
+  #getOpenInCommands(result) {
+    let isSearch = result.type == UrlbarShared.RESULT_TYPE.SEARCH;
     /** @type {UrlbarResultCommand[]} */
     let commands = [
       {
         openIn: "tab",
-        l10n: { id: "urlbar-view-context-menu-open-in-tab2" },
+        l10n: {
+          id: isSearch
+            ? "urlbar-view-context-menu-search-in-tab"
+            : "urlbar-view-context-menu-open-in-tab2",
+        },
       },
     ];
     if (
@@ -4297,17 +4309,29 @@ export class UrlbarView {
       commands.push({
         openIn: "container-tab",
         submenu: true,
-        l10n: { id: "urlbar-view-context-menu-open-in-container-tab2" },
+        l10n: {
+          id: isSearch
+            ? "urlbar-view-context-menu-search-in-container-tab"
+            : "urlbar-view-context-menu-open-in-container-tab2",
+        },
       });
     }
     commands.push(
       {
         openIn: "window",
-        l10n: { id: "urlbar-view-context-menu-open-in-window2" },
+        l10n: {
+          id: isSearch
+            ? "urlbar-view-context-menu-search-in-window"
+            : "urlbar-view-context-menu-open-in-window2",
+        },
       },
       {
         openIn: "private-window",
-        l10n: { id: "urlbar-view-context-menu-open-in-private-window2" },
+        l10n: {
+          id: isSearch
+            ? "urlbar-view-context-menu-search-in-private-window"
+            : "urlbar-view-context-menu-open-in-private-window2",
+        },
       }
     );
     return commands;
@@ -4360,6 +4384,9 @@ export class UrlbarView {
   /**
    * @param {UrlbarResult} result
    *   The result to get menu commands for.
+   * @param {object} [options]
+   * @param {boolean} [options.showSkipMenuWithTabItem]
+   *   If true, the "Skip this menu when using the tab key" checkbox is shown.
    * @returns {?UrlbarResultCommand[]}
    *   Everything the result's menu shows, null if it has nothing to show. The
    *   three-dot button and a right-click both open this menu, so it combines
@@ -4367,16 +4394,16 @@ export class UrlbarView {
    *   window, and closes with the checkbox that skips the menu button when
    *   tabbing through the results.
    */
-  #getMenuCommands(result) {
+  #getMenuCommands(result, { showSkipMenuWithTabItem = false } = {}) {
     let commands = this.#getResultMenuCommands(result);
     if (this.#canOpenInNewTarget(result)) {
-      let openInCommands = this.#openInCommands;
+      let openInCommands = this.#getOpenInCommands(result);
       commands = commands
         ? [...openInCommands, { name: "separator" }, ...commands]
         : openInCommands;
     }
-    if (!commands) {
-      return null;
+    if (!commands || !showSkipMenuWithTabItem) {
+      return commands;
     }
     return [
       ...commands,
@@ -4887,7 +4914,12 @@ export class UrlbarView {
           b => b.name == buttonName
         ).menu;
       } else {
-        commands = this.#getMenuCommands(this.#resultMenuResult);
+        commands = this.#getMenuCommands(this.#resultMenuResult, {
+          showSkipMenuWithTabItem:
+            triggeringEvent.type == "ResultMenuTriggered" &&
+            (!UrlbarPrefs.get("resultMenu.keyboardAccessible") ||
+              triggeringEvent.detail.target == this.selectedElement),
+        });
       }
 
       this.#populateResultMenu({ commands });
@@ -4898,11 +4930,18 @@ export class UrlbarView {
 
   on_hidden(event) {
     if (event.target != event.currentTarget) {
+      // Ignore submenus.
       return;
     }
-    event.currentTarget.lastAnchorNode
-      ?.closest(".urlbarView-row")
-      ?.toggleAttribute("menu-trigger", false);
+
+    let row = event.detail.anchorNode?.closest(".urlbarView-row");
+    // If the row isn't still the menu trigger, remove the attribute.
+    if (
+      !this.resultMenu.open ||
+      row != this.resultMenu.lastAnchorNode?.closest(".urlbarView-row")
+    ) {
+      row?.toggleAttribute("menu-trigger", false);
+    }
   }
 
   on_contextmenu(event) {

@@ -1094,7 +1094,7 @@ static void CreateObserversForAnimatedGlyphs(gfxTextRun* aTextRun) {
   observers->SetCapacity(observers->Length() +
                          fontsWithAnimatedGlyphs.Length());
   for (auto font : fontsWithAnimatedGlyphs) {
-    observers->AppendElement(MakeUnique<GlyphObserver>(font, aTextRun));
+    observers->AppendElement(std::make_unique<GlyphObserver>(font, aTextRun));
   }
 }
 
@@ -2641,11 +2641,11 @@ already_AddRefed<gfxTextRun> BuildTextRunsScanner::BuildTextRunForFrames(
     }
     char16_t maskChar =
         needsToMaskPassword ? 0 : textStyle->TextSecurityMaskChar();
-    transformingFactory = MakeUnique<nsCaseTransformTextRunFactory>(
+    transformingFactory = std::make_unique<nsCaseTransformTextRunFactory>(
         std::move(transformingFactory), false, useCapitalEsZett, maskChar);
   }
   if (anyMathMLStyling) {
-    transformingFactory = MakeUnique<MathMLTextRunFactory>(
+    transformingFactory = std::make_unique<MathMLTextRunFactory>(
         std::move(transformingFactory), mathFlags, sstyScriptLevel,
         fontInflation);
   }
@@ -2957,7 +2957,7 @@ void BuildTextRunsScanner::SetupBreakSinksForTextRun(gfxTextRun* aTextRun,
                              mappedFlow->mStartFrame->GetContentOffset());
 
     UniquePtr<BreakSink>* breakSink = mBreakSinks.AppendElement(
-        MakeUnique<BreakSink>(aTextRun, mDrawTarget, offset));
+        std::make_unique<BreakSink>(aTextRun, mDrawTarget, offset));
 
     uint32_t length = iterNext.GetSkippedOffset() - offset;
     uint32_t flags = 0;
@@ -4612,7 +4612,8 @@ void nsTextFrame::PropertyProvider::InitTextAutospace() {
   const auto styleTextAutospace = mTextStyle->EffectiveTextAutospace();
   if (TextAutospace::Enabled(styleTextAutospace, mFrame)) {
     mTextAutospace.emplace(styleTextAutospace,
-                           GetFontMetrics()->InterScriptSpacingWidth());
+                           GetFontMetrics()->InterScriptSpacingWidth(
+                               mTextStyle->EffectiveTextAutospaceSize()));
   }
 }
 

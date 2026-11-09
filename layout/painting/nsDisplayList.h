@@ -1472,6 +1472,10 @@ class nsDisplayListBuilder {
     void CheckASR(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame);
 #endif
 
+    // Computes the visible rect and the dirty rect aOutDirtyRect of the
+    // out-of-flow frame aFrame. Both are relative to aFrame.
+    //
+    // Note: aVisibleRect and aDirtyRect are relative to aFrame's parent.
     static nsRect ComputeVisibleRectForFrame(nsDisplayListBuilder* aBuilder,
                                              nsIFrame* aFrame,
                                              const nsRect& aVisibleRect,
@@ -5611,12 +5615,18 @@ class nsDisplayViewTransitionCapture final : public nsDisplayOwnLayer {
 
   nsDisplayViewTransitionCapture(nsDisplayListBuilder* aBuilder,
                                  const nsDisplayViewTransitionCapture& aOther)
-      : nsDisplayOwnLayer(aBuilder, aOther) {
+      : nsDisplayOwnLayer(aBuilder, aOther), mIsRoot(aOther.mIsRoot) {
     MOZ_COUNT_CTOR(nsDisplayViewTransitionCapture);
   }
 
   MOZ_COUNTED_DTOR_FINAL(nsDisplayViewTransitionCapture)
   NS_DISPLAY_DECL_NAME("VTCapture", TYPE_VT_CAPTURE)
+
+  // Fragments of the same captured inline get merged into a single capture.
+  bool CanMerge(const nsDisplayItem* aItem) const override {
+    return !mIsRoot && HasDifferentFrame(aItem) && HasSameTypeAndClip(aItem) &&
+           HasSameContent(aItem);
+  }
 
   void Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) override {
     GetChildren()->Paint(aBuilder, aCtx,

@@ -1516,6 +1516,11 @@ def android_gtest(
     return exit_code
 
 
+def _source_url(repo, changeset):
+    rev_path = "/rev/" if "hg.mozilla.org" in repo else "/commit/"
+    return f"{repo}{rev_path}{changeset}"
+
+
 @Command(
     "source-package",
     category="misc",
@@ -1606,8 +1611,8 @@ def source_package(command_context, output, upload):
             with open(sourcestamp_path, "w") as fd:
                 fd.write(
                     f"{buildid}\n"
-                    f"{comm_repo}/rev/{comm_changeset}\n"
-                    f"{gecko_repo}/rev/{gecko_changeset}\n"
+                    f"{_source_url(comm_repo, comm_changeset)}\n"
+                    f"{_source_url(gecko_repo, gecko_changeset)}\n"
                 )
         else:
             source_url = ""
@@ -1615,7 +1620,7 @@ def source_package(command_context, output, upload):
                 repo = substs.get("MOZ_SOURCE_REPO")
                 changeset = substs.get("MOZ_SOURCE_CHANGESET")
                 if repo and changeset:
-                    source_url = f"{repo}/rev/{changeset}"
+                    source_url = _source_url(repo, changeset)
 
             with open(sourcestamp_path, "w") as fd:
                 fd.write(f"{buildid}\n{source_url}")
@@ -1641,16 +1646,22 @@ def source_package(command_context, output, upload):
             f"--exclude=./{substs['DIST']}",
             f"--exclude={os.path.basename(command_context.topobjdir)}",
         ]
+        from mozbuild.action.package import is_gnu_tar
+
+        tar = substs["TAR"]
+        if is_gnu_tar(tar):
+            tar_flags = ["--mode=go-w", f"--transform=s,^./,{archive_prefix}/,"]
+        else:
+            tar_flags = ["-s", f",^./,{archive_prefix}/,"]
         command_context.run_process(
             [
-                "tar",
+                tar,
                 "-cJv",
                 "--owner=0",
                 "--group=0",
                 "--numeric-owner",
-                "--mode=go-w",
                 *excludes,
-                f"--transform=s,^./,{archive_prefix}/,",
+                *tar_flags,
                 "-f",
                 archive_path,
                 "./",
@@ -4055,16 +4066,6 @@ def repackage_desktop_file(
     help="Package the multi-locale test archives after packaging.",
 )
 def package_l10n(command_context, locales, verbose=False, package_tests=False):
-    if "RecursiveMake" not in command_context.substs["BUILD_BACKENDS"]:
-        print(
-            "Artifact builds do not support localization. "
-            "If you know what you are doing, you can use:\n"
-            "ac_add_options --disable-compile-environment\n"
-            "export BUILD_BACKENDS=FasterMake,RecursiveMake\n"
-            "in your mozconfig."
-        )
-        return 1
-
     locales = sorted(locale for locale in locales if locale != "en-US")
 
     append_env = {
@@ -4161,6 +4162,15 @@ def package_l10n(command_context, locales, verbose=False, package_tests=False):
             ensure_exit_code=True,
         )
 
+    command_context.log(
+        logging.WARNING,
+        "package-multi-locale",
+        {"locales": locales},
+        "A later `./mach build` rewrites the chrome manifests in dist/bin "
+        "without the registrations for {locales}. After a build, run "
+        "`./mach package-multi-locale` again before packaging.",
+    )
+
     return 0
 
 
@@ -4208,16 +4218,6 @@ def run_mach(command_context, cmd, **kwargs):
     + "default: UPLOAD_PATH environment variable if set; '$topobjdir/dist/repackage-single-locales' if not set",
 )
 def repackage_single_locales(command_context, verbose=False, locales=[], dest=None):
-    if "RecursiveMake" not in command_context.substs["BUILD_BACKENDS"]:
-        print(
-            "Artifact builds do not support localization. "
-            "If you know what you are doing, you can use:\n"
-            "ac_add_options --disable-compile-environment\n"
-            "export BUILD_BACKENDS=FasterMake,RecursiveMake\n"
-            "in your mozconfig."
-        )
-        return 1
-
     if not dest:
         dest = os.environ.get(
             "UPLOAD_PATH",

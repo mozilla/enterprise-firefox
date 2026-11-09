@@ -95,7 +95,7 @@ add_task(async function test_discarded() {
   BrowserTestUtils.removeTab(tab2);
 });
 
-add_task(async function test_discarded_attribute() {
+add_task(async function test_discarded_attributes() {
   let extension = ExtensionTestUtils.loadExtension({
     manifest: {
       permissions: ["tabs"],
@@ -121,6 +121,10 @@ add_task(async function test_discarded_attribute() {
     !discardedTab.hasAttribute("discarded"),
     "Tab should not have discarded attribute"
   );
+  ok(
+    !discardedTab.hasAttribute("discarded-skip-on-close"),
+    "Tab should not have discarded-skip-on-close attribute"
+  );
 
   await extension.startup();
   await extension.awaitMessage("ready");
@@ -133,6 +137,10 @@ add_task(async function test_discarded_attribute() {
   ok(
     discardedTab.hasAttribute("discarded"),
     "Tab should have discarded attribute"
+  );
+  ok(
+    !discardedTab.hasAttribute("discarded-skip-on-close"),
+    "Tab should not have discarded-skip-on-close attribute"
   );
 
   await extension.unload();

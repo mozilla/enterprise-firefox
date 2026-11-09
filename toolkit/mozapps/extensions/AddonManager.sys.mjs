@@ -4443,6 +4443,7 @@ export var AddonManager = {
    * id exists).
    *
    * NOTE:
+   *
    * - This method is limited to built-in add-ons
    *   auto-installed in the "app-builtin-addons" location
    *   based on the list bundled in Firefox Desktop builds as
@@ -4874,7 +4875,7 @@ export class EnvironmentAddonBuilder {
     this._submitGleanPingAddonsUpdatedTask = null;
 
     this._log = console.createInstance({
-      prefix: "EnvironmentAddonBuilder",
+      logModule: "EnvironmentAddonBuilder",
       maxLogLevel: Services.prefs.getBoolPref(PREF_LOGGING_ENABLED, false)
         ? "Debug"
         : "Warn",

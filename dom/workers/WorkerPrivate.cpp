@@ -6177,7 +6177,7 @@ void WorkerPrivate::ReportError(JSContext* aCx,
                    data->mErrorHandlerRecursionCount == 1,
                "Bad recursion logic!");
 
-  UniquePtr<WorkerErrorReport> report = MakeUnique<WorkerErrorReport>();
+  auto report = std::make_unique<WorkerErrorReport>();
   if (aReport) {
     report->AssignErrorReport(aReport);
   }

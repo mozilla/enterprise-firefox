@@ -16,7 +16,10 @@ use futures_util::StreamExt;
 use nsstring::{nsACString, nsCString};
 use scopeguard::{guard, ScopeGuard};
 
-use wgc::{error::EmptyErrorScopeStack, resource::BufferAccessError};
+use wgc::{
+    error::EmptyErrorScopeStack,
+    resource::{BufferAccessError, BufferAccessResult, BufferMapCallback},
+};
 #[allow(unused_imports)]
 use wgh::Instance;
 use wgpu_core_remote_types::{
@@ -951,8 +954,8 @@ pub enum BufferMapAsyncStatus {
     InvalidUsageFlags,
 }
 
-impl From<Result<(), BufferAccessError>> for BufferMapAsyncStatus {
-    fn from(result: Result<(), BufferAccessError>) -> Self {
+impl From<BufferAccessResult> for BufferMapAsyncStatus {
+    fn from(result: BufferAccessResult) -> Self {
         match result {
             Ok(_) => BufferMapAsyncStatus::Success,
             Err(BufferAccessError::Device(_)) => BufferMapAsyncStatus::ContextLost,
@@ -1011,10 +1014,10 @@ pub enum HostMap {
 }
 
 impl HostMap {
-    fn to_wgc(&self) -> wgt::MapMode {
+    fn to_wgrt(&self) -> wgpu_core_remote_types::MapMode {
         match self {
-            HostMap::Read => wgt::MapMode::Read,
-            HostMap::Write => wgt::MapMode::Write,
+            HostMap::Read => wgpu_core_remote_types::MapMode::READ,
+            HostMap::Write => wgpu_core_remote_types::MapMode::WRITE,
         }
     }
 }
@@ -1044,15 +1047,13 @@ pub unsafe extern "C" fn wgpu_server_buffer_map(
     })
     .detach();
 
-    let operation = wgc::resource::BufferMapOperation {
-        mode: map_mode.to_wgc(),
-        callback: Some(Box::new(move |result| {
-            // Send the map result from whatever thread this callback is running
-            // on to the task we spawned above.
-            map_result_sender.send(result).unwrap();
-        })),
-    };
-    let _submission_idx_opt = global.buffer_map_async(buffer_id, start, Some(size), operation);
+    let mode = map_mode.to_wgrt();
+    let callback: Option<BufferMapCallback> = Some(Box::new(move |result| {
+        // Send the map result from whatever thread this callback is running
+        // on to the task we spawned above.
+        map_result_sender.send(result).unwrap();
+    }));
+    let _submission_idx_opt = global.buffer_map_async(buffer_id, mode, start, Some(size), callback);
 }
 
 /// Map a buffer, blocking until it is ready for access.
@@ -1084,21 +1085,19 @@ pub extern "C" fn wgpu_server_buffer_map_blocking(
     // song and dance is required because `buffer_map_async` assumes that the
     // poll might happen on another thread.
     let status_passback = Arc::new(OnceLock::new());
-    let op = wgc::resource::BufferMapOperation {
-        mode: map_mode.to_wgc(),
-        callback: Some(Box::new({
-            let status_passback = Arc::clone(&status_passback);
-            move |status| {
-                // unwrap: This callback is the only place that initializes the
-                // `OnceLock`, and it should only be invoked once.
-                status_passback.set(status).unwrap();
-            }
-        })),
-    };
+    let mode = map_mode.to_wgrt();
+    let callback: Option<BufferMapCallback> = Some(Box::new({
+        let status_passback = Arc::clone(&status_passback);
+        move |status| {
+            // unwrap: This callback is the only place that initializes the
+            // `OnceLock`, and it should only be invoked once.
+            status_passback.set(status).unwrap();
+        }
+    }));
 
     // Submit the map request, and note its submission index.
     let submission_index;
-    match global.buffer_map_async(buffer_id, offset, Some(size), op) {
+    match global.buffer_map_async(buffer_id, mode, offset, Some(size), callback) {
         Some(i) => {
             submission_index = i;
         }
@@ -2780,15 +2779,13 @@ fn process_buffer_map(global: &Global, msg: Message, response_byte_buf: &mut Byt
     })
     .detach();
 
-    let operation = wgc::resource::BufferMapOperation {
-        mode: mode.to_wgc(),
-        callback: Some(Box::new(move |result| {
-            // Send the map result from whatever thread this callback is running
-            // on to the task we spawned above.
-            map_result_sender.send(result).unwrap();
-        })),
-    };
-    global.buffer_map_async(buffer_id, offset, Some(size), operation);
+    let mode = mode.to_wgrt();
+    let callback: Option<BufferMapCallback> = Some(Box::new(move |result| {
+        // Send the map result from whatever thread this callback is running
+        // on to the task we spawned above.
+        map_result_sender.send(result).unwrap();
+    }));
+    global.buffer_map_async(buffer_id, mode, offset, Some(size), callback);
 }
 
 // Process one WebGPU message
@@ -3324,19 +3321,16 @@ pub struct VkSemaphoreHandle(pub u64);
 /// the submission they belong to has been attempted. The actual
 /// `vkDestroySemaphore` calls happen later, from an `on_submitted_work_done`
 /// closure.
-///
-/// Returns `true` if at least one of `handles` was registered in (and removed
-/// from) the queue.
 #[cfg(target_os = "linux")]
 fn enqueue_signal_semaphores_destruction(
     queue: &Arc<wgc::device::queue::Queue>,
     device: Arc<wgc::device::Device>,
     handles: &[VkSemaphoreHandle],
-) -> bool {
+) {
     use ash::vk::Handle as _;
 
     if handles.is_empty() {
-        return false;
+        return;
     }
 
     let semaphores: Vec<vk::Semaphore> = handles
@@ -3349,13 +3343,12 @@ fn enqueue_signal_semaphores_destruction(
     // Since attempting to remove a semaphore that was already consumed is a
     // no-op, just ask the queue to remove all of the ones we know were part of
     // the submission.
-    let mut semaphore_removed = false;
     {
         let queue = queue.clone();
         let hal_queue =
             unsafe { queue.as_hal::<wgc::api::Vulkan>() }.expect("Vulkan backend queue on linux");
         for &semaphore in &semaphores {
-            semaphore_removed |= hal_queue.remove_signal_semaphore(semaphore);
+            hal_queue.remove_signal_semaphore(semaphore);
         }
     }
 
@@ -3380,8 +3373,6 @@ fn enqueue_signal_semaphores_destruction(
             }
         }
     }));
-
-    semaphore_removed
 }
 
 #[no_mangle]
@@ -3391,34 +3382,24 @@ pub unsafe extern "C" fn wgpu_server_queue_submit(
     command_buffer_ids: FfiSlice<'_, id::CommandBufferId>,
     signal_semaphores: FfiSlice<'_, VkSemaphoreHandle>,
 ) -> u64 {
-    use wgc::resource::ParentDevice as _;
-
-    let queue = global.resolve_queue_id(queue_id);
-    let device = queue.device();
-
-    device.push_error_scope(ErrorFilter::Validation);
-    let submission_index = global.queue_submit(queue_id, unsafe { command_buffer_ids.as_slice() });
-    let error = device.pop_error_scope().unwrap();
-    #[cfg_attr(not(target_os = "linux"), expect(unused_mut))]
-    let mut submission_succeeded = error.is_none();
-    if let Some(error) = error {
-        device.handle_error(error, None, "Queue::submit");
-    }
+    let submission_index_opt =
+        global.queue_submit(queue_id, unsafe { command_buffer_ids.as_slice() });
 
     #[cfg(target_os = "linux")]
     {
-        submission_succeeded &=
-            !enqueue_signal_semaphores_destruction(&queue, device.clone(), unsafe {
-                signal_semaphores.as_slice()
-            });
+        use wgc::resource::ParentDevice as _;
+
+        let queue = global.resolve_queue_id(queue_id);
+        let device = queue.device();
+        enqueue_signal_semaphores_destruction(&queue, device.clone(), unsafe {
+            signal_semaphores.as_slice()
+        });
     }
     #[cfg(not(target_os = "linux"))]
     let _ = signal_semaphores;
 
     // NOTE: `0` means "no index to follow up with".
-    submission_succeeded
-        .then_some(submission_index)
-        .unwrap_or(0)
+    submission_index_opt.unwrap_or(0)
 }
 
 #[repr(C)]

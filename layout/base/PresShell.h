@@ -1351,6 +1351,8 @@ class PresShell final : public nsStubDocumentObserver,
   NS_IMETHOD GetSelectionFromScript(RawSelectionType aRawSelectionType,
                                     dom::Selection** aSelection) override;
   dom::Selection* GetSelection(RawSelectionType aRawSelectionType) override;
+  dom::Selection* GetExistingSelection(
+      RawSelectionType aRawSelectionType) override;
 
   NS_IMETHOD SetDisplaySelection(int16_t aToggle) override;
   NS_IMETHOD GetDisplaySelection(int16_t* aToggle) override;
@@ -3117,8 +3119,7 @@ class PresShell final : public nsStubDocumentObserver,
           : mEventHandler(aEventHandler) {
         MOZ_DIAGNOSTIC_ASSERT(!mEventHandler.mCurrentEventInfoSetter);
         mEventHandler.mCurrentEventInfoSetter = this;
-        mEventHandler.mPresShell->PushCurrentEventInfo(
-            std::forward<EventTargetInfo>(aInfo));
+        mEventHandler.mPresShell->PushCurrentEventInfo(std::move(aInfo));
       }
       AutoCurrentEventInfoSetter(EventHandler& aEventHandler,
                                  EventMessage aEventMessage,

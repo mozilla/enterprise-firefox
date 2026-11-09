@@ -884,13 +884,15 @@ void DrawTargetSkia::FillRect(const Rect& aRect, const Pattern& aPattern,
   // The sprite blitting path in Skia can be faster than the shader blitter for
   // operators other than source (or source-over with opaque surface). So, when
   // possible/beneficial, route to DrawSurface which will use the sprite
-  // blitter.
+  // blitter. For vector canvases (e.g. PDF) we always want DrawSurface, since
+  // otherwise the image is emitted as a tiling pattern.
   if (aPattern.GetType() == PatternType::SURFACE &&
       aOptions.mCompositionOp != CompositionOp::OP_SOURCE) {
-    const SurfacePattern& pat = static_cast<const SurfacePattern&>(aPattern);
+    const auto& pat = static_cast<const SurfacePattern&>(aPattern);
     // Verify there is a valid surface and a pattern matrix without skew.
     if (pat.mSurface &&
-        (aOptions.mCompositionOp != CompositionOp::OP_OVER ||
+        (!IsBackedByPixels(mCanvas) ||
+         aOptions.mCompositionOp != CompositionOp::OP_OVER ||
          GfxFormatToSkiaAlphaType(pat.mSurface->GetFormat()) !=
              kOpaque_SkAlphaType) &&
         !pat.mMatrix.HasNonAxisAlignedTransform()) {

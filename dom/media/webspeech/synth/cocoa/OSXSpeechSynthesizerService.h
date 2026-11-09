@@ -6,19 +6,8 @@
 #define DOM_MEDIA_WEBSPEECH_SYNTH_COCOA_OSXSPEECHSYNTHESIZERSERVICE_H_
 
 #include "mozilla/StaticPtr.h"
-#include "nsCOMPtr.h"
 #include "nsIObserver.h"
 #include "nsISpeechService.h"
-#include "nsIThread.h"
-#include "nsString.h"
-#include "nsTArray.h"
-#include "nsTHashSet.h"
-
-#ifdef __OBJC__
-@class NSObject;
-#else
-typedef struct objc_object NSObject;
-#endif
 
 namespace mozilla {
 namespace dom {
@@ -35,30 +24,13 @@ class OSXSpeechSynthesizerService final : public nsISpeechService,
   static OSXSpeechSynthesizerService* GetInstance();
   static already_AddRefed<OSXSpeechSynthesizerService> GetInstanceForService();
 
-  struct Voice {
-    nsString mUri;
-    nsString mName;
-    nsString mLocale;
-    bool mIsDefault = false;
-  };
-
-  // Brings the voice registry in sync with aVoices, adding and removing
-  // voices as needed. Must be called on the main thread.
-  void UpdateVoices(const nsTArray<Voice>& aVoices);
-
  private:
   OSXSpeechSynthesizerService();
-  virtual ~OSXSpeechSynthesizerService();
+  virtual ~OSXSpeechSynthesizerService() = default;
 
-  void EnumerateVoices();
+  bool RegisterVoices();
 
   bool mInitialized;
-  nsCOMPtr<nsIThread> mThread;
-  // Observer token for the system's voice list change notification.
-  NSObject* mVoicesChangedObserver = nullptr;
-  // The URIs of the voices this service has added to the registry.
-  nsTHashSet<nsString> mRegisteredVoices;
-  nsString mDefaultVoice;
   static mozilla::StaticRefPtr<OSXSpeechSynthesizerService> sSingleton;
 };
 

@@ -1920,6 +1920,7 @@ QuotaManager::QuotaManager(const nsAString& aBasePath,
       mCacheRequiresFullScan(false) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(!gInstance);
+  glean::quotamanager::had_temporary_storage_usage_underflow.Set(false);
 }
 
 QuotaManager::~QuotaManager() {
@@ -8800,6 +8801,8 @@ void QuotaManager::LockedMaybeRecordTemporaryStorageUsageUnderflow(
   if (mTemporaryStorageUsage >= 0) {
     return;
   }
+
+  glean::quotamanager::had_temporary_storage_usage_underflow.Set(true);
 
   if (!ThrottleCounter(mTemporaryStorageUsageUnderflowCount)) {
     return;

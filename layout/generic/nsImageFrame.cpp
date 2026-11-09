@@ -2823,12 +2823,12 @@ bool nsImageFrame::IsLeafDynamic() const {
 nsIContent* nsImageFrame::GetExplicitEventTargetContent(
     const WidgetEvent* aEvent /* = nullptr */) const {
   if (mImageMap && aEvent) {
-    // XXX We need to make this special check for area element's capturing the
-    // mouse due to bug 135040. Remove it once that's fixed.
+    // Areas capturing the mouse need the image frame to be their target.
     nsIContent* capturingContent = aEvent->HasMouseEventMessage()
                                        ? PresShell::GetCapturingContent()
                                        : nullptr;
-    if (capturingContent && capturingContent->GetPrimaryFrame() == this) {
+    if (capturingContent &&
+        nsLayoutUtils::GetPrimaryOrAreaImageFrame(capturingContent) == this) {
       return capturingContent;
     }
     const CSSIntPoint p = TranslateEventCoords(
@@ -2898,7 +2898,7 @@ nsresult nsImageFrame::HandleEvent(nsPresContext* aPresContext,
                 aEvent->IsTrusted() ? UserNavigationInvolvement::Activation
                                     : UserNavigationInvolvement::None);
           } else {
-            nsContentUtils::TriggerLinkMouseOver(anchorNode, uri, target);
+            nsContentUtils::TriggerLinkMouseOver(anchorNode, uri);
           }
         }
       }

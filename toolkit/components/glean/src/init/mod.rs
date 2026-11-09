@@ -157,7 +157,11 @@ fn build_configuration(
     let application_id = if app_id_override.is_empty() {
         let app_id_guard = super::APP_ID.read().unwrap();
         if app_id_guard.is_empty() {
-            "firefox.desktop".to_string()
+            if mozbuild::config::MOZ_ENTERPRISE {
+                "firefox.enterprise.desktop".to_string()
+            } else {
+                "firefox.desktop".to_string()
+            }
         } else {
             app_id_guard.clone()
         }
@@ -372,7 +376,7 @@ fn fog_test_reset_internal(
     glean::test_reset_glean(conf, client_info, true);
 
     // Register all custom pings after we initialize.
-    pings::register_pings(None);
+    firefox_on_glean::factory::test_with_preserved_ping_state(|| pings::register_pings(None));
 
     Ok(())
 }

@@ -8,16 +8,7 @@ const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
 );
 
-const REDESIGN_ENABLED = Services.prefs.getBoolPref(
-  "browser.settings-redesign.enabled",
-  false
-);
-
 const PRIMARY_PASSWORD_CONTROL_IDS = [
-  "masterPasswordRow",
-  "useMasterPassword",
-  "primaryPasswordLearnMoreLink",
-  "changeMasterPassword",
   "primaryPasswordNotSet",
   "usePrimaryPassword",
   "addPrimaryPassword",
@@ -41,7 +32,7 @@ add_task(async function test_managed_primary_password_controls_hidden() {
     await LoginTestUtils.primaryPassword.disable();
   });
 
-  let pane = REDESIGN_ENABLED ? "panePasswordsAutofill" : "panePrivacy";
+  let pane = "panePasswordsAutofill";
   let prefs = await openPreferencesViaOpenPreferencesAPI(pane, {
     leaveOpen: true,
   });
@@ -56,12 +47,6 @@ add_task(async function test_managed_primary_password_controls_hidden() {
   for (let id of PRIMARY_PASSWORD_CONTROL_IDS) {
     ok(!isShown(doc, id), `#${id} should be hidden`);
   }
-  ok(
-    ![
-      ...doc.querySelectorAll('[data-l10n-id="forms-primary-pw-former-name"]'),
-    ].some(el => BrowserTestUtils.isVisible(el)),
-    "The former name note should be hidden"
-  );
 
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });

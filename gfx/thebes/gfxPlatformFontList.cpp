@@ -318,7 +318,7 @@ gfxPlatformFontList::gfxPlatformFontList(bool aNeedFullnamePostscriptNames)
       mOtherFamilyNames(16),
       mSharedCmaps(8) {
   if (aNeedFullnamePostscriptNames) {
-    mExtraNames = MakeUnique<ExtraNames>();
+    mExtraNames = std::make_unique<ExtraNames>();
   }
 
   mLangService = nsLanguageAtomService::GetService();
@@ -326,7 +326,7 @@ gfxPlatformFontList::gfxPlatformFontList(bool aNeedFullnamePostscriptNames)
   LoadBadUnderlineList();
   LoadIconFontOverrideList();
 
-  mFontPrefs = MakeUnique<FontPrefs>();
+  mFontPrefs = std::make_unique<FontPrefs>();
 
   gfxFontUtils::GetPrefsFontList(kFontSystemWhitelistPref, mEnabledFontsList);
   mFontFamilyWhitelistActive = !mEnabledFontsList.IsEmpty();
@@ -1050,7 +1050,7 @@ gfxFontEntry* gfxPlatformFontList::LookupInFaceNameLists(
     // names not completely initialized, so keep track of lookup misses
     if (!mFaceNameListsInitialized) {
       if (!mFaceNamesMissed) {
-        mFaceNamesMissed = MakeUnique<nsTHashSet<nsCString>>(2);
+        mFaceNamesMissed = std::make_unique<nsTHashSet<nsCString>>(2);
       }
       mFaceNamesMissed->Insert(aFaceName);
     }
@@ -1899,7 +1899,7 @@ bool gfxPlatformFontList::FindAndAddFamiliesLocked(
 
 void gfxPlatformFontList::AddToMissedNames(const nsCString& aKey) {
   if (!mOtherNamesMissed) {
-    mOtherNamesMissed = MakeUnique<nsTHashSet<nsCString>>(2);
+    mOtherNamesMissed = std::make_unique<nsTHashSet<nsCString>>(2);
   }
   mOtherNamesMissed->Insert(aKey);
 }
@@ -2372,10 +2372,9 @@ void gfxPlatformFontList::AddGenericFonts(
   AutoLock lock(mLock);
 
   // TODO(eri): For now the math generic language uses the legacy
-  // "serif.x-math" configuration font list to avoid excesive
+  // "serif.x-math" configuration font list to avoid excessive
   // repetition until a better font preference system can be found.
-  if (StaticPrefs::mathml_font_family_math_enabled() &&
-      aGenericType == StyleGenericFontFamily::Math) {
+  if (aGenericType == StyleGenericFontFamily::Math) {
     aGenericType = StyleGenericFontFamily::Serif;
     aLanguage = nsGkAtoms::x_math;
   }
@@ -2958,7 +2957,7 @@ void gfxPlatformFontList::ClearLangGroupPrefFontsLocked() {
   mEmojiPrefFont = nullptr;
 
   // Create a new FontPrefs and replace the existing one.
-  mFontPrefs = MakeUnique<FontPrefs>();
+  mFontPrefs = std::make_unique<FontPrefs>();
 }
 
 // Support for memory reporting

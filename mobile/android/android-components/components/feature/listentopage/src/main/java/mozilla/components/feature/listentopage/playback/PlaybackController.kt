@@ -41,6 +41,7 @@ import mozilla.components.feature.listentopage.ChunkState
 import mozilla.components.feature.listentopage.PlaybackPhase
 import mozilla.components.feature.listentopage.PlaybackSpeed
 import mozilla.components.feature.listentopage.PlaybackState
+import mozilla.components.feature.listentopage.R
 import mozilla.components.support.ktx.android.content.appName
 
 /**
@@ -48,8 +49,13 @@ import mozilla.components.support.ktx.android.content.appName
  *
  * @property title The article title, or `null` when the page has none, which [withAppNameIfUntitled] then fills in.
  * @property site Where the article is from.
+ * @property isPrivate Whether the article is from a private tab, which [hiddenIfPrivate] then hides.
  */
-data class ArticleDisplayData(val title: String? = null, val site: String? = null)
+data class ArticleDisplayData(val title: String? = null, val site: String? = null, val isPrivate: Boolean = false)
+
+/** [privateTitle] and [privateSite] in place of the title and site of an article from a private tab. */
+internal fun ArticleDisplayData.hiddenIfPrivate(privateTitle: String, privateSite: String): ArticleDisplayData =
+    if (isPrivate) copy(title = privateTitle, site = privateSite) else this
 
 /**
  * [appName] as the title where the page gave none.
@@ -224,6 +230,14 @@ internal constructor(
 
     private val appName: String by lazy { context.appName }
 
+    private val privateTitle: String by lazy {
+        context.getString(R.string.mozac_feature_listentopage_private_tab_title)
+    }
+
+    private val privateSite: String by lazy {
+        context.getString(R.string.mozac_feature_listentopage_private_tab_site)
+    }
+
     private val playerListener =
         object : Player.Listener {
             // onEvents rather than the individual callbacks: it runs once per batch of changes, where the separate
@@ -244,8 +258,9 @@ internal constructor(
                     speed = PlaybackSpeed.nearest(it.playbackParameters.speed),
                 )
 
-            val displayDataWithAppNameIfUntitled = articleDisplayData.withAppNameIfUntitled(appName)
-            displayData = displayDataWithAppNameIfUntitled
+            val shownDisplayData =
+                articleDisplayData.hiddenIfPrivate(privateTitle, privateSite).withAppNameIfUntitled(appName)
+            displayData = shownDisplayData
 
             it.sendCustomCommand(
                 SessionCommand(COMMAND_SET_SESSION_ACTIVITY, Bundle.EMPTY),
@@ -254,9 +269,7 @@ internal constructor(
 
             // A new article starts at its top, with no length until one is worked out.
             articleDurationMs = 0
-            it.setMediaItem(
-                chunk.toMediaItem(displayData = displayDataWithAppNameIfUntitled, articleTimeline = ArticleTimeline())
-            )
+            it.setMediaItem(chunk.toMediaItem(displayData = shownDisplayData, articleTimeline = ArticleTimeline()))
             it.prepare()
             it.play()
         }

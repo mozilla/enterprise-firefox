@@ -280,6 +280,16 @@
   }
 }
 
+// The header spaces its items by --space-small; the icon sits 6px from the name.
+.nova-enabled moz-widget-header:has(> .moz-widget-card-icon) {
+  gap: calc(var(--space-xsmall) + var(--space-xxsmall));
+}
+
+.nova-enabled .moz-widget-card-icon {
+  inline-size: var(--icon-size-small);
+  block-size: var(--icon-size-small);
+}
+
 .widgets-feedback-link {
   display: inline-block;
   margin-block-start: var(--space-medium);
@@ -525,4 +535,53 @@
     }
   }
 
+}
+
+.nova-enabled {
+  // The global box-sizing reset does not cross the shadow boundary.
+  .widget-error {
+    block-size: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-small);
+
+    .sr-only {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  .widget-error-message {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-small);
+    color: var(--text-color-deemphasized);
+
+    .icon-info-warning {
+      flex-shrink: 0;
+      inline-size: var(--icon-size);
+      block-size: var(--icon-size);
+    }
+
+    .widget-error-text {
+      margin: 0;
+      font-size: var(--font-size-small);
+    }
+  }
+
+  .large-widget .widget-error-message {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .widget-error-titled {
+    padding: var(--space-medium);
+  }
 }

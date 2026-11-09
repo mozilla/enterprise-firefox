@@ -218,6 +218,16 @@ add_task(async function test_records_can_have_local_fields() {
     accepted: true,
   });
   await c.maybeSync(3000); // Does not fail.
+
+  const records = await c.db.list();
+  const local = records.find(
+    r => r.id == "c74279ce-fb0a-42a6-ae11-386b567a6119"
+  );
+  ok(local.accepted, "Local field set locally is preserved");
+  const remote = records.find(
+    r => r.id == "1f5c98b9-6d93-4c13-aa26-978b38695096"
+  );
+  ok(!("accepted" in remote), "Local field served by the server is ignored");
 });
 add_task(clear_state);
 
@@ -988,6 +998,63 @@ add_task(
 );
 add_task(clear_state);
 
+add_task(async function test_age_of_pulled_data_is_reported_in_uptake_status() {
+  const serverDate = "Mon, 02 Nov 2026 10:00:00 GMT";
+  const timestamp = Date.parse(serverDate) - 3600 * 1000;
+  server.registerPathHandler(
+    "/v1/buckets/main/collections/age-reported/changeset",
+    (request, response) => {
+      response.setStatusLine(null, 200, "OK");
+      response.setHeader("Content-Type", "application/json; charset=UTF-8");
+      response.setHeader("Date", serverDate);
+      response.setHeader("Age", "60");
+      response.write(
+        JSON.stringify({
+          timestamp,
+          metadata: {},
+          changes: [{ id: "a", last_modified: timestamp }],
+        })
+      );
+    }
+  );
+  const c = RemoteSettings("age-reported");
+  c.verifySignature = false;
+
+  await c.maybeSync(timestamp);
+
+  assertTelemetryEvents([
+    {
+      value: UptakeTelemetry.STATUS.SYNC_START,
+      source: c.identifier,
+      age: a => a === undefined,
+    },
+    {
+      value: UptakeTelemetry.STATUS.SUCCESS,
+      source: c.identifier,
+      age: "3660",
+    },
+  ]);
+
+  Services.fog.testResetFOG();
+  enableUptakeMetric();
+
+  await c.maybeSync(timestamp);
+
+  assertTelemetryEvents([
+    {
+      value: UptakeTelemetry.STATUS.SYNC_START,
+    },
+    {
+      value: UptakeTelemetry.STATUS.UP_TO_DATE,
+      source: c.identifier,
+      age: a => a === undefined,
+    },
+  ]);
+
+  await c.db.clear();
+});
+add_task(clear_state);
+
 add_task(async function test_telemetry_reports_if_application_fails() {
   client.on("sync", () => {
     throw new Error("boom");
@@ -1742,6 +1809,7 @@ wNuvFqc=
             {
               id: "1f5c98b9-6d93-4c13-aa26-978b38695096",
               last_modified: 3000,
+              accepted: true,
             },
           ],
         },

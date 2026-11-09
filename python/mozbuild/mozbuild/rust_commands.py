@@ -146,6 +146,11 @@ CARGO_SPEC_FILES = {
     "test": ".cargo-tests-spec.json",
 }
 
+# The Cargo environment adds its own LTO and PGO flags around the computed
+# flags, and Cargo host builds never received `NSPR_CFLAGS`, so these categories
+# are left out of the flags passed to Cargo.
+RUST_EXCLUDED_FLAG_CATEGORIES = ("LTO", "NSPR", "PGO", "PGO_DEFINES")
+
 
 @dataclass
 class CargoCommand:
@@ -496,6 +501,18 @@ def compose_env(
 ):
     substs = _cargo_config(substs)
     env = dict(environ)
+
+    library_search_path = {
+        "Linux": ("LD_LIBRARY_PATH", ":"),
+        "WINNT": ("PATH", ";"),
+    }.get(substs.get("OS_ARCH"))
+    if cmd.kind == "test" and library_search_path:
+        # Find native libraries without depending on Cargo's output layout.
+        var, separator = library_search_path
+        libpath = f"{topobjdir}/dist/bin"
+        if existing := env.get(var):
+            libpath += f"{separator}{existing}"
+        env[var] = libpath
 
     # Set both host and target tool variables for every edge. Only Cargo's
     # --target argument is edge specific.

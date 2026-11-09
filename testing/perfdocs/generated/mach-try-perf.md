@@ -54,26 +54,13 @@ perf arguments:
   -q QUERY, --query QUERY
                         Query to run in either the perf-category selector, or the fuzzy selector if --show-all/--full is
                         provided.
-  --browsertime-upload-apk BROWSERTIME_UPLOAD_APK
-                        Path to an APK to upload. Note that this will replace the APK installed in all Android Performance
-                        tests. If the Activity, Binary Path, or Intents required change at all relative to the existing
-                        GeckoView, and Fenix tasks, then you will need to make fixes in the associated taskcluster files
-                        (e.g. taskcluster/kinds/browsertime/mobile.yml). Alternatively, set MOZ_FIREFOX_ANDROID_APK_OUTPUT
-                        to a path to an APK, and then run the command with --browsertime-upload-apk firefox-android. This
-                        option will only copy the APK for browsertime, see --mozperftest-upload-apk to upload APKs for
-                        startup tests.
-  --mozperftest-upload-apk MOZPERFTEST_UPLOAD_APK
-                        See --browsertime-upload-apk. This option does the same thing except it's for MozPerftest tests
-                        such as the startup ones. Note that those tests only exist through --show-all/--full as they aren't
-                        contained in any existing categories.
   --detect-changes      Adds a task that detects performance changes using MWU.
   --comparator COMPARATOR
                         Either a path to a file to setup a custom comparison, or a builtin name. See the Firefox source
                         docs for mach try perf for examples of how to build your own, along with the interface.
   --comparator-args [ARG=VALUE ...]
                         Arguments provided to the base, and new revision setup stages of the comparator.
-  --variants [ ...]     Select variants to display in the selector from: fission, bytecode-cached, live-sites, profiling,
-                        swr
+  --variants [ ...]     Select variants to display in the selector from: bytecode-cached, live-sites, profiling, swr
   --platforms [ ...]    Select specific platforms to target. Available platforms: android-a55, android, windows, linux,
                         macosx, desktop
   --apps [ ...]         Select specific applications to target from: firefox, chrome, geckoview, fenix, chrome-m, safari,
@@ -99,6 +86,12 @@ push arguments:
   --stage-changes       Locally stage changes created by this command but do not push to try.
   --no-push             Do not push to try as a result of running this command (if specified this command will only print
                         calculated task selection info and not change files).
+
+preset arguments:
+  --save SAVE           Save selection for future use with --preset.
+  --preset PRESET       Load a saved selection.
+  --list-presets        List available preset selections.
+  --edit-presets        Edit the preset file.
 
 task configuration arguments:
   --artifact            Force artifact builds where possible.
@@ -245,6 +238,10 @@ Using the `--tests` option, you can run all tasks that run a specific test. This
 
 If it's used with `--alert <NUM>`, only the tasks that run the specific test will be run on try. If it's used with `--show-all` or `--full`, you will only see the tasks that run the specific test in the fuzzy interface. Finally, if it's used without either of those, then categories of the tests that were specified will be displayed in the fuzzy interface. For example, if `--tests amazon` is used, then categories like `amazon linux firefox` or `amazon desktop` will be displayed.
 
+## Presets
+
+`./mach try perf` supports {doc}`presets </tools/try/presets>`, including fuzzy presets. These select the same tasks as `./mach try fuzzy --preset <name>` (in `--show-all` mode), but push both the base revision and your changes for comparison. Fuzzy options that the perf selector doesn't support result in an error.
+
 ## Chrome
 
 Chrome tests are disabled by default as they are often unneeded and waste our limited resources. If you need chrome tests you can add `--chrome` to the command like so `./mach try perf --chrome`:
@@ -257,7 +254,7 @@ Chrome tests are disabled by default as they are often unneeded and waste our li
 
 ## Variants
 
-If you are looking for any variants (e.g. no-fission, bytecode-cached, live-sites), use the `--variants` options like so `./mach try perf --variants live-sites`. This will select all possible categories that could have live-sites tests.
+If you are looking for any variants (e.g. bytecode-cached, live-sites), use the `--variants` options like so `./mach try perf --variants live-sites`. This will select all possible categories that could have live-sites tests.
 
 ```{image} ./variants-try-perf.png
 :align: center
@@ -356,7 +353,7 @@ Calculated try_task_config.json:
 
 ## Adding a New Category
 
-It's very easy to add a new category if needed, and you can do so by modifying the {searchfox}`PerfParser categories attribute here <tools/tryselect/selectors/perf.py#179>`. The following is an example of a complex category that gives a good idea of what you have available:
+It's very easy to add a new category if needed, and you can do so by modifying the `categories` property of `ClassificationProvider` in {searchfox}`tools/tryselect/selectors/perfselector/classification.py`. The following is an example of a complex category that gives a good idea of what you have available:
 
 ```
 "Resource Usage": {

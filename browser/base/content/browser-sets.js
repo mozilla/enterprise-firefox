@@ -326,7 +326,10 @@ document.addEventListener(
             } else if (source?.id == "appMenuClearRecentHistory") {
               entryPoint = DIALOG_ENTRY_POINTS.APP_MENU;
             }
-            Sanitizer.showUI(window, undefined, { entryPoint });
+            Sanitizer.showUI(window, undefined, {
+              entryPoint,
+              triggeringEvent: event,
+            });
             break;
           }
           case "Tools:PrivateBrowsing":

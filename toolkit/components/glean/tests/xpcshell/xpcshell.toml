@@ -7,6 +7,11 @@ run-if = [
   "os != 'android'", # FOG isn't responsible for attribution/distribution on Android.
 ]
 
+["test_DefaultApplicationId.js"]
+run-if = [
+  "os != 'android'", # Android inits its own FOG with its own application id.
+]
+
 ["test_FOGIPCLimit.js"]
 
 ["test_FOGInit.js"]
@@ -66,6 +71,9 @@ skip-if = [
   "os == 'android'", # FOG isn't responsible for monitoring prefs and controlling upload on Android
   "enterprise", # Glean pings are sent to the console without OHTTP on enterprise builds
 ]
+
+["test_PingReset.js"]
+run-if = ["os != 'android'"] # Android does not reload JOG on reset.
 
 ["test_ProfilerMarkers.js"]
 head = "head.js head_ProfilerMarkers.js"

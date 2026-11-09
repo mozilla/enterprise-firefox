@@ -215,6 +215,10 @@
   <string name="browser_menu_no_extensions_installed_description">Aucune extension activée</string>
   <!-- The description of the browser menu appears when the user hasn't installed any extensions and there are recommended extensions. -->
   <string name="browser_menu_try_a_recommended_extension_description">Essayer une extension recommandée</string>
+  <!-- In the browser menu: Message under the Extensions menu item, displayed when one or more extensions have updates that require approving changes to their permission settings. %1$s is a comma-separated list of one or more extension names. -->
+  <string name="browser_menu_extensions_review_update_description">Passer en revue la mise à jour de %1$s</string>
+  <!-- In the browser menu: Message under an extension name, displayed when the update requires approving changes to extension settings. -->
+  <string name="browser_menu_extension_review_update_description">Voir les paramètres à mettre à jour</string>
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Informations du compte</string>
   <!-- Browser menu button that opens the settings menu -->
@@ -319,8 +323,6 @@
   <string name="browser_menu_default_banner_title">Définir %1$s comme navigateur par défaut</string>
   <!-- Label text within the set as default banner -->
   <string name="browser_menu_default_banner_subtitle_2">Rapide, confidentiel et conçu pour vous.</string>
-  <!-- Content description (not visible, for screen readers etc.) for the button that dismisses the set as default banner in the menu -->
-  <string name="browser_menu_default_banner_dismiss_promotion">Fermer l’offre</string>
   <!-- Content description (not visible, for screen readers etc.) for recommended extensions in main menu -->
   <string name="browser_menu_recommended_extensions_content_description">Plus d’infos</string>
   <!--
@@ -389,6 +391,10 @@
   <string name="ai_controls_voice_search_title">Recherche vocale</string>
   <!-- Description for the voice search AI feature toggle -->
   <string name="ai_controls_voice_search_description">L’audio est converti en texte par Google Speech Services.</string>
+  <!-- Title for the listen to page AI feature toggle -->
+  <string name="ai_controls_listen_to_page_title">Écouter la page</string>
+  <!-- Description for the listen to page AI feature toggle -->
+  <string name="ai_controls_listen_to_page_description">Votre appareil peut utiliser l’IA pour lire à haute voix. Le texte et l’audio restent privés.</string>
   <!-- Title for the block AI enhancements confirmation dialog -->
   <string name="ai_controls_block_dialog_title">Bloquer les améliorations ayant recours à l’IA\u00a0?</string>
   <!-- Body text for the block AI enhancements confirmation dialog. %1$s is the name of the app (for example "Firefox"). -->
@@ -844,6 +850,8 @@
   <string name="preferences_toolbar_select_shortcut">Sélectionner un raccourci</string>
   <!-- Title of a menu option allowing to change the shortcut button shown in the toolbar -->
   <string name="toolbar_shortcut_menu_edit_option">Modifier le raccourci</string>
+  <!-- Preference category for menu customization -->
+  <string name="preferences_menu">Menu</string>
   <!-- Preference for gestures based actions -->
   <string name="preferences_gestures">Mouvements</string>
   <!-- Preference for settings related to visual options -->
@@ -920,6 +928,10 @@
   <string name="preferences_open_links_in_apps_ask">Demander avant d’ouvrir</string>
   <!-- Preference for open links in third party apps never open in apps option -->
   <string name="preferences_open_links_in_apps_never">Jamais</string>
+  <!-- Preference category header for media related open links in apps settings -->
+  <string name="preferences_media_category">Multimédia</string>
+  <!-- Preference label for choosing whether links open in the YouTube app -->
+  <string name="preferences_open_links_in_youtube">Ouvrir les liens dans l’application YouTube</string>
   <!-- Preference category for file storage. -->
   <string name="preferences_category_file_storage">Stockage de fichiers</string>
   <!-- Preference title for downloads default location. -->
@@ -1001,6 +1013,18 @@
   <!-- Toast shown after confirming the custom extension collection configuration -->
   <string name="toast_customize_extension_collection_done">Collection d’extensions modifiée. Fermeture de l’application pour appliquer les modifications…</string>
   <!--
+    Add-on removal confirmation dialog
+
+    Title of confirmation dialog. Displayed when uninstalling an extension. %1$s is the name of the extension (for example: Firefox Relay).
+  -->
+  <string name="addon_remove_dialog_title">Supprimer %1$s\u00a0?</string>
+  <!-- Body of confirmation dialog. Displayed when uninstalling an extension. -->
+  <string name="addon_remove_dialog_body">Cette action supprime l’extension et ses paramètres de cet appareil.</string>
+  <!-- Primary button on confirmation dialog. Tapping it uninstalls the selected extension. -->
+  <string name="addon_remove_dialog_confirm">Supprimer</string>
+  <!-- Secondary button on confirmation dialog. Tapping cancels the process of uninstalling the extension and closes the dialog window. -->
+  <string name="addon_remove_dialog_cancel">Annuler</string>
+  <!--
     Customize Home
 
     Title for the customize home screen section with privacy report.
@@ -1074,7 +1098,7 @@
   <!-- Title for the "Purple Dark" alternative app icon variant in the icon picker screen. -->
   <string name="alternative_app_icon_option_purple_dark">Violet foncé</string>
   <!-- Title for the "Sunrise" gradient alternative app icon variant in the icon picker screen. The app icon features a soft yellow-to-blue gradient background, resembling the colors of early morning light. -->
-  <string name="alternative_app_icon_option_gradient_sunrise">Levé de soleil</string>
+  <string name="alternative_app_icon_option_gradient_sunrise">Lever de soleil</string>
   <!-- Title for the "Golden Hour" gradient alternative app icon variant in the icon picker screen. The app icon features a warm golden-to-pink gradient background, resembling the colors of the sunlight shortly before sunset. -->
   <string name="alternative_app_icon_option_gradient_golden_hour">Heure dorée</string>
   <!-- Title for the "Sunset" gradient alternative app icon variant in the icon picker screen. The app icon has a rich red-to-purple gradient background, resembling the tones of a sunset sky. -->
@@ -1165,6 +1189,12 @@
   <string name="preferences_sync_category">Choisir les informations à synchroniser</string>
   <!-- Preference category for sync controls -->
   <string name="preferences_category_sync">Données synchronisées</string>
+  <!-- Preference title for the toggle that allows user to turn sync on or off for the device they are on -->
+  <string name="preferences_enable_sync_title">Synchroniser cet appareil</string>
+  <!-- Preference summary for the toggle that turns sync on or off for the device, shown when sync is on. -->
+  <string name="preferences_enable_sync_summary_sync_enabled">Vos données sont sauvegardées et disponibles sur les appareils synchronisés.</string>
+  <!-- Preference summary for the toggle that turns sync on or off for the device, shown when sync is off. It explains where synced data comes from. %1$s is the Firefox brand name. -->
+  <string name="preferences_enable_sync_summary_sync_disabled">Utilisation des données enregistrées dans votre compte %1$s.</string>
   <!-- Summary for the sync preference category. -->
   <string name="preferences_sync_category_summary">Gérer les données à synchroniser sur tous vos appareils connectés</string>
   <!-- Summary for the sync preference category, when user has disabled all synchronisation items. -->
@@ -1192,7 +1222,7 @@
   <!-- Label summary indicating that sync failed. %s is the date stamp showing last time it succeeded. -->
   <string name="sync_failed_summary">La synchronisation a échoué. Dernier succès\u00a0: %s</string>
   <!-- Label summary showing never synced -->
-  <string name="sync_failed_never_synced_summary">La synchronisation a échoué. Dernier succès\u00a0: jamais</string>
+  <string name="sync_failed_never_synced_summary">La synchronisation a échoué. Dernière synchronisation\u00a0: jamais</string>
   <!-- Label summary the date we last synced. %s is date stamp showing last time sync was completed. -->
   <string name="sync_last_synced_summary">Dernière synchronisation\u00a0: %s</string>
   <!-- Label summary showing never synced -->
@@ -1304,6 +1334,12 @@
   <string name="preference_simple_toolbar">Simple</string>
   <!-- Preference for using expanded toolbar -->
   <string name="preference_expanded_toolbar">Développée</string>
+  <!-- Preference for changing where the search bar is positioned on the homepage, shown when the user has set the address bar to be displayed at the top of the screen -->
+  <string name="preferences_homepage_search_location">Emplacement de la barre de recherche sur la page d’accueil</string>
+  <!-- Preference for showing the homepage search bar in the middle of the homepage -->
+  <string name="preference_homepage_search_location_middle">Au centre</string>
+  <!-- Preference for showing the homepage search bar at the top of the homepage (combined with the address bar, already displayed at the top) -->
+  <string name="preference_homepage_search_location_top">En haut</string>
   <!-- New tab shortcut in toolbar customization -->
   <string name="toolbar_customize_shortcut_new_tab">Ouvrir un nouvel onglet</string>
   <!-- Share shortcut in toolbar customization -->
@@ -1964,6 +2000,8 @@
   <string name="download_search_no_results_found">Aucun résultat</string>
   <!-- Text for the "Select all" button, which selects all downloaded items in the downloads list. -->
   <string name="download_select_all_items">Tout sélectionner</string>
+  <!-- Shown in the downloads list in place of a website name when a file came from a data: or blob: URL that has no website address. "data" refers to the data: URL scheme. -->
+  <string name="download_item_source_data">(données)</string>
   <!--
     Downloads Content Type Filters
 
@@ -2015,7 +2053,7 @@
   <!-- The button text for the cancel button to leave the Web Compat Reporter feature. -->
   <string name="webcompat_reporter_cancel">Annuler</string>
   <!-- The button text for the send button to submit the provided form data. -->
-  <string name="webcompat_reporter_send_report">Envoyer le rapport</string>
+  <string name="webcompat_reporter_send_report">Envoyer le signalement</string>
   <!-- Text for a snackbar to confirm the successful submission of a WebCompat report. -->
   <string name="webcompat_reporter_success_snackbar_text_2">Signalement envoyé</string>
   <!-- Placeholder text for the description field to prompt the user on what they should type. -->
@@ -2429,7 +2467,7 @@
   <!-- Confirmation dialog button -->
   <string name="sync_confirmation_button">J’ai compris</string>
   <!-- Share error message -->
-  <string name="share_error_snackbar">Impossible de partager cette application</string>
+  <string name="share_error_snackbar">Impossible de partager avec cette application</string>
   <!-- Add new device screen title -->
   <string name="sync_add_new_device_title">Envoyer à un appareil</string>
   <!-- Text for the warning message on the Add new device screen -->
@@ -3272,6 +3310,14 @@
   <string name="credit_cards_warning_dialog_set_up_now">Configurer maintenant</string>
   <!-- Negative button to ignore warning dialog if users have no device authentication set up -->
   <string name="credit_cards_warning_dialog_later">Plus tard</string>
+  <!-- Title of the dialog shown on Android Automotive OS (in cars) when users have no device authentication set up and try to access their saved passwords, payment methods, or sign in to their account -->
+  <string name="automotive_authentication_setup_dialog_title">Protégez vos données sensibles</string>
+  <!-- Message of the dialog shown on Android Automotive OS (in cars) when users have no device authentication set up and try to access their saved passwords, payment methods, or sign in to their account -->
+  <string name="automotive_authentication_setup_dialog_message">Configurez un schéma de verrouillage, un code PIN ou un mot de passe pour protéger vos données sensibles enregistrées si quelqu’un d’autre conduit votre voiture.</string>
+  <!-- Primary button on the dialog shown on Android Automotive OS (in cars). Tapping it directs users to the device settings to set up a device lock -->
+  <string name="automotive_authentication_setup_dialog_set_up_now">Configurer maintenant</string>
+  <!-- Secondary button of the dialog shown on Android Automotive OS (in cars). Tapping closes the dialogue and cancels the action that triggered the dialogue. -->
+  <string name="automotive_authentication_setup_dialog_cancel">Annuler</string>
   <!-- Title of PIN verification dialog to direct users to re-enter their device credentials to access their credit cards -->
   <string name="credit_cards_biometric_prompt_message_pin">Déverrouillez votre appareil</string>
   <!-- Message displayed in biometric prompt for authentication, before allowing users to use their stored payment method information -->
@@ -3327,7 +3373,7 @@
   <!-- Label for an address field (e.g. mailing address) used as part of the form autofill feature. The header for the Do/Si of the address. Do/Si refers to provincial level divisions, pertinent to addresses in South Korea. -->
   <string name="addresses_do_si" tools:ignore="UnusedResources">Do/Si</string>
   <!-- Label for an address field (e.g. mailing address) used as part of the form autofill feature. Used in countries like Nicaragua and Colombia where departments are a key administrative division. -->
-  <string name="addresses_department" tools:ignore="UnusedResources">Service</string>
+  <string name="addresses_department" tools:ignore="UnusedResources">Département</string>
   <!-- Label for an address field (e.g. mailing address) used as part of the form autofill feature. Essential for addresses in the United Arab Emirates. -->
   <string name="addresses_emirate" tools:ignore="UnusedResources">Émirat</string>
   <!-- Label for an address field (e.g. mailing address) used as part of the form autofill feature. Relevant for addresses in countries like Russia and Ukraine. -->
@@ -3651,7 +3697,7 @@
   <!-- Button text on the translations dialog to begin a translation of the website. -->
   <string name="translations_bottom_sheet_positive_button">Traduire</string>
   <!-- Button text on the translations dialog when a translation error appears. -->
-  <string name="translations_bottom_sheet_positive_button_error">Veuillez réessayer</string>
+  <string name="translations_bottom_sheet_positive_button_error">Réessayer</string>
   <!-- Inactive button text on the translations dialog that indicates a translation is currently in progress. This button will be accompanied by a loading icon. -->
   <string name="translations_bottom_sheet_translating_in_progress">Traduction</string>
   <!-- Button content description (not visible, for screen readers etc.) for the translations dialog translate button that indicates a translation is currently in progress. -->
@@ -3696,7 +3742,7 @@
   <!-- Button text for the button that will take the user to a website to learn more about how translations works in the given app. %1$s is the name of the app (for example "Firefox"). -->
   <string name="translation_option_bottom_sheet_about_translations">À propos des traductions dans %1$s</string>
   <!-- Content description (not visible, for screen readers etc.) for closing the translations bottom sheet. -->
-  <string name="translation_option_bottom_sheet_close_content_description">Fermer l’onglet Traductions</string>
+  <string name="translation_option_bottom_sheet_close_content_description">Fermer le panneau Traductions</string>
   <!-- The title of the warning card informs the user that an error has occurred at page settings. -->
   <string name="translation_option_bottom_sheet_error_warning_text">Certains paramètres sont temporairement indisponibles.</string>
   <!--
@@ -3914,6 +3960,8 @@
   <string name="protection_panel_privacy_and_security_settings_2">Paramètres de vie privée</string>
   <!-- Title text for the protection panel permissions section. -->
   <string name="protection_panel_permissions_title">Autorisations</string>
+  <!-- Certificate panel - Title of the section that contains the website's certificate information (issued to, issued by, etc.) as verified by Firefox (thus guaranteeing the HTTPS connection is secure) -->
+  <string name="certificate_details_panel_secure_connection_title">Connexion sécurisée</string>
   <plurals name="trackers_blocked_panel_total_num_trackers_blocked_2">
     <!--
       Text for displaying the total number of trackers blocked in the trackers blocked panel.
@@ -4354,7 +4402,7 @@
   <!-- The title of the explore extensions task for the setup checklist -->
   <string name="setup_checklist_task_explore_extensions">Parcourir les extensions</string>
   <!-- The title of the search widget task for the setup checklist -->
-  <string name="setup_checklist_task_search_widget_2">Découvrir les widgets de recherche</string>
+  <string name="setup_checklist_task_search_widget_2">Découvrir le widget de recherche</string>
   <!--
     ===== Setup checklist feature: Group titles =====
 
@@ -4480,6 +4528,79 @@
   <!-- Link text for terms_of_use_prompt_body_line_two_alternative that links to a site with more information about the Terms of Use -->
   <string name="terms_of_use_prompt_body_line_two_alternative_link" tools:ignore="UnusedResources">via ce lien</string>
   <!--
+    Sports widget
+
+    Label shown on the sports widget scoreboard when a match is currently being played live.
+  -->
+  <string name="wrex_widget_match_live">EN\u00a0DIRECT</string>
+  <!-- Label shown on the sports widget match status badge when the start of a match has been delayed. -->
+  <string name="wrex_widget_match_delayed">Retardé</string>
+  <!-- Label shown on the sports widget match status badge when a match has been suspended after it started. -->
+  <string name="wrex_widget_match_suspended">Suspendu</string>
+  <!-- Label shown on the sports widget match status badge when a match has been postponed to a later date. -->
+  <string name="wrex_widget_match_postponed">Reporté</string>
+  <!-- Sports widget action label to refresh match data after an error. -->
+  <string name="wrex_widget_error_refresh">Actualiser</string>
+  <!-- Sports widget menu item to view the team's match results. -->
+  <string name="wrex_widget_results">Résultats</string>
+  <!-- Sports widget menu item to view the league standings table. -->
+  <string name="wrex_widget_standings">Classement</string>
+  <!-- Sports widget menu item to browse the team's wallpapers. -->
+  <string name="wrex_widget_wallpapers">Fonds d’écran</string>
+  <!-- Sports widget menu item to remove the widget from the homepage. -->
+  <string name="wrex_widget_remove_widget">Supprimer le widget</string>
+  <!-- Sports widget match status label shown at full-time (abbreviated) - indicates the match has ended, after regulation and extra time have been played -->
+  <string name="wrex_widget_match_full_time_short">FT</string>
+  <!-- Sports widget match status label shown during half-time of a match. -->
+  <string name="wrex_widget_match_half_time">Mi-temps</string>
+  <!-- Sports widget match status label shown during extra time of a match (abbreviated) -->
+  <string name="wrex_widget_match_extra_time_short">ET</string>
+  <!-- Sports widget match status label shown during penalties of a match. -->
+  <string name="wrex_widget_match_penalties">Tirs au but</string>
+  <!-- Content description (for accessibility, not displayed) for the overflow (more options) menu button on the sports widget card. -->
+  <string name="wrex_widget_more_options_content_description">Options supplémentaires</string>
+  <!--
+    Content description (for accessibility, not displayed) announcing a soccer match.
+    %1$s is the home team name, %2$s is the away team name, %3$s is trailing context
+    (e.g. formatted score "1 - 2 (Full time)", upcoming match info "Jun 19 5:00 PM",
+    or a match status like "Full time").
+  -->
+  <string name="wrex_widget_match_content_description">%1$s contre %2$s, %3$s</string>
+  <!--
+    Content description (for accessibility, not displayed) used for the sports widget card header announcing a live match.
+    %s is the name of the competition the match belongs to (e.g. "FA Cup").
+  -->
+  <string name="wrex_widget_live_game_content_description">%s, match en direct</string>
+  <!--
+    Content description (for accessibility, not displayed) announcing a live score.
+    %1$s is the home team name, %2$d is the home team score, %3$s is the away team name, %4$d is the away team score,
+    and %5$s is the match elapsed time (e.g. 72 minutes).
+  -->
+  <string name="wrex_widget_live_score_content_description">%1$s %2$d, %3$s %4$d, %5$s, en direct</string>
+  <!--
+    Content description (for accessibility, not displayed) announcing the elapsed minutes of a live match.
+    %1$s is the clock value, which may be a plain number (e.g. "72") or include extra time (e.g. "90+3").
+  -->
+  <string name="wrex_widget_match_elapsed_minutes">Temps écoulé en minutes\u00a0: %1$s</string>
+  <!--
+    Content description (for accessibility, not displayed) for a paginated item.
+    %1$s is the name of the competition the match belongs to (e.g. "FA Cup"),
+    %2$d is the current page number, and %3$d is the total number of pages.
+  -->
+  <string name="wrex_widget_page_position_content_description">%1$s, page %2$d sur %3$d</string>
+  <!-- Sports widget error card title shown when the user is offline. -->
+  <string name="wrex_widget_error_connection_offline_title">On dirait que vous êtes hors connexion</string>
+  <!-- Sports widget error card description shown when the user is offline. -->
+  <string name="wrex_widget_error_connection_offline_description">Vérifiez votre connexion Internet puis réessayez.</string>
+  <!-- Sports widget error card title shown when match data fails to load. -->
+  <string name="wrex_widget_error_load_failed_title">Impossible d’afficher les informations sur le match pour l’instant</string>
+  <!-- Sports widget error card description suggesting to refresh after match information could not be displayed. -->
+  <string name="wrex_widget_error_try_refreshing">Essayez d’actualiser ou de revérifier plus tard.</string>
+  <!-- Sports widget error card title shown when the latest match results fail to load. -->
+  <string name="wrex_widget_error_results_load_failed_title">Impossible d\'afficher les résultats pour l\'instant</string>
+  <!-- Content description (for accessibility, not displayed) for teams which have not yet been determined in the match schedule. -->
+  <string name="wrex_widget_team_to_be_determined">Équipe à déterminer</string>
+  <!--
     Privacy notice homepage banner
 
     A message we show the user on the homepage when there is a new version of the privacy notice. 'Firefox' is intentionally hardcoded.
@@ -4535,15 +4656,17 @@
   <string name="lens_camera_mode_qr">Scanner QR</string>
   <!-- Toast shown when the user picks an image from the gallery in QR mode but no QR code is found in it -->
   <string name="lens_camera_qr_no_code_found">Aucun code QR trouvé dans l’image</string>
-  <!-- Status shown under an image picked from the gallery while it is being sent to Google Lens for a visual search -->
+  <!-- Status shown under an image picked from the gallery or taken with the camera while it is being sent to Google Lens for a visual search -->
   <string name="lens_camera_loading_status">Recherche en cours</string>
-  <!-- Button shown under an image picked from the gallery while it is being sent to Google Lens. Tapping it stops the search and returns to the camera. -->
+  <!-- Button shown under an image picked from the gallery or taken with the camera while it is being sent to Google Lens. Tapping it stops the search and returns to the camera. -->
   <string name="lens_camera_loading_cancel_button">Annuler</string>
+  <!-- Snackbar message shown when an image picked from the gallery or taken with the camera could not be opened or read, so it was never sent to Google Lens. Shown after returning to the camera. -->
+  <string name="lens_camera_image_load_failed_v2">Impossible de charger cette image.</string>
   <!-- Snackbar message shown when an image picked from the gallery could not be opened or read, so it was never sent to Google Lens. Shown after returning to the camera. -->
   <string name="lens_camera_image_load_failed">Impossible de charger cette image. Essayez-en une autre.</string>
-  <!-- Snackbar message shown when an image picked from the gallery could not be searched because of a network problem or an error from Google Lens. Shown after returning to the camera, next to the lens_camera_upload_failed_retry_button action. -->
+  <!-- Snackbar message shown when an image picked from the gallery or taken with the camera could not be searched because of a network problem or an error from Google Lens. Shown after returning to the camera, next to the lens_camera_upload_failed_retry_button action. -->
   <string name="lens_camera_upload_failed">Impossible d’obtenir des résultats avec Google Lens</string>
-  <!-- Action in the snackbar shown when an image picked from the gallery could not be searched with Google Lens. Tapping it searches the same image again. -->
+  <!-- Action in the snackbar shown when an image picked from the gallery or taken with the camera could not be searched with Google Lens. Tapping it searches the same image again. -->
   <string name="lens_camera_upload_failed_retry_button">Réessayer</string>
   <!-- Title of the bottom sheet shown the first time the user opens the Google Lens camera screen -->
   <string name="lens_opt_out_title">Trouvez ce que vous recherchez avec Google Lens</string>
@@ -4604,6 +4727,12 @@
 
     Content description for accessibility (used by screen readers): Description for the button that triggers the start of a signature workflow on the PDF displayed on the screen.
   -->
+  <string name="pdf_tools_sign_content_description_2">Ajouter une signature</string>
+  <!--
+    PDF viewer toolbar and buttons
+
+    Content description for accessibility (used by screen readers): Description for the button that triggers the start of a signature workflow on the PDF displayed on the screen.
+  -->
   <string name="pdf_tools_sign_content_description">Signer le PDF</string>
   <!-- Content description for accessibility (used by screen readers): Description of the button that downloads the PDF displayed on the screen to the user's device. -->
   <string name="pdf_tools_download_content_description">Télécharger le PDF</string>
@@ -4625,14 +4754,24 @@
   <string name="pdf_tools_signature_clear_button">Effacer</string>
   <!-- The text for the button that adds the signature the user has typed to the PDF. -->
   <string name="pdf_tools_signature_add_button">Ajouter</string>
+  <!-- Content description for accessibility (used by screen readers): Description for the loading indicator when a signature is in the process of being added to a PDF. -->
+  <string name="pdf_tools_signature_adding_content_description">Ajout de la signature</string>
+  <!--
+    Listen to page
+
+    Content description for the reader view panel: a group of buttons floating over the content, which allow customizing the reader view or activating the Listen to Page feature
+  -->
+  <string name="reader_mode_panel_content_description_2">Options du mode lecture</string>
   <!--
     Listen to page
 
     Content description for the reader mode panel: a group of buttons floating over the content
   -->
   <string name="reader_mode_panel_content_description">Options du mode lecture</string>
-  <!-- Content description for the button in reader mode panel that turns on the read aloud feature (playback of content begins when button is pressed) -->
+  <!-- Content description for the button in the reader view panel that turns on the Listen to Page feature (playback of content begins when button is pressed) -->
   <string name="reader_mode_panel_listen_content_description">Lire à haute voix</string>
-  <!-- Content description for media player displayed in Reader Mode when the Listen to Page (Read Aloud) feature is selected -->
+  <!-- Content description for media player displayed in Reader view when the Listen to Page (Read Aloud) feature is selected -->
   <string name="reader_mode_panel_media_player_content_description">Lecteur multimédia</string>
+  <!-- Content description for the reader view button Reader view facilitates readability and has a Listen to Page feature. Button icon is a document with headphones, and is displayed next to the page URL when the feature is available. -->
+  <string name="browser_menu_read_or_listen">Mode lecture, lire ou écouter la page</string>
 </resources>

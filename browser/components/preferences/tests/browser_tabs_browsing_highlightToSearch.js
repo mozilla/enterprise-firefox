@@ -13,6 +13,7 @@ const SEARCH_ENABLED_PREF = "browser.highlightToSearch.search.enabled";
 const COPY_ENABLED_PREF = "browser.highlightToSearch.copy.enabled";
 const SHORTCUTS_PREF = "browser.ml.chat.shortcuts";
 const PROVIDER_PREF = "browser.ml.chat.provider";
+const CALLOUT_SEEN_PREF = "browser.highlightToSearch.callout.seen";
 
 /**
  * Open the pane that holds the setting.
@@ -76,6 +77,7 @@ add_task(async function test_checkbox_controls_pref() {
     set: [
       [FEATURE_GATE_PREF, true],
       [ENABLED_PREF, false],
+      [CALLOUT_SEEN_PREF, false],
     ],
   });
   let { tab, control } = await openPaneWithSetting();
@@ -84,6 +86,10 @@ add_task(async function test_checkbox_controls_pref() {
     "Wait for the setting to be shown"
   );
   Assert.ok(!control.checked, "Unchecked while the menu is turned off");
+  Assert.ok(
+    !Services.prefs.getBoolPref(CALLOUT_SEEN_PREF),
+    "Callout not seen yet"
+  );
 
   control.scrollIntoView();
   EventUtils.synthesizeMouseAtCenter(
@@ -96,6 +102,10 @@ add_task(async function test_checkbox_controls_pref() {
     "Wait for the pref to turn on"
   );
   Assert.ok(control.checked, "Checking the setting turns the menu on");
+  Assert.ok(
+    Services.prefs.getBoolPref(CALLOUT_SEEN_PREF),
+    "Turning the menu on counts as seeing the callout"
+  );
 
   control.scrollIntoView();
   EventUtils.synthesizeMouseAtCenter(
@@ -175,6 +185,7 @@ add_task(async function test_menu_never_on_without_an_action() {
       [SHORTCUTS_PREF, true],
       [SEARCH_ENABLED_PREF, true],
       [COPY_ENABLED_PREF, false],
+      [CALLOUT_SEEN_PREF, false],
     ],
   });
   let { tab } = await openPaneWithSetting();
@@ -378,6 +389,38 @@ add_task(async function test_open_preferences_from_selection_menu() {
   is_element_visible(
     doc.getElementById(SETTING_ID),
     "The mapped pane shows the setting"
+  );
+
+  await BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_turning_on_an_action_marks_callout_seen() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [FEATURE_GATE_PREF, true],
+      [ENABLED_PREF, true],
+      [SEARCH_ENABLED_PREF, false],
+      [CALLOUT_SEEN_PREF, false],
+    ],
+  });
+  let { tab } = await openPaneWithSetting();
+  let doc = tab.linkedBrowser.contentDocument;
+  await TestUtils.waitForCondition(
+    () => BrowserTestUtils.isVisible(doc.getElementById(SEARCH_SETTING_ID)),
+    "Wait for the search action to be shown"
+  );
+
+  let search = doc.getElementById(SEARCH_SETTING_ID);
+  search.scrollIntoView();
+  EventUtils.synthesizeMouseAtCenter(search.labelEl, {}, search.documentGlobal);
+  await TestUtils.waitForCondition(
+    () => Services.prefs.getBoolPref(SEARCH_ENABLED_PREF),
+    "Wait for the search action to turn on"
+  );
+  Assert.ok(
+    Services.prefs.getBoolPref(CALLOUT_SEEN_PREF),
+    "Turning an action on counts as seeing the callout"
   );
 
   await BrowserTestUtils.removeTab(tab);

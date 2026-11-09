@@ -1,13 +1,5 @@
 "use strict";
 
-// Nova being enabled changes some of the styling that is being tested here.
-const novaEnabled = Services.prefs.getBoolPref(
-  "browser.nova.enabled",
-  true // If the pref isn't set to false assume Nova styles are enabled by default.
-);
-
-info(`Run with Nova browser styles ${novaEnabled ? "enabled" : "disabled"}`);
-
 // Some linux WMs can't draw alpha-transparent rounded corners, so the panel
 // falls back to square corners regardless of Nova (see the -moz-platform and
 // -moz-gtk-csd-transparency-available checks in popup.css and
@@ -16,7 +8,7 @@ const isLinuxWithoutCSDTransparency =
   AppConstants.platform == "linux" &&
   !window.matchMedia("(-moz-gtk-csd-transparency-available)").matches;
 
-add_task(async function testPopupBorderRadius() {
+async function testPopupBorderRadius({ uiDensity }) {
   let extension = ExtensionTestUtils.loadExtension({
     background() {
       browser.tabs.query({ active: true, currentWindow: true }, tabs => {
@@ -50,17 +42,24 @@ add_task(async function testPopupBorderRadius() {
 
   let widget = getBrowserActionWidget(extension);
 
-  let defaultRadius = novaEnabled ? "24px" : "8px";
+  function getExpectedRadius() {
+    let defaultRadius = "24px";
 
-  // If the panel is embedded in subview (in practive we always disallow
-  // subviews since the extensions action button can't be overflowed in
-  // the default overfow panel), or Firefox is running on a Linux WMs that
-  // can't draw alpha-transparent rounded corners, then the panel radius
-  // is expected to be 0.
-  let expectedRadius =
-    !widget.disallowSubView || isLinuxWithoutCSDTransparency
+    const density = Services.prefs.getIntPref("browser.uidensity", 0);
+    if (density == 1) {
+      // The border radius is different with compact density
+      defaultRadius = "18px";
+    }
+
+    // If the panel is embedded in subview (in practive we always disallow
+    // subviews since the extensions action button can't be overflowed in
+    // the default overfow panel), or Firefox is running on a Linux WMs that
+    // can't draw alpha-transparent rounded corners, then the panel radius
+    // is expected to be 0.
+    return !widget.disallowSubView || isLinuxWithoutCSDTransparency
       ? "0px"
       : defaultRadius;
+  }
 
   async function testPanel(browser, standAlone = true) {
     let panel = getPanelForNode(browser);
@@ -72,6 +71,7 @@ add_task(async function testPopupBorderRadius() {
     let stack = browser.parentNode;
     let viewNode = stack.parentNode === panel ? browser : stack.parentNode;
     let viewStyle = getComputedStyle(viewNode);
+    let expectedRadius = getExpectedRadius();
 
     let props = [
       "borderTopLeftRadius",
@@ -117,8 +117,12 @@ add_task(async function testPopupBorderRadius() {
     }
   }
 
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.uidensity", uiDensity]],
+  });
+
   {
-    info("Test stand-alone browserAction popup");
+    info(`Test stand-alone browserAction popup with density ${uiDensity}`);
 
     clickBrowserAction(extension);
     let browser = await awaitExtensionPanel(extension);
@@ -127,7 +131,7 @@ add_task(async function testPopupBorderRadius() {
   }
 
   {
-    info("Test menu panel browserAction popup");
+    info(`Test menu panel browserAction popup with density ${uiDensity}`);
 
     CustomizableUI.addWidgetToArea(widget.id, getCustomizableUIPanelID());
 
@@ -138,7 +142,7 @@ add_task(async function testPopupBorderRadius() {
   }
 
   {
-    info("Test pageAction popup");
+    info(`Test pageAction popup with density ${uiDensity}`);
 
     clickPageAction(extension);
     let browser = await awaitExtensionPanel(extension);
@@ -146,5 +150,15 @@ add_task(async function testPopupBorderRadius() {
     await closePageAction(extension);
   }
 
+  await SpecialPowers.popPrefEnv();
   await extension.unload();
+}
+
+// Test both normal and compact density, which may use different radii.
+add_task(async function test_popup_border_radius_normal_density() {
+  await testPopupBorderRadius({ uiDensity: 0 });
+});
+
+add_task(async function test_popup_border_radius_compact_density() {
+  await testPopupBorderRadius({ uiDensity: 1 });
 });

@@ -18,7 +18,6 @@ from mozshellutil import quote as shell_quote
 from mozbuild.rust_commands import (
     CargoInvocation,
     applies_library_lto,
-    cargo_profile_dir,
     compose_cargo_build_edge_argv,
     compose_env,
     load_cargo_spec,
@@ -89,29 +88,6 @@ def narrow_test_edge(command, crates, packages):
         features=tuple(f for f in command.features if accepted(f)),
     )
     return narrowed, "mozilla-central-workspace-hack" in declared_features
-
-
-def stage_test_libs(command, substs, topobjdir):
-    # Outside Windows, the test binaries get an rpath to dist/bin, but Linux only
-    # applies it to direct dependencies of the test binary. Transitive dependencies
-    # are optimized out by the linker, which is an issue for NSS.
-    #
-    # `cargo test` inserts the test binary's directory into the library search path
-    # on all platforms, so we can copy potential transitive dependencies for
-    # non-macOS platforms there.
-    if command.kind != "test" or substs.get("OS_ARCH") == "Darwin":
-        return
-    # Cargo writes the test binaries under the edge's profile directory.
-    bindir = Path(
-        topobjdir,
-        substs.get("RUST_TARGET"),
-        cargo_profile_dir(command, substs),
-        "deps",
-    )
-    bindir.mkdir(parents=True, exist_ok=True)
-    pattern = f"{substs.get('DLL_PREFIX')}*{substs.get('DLL_SUFFIX')}"
-    for lib in sorted(Path(topobjdir, "dist", "bin").glob(pattern)):
-        shutil.copy(lib, bindir)
 
 
 def check_networking(command, substs, topobjdir):
@@ -185,8 +161,6 @@ def main(argv):
             return 0
         packages = workspace_packages(command.manifest_path, substs, topobjdir)
         command, workspace_hack = narrow_test_edge(command, crates, packages)
-
-    stage_test_libs(command, substs, topobjdir)
 
     env = compose_env(command, substs, os.environ, invocation, topsrcdir, topobjdir)
     cargo_argv = compose_cargo_build_edge_argv(

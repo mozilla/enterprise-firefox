@@ -33,6 +33,13 @@ declare namespace BrowserWindow {
     paneID?: string,
     extraArgs?: { urlParams?: Record<string, string> }
   ): Promise<void>;
+  function openTrustedLinkIn(
+    url: string,
+    where: string,
+    params?: Parameters<
+      typeof import("resource:///modules/URILoadingHelper.sys.mjs").URILoadingHelper.openLinkIn
+    >[3]
+  ): void;
 
   // browser-init.js
   var gBrowserInit: {
@@ -56,6 +63,7 @@ declare namespace BrowserWindow {
     import("moz-src:///browser/components/sidebar/SidebarState.sys.mjs").SidebarStateProps;
 
   var SidebarController: {
+    readonly _positionStart: boolean;
     getUIState(): SidebarStateProps;
     markSessionRestoreStateReceived(): void;
     updateUIState(state?: SidebarStateProps): Promise<void>;

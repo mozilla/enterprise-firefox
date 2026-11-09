@@ -22,6 +22,7 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/SVGImageContext.h"
 #include "mozilla/ScrollContainerFrame.h"
 #include "mozilla/Try.h"
 #include "mozilla/dom/CustomEvent.h"
@@ -2202,7 +2203,7 @@ nsresult nsTreeBodyFrame::HandleEvent(nsPresContext* aPresContext,
     }
   } else if (aEvent->mMessage == eDragEnter) {
     if (!mSlots) {
-      mSlots = MakeUnique<Slots>();
+      mSlots = std::make_unique<Slots>();
     }
 
     // Cache several things we'll need throughout the course of our work. These

@@ -6,16 +6,16 @@ import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import { installClientErrorListeners } from "chrome://browser/content/aiwindow/modules/ClientErrorTelemetry.mjs";
 import { isSmartPageURL } from "chrome://browser/content/aiwindow/modules/TrustedInternalURLs.mjs";
-// eslint-disable-next-line import/no-unassigned-import
+// eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-prompts.mjs";
-// eslint-disable-next-line import/no-unassigned-import
+// eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-promo.mjs";
-// eslint-disable-next-line import/no-unassigned-import
+// eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-topsites.mjs";
 import { RESUME_SECTION_EMPTY_REASON } from "chrome://browser/content/aiwindow/components/smartwindow-resume-section.mjs";
-// eslint-disable-next-line import/no-unassigned-import
+// eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/kit-mention.mjs";
-// eslint-disable-next-line import/no-unassigned-import
+// eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-history-menu.mjs";
 
 const { XPCOMUtils } = ChromeUtils.importESModule(
@@ -70,8 +70,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
   getAllModelsData:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
-  refreshModelsDataCache:
-    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   getCurrentModelChoiceId:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   getCurrentModelName:
@@ -105,7 +103,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
   return console.createInstance({
-    prefix: "ChatStore",
+    logModule: "ChatStore",
     maxLogLevelPref: "browser.smartwindow.chatStore.loglevel",
   });
 });
@@ -188,8 +186,6 @@ const PREF_MEMORIES_HAS_SEEN_MEMORIES =
   "browser.smartwindow.memories.hasSeenMemories";
 const PREF_MODEL_CHOICE = "browser.smartwindow.firstrun.modelChoice";
 const PREF_CUSTOM_ENDPOINT = "browser.smartwindow.customEndpoint";
-// TODO Bug 2053495: remove with mistral release pref
-const PREF_MISTRAL_RELEASE = "browser.smartwindow.mistralRelease";
 const TAB_FAVICON_CHAT =
   "chrome://browser/content/aiwindow/assets/ask-icon.svg";
 const PREF_CHAT_INTERACTION_COUNT = "browser.smartwindow.chat.interactionCount";
@@ -220,6 +216,9 @@ const MAX_PILL_COUNT = 6;
 const MAX_RESUME_PILLS_DISPLAYED = 3;
 // Show up to 4 cards from the generated pool.
 const MAX_RESUME_CARDS_DISPLAYED = 4;
+// Avoid flashing skeletons for fast journey lookups.
+const RESUME_CARDS_LOADING_DELAY_MS = 200;
+const RESUME_CARD_SNOOZE_DURATION_MS = 24 * 60 * 60 * 1000;
 // TEMP: English-only workaround. Remove once resume headlines support
 // localization - see Bug 2066263.
 const RESUME_HEADLINE_PREFIX_RE = /^\s*pick\s+up\b[\s:;,.—-]*/iu;
@@ -543,17 +542,6 @@ export class AIWindow extends MozLitElement {
       false,
       () => this.requestUpdate()
     );
-    // TODO Bug 2053495: remove with mistral release pref
-    XPCOMUtils.defineLazyPreferenceGetter(
-      this,
-      "mistralReleasePref",
-      PREF_MISTRAL_RELEASE,
-      false,
-      () => this.#onMistralReleasePrefChanged()
-    );
-    // defineLazyPreferenceGetter registers its pref observer on first read, so
-    // touch the value here to arm the onUpdate callback above.
-    void this.mistralReleasePref;
 
     this.userPrompt = "";
     this.#browser = null;
@@ -1111,23 +1099,6 @@ export class AIWindow extends MozLitElement {
     this.#updateSmartbarModels(this.#smartbar);
   };
 
-  // TODO Bug 2053495: remove with mistral release pref.
-  #onMistralReleasePrefChanged = async () => {
-    await lazy.refreshModelsDataCache();
-    await this.#loadAvailableModels();
-    // The model backing a choice can change across the flip, so re-resolve the
-    // current choice's model to keep selectedModelId valid; otherwise the select
-    // can't find the selected model and renders in a stale/blank state.
-    const defaultModelChoiceId = lazy.getCurrentModelChoiceId();
-    if (
-      !this.#hasModelChoiceOverride &&
-      this.availableModels[defaultModelChoiceId]
-    ) {
-      await this.#switchModel(defaultModelChoiceId, { isTabOverride: false });
-    }
-    this.#updateSmartbarModels(this.#smartbar);
-  };
-
   /**
    * Sets the selected model choice.
    *
@@ -1366,6 +1337,7 @@ export class AIWindow extends MozLitElement {
     // (preventing the pending inference promise chain from keeping the
     // window alive).
     this.#starterPromptsAbortController?.abort();
+    this.resumeCardsLoading = false;
     if (this.#isSmartPageSidebar) {
       this.#conversation.transientStarters = [];
       this.#renderStarterPrompts([]);
@@ -1381,7 +1353,7 @@ export class AIWindow extends MozLitElement {
 
     let starters = [];
     // Cards render separately from the pills row, so once the pill fallback
-    // is gone (Bug 2067871), this path no longer needs to wait for resume
+    // is gone (Bug 2077652), this path no longer needs to wait for resume
     // content to merge into `starters` below - it can render as soon as
     // `starters` is ready.
     const rendersCardsIndependently =
@@ -1434,6 +1406,7 @@ export class AIWindow extends MozLitElement {
       }
 
       let resumeStartersPromise = null;
+      let resumeCardsPromise = null;
       const shouldLoadResumeStarters =
         this.mode === MODE.FULLPAGE &&
         this.#canLoadResumeStarters &&
@@ -1446,11 +1419,16 @@ export class AIWindow extends MozLitElement {
         await this.#refreshHasMemories();
 
         if (this.#resumeActivityMemoriesEnabled) {
-          resumeStartersPromise = lazy.JourneyManager.suggestJourneysToResume();
+          const resumeActivitiesPromise =
+            lazy.JourneyManager.suggestJourneysToResume();
 
           if (this.resumeCardsPref) {
-            this.resumeCardsLoading = true;
+            resumeCardsPromise = this.#loadResumeCards(
+              resumeActivitiesPromise,
+              abortController.signal
+            );
           } else {
+            resumeStartersPromise = resumeActivitiesPromise;
             // Reveal all slots together once merged below - showing static
             // starters early would risk a pill's text swapping later.
             this.#renderStarterPrompts(
@@ -1473,7 +1451,7 @@ export class AIWindow extends MozLitElement {
         });
 
       // Cards render separately, so static starters don't need to wait.
-      // TODO Bug 2067871: remove the pill fallback and final render.
+      // TODO Bug 2077652: remove the pill fallback and final render.
       if (rendersCardsIndependently && !abortController.signal.aborted) {
         this.#conversation.transientStarters = starters;
         this.#renderStarterPrompts(starters);
@@ -1504,6 +1482,8 @@ export class AIWindow extends MozLitElement {
         if (sidebarStarters?.length) {
           starters = sidebarStarters;
         }
+      } else if (resumeCardsPromise) {
+        await resumeCardsPromise;
       } else if (resumeStartersPromise) {
         const rawResumeActivities = await resumeStartersPromise;
 
@@ -1536,6 +1516,30 @@ export class AIWindow extends MozLitElement {
     }
   }
 
+  async #loadResumeCards(resumeActivitiesPromise, signal) {
+    const loadingTimer = setTimeout(() => {
+      if (!signal.aborted) {
+        this.resumeCardsLoading = true;
+      }
+    }, RESUME_CARDS_LOADING_DELAY_MS);
+
+    try {
+      const resumeActivities = await resumeActivitiesPromise;
+      if (!signal.aborted) {
+        this.#applyResumeActivities(resumeActivities);
+      }
+    } catch (e) {
+      if (!signal.aborted) {
+        lazy.log.error("[Prompts] Failed to load resume cards:", e);
+      }
+    } finally {
+      clearTimeout(loadingTimer);
+      if (!signal.aborted) {
+        this.resumeCardsLoading = false;
+      }
+    }
+  }
+
   #hasValidHeadline({ content }) {
     return !!content.headline.trim();
   }
@@ -1563,9 +1567,9 @@ export class AIWindow extends MozLitElement {
       this.resumeCardsEmptyReason = null;
     }
 
-    // TODO Bug 2067871: this is already the permanent path; drop the pill
+    // TODO Bug 2077652: this is already the permanent path; drop the pill
     // fallback in the caller once cards ship for real (see the other
-    // Bug 2067871 TODO there, on the early starters render).
+    // Bug 2077652 TODO there, on the early starters render).
     this.resumeCards = resumeActivities.slice(0, MAX_RESUME_CARDS_DISPLAYED);
     if (this.resumeCards.length) {
       lazy.ResumeActivity.clearSectionHiddenForSession();
@@ -1744,8 +1748,7 @@ export class AIWindow extends MozLitElement {
   };
 
   /**
-   * Handles a resume card's "More" menu selection. Snoozing dismisses the
-   * card for the rest of the session.
+   * Handles a resume card's "More" menu selection.
    *
    * @param {CustomEvent} event - The menu-item-selected event
    * @private
@@ -1760,28 +1763,65 @@ export class AIWindow extends MozLitElement {
         break;
 
       case "snooze":
-        this.#snoozeResumeCard(journeyId);
+        this.#snoozeResumeCard(journeyId).catch(e =>
+          lazy.log.error("[ResumeCard] Failed to snooze:", e)
+        );
         break;
     }
   };
 
   /**
-   * Handles a resume card's close button by snoozing the card.
+   * Handles a resume card's close button by permanently dismissing the card.
    *
    * @param {CustomEvent} event - The dismiss event
    * @private
    */
   #handleResumeCardDismiss = event => {
-    this.#snoozeResumeCard(event.detail.journeyId);
+    this.#dismissResumeCard(event.detail.journeyId).catch(e =>
+      lazy.log.error("[ResumeCard] Failed to dismiss:", e)
+    );
   };
 
   /**
-   * Dismisses a resume card for the rest of the session.
+   * Snoozes a resume card for 24 hours.
    *
    * @param {string} journeyId - The resume card's journey/memory id
    */
-  #snoozeResumeCard(journeyId) {
-    lazy.ResumeActivity.dismissMemory(journeyId);
+  async #snoozeResumeCard(journeyId) {
+    const card = this.resumeCards.find(({ memory }) => memory.id === journeyId);
+    if (!card) {
+      return;
+    }
+
+    const snoozed = await lazy.JourneyManager.dismissUntil(
+      card,
+      Date.now() + RESUME_CARD_SNOOZE_DURATION_MS
+    );
+    if (!snoozed) {
+      throw new Error(`No stored journey found for ${journeyId}`);
+    }
+    this.#removeResumeCard(journeyId);
+  }
+
+  /**
+   * Permanently dismisses a resume card.
+   *
+   * @param {string} journeyId - The resume card's journey/memory id
+   */
+  async #dismissResumeCard(journeyId) {
+    const card = this.resumeCards.find(({ memory }) => memory.id === journeyId);
+    if (!card) {
+      return;
+    }
+
+    const dismissed = await lazy.JourneyManager.dismiss(card);
+    if (!dismissed) {
+      throw new Error(`No stored journey found for ${journeyId}`);
+    }
+    this.#removeResumeCard(journeyId);
+  }
+
+  #removeResumeCard(journeyId) {
     this.resumeCards = this.resumeCards.filter(
       ({ memory }) => memory.id !== journeyId
     );
@@ -2272,7 +2312,7 @@ export class AIWindow extends MozLitElement {
    * @param {object} [options.assistantToolUIData] - Tool UI attached to the
    *   assistant message so it renders alongside the streamed response.
    * @param {string} [options.aitabSource] - Where an AI Tab page was requested
-   *   from (tab_list or tab_group), for telemetry.
+   *   from (tab_list, tab_group or fxms), for telemetry.
    */
   submitChatMessage({
     text,
@@ -2310,6 +2350,7 @@ export class AIWindow extends MozLitElement {
       submit_type: submitType,
       tabs: contextMentions.filter(member => !lazy.isTabGroupMember(member))
         .length,
+      auth_provider: lazy.AuthProvider.currentProviderName ?? undefined,
     });
 
     if (this.#conversation) {
@@ -3112,6 +3153,7 @@ export class AIWindow extends MozLitElement {
       http_status: httpStatus,
       model: this.modelName,
       is_retry: isRetry,
+      auth_provider: lazy.AuthProvider.currentProviderName ?? undefined,
     });
   }
 

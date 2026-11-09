@@ -4,8 +4,9 @@
 "use strict";
 
 /**
- * Tests that the "discarded" attribute is properly preserved when tabs
- * are moved between windows via swapBrowsersAndCloseOther and adoptTab.
+ * Tests that the "discarded" and "discarded-skip-on-close" attributes are
+ * preserved when tabs are moved between windows via
+ * swapBrowsersAndCloseOther and adoptTab.
  * This is a regression test for Bug 1984922.
  */
 
@@ -26,6 +27,10 @@ add_task(async function test_discarded_tab_swapBrowsersAndCloseOther() {
     discardedTab.hasAttribute("discarded"),
     "Tab should have discarded attribute"
   );
+  ok(
+    discardedTab.hasAttribute("discarded-skip-on-close"),
+    "Tab should have discarded-skip-on-close attribute"
+  );
 
   // Create a new tab to swap into
   let newTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
@@ -35,9 +40,9 @@ add_task(async function test_discarded_tab_swapBrowsersAndCloseOther() {
     newTab,
     "TabAttrModified",
     false,
-    event => {
-      return event.detail.changed.includes("discarded");
-    }
+    event =>
+      event.detail.changed.includes("discarded") &&
+      event.detail.changed.includes("discarded-skip-on-close")
   );
 
   // Swap the browsers
@@ -51,6 +56,10 @@ add_task(async function test_discarded_tab_swapBrowsersAndCloseOther() {
   ok(
     newTab.hasAttribute("discarded"),
     "New tab should have the discarded attribute after swap"
+  );
+  ok(
+    newTab.hasAttribute("discarded-skip-on-close"),
+    "New tab should have the discarded-skip-on-close attribute after swap"
   );
 
   // Clean up
@@ -80,6 +89,10 @@ add_task(async function test_discarded_tab_adoptTab() {
     discardedTab.hasAttribute("discarded"),
     "Tab should have discarded attribute"
   );
+  ok(
+    discardedTab.hasAttribute("discarded-skip-on-close"),
+    "Tab should have discarded-skip-on-close attribute"
+  );
 
   // Adopt the tab into the new window
   let adoptedTab = newWin.gBrowser.adoptTab(discardedTab);
@@ -88,6 +101,10 @@ add_task(async function test_discarded_tab_adoptTab() {
   ok(
     adoptedTab.hasAttribute("discarded"),
     "Adopted tab should preserve the discarded attribute"
+  );
+  ok(
+    adoptedTab.hasAttribute("discarded-skip-on-close"),
+    "Adopted tab should preserve the discarded-skip-on-close attribute"
   );
 
   // Verify the original tab is gone (should be closed by adoptTab)
@@ -116,6 +133,10 @@ add_task(async function test_discarded_with_other_attributes() {
   // will get removed when the tab is discarded)
   multiAttrTab.setAttribute("soundplaying", "true");
   ok(multiAttrTab.hasAttribute("discarded"), "Tab should be discarded");
+  ok(
+    multiAttrTab.hasAttribute("discarded-skip-on-close"),
+    "Tab should have discarded-skip-on-close attribute"
+  );
 
   // Create target tab for swap
   let targetTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
@@ -124,10 +145,14 @@ add_task(async function test_discarded_with_other_attributes() {
   let swapSuccess = gBrowser.swapBrowsersAndCloseOther(targetTab, multiAttrTab);
   ok(swapSuccess, "Swap should succeed");
 
-  // Verify both attributes were transferred
+  // Verify all attributes were transferred
   ok(
     targetTab.hasAttribute("discarded"),
     "Target tab should have discarded attribute"
+  );
+  ok(
+    targetTab.hasAttribute("discarded-skip-on-close"),
+    "Target tab should have discarded-skip-on-close attribute"
   );
   ok(
     targetTab.hasAttribute("soundplaying"),

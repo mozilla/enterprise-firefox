@@ -71,12 +71,15 @@ struct BreakpadProcessId {
 #endif
 };
 
-using RustDumpCallback = void (*)(const void*, BreakpadProcessId,
-                                  const ExtraCrashData*, const breakpad_char*);
+struct OpaqueCrashGenerator;
+
+using RustDumpCallback = void (*)(const OpaqueCrashGenerator*,
+                                  BreakpadProcessId, const ExtraCrashData*,
+                                  const breakpad_char*);
 
 struct BreakpadContext {
   RustDumpCallback callback;
-  const void* generator;
+  const OpaqueCrashGenerator* generator;
 };
 
 #if defined(XP_LINUX)
@@ -178,7 +181,8 @@ extern "C" void* CrashGenerationServer_init(breakpad_init_type aBreakpadData,
       [aAuxvCallback](GeckoChildID aId, DirectAuxvDumpInfo* aAuxvInfo) {
         return getAuxvDumpInfo(aAuxvCallback, aId, aAuxvInfo);
       },
-      [aContext](void* dump_context, const ClientInfo& aClientInfo,
+      [aContext]([[maybe_unused]] void* dump_context,
+                 const ClientInfo& aClientInfo,
                  const breakpad_string& aFilePath) {
         onClientDumpRequestCallback(aContext, aClientInfo, aFilePath);
       },
@@ -280,7 +284,7 @@ using google_breakpad::MinidumpDescriptor;
 
 bool WriteMinidumpCallback(const MinidumpDescriptor& aDescriptor,
                            void* aContext,
-                           const mozilla::phc::AddrInfo* aAddrInfo,
+                           const mozilla::phc::AddrInfo* /*aAddrInfo*/,
                            bool aSucceeded) {
   if (aSucceeded) {
     MinidumpCallbackResult* result =

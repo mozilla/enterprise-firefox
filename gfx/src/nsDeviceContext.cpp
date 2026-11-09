@@ -157,7 +157,7 @@ UniquePtr<gfxContext> nsDeviceContext::CreateRenderingContextCommon(
 
   dt->AddUserData(&sDisablePixelSnapping, (void*)0x1, nullptr);
 
-  auto pContext = MakeUnique<gfxContext>(dt);
+  auto pContext = std::make_unique<gfxContext>(dt);
 
   gfxMatrix transform;
   transform.PreTranslate(mPrintingTranslate);

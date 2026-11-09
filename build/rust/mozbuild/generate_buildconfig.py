@@ -140,6 +140,7 @@ def generate(output):
     output.write(generate_bool("EARLY_BETA_OR_EARLIER"))
     output.write(generate_bool("MOZ_DEV_EDITION"))
     output.write(generate_bool("MOZ_ESR"))
+    output.write(generate_bool("MOZ_ENTERPRISE"))
     output.write(generate_bool("MOZ_DIAGNOSTIC_ASSERT_ENABLED"))
     output.write(generate_bool("MOZ_CODE_COVERAGE"))
 

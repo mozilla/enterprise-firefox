@@ -349,8 +349,8 @@ void ProfilerChild::GatherProfileThreadFunction(
       parameters->progress, "Gather-profile thread started", "Profile sent");
   using namespace mozilla::literals::ProportionValue_literals;  // For `1_pc`.
 
-  auto writer =
-      MakeUnique<SpliceableChunkedJSONWriter>(parameters->failureLatchSource);
+  auto writer = std::make_unique<SpliceableChunkedJSONWriter>(
+      parameters->failureLatchSource);
   auto rv =
       profiler_get_profile_json(*writer,
                                 /* aSinceTime */ 0,
@@ -515,7 +515,7 @@ void ProfilerChild::JoinGatherProfileThread() {
   mGatherProfileThread = nullptr;
 }
 
-void ProfilerChild::ActorDestroy(ActorDestroyReason aActorDestroyReason) {
+void ProfilerChild::ActorDestroy(ActorDestroyReason /*aActorDestroyReason*/) {
   mDestroyed = true;
   if (mAwaitNextChunkManagerUpdateResolver) {
     // The reply can't be sent anymore (IPC rejects the parent's request);

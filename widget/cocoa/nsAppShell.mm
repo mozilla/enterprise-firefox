@@ -491,8 +491,7 @@ nsresult nsAppShell::Init() {
   // related initialization that is not needed for these process types.
   bool isNSApplicationProcessType =
       (XRE_GetProcessType() != GeckoProcessType_Content) &&
-      (XRE_GetProcessType() != GeckoProcessType_RDD) &&
-      (XRE_GetProcessType() != GeckoProcessType_Socket);
+      (XRE_GetProcessType() != GeckoProcessType_RDD);
 
   if (isNSApplicationProcessType) {
     // This call initializes NSApplication unless:
@@ -546,9 +545,9 @@ nsresult nsAppShell::Init() {
     ScreenManager& screenManager = ScreenManager::GetSingleton();
 
     if (gfxPlatform::IsHeadless()) {
-      screenManager.SetHelper(mozilla::MakeUnique<HeadlessScreenHelper>());
+      screenManager.SetHelper(std::make_unique<HeadlessScreenHelper>());
     } else {
-      screenManager.SetHelper(mozilla::MakeUnique<ScreenHelperCocoa>());
+      screenManager.SetHelper(std::make_unique<ScreenHelperCocoa>());
     }
 
     InitMemoryPressureObserver();

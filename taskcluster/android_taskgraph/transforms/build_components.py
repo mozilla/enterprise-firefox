@@ -5,11 +5,13 @@
 
 import copy
 import datetime
+from pathlib import Path
 
 from mozilla_version.mobile import GeckoVersion
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import resolve_keyed_by
 
+from .. import ANDROID_COMPONENTS_DIR
 from ..build_config import get_component_name, get_components, get_extensions, get_path
 
 fanout_components = TransformSequence()
@@ -48,9 +50,10 @@ def resolve_keys(config, tasks):
             "include-coverage",
             "run-on-projects",
             "shipping-phase",
+            "use-gradle-cache",
             "run.gradlew",
             "treeherder.symbol",
-            "dependencies.build-fat-aar",
+            "dependencies.geckoview",
         ):
             resolve_keyed_by(
                 task,
@@ -66,15 +69,27 @@ def resolve_keys(config, tasks):
 
 
 @transforms.add
+def add_robolectric_jars(config, tasks):
+    for task in tasks:
+        runs_unit_tests = any(t.endswith(":test") for t in task["run"]["gradlew"])
+        robolectric_properties = Path(
+            ANDROID_COMPONENTS_DIR,
+            get_path(task["attributes"]["component"]),
+            "src/test/resources/robolectric.properties",
+        )
+        if runs_unit_tests and robolectric_properties.exists():
+            task["fetches"]["toolchain"].append("android-robolectric-jars")
+        yield task
+
+
+@transforms.add
 def handle_update_channel(config, tasks):
     for task in tasks:
-        build_fat_aar = config.kind_dependencies_tasks[
-            task["dependencies"]["build-fat-aar"]
-        ]
-        if build_fat_aar.attributes.get("shippable"):
+        geckoview = config.kind_dependencies_tasks[task["dependencies"]["geckoview"]]
+        if geckoview.attributes.get("shippable"):
             task["worker"].setdefault("env", {}).setdefault(
                 "MOZ_UPDATE_CHANNEL",
-                build_fat_aar.attributes.get("update-channel", "default"),
+                geckoview.attributes.get("update-channel", "default"),
             )
         yield task
 

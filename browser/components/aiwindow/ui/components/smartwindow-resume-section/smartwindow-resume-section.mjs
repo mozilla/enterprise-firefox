@@ -4,9 +4,9 @@
 
 import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
-// eslint-disable-next-line import/no-unassigned-import
+// eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://global/content/elements/moz-button.mjs";
-// eslint-disable-next-line import/no-unassigned-import
+// eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-resume-card.mjs";
 
 const COLLAPSED_CARD_COUNT = 2;
@@ -43,6 +43,7 @@ export class SmartwindowResumeSection extends MozLitElement {
 
   #visibilityHandler = null;
   #displayedFrame = 0;
+  #hasRecordedDisplayed = false;
 
   constructor() {
     super();
@@ -60,7 +61,13 @@ export class SmartwindowResumeSection extends MozLitElement {
 
   updated(changedProperties) {
     super.updated(changedProperties);
-    if (changedProperties.has("loading") && !this.loading) {
+    // Fast lookups can resolve before the loading delay, so watch content too.
+    if (
+      !this.loading &&
+      (changedProperties.has("loading") ||
+        changedProperties.has("cards") ||
+        changedProperties.has("emptyReason"))
+    ) {
       this.#recordDisplayedWhenSeen();
     }
   }
@@ -78,10 +85,12 @@ export class SmartwindowResumeSection extends MozLitElement {
   }
 
   /**
-   * Records Glean event "resume_cards_displayed" after loading if the section
-   * is visible, once the tab is shown and the parent has re-rendered.
+   * Records the displayed event once the section is ready and visible.
    */
   #recordDisplayedWhenSeen() {
+    if (this.#hasRecordedDisplayed) {
+      return;
+    }
     this.#cancelPendingDisplayed();
     if (this.ownerDocument.hidden) {
       this.#visibilityHandler = () => this.#recordDisplayedWhenSeen();
@@ -109,6 +118,7 @@ export class SmartwindowResumeSection extends MozLitElement {
         cards: this.#visibleCardCount,
         total_cards: this.cards.length,
       });
+      this.#hasRecordedDisplayed = true;
     });
   }
 

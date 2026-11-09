@@ -315,13 +315,10 @@ void WebrtcAudioConduit::OnControlConfigChange() {
 
   if (mControl.mSyncGroup.Ref() != mRecvStreamConfig.sync_group) {
     mRecvStreamConfig.sync_group = mControl.mSyncGroup.Ref();
-    // For now...
-    recvStreamRecreationNeeded = true;
-    // In the future we can do this instead of recreating the recv stream:
-    // if (mRecvStream) {
-    //   mCall->Call()->OnUpdateSyncGroup(mRecvStream,
-    //                                    mRecvStreamConfig.sync_group);
-    // }
+    if (mRecvStream) {
+      mCall->Call()->OnUpdateSyncGroup(*mRecvStream,
+                                       mRecvStreamConfig.sync_group);
+    }
   }
 
   if (auto filteredExtensions = FilterExtensions(
@@ -728,8 +725,7 @@ void WebrtcAudioConduit::OnRtcpReceived(webrtc::CopyOnWriteBuffer&& aPacket) {
   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
 
   if (mCall->Call()) {
-    mCall->Call()->Receiver()->DeliverRtcpPacket(
-        std::forward<webrtc::CopyOnWriteBuffer>(aPacket));
+    mCall->Call()->Receiver()->DeliverRtcpPacket(std::move(aPacket));
   }
 }
 

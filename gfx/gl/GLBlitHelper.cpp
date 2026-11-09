@@ -1089,7 +1089,9 @@ bool GLBlitHelper::Blit(layers::AndroidHardwareBuffer* const buffer,
   if (fenceFd) {
     const EGLint attribs[] = {
         LOCAL_EGL_SYNC_NATIVE_FENCE_FD_ANDROID,
-        fenceFd.get(),
+        // eglCreateSyncKHR takes ownership of the fd even on failure.
+        // Release it here to prevent the caller from closing it again.
+        fenceFd.release(),
         LOCAL_EGL_NONE,
     };
 
@@ -1100,9 +1102,6 @@ bool GLBlitHelper::Blit(layers::AndroidHardwareBuffer* const buffer,
           << "GLBlitHelper::Blit: Failed to create EGLSync from acquire fence";
       return false;
     }
-
-    // EGL owns the fd after a successful eglCreateSyncKHR().
-    (void)fenceFd.release();
 
     if (egl->IsExtensionSupported(EGLExtension::KHR_wait_sync)) {
       egl->fWaitSync(sync, 0);
@@ -1728,12 +1727,14 @@ bool GLBlitHelper::Blit(DMABufSurface* surface, const gfx::IntRect& destRect,
 
   const char* fragSample = nullptr;
   auto fragConvert = kFragConvert_None;
-  // Determine the reorder from source and destination formats. The blit
-  // output is RGBA-ordered for every source shape (the YUV color matrix and
-  // EGL named-channel imports expose RGB in .rgb), while the destination
-  // may store the opposite, BGRA order (e.g. canvas2d); swap R/B exactly
-  // when the two orders differ.
-  const bool srcIsBGRA = false;
+  // Determine the reorder from source and destination formats. YUV sources
+  // are converted to RGB by the color matrix, while single-plane RGBA
+  // sources are sampled raw, so a BGRA-ordered DMABuf (e.g. a WebGL
+  // backbuffer) already matches a BGRA destination. Swap R/B exactly when
+  // the two orders differ.
+  const auto srcFormat = surface->GetFormat();
+  const bool srcIsBGRA = srcFormat == gfx::SurfaceFormat::B8G8R8A8 ||
+                         srcFormat == gfx::SurfaceFormat::B8G8R8X8;
   const bool dstIsBGRA = aDestFormat == gfx::SurfaceFormat::B8G8R8A8 ||
                          aDestFormat == gfx::SurfaceFormat::B8G8R8X8;
   const bool swapRB = srcIsBGRA != dstIsBGRA;

@@ -28,6 +28,10 @@ OF THE TREE CAN RESULT IN BAD TREE STATE. USE AT YOUR OWN RISK.
 """.strip()
 
 
+class PriorityError(Exception):
+    pass
+
+
 def _set_priority(command_context, priority, verbose):
     # Choose the Windows API structure to standardize on.
     PRIO_CLASS_BY_KEY = {
@@ -53,23 +57,31 @@ def _set_priority(command_context, priority, verbose):
         }
         niceness = NICENESS_BY_PRIO_CLASS[prio_class]
 
-        os.nice(niceness)
+        try:
+            os.nice(niceness)
+        except OSError as e:
+            raise PriorityError(f"os.nice({niceness}) failed: {e}") from e
         if verbose:
             command_context.log(
                 logging.INFO, "priority", {"niceness": niceness}, "os.nice({niceness})"
             )
-        return True
+        return
 
     try:
         import psutil
 
         prio_class_val = getattr(psutil, prio_class)
-    except ModuleNotFoundError:
-        return False
-    except AttributeError:
-        return False
+    except ModuleNotFoundError as e:
+        raise PriorityError("psutil is not installed") from e
+    except AttributeError as e:
+        raise PriorityError(f"psutil has no {prio_class} on this platform") from e
 
-    psutil.Process().nice(prio_class_val)
+    try:
+        psutil.Process().nice(prio_class_val)
+    except psutil.AccessDenied as e:
+        raise PriorityError(
+            f"psutil.Process().nice(psutil.{prio_class}) failed: {e}"
+        ) from e
     if verbose:
         command_context.log(
             logging.INFO,
@@ -77,7 +89,6 @@ def _set_priority(command_context, priority, verbose):
             {"prio_class": prio_class},
             "psutil.Process().nice(psutil.{prio_class})",
         )
-    return True
 
 
 # Interface to build the tree.
@@ -280,12 +291,14 @@ def build(
 
         # By setting the current process's priority, by default our child processes
         # will also inherit this same priority.
-        if not _set_priority(command_context, priority, verbose):
+        try:
+            _set_priority(command_context, priority, verbose)
+        except PriorityError as e:
             command_context.log(
                 logging.WARNING,
                 "priority",
-                {},
-                "--priority not supported on this platform.",
+                {"priority": priority, "error": str(e)},
+                "Could not set the build priority to {priority}: {error}",
             )
 
         for target in what:

@@ -2451,8 +2451,13 @@ bool nsGenericHTMLElement::IsHTMLFocusable(IsFocusableFlags aFlags,
   } else {
     disallowOverridingFocusability = false;
 
-    // Just check for disabled attribute on form controls
-    disabled = IsDisabled();
+    // Just check for disabled attribute on form controls, or on the host of
+    // a UA widget.
+    if (!(aFlags & IsFocusableFlags::IgnoreDisabled)) {
+      ShadowRoot* root = GetContainingShadow();
+      disabled = IsDisabled() ||
+                 (root && root->IsUAWidget() && root->Host()->IsDisabled());
+    }
     if (disabled) {
       *aTabIndex = -1;
     }
@@ -3333,7 +3338,8 @@ void nsGenericHTMLElement::GetInnerText(mozilla::dom::DOMString& aValue,
 }
 
 static already_AddRefed<nsINode> TextToNode(const nsAString& aString,
-                                            nsNodeInfoManager* aNim) {
+                                            nsNodeInfoManager* aNim,
+                                            bool* aStringModified) {
   nsString str;
   const char16_t* s = aString.BeginReading();
   const char16_t* end = aString.EndReading();
@@ -3358,6 +3364,7 @@ static already_AddRefed<nsINode> TextToNode(const nsAString& aString,
       if (s == end) {
         break;
       }
+      *aStringModified = true;
       str.Truncate();
       RefPtr<NodeInfo> ni = aNim->GetNodeInfo(
           nsGkAtoms::br, nullptr, kNameSpaceID_XHTML, nsINode::ELEMENT_NODE);
@@ -3380,8 +3387,12 @@ static already_AddRefed<nsINode> TextToNode(const nsAString& aString,
 
 void nsGenericHTMLElement::SetInnerTextInternal(
     const nsAString& aValue, MutationEffectOnScript aMutationEffectOnScript) {
-  RefPtr<nsINode> node = TextToNode(aValue, NodeInfo()->NodeInfoManager());
-  ReplaceChildren(node, IgnoreErrors(), aMutationEffectOnScript);
+  bool stringModified = false;
+  RefPtr<nsINode> node =
+      TextToNode(aValue, NodeInfo()->NodeInfoManager(), &stringModified);
+  ReplaceChildren(node, IgnoreErrors(),
+                  stringModified ? MutationEffectOnScript::DropTrustWorthiness
+                                 : aMutationEffectOnScript);
 }
 
 // https://html.spec.whatwg.org/#merge-with-the-next-text-node
@@ -3409,7 +3420,8 @@ void nsGenericHTMLElement::SetOuterText(const nsAString& aValue,
   RefPtr<nsINode> previous = GetPreviousSibling();
 
   nsNodeInfoManager* nim = NodeInfo()->NodeInfoManager();
-  RefPtr<nsINode> node = TextToNode(aValue, nim);
+  bool stringModified = false;
+  RefPtr<nsINode> node = TextToNode(aValue, nim, &stringModified);
   if (!node) {
     // This doesn't match the spec, see
     // https://github.com/whatwg/html/issues/7508

@@ -541,6 +541,13 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
   }
 
   /**
+   * Return the Display P3 ICC profile.
+   */
+  static qcms_profile* GetCMSDisplayP3Profile() {
+    return GetPlatform()->mCMSDisplayP3Profile;
+  }
+
+  /**
    * Return sRGB -> output device transform.
    */
   static qcms_transform* GetCMSRGBTransform() {
@@ -572,6 +579,20 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
    * Return OS RGBA -> output device transform.
    */
   static qcms_transform* GetCMSOSRGBATransform();
+
+  /**
+   * Return sRGB -> P3 transform.
+   */
+  static qcms_transform* GetCMSRGBP3Transform() {
+    return GetPlatform()->mCMSRGBP3Transform;
+  }
+
+  /**
+   * Return P3 -> sRGB transform.
+   */
+  static qcms_transform* GetCMSP3RGBTransform() {
+    return GetPlatform()->mCMSP3RGBTransform;
+  }
 
   /**
    * Return OS RGBA QCMS type.
@@ -985,11 +1006,14 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
   // These two may point to the same profile
   qcms_profile* mCMSOutputProfile = nullptr;
   qcms_profile* mCMSsRGBProfile = nullptr;
+  qcms_profile* mCMSDisplayP3Profile = nullptr;
 
   qcms_transform* mCMSRGBTransform = nullptr;
   qcms_transform* mCMSInverseRGBTransform = nullptr;
   qcms_transform* mCMSRGBATransform = nullptr;
   qcms_transform* mCMSBGRATransform = nullptr;
+  qcms_transform* mCMSRGBP3Transform = nullptr;
+  qcms_transform* mCMSP3RGBTransform = nullptr;
   mozilla::Maybe<nsTArray<uint8_t>> mCMSOutputProfileData;
 
   // How mCMSOutputProfile was chosen, reported in about:support.

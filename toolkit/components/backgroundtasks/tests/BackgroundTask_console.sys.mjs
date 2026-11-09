@@ -17,7 +17,7 @@ export async function runBackgroundTask(_commandLine) {
   console.debug("bar");
   console.assert(false, "assert-failure");
   const prefixed = console.createInstance({
-    prefix: "my-prefix",
+    logModule: "my-prefix",
     // Test setting a more restrictive level from MOZ_LOG
     maxLogLevel: "Info",
   });
@@ -30,7 +30,7 @@ export async function runBackgroundTask(_commandLine) {
   prefixed.assert(false, "prefixed-assert-failure");
 
   const limitedLevel = console.createInstance({
-    prefix: "limited-level",
+    logModule: "limited-level",
     // Test setting a more permissive level from MOZ_LOG
     maxLogLevel: "Error",
   });
@@ -39,7 +39,7 @@ export async function runBackgroundTask(_commandLine) {
   limitedLevel.assert(false, "limited-assert-failure");
 
   const errorOnly = console.createInstance({
-    prefix: "error-only",
+    logModule: "error-only",
     maxLogLevel: "Error",
   });
   errorOnly.log("error-only-log");
@@ -51,6 +51,24 @@ export async function runBackgroundTask(_commandLine) {
   })();
 
   Services.console.logStringMessage("String message");
+
+  const logModuleOnly = console.createInstance({ logModule: "log-module" });
+  logModuleOnly.log("log-module-only");
+
+  const logModuleAndPrefix = console.createInstance({
+    logModule: "log-module",
+    prefix: "Some prefix",
+  });
+  logModuleAndPrefix.log("log-module-and-prefix");
+
+  const logModuleAsPrefix = console.createInstance({
+    logModule: "log-module",
+    prefix: "log-module",
+  });
+  logModuleAsPrefix.log("log-module-as-prefix");
+
+  const prefixOnly = console.createInstance({ prefix: "prefix-only" });
+  prefixOnly.log("prefix-only");
 
   return 0;
 }

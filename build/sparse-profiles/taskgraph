@@ -97,6 +97,7 @@ path:config/milestone.txt
 path:mobile/android/mach_commands.py
 path:gradle/
 path:mobile/android/config/
+path:mobile/android/gradle/plugins/nimbus-gradle-plugin/src/
 path:third_party/application-services/.buildconfig-android.yml
 glob:**/*.gradle
 glob:**/*.gradle.kts
@@ -146,6 +147,7 @@ path:testing/webdriver
 
 # for firefox-android
 path:mobile/android/android-components/.buildconfig.yml
+glob:mobile/android/android-components/**/robolectric.properties
 path:mobile/android/focus-android/.buildconfig.yml
 path:mobile/android/fenix/.buildconfig.yml
 path:mobile/android/android-components/gradle/wrapper/gradle-wrapper.properties

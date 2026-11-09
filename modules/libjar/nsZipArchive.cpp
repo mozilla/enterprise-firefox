@@ -29,6 +29,8 @@
 #  include <windows.h>
 #endif
 
+#include <algorithm>
+
 // For placement new used for arena allocations of zip file list
 #include <new>
 #define ZIP_ARENABLOCKSIZE (1 * 1024)
@@ -262,7 +264,7 @@ nsresult nsZipHandle::Init(nsZipArchive* zip, const nsACString& entry,
     }
   }
 
-  handle->mBuf = MakeUnique<nsZipItemPtr<uint8_t>>(zip, entry);
+  handle->mBuf = std::make_unique<nsZipItemPtr<uint8_t>>(zip, entry);
   if (!handle->mBuf) return NS_ERROR_OUT_OF_MEMORY;
 
   if (!handle->mBuf->Buffer()) return NS_ERROR_UNEXPECTED;
@@ -399,9 +401,10 @@ nsZipHandle::~nsZipHandle() {
 //---------------------------------------------
 /* static */
 already_AddRefed<nsZipArchive> nsZipArchive::OpenArchive(
-    nsZipHandle* aZipHandle, PRFileDesc* aFd) {
+    nsZipHandle* aZipHandle, PRFileDesc* aFd, bool aAllowOptimizedLayout) {
   nsresult rv;
-  RefPtr<nsZipArchive> self(new nsZipArchive(aZipHandle, aFd, rv));
+  RefPtr<nsZipArchive> self(
+      new nsZipArchive(aZipHandle, aFd, aAllowOptimizedLayout, rv));
   LOG(("ZipHandle::OpenArchive[%p]", self.get()));
   if (NS_FAILED(rv)) {
     self = nullptr;
@@ -410,7 +413,8 @@ already_AddRefed<nsZipArchive> nsZipArchive::OpenArchive(
 }
 
 /* static */
-already_AddRefed<nsZipArchive> nsZipArchive::OpenArchive(nsIFile* aFile) {
+already_AddRefed<nsZipArchive> nsZipArchive::OpenArchive(
+    nsIFile* aFile, bool aAllowOptimizedLayout) {
   RefPtr<nsZipHandle> handle;
 #if defined(XP_WIN)
   mozilla::AutoFDClose fd;
@@ -422,9 +426,9 @@ already_AddRefed<nsZipArchive> nsZipArchive::OpenArchive(nsIFile* aFile) {
   if (NS_FAILED(rv)) return nullptr;
 
 #if defined(XP_WIN)
-  return OpenArchive(handle, fd.get());
+  return OpenArchive(handle, fd.get(), aAllowOptimizedLayout);
 #else
-  return OpenArchive(handle);
+  return OpenArchive(handle, nullptr, aAllowOptimizedLayout);
 #endif
 }
 
@@ -655,8 +659,8 @@ nsZipItem* nsZipArchive::CreateZipItem() {
 //---------------------------------------------
 //  nsZipArchive::BuildFileList
 //---------------------------------------------
-nsresult nsZipArchive::BuildFileList(PRFileDesc* aFd)
-    MOZ_NO_THREAD_SAFETY_ANALYSIS {
+nsresult nsZipArchive::BuildFileList(
+    PRFileDesc* aFd, bool aAllowOptimizedLayout) MOZ_NO_THREAD_SAFETY_ANALYSIS {
   // We're only called from the constructor, but need to call
   // CreateZipItem(), which touches locked data, and modify mFiles.  Turn
   // off thread-safety, which normally doesn't apply for constructors
@@ -673,10 +677,16 @@ nsresult nsZipArchive::BuildFileList(PRFileDesc* aFd)
   // don't need readahead when the file has already been readahead by
   // the parent process, and readahead only really happens for omni.ja,
   // which is used in the parent process.
-  if (XRE_IsParentProcess() && mFd->mLen > ZIPCENTRAL_SIZE &&
+  //
+  // The optimized layout (Central Directory right at offset 4, with no
+  // End Of Central Directory record) is specific to our own build-time
+  // packaged omni.ja (bug 559961), so only trust it when the caller has
+  // independently established that this is in fact our own omni.ja.
+  if (aAllowOptimizedLayout && XRE_IsParentProcess() &&
+      mFd->mLen > ZIPCENTRAL_SIZE &&
       xtolong(startp + centralOffset) == CENTRALSIG) {
     // Success means optimized jar layout from bug 559961 is in effect
-    uint32_t readaheadLength = xtolong(startp);
+    uint32_t readaheadLength = std::min(xtolong(startp), mFd->mLen);
     mozilla::PrefetchMemory(const_cast<uint8_t*>(startp), readaheadLength);
   } else {
     for (buf = endp - ZIPEND_SIZE; buf > startp; buf--) {
@@ -906,14 +916,14 @@ int64_t nsZipArchive::SizeOfMapping() { return mFd ? mFd->SizeOfMapping() : 0; }
 //------------------------------------------
 
 nsZipArchive::nsZipArchive(nsZipHandle* aZipHandle, PRFileDesc* aFd,
-                           nsresult& aRv)
+                           bool aAllowOptimizedLayout, nsresult& aRv)
     : mRefCnt(0), mFd(aZipHandle), mUseZipLog(false), mBuiltSynthetics(false) {
   // initialize the table to nullptr
   memset(mFiles, 0, sizeof(mFiles));
   MOZ_DIAGNOSTIC_ASSERT(aZipHandle);
 
   //-- get table of contents for archive
-  aRv = BuildFileList(aFd);
+  aRv = BuildFileList(aFd, aAllowOptimizedLayout);
   if (NS_FAILED(aRv)) {
     return;  // whomever created us must destroy us in this case
   }

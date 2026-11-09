@@ -489,6 +489,10 @@ already_AddRefed<Promise> ServiceWorkerRegistration::GetNotifications(
               scope = NS_ConvertUTF8toUTF16(mDescriptor.Scope())](
                  const PServiceWorkerRegistrationChild::
                      GetNotificationsPromise::ResolveOrRejectValue&& aValue) {
+               if (promise->GetParentObject()->IsDying()) {
+                 return;
+               }
+
                if (aValue.IsReject()) {
                  // An unregistered registration
                  promise->MaybeResolve(nsTArray<RefPtr<Notification>>());
@@ -633,7 +637,7 @@ void ServiceWorkerRegistration::WhenVersionReached(
   }
 
   mVersionCallbackList.AppendElement(
-      MakeUnique<VersionCallback>(aVersion, std::move(aCallback)));
+      std::make_unique<VersionCallback>(aVersion, std::move(aCallback)));
 }
 
 void ServiceWorkerRegistration::MaybeScheduleUpdateFound(

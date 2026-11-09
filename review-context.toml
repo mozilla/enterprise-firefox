@@ -92,3 +92,24 @@ when = { any_file = { include = [
 load = [
   { type = "file", path = "gfx/wr/webrender/doc/code-review.md" },
 ]
+
+# Necko: Triggered when a patch touches Necko source code.
+[[rules]]
+name = "Necko"
+description = "Guidance for reviewing Necko code"
+when = { any_file = { include = [
+  "netwerk/**",
+], ext = [
+  ".h",
+  ".cpp",
+  ".rs",
+  ".idl",
+  ".ipdl",
+  ".ipdlh",
+  ".js",
+  ".mjs",
+  ".toml",
+] } }
+load = [
+  { type = "file", path = ".claude/skills/necko-review/SKILL.md" },
+]

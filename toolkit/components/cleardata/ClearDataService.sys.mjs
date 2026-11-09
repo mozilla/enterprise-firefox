@@ -10,6 +10,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
+  NetworkGeolocationCache:
+    "moz-src:///dom/system/NetworkGeolocationCache.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   ServiceWorkerCleanUp: "resource://gre/modules/ServiceWorkerCleanUp.sys.mjs",
 });
@@ -50,19 +52,6 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "bounceTrackingProtectionMode",
   "privacy.bounceTrackingProtection.mode",
   Ci.nsIBounceTrackingProtection.MODE_DISABLED
-);
-
-XPCOMUtils.defineLazyPreferenceGetter(
-  lazy,
-  "permissionManagerIsolateByPrivateBrowsing",
-  "permissions.isolateBy.privateBrowsing",
-  false
-);
-XPCOMUtils.defineLazyPreferenceGetter(
-  lazy,
-  "permissionManagerIsolateByUserContext",
-  "permissions.isolateBy.userContext",
-  false
 );
 
 /**
@@ -1129,9 +1118,12 @@ const StorageAccessCleaner = {
     return Services.perms.removeFromPrincipal(aPrincipal, "storageAccessAPI");
   },
 
-  _deleteInternal(filter) {
-    Services.perms.all
-      .filter(({ type }) => type == "storageAccessAPI")
+  _deleteInternal(filter, aOriginAttributesPattern = {}) {
+    Services.perms
+      .getAllForOriginAttributesPattern(
+        JSON.stringify(aOriginAttributesPattern),
+        ["storageAccessAPI"]
+      )
       .filter(filter)
       .forEach(perm => {
         try {
@@ -1154,18 +1146,9 @@ const StorageAccessCleaner = {
   },
 
   async deleteBySite(aSchemelessSite, aOriginAttributesPattern) {
-    // If we don't isolate by private browsing / user context we need to clear
-    // the pattern field. Otherwise permissions returned by the permission
-    // manager will never match. The permission manager strips these fields when
-    // their prefs are set to `false`.
-    if (!lazy.permissionManagerIsolateByPrivateBrowsing) {
-      delete aOriginAttributesPattern.privateBrowsingId;
-    }
-    if (!lazy.permissionManagerIsolateByUserContext) {
-      delete aOriginAttributesPattern.userContextId;
-    }
-    this._deleteInternal(({ principal }) =>
-      hasSite({ principal }, aSchemelessSite, aOriginAttributesPattern)
+    this._deleteInternal(
+      ({ principal }) => hasSite({ principal }, aSchemelessSite),
+      aOriginAttributesPattern
     );
   },
 
@@ -1310,9 +1293,12 @@ const AuthCacheCleaner = {
 const SHUTDOWN_EXCEPTION_PERMISSION = "persist-data-on-shutdown";
 
 const ShutdownExceptionsCleaner = {
-  async _deleteInternal(filter) {
-    Services.perms.all
-      .filter(({ type }) => type == SHUTDOWN_EXCEPTION_PERMISSION)
+  async _deleteInternal(filter, aOriginAttributesPattern = {}) {
+    Services.perms
+      .getAllForOriginAttributesPattern(
+        JSON.stringify(aOriginAttributesPattern),
+        [SHUTDOWN_EXCEPTION_PERMISSION]
+      )
       .filter(filter)
       .forEach(perm => {
         try {
@@ -1341,19 +1327,9 @@ const ShutdownExceptionsCleaner = {
   },
 
   async deleteBySite(aSchemelessSite, aOriginAttributesPattern) {
-    // If we don't isolate by private browsing / user context we need to clear
-    // the pattern field. Otherwise permissions returned by the permission
-    // manager will never match. The permission manager strips these fields when
-    // their prefs are set to `false`.
-    if (!lazy.permissionManagerIsolateByPrivateBrowsing) {
-      delete aOriginAttributesPattern.privateBrowsingId;
-    }
-    if (!lazy.permissionManagerIsolateByUserContext) {
-      delete aOriginAttributesPattern.userContextId;
-    }
-
-    this._deleteInternal(({ principal }) =>
-      hasSite({ principal }, aSchemelessSite, aOriginAttributesPattern)
+    this._deleteInternal(
+      ({ principal }) => hasSite({ principal }, aSchemelessSite),
+      aOriginAttributesPattern
     );
   },
 
@@ -1378,8 +1354,12 @@ const ShutdownExceptionsCleaner = {
 };
 
 const PermissionsCleaner = {
-  async _deleteInternal(filter) {
-    Services.perms.all
+  async _deleteInternal(filter, aOriginAttributesPattern = {}) {
+    Services.perms
+      .getAllForOriginAttributesPattern(
+        JSON.stringify(aOriginAttributesPattern),
+        []
+      )
       // Skip persist-data-on-shutdown because it is handled by
       // ShutdownExceptionsCleaner.
       .filter(({ type }) => type != SHUTDOWN_EXCEPTION_PERMISSION)
@@ -1448,21 +1428,11 @@ const PermissionsCleaner = {
   },
 
   async deleteBySite(aSchemelessSite, aOriginAttributesPattern) {
-    // If we don't isolate by private browsing / user context we need to clear
-    // the pattern field. Otherwise permissions returned by the permission
-    // manager will never match. The permission manager strips these fields when
-    // their prefs are set to `false`.
-    if (!lazy.permissionManagerIsolateByPrivateBrowsing) {
-      delete aOriginAttributesPattern.privateBrowsingId;
-    }
-    if (!lazy.permissionManagerIsolateByUserContext) {
-      delete aOriginAttributesPattern.userContextId;
-    }
-
     await this._deleteInternal(
       ({ principal, type }) =>
-        hasSite({ principal }, aSchemelessSite, aOriginAttributesPattern) ||
-        this._thirdPartyStoragePermissionMatchesHost(type, aSchemelessSite)
+        hasSite({ principal }, aSchemelessSite) ||
+        this._thirdPartyStoragePermissionMatchesHost(type, aSchemelessSite),
+      aOriginAttributesPattern
     );
   },
 
@@ -1889,6 +1859,30 @@ const PreflightCacheCleaner = {
   },
 };
 
+const GeolocationCacheCleaner = {
+  async deleteByPrincipal(_aPrincipal, aIsUserRequest) {
+    if (!aIsUserRequest) {
+      return;
+    }
+    await this.deleteAll();
+  },
+
+  async deleteBySite(
+    _aSchemelessSite,
+    _aOriginAttributesPattern,
+    aIsUserRequest
+  ) {
+    if (!aIsUserRequest) {
+      return;
+    }
+    await this.deleteAll();
+  },
+
+  async deleteAll() {
+    lazy.NetworkGeolocationCache.clear();
+  },
+};
+
 const IdentityCredentialStorageCleaner = {
   async deleteAll() {
     if (
@@ -2100,21 +2094,10 @@ const StoragePermissionsCleaner = {
   },
 
   async deleteBySite(aSchemelessSite, aOriginAttributesPattern) {
-    // If we don't isolate by private browsing / user context we need to clear
-    // the pattern field. Otherwise permissions returned by the permission
-    // manager will never match. The permission manager strips these fields when
-    // their prefs are set to `false`.
-    if (!lazy.permissionManagerIsolateByPrivateBrowsing) {
-      delete aOriginAttributesPattern.privateBrowsingId;
-    }
-    if (!lazy.permissionManagerIsolateByUserContext) {
-      delete aOriginAttributesPattern.userContextId;
-    }
-
-    let permissions = this._getStoragePermissions();
+    let permissions = this._getStoragePermissions(aOriginAttributesPattern);
     for (let perm of permissions) {
       let { principal } = perm;
-      if (hasSite({ principal }, aSchemelessSite, aOriginAttributesPattern)) {
+      if (hasSite({ principal }, aSchemelessSite)) {
         Services.perms.removePermission(perm);
       }
     }
@@ -2151,11 +2134,11 @@ const StoragePermissionsCleaner = {
     await Services.perms.removeOrphanedInteractionRecords();
   },
 
-  _getStoragePermissions() {
-    let storagePermissions = Services.perms.getAllByTypes([
-      "storage-access",
-      "persistent-storage",
-    ]);
+  _getStoragePermissions(aOriginAttributesPattern = {}) {
+    let storagePermissions = Services.perms.getAllForOriginAttributesPattern(
+      JSON.stringify(aOriginAttributesPattern),
+      ["storage-access", "persistent-storage"]
+    );
 
     return storagePermissions.filter(
       permission =>
@@ -2300,6 +2283,11 @@ const FLAGS_MAP = [
   {
     flag: Ci.nsIClearDataService.CLEAR_PREFLIGHT_CACHE,
     cleaners: [PreflightCacheCleaner],
+  },
+
+  {
+    flag: Ci.nsIClearDataService.CLEAR_GEOLOCATION_CACHE,
+    cleaners: [GeolocationCacheCleaner],
   },
 
   {

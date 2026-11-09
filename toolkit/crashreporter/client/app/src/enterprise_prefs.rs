@@ -20,7 +20,7 @@
 
 use crate::config::installation_resource_path;
 #[cfg(mock)]
-use crate::std::mock::{mock_key, MockKey};
+use crate::std::mock::MockKey;
 use crate::std::path::Path;
 use anyhow::Context;
 use enterprise_console::{
@@ -44,6 +44,7 @@ crate::std::mock::mocked_static! {
     /// of the run - including the Glean uploader, from its own thread - just
     /// compare against the result.
     static CONSOLE_ADDRESS: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    mocked type = std::sync::Arc<std::sync::OnceLock<String>>;
 
     // A test case which wants an address cached for the run sets
     // `CONSOLE_ADDRESS` in its mock builder; the storage belongs to the mock

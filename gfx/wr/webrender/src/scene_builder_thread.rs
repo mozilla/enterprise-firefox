@@ -7,10 +7,9 @@ use api::{DocumentId, PipelineId, ExternalEvent, BlobImageRequest};
 use api::{NotificationRequest, Checkpoint, IdNamespace, QualitySettings, RenderBackendId};
 use api::{GlyphDimensionRequest, GlyphIndexRequest};
 use api::interning::DlDelta;
-use api::channel::{unbounded_channel, single_msg_channel, Receiver, Sender};
+use api::channel::{unbounded_channel, single_msg_channel, Receiver, Sender, SyncSender};
 use api::units::*;
 use crate::render_api::{ApiMsg, FrameMsg, SceneMsg, ResourceUpdate, TransactionMsg, MemoryReport};
-use crate::box_shadow::BoxShadow;
 #[cfg(feature = "capture")]
 use crate::capture::CaptureConfig;
 use crate::frame_builder::FrameBuilderConfig;
@@ -23,12 +22,7 @@ use crate::intern::{Internable, Interner, UpdateList};
 use crate::internal_types::{FastHashMap, FastHashSet};
 use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use crate::prim_store::backdrop::{BackdropCapture, BackdropRender};
-use crate::prim_store::borders::{ImageBorder, NormalBorderPrim};
-use crate::prim_store::gradient::{LinearGradient, RadialGradient, ConicGradient};
-use crate::prim_store::image::{Image, YuvImage};
-use crate::prim_store::line_dec::LineDecoration;
 use crate::prim_store::picture::Picture;
-use crate::prim_store::text_run::TextRun;
 use crate::profiler::{self, TransactionProfile};
 use crate::render_backend::SceneView;
 use crate::renderer::{FullFrameStats, PipelineInfo};
@@ -88,7 +82,6 @@ pub struct OffscreenBuiltScene {
 pub struct LoadScene {
     pub document_id: DocumentId,
     pub scene: Scene,
-    pub fonts: SharedFontResources,
     pub view: SceneView,
     pub config: FrameBuilderConfig,
     pub build_frame: bool,
@@ -116,12 +109,12 @@ pub enum SceneBuilderRequest {
     /// Sent on the low-priority scene channel by `stop_render_backend` and
     /// forwarded to the render backend, so that it cannot overtake work queued
     /// earlier on either scene channel. See `RenderApi::stop_render_backend`.
-    StopWindow(RenderBackendId, Sender<()>),
-    Flush(Sender<()>),
+    StopWindow(RenderBackendId, SyncSender<()>),
+    Flush(SyncSender<()>),
     SetFlags(DebugFlags),
     SetFrameBuilderConfig(RenderBackendId, FrameBuilderConfig),
     SetParameter(RenderBackendId, Parameter),
-    ReportMemory(Box<MemoryReport>, Sender<Box<MemoryReport>>),
+    ReportMemory(Box<MemoryReport>, SyncSender<Box<MemoryReport>>),
     /// Install or clear the scene-builder hooks for the given window.
     /// `Some(hooks)` registers them (`hooks.register()` is invoked on the
     /// SB thread, which is the correct thread for APZ's
@@ -148,9 +141,9 @@ pub enum SceneBuilderRequest {
 
 // Message from scene builder to render backend.
 pub enum SceneBuilderResult {
-    Transactions(Vec<Box<BuiltTransaction>>, Option<Sender<SceneSwapResult>>),
+    Transactions(Vec<Box<BuiltTransaction>>, Option<SyncSender<SceneSwapResult>>),
     ExternalEvent(RenderBackendId, ExternalEvent),
-    FlushComplete(Sender<()>),
+    FlushComplete(SyncSender<()>),
     DeleteDocument(DocumentId),
     ClearNamespace(RenderBackendId, IdNamespace),
     GetGlyphDimensions(RenderBackendId, GlyphDimensionRequest),
@@ -158,14 +151,14 @@ pub enum SceneBuilderResult {
     SetParameter(RenderBackendId, Parameter),
     /// Forwarded `SceneBuilderRequest::StopWindow`. The backend marks the window
     /// stopped and acks on the channel, releasing `stop_render_backend`.
-    StopWindow(RenderBackendId, Sender<()>),
+    StopWindow(RenderBackendId, SyncSender<()>),
     ShutDown(Option<Sender<()>>),
 
     #[cfg(feature = "capture")]
     /// The same as `Transactions`, but also supplies a `CaptureConfig` that the
     /// render backend should use for sequence capture, until the next
     /// `CapturedTransactions` or `StopCaptureSequence` result.
-    CapturedTransactions(Vec<Box<BuiltTransaction>>, CaptureConfig, Option<Sender<SceneSwapResult>>),
+    CapturedTransactions(Vec<Box<BuiltTransaction>>, CaptureConfig, Option<SyncSender<SceneSwapResult>>),
 
     #[cfg(feature = "capture")]
     /// The scene builder has stopped sequence capture, so the render backend
@@ -177,7 +170,7 @@ pub enum SceneBuilderResult {
 // scene swap was completed. We need a separate channel for this
 // so that they don't get mixed with SceneBuilderRequest messages.
 pub enum SceneSwapResult {
-    Complete(Sender<()>),
+    Complete(SyncSender<()>),
     Aborted,
 }
 
@@ -257,6 +250,7 @@ macro_rules! declare_scene_dl_stores {
         #[derive(Default)]
         pub struct SceneDlStores {
             $( pub $field: crate::dl_interner::DlStore<$key, $value>, )*
+            uids: crate::dl_interner::DlUids,
         }
 
         /// The op lists bound for `SceneDlStores`.
@@ -271,7 +265,7 @@ macro_rules! declare_scene_dl_stores {
             }
 
             fn apply(&mut self, updates: SceneDlUpdates) {
-                $( self.$field.apply(updates.$field); )*
+                $( self.$field.apply(updates.$field, &mut self.uids); )*
             }
         }
 
@@ -720,7 +714,6 @@ impl SceneBuilderThread {
                     None,
                     self.dl_builders.document(item.document_id),
                     &self.scene_stores,
-                    item.fonts,
                     &item.view,
                     &self.config,
                     &mut item.interners,
@@ -729,6 +722,7 @@ impl SceneBuilderThread {
                     &SceneStats::empty(),
                     self.debug_flags,
                 ));
+                item.scene.mark_built(&built_scene.as_ref().unwrap().walked_pipelines);
 
                 interner_updates = Some(
                     item.interners.end_frame_and_get_pending_updates()
@@ -955,7 +949,6 @@ impl SceneBuilderThread {
                         Some(pipeline_id),
                         self.dl_builders.document(txn.document_id),
                         &self.scene_stores,
-                        self.fonts.clone(),
                         &doc.view,
                         &config,
                         &mut doc.interners,
@@ -965,6 +958,7 @@ impl SceneBuilderThread {
                         self.debug_flags,
                     );
                     let spatial_tree_updates = spatial_tree.end_frame_and_get_pending_updates();
+                    scene.mark_built(&built.walked_pipelines);
                     embed_policy_violations.extend_from_slice(&built.embed_policy_violations);
                     offscreen_scenes.push(OffscreenBuiltScene {
                         scene: built,
@@ -1022,7 +1016,6 @@ impl SceneBuilderThread {
                 None,
                 self.dl_builders.document(txn.document_id),
                 &self.scene_stores,
-                self.fonts.clone(),
                 &doc.view,
                 &config,
                 &mut doc.interners,
@@ -1031,6 +1024,8 @@ impl SceneBuilderThread {
                 &doc.stats,
                 self.debug_flags,
             );
+
+            scene.mark_built(&built.walked_pipelines);
 
             // Update the allocation stats for next scene
             doc.stats = built.get_stats();

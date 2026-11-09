@@ -553,3 +553,194 @@ add_task(async function test_beacon_request() {
 
   BrowserTestUtils.removeTab(tab);
 });
+
+function hasOverrideEntry(domainKey) {
+  try {
+    Services.rfp.getFingerprintingOverrides(domainKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Setting the granular override prefs synchronously re-imports and populates
+// the overrides from the pref observer, so the result can be checked as soon
+// as pushPrefEnv resolves.
+async function setGranularOverridePrefs(baselineValue, fppValue) {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["privacy.baselineFingerprintingProtection.granularOverrides", ""],
+      ["privacy.fingerprintingProtection.granularOverrides", ""],
+    ],
+  });
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "privacy.baselineFingerprintingProtection.granularOverrides",
+        baselineValue,
+      ],
+      ["privacy.fingerprintingProtection.granularOverrides", fppValue],
+    ],
+  });
+}
+
+// A malformed value in one granular override pref must not prevent the other
+// granular override pref from being imported.
+add_task(async function test_malformed_granular_pref_is_isolated() {
+  const fppEntries = JSON.stringify([
+    { firstPartyDomain: "example.info", overrides: "+WindowOuterSize" },
+  ]);
+  const baselineEntries = JSON.stringify([
+    { firstPartyDomain: "example.net", overrides: "+WindowOuterSize" },
+  ]);
+
+  for (let malformed of ["not json", "{}", '"a string"']) {
+    info(`Malformed baseline pref ${malformed}, valid FPP pref`);
+    await setGranularOverridePrefs(malformed, fppEntries);
+    ok(
+      hasOverrideEntry("example.info,0"),
+      "The FPP granular override was imported despite a malformed baseline pref."
+    );
+    await SpecialPowers.popPrefEnv();
+    await SpecialPowers.popPrefEnv();
+
+    info(`Valid baseline pref, malformed FPP pref ${malformed}`);
+    await setGranularOverridePrefs(baselineEntries, malformed);
+    ok(
+      hasOverrideEntry("example.net,1"),
+      "The baseline granular override was imported despite a malformed FPP pref."
+    );
+    await SpecialPowers.popPrefEnv();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// Verify that granular override entries from the pref are validated against
+// the schema: valid entries (including the "*" wildcard, long TLDs and IDN
+// TLDs) are imported, and malformed entries are dropped.
+add_task(async function test_granular_pref_schema_validation() {
+  const valid = [
+    { firstPartyDomain: "*", overrides: "+WindowOuterSize" },
+    { firstPartyDomain: "example.photography", overrides: "+WindowOuterSize" },
+    { firstPartyDomain: "example.xn--p1ai", overrides: "+WindowOuterSize" },
+    {
+      firstPartyDomain: "example.co.uk",
+      thirdPartyDomain: "",
+      overrides: "+WindowOuterSize",
+    },
+  ];
+  const invalid = [
+    { firstPartyDomain: "bad domain", overrides: "+WindowOuterSize" },
+    { firstPartyDomain: "example.com", overrides: "+Window OuterSize" },
+    { firstPartyDomain: "example.net" },
+    {
+      firstPartyDomain: "example.edu",
+      thirdPartyDomain: "not a domain",
+      overrides: "+WindowOuterSize",
+    },
+  ];
+
+  await setGranularOverridePrefs("", JSON.stringify([...valid, ...invalid]));
+
+  for (let key of [
+    "*,0",
+    "example.photography,0",
+    "example.xn--p1ai,0",
+    "example.co.uk,0",
+  ]) {
+    ok(hasOverrideEntry(key), `The valid override ${key} was imported.`);
+  }
+  for (let key of [
+    "bad domain,0",
+    "example.com,0",
+    "example.net,0",
+    "example.edu,not a domain,0",
+  ]) {
+    ok(!hasOverrideEntry(key), `The invalid override ${key} was dropped.`);
+  }
+
+  await SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
+});
+
+// Granular overrides are applied on top of the global overrides. Verify that
+// they are recomputed when the global overrides prefs change, rather than
+// keeping the global set that was in effect when they were imported.
+add_task(async function test_granular_overrides_follow_global_overrides() {
+  await setGranularOverridePrefs(
+    JSON.stringify([
+      { firstPartyDomain: "example.net", overrides: "+Gamepad" },
+    ]),
+    JSON.stringify([
+      { firstPartyDomain: "example.info", overrides: "+Gamepad" },
+    ])
+  );
+
+  let fpp = Services.rfp
+    .getFingerprintingOverrides("example.info,0")
+    .getNth32BitSet(0);
+  is(
+    fpp & TARGET_CanvasRandomization,
+    TARGET_CanvasRandomization,
+    "The FPP granular override starts from the default FPP targets."
+  );
+  is(fpp & TARGET_Gamepad, TARGET_Gamepad, "The FPP override adds Gamepad.");
+
+  let baseline = Services.rfp
+    .getFingerprintingOverrides("example.net,1")
+    .getNth32BitSet(0);
+  is(
+    baseline & TARGET_PointerEvents,
+    0,
+    "The baseline granular override doesn't include PointerEvents yet."
+  );
+
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["privacy.fingerprintingProtection.overrides", "-CanvasRandomization"],
+      ["privacy.baselineFingerprintingProtection.overrides", "+PointerEvents"],
+    ],
+  });
+
+  fpp = Services.rfp
+    .getFingerprintingOverrides("example.info,0")
+    .getNth32BitSet(0);
+  is(
+    fpp & TARGET_CanvasRandomization,
+    0,
+    "The FPP granular override follows the updated global overrides."
+  );
+  is(
+    fpp & TARGET_Gamepad,
+    TARGET_Gamepad,
+    "The FPP granular override still adds Gamepad."
+  );
+
+  baseline = Services.rfp
+    .getFingerprintingOverrides("example.net,1")
+    .getNth32BitSet(0);
+  is(
+    baseline & TARGET_PointerEvents,
+    TARGET_PointerEvents,
+    "The baseline granular override follows the updated global overrides."
+  );
+  is(
+    baseline & TARGET_Gamepad,
+    TARGET_Gamepad,
+    "The baseline granular override still adds Gamepad."
+  );
+
+  await SpecialPowers.popPrefEnv();
+
+  fpp = Services.rfp
+    .getFingerprintingOverrides("example.info,0")
+    .getNth32BitSet(0);
+  is(
+    fpp & TARGET_CanvasRandomization,
+    TARGET_CanvasRandomization,
+    "The FPP granular override follows the global overrides being reset."
+  );
+
+  await SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
+});

@@ -19,6 +19,7 @@
   preview/privacyPreferences.ftl                   (../locales-preview/privacyPreferences.ftl)
   preview/remoteControl.ftl                          (../locales-preview/remoteControl.ftl)
   preview/newtabPreview.ftl                        (../locales-preview/newtabPreview.ftl)
+  preview/widgets.ftl                              (../locales-preview/widgets.ftl)
 
 @AB_CD@.jar:
 % locale browser @AB_CD@ %locale/browser/
@@ -27,7 +28,6 @@
     locale/browser/search.properties               (%chrome/browser/search.properties)
     locale/browser/sitePermissions.properties      (%chrome/browser/sitePermissions.properties)
     locale/browser/taskbar.properties              (%chrome/browser/taskbar.properties)
-    locale/browser/downloads/downloads.properties  (%chrome/browser/downloads/downloads.properties)
 % locale browser-region @AB_CD@ %locale/browser-region/
 # the following files are browser-specific overrides
     locale/browser/appstrings.properties       (%chrome/overrides/appstrings.properties)

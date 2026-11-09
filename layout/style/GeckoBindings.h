@@ -117,7 +117,8 @@ nsAtom** Gecko_Element_ExportedParts(const nsAttrValue*, nsAtom*,
                                      size_t* aOutLength);
 uint64_t Gecko_Element_GetSubtreeBloomFilter(const mozilla::dom::Element*);
 uint64_t Gecko_Element_GetRandomSeed(const mozilla::dom::Element*);
-uint64_t Gecko_Document_GetRandomSeed(const mozilla::dom::Document*);
+void Gecko_Document_GetRandomHasherKey(const mozilla::dom::Document*,
+                                       uint64_t* aK0, uint64_t* aK1);
 
 NS_DECL_THREADSAFE_FFI_REFCOUNTING(mozilla::css::SheetLoadDataHolder,
                                    SheetLoadDataHolder);
@@ -586,6 +587,7 @@ int32_t Gecko_GetNumStyleThreads();
 mozilla::StyleDisplayMode Gecko_MediaFeatures_GetDisplayMode(
     const mozilla::dom::Document*);
 
+void Gecko_GetSubmitString(const mozilla::dom::Document*, nsAString*);
 bool Gecko_MediaFeatures_UseOverlayScrollbars(const mozilla::dom::Document*);
 int32_t Gecko_MediaFeatures_GetColorDepth(const mozilla::dom::Document*);
 int32_t Gecko_MediaFeatures_GetMonochromeBitsPerPixel(

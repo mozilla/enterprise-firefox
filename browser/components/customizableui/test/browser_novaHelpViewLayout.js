@@ -60,8 +60,6 @@ function expectedLayout(lastItem) {
 }
 
 add_task(async function testHelpViewOrderWithNova() {
-  await SpecialPowers.pushPrefEnv({ set: [["browser.nova.enabled", true]] });
-
   let helpView = await openHelpView();
 
   Assert.deepEqual(
@@ -71,30 +69,9 @@ add_task(async function testHelpViewOrderWithNova() {
   );
 
   await gCUITestUtils.hideMainMenu();
-  await SpecialPowers.popPrefEnv();
-});
-
-add_task(async function testHelpViewOrderWithoutNova() {
-  await SpecialPowers.pushPrefEnv({ set: [["browser.nova.enabled", false]] });
-
-  let helpView = await openHelpView();
-
-  // The layout is deliberately not gated on browser.nova.enabled, matching
-  // bug 2023762, so the only difference here is the promo not replacing
-  // the Switch device item.
-  Assert.deepEqual(
-    getLayout(helpView),
-    expectedLayout(SWITCH_DEVICE_ITEM),
-    "The same layout applies when the Nova promo is not substituted in"
-  );
-
-  await gCUITestUtils.hideMainMenu();
-  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function testSeparatorsAreVisible() {
-  await SpecialPowers.pushPrefEnv({ set: [["browser.nova.enabled", true]] });
-
   let helpView = await openHelpView();
 
   let separators = helpView.querySelectorAll(
@@ -118,12 +95,9 @@ add_task(async function testSeparatorsAreVisible() {
   }
 
   await gCUITestUtils.hideMainMenu();
-  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function testReportBrokenSiteHasCaret() {
-  await SpecialPowers.pushPrefEnv({ set: [["browser.nova.enabled", true]] });
-
   let helpView = await openHelpView();
 
   let button = helpView.querySelector("#appMenu_help_reportBrokenSite");
@@ -137,12 +111,9 @@ add_task(async function testReportBrokenSiteHasCaret() {
   );
 
   await gCUITestUtils.hideMainMenu();
-  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function testNoSeparatorBeforePromo() {
-  await SpecialPowers.pushPrefEnv({ set: [["browser.nova.enabled", true]] });
-
   let helpView = await openHelpView();
 
   let promo = helpView.querySelector("#appMenu-nova-switch-device-promo");
@@ -166,7 +137,6 @@ add_task(async function testNoSeparatorBeforePromo() {
   }
 
   await gCUITestUtils.hideMainMenu();
-  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function testUngroupedItemsAreAppendedLast() {

@@ -14,7 +14,6 @@
 #include "HttpChannelParent.h"
 #include "HttpLog.h"
 #include "HttpTrafficAnalyzer.h"
-#include "HttpTransactionParent.h"
 #include "InterceptedHttpChannel.h"
 #include "LNAPermissionRequest.h"
 #include "LoadContextInfo.h"
@@ -70,7 +69,6 @@
 #include "mozilla/net/NoVarySearchUtils.h"
 #include "mozilla/net/OpaqueResponseUtils.h"
 #include "mozilla/net/SFVService.h"
-#include "mozilla/net/SocketProcessParent.h"
 #include "mozilla/net/TRRService.h"
 #include "mozilla/net/URLPatternGlue.h"
 #include "mozilla/net/urlpattern_glue.h"
@@ -756,6 +754,19 @@ nsresult nsHttpChannel::PrepareToConnect() {
     return enabled;
   };
 
+  auto deviceOnlyForCurrentContainer = [&]() {
+    uint32_t containerId = mLoadInfo->GetOriginAttributes().mUserContextId;
+    bool deviceOnly = Preferences::GetBool(
+        nsPrintfCString("network.http.microsoft-entra-sso.device-only.%u",
+                        containerId)
+            .get(),
+        StaticPrefs::network_http_microsoft_entra_sso_device_only());
+
+    LOG(("Device-only for container %u is %d\n", containerId, deviceOnly));
+
+    return deviceOnly;
+  };
+
 #endif  // defined(XP_WIN) || defined(XP_MACOSX)
 
 #ifdef XP_WIN
@@ -769,7 +780,7 @@ nsresult nsHttpChannel::PrepareToConnect() {
     if ((type == ExtContentPolicy::TYPE_DOCUMENT ||
          type == ExtContentPolicy::TYPE_SUBDOCUMENT) &&
         prefEnabledForCurrentContainer()) {
-      AddWindowsSSO(this);
+      AddWindowsSSO(this, deviceOnlyForCurrentContainer());
     }
   }
 #endif
@@ -808,7 +819,8 @@ nsresult nsHttpChannel::PrepareToConnect() {
         }
       };
 
-      nsresult rv = AddMicrosoftEntraSSO(this, std::move(resultCallback));
+      nsresult rv = AddMicrosoftEntraSSO(this, deviceOnlyForCurrentContainer(),
+                                         std::move(resultCallback));
 
       // Returns NS_OK if performRequests is called in MicrosoftEntraSSOUtils
       // This temporarily stops the channel setup for the delegate.
@@ -1204,10 +1216,20 @@ nsresult nsHttpChannel::ContinueOnBeforeConnect(bool aShouldUpgrade,
     } else {
       mCaps |= NS_HTTP_DISALLOW_SPDY;
     }
-    // Upgrades cannot use HTTP/3.
-    // TODO: When mUpgradeProtocolCallback is not null, we should allow HTTP/3
-    // for connect-udp.
-    mCaps |= NS_HTTP_DISALLOW_HTTP3;
+    // Upgrades cannot use HTTP/3 -- extended CONNECT can't be issued before the
+    // peer's SETTINGS are known. A MASQUE proxy is the exception: its outer hop
+    // *is* HTTP/3 (CONNECT-UDP) and the upgrade rides the inner tunnel, so
+    // disallowing h3 leaves only a TCP attempt against a QUIC-only port, which
+    // can never connect. Only Happy Eyeballs dispatches the upgrade onto that
+    // tunnel, so the exception is tied to the same pref. Keep Http3Allowed() in
+    // sync.
+    bool masqueProxy =
+        mProxyInfo &&
+        static_cast<nsProxyInfo*>(mProxyInfo.get())->IsHttp3Proxy() &&
+        StaticPrefs::network_http_happy_eyeballs_proxy_enabled();
+    if (!masqueProxy) {
+      mCaps |= NS_HTTP_DISALLOW_HTTP3;
+    }
     // NS_HTTP_STICKY_CONNECTION breaks the (non-Happy-Eyeballs) HTTPS RR
     // fallback mechanism, which restarts the transaction to fall back. Happy
     // Eyeballs instead races endpoints (honoring the HTTPS RR port, hints and
@@ -1318,7 +1340,7 @@ NS_IMPL_QUERY_INTERFACE(AddResponseHeadersToResponseHead, nsIHttpHeaderVisitor)
 
 nsresult nsHttpChannel::HandleOverrideResponse() {
   // Start building a response with the data from mOverrideResponse.
-  mResponseHead = MakeUnique<nsHttpResponseHead>();
+  mResponseHead = std::make_unique<nsHttpResponseHead>();
 
   // Apply override response status code and status text.
   uint32_t statusCode;
@@ -1609,45 +1631,8 @@ nsresult nsHttpChannel::ContinueConnect() {
 }
 
 nsresult nsHttpChannel::DoConnect(HttpTransactionShell* aTransWithStickyConn) {
-  LOG(("nsHttpChannel::DoConnect [this=%p]\n", this));
-
-  if (!mDNSBlockingPromise.IsEmpty()) {
-    LOG(("  waiting for DNS prefetch"));
-
-    // Transaction is passed only from auth retry for which we will definitely
-    // not block on DNS to alter the origin server name for IP; it has already
-    // been done.
-    MOZ_ASSERT(!aTransWithStickyConn);
-    MOZ_ASSERT(mDNSBlockingThenable);
-
-    nsCOMPtr<nsISerialEventTarget> target(do_GetMainThread());
-    RefPtr<nsHttpChannel> self(this);
-    mDNSBlockingThenable->Then(
-        target, __func__,
-        [self](const nsCOMPtr<nsIDNSRecord>& aRec) {
-          nsresult rv = self->DoConnectActual(nullptr);
-          if (NS_FAILED(rv)) {
-            self->CloseCacheEntry(false);
-            (void)self->AsyncAbort(rv);
-          }
-        },
-        [self](nsresult err) {
-          self->CloseCacheEntry(false);
-          (void)self->AsyncAbort(err);
-        });
-
-    // The connection will continue when the promise is resolved in
-    // OnLookupComplete.
-    return NS_OK;
-  }
-
-  return DoConnectActual(aTransWithStickyConn);
-}
-
-nsresult nsHttpChannel::DoConnectActual(
-    HttpTransactionShell* aTransWithStickyConn) {
-  LOG(("nsHttpChannel::DoConnectActual [this=%p, aTransWithStickyConn=%p]\n",
-       this, aTransWithStickyConn));
+  LOG(("nsHttpChannel::DoConnect [this=%p, aTransWithStickyConn=%p]\n", this,
+       aTransWithStickyConn));
 
   nsresult rv = SetupChannelForTransaction();
   if (NS_FAILED(rv)) {
@@ -2160,46 +2145,9 @@ nsresult nsHttpChannel::InitTransaction() {
                                          getter_AddRefs(callbacks));
 
   // create the transaction object
-  if (nsIOService::UseSocketProcess()) {
-    if (NS_WARN_IF(!gIOService->SocketProcessReady())) {
-      return NS_ERROR_NOT_AVAILABLE;
-    }
-    RefPtr<SocketProcessParent> socketProcess =
-        SocketProcessParent::GetSingleton();
-    if (!socketProcess->CanSend()) {
-      return NS_ERROR_NOT_AVAILABLE;
-    }
-
-    nsCOMPtr<nsIParentChannel> parentChannel;
-    NS_QueryNotificationCallbacks(this, parentChannel);
-    RefPtr<DocumentLoadListener> documentChannelParent =
-        do_QueryObject(parentChannel);
-    // See HttpTransactionChild::CanSendODAToContentProcessDirectly() and
-    // nsHttpChannel::CallOnStartRequest() for the reason why we need to know if
-    // this is a document load. We only send ODA directly to child process for
-    // non document loads.
-    RefPtr<HttpTransactionParent> transParent =
-        new HttpTransactionParent(!!documentChannelParent);
-    LOG1(("nsHttpChannel %p created HttpTransactionParent %p\n", this,
-          transParent.get()));
-
-    // Since OnStopRequest could be sent to child process from socket process
-    // directly, we need to store these two values in HttpTransactionChild and
-    // forward to child process until HttpTransactionChild::OnStopRequest is
-    // called.
-    transParent->SetRedirectTimestamp(mRedirectStartTimeStamp,
-                                      mRedirectEndTimeStamp);
-
-    if (socketProcess) {
-      MOZ_ALWAYS_TRUE(
-          socketProcess->SendPHttpTransactionConstructor(transParent));
-    }
-    mTransaction = transParent;
-  } else {
-    mTransaction = new nsHttpTransaction();
-    LOG1(("nsHttpChannel %p created nsHttpTransaction %p\n", this,
-          mTransaction.get()));
-  }
+  mTransaction = new nsHttpTransaction();
+  LOG1(("nsHttpChannel %p created nsHttpTransaction %p\n", this,
+        mTransaction.get()));
 
   // Save the mapping of channel id and the channel. We need this mapping for
   // nsIHttpActivityObserver.
@@ -2240,7 +2188,7 @@ nsresult nsHttpChannel::InitTransaction() {
                           mReqContentLength, GetCurrentSerialEventTarget(),
                           callbacks, this, mBrowserId, category,
                           mRequestContext, mClassOfService, mInitialRwin,
-                          LoadResponseTimeoutEnabled(), mChannelId, nullptr,
+                          LoadResponseTimeoutEnabled(), mChannelId,
                           parentAddressSpace, mLNAPermission);
   if (NS_FAILED(rv)) {
     mTransaction = nullptr;
@@ -2432,10 +2380,9 @@ nsresult nsHttpChannel::CallOnStartRequest() {
   });
 
   nsresult rv = ValidateMIMEType();
-  // Since ODA and OnStopRequest could be sent from socket process directly, we
-  // need to update the channel status before calling mListener->OnStartRequest.
-  // This is the only way to let child process discard the already received ODA
-  // messages.
+  // We need to update the channel status before calling
+  // mListener->OnStartRequest. This is the only way to let child process
+  // discard the already received ODA messages.
   if (NS_FAILED(rv)) {
     mStatus = rv;
     return mStatus;
@@ -2484,10 +2431,6 @@ nsresult nsHttpChannel::CallOnStartRequest() {
         return rv;
       }
       if (listener) {
-        MOZ_ASSERT(!LoadDataSentToChildProcess(),
-                   "DataSentToChildProcess being true means ODAs are sent to "
-                   "the child process directly. We MUST NOT apply content "
-                   "converter in this case.");
         mListener = listener;
         mCompressListener = listener;
 
@@ -2523,23 +2466,15 @@ nsresult nsHttpChannel::CallOnStartRequest() {
       RefPtr<nsInputStreamPump> pump = do_QueryObject(mTransactionPump);
       if (pump) {
         pump->PeekStream(CallTypeSniffers, thisChannel);
-      } else {
-        MOZ_ASSERT(nsIOService::UseSocketProcess());
-        RefPtr<HttpTransactionParent> trans = do_QueryObject(mTransactionPump);
-        MOZ_ASSERT(trans);
-        trans->SetSniffedTypeToChannel(CallTypeSniffers, thisChannel);
       }
     }
   }
 
-  // Note that the code below should be synced with the code in
-  // HttpTransactionChild::CanSendODAToContentProcessDirectly(). We MUST make
-  // sure HttpTransactionChild::CanSendODAToContentProcessDirectly() returns
-  // false when a stream converter is applied.
   bool unknownDecoderStarted = false;
   bool shouldSniff = false;
+  bool hasContentType = mResponseHead && mResponseHead->HasContentType();
   if (mResponseHead) {
-    if (!mResponseHead->HasContentType()) {
+    if (!hasContentType) {
       shouldSniff = true;
     } else {
       shouldSniff =
@@ -2548,7 +2483,7 @@ nsresult nsHttpChannel::CallOnStartRequest() {
   }
   if (shouldSniff) {
     MOZ_ASSERT(mConnectionInfo, "Should have connection info here");
-    if (!mContentTypeHint.IsEmpty()) {
+    if (!mContentTypeHint.IsEmpty() && !hasContentType) {
       mResponseHead->SetContentType(mContentTypeHint);
     } else if (mResponseHead->Version() == HttpVersion::v0_9 &&
                mConnectionInfo->OriginPort() !=
@@ -2686,10 +2621,6 @@ nsresult nsHttpChannel::CallOnStartRequest() {
       return rv;
     }
     if (listener) {
-      MOZ_ASSERT(!LoadDataSentToChildProcess(),
-                 "DataSentToChildProcess being true means ODAs are sent to "
-                 "the child process directly. We MUST NOT apply content "
-                 "converter in this case.");
       mListener = listener;
       mCompressListener = std::move(listener);
 
@@ -5350,7 +5281,7 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
       (gHttpHandler->SessionStartTime() > lastModifiedTime);
 
   // Get the cached HTTP response headers
-  mCachedResponseHead = MakeUnique<nsHttpResponseHead>();
+  mCachedResponseHead = std::make_unique<nsHttpResponseHead>();
 
   rv = nsHttp::GetHttpResponseHeadFromCacheEntry(entry,
                                                  mCachedResponseHead.get());
@@ -5587,7 +5518,7 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
     auto redirectedCachekeys = mRedirectedCachekeys.Lock();
     auto& ref = redirectedCachekeys.ref();
     if (!ref) {
-      ref = MakeUnique<nsTArray<nsCString>>();
+      ref = std::make_unique<nsTArray<nsCString>>();
     } else if (ref->Contains(cacheKey)) {
       doValidation = true;
     }
@@ -7977,14 +7908,6 @@ nsHttpChannel::AsyncOpen(nsIStreamListener* aListener) {
 
   mListener = std::move(listener);
 
-  if (nsIOService::UseSocketProcess() &&
-      !gIOService->IsSocketProcessLaunchComplete()) {
-    RefPtr<nsHttpChannel> self = this;
-    gIOService->CallOrWaitForSocketProcess(
-        [self]() { self->AsyncOpenFinal(TimeStamp::Now()); });
-    return NS_OK;
-  }
-
   AsyncOpenFinal(TimeStamp::Now());
 
   return NS_OK;
@@ -8358,7 +8281,8 @@ nsresult nsHttpChannel::BeginConnect() {
       return false;
     }
 
-    if (mProxyInfo) {
+    if (mProxyInfo &&
+        !StaticPrefs::network_http_happy_eyeballs_proxy_enabled()) {
       return false;
     }
 
@@ -8368,10 +8292,8 @@ nsresult nsHttpChannel::BeginConnect() {
       return false;
     }
 
-    // Connect-only requests need the extended-CONNECT tunnel path, which is
-    // untested with Happy Eyeballs. These only reach us via a proxy today
-    // (already excluded above), but guard explicitly against a future
-    // non-proxied consumer.
+    // Connect-only needs the extended-CONNECT tunnel path, which Happy
+    // Eyeballs does not establish yet.
     if (mCaps & NS_HTTP_CONNECT_ONLY) {
       return false;
     }
@@ -9158,8 +9080,6 @@ void nsHttpChannel::RecordOnStartTelemetry(nsresult aStatus,
   };
 
   if (TRRService::Get() && TRRService::Get()->IsConfirmed()) {
-    // Note this telemetry probe is not working when DNS resolution is done in
-    // the socket process.
     HttpOnStartState state = HttpOnStartState::Others;
     if (NS_SUCCEEDED(aStatus)) {
       state = HttpOnStartState::Success;
@@ -9179,23 +9099,7 @@ void nsHttpChannel::RecordOnStartTelemetry(nsresult aStatus,
     }
   }
 
-  if (nsIOService::UseSocketProcess() && mTransaction) {
-    const TimeStamp now = TimeStamp::Now();
-    TimeStamp responseEnd = mTransaction->GetResponseEnd();
-    if (!responseEnd.IsNull()) {
-      PerfStats::RecordMeasurement(PerfStats::Metric::ResponseEndSocketToParent,
-                                   now - responseEnd);
-    }
-
-    mOnStartRequestStartTime = mTransaction->GetOnStartRequestStartTime();
-    if (!mOnStartRequestStartTime.IsNull()) {
-      PerfStats::RecordMeasurement(
-          PerfStats::Metric::OnStartRequestSocketToParent,
-          now - mOnStartRequestStartTime);
-    }
-  } else {
-    mOnStartRequestStartTime = TimeStamp::Now();
-  }
+  mOnStartRequestStartTime = TimeStamp::Now();
 }
 
 static bool hasConnectivity() {
@@ -9476,9 +9380,6 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
 
   if (mTransaction) {
     mProxyConnectResponseHead = mTransaction->GetProxyConnectResponseHead();
-    if (request == mTransactionPump) {
-      StoreDataSentToChildProcess(mTransaction->DataSentToChildProcess());
-    }
 
     if (!mSecurityInfo && !mCachePump) {
       // grab the security info from the connection object; the transaction
@@ -9503,9 +9404,6 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
           .Add(1);
       StoreHasHTTPSRR(true);
     }
-
-    StoreLoadedBySocketProcess(mTransaction->AsHttpTransactionParent() !=
-                               nullptr);
 
     bool isTrr;
     bool echConfigUsed;
@@ -9584,10 +9482,12 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
     if (NS_SUCCEEDED(rv)) return NS_OK;
   }
 
-  // If this is a system principal request to an essential domain and we
-  // currently have connectivity, then check if there's a fallback domain we
-  // can use to retry. If so we redirect to the fallback domain.
-  if (NS_FAILED(mStatus) && !mCanceled && IsInternalSystemLoad(mLoadInfo)) {
+  // If this is a system principal request to an essential domain, we are not
+  // shutting down and we currently have connectivity, then check if there's a
+  // fallback domain we can use to retry. If so we redirect to the fallback
+  // domain.
+  if (NS_FAILED(mStatus) && !mCanceled && IsInternalSystemLoad(mLoadInfo) &&
+      gHttpHandler->Active()) {
     if (StaticPrefs::network_essential_domains_fallback() &&
         hasConnectivity()) {
       auto passDomainCategory = [&](nsIChannel* aRedirectedChannel) {
@@ -9601,6 +9501,8 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
       };
 
       if (nsCOMPtr<nsIURI> fallbackURI = GetFallbackURI(mURI)) {
+        PushRedirectAsyncFunc(
+            &nsHttpChannel::ContinueOnStartRequestAfterFallback);
         rv = StartRedirectChannelToURI(fallbackURI,
                                        nsIChannelEventSink::REDIRECT_INTERNAL,
                                        passDomainCategory);
@@ -9612,9 +9514,29 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
                                         "httpchannel-fallback", nullptr);
           return NS_OK;
         }
+        PopRedirectAsyncFunc(
+            &nsHttpChannel::ContinueOnStartRequestAfterFallback);
       }
     }
   }
+
+  return ContinueOnStartRequestWithoutFallback();
+}
+
+nsresult nsHttpChannel::ContinueOnStartRequestAfterFallback(nsresult aResult) {
+  if (NS_SUCCEEDED(aResult)) {
+    // The fallback channel took over; this one is canceled by the redirect
+    // handling code.
+    return NS_OK;
+  }
+
+  // The redirect to the fallback domain failed, so report this channel's own
+  // result to the listener.
+  return ContinueOnStartRequestWithoutFallback();
+}
+
+nsresult nsHttpChannel::ContinueOnStartRequestWithoutFallback() {
+  nsresult rv = NS_OK;
 
   // avoid crashing if mListener happens to be null...
   if (!mListener) {
@@ -10410,16 +10332,7 @@ nsHttpChannel::OnStopRequest(nsIRequest* request, nsresult status) {
 
     mResponseTrailers = mTransaction->TakeResponseTrailers();
 
-    if (nsIOService::UseSocketProcess() && mTransaction) {
-      mOnStopRequestStartTime = mTransaction->GetOnStopRequestStartTime();
-      if (!mOnStopRequestStartTime.IsNull()) {
-        PerfStats::RecordMeasurement(
-            PerfStats::Metric::OnStopRequestSocketToParent,
-            TimeStamp::Now() - mOnStopRequestStartTime);
-      }
-    } else {
-      mOnStopRequestStartTime = TimeStamp::Now();
-    }
+    mOnStopRequestStartTime = TimeStamp::Now();
 
     // at this point, we're done with the transaction
     mTransactionTimings = mTransaction->Timings();
@@ -10518,12 +10431,6 @@ nsresult nsHttpChannel::ContinueOnStopRequestAfterAuthRetry(
                         mResponseHead->Status() == 200;
 
   if (upgradeWebsocket || upgradeConnect) {
-    if (nsIOService::UseSocketProcess() && upgradeConnect) {
-      // TODO: Support connection upgrade for socket process in bug 1632809.
-      (void)mUpgradeProtocolCallback->OnUpgradeFailed(NS_ERROR_NOT_IMPLEMENTED);
-      return ContinueOnStopRequest(aStatus, aIsFromNet, aContentComplete);
-    }
-
     nsresult rv = gHttpHandler->CompleteUpgrade(aTransWithStickyConn,
                                                 mUpgradeProtocolCallback);
     mUpgradeProtocolCallback = nullptr;
@@ -10953,16 +10860,7 @@ nsHttpChannel::OnDataAvailable(nsIRequest* request, nsIInputStream* input,
       seekable = nullptr;
     }
 
-    if (nsIOService::UseSocketProcess() && mTransaction) {
-      mOnDataAvailableStartTime = mTransaction->GetDataAvailableStartTime();
-      if (!mOnDataAvailableStartTime.IsNull()) {
-        PerfStats::RecordMeasurement(
-            PerfStats::Metric::OnDataAvailableSocketToParent,
-            TimeStamp::Now() - mOnDataAvailableStartTime);
-      }
-    } else {
-      mOnDataAvailableStartTime = TimeStamp::Now();
-    }
+    mOnDataAvailableStartTime = TimeStamp::Now();
     nsCOMPtr<nsIStreamListener> listener = mListener;
     nsresult rv = listener->OnDataAvailable(this, input, mLogicalOffset, count);
     if (NS_SUCCEEDED(rv)) {
@@ -11704,15 +11602,6 @@ nsHttpChannel::OnLookupComplete(nsICancelable* request, nsIDNSRecord* rec,
     mCaps &= ~NS_HTTP_REFRESH_DNS;
     if (mTransaction) {
       mTransaction->SetDNSWasRefreshed();
-    }
-  }
-
-  if (!mDNSBlockingPromise.IsEmpty()) {
-    if (NS_SUCCEEDED(status)) {
-      nsCOMPtr<nsIDNSRecord> record(rec);
-      mDNSBlockingPromise.Resolve(record, __func__);
-    } else {
-      mDNSBlockingPromise.Reject(status, __func__);
     }
   }
 
@@ -12857,13 +12746,15 @@ nsHttpChannel::SetEarlyHintObserver(nsIEarlyHintObserver* aObserver) {
 NS_IMETHODIMP
 nsHttpChannel::EarlyHint(const nsACString& aLinkHeader,
                          const nsACString& aReferrerPolicy,
-                         const nsACString& aCspHeader) {
+                         const nsACString& aCspHeader,
+                         const nsACString& aConnectionAllowlistHeader) {
   LOG(("nsHttpChannel::EarlyHint.\n"));
 
   if (nsCOMPtr<nsIEarlyHintObserver> obs = mEarlyHintObserver) {
     if (nsContentUtils::ComputeIsSecureContext(this)) {
       LOG(("nsHttpChannel::EarlyHint propagated.\n"));
-      obs->EarlyHint(aLinkHeader, aReferrerPolicy, aCspHeader);
+      obs->EarlyHint(aLinkHeader, aReferrerPolicy, aCspHeader,
+                     aConnectionAllowlistHeader);
     }
   }
   return NS_OK;

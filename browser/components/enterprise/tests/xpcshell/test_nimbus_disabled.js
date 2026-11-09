@@ -23,11 +23,11 @@ const LABS_OPT_IN = NimbusTestUtils.factories.recipe.withFeatureConfig(
 add_task(async function test_nimbus_disabled() {
   const { cleanup, loader } = await NimbusTestUtils.setupTest({
     init: false,
-    storePath: await NimbusTestUtils.createStoreWith(store => {
+    populateStore: store => {
       NimbusTestUtils.addEnrollmentForRecipe(LABS_OPT_IN, { store });
-    }),
+    },
     experiments: [LABS_OPT_IN],
-    migrationState: NimbusTestUtils.migrationState.UNMIGRATED,
+    migrationState: NimbusTestUtils.migrationState.LATEST,
   });
 
   sinon.spy(loader, "updateRecipes");
