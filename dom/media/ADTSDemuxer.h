@@ -104,14 +104,6 @@ class ADTSTrackDemuxer : public MediaTrackDemuxer,
   // Returns the average frame length derived from the previously parsed frames.
   double AverageFrameLength() const;
 
-  // Scans frames from the current offset to determine duration: exact
-  // frame count when EOS is reached, otherwise freezes a prefix-based
-  // estimate. Returns true when the exact total was determined.
-  bool ScanForDuration();
-
-  // Re-runs the duration scan once the resource becomes fully cached.
-  void MaybeFinalizeDuration();
-
   // The (hopefully) ADTS resource.
   MediaResourceIndex mSource;
 
@@ -126,16 +118,6 @@ class ADTSTrackDemuxer : public MediaTrackDemuxer,
 
   // Running average of parsed frame lengths in bytes.
   mozilla::CumulativeAverage<double> mMeanFrameLen;
-
-  // Exact total frame count once the whole stream has been scanned,
-  // -1 while unknown. Frozen so the reported duration stays stable
-  // during playback.
-  int64_t mDurationTotalFrames = -1;
-
-  // Average frame length snapshot used for duration estimation while the
-  // exact count is unknown. Frozen at Init so the estimate does not drift
-  // as the rolling mMeanFrameLen adapts during playback.
-  double mDurationAvgFrameLen = 0.0;
 
   // Samples per frame metric derived from frame headers or 0 if none available.
   uint32_t mSamplesPerFrame;

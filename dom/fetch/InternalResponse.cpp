@@ -84,7 +84,7 @@ template <typename T>
   response->InitChannelInfo(aIPCResponse.metadata().securityInfo());
 
   if (aIPCResponse.metadata().principalInfo()) {
-    response->SetPrincipalInfo(MakeUnique<mozilla::ipc::PrincipalInfo>(
+    response->SetPrincipalInfo(std::make_unique<mozilla::ipc::PrincipalInfo>(
         aIPCResponse.metadata().principalInfo().ref()));
   }
 
@@ -400,7 +400,7 @@ SafeRefPtr<InternalResponse> InternalResponse::OpaqueResponse() {
   response->mChannelInfo = mChannelInfo;
   if (mPrincipalInfo) {
     response->mPrincipalInfo =
-        MakeUnique<mozilla::ipc::PrincipalInfo>(*mPrincipalInfo);
+        std::make_unique<mozilla::ipc::PrincipalInfo>(*mPrincipalInfo);
   }
   response->mWrappedResponse = SafeRefPtrFromThis();
   return response;
@@ -425,7 +425,7 @@ SafeRefPtr<InternalResponse> InternalResponse::CreateIncompleteCopy() {
   copy->mChannelInfo = mChannelInfo;
   if (mPrincipalInfo) {
     copy->mPrincipalInfo =
-        MakeUnique<mozilla::ipc::PrincipalInfo>(*mPrincipalInfo);
+        std::make_unique<mozilla::ipc::PrincipalInfo>(*mPrincipalInfo);
   }
   return copy;
 }

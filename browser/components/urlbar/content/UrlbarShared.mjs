@@ -373,6 +373,14 @@ export const UrlbarShared = {
   // with the `--urlbarview-top-pick-icon-size` CSS variable.
   TOP_PICK_ICON_SIZE: 58,
 
+  // Possible best-match types for results. These types map to the
+  // `top-pick-type` attribute that `UrlbarView` sets on rows.
+  BEST_MATCH_TYPE: {
+    NONE: "",
+    SMALL: "small",
+    LARGE: "large",
+  },
+
   // The number of results by which Page Up/Down move the selection.
   PAGE_UP_DOWN_DELTA: 5,
 

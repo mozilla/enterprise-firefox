@@ -6,6 +6,7 @@ head = "../../../../../toolkit/profile/test/xpcshell/head.js ../../../profiles/t
 prefs = [
   "app.normandy.run_interval_seconds=0",
   "messaging-system.log=all",
+  "nimbus.persistence.enabled=true",
 ]
 
 ["test_felt_pending_urls.js"]

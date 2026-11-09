@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -38,9 +39,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.paint
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -50,10 +53,14 @@ import kotlinx.coroutines.launch
 import mozilla.components.compose.base.PagerIndicator
 import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.lib.state.ext.observeAsComposableState
+import mozilla.components.support.base.log.logger.Logger
+import org.mozilla.fenix.FeatureFlags
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.utils.isLargeScreenSize
+
+private val logger = Logger("OnboardingScreen")
 
 /** The small device max height. The value comes from [org.mozilla.fenix.ext.isTallWindow]. */
 private val SMALL_SCREEN_MAX_HEIGHT = 570.dp
@@ -121,6 +128,10 @@ fun OnboardingScreen(
             }
     }
 
+    if (FeatureFlags.onboardingHapticsEnabled) {
+        OnboardingPagerHaptics(pagerState)
+    }
+
     BackHandler(enabled = pagerState.currentPage > 0) {
         coroutineScope.launch {
             pagerState.animateScrollToPage(pagerState.currentPage - 1)
@@ -157,7 +168,12 @@ fun OnboardingScreen(
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .collect { page ->
-                onImpression(pagesToDisplay[page])
+                val pageUiData = pagesToDisplay.getOrNull(page)
+                if (pageUiData != null) {
+                    onImpression(pageUiData)
+                } else {
+                    logger.warn("Skipping impression for page $page, only ${pagesToDisplay.size} pages to display")
+                }
             }
     }
 
@@ -221,6 +237,39 @@ internal fun resumedPageIndex(pageIndex: Int, pageCount: Int): Int {
     val lastPageIndex = maxOf(0, pageCount - 1)
     // Bound the saved index to the available pages so a stale value can't point past the last page.
     return pageIndex.coerceIn(0, lastPageIndex)
+}
+
+@Composable
+private fun OnboardingPagerHaptics(pagerState: PagerState) {
+    val haptic = LocalHapticFeedback.current
+
+    LaunchedEffect(pagerState, haptic) {
+        var userDragged = false
+        var previousPage = pagerState.settledPage
+
+        launch {
+            pagerState.interactionSource.interactions.collect { interaction ->
+                when (interaction) {
+                    is DragInteraction.Start -> userDragged = true
+                    is DragInteraction.Cancel -> userDragged = false
+                }
+            }
+        }
+
+        snapshotFlow {
+            pagerState.isScrollInProgress to pagerState.settledPage
+        }
+            .collect { (isScrolling, settledPage) ->
+                if (!isScrolling) {
+                    if (userDragged && settledPage != previousPage) {
+                        haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                    }
+
+                    previousPage = settledPage
+                    userDragged = false
+                }
+            }
+    }
 }
 
 private fun setToDefaultClick(

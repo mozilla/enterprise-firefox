@@ -92,11 +92,6 @@ bool ADTSTrackDemuxer::Init() {
     return false;
   }
 
-  // Scan forward to determine duration. Reaching EOS yields the exact
-  // frame count; hitting unbuffered data (streaming) or the cap freezes
-  // a prefix-based estimate instead, finalized once fully cached.
-  ScanForDuration();
-
   // Rewind back to the stream begin to avoid dropping the first frame.
   FastSeek(TimeUnit::Zero());
 
@@ -105,7 +100,7 @@ bool ADTSTrackDemuxer::Init() {
   }
 
   if (!mInfo) {
-    mInfo = MakeUnique<AudioInfo>();
+    mInfo = std::make_unique<AudioInfo>();
   }
 
   mInfo->mRate = mSamplesPerSecond;
@@ -286,7 +281,6 @@ int64_t ADTSTrackDemuxer::GetResourceOffset() const {
 }
 
 media::TimeIntervals ADTSTrackDemuxer::GetBuffered() {
-  MaybeFinalizeDuration();
   auto duration = Duration();
 
   if (duration.IsInfinite()) {
@@ -300,99 +294,22 @@ media::TimeIntervals ADTSTrackDemuxer::GetBuffered() {
 int64_t ADTSTrackDemuxer::StreamLength() const { return mSource.GetLength(); }
 
 TimeUnit ADTSTrackDemuxer::Duration() const {
+  if (mMeanFrameLen.empty()) {
+    return TimeUnit::Invalid();
+  }
+
   const int64_t streamLen = StreamLength();
   if (streamLen < 0) {
     // Unknown length, we can't estimate duration, this is probably a live
     // stream.
     return TimeUnit::FromInfinity();
   }
-  if (mDurationTotalFrames >= 0) {
-    return Duration(mDurationTotalFrames);
-  }
-  // While the exact count is unknown, use the frozen snapshot instead of
-  // the rolling average so the reported duration stays stable as playback
-  // parses more frames.
-  double avgLen =
-      mDurationAvgFrameLen > 0.0 ? mDurationAvgFrameLen : AverageFrameLength();
-  if (avgLen <= 0.0) {
-    return TimeUnit::Invalid();
-  }
   const int64_t firstFrameOffset =
       AssertedCast<int64_t>(mParser->FirstFrame().Offset());
-  int64_t numFrames = AssertedCast<int64_t>(
-      AssertedCast<double>(streamLen - firstFrameOffset) / avgLen);
+  int64_t numFrames =
+      AssertedCast<int64_t>(AssertedCast<double>(streamLen - firstFrameOffset) /
+                            AverageFrameLength());
   return Duration(numFrames);
-}
-
-bool ADTSTrackDemuxer::ScanForDuration() {
-  // Live streams have unknown length (Infinity duration) and their
-  // buffered window slides: probing forward and rewinding can leave
-  // FirstFrame invalid, breaking Init below. Skip the scan and keep the
-  // legacy behavior there.
-  if (StreamLength() < 0) {
-    return false;
-  }
-  // The first ADTS frame can be an outlier (e.g. 28 bytes containing
-  // encoder metadata, or a tiny silence frame). Estimating from it alone
-  // gives wildly wrong durations (e.g. 43min instead of 3min).
-  // Scan forward while data is available without blocking: reaching EOS
-  // yields the exact frame count, hitting the buffered frontier
-  // (streaming) or the cap freezes a prefix-based estimate instead.
-  const uint64_t firstOffset = mParser->FirstFrame().Offset();
-  const int kMaxScanFrames = 20000;
-  int scanned = 0;
-  while (scanned < kMaxScanFrames) {
-    ADTS::Frame next = FindNextFrame();
-    if (!next.IsValid()) {
-      break;
-    }
-    // SkipNextFrame only advances offsets here (no payload copy), as the
-    // running average is already seeded by the first frame.
-    if (!SkipNextFrame(next)) {
-      break;
-    }
-    ++scanned;
-  }
-  // A failed probe resets the parser, wiping FirstFrame. Re-latch it so
-  // codec config and later seeks use the real first frame.
-  if (!mParser->FirstFrame().IsValid()) {
-    mOffset = firstOffset;
-    mParser->EndFrameSession();
-    FindNextFrame(true);
-  }
-  const int64_t streamLen = StreamLength();
-  if (streamLen > 0 && mOffset >= static_cast<uint64_t>(streamLen)) {
-    mDurationTotalFrames = mFrameIndex;
-  }
-  mDurationAvgFrameLen = AverageFrameLength();
-  ADTSLOG(
-      "ScanForDuration scanned={} totalFrames={} avgFrameLen={:f} "
-      "estDuration={:f}s",
-      scanned, mDurationTotalFrames, mDurationAvgFrameLen,
-      Duration().IsValid() ? Duration().ToSeconds() : -1.0);
-  return mDurationTotalFrames >= 0;
-}
-
-void ADTSTrackDemuxer::MaybeFinalizeDuration() {
-  if (mDurationTotalFrames >= 0 || !mSamplesPerSecond) {
-    return;
-  }
-  AutoPinned<MediaResource> stream(mSource.GetResource());
-  if (!stream || !stream->IsDataCachedToEndOfResource(0)) {
-    return;
-  }
-  // The initial estimate was frozen from partial data; the whole stream
-  // is cached now, so re-scan from the start for the exact count. This is
-  // the only post-Init duration update, keeping playback stable otherwise.
-  const uint64_t savedOffset = mOffset;
-  const int64_t savedFrameIndex = mFrameIndex;
-  mOffset = mParser->FirstFrame().Offset();
-  mFrameIndex = 0;
-  mParser->EndFrameSession();
-  ScanForDuration();
-  mOffset = savedOffset;
-  mFrameIndex = savedFrameIndex;
-  mParser->EndFrameSession();
 }
 
 TimeUnit ADTSTrackDemuxer::Duration(int64_t aNumFrames) const {
@@ -657,7 +574,7 @@ bool ADTSDemuxer::ADTSSniffer(const uint8_t* aData, const uint32_t aLength) {
   if (!ADTS::FrameHeader::MatchesSync(Span(aData, aLength))) {
     return false;
   }
-  auto parser = MakeUnique<ADTS::FrameParser>();
+  auto parser = std::make_unique<ADTS::FrameParser>();
 
   if (!parser->Parse(0, aData, aData + aLength)) {
     return false;

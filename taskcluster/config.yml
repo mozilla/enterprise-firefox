@@ -457,6 +457,7 @@ treeherder:
         'feature-webcompat-reporte': 'feature-webcompat-reporter'
         'feature-protection-dashbo': 'feature-protection-dashboard'
         'feature-tabdata-coordinat': 'feature-tabdata-coordinator'
+        'lib-installation-blocksto': 'lib-installation-blockstore'
 
         # Groups aren't generated off buildconfig.yml:
         'samples-browser': 'samples-browser'
@@ -509,7 +510,6 @@ try:
 release-promotion:
     products:
         - 'devedition'
-        - 'fennec'
         - 'firefox'
         - 'firefox-android'
         - 'firefox-enterprise'
@@ -727,7 +727,7 @@ workers:
             implementation: generic-worker
             os: windows
             worker-type: '{alias}-azure'
-        b-win2022(|-xxlarge|-updatebot):
+        b-win2022(|-xxlarge):
             provisioner: '{trust-domain}-{level}'
             implementation: generic-worker
             os: windows

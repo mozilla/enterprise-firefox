@@ -39,8 +39,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   RemoteAgent: "chrome://remote/content/components/RemoteAgent.sys.mjs",
   SessionDataCategory:
     "chrome://remote/content/shared/messagehandler/sessiondata/SessionData.sys.mjs",
-  SessionDataMethod:
-    "chrome://remote/content/shared/messagehandler/sessiondata/SessionData.sys.mjs",
   setDefaultAndAssertSerializationOptions:
     "chrome://remote/content/webdriver-bidi/RemoteValue.sys.mjs",
   TabManager: "chrome://remote/content/shared/TabManager.sys.mjs",
@@ -1826,7 +1824,7 @@ class BrowsingContextModule extends RootBiDiModule {
       viewport,
     };
 
-    const sessionDataItems = [];
+    const contextDescriptors = [];
     if (userContextIds !== null) {
       for (const userContext of userContexts) {
         // Prepare the list of navigables to update.
@@ -1836,29 +1834,37 @@ class BrowsingContextModule extends RootBiDiModule {
             navigables.add(contentBrowser.browsingContext);
           }
         );
-        sessionDataItems.push({
-          category: lazy.SessionDataCategory.ViewportOverride,
-          moduleName: "_configuration",
-          values: [viewportOverride],
-          contextDescriptor: {
-            type: lazy.ContextDescriptorType.UserContext,
-            id: userContext,
-          },
-          method: lazy.SessionDataMethod.Add,
+        contextDescriptors.push({
+          type: lazy.ContextDescriptorType.UserContext,
+          id: userContext,
         });
       }
     } else {
       for (const navigable of navigables) {
-        sessionDataItems.push({
-          category: lazy.SessionDataCategory.ViewportOverride,
-          moduleName: "_configuration",
-          values: [viewportOverride],
-          contextDescriptor: {
-            type: lazy.ContextDescriptorType.TopBrowsingContext,
-            id: navigable.browserId,
-          },
-          method: lazy.SessionDataMethod.Add,
+        contextDescriptors.push({
+          type: lazy.ContextDescriptorType.TopBrowsingContext,
+          id: navigable.browserId,
         });
+      }
+    }
+
+    const sessionDataItems = [];
+    for (const contextDescriptor of contextDescriptors) {
+      for (const [category, value] of [
+        [lazy.SessionDataCategory.ViewportOverride, viewport],
+        [lazy.SessionDataCategory.DevicePixelRatioOverride, devicePixelRatio],
+      ]) {
+        if (value !== undefined) {
+          sessionDataItems.push(
+            ...this.messageHandler.sessionData.generateSessionDataItemUpdate(
+              "_configuration",
+              category,
+              contextDescriptor,
+              false,
+              value
+            )
+          );
+        }
       }
     }
 

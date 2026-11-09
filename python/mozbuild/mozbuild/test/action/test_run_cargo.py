@@ -220,8 +220,6 @@ class TestRunCargo(unittest.TestCase):
             "RUST_TARGET": "x86_64-unknown-linux-gnu",
             "MOZ_CARGO_DEFAULT_PROFILE_DIR": "release",
             "MOZ_CARGO_PROFILE_PREFIX": "release",
-            "DLL_PREFIX": "lib",
-            "DLL_SUFFIX": ".so",
             "CARGO": "cargo",
             "MOZ_CARGO_FROZEN_ARGS": "--frozen",
         }
@@ -239,36 +237,7 @@ class TestRunCargo(unittest.TestCase):
         }
         path = self.tmpdir / "spec.json"
         path.write_text(json.dumps(spec), encoding="utf-8")
-        dist_bin = self.tmpdir / "dist" / "bin"
-        dist_bin.mkdir(parents=True)
-        for name in ("libnss3.so", "libxul.so", "firefox"):
-            (dist_bin / name).write_bytes(name.encode())
         return str(path)
-
-    def _deps(self, profile="release"):
-        return self.tmpdir / "x86_64-unknown-linux-gnu" / profile / "deps"
-
-    def test_test_libs_staged(self):
-        self._run(["--spec", self._test_spec()])
-        self.assertEqual(
-            sorted(p.name for p in self._deps().iterdir()),
-            ["libnss3.so", "libxul.so"],
-        )
-
-    def test_test_libs_custom_profile(self):
-        self._run(["--spec", self._test_spec(cargo_profile_suffix="custom")])
-        self.assertEqual(
-            sorted(p.name for p in self._deps("release-custom").iterdir()),
-            ["libnss3.so", "libxul.so"],
-        )
-
-    def test_test_libs_not_staged_on_macos(self):
-        self._run(["--spec", self._test_spec(os_arch="Darwin")])
-        self.assertFalse(self._deps().exists())
-
-    def test_test_libs_not_staged_for_libraries(self):
-        self._run(["--spec", self._test_spec(kind="library")])
-        self.assertFalse(self._deps().exists())
 
     def _run_selected(self, selection, **overrides):
         spec = self._test_spec(**{**GKRUST_TESTS, **overrides})
@@ -312,7 +281,6 @@ class TestRunCargo(unittest.TestCase):
         compose.assert_not_called()
         metadata.assert_not_called()
         self.assertEqual(seen, {})
-        self.assertFalse(self._deps().exists())
 
     def test_test_selection_library(self):
         _, compose, _, metadata = self._run_selected("crashreporter", kind="library")

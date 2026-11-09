@@ -503,7 +503,8 @@ class AutoScroller final : public nsITimerCallback, public nsINamed {
   MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHOD Notify(nsITimer* timer) override {
     if (mPresContext) {
       AutoWeakFrame frame =
-          mContent ? mPresContext->GetPrimaryFrameFor(mContent) : nullptr;
+          mContent ? mPresContext->GetPrimaryOrAreaImageFrameFor(mContent)
+                   : nullptr;
       if (!frame) {
         return NS_OK;
       }
@@ -1190,22 +1191,6 @@ nsresult Selection::StyledRanges::SubtractRange(
   return NS_OK;
 }
 
-static void UserSelectRangesToAdd(dom::Range* aItem,
-                                  nsTArray<RefPtr<dom::Range>>& aRangesToAdd) {
-  // We cannot directly call IsEditorSelection() because we may be in an
-  // inconsistent state during Collapse() (we're cleared already but we haven't
-  // got a new focus node yet).
-  if (!StaticPrefs::dom_selection_exclude_non_selectable_nodes() ||
-      (IsEditorNode(aItem->GetStartContainer()) &&
-       IsEditorNode(aItem->GetEndContainer()))) {
-    // Don't mess with the selection ranges for editing, editor doesn't really
-    // deal well with multi-range selections.
-    aRangesToAdd.AppendElement(aItem);
-  } else {
-    aItem->ExcludeNonSelectableNodes(&aRangesToAdd);
-  }
-}
-
 static nsINode* DetermineSelectstartEventTarget(const dom::Range& aRange) {
   nsINode* target = aRange.GetStartContainer();
   if (target && target->IsInNativeAnonymousSubtree()) {
@@ -1242,8 +1227,7 @@ bool Selection::IsUserSelectionCollapsed(
     const Range& aRange, nsTArray<RefPtr<Range>>& aTempRangesToAdd) {
   MOZ_ASSERT(aTempRangesToAdd.IsEmpty());
 
-  RefPtr<Range> scratchRange = aRange.CloneRange();
-  UserSelectRangesToAdd(scratchRange, aTempRangesToAdd);
+  aTempRangesToAdd.AppendElement(aRange.CloneRange());
   const bool userSelectionCollapsed =
       (aTempRangesToAdd.Length() == 0) ||
       ((aTempRangesToAdd.Length() == 1) && aTempRangesToAdd[0]->Collapsed());
@@ -1312,7 +1296,7 @@ nsresult Selection::AddRangesForUserSelectableNodes(
   }
 
   // Generate the ranges to add
-  UserSelectRangesToAdd(aRange, rangesToAdd);
+  rangesToAdd.AppendElement(aRange);
   size_t newAnchorFocusIndex =
       GetDirection() == eDirPrevious ? 0 : rangesToAdd.Length() - 1;
   for (size_t i = 0; i < rangesToAdd.Length(); ++i) {
@@ -2244,7 +2228,7 @@ UniquePtr<SelectionDetails> Selection::LookUpSelection(
     const bool isFullySelected =
         cache->MaybeCollectNodesAndCheckIfFullySelected(aContent, this);
     if (isFullySelected) {
-      auto newHead = MakeUnique<SelectionDetails>();
+      auto newHead = std::make_unique<SelectionDetails>();
 
       newHead->mNext = std::move(aDetailsHead);
       newHead->mStart = AssertedCast<int32_t>(0);
@@ -2335,7 +2319,7 @@ UniquePtr<SelectionDetails> Selection::LookUpSelection(
       continue;  // the ranges do not overlap the input range
     }
 
-    auto newHead = MakeUnique<SelectionDetails>();
+    auto newHead = std::make_unique<SelectionDetails>();
 
     newHead->mNext = std::move(detailsHead);
     newHead->mStart = AssertedCast<int32_t>(*start);
@@ -3996,6 +3980,12 @@ nsresult Selection::PostScrollSelectionIntoViewEvent(
                                                   aHorizontal, aFlags);
   refreshDriver->AddEarlyRunner(mScrollEvent.get());
   return NS_OK;
+}
+
+void Selection::LimitPendingScrollToFirstAncestor() {
+  if (mScrollEvent.IsPending()) {
+    mScrollEvent.get()->LimitScrollTargetToFirstAncestor();
+  }
 }
 
 nsresult Selection::ScrollIntoView(SelectionRegion aRegion,

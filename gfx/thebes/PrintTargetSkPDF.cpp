@@ -32,28 +32,27 @@ using namespace mozilla;
 
 namespace {
 
-Maybe<SkEncodedInfo::Color> SurfaceFormatToSkEncodedColor(
-    gfx::SurfaceFormat aFormat) {
-  switch (aFormat) {
-    case gfx::SurfaceFormat::R8G8B8:
-      return Some(SkEncodedInfo::Color::kRGB_Color);
-    case gfx::SurfaceFormat::R8G8B8A8:
-    case gfx::SurfaceFormat::R8G8B8X8:
-      return Some(SkEncodedInfo::Color::kRGBA_Color);
-    case gfx::SurfaceFormat::B8G8R8:
-      return Some(SkEncodedInfo::Color::kBGR_Color);
-    case gfx::SurfaceFormat::B8G8R8A8:
-    case gfx::SurfaceFormat::B8G8R8X8:
-      return Some(SkEncodedInfo::Color::kBGRA_Color);
-    case gfx::SurfaceFormat::YUV420:
-      return Some(SkEncodedInfo::Color::kYUV_Color);
-    default:
-      MOZ_DIAGNOSTIC_CRASH("Unhandled JPEG surface format");
-      return Nothing();
+static SkEncodedOrigin OrientationToSkEncodedOrigin(
+    const Orientation& aOrientation) {
+  const bool flipped = aOrientation.flip == Flip::Horizontal;
+  switch (aOrientation.rotation) {
+    case Angle::D0:
+      return flipped ? kTopRight_SkEncodedOrigin : kTopLeft_SkEncodedOrigin;
+    case Angle::D90:
+      return flipped ? kLeftTop_SkEncodedOrigin : kRightTop_SkEncodedOrigin;
+    case Angle::D180:
+      return flipped ? kBottomLeft_SkEncodedOrigin
+                     : kBottomRight_SkEncodedOrigin;
+    case Angle::D270:
+      return flipped ? kRightBottom_SkEncodedOrigin
+                     : kLeftBottom_SkEncodedOrigin;
   }
+  MOZ_ASSERT_UNREACHABLE("Unknown angle");
+  return kTopLeft_SkEncodedOrigin;
 }
 
-// Minimal SkCodec subclass used to decode jpeg data for skia.
+// Minimal SkCodec subclass used to give SkPDF the properties of jpeg data, so
+// that it can embed it directly. SkPDF never asks it for pixels.
 class JpegSkCodec final : public SkCodec {
  public:
   static std::unique_ptr<SkCodec> Make(sk_sp<const SkData> aData) {
@@ -66,21 +65,29 @@ class JpegSkCodec final : public SkCodec {
           return nullptr;
         },
         [](void*) { /* do nothing for free */ });
-    RefPtr<gfx::SourceSurface> surface = ImageOps::DecodeToSurface(
-        buffer, DecoderType::JPEG_PDF, imgIContainer::DECODE_FLAGS_DEFAULT);
-    if (NS_WARN_IF(!surface)) {
+    buffer->Complete(NS_OK);
+
+    ImageMetadata metadata;
+    if (NS_FAILED(
+            ImageOps::DecodeMetadata(buffer, DecoderType::JPEG, metadata)) ||
+        !metadata.HasSize()) {
       return nullptr;
     }
-    auto size = surface->GetSize();
-    auto format = surface->GetFormat();
-    auto color = SurfaceFormatToSkEncodedColor(format);
-    if (!color) {
+    Maybe<EmbeddableJPEGColorSpace> colorSpace =
+        metadata.GetEmbeddableJPEGColorSpace();
+    if (!colorSpace) {
       return nullptr;
     }
-    auto alpha = SkEncodedInfo::kOpaque_Alpha;  // JPEG is always opaque
-    auto info = SkEncodedInfo::Make(size.width, size.height, *color, alpha, 8);
+    Orientation orientation = metadata.GetOrientation();
+    UnorientedIntSize size = orientation.ToUnoriented(metadata.GetSize());
+    auto color = *colorSpace == EmbeddableJPEGColorSpace::Grayscale
+                     ? SkEncodedInfo::kGray_Color
+                     : SkEncodedInfo::kYUV_Color;
+    auto info = SkEncodedInfo::Make(size.width, size.height, color,
+                                    SkEncodedInfo::kOpaque_Alpha, 8);
     return std::unique_ptr<JpegSkCodec>(
-        new JpegSkCodec(std::move(info), std::move(aData), std::move(surface)));
+        new JpegSkCodec(std::move(info), SkMemoryStream::Make(std::move(aData)),
+                        OrientationToSkEncodedOrigin(orientation)));
   }
 
  protected:
@@ -89,21 +96,15 @@ class JpegSkCodec final : public SkCodec {
   }
   Result onGetPixels(const SkImageInfo&, void*, size_t, const Options&,
                      int*) override {
-    // TODO: When is this reachable?
-    MOZ_DIAGNOSTIC_CRASH("Unimplemented JpegSkCodec::onGetPixels");
+    MOZ_ASSERT_UNREACHABLE("SkPDF shouldn't decode jpeg data");
     return kUnimplemented;
   }
 
  private:
-  JpegSkCodec(SkEncodedInfo&& aInfo, sk_sp<const SkData> aData,
-              RefPtr<gfx::SourceSurface> aSurface)
-      : SkCodec(std::move(aInfo), skcms_PixelFormat_RGB_888,
-                SkMemoryStream::Make(aData), kTopLeft_SkEncodedOrigin),
-        mData(std::move(aData)),
-        mSurface(std::move(aSurface)) {}
-
-  sk_sp<const SkData> mData;
-  RefPtr<gfx::SourceSurface> mSurface;
+  JpegSkCodec(SkEncodedInfo&& aInfo, std::unique_ptr<SkStream> aStream,
+              SkEncodedOrigin aOrigin)
+      : SkCodec(std::move(aInfo), skcms_PixelFormat_RGB_888, std::move(aStream),
+                aOrigin) {}
 };
 
 static std::unique_ptr<SkCodec> DecodeJpeg(sk_sp<const SkData> aData) {
@@ -227,7 +228,8 @@ PrintTargetSkPDF::~PrintTargetSkPDF() {
 
 already_AddRefed<PrintTargetSkPDF> PrintTargetSkPDF::CreateOrNull(
     nsIOutputStream* aStream) {
-  return do_AddRef(new PrintTargetSkPDF(MakeUnique<GkSkWStream>(aStream)));
+  return do_AddRef(
+      new PrintTargetSkPDF(std::make_unique<GkSkWStream>(aStream)));
 }
 
 static SkPDF::Metadata GetDefaultMetadata() {

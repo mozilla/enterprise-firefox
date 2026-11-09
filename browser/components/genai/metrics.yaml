@@ -46,6 +46,7 @@ genai.chatbot:
       - elee@mozilla.com
     send_in_pings:
       - metrics
+      - events # Temporary until bug 2087139
 
   menu:
     type: boolean
@@ -698,7 +699,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D251779
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -715,7 +716,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D243790
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -732,7 +733,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D251779
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -749,7 +750,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D251779
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -767,7 +768,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D249104
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -787,7 +788,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D243790
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -810,7 +811,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D243790
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -836,7 +837,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D243790
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -880,7 +881,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D243790
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -952,7 +953,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D249851
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -972,7 +973,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D249855
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -997,7 +998,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D251779
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -1020,7 +1021,7 @@ genai.linkpreview:
       - https://phabricator.services.mozilla.com/D243790
     data_sensitivity:
       - interaction
-    expires: 162
+    expires: 180
     notification_emails:
       - elee@mozilla.com
     send_in_pings:
@@ -1119,6 +1120,29 @@ selection_menu:
       smart_window:
         type: boolean
         description: Whether the menu was shown in Smart Window.
+
+  suppressed:
+    type: event
+    description: >
+      The text selection actions menu was not shown, or was hidden, because the
+      page is on a site that shows its own menu for selected text or showed its
+      own floating menu next to the selection.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2083889
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D335446
+    data_sensitivity:
+      - interaction
+    expires: never
+    notification_emails:
+      - scunnane@mozilla.com
+      - fx-search-telemetry@mozilla.com
+    send_in_pings:
+      - events
+    extra_keys:
+      reason:
+        type: string
+        description: Why the menu was suppressed, one of site_list or page_menu.
 
   option_toggled:
     type: event

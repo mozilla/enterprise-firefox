@@ -6,6 +6,12 @@ import { render } from "@testing-library/react";
 import { actionTypes as at } from "common/Actions.mjs";
 import { useWidgetTelemetry } from "content-src/components/Widgets/useWidgetTelemetry";
 import { SpaceActiveContext } from "content-src/lib/SpaceActiveContext";
+import { WIDGET_PLACEMENTS } from "common/PageLayoutVariants.mjs";
+import {
+  WIDGET_LOCATIONS,
+  WidgetLocationContext,
+  WidgetPlacementProvider,
+} from "content-src/components/Widgets/WidgetPlacement";
 
 const WEATHER_WIDGET = { id: "weather", telemetryName: "weather" };
 const FOCUS_TIMER_WIDGET = { id: "focusTimer", telemetryName: "focus_timer" };
@@ -15,6 +21,7 @@ function TestComponent({
   dispatch,
   widget,
   widgetSize,
+  widgetVariant,
   legacyImpressionTypes,
   legacyUserEventType,
   onImpression,
@@ -25,6 +32,7 @@ function TestComponent({
     dispatch,
     widget,
     widgetSize,
+    widgetVariant,
     legacyImpressionTypes,
     legacyUserEventType,
     onImpression,
@@ -230,6 +238,30 @@ describe("useWidgetTelemetry", () => {
   });
 
   describe("onImpression", () => {
+    it("passes the impression's payload to onImpression", () => {
+      let telemetry;
+      const onImpression = jest.fn();
+      render(
+        <TestComponent
+          dispatch={dispatch}
+          widget={WEATHER_WIDGET}
+          widgetSize="medium"
+          showEl={false}
+          onImpression={onImpression}
+          onRender={t => (telemetry = t)}
+        />
+      );
+
+      telemetry.recordImpression({ size: "small" });
+
+      expect(onImpression).toHaveBeenCalledWith(
+        expect.objectContaining({
+          widget_name: "weather",
+          widget_size: "small",
+        })
+      );
+    });
+
     it("invokes onImpression once when the impression fires", () => {
       const onImpression = jest.fn();
       const { container } = render(
@@ -545,6 +577,126 @@ describe("useWidgetTelemetry", () => {
     });
   });
 
+  describe("widgetVariant", () => {
+    it("adds widget_variant to all five events", () => {
+      let telemetry;
+      render(
+        <TestComponent
+          dispatch={dispatch}
+          widget={WEATHER_WIDGET}
+          widgetSize="medium"
+          widgetVariant="variant-a"
+          onRender={t => (telemetry = t)}
+        />
+      );
+
+      telemetry.recordImpression();
+      telemetry.recordUserAction("learn_more", { source: "context_menu" });
+      telemetry.recordEnabled(false, { source: "context_menu" });
+      telemetry.recordError("load_error");
+      telemetry.recordReady();
+
+      expect(dispatch.mock.calls.map(([action]) => action.type)).toEqual([
+        at.WIDGETS_IMPRESSION,
+        at.WIDGETS_USER_EVENT,
+        at.WIDGETS_ENABLED,
+        at.WIDGETS_ERROR,
+        at.WIDGETS_READY,
+      ]);
+      for (const [action] of dispatch.mock.calls) {
+        expect(action.data.widget_variant).toBe("variant-a");
+      }
+    });
+
+    it("omits widget_variant when it isn't set", () => {
+      let telemetry;
+      render(
+        <TestComponent
+          dispatch={dispatch}
+          widget={WEATHER_WIDGET}
+          widgetSize="medium"
+          onRender={t => (telemetry = t)}
+        />
+      );
+
+      telemetry.recordImpression();
+      telemetry.recordUserAction("learn_more", { source: "context_menu" });
+      telemetry.recordEnabled(false, { source: "context_menu" });
+      telemetry.recordError("load_error");
+      telemetry.recordReady();
+
+      expect(dispatch).toHaveBeenCalledTimes(5);
+      for (const [action] of dispatch.mock.calls) {
+        expect(action.data).not.toHaveProperty("widget_variant");
+      }
+    });
+
+    it("reads the latest widget_variant after a prop change", () => {
+      let telemetry;
+      const { rerender } = render(
+        <TestComponent
+          dispatch={dispatch}
+          widget={WEATHER_WIDGET}
+          widgetSize="medium"
+          onRender={t => (telemetry = t)}
+        />
+      );
+
+      rerender(
+        <TestComponent
+          dispatch={dispatch}
+          widget={WEATHER_WIDGET}
+          widgetSize="medium"
+          widgetVariant="variant-b"
+          onRender={t => (telemetry = t)}
+        />
+      );
+      telemetry.recordUserAction("learn_more", { source: "context_menu" });
+
+      expect(dispatch.mock.calls[0][0].data.widget_variant).toBe("variant-b");
+    });
+  });
+
+  describe("recordReady", () => {
+    it("dispatches WIDGETS_READY with no error_type or widget_source", () => {
+      let telemetry;
+      render(
+        <TestComponent
+          dispatch={dispatch}
+          widget={WEATHER_WIDGET}
+          widgetSize="medium"
+          onRender={t => (telemetry = t)}
+        />
+      );
+
+      telemetry.recordReady();
+
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      const [[action]] = dispatch.mock.calls;
+      expect(action.type).toBe(at.WIDGETS_READY);
+      expect(action.data).toEqual({
+        widget_name: "weather",
+        widget_size: "medium",
+      });
+    });
+
+    it("honors size override", () => {
+      let telemetry;
+      render(
+        <TestComponent
+          dispatch={dispatch}
+          widget={WEATHER_WIDGET}
+          widgetSize="medium"
+          onRender={t => (telemetry = t)}
+        />
+      );
+
+      telemetry.recordReady({ size: "small" });
+
+      expect(dispatch.mock.calls[0][0].data.widget_size).toBe("small");
+    });
+  });
+
   // Bug 2012779 transition: WIDGETS_TIMER_* / WIDGETS_LISTS_* legacy events
   // co-dispatch alongside the unified events. Delete this block once they go.
   describe("legacy co-dispatch", () => {
@@ -641,6 +793,72 @@ describe("useWidgetTelemetry", () => {
         expect(dispatch.mock.calls[0][0].meta.skipLocal).not.toBe(true);
         expect(dispatch.mock.calls[1][0].meta.skipLocal).not.toBe(true);
       });
+    });
+  });
+
+  describe("widget_location", () => {
+    function eventsWith(wrap) {
+      let telemetry;
+      const { container } = render(
+        wrap(
+          <TestComponent
+            dispatch={dispatch}
+            widget={LISTS_WIDGET}
+            widgetSize="medium"
+            onRender={t => (telemetry = t)}
+          />
+        )
+      );
+      const [observerInstance] = observerStub.mock.instances;
+      observerInstance.callback([
+        { isIntersecting: true, target: container.querySelector("div") },
+      ]);
+      telemetry.recordUserAction("list_create", { source: "widget" });
+      telemetry.recordEnabled(false, { source: "context_menu" });
+      telemetry.recordReady();
+      return Object.fromEntries(
+        dispatch.mock.calls.map(([action]) => [action.type, action.data])
+      );
+    }
+
+    it.each([
+      [WIDGET_PLACEMENTS.HOME, WIDGET_LOCATIONS.HOME_SPACE],
+      [WIDGET_PLACEMENTS.LIBRARY, WIDGET_LOCATIONS.WIDGET_SPACE],
+      [null, WIDGET_LOCATIONS.WIDGET_CONTAINER],
+    ])(
+      "reports the widgets section with placement %s as %s",
+      (placement, location) => {
+        const events = eventsWith(child => (
+          <WidgetPlacementProvider placement={placement}>
+            {child}
+          </WidgetPlacementProvider>
+        ));
+        expect(events[at.WIDGETS_IMPRESSION].widget_location).toBe(location);
+        expect(events[at.WIDGETS_USER_EVENT].widget_location).toBe(location);
+        expect(events[at.WIDGETS_READY].widget_location).toBe(location);
+        expect("widget_location" in events[at.WIDGETS_ENABLED]).toBe(false);
+      }
+    );
+
+    it.each([WIDGET_LOCATIONS.SIDEBAR, WIDGET_LOCATIONS.STORY_CARD])(
+      "reports %s from its location provider",
+      location => {
+        const events = eventsWith(child => (
+          <WidgetLocationContext.Provider value={location}>
+            {child}
+          </WidgetLocationContext.Provider>
+        ));
+        expect(events[at.WIDGETS_IMPRESSION].widget_location).toBe(location);
+        expect(events[at.WIDGETS_USER_EVENT].widget_location).toBe(location);
+        expect(events[at.WIDGETS_READY].widget_location).toBe(location);
+      }
+    );
+
+    it("leaves widget_location out without a location provider", () => {
+      const events = eventsWith(child => child);
+      expect("widget_location" in events[at.WIDGETS_IMPRESSION]).toBe(false);
+      expect("widget_location" in events[at.WIDGETS_USER_EVENT]).toBe(false);
+      expect("widget_location" in events[at.WIDGETS_READY]).toBe(false);
     });
   });
 });

@@ -7277,9 +7277,9 @@ bool WarpCacheIRTranspiler::emitAssertRecoveredOnBailoutResult(
 }
 
 bool WarpCacheIRTranspiler::emitAssertNoAllocationMetadataBuilder(
-    uint32_t builderAddrOffset) {
-  // This is a no-op because we discard all JIT code when we set an allocation
-  // metadata callback.
+    uint32_t hasBuilderAddrOffset) {
+  // This is a no-op because we discard all JIT code when allocation metadata is
+  // enabled for a realm.
   return true;
 }
 

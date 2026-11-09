@@ -2392,7 +2392,8 @@ static nsIFrame* GetActiveSelectionFrame(nsPresContext* aPresContext,
                                          nsIFrame* aFrame) {
   nsIContent* capturingContent = PresShell::GetCapturingContent();
   if (capturingContent) {
-    nsIFrame* activeFrame = aPresContext->GetPrimaryFrameFor(capturingContent);
+    nsIFrame* activeFrame =
+        aPresContext->GetPrimaryOrAreaImageFrameFor(capturingContent);
     return activeFrame ? activeFrame : aFrame;
   }
 
@@ -3355,7 +3356,8 @@ void nsIFrame::BuildDisplayListForStackingContext(
     // Start a new preserves3d context to keep informations on
     // nsDisplayListBuilder.
     autoPreserves3DContext =
-        MakeUnique<nsDisplayListBuilder::AutoPreserves3DContext>(aBuilder);
+        std::make_unique<nsDisplayListBuilder::AutoPreserves3DContext>(
+            aBuilder);
     // Save dirty rect on the builder to avoid being distorted for
     // multiple transforms along the chain.
     aBuilder->SavePreserves3DRect();
@@ -4778,6 +4780,21 @@ void nsIFrame::MarkAbsoluteFramesForDisplayList(
   }
 }
 
+const nsIFrame* nsIFrame::GetGeneratedRootFrame() const {
+  if (!IsGeneratedContentFrame()) {
+    return nullptr;
+  }
+  const nsIFrame* generatedRoot = this;
+  while (true) {
+    auto* parent = nsLayoutUtils::GetParentOrPlaceholderFor(generatedRoot);
+    if (!parent || !parent->IsGeneratedContentFrame()) {
+      break;
+    }
+    generatedRoot = parent;
+  }
+  return generatedRoot;
+}
+
 nsIContent* nsIFrame::GetExplicitEventTargetContent(
     const WidgetEvent* aEvent /* = nullptr */) const {
   // Return the content as-is if this is not a generated content.
@@ -4787,14 +4804,8 @@ nsIContent* nsIFrame::GetExplicitEventTargetContent(
   // If the content is a generated content, it won't handle any events from the
   // DOM point of view. Therefore, let's return the parent of the generated
   // content.
-  const nsIFrame* generatedRoot = this;
-  while (true) {
-    auto* parent = nsLayoutUtils::GetParentOrPlaceholderFor(generatedRoot);
-    if (!parent || !parent->IsGeneratedContentFrame()) {
-      break;
-    }
-    generatedRoot = parent;
-  }
+  const nsIFrame* generatedRoot = GetGeneratedRootFrame();
+  MOZ_ASSERT(generatedRoot);
   // Return the non-generated ancestor.
   return generatedRoot->GetContent()->GetParent();
 }
@@ -5019,6 +5030,16 @@ mozilla::StyleUserSelect nsIFrame::UsedUserSelect(
 Maybe<mozilla::StyleUserSelect> nsIFrame::UsedUserSelectRecurse(
     const nsIFrame* aFrame, nsIFrame::ForSelectionStart aType) {
   if (aFrame->IsGeneratedContentFrame()) {
+    return Some(StyleUserSelect::None);
+  }
+
+  // nsTableColFrame is inserted after nsTableRowGroupFrame and its content is
+  // the corresponding <col> if one exists, or <colgroup> or <table> otherwise.
+  // That means the frame tree order is different from the DOM tree order of
+  // HTML table so that the caret navigation may return start of the <table>
+  // after end of the last cell. Fortunately, it's invisible from user's
+  // selection point of view. So, we should be able to treat it as unselectable.
+  if (aFrame->IsTableColFrame()) {
     return Some(StyleUserSelect::None);
   }
 
@@ -5595,6 +5616,28 @@ nsresult nsIFrame::SelectWordOrLinkAtPoint(
       CaretAssociationHint::After);
 }
 
+nsIFrame::ContentOffsets nsIFrame::GetContentOffsetsFromPointForSelection(
+    const nsPoint& aPoint) {
+  // A text control's own frames use its independent selection, where its
+  // editor's anonymous content belongs.
+  const nsFrameSelection* const frameSelection = GetConstFrameSelection();
+  const Element* const independentSelectionRoot =
+      frameSelection ? frameSelection->GetIndependentSelectionRootElement()
+                     : nullptr;
+  ContentOffsets offsets = GetContentOffsetsFromPoint(
+      aPoint, independentSelectionRoot
+                  ? SKIP_HIDDEN
+                  : SKIP_HIDDEN | IGNORE_NATIVE_ANONYMOUS_SUBTREE);
+  if (offsets.content && independentSelectionRoot &&
+      !independentSelectionRoot->Contains(offsets.content)) {
+    // The text control's independent selection cannot use offsets outside
+    // its editor, e.g. if a press on its padding resolves to an ancestor
+    // with `user-select: all`.
+    return ContentOffsets();
+  }
+  return offsets;
+}
+
 nsresult nsIFrame::SelectByTypeAtPoint(const nsPoint& aPoint,
                                        nsSelectionAmount aBeginAmountType,
                                        nsSelectionAmount aEndAmountType,
@@ -5604,8 +5647,7 @@ nsresult nsIFrame::SelectByTypeAtPoint(const nsPoint& aPoint,
     return NS_OK;
   }
 
-  ContentOffsets offsets = GetContentOffsetsFromPoint(
-      aPoint, SKIP_HIDDEN | IGNORE_NATIVE_ANONYMOUS_SUBTREE);
+  ContentOffsets offsets = GetContentOffsetsFromPointForSelection(aPoint);
   if (!offsets.content) {
     return NS_ERROR_FAILURE;
   }

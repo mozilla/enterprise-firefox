@@ -12,6 +12,7 @@ import android.util.Log.INFO
 import androidx.annotation.OpenForTesting
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.UserManagerCompat
 import androidx.emoji2.text.DefaultEmojiCompatConfig
 import androidx.emoji2.text.EmojiCompat
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -85,6 +86,10 @@ open class FocusApplication : Application(), Provider {
         super.onCreate()
 
         Log.addSink(AndroidLogSink("Focus"))
+
+        // Read buildMetadata once at startup, so that it is in memory before anything can crash.
+        components.buildMetadata
+
         components.crashReporter.install(this)
 
         if (isMainProcess()) {
@@ -345,5 +350,13 @@ open class FocusApplication : Application(), Provider {
     }
 
     override val workManagerConfiguration
-        get() = Builder().setMinimumLoggingLevel(INFO).build()
+        get() =
+            Builder()
+                .setMinimumLoggingLevel(INFO)
+                .setInitializationExceptionHandler { throwable ->
+                    if (UserManagerCompat.isUserUnlocked(this)) {
+                        throw throwable
+                    }
+                }
+                .build()
 }

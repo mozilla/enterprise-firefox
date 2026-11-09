@@ -57,12 +57,14 @@ class FeltStartsBrowserExternalLink(BaseBrowserExternalLink):
     def test_pending_external_link_survives_restart(self):
         felt_json = self.felt_json_path()
         self._external_link = f"http://localhost:{self.console_port}/ping"
-        self.third_party_open_external_link()
-        self.wait_for_one_pending_url()
-        self._logger.info("Waiting for the queued URL to be stored")
-        self._wait.until(lambda _: self.has_stored_queue(felt_json))
+        with self.stub_felt_keystore_on_launch():
+            with self.stub_felt_keystore():
+                self.third_party_open_external_link()
+                self.wait_for_one_pending_url()
+                self._logger.info("Waiting for the queued URL to be stored")
+                self._wait.until(lambda _: self.has_stored_queue(felt_json))
 
-        self._driver.restart(in_app=True)
+            self._driver.restart(in_app=True)
 
         restored = self.pending_urls()
         assert [entry["url"] for entry in restored] == [self._external_link], (
@@ -79,9 +81,10 @@ class FeltStartsBrowserExternalLink(BaseBrowserExternalLink):
     def test_pending_external_link_does_not_survive_a_cold_start(self):
         felt_json = self.felt_json_path()
         self._external_link = "https://example.com/cold-start"
-        self.third_party_open_external_link()
-        self.wait_for_one_pending_url()
-        self._wait.until(lambda _: self.has_stored_queue(felt_json))
+        with self.stub_felt_keystore():
+            self.third_party_open_external_link()
+            self.wait_for_one_pending_url()
+            self._wait.until(lambda _: self.has_stored_queue(felt_json))
 
         # A plain quit is not a restart, so the stored queue must be discarded.
         self._driver.quit(in_app=True, clean=False)
@@ -104,7 +107,9 @@ class FeltStartsBrowserExternalLink(BaseBrowserExternalLink):
         assert not self.has_stored_queue(felt_json), (
             "The test must begin with nothing stored"
         )
-        self.third_party_open_external_link()
+        with self.stub_felt_keystore():
+            self.third_party_open_external_link()
+            self._wait.until(lambda _: self.has_stored_queue(felt_json))
 
         self._driver.set_pref("enterprise.felt_tests.is_blocking_shutdown", True)
         self.run_felt_base()

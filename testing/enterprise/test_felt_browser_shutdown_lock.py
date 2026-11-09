@@ -9,13 +9,13 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 
 from base_test import Environment
-from felt_tests import FeltTests
+from felt_tests import FeltKeyStoreStub, FeltTests
 
 PREF_LOCKING_SHUTDOWN = "enterprise.locking.shutdown"
 PREF_PROMPT_ON_SIGNOUT = "enterprise.prompt_on_signout"
 
 
-class BrowserShutdownLock(FeltTests):
+class BrowserShutdownLock(FeltKeyStoreStub, FeltTests):
     """Verify the lock-vs-signout decision when closing a FELT browser.
 
     The distinguishing signal is whether a server signout is posted (a lock
@@ -98,6 +98,7 @@ class BrowserShutdownLock(FeltTests):
         """Sign in, set the locking/prompt prefs, and assert no signout yet.
 
         Returns the child browser pid for _settle_after_child_exit."""
+        self._prepare_felt_keystore()
         browser_pid = self._start_signed_in()
         self._set_locking_pref(PREF_LOCKING_SHUTDOWN, locking_enabled)
         self._child_driver.set_pref(PREF_PROMPT_ON_SIGNOUT, prompt_enabled)

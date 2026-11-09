@@ -351,3 +351,8 @@ urlbar-result-menu-dont-show-temporal-seasonal = Don’t show seasonal searches
 # A message that replaces a result when the user dismisses temporal search
 # suggestions.
 urlbar-temporal-seasonal-dismissal-acknowledgment = Thanks for your feedback. You won’t see seasonal searches anymore.
+
+# A checkbox in the address bar settings that controls whether seasonal search
+# suggestions are shown.
+addressbar-locbar-suggest-temporal-seasonal-option =
+  .label = Seasonal search suggestions

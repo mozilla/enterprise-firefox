@@ -125,116 +125,97 @@ export class UrlbarQueryContext {
   }
 
   /**
+   * Whether or not to allow providers to include autofill results.
+   *
    * @type {boolean}
-   *   Whether or not to allow providers to include autofill results.
    */
   allowAutofill;
 
   /**
+   * Whether or not the query has been cancelled.
+   *
    * @type {boolean}
-   *   Whether or not the query has been cancelled.
    */
   canceled = false;
 
   /**
+   * URL of the page that was loaded when the search began. Only set in a
+   * browser window; a content urlbar leaves it undefined.
+   *
    * @type {string}
-   *   URL of the page that was loaded when the search began. Only set in a
-   *   browser window; a content urlbar leaves it undefined.
    */
   currentPage;
 
   /**
+   * The container id the query runs in, normalized to the id the open-pages
+   * table is keyed by (some providers read it directly). Only set in a browser
+   * window; a content urlbar keeps the default 0. Assign it from
+   * UrlbarShared.normalizedUserContextId().
+   *
    * @type {number}
-   *   The container id the query runs in, normalized to the id the open-pages
-   *   table is keyed by (some providers read it directly). Only set in a browser
-   *   window; a content urlbar keeps the default 0. Assign it from
-   *   UrlbarShared.normalizedUserContextId().
    */
   userContextId = 0;
 
   /**
+   * The tab group the query runs in. Only set in a browser window; a content
+   * urlbar keeps the default null.
+   *
    * @type {string | null}
-   *   The tab group the query runs in. Only set in a browser window; a content
-   *   urlbar keeps the default null.
    */
   tabGroup = null;
 
   /**
+   * The current firstResult.
+   *
    * @type {UrlbarResult}
-   *   The current firstResult.
    */
   firstResult;
 
   /**
+   * Indicates if the first result has been changed changed.
+   *
    * @type {boolean}
-   *   Indicates if the first result has been changed changed.
    */
   firstResultChanged = false;
 
   /**
+   * The heuristic result associated with the context.
+   *
    * @type {UrlbarResult}
-   *   The heuristic result associated with the context.
    */
   heuristicResult;
 
   /**
+   * Identifies this query among the ones its input started. It survives the
+   * trip across the actor boundary, so a notification can be matched with the
+   * query it belongs to, and results of a superseded query discarded.
+   *
    * @type {number}
-   *   Identifies this query among the ones its input started. It survives the
-   *   trip across the actor boundary, so a notification can be matched with the
-   *   query it belongs to, and results of a superseded query discarded.
    */
   id;
 
   /**
+   * True if this query was started from a private browsing window.
+   *
    * @type {boolean}
-   *   True if this query was started from a private browsing window.
    */
   isPrivate;
 
   /**
-   * @type {number}
-   *   The `maxResults` value passed to the constructor or last assigned.
-   */
-  _maxResults;
-
-  /**
-   * The maximum number of results that should be displayed for this query.
+   * The maximum number of results that will be displayed for this query.
    *
    * @type {number}
    */
-  get maxResults() {
-    // When temporal suggestions are active and the SAP is urlbar, override the
-    // usual `maxRichResults` unless the user modified it.
-    if (
-      this.isTemporalZeroPrefix &&
-      this._maxResults == UrlbarPrefs.get("maxRichResults") &&
-      !UrlbarPrefs.hasUserValue("maxRichResults")
-    ) {
-      return UrlbarPrefs.get("temporal.zeroPrefixMaxRichResults");
-    }
-    return this._maxResults;
-  }
-
-  set maxResults(value) {
-    this._maxResults = value;
-  }
+  maxResults;
 
   /**
-   * Whether the zero prefix layout and result count for temporal search
-   * suggestions apply to this query. They only apply to the urlbar SAP, and
-   * not when the user has turned off temporal suggestions.
+   * The maximum result span that will be displayed for this query. The muxer
+   * sets this based on the final result composition, so it's undefined until
+   * then.
    *
-   * @type {boolean}
+   * @type {number|undefined}
    */
-  get isTemporalZeroPrefix() {
-    return (
-      this.sapName == "urlbar" &&
-      UrlbarPrefs.get("temporal.featureGate") &&
-      UrlbarPrefs.get("suggest.temporal") &&
-      !this.searchString &&
-      !this.searchMode
-    );
-  }
+  maxResultsActual;
 
   /**
    * Whether search suggestions should be shown before general results.
@@ -264,10 +245,6 @@ export class UrlbarQueryContext {
    * @returns {boolean}
    */
   _getShowSearchSuggestionsFirst(pref) {
-    if (this.isTemporalZeroPrefix) {
-      return false;
-    }
-
     let showSearchSuggestionsFirst =
       !!this.searchString ||
       (!UrlbarPrefs.get("suggest.trending") &&
@@ -284,51 +261,59 @@ export class UrlbarQueryContext {
   }
 
   /**
+   * The name of the muxer to use for this query.
+   *
    * @type {string}
-   *   The name of the muxer to use for this query.
    */
   muxer;
 
   /**
+   * Whether or not to exclude sponsored results.
+   *
    * @type {boolean}
-   *   Whether or not to exclude sponsored results.
    */
   excludeSponsoredResults;
 
   /**
+   * Whether or not to prohibit remote results.
+   *
    * @type {boolean}
-   *   Whether or not to prohibit remote results.
    */
   prohibitRemoteResults;
 
   /**
+   * List of registered provider names. Providers can be registered through
+   * the ProvidersManager.
+   *
    * @type {string[]}
-   *   List of registered provider names. Providers can be registered through
-   *   the ProvidersManager.
    */
   providers;
 
   /**
+   * Set if this context is restricted to a single source.
+   *
    * @type {?Values<typeof UrlbarShared.RESULT_SOURCE>}
-   *   Set if this context is restricted to a single source.
    */
   restrictSource;
 
   /**
+   * The restriction token used to restrict the sources for this search.
+   *
    * @type {UrlbarSearchStringTokenData}
-   *   The restriction token used to restrict the sources for this search.
    */
   restrictToken;
 
   /**
+   * The results associated with this context.
+   *
    * @type {UrlbarResult[]}
-   *   The results associated with this context.
    */
   results;
 
   /**
+   * The search access point name of the UrlbarInput.
+   *
    * @type {UrlbarSapName}
-   *   The search access point name of the UrlbarInput.
    */
   sapName;
 
@@ -378,8 +363,9 @@ export class UrlbarQueryContext {
   }
 
   /**
+   * Details about the search mode associated with this context.
+   *
    * @type {SearchMode}
-   *   Details about the search mode associated with this context.
    */
   searchMode;
 
@@ -401,20 +387,23 @@ export class UrlbarQueryContext {
   }
 
   /**
+   * The string the user entered in autocomplete.
+   *
    * @type {string}
-   *   The string the user entered in autocomplete.
    */
   searchString;
 
   /**
+   * The possible sources of results for this context.
+   *
    * @type {Values<typeof UrlbarShared.RESULT_SOURCE>[]}
-   *   The possible sources of results for this context.
    */
   sources;
 
   /**
+   * A list of tokens extracted from the search string.
+   *
    * @type {UrlbarSearchStringTokenData[]}
-   *   A list of tokens extracted from the search string.
    */
   tokens;
 

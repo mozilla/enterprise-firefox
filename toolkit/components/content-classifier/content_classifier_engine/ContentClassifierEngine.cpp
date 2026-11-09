@@ -137,6 +137,7 @@ ContentClassifierRequest::ContentClassifierRequest(nsIChannel* aChannel)
   mPrivateBrowsing = NS_UsePrivateBrowsing(aChannel);
 
   mIsNonRecommendedAddon = IsNonRecommendedAddonFromLoadInfo(loadInfo);
+  mAddonMayLoad = net::UrlClassifierCommon::AddonMayLoad(aChannel, uri);
 
   // Unwrap nested URI schemes (jar:, view-source:, ...) before looking
   // at the host, mirroring AsyncUrlChannelClassifier::FeatureData::
@@ -175,9 +176,9 @@ ContentClassifierRequest::ContentClassifierRequest(nsIChannel* aChannel)
   // Top-window schemeless site is the outermost page's site, used by
   // features whose mUseTopWindowAsSource flag is set.
   nsCOMPtr<nsIURI> topWindowURI;
-  if (NS_SUCCEEDED(net::UrlClassifierCommon::GetTopWindowURI(
-          aChannel, getter_AddRefs(topWindowURI))) &&
-      topWindowURI) {
+  net::UrlClassifierCommon::GetTopWindowURIWithFallback(
+      aChannel, getter_AddRefs(topWindowURI));
+  if (topWindowURI) {
     nsCOMPtr<nsIURI> innermostTopURI = NS_GetInnermostURI(topWindowURI);
     if (innermostTopURI) {
       nsCString topHost;

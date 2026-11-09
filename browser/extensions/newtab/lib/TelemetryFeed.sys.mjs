@@ -22,11 +22,16 @@ import {
   actionUtils as au,
 } from "resource://newtab/common/Actions.mjs";
 import {
+  PREF_HOME_WIDGETS,
   WIDGET_REGISTRY,
   getWidgets,
   isWidgetEnabled,
 } from "resource://newtab/common/WidgetsRegistry.mjs";
-import { resolvePageLayoutVariant } from "resource://newtab/common/PageLayoutVariants.mjs";
+import {
+  isWidgetPlacementActive,
+  resolvePageLayoutVariant,
+  resolvePinnedWidgetIds,
+} from "resource://newtab/common/PageLayoutVariants.mjs";
 import { Prefs } from "resource://newtab/lib/ActivityStreamPrefs.sys.mjs";
 import { classifySite } from "resource://newtab/lib/SiteClassifier.sys.mjs";
 
@@ -800,7 +805,7 @@ export class TelemetryFeed {
    * @param {*} pingDict Input dictionary
    * @param {boolean} isSponsored Whether this is a sponsored (ad) item.
    *   Sponsored items retain the corpus/recommendation identifiers that
-   *   organic items drop, but tile_id is redacted in both cases.
+   *   organic items drop.
    * @returns {*} Redacted dictionary
    */
   redactNewTabPing(pingDict, isSponsored = false) {
@@ -814,12 +819,6 @@ export class TelemetryFeed {
         section,
         // eslint-disable-next-line no-unused-vars
         selected_topics,
-        // @backward-compat { version 159 }
-        // We can remove tile_id from this list once 159 hits release, since at that point,
-        // tile_id will have been removed from the newtab ping within metrics.yaml, and there
-        // will no longer be a chance of it accidentally slipping through extra_keys.
-        // eslint-disable-next-line no-unused-vars
-        tile_id,
         // eslint-disable-next-line no-unused-vars
         topic,
         // eslint-disable-next-line no-unused-vars
@@ -837,12 +836,6 @@ export class TelemetryFeed {
       section,
       // eslint-disable-next-line no-unused-vars
       selected_topics,
-      // @backward-compat { version 159 }
-      // We can remove tile_id from this list once 159 hits release, since at that point,
-      // tile_id will have been removed from the newtab ping within metrics.yaml, and there
-      // will no longer be a chance of it accidentally slipping through extra_keys.
-      // eslint-disable-next-line no-unused-vars
-      tile_id,
       // eslint-disable-next-line no-unused-vars
       topic,
       // eslint-disable-next-line no-unused-vars
@@ -2562,6 +2555,9 @@ export class TelemetryFeed {
       case at.WIDGETS_ERROR:
         this.handleUnifiedWidgetError(action);
         break;
+      case at.WIDGETS_READY:
+        this.handleUnifiedWidgetReady(action);
+        break;
       case at.PROMO_CARD_CLICK:
       case at.PROMO_CARD_DISMISS:
       case at.PROMO_CARD_IMPRESSION:
@@ -2580,6 +2576,9 @@ export class TelemetryFeed {
         // any widget toggle to hang the update off.
         if (["recordsHistory", "region"].includes(action.data?.name)) {
           this.recordEnabledWidgets();
+        }
+        if (action.data?.name === PREF_HOME_WIDGETS) {
+          this.recordHomeWidgets();
         }
         break;
       case at.WIDGETS_EXTENSIONS_UPDATE:
@@ -2666,8 +2665,16 @@ export class TelemetryFeed {
         payload.widget_size = action.data.widget_size;
       }
 
+      if (action.data.widget_variant) {
+        payload.widget_variant = action.data.widget_variant;
+      }
+
       if (action.data.action_value !== undefined) {
         payload.action_value = String(action.data.action_value);
+      }
+
+      if (typeof action.data.widget_location === "string") {
+        payload.widget_location = action.data.widget_location;
       }
 
       Glean.newtab.widgetsUserEvent.record(payload);
@@ -2684,6 +2691,14 @@ export class TelemetryFeed {
 
       if (action.data.widget_size) {
         payload.widget_size = action.data.widget_size;
+      }
+
+      if (typeof action.data.widget_location === "string") {
+        payload.widget_location = action.data.widget_location;
+      }
+
+      if (action.data.widget_variant) {
+        payload.widget_variant = action.data.widget_variant;
       }
 
       Glean.newtab.widgetsImpression.record(payload);
@@ -2724,6 +2739,10 @@ export class TelemetryFeed {
         payload.widget_size = action.data.widget_size;
       }
 
+      if (action.data.widget_variant) {
+        payload.widget_variant = action.data.widget_variant;
+      }
+
       Glean.newtab.widgetsEnabled.record(payload);
       this.recordEnabledWidgets();
     }
@@ -2740,6 +2759,23 @@ export class TelemetryFeed {
       getWidgets(WIDGET_REGISTRY, state.ExtensionWidgets)
         .filter(w => isWidgetEnabled(w, prefs, widgetsEnabled))
         .map(w => w.telemetryName)
+    );
+    // Enablement decides which pinned widgets Home actually shows.
+    this.recordHomeWidgets();
+  }
+
+  // Left unset where users don't pin widgets to Home, so an empty list always
+  // means nothing is pinned.
+  recordHomeWidgets() {
+    const prefs = this.store?.getState()?.Prefs.values;
+    if (!prefs || !isWidgetPlacementActive(prefs)) {
+      return;
+    }
+    const pinned = resolvePinnedWidgetIds(prefs);
+    Glean.newtab.widgetsHomeList.set(
+      WIDGET_REGISTRY.filter(w => pinned.includes(w.id)).map(
+        w => w.telemetryName
+      )
     );
   }
 
@@ -2787,7 +2823,35 @@ export class TelemetryFeed {
         payload.widget_size = action.data.widget_size;
       }
 
+      if (action.data.widget_variant) {
+        payload.widget_variant = action.data.widget_variant;
+      }
+
       Glean.newtab.widgetsError.record(payload);
+    }
+  }
+
+  handleUnifiedWidgetReady(action) {
+    const session = this.sessions.get(au.getPortIdOfSender(action));
+    if (session) {
+      const payload = {
+        newtab_visit_id: session.session_id,
+        widget_name: action.data.widget_name,
+      };
+
+      if (action.data.widget_size) {
+        payload.widget_size = action.data.widget_size;
+      }
+
+      if (typeof action.data.widget_location === "string") {
+        payload.widget_location = action.data.widget_location;
+      }
+
+      if (action.data.widget_variant) {
+        payload.widget_variant = action.data.widget_variant;
+      }
+
+      Glean.newtab.widgetsReady.record(payload);
     }
   }
 

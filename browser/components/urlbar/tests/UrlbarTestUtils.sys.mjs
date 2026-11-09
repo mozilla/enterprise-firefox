@@ -1280,12 +1280,18 @@ export class UrlbarInputBaseTestUtils {
       expectedSearchMode.isPreview = false;
     }
 
-    // The search service is parent-only, so a content-process caller
-    // supplies this itself.
+    let inParentProcess =
+      Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_DEFAULT;
     if (
       expectedSearchMode.engineName &&
       !expectedSearchMode.hasOwnProperty("isGeneralPurposeEngine")
     ) {
+      if (!inParentProcess) {
+        // The search service is parent-only.
+        throw new Error(
+          "isGeneralPurposeEngine must be supplied in content processes."
+        );
+      }
       let engine = lazy.SearchService.getEngineByName(
         expectedSearchMode.engineName
       );
@@ -1410,7 +1416,9 @@ export class UrlbarInputBaseTestUtils {
               "Search mode result matches engine name."
             );
           }
-        } else if (!historyInSearchMode) {
+        } else if (!historyInSearchMode && inParentProcess) {
+          // The search service is only available in the main process.
+          // Skip the check in child processes.
           let engine = lazy.SearchService.getEngineByName(
             expectedSearchMode.engineName
           );
@@ -2209,10 +2217,6 @@ export class UrlbarInputBaseTestUtils {
    * @returns {boolean}
    */
   isSeparatorVisible(separatorElement) {
-    if (!Services.prefs.getBoolPref("browser.nova.enabled", false)) {
-      return this.#isVisible(separatorElement);
-    }
-
     let before = separatorElement.documentGlobal.getComputedStyle(
       separatorElement,
       "::before"

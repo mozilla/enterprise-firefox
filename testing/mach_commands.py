@@ -53,23 +53,23 @@ def resource_monitor_profile(command_context, output_dir=None, command_name="tes
     try:
         yield monitor
     finally:
-        if output_dir:
-            monitor.stop(upload_dir=output_dir)
-            profile_path = os.path.join(output_dir, "profile_resource-usage.json")
-        else:
-            monitor.stop()
-            log_subdir = os.path.join("logs", command_name)
-            command_context._ensure_state_subdir_exists(log_subdir)
-            profile_path = command_context._get_state_filename(
-                construct_log_filename("profile"), subdir=log_subdir
-            )
+        monitor.stop(upload_dir=output_dir)
+        if not monitor.forwarding:
+            if output_dir:
+                profile_path = os.path.join(output_dir, "profile_resource-usage.json")
+            else:
+                log_subdir = os.path.join("logs", command_name)
+                command_context._ensure_state_subdir_exists(log_subdir)
+                profile_path = command_context._get_state_filename(
+                    construct_log_filename("profile"), subdir=log_subdir
+                )
 
-        with open(profile_path, "w", encoding="utf-8", newline="\n") as fh:
-            to_write = json.dumps(monitor.as_profile(), separators=(",", ":"))
-            fh.write(to_write)
-        print(f"Resource usage profile saved to: {profile_path}")
-        if not output_dir:
-            print("View it with: ./mach resource-usage")
+            with open(profile_path, "w", encoding="utf-8", newline="\n") as fh:
+                to_write = json.dumps(monitor.as_profile(), separators=(",", ":"))
+                fh.write(to_write)
+            print(f"Resource usage profile saved to: {profile_path}")
+            if not output_dir:
+                print("View it with: ./mach resource-usage")
 
 
 def get_test_parser():

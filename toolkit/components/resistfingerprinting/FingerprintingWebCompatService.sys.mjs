@@ -12,38 +12,47 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 ChromeUtils.defineLazyGetter(lazy, "logConsole", () => {
   return console.createInstance({
-    prefix: "FingerprintingWebCompatService",
+    logModule: "FingerprintingWebCompatService",
     maxLogLevelPref:
       "privacy.fingerprintingProtection.WebCompatService.logLevel",
   });
 });
 
-const SCHEMA = `{
-  "type": "object",
-  "title": "Fingerprinting Overrides",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "required": [
-    "firstPartyDomain",
-    "overrides"
-  ],
-  "properties": {
-    "overrides": {
-      "type": "string",
-      "pattern": "^[+-][A-Za-z]+(?:,[+-][A-Za-z]+)*$",
-      "description": "The fingerprinting overrides. See https://searchfox.org/firefox-main/source/toolkit/components/resistfingerprinting/RFPTargets.inc for details."
+// A domain is either "*" or a hostname whose last label is either alphabetic
+// (2-63 characters, covering long gTLDs such as .photography) or an IDN TLD in
+// punycode form (xn--...).
+const DOMAIN_PATTERN =
+  "^(\\*|(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+(?:[A-Za-z]{2,63}|xn--[A-Za-z0-9-]{1,59}))$";
+
+// Note: this must be an object. JsonSchema.Validator silently accepts any
+// instance when it is handed a JSON string instead of a schema object.
+const SCHEMA = {
+  type: "object",
+  title: "Fingerprinting Overrides",
+  $schema: "http://json-schema.org/draft-07/schema#",
+  required: ["firstPartyDomain", "overrides"],
+  properties: {
+    overrides: {
+      type: "string",
+      pattern: "^[+-][A-Za-z]+(?:,[+-][A-Za-z]+)*$",
+      description:
+        "The fingerprinting overrides. See https://searchfox.org/firefox-main/source/toolkit/components/resistfingerprinting/RFPTargets.inc for details.",
     },
-    "firstPartyDomain": {
-      "type": "string",
-      "pattern": "^(\\*|(?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,6}$",
-      "description": "The first-party domain associated with the override. Use '*' to match all domains. Only legit domains allowed."
+    firstPartyDomain: {
+      type: "string",
+      pattern: DOMAIN_PATTERN,
+      description:
+        "The first-party domain associated with the override. Use '*' to match all domains. Only legit domains allowed.",
     },
-    "thirdPartyDomain": {
-      "type": "string",
-      "pattern": "^(\\*|(?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,6}$",
-      "description": "The third-party domain associated with the override. Use '*' to match all domains. Only legit domains allowed. Leave this field empty if the override is only for the first-party context."
-    }
-  }
-}`;
+    thirdPartyDomain: {
+      type: "string",
+      // An empty string is treated the same as an absent thirdPartyDomain.
+      pattern: `^$|${DOMAIN_PATTERN}`,
+      description:
+        "The third-party domain associated with the override. Use '*' to match all domains. Only legit domains allowed. Leave this field empty if the override is only for the first-party context.",
+    },
+  },
+};
 
 const COLLECTION_NAME = "fingerprinting-protection-overrides";
 const PREF_GRANULAR_OVERRIDES =
@@ -173,11 +182,13 @@ export class FingerprintingWebCompatService {
       try {
         overrides = JSON.parse(pref || "[]");
       } catch (error) {
+        // Skip only this pref; a malformed baseline pref must not prevent the
+        // FPP pref (or vice versa) from being imported.
         lazy.logConsole.error(
           `Failed to parse granular override JSON string: Not a valid JSON.`,
           error
         );
-        return;
+        continue;
       }
 
       // Ensure we have an array we can iterate over and not an object.
@@ -185,7 +196,7 @@ export class FingerprintingWebCompatService {
         lazy.logConsole.error(
           "Failed to parse granular overrides JSON String: Not an array."
         );
-        return;
+        continue;
       }
 
       // Skip creating the validator if there's nothing to validate.
@@ -289,6 +300,17 @@ export class FingerprintingWebCompatService {
     }
 
     this.#importPrefOverrides();
+    this.#populateOverrides();
+  }
+
+  refreshOverrides() {
+    lazy.logConsole.debug("refreshOverrides");
+
+    // Nothing has been imported yet, so there is nothing to refresh.
+    if (!this.#initialized) {
+      return;
+    }
+
     this.#populateOverrides();
   }
 

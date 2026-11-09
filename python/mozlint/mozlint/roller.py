@@ -8,6 +8,7 @@ import atexit
 import copy
 import logging
 import os
+import re
 import signal
 import sys
 import time
@@ -115,6 +116,177 @@ def _run_worker(config, paths, **lintargs):
     return result
 
 
+def _split_dirs(paths, find_dotfiles, depth):
+    split = []
+    for path in sorted(paths):
+        if os.path.basename(path).startswith(".") or not os.path.isdir(path):
+            split.append(path)
+            continue
+        for name in sorted(os.listdir(path)):
+            if name.startswith(".") and not find_dotfiles:
+                continue
+            split.append(os.path.join(path, name))
+    if depth > 1:
+        return _split_dirs(split, find_dotfiles, depth - 1)
+    return split
+
+
+# Walking a file costs time even when the linter skips it. 0.2 measured best
+# for ESLint over the whole tree, and 0 left one job far slower.
+ENTRY_WEIGHT = 0.2
+
+
+def _read_ignore_patterns(path):
+    """The patterns of an ignore list, as mozpath patterns. A ``.txt`` list
+    holds one path per line, and any other list is a JavaScript list of quoted
+    glob patterns.
+
+    Negated patterns are skipped, so the result can only ignore more than the
+    list does.
+    """
+    with open(path, encoding="utf-8") as fh:
+        if path.endswith(".txt"):
+            return [p for line in fh if (p := line.strip().strip("/"))]
+        patterns = []
+        for line in fh:
+            if not (m := re.match(r'\s*"([^"!][^"]*)",?\s*(//.*)?$', line)):
+                continue
+            pattern = m.group(1).strip("/")
+            patterns.append(pattern if "/" in pattern else f"**/{pattern}")
+    return patterns
+
+
+def _weigh(path, is_dir, root, checks, excluded, ignored, find_dotfiles):
+    """Return a ``[path, weight, children]`` tree for ``path``, or ``None`` if
+    it is excluded. A file ``checks`` accepts weighs 1, and every entry
+    also weighs ``ENTRY_WEIGHT`` for the time spent walking it. An ignored path
+    weighs nothing.
+    """
+    rel = mozpath.normsep(path[len(root) :].lstrip(os.sep + "/"))
+    if excluded(rel):
+        return None
+    if ignored(rel):
+        return [path, 0, None]
+    if not is_dir:
+        return [path, int(checks(path)) + ENTRY_WEIGHT, None]
+    children = []
+    try:
+        with os.scandir(path) as it:
+            entries = sorted(it, key=lambda e: e.name)
+    except OSError:
+        return [path, ENTRY_WEIGHT, None]
+    for entry in entries:
+        if entry.name.startswith(".") and not find_dotfiles:
+            continue
+        if child := _weigh(
+            entry.path,
+            entry.is_dir(follow_symlinks=False),
+            root,
+            checks,
+            excluded,
+            ignored,
+            find_dotfiles,
+        ):
+            children.append(child)
+    return [path, sum((c[1] for c in children), start=ENTRY_WEIGHT), children]
+
+
+def _balanced_jobs(
+    paths, num_jobs, root, checks, excluded, ignored, find_dotfiles, max_chars
+):
+    """Divide ``paths`` into about ``num_jobs`` lists of equal weight.
+
+    A directory heavier than an equal share is replaced by its entries, so no
+    single path holds up a job. Paths are then handed out heaviest first to the
+    lightest job, opening a new job only when a command line would grow past
+    ``max_chars``.
+    """
+    nodes = [
+        node
+        for p in paths
+        if (
+            node := _weigh(
+                p, os.path.isdir(p), root, checks, excluded, ignored, find_dotfiles
+            )
+        )
+    ]
+    target = sum(n[1] for n in nodes) / num_jobs
+    items = []
+    while nodes:
+        path, weight, children = nodes.pop()
+        if not (
+            children and weight > target and not os.path.basename(path).startswith(".")
+        ):
+            items.append((weight, [path]))
+            continue
+        # The files directly in a directory stay together, in name order, so a
+        # job does not spread over many directories.
+        chunk, chunk_weight, chunk_size = [], 0, 0
+        for child in children:
+            if child[2] is not None:
+                nodes.append(child)
+                continue
+            size = len(child[0]) + 1
+            if chunk and (
+                chunk_weight + child[1] > target or chunk_size + size > max_chars
+            ):
+                items.append((chunk_weight, chunk))
+                chunk, chunk_weight, chunk_size = [], 0, 0
+            chunk.append(child[0])
+            chunk_weight += child[1]
+            chunk_size += size
+        if chunk:
+            items.append((chunk_weight, chunk))
+
+    jobs = [[0, 0, []] for _ in range(num_jobs)]
+    # Give each item to the lightest job whose command line still has room, and
+    # open a new job only when none does.
+    for weight, item_paths in sorted(items, key=lambda i: (-i[0], i[1][0])):
+        size = sum(len(p) + 1 for p in item_paths)
+        job = min(
+            (j for j in jobs if j[1] + size <= max_chars),
+            key=lambda j: (j[0], len(j[2])),
+            default=None,
+        )
+        if job is None:
+            job = [0, 0, []]
+            jobs.append(job)
+        job[0] += weight
+        job[1] += size
+        job[2].extend(item_paths)
+    # Heaviest first, so the pool hands the light jobs to whichever process
+    # frees up first.
+    return [j[2] for j in sorted(jobs, key=lambda j: -j[0]) if j[2]]
+
+
+def _ancestors(path):
+    parent = os.path.dirname(path)
+    while parent != path:
+        yield parent
+        path, parent = parent, os.path.dirname(parent)
+
+
+def _group_jobs(jobs):
+    groups = []  # list of (job_list, path_set, ancestor_set) triples
+    for job in jobs:
+        paths = set(job[1])
+        ancestors = {a for p in paths for a in _ancestors(p)}
+        for group_jobs, group_paths, group_ancestors in groups:
+            if (
+                paths.isdisjoint(group_paths)
+                and paths.isdisjoint(group_ancestors)
+                and ancestors.isdisjoint(group_paths)
+            ):
+                break
+        else:
+            group_jobs, group_paths, group_ancestors = [], set(), set()
+            groups.append((group_jobs, group_paths, group_ancestors))
+        group_jobs.append(job)
+        group_paths |= paths
+        group_ancestors |= ancestors
+    return [group_jobs for group_jobs, _, _ in groups]
+
+
 class InterruptableQueue(Queue):
     """A multiprocessing.Queue that catches KeyboardInterrupt when a worker is
     blocking on it and returns None.
@@ -175,6 +347,9 @@ class LintRoller:
     MAX_PATHS_PER_JOB = (
         50  # set a max size to prevent command lines that are too long on Windows
     )
+    # Windows limits a command line to 32767 characters, and the rest of the
+    # command needs room too. Other platforms allow far more.
+    MAX_CHARS_PER_JOB = 20000 if sys.platform == "win32" else 200000
 
     def __init__(
         self,
@@ -192,6 +367,7 @@ class LintRoller:
             self.vcs = None
 
         self.linters = []
+        self._setup_done = set()
         self.lintargs = lintargs
         self.lintargs["root"] = root
         self._setupargs = setupargs or {}
@@ -221,6 +397,7 @@ class LintRoller:
         for linter in chain(*[self.parse(p) for p in paths]):
             # Add only the excludes present in paths
             linter["local_exclude"] = linter.get("exclude", [])[:]
+            linter["global_exclude"] = self.exclude[:]
             # Add in our global excludes
             exclude = linter.setdefault("exclude", [])
             exclude.extend(self.exclude)
@@ -231,14 +408,20 @@ class LintRoller:
                 exclude.extend(self.third_party_exclude)
             self.linters.append(linter)
 
-    def setup(self, virtualenv_manager=None):
-        """Run setup for applicable linters"""
+    def setup(self, virtualenv_manager=None, names=None):
+        """Run setup for applicable linters
+
+        :param names: Only set up the linters with these names (optional).
+        """
         if not self.linters:
             raise NoValidLinter
 
         for linter in self.linters:
-            if "setup" not in linter:
+            if "setup" not in linter or linter["name"] in self._setup_done:
                 continue
+            if names is not None and linter["name"] not in names:
+                continue
+            self._setup_done.add(linter["name"])
 
             try:
                 setupargs = copy.deepcopy(self.lintargs)
@@ -303,7 +486,11 @@ class LintRoller:
 
         # Lint the whole tree when a `support-file` is modified.
         return any(
-            os.path.isfile(p) and mozpath.match(p, pattern)
+            os.path.isfile(p)
+            and (
+                mozpath.match(p, pattern)
+                or mozpath.match(mozpath.relpath(p, self.root), pattern)
+            )
             for pattern in linter.get("support-files", [])
             for p in vcs_paths
         )
@@ -320,7 +507,7 @@ class LintRoller:
                     "warning: {} support-file modified, linting entire tree "
                     "(press ctrl-c to cancel)".format(linter["name"])
                 )
-            elif paths == {self.root}:
+            elif paths == {os.path.abspath(self.root)}:
                 # If the command line is ".", the path will match with the root
                 # directory. In this case, get all the paths, so that we can
                 # benefit from chunking below.
@@ -329,6 +516,10 @@ class LintRoller:
                 lpaths = paths.union(vcs_paths)
 
             lpaths = list(lpaths) or __get_current_paths(os.getcwd())
+            depth = linter.get("split-dirs")
+            if depth and depth != "auto":
+                lpaths = _split_dirs(lpaths, linter.get("find-dotfiles", False), depth)
+
             if self.lintargs.get("use_filters", True):
                 # Only the paths to lint are needed here. Workers filter their
                 # own chunk again and compute the excludes at that point, so
@@ -345,17 +536,51 @@ class LintRoller:
                 if not lpaths:
                     continue
 
-            chunk_size = (
-                min(self.MAX_PATHS_PER_JOB, int(ceil(len(lpaths) / num_procs))) or 1
-            )
             if linter["type"] == "global":
                 # Global linters lint the entire tree in one job.
-                chunk_size = len(lpaths) or 1
-            assert chunk_size > 0
+                yield linter, lpaths
+                continue
 
-            while lpaths:
-                yield linter, lpaths[:chunk_size]
-                lpaths = lpaths[chunk_size:]
+            if depth == "auto":
+                extensions = tuple(f".{e}" for e in linter.get("extensions", []))
+                skipped = tuple(f".{e}" for e in linter.get("exclude_extensions", []))
+                ignore = [
+                    pattern
+                    for ignore_file in linter.get("split-ignore-files", [])
+                    for pattern in _read_ignore_patterns(
+                        os.path.join(self.root, ignore_file)
+                    )
+                ]
+                for job_paths in _balanced_jobs(
+                    lpaths,
+                    num_procs,
+                    self.root,
+                    lambda p: (
+                        p.endswith(extensions)
+                        if extensions
+                        else not p.endswith(skipped)
+                    ),
+                    mozpath.matcher(
+                        linter.get("exclude", [])
+                        if self.lintargs.get("use_filters", True)
+                        else []
+                    ),
+                    mozpath.matcher(ignore),
+                    linter.get("find-dotfiles", False),
+                    self.MAX_CHARS_PER_JOB,
+                ):
+                    yield linter, job_paths
+                continue
+
+            # One job per CPU, more if needed to keep each job within
+            # MAX_PATHS_PER_JOB. The paths are dealt out round robin, so the
+            # entries of one large directory end up in different jobs.
+            num_jobs = max(
+                min(num_procs, len(lpaths)),
+                int(ceil(len(lpaths) / self.MAX_PATHS_PER_JOB)),
+            )
+            for i in range(num_jobs):
+                yield linter, lpaths[i::num_jobs]
 
     def _collect_results(self, future):
         if future.cancelled():
@@ -367,13 +592,25 @@ class LintRoller:
         except Exception:
             log.exception("Sub-process raised an error:")
 
-    def roll(self, paths=None, outgoing=None, workdir=None, rev=None, num_procs=None):
+    def roll(
+        self,
+        paths=None,
+        outgoing=None,
+        workdir=None,
+        rev=None,
+        num_procs=None,
+        virtualenv_manager=None,
+    ):
         """Run all of the registered linters against the specified file paths.
+
+        Linters that have files to lint are set up first, unless `setup` has
+        already run for them.
 
         :param paths: An iterable of files and/or directories to lint.
         :param outgoing: Lint files touched by commits that are not on the remote repository.
         :param workdir: Lint all files touched in the working directory.
         :param num_procs: The number of processes to use. Default: cpu count
+        :param virtualenv_manager: Passed to the linters' setup functions.
         :return: A :class:`~result.ResultSummary` instance.
         """
         if not self.linters:
@@ -440,6 +677,10 @@ class LintRoller:
         num_procs = num_procs or cpu_count()
         jobs = list(self._generate_jobs(paths, vcs_paths, num_procs))
 
+        if jobs:
+            self.setup(virtualenv_manager, names={linter["name"] for linter, _ in jobs})
+            jobs = [job for job in jobs if job[0]["name"] not in self.result.skipped]
+
         # Make sure we never spawn more processes than we have jobs.
         num_procs = min(len(jobs), num_procs) or 1
         if sys.platform == "win32":
@@ -454,8 +695,9 @@ class LintRoller:
         # called when a job is finished. We store the futures so that they can
         # be canceled in the event of a KeyboardInterrupt.
         #
-        # When fixing, partition jobs into groups where no two jobs in the same
-        # group share a path. Jobs within a group run in parallel safely; a
+        # When fixing, partition jobs into groups where no job in a group
+        # shares a path with, or lies inside a directory of, another job in
+        # that group. Jobs within a group run in parallel safely; a
         # barrier between groups prevents concurrent writes to the same file by
         # different linters.
         futures = []
@@ -476,18 +718,7 @@ class LintRoller:
         signal.signal(signal.SIGINT, _parent_sigint_handler)
 
         if self.lintargs.get("fix"):
-            groups = []  # list of (job_list, path_set) pairs
-            for job in jobs:
-                job_paths = set(job[1])
-                for group_jobs, group_paths in groups:
-                    if not job_paths.intersection(group_paths):
-                        group_jobs.append(job)
-                        group_paths.update(job_paths)
-                        break
-                else:
-                    groups.append(([job], job_paths))
-
-            for group_jobs, _ in groups:
+            for group_jobs in _group_jobs(jobs):
                 group_futures = []
                 for job in group_jobs:
                     future = executor.submit(_run_worker, *job, **self.lintargs)

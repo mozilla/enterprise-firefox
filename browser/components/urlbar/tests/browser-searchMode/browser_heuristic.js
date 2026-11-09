@@ -227,6 +227,39 @@ add_task(async function remote() {
   });
 });
 
+// Presses Alt+Enter in a remote engine search mode.  The engine's SERP should
+// open in a new tab, and the original tab should be reverted.
+add_task(async function remoteAltEnter() {
+  await BrowserTestUtils.withNewTab("about:robots", async () => {
+    let originalTab = gBrowser.selectedTab;
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({
+      window,
+      value: "remote",
+      fireInputEvent: true,
+    });
+    await UrlbarTestUtils.enterSearchMode(window, {
+      engineName: "Test",
+    });
+
+    let tabOpenPromise = BrowserTestUtils.waitForNewTab(
+      gBrowser,
+      "https://example.com/?q=remote",
+      true
+    );
+    EventUtils.synthesizeKey("KEY_Enter", { altKey: true });
+    let newTab = await tabOpenPromise;
+    Assert.equal(gBrowser.selectedTab, newTab, "The SERP opened in a new tab");
+
+    await BrowserTestUtils.switchTab(gBrowser, originalTab);
+    await UrlbarTestUtils.assertSearchMode(window, null);
+    Assert.equal(gURLBar.value, "about:robots", "The URL should be restored");
+    Assert.ok(!gURLBar.view.isOpen, "The view should be closed");
+    Assert.ok(!gURLBar.focused, "The input should not be focused");
+
+    BrowserTestUtils.removeTab(newTab);
+  });
+});
+
 // Types a URL in a remote engine search mode.  The heuristic should search for
 // it.
 add_task(async function remoteUrl() {

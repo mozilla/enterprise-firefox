@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.fragment.compose.content
@@ -111,6 +112,7 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
     private val trackersBlockedFeature = ViewBoundFeatureWrapper<TrackersBlockedFeature>()
     private val ipProtectionMenuBinding = ViewBoundFeatureWrapper<IPProtectionMenuBinding>()
     private val ipProtectionSnackbarBinding = ViewBoundFeatureWrapper<IPProtectionSnackbarBinding>()
+    private val securityInfoBinding = ViewBoundFeatureWrapper<SecurityInfoBinding>()
     private val snackbarHostState = SnackbarHostState()
     private lateinit var permissionsCallback: ((Map<String, Boolean>) -> Unit)
     private val requestPermissionsLauncher =
@@ -462,9 +464,10 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
             IPProtectionStatus.Disabled,
             IPProtectionStatus.Activating,
             IPProtectionStatus.Enabled,
-            IPProtectionStatus.DataLimitReached,
-            IPProtectionStatus.ConnectionError -> components.ipProtection.store.dispatch(IPProtectionAction.Toggle)
+            IPProtectionStatus.ConnectionError ->
+                components.ipProtection.store.dispatch(IPProtectionAction.ActivationAction.Toggle)
 
+            IPProtectionStatus.DataLimitReached,
             IPProtectionStatus.Unavailable,
             IPProtectionStatus.Uninitialized -> Unit
         }
@@ -528,6 +531,19 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                         ),
                 ),
             owner = this,
+            view = view,
+        )
+
+        securityInfoBinding.set(
+            feature =
+                SecurityInfoBinding(
+                    browserStore = requireComponents.core.store,
+                    sessionId = args.sessionId,
+                    urlHost = args.url.toUri().host,
+                    onSecurityInfoUpdate = { store.dispatch(it) },
+                    onHostChange = { dismissAllowingStateLoss() },
+                ),
+            owner = viewLifecycleOwner,
             view = view,
         )
     }

@@ -303,8 +303,9 @@ export class openAIEngine {
    * @returns {object}                  LLM response
    */
   async _runWithAuth(content) {
+    const { signal, ...engineContent } = content;
     try {
-      return await this.engineInstance.run(content);
+      return await this.engineInstance.run(engineContent, { signal });
     } catch (ex) {
       // Skip the token retry flow when using a custom endpoint,
       // as the retry logic only applies to AuthProvider tokens.
@@ -321,12 +322,12 @@ export class openAIEngine {
       await this._recreateEngine();
 
       const newToken = await AuthProvider.getToken();
-      const updatedContent = { ...content, token: newToken };
+      const updatedContent = { ...engineContent, token: newToken };
 
       try {
-        return await this.engineInstance.run(updatedContent);
+        return await this.engineInstance.run(updatedContent, { signal });
       } catch (retryEx) {
-        if (!this._is401Error(retryEx)) {
+        if (signal?.aborted || !this._is401Error(retryEx)) {
           throw retryEx;
         }
 
@@ -390,13 +391,10 @@ export class openAIEngine {
     // AbortSignal cannot be cloned via postMessage (structured clone algorithm).
     const { signal, ...engineOptions } = options;
     try {
-      const generator = this.engineInstance.runWithGenerator(engineOptions);
-      for await (const chunk of generator) {
-        if (signal?.aborted) {
-          return;
-        }
-        yield chunk;
-      }
+      yield* yieldUntilAborted(
+        this.engineInstance.runWithGenerator(engineOptions),
+        signal
+      );
     } catch (ex) {
       // Skip the token retry flow when using a custom endpoint,
       // as the retry logic only applies to AuthProvider tokens.
@@ -416,13 +414,10 @@ export class openAIEngine {
       const updatedOptions = { ...engineOptions, token: newToken };
 
       try {
-        const generator = this.engineInstance.runWithGenerator(updatedOptions);
-        for await (const chunk of generator) {
-          if (signal?.aborted) {
-            return;
-          }
-          yield chunk;
-        }
+        yield* yieldUntilAborted(
+          this.engineInstance.runWithGenerator(updatedOptions),
+          signal
+        );
       } catch (retryEx) {
         if (!this._is401Error(retryEx)) {
           throw retryEx;
@@ -448,6 +443,49 @@ export class openAIEngine {
    */
   runWithGenerator(options) {
     return this._runWithGeneratorAuth(options);
+  }
+}
+
+/**
+ * Yields the chunks of `generator` until `signal` aborts. An abort ends this
+ * without waiting for the next chunk, which may never come, so the caller isn't
+ * kept alive by a request it gave up on.
+ *
+ * @param {AsyncGenerator} generator
+ * @param {AbortSignal} [signal]
+ * @yields {object} The chunks of `generator`.
+ */
+async function* yieldUntilAborted(generator, signal) {
+  if (!signal) {
+    yield* generator;
+    return;
+  }
+  try {
+    while (true) {
+      // A fresh promise per chunk, so a long stream doesn't pile up reactions
+      // on one that only settles on abort.
+      const { promise: aborted, resolve } = Promise.withResolvers();
+      // Resolve without the abort event: it belongs to the caller's window.
+      const onAbort = () => resolve();
+      signal.addEventListener("abort", onAbort, { once: true });
+      // An abort before this point fires no event. The request is still sent,
+      // since next() is called first, but its chunks aren't waited for.
+      if (signal.aborted) {
+        resolve();
+      }
+      let result;
+      try {
+        result = await Promise.race([generator.next(), aborted]);
+      } finally {
+        signal.removeEventListener("abort", onAbort);
+      }
+      if (signal.aborted || result.done) {
+        return;
+      }
+      yield result.value;
+    }
+  } finally {
+    generator.return();
   }
 }
 

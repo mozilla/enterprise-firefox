@@ -9,7 +9,6 @@
 #include "nsCOMArray.h"
 #include "nsCOMPtr.h"
 #include "nsIGlobalObject.h"
-#include "nsIOService.h"
 #include "nsIObserverService.h"
 #include "nsITimer.h"
 #include "nsIXPConnect.h"
@@ -1968,13 +1967,6 @@ nsresult nsMemoryReporterManager::StartGettingReports() {
 
   if (gfx::VRProcessManager* vr = gfx::VRProcessManager::Get()) {
     if (RefPtr<MemoryReportingProcess> proc = vr->GetProcessMemoryReporter()) {
-      s->mChildrenPending.AppendElement(proc.forget());
-    }
-  }
-
-  if (!IsRegistrationBlocked() && net::gIOService) {
-    if (RefPtr<MemoryReportingProcess> proc =
-            net::gIOService->GetSocketProcessMemoryReporter()) {
       s->mChildrenPending.AppendElement(proc.forget());
     }
   }

@@ -811,7 +811,7 @@ gfxShapedText::DetailedGlyph* gfxShapedText::AllocateDetailedGlyphs(
   MOZ_ASSERT(aCount <= CompressedGlyph::GLYPH_COUNT_MASK);
 
   if (!mDetailedGlyphs) {
-    mDetailedGlyphs = MakeUnique<DetailedGlyphStore>();
+    mDetailedGlyphs = std::make_unique<DetailedGlyphStore>();
   }
 
   return mDetailedGlyphs->Allocate(aIndex, aCount);
@@ -1057,8 +1057,17 @@ gfxFont::~gfxFont() {
 }
 
 void gfxFont::InitMetrics() {
+  // Apply any size-adjust from the font enty to the given size; this may be
+  // re-adjusted below if font-size-adjust is in effect.
+  mAdjustedSize = GetAdjustedSize();
+
   uint32_t upem = mFontEntry->UnitsPerEm();
-  if (upem < 16 || upem > 16384) {
+  const bool nonSfntResource = upem == gfxFontEntry::kInvalidUPEM;
+  if (nonSfntResource) {
+    // Not an 'sfnt' resource? mFUnitsConvFactor will not be used here;
+    // platform backend may update this if it needs it.
+    mFUnitsConvFactor = 0.0;
+  } else if (upem < gfxFontEntry::kMinUPEM || upem > gfxFontEntry::kMaxUPEM) {
     // See http://www.microsoft.com/typography/otspec/head.htm
 #ifdef DEBUG
     char warnBuf[1024];
@@ -1068,15 +1077,12 @@ void gfxFont::InitMetrics() {
     NS_WARNING(warnBuf);
 #endif
     return;
+  } else {
+    mFUnitsConvFactor = mAdjustedSize / upem;
   }
 
-  // Apply any size-adjust from the font enty to the given size; this may be
-  // re-adjusted below if font-size-adjust is in effect.
-  mAdjustedSize = GetAdjustedSize();
-  mFUnitsConvFactor = mAdjustedSize / upem;
-
 #if MOZ_FONTATIONS
-  if (InitMetricsFromSkrifa()) {
+  if (!nonSfntResource && InitMetricsFromSkrifa()) {
     mIsValid = true;
   }
 #endif
@@ -1127,7 +1133,7 @@ void gfxFont::InitMetrics() {
       memset(&mMetrics, 0, sizeof(mMetrics));
       mIsValid = false;
 #if MOZ_FONTATIONS
-      if (InitMetricsFromSkrifa()) {
+      if (!nonSfntResource && InitMetricsFromSkrifa()) {
         mIsValid = true;
       }
 #endif
@@ -2925,7 +2931,7 @@ bool gfxFont::RenderColorGlyph(DrawTarget* aDrawTarget, gfxContext* aContext,
       aDrawTarget->GetBackendType() != BackendType::WEBRENDER_TEXT) {
     AutoWriteLock lock(mLock);
     if (!mColorGlyphCache && useCache) {
-      mColorGlyphCache = MakeUnique<ColorGlyphCache>();
+      mColorGlyphCache = std::make_unique<ColorGlyphCache>();
     }
 
     Rect bounds;
@@ -3550,8 +3556,9 @@ bool gfxFont::ProcessShapedWordInternal(
     // We're going to cache the new shaped word, so lock for writing now.
     AutoWriteLock lock(mLock);
     if (!mWordCache) {
-      mWordCache = MakeUnique<HashMap<WordCacheKey, UniquePtr<gfxShapedWord>,
-                                      WordCacheKey::HashPolicy>>();
+      mWordCache =
+          std::make_unique<HashMap<WordCacheKey, UniquePtr<gfxShapedWord>,
+                                   WordCacheKey::HashPolicy>>();
     }
 
     // Update key so that it references the text stored in the newShapedWord,
@@ -4663,21 +4670,23 @@ void gfxFont::SanitizeMetrics(bool aIsBadUnderlineFont) {
 
   // If the font entry has ascent/descent/lineGap-override values,
   // replace the metrics from the font with the overrides.
+  // Note that it is possible for internalLeading to end up negative here.
   gfxFloat adjustedSize = GetAdjustedSize();
   if (mFontEntry->mAscentOverride >= 0.0) {
     mMetrics.maxAscent = mFontEntry->mAscentOverride * adjustedSize;
     mMetrics.maxHeight = mMetrics.maxAscent + mMetrics.maxDescent;
-    mMetrics.internalLeading =
-        std::max(0.0, mMetrics.maxHeight - mMetrics.emHeight);
+    mMetrics.internalLeading = mMetrics.maxHeight - mMetrics.emHeight;
+    mHasMetricsOverride = true;
   }
   if (mFontEntry->mDescentOverride >= 0.0) {
     mMetrics.maxDescent = mFontEntry->mDescentOverride * adjustedSize;
     mMetrics.maxHeight = mMetrics.maxAscent + mMetrics.maxDescent;
-    mMetrics.internalLeading =
-        std::max(0.0, mMetrics.maxHeight - mMetrics.emHeight);
+    mMetrics.internalLeading = mMetrics.maxHeight - mMetrics.emHeight;
+    mHasMetricsOverride = true;
   }
   if (mFontEntry->mLineGapOverride >= 0.0) {
     mMetrics.externalLeading = mFontEntry->mLineGapOverride * adjustedSize;
+    mHasMetricsOverride = true;
   }
 
   mMetrics.underlineSize = std::max(1.0, mMetrics.underlineSize);
@@ -5089,7 +5098,8 @@ void gfxFont::AddSizeOfIncludingThis(MallocSizeOf aMallocSizeOf,
 void gfxFont::AddGlyphChangeObserver(GlyphChangeObserver* aObserver) {
   AutoWriteLock lock(mLock);
   if (!mGlyphChangeObservers) {
-    mGlyphChangeObservers = MakeUnique<nsTHashSet<GlyphChangeObserver*>>();
+    mGlyphChangeObservers =
+        std::make_unique<nsTHashSet<GlyphChangeObserver*>>();
   }
   mGlyphChangeObservers->Insert(aObserver);
 }

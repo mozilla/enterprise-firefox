@@ -12,6 +12,7 @@ import org.mozilla.fenix.compose.snackbar.SNACKBAR_BUTTON_TEST_TAG
 import org.mozilla.fenix.compose.snackbar.SNACKBAR_TEST_TAG
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
 import org.mozilla.fenix.helpers.TestHelper.shortAppName
+import org.mozilla.fenix.pdf.PdfToolsTestTag
 import org.mozilla.fenix.ui.efficiency.helpers.PageReadinessProfiles
 import org.mozilla.fenix.ui.efficiency.helpers.Selector
 import org.mozilla.fenix.ui.efficiency.helpers.SelectorContainer
@@ -28,6 +29,7 @@ object BrowserPageSelectors : SelectorContainer {
         SHAKE_TO_SUMMARIZE_CFR,
         SIGN_IN_TO_SUMMARIZE_BOTTOM_SHEET,
         TRANSLATION_BANNER,
+        OPEN_IN_APP_CFR,
     }
 
     val ENGINE_VIEW =
@@ -465,11 +467,86 @@ object BrowserPageSelectors : SelectorContainer {
             description = "Web address form: city field",
         )
 
+    val ADDRESS_STATE_WEB_FIELD =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_COMPOSE_TAG,
+            value = "state",
+            description = "Web address form: state field",
+        )
+
     val ADDRESS_COUNTRY_WEB_FIELD =
         Selector(
             strategy = SelectorStrategy.UIAUTOMATOR_WITH_COMPOSE_TAG,
             value = "country",
             description = "Web address form: country field",
+        )
+
+    val ADDRESS_ZIP_WEB_FIELD =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_COMPOSE_TAG,
+            value = "zipCode",
+            description = "Web address form: zip code field",
+        )
+
+    val ADDRESS_TELEPHONE_WEB_FIELD =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_COMPOSE_TAG,
+            value = "telephone",
+            description = "Web address form: telephone field",
+        )
+
+    val ADDRESS_EMAIL_WEB_FIELD =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_COMPOSE_TAG,
+            value = "email",
+            description = "Web address form: email field",
+        )
+
+    // The settings EditAddress form has no apartment (address-line2) field, so a saved address always leaves it empty.
+    // Filling it on the web form while keeping every other field identical makes it a "superset" of the saved record,
+    // which is what turns the capture into an Update (vs Save) prompt -- see FormAutofillParent._onAddressSubmit.
+    val ADDRESS_APARTMENT_WEB_FIELD =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_COMPOSE_TAG,
+            value = "apartment",
+            description = "Web address form: apartment field",
+        )
+
+    val SAVE_ADDRESS_PROMPT =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT,
+            value = getStringResource(promptsR.string.mozac_feature_prompts_save_address_prompt_title),
+            description = "Save-address capture prompt",
+        )
+
+    val SAVE_ADDRESS_PROMPT_NOT_NOW_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+            value = getStringResource(promptsR.string.mozac_feature_prompt_not_now),
+            description = "Save-address capture prompt: 'Not now' button",
+        )
+
+    // Shown instead of SAVE_ADDRESS_PROMPT when the submitted address is mergeable into an existing saved one
+    // (no "different" field, at least one "superset"/"similar"). Compose dialog title, matched by text via UIAutomator.
+    val UPDATE_ADDRESS_PROMPT =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT,
+            value = getStringResource(promptsR.string.mozac_feature_prompts_update_address_prompt_title),
+            description = "Update-address capture prompt",
+        )
+
+    val UPDATE_ADDRESS_PROMPT_UPDATE_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+            value = getStringResource(promptsR.string.mozac_feature_prompt_update_confirmation),
+            description = "Update-address capture prompt: 'Update' button",
+        )
+
+    val UPDATE_ADDRESS_PROMPT_NOT_NOW_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+            value = getStringResource(promptsR.string.mozac_feature_prompt_dont_update_2),
+            description = "Update-address capture prompt: 'Not now' button",
         )
 
     // NOTE: the Android stylus-handwriting prompt that can cover this page is handled centrally via
@@ -586,12 +663,57 @@ object BrowserPageSelectors : SelectorContainer {
             description = "Open link in '$appName' app prompt",
         )
 
+    // "Open links in apps" CFR banner, shown on a page that a non-browser app can handle when
+    // isOpenInAppBannerEnabled is on. The banner is an app View (package-prefixed res-ids), so each part is matched
+    // with UIAUTOMATOR_WITH_RES_ID[_CONTAINING_TEXT], mirroring the legacy BrowserRobot.verifyOpenLinksInAppsCFRExists.
+    val OPEN_IN_APP_CFR_CONTAINER =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_RES_ID,
+            value = "banner_container",
+            description = "Open links in apps CFR banner container",
+            groups = setOf(Group.OPEN_IN_APP_CFR),
+        )
+
+    val OPEN_IN_APP_CFR_INFO_MESSAGE =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_RES_ID_CONTAINING_TEXT,
+            value = "banner_info_message",
+            secondaryValue = getStringResource(R.string.open_in_app_cfr_info_message_2),
+            description = "Open links in apps CFR info message",
+            groups = setOf(Group.OPEN_IN_APP_CFR),
+        )
+
+    val OPEN_IN_APP_CFR_DISMISS_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_RES_ID_CONTAINING_TEXT,
+            value = "dismiss",
+            secondaryValue = getStringResource(R.string.open_in_app_cfr_negative_button_text),
+            description = "Open links in apps CFR Dismiss button",
+            groups = setOf(Group.OPEN_IN_APP_CFR),
+        )
+
+    val OPEN_IN_APP_CFR_ACTION_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_RES_ID_CONTAINING_TEXT,
+            value = "action",
+            secondaryValue = getStringResource(R.string.open_in_app_cfr_positive_button_text),
+            description = "Open links in apps CFR 'Go to settings' button",
+            groups = setOf(Group.OPEN_IN_APP_CFR),
+        )
+
     val PDF_DOWNLOAD_BUTTON =
         Selector(
             strategy = SelectorStrategy.UIAUTOMATOR_WITH_RAW_RES_ID_CONTAINING_TEXT,
             value = "download",
             secondaryValue = "Download",
             description = "PDF viewer download button",
+        )
+
+    val PDF_TOOLS_DOWNLOAD_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_TAG,
+            value = PdfToolsTestTag.DOWNLOAD_BUTTON,
+            description = "PDF tools download button",
         )
 
     val SHAKE_TO_SUMMARIZE_CFR_DISMISS_BUTTON =
@@ -688,5 +810,12 @@ object BrowserPageSelectors : SelectorContainer {
             value = "save_message",
             secondaryValue = getStringResource(promptsR.string.mozac_feature_prompt_login_add_username_headline_2),
             description = "Update username prompt headline",
+        )
+
+    val EXTENSIONS_SETTINGS_ENGINE_VIEW =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_RES_ID,
+            value = "addonSettingsEngineView",
+            description = "Extensions settings engine view",
         )
 }

@@ -852,8 +852,6 @@ NS_IMETHODIMP CacheStorageService::ClearBaseDomain(
 nsresult CacheStorageService::ClearOriginInternal(
     const nsAString& aOrigin, const OriginAttributes& aOriginAttributes,
     bool aAnonymous) {
-  nsresult rv;
-
   RefPtr<LoadContextInfo> info =
       GetLoadContextInfo(aAnonymous, aOriginAttributes);
   if (NS_WARN_IF(!info)) {
@@ -865,8 +863,8 @@ nsresult CacheStorageService::ClearOriginInternal(
   if (sGlobalEntryTables) {
     for (const auto& globalEntry : *sGlobalEntryTables) {
       bool matches = false;
-      rv = CacheFileUtils::KeyMatchesLoadContextInfo(globalEntry.GetKey(), info,
-                                                     &matches);
+      nsresult rv = CacheFileUtils::KeyMatchesLoadContextInfo(
+          globalEntry.GetKey(), info, &matches);
       NS_ENSURE_SUCCESS(rv, rv);
       if (!matches) {
         continue;
@@ -905,12 +903,11 @@ nsresult CacheStorageService::ClearOriginInternal(
     }
   }
 
-  if (!info->IsPrivate()) {
-    rv = CacheFileIOManager::EvictByContext(info, false /* pinned */, aOrigin);
+  if (info->IsPrivate()) {
+    return NS_OK;
   }
-  NS_ENSURE_SUCCESS(rv, rv);
 
-  return NS_OK;
+  return CacheFileIOManager::EvictByContext(info, false /* pinned */, aOrigin);
 }
 
 NS_IMETHODIMP CacheStorageService::ClearOriginDictionary(nsIURI* aURI) {
@@ -1143,11 +1140,11 @@ void CacheStorageService::RecordMemoryOnlyEntry(CacheEntry* aEntry,
       return;
     }
 
-    entries = sGlobalEntryTables
-                  ->InsertOrUpdate(
-                      memoryStorageID,
-                      MakeUnique<CacheEntryTable>(CacheEntryTable::MEMORY_ONLY))
-                  .get();
+    entries =
+        sGlobalEntryTables
+            ->InsertOrUpdate(memoryStorageID, std::make_unique<CacheEntryTable>(
+                                                  CacheEntryTable::MEMORY_ONLY))
+            .get();
     LOG(("  new memory-only storage table for %s", memoryStorageID.get()));
   }
 
@@ -1666,7 +1663,7 @@ nsresult CacheStorageService::AddStorageEntry(
                 [&aContextKey] {
                   LOG(("  new storage entries table for context '%s'",
                        PromiseFlatCString(aContextKey).get()));
-                  return MakeUnique<CacheEntryTable>(
+                  return std::make_unique<CacheEntryTable>(
                       CacheEntryTable::ALL_ENTRIES);
                 })
             .get();

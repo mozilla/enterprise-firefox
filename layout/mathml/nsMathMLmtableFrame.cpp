@@ -1157,7 +1157,7 @@ nsMathMLmtdInnerFrame::nsMathMLmtdInnerFrame(ComputedStyle* aStyle,
     : nsBlockFrame(aStyle, aPresContext, kClassID)
       // Make a copy of the parent nsStyleText for later modification.
       ,
-      mUniqueStyleText(MakeUnique<nsStyleText>(*StyleText())) {}
+      mUniqueStyleText(std::make_unique<nsStyleText>(*StyleText())) {}
 
 void nsMathMLmtdInnerFrame::Reflow(nsPresContext* aPresContext,
                                    ReflowOutput& aDesiredSize,
@@ -1198,5 +1198,5 @@ const nsStyleText* nsMathMLmtdInnerFrame::StyleTextForLineLayout() {
 void nsMathMLmtdInnerFrame::DidSetComputedStyle(
     ComputedStyle* aOldComputedStyle) {
   nsBlockFrame::DidSetComputedStyle(aOldComputedStyle);
-  mUniqueStyleText = MakeUnique<nsStyleText>(*StyleText());
+  mUniqueStyleText = std::make_unique<nsStyleText>(*StyleText());
 }

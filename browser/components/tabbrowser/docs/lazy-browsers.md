@@ -42,6 +42,9 @@ What the tab does carry:
 - **The `discarded` attribute**, set when the tab was explicitly unloaded rather
   than restored into this state. `browser.tabs.fadeOutExplicitlyUnloadedTabs`
   fades those tabs on their own.
+- **The `discarded-skip-on-close` attribute**, set when the tab was explicitly
+  unloaded and therefore should be skipped when switching from a closed tab (to
+  avoid it from being re-loaded).
 
 **The active tab is never lazy.** Selecting a tab inserts its browser, and
 `discardBrowser` refuses the selected tab. Multi-selected tabs are another
@@ -201,6 +204,8 @@ The `options` object accepts the following properties:
 
 - `forceDiscard` (default: `false`): Allows discarding a tab with an open dialog.
 - `renderDiscarded` (default: `forceDiscard`): Controls whether to render the tab as discarded.
+- `skipOnClose` (default: `forceDiscard`): Whether to skip the unloaded tab when
+  choosing a fallback tab after closing the selected tab, if alternatives exist.
 
 Flush the tab's state first. `await gBrowser.prepareDiscardBrowser(tab)` hands
 session store the latest data, and it is safe to call even if the discard is

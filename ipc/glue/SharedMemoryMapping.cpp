@@ -29,7 +29,7 @@ class MappingReporter final : public nsIMemoryReporter {
 
   NS_IMETHOD
   CollectReports(nsIHandleReportCallback* aHandleReport, nsISupports* aData,
-                 bool aAnonymize) override {
+                 bool /*aAnonymize*/) override {
     MOZ_COLLECT_REPORT(
         "shmem-mapped", KIND_OTHER, UNITS_BYTES, mapped,
         "Memory shared with other processes that is mapped into the address "

@@ -198,10 +198,19 @@ void SpeechTaskCallback::OnDidFinishSpeaking() {
 namespace mozilla {
 namespace dom {
 
+struct OSXVoice {
+  OSXVoice() : mIsDefault(false) {}
+
+  nsString mUri;
+  nsString mName;
+  nsString mLocale;
+  bool mIsDefault;
+};
+
 class RegisterVoicesRunnable final : public Runnable {
  public:
   RegisterVoicesRunnable(OSXSpeechSynthesizerService* aSpeechService,
-                         nsTArray<OSXSpeechSynthesizerService::Voice>& aList)
+                         nsTArray<OSXVoice>& aList)
       : Runnable("RegisterVoicesRunnable"),
         mSpeechService(aSpeechService),
         mVoices(aList) {}
@@ -213,12 +222,32 @@ class RegisterVoicesRunnable final : public Runnable {
 
   // This runnable always use sync mode.  It is unnecesarry to reference object
   OSXSpeechSynthesizerService* mSpeechService;
-  nsTArray<OSXSpeechSynthesizerService::Voice>& mVoices;
+  nsTArray<OSXVoice>& mVoices;
 };
 
 NS_IMETHODIMP
 RegisterVoicesRunnable::Run() {
-  mSpeechService->UpdateVoices(mVoices);
+  nsresult rv;
+  nsCOMPtr<nsISynthVoiceRegistry> registry =
+      do_GetService(NS_SYNTHVOICEREGISTRY_CONTRACTID, &rv);
+  if (!registry) {
+    return rv;
+  }
+
+  for (const OSXVoice& voice : mVoices) {
+    rv = registry->AddVoice(mSpeechService, voice.mUri, voice.mName,
+                            voice.mLocale, true, false);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      continue;
+    }
+
+    if (voice.mIsDefault) {
+      registry->SetDefaultVoice(voice.mUri, true);
+    }
+  }
+
+  registry->NotifyVoicesChanged();
+
   return NS_OK;
 }
 
@@ -239,7 +268,7 @@ NS_IMETHODIMP
 EnumVoicesRunnable::Run() {
   NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
 
-  AutoTArray<OSXSpeechSynthesizerService::Voice, 64> list;
+  AutoTArray<OSXVoice, 64> list;
 
   NSArray* voices = [[AVSpeechSynthesisVoice speechVoices]
       filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(
@@ -260,7 +289,7 @@ EnumVoicesRunnable::Run() {
       voiceWithLanguage:[AVSpeechSynthesisVoice currentLanguageCode]];
 
   for (AVSpeechSynthesisVoice* voice in voices) {
-    OSXSpeechSynthesizerService::Voice item;
+    OSXVoice item;
 
     nsAutoString identifier;
     nsCocoaUtils::GetStringForNSString([voice identifier], identifier);
@@ -306,14 +335,6 @@ NS_IMPL_RELEASE(OSXSpeechSynthesizerService)
 OSXSpeechSynthesizerService::OSXSpeechSynthesizerService()
     : mInitialized(false) {}
 
-OSXSpeechSynthesizerService::~OSXSpeechSynthesizerService() {
-  if (mVoicesChangedObserver) {
-    [[NSNotificationCenter defaultCenter]
-        removeObserver:mVoicesChangedObserver];
-    [mVoicesChangedObserver release];
-  }
-}
-
 bool OSXSpeechSynthesizerService::Init() {
   if (Preferences::GetBool("media.webspeech.synth.test") ||
       !StaticPrefs::media_webspeech_synth_enabled()) {
@@ -321,99 +342,17 @@ bool OSXSpeechSynthesizerService::Init() {
     return false;
   }
 
-  if (NS_FAILED(NS_NewNamedThread("SpeechWorker", getter_AddRefs(mThread)))) {
+  nsCOMPtr<nsIThread> thread;
+  if (NS_FAILED(NS_NewNamedThread("SpeechWorker", getter_AddRefs(thread)))) {
     return false;
   }
 
   // Get all the voices and register in the SynthVoiceRegistry
-  EnumerateVoices();
-
-  if (@available(macOS 14.0, *)) {
-    mVoicesChangedObserver = [[[NSNotificationCenter defaultCenter]
-        addObserverForName:AVSpeechSynthesisAvailableVoicesDidChangeNotification
-                    object:nil
-                     queue:[NSOperationQueue mainQueue]
-                usingBlock:^(NSNotification* aNotification) {
-                  if (sSingleton) {
-                    sSingleton->EnumerateVoices();
-                  }
-                }] retain];
-  }
+  nsCOMPtr<nsIRunnable> runnable = new EnumVoicesRunnable(this);
+  thread->Dispatch(runnable, NS_DISPATCH_NORMAL);
 
   mInitialized = true;
   return true;
-}
-
-void OSXSpeechSynthesizerService::EnumerateVoices() {
-  nsCOMPtr<nsIRunnable> runnable = new EnumVoicesRunnable(this);
-  mThread->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
-}
-
-void OSXSpeechSynthesizerService::UpdateVoices(const nsTArray<Voice>& aVoices) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  nsCOMPtr<nsISynthVoiceRegistry> registry =
-      do_GetService(NS_SYNTHVOICEREGISTRY_CONTRACTID);
-  if (!registry) {
-    return;
-  }
-
-  nsTHashSet<nsString> newVoices;
-  nsString newDefaultVoice;
-  for (const Voice& voice : aVoices) {
-    newVoices.Insert(voice.mUri);
-    if (voice.mIsDefault) {
-      newDefaultVoice = voice.mUri;
-    }
-  }
-
-  bool changed = false;
-
-  nsTArray<nsString> removedVoices;
-  for (const auto& uri : mRegisteredVoices) {
-    if (!newVoices.Contains(uri)) {
-      removedVoices.AppendElement(uri);
-    }
-  }
-
-  for (const nsString& uri : removedVoices) {
-    registry->RemoveVoice(this, uri);
-    mRegisteredVoices.Remove(uri);
-    if (uri == mDefaultVoice) {
-      mDefaultVoice.Truncate();
-    }
-    changed = true;
-  }
-
-  for (const Voice& voice : aVoices) {
-    if (mRegisteredVoices.Contains(voice.mUri)) {
-      continue;
-    }
-    nsresult rv = registry->AddVoice(this, voice.mUri, voice.mName,
-                                     voice.mLocale, true, false);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      continue;
-    }
-    mRegisteredVoices.Insert(voice.mUri);
-    changed = true;
-  }
-
-  if (newDefaultVoice != mDefaultVoice) {
-    if (!mDefaultVoice.IsEmpty()) {
-      registry->SetDefaultVoice(mDefaultVoice, false);
-    }
-    if (mRegisteredVoices.Contains(newDefaultVoice)) {
-      registry->SetDefaultVoice(newDefaultVoice, true);
-      mDefaultVoice = newDefaultVoice;
-    } else {
-      mDefaultVoice.Truncate();
-    }
-    changed = true;
-  }
-
-  if (changed) {
-    registry->NotifyVoicesChanged();
-  }
 }
 
 NS_IMETHODIMP

@@ -1321,7 +1321,9 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
         # Add modules required for visual metrics. Packages with non-Python
         # components are particularly fussy about python version.
         py3_minor = sys.version_info.minor
-        if py3_minor <= 11:
+        if not (self.run_local or self.browsertime_visualmetrics):
+            pass
+        elif py3_minor <= 11:
             modules.extend([
                 "numpy==1.23.5",
                 "Pillow==9.2.0",
@@ -1399,15 +1401,7 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
         if not self.config.get("no_install", False):
             if self.app in self.firefox_android_browsers:
                 self.device.uninstall_app(self.binary_path)
-
-                # Check if the user supplied their own APK, and install
-                # that instead
-                installer_path = pathlib.Path(
-                    self.raptor_path, "raptor", "user_upload.apk"
-                )
-                if not installer_path.exists():
-                    installer_path = self.installer_path
-
+                installer_path = self.installer_path
                 self.info(f"Installing APK from: {installer_path}")
                 if self.app == "fenix":
                     self.info("Installing Fenix APK with baseline profile")

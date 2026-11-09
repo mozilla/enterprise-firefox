@@ -313,11 +313,11 @@ nsPresContext::nsPresContext(dom::Document* aDocument, nsPresContextType aType)
 
   // if text perf logging enabled, init stats struct
   if (MOZ_LOG_TEST(gfxPlatform::GetLog(eGfxLog_textperf), LogLevel::Warning)) {
-    mTextPerf = MakeUnique<gfxTextPerfMetrics>();
+    mTextPerf = std::make_unique<gfxTextPerfMetrics>();
   }
 
   if (StaticPrefs::gfx_missing_fonts_notify()) {
-    mMissingFonts = MakeUnique<gfxMissingFontRecorder>();
+    mMissingFonts = std::make_unique<gfxMissingFontRecorder>();
   }
 
   if (StaticPrefs::layout_dynamic_toolbar_max_height() > 0 &&
@@ -340,6 +340,7 @@ static const char* gExactCallbackPrefs[] = {
     "layout.css.letter-spacing.model",
     "layout.css.ruby.normalize-metrics-factor",
     "layout.css.text-autospace.enabled",
+    "layout.css.text-autospace-size.enabled",
     "layout.css.text-transform.uppercase-eszett.enabled",
     "privacy.trackingprotection.enabled",
     nullptr,
@@ -565,7 +566,7 @@ void nsPresContext::PreferenceChanged(const char* aPrefName) {
   if (prefName.EqualsLiteral(GFX_MISSING_FONTS_NOTIFY_PREF)) {
     if (StaticPrefs::gfx_missing_fonts_notify()) {
       if (!mMissingFonts) {
-        mMissingFonts = MakeUnique<gfxMissingFontRecorder>();
+        mMissingFonts = std::make_unique<gfxMissingFontRecorder>();
         // trigger reflow to detect missing fonts on the current page
         changeHint |= NS_STYLE_HINT_REFLOW;
       }
@@ -595,6 +596,7 @@ void nsPresContext::PreferenceChanged(const char* aPrefName) {
   if (prefName.EqualsLiteral(
           "layout.css.text-transform.uppercase-eszett.enabled") ||
       prefName.EqualsLiteral("layout.css.text-autospace.enabled") ||
+      prefName.EqualsLiteral("layout.css.text-autospace-size.enabled") ||
       prefName.EqualsLiteral("layout.css.letter-spacing.model")) {
     changeHint |= NS_STYLE_HINT_REFLOW;
   }
@@ -670,9 +672,9 @@ void nsPresContext::Init(nsDeviceContext* aDeviceContext) {
   mAnimationEventDispatcher =
       MakeRefPtr<mozilla::AnimationEventDispatcher>(this);
   mEffectCompositor = MakeRefPtr<mozilla::EffectCompositor>(this);
-  mTransitionManager = MakeUnique<nsTransitionManager>(this);
-  mAnimationManager = MakeUnique<nsAnimationManager>(this);
-  mTimelineManager = MakeUnique<mozilla::TimelineManager>(this);
+  mTransitionManager = std::make_unique<nsTransitionManager>(this);
+  mAnimationManager = std::make_unique<nsAnimationManager>(this);
+  mTimelineManager = std::make_unique<mozilla::TimelineManager>(this);
 
   if (mDocument->GetDisplayDocument()) {
     NS_ASSERTION(mDocument->GetDisplayDocument()->GetPresContext(),
@@ -823,7 +825,7 @@ void nsPresContext::AttachPresShell(mozilla::PresShell* aPresShell) {
   MOZ_ASSERT(!mPresShell);
   mPresShell = aPresShell;
 
-  mRestyleManager = MakeUnique<mozilla::RestyleManager>(this);
+  mRestyleManager = std::make_unique<mozilla::RestyleManager>(this);
 
   // Since CounterStyleManager is also the name of a method of
   // nsPresContext, it is necessary to prefix the class with the mozilla
@@ -854,23 +856,6 @@ void nsPresContext::AttachPresShell(mozilla::PresShell* aPresShell) {
   }
 
   UpdateCharSet(doc->GetDocumentCharacterSet());
-}
-
-Maybe<ColorScheme> nsPresContext::GetOverriddenOrEmbedderColorScheme() const {
-  if (Medium() == nsGkAtoms::print) {
-    return Some(ColorScheme::Light);
-  }
-
-  switch (mOverriddenOrEmbedderColorScheme) {
-    case dom::PrefersColorSchemeOverride::Dark:
-      return Some(ColorScheme::Dark);
-    case dom::PrefersColorSchemeOverride::Light:
-      return Some(ColorScheme::Light);
-    case dom::PrefersColorSchemeOverride::None:
-      break;
-  }
-
-  return Nothing();
 }
 
 void nsPresContext::SetColorSchemeOverride(
@@ -2037,7 +2022,8 @@ void nsPresContext::MediaFeatureValuesChanged(
   }
 
   if (!mPendingMediaFeatureValuesChange) {
-    mPendingMediaFeatureValuesChange = MakeUnique<MediaFeatureChange>(aChange);
+    mPendingMediaFeatureValuesChange =
+        std::make_unique<MediaFeatureChange>(aChange);
   } else {
     *mPendingMediaFeatureValuesChange |= aChange;
   }
@@ -2696,11 +2682,11 @@ bool nsPresContext::CheckForInterrupt(nsIFrame* aFrame) {
   return mHasPendingInterrupt;
 }
 
-nsIFrame* nsPresContext::GetPrimaryFrameFor(nsIContent* aContent) {
+nsIFrame* nsPresContext::GetPrimaryOrAreaImageFrameFor(nsIContent* aContent) {
   MOZ_ASSERT(aContent, "Don't do that");
   if (GetPresShell() &&
       GetPresShell()->GetDocument() == aContent->GetComposedDoc()) {
-    return aContent->GetPrimaryFrame();
+    return nsLayoutUtils::GetPrimaryOrAreaImageFrame(aContent);
   }
   return nullptr;
 }
@@ -2876,7 +2862,7 @@ UniquePtr<intl::Bidi> nsPresContext::GetBidiEngine() {
   if (mBidiEngine) {
     return std::move(mBidiEngine);
   }
-  return MakeUnique<mozilla::intl::Bidi>();
+  return std::make_unique<mozilla::intl::Bidi>();
 }
 
 void nsPresContext::FlushFontFeatureValues() {

@@ -85,15 +85,15 @@ static bool ValidVRManagerProcess() {
 
 /* static */
 VRManager* VRManager::Get() {
-  MOZ_ASSERT(sVRManagerSingleton != nullptr);
-  MOZ_ASSERT(ValidVRManagerProcess());
+  MOZ_RELEASE_ASSERT(sVRManagerSingleton != nullptr);
+  MOZ_RELEASE_ASSERT(ValidVRManagerProcess());
 
   return sVRManagerSingleton;
 }
 
 /* static */
 VRManager* VRManager::MaybeGet() {
-  MOZ_ASSERT(ValidVRManagerProcess());
+  MOZ_RELEASE_ASSERT(ValidVRManagerProcess());
 
   return sVRManagerSingleton;
 }
@@ -105,7 +105,7 @@ uint32_t VRManager::AllocateDisplayID() { return ++sDisplayBase; }
 
 /*static*/
 void VRManager::ManagerInit() {
-  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
   if (!ValidVRManagerProcess()) {
     return;
@@ -114,7 +114,11 @@ void VRManager::ManagerInit() {
   // Enable gamepad extensions while VR is enabled.
   // Preference only can be set at the Parent process.
   if (StaticPrefs::dom_vr_enabled() && XRE_IsParentProcess()) {
-    Preferences::SetBool("dom.gamepad.extensions.enabled", true);
+    // XXX(krosylight): We should stop doing this. See bug 1636311 to remove
+    // WebVR.
+    Preferences::SetBool("dom.gamepad.hand.enabled", true);
+    Preferences::SetBool("dom.gamepad.haptic_actuators.enabled", true);
+    Preferences::SetBool("dom.gamepad.pose.enabled", true);
   }
 
   if (sVRManagerSingleton == nullptr) {
@@ -147,9 +151,9 @@ VRManager::VRManager()
       mLastUpdateDisplayInfo{},
       mBrowserState{},
       mLastSensorState{} {
-  MOZ_ASSERT(sVRManagerSingleton == nullptr);
-  MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(ValidVRManagerProcess());
+  MOZ_RELEASE_ASSERT(sVRManagerSingleton == nullptr);
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
+  MOZ_RELEASE_ASSERT(ValidVRManagerProcess());
 
 #if !defined(MOZ_WIDGET_ANDROID)
   // XRE_IsGPUProcess() is helping us to check some platforms like
@@ -216,8 +220,8 @@ void VRManager::CloseShmem() {
 }
 
 VRManager::~VRManager() {
-  MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(mState == VRManagerState::Disabled);
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
+  MOZ_RELEASE_ASSERT(mState == VRManagerState::Disabled);
 
   nsCOMPtr<nsIObserverService> service = services::GetObserverService();
   if (service) {
@@ -611,7 +615,7 @@ void VRManager::ProcessManagerState() {
 }
 
 void VRManager::ProcessManagerState_Disabled() {
-  MOZ_ASSERT(mState == VRManagerState::Disabled);
+  MOZ_RELEASE_ASSERT(mState == VRManagerState::Disabled);
 
   if (!StaticPrefs::dom_vr_enabled() && !StaticPrefs::dom_vr_webxr_enabled()) {
     return;
@@ -625,7 +629,7 @@ void VRManager::ProcessManagerState_Disabled() {
 }
 
 void VRManager::ProcessManagerState_Stopping() {
-  MOZ_ASSERT(mState == VRManagerState::Stopping);
+  MOZ_RELEASE_ASSERT(mState == VRManagerState::Stopping);
   PullState();
   /**
    * In the case of Desktop, the VRService shuts itself down.
@@ -642,7 +646,7 @@ void VRManager::ProcessManagerState_Stopping() {
 }
 
 void VRManager::ProcessManagerState_Idle_StartEnumeration() {
-  MOZ_ASSERT(mState == VRManagerState::Idle);
+  MOZ_RELEASE_ASSERT(mState == VRManagerState::Idle);
 
   if (!mEarliestRestartTime.IsNull() &&
       mEarliestRestartTime > TimeStamp::Now()) {
@@ -710,7 +714,7 @@ void VRManager::ProcessManagerState_Idle_StartEnumeration() {
 }
 
 void VRManager::ProcessManagerState_Idle_StartRuntimeDetection() {
-  MOZ_ASSERT(mState == VRManagerState::Idle);
+  MOZ_RELEASE_ASSERT(mState == VRManagerState::Idle);
 
   OpenShmem();
   mBrowserState.detectRuntimesOnly = true;
@@ -753,7 +757,7 @@ void VRManager::ProcessManagerState_Idle_StartRuntimeDetection() {
 }
 
 void VRManager::ProcessManagerState_Idle() {
-  MOZ_ASSERT(mState == VRManagerState::Idle);
+  MOZ_RELEASE_ASSERT(mState == VRManagerState::Idle);
 
   if (!mRuntimeDetectionCompleted) {
     // Check if we should start detecting runtimes
@@ -774,8 +778,8 @@ void VRManager::ProcessManagerState_Idle() {
 }
 
 void VRManager::ProcessManagerState_DetectRuntimes() {
-  MOZ_ASSERT(mState == VRManagerState::RuntimeDetection);
-  MOZ_ASSERT(mShmem != nullptr);
+  MOZ_RELEASE_ASSERT(mState == VRManagerState::RuntimeDetection);
+  MOZ_RELEASE_ASSERT(mShmem != nullptr);
 
   PullState();
   if (mEnumerationCompleted) {
@@ -808,8 +812,8 @@ void VRManager::ProcessManagerState_DetectRuntimes() {
 }
 
 void VRManager::ProcessManagerState_Enumeration() {
-  MOZ_ASSERT(mState == VRManagerState::Enumeration);
-  MOZ_ASSERT(mShmem != nullptr);
+  MOZ_RELEASE_ASSERT(mState == VRManagerState::Enumeration);
+  MOZ_RELEASE_ASSERT(mShmem != nullptr);
 
   PullState();
   if (mEnumerationCompleted) {
@@ -825,7 +829,7 @@ void VRManager::ProcessManagerState_Enumeration() {
 }
 
 void VRManager::ProcessManagerState_Active() {
-  MOZ_ASSERT(mState == VRManagerState::Active);
+  MOZ_RELEASE_ASSERT(mState == VRManagerState::Active);
 
   if (mDisplayInfo != mLastUpdateDisplayInfo) {
     // While the display is active, send continuous updates
@@ -925,7 +929,7 @@ void VRManager::VibrateHaptic(GamepadHandle aGamepadHandle,
   bestSlot.pulseIntensity = (float)aIntensity;
 
   mHapticPulseRemaining[bestSlotIndex] = aDuration;
-  MOZ_ASSERT(bestSlotIndex <= mHapticPromises.Length());
+  MOZ_RELEASE_ASSERT(bestSlotIndex <= mHapticPromises.Length());
   if (bestSlotIndex == mHapticPromises.Length()) {
     mHapticPromises.AppendElement(std::make_unique<VRManagerPromise>(aPromise));
   } else {
@@ -1214,7 +1218,7 @@ void VRManager::UpdateHaptics(double aDeltaTime) {
 }
 
 void VRManager::ClearHapticSlot(size_t aSlot) {
-  MOZ_ASSERT(aSlot < std::size(mBrowserState.hapticState));
+  MOZ_RELEASE_ASSERT(aSlot < std::size(mBrowserState.hapticState));
   memset(&mBrowserState.hapticState[aSlot], 0, sizeof(VRHapticState));
   mHapticPulseRemaining[aSlot] = 0.0f;
   if (aSlot < mHapticPromises.Length() && mHapticPromises[aSlot]) {
@@ -1339,8 +1343,8 @@ bool VRManager::SubmitFrame(const layers::SurfaceDescriptor& aTexture,
     return false;
   }
 #if defined(XP_WIN) || defined(XP_MACOSX) || defined(MOZ_WIDGET_ANDROID)
-  MOZ_ASSERT(mBrowserState.layerState[0].type ==
-             VRLayerType::LayerType_Stereo_Immersive);
+  MOZ_RELEASE_ASSERT(mBrowserState.layerState[0].type ==
+                     VRLayerType::LayerType_Stereo_Immersive);
   VRLayer_Stereo_Immersive& layer =
       mBrowserState.layerState[0].layer_stereo_immersive;
 
@@ -1393,7 +1397,7 @@ bool VRManager::SubmitFrame(const layers::SurfaceDescriptor& aTexture,
     } break;
 #  endif
     default: {
-      MOZ_ASSERT(false);
+      MOZ_RELEASE_ASSERT(false);
       return false;
     }
   }
@@ -1439,7 +1443,7 @@ void VRManager::SubmitFrameInternal(const layers::SurfaceDescriptor& aTexture,
                                     const gfx::Rect& aLeftEyeRect,
                                     const gfx::Rect& aRightEyeRect) {
 #if !defined(MOZ_WIDGET_ANDROID)
-  MOZ_ASSERT(mSubmitThread->GetThread() == NS_GetCurrentThread());
+  MOZ_RELEASE_ASSERT(mSubmitThread->GetThread() == NS_GetCurrentThread());
 #endif  // !defined(MOZ_WIDGET_ANDROID)
   AUTO_PROFILER_MARKER("SubmitFrameAtVRDisplayExternal", OTHER);
 

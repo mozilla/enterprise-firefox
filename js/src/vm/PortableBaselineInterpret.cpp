@@ -1682,11 +1682,11 @@ uint64_t ICInterpretOps(uint64_t arg0, uint64_t arg1, ICStub* stub,
       }
 
       CACHEOP_CASE(AssertNoAllocationMetadataBuilder) {
-        uint32_t builderAddrOffset = cacheIRReader.stubOffset();
-        uintptr_t builderAddr =
-            stubInfo->getStubRawWord(cstub, builderAddrOffset);
-        (void)builderAddr;
-        MOZ_ASSERT(*reinterpret_cast<uintptr_t*>(builderAddr) == 0,
+        uint32_t hasBuilderAddrOffset = cacheIRReader.stubOffset();
+        uintptr_t hasBuilderAddr =
+            stubInfo->getStubRawWord(cstub, hasBuilderAddrOffset);
+        (void)hasBuilderAddr;
+        MOZ_ASSERT(*reinterpret_cast<uint32_t*>(hasBuilderAddr) == 0,
                    "unexpected allocation metadata builder");
         DISPATCH_CACHEOP();
       }
@@ -5248,7 +5248,7 @@ uint64_t ICInterpretOps(uint64_t arg0, uint64_t arg1, ICStub* stub,
           } else {
             int32_t result = 0;
             if (!RegExpSearcherRaw(cx, regexpRooted, inputRooted, lastIndex,
-                                   nullptr, &result)) {
+                                   &result)) {
               ctx.error = PBIResult::Error;
               return IC_ERROR_SENTINEL();
             }

@@ -4,7 +4,7 @@
 
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import { html, when } from "chrome://global/content/vendor/lit.all.mjs";
-// eslint-disable-next-line import/no-unassigned-import
+// eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://browser/content/sidebar/sidebar-panel-switcher.mjs";
 
 /**
@@ -25,15 +25,19 @@ export class SidebarPanelHeader extends MozLitElement {
     switcher: "sidebar-panel-switcher",
   };
 
-  #l10n = new Localization(["browser/sidebar.ftl", "preview/genai.ftl"], true);
+  #l10n = new Localization(
+    ["browser/sidebar.ftl", "preview/genai.ftl", "preview/widgets.ftl"],
+    true
+  );
 
   closeSidebarPanel(e) {
     e.preventDefault();
-    // In "hide-launcher" mode there is no launcher to return to, so keep the
-    // panel remembered rather than revealing the launcher.
     window.SidebarController._maybeAnimate(() => {
       window.SidebarController.hide({
         dismissPanel: !window.SidebarController._state.launcherHiddenWithPanel,
+        // If closing this panel with a keyboard, restore focus back to the
+        // launcher button that opened it.
+        restoreFocus: e.detail === 0,
       });
     });
   }

@@ -592,10 +592,6 @@ struct DIGroup {
     mVisibleRect = mVisibleRect.Intersect(ViewAs<LayerPixel>(
         mActualBounds, PixelCastJustification::LayerIsImage));
 
-    if (mVisibleRect.IsEmpty()) {
-      return;
-    }
-
     // Invalidate any unused items
     GP("mDisplayItems\n");
     mDisplayItems.RemoveIf([&](BlobItemData* data) {
@@ -610,6 +606,10 @@ struct DIGroup {
       data->mUsed = false;
       return false;
     });
+
+    if (mVisibleRect.IsEmpty()) {
+      return;
+    }
 
     IntSize dtSize = mVisibleRect.Size().ToUnknownSize();
     // The actual display item's size shouldn't have the scale factored in
@@ -751,6 +751,7 @@ struct DIGroup {
         return;
       }
     }
+    mInvalidRect.SetEmpty();
     mFonts = std::move(fonts);
     aResources.SetBlobImageVisibleArea(
         *mKey,
@@ -1108,10 +1109,12 @@ enum class ItemActivity : uint8_t {
   /// Could be active if it has no layerization cost.
   /// Typically active if first of an item group.
   Could = 1,
+  /// Should be active for animation unless affected by a complex mask.
+  ShouldForAnimation = 2,
   /// Should be active unless something external makes that less useful.
-  Should = 2,
+  Should = 3,
   /// Must be active regardless of external factors.
-  Must = 3,
+  Must = 4,
 };
 
 ItemActivity CombineActivity(ItemActivity a, ItemActivity b) {
@@ -1223,7 +1226,7 @@ static ItemActivity IsItemProbablyActive(
                                         aDisplayListBuilder, t2d * aTransform);
 
       if (transformItem->MayBeAnimated(aDisplayListBuilder)) {
-        activity = CombineActivity(activity, ItemActivity::Should);
+        activity = CombineActivity(activity, ItemActivity::ShouldForAnimation);
       }
 
       return activity;
@@ -1296,11 +1299,8 @@ static ItemActivity IsItemProbablyActive(
                 .IsSimpleClipShape()) {
           return activity;
         }
-        // The mask is painted and uploaded as an image either way, so a child
-        // that merely could be active is not worth the extra layers. A child
-        // that should be active is: any change inside an inactive masked group
-        // rasterizes the masked content and the mask again on the CPU, while
-        // the mask image of an active group is cached.
+        // Only split the masked group for native content or required activity,
+        // not for animated transforms over blob content.
         if (activity < ItemActivity::Should) {
           return ItemActivity::No;
         }
@@ -1355,11 +1355,11 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
   // making it active won't add extra layers.
   bool isFirst = true;
 
-  // Items in the middle of the list normally need to be "Should" active to be
-  // worth splitting the blob. When most of the list could be active, the
-  // blob would be split many times anyway, so every item that could be
-  // active is made active instead, which yields no blob at all in the best
-  // case.
+  // Items in the middle of the list normally need to be at least
+  // ShouldForAnimation to be worth splitting the blob. When most of the list
+  // could be active, the blob would be split many times anyway, so every item
+  // that could be active is made active instead, which yields no blob at all
+  // in the best case.
   bool lowerMiddleThreshold =
       StaticPrefs::gfx_webrender_blob_relaxed_active_threshold();
   uint32_t mostlyActivePercent =
@@ -1413,7 +1413,7 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
                                          encounteredActiveItem, Matrix());
     auto threshold = isFirst || isLast || lowerMiddleThreshold
                          ? ItemActivity::Could
-                         : ItemActivity::Should;
+                         : ItemActivity::ShouldForAnimation;
 
     if (activity >= threshold) {
       encounteredActiveItem = true;
@@ -1424,8 +1424,6 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
       RefPtr<WebRenderGroupData> groupData =
           aCommandBuilder->CreateOrRecycleWebRenderUserData<WebRenderGroupData>(
               item);
-
-      groupData->mFollowingGroup.mInvalidRect.SetEmpty();
 
       // Initialize groupData->mFollowingGroup with data from currentGroup.
       // We want to copy out this information before calling EndGroup because
@@ -1450,6 +1448,7 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
         // The group changed size
         GP("Inner group size change\n");
         groupData->mFollowingGroup.ClearItems();
+        groupData->mFollowingGroup.mInvalidRect.SetEmpty();
         groupData->mFollowingGroup.ClearImageKey(
             aCommandBuilder->mManager->GetRenderRootStateManager());
       }
@@ -1757,7 +1756,6 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
 
   GP("Inherited scale %f %f\n", scale.xScale, scale.yScale);
 
-  group.mInvalidRect.SetEmpty();
   if (group.mAppUnitsPerDevPixel != appUnitsPerDevPixel ||
       group.mScale != scale || group.mResidualOffset != residualOffset) {
     GP("Property change. Deleting blob\n");
@@ -1779,6 +1777,7 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
     }
 
     group.ClearItems();
+    group.mInvalidRect.SetEmpty();
     group.ClearImageKey(mManager->GetRenderRootStateManager());
   }
 
@@ -2391,6 +2390,21 @@ void WebRenderCommandBuilder::PushOverrideForASR(
 void WebRenderCommandBuilder::PopOverrideForASR(
     const ActiveScrolledRoot* aASR) {
   mClipManager.PopOverrideForASR(aASR);
+}
+
+DefinedReferenceFrame WebRenderCommandBuilder::DefineReferenceFrame(
+    wr::DisplayListBuilder& aBuilder, nsIFrame* aFrame,
+    FrameReferenceFrame aKind, const LayoutDevicePoint& aOrigin,
+    const wr::ReferenceFrameParams& aParams) {
+  const wr::LayoutVector2D parentScrollOffset =
+      aBuilder.CurrentAccumulatedScrollOffset();
+  DefinedReferenceFrame frame;
+  frame.mId =
+      aBuilder.DefineReferenceFrame(wr::ToLayoutPoint(aOrigin), aParams);
+  frame.mOrigin =
+      aOrigin + LayoutDevicePoint(parentScrollOffset.x, parentScrollOffset.y);
+  frame.mShouldSnap = aParams.should_snap;
+  return frame;
 }
 
 static wr::WrRotation ToWrRotation(VideoRotation aRotation) {

@@ -1114,23 +1114,6 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
     config->SetDesktop(sandbox::Desktop::kAlternateWinstation);
   }
 
-  if (StaticPrefs::security_sandbox_content_close_ksecdd_handle()) {
-    // bug 2006941 and bug 2008739 and bug 2022584 - Trellix DLP uses these
-    // functions, so don't do this if their DLLs are loaded
-    bool isTrellixDllLoaded;
-#if defined(_M_X64)
-    isTrellixDllLoaded = !!::GetModuleHandleW(L"fcagff64.dll") ||
-                         !!::GetModuleHandleW(L"fcagff64hc.dll");
-#elif defined(_M_ARM64)
-    isTrellixDllLoaded = !!::GetModuleHandleW(L"fcagffarm64hc.dll");
-#else
-    isTrellixDllLoaded = !!::GetModuleHandleW(L"fcagff.dll");
-#endif
-    if (!isTrellixDllLoaded) {
-      config->AddKernelObjectToClose(sandbox::HandleToClose::kKsecDD);
-    }
-  }
-
   sandbox::MitigationFlags mitigations =
       sandbox::MITIGATION_BOTTOM_UP_ASLR | sandbox::MITIGATION_HEAP_TERMINATE |
       sandbox::MITIGATION_SEHOP | sandbox::MITIGATION_DEP_NO_ATL_THUNK |
@@ -1487,79 +1470,6 @@ bool SandboxBroker::SetSecurityLevelForRDDProcess() {
     // The RDD process depends on msmpeg2vdec.dll.
     mitigations |= DynamicCodeFlagForSystemMediaLibraries();
   }
-
-  result = config->SetDelayedProcessMitigations(mitigations);
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "Invalid flags for SetDelayedProcessMitigations.");
-
-  result = AddCigToConfig(config);
-  SANDBOX_ENSURE_SUCCESS(result, "Failed to initialize signed policy rules.");
-
-  // Add the policy for the client side of the crash server pipe.
-  result = config->AllowFileAccess(sandbox::FileSemantics::kAllowAny,
-                                   L"\\??\\pipe\\gecko-crash-server-pipe.*");
-  SANDBOX_ENSURE_SUCCESS(
-      result,
-      "With these static arguments AddRule should never fail, what happened?");
-
-  return true;
-}
-
-bool SandboxBroker::SetSecurityLevelForSocketProcess() {
-  if (!mPolicy) {
-    return false;
-  }
-
-  auto* config = mPolicy->GetConfig();
-
-  auto result =
-      config->SetJobLevel(sandbox::JobLevel::kLockdown, 0 /* ui_exceptions */);
-  SANDBOX_ENSURE_SUCCESS(
-      result,
-      "SetJobLevel should never fail with these arguments, what happened?");
-
-  result = config->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
-                                 sandbox::USER_LIMITED);
-  SANDBOX_ENSURE_SUCCESS(
-      result,
-      "SetTokenLevel should never fail with these arguments, what happened?");
-
-  config->SetDesktop(sandbox::Desktop::kAlternateWinstation);
-
-  result = config->SetIntegrityLevel(sandbox::INTEGRITY_LEVEL_LOW);
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "SetIntegrityLevel should never fail with these "
-                         "arguments, what happened?");
-
-  config->SetDelayedIntegrityLevel(sandbox::INTEGRITY_LEVEL_UNTRUSTED);
-
-  config->SetLockdownDefaultDacl();
-  config->AddRestrictingRandomSid();
-
-  sandbox::MitigationFlags mitigations =
-      sandbox::MITIGATION_BOTTOM_UP_ASLR | sandbox::MITIGATION_HEAP_TERMINATE |
-      sandbox::MITIGATION_SEHOP | sandbox::MITIGATION_EXTENSION_POINT_DISABLE |
-      sandbox::MITIGATION_DEP_NO_ATL_THUNK | sandbox::MITIGATION_DEP |
-      sandbox::MITIGATION_NONSYSTEM_FONT_DISABLE |
-      sandbox::MITIGATION_KTM_COMPONENT | sandbox::MITIGATION_FSCTL_DISABLED |
-      sandbox::MITIGATION_IMAGE_LOAD_NO_REMOTE |
-      sandbox::MITIGATION_IMAGE_LOAD_NO_LOW_LABEL;
-
-  if (StaticPrefs::security_sandbox_socket_shadow_stack_enabled()) {
-    mitigations |= sandbox::MITIGATION_CET_COMPAT_MODE;
-  }
-
-  result = config->SetProcessMitigations(mitigations);
-  SANDBOX_ENSURE_SUCCESS(result, "Invalid flags for SetProcessMitigations.");
-
-  if (StaticPrefs::security_sandbox_socket_win32k_disable()) {
-    result = AddWin32kLockdownConfig(config);
-    SANDBOX_ENSURE_SUCCESS(result, "Failed to add the win32k lockdown config");
-  }
-
-  mitigations = sandbox::MITIGATION_STRICT_HANDLE_CHECKS |
-                sandbox::MITIGATION_DLL_SEARCH_ORDER |
-                sandbox::MITIGATION_DYNAMIC_CODE_DISABLE;
 
   result = config->SetDelayedProcessMitigations(mitigations);
   SANDBOX_ENSURE_SUCCESS(result,

@@ -2924,6 +2924,32 @@ static nsSize ComputeDrawnSizeForBackground(
   return imageSize;
 }
 
+auto nsCSSRendering::ComputeBackgroundImageInfo(
+    const CSSSizeOrRatio& aIntrinsicSize, const nsSize& aPositionAreaSize,
+    const nsStyleImageLayers::Layer& aLayer) -> BackgroundImageInfo {
+  BackgroundImageInfo result;
+
+  // Scale the image as specified for background-size and background-repeat.
+  // Also as required for proper background positioning when background-position
+  // is defined with percentages.
+  result.mSize = ComputeDrawnSizeForBackground(
+      aIntrinsicSize, aPositionAreaSize, aLayer.mSize, aLayer.mRepeat.mXRepeat,
+      aLayer.mRepeat.mYRepeat);
+
+  if (result.mSize.IsEmpty()) {
+    return result;
+  }
+
+  // Compute the anchor point, relative to the positioning area's top left
+  // (which is where the top-left of aForFrame's border-box will be rendered).
+  // Also compute the position of the background now that the background's size
+  // is determined.
+  nsImageRenderer::ComputeObjectAnchorPoint(aLayer.mPosition, aPositionAreaSize,
+                                            result.mSize, &result.mTopLeft,
+                                            &result.mAnchor);
+  return result;
+}
+
 /* ComputeSpacedRepeatSize
  * aImageDimension: the image width/height
  * aAvailableSpace: the background positioning area width/height
@@ -3037,7 +3063,11 @@ nsBackgroundLayerState nsCSSRendering::PrepareImageLayer(
   }
 
   nsBackgroundLayerState state(aForFrame, &aLayer.mImage, irFlags);
-  if (!state.mImageRenderer.PrepareImage()) {
+  if (!state.mImageRenderer.PrepareImage(Some(nsImageRenderer::PositionParams{
+          aLayer,
+          aBorderArea,
+          aBGClipRect,
+      }))) {
     // There's no image or it's not ready to be painted.
     if (aOutIsTransformedFixed &&
         StyleImageLayerAttachment::Fixed == aLayer.mAttachment) {
@@ -3065,7 +3095,7 @@ nsBackgroundLayerState nsCSSRendering::PrepareImageLayer(
   bool transformedFixed = false;
   // Compute background origin area relative to aBorderArea now as we may need
   // it to compute the effective image size for a CSS gradient.
-  nsRect positionArea = ComputeImageLayerPositioningArea(
+  const auto positionArea = ComputeImageLayerPositioningArea(
       aPresContext, aForFrame, aBorderArea, aLayer, &attachedToFrame,
       &transformedFixed);
   if (aOutIsTransformedFixed) {
@@ -3081,41 +3111,27 @@ nsBackgroundLayerState nsCSSRendering::PrepareImageLayer(
     bgClipRect = positionArea + aBorderArea.TopLeft();
   }
 
-  StyleImageLayerRepeat repeatX = aLayer.mRepeat.mXRepeat;
-  StyleImageLayerRepeat repeatY = aLayer.mRepeat.mYRepeat;
+  auto repeatX = aLayer.mRepeat.mXRepeat;
+  auto repeatY = aLayer.mRepeat.mYRepeat;
 
-  // Scale the image as specified for background-size and background-repeat.
-  // Also as required for proper background positioning when background-position
-  // is defined with percentages.
-  CSSSizeOrRatio intrinsicSize = state.mImageRenderer.ComputeIntrinsicSize();
-  nsSize bgPositionSize = positionArea.Size();
-  nsSize imageSize = ComputeDrawnSizeForBackground(
-      intrinsicSize, bgPositionSize, aLayer.mSize, repeatX, repeatY);
-
-  if (imageSize.width <= 0 || imageSize.height <= 0) {
+  const auto intrinsicSize = state.mImageRenderer.ComputeIntrinsicSize();
+  const auto bgPositionSize = positionArea.Size();
+  auto imageInfo =
+      ComputeBackgroundImageInfo(intrinsicSize, bgPositionSize, aLayer);
+  if (imageInfo.IsEmpty()) {
     return state;
   }
 
-  state.mImageRenderer.SetPreferredSize(intrinsicSize, imageSize);
+  state.mAnchor = imageInfo.mAnchor;
+  state.mImageRenderer.SetPreferredSize(intrinsicSize, imageInfo.mSize);
 
-  // Compute the anchor point.
-  //
-  // relative to aBorderArea.TopLeft() (which is where the top-left
-  // of aForFrame's border-box will be rendered)
-  nsPoint imageTopLeft;
-
-  // Compute the position of the background now that the background's size is
-  // determined.
-  nsImageRenderer::ComputeObjectAnchorPoint(aLayer.mPosition, bgPositionSize,
-                                            imageSize, &imageTopLeft,
-                                            &state.mAnchor);
-  state.mRepeatSize = imageSize;
+  state.mRepeatSize = imageInfo.mSize;
   if (repeatX == StyleImageLayerRepeat::Space) {
     bool isRepeat;
     state.mRepeatSize.width = ComputeSpacedRepeatSize(
-        imageSize.width, bgPositionSize.width, isRepeat);
+        imageInfo.mSize.width, bgPositionSize.width, isRepeat);
     if (isRepeat) {
-      imageTopLeft.x = 0;
+      imageInfo.mTopLeft.x = 0;
       state.mAnchor.x = 0;
     } else {
       repeatX = StyleImageLayerRepeat::NoRepeat;
@@ -3125,18 +3141,19 @@ nsBackgroundLayerState nsCSSRendering::PrepareImageLayer(
   if (repeatY == StyleImageLayerRepeat::Space) {
     bool isRepeat;
     state.mRepeatSize.height = ComputeSpacedRepeatSize(
-        imageSize.height, bgPositionSize.height, isRepeat);
+        imageInfo.mSize.height, bgPositionSize.height, isRepeat);
     if (isRepeat) {
-      imageTopLeft.y = 0;
+      imageInfo.mTopLeft.y = 0;
       state.mAnchor.y = 0;
     } else {
       repeatY = StyleImageLayerRepeat::NoRepeat;
     }
   }
 
-  imageTopLeft += positionArea.TopLeft();
+  imageInfo.mTopLeft += positionArea.TopLeft();
   state.mAnchor += positionArea.TopLeft();
-  state.mDestArea = nsRect(imageTopLeft + aBorderArea.TopLeft(), imageSize);
+  state.mDestArea =
+      nsRect(imageInfo.mTopLeft + aBorderArea.TopLeft(), imageInfo.mSize);
   state.mFillArea = state.mDestArea;
 
   ExtendMode repeatMode = ExtendMode::CLAMP;

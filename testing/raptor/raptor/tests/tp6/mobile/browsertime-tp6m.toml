@@ -1,7 +1,7 @@
 [DEFAULT]
 alert_on = "fcp, loadtime, ContentfulSpeedIndex, PerceptualSpeedIndex, SpeedIndex, FirstVisualChange, LastVisualChange, largestContentfulPaint"
 alert_threshold = 2.0
-apps = "geckoview, fenix, refbrow, chrome-m, cstm-car-m"
+apps = "geckoview, fenix, refbrow"
 browser_cycles = 15
 lower_is_better = true
 owner = "PerfTest Team"
@@ -77,12 +77,6 @@ test_url = "https://www.google.com/search?q=restaurants+near+me"
 
 [imdb]
 test_url = "https://m.imdb.com/"
-
-[instagram]
-playback_version = "12.2.1"
-login = true
-playback_pageset_manifest = "mitm8-android-gve-{subtest}.manifest"
-test_url = "https://www.instagram.com"
 
 [microsoft-support]
 test_url = "https://support.microsoft.com/en-us"

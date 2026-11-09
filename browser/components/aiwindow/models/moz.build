@@ -36,6 +36,7 @@ MOZ_SRC_FILES += [
     "SearchBrowsingHistoryDomainBoost.sys.mjs",
     "SecurityProperties.sys.mjs",
     "SmartFormFillModel.sys.mjs",
+    "SmartWindowLocation.sys.mjs",
     "SmartWindowNavigationInfo.sys.mjs",
     "TelemetryManager.sys.mjs",
     "TelemetryUtils.sys.mjs",

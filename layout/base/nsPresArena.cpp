@@ -9,6 +9,9 @@
 
 #include <inttypes.h>
 
+#include <algorithm>
+#include <functional>
+
 #include "js/MemoryMetrics.h"
 #include "mozilla/MemoryChecking.h"
 #include "mozilla/Poison.h"
@@ -120,6 +123,15 @@ void nsPresArena<ArenaSize, ObjectId,
   // Stop tracking from here on, so that the set doesn't outlive XPCOM.
   mAllocatedPointers = nullptr;
 #endif
+}
+
+template <size_t ArenaSize, typename ObjectId, size_t ObjectIdCount>
+void nsPresArena<ArenaSize, ObjectId, ObjectIdCount>::SortFreeLists() {
+  for (FreeList& list : mFreeLists) {
+    // Entries are popped from the end, so sort in descending address order.
+    std::sort(list.mEntries.begin(), list.mEntries.end(),
+              std::greater<void*>());
+  }
 }
 
 template <size_t ArenaSize, typename ObjectId, size_t ObjectIdCount>

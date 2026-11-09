@@ -136,19 +136,20 @@ void ImageDecoder::QueueConfigureMessage(
     const Maybe<gfx::IntSize>& aOutputSize,
     ColorSpaceConversion aColorSpaceConversion) {
   mControlMessageQueue.push(
-      MakeUnique<ConfigureMessage>(aOutputSize, aColorSpaceConversion));
+      std::make_unique<ConfigureMessage>(aOutputSize, aColorSpaceConversion));
 }
 
 void ImageDecoder::QueueDecodeMetadataMessage() {
-  mControlMessageQueue.push(MakeUnique<DecodeMetadataMessage>());
+  mControlMessageQueue.push(std::make_unique<DecodeMetadataMessage>());
 }
 
 void ImageDecoder::QueueDecodeFrameMessage() {
-  mControlMessageQueue.push(MakeUnique<DecodeFrameMessage>());
+  mControlMessageQueue.push(std::make_unique<DecodeFrameMessage>());
 }
 
 void ImageDecoder::QueueSelectTrackMessage(uint32_t aSelectedIndex) {
-  mControlMessageQueue.push(MakeUnique<SelectTrackMessage>(aSelectedIndex));
+  mControlMessageQueue.push(
+      std::make_unique<SelectTrackMessage>(aSelectedIndex));
 }
 
 void ImageDecoder::ResumeControlMessageQueue() {

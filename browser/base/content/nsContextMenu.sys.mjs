@@ -100,10 +100,13 @@ XPCOMUtils.defineLazyServiceGetter(
 const PASSWORD_FIELDNAME_HINTS = ["current-password", "new-password"];
 const USERNAME_FIELDNAME_HINT = "username";
 
-const ALLOWED_CHROME_IMAGE_URLS = new Set([
-  "chrome://global/skin/illustrations/security-error.svg",
-  "chrome://global/skin/illustrations/no-connection.svg",
-]);
+function isContentAccessibleResource(spec) {
+  if (!spec.startsWith("resource:")) {
+    return false;
+  }
+  const url = URL.parse(spec);
+  return url?.protocol == "resource:" && url.host == "content-accessible";
+}
 
 const IMAGE_ONLY_PROTOCOLS = [
   "cached-favicon:",
@@ -316,6 +319,9 @@ export class nsContextMenu {
     }
 
     this.remoteType = this.actor.manager.domProcess.remoteType;
+
+    this.screenXDevPx = context.screenXDevPx;
+    this.screenYDevPx = context.screenYDevPx;
 
     this.selectedText = this.selectionInfo.text;
     this.isTextSelected = !!this.selectedText.length;
@@ -824,10 +830,13 @@ export class nsContextMenu {
   }
 
   initViewItems() {
-    // View source is always OK, unless in directory listing.
+    var inMiniWindow =
+      this.document.documentElement.hasAttribute("mini-window");
+
     this.showItem(
       "context-viewpartialsource-selection",
       !this.inAboutDevtoolsToolbox &&
+        !inMiniWindow &&
         this.isContentSelected &&
         this.selectionInfo.isDocumentLevelSelection
     );
@@ -848,12 +857,14 @@ export class nsContextMenu {
       this.onAudio ||
       this.onLink ||
       this.onTextInput ||
-      this.window.browsingContext.isDocumentPiP
+      this.window.browsingContext.isDocumentPiP ||
+      inMiniWindow
     );
 
     var showInspect =
       this.inTabBrowser &&
       !this.inAboutDevtoolsToolbox &&
+      !inMiniWindow &&
       Services.prefs.getBoolPref("devtools.inspector.enabled", true) &&
       !Services.prefs.getBoolPref("devtools.policy.disabled", false) &&
       !(
@@ -925,6 +936,12 @@ export class nsContextMenu {
 
     this.showAndFormatSearchContextItem();
     this.showTranslateSelectionItem();
+    this.showItem(
+      "context-turn-on-highlight-menu",
+      this.isTextSelected &&
+        !this.onTextInput &&
+        lazy.GenAI.canTurnOnSelectionMenu(this.window)
+    );
     lazy.GenAI.buildAskChatMenu(document.getElementById("context-ask-chat"), {
       browser: this.browser,
       selectionInfo: this.selectionInfo,
@@ -1809,8 +1826,9 @@ export class nsContextMenu {
         });
       }, console.error);
     } else {
-      const isAllowedChromeImage = ALLOWED_CHROME_IMAGE_URLS.has(this.mediaURL);
-      const principal = isAllowedChromeImage ? systemPrincipal : this.principal;
+      const principal = isContentAccessibleResource(this.mediaURL)
+        ? systemPrincipal
+        : this.principal;
 
       this.window.urlSecurityCheck(
         this.mediaURL,
@@ -2208,8 +2226,7 @@ export class nsContextMenu {
         );
       }, console.error);
     } else if (this.onImage) {
-      const isAllowedChromeImage = ALLOWED_CHROME_IMAGE_URLS.has(this.mediaURL);
-      const principal = isAllowedChromeImage
+      const principal = isContentAccessibleResource(this.mediaURL)
         ? Services.scriptSecurityManager.getSystemPrincipal()
         : this.principal;
 
@@ -2771,6 +2788,13 @@ export class nsContextMenu {
 
     // Since the underlying link text is not a URL, we should offer to translate it.
     return linkText;
+  }
+
+  turnOnHighlightMenu() {
+    lazy.GenAI.turnOnSelectionMenu(this.actor.manager, {
+      screenXDevPx: this.screenXDevPx,
+      screenYDevPx: this.screenYDevPx,
+    });
   }
 
   /**

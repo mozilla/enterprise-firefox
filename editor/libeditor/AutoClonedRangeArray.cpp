@@ -1173,7 +1173,8 @@ Element* AutoClonedRangeArray::GetClosestAncestorAnyListElementOfRange() const {
   return nullptr;
 }
 
-void AutoClonedRangeArray::RemoveCollapsedRanges() {
+void AutoClonedRangeArray::RemoveCollapsedRanges(
+    PreservePrimaryRangeIfAllRangesCollapsed aPreservePrimaryRange) {
   for (const auto index : Reversed(IntegerRange(mRanges.Length()))) {
     if (mRanges[index]->Collapsed()) {
       mRanges.RemoveElementAt(index);
@@ -1182,7 +1183,12 @@ void AutoClonedRangeArray::RemoveCollapsedRanges() {
   if (mAnchorFocusRange->Collapsed()) {
     MOZ_ASSERT(!mRanges.Contains(mAnchorFocusRange.get()));
     if (mRanges.IsEmpty()) {
-      RemoveAllRanges();
+      if (aPreservePrimaryRange ==
+          PreservePrimaryRangeIfAllRangesCollapsed::Yes) {
+        RemoveAllRanges();
+      } else {
+        mRanges.AppendElement(*mAnchorFocusRange);
+      }
     } else {
       mAnchorFocusRange = mRanges.LastElement();
     }
@@ -1480,7 +1486,26 @@ AutoClonedSelectionRangeArray::ExtendAnchorFocusRangeFor(
 
   Result<RefPtr<dom::Range>, nsresult> result(NS_ERROR_UNEXPECTED);
   const OwningNonNull<dom::Range> anchorFocusRange = *mAnchorFocusRange;
-  const LimitersAndCaretData limitersAndCaretData = mLimitersAndCaretData;
+  const LimitersAndCaretData limitersAndCaretData =
+      [&]() -> LimitersAndCaretData {
+    if (aEditorBase.IsHTMLEditor()) {
+      nsIContent* const commonAncestorContent = nsIContent::FromNodeOrNull(
+          anchorFocusRange->GetClosestCommonInclusiveAncestor());
+      if (commonAncestorContent) {
+        Element* const anyTableElement =
+            HTMLEditUtils::GetInclusiveAncestorAnyTableElement(
+                *commonAncestorContent, mLimitersAndCaretData.mAncestorLimiter);
+        if (anyTableElement) {
+          // We shouldn't extend anchorFocusRange with crossing new any table
+          // element boundary.
+          LimitersAndCaretData limitInTableElement = mLimitersAndCaretData;
+          limitInTableElement.mAncestorLimiter = anyTableElement;
+          return limitInTableElement;
+        }
+      }
+    }
+    return mLimitersAndCaretData;
+  }();
   const nsDirection rangeDirection =
       mDirection == eDirNext ? eDirNext : eDirPrevious;
   nsIEditor::EDirection directionAndAmountResult = aDirectionAndAmount;
@@ -1493,9 +1518,12 @@ AutoClonedSelectionRangeArray::ExtendAnchorFocusRangeFor(
       if (NS_WARN_IF(aEditorBase.Destroyed())) {
         return Err(NS_ERROR_EDITOR_DESTROYED);
       }
-      NS_WARNING_ASSERTION(
-          result.isOk(),
-          "nsFrameSelection::CreateRangeExtendedToNextWordBoundary() failed");
+      if (result.isErr()) [[unlikely]] {
+        // Couldn't extend the range to outside the limiter. Don't warn this
+        // since the user may press Backspace or Delete at start or end of the
+        // editing host or a table cell/caption element.
+        return result.propagateErr();
+      }
       // DeleteSelectionWithTransaction() doesn't handle these actions
       // because it's inside batching, so don't confuse it:
       directionAndAmountResult = nsIEditor::eNone;
@@ -1507,10 +1535,12 @@ AutoClonedSelectionRangeArray::ExtendAnchorFocusRangeFor(
       if (NS_WARN_IF(aEditorBase.Destroyed())) {
         return Err(NS_ERROR_EDITOR_DESTROYED);
       }
-      NS_WARNING_ASSERTION(
-          result.isOk(),
-          "nsFrameSelection::CreateRangeExtendedToPreviousWordBoundary() "
-          "failed");
+      if (result.isErr()) [[unlikely]] {
+        // Couldn't extend the range to outside the limiter. Don't warn this
+        // since the user may press Backspace or Delete at start or end of the
+        // editing host or a table cell/caption element.
+        return result.propagateErr();
+      }
       // DeleteSelectionWithTransaction() doesn't handle these actions
       // because it's inside batching, so don't confuse it:
       directionAndAmountResult = nsIEditor::eNone;
@@ -1523,10 +1553,12 @@ AutoClonedSelectionRangeArray::ExtendAnchorFocusRangeFor(
       if (NS_WARN_IF(aEditorBase.Destroyed())) {
         return Err(NS_ERROR_EDITOR_DESTROYED);
       }
-      NS_WARNING_ASSERTION(result.isOk(),
-                           "nsFrameSelection::"
-                           "CreateRangeExtendedToNextGraphemeClusterBoundary() "
-                           "failed");
+      if (result.isErr()) [[unlikely]] {
+        // Couldn't extend the range to outside the limiter. Don't warn this
+        // since the user may press Backspace or Delete at start or end of the
+        // editing host or a table cell/caption element.
+        return result.propagateErr();
+      }
       // Don't set directionAndAmount to eNone (see Bug 502259)
       break;
     case nsIEditor::ePrevious: {
@@ -1577,10 +1609,12 @@ AutoClonedSelectionRangeArray::ExtendAnchorFocusRangeFor(
       if (NS_WARN_IF(aEditorBase.Destroyed())) {
         return Err(NS_ERROR_EDITOR_DESTROYED);
       }
-      NS_WARNING_ASSERTION(
-          result.isOk(),
-          "nsFrameSelection::"
-          "CreateRangeExtendedToPreviousGraphemeClusterBoundary() failed");
+      if (result.isErr()) [[unlikely]] {
+        // Couldn't extend the range to outside the limiter. Don't warn this
+        // since the user may press Backspace or Delete at start or end of the
+        // editing host or a table cell/caption element.
+        return result.propagateErr();
+      }
       break;
     }
     case nsIEditor::eToBeginningOfLine:
@@ -1590,10 +1624,12 @@ AutoClonedSelectionRangeArray::ExtendAnchorFocusRangeFor(
       if (NS_WARN_IF(aEditorBase.Destroyed())) {
         return Err(NS_ERROR_EDITOR_DESTROYED);
       }
-      NS_WARNING_ASSERTION(
-          result.isOk(),
-          "nsFrameSelection::CreateRangeExtendedToPreviousHardLineBreak() "
-          "failed");
+      if (result.isErr()) [[unlikely]] {
+        // Couldn't extend the range to outside the limiter. Don't warn this
+        // since the user may press Backspace or Delete at start or end of the
+        // editing host or a table cell/caption element.
+        return result.propagateErr();
+      }
       directionAndAmountResult = nsIEditor::eNone;
       break;
     case nsIEditor::eToEndOfLine:
@@ -1604,9 +1640,12 @@ AutoClonedSelectionRangeArray::ExtendAnchorFocusRangeFor(
       if (NS_WARN_IF(aEditorBase.Destroyed())) {
         return Err(NS_ERROR_EDITOR_DESTROYED);
       }
-      NS_WARNING_ASSERTION(
-          result.isOk(),
-          "nsFrameSelection::CreateRangeExtendedToNextHardLineBreak() failed");
+      if (result.isErr()) [[unlikely]] {
+        // Couldn't extend the range to outside the limiter. Don't warn this
+        // since the user may press Backspace or Delete at start or end of the
+        // editing host or a table cell/caption element.
+        return result.propagateErr();
+      }
       directionAndAmountResult = nsIEditor::eNext;
       break;
     default:

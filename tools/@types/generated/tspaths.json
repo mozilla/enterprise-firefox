@@ -46,9 +46,6 @@
       "chrome://browser/content/aiwindow/components/ai-sff-tab-selector.mjs": [
         "../../../browser/components/aiwindow/ui/components/ai-sff-tab-selector/ai-sff-tab-selector.mjs"
       ],
-      "chrome://browser/content/aiwindow/components/ai-website-chip.mjs": [
-        "../../../browser/components/aiwindow/ui/components/ai-website-chip/ai-website-chip.mjs"
-      ],
       "chrome://browser/content/aiwindow/components/ai-website-confirmation.mjs": [
         "../../../browser/components/aiwindow/ui/components/ai-website-confirmation/ai-website-confirmation.mjs"
       ],
@@ -129,6 +126,9 @@
       ],
       "chrome://browser/content/aiwindow/components/monitors-display.mjs": [
         "../../../browser/components/aiwindow/ui/components/monitors-display/monitors-display.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/smartwindow-chip.mjs": [
+        "../../../browser/components/aiwindow/ui/components/smartwindow-chip/smartwindow-chip.mjs"
       ],
       "chrome://browser/content/aiwindow/components/smartwindow-footer.mjs": [
         "../../../browser/components/aiwindow/ui/components/smartwindow-footer/smartwindow-footer.mjs"
@@ -340,6 +340,9 @@
       "chrome://browser/content/preferences/config/account-sync.mjs": [
         "../../../browser/components/preferences/config/account-sync.mjs"
       ],
+      "chrome://browser/content/preferences/config/default-browser.mjs": [
+        "../../../browser/components/preferences/config/default-browser.mjs"
+      ],
       "chrome://browser/content/preferences/config/downloads.mjs": [
         "../../../browser/components/preferences/config/downloads.mjs"
       ],
@@ -439,6 +442,12 @@
       "chrome://browser/content/sidebar/sidebar-tab-list.mjs": [
         "../../../browser/components/sidebar/sidebar-tab-list.mjs"
       ],
+      "chrome://browser/content/tabbrowser/drag-and-drop.mjs": [
+        "../../../browser/components/tabbrowser/content/drag-and-drop.mjs"
+      ],
+      "chrome://browser/content/tabbrowser/split-view-footer.mjs": [
+        "../../../browser/components/tabbrowser/content/split-view-footer.mjs"
+      ],
       "chrome://browser/content/tabbrowser/tab-groups-list.mjs": [
         "../../../browser/components/tabbrowser/content/tab-groups-list.mjs"
       ],
@@ -448,8 +457,14 @@
       "chrome://browser/content/tabbrowser/tab.mjs": [
         "../../../browser/components/tabbrowser/content/tab.mjs"
       ],
+      "chrome://browser/content/tabbrowser/tabgroup-menu.mjs": [
+        "../../../browser/components/tabbrowser/content/tabgroup-menu.mjs"
+      ],
       "chrome://browser/content/tabbrowser/tabgroup.mjs": [
         "../../../browser/components/tabbrowser/content/tabgroup.mjs"
+      ],
+      "chrome://browser/content/tabbrowser/tabnote-menu.mjs": [
+        "../../../browser/components/tabbrowser/content/tabnote-menu.mjs"
       ],
       "chrome://browser/content/tabbrowser/tabs.mjs": [
         "../../../browser/components/tabbrowser/content/tabs.mjs"
@@ -930,6 +945,9 @@
       ],
       "chrome://mozapps/content/extensions/components/aboutaddons-themes-picker.mjs": [
         "../../../toolkit/mozapps/extensions/content/components/aboutaddons-themes-picker.mjs"
+      ],
+      "chrome://mozapps/content/extensions/components/aboutaddons-themes-pickers.mjs": [
+        "../../../toolkit/mozapps/extensions/content/components/aboutaddons-themes-pickers.mjs"
       ],
       "chrome://mozapps/content/extensions/components/addon-card.mjs": [
         "../../../toolkit/mozapps/extensions/content/components/addon-card.mjs"
@@ -2212,6 +2230,9 @@
       "resource://devtools/client/application/src/actions/session-history.js": [
         "../../../devtools/client/application/src/actions/session-history.js"
       ],
+      "resource://devtools/client/application/src/actions/speculative-loads.js": [
+        "../../../devtools/client/application/src/actions/speculative-loads.js"
+      ],
       "resource://devtools/client/application/src/actions/ui.js": [
         "../../../devtools/client/application/src/actions/ui.js"
       ],
@@ -2322,6 +2343,9 @@
       ],
       "resource://devtools/client/application/src/reducers/session-history-state.js": [
         "../../../devtools/client/application/src/reducers/session-history-state.js"
+      ],
+      "resource://devtools/client/application/src/reducers/speculative-loads-state.js": [
+        "../../../devtools/client/application/src/reducers/speculative-loads-state.js"
       ],
       "resource://devtools/client/application/src/reducers/ui-state.js": [
         "../../../devtools/client/application/src/reducers/ui-state.js"
@@ -5659,9 +5683,6 @@
       "resource://gre/modules/AddonManager.sys.mjs": [
         "../../../toolkit/mozapps/extensions/AddonManager.sys.mjs"
       ],
-      "resource://gre/modules/AndroidLog.sys.mjs": [
-        "../../../mobile/android/modules/geckoview/AndroidLog.sys.mjs"
-      ],
       "resource://gre/modules/AppConstants.sys.mjs": [
         "../../../tools/@types/subs/AppConstants.sys.d.mts"
       ],
@@ -5769,6 +5790,9 @@
       ],
       "resource://gre/modules/ContentBlockingAllowList.sys.mjs": [
         "../../../toolkit/components/antitracking/ContentBlockingAllowList.sys.mjs"
+      ],
+      "resource://gre/modules/ContentClassifierRemoteSettingsClient.sys.mjs": [
+        "../../../toolkit/components/content-classifier/ContentClassifierRemoteSettingsClient.sys.mjs"
       ],
       "resource://gre/modules/ContentDOMReference.sys.mjs": [
         "../../../toolkit/modules/ContentDOMReference.sys.mjs"
@@ -6105,12 +6129,6 @@
       ],
       "resource://gre/modules/GeckoViewPictureInPicture.sys.mjs": [
         "../../../mobile/shared/modules/geckoview/GeckoViewPictureInPicture.sys.mjs"
-      ],
-      "resource://gre/modules/GeckoViewPreferences.sys.mjs": [
-        "../../../mobile/shared/components/geckoview/GeckoViewPreferences.sys.mjs"
-      ],
-      "resource://gre/modules/GeckoViewPrompter.sys.mjs": [
-        "../../../mobile/shared/components/geckoview/GeckoViewPrompter.sys.mjs"
       ],
       "resource://gre/modules/GeckoViewSessionStore.sys.mjs": [
         "../../../mobile/shared/modules/geckoview/GeckoViewSessionStore.sys.mjs"
@@ -6646,9 +6664,6 @@
       "resource://gre/modules/ctypes.sys.mjs": [
         "../../../toolkit/components/ctypes/ctypes.sys.mjs"
       ],
-      "resource://gre/modules/dbg-browser-actors.js": [
-        "../../../mobile/shared/modules/dbg-browser-actors.js"
-      ],
       "resource://gre/modules/handlers/HandlerList.sys.mjs": [
         "../../../uriloader/exthandler/HandlerList.sys.mjs"
       ],
@@ -6696,21 +6711,6 @@
       ],
       "resource://gre/modules/policies/macOSPoliciesParser.sys.mjs": [
         "../../../toolkit/components/enterprisepolicies/macOSPoliciesParser.sys.mjs"
-      ],
-      "resource://gre/modules/psm/DER.sys.mjs": [
-        "../../../security/manager/ssl/DER.sys.mjs"
-      ],
-      "resource://gre/modules/psm/QWACs.sys.mjs": [
-        "../../../security/manager/ssl/QWACs.sys.mjs"
-      ],
-      "resource://gre/modules/psm/RemoteSecuritySettings.sys.mjs": [
-        "../../../security/manager/ssl/RemoteSecuritySettings.sys.mjs"
-      ],
-      "resource://gre/modules/psm/X509.sys.mjs": [
-        "../../../security/manager/ssl/X509.sys.mjs"
-      ],
-      "resource://gre/modules/psm/pippki.sys.mjs": [
-        "../../../security/manager/pki/pippki.sys.mjs"
       ],
       "resource://gre/modules/services-automation/ServicesAutomation.sys.mjs": [
         "../../../services/automation/ServicesAutomation.sys.mjs"
@@ -7192,6 +7192,9 @@
       "resource://pdf.js/build/pdf.sandbox.external.sys.mjs": [
         "../../../toolkit/components/pdfjs/content/build/pdf.sandbox.external.sys.mjs"
       ],
+      "resource://pdf.js/build/pdf.worker.mjs": [
+        "../../../toolkit/components/pdfjs/content/build/pdf.worker.mjs"
+      ],
       "resource://pdf.js/web/wasm/jbig2_nowasm_fallback.js": [
         "../../../toolkit/components/pdfjs/content/web/wasm/jbig2_nowasm_fallback.js"
       ],
@@ -7542,6 +7545,9 @@
       ],
       "resource://testing-common/BrowserTestUtils.sys.mjs": [
         "../../../testing/mochitest/BrowserTestUtils/BrowserTestUtils.sys.mjs"
+      ],
+      "resource://testing-common/ContentClassifierTestUtils.sys.mjs": [
+        "../../../toolkit/components/content-classifier/test/ContentClassifierTestUtils.sys.mjs"
       ],
       "resource://testing-common/ContentSharingMockServer.sys.mjs": [
         "../../../browser/components/sharing/tests/browser/ContentSharingMockServer.sys.mjs"

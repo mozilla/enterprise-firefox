@@ -196,6 +196,13 @@ urlbar:
           queried.
           The possible values are: `history`, `none`.
         type: string
+      semantic_distances: &semantic_distances
+        description: |
+          Comma separated list, aligned with `results`, of the cosine distance
+          between the search string and each semantic history result, converted
+          to an integer between 0 and 100. Non-semantic results have an empty
+          entry. Only recorded when semantic results were shown.
+        type: string
       chat_id: &chat_id
         description: |
           UUID for this smart window session. Unique identifier for each chat
@@ -218,6 +225,7 @@ urlbar:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2003067
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2027637
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2083810
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1800414#c2
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1805717#c4
@@ -226,6 +234,7 @@ urlbar:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2003067
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2027637
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2083810
     data_sensitivity:
       - interaction
     notification_emails:
@@ -793,6 +802,7 @@ urlbar:
           queried.
           The possible values are: `history`, `none`.
         type: string
+      semantic_distances: *semantic_distances
       chat_id: *chat_id
       intent: *intent
       model: *model
@@ -805,6 +815,7 @@ urlbar:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2027637
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2065249
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2083810
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1797265#c3
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1805717#c4
@@ -814,6 +825,7 @@ urlbar:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2027637
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2065249
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2083810
     data_sensitivity:
       - interaction
     notification_emails:

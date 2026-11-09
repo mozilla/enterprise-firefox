@@ -5,7 +5,7 @@
 //! An entry point for sending a crash ping.
 
 use crate::std::{env, io::stdin, path::PathBuf};
-use crate::{glean, logging, net::ping};
+use crate::{config::installation_path, glean, logging, net::ping, prefs::Prefs};
 
 /// What `CrashManager` writes to our stdin.
 ///
@@ -55,16 +55,7 @@ pub fn main() {
     #[cfg(all(not(mock), feature = "enterprise"))]
     init_console_address(&data_path);
 
-    #[cfg_attr(any(mock, not(feature = "enterprise")), allow(unused_mut))]
-    let mut options = glean::InitOptions::new(data_path.into()).with_profile_dir(profile_dir);
-    // No `ServerURL` annotation is available here, so the endpoint is derived
-    // from the console address resolved above.
-    #[cfg(all(not(mock), feature = "enterprise"))]
-    options.set_server_endpoint(
-        crate::enterprise_prefs::console_glean_url(None)
-            .expect("failed to resolve the enterprise telemetry endpoint"),
-    );
-    let _glean_handle = options.init().expect("failed to acquire Glean store");
+    let _glean_handle = load_glean(data_path.into(), profile_dir);
 
     ping::CrashPing {
         extra: &extra,
@@ -93,14 +84,7 @@ pub fn cleanup_main() {
     #[cfg(all(not(mock), feature = "enterprise"))]
     init_console_address(&data_path);
 
-    #[cfg_attr(any(mock, not(feature = "enterprise")), allow(unused_mut))]
-    let mut options = glean::InitOptions::new(data_path.into()).with_profile_dir(profile_dir);
-    #[cfg(all(not(mock), feature = "enterprise"))]
-    options.set_server_endpoint(
-        crate::enterprise_prefs::console_glean_url(None)
-            .expect("failed to resolve the enterprise telemetry endpoint"),
-    );
-    let _glean_handle = options.init().expect("failed to acquire Glean store");
+    let _glean_handle = load_glean(data_path.into(), profile_dir.map(|s| s.into()));
 
     // Sleep for a short period for Glean to do its thing in the background (and so that
     // `glean::shutdown()` won't log a warning about waiting for init to complete).
@@ -108,6 +92,25 @@ pub fn cleanup_main() {
 
     // Glean shutdown will block (for a period) on at least one ping to be sent.
     ::glean::shutdown();
+}
+
+fn load_glean(data_path: PathBuf, profile_dir: Option<PathBuf>) -> crashping::GleanHandle {
+    let mut prefs = Prefs::default();
+    prefs.update_from_app_dir(installation_path());
+    if let Some(dir) = profile_dir {
+        prefs.update_from_profile_dir(dir.as_ref());
+    }
+
+    #[cfg_attr(any(mock, not(feature = "enterprise")), allow(unused_mut))]
+    let mut options = glean::InitOptions::new(data_path.into()).with_prefs(&prefs);
+    // No `ServerURL` annotation is available here, so the endpoint is derived
+    // from the console address resolved by `init_console_address`.
+    #[cfg(all(not(mock), feature = "enterprise"))]
+    options.set_server_endpoint(
+        crate::enterprise_prefs::console_glean_url(None)
+            .expect("failed to resolve the enterprise telemetry endpoint"),
+    );
+    options.init().expect("failed to acquire Glean store")
 }
 
 #[cfg(test)]

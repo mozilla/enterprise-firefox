@@ -7,6 +7,7 @@ Support for running jobs that are invoked via the `run-task` script.
 
 import dataclasses
 import functools
+import json
 import os
 from typing import Literal, Union
 from typing import Optional as TOptional
@@ -19,12 +20,26 @@ from taskgraph.util.schema import (
 )
 from taskgraph.util.yaml import load_yaml
 
-from gecko_taskgraph.transforms.job import run_job_using
+from gecko_taskgraph.transforms.job import get_platform, run_job_using
 from gecko_taskgraph.transforms.job.common import (
     add_tooltool,
     clone_type,
     support_vcs_checkout,
 )
+from gecko_taskgraph.util.sparse_profiles import (
+    git_checkout_is_full,
+    list_directory_files,
+    load_sparse_profile,
+    to_git_sparse_patterns,
+)
+
+
+@functools.cache
+def git_sparse_patterns(sparse_profile_path):
+    if git_checkout_is_full(sparse_profile_path):
+        return None
+    includes, excludes = load_sparse_profile(sparse_profile_path)
+    return json.dumps(to_git_sparse_patterns(includes, excludes, list_directory_files))
 
 
 class RunTaskSchema(Schema, kw_only=True):
@@ -109,12 +124,16 @@ def common_setup(config, job, taskdesc, command):
             )
         )
 
-    if clone_type(config, job) == "hg" and run["sparse-profile"]:
+    if run["sparse-profile"] and run["checkout"]:
         sparse_profile_prefix = run.pop(
             "sparse-profile-prefix", "build/sparse-profiles"
         )
         sparse_profile_path = path.join(sparse_profile_prefix, run["sparse-profile"])
-        command.append(f"--gecko-sparse-profile={sparse_profile_path}")
+        if clone_type(config, job) == "hg":
+            command.append(f"--gecko-sparse-profile={sparse_profile_path}")
+        elif patterns := git_sparse_patterns(sparse_profile_path):
+            command.append(f"--gecko-sparse-profile={sparse_profile_path}")
+            taskdesc["worker"].setdefault("env", {})["GECKO_SPARSE_PATTERNS"] = patterns
 
     if run_cwd:
         command.append(f"--task-cwd={run_cwd}")
@@ -134,6 +153,43 @@ worker_defaults = {
 
 
 load_yaml = functools.cache(load_yaml)
+
+RESOURCE_USAGE_ARTIFACT = "public/profile_run-task-resource-usage.json"
+
+# Fetch tasks providing abi3 wheels, which work with any python 3 version
+# run-task may run with, keyed by the platform of that python, as determined
+# in run-task. They are mounted rather than fetched with fetch-content because
+# resource usage is monitored from before fetch-content runs.
+PSUTIL_FETCHES = {
+    platform: f"psutil-{platform}"
+    for platform in (
+        "linux-x86_64",
+        "linux-aarch64",
+        "macosx-x86_64",
+        "macosx-arm64",
+        "win-amd64",
+        "win-arm64",
+    )
+}
+
+# The wheels to provide on each worker platform. The system python on arm64
+# workers may run natively, or as x86_64 under emulation.
+PSUTIL_PLATFORMS = {
+    "linux64": ["linux-x86_64"],
+    "linux64-aarch64": ["linux-aarch64"],
+    "macosx64": ["macosx-x86_64"],
+    "macosx64-aarch64": ["macosx-arm64", "macosx-x86_64"],
+    "win64": ["win-amd64"],
+    "win64-aarch64": ["win-arm64", "win-amd64"],
+}
+
+
+def psutil_platforms(job):
+    platform = get_platform(job)
+    worker_type = job["worker-type"]
+    if platform == "win64" and ("aarch64" in worker_type or "-a64" in worker_type):
+        platform = "win64-aarch64"
+    return PSUTIL_PLATFORMS[platform]
 
 
 def script_url(config, script):
@@ -177,6 +233,19 @@ def docker_worker_run_task(config, job, taskdesc):
     command.extend(run_command)
     worker["command"] = command
 
+    if run_task_bin == "run-task-git":
+        worker["env"]["RUN_TASK_STARTUP_HOOK"] = (
+            "/builds/worker/bin/run_task_resource_monitor.py"
+        )
+    profile_path = "/builds/worker/run-task-resource-usage.json"
+    worker["env"]["RUN_TASK_RESOURCE_USAGE"] = profile_path
+    worker["env"]["RUN_TASK_RESOURCE_USAGE_NAME"] = taskdesc["label"]
+    worker.setdefault("artifacts", []).append({
+        "name": RESOURCE_USAGE_ARTIFACT,
+        "path": profile_path,
+        "type": "file",
+    })
+
 
 @run_job_using(
     "generic-worker", "run-task", schema=RunTaskSchema, defaults=worker_defaults
@@ -209,6 +278,40 @@ def generic_worker_run_task(config, job, taskdesc):
             "url": script_url(config, run_task_bin),
         },
         "file": "./run-task",
+    })
+
+    worker["mounts"].append({
+        "content": {
+            "url": script_url(config, "run_task_resource_monitor.py"),
+        },
+        "file": "./run_task_resource_monitor.py",
+    })
+    if run_task_bin == "run-task-git":
+        worker["env"]["RUN_TASK_STARTUP_HOOK"] = "run_task_resource_monitor.py"
+    worker["mounts"].append({
+        "content": {
+            "url": script_url(config, "resourcemonitor.py"),
+        },
+        "file": "./mozsystemmonitor/resourcemonitor.py",
+    })
+    for psutil_platform in psutil_platforms(job):
+        fetch_label = f"fetch-{PSUTIL_FETCHES[psutil_platform]}"
+        taskdesc.setdefault("dependencies", {})[fetch_label] = fetch_label
+        worker["mounts"].append({
+            "content": {
+                "artifact": f"public/psutil-{psutil_platform}.whl",
+                "task-id": {"task-reference": f"<{fetch_label}>"},
+            },
+            "directory": f"./resource-monitor-deps/{psutil_platform}",
+            "format": "zip",
+        })
+    profile_path = "run-task-resource-usage.json"
+    worker["env"]["RUN_TASK_RESOURCE_USAGE"] = profile_path
+    worker["env"]["RUN_TASK_RESOURCE_USAGE_NAME"] = taskdesc["label"]
+    worker.setdefault("artifacts", []).append({
+        "name": RESOURCE_USAGE_ARTIFACT,
+        "path": profile_path,
+        "type": "file",
     })
 
     if (

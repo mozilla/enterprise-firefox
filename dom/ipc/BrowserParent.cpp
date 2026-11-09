@@ -140,10 +140,6 @@
 #include "nsSubDocumentFrame.h"
 #include "nsThreadUtils.h"
 
-#ifdef XP_WIN
-#  include "FxRWindowManager.h"
-#endif
-
 #if defined(XP_WIN) && defined(ACCESSIBILITY)
 #  include "mozilla/a11y/AccessibleWrap.h"
 #  include "mozilla/a11y/Compatibility.h"
@@ -2854,12 +2850,21 @@ mozilla::ipc::IPCResult BrowserParent::RecvReplyKeyEvent(
     localEvent.GetAccessKeyCandidates(accessCharCodes);
     if (esm->HandleAccessKey(&localEvent, presContext, accessCharCodes)) {
       status = nsEventStatus_eConsumeNoDefault;
+      // If there is a keyboard event listener, localEvent.PreventDefault() will
+      // be called by EventListenerManager. However, otherwise, the default
+      // shortcut keys in OS may be executed later unless we explicitly consume
+      // the event itself here. To prevent to execute both access key and
+      // shortcut key in OS, we should call PreventDefault() explicitly here.
+      localEvent.PreventDefault();
     }
   }
 
-  RefPtr<Element> frameElement = mFrameElement;
-  EventDispatcher::Dispatch(frameElement, presContext, &localEvent, nullptr,
-                            &status);
+  if (const RefPtr<Element> frameElement = mFrameElement) {
+    EventDispatcher::Dispatch(frameElement, presContext, &localEvent, nullptr,
+                              &status);
+  } else {
+    MOZ_ASSERT(localEvent.DefaultPrevented());
+  }
 
   if (!localEvent.DefaultPrevented() &&
       !localEvent.mFlags.mIsSynthesizedForTests) {
@@ -3935,7 +3940,8 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     nsTArray<IPCTransferableData>&& aTransferables, const uint32_t& aAction,
     Maybe<BigBuffer>&& aVisualDnDData, const uint32_t& aStride,
     const gfx::SurfaceFormat& aFormat, const LayoutDeviceIntRect& aDragRect,
-    nsIPrincipal* aPrincipal, nsIPolicyContainer* aPolicyContainer,
+    Tainted<RefPtr<nsIPrincipal>>&& aPrincipal,
+    nsIPolicyContainer* aPolicyContainer,
     const CookieJarSettingsArgs& aCookieJarSettingsArgs,
     const MaybeDiscarded<WindowContext>& aSourceWindowContext,
     const MaybeDiscarded<WindowContext>& aSourceTopWindowContext) {
@@ -3970,7 +3976,8 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     return IPC_OK();
   }
 
-  if (!Manager()->ValidatePrincipal(aPrincipal, {})) {
+  auto principal = Manager()->ValidatePrincipal(aPrincipal);
+  if (!principal) {
     return ContentParent::PrincipalValidationIpcFail(aPrincipal, this,
                                                      __func__);
   }
@@ -3980,7 +3987,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
                                       getter_AddRefs(cookieJarSettings));
 
   RefPtr<RemoteDragStartData> dragStartData = new RemoteDragStartData(
-      this, std::move(aTransferables), aDragRect, aPrincipal, aPolicyContainer,
+      this, std::move(aTransferables), aDragRect, *principal, aPolicyContainer,
       cookieJarSettings, aSourceWindowContext.GetMaybeDiscarded(),
       aSourceTopWindowContext.GetMaybeDiscarded());
 
@@ -4278,12 +4285,9 @@ mozilla::ipc::IPCResult BrowserParent::RecvScrollForKeyboard(
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvIsWindowSupportingProtectedMedia(
-    const uint64_t& aOuterWindowID,
-    IsWindowSupportingProtectedMediaResolver&& aResolve) {
+    const uint64_t&, IsWindowSupportingProtectedMediaResolver&& aResolve) {
 #ifdef XP_WIN
-  bool isFxrWindow =
-      FxRWindowManager::GetInstance()->IsFxRWindow(aOuterWindowID);
-  aResolve(!isFxrWindow);
+  aResolve(true);
 #else
 #  ifdef FUZZING_SNAPSHOT
   return IPC_FAIL(this, "Should only be called on Windows");
@@ -4295,15 +4299,8 @@ mozilla::ipc::IPCResult BrowserParent::RecvIsWindowSupportingProtectedMedia(
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvIsWindowSupportingWebVR(
-    const uint64_t& aOuterWindowID,
-    IsWindowSupportingWebVRResolver&& aResolve) {
-#ifdef XP_WIN
-  bool isFxrWindow =
-      FxRWindowManager::GetInstance()->IsFxRWindow(aOuterWindowID);
-  aResolve(!isFxrWindow);
-#else
+    const uint64_t&, IsWindowSupportingWebVRResolver&& aResolve) {
   aResolve(true);
-#endif
 
   return IPC_OK();
 }

@@ -33,10 +33,12 @@ MOZ_RUNINIT static StaticDataMutex<VideoBridgeTable> sVideoBridgeFromProcess(
     "VideoBridges");
 static Atomic<bool> sVideoBridgeParentShutDown(false);
 
-VideoBridgeParent::VideoBridgeParent(VideoBridgeSource aSource)
+VideoBridgeParent::VideoBridgeParent()
     : mMonitor("VideoBridgeParent::mMonitor"),
       mCompositorThreadHolder(CompositorThreadHolder::GetSingleton()),
-      mClosed(false) {
+      mClosed(false) {}
+
+void VideoBridgeParent::RegisterSingleton(VideoBridgeSource aSource) {
   auto videoBridgeFromProcess = sVideoBridgeFromProcess.Lock();
   switch (aSource) {
     case VideoBridgeSource::RddProcess:
@@ -63,12 +65,18 @@ VideoBridgeParent::~VideoBridgeParent() { UnregisterSingleton(); }
 /* static */
 void VideoBridgeParent::Open(Endpoint<PVideoBridgeParent>&& aEndpoint,
                              VideoBridgeSource aSource) {
-  RefPtr<VideoBridgeParent> parent = new VideoBridgeParent(aSource);
+  RefPtr<VideoBridgeParent> parent = new VideoBridgeParent();
+  // Other threads can take a reference from the singleton table at any time,
+  // so the bridge must only be published while we hold a strong reference.
+  parent->RegisterSingleton(aSource);
 
-  CompositorThread()->Dispatch(
-      NewRunnableMethod<Endpoint<PVideoBridgeParent>&&>(
-          "gfx::layers::VideoBridgeParent::Bind", parent,
-          &VideoBridgeParent::Bind, std::move(aEndpoint)));
+  nsIThread* thread = CompositorThread();
+  if (!thread || NS_FAILED(thread->Dispatch(
+                     NewRunnableMethod<Endpoint<PVideoBridgeParent>&&>(
+                         "gfx::layers::VideoBridgeParent::Bind", parent,
+                         &VideoBridgeParent::Bind, std::move(aEndpoint))))) {
+    parent->UnregisterSingleton();
+  }
 }
 
 void VideoBridgeParent::Bind(Endpoint<PVideoBridgeParent>&& aEndpoint) {
@@ -81,7 +89,7 @@ void VideoBridgeParent::Bind(Endpoint<PVideoBridgeParent>&& aEndpoint) {
 /* static */
 RefPtr<VideoBridgeParent> VideoBridgeParent::GetSingleton(
     const Maybe<VideoBridgeSource>& aSource) {
-  MOZ_ASSERT(aSource.isSome());
+  MOZ_RELEASE_ASSERT(aSource.isSome());
   auto videoBridgeFromProcess = sVideoBridgeFromProcess.Lock();
   switch (aSource.value()) {
     case VideoBridgeSource::RddProcess:
@@ -105,7 +113,7 @@ already_AddRefed<TextureHost> VideoBridgeParent::LookupTextureAsync(
     return nullptr;
   }
 
-  MOZ_ASSERT(mCompositorThreadHolder->IsInThread());
+  MOZ_RELEASE_ASSERT(mCompositorThreadHolder->IsInThread());
 
   const auto i = mTextureMap.find(aSerial);
   if (NS_WARN_IF(i == mTextureMap.end())) {
@@ -235,7 +243,7 @@ void VideoBridgeParent::ShutdownInternal() {
 
 /* static */
 void VideoBridgeParent::UnregisterExternalImages() {
-  MOZ_ASSERT(sVideoBridgeParentShutDown);
+  MOZ_RELEASE_ASSERT(sVideoBridgeParentShutDown);
 
   auto videoBridgeFromProcess = sVideoBridgeFromProcess.Lock();
   for (auto& bridgeParent : *videoBridgeFromProcess) {

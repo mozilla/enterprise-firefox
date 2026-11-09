@@ -303,7 +303,7 @@ class Http2StreamBase : public nsISupports,
   bool mClosed{false};
 
  private:
-  friend mozilla::DefaultDelete<Http2StreamBase>;
+  friend std::default_delete<Http2StreamBase>;
 
   [[nodiscard]] nsresult ParseHttpRequestHeaders(const char*, uint32_t,
                                                  uint32_t*);

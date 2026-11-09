@@ -8,23 +8,8 @@ task-defaults:
     worker:
         max-run-time: 7200
     run:
-        clone-with: hg
         script: repack_rust.py
         toolchain-artifact: public/build/rustc.tar.zst
-
-linux64-rust-1.90:
-    treeherder:
-        symbol: TL(rust-1.90)
-    run:
-        arguments: [
-            '--channel', '1.90.0',
-            '--host', 'x86_64-unknown-linux-gnu',
-            '--target', 'x86_64-unknown-linux-gnu',
-            '--target', 'i686-unknown-linux-gnu',
-            '--target', 'aarch64-unknown-linux-gnu',
-            '--target', 'wasm32-wasip1',
-        ]
-        toolchain-alias: linux64-rust-base
 
 linux64-rust-1.95:
     treeherder:
@@ -40,9 +25,12 @@ linux64-rust-1.95:
         ]
         toolchain-alias:
             by-project:
-                toolchains: linux64-rust-toolchain
+                toolchains:
+                    - linux64-rust-base
+                    - linux64-rust-toolchain
                 default:
                     - linux64-rust
+                    - linux64-rust-base
                     - linux64-rust-toolchain
 
 # A patched rust toolchain that allows us to use sanitizers in our vendored
@@ -402,6 +390,42 @@ linux64-rust-nightly-dev:
         fetch:
             - rust-nightly
         toolchain:
+            - linux64-clang-toolchain
+            - linux64-toolchain-sysroot
+
+linux64-rust-android-nightly-dev:
+    attributes:
+        cached_task: false
+    description: "build rust from source"
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: TL(rust-android-dev-nightly)
+    worker:
+        env:
+            # Work around https://github.com/rust-lang/rust/issues/105967
+            RUSTFLAGS_BOOTSTRAP: '-Clink-arg=-Wl,--undefined-version'
+            RUSTFLAGS_NOT_BOOTSTRAP: '-Clink-arg=-Wl,--undefined-version'
+    run:
+        arguments: [
+            '--patch', 'rust-vendor-std.patch',
+            '--patch', 'Zprofile.patch',
+            '--channel', 'dev',
+            '--host', 'x86_64-unknown-linux-gnu',
+            '--target', 'x86_64-unknown-linux-gnu',
+            '--target', 'x86_64-linux-android',
+        ]
+        resources:
+            - build/build-rust/rust-vendor-std.patch
+            - build/build-rust/Zprofile.patch
+        toolchain-alias:
+            by-project:
+                toolchains: linux64-rust-android-dev
+                default: null
+    fetches:
+        fetch:
+            - rust-nightly
+        toolchain:
+            - android-ndk-linux
             - linux64-clang-toolchain
             - linux64-toolchain-sysroot
 

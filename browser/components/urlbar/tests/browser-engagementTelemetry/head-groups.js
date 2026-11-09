@@ -427,6 +427,7 @@ async function doSemanticHistoryTest({ trigger, assert }) {
         title: "Test Page",
         url: historyUrl,
         frecency: 100,
+        distance: 0.25,
       },
     ],
     async () => {

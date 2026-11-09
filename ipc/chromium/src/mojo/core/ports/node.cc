@@ -268,8 +268,8 @@ int Node::ClosePort(const PortRef& port_ref) {
              << name_ << " to " << peer_port_name << "@" << peer_node_name;
     delegate_->ForwardEvent(
         peer_node_name,
-        mozilla::MakeUnique<ObserveClosureEvent>(
-            peer_port_name, port_ref.name(), sequence_num, last_sequence_num));
+        std::make_unique<ObserveClosureEvent>(peer_port_name, port_ref.name(),
+                                              sequence_num, last_sequence_num));
     for (const auto& message : undelivered_messages) {
       for (size_t i = 0; i < message->num_ports(); ++i) {
         PortRef ref;
@@ -337,7 +337,7 @@ int Node::GetMessage(const PortRef& port_ref,
     if (*message &&
         (*message)->sequence_num() == port->sequence_num_to_acknowledge) {
       peer_node_name = port->peer_node_name;
-      ack_event = mozilla::MakeUnique<UserMessageReadAckEvent>(
+      ack_event = std::make_unique<UserMessageReadAckEvent>(
           port->peer_port_name, port_ref.name(),
           port->next_control_sequence_num_to_send++,
           port->sequence_num_to_acknowledge);
@@ -422,7 +422,7 @@ int Node::SetAcknowledgeRequestInterval(
   }
 
   delegate_->ForwardEvent(peer_node_name,
-                          mozilla::MakeUnique<UserMessageReadAckRequestEvent>(
+                          std::make_unique<UserMessageReadAckRequestEvent>(
                               peer_port_name, port_ref.name(), sequence_num,
                               sequence_num_to_request_ack));
   return OK;
@@ -436,8 +436,7 @@ bool Node::IsEventFromPreviousPeer(const Event& event) {
       // PortAccepted is sent by the next peer
       return false;
     case Event::Type::kObserveProxy:
-      // ObserveProxy with an invalid port name is a broadcast event
-      return event.port_name() != kInvalidPortName;
+      return true;
     case Event::Type::kObserveProxyAck:
       return true;
     case Event::Type::kObserveClosure:
@@ -501,8 +500,8 @@ int Node::AcceptEvent(const NodeName& from_node, ScopedEvent event) {
 
   if (!IsEventFromPreviousPeer(*event)) {
     DCHECK_EQ(event->control_sequence_num(), kInvalidSequenceNum);
-    // Some events are not coming from the previous peer, e.g. broadcasts or
-    // PortAccepted events. No need to check the sequence number or sender.
+    // Some events are not coming from the previous peer, e.g. PortAccepted
+    // events. No need to check the sequence number or sender.
     return AcceptEventInternal(port_ref, from_node, std::move(event));
   }
 
@@ -591,7 +590,7 @@ int Node::MergePorts(const PortRef& port_ref,
 
   delegate_->ForwardEvent(
       pending_update_event.receiver,
-      mozilla::MakeUnique<UpdatePreviousPeerEvent>(
+      std::make_unique<UpdatePreviousPeerEvent>(
           pending_update_event.port, pending_update_event.from_port,
           pending_update_event.sequence_num, pending_update_event.new_prev_node,
           pending_update_event.new_prev_port));
@@ -608,9 +607,9 @@ int Node::MergePorts(const PortRef& port_ref,
 
   delegate_->ForwardEvent(
       destination_node_name,
-      mozilla::MakeUnique<MergePortEvent>(destination_port_name,
-                                          kInvalidPortName, kInvalidSequenceNum,
-                                          new_port_name, new_port_descriptor));
+      std::make_unique<MergePortEvent>(destination_port_name, kInvalidPortName,
+                                       kInvalidSequenceNum, new_port_name,
+                                       new_port_descriptor));
   return OK;
 }
 
@@ -629,6 +628,15 @@ int Node::LostConnectionToNode(const NodeName& node_name) {
            << node_name;
 
   DestroyAllPortsWithPeer(node_name, kInvalidPortName);
+  return OK;
+}
+
+int Node::CleanupDeadProxy(const NodeName& node_name,
+                           const PortName& port_name) {
+  DVLOG(1) << "Observing dead proxy in node " << name_ << " of peer "
+           << port_name << "@" << node_name;
+
+  DestroyAllPortsWithPeer(node_name, port_name);
   return OK;
 }
 
@@ -731,20 +739,6 @@ int Node::OnPortAccepted(const PortRef& port_ref,
 
 int Node::OnObserveProxy(const PortRef& port_ref,
                          mozilla::UniquePtr<ObserveProxyEvent> event) {
-  if (event->port_name() == kInvalidPortName) {
-    // An ObserveProxy with an invalid target port name is a broadcast used to
-    // inform ports when their peer (which was itself a proxy) has become
-    // defunct due to unexpected node disconnection.
-    //
-    // Receiving ports affected by this treat it as equivalent to peer closure.
-    // Proxies affected by this can be removed and will in turn broadcast their
-    // own death with a similar message.
-    DCHECK_EQ(event->proxy_target_node_name(), kInvalidNodeName);
-    DCHECK_EQ(event->proxy_target_port_name(), kInvalidPortName);
-    DestroyAllPortsWithPeer(event->proxy_node_name(), event->proxy_port_name());
-    return OK;
-  }
-
   // The port may have already been closed locally, in which case the
   // ObserveClosure message will contain the last_sequence_num field.
   // We can then silently ignore this message.
@@ -780,7 +774,7 @@ int Node::OnObserveProxy(const PortRef& port_ref,
                               event->proxy_target_node_name(),
                               event->proxy_target_port_name());
         event_target_node = event->proxy_node_name();
-        event_to_forward = mozilla::MakeUnique<ObserveProxyAckEvent>(
+        event_to_forward = std::make_unique<ObserveProxyAckEvent>(
             event->proxy_port_name(), port_ref.name(), sequence_num,
             port->next_sequence_num_to_send - 1);
         peer_changed = true;
@@ -802,9 +796,9 @@ int Node::OnObserveProxy(const PortRef& port_ref,
                  << "@" << event->proxy_node_name();
 
         port->send_on_proxy_removal =
-            mozilla::MakeUnique<std::pair<NodeName, ScopedEvent>>(
+            std::make_unique<std::pair<NodeName, ScopedEvent>>(
                 event->proxy_node_name(),
-                mozilla::MakeUnique<ObserveProxyAckEvent>(
+                std::make_unique<ObserveProxyAckEvent>(
                     event->proxy_port_name(), port_ref.name(),
                     kInvalidSequenceNum, kInvalidSequenceNum));
       }
@@ -1075,7 +1069,7 @@ int Node::OnUserMessageReadAckRequest(
       if (current_sequence_num >= event->sequence_num_to_acknowledge()) {
         // If the current sequence number to read already exceeds the ack
         // request, send an ack immediately.
-        event_to_send = mozilla::MakeUnique<UserMessageReadAckEvent>(
+        event_to_send = std::make_unique<UserMessageReadAckEvent>(
             port->peer_port_name, port_ref.name(),
             port->next_control_sequence_num_to_send++, current_sequence_num);
 
@@ -1148,7 +1142,7 @@ int Node::OnUserMessageReadAck(
     // not been closed.
     if (port->sequence_num_acknowledge_interval && !port->peer_closed) {
       peer_node_name = port->peer_node_name;
-      ack_request_event = mozilla::MakeUnique<UserMessageReadAckRequestEvent>(
+      ack_request_event = std::make_unique<UserMessageReadAckRequestEvent>(
           port->peer_port_name, port_ref.name(),
           port->next_control_sequence_num_to_send++,
           port->last_sequence_num_acknowledged +
@@ -1371,7 +1365,7 @@ int Node::MergePortsInternal(const PortRef& port0_ref, const PortRef& port1_ref,
     for (const auto& pending_update_event : pending_update_events) {
       delegate_->ForwardEvent(
           pending_update_event.receiver,
-          mozilla::MakeUnique<UpdatePreviousPeerEvent>(
+          std::make_unique<UpdatePreviousPeerEvent>(
               pending_update_event.port, pending_update_event.from_port,
               pending_update_event.sequence_num,
               pending_update_event.new_prev_node,
@@ -1391,7 +1385,7 @@ int Node::MergePortsInternal(const PortRef& port0_ref, const PortRef& port1_ref,
           // If either end of the port cycle is closed, we propagate an
           // ObserveClosure event.
           closure_event_target_node = port->peer_node_name;
-          closure_event = mozilla::MakeUnique<ObserveClosureEvent>(
+          closure_event = std::make_unique<ObserveClosureEvent>(
               port->peer_port_name, port_ref->name(),
               port->next_control_sequence_num_to_send++,
               port->last_sequence_num_to_receive);
@@ -1513,7 +1507,7 @@ int Node::AcceptPort(const PortName& port_name,
 
   // Allow referring port to forward messages.
   delegate_->ForwardEvent(port_descriptor.referring_node_name,
-                          mozilla::MakeUnique<PortAcceptedEvent>(
+                          std::make_unique<PortAcceptedEvent>(
                               port_descriptor.referring_port_name,
                               kInvalidPortName, kInvalidSequenceNum));
 
@@ -1662,7 +1656,7 @@ int Node::PrepareToForwardUserMessage(const PortRef& forwarding_port_ref,
   for (auto& pending_update_event : peer_update_events) {
     delegate_->ForwardEvent(
         pending_update_event.receiver,
-        mozilla::MakeUnique<UpdatePreviousPeerEvent>(
+        std::make_unique<UpdatePreviousPeerEvent>(
             pending_update_event.port, pending_update_event.from_port,
             pending_update_event.sequence_num,
             pending_update_event.new_prev_node,
@@ -1790,7 +1784,7 @@ void Node::InitiateProxyRemoval(const PortRef& port_ref) {
   // Eventually, this node will receive ObserveProxyAck (or ObserveClosure if
   // the peer was closed in the meantime).
   delegate_->ForwardEvent(
-      peer_node_name, mozilla::MakeUnique<ObserveProxyEvent>(
+      peer_node_name, std::make_unique<ObserveProxyEvent>(
                           peer_port_name, port_ref.name(), sequence_num, name_,
                           port_ref.name(), peer_node_name, peer_port_name));
 }
@@ -1844,7 +1838,7 @@ void Node::TryRemoveProxy(const PortRef& port_ref) {
   if (should_erase) {
     delegate_->ForwardEvent(
         pending_update_event.receiver,
-        mozilla::MakeUnique<UpdatePreviousPeerEvent>(
+        std::make_unique<UpdatePreviousPeerEvent>(
             pending_update_event.port, pending_update_event.from_port,
             pending_update_event.sequence_num,
             pending_update_event.new_prev_node,
@@ -1910,7 +1904,7 @@ void Node::DestroyAllPortsWithPeer(const NodeName& node_name,
           // ObserveClosure to acknowledge it.
           closure_events.push_back(
               std::pair{port->peer_node_name,
-                        mozilla::MakeUnique<ObserveClosureEvent>(
+                        std::make_unique<ObserveClosureEvent>(
                             port->peer_port_name, local_port_ref.name(),
                             port->next_control_sequence_num_to_send++,
                             port->last_sequence_num_to_receive)});
@@ -1959,16 +1953,14 @@ void Node::DestroyAllPortsWithPeer(const NodeName& node_name,
   }
 
   for (const auto& proxy_name : dead_proxies_to_broadcast) {
-    // Broadcast an event signifying that this proxy is no longer functioning.
-    delegate_->BroadcastEvent(mozilla::MakeUnique<ObserveProxyEvent>(
-        kInvalidPortName, kInvalidPortName, kInvalidSequenceNum, name_,
-        proxy_name, kInvalidNodeName, kInvalidPortName));
+    // Broadcast that this proxy is no longer functioning.
+    delegate_->BroadcastDeadProxy(proxy_name);
 
     // Also process death locally since the port that points this closed one
     // could be on the current node.
     // Note: Although this is recursive, only a single port is involved which
     // limits the expected branching to 1.
-    DestroyAllPortsWithPeer(name_, proxy_name);
+    CleanupDeadProxy(name_, proxy_name);
   }
 
   // Close any ports referenced by undelivered messages.
@@ -2060,7 +2052,7 @@ void Node::MaybeResendAckRequest(const PortRef& port_ref) {
     }
 
     peer_node_name = port->peer_node_name;
-    ack_request_event = mozilla::MakeUnique<UserMessageReadAckRequestEvent>(
+    ack_request_event = std::make_unique<UserMessageReadAckRequestEvent>(
         port->peer_port_name, port_ref.name(),
         port->next_control_sequence_num_to_send++,
         port->last_sequence_num_acknowledged +
@@ -2085,7 +2077,7 @@ void Node::MaybeForwardAckRequest(const PortRef& port_ref) {
     }
 
     peer_node_name = port->peer_node_name;
-    ack_request_event = mozilla::MakeUnique<UserMessageReadAckRequestEvent>(
+    ack_request_event = std::make_unique<UserMessageReadAckRequestEvent>(
         port->peer_port_name, port_ref.name(),
         port->next_control_sequence_num_to_send++,
         port->sequence_num_to_acknowledge);
@@ -2113,7 +2105,7 @@ void Node::MaybeResendAck(const PortRef& port_ref) {
     }
 
     peer_node_name = port->peer_node_name;
-    ack_event = mozilla::MakeUnique<UserMessageReadAckEvent>(
+    ack_event = std::make_unique<UserMessageReadAckEvent>(
         port->peer_port_name, port_ref.name(),
         port->next_control_sequence_num_to_send++, last_sequence_num_read);
   }

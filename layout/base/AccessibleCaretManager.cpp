@@ -83,8 +83,9 @@ std::ostream& operator<<(
 AccessibleCaretManager::AccessibleCaretManager(PresShell* aPresShell)
     : AccessibleCaretManager{
           aPresShell,
-          Carets{aPresShell ? MakeUnique<AccessibleCaret>(aPresShell) : nullptr,
-                 aPresShell ? MakeUnique<AccessibleCaret>(aPresShell)
+          Carets{aPresShell ? std::make_unique<AccessibleCaret>(aPresShell)
+                            : nullptr,
+                 aPresShell ? std::make_unique<AccessibleCaret>(aPresShell)
                             : nullptr}} {}
 
 AccessibleCaretManager::AccessibleCaretManager(PresShell* aPresShell,
@@ -723,9 +724,8 @@ nsresult AccessibleCaretManager::SelectWordOrShortcut(const nsPoint& aPoint) {
   // If long tap point isn't selectable frame for caret and frame selection
   // can find a better frame for caret, we don't select a word.
   // See https://webcompat.com/issues/15953
-  nsIFrame::ContentOffsets offsets = ptFrame->GetContentOffsetsFromPoint(
-      ptInFrame,
-      nsIFrame::SKIP_HIDDEN | nsIFrame::IGNORE_NATIVE_ANONYMOUS_SUBTREE);
+  nsIFrame::ContentOffsets offsets =
+      ptFrame->GetContentOffsetsFromPointForSelection(ptInFrame);
   if (offsets.content) {
     RefPtr<nsFrameSelection> frameSelection = GetFrameSelection();
     if (frameSelection) {

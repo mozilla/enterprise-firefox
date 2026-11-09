@@ -770,7 +770,7 @@ NS_IMETHODIMP
 HttpBaseChannel::SetContentDispositionFilename(
     const nsAString& aContentDispositionFilename) {
   mContentDispositionFilename =
-      MakeUnique<nsString>(aContentDispositionFilename);
+      std::make_unique<nsString>(aContentDispositionFilename);
 
   // For safety reasons ensure the filename doesn't contain null characters and
   // replace them with underscores. We may later pass the extension to system
@@ -3340,6 +3340,14 @@ void WarnWrongMIMEOfScript(HttpBaseChannel* aChannel, nsIURI* aURI,
     return;
   }
 
+  // Worklets check the MIME type against the module type themselves, and
+  // report any mismatch as an error.
+  nsContentPolicyType internalType = aLoadInfo->InternalContentPolicyType();
+  if (internalType == nsIContentPolicy::TYPE_INTERNAL_AUDIOWORKLET ||
+      internalType == nsIContentPolicy::TYPE_INTERNAL_PAINTWORKLET) {
+    return;
+  }
+
   bool succeeded;
   MOZ_ALWAYS_SUCCEEDS(aChannel->GetRequestSucceeded(&succeeded));
   if (!succeeded) {
@@ -3391,13 +3399,22 @@ bool HttpBaseChannel::ShouldFilterOpaqueResponse(
     OpaqueResponseFilterFetch aFilterType) const {
   MOZ_ASSERT(ShouldBlockOpaqueResponse());
 
-  if (!mLoadInfo || ConfiguredFilterFetchResponseBehaviour() != aFilterType) {
+  if (!mLoadInfo) {
+    return false;
+  }
+
+  auto contentPolicy = mLoadInfo->InternalContentPolicyType();
+  if (contentPolicy == nsIContentPolicy::TYPE_PING) {
+    return true;
+  }
+
+  if (ConfiguredFilterFetchResponseBehaviour() != aFilterType) {
     return false;
   }
 
   // We should filter a response in the parent if it is opaque and is the result
   // of a fetch() function from the Fetch specification.
-  return mLoadInfo->InternalContentPolicyType() == nsIContentPolicy::TYPE_FETCH;
+  return contentPolicy == nsIContentPolicy::TYPE_FETCH;
 }
 
 bool HttpBaseChannel::ShouldBlockOpaqueResponse() const {
@@ -3570,12 +3587,11 @@ HttpBaseChannel::PerformOpaqueResponseSafelistCheckBeforeSniff() {
     return OpaqueResponse::Allow;
   }
 
-  // Regardless of if ORB is enabled or not, we check if we should filter the
-  // response in the parent. This way data won't reach a content process that
-  // will create a filtered `Response` object. This is enabled when
-  // 'browser.opaqueResponseBlocking.filterFetchResponse' is
-  // `OpaqueResponseFilterFetch::All`.
-  // See https://fetch.spec.whatwg.org/#concept-filtered-response-opaque
+  // Filter opaque ping responses in the parent regardless of prefs, and opaque
+  // fetch responses when 'browser.opaqueResponseBlocking.filterFetchResponse'
+  // is `OpaqueResponseFilterFetch::All`, so their bodies don't reach content
+  // processes. See
+  // https://fetch.spec.whatwg.org/#concept-filtered-response-opaque
   if (ShouldFilterOpaqueResponse(OpaqueResponseFilterFetch::All)) {
     mListener = new OpaqueResponseFilter(mListener);
 
@@ -4166,13 +4182,6 @@ HttpBaseChannel::GetEffectiveTRRMode(nsIRequest::TRRMode* aEffectiveTRRMode) {
 NS_IMETHODIMP
 HttpBaseChannel::GetTrrSkipReason(nsITRRSkipReason::value* aTrrSkipReason) {
   *aTrrSkipReason = mTRRSkipReason;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-HttpBaseChannel::GetIsLoadedBySocketProcess(bool* aResult) {
-  NS_ENSURE_ARG_POINTER(aResult);
-  *aResult = LoadLoadedBySocketProcess();
   return NS_OK;
 }
 
@@ -6765,13 +6774,27 @@ void HttpBaseChannel::MaybeFlushConsoleReports() {
 void HttpBaseChannel::DoDiagnosticAssertWhenOnStopNotCalledOnDestroy() {}
 
 bool HttpBaseChannel::Http3Allowed() const {
+  // Direct or MASQUE proxy is always h3-eligible. An HTTPS CONNECT proxy is too
+  // when the outer-proxy Happy Eyeballs feature is on (h3 discovered via the
+  // proxy host's HTTPS RR).
+  nsProxyInfo* proxyInfo = static_cast<nsProxyInfo*>(mProxyInfo.get());
   bool allowedProxyInfo =
-      mProxyInfo ? (static_cast<nsProxyInfo*>(mProxyInfo.get())->IsDirect() ||
-                    static_cast<nsProxyInfo*>(mProxyInfo.get())->IsHttp3Proxy())
+      mProxyInfo ? (proxyInfo->IsDirect() || proxyInfo->IsHttp3Proxy() ||
+                    (proxyInfo->IsHTTPS() &&
+                     StaticPrefs::network_http_happy_eyeballs_proxy_enabled()))
                  : true;
-  // TODO: When mUpgradeProtocolCallback is not null, we should allow HTTP/3 for
-  // connect-udp.
-  return !mUpgradeProtocolCallback && allowedProxyInfo &&
+  // An upgrade (WebSocket / WebTransport) normally forbids HTTP/3, because
+  // extended CONNECT can't be issued before the peer's SETTINGS are known. A
+  // MASQUE proxy is the exception: its outer hop *is* HTTP/3 (CONNECT-UDP) and
+  // the upgrade rides the inner tunnel, so forbidding h3 here leaves nothing
+  // but a TCP attempt against a QUIC-only port, which can never connect. Only
+  // Happy Eyeballs dispatches the upgrade onto that tunnel, so the exception is
+  // tied to the same pref.
+  bool upgradeAllowsHttp3 =
+      !mUpgradeProtocolCallback ||
+      (mProxyInfo && proxyInfo->IsHttp3Proxy() &&
+       StaticPrefs::network_http_happy_eyeballs_proxy_enabled());
+  return upgradeAllowsHttp3 && allowedProxyInfo &&
          !(mCaps & NS_HTTP_BE_CONSERVATIVE) && !LoadBeConservative() &&
          LoadAllowHttp3();
 }
@@ -6782,7 +6805,7 @@ HttpBaseChannel::MaybeCloneResponseHeadForCachedResource() {
     return nullptr;
   }
 
-  return MakeUnique<nsHttpResponseHead>(*mResponseHead);
+  return std::make_unique<nsHttpResponseHead>(*mResponseHead);
 }
 
 void HttpBaseChannel::SetDummyChannelForCachedResource(
@@ -6791,9 +6814,9 @@ void HttpBaseChannel::SetDummyChannelForCachedResource(
   MOZ_ASSERT(!mResponseHead,
              "SetDummyChannelForCachedResource should only be called once");
   if (aMaybeResponseHead) {
-    mResponseHead = MakeUnique<nsHttpResponseHead>(*aMaybeResponseHead);
+    mResponseHead = std::make_unique<nsHttpResponseHead>(*aMaybeResponseHead);
   } else {
-    mResponseHead = MakeUnique<nsHttpResponseHead>();
+    mResponseHead = std::make_unique<nsHttpResponseHead>();
   }
 }
 

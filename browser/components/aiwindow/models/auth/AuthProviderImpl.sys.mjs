@@ -10,8 +10,33 @@
  *
  * @fires AuthProviderImpl#"AuthProviderImpl:Logout"
  *  When the user signs out of their account.
+ * @fires AuthProviderImpl#"AuthProviderImpl:FallbackNeeded"
+ *  When this backend can no longer be used and AuthProvider should switch to
+ *  another one. detail: { reason }, recorded as the reason key on
+ *  auth_impl_switched.
  */
 export class AuthProviderImpl extends EventTarget {
+  /**
+   * Clears any state this backend persisted. Called whenever another backend
+   * is selected, even if this one was never instantiated.
+   */
+  static cleanup() {}
+
+  /**
+   * Releases the runtime resources held by this instance. Called when another
+   * instance replaces it.
+   */
+  uninit() {}
+
+  /**
+   * The backend name recorded as the provider key on Smart Window telemetry.
+   *
+   * @type {string}
+   */
+  get providerName() {
+    throw new Error("Not implemented");
+  }
+
   /**
    * @returns {Promise<string|null>} The access token, or null if none could
    *   be obtained

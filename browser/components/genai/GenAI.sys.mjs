@@ -158,6 +158,20 @@ XPCOMUtils.defineLazyPreferenceGetter(
   null,
   (_pref, _old, val) => Glean.selectionMenu.searchEnabled.set(val)
 );
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "highlightToSearchIgnoredSites",
+  "browser.highlightToSearch.ignoredSites",
+  "",
+  updateIgnoredSites
+);
+const PREF_SELECTION_CALLOUT_SEEN = "browser.highlightToSearch.callout.seen";
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "highlightToSearchCalloutSeen",
+  PREF_SELECTION_CALLOUT_SEEN,
+  false
+);
 XPCOMUtils.defineLazyPreferenceGetter(lazy, "sidebarRevamp", "sidebar.revamp");
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -170,6 +184,64 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "browser.ml.chat.shortcut.onboardingMouseoverCount",
   0
 );
+
+const CALLOUT_CARET = {
+  half: 12.8301,
+  shoulder: 3.1211,
+  rise: 12.1074,
+  handle: 1.5199,
+  cap: 14.1043,
+};
+const CALLOUT_CARET_ROOM = 16;
+
+function calloutCardRadius(callout) {
+  const body = callout.querySelector(".panel-subview-body");
+  return parseFloat(
+    body.documentGlobal.getComputedStyle(body).borderTopLeftRadius
+  );
+}
+
+/**
+ * Outline of the callout card and its caret as a single closed path.
+ *
+ * @param {number} width card width
+ * @param {number} height card height
+ * @param {number} radius card corner radius
+ * @param {number} caretX horizontal position the caret points at
+ * @param {boolean} above whether the caret sits on the bottom edge
+ * @returns {string} value for the path's d attribute
+ */
+function calloutOutlinePath(width, height, radius, caretX, above) {
+  const n = v => Math.round(v * 100) / 100;
+  const c = CALLOUT_CARET;
+  const r = radius;
+  const x = Math.max(r + c.half, Math.min(width - r - c.half, caretX));
+  const arc = (dx, dy) => `A${r} ${r} 0 0 1 ${n(dx)} ${n(dy)}`;
+  if (!above) {
+    return (
+      `M${n(x - c.shoulder)} ${n(-c.rise)}` +
+      `C${n(x - c.handle)} ${n(-c.cap)} ${n(x + c.handle)} ${n(-c.cap)} ` +
+      `${n(x + c.shoulder)} ${n(-c.rise)}` +
+      `L${n(x + c.half)} 0H${n(width - r)}${arc(width, r)}` +
+      `V${n(height - r)}${arc(width - r, height)}H${r}${arc(0, height - r)}` +
+      `V${r}${arc(r, 0)}H${n(x - c.half)}Z`
+    );
+  }
+  return (
+    `M${r} 0H${n(width - r)}${arc(width, r)}V${n(height - r)}` +
+    `${arc(width - r, height)}H${n(x + c.half)}` +
+    `L${n(x + c.shoulder)} ${n(height + c.rise)}` +
+    `C${n(x + c.handle)} ${n(height + c.cap)} ${n(x - c.handle)} ` +
+    `${n(height + c.cap)} ${n(x - c.shoulder)} ${n(height + c.rise)}` +
+    `L${n(x - c.half)} ${n(height)}H${r}${arc(0, height - r)}V${r}${arc(r, 0)}Z`
+  );
+}
+
+function markSelectionCalloutSeen() {
+  if (!lazy.highlightToSearchCalloutSeen) {
+    Services.prefs.setBoolPref(PREF_SELECTION_CALLOUT_SEEN, true);
+  }
+}
 
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
@@ -375,6 +447,54 @@ export const GenAI = {
   },
 
   /**
+   * @param {Window} window browser window of the context menu
+   * @returns {boolean} whether the selection menu was turned off and can be
+   *   turned back on from the context menu
+   */
+  canTurnOnSelectionMenu(window) {
+    return (
+      lazy.highlightToSearchFeatureGate &&
+      !lazy.highlightToSearchEnabled &&
+      !lazy.AIWindow.isAIWindowActive(window)
+    );
+  },
+
+  /**
+   * Turn the selection menu back on and show it over the selection that was
+   * right-clicked. Turning every action off is what turned it off, which isn't
+   * a preference worth restoring, so each action comes back too.
+   *
+   * @param {WindowGlobalParent} windowGlobal frame that was right-clicked
+   * @param {{screenXDevPx: number, screenYDevPx: number}} point where the
+   *   context menu was opened
+   */
+  turnOnSelectionMenu(windowGlobal, point) {
+    Services.prefs.setBoolPref("browser.highlightToSearch.enabled", true);
+    this.markSelectionCalloutSeen();
+    if (
+      !this.canShowAIAction &&
+      !lazy.highlightToSearchSearchEnabled &&
+      !lazy.highlightToSearchCopyEnabled
+    ) {
+      Services.prefs.setBoolPref("browser.ml.chat.shortcuts", true);
+      Services.prefs.setBoolPref(
+        "browser.highlightToSearch.search.enabled",
+        true
+      );
+      Services.prefs.setBoolPref(
+        "browser.highlightToSearch.copy.enabled",
+        true
+      );
+    }
+    Glean.selectionMenu.optionToggled.record({
+      action: "master",
+      enabled: true,
+      source: "context_menu",
+    });
+    windowGlobal.getActor("GenAI").sendAsyncMessage("ShowSelectionMenu", point);
+  },
+
+  /**
    * @returns {bool} can show
    */
   get canShowSelectionMenu() {
@@ -388,6 +508,8 @@ export const GenAI = {
     }
     return lazy.chatShortcuts && this.canShowChatEntrypoint;
   },
+
+  markSelectionCalloutSeen,
 
   /**
    * Handle startup tasks like telemetry, adding listeners.
@@ -406,10 +528,12 @@ export const GenAI = {
     lazy.chatProviders;
     lazy.chatShortcuts;
     lazy.chatShortcutsIgnoreFields;
+    lazy.highlightToSearchIgnoredSites;
 
     // Apply initial ordering of providers
     reorderChatProviders();
     updateIgnoredInputs();
+    updateIgnoredSites();
 
     // Handle nimbus feature pref setting
     const feature = lazy.NimbusFeatures.chatbot;
@@ -636,11 +760,9 @@ export const GenAI = {
       const copyVisible = this.canShowCopyAction;
       copyActionButton.hidden = !copyVisible;
       moreActionsButton.hidden = !this.canShowMoreActions;
-      moreActionsSeparator.hidden = moreActionsButton.hidden;
-      return {
-        hasActions: aiVisible || !!searchEngine || copyVisible,
-        searchEngine,
-      };
+      const hasActions = aiVisible || !!searchEngine || copyVisible;
+      moreActionsSeparator.hidden = moreActionsButton.hidden || !hasActions;
+      return { hasActions, searchEngine };
     };
 
     panel.resetCopyConfirmation = () => {
@@ -728,11 +850,193 @@ export const GenAI = {
     const moreActionsPanel = document.getElementById(
       "selection-more-actions-panel"
     );
-    panel.hide = () => {
+    let calloutPanel = null;
+    const isCalloutOpen = () =>
+      !!calloutPanel && calloutPanel.state != "closed";
+    const calloutTarget = () =>
+      [searchActionButton, aiActionButton, copyActionButton].find(
+        button => !button.hidden
+      ) ?? moreActionsButton;
+
+    const createCallout = () => {
+      const popupSet = document.getElementById("mainPopupSet");
+      const template = document.getElementById("selectionCalloutTemplate");
+      const callout = popupSet.appendChild(
+        document.importNode(template.content, true).firstElementChild
+      );
+      const calloutBody = callout.querySelector(".panel-subview-body");
+      const calloutShape = callout.querySelector(".selection-callout-shape");
+      const calloutEdge = callout.querySelector(".selection-callout-edge");
+      const win = document.defaultView;
+
+      const drawCalloutOutline = () => {
+        const card = calloutBody.getBoundingClientRect();
+        const target = calloutTarget().getBoundingClientRect();
+        const above = card.top < target.top;
+        const caretX = target.left + target.width / 2 - card.left;
+        const radius = calloutCardRadius(callout);
+        calloutShape.setAttribute(
+          "viewBox",
+          `0 ${-CALLOUT_CARET_ROOM} ${card.width} ${
+            card.height + CALLOUT_CARET_ROOM * 2
+          }`
+        );
+        calloutShape.setAttribute("width", card.width);
+        calloutShape.setAttribute(
+          "height",
+          card.height + CALLOUT_CARET_ROOM * 2
+        );
+        calloutEdge.setAttribute(
+          "d",
+          calloutOutlinePath(card.width, card.height, radius, caretX, above)
+        );
+      };
+      const resizeObserver = new win.ResizeObserver(drawCalloutOutline);
+
+      callout.addEventListener("popupshown", event => {
+        if (event.target != callout) {
+          return;
+        }
+        if (panel.state != "open") {
+          callout.hidePopup();
+          return;
+        }
+        markSelectionCalloutSeen();
+        drawCalloutOutline();
+        resizeObserver.observe(calloutBody);
+      });
+      callout.addEventListener("popuphidden", event => {
+        if (event.target != callout) {
+          return;
+        }
+        resizeObserver.disconnect();
+        moreActionsButton.removeAttribute("highlighted");
+      });
+      // The link is replaced each time the sentence is translated, so listen on
+      // the sentence.
+      const message = callout.querySelector(".selection-callout-message");
+      const isMoreLink = event =>
+        event.target.closest(".selection-callout-more-link");
+      message.addEventListener("mouseover", event => {
+        if (isMoreLink(event)) {
+          moreActionsButton.toggleAttribute("highlighted", true);
+        }
+      });
+      message.addEventListener("mouseout", event => {
+        if (isMoreLink(event)) {
+          moreActionsButton.removeAttribute("highlighted");
+        }
+      });
+      message.addEventListener("click", event => {
+        if (isMoreLink(event)) {
+          moreActionsButton.click();
+        }
+      });
+      message.addEventListener("keydown", event => {
+        if (isMoreLink(event) && (event.key == "Enter" || event.key == " ")) {
+          event.preventDefault();
+          moreActionsButton.click();
+        }
+      });
+      return callout;
+    };
+
+    panel.hideCallout = () => {
+      calloutPanel?.hidePopup();
+    };
+    const shouldShowCallout = () =>
+      panel.state == "open" &&
+      !panel.hasAttribute("ime-hiding") &&
+      moreActionsPanel.state == "closed" &&
+      chatShortcutsOptionsPanel.state == "closed" &&
+      !lazy.highlightToSearchCalloutSeen &&
+      !moreActionsButton.hidden &&
+      (!searchActionButton.hidden || !copyActionButton.hidden) &&
+      !isCalloutOpen();
+    panel.showCallout = async () => {
+      if (!shouldShowCallout()) {
+        return;
+      }
+      calloutPanel ??= createCallout();
+      await document.l10n.translateElements([
+        calloutPanel.querySelector(".selection-callout-title"),
+        calloutPanel.querySelector(".selection-callout-message"),
+      ]);
+      if (!shouldShowCallout()) {
+        return;
+      }
+      const strip = moreActionsButton.parentNode.getBoundingClientRect();
+      const target = calloutTarget().getBoundingClientRect();
+      const targetCenter = target.left + target.width / 2;
+      const fromStart = Services.locale.isAppLocaleRTL
+        ? strip.right - targetCenter
+        : targetCenter - strip.left;
+      calloutPanel.openPopup(
+        moreActionsButton.parentNode,
+        "after_start",
+        fromStart - calloutCardRadius(calloutPanel) - CALLOUT_CARET.half,
+        0
+      );
+    };
+    const openBelowBar = popup => {
+      if (lazy.highlightToSearchFeatureGate) {
+        const content = panel.shadowRoot?.querySelector("[part=content]");
+        popup.openPopup(content ?? panel, "after_start", 0, 2);
+      } else {
+        popup.openPopup(panel, "after_start", 0, 10);
+      }
+    };
+    panel.hideDropdowns = () => {
       chatShortcutsOptionsPanel.hidePopup();
       moreActionsPanel.hidePopup();
+    };
+    panel.hide = () => {
+      panel.hideDropdowns();
+      panel.hideCallout();
       panel.hidePopup();
     };
+
+    // Tell the page whether a dropdown is open, so that Escape in the page
+    // closes just the dropdown.
+    const sendDropdownState = () => {
+      if (!lazy.highlightToSearchFeatureGate) {
+        return;
+      }
+      const open =
+        chatShortcutsOptionsPanel.state != "closed" ||
+        moreActionsPanel.state != "closed";
+      const windowGlobal = panel.selectionData?.windowGlobal;
+      if (windowGlobal?.isCurrentGlobal) {
+        windowGlobal.getActor("GenAI").sendAsyncMessage("DropdownState", open);
+      }
+    };
+    for (const dropdown of [chatShortcutsOptionsPanel, moreActionsPanel]) {
+      for (const type of ["popupshown", "popuphidden"]) {
+        dropdown.addEventListener(type, event => {
+          if (event.target == dropdown) {
+            sendDropdownState();
+          }
+        });
+      }
+    }
+    document.addEventListener("keydown", event => {
+      if (
+        event.key != "Escape" ||
+        event.defaultPrevented ||
+        !lazy.highlightToSearchFeatureGate ||
+        panel.state != "open"
+      ) {
+        return;
+      }
+      if (
+        chatShortcutsOptionsPanel.state != "closed" ||
+        moreActionsPanel.state != "closed"
+      ) {
+        panel.hideDropdowns();
+      } else {
+        panel.hide();
+      }
+    });
     panel.startDisplay = smartWindow => {
       panel.display = {
         start: ChromeUtils.now(),
@@ -758,9 +1062,15 @@ export const GenAI = {
         smart_window: smartWindow,
       });
     };
+    panel.addEventListener("popupshown", event => {
+      if (event.target == panel) {
+        panel.showCallout();
+      }
+    });
     panel.addEventListener("popuphidden", event => {
       if (event.target == panel) {
         panel.recordDismissed();
+        panel.hideCallout();
       }
     });
     aiActionButton.setAttribute("type", buttonDefaultState);
@@ -796,6 +1106,9 @@ export const GenAI = {
     searchToggle.iconSrc = "chrome://global/skin/icons/search-glass.svg";
     copyToggle.iconSrc = "chrome://global/skin/icons/edit-copy.svg";
 
+    const allOffNotice = document.getElementById("more-actions-all-off-notice");
+    let turnOffWhenClosed = false;
+
     const renderMoreActions = () => {
       // The chatbot row is absent, not unchecked, while the chatbot is blocked.
       aiToggle.hidden = !this.canOfferChatbot;
@@ -810,6 +1123,8 @@ export const GenAI = {
       aiToggle.pressed = lazy.chatShortcuts;
       searchToggle.pressed = lazy.highlightToSearchSearchEnabled;
       copyToggle.pressed = lazy.highlightToSearchCopyEnabled;
+      allOffNotice.hidden = true;
+      turnOffWhenClosed = false;
     };
 
     const hasEnabledAction = () =>
@@ -818,6 +1133,12 @@ export const GenAI = {
       lazy.highlightToSearchCopyEnabled;
 
     for (const { toggle, action, pref } of moreActionToggles) {
+      toggle.addEventListener("click", event => {
+        const target = event.composedTarget;
+        if (target != toggle.buttonEl && !toggle.labelEl?.contains(target)) {
+          toggle.buttonEl.click();
+        }
+      });
       toggle.addEventListener("toggle", () => {
         panel.editingActions = true;
         try {
@@ -830,19 +1151,8 @@ export const GenAI = {
           enabled: toggle.pressed,
           source: "menu",
         });
-        if (!hasEnabledAction()) {
-          Services.prefs.setBoolPref(
-            "browser.highlightToSearch.enabled",
-            false
-          );
-          Glean.selectionMenu.optionToggled.record({
-            action: "master",
-            enabled: false,
-            source: "uncheck_all",
-          });
-          panel.hide();
-          return;
-        }
+        turnOffWhenClosed = !hasEnabledAction();
+        allOffNotice.hidden = !turnOffWhenClosed;
         // Re-render the bar in place rather than waiting for the next
         // selection.
         panel.updateActions(
@@ -873,9 +1183,23 @@ export const GenAI = {
       if (event.target == moreActionsPanel) {
         moreActionsButton.setAttribute("type", buttonDefaultState);
         moreActionsButton.ariaExpanded = "false";
+        if (turnOffWhenClosed) {
+          turnOffWhenClosed = false;
+          Services.prefs.setBoolPref(
+            "browser.highlightToSearch.enabled",
+            false
+          );
+          Glean.selectionMenu.optionToggled.record({
+            action: "master",
+            enabled: false,
+            source: "uncheck_all",
+          });
+          panel.hide();
+        }
       }
     });
     moreActionsButton.addEventListener("click", async () => {
+      panel.hideCallout();
       if (moreActionsPanel.state != "closed") {
         moreActionsPanel.hidePopup();
         return;
@@ -889,7 +1213,7 @@ export const GenAI = {
         return;
       }
       moreActionsButton.setAttribute("type", buttonActiveState);
-      moreActionsPanel.openPopup(panel, "after_start", 0, 10);
+      openBelowBar(moreActionsPanel);
       const state = toggle => {
         if (toggle.hidden) {
           return "absent";
@@ -945,6 +1269,7 @@ export const GenAI = {
     // build the ask popup
     const buildPopup = async () => {
       moreActionsPanel.hidePopup();
+      panel.hideCallout();
       aiActionButton.setAttribute("type", buttonActiveState);
       const vbox = chatShortcutsOptionsPanel.querySelector("vbox");
       vbox.innerHTML = "";
@@ -997,7 +1322,9 @@ export const GenAI = {
         } else if (chatProvider?.name) {
           textAreaL10nId = "genai-input-ask-provider";
         } else {
-          textAreaL10nId = "genai-input-ask-generic";
+          textAreaL10nId = lazy.highlightToSearchFeatureGate
+            ? "genai-input-ask-ai"
+            : "genai-input-ask-generic";
         }
         document.l10n.setAttributes(textAreaEl, textAreaL10nId, {
           provider: chatProvider?.name,
@@ -1050,7 +1377,7 @@ export const GenAI = {
         });
       }
 
-      chatShortcutsOptionsPanel.openPopup(panel, "after_start", 0, 10);
+      openBelowBar(chatShortcutsOptionsPanel);
       Glean.genaiChatbot.shortcutsExpanded.record({
         selection: panel.selectionData.selection.length,
         provider: this.getProviderId(),
@@ -1068,7 +1395,7 @@ export const GenAI = {
       const mouseoverCounter = lazy.shortcutMouseoverCount;
       const maxMouseoverCount = 2;
 
-      if (mouseoverCounter >= maxMouseoverCount) {
+      if (mouseoverCounter >= maxMouseoverCount || isCalloutOpen()) {
         return;
       }
 
@@ -1106,8 +1433,10 @@ export const GenAI = {
    *   y: number,
    * }} data for the message
    * @param {MozBrowser} browser that provided the message
+   * @param {nsIURI} [documentURI] URI of the frame that sent the message
+   * @param {WindowGlobalParent} [windowGlobal] frame that sent the message
    */
-  handleShortcutsMessage(name, data, browser) {
+  handleShortcutsMessage(name, data, browser, documentURI, windowGlobal) {
     const isInBrowserStack = browser?.closest(".browserStack");
 
     const isSmartWindow =
@@ -1122,6 +1451,17 @@ export const GenAI = {
         ? !lazy.chatShortcutsSmartWindow
         : !this.canShowSelectionMenu)
     ) {
+      return;
+    }
+
+    if (
+      !isSmartWindow &&
+      lazy.highlightToSearchFeatureGate &&
+      this.isIgnoredSite(documentURI)
+    ) {
+      if (name == "GenAI:ShowShortcuts") {
+        Glean.selectionMenu.suppressed.record({ reason: "site_list" });
+      }
       return;
     }
 
@@ -1140,6 +1480,9 @@ export const GenAI = {
     }
 
     switch (name) {
+      case "GenAI:HideDropdowns":
+        shortcutPanel.hideDropdowns();
+        break;
       case "GenAI:HideShortcuts": {
         // For an IME selection change, hide via CSS
         // to avoid hidePopup() cancelling the active IME composition.
@@ -1148,14 +1491,22 @@ export const GenAI = {
         shortcutPanel.toggleAttribute("ime-hiding", imeHiding);
         if (imeHiding) {
           shortcutPanel.recordDismissed();
+          shortcutPanel.hideCallout();
         } else {
+          shortcutPanel.hide();
+        }
+        break;
+      }
+      case "GenAI:SuppressedShortcuts": {
+        if (!isSmartWindow && shortcutPanel.state != "closed") {
+          Glean.selectionMenu.suppressed.record({ reason: data.reason });
           shortcutPanel.hide();
         }
         break;
       }
       case "GenAI:ShowShortcuts": {
         // Save the latest selection so it can be used by popup
-        shortcutPanel.selectionData = { ...data, browser };
+        shortcutPanel.selectionData = { ...data, browser, windowGlobal };
         shortcutPanel.resetCopyConfirmation();
 
         // Smart Window has its own separate gate above and only ever offers
@@ -1171,10 +1522,16 @@ export const GenAI = {
           shortcutPanel.hide();
           return;
         }
+        if (!isSmartWindow && data.pageMenu) {
+          Glean.selectionMenu.suppressed.record({ reason: "page_menu" });
+          shortcutPanel.hide();
+          return;
+        }
 
         // Clear any CSS hide from a prior selectionchange so the panel
         // is visible when it opens for the new selection.
         shortcutPanel.removeAttribute("ime-hiding");
+        shortcutPanel.showCallout();
 
         shortcutPanel.recordDismissed();
         Glean.genaiChatbot.shortcutsDisplayed.record({
@@ -1289,6 +1646,25 @@ export const GenAI = {
     // Also, it's not useful for most Document Picture-in-Picture API use-cases.
     const isPopup = browser.documentGlobal.toolbar?.visible === false;
     return !browser.browsingContext?.isDocumentPiP && !isPopup;
+  },
+
+  /**
+   * Whether the page is on a site whose own menu for selected text the actions
+   * menu would overlap. A site in the list also matches its subdomains.
+   *
+   * @param {nsIURI | null} uri URI of the frame the selection is in
+   * @returns {boolean}
+   */
+  isIgnoredSite(uri) {
+    let host;
+    try {
+      host = uri.asciiHost;
+    } catch {
+      return false;
+    }
+    return this.ignoredSites.some(
+      site => host == site || host.endsWith("." + site)
+    );
   },
 
   /**
@@ -1558,7 +1934,10 @@ export const GenAI = {
       return;
     }
 
-    item.setAttribute("label", summarize.label);
+    item.setAttribute(
+      "label",
+      await lazy.l10n.formatValue("genai-menu-summarize-with-ai")
+    );
     if (summarize.badge && lazy.chatPageMenuBadge) {
       item.setAttribute("badge", summarize.badge);
     } else {
@@ -2209,6 +2588,16 @@ function reorderChatProviders() {
   // Hide unremoved providers before re-adding visible ones in order
   GenAI.chatProviders.forEach(val => (val.hidden = true));
   toSet.forEach(args => GenAI.chatProviders.set(...args));
+}
+
+/**
+ * Update ignored sites list.
+ */
+function updateIgnoredSites() {
+  GenAI.ignoredSites = lazy.highlightToSearchIgnoredSites
+    .split(",")
+    .map(site => site.trim().toLowerCase())
+    .filter(site => site);
 }
 
 /**

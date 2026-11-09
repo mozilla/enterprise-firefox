@@ -261,11 +261,6 @@ void JSRuntime::destroyRuntime() {
 
   gc.finish();
 
-  for (auto [f, data] : cleanupClosures.ref()) {
-    f(data);
-  }
-  cleanupClosures.ref().clear();
-
   js_delete(jitRuntime_.ref());
 
 #ifdef DEBUG
@@ -391,9 +386,25 @@ static bool InvokeInterruptCallbacks(JSContext* cx) {
   return stop;
 }
 
+class MOZ_RAII AutoSetRealmHandlingInterrupt {
+  Realm* realm_;
+  bool wasHandling_;
+
+ public:
+  explicit AutoSetRealmHandlingInterrupt(Realm* realm)
+      : realm_(realm), wasHandling_(realm->handlingInterrupt()) {
+    realm_->setHandlingInterrupt(true);
+  }
+  ~AutoSetRealmHandlingInterrupt() {
+    realm_->setHandlingInterrupt(wasHandling_);
+  }
+};
+
 static bool HandleInterrupt(JSContext* cx, bool invokeCallback,
                             bool oomStackTrace) {
   MOZ_ASSERT(!cx->zone()->isAtomsZone());
+
+  AutoSetRealmHandlingInterrupt markHandlingInterrupt(cx->realm());
 
   cx->runtime()->gc.gcIfRequested();
 
@@ -848,21 +859,21 @@ void JSRuntime::startRecordingAllocations(
 
   // Go through all of the existing realms, and turn on allocation tracking.
   for (RealmsIter realm(this); !realm.done(); realm.next()) {
-    realm->setAllocationMetadataBuilder(&SavedStacks::metadataBuilder);
+    realm->enableAllocationMetadataBuilder();
     realm->chooseAllocationSamplingProbability();
   }
 }
 
 void JSRuntime::stopRecordingAllocations() {
   recordAllocationCallback = nullptr;
-  // Go through all of the existing realms, and turn on allocation tracking.
+  // Go through all of the existing realms, and turn off allocation tracking.
   for (RealmsIter realm(this); !realm.done(); realm.next()) {
     js::GlobalObject* global = realm->maybeGlobal();
     if (!realm->isDebuggee() || !global ||
         !DebugAPI::isObservedByDebuggerTrackingAllocations(*global)) {
-      // Only remove the allocation metadata builder if no Debuggers are
+      // Only disable the allocation metadata builder if no Debuggers are
       // tracking allocations.
-      realm->forgetAllocationMetadataBuilder();
+      realm->disableAllocationMetadataBuilder();
     }
   }
 }
@@ -872,11 +883,7 @@ void JSRuntime::stopRecordingAllocations() {
 void JSRuntime::ensureRealmIsRecordingAllocations(
     Handle<GlobalObject*> global) {
   if (recordAllocationCallback) {
-    if (!global->realm()->isRecordingAllocations()) {
-      // This is a new realm, turn on allocations for it.
-      global->realm()->setAllocationMetadataBuilder(
-          &SavedStacks::metadataBuilder);
-    }
+    global->realm()->enableAllocationMetadataBuilder();
     // Ensure the probability is up to date with the current combination of
     // debuggers and runtime profiling.
     global->realm()->chooseAllocationSamplingProbability();

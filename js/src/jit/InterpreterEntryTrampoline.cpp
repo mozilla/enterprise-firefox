@@ -4,8 +4,12 @@
 
 #include "vm/Interpreter.h"
 
+#include "mozilla/Maybe.h"
+
 #include "gc/PublicIterators.h"
 #include "gc/Zone.h"
+#include "jit/JitContext.h"
+#include "jit/JitOptions.h"
 #include "jit/JitRuntime.h"
 #include "jit/JitZone.h"
 #include "jit/Linker.h"
@@ -25,10 +29,39 @@ EntryTrampolineMap* JitZone::getOrCreateInterpreterEntryMap(JS::Zone* zone) {
   return interpreterEntryMap.get();
 }
 
+JitCode* JitZone::getOrCreateInterpreterEntryTrampoline(JSContext* cx,
+                                                        JSScript* script) {
+  MOZ_ASSERT(JitOptions.emitInterpreterEntryTrampoline);
+  MOZ_ASSERT(script->zone()->jitZone() == this);
+
+  EntryTrampolineMap* map = getOrCreateInterpreterEntryMap(script->zone());
+  if (!map) {
+    ReportOutOfMemory(cx);
+    return nullptr;
+  }
+
+  auto ptr = map->lookupForAdd(script);
+  if (!ptr) {
+    JitCode* code =
+        cx->runtime()->jitRuntime()->generateEntryTrampolineForScript(cx,
+                                                                      script);
+    if (!code) {
+      return nullptr;
+    }
+    if (!map->relookupOrAdd(ptr, script, code)) {
+      ReportOutOfMemory(cx);
+      return nullptr;
+    }
+  }
+  return ptr->value();
+}
+
 void JitRuntime::generateBaselineInterpreterEntryTrampoline(
     MacroAssembler& masm) {
   AutoCreatedBy acb(masm,
                     "JitRuntime::generateBaselineInterpreterEntryTrampoline");
+
+  masm.indirectTarget(TargetKind::Call);
 
 #ifdef JS_USE_LINK_REGISTER
   masm.pushRegs(LinkRegister, FramePointer);
@@ -188,7 +221,7 @@ void JitRuntime::generateInterpreterEntryTrampoline(MacroAssembler& masm) {
 
   // If BLI is disabled, we don't need an offset.
   if (IsBaselineInterpreterEnabled()) {
-    uint32_t offset = startTrampolineCode(masm);
+    uint32_t offset = startTrampolineCode(masm, TargetKind::Call);
     if (!masm.oom()) {
       // The offset is shared by all per-script trampolines.
       if (!vmInterpreterEntryOffset_) {
@@ -196,6 +229,8 @@ void JitRuntime::generateInterpreterEntryTrampoline(MacroAssembler& masm) {
       }
       MOZ_RELEASE_ASSERT(vmInterpreterEntryOffset_ == offset);
     }
+  } else {
+    masm.indirectTarget(TargetKind::Call);
   }
 
 #ifdef JS_CODEGEN_ARM64
@@ -289,7 +324,12 @@ JitCode* JitRuntime::generateEntryTrampolineForScript(JSContext* cx,
   }
 
   TempAllocator temp(&cx->tempLifoAlloc());
-  JitContext jctx(cx);
+  // BaselineCompile already has a JitContext when it creates the JitScript.
+  mozilla::Maybe<JitContext> jctx;
+  if (!MaybeGetJitContext()) {
+    jctx.emplace(cx);
+  }
+  MOZ_ASSERT(GetJitContext()->cx == cx);
   StackMacroAssembler masm(cx, temp);
   AutoCreatedBy acb(masm, "JitRuntime::generateEntryTrampolineForScript");
   PerfSpewerRangeRecorder rangeRecorder(masm);

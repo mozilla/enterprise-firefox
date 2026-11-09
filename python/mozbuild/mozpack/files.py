@@ -1049,6 +1049,7 @@ class FileFinder(BaseFinder):
         self.find_dotfiles = find_dotfiles
         self.find_executables = find_executables
         self.ignore = tuple(mozpath.normsep(path) for path in ignore)
+        self._ignored = mozpath.matcher(self.ignore)
         self.ignore_broken_symlinks = ignore_broken_symlinks
 
     def _find(self, pattern):
@@ -1068,14 +1069,25 @@ class FileFinder(BaseFinder):
 
     def _find_dir(self, path):
         """
-        Actual implementation of FileFinder.find() when the given pattern
-        corresponds to an existing directory under the base directory.
-        Ignores file names starting with a '.' under the given path. If the
-        path itself has leafs starting with a '.', they are not ignored.
+        FileFinder.find() for a pattern that is an existing directory under
+        the base directory. Filters the files ``walk_unfiltered`` yields
+        through ``get``.
         """
-        for p in self.ignore:
-            if mozpath.match(path, p):
-                return
+        for child in self.walk_unfiltered(path):
+            if f := self.get(child, known_to_exist=True):
+                yield child, f
+
+    def walk_unfiltered(self, path):
+        """
+        Yield the files under the given directory, sorted by name at each
+        level. Ignored directories are skipped, but the files themselves are
+        not tested against ``ignore``, so check each one with ``get``. File
+        names starting with a '.' under the given path are skipped unless
+        ``find_dotfiles`` is set. If the path itself has leafs starting with a
+        '.', they are not ignored.
+        """
+        if self._ignored(path):
+            return
 
         entries = []
         with os.scandir(os.path.join(self.base, path)) as scan:
@@ -1091,9 +1103,9 @@ class FileFinder(BaseFinder):
         for name, is_dir in entries:
             child = mozpath.join(path, name)
             if is_dir:
-                yield from self._find_dir(child)
-            elif f := self.get(child, known_to_exist=True):
-                yield child, f
+                yield from self.walk_unfiltered(child)
+            else:
+                yield child
 
     def get(self, path, known_to_exist=False):
         srcpath = os.path.join(self.base, path)
@@ -1103,9 +1115,8 @@ class FileFinder(BaseFinder):
         if self.ignore_broken_symlinks and not os.path.exists(srcpath):
             return None
 
-        for p in self.ignore:
-            if mozpath.match(path, p):
-                return None
+        if self._ignored(path):
+            return None
 
         if self.find_executables and is_executable(srcpath):
             return ExecutableFile(srcpath)
@@ -1135,9 +1146,8 @@ class FileFinder(BaseFinder):
             if not os.path.exists(os.path.join(self.base, base)):
                 return
 
-            for p in self.ignore:
-                if mozpath.match(base, p):
-                    return
+            if self._ignored(base):
+                return
 
             # See above comment w.r.t. sorted() and idempotent behavior.
             for p in sorted(os.listdir(os.path.join(self.base, base))):

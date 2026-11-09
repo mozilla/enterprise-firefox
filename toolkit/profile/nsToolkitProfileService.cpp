@@ -116,7 +116,7 @@ nsTArray<UniquePtr<KeyValue>> GetSectionStrings(nsINIParser* aParser,
   nsTArray<UniquePtr<KeyValue>> strings;
   aParser->GetStrings(
       aSection, [&strings](const char* aString, const char* aValue) {
-        strings.AppendElement(MakeUnique<KeyValue>(aString, aValue));
+        strings.AppendElement(std::make_unique<KeyValue>(aString, aValue));
         return true;
       });
 
@@ -1488,10 +1488,10 @@ nsToolkitProfileService::SelectStartupProfile(
   int argc = aArgv.Length();
   // Our command line handling expects argv to be null-terminated so construct
   // an appropriate array.
-  auto argv = MakeUnique<char*[]>(argc + 1);
+  auto argv = std::make_unique<char*[]>(argc + 1);
   // Also, our command line handling removes things from the array without
   // freeing them so keep track of what we've created separately.
-  auto allocated = MakeUnique<UniqueFreePtr<char>[]>(argc);
+  auto allocated = std::make_unique<UniqueFreePtr<char>[]>(argc);
 
   for (int i = 0; i < argc; i++) {
     allocated[i].reset(ToNewCString(aArgv[i]));
@@ -2498,7 +2498,7 @@ nsresult nsToolkitProfileService::CreateTimesInternal(
   int64_t msec = PR_Now() / PR_USEC_PER_MSEC;
 
   nsCString times;
-  JSONWriter writer(MakeUnique<JSONStringRefWriteFunc>(times));
+  JSONWriter writer(std::make_unique<JSONStringRefWriteFunc>(times));
   writer.Start();
   {
     writer.IntProperty("created", msec);
@@ -2705,7 +2705,8 @@ nsToolkitProfileService::AsyncFlushCurrentProfile(JSContext* aCx,
     return result.StealNSResult();
   }
 
-  UniquePtr<CurrentProfileData> profileData = MakeUnique<CurrentProfileData>();
+  UniquePtr<CurrentProfileData> profileData =
+      std::make_unique<CurrentProfileData>();
   profileData->mStoreID = mCurrent->mStoreID;
   profileData->mShowSelector = mCurrent->mShowProfileSelector;
 
@@ -2787,7 +2788,7 @@ nsToolkitProfileService::AsyncFlush(JSContext* aCx, dom::Promise** aPromise) {
     return result.StealNSResult();
   }
 
-  UniquePtr<IniData> iniData = MakeUnique<IniData>();
+  auto iniData = std::make_unique<IniData>();
   BuildIniData(iniData->mProfiles, iniData->mInstalls);
 
   nsCOMPtr<nsIRemoteService> rs = GetRemoteService();

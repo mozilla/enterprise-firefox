@@ -50,7 +50,7 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import mozilla.components.compose.base.Dropdown2
+import mozilla.components.compose.base.Dropdown
 import mozilla.components.compose.base.button.FilledButton
 import mozilla.components.compose.base.menu.MenuItem.FixedItem.Level
 import mozilla.components.compose.base.modifier.thenConditional
@@ -131,7 +131,7 @@ fun DropdownMenu(
  * A dropdown menu that displays a list of [MenuItem]s. The menu can be expanded or collapsed and is displayed as a
  * popup anchored to the menu button that triggers it.
  *
- * Only to be used with [Dropdown2].
+ * Only to be used with [Dropdown].
  *
  * @param menuItems the list of [MenuItem]s to display in the menu.
  * @param expanded whether or not the menu is expanded.

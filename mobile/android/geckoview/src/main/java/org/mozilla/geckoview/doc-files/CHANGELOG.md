@@ -13,6 +13,22 @@ exclude: true
 
 ⚠️  breaking change and deprecation notices
 
+## v161
+- Added [`Autocomplete.CreditCard.securityCode`][161.1] and
+    [`Autocomplete.CreditCard.Builder.securityCode`][161.2] so the credit card security code (CVV)
+    can be passed to and from the [`Autocomplete.StorageDelegate`][161.3].
+    ([bug 2085419]({{bugzilla}}2085419))
+- Added [`GeckoRuntimeSettings.Builder.proguardUuid`][161.4] and
+    [`GeckoRuntimeSettings.getProguardUuid`][161.5] to set the UUID of the embedding app's
+    R8/ProGuard mapping file. It is recorded as `meta.proguardUuid` in Gecko profiles.
+    ([bug 2064150]({{bugzilla}}2064150))
+
+[161.1]: {{javadoc_uri}}/Autocomplete.CreditCard.html#securityCode
+[161.2]: {{javadoc_uri}}/Autocomplete.CreditCard.Builder.html#securityCode(java.lang.String)
+[161.3]: {{javadoc_uri}}/Autocomplete.StorageDelegate.html
+[161.4]: {{javadoc_uri}}/GeckoRuntimeSettings.Builder.html#proguardUuid(java.lang.String)
+[161.5]: {{javadoc_uri}}/GeckoRuntimeSettings.html#getProguardUuid()
+
 ## v160
 - The `content-disposition` header of the [`WebResponse`][65.15] passed to
     [`ContentDelegate.onExternalResponse`][160.1] now contains a filename validated with the same
@@ -64,13 +80,14 @@ exclude: true
 [156.6]: {{javadoc_uri}}/PageExtractionController.PageMetadata.html#PageMetadata(java.lang.String[],int,java.lang.String,boolean,boolean)
 
 ## v155
-- Added [WebRequestError.ERROR_LOCAL_NETWORK_ACCESS_DENIED] to indicate that a load failed because the user denied the local network access permission on Android 17+.
+- Added [`WebRequestError.ERROR_LOCAL_NETWORK_ACCESS_DENIED`][155.4] to indicate that a load failed because the user denied the local network access permission on Android 17+.
 - Added the [`IPProxyException.ERROR_CATASTROPHIC`][155.1] and [`IPProxyException.ERROR_VPN_UNAVAILABLE`][155.2]
   error codes for the [`IPProtectioController.activate`][155.3].
 
 [155.1]: {{javadoc_uri}}/IPProtectionController.IPProxyException.html#ERROR_CATASTROPHIC
 [155.2]: {{javadoc_uri}}/IPProtectionController.IPProxyException.html#ERROR_VPN_UNAVAILABLE
 [155.3]: {{javadoc_uri}}/IPProtectionController.html#activate(boolean,boolean,java.lang.String)
+[155.4]: {{javadoc_uri}}/WebRequestError.html#ERROR_LOCAL_NETWORK_ACCESS_DENIED
 
 ## v154
 - Added [`Autofill.Node.getDatalist`][154.1] to expose predefined values by [`datalist`][154.2] elements for input fields.
@@ -2107,4 +2124,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport(android.content.Context,android.os.Bundle,java.lang.String)
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: a2a30400e084298e8b1eb6a7570971d3f03979fc
+[api-version]: c87f638c6c41018ef267c4136185d8d9c48bbdd7

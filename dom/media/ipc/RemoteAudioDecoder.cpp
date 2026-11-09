@@ -100,6 +100,10 @@ RemoteAudioDecoderParent::RemoteAudioDecoderParent(
 
 IPCResult RemoteAudioDecoderParent::RecvConstruct(
     ConstructResolver&& aResolver) {
+  if (XRE_IsGPUProcess() && !mCDM) {
+    return IPC_FAIL(this, "Audio decoding in GPU process requires a CDM");
+  }
+
   if (mDecoder || mShutdown) {
     aResolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
     return IPC_OK();

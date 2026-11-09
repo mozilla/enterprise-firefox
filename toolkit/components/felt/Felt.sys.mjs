@@ -263,6 +263,15 @@ export class Felt {
       // their main thread demoted to low-priority QoS, which can starve the
       // SSO callback's DOMContentLoaded event and prevent token extraction.
       Services.prefs.setBoolPref("threads.use_low_power.enabled", false);
+      // FELT must not contact 3rd party services before sign-in.
+      // These must be set before the first await so they land ahead of
+      // Region's idle-dispatched fetch.
+      const defaults = Services.prefs.getDefaultBranch("");
+      defaults.setBoolPref("extensions.systemAddon.update.enabled", false);
+      defaults.setBoolPref("media.gmp-manager.updateEnabled", false);
+      defaults.setBoolPref("extensions.getAddons.cache.enabled", false);
+      defaults.setBoolPref("browser.region.update.enabled", false);
+      defaults.setCharPref("browser.region.network.url", "");
       await lazy.FeltStorage.init();
       if (await lazy.FeltStorage.recoverInterruptedSession()) {
         lazy.log.warn(

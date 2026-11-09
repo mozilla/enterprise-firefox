@@ -142,7 +142,7 @@ uint64_t FontFaceSetDocumentImpl::GetInnerWindowID() {
 
 FontVisibilityProvider* FontFaceSetDocumentImpl::GetFontVisibilityProvider()
     const {
-  mozilla::AssertIsMainThreadOrServoFontMetricsLocked();
+  mozilla::AssertIsMainThreadOrServoFFILocked();
   if (!mDocument) {
     return nullptr;
   }
@@ -633,9 +633,10 @@ StyleLockedFontFaceRule* FontFaceSetDocumentImpl::FindRuleForEntry(
   NS_ASSERTION(!aFontEntry->mIsUserFontContainer, "only platform font entries");
   for (uint32_t i = 0; i < mRuleFaces.Length(); ++i) {
     FontFaceImpl* f = mRuleFaces[i].mFontFace;
-    gfxUserFontEntry* entry = f->GetUserFontEntry();
-    if (entry && entry->GetPlatformFontEntry() == aFontEntry) {
-      return f->GetRule();
+    if (gfxUserFontEntry* entry = f->GetUserFontEntry()) {
+      if (entry->PlatformFontEntryEquals(aFontEntry)) {
+        return f->GetRule();
+      }
     }
   }
   return nullptr;

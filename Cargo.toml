@@ -157,7 +157,7 @@ exclude = [
 resolver = "2"
 
 [workspace.package]
-rust-version = "1.90.0"
+rust-version = "1.95.0"
 
 [workspace.dependencies]
 # Shared across multiple UniFFI consumers.
@@ -167,7 +167,7 @@ uniffi_pipeline = "0.32"
 # Shared across multiple application-services consumers.
 rusqlite = "0.37"
 # Shared across multiple glean consumers.
-glean = "=70.3.0"
+glean = "=71.0.0"
 
 # Explicitly specify what our profiles use.  The opt-level setting here is
 # a total fiction; see the setup of MOZ_RUST_DEFAULT_FLAGS for what the
@@ -278,6 +278,7 @@ backtrace = { path = "build/rust/backtrace" }
 
 # Patch bindgen 0.72 to 0.73
 bindgen = { package = "bindgen", path = "build/rust/bindgen" }
+bindgen_0_73 = { package = "bindgen", path = "third_party/rust/bindgen" }
 
 # Locally patch icu_normalizer to take fixes from the 2.3 track
 icu_collator = { path = "third_party/rust/icu_collator" }
@@ -285,8 +286,6 @@ icu_collator_data = { path = "third_party/rust/icu_collator_data" }
 icu_normalizer = { path = "third_party/rust/icu_normalizer" }
 icu_normalizer_data = { path = "third_party/rust/icu_normalizer_data" }
 icu_collections = { path = "third_party/rust/icu_collections" }
-utf8_iter = { path = "third_party/rust/utf8_iter" }
-utf16_iter = { path = "third_party/rust/utf16_iter" }
 icu_properties = { path = "third_party/rust/icu_properties" }
 icu_properties_data = { path = "third_party/rust/icu_properties_data" }
 
@@ -432,7 +431,7 @@ libcrux-traits = { path = "build/rust/libcrux-traits" }
 libdbus-sys = { path = "third_party/rust/libdbus-sys" }
 
 # Patching to build with windows 0.62.2 dep
-ipc-channel = { git = "https://github.com/mozilla/ipc-channel", rev = "e27888a6cdde52cdcb0937c462294669013a5e6f" }
+ipc-channel = { git = "https://github.com/mozilla/ipc-channel", rev = "cbc0a688243230cda9b826976affbc9ad237a23c" }
 
 # Patching to keep only one embeeded-io dependency
 postcard = { git = "https://github.com/mozilla/postcard", rev = "728ed1af0e844733f827e0699bc9c15a621d297c" }

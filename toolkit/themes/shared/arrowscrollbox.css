@@ -49,7 +49,7 @@ toolbarbutton {
 
   &[disabled] {
     color: var(--button-text-color-ghost-disabled);
-    fill-opacity: var(--toolbarbutton-opacity-disabled);
+    opacity: var(--toolbarbutton-opacity-disabled);
 
     @media (forced-colors) {
       --toolbarbutton-icon-fill: var(--toolbarbutton-icon-fill-disabled);

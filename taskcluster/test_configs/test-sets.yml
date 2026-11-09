@@ -74,6 +74,8 @@ talos:
     - talos-realworld-webextensions
     - talos-webgl
     - talos-pdfpaint
+    - talos-pdfpaint-main-hwa
+    - talos-pdfpaint-main-sw
     # - talos-h1 Bug 1487031 - Disabled for not finding actionable regressions
     # - talos-h2 Bug 1487031 - Disabled for not finding actionable regressions
 
@@ -168,6 +170,10 @@ awsy:
 awsy-pageload:
     - awsy-dmd
     - awsy-tp6
+
+awsy-base:
+    - awsy-base
+    - awsy-base-dmd
 
 ccov-code-coverage-tests:
     - test-coverage
@@ -460,6 +466,8 @@ windows-talos:
     - talos-tabswitch
     - talos-realworld-webextensions
     - talos-pdfpaint
+    - talos-pdfpaint-main-hwa
+    - talos-pdfpaint-main-sw
 
 windows-ref-hw-tests:
     - browsertime-video-playback-latency
@@ -509,7 +517,7 @@ macosx1500-64-tests:
     - web-platform-tests-eme
     - web-platform-tests-webrtc
 
-macosx1500-64-tests-enterprise:
+macosx1500-aarch64-tests-enterprise:
     - enterprise-end2end-current
     - enterprise-end2end-main
     - enterprise-end2end-minimal
@@ -530,6 +538,7 @@ macosx1500-aarch64-tests:
     - mochitest-a11y
     - mochitest-browser-a11y
     - mochitest-browser-chrome
+    - mochitest-browser-chrome-ml-models
     - mochitest-browser-media
     - mochitest-browser-translations
     - mochitest-chrome
@@ -560,13 +569,12 @@ macosx1500-aarch64-tests:
     - web-platform-tests-webcodecs
     - xpcshell
 
-# Test set for ARM64 VMs (VirtualMac2,1). No GPU, no display, no perf hardware.
-# Limited to suites empirically validated on these workers; tests that need
-# a real WindowServer (focus management, accessibility hierarchy, browser
-# windows, fullscreen, compositor hooks) hang or timeout and are intentionally
-# omitted. web-platform-tests is also omitted pending Bug 2038639 (GPU process
-# leak in APZCTreeManager::CheckerboardFlushObservers on headless macOS).
-# Suites can be re-added as headless support improves.
+# Test set for ARM64 VMs (VirtualMac2,1). No GPU and no perf hardware, but the
+# guests run a logged-in Aqua session with a 1920x1080 display (Bug 2037084).
+# Limited to suites empirically validated on these workers; tests that only
+# fail here are skipped with the macos_vm mozinfo key. web-platform-tests is
+# omitted pending Bug 2038639 (GPU process leak in
+# APZCTreeManager::CheckerboardFlushObservers on macOS VMs).
 macosx1500-aarch64-vms-tests:
     - cppunittest
     - crashtest
@@ -574,6 +582,7 @@ macosx1500-aarch64-vms-tests:
     - jsreftest
     - marionette-integration
     - marionette-unittest
+    - mochitest-browser-chrome
     - mochitest-chrome
     - mochitest-plain
     - mochitest-remote
@@ -613,15 +622,13 @@ macosx64-talos:
     - talos-webgl
     - talos-tabswitch
     - talos-pdfpaint
+    - talos-pdfpaint-main-hwa
+    - talos-pdfpaint-main-sw
     # - talos-h1 # too long to unpack profile- Bug 1442893
-
-macosx1500-64-perftests:
-    - browsertime-benchmark
-    - browsertime-nav-bench
-    - browsertime-tp6-essential
 
 macosx2700-aarch64-perftests:
     - browsertime-benchmark
+    - browsertime-video-playback-latency
 
 # Android
 
@@ -678,6 +685,7 @@ android-hw-aarch64:
 android-hw-browsertime:
     - browsertime-tp6m
     - browsertime-tp6m-essential
+    - browsertime-nav-bench-m
     - browsertime-tp6m-webextensions
     - browsertime-tp6m-live
     - browsertime-benchmark-speedometer2-mobile
@@ -705,9 +713,13 @@ android-hw-doh-tests:
 android-em-arm64-benchmark-tests:
     - browsertime-benchmark-speedometer3-mobile
     - browsertime-benchmark-jetstream3
+    - browsertime-youtube-playback-mobile
 
 android-hw-speedometer3-nightlyasrelease:
     - browsertime-benchmark-speedometer3-mobile
+
+android-hw-nav-bench-nightlyasrelease:
+    - browsertime-nav-bench-m
 
 android-hw-power-tests:
     - browsertime-youtube-playback-power-mobile

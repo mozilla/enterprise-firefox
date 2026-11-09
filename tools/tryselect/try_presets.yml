@@ -68,7 +68,7 @@ android-fenix:
         - "^source-test 'fenix"
         - "'generate-baseline-profile-firebase-fenix-simulation"
 
-android-fenix-prototype:
+android-fenix-nightly-prototype:
     selector: fuzzy
     full: true
     no_artifact: true
@@ -76,6 +76,18 @@ android-fenix-prototype:
         Build and sign Fenix Nightly without any baseline profile nor PGO.
     query:
         - "'signing-apk-fenix-nightly-nobp"
+    try_config_params:
+        enable_always_target:
+            - docker-image
+
+android-fenix-debug-prototype:
+    selector: fuzzy
+    full: true
+    no_artifact: true
+    description: >-
+        Build and sign Fenix Debug.
+    query:
+        - "'signing-apk-fenix-debug"
     try_config_params:
         enable_always_target:
             - docker-image
@@ -566,6 +578,15 @@ sm-all:
         - "!android !asan !shippable 'xpcshell"
         - "!android !asan !shippable 'jsreftest"
         - "!shippable !android 'jittest"  # macosx64 jittests
+
+sm-perf:
+    selector: fuzzy
+    description: >-
+        Runs Speedometer 3, Speedometer experimental, and JetStream 3 on the
+        desktop platforms.
+    query:
+        - "^test- '-shippable/ !android 'browsertime-benchmark-firefox- jetstream3$ | speedometer3$ | speedometer-experimental$"
+    rebuild: 10
 
 webextensions:
     selector: fuzzy

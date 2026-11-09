@@ -130,7 +130,7 @@ uint32_t gfxFT2FontEntryBase::GetGlyph(uint32_t aCharCode,
   // one Unicode block.  This assumption is probably not so valid with
   // scripts with large character sets as used for East Asian languages.
   if (!mCmapCache) {
-    mCmapCache = mozilla::MakeUnique<CmapCacheSlot[]>(kNumCmapCacheSlots);
+    mCmapCache = std::make_unique<CmapCacheSlot[]>(kNumCmapCacheSlots);
 
     // Invalidate slot 0 by setting its char code to something that would
     // never end up in slot 0.  All other slots are already invalid
@@ -555,10 +555,23 @@ void gfxFT2FontBase::FinishInitFontMetrics() {
 uint32_t gfxFT2FontBase::GetGlyph(uint32_t unicode,
                                   uint32_t variation_selector) {
   if (variation_selector) {
-    uint32_t id =
-        gfxFT2LockedFace(this).GetUVSGlyph(unicode, variation_selector);
-    if (id) {
-      return id;
+    bool checkedSkrifa = false;
+#ifdef MOZ_FONTATIONS
+    if (const SkrifaFontRef* font = mFontEntry->GetSkrifaFont()) {
+      checkedSkrifa = true;
+      const uint32_t id =
+          skrifa_font_get_glyph_variant(font, unicode, variation_selector);
+      if (id) {
+        return id;
+      }
+    }
+#endif
+    if (!checkedSkrifa) {
+      const uint32_t id =
+          gfxFT2LockedFace(this).GetUVSGlyph(unicode, variation_selector);
+      if (id) {
+        return id;
+      }
     }
     unicode = gfxFontUtils::GetUVSFallback(unicode, variation_selector);
     if (unicode) {
@@ -753,7 +766,7 @@ gfxFT2FontBase::GlyphMetrics gfxFT2FontBase::GetCachedGlyphMetrics(
   AutoWriteLock lock(mLock);
   if (!mGlyphMetrics) {
     mGlyphMetrics =
-        mozilla::MakeUnique<nsTHashMap<nsUint32HashKey, GlyphMetrics>>(128);
+        std::make_unique<nsTHashMap<nsUint32HashKey, GlyphMetrics>>(128);
   }
 
   return mGlyphMetrics->LookupOrInsertWith(aGID, [&] {

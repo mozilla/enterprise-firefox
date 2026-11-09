@@ -18,9 +18,6 @@ task-defaults:
             - type: file
               name: public/code-review/mozlint.json
               path: /builds/worker/mozlint.json
-            - type: file
-              name: public/profile_resource-usage.json
-              path: /builds/worker/profile_resource-usage.json
     run:
         using: mach
         use-caches: [checkout, pip, uv]
@@ -150,6 +147,10 @@ uri-setspec:
 
 eslint:
     description: JS lint check
+    # Review bot waits for every lint, and this one finishes last more often
+    # than any other. It parallelizes well, so a 30 core worker shortens the end
+    # to end time.
+    worker-type: b-linux-docker-large-amd
     treeherder:
         symbol: js(ES)
     run:
@@ -256,6 +257,9 @@ typescript:
     # so dont make it surfaced on GitHub Checks
     attributes:
         code-review: false
+    # This check parallelizes well, so a 30 core worker more than halves its run
+    # time for little extra cost.
+    worker-type: b-linux-docker-large-amd
     treeherder:
         symbol: js(TSC)
         tier: 2
@@ -287,7 +291,6 @@ typescript:
             - 'browser/components/urlbar/**/*.ts'
             - 'browser/extensions/newtab/**/*.*js'
             - 'browser/extensions/newtab/**/*.ts'
-            - 'browser/extensions/newtab/tsconfig.json'
             - 'devtools/client/settings/**/*.*js'
             - 'devtools/client/settings/**/*.ts'
             - 'toolkit/components/extensions/**/*.*js'
@@ -297,6 +300,7 @@ typescript:
             - 'toolkit/components/search/**/*.*js'
             - 'toolkit/components/search/**/*.ts'
             # Support Files
+            - '**/tsconfig.json'
             - 'tools/@types/**'
             - 'tools/lint/typescript.yml'
             - 'tools/lint/typescript/**'
@@ -653,6 +657,10 @@ l10n-conflicts:
 
 clang-format:
     description: clang-format on the C/C++ code
+    # Review bot waits for every lint, and this one is among the slowest on C++
+    # pushes. It parallelizes well, so a 30 core worker shortens the end to end
+    # time.
+    worker-type: b-linux-docker-large-amd
     treeherder:
         symbol: cpp(clang-format)
     run:
@@ -691,6 +699,9 @@ rustfmt:
 
 clippy:
     description: clippy on the Rust code
+    # Review bot waits for every lint, and this one is in the long tail of the
+    # slowest. A 30 core worker shortens it, which shortens the end to end time.
+    worker-type: b-linux-docker-large-amd
     treeherder:
         symbol: rust(clippy)
     run:
@@ -723,13 +734,14 @@ cargo-audit:
         symbol: rust(cargo-audit)
     run:
         prepend-env:
-            PATH: "$MOZ_FETCHES_DIR/rustc/bin/:/builds/worker/.cargo/bin/${PATH:+:$PATH}"
+            PATH: "$MOZ_FETCHES_DIR/cargo-audit/:$MOZ_FETCHES_DIR/rustc/bin/:/builds/worker/.cargo/bin/${PATH:+:$PATH}"
         mach: lint -v --warnings=soft -l cargo-audit -f treeherder -f json:/builds/worker/mozlint.json .
     when:
         files-changed:
             - 'Cargo.lock'
     fetches:
         toolchain:
+            - linux64-cargo-audit
             - linux64-rust
 
 pnpm-audit:
@@ -1044,19 +1056,20 @@ source-headers:
             - 'tools/lint/source-headers.yml'
             - 'tools/lint/source_headers/**'
 
-android-expired-strings:
-    description: Check for references to Android strings marked for removal
+ffvpx-symbols:
+    description: Check that FFmpegLibWrapper only binds symbols bundled ffvpx exports
     treeherder:
-        symbol: android(expired-strings)
+        symbol: misc(ffvpx-symbols)
     run:
-        mach: lint -v -l android-expired-strings -f treeherder -f json:/builds/worker/mozlint.json .
+        mach: lint -v -l ffvpx-symbols -f treeherder -f json:/builds/worker/mozlint.json .
     when:
         files-changed:
-            - 'mobile/android/**/*.kt'
-            - 'mobile/android/**/*.java'
-            - 'mobile/android/**/*.xml'
-            - 'tools/lint/android-expired-strings.yml'
-            - 'tools/lint/android-expired-strings/**'
+            - 'dom/media/platforms/ffmpeg/FFmpegLibWrapper.cpp'
+            - 'media/ffvpx/libavcodec/avcodec.symbols'
+            - 'media/ffvpx/libavcodec/version_major.h'
+            - 'media/ffvpx/libavutil/avutil.symbols'
+            - 'tools/lint/ffvpx-symbols.yml'
+            - 'tools/lint/ffvpx-symbols/**'
 
 gecko-trace:
     description: Check that all `gecko-trace.yaml` files are correct

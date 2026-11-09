@@ -32,6 +32,9 @@
 #include "mozilla/NullPrincipal.h"
 #include "mozilla/PerfStats.h"
 #include "mozilla/Preferences.h"
+#ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/ProcInfoChild.h"
+#endif
 #include "mozilla/ProcessHangMonitorIPC.h"
 #include "mozilla/RemoteLazyInputStreamChild.h"
 #include "mozilla/RemoteMediaManagerChild.h"
@@ -77,7 +80,6 @@
 #include "mozilla/dom/Navigation.h"
 #include "mozilla/dom/NavigationHistoryEntry.h"
 #include "mozilla/dom/PSessionStorageObserverChild.h"
-#include "mozilla/dom/PolicyContainer.h"
 #include "mozilla/dom/PostMessageEvent.h"
 #include "mozilla/dom/PushNotifier.h"
 #include "mozilla/dom/RemoteWorkerDebuggerManagerChild.h"
@@ -1193,8 +1195,8 @@ nsresult ContentChild::ProvideWindowCommon(
       aOpenWindowInfo->GetIsForPrinting(),
       aOpenWindowInfo->GetIsForWindowDotPrint(),
       aOpenWindowInfo->GetIsTopLevelCreatedByWebContent(), aURI, features,
-      aModifiers, triggeringPrincipal, policyContainer, referrerInfo,
-      aOpenWindowInfo->GetOriginAttributes(),
+      aModifiers, WrapNotNull(triggeringPrincipal), policyContainer,
+      referrerInfo, aOpenWindowInfo->GetOriginAttributes(),
       aLoadState ? aLoadState->HasValidUserGestureActivation() : false,
       aLoadState ? aLoadState->GetTextDirectiveUserActivation() : false,
       std::move(resolve), std::move(reject));
@@ -1559,6 +1561,14 @@ mozilla::ipc::IPCResult ContentChild::RecvInitProfiler(
   mProfilerController = ChildProfilerController::Create(std::move(aEndpoint));
   return IPC_OK();
 }
+
+#ifdef MOZ_WIDGET_ANDROID
+mozilla::ipc::IPCResult ContentChild::RecvInitProcInfo(
+    Endpoint<PProcInfoChild>&& aEndpoint) {
+  ProcInfoChild::Create(std::move(aEndpoint));
+  return IPC_OK();
+}
+#endif
 
 mozilla::ipc::IPCResult ContentChild::RecvGMPsChanged(
     nsTArray<GMPCapabilityData>&& capabilities) {
@@ -1931,10 +1941,6 @@ mozilla::ipc::IPCResult ContentChild::RecvConstructBrowser(
 
   RefPtr<nsOpenWindowInfo> openWindowInfo = new nsOpenWindowInfo();
   openWindowInfo->mPrincipalToInheritForAboutBlank = aWindowInit.principal();
-  // XXX We should consider moving this to CreateAboutBlankDocumentViewer (bug
-  // 2004943)
-  openWindowInfo->mPolicyContainerToInheritForAboutBlank =
-      new PolicyContainer();
 
   nsresult rv = browserChild->Init(
       /* aOpener */ nullptr, windowChild, openWindowInfo);
@@ -2054,11 +2060,6 @@ mozilla::ipc::IPCResult ContentChild::RecvNetworkLinkTypeChange(
     obs->NotifyObservers(nullptr, "contentchild:network-link-type-changed",
                          nullptr);
   }
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentChild::RecvSocketProcessCrashed() {
-  nsIOService::IncreaseSocketProcessCrashCount();
   return IPC_OK();
 }
 
@@ -2831,9 +2832,11 @@ mozilla::ipc::IPCResult ContentChild::RecvInitBlobURLs(
     nsTArray<BlobURLRegistrationData>&& aRegistrations) {
   for (uint32_t i = 0; i < aRegistrations.Length(); ++i) {
     BlobURLRegistrationData& registration = aRegistrations[i];
-    BlobURLProtocolHandler::AddDataEntryChild(registration.url(),
-                                              registration.principal(),
-                                              registration.partitionKey());
+    if (NS_FAILED(BlobURLProtocolHandler::AddDataEntryChild(
+            registration.url(), registration.principal(),
+            registration.partitionKey()))) {
+      return IPC_FAIL(this, "Conflicting Blob URL principal");
+    }
     // If we have received an already-revoked blobURL, we have to keep it alive
     // for a while (see BlobURLProtocolHandler) in order to support pending
     // operations such as navigation, download and so on.
@@ -3273,7 +3276,10 @@ mozilla::ipc::IPCResult ContentChild::RecvPWebBrowserPersistDocumentConstructor(
 mozilla::ipc::IPCResult ContentChild::RecvBlobURLRegistration(
     const nsCString& aURI, nsIPrincipal* aPrincipal,
     const nsCString& aPartitionKey) {
-  BlobURLProtocolHandler::AddDataEntryChild(aURI, aPrincipal, aPartitionKey);
+  if (NS_FAILED(BlobURLProtocolHandler::AddDataEntryChild(aURI, aPrincipal,
+                                                          aPartitionKey))) {
+    return IPC_FAIL(this, "Conflicting Blob URL principal");
+  }
   return IPC_OK();
 }
 
@@ -3351,7 +3357,7 @@ void ContentChild::FatalErrorIfNotUsingGPUProcess(const char* const aErrorMsg,
 }
 
 PURLClassifierChild* ContentChild::AllocPURLClassifierChild(
-    nsIPrincipal* aPrincipal, bool* aSuccess) {
+    NotNull<nsIPrincipal*> aPrincipal, bool* aSuccess) {
   *aSuccess = true;
   return new URLClassifierChild();
 }
@@ -4689,6 +4695,7 @@ mozilla::ipc::IPCResult ContentChild::RecvDeactivateDocuments(
   }
   BrowsingContext* browsingContext = aContext.get();
   MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsTopContent());
+  MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsInProcess() || !aPageSwapTargetInfo);
 
   browsingContext->DeactivateDocuments(aPageSwapTargetInfo.ptrOr(nullptr),
                                        aNavigationType, aForUnload);
@@ -4746,8 +4753,7 @@ mozilla::ipc::IPCResult ContentChild::RecvFirePageSwap(
 // Perform steps 7 and 9 for the BFCache case.
 mozilla::ipc::IPCResult ContentChild::RecvReactivateDocuments(
     const MaybeDiscarded<BrowsingContext>& aContext,
-    const Maybe<SessionHistoryInfo>& aReactivatedEntry,
-    const nsTArray<SessionHistoryInfo>& aNewSHEs,
+    nsTArray<NavigationReactivationData>&& aReactivationData,
     const Maybe<PreviousSessionHistoryInfo>& aPreviousEntryForActivation) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
@@ -4757,7 +4763,7 @@ mozilla::ipc::IPCResult ContentChild::RecvReactivateDocuments(
   MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsInProcess() ||
                         !aPreviousEntryForActivation);
 
-  browsingContext->ReactivateDocuments(aReactivatedEntry, aNewSHEs,
+  browsingContext->ReactivateDocuments(aReactivationData,
                                        aPreviousEntryForActivation);
 
   return IPC_OK();
@@ -5203,11 +5209,6 @@ bool StartOpenBSDSandbox(GeckoProcessType type, ipc::SandboxingKind kind) {
     case GeckoProcessType_GPU:
       OpenBSDFindPledgeUnveilFilePath("pledge.gpu", pledgeFile);
       OpenBSDFindPledgeUnveilFilePath("unveil.gpu", unveilFile);
-      break;
-
-    case GeckoProcessType_Socket:
-      OpenBSDFindPledgeUnveilFilePath("pledge.socket", pledgeFile);
-      OpenBSDFindPledgeUnveilFilePath("unveil.socket", unveilFile);
       break;
 
     case GeckoProcessType_RDD:

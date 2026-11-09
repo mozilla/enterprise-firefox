@@ -209,7 +209,7 @@ class nsUrlClassifierDBService::FeatureHolder final {
 
   mozilla::UniquePtr<LookupResultArray> GetTableResults() const {
     mozilla::UniquePtr<LookupResultArray> results =
-        mozilla::MakeUnique<LookupResultArray>();
+        std::make_unique<LookupResultArray>();
     if (NS_WARN_IF(!results)) {
       return nullptr;
     }
@@ -2126,11 +2126,12 @@ nsUrlClassifierDBService::Classify(nsIPrincipal* aPrincipal,
     ContentChild* content = ContentChild::GetSingleton();
     MOZ_ASSERT(content);
 
+    auto principal = WrapNotNull(aPrincipal);
     auto actor = static_cast<URLClassifierChild*>(
-        content->AllocPURLClassifierChild(aPrincipal, aResult));
+        content->AllocPURLClassifierChild(principal, aResult));
     MOZ_ASSERT(actor);
 
-    if (!content->SendPURLClassifierConstructor(actor, aPrincipal, aResult)) {
+    if (!content->SendPURLClassifierConstructor(actor, principal, aResult)) {
       *aResult = false;
       return NS_ERROR_FAILURE;
     }

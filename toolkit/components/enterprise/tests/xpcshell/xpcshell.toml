@@ -1,5 +1,4 @@
 [DEFAULT]
-environment = ["MOZ_BYPASS_FELT=1"]
 firefox-appdir = "browser"
 skip-if = [
   "os == 'android'",

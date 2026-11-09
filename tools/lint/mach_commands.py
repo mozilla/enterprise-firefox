@@ -24,7 +24,20 @@ thunderbird_excludes = os.path.join("comm", "tools", "lint", "GlobalExclude.txt"
 if os.path.exists(thunderbird_excludes):
     EXCLUSION_FILES_OPTIONAL.append(thunderbird_excludes)
 
-GLOBAL_EXCLUDES = ["**/node_modules", "tools/lint/test/files", ".hg", ".git"]
+GLOBAL_EXCLUDES = [
+    "**/node_modules",
+    "tools/lint/test/files",
+    ".hg",
+    ".git",
+    ".jj",
+    ".claude/worktrees",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".rumdl_cache",
+    ".skip_fails_cache",
+    "artifacts",
+]
 
 VALID_FORMATTERS = {"ruff-format", "clang-format", "eslint", "rustfmt", "stylelint"}
 VALID_ANDROID_FORMATTERS = {"android-format"}
@@ -116,18 +129,19 @@ def lint(command_context, *runargs, **lintargs):
     finally:
         monitor.stop()
 
-        if os.environ.get("MOZ_AUTOMATION") == "1":
-            profile_path = "/builds/worker/profile_resource-usage.json"
-        else:
-            log_subdir = os.path.join("logs", "lint")
-            command_context._ensure_state_subdir_exists(log_subdir)
-            profile_path = command_context._get_state_filename(
-                construct_log_filename("profile"), subdir=log_subdir
-            )
+        if not monitor.forwarding:
+            if os.environ.get("MOZ_AUTOMATION") == "1":
+                profile_path = "/builds/worker/profile_resource-usage.json"
+            else:
+                log_subdir = os.path.join("logs", "lint")
+                command_context._ensure_state_subdir_exists(log_subdir)
+                profile_path = command_context._get_state_filename(
+                    construct_log_filename("profile"), subdir=log_subdir
+                )
 
-        with open(profile_path, "w", encoding="utf-8", newline="\n") as f:
-            to_write = json.dumps(monitor.as_profile(), separators=(",", ":"))
-            f.write(to_write)
+            with open(profile_path, "w", encoding="utf-8", newline="\n") as f:
+                to_write = json.dumps(monitor.as_profile(), separators=(",", ":"))
+                f.write(to_write)
 
     return ret
 

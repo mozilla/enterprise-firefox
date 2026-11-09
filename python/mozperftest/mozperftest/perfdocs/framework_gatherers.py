@@ -550,8 +550,11 @@ class MozperftestGatherer(FrameworkGatherer):
                 },
             }
         """
+        claude_dir = pathlib.Path(self.workspace_dir, ".claude")
         for path in list(pathlib.Path(self.workspace_dir).rglob("perftest.toml")):
             if "obj-" in str(path) or "objdir-" in str(path):
+                continue
+            if claude_dir in path.parents:
                 continue
             suite_name = str(path.parent).replace(str(self.workspace_dir), "")
 
