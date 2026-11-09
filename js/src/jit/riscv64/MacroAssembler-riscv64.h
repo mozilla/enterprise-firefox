@@ -10,6 +10,7 @@
 
 #include "mozilla/Maybe.h"
 
+#include <bit>
 #include <type_traits>
 
 #include "jit/MoveResolver.h"
@@ -87,6 +88,19 @@ struct ImmShiftedTag : public ImmWord {
   }
 };
 
+// The negated shifted tag. Adding it to a Value unboxes the Value and
+// subtracting it from a payload boxes the payload. Like xoring with the
+// shifted tag, adding it clears the bits above the payload if and only if the
+// tag matches, so a mistyped Value still unboxes to a pointer with high bits
+// set. The negated shifted tags of booleans, objects, strings and symbols are
+// a single bit, which ma_li loads with one bseti when Zbs is available. The
+// other negated shifted tags, like all shifted tags, take two instructions.
+struct ImmNegatedShiftedTag : public ImmWord {
+  explicit ImmNegatedShiftedTag(JSValueType type)
+      : ImmWord(
+            -uintptr_t(JSValueShiftedTag(JSVAL_TYPE_TO_SHIFTED_TAG(type)))) {}
+};
+
 struct ImmTag : public Imm32 {
   explicit ImmTag(JSValueTag mask) : Imm32(int32_t(mask)) {}
 };
@@ -99,6 +113,16 @@ struct ImmTagSignExt : public Imm32 {
   }
 
   explicit ImmTagSignExt(JSValueTag mask) : Imm32(signExtend(mask)) {}
+};
+
+// The upper 32 bits of a Value whose payload fits in 32 bits are its tag
+// shifted left by 15. Sign-extended, as lw loads them, they are a multiple of
+// 1 << 15, which lui loads in one instruction.
+struct ImmTagUpperWord : public Imm32 {
+  static_assert(JSVAL_TAG_SHIFT - 32 >= 12, "lui loads the shifted tag");
+
+  explicit ImmTagUpperWord(JSValueTag tag)
+      : Imm32(int32_t(tag << (JSVAL_TAG_SHIFT - 32))) {}
 };
 
 class MacroAssemblerRiscv64 : public Assembler {
@@ -352,6 +376,11 @@ class MacroAssemblerRiscv64 : public Assembler {
   Address computeScaledAddress(
       const BaseIndex& address, UseScratchRegisterScope& temps,
       wasm::ZeroExtendIndex zeroExtend = wasm::ZeroExtendIndex::No);
+
+  // Load |address| without its low twelve bits into |scratch| and return an
+  // Address through |scratch| whose offset holds them, so that the access
+  // absorbs the ADDI which would otherwise end the materialization.
+  Address computeAbsoluteAddress(AbsoluteAddress address, Register scratch);
 
  private:
   bool UseShortBranch(Label* L, JumpKind jumpKind, OffsetSize bits,
@@ -878,8 +907,8 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
     UseScratchRegisterScope temps(this);
     Register scratch = temps.Acquire();
     MOZ_ASSERT(scratch != src);
-    mov(ImmShiftedTag(type), scratch);
-    xor_(dest, src, scratch);
+    mov(ImmNegatedShiftedTag(type), scratch);
+    add(dest, src, scratch);
   }
 
   void unboxGCThingForGCBarrier(const Address& src, Register dest) {
@@ -909,13 +938,33 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
     Register scratch = temps.Acquire();
     MOZ_ASSERT(scratch != dest);
     loadPtr(src, dest);
-    movePtr(ImmWord(JS::detail::ValueGCThingPayloadChunkMask), scratch);
-    and_(dest, dest, scratch);
+    andValueGCThingPayloadChunkMask(dest, scratch, dest);
   }
   void getGCThingValueChunk(const ValueOperand& src, Register dest) {
     MOZ_ASSERT(src.valueReg() != dest);
-    movePtr(ImmWord(JS::detail::ValueGCThingPayloadChunkMask), dest);
-    and_(dest, dest, src.valueReg());
+    andValueGCThingPayloadChunkMask(src.valueReg(), dest, dest);
+  }
+  // Ands src with ValueGCThingPayloadChunkMask into dest, using temp, which
+  // may be dest but not src, for the mask.
+  void andValueGCThingPayloadChunkMask(Register src, Register temp,
+                                       Register dest) {
+    MOZ_ASSERT(temp != src);
+    if (HasZbbExtension()) {
+      // The complement of the mask is a run of ones from bit 47 around to bit
+      // 19, which rotated right by ChunkShift is a value lui loads. So RV_li
+      // builds the complement with lui and rori (ExtractLuiRotateInfo in
+      // AssemblerMatInt.cpp), one instruction fewer than the mask takes, and
+      // andn clears its bits.
+      constexpr uint64_t NotMask = ~JS::detail::ValueGCThingPayloadChunkMask;
+      constexpr int64_t Rotated = int64_t(std::rotr(NotMask, gc::ChunkShift));
+      static_assert(Rotated == int32_t(Rotated) && (Rotated & 0xfff) == 0,
+                    "lui loads the rotated complement of the mask");
+      movePtr(ImmWord(NotMask), temp);
+      andn(dest, src, temp);
+      return;
+    }
+    movePtr(ImmWord(JS::detail::ValueGCThingPayloadChunkMask), temp);
+    and_(dest, src, temp);
   }
 
   void unboxInt32(const ValueOperand& operand, Register dest);
@@ -999,10 +1048,36 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
     return scratch;
   }
 
+  // Branch on the tag of a Value in memory by comparing its upper word with
+  // ImmTagUpperWord(tag), which takes one instruction fewer than loading the
+  // Value and extracting the sign-extended tag. The upper word equals
+  // ImmTagUpperWord(tag) for the types whose payload fits in 32 bits, and for
+  // all types it compares unsigned in the same order as the tag, because the
+  // payload bits below the shifted tag are less than 1 << 15. The equality
+  // tests of the pointer types extract the tag because their payload reaches
+  // into the upper word.
+  template <typename T>
+  void branchTestTagUpperWord(Condition cond, const T& address, JSValueTag tag,
+                              Label* label) {
+    T upperWord = address;
+    upperWord.offset += int32_t(sizeof(uint32_t));
+    UseScratchRegisterScope temps(this);
+    Register scratch = temps.Acquire();
+    load32(upperWord, scratch);
+    ma_b(scratch, ImmTagUpperWord(tag), label, cond, ShortJump);
+  }
+
   void loadInt32OrDouble(const Address& src, FloatRegister dest);
   void loadInt32OrDouble(const BaseIndex& src, FloatRegister dest);
   void loadConstantDouble(double dp, FloatRegister dest);
   void loadConstantFloat32(float f, FloatRegister dest);
+
+  void canonicalizeDoubleNaN(FloatRegister reg) {
+    static_assert(JS::detail::CanonicalizedNaNBits == 0x7ff8'0000'0000'0000,
+                  "the canonical NaN of RISC-V is JS::GenericNaN()");
+    fmin_d(reg, reg, reg);
+  }
+  void canonicalizeFloatNaN(FloatRegister reg) { fmin_s(reg, reg, reg); }
 
   void testNullSet(Condition cond, const ValueOperand& value, Register dest);
 

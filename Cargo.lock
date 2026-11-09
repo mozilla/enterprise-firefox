@@ -4873,11 +4873,13 @@ name = "merino"
 version = "0.1.0"
 dependencies = [
  "error-support",
+ "parking_lot",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
  "uniffi",
  "url",
+ "uuid",
  "viaduct",
 ]
 
@@ -9367,6 +9369,7 @@ dependencies = [
  "euclid",
  "malloc_size_of_derive",
  "peek-poke",
+ "rustc-hash 2.1.1",
  "serde",
  "serde_bytes",
  "serde_derive",

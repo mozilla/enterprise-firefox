@@ -2858,10 +2858,12 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   }
 
   // XXX: This should be not needed once bug 1569185 lands.
-  for (const auto& entry : tmp->mL10nProtoElements) {
-    NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mL10nProtoElements key");
+  for (const auto& entry : tmp->mUntranslatedL10nProtoElements) {
+    NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb,
+                                       "mUntranslatedL10nProtoElements key");
     cb.NoteXPCOMChild(entry.GetKey());
-    CycleCollectionNoteChild(cb, entry.GetWeak(), "mL10nProtoElements value");
+    CycleCollectionNoteChild(cb, entry.GetWeak(),
+                             "mUntranslatedL10nProtoElements value");
   }
 
   for (size_t i = 0; i < tmp->mPendingFrameStaticClones.Length(); ++i) {
@@ -3050,7 +3052,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
 
   tmp->UnregisterFromMemoryReportingForDataDocument();
 
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mL10nProtoElements)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mUntranslatedL10nProtoElements)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_PTR
   NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -3800,22 +3802,18 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
     mChannel->GetSecurityInfo(getter_AddRefs(mSecurityInfo));
   }
 
-  // If this document is being loaded by a docshell, copy its sandbox flags
-  // to the document, and store the fullscreen enabled flag. These are
-  // immutable after being set here.
+  // Get our sandbox flags from the LoadInfo for this document.
+  // These are immutable after being set here.
   nsCOMPtr<nsIDocShell> docShell = do_QueryInterface(aContainer);
-
-  // If this is an error page, don't inherit sandbox flags
   nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
+  mSandboxFlags = loadInfo->GetSandboxFlags();
+  if (docShell) {
+    WarnIfSandboxIneffective(docShell, mSandboxFlags, aChannel);
+  }
 
   if (!IsTopLevelContentDocument()) {
     SetAncestorOriginsList(
         ProduceAncestorOriginsList(loadInfo->AncestorPrincipals()));
-  }
-
-  if (docShell && !loadInfo->GetLoadErrorPage()) {
-    mSandboxFlags = loadInfo->GetSandboxFlags();
-    WarnIfSandboxIneffective(docShell, mSandboxFlags, GetChannel());
   }
 
   mClassificationFlags = AntiTrackingUtils::GetClassificationFlags(aChannel);
@@ -5022,7 +5020,7 @@ void Document::OnParsingCompleted() {
   }
 }
 
-void Document::InitialTranslationCompleted(bool aL10nCached) {
+void Document::InitialTranslationCompleted() {
   if (mDocumentL10n && mDocumentL10n->mBlockingLayout) {
     // This means we blocked the load event in LocalizationLinkAdded.  It's
     // important that the load blocker removal here be async, because our caller
@@ -5032,12 +5030,7 @@ void Document::InitialTranslationCompleted(bool aL10nCached) {
     UnblockOnload(/* aFireSync = */ false);
   }
 
-  mL10nProtoElements.Clear();
-
-  nsXULPrototypeDocument* proto = GetPrototype();
-  if (proto) {
-    proto->SetIsL10nCached(aL10nCached);
-  }
+  mUntranslatedL10nProtoElements.Clear();
 }
 
 bool Document::AllowsL10n() const {
@@ -17374,6 +17367,26 @@ Document::ElementReadyCheckResult Document::FullscreenElementReadyCheck(
     aRequest.Reject("FullscreenDeniedNotFocusedTab");
     return ElementReadyCheckResult::eErrorPromiseRejected;
   }
+  const bool isActiveDocumentChainConsistent = ([self = this]() {
+    Document* doc = self;
+    while (doc) {
+      if (!doc->IsCurrentActiveDocument()) {
+        return false;
+      }
+      Element* embedder = doc->GetEmbedderElement();
+      Document* parent = doc->GetInProcessParentDocument();
+      if (!!embedder != !!parent ||
+          (embedder && embedder->GetComposedDoc() != parent)) {
+        return false;
+      }
+      doc = parent;
+    }
+    return true;
+  })();
+  if (!isActiveDocumentChainConsistent) {
+    aRequest.Reject("FullscreenDeniedHidden");
+    return ElementReadyCheckResult::eErrorPromiseRejected;
+  }
   return ElementReadyCheckResult::eOk;
 }
 
@@ -18538,8 +18551,9 @@ void Document::ReportTrustedTypesReadiness() {
       used || Has(TrustedTypesReadinessSignal::CreatedPolicy);
   glean::security::trusted_types_readiness
       .Get(nsPrintfCString(
-          "htmlsink-%s_writesink-%s_ttcsp-%s_strictcsp-%s_created-%u_used-%u_"
-          "lib-%u_js-%u",
+          "doc-%s_htmlsink-%s_writesink-%s_ttcsp-%s_strictcsp-%s_created-%u_"
+          "used-%u_lib-%u_js-%u",
+          IsTopLevelContentDocument() ? "top" : "sub",
           Sink(TrustedTypesReadinessSignal::UsedHTMLSinkWithString,
                TrustedTypesReadinessSignal::UsedHTMLSinkWithTrustedHTML),
           Sink(TrustedTypesReadinessSignal::UsedWriteSinkWithString,

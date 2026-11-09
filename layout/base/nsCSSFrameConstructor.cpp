@@ -1829,12 +1829,14 @@ void nsCSSFrameConstructor::CreateGeneratedContentItem(
   // just stick the style on the element and avoid an additional traversal.
   //
   // We don't do this for pseudos that may trigger animations or transitions,
-  // since those need to be kicked off by the traversal machinery.
+  // since those need to be kicked off by the traversal machinery, nor for
+  // pseudos that declare timelines or a timeline-scope, which the traversal
+  // registers.
   //
   // Note that when a pseudo-element animates, we flag the originating element,
   // so we check that flag, but we could also a more expensive (but exhaustive)
   // check using EffectSet::GetEffectSet, for example.
-  if (!Servo_ComputedValues_SpecifiesAnimationsOrTransitions(pseudoStyle) &&
+  if (!Servo_ComputedValues_NeedsAnimationTraversal(pseudoStyle) &&
       !aOriginatingElement.MayHaveAnimations()) {
     Servo_SetExplicitStyle(container, pseudoStyle);
   } else {
@@ -5361,7 +5363,7 @@ nsContainerFrame* nsCSSFrameConstructor::GetAbsoluteContainingBlock(
         continue;
       }
     }
-    if (absPosCBCandidate->IsScrollContainerFrame()) {
+    if (absPosCBCandidate->IsScrollContainerOrSubclass()) {
       ScrollContainerFrame* scrollContainerFrame =
           do_QueryFrame(absPosCBCandidate);
       absPosCBCandidate = scrollContainerFrame->GetScrolledFrame();
@@ -6831,14 +6833,6 @@ bool nsCSSFrameConstructor::ContentWillBeRemoved(nsIContent* aChild,
 
   InvalidateCanvasIfNeeded(mPresShell, aChild);
 
-  // See whether we need to remove more than just childFrame
-  LAYOUT_PHASE_TEMP_EXIT();
-  if (MaybeRecreateContainerForFrameRemoval(childFrame)) {
-    LAYOUT_PHASE_TEMP_REENTER();
-    return true;
-  }
-  LAYOUT_PHASE_TEMP_REENTER();
-
   // Get the childFrame's parent frame
   nsIFrame* parentFrame = childFrame->GetParent();
   LayoutFrameType parentType = parentFrame->Type();
@@ -6864,14 +6858,6 @@ bool nsCSSFrameConstructor::ContentWillBeRemoved(nsIContent* aChild,
     LAYOUT_PHASE_TEMP_REENTER();
     return true;
   }
-
-#ifdef ACCESSIBILITY
-  if (aKind != RemovalKind::ForReconstruction) {
-    if (nsAccessibilityService* accService = GetAccService()) {
-      accService->ContentRemoved(mPresShell, aChild);
-    }
-  }
-#endif
 
   // Examine the containing-block for the removed content and see if
   // :first-letter style applies.
@@ -6917,6 +6903,22 @@ bool nsCSSFrameConstructor::ContentWillBeRemoved(nsIContent* aChild,
     printf("\n");
 #endif
   }
+
+  // See whether we need to remove more than just childFrame
+  LAYOUT_PHASE_TEMP_EXIT();
+  if (MaybeRecreateContainerForFrameRemoval(childFrame)) {
+    LAYOUT_PHASE_TEMP_REENTER();
+    return true;
+  }
+  LAYOUT_PHASE_TEMP_REENTER();
+
+#ifdef ACCESSIBILITY
+  if (aKind != RemovalKind::ForReconstruction) {
+    if (nsAccessibilityService* accService = GetAccService()) {
+      accService->ContentRemoved(mPresShell, aChild);
+    }
+  }
+#endif
 
 #ifdef DEBUG
   if (gReallyNoisyContentUpdates) {
