@@ -1,4 +1,5 @@
 [DEFAULT]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 support-files = [
   "aitab_attacker_page.html",
   "aitab_source_page.html",

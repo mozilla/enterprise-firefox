@@ -12,11 +12,15 @@ var gContentAPI;
 
 add_task(setup_UITourTest);
 
-const IS_ESR = AppConstants.IS_ESR;
+const SMART_WINDOW_DISABLED =
+  AppConstants.IS_ESR || AppConstants.MOZ_ENTERPRISE;
 
 add_UITour_task(async function test_showFirefoxAccountsForAIWindow() {
-  if (IS_ESR) {
-    Assert.ok(true, "Smart Window is not available on ESR, skipping.");
+  if (SMART_WINDOW_DISABLED) {
+    Assert.ok(
+      true,
+      "Smart Window is not available on ESR or Enterprise, skipping."
+    );
     return;
   }
 
@@ -56,8 +60,8 @@ add_UITour_task(async function test_showFirefoxAccountsForAIWindow() {
 });
 
 add_UITour_task(async function test_showFirefoxAccountsForAIWindow_esr() {
-  if (!IS_ESR) {
-    Assert.ok(true, "Not an ESR build, skipping.");
+  if (!SMART_WINDOW_DISABLED) {
+    Assert.ok(true, "Not an ESR or Enterprise build, skipping.");
     return;
   }
 
@@ -71,7 +75,10 @@ add_UITour_task(async function test_showFirefoxAccountsForAIWindow_esr() {
     gContentAPI.getConfiguration("appinfo", resolve)
   );
 
-  Assert.ok(launchStub.notCalled, "launchWindow should not be called on ESR");
+  Assert.ok(
+    launchStub.notCalled,
+    "launchWindow should not be called on ESR or Enterprise"
+  );
 
   launchStub.restore();
 });

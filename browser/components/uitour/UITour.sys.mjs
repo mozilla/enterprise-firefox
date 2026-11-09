@@ -501,9 +501,9 @@ export var UITour = {
       }
 
       case "showFirefoxAccountsForAIWindow": {
-        if (AppConstants.IS_ESR) {
+        if (AppConstants.IS_ESR || AppConstants.MOZ_ENTERPRISE) {
           lazy.log.warn(
-            "showFirefoxAccountsForAIWindow: Smart Window is not available on ESR"
+            "showFirefoxAccountsForAIWindow: Smart Window is not available on ESR or Enterprise"
           );
           break;
         }
