@@ -1,0 +1,19 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+<html:link rel="stylesheet" href="chrome://browser/content/ipprotection/enterprise/access-connector.css" />
+<html:link rel="localization" href="toolkit/enterprise/enterprise.ftl" />
+
+<panelview id="panelUI-access-connector" class="PanelUI-subView"
+           has-custom-header="true">
+  <box class="panel-header">
+    <html:h1>
+      <html:span id="access-connector-panel-header" data-l10n-id="access-connector-panel-header" />
+    </html:h1>
+  </box>
+  <toolbarseparator />
+  <vbox class="panel-subview-body">
+    <html:div id="access-connector-panel-message" data-l10n-id="access-connector-panel-message" />
+  </vbox>
+</panelview>

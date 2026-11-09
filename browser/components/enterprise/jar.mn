@@ -12,7 +12,5 @@ browser.jar:
   content/browser/enterprise/enterprise-close-dialog.xhtml  (content/enterprise-close-dialog.xhtml)
   content/browser/enterprise/enterprise-close-dialog.js     (content/enterprise-close-dialog.js)
   content/browser/enterprise/enterprise-close-dialog.css    (content/enterprise-close-dialog.css)
-  content/browser/enterprise/access-connector.svg           (content/icons/access-connector.svg)
-  content/browser/enterprise/access-connector-unavailable.svg  (content/icons/access-connector-unavailable.svg)
   content/builtin-themes/enterprise-auto                    (theme/auto/*.svg)
   content/builtin-themes/enterprise-auto/manifest.json      (theme/auto/manifest.json)

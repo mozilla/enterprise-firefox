@@ -4,6 +4,4 @@
 
 :root {
   --lockdown-mode-icon: url("chrome://browser/content/enterprise/site-restrictions.svg");
-  --access-connector-icon: url("chrome://browser/content/enterprise/access-connector.svg");
-  --access-connector-error-icon: url("chrome://browser/content/enterprise/access-connector-unavailable.svg");
 }
