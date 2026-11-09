@@ -66,11 +66,11 @@ def make_task_description(config, jobs):
         if index:
             # The route templates append the locale, so the rest of the repack
             # name has to be spelled out in the job name to keep one namespace
-            # per repack.
+            # per repack. The product already says "enterprise", so it is left
+            # out of the job name to keep routes within Taskcluster's limit.
             index["type"] = "shippable-l10n" if is_shippable else "l10n"
-            index["job-name"] = (
-                f"enterprise-repack-mar-signing-{partner}-{sub_config}-{build_platform}"
-            )
+            platform = build_platform.replace("-enterprise", "")
+            index["job-name"] = f"repack-mar-signing-{partner}-{sub_config}-{platform}"
 
         task = {
             "label": dep_job.label.replace(
