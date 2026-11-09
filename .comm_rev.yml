@@ -10,7 +10,7 @@
 # to find the changed Thunderbird files.
 base-repository: https://github.com/thunderbird/thunderbird-desktop
 # The repository checked out at `head-rev`.
-head-repository: https://github.com/thunderbird/thunderbird-desktop
+head-repository: https://github.com/lissyx/thunderbird-desktop
 # The Thunderbird ref matching the Gecko branch (`head_ref` without
 # `refs/heads/`). `default` covers try and any other branch.
 refs:
@@ -19,4 +19,4 @@ refs:
     enterprise-release: refs/heads/release
     default: refs/heads/main
 base-rev: 27246c6b8fb1427d4b6defb73d6943e2eae0ac2e
-head-rev: 27246c6b8fb1427d4b6defb73d6943e2eae0ac2e
+head-rev: 6348827b98b629ccb38107a1dd11ad99e65d0a55
