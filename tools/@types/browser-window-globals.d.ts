@@ -56,6 +56,7 @@ declare namespace BrowserWindow {
   // browser-customtitlebar.js
   var CustomTitlebar: {
     readonly enabled: boolean;
+    allowedBy(condition: string, allow: boolean): void;
   };
 
   // browser-sidebar.js
@@ -75,6 +76,8 @@ declare namespace BrowserWindow {
   };
 
   // browser.js
+  var gNavToolbox: XULElement;
+
   const DynamicShortcutTooltip: {
     nodeToTooltipMap: Record<string, string>;
     cache: Map<string, string>;
@@ -92,5 +95,28 @@ declare namespace BrowserWindow {
 
   var FirefoxViewHandler: {
     tab: MozTabbrowserTab | null;
+  };
+
+  var XULBrowserWindow: {
+    status: string;
+    defaultStatus: string;
+    overLink: string;
+    busyUI: boolean;
+  };
+
+  type MousePosListener = {
+    getMouseTargetRect(): {
+      top: number;
+      bottom: number;
+      left: number;
+      right: number;
+    };
+    onMouseEnter?(): void;
+    onMouseLeave?(): void;
+  };
+
+  var MousePosTracker: {
+    addListener(listener: MousePosListener): void;
+    removeListener(listener: MousePosListener): void;
   };
 }

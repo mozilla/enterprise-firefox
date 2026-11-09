@@ -547,7 +547,7 @@ void Gecko_UpdateAnimations(const Element* aElement,
   // may be affected.
   if (aTasks & UpdateAnimationsTasks::TimelineScopes) {
     presContext->TimelineManager()->UpdateTimelineScopes(
-        const_cast<Element*>(element), aComputedData);
+        const_cast<Element*>(element), pseudoRequest, aComputedData);
     // We could try to limit the impact here, at least for changes involving not
     // `all`. However, defer any such optimization until after bug 2024012.
     presContext->AnimationManager()->UpdateAllNamedTimelineAnimations();
@@ -2053,4 +2053,10 @@ bool Gecko_GetAnchorPosSize(const AnchorPosResolutionParams* aParams,
   }();
   *aOut = Length::FromPixels(CSSPixel::FromAppUnits(l));
   return true;
+}
+
+bool Gecko_ScheduleIdle(void (*aFunction)(), uint32_t aTimeout) {
+  return NS_SUCCEEDED(NS_DispatchToCurrentThreadQueue(
+      NS_NewRunnableFunction("Gecko_ScheduleIdle", aFunction), aTimeout,
+      EventQueuePriority::Idle));
 }

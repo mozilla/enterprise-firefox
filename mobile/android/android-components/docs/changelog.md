@@ -5,6 +5,14 @@ permalink: /changelog/
 ---
 
 # 162.0 (In Development)
+* **concept-engine**
+    * Added an optional `title` to `HitResult.IMAGE_SRC`.
+* **support-locale**
+    * Added a new API `LocaleManager#onAttachBaseContext` that applies only the configuration changes for the locale without cached values. Should only be used in `attachBaseContext` overrides for `Application` and `Activity` classes.
+        *  The API, similar to the others in `LocaleManager` assumes `enableSplit` is disabled for App Bundle splits; languages will be in the base package.
+    * ⚠️ **Breaking change**: Renamed `LocaleManager#updateResources` to `LocaleManager#onConfigurationChanged` to make it's API use case clear. Should only be used in `onConfigurationChanged` overrides typically in `Application`, `Activity`, `Fragment` classes.
+* **support-utils**
+    * 🆕 Added `String.validateCreditCardNumber()`, which checks that a credit card number has only digits, matches a known card network and passes the Luhn check. It moved here from Fenix. [Bug 2090313](https://bugzilla.mozilla.org/show_bug.cgi?id=2090313)
 
 # 161.0
 * **browser-state**
@@ -30,8 +38,15 @@ permalink: /changelog/
     * **Behavior change**: `DefaultTopSitesStorage.getTopSites` now returns all the pinned sites, even beyond `targetSitesCount`. The provided, frecent and default top sites still only fill the slots left within `targetSitesCount`, so the returned list can be longer than `targetSitesCount`. [Bug 2075033](https://bugzilla.mozilla.org/show_bug.cgi?id=2075033)
 * **concept-storage**
     * Added `cardCvv`, the credit card security code, to `CreditCard`, `NewCreditCardFields` and `UpdatableCreditCardFields`. When `UpdatableCreditCardFields.cardCvv` is null, `CreditCardsAddressesStorage.updateCreditCard` keeps the stored security code, and an empty string removes it. [Bug 2085145](https://bugzilla.mozilla.org/show_bug.cgi?id=2085145)
+    * **Breaking change**: `cardCvv` no longer has a default value in `CreditCard`, `NewCreditCardFields` and `UpdatableCreditCardFields`. Added a required `cardCvv` to `CreditCardEntry`. [Bug 2089057](https://bugzilla.mozilla.org/show_bug.cgi?id=2089057)
+* **browser-engine-gecko**
+    * The credit card security code now passes between GeckoView and `CreditCardEntry`, and the stored security code goes to GeckoView when it fetches credit cards. [Bug 2089057](https://bugzilla.mozilla.org/show_bug.cgi?id=2089057)
 * **service-sync-autofill**
+    * `GeckoCreditCardsAddressesStorageDelegate` saves the security code from `CreditCardEntry`. [Bug 2089057](https://bugzilla.mozilla.org/show_bug.cgi?id=2089057)
     * `AutofillCreditCardsAddressesStorage` stores and returns the credit card security code. `updateCreditCard` no longer removes a stored security code that the caller did not set. [Bug 2085145](https://bugzilla.mozilla.org/show_bug.cgi?id=2085145)
+* **concept-storage**, **service-sync-logins**
+    * ⚠️ **Breaking change**: `LoginsStorage.delete` no longer returns whether the login existed. The value was unreliable for synced logins and no caller used it.
+    [Bug 2089864](https://bugzilla.mozilla.org/show_bug.cgi?id=2089864)
 
 # 160.0
 * **concept-engine**

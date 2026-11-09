@@ -50,6 +50,8 @@ Preferences.addAll([
   { id: "services.sync.engine.creditcards", type: "bool" },
   { id: "services.sync.engine.addons", type: "bool" },
   { id: "services.sync.engine.prefs", type: "bool" },
+  // Dismissable Migration Notification
+  { id: "services.sync.cwtsMigrationNotification.dismissed", type: "bool" },
 ]);
 
 /**
@@ -533,6 +535,38 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "syncStatus",
 });
+
+Preferences.addSetting({
+  id: "syncCwtsMigrationNotification",
+  pref: "services.sync.cwtsMigrationNotification.dismissed",
+  deps: ["uiStateUpdate"],
+  _shownTelemetrySent: false,
+  visible(_deps, setting) {
+    const visible = perDeviceSyncEnabled && !setting.value;
+    if (visible && !this._shownTelemetrySent) {
+      this._shownTelemetrySent = true;
+      Glean.syncSettings.cwtsUpgradeNoticeShown.record({
+        surface: "settingsPage",
+      });
+    }
+    return visible;
+  },
+  onUserClick: event => {
+    const learnMoreLink = event?.target?.shadowRoot?.querySelector(
+      "[is='moz-support-link']"
+    );
+    if (learnMoreLink?.contains(event?.originalTarget)) {
+      Glean.syncSettings.cwtsUpgradeNoticeLinkClicked.record({
+        surface: "settingsPage",
+      });
+    }
+  },
+  onMessageBarDismiss: (_event, _deps, setting) => {
+    setting.value = true;
+    Glean.syncSettings.cwtsUpgradeNoticeDismissed.record();
+  },
+});
+
 Preferences.addSetting({
   id: "syncNow",
   deps: ["uiStateUpdate"],
@@ -985,6 +1019,16 @@ SettingGroupManager.registerGroups({
     hidden: !accountsEnabled,
     subcategory: "sync",
     items: [
+      {
+        id: "syncCwtsMigrationNotification",
+        l10nId: "sync-cwts-migration-notification",
+        control: "moz-message-bar",
+        supportPage: "how-do-i-choose-what-information-sync-firefox",
+        controlAttrs: {
+          dismissable: true,
+          role: "status",
+        },
+      },
       {
         id: "syncNoFxaSignIn",
         l10nId: "sync-signedout-account-signin-4",

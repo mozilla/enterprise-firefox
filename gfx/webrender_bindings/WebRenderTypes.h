@@ -134,6 +134,7 @@ struct ImageDescriptor : public WrImageDescriptor {
     stride = 0;
     opacity = aOpacityType;
     prefer_compositor_surface = aPreferCompositorSurface;
+    is_drm_source = false;
   }
 
   ImageDescriptor(const gfx::IntSize& aSize, int32_t aByteStride,
@@ -145,6 +146,7 @@ struct ImageDescriptor : public WrImageDescriptor {
     stride = aByteStride;
     opacity = aOpacityType;
     prefer_compositor_surface = aPreferCompositorSurface;
+    is_drm_source = false;
   }
 };
 
@@ -687,6 +689,8 @@ struct Vec<uint8_t> final {
     SetEmpty();
     return ret;
   }
+
+  void Clear() { inner.length = 0; }
 
   void SetEmpty() {
     // We need to ensure that (data, capacity, length) always remain valid

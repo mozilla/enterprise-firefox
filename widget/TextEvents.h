@@ -27,7 +27,6 @@
 #include "nsIFrame.h"
 #include "nsISelectionListener.h"
 #include "nsITransferable.h"
-#include "nsRect.h"
 #include "nsString.h"
 #include "nsTArray.h"
 
@@ -107,6 +106,12 @@ struct ShortcutKeyCandidate {
     // keyboard layout never matches with Ctrl + Shift + `;` shortcut.
     MatchExactly,
   };
+  friend auto format_as(ShiftState aState) {
+    return aState == ShiftState::MatchExactly ? "MatchExactly" : "Ignorable";
+  }
+  friend std::ostream& operator<<(std::ostream& aStream, ShiftState aState) {
+    return aStream << format_as(aState);
+  }
 
   enum class SkipIfEarlierHandlerDisabled : bool {
     // Even if an earlier handler is disabled, this may match with another
@@ -120,6 +125,13 @@ struct ShortcutKeyCandidate {
     // without Shift, and Shift + Digit6 introduces `6`).
     Yes,
   };
+  friend auto format_as(SkipIfEarlierHandlerDisabled aSkippable) {
+    return aSkippable == SkipIfEarlierHandlerDisabled::No ? "No" : "Yes";
+  }
+  friend std::ostream& operator<<(std::ostream& aStream,
+                                  SkipIfEarlierHandlerDisabled aSkippable) {
+    return aStream << format_as(aSkippable);
+  }
 
   ShortcutKeyCandidate() = default;
   ShortcutKeyCandidate(
@@ -135,6 +147,12 @@ struct ShortcutKeyCandidate {
   ShiftState mShiftState = ShiftState::MatchExactly;
   SkipIfEarlierHandlerDisabled mSkipIfEarlierHandlerDisabled =
       SkipIfEarlierHandlerDisabled::No;
+
+  friend std::string format_as(const ShortcutKeyCandidate& aCandidate);
+  friend std::ostream& operator<<(std::ostream& aStream,
+                                  const ShortcutKeyCandidate& aCandidate) {
+    return aStream << format_as(aCandidate);
+  }
 };
 
 /******************************************************************************
@@ -646,14 +664,14 @@ class WidgetKeyboardEvent final : public WidgetInputEvent {
     }
   }
 
-  void GetDOMKeyName(nsAString& aKeyName) {
+  void GetDOMKeyName(nsAString& aKeyName) const {
     if (mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
       aKeyName = mKeyValue;
       return;
     }
     GetDOMKeyName(mKeyNameIndex, aKeyName);
   }
-  void GetDOMCodeName(nsAString& aCodeName) {
+  void GetDOMCodeName(nsAString& aCodeName) const {
     if (mCodeNameIndex == CODE_NAME_INDEX_USE_STRING) {
       aCodeName = mCodeValue;
       return;
@@ -677,12 +695,31 @@ class WidgetKeyboardEvent final : public WidgetInputEvent {
   }
 
   /**
-   * Get the candidates for shortcut key.
+   * Get the candidates for shortcut key to check whether this event matches
+   * with a shortcut.
    *
    * @param aCandidates [out] the candidate shortcut key combination list.
    *                          the first item is most preferred.
    */
-  void GetShortcutKeyCandidates(ShortcutKeyCandidateArray& aCandidates) const;
+  void GetShortcutKeyCandidates(ShortcutKeyCandidateArray& aCandidates) const {
+    GetShortcutKeyCandidatesInternal(ShortcutKeyPriority::UserIntention,
+                                     aCandidates);
+  }
+
+  /**
+   * Get a list of shortcut keys which may match with this event. So, this is
+   * useful to suggest the user to consider a registering shortcut with a key
+   * press.
+   *
+   * @param aCandidates [out] The first element is the most preferred shortcut
+   *                          which may be available with other keyboard
+   *                          layouts.
+   */
+  void GetRegisterableShortcutKeys(
+      ShortcutKeyCandidateArray& aCandidates) const {
+    GetShortcutKeyCandidatesInternal(
+        ShortcutKeyPriority::AccessibleFromAnyKeyboardLayouts, aCandidates);
+  }
 
   /**
    * Get the candidates for access key.
@@ -921,6 +958,26 @@ class WidgetKeyboardEvent final : public WidgetInputEvent {
         MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE(
             "Invalid native key binding type");
     }
+  }
+
+  enum class ShortcutKeyPriority {
+    // Return the shortcut key candidates in the order of user's intention.
+    UserIntention,
+    // Return the shortcut key candidates in the order of easier to access from
+    // any keyboard layouts.
+    AccessibleFromAnyKeyboardLayouts,
+  };
+  void GetShortcutKeyCandidatesInternal(ShortcutKeyPriority,
+                                        ShortcutKeyCandidateArray&) const;
+
+  friend auto format_as(ShortcutKeyPriority aPriority) {
+    return aPriority == ShortcutKeyPriority::UserIntention
+               ? "UserIntention"
+               : "AccessibleFromAnyKeyboardLayouts";
+  }
+  friend std::ostream& operator<<(std::ostream& aStream,
+                                  ShortcutKeyPriority aPriority) {
+    return aStream << format_as(aPriority);
   }
 };
 

@@ -8,6 +8,8 @@ prefs = [
   "browser.smartwindow.endpoint=http://localhost:0/v1"
 ]
 support-files = [
+  "head_smartwindow_request_response_telemetry.js",
+  "head_smartwindow_first_turn_telemetry.js",
   "head.js",
   "head_aiwindow_group_tabs_button.js",
   "head_smartformfill_autocomplete.js",
@@ -43,6 +45,8 @@ support-files = [
   "test_smartwindow_prompts.mjs",
   "test_smartwindow_panel_list_page.html",
   "test_smartwindow_panel_list.mjs",
+  "test_smartwindow_option_select_page.html",
+  "test_smartwindow_option_select.mjs",
   "test_smartformfill.html",
   "test_smartformfill_formless_fields.html",
   "test_smartformfill_multiple_forms.html",
@@ -131,10 +135,19 @@ skip-if = [
 
 ["browser_smartwindow_duplicate_chat_tabs.js"]
 
+["browser_smartwindow_first_action_log_telemetry.js"]
+
 ["browser_smartwindow_first_character_telemetry.js"]
-skip-if = [
-  "os == 'win' && debug && standalone", # Bug 2028654
-]
+
+["browser_smartwindow_first_turn_direct_answer_telemetry.js"]
+
+["browser_smartwindow_first_turn_outcomes_telemetry.js"]
+
+["browser_smartwindow_first_turn_sidebar_telemetry.js"]
+
+["browser_smartwindow_first_turn_telemetry.js"]
+
+["browser_smartwindow_first_turn_work_counts_telemetry.js"]
 
 ["browser_smartwindow_footer.js"]
 
@@ -165,6 +178,8 @@ skip-if = [
 
 ["browser_smartwindow_nimbus.js"]
 
+["browser_smartwindow_option_select.js"]
+
 ["browser_smartwindow_panel_list.js"]
 
 ["browser_smartwindow_prompts.js"]
@@ -176,10 +191,13 @@ skip-if = [
 
 ["browser_smartwindow_recentchats.js"]
 
+["browser_smartwindow_request_response_build_errors_telemetry.js"]
+
+["browser_smartwindow_request_response_retry_telemetry.js"]
+
+["browser_smartwindow_request_response_stream_errors_telemetry.js"]
+
 ["browser_smartwindow_request_response_telemetry.js"]
-skip-if = [
-  "os == 'win' && debug && standalone", # Bug 2028654
-]
 
 ["browser_smartwindow_resume_card.js"]
 
@@ -196,9 +214,6 @@ skip-if = [
 ["browser_smartwindow_shortcut.js"]
 
 ["browser_smartwindow_sidebar.js"]
-skip-if = [
-  "true", # Bug 2057925
-]
 
 ["browser_smartwindow_sidebar_auto_open_pref_prompt.js"]
 
