@@ -31,13 +31,6 @@ nsCString ProfileKekStartup::sFeltSecret;
 
 ProfileKekStartup::~ProfileKekStartup() = default;
 
-nsresult ProfileKekStartup::UnlockPasswordKek(const nsLiteralCString& aKekRef,
-                                              const nsCString& aPassword) {
-  MOZ_ASSERT(!NS_IsMainThread());
-  MOZ_ASSERT(mLockstore);
-  return mLockstore->DoUnlockKek(aKekRef, aPassword, kProfileKekCacheTimeoutMs);
-}
-
 nsresult ProfileKekStartup::CreatePasswordKek(const nsLiteralCString& aKekId,
                                               const nsCString& aPassword) {
   MOZ_ASSERT(!NS_IsMainThread());
@@ -53,14 +46,6 @@ nsresult ProfileKekStartup::CreatePasswordKek(const nsLiteralCString& aKekId,
   MOZ_LOG(GetProfileKekLog(), LogLevel::Info,
           ("created %s", result.inspect().get()));
   return NS_OK;
-}
-
-bool ProfileKekStartup::IsKekUnlocked(const nsACString& aKekRef) {
-  MOZ_ASSERT(!NS_IsMainThread());
-  MOZ_ASSERT(mLockstore);
-  bool unlocked = false;
-  return NS_SUCCEEDED(mLockstore->IsKekUnlocked(aKekRef, &unlocked)) &&
-         unlocked;
 }
 
 bool ProfileKekStartup::IsDekWrappedUnder(const nsACString& aDekName,
@@ -109,7 +94,9 @@ nsresult ProfileKekStartup::UnlockOrCreatePasswordKek(
     const nsLiteralCString& aKekRef, const nsLiteralCString& aKekId,
     const nsCString& aPassword) {
   MOZ_ASSERT(!NS_IsMainThread());
-  if (IsKekUnlocked(aKekRef)) {
+  MOZ_ASSERT(mLockstore);
+  bool unlocked = false;
+  if (NS_SUCCEEDED(mLockstore->IsKekUnlocked(aKekRef, &unlocked)) && unlocked) {
     return NS_OK;
   }
   if (aPassword.IsEmpty()) {
@@ -118,7 +105,8 @@ nsresult ProfileKekStartup::UnlockOrCreatePasswordKek(
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  nsresult rv = UnlockPasswordKek(aKekRef, aPassword);
+  nsresult rv =
+      mLockstore->DoUnlockKek(aKekRef, aPassword, kProfileKekCacheTimeoutMs);
   // INVALID_ARG means the KEK does not exist yet
   if (rv != NS_ERROR_INVALID_ARG) {
     if (NS_FAILED(rv)) {
@@ -130,11 +118,10 @@ nsresult ProfileKekStartup::UnlockOrCreatePasswordKek(
   }
 
   MOZ_TRY(CreatePasswordKek(aKekId, aPassword));
-  // Creation is get-or-create: it hands back an existing record untouched and
-  // *not* cached as unlocked. Unlock reported the record missing a moment ago,
-  // so reaching that branch means the record is unreadable rather than absent
-  // -- report the KEK as unavailable instead of as brought up.
-  if (!IsKekUnlocked(aKekRef)) {
+  // After creation a KEK should be unlocked. If it isn't it already existed,
+  // but in a broken state.
+  unlocked = false;
+  if (NS_FAILED(mLockstore->IsKekUnlocked(aKekRef, &unlocked)) || !unlocked) {
     MOZ_LOG(GetProfileKekLog(), LogLevel::Error,
             ("%s still locked after create", aKekRef.get()));
     return NS_ERROR_NOT_AVAILABLE;
@@ -146,13 +133,8 @@ nsresult ProfileKekStartup::RewrapDek(const nsACString& aDekName,
                                       const nsACString& aFromKekRef,
                                       const nsACString& aToKekRef) {
   MOZ_ASSERT(!NS_IsMainThread());
-  // Not DoMigrateDeks, which is atomic and takes the connection once: its
-  // switch rejects a DEK the target already wraps and rolls the whole batch
-  // back when it hits one. Profiles migrated by the earlier storage-side code
-  // are in exactly that state -- it added the Password wrapping before
-  // switching, so the switch always failed and left both wrappings in place.
-  // Add-then-remove tolerates that, and is idempotent when an earlier run was
-  // interrupted between the two.
+  // Less sensitive than DoMigrateDeks, which doesn't allow some DEKS to
+  // already be wrapped by the target
   MOZ_TRY(AddKekToDek(aDekName, aFromKekRef, aToKekRef));
   return mLockstore->DoRemoveKek(aDekName, aFromKekRef);
 }
@@ -179,40 +161,10 @@ uint32_t ProfileKekStartup::ForEachDekWrappedUnder(
   return succeeded;
 }
 
-void ProfileKekStartup::RewrapAllDeks(const nsACString& aFromKekRef,
-                                      const nsACString& aToKekRef) {
-  uint32_t moved =
-      ForEachDekWrappedUnder(aFromKekRef, "move", [&](const nsCString& aDek) {
-        return RewrapDek(aDek, aFromKekRef, aToKekRef);
-      });
-  // Rejected while any DEK still references the KEK; retried next launch.
-  nsresult rv = DeleteKek(aFromKekRef);
-  MOZ_LOG(GetProfileKekLog(), LogLevel::Info,
-          ("move: %u DEKs from %s to %s; deleteKek rv=0x%" PRIx32, moved,
-           PromiseFlatCString(aFromKekRef).get(),
-           PromiseFlatCString(aToKekRef).get(), static_cast<uint32_t>(rv)));
-}
-
-void ProfileKekStartup::AlsoWrapAllDeksUnder(const nsACString& aFromKekRef,
-                                             const nsACString& aToKekRef) {
-  uint32_t wrapped =
-      ForEachDekWrappedUnder(aFromKekRef, "wrap", [&](const nsCString& aDek) {
-        return AddKekToDek(aDek, aFromKekRef, aToKekRef);
-      });
-  MOZ_LOG(GetProfileKekLog(), LogLevel::Info,
-          ("wrap: %u DEKs from %s also under %s", wrapped,
-           PromiseFlatCString(aFromKekRef).get(),
-           PromiseFlatCString(aToKekRef).get()));
-}
-
 void ProfileKekStartup::BringUpKeks(const nsCString& aSecret) {
-  // The two KEKs are brought up independently: a profile KEK that cannot be
-  // unlocked must not strand the sqlite one, which every encrypted database
-  // depends on.
   nsresult profileRv =
       UnlockOrCreatePasswordKek(kProfilePasswordKek, kProfileKekId, aSecret);
-  // Storage mints its DEKs under this one, so it has to exist before the first
-  // database open even on a profile that has none yet.
+
   if (NS_FAILED(UnlockOrCreatePasswordKek(kSqlitePasswordKek, kSqliteKekId,
                                           aSecret))) {
     return;
@@ -221,13 +173,28 @@ void ProfileKekStartup::BringUpKeks(const nsCString& aSecret) {
   // Profiles predating the Password KEK wrapped their DEKs under a LocalKey.
   auto localDeks = DeksWrappedUnder(kSqliteLocalKek);
   if (localDeks.isOk() && !localDeks.inspect().IsEmpty()) {
-    RewrapAllDeks(kSqliteLocalKek, kSqlitePasswordKek);
+    uint32_t moved = ForEachDekWrappedUnder(
+        kSqliteLocalKek, "move", [&](const nsCString& aDek) {
+          return RewrapDek(aDek, kSqliteLocalKek, kSqlitePasswordKek);
+        });
+    // Rejected while any DEK still references the KEK; retried next launch.
+    nsresult rv = DeleteKek(kSqliteLocalKek);
+    MOZ_LOG(GetProfileKekLog(), LogLevel::Info,
+            ("move: %u DEKs from %s to %s; deleteKek rv=0x%" PRIx32, moved,
+             PromiseFlatCString(kSqliteLocalKek).get(),
+             PromiseFlatCString(kSqlitePasswordKek).get(),
+             static_cast<uint32_t>(rv)));
   }
 
-  // DEKs minted later in this session are only picked up by the next startup;
-  // storage reads them under password:sqlite until then.
   if (NS_SUCCEEDED(profileRv)) {
-    AlsoWrapAllDeksUnder(kSqlitePasswordKek, kProfilePasswordKek);
+    uint32_t wrapped = ForEachDekWrappedUnder(
+        kSqlitePasswordKek, "wrap", [&](const nsCString& aDek) {
+          return AddKekToDek(aDek, kSqlitePasswordKek, kProfilePasswordKek);
+        });
+    MOZ_LOG(GetProfileKekLog(), LogLevel::Info,
+            ("wrap: %u DEKs from %s also under %s", wrapped,
+             PromiseFlatCString(kSqlitePasswordKek).get(),
+             PromiseFlatCString(kProfilePasswordKek).get()));
   }
 }
 
@@ -248,11 +215,6 @@ nsresult ProfileKekStartup::UnlockKekWithSecret(KeystoreHandle* aHandle,
 // static
 void ProfileKekStartup::ClearSecret() {
   MOZ_ASSERT(NS_IsMainThread());
-  // Truncate only drops the length, so scrub the characters first -- with
-  // PORT_SafeZero, which the optimizer may not elide as a dead store, as the
-  // zeroizing wrappers in LockstoreService.cpp do. The buffer is unshared
-  // (mozSetProfileSecret copies the characters in), so this reaches the only
-  // copy we own.
   if (!sFeltSecret.IsEmpty()) {
     PORT_SafeZero(sFeltSecret.BeginWriting(), sFeltSecret.Length());
   }
@@ -285,9 +247,7 @@ void ProfileKekStartup::BringUpProfileKeks() {
 
 void ProfileKekStartup::Run() {
   MOZ_ASSERT(NS_IsMainThread());
-  // Opening the keystore before NSS is up would NSS_NoDB_Init and break PSM;
-  // the loadable-roots task must also be done so its softoken/SQLite use
-  // cannot race the keystore's SQLite bring-up.
+  // Lockstore needs NSS initialized
   if (!EnsureNSSInitializedChromeOrContent()) {
     NS_WARNING("ProfileKekStartup: NSS init failed");
     return;

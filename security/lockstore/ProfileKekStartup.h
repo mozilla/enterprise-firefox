@@ -66,17 +66,9 @@ class ProfileKekStartup final {
 
   friend void ::mozSetProfileSecret(const nsACString* aHex);
 
-  // The Felt-delivered primarySecret. Written exactly once, before any reader
-  // exists, so it needs no lock -- re-verified end to end, do not re-litigate:
-  //   * FeltProcessParent.startFirefox() calls sendPrimarySecret() once per
-  //     launch, ahead of every other message including StartupReady;
-  //   * the client's ipc_loop handles messages in order, so the write here
-  //     precedes its StartupReady handling, which hops to the main thread and
-  //     releases the startup barrier;
-  //   * XRE_mainRun spins on that barrier (acquire) before it reaches
-  //     mDirProvider.DoStartup(), which is what fires profile-do-change.
-  // Both readers -- the KEK bring-up and the Profile Refresh rewrap -- run
-  // after that. A second or late delivery would need a lock.
+  // The Felt-delivered primarySecret. Needs no lock: Felt sends it once, before
+  // StartupReady, and XRE_mainRun waits for StartupReady before DoStartup, so
+  // it is written before any reader runs.
   static nsCString sFeltSecret;
 
   // Resolves the keystore, then blocks on the background bring-up.
@@ -84,12 +76,9 @@ class ProfileKekStartup final {
 
   // These assert on mLockstore rather than check it; Run bails before it can
   // reach them.
-  bool IsKekUnlocked(const nsACString& aKekRef);
   bool IsDekWrappedUnder(const nsACString& aDekName, const nsACString& aKekRef);
   Result<nsTArray<nsCString>, nsresult> DeksWrappedUnder(
       const nsACString& aKekRef);
-  nsresult UnlockPasswordKek(const nsLiteralCString& aKekRef,
-                             const nsCString& aPassword);
   nsresult CreatePasswordKek(const nsLiteralCString& aKekId,
                              const nsCString& aPassword);
   nsresult AddKekToDek(const nsACString& aDekName,
@@ -109,10 +98,6 @@ class ProfileKekStartup final {
   uint32_t ForEachDekWrappedUnder(const nsACString& aKekRef, const char* aWhat,
                                   FunctionRef<nsresult(const nsCString&)> aOp);
 
-  void RewrapAllDeks(const nsACString& aFromKekRef,
-                     const nsACString& aToKekRef);
-  void AlsoWrapAllDeksUnder(const nsACString& aFromKekRef,
-                            const nsACString& aToKekRef);
   void BringUpKeks(const nsCString& aSecret);
 
   // Creating the service is what caches its profile path, so it is resolved on
