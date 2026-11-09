@@ -1,0 +1,111 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Adding a new metric? We have docs for that!
+# https://firefox-source-docs.mozilla.org/toolkit/components/glean/user/new_definitions_file.html
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+$tags:
+  - 'Firefox :: Downloads Panel'
+
+downloads:
+  download_completed:
+    type: event
+    data_sensitivity:
+      - highly_sensitive
+    description: >
+      Recorded when a file download completes successfully in enterprise builds.
+      Contains security-relevant metadata for monitoring and analysis.
+      Only collected when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    expires: never
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      filename:
+        description: >
+          The filename (basename only) of the downloaded file.
+        type: string
+      file_path:
+        description: >
+          The download path of the downloaded file.
+        type: string
+      extension:
+        description: >
+          The file extension of the downloaded file (e.g., "pdf", "exe").
+        type: string
+      mime_type:
+        description: >
+          The MIME type of the downloaded file as reported by the server.
+        type: string
+      sha256_hash:
+        description: >
+          The SHA256 hash of the downloaded file.
+        type: string
+      size_bytes:
+        description: >
+          The size of the downloaded file in bytes.
+        type: quantity
+      source_url:
+        description: >
+          The download source URL. Collection level configurable via the
+          SecurityLogging policy's Download.UrlLogging setting: "full"
+          (default), "domain", or "none".
+        type: string
+      is_private:
+        description: >
+          Whether the download occurred in a private browsing session.
+        type: boolean
+  download_attempt:
+    type: event
+    data_sensitivity:
+      - highly_sensitive
+    description: >
+      Recorded when a file download is attempted or started in enterprise builds.
+      Contains security-relevant metadata for monitoring and analysis.
+      Only collected when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    expires: never
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      filename:
+        description: >
+          The filename (basename only) of the downloaded file.
+        type: string
+      file_path:
+        description: >
+          The download path of the downloaded file.
+        type: string
+      extension:
+        description: >
+          The file extension of the downloaded file (e.g., "pdf", "exe").
+        type: string
+      mime_type:
+        description: >
+          The MIME type of the downloaded file as reported by the server.
+        type: string
+      source_url:
+        description: >
+          The download source URL. Collection level configurable via the
+          SecurityLogging policy's Download.UrlLogging setting: "full"
+          (default), "domain", or "none".
+        type: string
+      is_private:
+        description: >
+          Whether the download occurred in a private browsing session.
+        type: boolean
