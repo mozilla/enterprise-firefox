@@ -170,6 +170,9 @@ function watermarkCommonStyle() {
  */
 function watermarkScreenStyle(width, height) {
   return [
+    "display: inline !important",
+    "opacity: 1 !important",
+    "visibility: visible !important",
     "position: absolute !important",
     "top: 0 !important",
     "left: 0 !important",
