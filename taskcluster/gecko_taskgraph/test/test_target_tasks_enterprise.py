@@ -201,5 +201,80 @@ def test_nightly_never_tags_what_it_did_not_upload(graph):
     )
 
 
+def _test_task(kind, test_platform, build_platform, provisioner="enterprise-t"):
+    label = f"{kind}-{test_platform}-{provisioner}"
+    return Task(
+        kind=kind,
+        label=label,
+        attributes={
+            "build_platform": build_platform,
+            "build_type": "debug",
+            "test_platform": test_platform,
+        },
+        task={"provisionerId": provisioner},
+    )
+
+
+def _with_tests(monkeypatch, tasks, level):
+    tasks = {t.label: t for t in tasks}
+    graph = TaskGraph(tasks=tasks, graph=Graph(nodes=set(tasks), edges=set()))
+    monkeypatch.setattr(
+        target_tasks, "target_tasks_default", lambda g, *args: list(g.tasks)
+    )
+    parameters = {
+        "tasks_for": "github-push",
+        "project": "enterprise-firefox",
+        "level": level,
+        "release_product": "firefox-enterprise",
+    }
+    return target_tasks.target_tasks_enterprise_firefox_with_tests(
+        graph, parameters, {}
+    )
+
+
+@pytest.mark.parametrize("level", ("1", "3"))
+@pytest.mark.parametrize(
+    "task",
+    (
+        _test_task("valgrind", None, "linux64-enterprise/debug"),
+        _test_task("test-apk", None, "android-arm-enterprise/debug"),
+        _test_task("instrumented-build-apk", None, "android-arm-enterprise/debug"),
+        _test_task(
+            "generate-baseline-profile-firebase", None, "android-arm-enterprise/debug"
+        ),
+        _test_task(
+            "instrumented-build-macrobenchmark-apk",
+            None,
+            "android-arm-enterprise/debug",
+        ),
+        _test_task("run-macrobenchmark-firebase", None, "android-arm-enterprise/debug"),
+        _test_task("ui-test-apk", None, "android-arm-enterprise/debug"),
+        _test_task(
+            "web-platform-tests",
+            "linux2404-64-enterprise/debug",
+            "linux64-enterprise/debug",
+        ),
+        _test_task(
+            "reftest", "linux2404-64-enterprise/debug", "linux64-enterprise/debug"
+        ),
+        _test_task(
+            "mochitest",
+            "linux2404-64-enterprise/debug",
+            "linux64-enterprise/debug",
+            provisioner="proj-autophone",
+        ),
+        _test_task("mochitest", "android-hw-a55-14-0-arm8/debug", "android-arm/debug"),
+        _test_task("mochitest", "windows11-aarch64-24h2/debug", "win64-aarch64/debug"),
+    ),
+    ids=lambda t: t.label,
+)
+def test_with_tests_skips(monkeypatch, level, task):
+    kept = _test_task(
+        "mochitest", "linux2404-64-enterprise/debug", "linux64-enterprise/debug"
+    )
+
+    assert _with_tests(monkeypatch, [kept, task], level) == [kept.label]
+
+
 if __name__ == "__main__":
     main()
