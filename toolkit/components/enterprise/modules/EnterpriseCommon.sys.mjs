@@ -39,9 +39,9 @@ export const EnterpriseCommon = {
   ENTERPRISE_DEVICE_ID_PREF: "enterprise.sync.device_id",
 };
 
-export function createEnterpriseLogger(logPrefix) {
+export function createEnterpriseLogger(logModule) {
   return console.createInstance({
-    prefix: logPrefix,
+    logModule,
     maxLogLevelPref: ENTERPRISE_LOG_LEVEL_PREF,
   });
 }

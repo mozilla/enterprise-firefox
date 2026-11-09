@@ -14,7 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return console.createInstance({
-    prefix: "SyncPolicy",
+    logModule: "SyncPolicy",
     maxLogLevelPref: PREF_LOGLEVEL,
   });
 });
