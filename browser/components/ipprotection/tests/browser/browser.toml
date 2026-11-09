@@ -45,6 +45,9 @@ skip-if = [
 ]
 
 ["browser_ipprotection_confirmation_hints_site_inclusion.js"]
+skip-if = [
+  "enterprise", # Enterprise does not show the IP Protection toolbar button or panel, so site inclusion confirmation hints never fire.
+]
 
 ["browser_ipprotection_content.js"]
 skip-if = [
@@ -57,6 +60,9 @@ skip-if = [
 ]
 
 ["browser_ipprotection_content_site_rules.js"]
+skip-if = [
+  "enterprise", # Enterprise does not show the IP Protection toolbar button or panel containing the site rules UI.
+]
 
 ["browser_ipprotection_content_unauthenticated.js"]
 skip-if = [
