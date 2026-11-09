@@ -62,7 +62,7 @@ tasks:
                     linux64-aarch64-enterprise: linux64-aarch64-enterprise-opt
                     linux64(?!-aarch64).*: linux64-opt
                     linux64-aarch64.*: linux64-aarch64-opt
-                    macosx64-enterprise: macosx64-enterprise-opt
+                    macosx64-aarch64-enterprise: macosx64-aarch64-enterprise-opt
                     macosx64.*: macosx64-opt
                     win32.*: win32-opt
                     win64.*: win64-opt
@@ -78,7 +78,7 @@ tasks:
                     linux64-aarch64: linux64-aarch64/opt
                     linux64-aarch64-enterprise: linux64-aarch64-enterprise/opt
                     macosx64: osx-cross/opt
-                    macosx64-enterprise: osx-cross-enterprise/opt
+                    macosx64-aarch64-enterprise: osx-cross-enterprise/opt
                     win32: windows2012-32/opt
                     win64: windows2012-64/opt
                     win64-enterprise: windows2012-64-enterprise/opt
@@ -103,7 +103,7 @@ tasks:
                         - single_locale/linux64.py
                         - single_locale/tc_common.py
                         - single_locale/tc_linux_common.py
-                    macosx64-enterprise.*:
+                    macosx64(-aarch64)?-enterprise.*:
                         - single_locale/enterprise.py
                         - single_locale/macosx64.py
                         - single_locale/tc_common.py
