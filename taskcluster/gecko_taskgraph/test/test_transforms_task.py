@@ -9,12 +9,14 @@ from taskgraph.config import GraphConfig
 from gecko_taskgraph.test.conftest import FakeParameters, FakeTransformConfig
 from gecko_taskgraph.transforms import job  # noqa: F401
 from gecko_taskgraph.transforms.task import (
+    MAX_ROUTE_LENGTH,
     TREEHERDER_ROOT_URL,
     get_default_priority,
     get_treeherder_link,
     get_treeherder_project,
     is_shared_worker,
     try_task_config_env,
+    verify_routes_length,
 )
 
 
@@ -215,6 +217,14 @@ def test_try_task_config_env_applies(run_transform, implementation):
     params = FakeParameters({"try_task_config": {"env": {"NEW_VAR": "new_value"}}})
     result = list(run_transform(try_task_config_env, task, params=params))[0]
     assert result["worker"]["env"] == {"EXISTING": "value", "NEW_VAR": "new_value"}
+
+
+def test_verify_routes_length():
+    route = "index." + "a" * (MAX_ROUTE_LENGTH - len("index."))
+    verify_routes_length({"label": "fits", "routes": [route]})
+
+    with pytest.raises(Exception, match=r"too-long.*\n.*\(250\)"):
+        verify_routes_length({"label": "too-long", "routes": [route, route + "a"]})
 
 
 def test_try_task_config_env_skips_no_env_impl(run_transform):
