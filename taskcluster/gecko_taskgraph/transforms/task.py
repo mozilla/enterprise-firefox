@@ -504,6 +504,26 @@ def verify_index(config, index):
         raise Exception(UNSUPPORTED_INDEX_PRODUCT_ERROR.format(product=product))
 
 
+MAX_ROUTE_LENGTH = 249
+
+ROUTE_TOO_LONG_ERROR = """\
+Task {label} has routes longer than the {limit} characters Taskcluster allows:
+{routes}
+"""
+
+
+def verify_routes_length(task):
+    too_long = [r for r in task.get("routes", []) if len(r) > MAX_ROUTE_LENGTH]
+    if too_long:
+        raise Exception(
+            ROUTE_TOO_LONG_ERROR.format(
+                label=task["label"],
+                limit=MAX_ROUTE_LENGTH,
+                routes="\n".join(f"  {r} ({len(r)})" for r in too_long),
+            )
+        )
+
+
 RUN_TASK_RE = re.compile(r"run-task(-(git|hg))?$")
 
 
@@ -2280,6 +2300,7 @@ def add_index_routes(config, tasks):
 
         index_type = index.get("type", "generic")
         task = index_builders[index_type](config, task)
+        verify_routes_length(task)
 
         del task["index"]
         yield task
