@@ -597,6 +597,45 @@ def target_tasks_enterprise_firefox(full_task_graph, parameters, graph_config):
     return [l for l in filtered_for_enterprise if filter(full_task_graph[l])]
 
 
+ENTERPRISE_SKIPPED_KINDS = {
+    # No scopes for the Gecko secrets used by valgrind builds
+    "valgrind",
+    # No scopes for the Slack notifications of test-apk tasks
+    "test-apk",
+    # Reduce CI workload: these started running on git-backed pushes with
+    # bug 2080878
+    "web-platform-tests",
+    "reftest",
+    # Fenix only, and enterprise has no Fenix
+    "instrumented-build-apk",
+    "generate-baseline-profile-firebase",
+    "instrumented-build-macrobenchmark-apk",
+    "run-macrobenchmark-firebase",
+    "ui-test-apk",
+}
+
+# No scopes for proj-autophone workers
+ENTERPRISE_SKIPPED_PROVISIONERS = {"proj-autophone"}
+
+# They require special hardware and credentials
+ENTERPRISE_SKIPPED_TEST_PLATFORMS = ("android-hw", "windows11-aarch64")
+
+
+def is_skipped_on_enterprise(task):
+    if task.kind in ENTERPRISE_SKIPPED_KINDS:
+        return True
+
+    if task.task.get("provisionerId") in ENTERPRISE_SKIPPED_PROVISIONERS:
+        return True
+
+    test_platform = task.attributes.get("test_platform")
+    return bool(
+        "test" in task.kind
+        and test_platform
+        and any(p in test_platform for p in ENTERPRISE_SKIPPED_TEST_PLATFORMS)
+    )
+
+
 @register_target_task("enterprise_firefox_with_tests_tasks")
 def target_tasks_enterprise_firefox_with_tests(
     full_task_graph, parameters, graph_config
@@ -630,26 +669,10 @@ def target_tasks_enterprise_firefox_with_tests(
                 and "android" not in task.label
             )
 
+        if is_skipped_on_enterprise(task):
+            return False
+
         test_platform = task.attributes.get("test_platform")
-        # Skip android-hw tests, windows11-aarch64: they require special hardware and credentials
-        if (
-            "test" in task.kind
-            and test_platform
-            and ("android-hw" in test_platform or "windows11-aarch64" in test_platform)
-        ):
-            return False
-
-        # No scopes for proj-autophone workers
-        if task.task.get("provisionerId") == "proj-autophone":
-            return False
-
-        # No scopes for the Gecko secrets used by valgrind builds
-        if task.kind == "valgrind":
-            return False
-
-        # No scopes for the Slack notifications of test-apk tasks
-        if task.kind == "test-apk":
-            return False
 
         # Only keep builds that have been explicitely flagged
         if task.kind == "build" and not parameters["project"] in task.attributes.get(
