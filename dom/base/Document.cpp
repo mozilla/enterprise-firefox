@@ -17368,6 +17368,26 @@ Document::ElementReadyCheckResult Document::FullscreenElementReadyCheck(
     aRequest.Reject("FullscreenDeniedNotFocusedTab");
     return ElementReadyCheckResult::eErrorPromiseRejected;
   }
+  const bool isActiveDocumentChainConsistent = ([self = this]() {
+    Document* doc = self;
+    while (doc) {
+      if (!doc->IsCurrentActiveDocument()) {
+        return false;
+      }
+      Element* embedder = doc->GetEmbedderElement();
+      Document* parent = doc->GetInProcessParentDocument();
+      if (!!embedder != !!parent ||
+          (embedder && embedder->GetComposedDoc() != parent)) {
+        return false;
+      }
+      doc = parent;
+    }
+    return true;
+  })();
+  if (!isActiveDocumentChainConsistent) {
+    aRequest.Reject("FullscreenDeniedHidden");
+    return ElementReadyCheckResult::eErrorPromiseRejected;
+  }
   return ElementReadyCheckResult::eOk;
 }
 
@@ -18532,8 +18552,9 @@ void Document::ReportTrustedTypesReadiness() {
       used || Has(TrustedTypesReadinessSignal::CreatedPolicy);
   glean::security::trusted_types_readiness
       .Get(nsPrintfCString(
-          "htmlsink-%s_writesink-%s_ttcsp-%s_strictcsp-%s_created-%u_used-%u_"
-          "lib-%u_js-%u",
+          "doc-%s_htmlsink-%s_writesink-%s_ttcsp-%s_strictcsp-%s_created-%u_"
+          "used-%u_lib-%u_js-%u",
+          IsTopLevelContentDocument() ? "top" : "sub",
           Sink(TrustedTypesReadinessSignal::UsedHTMLSinkWithString,
                TrustedTypesReadinessSignal::UsedHTMLSinkWithTrustedHTML),
           Sink(TrustedTypesReadinessSignal::UsedWriteSinkWithString,
