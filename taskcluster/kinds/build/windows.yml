@@ -602,6 +602,7 @@ win64-enterprise/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
+        variant: opt-enterprise
         platform: win64
     run:
         options: [append-env-variables-from-configs]
@@ -659,6 +660,7 @@ win64-aarch64-enterprise/opt:
         # env:
         #     MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
+        variant: opt-enterprise
         platform: win64-aarch64
     run:
         actions: [get-secrets, build]

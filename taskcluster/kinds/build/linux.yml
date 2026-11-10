@@ -173,6 +173,8 @@ linux64-enterprise/opt:
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
             MOZ_ENABLE_FULL_SYMBOLS: "1"
+    mozconfig:
+        variant: opt-enterprise
     run:
         using: mozharness
         actions: [get-secrets, build]
