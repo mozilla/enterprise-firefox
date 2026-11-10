@@ -37,31 +37,6 @@ endif
 
 EXEC			= exec
 
-################################################################################
-# Testing frameworks support
-################################################################################
-
-ifdef ENABLE_TESTS
-ifdef CPP_UNIT_TESTS
-ifdef COMPILE_ENVIRONMENT
-
-# Compile the tests to $(DIST)/bin.  Make lots of niceties available by default
-# through TestHarness.h, by modifying the list of includes and the libs against
-# which stuff links.
-SIMPLE_PROGRAMS += $(CPP_UNIT_TESTS)
-
-ifndef MOZ_PROFILE_GENERATE
-CPP_UNIT_TESTS_FILES = $(CPP_UNIT_TESTS)
-CPP_UNIT_TESTS_DEST = $(DIST)/cppunittests
-CPP_UNIT_TESTS_TARGET = target
-INSTALL_TARGETS += CPP_UNIT_TESTS
-endif
-
-endif # COMPILE_ENVIRONMENT
-endif # CPP_UNIT_TESTS
-endif # ENABLE_TESTS
-
-
 #
 # Library rules
 #
@@ -115,14 +90,6 @@ HOST_PDBFILE=$(basename $(@F)).pdb
 HOST_PDB_FLAG ?= -PDB:$(HOST_PDBFILE)
 HOST_C_LDFLAGS += -DEBUG $(HOST_PDB_FLAG)
 HOST_CXX_LDFLAGS += -DEBUG $(HOST_PDB_FLAG)
-endif
-
-# Don't build SIMPLE_PROGRAMS during the MOZ_PROFILE_GENERATE pass, and do not
-# attempt to install them
-ifdef MOZ_PROFILE_GENERATE
-$(foreach category,$(INSTALL_TARGETS),\
-  $(eval $(category)_FILES := $(foreach file,$($(category)_FILES),$(if $(filter $(SIMPLE_PROGRAMS),$(notdir $(file))),,$(file)))))
-SIMPLE_PROGRAMS :=
 endif
 
 ifdef COMPILE_ENVIRONMENT
@@ -395,7 +362,7 @@ $(WASM_ARCHIVE): $(CWASMOBJS) $(CPPWASMOBJS) $(STATIC_LIBS) $(GLOBAL_DEPS)
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,START_WasmLib $@)
 	$(RM) $(WASM_ARCHIVE)
-	$(WASM_CXX) -o $@ -Wl,--export-all -Wl,--stack-first -Wl,-z,stack-size=$(if $(MOZ_OPTIMIZE),262144,1048576) -Wl,--no-entry -Wl,--import-memory -Wl,--import-table $(CWASMOBJS) $(CPPWASMOBJS) $(addprefix -l,$(WASM_LIBS))
+	$(WASM_CXX) -o $@ $(COMPUTED_WASM_LDFLAGS) $(CWASMOBJS) $(CPPWASMOBJS) $(addprefix -l,$(WASM_LIBS))
 	$(call BUILDSTATUS,END_WasmLib $@)
 
 ifeq ($(OS_ARCH),WINNT)
@@ -513,11 +480,6 @@ define syms_template
 $(2): $(1)
 ifdef MOZ_CRASHREPORTER
 	$$(call py_action,dumpsymbols $$@,$$(abspath $$<) $$(abspath $$@) $$(DUMP_SYMBOLS_FLAGS))
-ifeq ($(OS_ARCH),WINNT)
-ifdef WINCHECKSEC
-	$$(PYTHON3) $$(topsrcdir)/build/win32/autowinchecksec.py $$<
-endif # WINCHECKSEC
-endif # WINNT
 endif
 endef
 
@@ -526,10 +488,6 @@ endef
 # main symbols archive, so that other tasks don't have to download them.
 ifneq (,$(filter $(DIST)/bin/gtest%,$(FINAL_TARGET)))
 DUMP_SYMBOLS_FLAGS += --symbols-dir=crashreporter-symbols-gtest
-endif
-
-ifneq (,$(filter $(DIST)/bin%,$(FINAL_TARGET)))
-DUMP_SYMS_TARGETS := $(filter-out $(MOZBUILD_NON_DEFAULT_TARGETS),$(SHARED_LIBRARY) $(PROGRAM) $(SIMPLE_PROGRAMS) $(RUST_PROGRAMS))
 endif
 
 ifdef MOZ_AUTOMATION

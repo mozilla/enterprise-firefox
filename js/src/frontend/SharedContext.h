@@ -310,9 +310,21 @@ inline EvalSharedContext* SharedContext::asEvalContext() {
 
 enum class HasHeritage { No, Yes };
 
+enum class InlinedFieldValueKind : uint8_t {
+  Number,
+  True,
+  False,
+  Null,
+  Undefined,
+  EmptyArray,
+  EmptyObject,
+};
+
 struct InlinedField {
   TaggedParserAtomIndex name;
   bool isPrivate;
+  InlinedFieldValueKind valueKind;
+  // Only meaningful when valueKind is Number.
   double initialValue;
 };
 

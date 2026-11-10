@@ -1295,6 +1295,14 @@ class TestRecursiveMakeBackend(BackendTester):
             open(backend_path).read(),
         )
 
+    def _cargo_deps(self, var, spec, *inputs):
+        return " ".join((
+            f"{var} := {spec}",
+            "$(topsrcdir)/python/mozbuild/mozbuild/rust_commands.py",
+            "$(topsrcdir)/python/mozbuild/mozbuild/action/run_cargo.py",
+            *inputs,
+        ))
+
     def test_rust_library(self):
         """Test that a Rust library is written to backend.mk correctly."""
         env = self._consume("rust-library", RecursiveMakeBackend)
@@ -1311,6 +1319,7 @@ class TestRecursiveMakeBackend(BackendTester):
             "RUST_LIBRARY_FILE := x86_64-unknown-linux-gnu/release/libtest_library.a",
             "CARGO_FILE := $(srcdir)/Cargo.toml",
             "CARGO_TARGET_DIR := %s" % env.topobjdir,
+            self._cargo_deps("CARGO_LIBRARY_DEPS", ".cargo-library-spec.json"),
         ]
 
         self.assertEqual(lines, expected)
@@ -1332,6 +1341,7 @@ class TestRecursiveMakeBackend(BackendTester):
             "x86_64-unknown-linux-gnu/release-custom/libprofile_library.a",
             "CARGO_FILE := $(srcdir)/Cargo.toml",
             f"CARGO_TARGET_DIR := {env.topobjdir}",
+            self._cargo_deps("CARGO_LIBRARY_DEPS", ".cargo-library-spec.json"),
         ]
 
         self.assertEqual(lines, expected)
@@ -1521,6 +1531,9 @@ class TestRecursiveMakeBackend(BackendTester):
             "HOST_RUST_LIBRARY_FILE := x86_64-unknown-linux-gnu/release/libhostrusttool.a",
             "CARGO_FILE := $(srcdir)/Cargo.toml",
             "CARGO_TARGET_DIR := %s" % env.topobjdir,
+            self._cargo_deps(
+                "CARGO_HOST_LIBRARY_DEPS", ".cargo-host-library-spec.json"
+            ),
         ]
 
         self.assertEqual(lines, expected)
@@ -1549,6 +1562,9 @@ class TestRecursiveMakeBackend(BackendTester):
             "HOST_RUST_LIBRARY_FILE := x86_64-unknown-linux-gnu/release/libhostrusttool.a",
             "CARGO_FILE := $(srcdir)/Cargo.toml",
             "CARGO_TARGET_DIR := %s" % env.topobjdir,
+            self._cargo_deps(
+                "CARGO_HOST_LIBRARY_DEPS", ".cargo-host-library-spec.json"
+            ),
         ]
 
         self.assertEqual(lines, expected)
@@ -1569,6 +1585,7 @@ class TestRecursiveMakeBackend(BackendTester):
             "RUST_LIBRARY_FILE := x86_64-unknown-linux-gnu/release/libfeature_library.a",
             "CARGO_FILE := $(srcdir)/Cargo.toml",
             "CARGO_TARGET_DIR := %s" % env.topobjdir,
+            self._cargo_deps("CARGO_LIBRARY_DEPS", ".cargo-library-spec.json"),
         ]
 
         self.assertEqual(lines, expected)
@@ -1590,6 +1607,9 @@ class TestRecursiveMakeBackend(BackendTester):
             f"CARGO_TARGET_DIR := {env.topobjdir}",
             "RUST_PROGRAMS += $(DEPTH)/i686-pc-windows-msvc/release/test-program-features.exe",
             "RUST_CARGO_PROGRAMS += test-program-features",
+            "DUMP_SYMS_TARGETS += "
+            "$(DEPTH)/i686-pc-windows-msvc/release/test-program-features.exe",
+            self._cargo_deps("CARGO_PROGRAM_DEPS", ".cargo-program-spec.json"),
         ]
 
         self.assertEqual(lines, expected)
@@ -1611,6 +1631,9 @@ class TestRecursiveMakeBackend(BackendTester):
             f"CARGO_TARGET_DIR := {env.topobjdir}",
             "HOST_RUST_PROGRAMS += $(DEPTH)/i686-pc-windows-msvc/release/test-host-program-features.exe",
             "HOST_RUST_CARGO_PROGRAMS += test-host-program-features",
+            self._cargo_deps(
+                "CARGO_HOST_PROGRAM_DEPS", ".cargo-host-program-spec.json"
+            ),
         ]
 
         self.assertEqual(lines, expected)
@@ -1632,8 +1655,15 @@ class TestRecursiveMakeBackend(BackendTester):
             "CARGO_TARGET_DIR := %s" % env.topobjdir,
             "RUST_PROGRAMS += $(DEPTH)/i686-pc-windows-msvc/release/target.exe",
             "RUST_CARGO_PROGRAMS += target",
+            "DUMP_SYMS_TARGETS += $(DEPTH)/i686-pc-windows-msvc/release/target.exe",
             "HOST_RUST_PROGRAMS += $(DEPTH)/i686-pc-windows-msvc/release/host.exe",
             "HOST_RUST_CARGO_PROGRAMS += host",
+            self._cargo_deps(
+                "CARGO_PROGRAM_DEPS", ".cargo-program-spec.json", "module.res"
+            ),
+            self._cargo_deps(
+                "CARGO_HOST_PROGRAM_DEPS", ".cargo-host-program-spec.json"
+            ),
         ]
 
         self.assertEqual(lines, expected)
@@ -1663,12 +1693,14 @@ class TestRecursiveMakeBackend(BackendTester):
         self.assertEqual(target["outputs"], ["i686-pc-windows-msvc/release/target.exe"])
         code = mozpath.normsep(mozpath.join(env.topobjdir, "code"))
         self.assertEqual(target["rustc_flags"], ["-C", f"link-arg={code}/module.res"])
+        self.assertEqual(target["inputs"], ["code/module.res"])
 
         host = self._cargo_spec(env, "code/.cargo-host-program-spec.json")["edge"]
         self.assertEqual(host["kind"], "host-program")
         self.assertEqual(host["names"], ["host"])
         self.assertEqual(host["outputs"], ["i686-pc-windows-msvc/release/host.exe"])
         self.assertEqual(host["rustc_flags"], [])
+        self.assertEqual(host["inputs"], [])
 
     def test_host_rust_program_output_category(self):
         """Test that a host Rust program with output_category is written correctly."""
@@ -1689,6 +1721,9 @@ class TestRecursiveMakeBackend(BackendTester):
             "test-category:: $(DEPTH)/i686-pc-windows-msvc/release/test-host-program-output-category.exe",
             "MOZBUILD_NON_DEFAULT_TARGETS += $(DEPTH)/i686-pc-windows-msvc/release/test-host-program-output-category.exe",
             "HOST_RUST_PROGRAM_OUTPUT_CATEGORY := test-category",
+            self._cargo_deps(
+                "CARGO_HOST_PROGRAM_DEPS", ".cargo-host-program-spec.json"
+            ),
         ]
 
         self.assertEqual(lines, expected)
@@ -2030,6 +2065,49 @@ class TestRecursiveMakeBackend(BackendTester):
             for line in lines:
                 self.assertNotIn("LIB_IS_C_ONLY", line)
 
+    def _cpp_unit_tests_lines(self, substs=None):
+        env = self._get_environment("cpp-unit-tests", substs=substs)
+        self._consume("cpp-unit-tests", RecursiveMakeBackend, env=env)
+
+        with open(os.path.join(env.topobjdir, "backend.mk")) as fh:
+            return [
+                l.rstrip()
+                for l in fh
+                if l.startswith((
+                    "SIMPLE_PROGRAMS",
+                    "CPP_UNIT_TESTS",
+                    "INSTALL_TARGETS",
+                ))
+            ]
+
+    def test_cpp_unit_tests(self):
+        self.assertEqual(
+            self._cpp_unit_tests_lines(),
+            [
+                "SIMPLE_PROGRAMS += TestOne",
+                "CPP_UNIT_TESTS += TestOne",
+                "CPP_UNIT_TESTS_FILES += TestOne",
+                "CPP_UNIT_TESTS_DEST := $(DIST)/cppunittests",
+                "CPP_UNIT_TESTS_TARGET := target",
+                "INSTALL_TARGETS += CPP_UNIT_TESTS",
+                "SIMPLE_PROGRAMS += TestTwo",
+                "CPP_UNIT_TESTS += TestTwo",
+                "CPP_UNIT_TESTS_FILES += TestTwo",
+            ],
+        )
+
+    def test_cpp_unit_tests_profile_generate(self):
+        self.assertEqual(self._cpp_unit_tests_lines({"MOZ_PROFILE_GENERATE": "1"}), [])
+
+    def test_simple_programs_profile_generate(self):
+        env = self._get_environment(
+            "program-paths", substs={"MOZ_PROFILE_GENERATE": "1"}
+        )
+        self._consume("program-paths", RecursiveMakeBackend, env=env)
+
+        with open(os.path.join(env.topobjdir, "dist-bin-simple", "backend.mk")) as fh:
+            self.assertNotIn("SIMPLE_PROGRAMS", fh.read())
+
     def test_linkage(self):
         env = self._consume("linkage", RecursiveMakeBackend)
         expected_linkage = {
@@ -2313,6 +2391,53 @@ class TestRecursiveMakeBackend(BackendTester):
 
         self.assertIn("unprofiled.$(OBJ_SUFFIX): COMPUTED_PGO_CFLAGS :=\n", lines)
         self.assertNotIn("profiled.$(OBJ_SUFFIX): COMPUTED_PGO_CFLAGS :=\n", lines)
+
+    def test_dump_syms_targets(self):
+        env = self._consume("program-paths", RecursiveMakeBackend)
+
+        expected = {
+            "dist-bin": "DUMP_SYMS_TARGETS += $(DEPTH)/dist/bin/dist-bin.prog\n",
+            "dist-subdir": "DUMP_SYMS_TARGETS += "
+            "$(DEPTH)/dist/bin/foo/dist-subdir.prog\n",
+            "not-installed": "DUMP_SYMS_TARGETS += not-installed.prog\n",
+            "dist-bin-simple": "DUMP_SYMS_TARGETS += simple.prog\n",
+        }
+        for subdir, line in expected.items():
+            with open(os.path.join(env.topobjdir, subdir, "backend.mk")) as fh:
+                self.assertIn(line, fh.readlines())
+
+        for subdir in ("final-target", "dist-bin-sibling"):
+            with open(os.path.join(env.topobjdir, subdir, "backend.mk")) as fh:
+                self.assertNotIn("DUMP_SYMS_TARGETS", fh.read())
+
+    def test_dump_syms_profile_generate(self):
+        env = self._get_environment(
+            "program-paths", substs={"MOZ_PROFILE_GENERATE": "1"}
+        )
+        self._consume("program-paths", RecursiveMakeBackend, env=env)
+
+        with open(os.path.join(env.topobjdir, "dist-bin-simple", "backend.mk")) as fh:
+            self.assertNotIn("DUMP_SYMS_TARGETS", fh.read())
+        with open(os.path.join(env.topobjdir, "dist-bin", "backend.mk")) as fh:
+            self.assertIn(
+                "DUMP_SYMS_TARGETS += $(DEPTH)/dist/bin/dist-bin.prog\n",
+                fh.readlines(),
+            )
+
+    def test_dump_syms_output_category(self):
+        env = self._consume("shared-library-output-category", RecursiveMakeBackend)
+
+        with open(
+            os.path.join(env.topobjdir, "without-output-category", "backend.mk")
+        ) as fh:
+            self.assertIn(
+                "DUMP_SYMS_TARGETS += $(DEPTH)/dist/bin/libwithout-category.so\n",
+                fh.readlines(),
+            )
+        with open(
+            os.path.join(env.topobjdir, "with-output-category", "backend.mk")
+        ) as fh:
+            self.assertNotIn("DUMP_SYMS_TARGETS", fh.read())
 
     def test_lto_object_path(self):
         env = self._consume("lto-object-path", RecursiveMakeBackend)

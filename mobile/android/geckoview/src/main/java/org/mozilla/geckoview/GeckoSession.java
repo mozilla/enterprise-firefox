@@ -1789,6 +1789,7 @@ public class GeckoSession {
    *
    * @param settings The settings to configure this GeckoSession, or null to use defaults.
    */
+  @SuppressWarnings("this-escape")
   public GeckoSession(final @Nullable GeckoSessionSettings settings) {
     mSettings = new GeckoSessionSettings(settings, this);
     mListener.registerListeners();
@@ -8862,6 +8863,9 @@ public class GeckoSession {
   /** Thrown when failure occurs when printing from a website. */
   @WrapForJNI
   public static class GeckoPrintException extends Exception {
+    @WrapForJNI(skip = true)
+    private static final long serialVersionUID = 1L;
+
     /** The print service was not available. */
     public static final int ERROR_PRINT_SETTINGS_SERVICE_NOT_AVAILABLE = -1;
 

@@ -361,7 +361,6 @@
 #include "nsIAuthPrompt.h"
 #include "nsIAuthPrompt2.h"
 #include "nsIBFCacheEntry.h"
-#include "nsIBaseWindow.h"
 #include "nsIBrowserChild.h"
 #include "nsIBrowserUsage.h"
 #include "nsICSSLoaderObserver.h"
@@ -1052,6 +1051,9 @@ Document* ExternalResourceMap::RequestResource(
     // chances are it failed for good reasons (security check, etc).
     // This must be done outside the WithEntryHandle functor, as it accesses
     // mPendingLoads.
+    // PendingLoad::StartLoad does the same if it had to defer AsyncOpen and
+    // that failed. It is called inside a script runnner (outside of
+    // WithEntryHandle functor) so it's safe.
     AddExternalResource(clone, nullptr, nullptr, aDisplayDocument);
   }
 
@@ -1349,7 +1351,27 @@ nsresult ExternalResourceMap::PendingLoad::StartLoad(
 
   mURI = aURI;
 
-  return channel->AsyncOpen(this);
+  if (nsContentUtils::IsSafeToRunScript()) {
+    return channel->AsyncOpen(this);
+  }
+
+  nsContentUtils::AddScriptRunner(NS_NewRunnableFunction(
+      "ExternalResourceMap::PendingLoad::StartLoad",
+      [self = RefPtr{this}, channel]() MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA {
+        ExternalResourceMap& map =
+            self->mDisplayDocument->ExternalResourceMap();
+        if (map.HaveShutDown() || NS_SUCCEEDED(channel->AsyncOpen(self))) {
+          return;
+        }
+        // Same handling as for a synchronous AsyncOpen failure in
+        // ExternalResourceMap::RequestResource: make sure we don't thrash
+        // things by trying this load again, since chances are it failed for
+        // good reasons (security check, etc).
+        const nsCOMPtr<nsIURI> uri = self->mURI;
+        const RefPtr<Document> displayDocument = self->mDisplayDocument;
+        map.AddExternalResource(uri, nullptr, nullptr, displayDocument);
+      }));
+  return NS_OK;
 }
 
 NS_IMPL_ISUPPORTS(ExternalResourceMap::LoadgroupCallbacks,
@@ -10389,14 +10411,11 @@ void Document::DoNotifyPossibleTitleChange() {
   nsAutoString title;
   GetTitle(title);
 
-  if (RefPtr<PresShell> presShell = GetPresShell()) {
-    nsCOMPtr<nsISupports> container =
-        presShell->GetPresContext()->GetContainerWeak();
-    if (container) {
-      if (nsCOMPtr<nsIBaseWindow> docShellWin = do_QueryInterface(container)) {
-        docShellWin->SetTitle(title);
-      }
-    }
+  if (RefPtr<nsDocShell> docShell = nsDocShell::Cast(GetDocShell())) {
+    docShell->SetTitle(title);
+  }
+  if (nsCOMPtr<nsIAppWindow> appWin = GetAppWindowIfToplevelChrome()) {
+    appWin->SetTitle(title);
   }
 
   if (WindowGlobalChild* child = GetWindowGlobalChild()) {
@@ -10426,6 +10445,10 @@ already_AddRefed<MediaQueryList> Document::MatchMedia(
 void Document::SetMayStartLayout(bool aMayStartLayout) {
   mMayStartLayout = aMayStartLayout;
   if (MayStartLayout()) {
+    if (NodePrincipal()->IsSystemPrincipal() && !mChromeObserver) {
+      mChromeObserver = new ChromeObserver(this);
+      mChromeObserver->Init();
+    }
     // Before starting layout, check whether we're a toplevel chrome
     // window.  If we are, setup some state so that we don't have to restyle
     // the whole tree after StartLayout.
@@ -13526,10 +13549,6 @@ void Document::SetReadyStateInternal(ReadyState aReadyState,
     if (!mXULPersist && XRE_IsParentProcess()) {
       mXULPersist = new XULPersist(this);
       mXULPersist->Init();
-    }
-    if (!mChromeObserver) {
-      mChromeObserver = new ChromeObserver(this);
-      mChromeObserver->Init();
     }
   }
 

@@ -53,6 +53,7 @@ codespell:
             - '**/*.rst'
             - '**/*.ftl'
             - 'tools/lint/codespell.yml'
+            - 'python/sites/lint.txt'
 
 
 rejected-words:
@@ -144,6 +145,21 @@ uri-setspec:
             - '**/*.m'
             - '**/*.mm'
             - 'tools/lint/uri-setspec.yml'
+
+ipdl-uriparams:
+    description: Reject new uses of URIParams in IPDL in favor of nsIURI
+    treeherder:
+        symbol: misc(ipdl-uriparams)
+    run:
+        mach: lint -v -l ipdl-uriparams -f treeherder -f json:/builds/worker/mozlint.json .
+    fetches:
+        toolchain:
+            - linux64-mozcheck
+    when:
+        files-changed:
+            - '**/*.ipdl'
+            - '**/*.ipdlh'
+            - 'tools/lint/ipdl-uriparams.yml'
 
 eslint:
     description: JS lint check
@@ -469,6 +485,7 @@ py-ruff-format:
             - 'pyproject.toml'
             - 'tools/lint/ruff-format.yml'
             - 'tools/lint/python/ruff.py'
+            - 'python/sites/lint.txt'
 
 py-ruff:
     description: Run ruff over the gecko codebase
@@ -484,6 +501,7 @@ py-ruff:
             - 'pyproject.toml'
             - 'tools/lint/ruff.yml'
             - 'tools/lint/python/ruff.py'
+            - 'python/sites/lint.txt'
 
 
 python-sites:
@@ -608,6 +626,7 @@ md:
             - 'tools/lint/md.yml'
             - 'tools/lint/rumdl.toml'
             - 'tools/lint/python/rumdl.py'
+            - 'python/sites/lint.txt'
 
 shellcheck:
     description: shellcheck run over the gecko codebase
@@ -896,7 +915,6 @@ perfdocs-verify:
             - 'testing/talos/**'
             - 'testing/performance/**'
             - 'testing/perfdocs/**'
-            - 'tools/lint/perfdocs.yml'
             - 'toolkit/components/ml/tests/browser/**'
             - '**/*_perf.js'
 

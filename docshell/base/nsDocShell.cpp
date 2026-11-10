@@ -4847,12 +4847,6 @@ nsDocShell::SetDimensions(DimensionRequest&& /*aRequest*/) {
 }
 
 NS_IMETHODIMP
-nsDocShell::GetDimensions(DimensionKind /*aDimensionKind*/, int32_t* /*aX*/,
-                          int32_t* /*aY*/, int32_t* /*aCX*/, int32_t* /*aCY*/) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
 nsDocShell::GetParentWidget(nsIWidget** aParentWidget) {
   NS_ENSURE_ARG_POINTER(aParentWidget);
 
@@ -5022,32 +5016,16 @@ nsDocShell::GetMainWidget(nsIWidget** aMainWidget) {
   return GetParentWidget(aMainWidget);
 }
 
-NS_IMETHODIMP
-nsDocShell::GetTitle(nsAString& aTitle) {
-  aTitle = mTitle;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDocShell::SetTitle(const nsAString& aTitle) {
+void nsDocShell::SetTitle(const nsAString& aTitle) {
   // Avoid unnecessary updates of the title if the URI and the title haven't
   // changed.
   if (mTitleValidForCurrentURI && mTitle == aTitle) {
-    return NS_OK;
+    return;
   }
 
   // Store local title
   mTitle = aTitle;
   mTitleValidForCurrentURI = true;
-
-  // When title is set on the top object it should then be passed to the
-  // tree owner.
-  if (mBrowsingContext->IsTop()) {
-    nsCOMPtr<nsIBaseWindow> treeOwnerAsWin(do_QueryInterface(mTreeOwner));
-    if (treeOwnerAsWin) {
-      treeOwnerAsWin->SetTitle(aTitle);
-    }
-  }
 
   if (mCurrentURI && mLoadType != LOAD_ERROR_PAGE) {
     UpdateGlobalHistoryTitle(mCurrentURI);
@@ -5057,8 +5035,6 @@ nsDocShell::SetTitle(const nsAString& aTitle) {
   if (mLoadType != LOAD_BYPASS_HISTORY && mLoadType != LOAD_ERROR_PAGE) {
     SetTitleOnHistoryEntry(true);
   }
-
-  return NS_OK;
 }
 
 void nsDocShell::SetTitleOnHistoryEntry(bool aUpdateEntryInSessionHistory) {
@@ -7264,15 +7240,21 @@ nsresult nsDocShell::CreateDocumentViewer(const nsACString& aContentType,
   //         entryToReplace's document state's origin, then set
   //         historyEntry's navigation API key to entryToReplace's
   //         navigation API key.
+  //
+  // Check that the top BC has session history, as without it the parent doesn't
+  // track the active entry and so can't reuse the key, which would leave us out
+  // of sync with the contiguous entries it sends.
   bool isReplace =
       mActiveEntry && mLoadingEntry &&
+      mBrowsingContext->Top()->GetHasSessionHistory() &&
       mLoadingEntry->mTriggeringNavigationType
           .map([](auto type) { return type == NavigationType::Replace; })
           .valueOr(false);
   if (isReplace) {
-    nsCOMPtr<nsIURI> uri = mActiveEntry->GetURIOrInheritedForAboutBlank();
+    nsCOMPtr<nsIURI> uri =
+        mActiveEntry->GetURIOrInheritedForAboutBlankOrSrcdoc();
     nsCOMPtr<nsIURI> targetURI =
-        mLoadingEntry->mInfo.GetURIOrInheritedForAboutBlank();
+        mLoadingEntry->mInfo.GetURIOrInheritedForAboutBlankOrSrcdoc();
     bool sameOrigin =
         NS_SUCCEEDED(nsContentUtils::GetSecurityManager()->CheckSameOriginURI(
             targetURI, uri, false, false));
@@ -11643,9 +11625,10 @@ void nsDocShell::MaybeFireTraverseHistory(nsDocShellLoadState* aLoadState) {
     return;
   }
 
-  nsCOMPtr activeURI = mActiveEntry->GetURIOrInheritedForAboutBlank();
-  nsCOMPtr<nsIURI> loadingURI = aLoadState->GetLoadingSessionHistoryInfo()
-                                    ->mInfo.GetURIOrInheritedForAboutBlank();
+  nsCOMPtr activeURI = mActiveEntry->GetURIOrInheritedForAboutBlankOrSrcdoc();
+  nsCOMPtr<nsIURI> loadingURI =
+      aLoadState->GetLoadingSessionHistoryInfo()
+          ->mInfo.GetURIOrInheritedForAboutBlankOrSrcdoc();
   if (NS_FAILED(nsContentUtils::GetSecurityManager()->CheckSameOriginURI(
           activeURI, loadingURI,
           /*reportError=*/false,

@@ -25,6 +25,7 @@ use crate::tile_cache::{SliceId, TileCacheInstance};
 use crate::transform::TransformPalette;
 use crate::quad;
 use crate::prim_store::{PrimitiveInstance, PrimitiveStore, PrimitiveScratchBuffer};
+use crate::profiler::{self, TransactionProfile};
 use crate::renderer::{BlendMode, GpuBufferAddress, GpuBufferBuilder};
 use crate::render_backend::{DataStores, DlStores};
 use crate::render_task::{RenderTaskKind, RenderTaskAddress};
@@ -61,6 +62,7 @@ pub struct RenderTargetContext<'a, 'rc> {
     pub tile_caches: &'a FastHashMap<SliceId, Box<TileCacheInstance>>,
     pub root_spatial_node_index: SpatialNodeIndex,
     pub frame_memory: &'a mut FrameMemory,
+    pub profile: &'a mut TransactionProfile,
 }
 
 /// A series of `RenderTarget` instances, serving as the high-level container
@@ -111,6 +113,7 @@ impl RenderTargetList {
         prim_instances: &[PrimitiveInstance],
         cmd_buffers: &CommandBufferList,
         gpu_buffer_builder: &mut GpuBufferBuilder,
+        path_tiler: &mut PathTiler,
     ) {
         if self.targets.is_empty() {
             return;
@@ -126,6 +129,7 @@ impl RenderTargetList {
                 prim_instances,
                 cmd_buffers,
                 gpu_buffer_builder,
+                path_tiler,
             );
         }
     }
@@ -245,6 +249,7 @@ impl RenderTarget {
         prim_instances: &[PrimitiveInstance],
         cmd_buffers: &CommandBufferList,
         gpu_buffer_builder: &mut GpuBufferBuilder,
+        path_tiler: &mut PathTiler,
     ) {
         tracy_rs::profile_scope!("build");
         let mut merged_batches = AlphaBatchContainer::new(None, &ctx.frame_memory);
@@ -310,7 +315,12 @@ impl RenderTarget {
                         &ctx.frame_memory,
                     );
 
-                    let mut batch_builder = BatchBuilder::new(alpha_batch_builder);
+                    let mut batch_builder = BatchBuilder::new(
+                        alpha_batch_builder,
+                        DeviceIntRect::from_size(target_rect.size()),
+                        pic_task.content_origin,
+                    );
+                    path_tiler.begin_target(DeviceIntRect::from_size(target_rect.size()));
                     let cmd_buffer = cmd_buffers.get(pic_task.cmd_buffer_index);
 
                     cmd_buffer.iter_prims(&mut |cmd, spatial_node_index, segments| {
@@ -327,6 +337,7 @@ impl RenderTarget {
                             z_generator,
                             prim_instances,
                             gpu_buffer_builder,
+                            path_tiler,
                             segments,
                         );
                     });
@@ -358,7 +369,7 @@ impl RenderTarget {
     pub fn add_task(
         &mut self,
         task_id: RenderTaskId,
-        ctx: &RenderTargetContext,
+        ctx: &mut RenderTargetContext,
         gpu_buffer_builder: &mut GpuBufferBuilder,
         render_tasks: &RenderTaskGraph,
         transforms: &mut TransformPalette,
@@ -629,6 +640,7 @@ impl RenderTarget {
                     );
                 }
                 SubTask::PathClip(clip_task) => {
+                    ctx.profile.add(profiler::PATH_CLIPS, 1);
                     add_path_clip_task_to_batch(
                         clip_task,
                         &target_rect,
@@ -1008,6 +1020,7 @@ fn add_path_clip_task_to_batch(
         &mut PathTilerOutput {
             edges: &mut gpu_buffers.edges,
             tiles: &mut results.path_tiles,
+            solid_tiles: None,
         },
     );
 }

@@ -70,7 +70,7 @@ var gExceptionPaths = [
   "resource://gre/localization/en-US/toolkit/formautofill",
 
   // Exclude all services-automation because they are used through webdriver
-  "resource://gre/modules/services-automation/",
+  "moz-src:///services/automation/",
 
   // Paths from this folder are constructed in NetErrorParent.sys.mjs based on
   // the type of cert or net error the user is encountering.
@@ -267,18 +267,6 @@ var allowlist = [
   // Bug 1494170
   // (The references to these files are dynamically generated, so the test can't
   // find the references)
-  {
-    file: "chrome://devtools/skin/images/aboutdebugging-firefox-aurora.svg",
-    isFromDevTools: true,
-  },
-  {
-    file: "chrome://devtools/skin/images/aboutdebugging-firefox-beta.svg",
-    isFromDevTools: true,
-  },
-  {
-    file: "chrome://devtools/skin/images/aboutdebugging-firefox-release.svg",
-    isFromDevTools: true,
-  },
   { file: "chrome://devtools/skin/images/next.svg", isFromDevTools: true },
 
   // Bug 1526672

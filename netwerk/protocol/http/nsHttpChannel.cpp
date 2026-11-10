@@ -49,6 +49,7 @@
 #include "mozilla/dom/PerformanceStorage.h"
 #include "mozilla/dom/PolicyContainer.h"
 #include "mozilla/dom/ReferrerInfo.h"
+#include "mozilla/dom/RemoteType.h"
 #include "mozilla/dom/SecFetch.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/WindowGlobalParent.h"
@@ -5232,12 +5233,18 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
        entry));
 
   // Held for the whole check: this may run on the cache I/O thread while the
-  // backstop timeout runs on the main thread, and the timeout must not slip in
-  // between the test below and the state we arm from here on.
+  // backstop timeout or a cancel runs on the main thread, and neither may slip
+  // in between the tests below and the state we arm from here on.
   MutexAutoLock lock(mCacheWaitLock);
 
   if (mCacheWaitTimedOut) {
     LOG(("  cache entry check arrived after backstop timeout, declining"));
+    *aResult = ENTRY_NOT_WANTED;
+    return NS_OK;
+  }
+
+  if (mCanceled) {
+    LOG(("  cache entry check arrived after cancel, declining"));
     *aResult = ENTRY_NOT_WANTED;
     return NS_OK;
   }
@@ -5898,15 +5905,13 @@ nsresult nsHttpChannel::OpenCacheInputStream(nsICacheEntry* cacheEntry,
 
   // If an alternate representation was requested, try to open the alt
   // input stream.
-  // If the entry has a "is-from-child" metadata, then only open the altdata
-  // stream if the consumer is also from child.
-  bool altDataFromChild = false;
-  {
-    nsCString value;
-    rv = cacheEntry->GetMetaDataElement("alt-data-from-child",
-                                        getter_Copies(value));
-    altDataFromChild = !value.IsEmpty();
-  }
+  // If the entry has "alt-data-from-child" metadata (the remote type of the
+  // content process that wrote it), then only open the altdata stream if the
+  // consumer is also from child.
+  nsCString altDataRemoteType;
+  rv = cacheEntry->GetMetaDataElement("alt-data-from-child",
+                                      getter_Copies(altDataRemoteType));
+  bool altDataFromChild = !altDataRemoteType.IsEmpty();
 
   nsAutoCString altDataType;
   (void)cacheEntry->GetAltDataType(altDataType);
@@ -5915,19 +5920,27 @@ nsresult nsHttpChannel::OpenCacheInputStream(nsICacheEntry* cacheEntry,
   mCachedResponseHead->ContentType(contentType);
 
   // Alt-data written by a content process (bytecode cache) may only be
-  // consumed by a load whose principal matches the one that produced it.
+  // consumed by a load from the same remote type, with a principal matching
+  // the one that produced it.  The triggering remote type of a load from a
+  // content process is that of the process which sent it.
   if (altDataFromChild && !altDataType.IsEmpty()) {
     nsAutoCString storedOrigin;
     cacheEntry->GetMetaDataElement("alt-data-principal",
                                    getter_Copies(storedOrigin));
     nsAutoCString currentOrigin;
     GetAltDataBindingOrigin(currentOrigin);
+    dom::RemoteType currentRemoteType;
+    MOZ_ALWAYS_SUCCEEDS(mLoadInfo->GetTriggeringRemoteType(currentRemoteType));
+    nsCString currentRemoteTypeString = currentRemoteType.Stringify();
     if (storedOrigin.IsEmpty() || currentOrigin.IsEmpty() ||
-        !storedOrigin.Equals(currentOrigin)) {
+        !storedOrigin.Equals(currentOrigin) ||
+        !altDataRemoteType.Equals(currentRemoteTypeString)) {
       LOG(
-          ("Rejecting child-written alt-data due to principal mismatch "
-           "[channel=%p, stored='%s', current='%s']",
-           this, storedOrigin.get(), currentOrigin.get()));
+          ("Rejecting child-written alt-data due to principal or remote type "
+           "mismatch [channel=%p, stored='%s' from '%s', current='%s' from "
+           "'%s']",
+           this, storedOrigin.get(), altDataRemoteType.get(),
+           currentOrigin.get(), currentRemoteTypeString.get()));
       altDataType.Truncate();
     }
   }
@@ -7459,7 +7472,12 @@ nsresult nsHttpChannel::CancelInternal(nsresult status) {
 
   mEarlyHintObserver = nullptr;
   mWebTransportSessionEventListener = nullptr;
-  mCanceled = true;
+  {
+    // Waits for an OnCacheEntryCheck in flight on the cache I/O thread; once
+    // we're canceled, the abort path reads the state it would write.
+    MutexAutoLock lock(mCacheWaitLock);
+    mCanceled = true;
+  }
   mStatus = NS_FAILED(status) ? status : NS_ERROR_ABORT;
 
   // If ORB blocked this response, doom the entry that was committed to the

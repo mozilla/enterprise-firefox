@@ -44,6 +44,7 @@ import mozilla.components.concept.engine.translate.TranslationError
 import mozilla.components.concept.engine.translate.TranslationOperation
 import mozilla.components.concept.engine.window.WindowRequest
 import mozilla.components.concept.fetch.Headers
+import mozilla.components.concept.fetch.Headers.Names.CONTENT_DISPOSITION
 import mozilla.components.concept.fetch.Response
 import mozilla.components.concept.storage.PageVisit
 import mozilla.components.concept.storage.RedirectSource
@@ -4970,13 +4971,20 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN requestPdfToDownload THEN notify observers`() {
+        var seenContentDisposition: String? = null
         val engineSession =
             GeckoEngineSession(
                     runtime = mock(),
                     geckoSessionProvider = geckoSessionProvider,
                     defaultSettings =
                         DefaultSettings(
-                            downloadDelegate = FakeEngineDownloadDelegate(guessFileName = { _, _, _ -> "Mozilla.pdf" })
+                            downloadDelegate =
+                                FakeEngineDownloadDelegate(
+                                    guessFileName = { contentDisposition, _, _ ->
+                                        seenContentDisposition = contentDisposition
+                                        "Mozilla.pdf"
+                                    }
+                                )
                         ),
                 )
                 .apply {
@@ -5010,15 +5018,33 @@ class GeckoEngineSessionTest {
 
         engineSession.requestPdfToDownload()
         shadowOf(getMainLooper()).idle()
+
+        assertEquals("attachment; filename=\"Mozilla.pdf\";", seenContentDisposition)
     }
 
     @Test
     fun `GIVEN a PDF is showing the document WHEN requestPdfToDownload THEN it describes the download`() {
         var seenUrl: String? = null
+        var seenContentDisposition: String? = null
         val engineSession =
-            GeckoEngineSession(runtime = mock(), geckoSessionProvider = geckoSessionProvider).apply {
-                currentUrl = "content://com.android.providers.downloads.documents/document/1"
-            }
+            GeckoEngineSession(
+                    runtime = mock(),
+                    geckoSessionProvider = geckoSessionProvider,
+                    defaultSettings =
+                        DefaultSettings(
+                            downloadDelegate =
+                                FakeEngineDownloadDelegate(
+                                    guessFileName = { contentDisposition, _, _ ->
+                                        seenContentDisposition = contentDisposition
+                                        "pdfForm.pdf"
+                                    }
+                                )
+                        ),
+                )
+                .apply {
+                    currentUrl = "content://com.android.providers.downloads.documents/document/1"
+                    currentTitle = "Untitled document - pdfForm.pdf"
+                }
         engineSession.register(
             object : EngineSession.Observer {
                 override fun onExternalResource(
@@ -5044,6 +5070,7 @@ class GeckoEngineSessionTest {
                 GeckoResult.fromValue(
                     WebResponse.Builder("blob:resource://pdf.js/0123")
                         .statusCode(200)
+                        .addHeader("Content-Disposition", "attachment; filename=\"pdfForm.pdf\"")
                         .body("%PDF-1.4".byteInputStream())
                         .build()
                 )
@@ -5059,6 +5086,79 @@ class GeckoEngineSessionTest {
             "blob:resource://pdf.js/0123",
             seenUrl,
         )
+        assertEquals(
+            "The PDF's own file name names it, not the tab title.",
+            "attachment; filename=\"pdfForm.pdf\";",
+            seenContentDisposition,
+        )
+    }
+
+    @Test
+    fun `GIVEN the PDF has no usable file name WHEN requestPdfToDownload THEN the tab title names it`() {
+        var seenContentDisposition: String? = null
+        val engineSession =
+            GeckoEngineSession(
+                    runtime = mock(),
+                    geckoSessionProvider = geckoSessionProvider,
+                    defaultSettings =
+                        DefaultSettings(
+                            downloadDelegate =
+                                FakeEngineDownloadDelegate(
+                                    guessFileName = { contentDisposition, _, _ ->
+                                        seenContentDisposition = contentDisposition
+                                        "Mozilla.pdf"
+                                    }
+                                )
+                        ),
+                )
+                .apply { currentTitle = "Mozilla" }
+
+        val pdfFileSaver = mock<SessionPdfFileSaver>()
+        whenever(pdfFileSaver.save())
+            .thenReturn(
+                GeckoResult.fromValue(
+                    WebResponse.Builder("blob:resource://pdf.js/0123")
+                        .statusCode(200)
+                        .addHeader("Content-Disposition", "attachment; filename=\".pdf\"")
+                        .body("%PDF-1.4".byteInputStream())
+                        .build()
+                )
+            )
+        whenever(geckoSession.pdfFileSaver).thenReturn(pdfFileSaver)
+        whenever(geckoSession.isPdfJs).thenReturn(GeckoResult.fromValue(true))
+
+        engineSession.requestPdfToDownload()
+        shadowOf(getMainLooper()).idle()
+
+        assertEquals("attachment; filename=\"Mozilla.pdf\";", seenContentDisposition)
+    }
+
+    @Test
+    fun `GIVEN a PDF is showing the document WHEN requestPdfToShare THEN the response is given a filename`() {
+        val engineSession = GeckoEngineSession(runtime = mock(), geckoSessionProvider = geckoSessionProvider)
+        val pdfFileSaver = mock<SessionPdfFileSaver>()
+        whenever(pdfFileSaver.save())
+            .thenReturn(
+                GeckoResult.fromValue(
+                    WebResponse.Builder("blob:resource://pdf.js/0123")
+                        .statusCode(200)
+                        .addHeader("Content-Disposition", "attachment; filename=\"Test.pdf\"")
+                        .body("%PDF-1.4".byteInputStream())
+                        .build()
+                )
+            )
+        whenever(geckoSession.pdfFileSaver).thenReturn(pdfFileSaver)
+        whenever(geckoSession.isPdfJs).thenReturn(GeckoResult.fromValue(true))
+        var sharedResponse: Response? = null
+
+        engineSession.requestPdfToShare(onResult = { sharedResponse = it }, onException = {})
+        shadowOf(getMainLooper()).idle()
+
+        assertEquals(
+            listOf("attachment; filename=\"Test.pdf\";"),
+            sharedResponse?.headers?.getAll(CONTENT_DISPOSITION),
+        )
+        assertEquals("application/pdf", sharedResponse?.headers?.get(Headers.Names.CONTENT_TYPE))
     }
 
     @Test

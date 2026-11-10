@@ -10,7 +10,7 @@ import android.os.Message;
 import android.os.MessageQueue;
 import android.os.TestLooperManager;
 import androidx.annotation.NonNull;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,6 +32,8 @@ public class UiThreadUtils {
   }
 
   public static class TimeoutException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
     public TimeoutException(final String detailMessage) {
       super(detailMessage);
     }

@@ -1069,6 +1069,18 @@ Address MacroAssemblerLOONG64Compat::computeScaledAddress(
   return Address(scratch, address.offset);
 }
 
+Address MacroAssemblerLOONG64Compat::computeAbsoluteAddress(
+    AbsoluteAddress address, UseScratchRegisterScope& temps) {
+  const int64_t value = mozilla::BitwiseCast<int64_t>(address.addr);
+  const int64_t low12 = mozilla::BitwiseCast<int64_t>(
+                            mozilla::BitwiseCast<uint64_t>(value) << 52) >>
+                        52;
+  const Register scratch = temps.Acquire();
+  ma_li(scratch, ImmWord(mozilla::BitwiseCast<uint64_t>(value) -
+                         mozilla::BitwiseCast<uint64_t>(low12)));
+  return Address(scratch, low12);
+}
+
 void MacroAssemblerLOONG64::ma_pop(Register r) {
   MOZ_ASSERT(r != StackPointer);
   as_ld_d(r, StackPointer, 0);
@@ -1994,16 +2006,23 @@ void MacroAssemblerLOONG64::ma_b(Register lhs, Imm32 imm, Label* label,
   } else {
     UseScratchRegisterScope temps(asMasm());
     Register scratch = temps.Acquire();
+    MOZ_ASSERT(lhs != scratch);
     switch (c) {
       case Equal:
       case NotEqual:
-        MOZ_ASSERT(lhs != scratch);
+      case Above:
+      case AboveOrEqual:
+      case Below:
+      case BelowOrEqual:
+      case GreaterThan:
+      case GreaterThanOrEqual:
+      case LessThan:
+      case LessThanOrEqual:
         ma_li(scratch, imm);
         ma_b(lhs, scratch, label, c, jumpKind);
         break;
       default:
-        Condition cond = ma_cmp(scratch, lhs, imm, c);
-        asMasm().branchWithCode(getBranchCode(scratch, cond), label, jumpKind);
+        MOZ_CRASH("Invalid condition.");
     }
   }
 }
@@ -6009,9 +6028,7 @@ FaultingCodeRange MacroAssemblerLOONG64Compat::load32(const BaseIndex& address,
 void MacroAssemblerLOONG64Compat::load32(AbsoluteAddress address,
                                          Register dest) {
   UseScratchRegisterScope temps(asMasm());
-  Register scratch = temps.Acquire();
-  movePtr(ImmPtr(address.addr), scratch);
-  load32(Address(scratch, 0), dest);
+  load32(computeAbsoluteAddress(address, temps), dest);
 }
 
 void MacroAssemblerLOONG64Compat::load32(wasm::SymbolicAddress address,
@@ -6035,9 +6052,7 @@ FaultingCodeRange MacroAssemblerLOONG64Compat::loadPtr(const BaseIndex& src,
 void MacroAssemblerLOONG64Compat::loadPtr(AbsoluteAddress address,
                                           Register dest) {
   UseScratchRegisterScope temps(asMasm());
-  Register scratch = temps.Acquire();
-  movePtr(ImmPtr(address.addr), scratch);
-  loadPtr(Address(scratch, 0), dest);
+  loadPtr(computeAbsoluteAddress(address, temps), dest);
 }
 
 void MacroAssemblerLOONG64Compat::loadPtr(wasm::SymbolicAddress address,
@@ -6094,9 +6109,7 @@ FaultingCodeRange MacroAssemblerLOONG64Compat::store16(
 void MacroAssemblerLOONG64Compat::store32(Register src,
                                           AbsoluteAddress address) {
   UseScratchRegisterScope temps(asMasm());
-  Register scratch = temps.Acquire();
-  movePtr(ImmPtr(address.addr), scratch);
-  store32(src, Address(scratch, 0));
+  store32(src, computeAbsoluteAddress(address, temps));
 }
 
 FaultingCodeRange MacroAssemblerLOONG64Compat::store32(Register src,
@@ -6171,9 +6184,7 @@ FaultingCodeRange MacroAssemblerLOONG64Compat::storePtr(
 
 void MacroAssemblerLOONG64Compat::storePtr(Register src, AbsoluteAddress dest) {
   UseScratchRegisterScope temps(asMasm());
-  Register scratch = temps.Acquire();
-  movePtr(ImmPtr(dest.addr), scratch);
-  storePtr(src, Address(scratch, 0));
+  storePtr(src, computeAbsoluteAddress(dest, temps));
 }
 
 void MacroAssemblerLOONG64Compat::testNullSet(Condition cond,

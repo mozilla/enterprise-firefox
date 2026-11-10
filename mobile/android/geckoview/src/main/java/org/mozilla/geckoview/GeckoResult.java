@@ -236,6 +236,8 @@ public class GeckoResult<T> {
 
   /** Exception thrown when an uncaught exception occurs in a GeckoResult chain. */
   public static final class UncaughtException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
     /**
      * Construct an UncaughtException.
      *
@@ -321,6 +323,7 @@ public class GeckoResult<T> {
    *
    * @param from The {@link GeckoResult} to copy.
    */
+  @SuppressWarnings("this-escape")
   public GeckoResult(final GeckoResult<T> from) {
     this();
     completeFrom(from);

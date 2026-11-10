@@ -11,6 +11,7 @@
 #include "Dictionary.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/SHA1.h"
+#include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/TimeStamp.h"
 #include "nsCOMPtr.h"
@@ -142,6 +143,9 @@ class CacheFileHandle final : public nsISupports {
 
   nsCOMPtr<nsIFile> mFile;
   Atomic<int64_t, Relaxed> mFileSize;
+  // Offset of the invalid trailer written past mFileSize while the entry's
+  // data is being written, or -1.  Only accessed on the IO thread.
+  int64_t mInvalidTrailerOffset{-1};
   PRFileDesc* mFD;  // if null then the file doesn't exists on the disk
   nsCString mKey;
 #if defined(MOZ_CACHE_ASYNC_IO)
@@ -481,7 +485,14 @@ class CacheFileIOManager final : public nsITimerCallback, public nsINamed {
   // Memory reporting (private part)
   size_t SizeOfExcludingThisInternal(mozilla::MallocSizeOf mallocSizeOf) const;
 
+  // Returns a strong reference to gInstance; safe to call on any thread.
+  static already_AddRefed<CacheFileIOManager> GetInstance();
+
+  // gInstance is only assigned on the main thread, under sInstanceLock.  Off
+  // the main thread it must be read through GetInstance(), except on the IO
+  // thread, which is joined before gInstance is cleared.
   static StaticRefPtr<CacheFileIOManager> gInstance;
+  static StaticMutex sInstanceLock;
 
   // Pointer to DictionaryCache singleton
   RefPtr<DictionaryCache> mDictionaryCache;
@@ -489,7 +500,7 @@ class CacheFileIOManager final : public nsITimerCallback, public nsINamed {
   TimeStamp mStartTime;
   // Set true on the IO thread, CLOSE level as part of the internal shutdown
   // procedure.
-  bool mShuttingDown{false};
+  Atomic<bool, ReleaseAcquire> mShuttingDown{false};
   RefPtr<CacheIOThread> mIOThread;
   nsCOMPtr<nsIFile> mCacheDirectory;
 #if defined(MOZ_WIDGET_ANDROID)
@@ -506,6 +517,7 @@ class CacheFileIOManager final : public nsITimerCallback, public nsINamed {
   nsTArray<CacheFileHandle*> mSpecialHandles;
   nsTArray<RefPtr<CacheFile> > mScheduledMetadataWrites;
   nsCOMPtr<nsITimer> mMetadataWritesTimer;
+  bool mMetadataWritesShutdown{false};
   bool mOverLimitEvicting{false};
   // When overlimit eviction is too slow and cache size reaches 105% of the
   // limit, this flag is set and no other content is cached to prevent

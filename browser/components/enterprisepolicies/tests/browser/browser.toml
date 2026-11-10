@@ -102,9 +102,6 @@ skip-if = ["enterprise"] # Applies DisablePrivateBrowsing, unsupported in enterp
 
 ["browser_policy_disable_safemode.js"]
 
-["browser_policy_disable_shield.js"]
-skip-if = ["enterprise"] # Applies DisableFirefoxStudies, unsupported in enterprise builds
-
 ["browser_policy_disable_telemetry.js"]
 skip-if = ["enterprise"] # Applies DisableTelemetry, unsupported in enterprise builds
 

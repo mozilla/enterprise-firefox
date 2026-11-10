@@ -28,13 +28,19 @@ RETRY_TIMEOUT = 9 * 60  # seconds
 RETRY_INTERVAL = 10  # seconds
 
 # Preset confidence thresholds.
+CT_VERY_LOW = 0.3
 CT_LOW = 0.7
 CT_MEDIUM = 0.8
 CT_HIGH = 0.9
 
 # The confidence levels of the preset thresholds, for which bugbug can return the thresholds to
 # use with its current models.
-CT_LEVELS = {CT_LOW: "low", CT_MEDIUM: "medium", CT_HIGH: "high"}
+CT_LEVELS = {
+    CT_VERY_LOW: "very_low",
+    CT_LOW: "low",
+    CT_MEDIUM: "medium",
+    CT_HIGH: "high",
+}
 
 GROUP_TRANSLATIONS = {
     "testing/web-platform/tests": "",
@@ -127,6 +133,24 @@ def _write_perfherder_data(lower_is_better):
             json.dump(perfherder_data, f)
 
 
+def _get_when_ready(url, session, timeout):
+    """Query ``url`` until bugbug stops answering 202 (result still being
+    computed) or ``timeout`` seconds have passed. Returns the last response
+    and the number of retries."""
+    attempts = timeout / RETRY_INTERVAL
+    i = 0
+    while i < attempts:
+        r = session.get(url)
+        r.raise_for_status()
+
+        if r.status_code != 202:
+            break
+
+        time.sleep(RETRY_INTERVAL)
+        i += 1
+    return r, i
+
+
 def _fetch_push_schedules(branch, rev, session, *, write_perfherder_data=True):
     # Noop if we're in test-action-callback
     if create.testing:
@@ -142,17 +166,7 @@ def _fetch_push_schedules(branch, rev, session, *, write_perfherder_data=True):
     if branch == "try":
         timeout += int(timeout / 3)
 
-    attempts = timeout / RETRY_INTERVAL
-    i = 0
-    while i < attempts:
-        r = session.get(url)
-        r.raise_for_status()
-
-        if r.status_code != 202:
-            break
-
-        time.sleep(RETRY_INTERVAL)
-        i += 1
+    r, i = _get_when_ready(url, session, timeout)
     end = monotonic()
 
     if write_perfherder_data:
@@ -181,6 +195,17 @@ def _fetch_push_schedules(branch, rev, session, *, write_perfherder_data=True):
 @functools.cache
 def push_schedules(branch, rev):
     return _fetch_push_schedules(branch, rev, get_session())
+
+
+@functools.cache
+def push_perf_risk(branch, rev):
+    """Return bugbug's performance regression risk prediction for the push
+    of ``rev``, which scores each of its commits."""
+    url = BUGBUG_BASE_URL + f"/perfregressionpredictor/predict/push/{branch}/{rev}"
+    r, _ = _get_when_ready(url, get_session(), RETRY_TIMEOUT)
+    if r.status_code == 202:
+        raise BugbugTimeoutException(f"Timed out waiting for result from '{url}'")
+    return r.json()
 
 
 def start_push_schedules(branch, rev):

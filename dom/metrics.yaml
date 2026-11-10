@@ -155,10 +155,6 @@ perf:
           histograms. Absent when the document was replaced before its load
           event fired.
         type: boolean
-      using_webdriver:
-        description: |
-          If true, a webdriver is running on the client.
-        type: boolean
       http_ver:
         description: |
           Version of HTTP protocol used.
@@ -185,10 +181,6 @@ perf:
             1 - assistive technology in use
         type: quantity
         unit: integer
-      has_ssd:
-        description: |
-          Whether the user has SSD in their hardware or not. Only available on Windows, after startup-idle-tasks are done
-        type: boolean
       cache_disposition:
         description: |
           cache disposition for the top level document
@@ -637,27 +629,6 @@ performance.time:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1580077#c10
     notification_emails:
       - vchin@mozilla.com
-      - perf-telemetry-alerts@mozilla.com
-    expires: never
-
-  to_first_contentful_paint:
-    type: timing_distribution
-    description: >
-      The time between navigation start and the first contentful paint of a
-      foreground root content document, in milliseconds. This only records
-      documents that were in an active docshell throughout the whole time
-      between navigation start and contentful paint. The contentful paint
-      timestamp is taken during display list building and does not include
-      rasterization or compositing of that paint.
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram TIME_TO_FIRST_CONTENTFUL_PAINT_MS.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1515132
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1515132
-    notification_emails:
       - perf-telemetry-alerts@mozilla.com
     expires: never
 

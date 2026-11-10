@@ -2617,7 +2617,7 @@ pref("browser.smartwindow.manageTabs.includeChatTab", false);
 
 // Smart Window Agent
 pref("browser.smartwindow.agent.enabled", true);
-pref("browser.smartwindow.agent.supportedRegions", "US,CA");
+pref("browser.smartwindow.agent.supportedRegions", '[["US",["*"]],["CA",["en-*"]],["GB",["en-*"]]]');
 // Toolbar button that opens the monitor creation panel (bug 2062113).
 pref("browser.smartwindow.agent.toolbar.enabled", true);
 // Announces the monitor agent as a new feature with a dot on the toolbar
@@ -2668,7 +2668,7 @@ pref("browser.widgets.generated.loglevel", "Warn");
 pref("browser.widgets.generated.endpoint", "");
 pref("browser.widgets.generated.apiKey", "");
 pref("browser.widgets.generated.model", "");
-pref("browser.widgets.generated.maxTurns", 20);
+pref("browser.widgets.generated.maxTurns", 30);
 pref("browser.widgets.generated.localPrompt", false);
 
 // Block insecure active content on https pages
@@ -3832,7 +3832,11 @@ pref("devtools.debugger.features.async-captured-stacks", true);
 pref("devtools.debugger.features.async-live-stacks", false);
 
 // This supports showing stylesheet sources in the debugger
-pref("devtools.debugger.features.stylesheets-in-debugger", false);
+#if defined(NIGHTLY_BUILD)
+  pref("devtools.debugger.features.stylesheets-in-debugger", true);
+#else
+  pref("devtools.debugger.features.stylesheets-in-debugger", false); 
+#endif
 
 // When debugging a website, this pref controls if extension content scripts applied
 // to the currently debugged page should be shown in the Debugger Source Tree
@@ -4005,7 +4009,7 @@ pref("browser.backup.template.fallback-download.release", "https://www.firefox.c
 pref("browser.backup.template.fallback-download.beta", "https://www.firefox.com/channel/desktop/?utm_medium=firefox-desktop&utm_source=html-backup");
 pref("browser.backup.template.fallback-download.aurora", "https://www.firefox.com/channel/desktop/?utm_medium=firefox-desktop&utm_source=html-backup");
 pref("browser.backup.template.fallback-download.nightly", "https://www.firefox.com/channel/desktop/?utm_medium=firefox-desktop&utm_source=html-backup");
-pref("browser.backup.template.fallback-download.esr", " https://www.firefox.com/download/all/desktop-esr/?utm_medium=firefox-desktop&utm_source=html-backup");
+pref("browser.backup.template.fallback-download.esr", "https://www.firefox.com/download/all/desktop-esr/?utm_medium=firefox-desktop&utm_source=html-backup");
 pref("browser.backup.errorCode", 0);
 pref("browser.backup.backup-retry-limit", 10);
 pref("browser.backup.disabled-on-idle-backup-retry", false);

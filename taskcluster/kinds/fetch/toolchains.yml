@@ -227,14 +227,14 @@ cctools-port:
     fetch:
         type: git
         repo: https://github.com/tpoechtrager/cctools-port
-        revision: 1cce4a06877992f708b2e0e2ab217a0cfb923a4f
+        revision: ef969083aecf77dee1814d6961a06b88af23edef
 
 libtapi:
     description: libtapi source code
     fetch:
         type: git
         repo: https://github.com/tpoechtrager/apple-libtapi
-        revision: 593d29141bf176d24021208c75af54a2ef23c38b
+        revision: 2a5705470a92691520fa2ff589482ea6c4039740
 
 libdispatch:
     description: libdispatch source code
@@ -333,7 +333,7 @@ mingw-w64:
     fetch:
         type: git
         repo: https://git.code.sf.net/p/mingw-w64/mingw-w64
-        revision: 7213d719fe344553aa24fef7cc7dedee4940d594
+        revision: ae5227f620699c8d532609ae30dc66432b903dab
 
 mingw-w64-trunk:
     description: mingw-w64 master branch source code
@@ -390,13 +390,13 @@ clang-trunk:
 # We build stable rust from source so the resulting compiler acts as a nightly
 # rust compiler, allowing to use unstable features like -Zbuild-std and
 # sanitizers.
-rust-1.99.1:
-    description: Rust 1.99.1 source code
+rust-1.95.0:
+    description: Rust 1.95.0 source code
     fetch:
         type: git
         include-dot-git: true
         repo: https://github.com/rust-lang/rust/
-        revision: 58cf8f9c35b355199727627d07ae34a4e2846d67
+        revision: 59807616e1fa2540724bfbac14d7976d7e4a3860
 
 rust-nightly:
     description: Rust nightly source code
@@ -577,17 +577,6 @@ nodejs-22-macosx64:
         strip-components: 1
         add-prefix: node/
 
-nodejs-22-win32:
-    description: nodejs 22 for x86 Windows
-    fetch:
-        type: static-url
-        url: https://nodejs.org/dist/v22.16.0/node-v22.16.0-win-x86.zip
-        sha256: c23e16ffddd95ef45272549675a8f87480b3a0a900bebb94c277ff11ba99ec06
-        size: 32797334
-        artifact-name: nodejs.tar.zst
-        strip-components: 1
-        add-prefix: node/
-
 nodejs-24-linux64:
     description: nodejs 24 for x64 linux
     fetch:
@@ -703,7 +692,7 @@ symbol-scrapers:
     fetch:
         type: git
         repo: https://github.com/mozilla/symbol-scrapers
-        revision: ff50ee2e950b59e29ca0483707c51ae361b5926c
+        revision: ccaf667c6fc72745ce116fed4b29316b881d3e4c
 
 openssl-1.1.1w:
     description: openssl 1.1.1w source code
