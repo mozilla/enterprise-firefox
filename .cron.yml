@@ -30,11 +30,8 @@ jobs:
           by-project:
               # No default
               enterprise-firefox:
-                  by-branch:
-                      enterprise-beta:
-                          - {weekday: 'Tuesday', hour: 8, minute: 0}
-                          - {weekday: 'Thursday', hour: 8, minute: 0}
-                      default: []
+                  - {weekday: 'Tuesday', hour: 8, minute: 0}
+                  - {weekday: 'Thursday', hour: 8, minute: 0}
 
     - name: nightly-all
       job:
@@ -63,10 +60,7 @@ jobs:
           by-project:
               # No default
               enterprise-firefox:
-                  by-branch:
-                      enterprise-main:
-                          - {hour: 6, minute: 0}
-                      default: []
+                  - {hour: 6, minute: 0}
 
     - name: merge-beta-to-release-dry-run
       job:
