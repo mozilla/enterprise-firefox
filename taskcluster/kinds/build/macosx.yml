@@ -104,6 +104,41 @@ macosx64-enterprise/debug:
             - sysroot-wasm32-wasi
             - onnxruntime-x86_64-apple-darwin
 
+macosx64-aarch64/debug:
+    description: "MacOS X Aarch64 Cross-compile"
+    index:
+        job-name: macosx64-aarch64-debug
+    attributes:
+        enable-build-signing: true
+        enable-full-crashsymbols: true
+    treeherder:
+        platform: osx-cross-aarch64/debug
+        symbol: B
+        tier: 1
+    worker:
+        max-run-time: 5400
+        env:
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            PERFHERDER_EXTRA_OPTIONS: aarch64
+    mozconfig:
+        variant: debug
+        platform: macosx64-aarch64
+    run:
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_mac_64_cross_builds.py
+        custom-build-variant-cfg: cross-debug
+    run-on-projects: ['integration', "enterprise-firefox"]
+    run-on-repo-type: ["git"]
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-clang
+            - linux64-sccache
+            - macosx64-sdk
+            - sysroot-wasm32-wasi
+            - onnxruntime-aarch64-apple-darwin
+
 macosx64-aarch64-enterprise/debug:
     description: "MacOS X aarch64 Enterprise Cross-compile"
     index:
@@ -142,41 +177,6 @@ macosx64-aarch64-enterprise/debug:
             - sysroot-wasm32-wasi
             - onnxruntime-aarch64-apple-darwin
 
-macosx64-aarch64/debug:
-    description: "MacOS X Aarch64 Cross-compile"
-    index:
-        job-name: macosx64-aarch64-debug
-    attributes:
-        enable-build-signing: true
-        enable-full-crashsymbols: true
-    treeherder:
-        platform: osx-cross-aarch64/debug
-        symbol: B
-        tier: 1
-    worker:
-        max-run-time: 5400
-        env:
-            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
-            PERFHERDER_EXTRA_OPTIONS: aarch64
-    mozconfig:
-        variant: debug
-        platform: macosx64-aarch64
-    run:
-        config:
-            - builds/releng_base_firefox.py
-            - builds/releng_base_mac_64_cross_builds.py
-        custom-build-variant-cfg: cross-debug
-    run-on-projects: ['integration', "enterprise-firefox"]
-    run-on-repo-type: ["git"]
-    use-sccache: true
-    fetches:
-        toolchain:
-            - linux64-clang
-            - linux64-sccache
-            - macosx64-sdk
-            - sysroot-wasm32-wasi
-            - onnxruntime-aarch64-apple-darwin
-
 macosx64-aarch64/opt:
     description: "MacOS X Aarch64 Cross-compile"
     index:
@@ -207,6 +207,44 @@ macosx64-aarch64/opt:
         toolchain:
             - linux64-clang
             - linux64-sccache
+            - macosx64-sdk
+            - sysroot-wasm32-wasi
+            - onnxruntime-aarch64-apple-darwin
+
+macosx64-aarch64-enterprise/opt:
+    description: "MacOS X aarch64 Enterprise Cross-compile"
+    index:
+        job-name: macosx64-aarch64-enterprise-opt
+    attributes:
+        enable-build-signing: true
+        enable-full-crashsymbols: true
+        code-review: true
+    shipping-phase: build
+    treeherder:
+        platform: osx-cross-aarch64-enterprise/opt
+        symbol: Bent
+        tier: 1
+    worker-type: b-linux-docker-xlarge-amd
+    worker:
+        max-run-time: 7200
+        env:
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+    mozconfig:
+        variant: opt-enterprise
+        platform: macosx64-aarch64
+    run:
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_mac_64_cross_builds.py
+    run-on-projects: ["enterprise-firefox"]
+    run-on-repo-type: ["git"]
+    use-sccache: true
+    use-python: "3.11"
+    fetches:
+        toolchain:
+            - linux64-clang
+            - linux64-sccache
+            - macosx64-aarch64-llvm-symbolizer
             - macosx64-sdk
             - sysroot-wasm32-wasi
             - onnxruntime-aarch64-apple-darwin
@@ -567,44 +605,6 @@ macosx64-enterprise-shippable/opt:
         toolchain:
             - linux64-cctools-port
             - onnxruntime-x86_64-apple-darwin
-
-macosx64-aarch64-enterprise/opt:
-    description: "MacOS X aarch64 Enterprise Cross-compile"
-    index:
-        job-name: macosx64-aarch64-enterprise-opt
-    attributes:
-        enable-build-signing: true
-        enable-full-crashsymbols: true
-        code-review: true
-    shipping-phase: build
-    treeherder:
-        platform: osx-cross-aarch64-enterprise/opt
-        symbol: Bent
-        tier: 1
-    worker-type: b-linux-docker-xlarge-amd
-    worker:
-        max-run-time: 7200
-        env:
-            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
-    mozconfig:
-        variant: opt-enterprise
-        platform: macosx64-aarch64
-    run:
-        config:
-            - builds/releng_base_firefox.py
-            - builds/releng_base_mac_64_cross_builds.py
-    run-on-projects: ["enterprise-firefox"]
-    run-on-repo-type: ["git"]
-    use-sccache: true
-    use-python: "3.11"
-    fetches:
-        toolchain:
-            - linux64-clang
-            - linux64-sccache
-            - macosx64-aarch64-llvm-symbolizer
-            - macosx64-sdk
-            - sysroot-wasm32-wasi
-            - onnxruntime-aarch64-apple-darwin
 
 macosx64-asan-fuzzing/opt:
     description: "MacOS X x64 Cross-compile Fuzzing ASAN"
