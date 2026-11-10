@@ -189,67 +189,70 @@ add_task(
   }
 );
 
-add_task(async function test_AIWindowTouModal_targeting() {
-  const message = await getMessageById("AI_WINDOW_TOU_EXISTING_USERS_MODAL");
-  Assert.ok(message, "Smart Window ToU modal message exists");
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  async function test_AIWindowTouModal_targeting() {
+    const message = await getMessageById("AI_WINDOW_TOU_EXISTING_USERS_MODAL");
+    Assert.ok(message, "Smart Window ToU modal message exists");
 
-  const setEligiblePrefs = () => {
-    Services.prefs.setBoolPref("termsofuse.bypassNotification", false);
-    Services.prefs.setIntPref("termsofuse.acceptedVersion", 0);
-    Services.prefs.setBoolPref("browser.smartwindow.enabled", true);
-  };
-  registerCleanupFunction(() => {
-    Services.prefs.clearUserPref("termsofuse.bypassNotification");
-    Services.prefs.clearUserPref("termsofuse.acceptedVersion");
-    Services.prefs.clearUserPref("browser.smartwindow.enabled");
-  });
+    const setEligiblePrefs = () => {
+      Services.prefs.setBoolPref("termsofuse.bypassNotification", false);
+      Services.prefs.setIntPref("termsofuse.acceptedVersion", 0);
+      Services.prefs.setBoolPref("browser.smartwindow.enabled", true);
+    };
+    registerCleanupFunction(() => {
+      Services.prefs.clearUserPref("termsofuse.bypassNotification");
+      Services.prefs.clearUserPref("termsofuse.acceptedVersion");
+      Services.prefs.clearUserPref("browser.smartwindow.enabled");
+    });
 
-  const context = { isAIWindow: false };
+    const context = { isAIWindow: false };
 
-  for (const [localeLanguageCode, region] of [
-    ["en", "US"],
-    ["fr", "FR"],
-  ]) {
-    const where = `${localeLanguageCode}/${region}`;
-    const sandbox = sinon.createSandbox();
-    // TargetingContext resolves these from the real environment, so passing
-    // them in a custom evaluation context would have no effect.
-    sandbox
-      .stub(ASRouterTargeting.Environment, "localeLanguageCode")
-      .get(() => localeLanguageCode);
-    sandbox.stub(ASRouterTargeting.Environment, "region").get(() => region);
+    for (const [localeLanguageCode, region] of [
+      ["en", "US"],
+      ["fr", "FR"],
+    ]) {
+      const where = `${localeLanguageCode}/${region}`;
+      const sandbox = sinon.createSandbox();
+      // TargetingContext resolves these from the real environment, so passing
+      // them in a custom evaluation context would have no effect.
+      sandbox
+        .stub(ASRouterTargeting.Environment, "localeLanguageCode")
+        .get(() => localeLanguageCode);
+      sandbox.stub(ASRouterTargeting.Environment, "region").get(() => region);
 
-    try {
-      setEligiblePrefs();
-      Assert.ok(
-        await checkTargeting(message, context),
-        `Targeting matches for ${where}`
-      );
+      try {
+        setEligiblePrefs();
+        Assert.ok(
+          await checkTargeting(message, context),
+          `Targeting matches for ${where}`
+        );
 
-      Services.prefs.setIntPref("termsofuse.acceptedVersion", 4);
-      Assert.ok(
-        !(await checkTargeting(message, context)),
-        `Targeting does not match in ${where} once the current ToU version is accepted`
-      );
+        Services.prefs.setIntPref("termsofuse.acceptedVersion", 4);
+        Assert.ok(
+          !(await checkTargeting(message, context)),
+          `Targeting does not match in ${where} once the current ToU version is accepted`
+        );
 
-      setEligiblePrefs();
-      Services.prefs.setBoolPref("termsofuse.bypassNotification", true);
-      Assert.ok(
-        !(await checkTargeting(message, context)),
-        `Targeting does not match in ${where} when ToU notifications are bypassed`
-      );
+        setEligiblePrefs();
+        Services.prefs.setBoolPref("termsofuse.bypassNotification", true);
+        Assert.ok(
+          !(await checkTargeting(message, context)),
+          `Targeting does not match in ${where} when ToU notifications are bypassed`
+        );
 
-      setEligiblePrefs();
-      Services.prefs.setBoolPref("browser.smartwindow.enabled", false);
-      Assert.ok(
-        !(await checkTargeting(message, context)),
-        `Targeting does not match in ${where} when Smart Window is disabled`
-      );
-    } finally {
-      sandbox.restore();
+        setEligiblePrefs();
+        Services.prefs.setBoolPref("browser.smartwindow.enabled", false);
+        Assert.ok(
+          !(await checkTargeting(message, context)),
+          `Targeting does not match in ${where} when Smart Window is disabled`
+        );
+      } finally {
+        sandbox.restore();
+      }
     }
   }
-});
+);
 
 add_task(async function test_schemaValidation() {
   const { experimentValidator, messageValidators } = await makeValidators();

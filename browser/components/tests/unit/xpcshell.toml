@@ -52,6 +52,7 @@ skip-if = [
 ["test_profileDataUpgrade_smartwindow.js"]
 
 ["test_profileDataUpgrade_smartwindow_semanticHistory.js"]
+skip-if = ["enterprise"] # SmartWindow is disabled on Firefox Enterprise
 
 ["test_startupTelemetry_aiControlBlocking.js"]
 
