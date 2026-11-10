@@ -619,7 +619,26 @@ ENTERPRISE_SKIPPED_KINDS = {
 ENTERPRISE_SKIPPED_PROVISIONERS = {"proj-autophone"}
 
 # They require special hardware and credentials
-ENTERPRISE_SKIPPED_TEST_PLATFORMS = ("android-hw", "windows11-aarch64")
+ENTERPRISE_SKIPPED_TEST_PLATFORMS = ("windows11-aarch64",)
+
+# Android tasks kept on enterprise; the builds come in as dependencies of their
+# symbol upload. Linters are kept as well, everything else is dropped.
+ENTERPRISE_KEPT_ANDROID_KINDS = {"build", "upload-symbols"}
+
+
+def is_lint(task):
+    treeherder = task.task.get("extra", {}).get("treeherder", {})
+    return (
+        task.kind == "source-test"
+        and treeherder.get("machine", {}).get("platform") == "lint"
+    )
+
+
+def is_skipped_android_on_enterprise(task):
+    if "android" not in task.label:
+        return False
+
+    return task.kind not in ENTERPRISE_KEPT_ANDROID_KINDS and not is_lint(task)
 
 
 def is_skipped_on_enterprise(task):
@@ -627,6 +646,9 @@ def is_skipped_on_enterprise(task):
         return True
 
     if task.task.get("provisionerId") in ENTERPRISE_SKIPPED_PROVISIONERS:
+        return True
+
+    if is_skipped_android_on_enterprise(task):
         return True
 
     test_platform = task.attributes.get("test_platform")
