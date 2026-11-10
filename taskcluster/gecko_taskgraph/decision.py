@@ -462,6 +462,12 @@ def get_decision_parameters(graph_config, options):
     parameters["try_mode"] = None
     parameters["try_task_config"] = {}
 
+    # Set by the task generating this graph from its own graph, see
+    # util/comm_decision.py. Needed by the lookups below, e.g. of the push
+    # graph for `--include-push-tasks`.
+    if child_graph := os.environ.get(CHILD_GRAPH_ENV):
+        parameters["child_graph"] = json.loads(child_graph)
+
     # owner must be an email, but sometimes (e.g., for ffxbld) it is not, in which
     # case, fake it
     if "@" not in parameters["owner"]:
@@ -548,11 +554,6 @@ def get_decision_parameters(graph_config, options):
         time_interval=60 * 6,
         backstop_strategy="android_perftest_backstop",
     )
-
-    # Set by the task generating this graph from its own graph, see
-    # util/comm_decision.py.
-    if child_graph := os.environ.get(CHILD_GRAPH_ENV):
-        parameters["child_graph"] = json.loads(child_graph)
 
     if "decision-parameters" in graph_config["taskgraph"]:
         find_object(graph_config["taskgraph"]["decision-parameters"])(

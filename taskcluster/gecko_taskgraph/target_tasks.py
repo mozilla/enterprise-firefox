@@ -32,6 +32,7 @@ from gecko_taskgraph.util.attributes import (
     match_run_on_repo_type,
     repacks_on_release_promotion,
 )
+from gecko_taskgraph.util.comm_decision import COMM_DECISION_LABEL
 from gecko_taskgraph.util.constants import TEST_KINDS
 from gecko_taskgraph.util.hg import find_hg_revision_push_info, get_hg_commit_message
 from gecko_taskgraph.util.platforms import platform_family
@@ -1331,11 +1332,26 @@ def target_tasks_daily_releases(full_task_graph, parameters, graph_config):
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
 
 
+def with_comm_decision(full_task_graph, labels):
+    """Add the comm decision task, when the graph has one, to the tasks of an
+    Enterprise cron job that also generates the comm graph.
+
+    The comm graph runs the same target tasks method, which selects its
+    `release_product` tasks there. See gecko_taskgraph/util/comm_decision.py.
+    """
+    if labels and COMM_DECISION_LABEL in full_task_graph.tasks:
+        return [*labels, COMM_DECISION_LABEL]
+    return labels
+
+
 @register_target_task("daily_releases_enterprise")
 def target_tasks_daily_releases_enterprise(full_task_graph, parameters, graph_config):
     """Select the set of tasks required to identify if we should release.
     If we determine that we should the task will communicate to ship-it to
-    schedule the release itself."""
+    schedule the release itself.
+
+    Also generates the comm graph, where this selects the Thunderbird
+    Enterprise tasks."""
 
     def filter(task):
         # The kind ships one task per product and this method runs outside of
@@ -1346,7 +1362,9 @@ def target_tasks_daily_releases_enterprise(full_task_graph, parameters, graph_co
             and task.attributes.get("shipping_product") == parameters["release_product"]
         )
 
-    return [l for l, t in full_task_graph.tasks.items() if filter(t)]
+    return with_comm_decision(
+        full_task_graph, [l for l, t in full_task_graph.tasks.items() if filter(t)]
+    )
 
 
 @register_target_task("nightly_desktop")
@@ -1488,12 +1506,35 @@ def target_tasks_nightly_enterprise_prod(full_task_graph, parameters, graph_conf
     )
 
 
+def get_partner_subconfigs(parameters):
+    """The partners and sub configs of every repack of the release partner
+    config, as {partner: [sub config]}."""
+    subconfigs = {}
+    for partners in (parameters.get("release_partner_config") or {}).values():
+        for partner, partner_subconfigs in partners.items():
+            subconfigs.setdefault(partner, set()).update(partner_subconfigs)
+    return {partner: sorted(sub) for partner, sub in subconfigs.items()}
+
+
 @register_target_task("nightly_enterprise")
 def target_tasks_nightly_enterprise(full_task_graph, parameters, graph_config):
     """
     Select the set of tasks required for a nightly build of firefox enterprise
     Tailored for nightly stage builds to be validated by QA
+
+    Also generates the comm graph, where this selects the Thunderbird
+    Enterprise nightly.
     """
+    if parameters["release_product"] == "thunderbird-enterprise":
+        # Thunderbird Enterprise has no staging nor OCI uploads: its nightly
+        # repacks every partner config of its manifest, like its pushes.
+        return target_tasks_enterprise_any(
+            full_task_graph,
+            parameters,
+            graph_config,
+            get_partner_subconfigs(parameters),
+        )
+
     stage = target_tasks_nightly_enterprise_stage(
         full_task_graph, parameters, graph_config
     )
@@ -1508,7 +1549,9 @@ def target_tasks_nightly_enterprise(full_task_graph, parameters, graph_config):
         )
         if not full_task_graph[l].kind.startswith("enterprise-oci-")
     ]
-    return list(set(stage) | set(prod) | set(generic))
+    return with_comm_decision(
+        full_task_graph, list(set(stage) | set(prod) | set(generic))
+    )
 
 
 # Run Searchfox analysis once daily.
