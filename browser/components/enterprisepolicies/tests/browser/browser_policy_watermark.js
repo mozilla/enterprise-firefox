@@ -72,7 +72,11 @@ function isWatermarkRendered(browser) {
         return node;
       }
 
-      for (let child of SpecialPowers.InspectorUtils.getChildrenForNode(node, true, false)) {
+      for (let child of SpecialPowers.InspectorUtils.getChildrenForNode(
+        node,
+        true,
+        false
+      )) {
         let found = findWatermark(child);
         if (found) {
           return found;

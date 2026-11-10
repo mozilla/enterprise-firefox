@@ -190,7 +190,6 @@ function watermarkScreenStyle(width, height) {
 export class WatermarkPolicyChild extends JSWindowActorChild {
   #content = null;
   #node = null;
-  #printNode = null;
   #resizeObserver = null;
   // Watermark configuration for this document, fetched from the parent when
   // the actor is created and updated by "Watermark:Refresh". Null until it has
