@@ -26,10 +26,44 @@
   }
 }
 
-.enterprise-urlbar-panel-subview {
+/* Compound selector outranks the generic panelview width rule; a fixed width stops the main view rewrapping mid-slide. */
+.enterprise-urlbar-panel-subview.PanelUI-subView {
+  min-width: var(--size-layout-large);
   max-width: var(--size-layout-large);
 
   & .panel-subview-body {
-    padding: var(--space-small) var(--space-medium) var(--space-medium);
+    padding: var(--space-medium) var(--space-large);
   }
+}
+
+#lockdown-mode-details-list {
+  gap: var(--space-large);
+}
+
+.lockdown-mode-protection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxsmall);
+}
+
+.lockdown-mode-protection-name {
+  font-weight: var(--font-weight-semibold);
+}
+
+.lockdown-mode-protection-description {
+  font-size: var(--font-size-small);
+}
+
+#lockdown-mode-details-count {
+  color: var(--text-color-deemphasized);
+}
+
+#lockdown-mode-copy-details-footer {
+  margin: var(--space-small) var(--panel-menuitem-margin-inline) var(--panel-menuitem-margin-inline);
+  min-height: var(--button-min-height);
+}
+
+#lockdown-mode-details-copied {
+  color: var(--icon-color-success);
+  padding-inline: var(--space-small);
 }
