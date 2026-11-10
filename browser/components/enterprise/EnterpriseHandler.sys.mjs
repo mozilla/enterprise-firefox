@@ -14,12 +14,13 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
 ChromeUtils.defineESModuleGetters(lazy, {
   initiateShutdown:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("EnterpriseHandler");
+  return console.createInstance({
+    logModule: "EnterpriseHandler",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.prompt_on_signout";

@@ -9,12 +9,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   EnterpriseCommon:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("EnterpriseAccountStorage");
+  return console.createInstance({
+    logModule: "EnterpriseAccountStorage",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 /**

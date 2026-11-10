@@ -16,8 +16,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   shouldNotCloseWindow:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   WebAuthnPromptHelper:
     "moz-src:///toolkit/modules/WebAuthnPromptHelper.sys.mjs",
   FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
@@ -37,7 +35,10 @@ if (lazy.isBuildAppBrowser()) {
 }
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("Felt");
+  return console.createInstance({
+    logModule: "Felt",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 /**

@@ -6,12 +6,13 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   SpellCheckHelper: "resource://gre/modules/InlineSpellChecker.sys.mjs",
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("FeltContextMenuChild");
+  return console.createInstance({
+    logModule: "FeltContextMenuChild",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 /**
  * Gathers the data required to display the context menu from the content process.
