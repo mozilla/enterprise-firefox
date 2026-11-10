@@ -28,7 +28,7 @@ tasks:
         attributes:
             code-review: true
 
-        worker-type: t-linux-docker-amd
+        worker-type: t-linux-arm64-docker
         worker:
             docker-image: {in-tree: debian12-base}
             # Long enough to wait for the try decision task to run.
@@ -50,7 +50,7 @@ tasks:
         # treeherder route is added by the transform, which is where the exact
         # route of this push is known.
         scopes:
-            - queue:create-task:highest:enterprise-t/t-linux-docker-amd
+            - queue:create-task:highest:enterprise-t/t-linux-arm64-docker
             - queue:scheduler-id:enterprise-level-{level}
             - queue:route:checks
 
