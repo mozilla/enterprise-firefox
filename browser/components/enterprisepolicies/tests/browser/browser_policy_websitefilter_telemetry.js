@@ -2,6 +2,10 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
 
+const { EnterprisePingCollector } = ChromeUtils.importESModule(
+  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+);
+
 const SUPPORT_FILES_PATH =
   "http://mochi.test:8888/browser/browser/components/enterprisepolicies/tests/browser/";
 const BLOCKED_PAGE = "policy_websitefilter_block.html";
@@ -28,11 +32,6 @@ add_task(async function test_policy_enterprise_telemetry() {
         BlocklistDomainBrowsed: { Enabled: true, UrlLogging: "full" },
       },
     },
-  });
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.policies.enterprise.telemetry.testing.disableSubmit", true],
-    ],
   });
 
   const referrerURL = SUPPORT_FILES_PATH + SAVELINKAS_PAGE;
@@ -93,10 +92,7 @@ add_task(async function test_telemetry_https_only_upgrade() {
     },
   });
   await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.policies.enterprise.telemetry.testing.disableSubmit", true],
-      ["dom.security.https_only_mode", true],
-    ],
+    set: [["dom.security.https_only_mode", true]],
   });
 
   // The upgrade is a redirect without a 3xx response, so only the
@@ -118,36 +114,52 @@ add_task(async function test_no_telemetry_without_security_logging_policy() {
     },
   });
 
-  const newTab = BrowserTestUtils.addTab(gBrowser);
-  gBrowser.selectedTab = newTab;
   try {
-    const browser = newTab.linkedBrowser;
-    const errorPage = BrowserTestUtils.waitForErrorPage(browser);
-    BrowserTestUtils.startLoadingURIString(
-      browser,
-      SUPPORT_FILES_PATH + BLOCKED_PAGE
-    );
-    await errorPage;
+    // A direct load is blocked before it starts and a redirect once its
+    // response arrives, each by a different recorder; neither records anything
+    // without the SecurityLogging policy.
+    for (const page of [BLOCKED_PAGE, "301.sjs"]) {
+      using collector = collectBlockedPages();
+      const newTab = BrowserTestUtils.addTab(gBrowser);
+      gBrowser.selectedTab = newTab;
+      try {
+        const browser = newTab.linkedBrowser;
+        const errorPage = BrowserTestUtils.waitForErrorPage(browser);
+        BrowserTestUtils.startLoadingURIString(
+          browser,
+          SUPPORT_FILES_PATH + page
+        );
+        await errorPage;
 
-    Assert.ok(
-      !Glean.contentPolicy.blocklistDomainBrowsed.testGetValue("enterprise")
-        ?.length,
-      "Blocking a domain records nothing without the SecurityLogging policy"
-    );
+        collector.assertNothingRecorded(
+          `Blocking ${page} records nothing without the SecurityLogging policy`
+        );
+      } finally {
+        BrowserTestUtils.removeTab(newTab);
+        Services.fog.testResetFOG();
+      }
+    }
   } finally {
-    BrowserTestUtils.removeTab(newTab);
-    Services.fog.testResetFOG();
     await clearWebsiteFilter();
   }
 });
 
-// Checks that a page was blocked by seeing if it was replaced with about:neterror
+function collectBlockedPages() {
+  return new EnterprisePingCollector(
+    Glean.contentPolicy.blocklistDomainBrowsed
+  );
+}
+
+// Loads url (through a link on referrerURL when given), checks that it was
+// blocked, i.e. replaced with about:neterror, and checks the
+// blocklistDomainBrowsed event the block recorded.
 async function checkBlockedPageTelemetry(
   url,
   { resolvedURL, referrerURL } = {}
 ) {
   const expectedBlockedUrl = resolvedURL ?? url;
 
+  using collector = collectBlockedPages();
   let newTab;
   try {
     if (referrerURL) {
@@ -178,13 +190,12 @@ async function checkBlockedPageTelemetry(
     }
     await promise;
 
-    let events =
-      Glean.contentPolicy.blocklistDomainBrowsed.testGetValue("enterprise");
-    Assert.ok(events?.length, "Should have recorded events");
-    if (!events?.length) {
+    const events = collector.events;
+    Assert.ok(events.length, "Should have recorded events");
+    if (!events.length) {
       return;
     }
-    Assert.equal(events.length, 1, "Should record at least one event");
+    Assert.equal(events.length, 1, "Should record exactly one event");
     const event = events.at(-1);
     Assert.ok(event.extra, "Event should have extra data");
     Assert.equal(

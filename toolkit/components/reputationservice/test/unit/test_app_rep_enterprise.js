@@ -15,6 +15,9 @@
 const { NetUtil } = ChromeUtils.importESModule(
   "resource://gre/modules/NetUtil.sys.mjs"
 );
+const { EnterprisePingCollector } = ChromeUtils.importESModule(
+  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+);
 
 const gAppRep = Cc[
   "@mozilla.org/reputationservice/application-reputation-service;1"
@@ -73,6 +76,10 @@ function queryReputation(aQuery) {
   });
 }
 
+function collectUnsafeDownloads() {
+  return new EnterprisePingCollector(Glean.safebrowsing.download);
+}
+
 add_setup(async function setup() {
   Services.fog.initializeFOG();
 
@@ -91,12 +98,6 @@ add_setup(async function setup() {
     Services.prefs.clearUserPref(appRepURLPref);
   });
 
-  // Enterprise telemetry prefs. Disable submission so we can inspect the
-  // recorded events via testGetValue.
-  Services.prefs.setBoolPref(
-    "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-    true
-  );
   Services.prefs.setBoolPref(
     "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled",
     true
@@ -106,9 +107,6 @@ add_setup(async function setup() {
     "full"
   );
   registerCleanupFunction(function () {
-    Services.prefs.clearUserPref(
-      "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit"
-    );
     Services.prefs.clearUserPref(
       "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled"
     );
@@ -166,32 +164,35 @@ add_setup(async function setup() {
 });
 
 add_task(async function test_records_dangerous_download() {
-  let { shouldBlock, status } = await queryReputation({
-    sourceURI: blocklistedURI,
-    fileSize: 12,
-  });
-  Assert.equal(status, Cr.NS_OK, "Query should succeed");
-  Assert.ok(shouldBlock, "Blocklisted download should be blocked");
+  using collector = collectUnsafeDownloads();
+  try {
+    let { shouldBlock, status } = await queryReputation({
+      sourceURI: blocklistedURI,
+      fileSize: 12,
+    });
+    Assert.equal(status, Cr.NS_OK, "Query should succeed");
+    Assert.ok(shouldBlock, "Blocklisted download should be blocked");
 
-  let events = Glean.safebrowsing.download.testGetValue("enterprise");
-  Assert.equal(events?.length, 1, "Should record one unsafe download event");
-  const event = events.at(-1);
-  Assert.ok(event.extra, "Event should have extra data");
-  Assert.equal(
-    event.extra.verdict,
-    "dangerous",
-    "Local block list hit is reported as a dangerous verdict"
-  );
-  Assert.ok(
-    event.extra.url.includes("blocklisted.com"),
-    `Full URL should be logged, got ${event.extra.url}`
-  );
-  Assert.ok(
-    !event.extra.url.includes("qux") && event.extra.url.includes("****"),
-    `The password must be masked in the logged URL, got ${event.extra.url}`
-  );
-
-  Services.fog.testResetFOG();
+    const events = collector.events;
+    Assert.equal(events.length, 1, "Should record one unsafe download event");
+    const event = events.at(-1);
+    Assert.ok(event.extra, "Event should have extra data");
+    Assert.equal(
+      event.extra.verdict,
+      "dangerous",
+      "Local block list hit is reported as a dangerous verdict"
+    );
+    Assert.ok(
+      event.extra.url.includes("blocklisted.com"),
+      `Full URL should be logged, got ${event.extra.url}`
+    );
+    Assert.ok(
+      !event.extra.url.includes("qux") && event.extra.url.includes("****"),
+      `The password must be masked in the logged URL, got ${event.extra.url}`
+    );
+  } finally {
+    Services.fog.testResetFOG();
+  }
 });
 
 add_task(async function test_url_logging_domain() {
@@ -199,6 +200,7 @@ add_task(async function test_url_logging_domain() {
     "browser.safebrowsing.enterprise.telemetry.unsafeDownload.urlLogging",
     "domain"
   );
+  using collector = collectUnsafeDownloads();
   try {
     let { shouldBlock } = await queryReputation({
       sourceURI: blocklistedURI,
@@ -206,8 +208,8 @@ add_task(async function test_url_logging_domain() {
     });
     Assert.ok(shouldBlock, "Blocklisted download should be blocked");
 
-    let events = Glean.safebrowsing.download.testGetValue("enterprise");
-    Assert.equal(events?.length, 1, "Should record one event");
+    const events = collector.events;
+    Assert.equal(events.length, 1, "Should record one event");
     Assert.equal(
       events.at(-1).extra.url,
       "blocklisted.com",
@@ -227,6 +229,7 @@ add_task(async function test_url_logging_none() {
     "browser.safebrowsing.enterprise.telemetry.unsafeDownload.urlLogging",
     "none"
   );
+  using collector = collectUnsafeDownloads();
   try {
     let { shouldBlock } = await queryReputation({
       sourceURI: blocklistedURI,
@@ -234,8 +237,8 @@ add_task(async function test_url_logging_none() {
     });
     Assert.ok(shouldBlock, "Blocklisted download should be blocked");
 
-    let events = Glean.safebrowsing.download.testGetValue("enterprise");
-    Assert.equal(events?.length, 1, "Should record one event");
+    const events = collector.events;
+    Assert.equal(events.length, 1, "Should record one event");
     Assert.equal(
       events.at(-1).extra.url,
       "",
@@ -252,22 +255,7 @@ add_task(async function test_url_logging_none() {
 
 add_task(async function test_every_detection_submits_a_ping() {
   // Every unsafe verdict submits its own ping, even back to back.
-  Services.prefs.setBoolPref(
-    "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-    false
-  );
-
-  // testBeforeNextSubmit is a one-shot hook, so re-arm it after every submit to
-  // keep counting.
-  let submitCount = 0;
-  function registerHook() {
-    GleanPings.enterprise.testBeforeNextSubmit(() => {
-      submitCount++;
-      registerHook();
-    });
-  }
-  registerHook();
-
+  using collector = collectUnsafeDownloads();
   try {
     for (const attempt of [1, 2]) {
       let { shouldBlock } = await queryReputation({
@@ -276,19 +264,12 @@ add_task(async function test_every_detection_submits_a_ping() {
       });
       Assert.ok(shouldBlock, `Download ${attempt} should be blocked`);
       Assert.equal(
-        submitCount,
+        collector.submitCount,
         attempt,
         `Download ${attempt} submits its own enterprise ping`
       );
     }
   } finally {
-    // Overwrite the pending one-shot hook with a no-op so it does not stay
-    // armed for later tests.
-    GleanPings.enterprise.testBeforeNextSubmit(() => {});
-    Services.prefs.setBoolPref(
-      "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-      true
-    );
     Services.fog.testResetFOG();
   }
 });
@@ -297,15 +278,16 @@ add_task(async function test_default_records_nothing() {
   Services.prefs.clearUserPref(
     "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled"
   );
+  using collector = collectUnsafeDownloads();
   try {
     let { shouldBlock } = await queryReputation({
       sourceURI: blocklistedURI,
       fileSize: 12,
     });
     Assert.ok(shouldBlock, "Download is still blocked without the policy");
-
-    let events = Glean.safebrowsing.download.testGetValue("enterprise");
-    Assert.ok(!events?.length, "Should not record without an enabling policy");
+    collector.assertNothingRecorded(
+      "Should not record without an enabling policy"
+    );
   } finally {
     Services.fog.testResetFOG();
   }
@@ -316,19 +298,44 @@ add_task(async function test_disabled_records_nothing() {
     "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled",
     false
   );
+  using collector = collectUnsafeDownloads();
   try {
     let { shouldBlock } = await queryReputation({
       sourceURI: blocklistedURI,
       fileSize: 12,
     });
     Assert.ok(shouldBlock, "Download is still blocked when telemetry is off");
-
-    let events = Glean.safebrowsing.download.testGetValue("enterprise");
-    Assert.ok(!events?.length, "Should not record when disabled");
+    collector.assertNothingRecorded("Should not record when disabled");
   } finally {
     Services.prefs.setBoolPref(
       "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled",
       true
+    );
+    Services.fog.testResetFOG();
+  }
+});
+
+add_task(async function test_removed_testing_pref_is_inert() {
+  // The pref that once let tests turn submission off must not affect it.
+  Services.prefs.setBoolPref(
+    "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+    true
+  );
+  using collector = collectUnsafeDownloads();
+  try {
+    let { shouldBlock } = await queryReputation({
+      sourceURI: blocklistedURI,
+      fileSize: 12,
+    });
+    Assert.ok(shouldBlock, "Blocklisted download should be blocked");
+    Assert.equal(
+      collector.submitCount,
+      1,
+      "The ping is submitted regardless of the pref"
+    );
+  } finally {
+    Services.prefs.clearUserPref(
+      "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit"
     );
     Services.fog.testResetFOG();
   }

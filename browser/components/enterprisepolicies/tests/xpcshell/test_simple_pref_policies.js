@@ -1504,6 +1504,29 @@ const POLICIES_TESTS = [
       "browser.contentanalysis.enterprise.telemetry.urlLogging": "none",
     },
   },
+  // A setting the policy leaves out is locked to its default.
+  {
+    policies: {
+      ContentAnalysisTelemetry: {
+        Enabled: false,
+      },
+    },
+    lockedPrefs: {
+      "browser.contentanalysis.enterprise.telemetry.enabled": false,
+      "browser.contentanalysis.enterprise.telemetry.urlLogging": "full",
+    },
+  },
+  {
+    policies: {
+      ContentAnalysisTelemetry: {
+        UrlLogging: "domain",
+      },
+    },
+    lockedPrefs: {
+      "browser.contentanalysis.enterprise.telemetry.enabled": true,
+      "browser.contentanalysis.enterprise.telemetry.urlLogging": "domain",
+    },
+  },
 
   // POLICY: SignOut
   {

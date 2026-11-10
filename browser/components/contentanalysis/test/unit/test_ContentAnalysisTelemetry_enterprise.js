@@ -9,19 +9,16 @@
 const { ContentAnalysisTelemetryEnterprise } = ChromeUtils.importESModule(
   "moz-src:///browser/components/contentanalysis/content/ContentAnalysisTelemetry.enterprise.sys.mjs"
 );
+const { EnterprisePingCollector } = ChromeUtils.importESModule(
+  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+);
 
 const ENABLED_PREF = "browser.contentanalysis.enterprise.telemetry.enabled";
 const URL_LOGGING_PREF =
   "browser.contentanalysis.enterprise.telemetry.urlLogging";
-const DISABLE_SUBMIT_PREF =
-  "browser.contentanalysis.enterprise.telemetry.testing.disableSubmit";
 
 add_setup(function () {
-  // Every task below wants submission disabled so it can inspect recorded
-  // telemetry without it being cleared by GleanPings.enterprise.submit().
-  Services.prefs.setBoolPref(DISABLE_SUBMIT_PREF, true);
   registerCleanupFunction(() => {
-    Services.prefs.clearUserPref(DISABLE_SUBMIT_PREF);
     Services.prefs.clearUserPref(ENABLED_PREF);
     Services.prefs.clearUserPref(URL_LOGGING_PREF);
   });
@@ -37,17 +34,24 @@ const BASE_DETAILS = {
 };
 
 /**
- * Records one event and returns the extras of everything recorded, or null if
- * nothing was recorded.
+ * Records one event and returns the extras of everything the enterprise ping
+ * carried, or null if nothing was recorded.
  *
  * @param {object} details Passed through to _record().
  * @returns {object[]|null}
  */
 function recordAndGetExtras(details) {
   Services.fog.testResetFOG();
+  using collector = new EnterprisePingCollector(
+    Glean.contentAnalysis.ruleTriggered
+  );
   ContentAnalysisTelemetryEnterprise._record(details);
-  const events = Glean.contentAnalysis.ruleTriggered.testGetValue("enterprise");
-  return events ? events.map(event => event.extra) : null;
+  const events = collector.events;
+  if (!events.length) {
+    collector.assertNothingRecorded("nothing was recorded");
+    return null;
+  }
+  return events.map(event => event.extra);
 }
 
 add_task(async function test_url_processing_policies() {
@@ -236,6 +240,25 @@ add_task(async function test_disabled_does_not_record() {
     );
   } finally {
     Services.prefs.clearUserPref(ENABLED_PREF);
+  }
+});
+
+add_task(async function test_removed_testing_pref_is_inert() {
+  // The pref that once let tests turn submission off must not affect it.
+  Services.prefs.setBoolPref(
+    "browser.contentanalysis.enterprise.telemetry.testing.disableSubmit",
+    true
+  );
+  try {
+    Assert.equal(
+      recordAndGetExtras(BASE_DETAILS)?.length,
+      1,
+      "the ping is submitted regardless of the pref"
+    );
+  } finally {
+    Services.prefs.clearUserPref(
+      "browser.contentanalysis.enterprise.telemetry.testing.disableSubmit"
+    );
   }
 });
 

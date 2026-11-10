@@ -6,24 +6,22 @@
 // ContentAnalysisTelemetry enterprise policy prefs it's gated by don't
 // exist otherwise.
 
+const { EnterprisePingCollector } = ChromeUtils.importESModule(
+  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+);
+
 let mockCA = makeMockContentAnalysis();
 
 add_setup(async function test_setup() {
   mockCA = await mockContentAnalysisService(mockCA);
-  // Each recorded event submits the "enterprise" ping immediately, which
-  // clears its buffered events. Disable that here so
-  // testGetValue() can see every event recorded during a test, including
-  // cases (like a warn verdict followed by its resolution) where more than
-  // one event is recorded per test.
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [
-        "browser.contentanalysis.enterprise.telemetry.testing.disableSubmit",
-        true,
-      ],
-    ],
-  });
 });
+
+// The collector also covers cases (like a warn verdict followed by its
+// resolution) where more than one event is recorded, and so more than one ping
+// submitted, per test.
+function collectRuleTriggeredEvents() {
+  return new EnterprisePingCollector(Glean.contentAnalysis.ruleTriggered);
+}
 
 const testPage =
   "<body style='margin: 0'><input id='input' type='text'></body>";
@@ -51,6 +49,7 @@ function setClipboardData(clipboardString) {
 async function pasteAndGetTelemetryEvents({ allow, useDataUrl = true }) {
   mockCA.setupForTest(allow, /* waitForEvent */ false, /* showDialogs */ true);
   Services.fog.testResetFOG();
+  using collector = collectRuleTriggeredEvents();
 
   let tab = BrowserTestUtils.addTab(gBrowser);
   let browser = gBrowser.getBrowserForTab(tab);
@@ -90,7 +89,11 @@ async function pasteAndGetTelemetryEvents({ allow, useDataUrl = true }) {
 
   BrowserTestUtils.removeTab(tab);
 
-  return Glean.contentAnalysis.ruleTriggered.testGetValue("enterprise");
+  if (!collector.events.length) {
+    collector.assertNothingRecorded("nothing was recorded for this paste");
+    return null;
+  }
+  return collector.events;
 }
 
 add_task(async function testBlockVerdictRecordsTelemetryByDefault() {
@@ -172,6 +175,7 @@ add_task(async function testUrlLoggingPolicyFullUrl() {
 async function pasteAndGetWarnResolutionEvents({ allowAfterWarn }) {
   mockCA.setupForTest("warn", /* waitForEvent */ false, /* showDialogs */ true);
   Services.fog.testResetFOG();
+  using collector = collectRuleTriggeredEvents();
 
   let tab = BrowserTestUtils.addTab(gBrowser);
   let browser = gBrowser.getBrowserForTab(tab);
@@ -209,22 +213,20 @@ async function pasteAndGetWarnResolutionEvents({ allowAfterWarn }) {
   // respondToWarnDialog() resolves asynchronously (it goes through the
   // "dlp-warn-resolved" notification), so wait for the second event
   // instead of assuming it's recorded by the time the click returns.
-  await TestUtils.waitForCondition(() => {
-    const events =
-      Glean.contentAnalysis.ruleTriggered.testGetValue("enterprise");
-    return events && events.length >= 2;
-  }, "waiting for warn_resolution telemetry to be recorded");
+  await TestUtils.waitForCondition(
+    () => collector.events.length >= 2,
+    "waiting for warn_resolution telemetry to be recorded"
+  );
 
   BrowserTestUtils.removeTab(tab);
 
-  return Glean.contentAnalysis.ruleTriggered.testGetValue("enterprise");
+  return collector.events;
 }
 
 add_task(async function testWarnThenAllowRecordsResolutionTelemetry() {
   const events = await pasteAndGetWarnResolutionEvents({
     allowAfterWarn: true,
   });
-  ok(events, "should have recorded rule_triggered telemetry");
   is(events.length, 2, "should record the warn trigger and its resolution");
   is(events[0].extra.action, "warn", "first event reports the warn verdict");
   is(events[0].extra.type, "verdict", "first event is the verdict");
@@ -251,7 +253,6 @@ add_task(async function testWarnThenBlockRecordsResolutionTelemetry() {
   const events = await pasteAndGetWarnResolutionEvents({
     allowAfterWarn: false,
   });
-  ok(events, "should have recorded rule_triggered telemetry");
   is(events.length, 2, "should record the warn trigger and its resolution");
   is(events[0].extra.action, "warn", "first event reports the warn verdict");
   is(events[1].extra.action, "block", "second event reports the user's choice");
