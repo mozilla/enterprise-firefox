@@ -289,15 +289,15 @@ def fetch_graph_and_labels(parameters, graph_config):
                     raise
                 logger.debug(f"No label-to-taskid.json found for {task_id}: {e}")
 
-        # A child graph is only generated on push.
-        if not child_actions_index:
-            namespace = "{}.v2.{}.revision.{}.cron".format(
+        namespace = child_graph_index(parameters, "cron") or (
+            "{}.v2.{}.revision.{}.cron".format(
                 graph_config["trust-domain"],
                 parameters["project"],
                 parameters[head_rev_param],
             )
-            for task_id in list_tasks(namespace):
-                fetches.append(e.submit(fetch_cron, task_id))
+        )
+        for task_id in list_tasks(namespace):
+            fetches.append(e.submit(fetch_cron, task_id))
 
         # now wait for each fetch to complete, raising an exception if there
         # were any issues

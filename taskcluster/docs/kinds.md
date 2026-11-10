@@ -438,6 +438,10 @@ Thunderbird revision pinned in `.comm_rev.yml` and creates the Thunderbird
 graph in its own task group. It is indexed as
 `<trust-domain>.v2.<project>.revision.<rev>.taskgraph.comm-decision`.
 
+It also runs on the `nightly-enterprise` and `daily-releases-enterprise` cron
+jobs, where it generates the comm graph with the same target tasks method,
+indexed as `...taskgraph.comm-decision-<cron job>`.
+
 ## cron-bouncer-check
 
 Checks Bouncer (download.mozilla.org) uptake.

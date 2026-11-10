@@ -245,6 +245,75 @@ def test_make_comm_decision_task(monkeypatch, graph_config, task_definitions):
     }
 
 
+def test_make_comm_decision_task_cron(monkeypatch, graph_config, task_definitions):
+    """The comm copy of a cron decision task takes over its cron options, and
+    is indexed next to it."""
+    monkeypatch.setenv("TASK_ID", DECISION_ID)
+    task_definitions[DECISION_ID] = definition = copy.deepcopy(DECISION_DEF)
+    definition["payload"]["command"][-1] = (
+        "cd /builds/worker/checkouts/gecko && ./mach taskgraph decision "
+        "--pushlog-id='0' --project='enterprise-firefox' "
+        "--target-tasks-method=nightly_enterprise --include-push-tasks"
+    )
+    definition["routes"] = [
+        "checks",
+        f"tc-treeherder.v2.enterprise-main.{REV}",
+        "index.enterprise.v2.enterprise-firefox.branch.enterprise-main.latest.taskgraph.decision-nightly-enterprise",
+        f"index.enterprise.v2.enterprise-firefox.revision.{REV}.taskgraph.decision-nightly-enterprise",
+        f"index.enterprise.v2.enterprise-firefox.revision.{REV}.cron.{DECISION_ID}",
+    ]
+    definition["extra"]["treeherder"] = {
+        "machine": {"platform": "gecko-decision"},
+        "groupSymbol": "cron",
+        "symbol": "Nent",
+    }
+    params = dict(PARAMS, tasks_for="cron", target_tasks_method="nightly_enterprise")
+    task = comm_decision.make_comm_decision_task(
+        graph_config, Parameters(strict=False, **params)
+    )["task"]
+
+    script = task["payload"]["command"][-1]
+    assert "--tasks-for=cron" in script
+    assert "--target-tasks-method=nightly_enterprise --include-push-tasks" in script
+    assert task["routes"] == [
+        "checks",
+        f"tc-treeherder.v2.enterprise-main.{REV}",
+        "index.enterprise.v2.enterprise-firefox.branch.enterprise-main.latest.taskgraph.comm-decision-nightly-enterprise",
+        f"index.{CHILD_INDEX}-decision-nightly-enterprise",
+        {"task-reference": f"index.{CHILD_INDEX}-cron.<self>"},
+    ]
+    assert json.loads(task["payload"]["env"]["TASKGRAPH_CHILD_GRAPH"]) == {
+        "project": "enterprise-firefox",
+        "index": CHILD_INDEX,
+    }
+    assert task["extra"]["treeherder"]["groupSymbol"] == "cron"
+    assert task["extra"]["treeherder"]["symbol"] == "Nent-comm"
+
+
+@pytest.mark.parametrize(
+    "tasks_for,method,expected",
+    (
+        ("github-push", "enterprise_firefox_with_tests_tasks", True),
+        ("cron", "nightly_enterprise", True),
+        ("cron", "daily_releases_enterprise", True),
+        ("cron", "searchfox_index", False),
+    ),
+)
+def test_comm_decision_kind_tasks_for(tasks_for, method, expected):
+    from types import SimpleNamespace
+
+    from gecko_taskgraph.transforms.comm_decision import filter_projects
+
+    config = SimpleNamespace(
+        params={
+            "project": "enterprise-firefox",
+            "tasks_for": tasks_for,
+            "target_tasks_method": method,
+        }
+    )
+    assert bool(list(filter_projects(config, [{"name": "comm-decision"}]))) == expected
+
+
 def test_get_comm_env(monkeypatch, tmp_path):
     comm_rev = tmp_path / ".comm_rev.yml"
     comm_rev.write_text(
