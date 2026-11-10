@@ -7546,7 +7546,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
       }
       if (*feltPid == 0 || *feltPid > UINT32_MAX) {
         Output(true,
-               "Error: Felt browser mode got an invalid Felt process id.\n");
+               "Error: FELT-managed application got an invalid FELT process id.\n");
         return 1;
       }
       if (!firefox_connect_to_felt(*felt, static_cast<uint32_t>(*feltPid))) {
