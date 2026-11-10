@@ -10,6 +10,7 @@ kind-dependencies:
     - generate-profile
 
 transforms:
+    - gecko_taskgraph.transforms.enterprise_overrides:transforms
     - gecko_taskgraph.transforms.build:transforms
     - gecko_taskgraph.transforms.build_attrs:transforms
     - gecko_taskgraph.transforms.build_schedules:transforms

@@ -58,18 +58,15 @@ linux64-enterprise/opt:
         product: firefox
         job-name: linux64-enterprise-opt
     attributes:
+        enable-build-signing: true
         enable-full-crashsymbols: true
-        code-review: true
-    shipping-phase: build
     treeherder:
         platform: linux64-enterprise/opt
         symbol: Bent
-        tier: 1
-    worker-type: b-linux-docker-xlarge-amd
+        tier: 2
     worker:
         max-run-time: 7200
         env:
-            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
@@ -85,8 +82,7 @@ linux64-enterprise/opt:
         script: "mozharness/scripts/fx_desktop_build.py"
         secrets: true
         tooltool-downloads: public
-    run-on-projects: ["enterprise-firefox"]
-    run-on-repo-type: ["git"]
+    run-on-projects: ['mozilla-central']
     use-sccache: true
     use-python: "3.11"
     fetches:
@@ -560,15 +556,13 @@ linux64-enterprise/debug:
         job-name: linux64-enterprise-debug
     attributes:
         enable-full-crashsymbols: true
-        code-review: true
     treeherder:
         platform: linux64-enterprise/debug
         symbol: Bent
-    worker-type: b-linux-docker-xlarge-amd
+        tier: 2
     worker:
         max-run-time: 5400
         env:
-            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
@@ -585,8 +579,7 @@ linux64-enterprise/debug:
         secrets: true
         custom-build-variant-cfg: debug
         tooltool-downloads: public
-    run-on-projects: ["enterprise-firefox"]
-    run-on-repo-type: ["git"]
+    run-on-projects: ['mozilla-central']
     use-sccache: true
     use-python: "3.11"
     fetches:
@@ -1847,18 +1840,16 @@ linux64-aarch64/opt:
 
 linux64-aarch64-enterprise/opt:
     description: "Linux AArch64 (a.k.a. ARM64) Enterprise Opt"
-    worker-type: b-linux-docker-xlarge-amd
     index:
         product: firefox
         job-name: linux64-aarch64-enterprise-opt
     attributes:
         enable-build-signing: true
         enable-full-crashsymbols: true
-        code-review: true
     treeherder:
         platform: linux64-aarch64-enterprise/opt
         symbol: Bent
-        tier: 1
+        tier: 2
     worker:
         max-run-time: 7200
     mozconfig:
@@ -1873,7 +1864,7 @@ linux64-aarch64-enterprise/opt:
         script: "mozharness/scripts/fx_desktop_build.py"
         secrets: true
         tooltool-downloads: public
-    run-on-projects: ['mozilla-central', 'enterprise-firefox']
+    run-on-projects: ['mozilla-central']
     use-sccache: true
     fetches:
         toolchain:
@@ -1937,17 +1928,15 @@ linux64-aarch64/debug:
 
 linux64-aarch64-enterprise/debug:
     description: "Linux AArch64 (a.k.a. ARM64) Enterprise Debug"
-    worker-type: b-linux-docker-xlarge-amd
     index:
         product: firefox
         job-name: linux64-aarch64-enterprise-debug
     attributes:
         enable-full-crashsymbols: true
-        code-review: true
     treeherder:
         platform: linux64-aarch64-enterprise/debug
         symbol: Bent
-        tier: 1
+        tier: 2
     worker:
         max-run-time: 7200
     mozconfig:
@@ -1963,7 +1952,7 @@ linux64-aarch64-enterprise/debug:
         custom-build-variant-cfg: debug
         secrets: true
         tooltool-downloads: public
-    run-on-projects: ['mozilla-central', 'enterprise-firefox']
+    run-on-projects: ['mozilla-central']
     use-sccache: true
     fetches:
         toolchain:
