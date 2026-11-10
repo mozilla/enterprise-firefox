@@ -1427,10 +1427,15 @@ class RecursiveMakeBackend(MakeBackend):
         if not obj.cxx_link and not self.environment.bin_suffix:
             backend_file.write("PROG_IS_C_ONLY_%s := 1\n" % obj.program)
         self._add_lto_object_path_flags(obj, program, backend_file)
+        self._add_dump_syms_target(obj, program, backend_file)
 
     def _add_lto_object_path_flags(self, obj, target, backend_file):
         if flags := obj.lto_object_path_flags:
             backend_file.write(f"{target}: LDFLAGS += {' '.join(flags)}\n")
+
+    def _add_dump_syms_target(self, obj, target, backend_file):
+        if obj.dump_syms:
+            backend_file.write(f"DUMP_SYMS_TARGETS += {target}\n")
 
     def _process_host_program(self, program, backend_file):
         backend_file.write(
@@ -1447,6 +1452,7 @@ class RecursiveMakeBackend(MakeBackend):
         backend_file.write_once("CARGO_TARGET_DIR := %s\n" % target_dir)
         backend_file.write("%s += $(DEPTH)/%s\n" % (target_variable, obj.location))
         backend_file.write("%s += %s\n" % (target_cargo_variable, obj.name))
+        self._add_dump_syms_target(obj, f"$(DEPTH)/{obj.location}", backend_file)
         if obj.output_category:
             program_target = f"$(DEPTH)/{obj.location}"
             self._process_non_default_target(obj, program_target, backend_file)
@@ -1463,6 +1469,20 @@ class RecursiveMakeBackend(MakeBackend):
         self._process_rust_program_base(
             obj, backend_file, "HOST_RUST_PROGRAMS", "HOST_RUST_CARGO_PROGRAMS"
         )
+
+    def _write_rust_command(self, path, command):
+        super()._write_rust_command(path, command)
+        if command.kind == "test":
+            return
+        backend_file = self._backend_files[mozpath.dirname(path)]
+        deps = [
+            mozpath.basename(path),
+            "$(topsrcdir)/python/mozbuild/mozbuild/rust_commands.py",
+            "$(topsrcdir)/python/mozbuild/mozbuild/action/run_cargo.py",
+            *(mozpath.relpath(i, backend_file.relobjdir) for i in command.inputs),
+        ]
+        var = f"CARGO_{command.kind.upper().replace('-', '_')}_DEPS"
+        backend_file.write(f"{var} := {' '.join(deps)}\n")
 
     def _process_rust_tests(self, obj, backend_file):
         if obj.config.substs.get("MOZ_RUST_TESTS"):
@@ -1516,14 +1536,24 @@ class RecursiveMakeBackend(MakeBackend):
         rules.dump(backend_file.fh)
 
     def _process_simple_program(self, obj, backend_file):
+        # Don't build SIMPLE_PROGRAMS during the MOZ_PROFILE_GENERATE pass, and do
+        # not attempt to install them
+        if self.environment.substs.get("MOZ_PROFILE_GENERATE"):
+            return
+        backend_file.write(f"SIMPLE_PROGRAMS += {obj.program}\n")
         if obj.is_unit_test:
-            backend_file.write("CPP_UNIT_TESTS += %s\n" % obj.program)
+            # Compile the tests along with the other SIMPLE_PROGRAMS, and also
+            # install them to $(DIST)/cppunittests.
+            backend_file.write(f"CPP_UNIT_TESTS += {obj.program}\n")
+            backend_file.write(f"CPP_UNIT_TESTS_FILES += {obj.program}\n")
+            backend_file.write_once("CPP_UNIT_TESTS_DEST := $(DIST)/cppunittests\n")
+            backend_file.write_once("CPP_UNIT_TESTS_TARGET := target\n")
+            backend_file.write_once("INSTALL_TARGETS += CPP_UNIT_TESTS\n")
             assert obj.cxx_link
-        else:
-            backend_file.write("SIMPLE_PROGRAMS += %s\n" % obj.program)
-            if not obj.cxx_link and not self.environment.bin_suffix:
-                backend_file.write("PROG_IS_C_ONLY_%s := 1\n" % obj.program)
+        elif not obj.cxx_link and not self.environment.bin_suffix:
+            backend_file.write(f"PROG_IS_C_ONLY_{obj.program} := 1\n")
         self._add_lto_object_path_flags(obj, obj.program, backend_file)
+        self._add_dump_syms_target(obj, obj.program, backend_file)
 
     def _process_host_simple_program(self, obj, backend_file):
         backend_file.write(f"HOST_SIMPLE_PROGRAMS += {obj.program}\n")
@@ -1654,6 +1684,7 @@ class RecursiveMakeBackend(MakeBackend):
         shared_lib = self._pretty_path(libdef.output_path, backend_file)
         backend_file.write("SHARED_LIBRARY := %s\n" % shared_lib)
         self._add_lto_object_path_flags(libdef, shared_lib, backend_file)
+        self._add_dump_syms_target(libdef, shared_lib, backend_file)
         if libdef.soname:
             backend_file.write("DSO_SONAME := %s\n" % libdef.soname)
         if libdef.dso_link_flags:

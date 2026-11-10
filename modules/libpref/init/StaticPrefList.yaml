@@ -4169,6 +4169,12 @@
   value: false
   mirror: always
 
+# Use the new Navigation API history behaviour and load path for iframes.
+- name: dom.navigation.new_frame_load_behavior.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Network Information API
 # This feature is not available on Firefox desktop. It exposes too much
 # user information. Let's be consistent and disable it on Android.
@@ -16098,11 +16104,7 @@
 # Lifetime (in seconds) of a negative DNS cache entry.
 - name: network.dnsNegativeCacheExpiration
   type: RelaxedAtomicUint32
-#if defined(NIGHTLY_BUILD)
-  value: 300
-#else
   value: 60
-#endif
   mirror: always
 
 # Grace period (in seconds) for a negative DNS cache entry. During the grace
@@ -17534,8 +17536,8 @@
   value: 10
   mirror: always
 
-# Validate that the principal used to bind child-written alt-data could have
-# been loaded by the content process that wrote it.
+# Validate that the origin of the principal used to bind child-written
+# alt-data has been loaded by the content process that wrote it.
 - name: network.cache.alt_data.validate_binding_principal
   type: RelaxedAtomicBool
   value: true
@@ -18323,10 +18325,10 @@
   mirror: always
 
 # Retarget a top-level navigation to a site bound to a container into a new tab
-# in that container. Disabled by default.
+# in that container.
 - name: privacy.containers.switchDuringNavigation.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # First Party Isolation (double keying), disabled by default.
@@ -21045,7 +21047,7 @@
 #if defined(MOZ_WIDGET_ANDROID)
 - name: webgl.out-of-process.enable-ahardwarebuffer
   type: bool
-  value: false
+  value: true
   mirror: once
 #endif
 

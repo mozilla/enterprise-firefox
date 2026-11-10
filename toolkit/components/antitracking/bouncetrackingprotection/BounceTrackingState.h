@@ -94,18 +94,22 @@ class BounceTrackingState : public nsIWebProgressListener,
   // stands in for the response and the document load.
   [[nodiscard]] nsresult OnBFCacheRestored();
 
-  // Whether the given principal should be tracked for bounce tracking.
-  static bool ShouldTrackPrincipal(nsIPrincipal* aPrincipal);
+  // A top level load which started in aSource is about to commit in aTarget, a
+  // new tab created for the container the load switched to. The extended
+  // navigation moves along with the load, unless aSource has started another
+  // navigation since. aLoadId is the retargeted load's load identifier.
+  static void OnLoadRetargeted(dom::CanonicalBrowsingContext* aSource,
+                               dom::CanonicalBrowsingContext* aTarget,
+                               uint64_t aLoadId);
 
   // Check if there is a BounceTrackingState which current browsing context is
-  // associated with aSiteHost. Also takes OriginAttributes into account for
-  // isolation between normal browsing, private browsing and containers.
+  // associated with aSite. The partition is taken into account for isolation
+  // between normal browsing, private browsing and containers.
   // This is an approximation for checking if a given site is currently loaded
   // in the top level context, e.g. in a tab. See Bug 1842047 for adding a more
   // accurate check that calls into the browser implementations.
   [[nodiscard]] static nsresult HasBounceTrackingStateForSite(
-      const nsACString& aSiteHost, const OriginAttributes& aOriginAttributes,
-      bool& aResult);
+      const BounceTrackingSite& aSite, bool& aResult);
 
   // Get the currently associated BrowsingContext. Returns nullptr if it has not
   // been attached yet.
@@ -117,7 +121,13 @@ class BounceTrackingState : public nsIWebProgressListener,
 
   // Record sites which have user activation in the current extended
   // navigation.
-  [[nodiscard]] nsresult OnUserActivation(const nsACString& aSiteHost);
+  [[nodiscard]] nsresult OnUserActivation(const BounceTrackingSite& aSite);
+
+  // Drops the hops of a load retargeted into another container from the record
+  // if the record is classified or continued here before OnLoadRetargeted could
+  // move it. Otherwise the destination would remain a bounce, never become the
+  // final host and be classified.
+  void DropRetargetedLoadBounces();
 
  private:
   explicit BounceTrackingState();
@@ -143,6 +153,13 @@ class BounceTrackingState : public nsIWebProgressListener,
   // DocumentLoadListeners across process switches and speculative loads.
   Maybe<uint64_t> mLastStartedLoadId;
 
+  // The storage partition the current load switched into, set when its
+  // response is received and until OnLoadRetargeted moves the record into the
+  // new tab. Hops in this partition belong to the load in the new tab: they are
+  // dropped from the record if it ends here first, see
+  // DropRetargetedLoadBounces.
+  Maybe<OriginAttributes> mRetargetedOriginAttributes;
+
   // Timer to wait to wait for a client redirect after a navigation ends.
   RefPtr<nsITimer> mClientBounceDetectionTimeout;
 
@@ -163,7 +180,11 @@ class BounceTrackingState : public nsIWebProgressListener,
   // When the response is received at the end of a navigation, fill the
   // bounce set.
   [[nodiscard]] nsresult OnResponseReceived(
-      const nsTArray<nsCString>& aSiteList);
+      const nsTArray<BounceTrackingSite>& aSiteList);
+
+  [[nodiscard]] nsresult StartClientBounceDetectionTimeout();
+
+  void CancelClientBounceDetectionTimeout();
 
   // When the document is loaded at the end of a navigation, update the
   // final host.

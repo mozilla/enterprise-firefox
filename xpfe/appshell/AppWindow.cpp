@@ -107,8 +107,7 @@ using dom::LoadURIOptions;
 using dom::Promise;
 
 AppWindow::AppWindow(uint32_t aChromeFlags)
-    : mChromeTreeOwner(nullptr),
-      mContentTreeOwner(nullptr),
+    : mContentTreeOwner(nullptr),
       mModalStatus(NS_OK),
       mFullscreenChangeState(FullscreenChangeState::NotChanging),
       mContinueModalLoop(false),
@@ -229,9 +228,9 @@ nsresult AppWindow::Initialize(nsIAppWindow* aParent, nsIAppWindow* aOpener,
 
   // Make sure to set the item type on the docshell _before_ calling
   // InitWindow() so it knows what type it is.
-  NS_ENSURE_SUCCESS(EnsureChromeTreeOwner(), NS_ERROR_FAILURE);
+  NS_ENSURE_SUCCESS(EnsureContentTreeOwner(), NS_ERROR_FAILURE);
 
-  mDocShell->SetTreeOwner(mChromeTreeOwner);
+  mDocShell->SetTreeOwner(mContentTreeOwner);
 
   r.MoveTo(0, 0);
   NS_ENSURE_SUCCESS(mDocShell->InitWindow(mWindow, r.X(), r.Y(), r.Width(),
@@ -240,7 +239,8 @@ nsresult AppWindow::Initialize(nsIAppWindow* aParent, nsIAppWindow* aOpener,
   NS_ENSURE_TRUE(mDocShell->GetDocument(), NS_ERROR_FAILURE);
 
   // Attach a WebProgress listener.during initialization...
-  mDocShell->AddProgressListener(this, nsIWebProgress::NOTIFY_STATE_NETWORK);
+  mDocShell->AddProgressListener(this, nsIWebProgress::NOTIFY_STATE_NETWORK |
+                                           nsIWebProgress::NOTIFY_LOCATION);
 
   mWindow->MaybeDispatchInitialFocusEvent();
 
@@ -549,10 +549,6 @@ NS_IMETHODIMP AppWindow::Destroy() {
     mContentTreeOwner->AppWindow(nullptr);
     NS_RELEASE(mContentTreeOwner);
   }
-  if (mChromeTreeOwner) {
-    mChromeTreeOwner->AppWindow(nullptr);
-    NS_RELEASE(mChromeTreeOwner);
-  }
   if (mWindow) {
     mWindow->SetWidgetListener(nullptr);  // nsWebShellWindow hackery
     mWindow->Destroy();
@@ -637,27 +633,8 @@ NS_IMETHODIMP AppWindow::GetPositionAndSize(int32_t* x, int32_t* y, int32_t* cx,
 
 NS_IMETHODIMP
 AppWindow::SetDimensions(DimensionRequest&& aRequest) {
-  if (aRequest.mDimensionKind == DimensionKind::Inner) {
-    // For the chrome the inner size is the root shell size, and for the
-    // content it's the primary content size. We lack an indicator here that
-    // would allow us to distinguish between the two.
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
-
   MOZ_TRY(aRequest.SupplementFrom(this));
   return aRequest.ApplyOuterTo(this);
-}
-
-NS_IMETHODIMP
-AppWindow::GetDimensions(DimensionKind aDimensionKind, int32_t* aX, int32_t* aY,
-                         int32_t* aCX, int32_t* aCY) {
-  if (aDimensionKind == DimensionKind::Inner) {
-    // For the chrome the inner size is the root shell size, and for the
-    // content it's the primary content size. We lack an indicator here that
-    // would allow us to distinguish between the two.
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
-  return GetPositionAndSize(aX, aY, aCX, aCY);
 }
 
 nsresult AppWindow::MoveResize(const Maybe<LayoutDeviceIntPoint>& aPosition,
@@ -933,23 +910,12 @@ NS_IMETHODIMP AppWindow::SetTitle(const nsAString& aTitle) {
   NS_ENSURE_STATE(mWindow);
   mTitle.Assign(aTitle);
   mTitle.StripCRLF();
-  NS_ENSURE_SUCCESS(mWindow->SetTitle(mTitle), NS_ERROR_FAILURE);
-  return NS_OK;
+  return mWindow->SetTitle(mTitle);
 }
 
 //*****************************************************************************
 // AppWindow: Helpers
 //*****************************************************************************
-
-NS_IMETHODIMP AppWindow::EnsureChromeTreeOwner() {
-  if (mChromeTreeOwner) return NS_OK;
-
-  mChromeTreeOwner = new nsChromeTreeOwner();
-  NS_ADDREF(mChromeTreeOwner);
-  mChromeTreeOwner->AppWindow(this);
-
-  return NS_OK;
-}
 
 NS_IMETHODIMP AppWindow::EnsureContentTreeOwner() {
   if (mContentTreeOwner) return NS_OK;
@@ -2930,7 +2896,10 @@ AppWindow::OnStateChange(nsIWebProgress* aProgress, nsIRequest* aRequest,
 NS_IMETHODIMP
 AppWindow::OnLocationChange(nsIWebProgress* aProgress, nsIRequest* aRequest,
                             nsIURI* aURI, uint32_t aFlags) {
-  MOZ_ASSERT_UNREACHABLE("notification excluded in AddProgressListener(...)");
+  // If our top document is navigating, reset our loading state.
+  if (aProgress == static_cast<nsIWebProgress*>(mDocShell)) {
+    mChromeLoaded = false;
+  }
   return NS_OK;
 }
 

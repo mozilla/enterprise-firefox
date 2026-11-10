@@ -43,7 +43,12 @@ const lazy = XPCOMUtils.declareLazy({
 export class MozTabbrowserTabs extends MozElements.TabsBase {
   static observedAttributes = ["orient"];
 
-  #animatingGroups = new Set();
+  /**
+   * Number of collapse or expand animations still running, by tab group id.
+   *
+   * @type {Map<string, number>}
+   */
+  #animatingGroups = new Map();
 
   /** @type {Set<MozTabbrowserTab>} */
   #openingTabs = new Set();
@@ -72,6 +77,7 @@ export class MozTabbrowserTabs extends MozElements.TabsBase {
     this.addEventListener("SplitViewCreated", this);
     this.addEventListener("SplitViewRemoved", this);
     this.addEventListener("transitionend", this);
+    this.addEventListener("transitioncancel", this);
     this.addEventListener("dblclick", this);
     this.addEventListener("click", this);
     this.addEventListener("click", this, true);
@@ -381,21 +387,46 @@ export class MozTabbrowserTabs extends MozElements.TabsBase {
 
   on_TabGroupExpand(event) {
     this._invalidateCachedVisibleTabs();
-    this.#animatingGroups.add(event.target.id);
+    this.#startGroupAnimation(event.target.id);
   }
 
   on_TabGroupCollapse(event) {
     this._invalidateCachedVisibleTabs();
     this._unlockTabSizing();
-    this.#animatingGroups.add(event.target.id);
+    this.#startGroupAnimation(event.target.id);
+  }
+
+  #startGroupAnimation(id) {
+    this.#animatingGroups.set(id, (this.#animatingGroups.get(id) ?? 0) + 1);
   }
 
   on_TabGroupAnimationComplete(event) {
     // Delay clearing the animating flag so overflow/underflow handlers
     // triggered by the size change can observe it and skip auto-scroll.
-    window.requestAnimationFrame(() => {
-      this.#animatingGroups.delete(event.target.id);
-    });
+    // arrowscrollbox dispatches those from a requestAnimationFrame callback
+    // that its ResizeObserver queues after the layout flush, so queue ours
+    // after the layout flush the animation's last frame leaves pending.
+    let { id } = event.target;
+    let endAnimation = () => {
+      // A group restored collapsed completes an animation whose start
+      // happened before it was in the tab strip.
+      if (!this.#animatingGroups.has(id)) {
+        return;
+      }
+      let count = this.#animatingGroups.get(id) - 1;
+      if (count) {
+        this.#animatingGroups.set(id, count);
+      } else {
+        this.#animatingGroups.delete(id);
+      }
+    };
+    window
+      .promiseDocumentFlushed(() => {})
+      .then(
+        () => window.requestAnimationFrame(endAnimation),
+        // Without a pres shell, there is no overflow to wait for.
+        endAnimation
+      );
   }
 
   on_TabGroupCreate() {
@@ -418,7 +449,7 @@ export class MozTabbrowserTabs extends MozElements.TabsBase {
    * @param {TransitionEvent} event
    */
   on_transitionend(event) {
-    if (event.propertyName != "max-width") {
+    if (!this.#shouldHandleTransition(event)) {
       return;
     }
 
@@ -430,6 +461,64 @@ export class MozTabbrowserTabs extends MozElements.TabsBase {
       return;
     }
 
+    this.#finishTabAnimation(tab);
+  }
+
+  /**
+   * @param {TransitionEvent} event
+   */
+  on_transitioncancel(event) {
+    if (
+      this.#shouldHandleTransition(event) &&
+      !this.#hasPendingTransition(
+        /** @type {Element} */ (event.target),
+        event.propertyName
+      )
+    ) {
+      // Delegates to `transitionend` when cancellation has no replacement.
+      this.on_transitionend(event);
+    }
+  }
+
+  /**
+   * Check if the transition event is specifically meant for tab sizing.
+   *
+   * @param {TransitionEvent} event
+   * @returns {boolean}
+   */
+  #shouldHandleTransition(event) {
+    const target = /** @type {Element} */ (event.target);
+    return (
+      event.propertyName === "max-width" ||
+      (event.propertyName === "grid-template-rows" &&
+        target.hasAttribute("height-animating"))
+    );
+  }
+
+  /**
+   * Check if this tab has a pending transition for the given property.
+   *
+   * @param {Element} tab
+   * @param {string} propertyName
+   * @returns {boolean}
+   */
+  #hasPendingTransition(tab, propertyName) {
+    return tab
+      .getAnimations()
+      .some(
+        animation =>
+          CSSTransition.isInstance(animation) &&
+          animation.transitionProperty == propertyName
+      );
+  }
+
+  /**
+   * Finish the opening or closing animation for this tab.
+   *
+   * @param {MozTabbrowserTab} tab
+   */
+  #finishTabAnimation(tab) {
+    tab.toggleAttribute("height-animating", false);
     if (tab.hasAttribute("fadein")) {
       if (this.openAnimationFinished(tab)) {
         this._updateCloseButtons();
@@ -1677,6 +1766,56 @@ export class MozTabbrowserTabs extends MozElements.TabsBase {
    */
   markTabOpening(tab) {
     this.#openingTabs.add(tab);
+  }
+
+  /**
+   * Fade in a tab. If it's a vertical tab, grow to its fully expanded height.
+   *
+   * @param {MozTabbrowserTab} tab
+   */
+  startTabOpening(tab) {
+    if (this.verticalMode) {
+      if (!tab.isConnected) {
+        return;
+      }
+      this.animateTabHeight(tab, true);
+    } else {
+      tab.toggleAttribute("height-animating", false);
+      tab.setAttribute("fadein", "true");
+    }
+  }
+
+  /**
+   * Start a height transition using the tab's intrinsic size.
+   *
+   * @param {MozTabbrowserTab} tab
+   * @param {boolean} isOpening
+   *   `true` if the tab is opening, `false` if it is closing.
+   */
+  animateTabHeight(tab, isOpening) {
+    tab.toggleAttribute("height-animating", true);
+    if (isOpening) {
+      tab.setAttribute("fadein", "true");
+    } else {
+      tab.removeAttribute("fadein");
+    }
+    window
+      .promiseDocumentFlushed(() =>
+        this.#hasPendingTransition(tab, "grid-template-rows")
+      )
+      .then(hasPendingTransition => {
+        if (
+          !tab.isConnected ||
+          !tab.hasAttribute("height-animating") ||
+          tab.hasAttribute("fadein") !== isOpening
+        ) {
+          return;
+        }
+        // Hidden tabs and reduced motion can prevent a transition from starting.
+        if (!hasPendingTransition) {
+          this.#finishTabAnimation(tab);
+        }
+      });
   }
 
   /**

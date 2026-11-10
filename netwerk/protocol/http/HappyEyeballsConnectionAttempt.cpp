@@ -652,7 +652,7 @@ nsresult HappyEyeballsConnectionAttempt::ProcessHappyEyeballsOutput() {
       }
 
       case happy_eyeballs::Output::Tag::Timer: {
-        SetupTimer(event.timer.duration_ms);
+        SetupTimer(event.timer.duration_us);
         return NS_OK;
       }
 
@@ -1246,7 +1246,9 @@ nsresult HappyEyeballsConnectionAttempt::EstablishTCPConnection(
     NotifyConnectionActivity(info, NS_HTTP_ACTIVITY_SUBTYPE_ECH_SET);
   }
   NotifyConnectionActivity(info, NS_HTTP_ACTIVITY_SUBTYPE_CONNECTION_CREATED);
-  uint32_t caps = mCaps | (aIsEchRetry ? NS_HTTP_IS_RETRY : 0);
+  // A failed racing attempt must not clear the origin's alt-svc mappings.
+  uint32_t caps =
+      mCaps | NS_HTTP_ERROR_SOFTLY | (aIsEchRetry ? NS_HTTP_IS_RETRY : 0);
   RefPtr<ConnectionEstablisher> establisher =
       mEstablisherFactory->Create(ConnectionEstablisherType::TCP, info, aTarget,
                                   caps, mSpeculative, mAllow1918);
@@ -1310,7 +1312,9 @@ nsresult HappyEyeballsConnectionAttempt::EstablishUDPConnection(
     NotifyConnectionActivity(info, NS_HTTP_ACTIVITY_SUBTYPE_ECH_SET);
   }
   NotifyConnectionActivity(info, NS_HTTP_ACTIVITY_SUBTYPE_CONNECTION_CREATED);
-  uint32_t caps = mCaps | (aIsEchRetry ? NS_HTTP_IS_RETRY : 0);
+  // A failed racing attempt must not clear the origin's alt-svc mappings.
+  uint32_t caps =
+      mCaps | NS_HTTP_ERROR_SOFTLY | (aIsEchRetry ? NS_HTTP_IS_RETRY : 0);
   RefPtr<ConnectionEstablisher> establisher = mEstablisherFactory->Create(
       ConnectionEstablisherType::UDP, info, AsVariant(aAddr), caps,
       mSpeculative, mAllow1918);
@@ -2538,22 +2542,23 @@ HappyEyeballsConnectionAttempt::GetName(nsACString& aName) {
   return NS_OK;
 }
 
-void HappyEyeballsConnectionAttempt::SetupTimer(uint64_t aTimeout) {
-  if (!aTimeout) {
-    MOZ_ASSERT(false, "aTimeout should not be 0");
+void HappyEyeballsConnectionAttempt::SetupTimer(uint64_t aTimeoutUs) {
+  if (!aTimeoutUs) {
+    MOZ_ASSERT(false, "aTimeoutUs should not be 0");
     return;
   }
 
-  LOG(("HappyEyeballsConnectionAttempt::SetupTimer to %" PRIu64 "ms [this=%p].",
-       aTimeout, this));
+  LOG(("HappyEyeballsConnectionAttempt::SetupTimer to %" PRIu64 "us [this=%p].",
+       aTimeoutUs, this));
 
   if (!mTimer) {
     // This can only fail on OOM and we'd crash.
     mTimer = NS_NewTimer();
   }
 
-  DebugOnly<nsresult> rv =
-      mTimer->InitWithCallback(this, aTimeout, nsITimer::TYPE_ONE_SHOT);
+  DebugOnly<nsresult> rv = mTimer->InitHighResolutionWithCallback(
+      this, TimeDuration::FromMicroseconds(static_cast<double>(aTimeoutUs)),
+      nsITimer::TYPE_ONE_SHOT);
   // There is no meaningful error handling we can do here. But an error here
   // should only be possible if the timer thread did already shut down.
   MOZ_ASSERT(NS_SUCCEEDED(rv));

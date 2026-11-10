@@ -398,26 +398,19 @@ nsDocShellTreeOwner::Destroy() {
 }
 
 double nsDocShellTreeOwner::GetWidgetCSSToDeviceScale() {
-  return mWebBrowser ? mWebBrowser->GetWidgetCSSToDeviceScale() : 1.0;
+  nsIWidget* widget = mWebBrowser ? mWebBrowser->mParentWidget : nullptr;
+  return widget ? widget->GetDefaultScale().scale : 1.0;
 }
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::GetDevicePixelsPerDesktopPixel(double* aScale) {
-  if (mWebBrowser) {
-    return mWebBrowser->GetDevicePixelsPerDesktopPixel(aScale);
-  }
-
-  *aScale = 1.0;
+  nsIWidget* widget = mWebBrowser ? mWebBrowser->mParentWidget : nullptr;
+  *aScale = widget ? widget->GetDesktopToDeviceScale().scale : 1.0;
   return NS_OK;
 }
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::SetPositionDesktopPix(int32_t aX, int32_t aY) {
-  if (mWebBrowser) {
-    nsresult rv = mWebBrowser->SetPositionDesktopPix(aX, aY);
-    NS_ENSURE_SUCCESS(rv, rv);
-  }
-
   double scale = 1.0;
   GetDevicePixelsPerDesktopPixel(&scale);
   return SetPosition(NSToIntRound(aX * scale), NSToIntRound(aY * scale));
@@ -425,37 +418,41 @@ nsDocShellTreeOwner::SetPositionDesktopPix(int32_t aX, int32_t aY) {
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::SetPosition(int32_t aX, int32_t aY) {
-  return SetDimensions(
-      {DimensionKind::Outer, Some(aX), Some(aY), Nothing(), Nothing()});
+  return SetDimensions({Some(aX), Some(aY), Nothing(), Nothing()});
 }
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::GetPosition(int32_t* aX, int32_t* aY) {
-  return GetDimensions(DimensionKind::Outer, aX, aY, nullptr, nullptr);
+  return GetPositionAndSize(aX, aY, nullptr, nullptr);
 }
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::SetSize(int32_t aCX, int32_t aCY, bool /*aRepaint*/) {
-  return SetDimensions(
-      {DimensionKind::Outer, Nothing(), Nothing(), Some(aCX), Some(aCY)});
+  return SetDimensions({Nothing(), Nothing(), Some(aCX), Some(aCY)});
 }
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::GetSize(int32_t* aCX, int32_t* aCY) {
-  return GetDimensions(DimensionKind::Outer, nullptr, nullptr, aCX, aCY);
+  return GetPositionAndSize(nullptr, nullptr, aCX, aCY);
 }
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::SetPositionAndSize(int32_t aX, int32_t aY, int32_t aCX,
                                         int32_t aCY, uint32_t /*aFlags*/) {
-  return SetDimensions(
-      {DimensionKind::Outer, Some(aX), Some(aY), Some(aCX), Some(aCY)});
+  return SetDimensions({Some(aX), Some(aY), Some(aCX), Some(aCY)});
 }
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::GetPositionAndSize(int32_t* aX, int32_t* aY, int32_t* aCX,
                                         int32_t* aCY) {
-  return GetDimensions(DimensionKind::Outer, aX, aY, aCX, aCY);
+  nsCOMPtr<nsIBaseWindow> ownerWin = GetOwnerWin();
+  if (ownerWin) {
+    return ownerWin->GetPositionAndSize(aX, aY, aCX, aCY);
+  }
+
+  nsCOMPtr<nsIWebBrowserChrome> webBrowserChrome = GetWebBrowserChrome();
+  NS_ENSURE_STATE(webBrowserChrome);
+  return webBrowserChrome->GetDimensions(aX, aY, aCX, aCY);
 }
 
 NS_IMETHODIMP
@@ -468,19 +465,6 @@ nsDocShellTreeOwner::SetDimensions(DimensionRequest&& aRequest) {
   nsCOMPtr<nsIWebBrowserChrome> webBrowserChrome = GetWebBrowserChrome();
   NS_ENSURE_STATE(webBrowserChrome);
   return webBrowserChrome->SetDimensions(std::move(aRequest));
-}
-
-NS_IMETHODIMP
-nsDocShellTreeOwner::GetDimensions(DimensionKind aDimensionKind, int32_t* aX,
-                                   int32_t* aY, int32_t* aCX, int32_t* aCY) {
-  nsCOMPtr<nsIBaseWindow> ownerWin = GetOwnerWin();
-  if (ownerWin) {
-    return ownerWin->GetDimensions(aDimensionKind, aX, aY, aCX, aCY);
-  }
-
-  nsCOMPtr<nsIWebBrowserChrome> webBrowserChrome = GetWebBrowserChrome();
-  NS_ENSURE_STATE(webBrowserChrome);
-  return webBrowserChrome->GetDimensions(aDimensionKind, aX, aY, aCX, aCY);
 }
 
 NS_IMETHODIMP
@@ -532,24 +516,6 @@ nsDocShellTreeOwner::SetEnabled(bool /*aEnabled*/) {
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::GetMainWidget(nsIWidget** /*aMainWidget*/) {
-  return NS_ERROR_NULL_POINTER;
-}
-
-NS_IMETHODIMP
-nsDocShellTreeOwner::GetTitle(nsAString& aTitle) {
-  nsCOMPtr<nsIBaseWindow> ownerWin = GetOwnerWin();
-  if (ownerWin) {
-    return ownerWin->GetTitle(aTitle);
-  }
-  return NS_ERROR_NULL_POINTER;
-}
-
-NS_IMETHODIMP
-nsDocShellTreeOwner::SetTitle(const nsAString& aTitle) {
-  nsCOMPtr<nsIBaseWindow> ownerWin = GetOwnerWin();
-  if (ownerWin) {
-    return ownerWin->SetTitle(aTitle);
-  }
   return NS_ERROR_NULL_POINTER;
 }
 

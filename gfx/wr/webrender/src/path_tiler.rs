@@ -86,9 +86,12 @@ use api::units::*;
 use euclid::default::Box2D;
 use euclid::{point2, Transform2D, Transform3D};
 
+use api::PremultipliedColorF;
 use crate::bezier;
+use crate::gpu_types::PrimitiveInstanceData;
+use crate::renderer::BlendMode;
 use crate::internal_types::FrameVec;
-use crate::renderer::{GpuBufferBlockEdge, PathEdgeBufferBuilder};
+use crate::renderer::{GpuBufferAddress, GpuBufferBlockEdge, GpuBufferBuilderI, GpuBufferWriterI, PathEdgeBufferBuilder};
 
 pub const TILE_SIZE: i32 = 16;
 const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
@@ -232,6 +235,7 @@ pub struct PathTileInstance {
     pub data: [u32; 4],
 }
 
+
 #[derive(Copy, Clone, Debug)]
 struct TileInstance {
     position: TilePosition,
@@ -283,10 +287,70 @@ impl PathInfo {
     }
 }
 
+/// The per-path parameters of the `ps_path_tile` shader: the `PathInfo`
+/// texel followed by two texels.
+pub struct PathPrimInfo {
+    pub path: PathInfo,
+    pub z_id: i32,
+    pub color: PremultipliedColorF,
+    /// In task-local device pixels. The tiler emits whole tiles, so tiles
+    /// crossing the scissor rect are clamped to it in the vertex shader.
+    pub scissor: DeviceIntRect,
+}
+
+impl PathPrimInfo {
+    pub fn write_gpu_blocks(&self, gpu_buffer: &mut GpuBufferBuilderI) -> GpuBufferAddress {
+        let mut writer = gpu_buffer.write_blocks(3);
+        self.push_gpu_blocks(&mut writer);
+        writer.finish()
+    }
+
+    pub fn push_gpu_blocks(&self, writer: &mut GpuBufferWriterI) {
+        fn unorm16(c: f32) -> u32 {
+            (c.max(0.0).min(1.0) * 65535.0 + 0.5) as u32
+        }
+
+        // See fetch_path_info and fetch_path_prim_info in path_tile.glsl.
+        let c = &self.color;
+        writer.push_one(self.path.encode());
+        writer.push_one([
+            self.z_id,
+            (unorm16(c.r) << 16 | unorm16(c.g)) as i32,
+            (unorm16(c.b) << 16 | unorm16(c.a)) as i32,
+            0,
+        ]);
+        writer.push_one([
+            self.scissor.min.x,
+            self.scissor.min.y,
+            self.scissor.max.x,
+            self.scissor.max.y,
+        ]);
+    }
+}
+
+/// A path filled with a solid color directly into its destination target.
+///
+/// The path is tiled during batching, once per target it is drawn into.
+#[cfg_attr(feature = "capture", derive(Serialize))]
+pub struct PathPrimitive {
+    pub path: Path,
+    pub fill_rule: FillRule,
+    /// Maps the path to the raster space's device pixels.
+    pub transform: Transform3D<f32, LayoutPixel, DevicePixel>,
+    /// Pixel-aligned, in the raster space's device pixels.
+    pub scissor: DeviceIntRect,
+    pub color: PremultipliedColorF,
+    pub blend_mode: BlendMode,
+}
+
 pub struct PathTilerOutput<'l> {
     /// The frame's global edge buffer.
     pub edges: &'l mut PathEdgeBufferBuilder,
-    pub tiles: &'l mut FrameVec<PathTileInstance>,
+    /// Encoded `PathTileInstance`s.
+    pub tiles: &'l mut FrameVec<PrimitiveInstanceData>,
+    /// If set, receives the tiles that have no edges instead of `tiles`.
+    /// These tiles are fully covered by the path.
+    pub solid_tiles: Option<&'l mut FrameVec<PrimitiveInstanceData>>,
 }
 
 pub struct PathTiler {
@@ -928,7 +992,7 @@ impl PathTiler {
             first_edge,
             edge_count,
             path_index,
-        }.encode());
+        }.encode().into());
     }
 
     fn generate_tiles(&mut self, fill_rule: FillRule, inverted: bool, path_index: u32, output: &mut PathTilerOutput) {
@@ -1075,13 +1139,18 @@ impl PathTiler {
             return;
         }
 
-        output.tiles.push(TileInstance {
+        let tiles = match output.solid_tiles {
+            Some(ref mut solid_tiles) => solid_tiles,
+            None => &mut output.tiles,
+        };
+
+        tiles.push(TileInstance {
             position: TilePosition::extended(x as u32, y as u32, (x_end - x - 1) as u32),
             backdrop,
             first_edge: 0,
             edge_count: 0,
             path_index,
-        }.encode());
+        }.encode().into());
     }
 }
 

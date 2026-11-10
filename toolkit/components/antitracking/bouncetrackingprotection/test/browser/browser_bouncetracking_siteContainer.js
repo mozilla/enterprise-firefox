@@ -11,13 +11,12 @@
  * BTP keys its state on OriginAttributes and holds the extended navigation
  * record per tab, in a BounceTrackingState which snapshots the tab's
  * OriginAttributes once. Retargeting splits one extended navigation across two
- * tabs, so a chain's hops need not all run in the container its record is filed
- * under. Classification and purging must still follow the container each hop
- * actually ran in, and an extended navigation must keep its meaning across the
- * switch: its destination stays exempt, its intermediate hops stay classifiable.
- *
- * Expectations marked todo() are requirements which do not hold yet. Bug 2058145
- * tracks the work to make them hold, and Bug 2054941 has the investigation.
+ * tabs, so a chain's hops need not all run in the same container. The record
+ * follows the load into the tab it is retargeted into, and each hop is recorded
+ * with the container it ran in: classification and purging follow the container
+ * each hop actually ran in, and an extended navigation keeps its meaning across
+ * the switch: its destination stays exempt, its intermediate hops stay
+ * classifiable.
  *
  * Each task's comment starts with its navigation chain. A hop's container is in
  * parentheses where it matters, and "new tab" marks where the retarget moves the
@@ -33,6 +32,8 @@ const OTHER_CONTAINER = 1;
 const OA_DEFAULT = {};
 const OA_BOUND = { userContextId: BOUND_CONTAINER };
 const OA_OTHER = { userContextId: OTHER_CONTAINER };
+// A container no tab in this file runs in.
+const OA_UNUSED = { userContextId: 3 };
 
 // A host under SITE_B, to which an association can be bound on its own.
 const SITE_SUB_B = `test1.${SITE_B}`;
@@ -152,22 +153,61 @@ async function openTabIn(userContextId, aUrl = url(ORIGIN_A)) {
 }
 
 /**
+ * Runs aFn and collects the calls of RecordStatefulBounces for aBrowserId
+ * meanwhile, as reported by OBSERVER_MSG_RECORD_BOUNCES_FINISHED. Each call ends
+ * the tab's extended navigation and classifies its record. A tab which holds no
+ * record produces no call at all, e.g. the tab a retargeted load left behind, so
+ * collect the calls rather than waiting for one.
+ *
+ * @param {number} aBrowserId - browserId of the tab to collect calls for.
+ * @param {Function} aFn - Ends the tab's extended navigation.
+ * @returns {Promise<Array<number>>} How many bounce tracker candidates each
+ * call for the tab classified, empty if it held no record.
+ */
+async function collectRecordBouncesRuns(aBrowserId, aFn) {
+  let candidateCounts = [];
+  let observer = {
+    observe(subject) {
+      let propBag = subject.QueryInterface(Ci.nsIPropertyBag2);
+      if (propBag.getProperty("browserId") == aBrowserId) {
+        candidateCounts.push(
+          propBag.getProperty("bounceTrackerCandidateCount")
+        );
+      }
+    },
+  };
+  Services.obs.addObserver(observer, OBSERVER_MSG_RECORD_BOUNCES_FINISHED);
+  try {
+    await aFn();
+    await TestUtils.waitForTick();
+  } finally {
+    Services.obs.removeObserver(observer, OBSERVER_MSG_RECORD_BOUNCES_FINISHED);
+  }
+  info(
+    `RecordStatefulBounces ran ${candidateCounts.length} time(s) for browser ` +
+      `${aBrowserId}, classifying: ${JSON.stringify(candidateCounts)}`
+  );
+  return candidateCounts;
+}
+
+/**
  * Ends the extended navigation of aBrowser's tab: a user-activated navigation
  * runs RecordStatefulBounces for whatever record the tab holds. The target is
  * an unbound site, so this navigation is never itself retargeted.
  *
  * @param {MozBrowser} aBrowser - Browser whose extended navigation to end.
- * @returns {Promise} Resolves once bounces have been recorded.
+ * @returns {Promise<Array<number>>} See collectRecordBouncesRuns.
  */
 async function endExtendedNavigation(aBrowser) {
   let target = new URL(url(ORIGIN_A) + "?end");
-  // The run this triggers is the first one for the browser after this point, so
-  // take it whether or not it classified anything.
-  let recorded = waitForRecordBounces(aBrowser, 0);
-  let loaded = BrowserTestUtils.browserLoaded(aBrowser, false, target.href);
-  await navigateLinkClick(aBrowser, target);
-  await loaded;
-  await recorded;
+  return collectRecordBouncesRuns(
+    aBrowser.browsingContext.browserId,
+    async () => {
+      let loaded = BrowserTestUtils.browserLoaded(aBrowser, false, target.href);
+      await navigateLinkClick(aBrowser, target);
+      await loaded;
+    }
+  );
 }
 
 /**
@@ -178,36 +218,30 @@ async function endExtendedNavigation(aBrowser) {
  * would exempt the site from classification for the next 45 days.
  *
  * @param {MozTabbrowserTab} aTab - Tab whose extended navigation to end.
- * @returns {Promise<Array<number>>} How many bounce tracker candidates each
- * record-bounces run for the tab classified, empty if it held no record.
+ * @returns {Promise<Array<number>>} See collectRecordBouncesRuns.
  */
 async function endExtendedNavigationByClosing(aTab) {
-  let { browserId } = aTab.linkedBrowser.browsingContext;
-  // A tab which never held a record produces no run at all, so collect the runs
-  // rather than waiting for one.
-  let candidateCounts = [];
-  let observer = {
-    observe(subject) {
-      let propBag = subject.QueryInterface(Ci.nsIPropertyBag2);
-      if (propBag.getProperty("browserId") == browserId) {
-        candidateCounts.push(
-          propBag.getProperty("bounceTrackerCandidateCount")
-        );
-      }
-    },
-  };
-  Services.obs.addObserver(observer, OBSERVER_MSG_RECORD_BOUNCES_FINISHED);
-  try {
-    await BrowserTestUtils.removeTab(aTab);
-    await TestUtils.waitForTick();
-  } finally {
-    Services.obs.removeObserver(observer, OBSERVER_MSG_RECORD_BOUNCES_FINISHED);
-  }
-  info(
-    `Closing the tab ran record-bounces ${candidateCounts.length} time(s), ` +
-      `classifying: ${JSON.stringify(candidateCounts)}`
+  return collectRecordBouncesRuns(
+    aTab.linkedBrowser.browsingContext.browserId,
+    () => BrowserTestUtils.removeTab(aTab)
   );
-  return candidateCounts;
+}
+
+/**
+ * Waits for aBrowser's load to stop in the parent process, which is where BTP
+ * sets the final host. The load event BrowserTestUtils.browserLoaded waits for
+ * is reported by the content process and can arrive first. If the load is still
+ * running, its STATE_STOP has not been dispatched yet and can't be missed.
+ *
+ * @param {MozBrowser} aBrowser - Browser whose load to wait for.
+ */
+async function waitForParentLoadStop(aBrowser) {
+  if (!aBrowser.browsingContext.webProgress.isLoadingDocument) {
+    return;
+  }
+  await BrowserTestUtils.browserStopped(aBrowser);
+  // Let every listener of the STATE_STOP run, BTP's included.
+  await TestUtils.waitForTick();
 }
 
 /**
@@ -219,12 +253,14 @@ async function endExtendedNavigationByClosing(aTab) {
  * @returns {Promise<MozTabbrowserTab>} The tab the load was retargeted into.
  */
 async function navigateRetargeted(aBrowser, aTarget, aWantLoad = aTarget) {
-  let retargeted = BrowserTestUtils.waitForNewTab(
+  let retargetedPromise = BrowserTestUtils.waitForNewTab(
     gBrowser,
     aWantLoad.href,
     true
   );
   await navigateLinkClick(aBrowser, aTarget);
+  let retargeted = await retargetedPromise;
+  await waitForParentLoadStop(retargeted.linkedBrowser);
   return retargeted;
 }
 
@@ -268,15 +304,22 @@ add_task(async function test_client_bounce_classifies_only_the_tracker() {
 
     // The tab shows the tracker's own document, so its extended navigation has
     // to end without interacting with it.
-    await endExtendedNavigationByClosing(tab);
+    Assert.deepEqual(
+      await endExtendedNavigationByClosing(tab),
+      [],
+      "The extended navigation left with the load, the tab holds no record"
+    );
+    // Flushed by closing, so that ending it does not record user activation for
+    // the destination and exempt it from the check below.
+    await endExtendedNavigationByClosing(retargeted);
 
-    todo(
+    ok(
       candidateHosts(OA_DEFAULT).includes(SITE_TRACKER),
       `${SITE_TRACKER} must be classified: it is an intermediate hop of the ` +
         `extended navigation, and the retarget of the destination does not ` +
         `make the tracker the destination`
     );
-    todo(
+    ok(
       !candidateHosts(OA_DEFAULT).includes(SITE_B),
       `The destination ${SITE_B} must not be classified in the tracker's place`
     );
@@ -294,13 +337,11 @@ add_task(async function test_client_bounce_classifies_only_the_tracker() {
       )}`
     );
 
-    todo(purged.includes(SITE_TRACKER), `${SITE_TRACKER} must be purged`);
-    todo(
+    ok(purged.includes(SITE_TRACKER), `${SITE_TRACKER} must be purged`);
+    ok(
       !SiteDataTestUtils.hasCookies(ORIGIN_TRACKER),
       `The state ${SITE_TRACKER} collected while bouncing must be purged`
     );
-
-    BrowserTestUtils.removeTab(retargeted);
   });
 });
 
@@ -333,7 +374,11 @@ add_task(async function test_server_bounce_classifies_only_the_tracker() {
       "The tab which ran the chain kept its own document"
     );
 
-    await endExtendedNavigation(tab.linkedBrowser);
+    Assert.deepEqual(
+      await endExtendedNavigation(tab.linkedBrowser),
+      [],
+      "The extended navigation left with the load, the tab holds no record"
+    );
     // Flushed by closing, so that ending it does not record user activation for
     // the destination and exempt it from the check below.
     await endExtendedNavigationByClosing(retargeted);
@@ -343,7 +388,7 @@ add_task(async function test_server_bounce_classifies_only_the_tracker() {
       `${SITE_TRACKER} must be classified: its hop ran in this container`
     );
 
-    todo(
+    ok(
       !candidateHosts(OA_DEFAULT).includes(SITE_B),
       `The destination ${SITE_B} must not be classified in the container the ` +
         `navigation started in: it is the destination of the extended ` +
@@ -399,12 +444,12 @@ add_task(async function test_bound_tracker_is_classified_in_its_container() {
     await endExtendedNavigation(retargeted.linkedBrowser);
     await endExtendedNavigation(tab.linkedBrowser);
 
-    todo(
+    ok(
       candidateHosts(OA_BOUND).includes(SITE_TRACKER),
       `${SITE_TRACKER} must be classified in the container its hops ran in ` +
         `and its state lives in`
     );
-    todo(
+    ok(
       !candidateHosts(OA_DEFAULT).includes(SITE_TRACKER),
       `${SITE_TRACKER} must not be classified against a container it never ` +
         `ran in, where a purge can reach nothing of its state`
@@ -434,20 +479,21 @@ add_task(async function test_navigating_to_a_bound_site_classifies_nothing() {
       "The navigation landed in the container the site is bound to"
     );
 
-    await endExtendedNavigation(tab.linkedBrowser);
+    // Flushed by closing, so that ending it does not record user activation for
+    // the destination and exempt it.
+    await endExtendedNavigationByClosing(retargeted);
 
-    todo(
-      !candidateHosts(OA_OTHER).includes(SITE_B),
-      `A site the user navigated to deliberately must not be classified as a ` +
-        `bounce tracker in the container the navigation started in`
+    assertNoBTPState(
+      "A site the user navigated to deliberately must not be classified as a " +
+        "bounce tracker in any container"
     );
 
-    BrowserTestUtils.removeTab(retargeted);
     BrowserTestUtils.removeTab(tab);
   });
 });
 
 // example.com (container 1) -> example.org (container 2, new tab + interaction)
+// -> example.net
 //
 // Interaction with a site must exempt it from classification wherever the
 // container switch put its document. The activation is recorded against the
@@ -476,15 +522,39 @@ add_task(async function test_user_activation_exempts_the_retargeted_site() {
       `No user activation for ${SITE_B} in the container it was navigated from`
     );
 
-    await endExtendedNavigation(tab.linkedBrowser);
+    // Leave without transient activation, so the site becomes a bounce of the
+    // extended navigation instead of ending it, and only its recorded user
+    // activation can exempt it.
+    let finalURL = new URL(url(ORIGIN_C));
+    let loaded = BrowserTestUtils.browserLoaded(
+      retargeted.linkedBrowser,
+      false,
+      finalURL.href
+    );
+    await SpecialPowers.spawn(
+      retargeted.linkedBrowser,
+      [finalURL.href],
+      finalURL => {
+        SpecialPowers.wrap(content.document).clearUserGestureActivation();
+        let script = content.document.createElement("script");
+        script.textContent = `location.href = ${JSON.stringify(finalURL)};`;
+        content.document.body.appendChild(script);
+      }
+    );
+    await loaded;
+    await waitForParentLoadStop(retargeted.linkedBrowser);
 
-    todo(
-      !candidateHosts(OA_OTHER).includes(SITE_B),
-      `Interacting with the site must exempt it from classification, wherever ` +
-        `the container switch put the document`
+    Assert.deepEqual(
+      await endExtendedNavigationByClosing(retargeted),
+      [0],
+      "The retargeted tab holds the extended navigation and classifies nothing"
     );
 
-    BrowserTestUtils.removeTab(retargeted);
+    assertNoBTPState(
+      "Interacting with the site must exempt it from classification, wherever " +
+        "the container switch put the document"
+    );
+
     BrowserTestUtils.removeTab(tab);
   });
 });
@@ -502,48 +572,26 @@ add_task(async function test_closing_the_disposable_tab_classifies_nothing() {
     let tab = await openTabIn(OTHER_CONTAINER, "about:blank");
     let targetURL = new URL(url(ORIGIN_B));
 
-    // The record is flushed when the browsing context is discarded, which
-    // happens while the tab is being removed. Collect the runs rather than
-    // waiting for one: whether the closed tab classified anything at all is part
-    // of what this task measures.
-    let { browserId } = tab.linkedBrowser.browsingContext;
-    let candidateCounts = [];
-    let observer = {
-      observe(subject) {
-        let propBag = subject.QueryInterface(Ci.nsIPropertyBag2);
-        if (propBag.getProperty("browserId") == browserId) {
-          candidateCounts.push(
-            propBag.getProperty("bounceTrackerCandidateCount")
-          );
-        }
-      },
-    };
-    Services.obs.addObserver(observer, OBSERVER_MSG_RECORD_BOUNCES_FINISHED);
-
+    // The record would be flushed when the browsing context is discarded, which
+    // happens while the tab is being removed. Whether the closed tab classified
+    // anything at all is part of what this task measures.
     let retargeted;
-    try {
-      let retargetedPromise = BrowserTestUtils.waitForNewTab(
-        gBrowser,
-        targetURL.href,
-        true
-      );
-      await navigateSystemPrincipalLoad(tab.linkedBrowser, targetURL);
-      retargeted = await retargetedPromise;
+    let candidateCounts = await collectRecordBouncesRuns(
+      tab.linkedBrowser.browsingContext.browserId,
+      async () => {
+        let retargetedPromise = BrowserTestUtils.waitForNewTab(
+          gBrowser,
+          targetURL.href,
+          true
+        );
+        await navigateSystemPrincipalLoad(tab.linkedBrowser, targetURL);
+        retargeted = await retargetedPromise;
 
-      await TestUtils.waitForCondition(
-        () => !tab.isConnected,
-        "The tab which only existed for the load was closed"
-      );
-      await TestUtils.waitForTick();
-    } finally {
-      Services.obs.removeObserver(
-        observer,
-        OBSERVER_MSG_RECORD_BOUNCES_FINISHED
-      );
-    }
-    info(
-      `Record-bounces runs for the closed tab classified: ` +
-        `${JSON.stringify(candidateCounts)}`
+        await TestUtils.waitForCondition(
+          () => !tab.isConnected,
+          "The tab which only existed for the load was closed"
+        );
+      }
     );
 
     is(
@@ -551,7 +599,12 @@ add_task(async function test_closing_the_disposable_tab_classifies_nothing() {
       BOUND_CONTAINER,
       "The load landed in the container the site is bound to"
     );
-    todo(
+    ok(
+      candidateCounts.every(count => count == 0),
+      "The extended navigation left with the load, closing the tab classified " +
+        "nothing"
+    );
+    ok(
       !candidateHosts(OA_OTHER).includes(SITE_B),
       `Opening a tab and going to a bound site must not classify ${SITE_B} ` +
         `in the container of the tab that was closed`
@@ -614,15 +667,15 @@ add_task(async function test_each_hop_is_classified_in_its_own_container() {
       candidateHosts(OA_DEFAULT).includes(SITE_TRACKER),
       `${SITE_TRACKER} is classified in the container its hop ran in`
     );
-    todo(
+    ok(
       !candidateHosts(OA_DEFAULT).includes(SITE_B),
       `The bound hop must not be classified in a container it never ran in`
     );
-    todo(
+    ok(
       candidateHosts(OA_BOUND).includes(SITE_B),
       `The bound hop must be classified in the container its hop ran in`
     );
-    todo(
+    ok(
       !candidateHosts(OA_DEFAULT).includes(SITE_C),
       `${SITE_C} is the destination of the extended navigation, and it never ran ` +
         `in the container the chain started in, so it must not be classified there`
@@ -685,12 +738,12 @@ add_task(async function test_unbound_tracker_is_classified_where_it_ran() {
     await endExtendedNavigation(tab.linkedBrowser);
     await endExtendedNavigationByClosing(retargeted);
 
-    todo(
+    ok(
       candidateHosts(OA_BOUND).includes(SITE_TRACKER),
       `${SITE_TRACKER} must be classified in the container its hop ran in and ` +
         `its state lives in`
     );
-    todo(
+    ok(
       !candidateHosts(OA_DEFAULT).includes(SITE_TRACKER),
       `${SITE_TRACKER} must not be classified against the container the chain ` +
         `started in, where it holds no state a purge could clear`
@@ -698,13 +751,486 @@ add_task(async function test_unbound_tracker_is_classified_where_it_ran() {
 
     await bounceTrackingProtection.testRunPurgeBounceTrackers();
 
-    todo(
+    ok(
       !SiteDataTestUtils.hasCookies(ORIGIN_TRACKER_BOUND),
       `The purge must reach the state ${SITE_TRACKER} collected in the ` +
         `container it ran in`
     );
 
     BrowserTestUtils.removeTab(tab);
+  });
+});
+
+// itisatracker.org -> example.org (container 2, new tab) -> itisatracker.org
+// -> example.net
+//
+// The initial site of an extended navigation is exempt from classification
+// because the user was on it, but only in the container the user was on it in.
+// A tracker the user left must not be able to bounce through a bound site's
+// redirect back to itself and collect state in the bound container unclassified,
+// linking the user's identities across containers.
+add_task(async function test_initial_site_is_exempt_only_in_its_container() {
+  await withSiteAssociations([[SITE_B, BOUND_CONTAINER]], async () => {
+    assertNoBTPState("Before the bounce");
+
+    let tab = await openTabIn(0, url(ORIGIN_TRACKER));
+    let finalURL = new URL(url(ORIGIN_C));
+
+    let boundHopURL = new URL(url(ORIGIN_B, "file_bounce.sjs"));
+    boundHopURL.searchParams.set("statusCode", 302);
+    boundHopURL.searchParams.set(
+      "target",
+      getBounceURL({
+        bounceType: "server",
+        targetURL: finalURL,
+        setState: "cookie-server",
+      }).href
+    );
+
+    let retargeted = await navigateRetargeted(
+      tab.linkedBrowser,
+      boundHopURL,
+      finalURL
+    );
+
+    is(
+      retargeted.userContextId,
+      BOUND_CONTAINER,
+      "The chain was retargeted into the container the bound hop is bound to"
+    );
+    ok(
+      SiteDataTestUtils.hasCookies(ORIGIN_TRACKER_BOUND),
+      `${SITE_TRACKER} collected state in the container the chain was ` +
+        `switched into`
+    );
+
+    await endExtendedNavigationByClosing(retargeted);
+
+    ok(
+      candidateHosts(OA_BOUND).includes(SITE_TRACKER),
+      `${SITE_TRACKER} must be classified in the container its hop ran in, ` +
+        `although it is the initial site in the container the user was in`
+    );
+
+    BrowserTestUtils.removeTab(tab);
+  });
+});
+
+// example.com -> example.org (container 2, new tab) -> itisatracker.org (client)
+// -> example.net
+//
+// A tracker which commits its own document after the switch bounces on from the
+// tab the load was retargeted into. The record that tab took over must keep
+// collecting bounces, and classify them in the container they ran in.
+add_task(async function test_client_bounce_after_the_switch_is_classified() {
+  await withSiteAssociations([[SITE_B, BOUND_CONTAINER]], async () => {
+    assertNoBTPState("Before the bounce");
+
+    let tab = await openTabIn(0);
+    let finalURL = new URL(url(ORIGIN_C));
+
+    let boundHopURL = new URL(url(ORIGIN_B, "file_bounce.sjs"));
+    boundHopURL.searchParams.set("statusCode", 302);
+    boundHopURL.searchParams.set(
+      "target",
+      getBounceURL({
+        bounceType: "client",
+        targetURL: finalURL,
+        setState: "cookie-client",
+      }).href
+    );
+
+    let retargeted = await navigateRetargeted(
+      tab.linkedBrowser,
+      boundHopURL,
+      finalURL
+    );
+
+    is(
+      retargeted.userContextId,
+      BOUND_CONTAINER,
+      "The chain was retargeted into the container the bound hop is bound to"
+    );
+    ok(
+      SiteDataTestUtils.hasCookies(ORIGIN_TRACKER_BOUND),
+      `${SITE_TRACKER} wrote its state from its document in the tab the load ` +
+        `was retargeted into`
+    );
+    ok(
+      !SiteDataTestUtils.hasCookies(ORIGIN_TRACKER),
+      "and none in the container the chain started in"
+    );
+
+    Assert.deepEqual(
+      await endExtendedNavigation(tab.linkedBrowser),
+      [],
+      "The extended navigation left with the load, the tab holds no record"
+    );
+    await endExtendedNavigationByClosing(retargeted);
+
+    Assert.deepEqual(
+      candidateHosts(OA_BOUND),
+      [SITE_B, SITE_TRACKER],
+      `The bound hop and the client bounce of ${SITE_TRACKER} after it are ` +
+        `classified in the container they ran in`
+    );
+    Assert.deepEqual(
+      candidateHosts(OA_DEFAULT),
+      [],
+      "Nothing is classified in the container the chain started in"
+    );
+
+    await bounceTrackingProtection.testRunPurgeBounceTrackers();
+
+    ok(
+      !SiteDataTestUtils.hasCookies(ORIGIN_TRACKER_BOUND),
+      `The purge must reach the state ${SITE_TRACKER} collected in the ` +
+        `container it ran in`
+    );
+
+    BrowserTestUtils.removeTab(tab);
+  });
+});
+
+// example.com -> itisatracker.org (server) -> example.org (container 2, new tab,
+// client) -> example.net (container 1, new tab)
+//
+// A tab the load was retargeted into can have its own load retargeted again. The
+// record has to follow it a second time, so that every hop is classified in the
+// container it ran in and the destination stays exempt.
+add_task(async function test_record_follows_two_switches() {
+  await withSiteAssociations(
+    [
+      [SITE_B, BOUND_CONTAINER],
+      [SITE_C, OTHER_CONTAINER],
+    ],
+    async () => {
+      assertNoBTPState("Before the bounce");
+
+      let tab = await openTabIn(0);
+      let finalURL = new URL(url(ORIGIN_C));
+      let boundHopURL = getBounceURL({
+        bounceType: "client",
+        bounceOrigin: ORIGIN_B,
+        targetURL: finalURL,
+        setState: "cookie-client",
+      });
+
+      // The bound hop's client bounce can start before its document's load
+      // event, which then never fires, so only wait for its tab to open.
+      let firstRetargetedPromise = BrowserTestUtils.waitForNewTab(gBrowser);
+      let secondRetargetedPromise = BrowserTestUtils.waitForNewTab(
+        gBrowser,
+        finalURL.href,
+        true,
+        true
+      );
+      await navigateLinkClick(
+        tab.linkedBrowser,
+        getBounceURL({
+          bounceType: "server",
+          targetURL: boundHopURL,
+          setState: "cookie-server",
+        })
+      );
+      let firstRetargeted = await firstRetargetedPromise;
+      let secondRetargeted = await secondRetargetedPromise;
+      await waitForParentLoadStop(secondRetargeted.linkedBrowser);
+
+      is(
+        firstRetargeted.userContextId,
+        BOUND_CONTAINER,
+        "The first switch landed in the container the bound hop is bound to"
+      );
+      is(
+        firstRetargeted.linkedBrowser.currentURI.host,
+        SITE_B,
+        "and that tab still shows the bound hop's document"
+      );
+      is(
+        secondRetargeted.userContextId,
+        OTHER_CONTAINER,
+        "The second switch landed in the container the destination is bound to"
+      );
+      ok(
+        SiteDataTestUtils.hasCookies(ORIGIN_TRACKER),
+        `${SITE_TRACKER} wrote its state in the container the chain started in`
+      );
+      ok(
+        SiteDataTestUtils.hasCookies(originIn(ORIGIN_B, OA_BOUND)),
+        "The bound hop wrote its state in the container it is bound to"
+      );
+
+      Assert.deepEqual(
+        await endExtendedNavigation(tab.linkedBrowser),
+        [],
+        "The tab which started the chain holds no record"
+      );
+      // Closed, since interacting with it would record user activation for the
+      // bound hop and exempt it.
+      Assert.deepEqual(
+        await endExtendedNavigationByClosing(firstRetargeted),
+        [],
+        "The tab of the first switch passed the record on and holds none"
+      );
+      await endExtendedNavigationByClosing(secondRetargeted);
+
+      Assert.deepEqual(
+        candidateHosts(OA_DEFAULT),
+        [SITE_TRACKER],
+        `${SITE_TRACKER} is classified in the container its hop ran in`
+      );
+      Assert.deepEqual(
+        candidateHosts(OA_BOUND),
+        [SITE_B],
+        "The bound hop is classified in the container it ran in"
+      );
+      Assert.deepEqual(
+        candidateHosts(OA_OTHER),
+        [],
+        `The destination ${SITE_C} must not be classified`
+      );
+
+      await bounceTrackingProtection.testRunPurgeBounceTrackers();
+
+      ok(
+        !SiteDataTestUtils.hasCookies(ORIGIN_TRACKER),
+        `The purge must reach the state ${SITE_TRACKER} collected`
+      );
+      ok(
+        !SiteDataTestUtils.hasCookies(originIn(ORIGIN_B, OA_BOUND)),
+        "The purge must reach the state the bound hop collected"
+      );
+
+      BrowserTestUtils.removeTab(tab);
+    }
+  );
+});
+
+/**
+ * Navigates from example.com in container 1 to example.org, which is bound to
+ * container 2, without ending the extended navigation.
+ *
+ * @param {boolean} aBounce - Whether to bounce through itisatracker.org with a
+ * server redirect on the way.
+ * @returns {Promise<Array<MozTabbrowserTab>>} The tab the navigation started in
+ * and the tab it was retargeted into.
+ */
+async function navigateIntoBoundContainer(aBounce) {
+  let tab = await openTabIn(OTHER_CONTAINER);
+  let targetURL = new URL(url(ORIGIN_B));
+  let retargeted = await navigateRetargeted(
+    tab.linkedBrowser,
+    aBounce ? getBounceURL({ bounceType: "server", targetURL }) : targetURL,
+    targetURL
+  );
+  is(
+    retargeted.userContextId,
+    BOUND_CONTAINER,
+    "The destination landed in the container it is bound to"
+  );
+  return [tab, retargeted];
+}
+
+// example.com (container 1) -> itisatracker.org (server) -> example.org
+// (container 2, new tab), then container 3 is cleared
+//
+// Control for the task below: the tab the load was retargeted into holds the
+// bounce which ran in container 1, and clearing a container its record does not
+// touch leaves the record alone.
+add_task(async function test_clearing_another_container_keeps_moved_bounces() {
+  await withSiteAssociations([[SITE_B, BOUND_CONTAINER]], async () => {
+    assertNoBTPState("Before the bounce");
+
+    let [tab, retargeted] = await navigateIntoBoundContainer(true);
+
+    bounceTrackingProtection.clearByOriginAttributesPattern(
+      JSON.stringify(OA_UNUSED)
+    );
+
+    Assert.deepEqual(
+      await endExtendedNavigationByClosing(retargeted),
+      [1],
+      "The tab the load was retargeted into kept its record and classified " +
+        "the tracker"
+    );
+    Assert.deepEqual(
+      candidateHosts(OA_OTHER),
+      [SITE_TRACKER],
+      `${SITE_TRACKER} is classified in the container its hop ran in`
+    );
+    assertNoBTPState("Nothing else is classified", [OTHER_CONTAINER]);
+
+    BrowserTestUtils.removeTab(tab);
+  });
+});
+
+// example.com (container 1) -> itisatracker.org (server) -> example.org
+// (container 2, new tab)
+//
+// The tab the load was retargeted into holds bounces which ran in the container
+// the navigation started in. Clearing that container's data has to drop that
+// tab's record too, or ending the extended navigation would classify the cleared
+// sites in it again.
+add_task(async function test_clearing_a_container_clears_moved_bounces() {
+  await withSiteAssociations([[SITE_B, BOUND_CONTAINER]], async () => {
+    assertNoBTPState("Before the bounce");
+
+    let [tab, retargeted] = await navigateIntoBoundContainer(true);
+
+    bounceTrackingProtection.clearByOriginAttributesPattern(
+      JSON.stringify(OA_OTHER)
+    );
+
+    Assert.deepEqual(
+      await endExtendedNavigationByClosing(retargeted),
+      [],
+      "The tab holding bounces of the cleared container dropped its record"
+    );
+
+    assertNoBTPState(
+      `${SITE_TRACKER} bounced in container ${OTHER_CONTAINER} before its data ` +
+        `was cleared, so it must not be classified anywhere`
+    );
+
+    BrowserTestUtils.removeTab(tab);
+  });
+});
+
+// example.com (container 1) -> example.org (container 2, new tab)
+//
+// A record can touch a container through its initial site alone. Clearing that
+// container has to drop the record as well.
+add_task(
+  async function test_clearing_the_initial_sites_container_drops_record() {
+    await withSiteAssociations([[SITE_B, BOUND_CONTAINER]], async () => {
+      let [tab, retargeted] = await navigateIntoBoundContainer(false);
+      Assert.deepEqual(
+        await endExtendedNavigationByClosing(retargeted),
+        [0],
+        "Without a clear, the tab the load was retargeted into holds a record " +
+          "which classifies nothing"
+      );
+      BrowserTestUtils.removeTab(tab);
+
+      [tab, retargeted] = await navigateIntoBoundContainer(false);
+
+      bounceTrackingProtection.clearByOriginAttributesPattern(
+        JSON.stringify(OA_OTHER)
+      );
+
+      Assert.deepEqual(
+        await endExtendedNavigationByClosing(retargeted),
+        [],
+        `Clearing container ${OTHER_CONTAINER}, where the initial site ran, ` +
+          `dropped the record`
+      );
+
+      BrowserTestUtils.removeTab(tab);
+    });
+  }
+);
+
+/**
+ * Runs example.com (container 1) -> itisatracker.org -> example.org (container
+ * 2, new tab) -> example.net and purges, so that one bounce chain record is
+ * held by purge log entries in both containers.
+ */
+async function purgeChainAcrossContainers() {
+  let tab = await openTabIn(OTHER_CONTAINER);
+  let finalURL = new URL(url(ORIGIN_C));
+
+  let boundHopURL = new URL(url(ORIGIN_B, "file_bounce.sjs"));
+  boundHopURL.searchParams.set("statusCode", 302);
+  boundHopURL.searchParams.set("target", finalURL.href);
+
+  let retargeted = await navigateRetargeted(
+    tab.linkedBrowser,
+    getBounceURL({ bounceType: "server", targetURL: boundHopURL }),
+    finalURL
+  );
+  await endExtendedNavigation(tab.linkedBrowser);
+  await endExtendedNavigationByClosing(retargeted);
+  BrowserTestUtils.removeTab(tab);
+
+  Assert.deepEqual(
+    (await bounceTrackingProtection.testRunPurgeBounceTrackers()).sort(),
+    [SITE_B, SITE_TRACKER],
+    "The tracker and the bound hop are purged, each in its own container"
+  );
+  Assert.equal(
+    bounceTrackingProtection.getRecentPurgedChainEntriesForSite(SITE_A).length,
+    2,
+    `Both purge log entries name ${SITE_A} as the initial site of their chain`
+  );
+}
+
+// example.com (container 1) -> itisatracker.org -> example.org (container 2,
+// new tab) -> example.net, then container 1 is cleared
+//
+// The chain record is kept with the purge log entries of both containers, and
+// Report Broken Site sends it. Clearing a container must not leave its sites in
+// the records another container holds.
+add_task(async function test_clearing_a_container_drops_its_chain_records() {
+  await withSiteAssociations([[SITE_B, BOUND_CONTAINER]], async () => {
+    await purgeChainAcrossContainers();
+
+    bounceTrackingProtection.clearByOriginAttributesPattern(
+      JSON.stringify(OA_OTHER)
+    );
+
+    Assert.deepEqual(
+      bounceTrackingProtection.getRecentPurgedChainEntriesForSite(SITE_A),
+      [],
+      `No purge log entry names ${SITE_A} after its container was cleared`
+    );
+    Assert.deepEqual(
+      bounceTrackingProtection.getRecentPurgedChainEntriesForSite(SITE_TRACKER),
+      [],
+      `No purge log entry names ${SITE_TRACKER} after its container was cleared`
+    );
+    let [entry, ...rest] =
+      bounceTrackingProtection.testGetRecentlyPurgedTrackers(OA_BOUND);
+    is(rest.length, 0, "The other container keeps its purge log entry");
+    is(entry.siteHost, SITE_B, `for ${SITE_B}`);
+    is(entry.bounceTrackingRecord, null, "but no longer its chain record");
+  });
+});
+
+// example.com (container 1) -> itisatracker.org -> example.org (container 2,
+// new tab) -> example.net, then example.com is cleared in container 1
+//
+// Clearing a site must drop the chain records which name it, also those another
+// container holds, but only where the site ran in a cleared container.
+add_task(async function test_clearing_a_site_drops_its_chain_records() {
+  await withSiteAssociations([[SITE_B, BOUND_CONTAINER]], async () => {
+    await purgeChainAcrossContainers();
+
+    bounceTrackingProtection.clearBySiteHostAndOriginAttributes(
+      SITE_A,
+      OA_BOUND
+    );
+    Assert.equal(
+      bounceTrackingProtection.getRecentPurgedChainEntriesForSite(SITE_A)
+        .length,
+      2,
+      `Clearing ${SITE_A} in a container it did not run in keeps the records`
+    );
+
+    bounceTrackingProtection.clearBySiteHostAndOriginAttributes(
+      SITE_A,
+      OA_OTHER
+    );
+    Assert.deepEqual(
+      bounceTrackingProtection.getRecentPurgedChainEntriesForSite(SITE_A),
+      [],
+      `No purge log entry names ${SITE_A} after it was cleared where it ran`
+    );
+    for (let oa of [OA_OTHER, OA_BOUND]) {
+      let entries = bounceTrackingProtection.testGetRecentlyPurgedTrackers(oa);
+      is(entries.length, 1, "Each container keeps its purge log entry");
+      is(entries[0].bounceTrackingRecord, null, "but not its chain record");
+    }
   });
 });
 
@@ -788,11 +1314,11 @@ add_task(async function test_purge_reaches_the_state_in_the_bound_container() {
     await endExtendedNavigation(tab.linkedBrowser);
     await endExtendedNavigationByClosing(retargeted);
 
-    todo(
+    ok(
       candidateHosts(OA_BOUND).includes(SITE_TRACKER),
       `${SITE_TRACKER} must be classified in the container its hop ran in`
     );
-    todo(
+    ok(
       !candidateHosts(OA_DEFAULT).includes(SITE_TRACKER),
       `${SITE_TRACKER} must not be classified against the container the chain ` +
         `started in, where it holds no state a purge could clear`
@@ -803,13 +1329,13 @@ add_task(async function test_purge_reaches_the_state_in_the_bound_container() {
       purged.includes(SITE_TRACKER),
       `${SITE_TRACKER} must be purged, whichever container it is classified in`
     );
-    todo(
+    ok(
       !purged.includes(SITE_B),
       `The destination ${SITE_B} must not be purged: it is where the extended ` +
         `navigation ended, not an intermediate hop`
     );
 
-    todo(
+    ok(
       !SiteDataTestUtils.hasCookies(ORIGIN_TRACKER_BOUND),
       `The purge must reach the state ${SITE_TRACKER} collected in the ` +
         `container its hop ran in`
@@ -870,21 +1396,23 @@ add_task(async function test_purge_spares_the_container_navigated_from() {
       "The navigation landed in the container the site is bound to"
     );
 
-    await endExtendedNavigation(tab.linkedBrowser);
+    // Flushed by closing, so that ending it does not record user activation for
+    // the destination and exempt it.
+    await endExtendedNavigationByClosing(retargeted);
 
     let purged = await bounceTrackingProtection.testRunPurgeBounceTrackers();
-    todo(
+    ok(
       !purged.includes(SITE_B),
       `Navigating to ${SITE_B} must not get it purged`
     );
-    todo(
+    ok(
       SiteDataTestUtils.hasCookies(ORIGIN_B, [
         { key: "btp", value: "before-the-association" },
       ]),
       `The first party state ${SITE_B} holds in the container the user ` +
         `navigated from must survive`
     );
-    todo(
+    ok(
       SiteDataTestUtils.hasCookies(
         ORIGIN_B,
         [{ key: "btp", value: "partitioned" }],
@@ -893,13 +1421,12 @@ add_task(async function test_purge_spares_the_container_navigated_from() {
       `The partitioned third party state ${SITE_B} holds in that container, ` +
         `which no association moves, must survive`
     );
-    todo(
+    ok(
       !bounceTrackingProtection.hasRecentlyPurgedSite(SITE_B),
       `${SITE_B} must not be reported as recently purged, which is the flag ` +
         `Report Broken Site sends for the site`
     );
 
-    BrowserTestUtils.removeTab(retargeted);
     BrowserTestUtils.removeTab(tab);
   });
 });
@@ -947,11 +1474,11 @@ add_task(async function test_purge_spares_a_site_open_in_a_retargeted_tab() {
 
     let purged = await bounceTrackingProtection.testRunPurgeBounceTrackers();
 
-    todo(
+    ok(
       !purged.includes(SITE_B),
       `${SITE_B} must not be purged while it is open at the top level`
     );
-    todo(
+    ok(
       SiteDataTestUtils.hasCookies(originIn(ORIGIN_B, OA_BOUND), [
         { key: "btp", value: "open-tab" },
       ]),
@@ -995,23 +1522,21 @@ add_task(async function test_host_association_spares_the_rest_of_the_site() {
       "The bound host landed in the container it is bound to"
     );
 
-    await endExtendedNavigation(tab.linkedBrowser);
+    // Flushed by closing, so that ending it does not record user activation for
+    // the destination and exempt it.
+    await endExtendedNavigationByClosing(retargeted);
 
-    todo(
-      !candidateHosts(OA_DEFAULT).includes(SITE_B),
-      `Binding ${SITE_SUB_B} must not classify ${SITE_B}`
-    );
+    assertNoBTPState(`Binding ${SITE_SUB_B} must not classify ${SITE_B}`);
 
     await bounceTrackingProtection.testRunPurgeBounceTrackers();
 
-    todo(
+    ok(
       SiteDataTestUtils.hasCookies(ORIGIN_B, [
         { key: "btp", value: "sibling-host" },
       ]),
       `The state of ${SITE_B}, which is bound to no container, must survive`
     );
 
-    BrowserTestUtils.removeTab(retargeted);
     BrowserTestUtils.removeTab(tab);
   });
 });

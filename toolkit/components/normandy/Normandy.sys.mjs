@@ -11,8 +11,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CleanupManager: "resource://normandy/lib/CleanupManager.sys.mjs",
   ExperimentAPI: "resource://nimbus/ExperimentAPI.sys.mjs",
   LogManager: "resource://normandy/lib/LogManager.sys.mjs",
-  NormandyMigrations: "resource://normandy/NormandyMigrations.sys.mjs",
-  RecipeRunner: "resource://normandy/lib/RecipeRunner.sys.mjs",
 });
 
 const UI_AVAILABLE_NOTIFICATION = "sessionstore-windows-restored";
@@ -21,7 +19,6 @@ const SHIELD_INIT_NOTIFICATION = "shield-init-complete";
 const PREF_LOGGING_LEVEL = "app.normandy.logging.level";
 
 export var Normandy = {
-  defaultPrefsHaveBeenApplied: Promise.withResolvers(),
   uiAvailableNotificationObserved: Promise.withResolvers(),
 
   /** Initialization that needs to happen before the first paint on startup. */
@@ -37,12 +34,6 @@ export var Normandy = {
       // await, to avoid missing it.
       Services.obs.addObserver(this, UI_AVAILABLE_NOTIFICATION);
     }
-
-    // It is important this happens before the first `await`. Note that this
-    // also happens before migrations are applied.
-    this.defaultPrefsHaveBeenApplied.resolve();
-
-    await lazy.NormandyMigrations.applyAll();
 
     // Wait for the UI to be ready, or time out after 5 minutes.
     if (runAsync) {
@@ -79,7 +70,6 @@ export var Normandy = {
 
     await lazy.ExperimentAPI.init();
 
-    await lazy.RecipeRunner.init();
     Services.obs.notifyObservers(null, SHIELD_INIT_NOTIFICATION);
   },
 
