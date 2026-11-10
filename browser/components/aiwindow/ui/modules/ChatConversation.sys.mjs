@@ -83,6 +83,7 @@ ChromeUtils.defineLazyGetter(lazy, "console", function () {
 
 const CHAT_ROLES = [MESSAGE_ROLE.USER, MESSAGE_ROLE.ASSISTANT];
 const RESTORABLE_ROLES = [...CHAT_ROLES, MESSAGE_ROLE.TOOL];
+const NO_PAGE_CONTEXT = "No page context is available for this message.";
 
 let _savedLoadPromptDescriptor = null;
 export function _setLoadPromptForTesting(fn) {
@@ -191,14 +192,6 @@ export class ChatConversation extends Conversation {
    * @type {Set<string>}
    */
   #pendingCitationUrls = new Set();
-
-  /**
-   * Last browser-context string written; injectRealTimeContext skips
-   * rewriting an identical one so the prompt-cache prefix stays stable.
-   *
-   * @type {string|null}
-   */
-  #lastBrowserContext = null;
 
   /**
    * @param {object} params
@@ -363,18 +356,7 @@ export class ChatConversation extends Conversation {
    * @param {AsyncIterable} stream - Model response stream from `runWithGenerator`.
    */
   async receiveResponse(stream) {
-    const currentMessage = this.#getCurrentAssistantResponse();
-    if (!currentMessage) {
-      return {
-        pendingToolCalls: [],
-        fullResponseText: "",
-        usage: null,
-      };
-    }
-
-    if (currentMessage.content?.body) {
-      currentMessage.content.body += "\n\n";
-    }
+    const currentMessage = this.#getStreamTarget();
 
     // Set the browsing history snapshot on the message before streaming so its
     // list is recognized while streaming and swapped to a grid on completion.
@@ -409,10 +391,18 @@ export class ChatConversation extends Conversation {
       this.emit("chat-conversation:message-update", currentMessage);
     }
 
+    const replyMessage = this.getCurrentReplyMessage();
+    if (replyMessage !== currentMessage && currentMessage.citations.length) {
+      replyMessage.citations = currentMessage.citations;
+    }
+
     // Only resolve used memories once the entire assistant turn is complete,
     // including all tool calls
     if (!result.pendingToolCalls?.length) {
-      const citedMemoryIds = currentMessage.tokens?.existing_memory ?? [];
+      const turnMessages = this.#getCurrentTurnTextMessages();
+      const citedMemoryIds = turnMessages.flatMap(
+        message => message.tokens?.existing_memory ?? []
+      );
       const promptEmbeddedMemoryIds = this.promptEmbeddedMemories.map(
         memory => memory.id
       );
@@ -423,10 +413,16 @@ export class ChatConversation extends Conversation {
         ? await lazy.MemoriesManager.resolveUsedMemories(memoryIds)
         : [];
 
-      if (memoriesApplied.length) {
-        currentMessage.memoriesApplied = memoriesApplied;
+      for (const message of turnMessages) {
+        if (message !== replyMessage) {
+          message.memoriesApplied = [];
+        }
+      }
 
-        this.emit("chat-conversation:message-update", currentMessage);
+      if (memoriesApplied.length) {
+        replyMessage.memoriesApplied = memoriesApplied;
+
+        this.emit("chat-conversation:message-update", replyMessage);
       }
     }
 
@@ -436,14 +432,14 @@ export class ChatConversation extends Conversation {
     await lazy.ChatStore.endStreamingWrites(this.id, false);
     await lazy.ChatStore.updateConversation(this);
 
-    // Only finalize the message when the turn is actually done. When the model
-    // requested tool calls, the same assistant message keeps streaming its
-    // answer after the tools run (see the loop in Chat.sys.mjs), so emitting
-    // completion here would mark a still-streaming message complete mid-turn —
-    // e.g. converting a streamed history list into a grid before the answer
+    // Only finalize the reply when the turn is actually done. When the model
+    // requested tool calls, its answer streams into a new message after the
+    // tools run (see the loop in Chat.sys.mjs), and the turn renders as one
+    // bubble, so completing now would mark it complete mid-turn — e.g.
+    // converting a streamed history list into a grid before the answer
     // finishes.
     if (!result.pendingToolCalls?.length) {
-      this.emit("chat-conversation:message-complete", currentMessage);
+      this.emit("chat-conversation:message-complete", replyMessage);
     }
 
     return {
@@ -453,14 +449,48 @@ export class ChatConversation extends Conversation {
     };
   }
 
-  #getCurrentAssistantResponse() {
-    return this.messages
-      .filter(
-        message =>
-          message.role === MESSAGE_ROLE.ASSISTANT &&
-          message?.content?.type === "text"
-      )
-      .at(-1);
+  /**
+   * The message to stream a response into: the last message if it is an
+   * assistant text message waiting for it, otherwise a new one, so text the
+   * model writes after tool results is stored after them.
+   *
+   * @returns {ChatMessage}
+   */
+  #getStreamTarget() {
+    const last = this.messages.at(-1);
+    if (
+      last?.role === MESSAGE_ROLE.ASSISTANT &&
+      last.content?.type === "text" &&
+      !last.content.l10nId
+    ) {
+      return last;
+    }
+    return this.addAssistantMessage("text", "");
+  }
+
+  #getCurrentTurnTextMessages() {
+    const turnIndex = this.currentTurnIndex();
+    return this.messages.filter(
+      message =>
+        message.turnIndex === turnIndex &&
+        message.role === MESSAGE_ROLE.ASSISTANT &&
+        message.content?.type === "text"
+    );
+  }
+
+  /**
+   * The message holding the current turn's reply: its last assistant text
+   * message with content, or its last one if none has any yet.
+   *
+   * @returns {ChatMessage|undefined}
+   */
+  getCurrentReplyMessage() {
+    const turnMessages = this.#getCurrentTurnTextMessages();
+    return (
+      turnMessages.findLast(
+        message => message.content.body || message.toolUIData
+      ) ?? turnMessages.at(-1)
+    );
   }
 
   /**
@@ -869,15 +899,35 @@ export class ChatConversation extends Conversation {
         securityProperties: this.securityProperties,
       }
     );
-    if (!realTimePrompt || !userMessage?.content) {
+    if (!userMessage?.content) {
       return;
     }
-    if (realTimePrompt === this.#lastBrowserContext) {
+    // Skip unchanged context and keep the prompt cache stable: Without previous
+    // context there is no page to leave so no note needed.
+    const browserContext = realTimePrompt || NO_PAGE_CONTEXT;
+    const lastBrowserContext =
+      this.#getLastBrowserContext(userMessage) ?? NO_PAGE_CONTEXT;
+    if (browserContext === lastBrowserContext) {
       return;
     }
     userMessage.content.userContext ??= {};
-    userMessage.content.userContext.realTimeContext = realTimePrompt;
-    this.#lastBrowserContext = realTimePrompt;
+    userMessage.content.userContext.realTimeContext = browserContext;
+  }
+
+  /**
+   * Browser context sent last before `userMessage`. Read from messages so
+   * retries and reopened conversations don’t need extra state.
+   *
+   * @param {ChatMessage} userMessage
+   * @returns {string|undefined}
+   */
+  #getLastBrowserContext(userMessage) {
+    return this.messages.findLast(
+      message =>
+        message !== userMessage &&
+        message.role === MESSAGE_ROLE.USER &&
+        message.content.userContext?.realTimeContext
+    )?.content.userContext.realTimeContext;
   }
 
   /**
@@ -997,8 +1047,8 @@ export class ChatConversation extends Conversation {
 
   /**
    * Chat wire-format snapshot: filters out empty-body assistant messages,
-   * walks message → wire shape, then injects realTime/memories `userContext`
-   * as USER messages just before the last user message.
+   * walks message → wire shape, then injects `userContext` of each
+   * message as USER messages just before it.
    *
    * @param {object} [opts]
    * @param {boolean} [opts.applyUrlTokens=true]
@@ -1033,27 +1083,49 @@ export class ChatConversation extends Conversation {
       }
     }
 
-    // Inject contextual user-context messages just before the last user
-    // message, as USER-role messages.
-    const lastUserMsgIdx = filteredSrc.findLastIndex(
-      msg => msg.role == MESSAGE_ROLE.USER
+    const messagesWithContext = ChatConversation.#withUserContext(
+      msgsForAPI,
+      filteredSrc
     );
-    if (lastUserMsgIdx > -1) {
-      const userContext = filteredSrc[lastUserMsgIdx].content.userContext;
-      if (userContext) {
-        const contextMsgs = Object.values(userContext).map(contextMsg => ({
-          role: getRoleLabel(MESSAGE_ROLE.USER).toLowerCase(),
-          content: contextMsg,
-        }));
-        msgsForAPI.splice(lastUserMsgIdx, 0, ...contextMsgs);
-      }
-    }
 
     if (applyUrlTokens) {
-      replaceUrlsWithTokens(this, msgsForAPI);
+      replaceUrlsWithTokens(this, messagesWithContext);
     }
 
-    return msgsForAPI;
+    return messagesWithContext;
+  }
+
+  /**
+   * Adds the context stored on each user message as USER messages just before
+   * it, so browser context stays in the history it was sent with. Memories
+   * only come with the last user message, which already folds in the memories
+   * of the messages before.
+   *
+   * @param {object[]} wireMessages - Messages in chat-completions format.
+   * @param {ChatMessage[]} sourceMessages - The messages `wireMessages` were
+   *   built from, in the same order.
+   * @returns {object[]}
+   */
+  static #withUserContext(wireMessages, sourceMessages) {
+    const lastUserMessageIdx = sourceMessages.findLastIndex(
+      msg => msg.role == MESSAGE_ROLE.USER
+    );
+    return wireMessages.flatMap((message, messageIdx) => {
+      const { role, content } = sourceMessages[messageIdx];
+      if (role != MESSAGE_ROLE.USER || !content.userContext) {
+        return [message];
+      }
+      const contextMessages = Object.entries(content.userContext)
+        .filter(
+          ([key]) =>
+            messageIdx === lastUserMessageIdx || key !== "memoriesContext"
+        )
+        .map(([, contextMessage]) => ({
+          role: getRoleLabel(MESSAGE_ROLE.USER).toLowerCase(),
+          content: contextMessage,
+        }));
+      return [...contextMessages, message];
+    });
   }
 
   #updateActiveBranchTipMessageId() {

@@ -48,8 +48,7 @@ using namespace mozilla;
 //***    nsContentTreeOwner: Object Management
 //*****************************************************************************
 
-nsContentTreeOwner::nsContentTreeOwner(bool fPrimary)
-    : mAppWindow(nullptr), mPrimary(fPrimary) {}
+nsContentTreeOwner::nsContentTreeOwner() : mAppWindow(nullptr) {}
 
 //*****************************************************************************
 // nsContentTreeOwner::nsISupports
@@ -161,42 +160,6 @@ nsContentTreeOwner::GetPrimaryContentBrowsingContext(
   return mAppWindow->GetPrimaryContentBrowsingContext(aBc);
 }
 
-NS_IMETHODIMP
-nsContentTreeOwner::GetPrimaryContentSize(int32_t* aWidth, int32_t* aHeight) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->GetPrimaryContentSize(aWidth, aHeight);
-}
-
-NS_IMETHODIMP
-nsContentTreeOwner::SetPrimaryContentSize(int32_t aWidth, int32_t aHeight) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->SetPrimaryContentSize(aWidth, aHeight);
-}
-
-NS_IMETHODIMP
-nsContentTreeOwner::GetRootShellSize(int32_t* aWidth, int32_t* aHeight) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->GetRootShellSize(aWidth, aHeight);
-}
-
-NS_IMETHODIMP
-nsContentTreeOwner::SetRootShellSize(int32_t aWidth, int32_t aHeight) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->SetRootShellSize(aWidth, aHeight);
-}
-
-NS_IMETHODIMP nsContentTreeOwner::SizeShellTo(nsIDocShellTreeItem* aShellItem,
-                                              int32_t aCX, int32_t aCY) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->SizeShellTo(aShellItem, aCX, aCY);
-}
-
-NS_IMETHODIMP
-nsContentTreeOwner::GetHasPrimaryContent(bool* aResult) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->GetHasPrimaryContent(aResult);
-}
-
 //*****************************************************************************
 // nsContentTreeOwner::nsIWebBrowserChrome
 //*****************************************************************************
@@ -298,7 +261,7 @@ nsContentTreeOwner::SetDimensions(DimensionRequest&& aRequest) {
   }
 
   MOZ_TRY(aRequest.SupplementFrom(this));
-  return aRequest.ApplyInnerTo(this, /* aAsRootShell */ false);
+  return aRequest.ApplyInnerTo(mAppWindow, /* aAsRootShell */ false);
 }
 
 NS_IMETHODIMP
@@ -311,7 +274,7 @@ nsContentTreeOwner::GetDimensions(DimensionKind aDimensionKind, int32_t* aX,
   if (aY || aX) {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
-  return GetPrimaryContentSize(aCX, aCY);
+  return mAppWindow->GetPrimaryContentSize(aCX, aCY);
 }
 
 NS_IMETHODIMP nsContentTreeOwner::GetParentWidget(nsIWidget** aParentWidget) {

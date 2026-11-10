@@ -664,9 +664,10 @@ interface nsIDOMWindowUtils : nsISupports {
    * NOTE: The synthesized native event will be fired asynchronously, and upon
    * completion the callback, if provided, will be notified.
    *
-   * Widget support: Windows.
+   * Widget support: Windows, GTK, headless.
    * @param aScreenX, aScreenY screen coords of the focus point of this event.
-   * @param aDeltaX, aDeltaY the amount of delta in the pan.
+   * @param aDeltaX, aDeltaY the amount of delta in the pan. Positive values
+   *        scroll the content down / to the right, on all platforms.
    * @param aModifierFlags is expected to contain native modifier values.
    */
   void sendNativeTouchpadPan(in unsigned long aEventPhase,
@@ -1967,9 +1968,10 @@ interface nsIDOMWindowUtils : nsISupports {
    * Increase the chaos mode activation level. An equivalent number of
    * calls to leaveChaosMode must be made in order to restore the original
    * chaos mode state. If the activation level is nonzero all chaos mode
-   * features are activated.
+   * features are activated, or only those of aFeatures (a mask of
+   * mozilla::ChaosFeature values) once it has been given.
    */
-  void enterChaosMode();
+  void enterChaosMode([optional] in unsigned long aFeatures);
 
   /**
    * Decrease the chaos mode activation level. See enterChaosMode().

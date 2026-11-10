@@ -15,10 +15,14 @@
 #include "nsCOMPtr.h"
 #include "nsClassHashtable.h"
 #include "nsIRunnable.h"
-#include "nsNetworkInterface.h"
 #include "nsTArray.h"
 #include "nsThreadUtils.h"
 
+#ifdef MOZ_ENTERPRISE
+#  include "nsNetworkInterface.h"
+#endif
+
+class nsINetworkInterface;
 struct nlmsghdr;
 
 namespace mozilla::net {
@@ -58,7 +62,8 @@ class NetlinkService : public nsIRunnable {
   void GetIsLinkUp(bool* aIsUp);
   nsresult GetDnsSuffixList(nsTArray<nsCString>& aDnsSuffixList);
   nsresult GetResolvers(nsTArray<NetAddr>& aResolvers);
-  nsresult GetNetworkInterfaces(nsTArray<NetworkInterface>& aNetworkInterfaces);
+  nsresult GetNetworkInterfaces(
+      nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces);
 
   static bool HasNonLocalIPv6Address();
 
@@ -84,6 +89,9 @@ class NetlinkService : public nsIRunnable {
                                 nsTArray<NetlinkNeighbor*>& aGwNeighbors);
   bool CalculateIDForFamily(uint8_t aFamily, mozilla::SHA1Sum* aSHA1);
   void CalculateNetworkID();
+#ifdef MOZ_ENTERPRISE
+  void UpdateNetworkInterfaces();
+#endif
   void ExtractDNSProperties();
 
   nsCOMPtr<nsIThread> mThread;
@@ -120,6 +128,9 @@ class NetlinkService : public nsIRunnable {
   mozilla::Maybe<mozilla::SHA1Sum> mUnseededNetworkId MOZ_GUARDED_BY(mMutex);
   nsTArray<nsCString> mDNSSuffixList MOZ_GUARDED_BY(mMutex);
   nsTArray<NetAddr> mDNSResolvers MOZ_GUARDED_BY(mMutex);
+#ifdef MOZ_ENTERPRISE
+  nsTArray<NetworkInterface> mNetworkInterfaces MOZ_GUARDED_BY(mMutex);
+#endif
 
   class LinkInfo {
    public:
@@ -142,6 +153,13 @@ class NetlinkService : public nsIRunnable {
     // Default IPv4/IPv6 routes
     nsTArray<UniquePtr<NetlinkRoute>> mDefaultRoutes;
 
+#ifdef MOZ_ENTERPRISE
+    // Default IPv6 routes whose gateway isn't global, e.g. link-local
+    // gateways announced by routers. They are reported as interface gateways,
+    // but not used for the network ID.
+    nsTArray<UniquePtr<NetlinkRoute>> mNonGlobalDefaultRoutes;
+#endif
+
     // Link is up when it's running, it's not a loopback and there is
     // a non-local address associated with it.
     bool mIsUp;
@@ -159,6 +177,7 @@ class NetlinkService : public nsIRunnable {
                                      LinkInfo* aRouteCheckLinkInfo,
                                      mozilla::SHA1Sum* aSHA1);
 
+  // Only accessed on the Netlink thread.
   nsClassHashtable<nsUint32HashKey, LinkInfo> mLinks;
 
   // Route for mRouteCheckIPv4 address

@@ -88,5 +88,41 @@ def test_no_pings_file_duplicated():
         )
 
 
+def test_enterprise_files_not_in_regular_builds():
+    """
+    Enterprise metrics and pings files must never be built into regular
+    Firefox, so they must only be listed in the enterprise lists.
+    """
+
+    enterprise_yamls = set(
+        metrics_index.firefox_enterprise_metrics
+        + metrics_index.firefox_enterprise_pings
+    )
+
+    for yaml in enterprise_yamls:
+        assert path.basename(yaml) in (
+            "enterprise_metrics.yaml",
+            "enterprise_pings.yaml",
+        ), f"{yaml} must be named enterprise_metrics.yaml or enterprise_pings.yaml"
+
+    regular_yamls = set(metrics_index.metrics_yamls + metrics_index.pings_yamls)
+    for ping_yamls in metrics_index.pings_by_app_or_lib_id.values():
+        regular_yamls.update(ping_yamls)
+
+    in_both = enterprise_yamls & regular_yamls
+    assert not in_both, (
+        f"Enterprise files {sorted(in_both)} must not be listed outside of "
+        "firefox_enterprise_metrics and firefox_enterprise_pings"
+    )
+
+    overridden_app_ids = set(metrics_index.enterprise_pings_by_app_id) & set(
+        metrics_index.pings_by_app_or_lib_id
+    )
+    assert not overridden_app_ids, (
+        f"Enterprise app ids {sorted(overridden_app_ids)} must not override "
+        "regular app ids in pings_by_app_or_lib_id"
+    )
+
+
 if __name__ == "__main__":
     mozunit.main()

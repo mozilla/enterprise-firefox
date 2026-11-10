@@ -16,20 +16,28 @@ tags = "os_integration"
 ["browser_aiFeatures_chatbot.js"]
 
 ["browser_aiFeatures_smart_window.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 
 ["browser_aiFeatures_smart_window_block_dialog.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 
 ["browser_aiFeatures_smart_window_default_settings.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 
 ["browser_aiFeatures_smart_window_memories.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 
 ["browser_aiFeatures_smart_window_model_selection.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 
 ["browser_aiFeatures_smart_window_model_selection_custom.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 
 ["browser_aiFeatures_smart_window_model_settings_custom.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 
 ["browser_aiFeatures_smart_window_telemetry.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds
 
 ["browser_aiFeatures_speech_recognition.js"]
 

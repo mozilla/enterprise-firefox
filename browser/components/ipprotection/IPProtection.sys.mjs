@@ -60,6 +60,7 @@ class IPProtectionWidget {
     if (!this.created) {
       this.#createWidget();
     }
+
     lazy.CustomizableUI.addListener(this);
   }
 
@@ -70,11 +71,12 @@ class IPProtectionWidget {
     if (!this.#inited) {
       return;
     }
-    this.#inited = false;
-
     this.#destroyWidget();
-    lazy.CustomizableUI.removeListener(this);
     this.#uninitPanels();
+
+    lazy.CustomizableUI.removeListener(this);
+
+    this.#inited = false;
   }
 
   /**

@@ -1,0 +1,112 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Adding a new metric? We have docs for that!
+# https://firefox-source-docs.mozilla.org/toolkit/components/glean/user/new_definitions_file.html
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+$tags:
+  - 'Toolkit :: Add-ons Manager'
+
+addons_manager:
+  install_complete:
+    type: event
+    description: |
+      This event is recorded when an extension or theme is installed
+      in enterprise builds.
+      Contains security-relevant metadata for monitoring and analysis.
+      Only collected when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    extra_keys:
+      addon_id:
+        description: Id of the addon (when available).
+        type: string
+      addon_type:
+        description: |
+          Addon type, one of: extension, theme, locale, dictionary,
+          sitepermission, siteperm_deprecated, other, unknown.
+        type: string
+      install_id:
+        description: |
+          Shared by events related to the same install or update flow.
+        type: string
+      download_time:
+        description: The number of ms needed to complete the download.
+        type: quantity
+      error:
+        description: |
+          The AddonManager error related to an install or update failure.
+        type: string
+      source:
+        description: |
+          The source that originally triggered the installation, one
+          of: "about:addons", "about:debugging", "about:preferences",
+          "amo", "browser-import", "disco", "distribution",
+          "extension", "enterprise-policy", "file-url",
+          "geckoview-app", "gmp-plugin", "internal", "plugin",
+          "rtamo", "siteperm-addon-provider" "sync", "system-addon",
+          "temporary-addon", "unknown", "about:editprofile", "about:newprofile",
+          "nimbus-newtabTrainhopAddon".
+          For events with method set to "sideload", the source value
+          is derived from the XPIProvider location name (e.g. possible
+          values are "app-builtin", "app-global", "app-profile",
+          "app-system-addons", "app-system-defaults",
+          "app-system-local", "app-system-profile",
+          "app-system-share", "app-system-user", "winreg-app-user",
+          "winreg-app-gobal").
+        type: string
+      source_method:
+        description: |
+          The method used by the source to install the add-on
+          (included when the source can use more than one, e.g.
+          install events with source "about:addons" may have
+          "install-from-file" or "url" as method), one of: "amWebAPI",
+          "drag-and-drop", "installTrigger", "install-from-file",
+          "link", "management-webext-api", "sideload", "onboarding",
+          "rtamo", "synthetic-install", "url", "product-updates",
+          "FirefoxThemesList".
+        type: string
+      num_strings:
+        description: |
+          The number of permission description strings in the
+          extension permission doorhanger.
+        type: quantity
+      updated_from:
+        description: |
+          Determine if an update has been requested by the user or
+          the application ("app" / "user").
+        type: string
+      install_origins:
+        description: |
+          This flag indicates whether install_origins is defined in
+          the addon manifest. ("1" / "0")
+        type: string
+      step:
+        description: |
+          The current step in the install or update flow: started,
+          postponed, cancelled, failed, permissions_prompt, completed,
+          site_warning, site_blocked,install_disabled_warning,
+          download_started, download_completed, download_failed
+        type: string
+      site_permission:
+        description: |
+          Only set for site permission add-on installs. The gated
+          permission being granted by this install flow, currently one of
+          "serial", "midi", "midi-sysex".
+        type: string
+      addon_name:
+        description: Name of the addon (when available).
+        type: string
+    expires: never
+    send_in_pings:
+      - enterprise

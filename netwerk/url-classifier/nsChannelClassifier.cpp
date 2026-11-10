@@ -26,7 +26,7 @@
 
 #ifdef MOZ_ENTERPRISE
 #  include "mozilla/glean/GleanPings.h"
-#  include "mozilla/glean/UrlClassifierMetrics.h"
+#  include "mozilla/glean/UrlClassifierEnterpriseMetrics.h"
 #  include "nsIHttpChannel.h"
 #  include "nsIReferrerInfo.h"
 #endif

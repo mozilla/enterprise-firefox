@@ -443,13 +443,6 @@ export class PrefServerList extends IPProtectionServerlistBase {
     this.maybeFetchList();
   }
 
-  // Re-read the pref so that a policy activated after module load is picked up before #updateState() runs.
-  init() {
-    this.__list = IPProtectionServerlistBase.dataToList(
-      PrefServerList.prefValue
-    );
-  }
-
   async initOnStartupCompleted() {
     super.initOnStartupCompleted();
     Services.prefs.addObserver(PrefServerList.PREF_NAME, this.#observer);

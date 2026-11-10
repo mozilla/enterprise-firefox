@@ -78,7 +78,7 @@ tasks:
                     linux64-aarch64: linux64-aarch64/opt
                     linux64-aarch64-enterprise: linux64-aarch64-enterprise/opt
                     macosx64: osx-cross/opt
-                    macosx64-aarch64-enterprise: osx-cross-enterprise/opt
+                    macosx64-aarch64-enterprise: osx-cross-aarch64-enterprise/opt
                     win32: windows2012-32/opt
                     win64: windows2012-64/opt
                     win64-enterprise: windows2012-64-enterprise/opt

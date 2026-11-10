@@ -201,5 +201,148 @@ def test_nightly_never_tags_what_it_did_not_upload(graph):
     )
 
 
+def _test_task(
+    kind,
+    test_platform,
+    build_platform,
+    provisioner="enterprise-t",
+    label=None,
+    treeherder_platform=None,
+    **attributes,
+):
+    label = label or f"{kind}-{test_platform}-{provisioner}"
+    task = {"provisionerId": provisioner}
+    if treeherder_platform:
+        task["extra"] = {"treeherder": {"machine": {"platform": treeherder_platform}}}
+    return Task(
+        kind=kind,
+        label=label,
+        attributes={
+            "build_platform": build_platform,
+            "build_type": "debug",
+            "test_platform": test_platform,
+            **attributes,
+        },
+        task=task,
+    )
+
+
+def _with_tests(monkeypatch, tasks, level):
+    tasks = {t.label: t for t in tasks}
+    graph = TaskGraph(tasks=tasks, graph=Graph(nodes=set(tasks), edges=set()))
+    monkeypatch.setattr(
+        target_tasks, "target_tasks_default", lambda g, *args: list(g.tasks)
+    )
+    parameters = {
+        "tasks_for": "github-push",
+        "project": "enterprise-firefox",
+        "level": level,
+        "release_product": "firefox-enterprise",
+    }
+    return target_tasks.target_tasks_enterprise_firefox_with_tests(
+        graph, parameters, {}
+    )
+
+
+@pytest.mark.parametrize("level", ("1", "3"))
+@pytest.mark.parametrize(
+    "task",
+    (
+        _test_task("valgrind", None, "linux64-enterprise/debug"),
+        _test_task("test-apk", None, "android-arm-enterprise/debug"),
+        _test_task("instrumented-build-apk", None, "android-arm-enterprise/debug"),
+        _test_task(
+            "generate-baseline-profile-firebase", None, "android-arm-enterprise/debug"
+        ),
+        _test_task(
+            "instrumented-build-macrobenchmark-apk",
+            None,
+            "android-arm-enterprise/debug",
+        ),
+        _test_task("run-macrobenchmark-firebase", None, "android-arm-enterprise/debug"),
+        _test_task("ui-test-apk", None, "android-arm-enterprise/debug"),
+        _test_task(
+            "web-platform-tests",
+            "linux2404-64-enterprise/debug",
+            "linux64-enterprise/debug",
+        ),
+        _test_task(
+            "reftest", "linux2404-64-enterprise/debug", "linux64-enterprise/debug"
+        ),
+        _test_task(
+            "mochitest",
+            "linux2404-64-enterprise/debug",
+            "linux64-enterprise/debug",
+            provisioner="proj-autophone",
+        ),
+        _test_task("mochitest", "android-hw-a55-14-0-arm8/debug", "android-arm/debug"),
+        _test_task("mochitest", "windows11-aarch64-24h2/debug", "win64-aarch64/debug"),
+        _test_task(
+            "mochitest",
+            "android-em-14-x86_64/debug",
+            "android-x86_64",
+            label="test-android-em-14-x86_64/debug-geckoview-mochitest-plain-1",
+        ),
+        _test_task(
+            "toolchain",
+            None,
+            None,
+            label="toolchain-linux64-android34-avd-x86_64-repack",
+        ),
+        _test_task(
+            "webrender",
+            None,
+            "android",
+            label="webrender-android-emulator-debug",
+        ),
+        _test_task(
+            "source-test",
+            None,
+            None,
+            label="source-test-android-gradle-test",
+            treeherder_platform="android-5-0-x86_64",
+        ),
+    ),
+    ids=lambda t: t.label,
+)
+def test_with_tests_skips(monkeypatch, level, task):
+    kept = _test_task(
+        "mochitest", "linux2404-64-enterprise/debug", "linux64-enterprise/debug"
+    )
+
+    assert _with_tests(monkeypatch, [kept, task], level) == [kept.label]
+
+
+@pytest.mark.parametrize(
+    "task",
+    (
+        _test_task(
+            "build",
+            None,
+            "android-x86_64",
+            label="build-android-x86_64/debug",
+            run_on_projects=["enterprise-firefox"],
+        ),
+        _test_task(
+            "upload-symbols",
+            None,
+            "android-x86_64",
+            label="build-android-x86_64/debug-upload-symbols",
+        ),
+        _test_task(
+            "source-test",
+            None,
+            None,
+            label="source-test-android-detekt-detekt-focus",
+            treeherder_platform="lint",
+        ),
+    ),
+    ids=lambda t: t.label,
+)
+def test_with_tests_keeps_android_builds_and_lints(monkeypatch, task):
+    """Level 3 only: below it, builds not named enterprise are dropped anyway."""
+    assert _with_tests(monkeypatch, [task], "3") == [task.label]
+
+
 if __name__ == "__main__":
     main()

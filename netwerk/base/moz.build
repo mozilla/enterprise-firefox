@@ -140,7 +140,6 @@ EXPORTS += [
     "nsIURIWithSizeOf.h",
     "nsMIMEInputStream.h",
     "nsNetUtil.h",
-    "nsNetworkInterface.h",
     "nsReadLine.h",
     "nsSerializationHelper.h",
     "nsSimpleNestedURI.h",
@@ -261,15 +260,8 @@ UNIFIED_SOURCES += [
 ]
 
 if CONFIG["MOZ_ENTERPRISE"]:
-    if CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
-        # netwerk/base/nsProtocolProxyService.cpp(736,10): error: no member named 'u' in 'PRIPv6Addr'
-        SOURCES += [
-            "nsNetworkInterface.cpp",
-        ]
-    else:
-        UNIFIED_SOURCES += [
-            "nsNetworkInterface.cpp",
-        ]
+    EXPORTS += ["nsNetworkInterface.h"]
+    UNIFIED_SOURCES += ["nsNetworkInterface.cpp"]
 
 if CONFIG["FUZZING"]:
     SOURCES += [

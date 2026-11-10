@@ -185,7 +185,6 @@ class AppWindow final : public nsIBaseWindow,
 
   NS_IMETHOD EnsureChromeTreeOwner();
   NS_IMETHOD EnsureContentTreeOwner();
-  NS_IMETHOD EnsurePrimaryContentTreeOwner();
   NS_IMETHOD EnsurePrompter();
   NS_IMETHOD EnsureAuthPrompter();
   NS_IMETHOD ForceRoundedDimensions();
@@ -201,7 +200,7 @@ class AppWindow final : public nsIBaseWindow,
   bool LoadSizeFromXUL(int32_t& aSpecWidth, int32_t& aSpecHeight);
   void SetSpecifiedSize(const CSSIntSize&);
   MOZ_CAN_RUN_SCRIPT bool UpdateWindowStateFromMiscXULAttributes();
-  void SyncAttributesToWidget();
+  void SyncOneShotAttributesToWidget();
   void SavePersistentAttributes(PersistentAttributes);
   void MaybeSavePersistentPositionAndSize(PersistentAttributes,
                                           dom::Element& aRootElement,
@@ -223,13 +222,7 @@ class AppWindow final : public nsIBaseWindow,
   // See nsIDocShellTreeOwner for docs on next two methods
   nsresult ContentShellAdded(nsIDocShellTreeItem* aContentShell, bool aPrimary);
   nsresult ContentShellRemoved(nsIDocShellTreeItem* aContentShell);
-  NS_IMETHOD GetPrimaryContentSize(int32_t* aWidth, int32_t* aHeight);
-  NS_IMETHOD SetPrimaryContentSize(int32_t aWidth, int32_t aHeight);
-  nsresult GetRootShellSize(int32_t* aWidth, int32_t* aHeight);
-  nsresult SetRootShellSize(int32_t aWidth, int32_t aHeight);
 
-  NS_IMETHOD SizeShellTo(nsIDocShellTreeItem* aShellItem, int32_t aCX,
-                         int32_t aCY);
   NS_IMETHOD ExitModalLoop(nsresult aStatus);
   MOZ_CAN_RUN_SCRIPT
   NS_IMETHOD CreateNewChromeWindow(int32_t aChromeFlags,
@@ -238,7 +231,6 @@ class AppWindow final : public nsIBaseWindow,
   NS_IMETHOD CreateNewContentWindow(int32_t aChromeFlags,
                                     nsIOpenWindowInfo* aOpenWindowInfo,
                                     nsIAppWindow** _retval);
-  NS_IMETHOD GetHasPrimaryContent(bool* aResult);
 
   void EnableParent(bool aEnable);
   void PlaceWindowLayersBehind(uint32_t aLowLevel, uint32_t aHighLevel,
@@ -306,7 +298,6 @@ class AppWindow final : public nsIBaseWindow,
 
   nsChromeTreeOwner* mChromeTreeOwner;
   nsContentTreeOwner* mContentTreeOwner;
-  nsContentTreeOwner* mPrimaryContentTreeOwner;
   nsCOMPtr<nsIWidget> mWindow;
   RefPtr<nsDocShell> mDocShell;
   nsCOMPtr<nsPIDOMWindowOuter> mDOMWindow;
@@ -333,17 +324,16 @@ class AppWindow final : public nsIBaseWindow,
   // otherwise happen due to script running as we tear down various things.
   bool mDestroying;
   bool mRegistered;
-  // Indicator for whether the client size, instead of the window size, should
-  // be maintained in case of a change in their relation.
-  bool mDominantClientSize;
   PersistentAttributes mPersistentAttributesDirty;
   PersistentAttributes mPersistentAttributesMask;
   uint32_t mChromeFlags;
   nsCOMPtr<nsIOpenWindowInfo> mInitialOpenWindowInfo;
   nsString mTitle;
 
+  // Client size requested via SetRootShellSize().
+  DesktopSize mRequestedClientSize;
   // The screen rect of the opener.
-  mozilla::DesktopIntRect mOpenerScreenRect;
+  DesktopIntRect mOpenerScreenRect;
 
   nsCOMPtr<nsIRemoteTab> mPrimaryBrowserParent;
 
@@ -354,6 +344,11 @@ class AppWindow final : public nsIBaseWindow,
   MOZ_CAN_RUN_SCRIPT void IntrinsicallySizeShell(const CSSIntSize& aWindowDiff,
                                                  int32_t& aSpecWidth,
                                                  int32_t& aSpecHeight);
+
+  // Whether we are currently sized to a particular client size.
+  bool IsClientSizedWindow() const {
+    return mRequestedClientSize != DesktopSize();
+  }
 
   // GetPrimaryBrowserParentSize is called from xpidl methods and we don't have
   // a good way to annotate those with MOZ_CAN_RUN_SCRIPT yet.  It takes no

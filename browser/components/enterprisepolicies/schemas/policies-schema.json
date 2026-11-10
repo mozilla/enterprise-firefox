@@ -134,13 +134,13 @@
       "examples": [
         {
           "Providers": {
-            "Builtin": {
+            "BuiltIn": {
               "Anthropic Claude": true,
               "ChatGPT": false,
               "Copilot": false,
               "Google Gemini": false,
               "HuggingChat": true,
-              "Le Chat Mistral": true,
+              "Mistral Vibe": true,
               "localhost": true
             },
             "Default": "Anthropic Claude",
@@ -200,8 +200,21 @@
                 "HuggingChat": {
                   "type": "boolean"
                 },
+                "Mistral Vibe": {
+                  "type": "boolean",
+                  "x-compatibility": {
+                    "firefox_enterprise": { "version_added": "161" }
+                  }
+                },
                 "Le Chat Mistral": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "x-compatibility": {
+                    "firefox_enterprise": {
+                      "version_added": "149",
+                      "version_removed": "155"
+                    },
+                    "notes": "Has no effect since Firefox 155, when the provider was renamed. Use `Mistral Vibe` instead."
+                  }
                 },
                 "localhost": {
                   "type": "boolean"

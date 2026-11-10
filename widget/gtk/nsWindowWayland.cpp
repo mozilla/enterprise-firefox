@@ -29,6 +29,8 @@ using namespace mozilla::gfx;
 using namespace mozilla::layers;
 using namespace mozilla::widget;
 
+bool nsWindowWayland::sUseStableRounding = true;
+
 // Returns the last window of window chain starting at aWindow.
 // Returns aWindow itself when it has no windows attached.
 nsWindowWayland* nsWindowWayland::FindLastWindow(nsWindowWayland* aWindow) {
@@ -68,6 +70,9 @@ void nsWindowWayland::RemoveFromList() {
 // origin without any content and move it to issue synced commit to toplevel
 // window.
 void nsWindowWayland::ForceToplevelCommit() {
+  if (!mIsMapped) {
+    return;
+  }
   GdkWindow* window = GetToplevelGdkWindow();
   if (!window) {
     return;
@@ -302,6 +307,24 @@ void nsWindowWayland::UnlockNativePointer() {
   }
 }
 
+LayoutDeviceIntSize nsWindowWayland::GetRoundedClientSize() {
+  WaylandSurfaceLock lock(mSurface);
+  return mSurface->GetScaledSize(lock, mClientArea.Size());
+}
+
+void nsWindowWayland::InitPrefs() {
+  // 'Stable' Wayland subsurface rounding algorithm is used by all compositors
+  // except KDE.
+  sUseStableRounding = !IsKdeDesktopEnvironment();
+
+  // Wayland provides clipboard data to application on focus-in event
+  // so we need to init our clipboard hooks before we create window
+  // and get focus.
+  nsCOMPtr<nsIClipboard> clipboard =
+      do_GetService("@mozilla.org/widget/clipboard;1");
+  NS_ASSERTION(clipboard, "Failed to init clipboard!");
+}
+
 nsWindowWaylandToplevel::~nsWindowWaylandToplevel() = default;
 
 // aRestoreWindow = true means we're loading mSessionRestoreToken
@@ -320,12 +343,11 @@ bool nsWindowWaylandToplevel::CreateRestoreSessionImpl(
   }
 
   // If we have old profile / workspace ID or it's empty just replace it by
-  // UUID to avoid protocol error crash (Bug 2059617).
-  nsresult ret = NS_OK;
-  if (!mWorkspaceID.IsEmpty()) {
-    (void)mWorkspaceID.ToInteger(&ret);
-  }
-  if (NS_SUCCEEDED(ret)) {
+  // UUID to avoid protocol error crash (Bug 2059617). Every ID saved for a
+  // Wayland window is a UUID from GenerateWorkspaceID(), while an old one is
+  // an integer, so an ID which is not a UUID is replaced.
+  nsID id;
+  if (!id.Parse(mWorkspaceID)) {
     mWorkspaceID = GenerateWorkspaceID();
     aRestoreWindow = false;
   }
@@ -369,13 +391,19 @@ void nsWindowWaylandToplevel::MoveToWorkspace(
   if (!nsAppShell::IsSessionRestoreSupported()) {
     return;
   }
-  mWorkspaceID = NS_ConvertUTF16toUTF8(aWorkspaceIDStr);
   LOG("nsWindowWaylandToplevel::MoveToWorkspace() session ID %s "
       "mWaitingToSessionRestore %d mNeedsShow %d",
-      mWorkspaceID.get(), mWaitingToSessionRestore, mNeedsShow);
+      NS_ConvertUTF16toUTF8(aWorkspaceIDStr).get(), mWaitingToSessionRestore,
+      mNeedsShow);
+  // A window which does not wait for session restore is already shown or it is
+  // shown without restore, and it is added to the session under its own ID.
+  // The passed ID is from a previous session and the compositor may still
+  // store state for it, so add_toplevel with it would fail with a name_in_use
+  // protocol error (Bug 2064100).
   if (!mWaitingToSessionRestore) {
     return;
   }
+  mWorkspaceID = NS_ConvertUTF16toUTF8(aWorkspaceIDStr);
   mWaitingToSessionRestore = false;
   if (mNeedsShow) {
     NativeShow(/* show */ true);

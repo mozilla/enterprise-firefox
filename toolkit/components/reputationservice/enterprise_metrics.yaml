@@ -1,0 +1,43 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Adding a new metric? We have docs for that!
+# https://firefox-source-docs.mozilla.org/toolkit/components/glean/user/new_definitions_file.html
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+$tags:
+  - 'Toolkit :: Safe Browsing'
+
+safebrowsing:
+  download:
+    type: event
+    data_sensitivity:
+      - highly_sensitive
+    description: >
+      Recorded when download protection (the Google Safe Browsing download
+      protection API) flags a download as unsafe, regardless of whether the
+      configured block prefs cause the download to be blocked. Only collected
+      when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    expires: never
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      url:
+        description: >
+          The source URL the download originated from. When the complete URL is
+          recorded, any password in it is masked.
+        type: string
+      verdict:
+        description: >
+          The download protection verdict: "dangerous", "dangerous_host",
+          "uncommon", or "potentially_unwanted".
+        type: string

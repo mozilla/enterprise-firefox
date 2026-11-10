@@ -664,7 +664,7 @@ export default class IPProtectionContentElement extends MozLitElement {
 
     const messageBar = this._showMessageBar ? this.messageBarTemplate() : null;
 
-    const content = html`${messageBar}${this.mainContentTemplate()}`;
+    let content = html`${messageBar}${this.mainContentTemplate()}`;
 
     // TODO: Conditionally render post-upgrade subview within #ipprotection-content-wrapper - Bug 1973813
     return html`

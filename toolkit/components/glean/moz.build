@@ -94,6 +94,9 @@ include("metrics_index.py")
 # Provides the function to convert a metrics.yaml path to the name of a header.
 include("build_scripts/glean_parser_ext/metrics_header_names.py")
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    metrics_yamls = sorted(metrics_yamls + firefox_enterprise_metrics)
+    pings_yamls = sorted(pings_yamls + firefox_enterprise_pings)
 
 # Allow defining metrics/pings/tags elsewhere (like for Thunderbird).
 # See https://source-docs.thunderbird.net/en/latest/telemetry/index.html

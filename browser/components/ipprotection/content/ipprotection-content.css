@@ -24,7 +24,6 @@ hr {
   --panel-subview-body-padding-inline: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--space-large);
 
   hr {
     margin-block-end: var(--space-small);

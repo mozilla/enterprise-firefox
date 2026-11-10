@@ -8,6 +8,7 @@ import pickle
 import sys
 from pathlib import Path
 
+import buildconfig
 import cpp
 import jinja2
 import jog
@@ -331,7 +332,10 @@ def pings(cpp_fd, *args):
     from os import path
 
     sys.path.append(path.join(path.dirname(__file__), path.pardir, path.pardir))
-    from metrics_index import pings_by_app_or_lib_id
+    from metrics_index import enterprise_pings_by_app_id, pings_by_app_or_lib_id
+
+    if buildconfig.substs.get("MOZ_ENTERPRISE"):
+        pings_by_app_or_lib_id = pings_by_app_or_lib_id | enterprise_pings_by_app_id
 
     for app_id, ping_yamls in pings_by_app_or_lib_id.items():
         input_files = [Path(path.join(topsrcdir, x)) for x in ping_yamls]

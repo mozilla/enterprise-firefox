@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <fmt/format.h>
+
 #include "BasicEvents.h"
 #include "ContentEvents.h"
 #include "MiscEvents.h"
@@ -31,6 +33,7 @@
 #include "nsIDragSession.h"
 #include "nsMathUtils.h"
 #include "nsPrintfCString.h"
+#include "nsUnicharUtils.h"
 
 #if defined(XP_WIN)
 #  include "WinUtils.h"
@@ -1396,6 +1399,13 @@ bool WidgetKeyboardEvent::ShouldCauseKeypressEvents() const {
   }
 }
 
+static bool AcceptableCharForShortcutKey(uint32_t aCharCode) {
+  constexpr static uint32_t kCharCodeDEL = 0x7F;
+  return aCharCode >= ' ' && aCharCode != kCharCodeDEL &&
+         // KeyEventHandler does not support surrogate pairs.
+         IsInBMP(aCharCode);
+}
+
 static bool HasASCIIDigit(const ShortcutKeyCandidateArray& aCandidates) {
   for (uint32_t i = 0; i < aCandidates.Length(); ++i) {
     uint32_t ch = aCandidates[i].mCharCode;
@@ -1415,7 +1425,32 @@ static bool IsCaseChangeableChar(uint32_t aChar) {
                                ToUpperCase(static_cast<char16_t>(aChar));
 }
 
-void WidgetKeyboardEvent::GetShortcutKeyCandidates(
+static Maybe<uint32_t> IndexOfCharCaseInsensitive(
+    const ShortcutKeyCandidateArray& aCandidates, uint32_t aCharCode,
+    const Maybe<ShortcutKeyCandidate::ShiftState>& aShiftState = Nothing()) {
+  for (const uint32_t index : IntegerRange(aCandidates.Length())) {
+    const auto& candidate = aCandidates[index];
+    if (aShiftState && candidate.mShiftState != aShiftState.value()) {
+      continue;
+    }
+    if (CharsCaseInsensitiveEqual(candidate.mCharCode, aCharCode)) {
+      return Some(index);
+    }
+  }
+  return Nothing();
+}
+
+static bool ContainsCharCaseInsensitive(
+    const ShortcutKeyCandidateArray& aCandidates, uint32_t aCharCode,
+    const Maybe<ShortcutKeyCandidate::ShiftState>& aShiftState = Nothing()) {
+  return IndexOfCharCaseInsensitive(aCandidates, aCharCode, aShiftState)
+      .isSome();
+}
+
+LazyLogModule gShortcutKeyCandidateLog("ShortcutKeyCandidates");
+
+void WidgetKeyboardEvent::GetShortcutKeyCandidatesInternal(
+    ShortcutKeyPriority aPriority,
     ShortcutKeyCandidateArray& aCandidates) const {
   MOZ_ASSERT(aCandidates.IsEmpty(), "aCandidates must be empty");
 
@@ -1423,91 +1458,200 @@ void WidgetKeyboardEvent::GetShortcutKeyCandidates(
   using SkipIfEarlierHandlerDisabled =
       ShortcutKeyCandidate::SkipIfEarlierHandlerDisabled;
 
-  // ShortcutKeyCandidate::mCharCode is a candidate charCode.
-  // ShortcutKeyCandidate::mShiftState means the mCharCode should be tried to
-  // execute a command with/without shift key state. If this is Ignorable,
-  // the shifted key state should be ignored. Otherwise, don't ignore the state.
-  // the priority of the charCodes are (shift key is not pressed):
+  // ShortcutKeyCandidate::mCharCode specifies a candidate charCode.
+  // ShortcutKeyCandidate::mShiftState specifies how the Shift key state should
+  // be handled when matching mCharCode against a shortcut key:
+  // - MatchExactly: The Shift key state must match exactly.
+  // - Ignorable: The Shift key state is ignored.
+  //
+  // If this is called to perform shortcut key matching, aPriority is set to
+  // `UserIntention`. This means that we prioritize the character the user
+  // actually intends to input using the current keyboard layout, without
+  // Accel/Ctrl/Alt modifiers. For example, if a key introduces a Unicode
+  // character, that character is preferred over the ASCII character that the
+  // same key introduces with an ASCII-capable keyboard layout.
+  //
+  // If this key combination introduces an ASCII alphabet character, the
+  // handling is straightforward. We should return only:
+  //   0: PseudoCharCode()/ShiftState::MatchExactly
+  //
+  // If this key combination introduces another ASCII character, the handling is
+  // more complicated because whether Shift is required depends on the active
+  // keyboard layout. We assume that a localized build users teh appropriate
+  // Shift state for the most common keyboard layout in that local. However,
+  // users may use a keyboard layout different from their locale. so, we need
+  // to be more flexible about the Shift state.
+  //
+  // When Shift is not pressed, we should return:
   //   0: PseudoCharCode()/ShiftState::MatchExactly,
   //   1: unshiftedCharCodes[0]/ShiftState::MatchExactly,
-  //   2: unshiftedCharCodes[1]/ShiftState::MatchExactly...
-  // the priority of the charCodes are (shift key is pressed):
+  //   2: unshiftedCharCodes[1]/ShiftState::MatchExactly,
+  //   ...
+  //
+  // Currently, we don't consider candidates that require Shift in this case.
+  // This behavior may change in the future; see bug 433907.
+  //
+  // When Shift is pressed, we should return:
   //   0: PseudoCharCode()/ShiftState::MatchExactly,
   //   1: shiftedCharCodes[0]/ShiftState::MatchExactly,
   //   2: shiftedCharCodes[0]/ShiftState::Ignorable,
   //   3: shiftedCharCodes[1]/ShiftState::MatchExactly,
-  //   4: shiftedCharCodes[1]/ShiftState::Ignorable...
-  uint32_t pseudoCharCode = PseudoCharCode();
-  if (pseudoCharCode) {
-    ShortcutKeyCandidate key(pseudoCharCode, ShiftState::MatchExactly,
-                             SkipIfEarlierHandlerDisabled::No);
-    aCandidates.AppendElement(key);
+  //   4: shiftedCharCodes[1]/ShiftState::Ignorable,
+  //   ...
+  //
+  // This allows, for example, "Accel + Shift + @" to match an "Accel + @"
+  // shortcut but if there is no handler for "Accel + Shift + @".
+  //
+  // Additionally, some keyboard layouts, such as AZERTY require Shift to
+  // introduce numeric characters using the number keys. We handle this special
+  // case separately in the code following the `for` loop below.
+  //
+  // Similarly, if the Space key does not introduce an ASCII space, we append
+  // `" "/ShiftState::MatchExactly` to the end of the candidates.
+  //
+  // On the other hand, when this is called to suggest shortcut key
+  // combinations, aPriority is set to `AccessibleFromAnyKeyboardLayouts`. In
+  // this case, we prioritize combinations that may be accessible across
+  // different keyboard layouts. For example, a Unicode character introduced by
+  // the key may not be available on the same or another on other keyboard
+  // layouts. Therefore, the ASCII character introduced by the same key on an
+  // ASCII-capable keyboard layout is preferred.
+  //
+  // Additionally, Shift state is ignorable only when Shift is pressed. This
+  // means that "Accel + Shift + @" may match an "Accel + @" shortcut, but
+  // "Accel + @" cannot match an "Accel + Shift + @" shortcut. Therefore,
+  // shortcuts that don't require Shift are generally more accessible across
+  // keyboard layouts.
+  //
+  // Consequently, the candidate order is typically changed to one of the
+  // following if the pseudo charCode is a Unicode character:
+  //
+  //   0: unshiftedCharCodes[0]/ShiftState::MatchExactly,
+  //   1: unshiftedCharCodes[1]/ShiftState::MatchExactly,
+  //   ...
+  //   2: PseudoCharCode()/ShiftState::MatchExactly
+  //
+  // or:
+  //
+  //   0: shiftedCharCodes[0]/ShiftState::Ignorable,
+  //   1: shiftedCharCodes[0]/ShiftState::MatchExactly,
+  //   2: shiftedCharCodes[1]/ShiftState::Ignorable,
+  //   3: shiftedCharCodes[1]/ShiftState::MatchExactly,
+  //   ...
+  //   4: PseudoCharCode()/ShiftState::MatchExactly
+
+  const auto ComputeCandidateIndex = [&](uint32_t aCharCode,
+                                         ShiftState aShiftState) -> uint32_t {
+    // The default list order is based on the user's intention. So, we should
+    // always append new one to the result as a lower priority candidate.
+    if (aPriority == ShortcutKeyPriority::UserIntention) {
+      return aCandidates.Length();
+    }
+    // When we're inserting shift ignorable candidate and aCandidates already
+    // has MatchExactly candidate, we should insert it before the extand one.
+    if (aShiftState == ShiftState::Ignorable) {
+      if (const Maybe<uint32_t> index = IndexOfCharCaseInsensitive(
+              aCandidates, aCharCode, Some(ShiftState::MatchExactly))) {
+        return index.value();
+      }
+    }
+    // We prefer the ASCII alphabet, let's insert the ASCII alphabet candidate
+    // to first.
+    //
+    // FYI: The native keyboard event handlers should never set an alternative
+    // charCode to different ASCII alphabet from the pseudo charCode when it's
+    // an ASCII alphabet.
+    if (IS_ASCII_ALPHA(aCharCode)) {
+      return 0;
+    }
+    if (aCharCode > 0x7F) {
+      // Unicode character should be appended to the last.
+      return aCandidates.Length();
+    }
+    // We prefer ASCII character rather than Unicode character, let's insert the
+    // ASCII character candidate before the first Unicode character candidate.
+    for (uint32_t i = 0; i < aCandidates.Length(); i++) {
+      if (aCandidates[i].mCharCode > 0x7F) {
+        return i;
+      }
+    }
+    return aCandidates.Length();
+  };
+
+  if (AcceptableCharForShortcutKey(PseudoCharCode())) {
+    aCandidates.AppendElement(
+        ShortcutKeyCandidate(PseudoCharCode(), ShiftState::MatchExactly,
+                             SkipIfEarlierHandlerDisabled::No));
   }
 
-  uint32_t len = mAlternativeCharCodes.Length();
-  if (!IsShift()) {
-    for (uint32_t i = 0; i < len; ++i) {
-      uint32_t ch = mAlternativeCharCodes[i].mUnshiftedCharCode;
-      if (!ch || ch == pseudoCharCode) {
-        continue;
-      }
-      ShortcutKeyCandidate key(ch, ShiftState::MatchExactly,
-                               SkipIfEarlierHandlerDisabled::No);
-      aCandidates.AppendElement(key);
+  const bool isShift = IsShift();
+  for (const auto& alt : mAlternativeCharCodes) {
+    const uint32_t ch = isShift ? alt.mShiftedCharCode : alt.mUnshiftedCharCode;
+    if (!AcceptableCharForShortcutKey(ch)) {
+      continue;
     }
-    // If unshiftedCharCodes doesn't have numeric but shiftedCharCode has it,
-    // this keyboard layout is AZERTY or similar layout, probably.
-    // In this case, Accel+[0-9] should be accessible without shift key.
-    // However, the priority should be lowest.
-    if (!HasASCIIDigit(aCandidates)) {
-      for (uint32_t i = 0; i < len; ++i) {
-        uint32_t ch = mAlternativeCharCodes[i].mShiftedCharCode;
-        if (ch >= '0' && ch <= '9') {
-          ShortcutKeyCandidate key(
-              ch, ShiftState::MatchExactly,
-              // Ctrl + `-` in the French keyboard layout should not match with
-              // Ctrl + `6` shortcut when it's already fully zoomed out.
-              SkipIfEarlierHandlerDisabled::Yes);
-          aCandidates.AppendElement(key);
-          break;
-        }
-      }
+
+    if (!ContainsCharCaseInsensitive(aCandidates, ch)) {
+      aCandidates.InsertElementAt(
+          ComputeCandidateIndex(ch, ShiftState::MatchExactly),
+          ShortcutKeyCandidate(ch, ShiftState::MatchExactly,
+                               SkipIfEarlierHandlerDisabled::No));
     }
-  } else {
-    for (uint32_t i = 0; i < len; ++i) {
-      uint32_t ch = mAlternativeCharCodes[i].mShiftedCharCode;
-      if (!ch) {
-        continue;
+
+    if (!isShift) {
+      continue;
+    }
+
+    // If the char is an alphabet, the shift key state should not be
+    // ignored. E.g., Ctrl+Shift+C should not execute Ctrl+C.
+    if (ContainsCharCaseInsensitive(aCandidates, ch,
+                                    Some(ShiftState::Ignorable))) {
+      continue;
+    }
+
+    // And checking the charCode is same as unshiftedCharCode too.
+    // E.g., for Ctrl+Shift+(Plus of Numpad) should not run Ctrl+Plus.
+    const uint32_t unshiftCh = alt.mUnshiftedCharCode;
+    if (CharsCaseInsensitiveEqual(ch, unshiftCh)) {
+      continue;
+    }
+
+    // On the Hebrew keyboard layout on Windows, the unshifted char is a
+    // localized character but the shifted char is a Latin alphabet,
+    // then, we should not execute without the shift state. See bug 433192.
+    if (IsCaseChangeableChar(ch)) {
+      continue;
+    }
+
+    // Setting the alternative charCode candidates for retry without shift
+    // key state only when the shift key is pressed.
+    aCandidates.InsertElementAt(
+        ComputeCandidateIndex(ch, ShiftState::Ignorable),
+        ShortcutKeyCandidate(ch, ShiftState::Ignorable,
+                             SkipIfEarlierHandlerDisabled::No));
+  }
+
+  // If Shift key is not pressed and the result doesn't have numeric but it's
+  // contained in alternative shifted char code, this keyboard layout is AZERTY
+  // or similar layout. In this case, Accel+[0-9] should be accessible without
+  // shift key. However, the priority should be lower than unshifted char codes.
+  if (!isShift && !HasASCIIDigit(aCandidates)) {
+    for (const auto& alt : mAlternativeCharCodes) {
+      if (alt.mShiftedCharCode >= '0' && alt.mShiftedCharCode <= '9') {
+        // But we prefer the numeric than a Unicode if aPriority is
+        // `AccessibleFromAnyKeyboardLayouts` since it's accessible from any
+        // other keyboard layouts.
+        const uint32_t index = ComputeCandidateIndex(alt.mShiftedCharCode,
+                                                     ShiftState::MatchExactly);
+        aCandidates.InsertElementAt(
+            index,
+            ShortcutKeyCandidate(
+                alt.mShiftedCharCode, ShiftState::MatchExactly,
+                // Ctrl + `-` in the French keyboard layout should not match
+                // with Ctrl + `6` shortcut when it's already fully zoomed out.
+                SkipIfEarlierHandlerDisabled::Yes));
+        break;
       }
-
-      if (ch != pseudoCharCode) {
-        ShortcutKeyCandidate key(ch, ShiftState::MatchExactly,
-                                 SkipIfEarlierHandlerDisabled::No);
-        aCandidates.AppendElement(key);
-      }
-
-      // If the char is an alphabet, the shift key state should not be
-      // ignored. E.g., Ctrl+Shift+C should not execute Ctrl+C.
-
-      // And checking the charCode is same as unshiftedCharCode too.
-      // E.g., for Ctrl+Shift+(Plus of Numpad) should not run Ctrl+Plus.
-      uint32_t unshiftCh = mAlternativeCharCodes[i].mUnshiftedCharCode;
-      if (CharsCaseInsensitiveEqual(ch, unshiftCh)) {
-        continue;
-      }
-
-      // On the Hebrew keyboard layout on Windows, the unshifted char is a
-      // localized character but the shifted char is a Latin alphabet,
-      // then, we should not execute without the shift state. See bug 433192.
-      if (IsCaseChangeableChar(ch)) {
-        continue;
-      }
-
-      // Setting the alternative charCode candidates for retry without shift
-      // key state only when the shift key is pressed.
-      ShortcutKeyCandidate key(ch, ShiftState::Ignorable,
-                               SkipIfEarlierHandlerDisabled::No);
-      aCandidates.AppendElement(key);
     }
   }
 
@@ -1517,10 +1661,29 @@ void WidgetKeyboardEvent::GetShortcutKeyCandidates(
   // press.  However, if the space key is assigned to a function key, it
   // shouldn't work as a space key.
   if (mKeyNameIndex == KEY_NAME_INDEX_USE_STRING &&
-      mCodeNameIndex == CODE_NAME_INDEX_Space && pseudoCharCode != ' ') {
-    ShortcutKeyCandidate spaceKey(' ', ShiftState::MatchExactly,
-                                  SkipIfEarlierHandlerDisabled::No);
-    aCandidates.AppendElement(spaceKey);
+      mCodeNameIndex == CODE_NAME_INDEX_Space &&
+      !ContainsCharCaseInsensitive(aCandidates, ' ')) {
+    // But we prefer the ASCII space rather than a Unicode if aPriority is
+    // `AccessibleFromAnyKeyboardLayouts` since it's accessible from any other
+    // keyboard layouts.
+    const uint32_t index = ComputeCandidateIndex(' ', ShiftState::MatchExactly);
+    aCandidates.InsertElementAt(
+        index, ShortcutKeyCandidate(' ', ShiftState::MatchExactly,
+                                    SkipIfEarlierHandlerDisabled::No));
+  }
+
+  if (MOZ_LOG_TEST(gShortcutKeyCandidateLog, LogLevel::Info)) {
+    nsAutoString domKeyValue;
+    GetDOMKeyName(domKeyValue);
+    MOZ_LOG_FMT(gShortcutKeyCandidateLog, LogLevel::Info,
+                "key=\"{}\", isShift={}, isAlt={}, isCtrl={}, isMeta={}",
+                NS_ConvertUTF16toUTF8(domKeyValue), isShift, IsAlt(),
+                IsControl(), IsMeta());
+    MOZ_LOG_FMT(gShortcutKeyCandidateLog, LogLevel::Info,
+                "  aPriority={}, result:", aPriority);
+    for (const auto& candidate : aCandidates) {
+      MOZ_LOG_FMT(gShortcutKeyCandidateLog, LogLevel::Info, "  {}", candidate);
+    }
   }
 }
 
@@ -2487,6 +2650,25 @@ void InternalAnimationEvent::AssignAnimationEventData(
   mElapsedTime = aEvent.mElapsedTime;
   mPseudoElement = aEvent.mPseudoElement;
   mAnimation = aEvent.mAnimation;
+}
+
+/*****************************************************************************
+ * Logging helpers
+ *****************************************************************************/
+
+std::string format_as(const ShortcutKeyCandidate& aCandidate) {
+  return fmt::format(
+      "{{ mCharCode=0x{:08X}{}, mShiftState={}, "
+      "mSkipIfEarlierHandlerDisabled={} }}",
+      aCandidate.mCharCode,
+      aCandidate.mCharCode >= ' ' && IsInBMP(aCandidate.mCharCode)
+          ? fmt::format(
+                " (\"{}\")",
+                NS_ConvertUTF16toUTF8(
+                    nsAutoString(static_cast<char16_t>(aCandidate.mCharCode)))
+                    .get())
+          : "",
+      aCandidate.mShiftState, aCandidate.mSkipIfEarlierHandlerDisabled);
 }
 
 }  // namespace mozilla
