@@ -11,6 +11,7 @@ import os
 from taskgraph.transforms.base import TransformSequence
 
 from gecko_taskgraph.util.comm_decision import (
+    COMM_CRON_TARGET_TASKS_METHODS,
     COMM_DECISION_LABEL,
     COMM_PROJECTS,
     get_comm_decision_treeherder,
@@ -26,9 +27,14 @@ COMM_TASKS_FOR = ("github-push",)
 
 @transforms.add
 def filter_projects(config, tasks):
-    if (
-        config.params["project"] not in COMM_PROJECTS
-        or config.params["tasks_for"] not in COMM_TASKS_FOR
+    params = config.params
+    if params["project"] not in COMM_PROJECTS:
+        return
+    # The Enterprise cron jobs of COMM_CRON_TARGET_TASKS_METHODS generate the
+    # comm graph too.
+    if params["tasks_for"] not in COMM_TASKS_FOR and not (
+        params["tasks_for"] == "cron"
+        and params["target_tasks_method"] in COMM_CRON_TARGET_TASKS_METHODS
     ):
         return
     yield from tasks

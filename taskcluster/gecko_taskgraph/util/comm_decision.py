@@ -19,6 +19,12 @@ copies itself with the same transform. The copy checks out Thunderbird and runs
 `mach taskgraph action-callback --root=comm/taskcluster` against the comm
 decision task.
 
+Cron works the same way too. For the Enterprise cron jobs listed in
+`COMM_CRON_TARGET_TASKS_METHODS`, the Gecko cron decision task also schedules
+`comm-decision`, which generates the comm graph with the same cron options
+and target tasks method. The method is a Gecko one, also registered in the
+comm graph, which selects the comm tasks there by `release_product`.
+
 The comm decision task records its place in the Gecko push in the
 `child_graph` parameter. The comm graph's action lookups (decision task,
 action tasks) use that parameter, together with Gecko's repository and
@@ -52,6 +58,19 @@ COMM_PROJECTS = {
 # decision task, see `get_decision_parameters` in gecko_taskgraph.decision.
 CHILD_GRAPH_ENV = "TASKGRAPH_CHILD_GRAPH"
 
+# Gecko cron target tasks methods that also generate the comm graph, with the
+# same method: they select the tasks of `release_product` in either graph.
+COMM_CRON_TARGET_TASKS_METHODS = {"nightly_enterprise", "daily_releases_enterprise"}
+
+# `mach taskgraph decision` options of a cron decision task, which the comm
+# decision task takes over.
+CRON_DECISION_OPTIONS = (
+    "--target-tasks-method",
+    "--include-push-tasks",
+    "--rebuild-kind",
+    "--optimize-target-tasks",
+)
+
 COMM_DECISION_LABEL = "comm-decision"
 COMM_ACTION_LABEL = "comm-action"
 
@@ -61,8 +80,9 @@ REPOSITORIES = {"gecko": "Mozilla Firefox", "comm": "Mozilla Thunderbird"}
 
 
 def child_graph_index(parameters, name):
-    """Return the index path of the decision (``name="decision"``) or action
-    (``name="actions"``) tasks of a child graph, or None for a top-level one."""
+    """Return the index path of the decision (``name="decision"``), action
+    (``name="actions"``) or cron (``name="cron"``) tasks of a child graph, or
+    None for a top-level one."""
     child_graph = parameters.get("child_graph")
     if not child_graph:
         return None
@@ -210,8 +230,20 @@ def get_comm_decision_treeherder(decision_treeherder=None):
     treeherder.setdefault("machine", {"platform": "gecko-decision"})
     # Required of the tasks of a graph, unlike of the decision task.
     treeherder.setdefault("collection", {"opt": True})
-    treeherder["symbol"] = "DC"
+    # Next to the cron decision task's symbol in its `cron` group.
+    treeherder["symbol"] = (
+        f"{treeherder['symbol']}-comm" if "groupSymbol" in treeherder else "DC"
+    )
     return treeherder
+
+
+def get_cron_decision_options(command):
+    """The cron options of a decision task's `mach taskgraph decision` script."""
+    return [
+        arg
+        for arg in shlex.split(command)
+        if arg.split("=", 1)[0] in CRON_DECISION_OPTIONS
+    ]
 
 
 def get_comm_decision_routes(routes):
@@ -219,18 +251,26 @@ def get_comm_decision_routes(routes):
     these routes, and the index namespace of its comm graph.
 
     The comm decision task is on the same Treeherder push. It is indexed as
-    `...taskgraph.comm-decision` where the decision task is indexed as
-    `...taskgraph.decision`.
+    `...taskgraph.comm-decision[-<cron job>]` where the decision task is
+    indexed as `...taskgraph.decision[-<cron job>]`. A cron decision task's
+    `...cron.<taskId>` index, which actions use to find the tasks of cron
+    graphs, becomes `...taskgraph.comm-cron.<taskId>`.
     """
     comm_routes = []
     child_index = None
     for route in routes:
-        if match := re.match(r"^index\.(.+)\.taskgraph\.decision$", route):
-            namespace = match.group(1)
-            comm_routes.append(f"index.{namespace}.taskgraph.comm-decision")
+        if match := re.match(r"^index\.(.+)\.taskgraph\.decision(-[^.]+)?$", route):
+            namespace, cron_suffix = match.group(1), match.group(2) or ""
+            comm_routes.append(
+                f"index.{namespace}.taskgraph.comm-decision{cron_suffix}"
+            )
             # `<trust-domain>.v2.<project>[-pr].revision.<rev>`
             if ".revision." in namespace:
                 child_index = f"{namespace}.taskgraph.comm"
+        elif match := re.match(r"^index\.(.+\.revision\.[^.]+)\.cron\.[^.]+$", route):
+            comm_routes.append({
+                "task-reference": f"index.{match.group(1)}.taskgraph.comm-cron.<self>"
+            })
         elif not route.startswith("index."):
             comm_routes.append(route)
     if not child_index:
@@ -260,6 +300,9 @@ def make_comm_decision_task(graph_config, params):
         f"--head-ref={params['head_ref']}",
         f"--head-rev={params['head_rev']}",
     ]
+    # A cron decision task's options: target tasks method, reuse of the push
+    # tasks.
+    args += get_cron_decision_options(original["payload"]["command"][-1])
     # The Gecko decision task allows parameter overrides on development
     # repositories (try).
     if "--allow-parameter-override" in original["payload"]["command"][-1]:
