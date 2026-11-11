@@ -711,6 +711,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 m = self.build_policies_response()
 
         elif path == "/sso/logout":
+            # Hold the request open to simulate a console that does not answer.
+            stall_deadline = time.monotonic() + 120
+            while self.server.signout_stall.value and time.monotonic() < stall_deadline:
+                time.sleep(0.2)
             if not self.check_auth():
                 return
             with self.server.signout_count.get_lock():
@@ -786,6 +790,7 @@ def serve(
     key_fail_request=None,
     token_fail_request=None,
     signout_count=None,
+    signout_stall=None,
     posture_edr_agents=None,
     relaunch=None,
     # TODO: Behavior is not yet clearly defined
@@ -838,6 +843,7 @@ def serve(
         token_fail_request if token_fail_request is not None else Value("B", 0)
     )
     httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
+    httpd.signout_stall = signout_stall if signout_stall is not None else Value("B", 0)
     if posture_edr_agents is not None:
         httpd.posture_edr_agents = posture_edr_agents
     if relaunch is not None:
@@ -966,6 +972,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_token = SharedString("")
         self.policy_refresh_token = SharedString("")
         self.signout_count = Value("i", 0)
+        # While set, the console holds /sso/logout requests open without replying.
+        self.signout_stall = Value("B", 0)
         # JSON string served as the posture configuration's "edr_agents". Empty
         # omits the field entirely.
         self.posture_edr_agents = SharedString("")
@@ -994,6 +1002,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 key_fail_request=self.key_fail_request,
                 token_fail_request=self.token_fail_request,
                 signout_count=self.signout_count,
+                signout_stall=self.signout_stall,
                 posture_edr_agents=self.posture_edr_agents,
                 relaunch=self.relaunch,
                 # TODO: Behavior is not yet clearly defined
