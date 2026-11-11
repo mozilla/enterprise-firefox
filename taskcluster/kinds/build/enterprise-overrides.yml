@@ -113,6 +113,7 @@ win64-aarch64-enterprise/opt:
         tier: 1
     attributes:
         code-review: true
+    optimization: null
 
 win64-aarch64-enterprise/debug:
     run-on-projects: [enterprise-firefox]
@@ -121,3 +122,4 @@ win64-aarch64-enterprise/debug:
         tier: 1
     attributes:
         code-review: true
+    optimization: null
