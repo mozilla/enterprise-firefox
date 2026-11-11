@@ -35,6 +35,8 @@ subsuite = "taskgraph"
 
 ["test_transforms_enterprise_oci_registry.py"]
 
+["test_transforms_enterprise_overrides.py"]
+
 ["test_transforms_enterprise_release_definition.py"]
 
 ["test_transforms_enterprise_repack_mar_signing.py"]
