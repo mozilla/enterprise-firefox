@@ -24,6 +24,15 @@ import { getFxAccountsSingleton } from "resource://gre/modules/FxAccounts.sys.mj
 
 const fxAccounts = getFxAccountsSingleton();
 import { RESTRequest } from "resource://services-common/rest.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
+const lazy = {};
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    ConsoleClient:
+      "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
+  });
+}
 
 /**
  * Create a new FxAccountsProfileClient to be able to fetch Firefox Account profile information.
@@ -121,6 +130,12 @@ FxAccountsProfileClient.prototype = {
    * @private
    */
   async _getTokenForRequest(method) {
+    if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltBrowser()) {
+      // The console serves the profile and authenticates it with the console
+      // access token. That token is rotated on every refresh, so a cached OAuth
+      // token would go stale; always use the current one.
+      return lazy.ConsoleClient.getAccessToken();
+    }
     let scope = SCOPE_PROFILE;
     if (method === "POST") {
       scope = SCOPE_PROFILE_WRITE;
