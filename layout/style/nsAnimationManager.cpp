@@ -24,6 +24,7 @@
 #include "mozilla/dom/ScrollTimeline.h"
 #include "mozilla/dom/TimelineName.h"
 #include "mozilla/dom/ViewTimeline.h"
+#include "nsContentUtils.h"
 #include "nsDOMMutationObserver.h"
 #include "nsIFrame.h"
 #include "nsINode.h"
@@ -457,6 +458,7 @@ void nsAnimationManager::UpdateAnimations(
 void nsAnimationManager::RemoveNamedTimelineAnimation(
     const nsAtom* aName, mozilla::dom::CSSAnimation* aAnimation) {
   RemoveCorrespondingAnimation(aName, aAnimation, mAnimationsWithNamedTimeline);
+  mAnimationsWithDeferredUpdate.Remove(aAnimation);
 }
 
 /**
@@ -515,15 +517,15 @@ static void CheckNamedTimelineMap(
 #endif
 
 void nsAnimationManager::UpdateNamedTimelineAnimations(
-    const nsTArray<RefPtr<const nsAtom>>& aChanged) {
+    const nsTHashSet<RefPtr<const nsAtom>>& aChanged) {
   auto* document = mPresContext->Document();
-  for (const auto& name : aChanged) {
+  for (const nsAtom* name : aChanged) {
     auto entries = mAnimationsWithNamedTimeline.Lookup(name);
     if (!entries) {
       continue;
     }
     for (auto& animation : *entries) {
-      UpdateNamedTimelineAnimation(document, animation.get(), name.get(),
+      UpdateNamedTimelineAnimation(document, animation.get(), name,
                                    SomeRef(mAnimationsWithDeferredUpdate));
     }
   }
@@ -546,12 +548,49 @@ void nsAnimationManager::UpdateAllNamedTimelineAnimations() {
 #endif
 }
 
+void nsAnimationManager::MarkNamedTimelineAnimationForUpdate(
+    const nsAtom* aName) {
+  if (mAllNamedTimelineAnimationsPending) {
+    return;
+  }
+  mTimelineNamesPendingUpdate.Insert(aName);
+}
+
+void nsAnimationManager::MarkNamedTimelineAnimationsForUpdate(
+    Span<const RefPtr<const nsAtom>> aNames) {
+  for (const auto& name : aNames) {
+    MarkNamedTimelineAnimationForUpdate(name);
+  }
+}
+
+void nsAnimationManager::FlushPendingNamedTimelineUpdates() {
+  if (!HasPendingNamedTimelineUpdates()) {
+    return;
+  }
+  // Timeline changes must not run script, see UpdateDeferredTimelineChanges().
+  MOZ_ASSERT(!nsContentUtils::IsSafeToRunScript());
+  nsAutoAnimationMutationBatch mb(mPresContext->Document());
+  if (mAllNamedTimelineAnimationsPending) {
+    mAllNamedTimelineAnimationsPending = false;
+    mTimelineNamesPendingUpdate.Clear();
+    UpdateAllNamedTimelineAnimations();
+    return;
+  }
+  const auto names = std::move(mTimelineNamesPendingUpdate);
+  MOZ_ASSERT(mTimelineNamesPendingUpdate.IsEmpty());
+  UpdateNamedTimelineAnimations(names);
+}
+
 void nsAnimationManager::UpdateDeferredTimelineChanges() {
-  if (mAnimationsWithDeferredUpdate.IsEmpty()) {
+  if (!HasPendingNamedTimelineUpdates() &&
+      mAnimationsWithDeferredUpdate.IsEmpty()) {
     return;
   }
   // This is unneeded once we resolve Bug 2033912.
   nsAutoScriptBlocker scriptBlocker;
+  // Names marked outside of a style traversal, e.g. by removing a timeline's
+  // element from the tree, are flushed here.
+  FlushPendingNamedTimelineUpdates();
   auto* document = mPresContext->Document();
   for (auto* animation : mAnimationsWithDeferredUpdate) {
     if (!animation->GetTimelineName().mName) {
@@ -585,12 +624,13 @@ void nsAnimationManager::DoUpdateAnimations(
 
   nsAutoAnimationMutationBatch mb(aTarget.mElement->OwnerDoc());
 
-  // Build the updated animations list. Even if we remove entries in
-  // `mAnimationsWithNamedTimeline` in this function later, entries are added
-  // when we build the list, breaking the symmetry. This is unfortunate, but
-  // unavoidable, because `newAmimations.Length()` does not necessarily equal to
-  // the length of animations defined in `aStyle`, e.g. when a referenced
-  // `animiation-name` does not exist.
+  // Build the updated animations list. Even if cancelling the removed
+  // animations later in this function drops their entries from
+  // `mAnimationsWithNamedTimeline`, entries are added when we build the list,
+  // breaking the symmetry. This is unfortunate, but unavoidable, because
+  // `newAmimations.Length()` does not necessarily equal to the length of
+  // animations defined in `aStyle`, e.g. when a referenced `animiation-name`
+  // does not exist.
   //
   // Old entries in `collection` may be reused. If they are, they are removed
   // from `collection` and put into `newAnimations`.
@@ -600,13 +640,6 @@ void nsAnimationManager::DoUpdateAnimations(
 
   if (newAnimations.IsEmpty()) {
     if (collection) {
-      for (const auto& animation : collection->mAnimations) {
-        if (!RefersToNamedTimeline(animation)) {
-          continue;
-        }
-        RemoveCorrespondingAnimation(animation->GetTimelineName().mName,
-                                     animation, mAnimationsWithNamedTimeline);
-      }
       collection->Destroy();
     }
     return;
@@ -627,9 +660,5 @@ void nsAnimationManager::DoUpdateAnimations(
     const auto& anim = newAnimations[newAnimIdx];
     aBuilder.NotifyNewOrRemovedAnimation(*anim);
     newAnimations[newAnimIdx]->CancelFromStyle(PostRestyleMode::IfNeeded);
-    if (RefersToNamedTimeline(anim)) {
-      RemoveCorrespondingAnimation(anim->GetTimelineName().mName, anim,
-                                   mAnimationsWithNamedTimeline);
-    }
   }
 }
