@@ -14,11 +14,6 @@ QM_ENCRYPTION_PREF = "dom.quotaManager.encryption.enabled"
 QM_TESTING_PREF = "dom.quotaManager.testing"
 
 
-def skip_if_enterprise(test):
-    if test.marionette.session_capabilities.get("moz:browserFlavor") == "enterprise":
-        test.skipTest("Not supported on enterprise builds")
-
-
 class CacheAPIEncryptionPersistence(QuotaTestCase):
     """
     Verify that encrypted Cache API data persists across a browser restart.
@@ -28,8 +23,6 @@ class CacheAPIEncryptionPersistence(QuotaTestCase):
 
     def setUp(self):
         super().setUp()
-
-        skip_if_enterprise(self)
 
         # QuotaManager reads encryption.enabled once at startup, so write it to
         # the profile and restart before touching storage.
