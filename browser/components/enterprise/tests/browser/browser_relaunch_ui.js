@@ -232,7 +232,9 @@ add_task(async function test_the_countdown_keeps_the_bar_and_its_focus() {
 
   const notification =
     win.gNotificationBox.getNotificationWithValue(IMMINENT_ID);
-  const button = notification.buttonContainer.querySelector("button");
+  const button = notification.buttonContainer.querySelector(
+    ".notification-button"
+  );
   button.focus();
 
   RelaunchEnforcer.onConsolePoll({
@@ -353,7 +355,7 @@ add_task(async function test_a_withdrawal_mid_show_is_not_adopted() {
       "The bar carries the deadline that stands"
     );
 
-    notification.buttonContainer.querySelector("button").click();
+    notification.buttonContainer.querySelector(".notification-button").click();
     Assert.equal(restarts, 1, "The restart button still restarts");
   } finally {
     InfoBar.showInfoBarMessage = showInfoBarMessage;
