@@ -11,7 +11,7 @@ use crate::data::{EagerPseudoStyles, ElementStyles};
 use crate::dom::{TElement, TNode};
 use crate::matching::MatchMethods;
 use crate::properties::longhands::display::computed_value::T as Display;
-use crate::properties::{AnimationDeclarations, ComputedValues, FirstLineReparenting};
+use crate::properties::{AnimationDeclarations, CascadeReparenting, ComputedValues};
 use crate::rule_tree::{RuleCascadeFlags, RuleTree, StrongRuleNode};
 use crate::selector_parser::{PseudoElement, SelectorImpl};
 use crate::stylist::RuleInclusion;
@@ -390,7 +390,7 @@ where
             &self.context.shared.guards,
             parent_style,
             layout_parent_style,
-            FirstLineReparenting::No,
+            CascadeReparenting::No,
             /* try_tactic = */ &Default::default(),
             Some(&self.context.thread_local.rule_cache),
             &mut conditions,
@@ -631,6 +631,36 @@ where
             included_cascade_flags: RuleCascadeFlags::STARTING_STYLE,
         };
         Some(self.cascade_style_and_visited_with_default_parents(inputs))
+    }
+
+    /// Cascades the given (old) rules inheriting from the before-change style of the parent, or its
+    /// current style if it doesn't have one, in order to compute the before-change style of the
+    /// element for transitions.
+    pub fn before_change_style(&mut self, inputs: CascadeInputs) -> Arc<ComputedValues> {
+        let parent_el = self.element.inheritance_parent();
+        let parent_data = parent_el.as_ref().and_then(|e| e.borrow_data());
+        let parent_style = parent_data.as_ref().map(|d| {
+            d.before_change_style
+                .as_ref()
+                .unwrap_or_else(|| d.styles.primary())
+        });
+
+        let layout_parent_el;
+        let layout_parent_data;
+        let mut layout_parent_style = parent_style;
+        if parent_style.is_some_and(|s| s.is_display_contents()) {
+            layout_parent_el = parent_el.unwrap().layout_parent();
+            layout_parent_data = layout_parent_el.borrow_data().unwrap();
+            layout_parent_style = Some(layout_parent_data.styles.primary());
+        }
+
+        self.cascade_style_and_visited(
+            inputs,
+            parent_style.map(|s| &**s),
+            layout_parent_style.map(|s| &**s),
+            /* pseudo = */ None,
+        )
+        .0
     }
 
     /// If there is no transition rule in the ComputedValues, it returns None.

@@ -51,17 +51,29 @@ use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::cmp;
 
-/// Whether we're resolving a style with the purposes of reparenting for ::first-line.
+/// Whether we're resolving a style with the purposes of re-parenting for ::first-line or
+/// @position-try.
 #[derive(Copy, Clone)]
 #[allow(missing_docs)]
-pub enum FirstLineReparenting<'a> {
+pub enum CascadeReparenting<'a> {
     No,
-    Yes {
+    FirstLine {
         /// The style we're re-parenting for ::first-line. ::first-line only affects inherited
         /// properties so we use this to avoid some work and also ensure correctness by copying the
         /// reset structs from this style.
-        style_to_reparent: &'a ComputedValues,
+        base_style: &'a ComputedValues,
     },
+    PositionTry {
+        /// The base style for our @position-try declarations.
+        base_style: &'a ComputedValues,
+    },
+}
+
+impl CascadeReparenting<'_> {
+    #[inline]
+    fn is_position_try(&self) -> bool {
+        matches!(self, Self::PositionTry { .. })
+    }
 }
 
 /// Performs the CSS cascade, computing new styles for an element from its parent style.
@@ -85,7 +97,7 @@ pub fn cascade<E>(
     guards: &StylesheetGuards,
     parent_style: Option<&ComputedValues>,
     layout_parent_style: Option<&ComputedValues>,
-    first_line_reparenting: FirstLineReparenting,
+    cascade_reparenting: CascadeReparenting,
     try_tactic: &PositionTryFallbacksTryTactic,
     visited_rules: Option<&StrongRuleNode>,
     cascade_input_flags: ComputedValueFlags,
@@ -105,7 +117,7 @@ where
         guards,
         parent_style,
         layout_parent_style,
-        first_line_reparenting,
+        cascade_reparenting,
         try_tactic,
         CascadeMode::Unvisited { visited_rules },
         cascade_input_flags,
@@ -202,7 +214,7 @@ fn cascade_rules<E>(
     guards: &StylesheetGuards,
     parent_style: Option<&ComputedValues>,
     layout_parent_style: Option<&ComputedValues>,
-    first_line_reparenting: FirstLineReparenting,
+    cascade_reparenting: CascadeReparenting,
     try_tactic: &PositionTryFallbacksTryTactic,
     cascade_mode: CascadeMode,
     cascade_input_flags: ComputedValueFlags,
@@ -223,7 +235,7 @@ where
         DeclarationIterator::new(rule_node, guards, pseudo),
         parent_style,
         layout_parent_style,
-        first_line_reparenting,
+        cascade_reparenting,
         try_tactic,
         cascade_mode,
         cascade_input_flags,
@@ -282,7 +294,7 @@ pub fn apply_declarations<'decls, E, I>(
     iter: I,
     parent_style: Option<&ComputedValues>,
     layout_parent_style: Option<&ComputedValues>,
-    first_line_reparenting: FirstLineReparenting<'_>,
+    cascade_reparenting: CascadeReparenting<'_>,
     try_tactic: &PositionTryFallbacksTryTactic,
     cascade_mode: CascadeMode,
     cascade_input_flags: ComputedValueFlags,
@@ -336,9 +348,9 @@ where
         .style()
         .add_flags(stylist.get_custom_property_initial_values_flags());
 
-    let using_cached_reset_properties;
+    let using_cached_properties;
     let ignore_colors = context.builder.device.forced_colors().is_active();
-    let mut cascade = Cascade::new(first_line_reparenting, stylist, ignore_colors);
+    let mut cascade = Cascade::new(cascade_reparenting, stylist, ignore_colors);
     let mut declarations = Default::default();
     let mut shorthand_cache = ShorthandsWithPropertyReferencesCache::default();
     let mut attribute_tracker = AttributeTracker::new(element_context);
@@ -352,7 +364,7 @@ where
             // We never insert visited styles into the cache so we don't need to try looking it up.
             // It also wouldn't be super-profitable, only a handful :visited properties are
             // non-inherited.
-            using_cached_reset_properties = false;
+            using_cached_properties = false;
             // If we match the same rules when visited and unvisited, and we know there isn't any
             // visited-dependent properties, we can avoid gathering the declarations, we know none
             // would be relevant.
@@ -380,13 +392,15 @@ where
                 &mut attribute_tracker,
             );
 
-            using_cached_reset_properties =
-                cascade.try_to_use_cached_reset_properties(&mut context, rule_cache, guards);
+            using_cached_properties =
+                cascade.try_to_use_cached_properties(&mut context, rule_cache, guards);
 
-            if using_cached_reset_properties {
-                LonghandIdSet::late_group_only_inherited()
-            } else {
+            if !using_cached_properties {
                 LonghandIdSet::late_group()
+            } else if cascade.cascade_reparenting.is_position_try() {
+                LonghandIdSet::late_group_position_try()
+            } else {
+                LonghandIdSet::late_group_only_inherited()
             }
         },
     };
@@ -427,7 +441,7 @@ where
         );
     }
 
-    if context.builder.modified_reset() || using_cached_reset_properties {
+    if context.builder.modified_reset() || using_cached_properties {
         // If we adjusted any reset structs, we can't cache this ComputedValues.
         //
         // Also, if we re-used existing reset structs, don't bother caching it back again. (Aside
@@ -791,7 +805,7 @@ impl<'a> KeyframeCustomPropertiesBuilder<'a> {
 }
 
 pub(crate) struct Cascade<'a> {
-    first_line_reparenting: FirstLineReparenting<'a>,
+    cascade_reparenting: CascadeReparenting<'a>,
     stylist: &'a Stylist,
     ignore_colors: bool,
     seen: SeenSet<'a>,
@@ -806,12 +820,12 @@ pub(crate) struct Cascade<'a> {
 
 impl<'a> Cascade<'a> {
     fn new(
-        first_line_reparenting: FirstLineReparenting<'a>,
+        cascade_reparenting: CascadeReparenting<'a>,
         stylist: &'a Stylist,
         ignore_colors: bool,
     ) -> Self {
         Self {
-            first_line_reparenting,
+            cascade_reparenting,
             stylist,
             ignore_colors,
             seen: Default::default(),
@@ -828,7 +842,7 @@ impl<'a> Cascade<'a> {
     /// keyframes). The visited-style and position-try paths aren't reachable in this mode.
     fn new_for_custom_properties_only(stylist: &'a Stylist) -> Self {
         Self {
-            first_line_reparenting: FirstLineReparenting::No,
+            cascade_reparenting: CascadeReparenting::No,
             stylist,
             ignore_colors: false,
             seen: Default::default(),
@@ -1211,7 +1225,7 @@ impl<'a> Cascade<'a> {
             guards,
             visited_parent!(parent_style),
             visited_parent!(layout_parent_style),
-            self.first_line_reparenting,
+            self.cascade_reparenting,
             try_tactic,
             CascadeMode::Visited {
                 unvisited_context: &*context,
@@ -1287,36 +1301,38 @@ impl<'a> Cascade<'a> {
         }
     }
 
-    fn try_to_use_cached_reset_properties(
+    fn try_to_use_cached_properties(
         &self,
         context: &mut computed::Context<'a>,
         cache: Option<&'a RuleCache>,
         guards: &StylesheetGuards,
     ) -> bool {
-        let style = match self.first_line_reparenting {
-            FirstLineReparenting::Yes { style_to_reparent } => style_to_reparent,
-            FirstLineReparenting::No => {
-                let Some(cache) = cache else { return false };
-                let Some(style) = cache.find(guards, context) else {
+        let style = match self.cascade_reparenting {
+            CascadeReparenting::No => {
+                let Some(style) = cache.and_then(|c| c.find(guards, context)) else {
                     return false;
                 };
                 style
             },
+            CascadeReparenting::PositionTry { base_style }
+            | CascadeReparenting::FirstLine { base_style } => base_style,
         };
 
-        context.builder.copy_reset_from(style);
+        context.builder.copy_reset_longhands_from(style);
 
-        // We're using the same reset style as another element, and we'll skip
-        // applying the relevant properties. So we need to do the relevant
-        // bookkeeping here to keep these bits correct.
+        if let CascadeReparenting::PositionTry { .. } = self.cascade_reparenting {
+            context.builder.copy_inherited_longhands_from(style);
+            context.builder.reset_position_try_properties();
+        }
+
+        // We're using the styles from another element or a base style, and we'll skip applying the
+        // relevant properties. So we need to do the relevant bookkeeping here to keep these bits
+        // correct.
         //
-        // Note that the border/background properties are non-inherited, so we
-        // don't need to do anything else other than just copying the bits over.
-        //
-        // When using this optimization, we also need to copy whether the old
-        // style specified viewport units / used font-relative lengths, this one
-        // would as well.  It matches the same rules, so it is the right thing
-        // to do anyways, even if it's only used on inherited properties.
+        // When using this optimization, we also need to copy whether the old style specified
+        // viewport units / used font-relative lengths, this one would as well. It matches the same
+        // rules, so it is the right thing to do anyways, even if it's only used on inherited
+        // properties.
         let bits_to_copy = ComputedValueFlags::HAS_AUTHOR_OR_USER_SPECIFIED_BORDER_BACKGROUND
             | ComputedValueFlags::HAS_AUTHOR_OR_USER_SPECIFIED_GRID_AUTO_FLOW
             | ComputedValueFlags::DEPENDS_ON_SELF_FONT_METRICS
@@ -1796,6 +1812,7 @@ impl<'a> Cascade<'a> {
                     substitute_references_if_needed_and_apply(
                         name,
                         SubstitutionFunctionKind::Var,
+                        PropertyIdRef::from(name),
                         unparsed_value,
                         self.stylist,
                         context,
@@ -2394,6 +2411,7 @@ fn substitute_all(
                 visit_link(
                     next_var.clone(),
                     index,
+                    property_id,
                     references_from_non_custom_properties,
                     context,
                     lowlink,
@@ -2437,12 +2455,13 @@ fn substitute_all(
     fn visit_link<'a, 'b, 'c, 'd, 'e>(
         var: VarType,
         index: usize,
+        property_id: PropertyIdRef,
         non_custom_references: &NonCustomReferenceMap<Vec<Arc<UnparsedValue>>>,
         context: &mut Context<'a, 'b, 'c, 'd, 'e>,
         lowlink: &mut usize,
         self_ref: &mut bool,
     ) {
-        let next_index = match traverse(var, non_custom_references, context) {
+        let next_index = match traverse(var, property_id, non_custom_references, context) {
             Some(index) => index,
             // There is nothing to do if the next variable has been
             // fully resolved at this point.
@@ -2483,9 +2502,17 @@ fn substitute_all(
     /// * There is no such variable at all.
     fn traverse<'a, 'b, 'c, 'd, 'e>(
         var: VarType,
+        property_id: PropertyIdRef,
         references_from_non_custom_properties: &NonCustomReferenceMap<Vec<Arc<UnparsedValue>>>,
         context: &mut Context<'a, 'b, 'c, 'd, 'e>,
     ) -> Option<usize> {
+        // If traversing into a custom property to resolve its value, then
+        // use that property's name instead of the original property at the
+        // root of this chain of references.
+        let property_id = match var {
+            VarType::Custom(ref name) => PropertyIdRef::from(name),
+            VarType::Attr(..) | VarType::NonCustom(..) => property_id,
+        };
         // Some shortcut checks.
         // The non-custom (font/line-height/color-scheme) dependencies of this value, carried out
         // of the match so we can create the corresponding nodes once we've pushed this variable.
@@ -2532,6 +2559,7 @@ fn substitute_all(
                         substitute_references_if_needed_and_apply(
                             name,
                             kind,
+                            property_id,
                             &value,
                             context.stylist,
                             context.computed_context,
@@ -2581,14 +2609,14 @@ fn substitute_all(
 
         let mut self_ref = false;
         let mut lowlink = index;
-        if let Some((name, v)) = value.as_ref() {
+        if let Some((_, v)) = value.as_ref() {
             // Visit the references in this value...
             visit_value_references(
                 Some(&var),
                 &v.references,
                 v,
                 index,
-                PropertyIdRef::from(*name),
+                property_id,
                 references_from_non_custom_properties,
                 context,
                 &mut lowlink,
@@ -2604,6 +2632,7 @@ fn substitute_all(
                     visit_link(
                         VarType::NonCustom(r),
                         index,
+                        property_id,
                         references_from_non_custom_properties,
                         context,
                         &mut lowlink,
@@ -2625,6 +2654,7 @@ fn substitute_all(
                 visit_link(
                     VarType::NonCustom(SingleNonCustomReference::FontUnits),
                     index,
+                    property_id,
                     references_from_non_custom_properties,
                     context,
                     &mut lowlink,
@@ -2718,6 +2748,7 @@ fn substitute_all(
                     substitute_references_if_needed_and_apply(
                         name,
                         kind,
+                        property_id,
                         v,
                         context.stylist,
                         context.computed_context,
@@ -2763,6 +2794,7 @@ fn substitute_all(
         reset(&mut context);
         traverse(
             VarType::Custom((*var).clone()),
+            PropertyIdRef::from(*var),
             references_from_non_custom_properties,
             &mut context,
         );

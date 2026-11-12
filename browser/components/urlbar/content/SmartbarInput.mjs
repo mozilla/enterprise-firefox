@@ -65,6 +65,7 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 
 const lazy = XPCOMUtils.declareLazy({
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ExtensionSearchHandler:
     "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
   ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
@@ -1384,11 +1385,13 @@ ${
     // the cross domain resource, although the page is not loaded yet.
     // This url will be set/unset by PromptParent. See bug 791594 for reference.
     if (value === null || (!value && dueToTabSwitch)) {
+      let pendingLoadURI = this.#isOpenedPageInBlankTargetLoading;
       uri =
         this.browserWindow.gBrowser.selectedBrowser.currentAuthPromptURI ||
         uri ||
-        this.#isOpenedPageInBlankTargetLoading ||
+        pendingLoadURI ||
         this.browserWindow.gBrowser.currentURI;
+      let showingPendingLoad = uri == pendingLoadURI;
       // Strip off usernames and passwords for the location bar
       try {
         uri = Services.io.createExposableURI(uri);
@@ -1416,11 +1419,14 @@ ${
           value = "about:blank";
         }
       }
-      // If we update the URI while restoring a session, set the proxyState to
-      // invalid, because we don't have a valid security state to show via site
-      // identity yet. See Bug 1746383.
       valid =
+        // If we update the URI while restoring a session, set the proxyState to
+        // invalid, because we don't have a valid security state to show via site
+        // identity yet. See Bug 1746383.
         !dueToSessionRestore &&
+        // If we are showing the URI of a pending load, set proxystate to
+        // invalid because the site identity refers to the currently loaded site.
+        !showingPendingLoad &&
         (!this.browserWindow.isBlankPageURL(uri.spec) ||
           lazy.ExtensionUtils.isExtensionUrl(uri) ||
           isInitialPageControlledByWebContent);
@@ -1523,32 +1529,6 @@ ${
     // Dispatch URIUpdate event to synchronize the tab status when switching.
     let event = new CustomEvent("SetURI", { bubbles: true });
     this.inputField.dispatchEvent(event);
-  }
-
-  /**
-   * Converts an internal URI (e.g. a URI with a username or password) into one
-   * which we can expose to the user.
-   *
-   * @param {nsIURI} uri
-   *   The URI to be converted
-   * @returns {nsIURI}
-   *   The converted, exposable URI
-   */
-  makeURIReadable(uri) {
-    // Avoid copying 'about:reader?url=', and always provide the original URI:
-    // Reader mode ensures we call createExposableURI itself.
-    let readerStrippedURI = lazy.ReaderMode.getOriginalUrlObjectForDisplay(
-      uri.displaySpec
-    );
-    if (readerStrippedURI) {
-      return readerStrippedURI;
-    }
-
-    try {
-      return Services.io.createExposableURI(uri);
-    } catch (ex) {}
-
-    return uri;
   }
 
   /**
@@ -4800,10 +4780,7 @@ ${
 
     let uri;
     if (this.getAttribute("pageproxystate") == "valid") {
-      uri = this.#isOpenedPageInBlankTargetLoading
-        ? this.browserWindow.gBrowser.selectedBrowser.browsingContext
-            .nonWebControlledLoadingURI
-        : this.browserWindow.gBrowser.currentURI;
+      uri = this.browserWindow.gBrowser.currentURI;
     } else {
       // The value could be:
       // 1. a trimmed url, set by selecting a result
@@ -4825,7 +4802,7 @@ ${
         return selectedVal;
       }
     }
-    uri = this.makeURIReadable(uri);
+    uri = lazy.BrowserUtils.getExposableURI(uri);
     let displaySpec = uri.displaySpec;
 
     // If the entire URL is selected, just use the actual loaded URI,
@@ -5282,30 +5259,18 @@ ${
   /**
    * Strips known tracking query parameters/ link decorators.
    *
-   * @returns {nsIURI}
-   *   The stripped URI or original URI, if nothing can be
-   *   stripped
+   * @returns {nsIURI|null}
+   *   The exposable, stripped URI, or null if nothing is selected.
    */
   #stripURI() {
     let copyString = this._getSelectedValueForClipboard();
     if (!copyString) {
       return null;
     }
-    let strippedURI = null;
 
     // Error check occurs during isClipboardURIValid
     let uri = Services.io.newURI(copyString);
-    try {
-      strippedURI = lazy.QueryStringStripper.stripForCopyOrShare(uri);
-    } catch (e) {
-      console.warn(`stripForCopyOrShare: ${e.message}`);
-      return uri;
-    }
-
-    if (strippedURI) {
-      return this.makeURIReadable(strippedURI);
-    }
-    return uri;
+    return lazy.BrowserUtils.getExposableURI(uri, { stripTracking: true });
   }
 
   /**
@@ -7195,7 +7160,9 @@ ${
       return;
     }
 
-    let uri = this.makeURIReadable(this.browserWindow.gBrowser.currentURI);
+    let uri = lazy.BrowserUtils.getExposableURI(
+      this.browserWindow.gBrowser.currentURI
+    );
     let href = uri.displaySpec;
     let title = this.browserWindow.gBrowser.contentTitle || href;
 

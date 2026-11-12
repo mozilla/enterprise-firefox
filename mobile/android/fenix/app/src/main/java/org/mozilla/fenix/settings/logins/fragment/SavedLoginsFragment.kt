@@ -13,7 +13,7 @@ import androidx.fragment.compose.content
 import androidx.navigation.NavHostController
 import androidx.navigation.fragment.findNavController
 import mozilla.components.concept.engine.EngineSession
-import mozilla.components.feature.password.importer.PasswordsImporterResult
+import mozilla.components.feature.importer.ImporterEvent
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
 import org.mozilla.fenix.Config
 import org.mozilla.fenix.SecureFragment
@@ -25,7 +25,7 @@ import org.mozilla.fenix.ext.openToBrowser
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.settings.logins.ImportPasswordsDialogFragment
 import org.mozilla.fenix.settings.logins.ui.DefaultSavedLoginsStorage
-import org.mozilla.fenix.settings.logins.ui.LoginsListAppeared
+import org.mozilla.fenix.settings.logins.ui.ImportAction
 import org.mozilla.fenix.settings.logins.ui.LoginsMiddleware
 import org.mozilla.fenix.settings.logins.ui.LoginsSortOrder
 import org.mozilla.fenix.settings.logins.ui.LoginsState
@@ -50,11 +50,19 @@ class SavedLoginsFragment : SecureFragment(), SystemInsetsPaddedFragment {
             ImportPasswordsDialogFragment.REQUEST_KEY,
             viewLifecycleOwner,
         ) { _, bundle ->
-            if (ImportPasswordsDialogFragment.decodeResult(bundle) is PasswordsImporterResult.Success) {
-                loginsStore?.dispatch(LoginsListAppeared)
+            ImportPasswordsDialogFragment.decodeResult(bundle)?.let { event ->
+                loginsStore?.dispatch(event.toImportAction())
             }
         }
     }
+
+    private fun ImporterEvent.toImportAction(): ImportAction =
+        when (this) {
+            ImporterEvent.Started -> ImportAction.ImportStarted
+            is ImporterEvent.Success -> ImportAction.ImportSucceeded(count = importCount)
+            is ImporterEvent.Failure -> ImportAction.ImportFailed(error = error)
+            ImporterEvent.Canceled -> ImportAction.ImportCancelled
+        }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -67,7 +75,7 @@ class SavedLoginsFragment : SecureFragment(), SystemInsetsPaddedFragment {
             val store by
                 fragmentStore(
                     LoginsState.default.copy(
-                        showPasswordsImport = requireComponents.settings.importPasswordsFeatureFlagEnabled,
+                        showPasswordsImport = requireComponents.settings.isImportPasswordsAvailable,
                         sortOrder =
                             LoginsSortOrder.fromString(
                                 value = requireComponents.settings.loginsListSortOrder,

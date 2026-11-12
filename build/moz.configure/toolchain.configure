@@ -252,7 +252,7 @@ with only_when(host_is_osx | target_is_osx):
     )
 
     def mac_sdk_min_version():
-        return "26.5"
+        return "27.2"
 
     @depends(
         "--with-macos-sdk",
@@ -1380,6 +1380,43 @@ def minimum_gcc_version():
     return Version("11.1.0")
 
 
+option(
+    "--enable-clang-plugin",
+    env="ENABLE_CLANG_PLUGIN",
+    help="Enable building with the Clang plugin (gecko specific static analyzers)",
+)
+
+
+@depends("--enable-clang-plugin")
+def clang_plugin_enabled(value):
+    return bool(value)
+
+
+# Replace "clang-cl.exe" by "clang.exe --driver-mode=cl" (or "clang++.exe" by
+# "clang.exe --driver-mode=g++") to avoid loading the module clang.exe again
+# when loading the plugin dll, which links to the import library of clang.exe.
+@template
+def clang_plugin_compiler(command, driver="clang-cl", mode="cl"):
+    @depends(command, target, clang_plugin_enabled)
+    @imports("re")
+    def clang_plugin_compiler(command, target, clang_plugin):
+        if not command or not clang_plugin or target.kernel != "WINNT":
+            return command
+        result = []
+        for arg in command:
+            arg = re.sub(r"\.EXE$", ".exe", arg)
+            if arg.endswith(f"{driver}.exe"):
+                result += [
+                    arg.replace(f"{driver}.exe", "clang.exe"),
+                    f"--driver-mode={mode}",
+                ]
+            else:
+                result.append(arg)
+        return result
+
+    return clang_plugin_compiler
+
+
 @template
 def compiler(
     language,
@@ -1713,12 +1750,12 @@ def compiler(
 
     # This excludes WASM_CC from the list.
     if var in ("CC", "CXX", "HOST_CC", "HOST_CXX"):
-        set_config(
-            var,
-            depends_if(valid_compiler)(
-                lambda x: list(x.wrapper) + [x.compiler] + list(x.flags)
-            ),
+        command = depends_if(valid_compiler)(
+            lambda x: list(x.wrapper) + [x.compiler] + list(x.flags)
         )
+        if host_or_target is target:
+            command = clang_plugin_compiler(command)
+        set_config(var, command)
 
     # Set CC_TYPE/CC_VERSION/HOST_CC_TYPE/HOST_CC_VERSION to allow
     # old-configure to do some of its still existing checks.
@@ -2483,6 +2520,36 @@ def preprocess_option(compiler):
 
 
 set_config("PREPROCESS_OPTION", preprocess_option)
+
+
+@template
+def outoption(host_or_target_c_compiler):
+    @depends(host_or_target_c_compiler)
+    def outoption(host_or_target_c_compiler):
+        if host_or_target_c_compiler.type == "clang-cl":
+            return "-Fo"
+        return "-o "
+
+    return outoption
+
+
+cc_outoption = outoption(c_compiler)
+host_cc_outoption = outoption(host_c_compiler)
+
+set_config("CC_OUTOPTION", cc_outoption)
+set_config("HOST_CC_OUTOPTION", host_cc_outoption)
+
+
+@depends(host, target, host_c_compiler, when=cross_compiling)
+def check_host_c_compiler_type(host, target, host_c_compiler):
+    # Windows-to-Windows cross compiles should always use MSVC-style options for
+    # host compiles.
+    if (
+        host.kernel == "WINNT"
+        and target.kernel == "WINNT"
+        and host_c_compiler.type != "clang-cl"
+    ):
+        die("MSVC-style compilers should be used for host compilations!")
 
 
 # On Power ISA, determine compiler flags for VMX, VSX and VSX-3.
@@ -3327,13 +3394,6 @@ set_config("MOZ_DEBUG_ASFLAGS", debug_asflags)
 # clang plugin handling
 # ==============================================================
 
-option(
-    "--enable-clang-plugin",
-    env="ENABLE_CLANG_PLUGIN",
-    help="Enable building with the Clang plugin (gecko specific static analyzers)",
-)
-
-
 set_config("ENABLE_CLANG_PLUGIN", True, when="--enable-clang-plugin")
 set_define("MOZ_CLANG_PLUGIN", True, when="--enable-clang-plugin")
 
@@ -3599,69 +3659,6 @@ llvm_symbolizer = check_prog(
     paths=clang_search_path,
     when=asan | msan | tsan | any_ubsan | enable_fuzzing,
 )
-
-
-# Shared library building
-# ==============================================================
-
-
-# XXX: The use of makefile constructs in these variables is awful.
-@depends(target, c_compiler)
-def make_shared_library(target, compiler):
-    if target.os == "WINNT":
-        if compiler.type == "clang":
-            return namespace(
-                mkshlib=[
-                    "$(CXX)",
-                    "$(DSO_LDOPTS)",
-                    "-Wl,-pdb,$(LINK_PDBFILE)",
-                    "-o",
-                    "$@",
-                ],
-                mkcshlib=[
-                    "$(CC)",
-                    "$(DSO_LDOPTS)",
-                    "-Wl,-pdb,$(LINK_PDBFILE)",
-                    "-o",
-                    "$@",
-                ],
-            )
-        else:
-            linker = [
-                "$(LINKER)",
-                "-NOLOGO",
-                "-DLL",
-                "-OUT:$@",
-                "-PDB:$(LINK_PDBFILE)",
-                "$(DSO_LDOPTS)",
-            ]
-            return namespace(
-                mkshlib=linker,
-                mkcshlib=linker,
-            )
-
-    cc = ["$(CC)", "$(COMPUTED_C_LDFLAGS)"]
-    cxx = ["$(CXX)", "$(COMPUTED_CXX_LDFLAGS)"]
-    flags = ["$(DSO_LDOPTS)"]
-    output = ["-o", "$@"]
-
-    if target.kernel == "Darwin":
-        soname = []
-    elif target.os == "NetBSD":
-        soname = ["-Wl,-soname,$(DSO_SONAME)"]
-    else:
-        assert compiler.type in ("gcc", "clang")
-
-        soname = ["-Wl,-h,$(DSO_SONAME)"]
-
-    return namespace(
-        mkshlib=cxx + flags + soname + output,
-        mkcshlib=cc + flags + soname + output,
-    )
-
-
-set_config("MKSHLIB", make_shared_library.mkshlib)
-set_config("MKCSHLIB", make_shared_library.mkcshlib)
 
 
 @depends(c_compiler, toolchain_prefix, when=target_is_windows)

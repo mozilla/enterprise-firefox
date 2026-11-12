@@ -1305,6 +1305,65 @@ static Navigation* NavigationOfDocument(Document* aDocument) {
   return inner ? inner->Navigation() : nullptr;
 }
 
+// https://html.spec.whatwg.org/#navigate-to-a-javascript:-url
+// javascript: URL loads don't go through the parent process, so the loading
+// entry is created here. The Navigation API entries of the new document are
+// those of the previous document with the replaced entry swapped for the new
+// one.
+static LoadingSessionHistoryInfo CreateLoadingEntryForJavascriptURL(
+    SessionHistoryInfo* aActiveEntry, Document& aOldDocument,
+    Document& aNewDocument) {
+  nsIURI* uri =
+      aActiveEntry ? aActiveEntry->GetURI() : aNewDocument.GetDocumentURI();
+  nsAutoString contentType;
+  aNewDocument.GetContentType(contentType);
+  SessionHistoryInfo info(uri, aNewDocument.NodePrincipal(),
+                          aNewDocument.NodePrincipal(),
+                          aNewDocument.PartitionedPrincipal(),
+                          aActiveEntry ? aActiveEntry->GetPolicyContainer()
+                                       : aOldDocument.GetPolicyContainer(),
+                          NS_ConvertUTF16toUTF8(contentType));
+  if (aActiveEntry) {
+    info.NavigationKey() = aActiveEntry->NavigationKey();
+    const nsCOMPtr<nsIReferrerInfo> referrerInfo =
+        aActiveEntry->GetReferrerInfo();
+    info.SetReferrerInfo(referrerInfo);
+    info.SetName(aActiveEntry->GetName());
+  }
+
+  LoadingSessionHistoryInfo loadingEntry(info);
+  loadingEntry.mTriggeringNavigationType = Some(NavigationType::Replace);
+  loadingEntry.mReplacesActiveEntry = !!aActiveEntry;
+
+  // https://html.spec.whatwg.org/#update-document-for-history-step-application
+  // The replaced entry is the previous entry for the new document's
+  // activation, unless it belonged to the initial about:blank document.
+  loadingEntry.mPreviousEntry =
+      aOldDocument.IsInitialDocument() || !aActiveEntry
+          ? Some(PreviousSessionHistoryInfo{})
+          : PreviousSessionHistoryInfo::CreateValidatedPreviousEntry(
+                info, Some(*aActiveEntry), Some(NavigationType::Replace));
+
+  // The old document might not have entries, in which case the new entry gets
+  // appended.
+  bool replaced = false;
+  if (RefPtr<Navigation> navigation = NavigationOfDocument(&aOldDocument)) {
+    nsTArray<RefPtr<NavigationHistoryEntry>> oldEntries;
+    navigation->Entries(oldEntries);
+    for (const auto& entry : oldEntries) {
+      const bool isReplaced =
+          entry->SessionHistoryInfo()->NavigationKey() == info.NavigationKey();
+      replaced |= isReplaced;
+      loadingEntry.mContiguousEntries.AppendElement(
+          isReplaced ? info : *entry->SessionHistoryInfo());
+    }
+  }
+  if (!replaced) {
+    loadingEntry.mContiguousEntries.AppendElement(info);
+  }
+  return loadingEntry;
+}
+
 void nsDocShell::FirePageSwapWithoutTransition(
     const mozilla::dom::SessionHistoryInfo* aPageSwapTargetInfo,
     NavigationType aNavigationType) {
@@ -3564,6 +3623,11 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
     // CSP error
     cssClass.AssignLiteral("neterror");
     error = "cspBlocked";
+  } else if (NS_ERROR_CONNECTION_ALLOWLIST_VIOLATION == aError) {
+    cssClass.AssignLiteral("neterror");
+    error = "blockedByConnectionAllowlist";
+    // TODO(Bug 2089542): Update strings
+    errorDescriptionID = "blockedByCORP";
   } else if (NS_ERROR_XFO_VIOLATION == aError) {
     // XFO error
     cssClass.AssignLiteral("neterror");
@@ -6525,8 +6589,10 @@ nsresult nsDocShell::EndPageLoad(nsIChannel* aChannel, nsresult aStatus) {
     // this particular error can happen asynchronously.
     // Bug 1629201 is filed for having much clearer decision making around
     // which cases need error events.
-    bool fireFrameErrorEvent = (aStatus == NS_ERROR_CONTENT_BLOCKED_SHOW_ALT ||
-                                aStatus == NS_ERROR_CONTENT_BLOCKED);
+    bool fireFrameErrorEvent =
+        (aStatus == NS_ERROR_CONTENT_BLOCKED_SHOW_ALT ||
+         aStatus == NS_ERROR_CONTENT_BLOCKED ||
+         aStatus == NS_ERROR_CONNECTION_ALLOWLIST_VIOLATION);
     UnblockEmbedderLoadEventForFailure(fireFrameErrorEvent);
 
     bool skippedUnknownProtocolNavigation = false;
@@ -7232,6 +7298,18 @@ nsresult nsDocShell::CreateDocumentViewer(const nsACString& aContentType,
   bool errorOnLocationChangeNeeded = false;
   nsCOMPtr<nsIChannel> failedChannel = mFailedChannel;
   nsCOMPtr<nsIURI> failedURI;
+
+  if (const nsCOMPtr<nsIScriptChannel> scriptChannel =
+          do_QueryInterface(aOpenedChannel);
+      scriptChannel && mBrowsingContext->Top()->GetHasSessionHistory()) {
+    MOZ_ASSERT(mDocumentViewer && mDocumentViewer->GetDocument(),
+               "javascript: URLs evaluate in the active document");
+    SetLoadingSessionHistoryInfo(
+        CreateLoadingEntryForJavascriptURL(mActiveEntry.get(),
+                                           *mDocumentViewer->GetDocument(),
+                                           *viewer->GetDocument()),
+        !mActiveEntry);
+  }
 
   // https://html.spec.whatwg.org/#finalize-a-cross-document-navigation
   // 9. If entryToReplace is null, then: ...
@@ -8257,6 +8335,10 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
     destinationNavigationAPIState = navigationAPIState;
   }
 
+  // After firing the navigate event, we no longer need the source element.
+  // So we take ownership of it here to avoid keeping it alive too long.
+  RefPtr<Element> sourceElement = aLoadState->TakeSourceElement();
+
   if (nsCOMPtr<nsPIDOMWindowInner> window = doc->GetInnerWindow(); window) {
     if (!aState.mHistoryNavBetweenSameDoc) {
       // https://html.spec.whatwg.org/#navigate-fragid
@@ -8264,7 +8346,6 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
       if (RefPtr<Navigation> navigation = window->Navigation()) {
         AutoJSAPI jsapi;
         if (jsapi.Init(window)) {
-          RefPtr<Element> sourceElement = aLoadState->GetSourceElement();
           // Step 4
           RefPtr apiMethodTracker = aLoadState->GetNavigationAPIMethodTracker();
           bool shouldContinue = navigation->FirePushReplaceReloadNavigateEvent(
@@ -9033,6 +9114,10 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
     ResetOngoingNavigation(Nothing());
   }
 
+  // After firing the navigate event, we no longer need the source element.
+  // So we take ownership of it here to avoid keeping it alive too long.
+  RefPtr<Element> sourceElement = aLoadState->TakeSourceElement();
+
   // 22. If all of the following are true:
   //    * userInvolvement is not "browser UI";
   //    * navigable's active document's origin is same origin-domain with
@@ -9054,8 +9139,6 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
       if (RefPtr<Navigation> navigation = window->Navigation()) {
         AutoJSAPI jsapi;
         if (jsapi.Init(window)) {
-          RefPtr<Element> sourceElement = aLoadState->GetSourceElement();
-
           // 22.2 Let entryListForFiring be formDataEntryList if
           //      documentResource is a POST resource; otherwise, null.
           RefPtr<FormData> formData = aLoadState->GetFormDataEntryList();
@@ -13357,9 +13440,16 @@ void nsDocShell::MoveLoadingToActiveEntry(bool aExpired, uint32_t aCacheKey,
         mBrowsingContext->SetActiveSessionHistoryEntry(
             mozilla::Nothing(), mActiveEntry.get(), previousActiveEntry.get(),
             mLoadType,
-            /* aUpdatedCacheKey = */ 0, false);
+            /* aUpdatedCacheKey = */ 0,
+            // Of the loads getting here, only initial about:blank is transient.
+            // Keep it from updating the length as before, though it probably
+            // should, see bug 2091545.
+            /* aUpdateLength = */ !mActiveEntry->IsTransient());
       }
-      if (!(previousActiveEntry && previousActiveEntry->IsTransient())) {
+      if (loadingEntry->mReplacesActiveEntry) {
+        MOZ_ASSERT(previousActiveEntry);
+        mBrowsingContext->ReplaceActiveSessionHistoryEntry(mActiveEntry.get());
+      } else if (!(previousActiveEntry && previousActiveEntry->IsTransient())) {
         mBrowsingContext->IncrementHistoryEntryCountForBrowsingContext();
       }
     }

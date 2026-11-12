@@ -17,7 +17,6 @@ use crate::custom_properties::{SpecifiedValue, parse_name};
 use crate::derives::*;
 use crate::device::Device;
 use crate::dom::TElement;
-#[cfg(feature = "gecko")]
 use crate::dom::TShadowRoot;
 #[cfg(feature = "gecko")]
 use crate::gecko_bindings::structs::{ServoStyleSetSizes, StyleRuleInclusion};
@@ -30,10 +29,9 @@ use crate::invalidation::media_queries::{
 };
 use crate::invalidation::stylesheets::{RuleChangeKind, StylesheetInvalidationSet};
 use crate::parser::ParserContext;
-#[cfg(feature = "gecko")]
 use crate::properties::StyleBuilder;
 use crate::properties::{
-    self, AnimationDeclarations, CascadeMode, ComputedValues, FirstLineReparenting,
+    self, AnimationDeclarations, CascadeMode, CascadeReparenting, ComputedValues,
     PropertyDeclarationBlock, PropertyIdRef,
 };
 use crate::properties_and_values::registry::{
@@ -74,7 +72,6 @@ use crate::stylesheets::{
 };
 use crate::stylesheets::{CustomMediaEvaluator, CustomMediaMap};
 use crate::substitution::AttrTaint;
-#[cfg(feature = "gecko")]
 use crate::values::specified::position::PositionTryFallbacksItem;
 use crate::values::specified::position::PositionTryFallbacksTryTactic;
 use crate::values::{AtomIdent, Parser, SourceLocation, computed};
@@ -1408,7 +1405,7 @@ impl Stylist {
             guards,
             parent_style,
             parent_style,
-            FirstLineReparenting::No,
+            CascadeReparenting::No,
             &PositionTryFallbacksTryTactic::default(),
             /* rule_cache = */ None,
             &mut RuleCacheConditions::default(),
@@ -1417,7 +1414,6 @@ impl Stylist {
     }
 
     /// Computes a fallback style lazily given the current and parent styles, and name.
-    #[cfg(feature = "gecko")]
     pub fn resolve_position_try<E>(
         &self,
         style: &ComputedValues,
@@ -1491,7 +1487,7 @@ impl Stylist {
                     guards,
                     parent_style,
                     layout_parent_style,
-                    FirstLineReparenting::No,
+                    CascadeReparenting::PositionTry { base_style: style },
                     &name_and_try_tactic.try_tactic,
                     /* rule_cache = */ None,
                     &mut RuleCacheConditions::default(),
@@ -1521,7 +1517,7 @@ impl Stylist {
         guards: &StylesheetGuards,
         parent_style: Option<&ComputedValues>,
         layout_parent_style: Option<&ComputedValues>,
-        first_line_reparenting: FirstLineReparenting,
+        first_line_reparenting: CascadeReparenting,
         try_tactic: &PositionTryFallbacksTryTactic,
         rule_cache: Option<&RuleCache>,
         rule_cache_conditions: &mut RuleCacheConditions,
@@ -1874,7 +1870,6 @@ impl Stylist {
 
     /// Returns the registered `@position-try-rule` animation for the specified name.
     #[inline]
-    #[cfg(feature = "gecko")]
     fn lookup_position_try<'a, E>(
         &'a self,
         name: &Atom,
@@ -2056,7 +2051,7 @@ impl Stylist {
             }),
             Some(parent_style),
             Some(parent_style),
-            FirstLineReparenting::No,
+            CascadeReparenting::No,
             &PositionTryFallbacksTryTactic::default(),
             CascadeMode::Unvisited {
                 visited_rules: None,

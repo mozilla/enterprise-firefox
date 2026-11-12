@@ -171,7 +171,6 @@ pub enum DisplayItem {
 
     // These marker items indicate an array of data follows, to be used for the
     // next non-marker item.
-    SetGradientStops,
     SetFilterOps,
     SetFilterData,
 
@@ -211,7 +210,6 @@ pub enum DebugDisplayItem {
     Iframe(IframeDisplayItem),
     PushStackingContext(PushStackingContextDisplayItem),
 
-    SetGradientStops(Vec<GradientStop>),
     SetFilterOps(Vec<FilterOp>),
     SetFilterData(FilterData),
 
@@ -738,7 +736,7 @@ pub struct Gradient {
     pub end: LayoutVector2D,
     pub extend_mode: ExtendMode,
     pub alpha_mode: AlphaMode,
-} // IMPLICIT: stops: Vec<GradientStop>
+}
 
 impl Gradient {
     pub fn is_valid(&self) -> bool {
@@ -779,7 +777,7 @@ pub struct RadialGradient {
     pub end_offset: f32,
     pub extend_mode: ExtendMode,
     pub alpha_mode: AlphaMode,
-} // IMPLICIT stops: Vec<GradientStop>
+}
 
 impl RadialGradient {
     pub fn is_valid(&self) -> bool {
@@ -799,7 +797,7 @@ pub struct ConicGradient {
     pub end_offset: f32,
     pub extend_mode: ExtendMode,
     pub alpha_mode: AlphaMode,
-} // IMPLICIT stops: Vec<GradientStop>
+}
 
 impl ConicGradient {
     pub fn is_valid(&self) -> bool {
@@ -991,8 +989,9 @@ pub struct StackingContext {
     pub clip_chain_id: Option<ClipChainId>,
     /// Raster space already resolved against the enclosing stacking contexts by
     /// `DisplayListBuilder::push_stacking_context`, not the space its caller
-    /// requested. Resolving on the builder means one raster space stack rather
-    /// than two that have to agree.
+    /// requested. Resolving on the builder means the one raster space stack that
+    /// text interning needs is also the one the receiver reads, rather than two
+    /// that have to agree.
     pub raster_space: RasterSpace,
     pub flags: StackingContextFlags,
     /// Non-zero for a shadow emitted by the display list builder's shadow
@@ -2462,7 +2461,6 @@ impl DisplayItem {
             DisplayItem::SetFilterData => "set_filter_data",
             DisplayItem::RadialGradient(..) => "radial_gradient",
             DisplayItem::Rectangle(..) => "rectangle",
-            DisplayItem::SetGradientStops => "set_gradient_stops",
             DisplayItem::Text(..) => "text",
             DisplayItem::YuvImage(..) => "yuv_image",
             DisplayItem::BackdropFilter(..) => "backdrop_filter",

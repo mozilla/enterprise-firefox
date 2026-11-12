@@ -6,11 +6,17 @@ package mozilla.components.compose.draggable
 
 import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.MonotonicFrameClock
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.LayoutCoordinates
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import mozilla.components.compose.draggable.RecordingItemInteractionHandler.Call
@@ -18,6 +24,7 @@ import mozilla.components.support.test.mock
 import mozilla.components.support.test.whenever
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mockito.Mockito
 
 class InteractableListTest {
     private val testDispatcher = StandardTestDispatcher()
@@ -137,6 +144,118 @@ class InteractableListTest {
                 draggedItem = fakeListActiveState(),
                 ignoredItems = defaultIgnoredItems,
             )
+
+        assertEquals(1, candidates.count { it.type is InteractionType.Scroll })
+    }
+
+    @Test
+    fun `GIVEN the dragged item is below a third of the first visible item WHEN gatherCandidates is called THEN no top Scroll candidate is created`() {
+        val draggedItem = InteractionState.List.Active(index = 1, key = "key", size = 10, initialOffset = 5f)
+
+        val candidates = scrollCandidates(draggedItem)
+
+        assertEquals(0, candidates.count { it.type is InteractionType.Scroll })
+    }
+
+    @Test
+    fun `GIVEN the dragged item takes no space AND is the first visible item WHEN gatherCandidates is called THEN the next item sizes the top Scroll candidate`() {
+        val listState =
+            mockListState(
+                listOf(
+                    mockListItem("key", index = 1, size = 0),
+                    mockListItem(TabKeys.TAB_BETA, index = 2, size = 30),
+                ),
+                firstVisibleIndex = 1,
+            )
+        val draggedItem = InteractionState.List.Active(index = 1, key = "key", size = 10, initialOffset = 5f)
+
+        val candidates =
+            gatherCandidates(
+                listState = listState,
+                draggedItemOffset = ListItemOffset(draggedItem, draggingItemOffset = 5f, itemSize = 10),
+                draggedItem = draggedItem,
+                ignoredItems = defaultIgnoredItems,
+            )
+
+        assertEquals(1, candidates.count { it.type is InteractionType.Scroll })
+    }
+
+    @Test
+    fun `GIVEN a scroll zone height AND the dragged item is inside the list WHEN gatherCandidates is called THEN no Scroll candidate is created`() {
+        val draggedItem =
+            InteractionState.List.Active(
+                index = 1,
+                key = "key",
+                size = 40,
+                initialOffset = 10f,
+                cumulatedOffset = -5f,
+            )
+
+        val candidates = scrollCandidates(draggedItem, scrollZoneHeight = 30f)
+
+        assertEquals(0, candidates.count { it.type is InteractionType.Scroll })
+    }
+
+    @Test
+    fun `GIVEN a scroll zone height AND the dragged item went past the start of the list WHEN gatherCandidates is called THEN top Scroll candidate is created`() {
+        val draggedItem =
+            InteractionState.List.Active(
+                index = 1,
+                key = "key",
+                size = 40,
+                initialOffset = 0f,
+                cumulatedOffset = -5f,
+            )
+
+        val candidates = scrollCandidates(draggedItem, scrollZoneHeight = 30f)
+
+        assertEquals(1, candidates.count { it.type is InteractionType.Scroll })
+    }
+
+    @Test
+    fun `GIVEN a scroll zone height AND the dragged item went past the start of the list but is dragged down WHEN gatherCandidates is called THEN no Scroll candidate is created`() {
+        val draggedItem =
+            InteractionState.List.Active(
+                index = 1,
+                key = "key",
+                size = 4,
+                initialOffset = -10f,
+                cumulatedOffset = 2f,
+            )
+
+        val candidates = scrollCandidates(draggedItem, scrollZoneHeight = 30f)
+
+        assertEquals(0, candidates.count { it.type is InteractionType.Scroll })
+    }
+
+    @Test
+    fun `GIVEN a scroll zone height AND the dragged item is inside the list near its end WHEN gatherCandidates is called THEN no bottom Scroll candidate is created`() {
+        val draggedItem =
+            InteractionState.List.Active(
+                index = 1,
+                key = "key",
+                size = 4,
+                initialOffset = 4f,
+                cumulatedOffset = 2f,
+            )
+
+        val candidates = scrollCandidates(draggedItem, scrollZoneHeight = 30f, totalItems = 5)
+
+        assertEquals(0, candidates.count { it.type is InteractionType.Scroll })
+    }
+
+    @Test
+    fun `GIVEN a scroll zone height AND the dragged item went past the end of the list WHEN gatherCandidates is called THEN bottom Scroll candidate is created`() {
+        val draggedItem =
+            InteractionState.List.Active(
+                index = 1,
+                key = "key",
+                size = 4,
+                initialOffset = 8f,
+                cumulatedOffset = 5f,
+            )
+
+        val candidates = scrollCandidates(draggedItem, scrollZoneHeight = 30f, totalItems = 5)
 
         assertEquals(1, candidates.count { it.type is InteractionType.Scroll })
     }
@@ -381,6 +500,115 @@ class InteractableListTest {
     }
 
     @Test
+    fun `GIVEN liveReorderEnabled is true AND the list was laid out again after an item was moved WHEN the item is let go THEN its animation starts from where it was let go relative to its new position`() {
+        val alpha = FakeListItemInfo(key = TabKeys.TAB_ALPHA, index = 1, size = 10, offset = 10)
+        val beta = FakeListItemInfo(key = TabKeys.TAB_BETA, index = 2, size = 10, offset = 30)
+        var layoutInfo = FakeListLayoutInfo(visibleItemsInfo = listOf(alpha, beta), totalItemsCount = 2)
+        val listState = mock<LazyListState>()
+        whenever(listState.firstVisibleItemIndex).thenReturn(0)
+        whenever(listState.layoutInfo).thenAnswer { layoutInfo }
+        whenever(listState.isScrollInProgress).thenReturn(false)
+        val reorderState = fakeListInteractionState(listState, liveReorderEnabled = true)
+
+        reorderState.onTouchSlopPassed(beta.offset.toFloat(), false)
+        reorderState.dragUp(distance = 30f, preserveSelectMode = false)
+        layoutInfo =
+            layoutInfo.copy(
+                visibleItemsInfo = listOf(beta.copy(index = 1, offset = 10), alpha.copy(index = 2, offset = 30))
+            )
+        reorderState.onDragEnd()
+
+        assertEquals(-10f, reorderState.computeDroppedItemOffset())
+    }
+
+    @Test
+    fun `GIVEN an item is dragged WHEN the list lays it out out of view THEN it is still moved to where the finger is`() {
+        val alpha = FakeListItemInfo(key = TabKeys.TAB_ALPHA, index = 1, size = 10, offset = 10)
+        val beta = FakeListItemInfo(key = TabKeys.TAB_BETA, index = 2, size = 10, offset = 30)
+        var layoutInfo =
+            FakeListLayoutInfo(visibleItemsInfo = listOf(alpha, beta), totalItemsCount = 2, beforeContentPadding = 16)
+        val listState = mock<LazyListState>()
+        whenever(listState.firstVisibleItemIndex).thenReturn(0)
+        whenever(listState.layoutInfo).thenAnswer { layoutInfo }
+        whenever(listState.isScrollInProgress).thenReturn(false)
+        val reorderState = fakeListInteractionState(listState, liveReorderEnabled = true)
+        val listCoordinates = attachedCoordinates()
+        val itemCoordinates = mock<LayoutCoordinates>()
+        whenever(listCoordinates.localPositionOf(itemCoordinates, Offset.Zero)).thenReturnUnboxed(Offset(0f, -24f))
+        reorderState.updateListLayoutCoordinates(listCoordinates)
+
+        reorderState.onTouchSlopPassed(beta.offset.toFloat(), false)
+        layoutInfo = layoutInfo.copy(visibleItemsInfo = listOf(alpha.copy(offset = 0)))
+        reorderState.onDraggedItemPositioned(itemCoordinates)
+
+        // Laid out 40px above the first item, which starts after the content padding, while the finger still holds it
+        // where it was picked up.
+        assertEquals(beta.offset + 40f, reorderState.computeItemOffset(beta.index))
+    }
+
+    @Test
+    fun `GIVEN an item was let go of WHEN the list then lays it out somewhere else THEN it is kept where it was let go of`() {
+        val dropped = DroppedItemList()
+
+        // Moved by the list only once let go of, 30px above where it was laid out.
+        dropped.layDroppedItemOut(offset = DROPPED_ITEM_OFFSET - 30)
+
+        // Let go of 20px above where it was laid out, so 10px below where it is laid out now.
+        assertEquals(10f, dropped.state.computeDroppedItemOffset())
+        dropped.animationScope.cancel()
+    }
+
+    @Test
+    fun `GIVEN an item was let go of WHEN the list lays it out where it was THEN it starts from where it was let go of`() {
+        val dropped = DroppedItemList()
+
+        assertEquals(-20f, dropped.state.computeDroppedItemOffset())
+        dropped.animationScope.cancel()
+    }
+
+    @Test
+    fun `GIVEN an item was let go of WHEN it is animated to its place THEN it is not offset anymore`() {
+        val dropped = DroppedItemList(frameClock = ImmediateFramesClock)
+
+        dropped.animationScope.testScheduler.advanceUntilIdle()
+
+        assertNull(dropped.state.previousKeyOfDraggedItem)
+        assertEquals(0f, dropped.state.computeDroppedItemOffset())
+    }
+
+    /**
+     * A list in which an item was let go of 20px above where it was laid out.
+     *
+     * @param frameClock Drives the animation of the item to its place.
+     */
+    private inner class DroppedItemList(frameClock: MonotonicFrameClock = NoFramesClock) {
+        private val alpha = FakeListItemInfo(key = TabKeys.TAB_ALPHA, index = 1, size = 10, offset = 10)
+        private val beta = FakeListItemInfo(key = TabKeys.TAB_BETA, index = 2, size = 10, offset = DROPPED_ITEM_OFFSET)
+        private var layoutInfo = FakeListLayoutInfo(visibleItemsInfo = listOf(alpha, beta), totalItemsCount = 2)
+        val animationScope = TestScope(testDispatcher + frameClock)
+        val state: ListInteractionState
+
+        init {
+            val listState = mock<LazyListState>()
+            whenever(listState.firstVisibleItemIndex).thenReturn(0)
+            whenever(listState.layoutInfo).thenAnswer { layoutInfo }
+            whenever(listState.isScrollInProgress).thenReturn(false)
+            // Moved next to the other item instead of dropped onto it.
+            state = fakeListInteractionState(listState, dragAndDropEnabled = false, coroutineScope = animationScope)
+
+            state.onTouchSlopPassed(beta.offset.toFloat(), false)
+            state.dragUp(distance = 20f, preserveSelectMode = false)
+            state.onDragEnd()
+            animationScope.testScheduler.runCurrent()
+        }
+
+        /** Let the list lay the dropped item out at [offset]. */
+        fun layDroppedItemOut(offset: Int) {
+            layoutInfo = layoutInfo.copy(visibleItemsInfo = listOf(alpha, beta.copy(offset = offset)))
+        }
+    }
+
+    @Test
     fun `GIVEN liveReorderEnabled is true WHEN multiple drag events to the same position occur THEN only one onMove is called`() {
         val handler = RecordingItemInteractionHandler()
         val dragItemOffset = 30
@@ -414,7 +642,7 @@ class InteractableListTest {
     }
 
     @Test
-    fun `GIVEN a drag is in progress and the dragged item is not visible when onDragEnd is called THEN onDragCancelled is called`() {
+    fun `GIVEN a drag is in progress and the dragged item is not visible when onDragEnd is called THEN the handler is told the drag ended`() {
         val handler = RecordingItemInteractionHandler()
         val draggedItemOffset = 30
         val reorderState =
@@ -427,7 +655,35 @@ class InteractableListTest {
         reorderState.dragDown(distance = 50f, preserveSelectMode = false)
         reorderState.onDragEnd()
 
-        assertTrue(Call.DragCancel in handler.calls)
+        assertTrue(Call.DragEnd in handler.calls)
+        assertFalse(Call.DragCancel in handler.calls)
+    }
+
+    @Test
+    fun `GIVEN liveReorderEnabled is false WHEN the user lets go of an item moved next to another THEN the handler is told the drag ended`() {
+        val handler = RecordingItemInteractionHandler()
+        val dragItemOffset = 30
+        val reorderState =
+            twoTabReorderState(
+                handler = handler,
+                alphaTabOffset = 10,
+                betaTabOffset = dragItemOffset,
+                liveReorderEnabled = false,
+            )
+
+        reorderState.onTouchSlopPassed(dragItemOffset.toFloat(), false)
+        reorderState.dragUp(distance = 30f, preserveSelectMode = false)
+        reorderState.onDragEnd()
+
+        assertEquals(
+            expected =
+                listOf(
+                    Call.DragStart(TabKeys.TAB_BETA, preserveSelectMode = false),
+                    Call.Move(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false),
+                    Call.DragEnd,
+                ),
+            actual = handler.calls,
+        )
     }
 
     @Test
@@ -480,6 +736,7 @@ class InteractableListTest {
         reorderState.onDragCancelled()
 
         assertTrue(Call.DragCancel in handler.calls)
+        assertFalse(Call.DragEnd in handler.calls)
     }
 
     @Test
@@ -572,6 +829,141 @@ class InteractableListTest {
     }
 
     @Test
+    fun `GIVEN an item which cannot be dragged WHEN it is long pressed and dragged THEN no drag starts and onLongPress is not invoked`() {
+        val handler = RecordingItemInteractionHandler()
+        val longPressed = mutableListOf<Any>()
+        val dragItemOffset = 10
+        val reorderState =
+            twoTabReorderState(
+                handler = handler,
+                alphaTabOffset = dragItemOffset,
+                betaTabOffset = 30,
+                fixedItems = setOf(TabKeys.TAB_ALPHA),
+                onLongPress = { longPressed += it.key },
+            )
+
+        reorderState.onTouchSlopPassed(offset = dragItemOffset.toFloat(), shouldLongPress = true)
+        reorderState.dragDown(distance = 50f, preserveSelectMode = false)
+
+        assertIs<InteractionState.List.None>(reorderState.draggedItem)
+        assertTrue(handler.calls.isEmpty())
+        assertTrue(longPressed.isEmpty())
+    }
+
+    @Test
+    fun `GIVEN an item which cannot be dragged WHEN another item is dragged to its top THEN the dragged item is moved before it`() {
+        val handler = RecordingItemInteractionHandler()
+        val dragItemOffset = 30
+        val reorderState =
+            twoTabReorderState(
+                handler = handler,
+                alphaTabOffset = 10,
+                betaTabOffset = dragItemOffset,
+                liveReorderEnabled = true,
+                fixedItems = setOf(TabKeys.TAB_ALPHA),
+            )
+
+        reorderState.onTouchSlopPassed(dragItemOffset.toFloat(), false)
+        reorderState.dragUp(distance = 30f, preserveSelectMode = false)
+
+        assertTrue(Call.Move(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false) in handler.calls)
+    }
+
+    @Test
+    fun `GIVEN an item which cannot be dragged WHEN another item is dragged to its bottom THEN the dragged item is moved after it`() {
+        val handler = RecordingItemInteractionHandler()
+        val dragItemOffset = 110
+        val reorderState =
+            twoTabReorderState(
+                handler = handler,
+                alphaTabOffset = dragItemOffset,
+                betaTabOffset = 130,
+                includeHeader = true,
+                liveReorderEnabled = true,
+                fixedItems = setOf(TabKeys.TAB_BETA),
+            )
+
+        reorderState.onTouchSlopPassed(dragItemOffset.toFloat(), false)
+        reorderState.dragDown(distance = 50f, preserveSelectMode = false)
+
+        assertTrue(Call.Move(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA, true) in handler.calls)
+    }
+
+    @Test
+    fun `GIVEN an item which cannot be dragged WHEN another item is dropped onto it THEN onDrop is called`() {
+        val handler = RecordingItemInteractionHandler()
+        val dragItemOffset = 120
+        val reorderState =
+            twoTabReorderState(
+                handler = handler,
+                alphaTabOffset = dragItemOffset,
+                betaTabOffset = 140,
+                includeHeader = true,
+                fixedItems = setOf(TabKeys.TAB_BETA),
+            )
+
+        reorderState.onTouchSlopPassed(dragItemOffset.toFloat(), false)
+        reorderState.dragDown(distance = 20f, preserveSelectMode = false)
+        reorderState.onDragEnd()
+
+        assertTrue(Call.Drop(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA) in handler.calls)
+    }
+
+    @Test
+    fun `GIVEN liveReorderEnabled is true WHEN the user lets go of an item moved next to another THEN the handler is told once that the drag ended`() {
+        val handler = RecordingItemInteractionHandler()
+        val dragItemOffset = 30
+        val reorderState =
+            twoTabReorderState(
+                handler = handler,
+                alphaTabOffset = 10,
+                betaTabOffset = dragItemOffset,
+                liveReorderEnabled = true,
+            )
+
+        reorderState.onTouchSlopPassed(dragItemOffset.toFloat(), false)
+        reorderState.dragUp(distance = 30f, preserveSelectMode = false)
+        reorderState.onDragEnd()
+
+        assertEquals(
+            expected =
+                listOf(
+                    Call.DragStart(TabKeys.TAB_BETA, preserveSelectMode = false),
+                    Call.Move(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false),
+                    Call.DragEnd,
+                ),
+            actual = handler.calls,
+        )
+    }
+
+    @Test
+    fun `GIVEN liveReorderEnabled is true WHEN the drag of an item moved next to another is cancelled THEN the handler is only told the drag was cancelled`() {
+        val handler = RecordingItemInteractionHandler()
+        val dragItemOffset = 30
+        val reorderState =
+            twoTabReorderState(
+                handler = handler,
+                alphaTabOffset = 10,
+                betaTabOffset = dragItemOffset,
+                liveReorderEnabled = true,
+            )
+
+        reorderState.onTouchSlopPassed(dragItemOffset.toFloat(), false)
+        reorderState.dragUp(distance = 30f, preserveSelectMode = false)
+        reorderState.onDragCancelled()
+
+        assertEquals(
+            expected =
+                listOf(
+                    Call.DragStart(TabKeys.TAB_BETA, preserveSelectMode = false),
+                    Call.Move(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false),
+                    Call.DragCancel,
+                ),
+            actual = handler.calls,
+        )
+    }
+
+    @Test
     fun `GIVEN items of different sizes WHEN a drag starts THEN the dragged item keeps its own size`() {
         val reorderState =
             fakeListInteractionState(
@@ -624,7 +1016,36 @@ class InteractableListTest {
         assertEquals(InteractionState.List.None, reorderState.hoveredItem)
         assertNull(reorderState.highlightedRect)
         assertEquals(InteractionMode.List.None, reorderState.interactionMode)
-        assertEquals(reorderState.previousItemAnimatableOffset.value, 0f)
+    }
+
+    /**
+     * The candidates for [draggedItem] in a viewport of 10, where the first visible item is not the first of the list.
+     *
+     * @param totalItems Number of items in the list, only more than 3 allows a bottom Scroll candidate.
+     */
+    private fun scrollCandidates(
+        draggedItem: InteractionState.List.Active,
+        scrollZoneHeight: Float? = null,
+        totalItems: Int = 3,
+    ): List<ListInteractionCandidate> {
+        val listState =
+            mockListState(
+                listOf(mockListItem("key", index = 1), mockListItem(TabKeys.TAB_BETA, index = 2)),
+                firstVisibleIndex = 1,
+                totalItems = totalItems,
+            )
+        return gatherCandidates(
+            listState = listState,
+            draggedItemOffset =
+                ListItemOffset(
+                    draggedItem = draggedItem,
+                    draggingItemOffset = draggedItem.initialOffset,
+                    itemSize = draggedItem.size,
+                ),
+            draggedItem = draggedItem,
+            ignoredItems = defaultIgnoredItems,
+            scrollZoneHeight = scrollZoneHeight,
+        )
     }
 
     private fun mockListItem(
@@ -634,8 +1055,104 @@ class InteractableListTest {
         offset: Int = 0,
     ): LazyListItemInfo = FakeListItemInfo(key = key, index = index, size = size, offset = offset)
 
+    private fun attachedCoordinates(): LayoutCoordinates {
+        val coordinates = mock<LayoutCoordinates>()
+        whenever(coordinates.isAttached).thenReturn(true)
+        return coordinates
+    }
+
     private fun mockHeaderItem(): LazyListItemInfo =
         mockListItem(key = TabKeys.HEADER, index = 0, size = 100, offset = 0)
+
+    @Test
+    fun `WHEN an item is dragged THEN the interaction found for it is replaced by the one interceptInteractionMode returns`() {
+        val dragItemOffset = 30
+        val found = mutableListOf<InteractionMode.List>()
+        val reorderState =
+            twoTabReorderState(
+                alphaTabOffset = 10,
+                betaTabOffset = dragItemOffset,
+                interceptInteractionMode = { _, mode ->
+                    found += mode
+                    InteractionMode.List.None
+                },
+            )
+
+        reorderState.onTouchSlopPassed(dragItemOffset.toFloat(), false)
+        reorderState.dragUp(distance = 30f, preserveSelectMode = false)
+
+        assertTrue(found.any { it is InteractionMode.List.Reordering && it.target.key == TabKeys.TAB_ALPHA })
+        assertEquals(InteractionMode.List.None, reorderState.interactionMode)
+    }
+
+    @Test
+    fun `GIVEN interceptInteractionMode retargets the dragged item WHEN the user lets go of it THEN the handler is told about the retargeted move`() {
+        val handler = RecordingItemInteractionHandler()
+        val dragItemOffset = 30
+        val reorderState =
+            twoTabReorderState(
+                handler = handler,
+                alphaTabOffset = 10,
+                betaTabOffset = dragItemOffset,
+                interceptInteractionMode = { _, mode ->
+                    (mode as? InteractionMode.List.Reordering)?.copy(placeAfter = true) ?: mode
+                },
+            )
+
+        reorderState.onTouchSlopPassed(dragItemOffset.toFloat(), false)
+        reorderState.dragUp(distance = 30f, preserveSelectMode = false)
+        reorderState.onDragEnd()
+
+        assertEquals(
+            expected =
+                listOf(
+                    Call.DragStart(TabKeys.TAB_BETA, preserveSelectMode = false),
+                    Call.Move(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, true),
+                    Call.DragEnd,
+                ),
+            actual = handler.calls,
+        )
+    }
+
+    @Test
+    fun `GIVEN interceptInteractionMode rejects the interaction WHEN the user lets go of the dragged item THEN the handler is only told the drag ended`() {
+        val handler = RecordingItemInteractionHandler()
+        val dragItemOffset = 30
+        val reorderState =
+            twoTabReorderState(
+                handler = handler,
+                alphaTabOffset = 10,
+                betaTabOffset = dragItemOffset,
+                interceptInteractionMode = { _, _ -> InteractionMode.List.None },
+            )
+
+        reorderState.onTouchSlopPassed(dragItemOffset.toFloat(), false)
+        reorderState.dragUp(distance = 30f, preserveSelectMode = false)
+        reorderState.onDragEnd()
+
+        assertEquals(
+            expected = listOf(Call.DragStart(TabKeys.TAB_BETA, preserveSelectMode = false), Call.DragEnd),
+            actual = handler.calls,
+        )
+    }
+
+    @Test
+    fun `GIVEN interceptInteractionMode retargets the dragged item WHEN it goes past the end of the list THEN the list still scrolls`() {
+        val listState = mockListState(listOf(mockListItem(key = TabKeys.TAB_ALPHA, index = 1, size = 10, offset = 0)))
+        val reorderState =
+            fakeListInteractionState(
+                listState,
+                interceptInteractionMode = { dragged, _ ->
+                    InteractionMode.List.Reordering(source = dragged, target = dragged, placeAfter = true)
+                },
+            )
+
+        reorderState.onTouchSlopPassed(offset = 5f, shouldLongPress = false)
+        reorderState.dragDown(distance = 20f, preserveSelectMode = false)
+        scope.testScheduler.runCurrent()
+
+        assertTrue(Mockito.mockingDetails(listState).invocations.any { it.method.name == "scroll" })
+    }
 
     private fun twoTabReorderState(
         handler: ItemInteractionHandler = NoOpItemInteractionHandler,
@@ -644,6 +1161,12 @@ class InteractableListTest {
         includeHeader: Boolean = false,
         dragAndDropEnabled: Boolean = true,
         liveReorderEnabled: Boolean = false,
+        fixedItems: Set<Any> = emptySet(),
+        onLongPress: (LazyListItemInfo) -> Unit = {},
+        interceptInteractionMode: (InteractionState.List.Active, InteractionMode.List) -> InteractionMode.List =
+            { _, mode ->
+                mode
+            },
     ): ListInteractionState {
         val items = buildList {
             if (includeHeader) {
@@ -657,6 +1180,9 @@ class InteractableListTest {
             handler = handler,
             dragAndDropEnabled = dragAndDropEnabled,
             liveReorderEnabled = liveReorderEnabled,
+            fixedItems = fixedItems,
+            onLongPress = onLongPress,
+            interceptInteractionMode = interceptInteractionMode,
         )
     }
 
@@ -679,17 +1205,25 @@ class InteractableListTest {
         dragAndDropEnabled: Boolean = true,
         liveReorderEnabled: Boolean = false,
         onLongPress: (LazyListItemInfo) -> Unit = {},
+        fixedItems: Set<Any> = emptySet(),
+        coroutineScope: CoroutineScope = scope,
+        interceptInteractionMode: (InteractionState.List.Active, InteractionMode.List) -> InteractionMode.List =
+            { _, mode ->
+                mode
+            },
     ): ListInteractionState {
         return ListInteractionStateImpl(
             listState = listState,
             itemInteractionHandler = handler,
-            scope = scope,
+            scope = coroutineScope,
             touchSlop = 0f,
             ignoredItems = defaultIgnoredItems,
             onLongPress = onLongPress,
             hapticFeedback = RecordingHapticFeedback(),
             dragAndDropEnabled = dragAndDropEnabled,
             liveReorderEnabled = liveReorderEnabled,
+            fixedItems = fixedItems,
+            interceptInteractionMode = interceptInteractionMode,
         )
     }
 
@@ -699,5 +1233,25 @@ class InteractableListTest {
 
     private fun ListInteractionState.dragUp(distance: Float, preserveSelectMode: Boolean) {
         this.onDrag(offset = -distance, preserveSelectMode = preserveSelectMode)
+    }
+
+    /** [MonotonicFrameClock] never producing a frame, so that animations stay at their starting value. */
+    private object NoFramesClock : MonotonicFrameClock {
+        override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R = awaitCancellation()
+    }
+
+    /** [MonotonicFrameClock] producing a frame as soon as it is asked for one, so that animations run to the end. */
+    private object ImmediateFramesClock : MonotonicFrameClock {
+        private var frameTimeNanos = 0L
+
+        override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
+            frameTimeNanos += FRAME_TIME_NANOS
+            return onFrame(frameTimeNanos)
+        }
+    }
+
+    private companion object {
+        const val DROPPED_ITEM_OFFSET = 30
+        const val FRAME_TIME_NANOS = 16_000_000L
     }
 }

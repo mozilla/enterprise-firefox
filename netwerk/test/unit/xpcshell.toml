@@ -97,6 +97,8 @@ skip-if = [
 ["test_altsvc.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
 
+["test_altsvc_cache_last-pb-context-exited.js"]
+
 ["test_altsvc_lna.js"]
 
 ["test_altsvc_pref.js"]
@@ -781,6 +783,8 @@ skip-if = [
   "os == 'win' && msix", # Bug 1808049
 ]
 
+["test_h2_continuation_end_stream.js"]
+
 ["test_h2_unclean_shutdown_retry.js"]
 prefs = ["network.http.speculative-parallel-limit=0"]
 
@@ -971,6 +975,9 @@ skip-if = [
 ["test_http2.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
 head = "head_channels.js head_cache.js head_cookies.js head_trr.js head_http3.js http2_test_common.js"
+
+["test_http2_fin_buffered.js"]
+requesttimeoutfactor = 2  # Slow on Android
 
 ["test_http2_proxy_concurrent_stream.js"]
 requesttimeoutfactor = 4  # Slow on Linux and Windows
@@ -1970,6 +1977,8 @@ skip-if = [
 
 ["test_unix_domain.js"]
 
+["test_upload_stream_normalization.js"]
+
 ["test_uri_mutator.js"]
 
 ["test_use_httpssvc.js"]
@@ -1981,6 +1990,12 @@ skip-if = [
 ["test_websocket_500k.js"]
 skip-if = [
   "verify",
+]
+
+["test_websocket_ech.js"]
+run-sequentially = ["true"] # uses common port for ECH server
+skip-if = [
+  "os == 'win' && msix", # Bug 1808049
 ]
 
 ["test_websocket_fails.js"]

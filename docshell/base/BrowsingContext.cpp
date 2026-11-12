@@ -2552,6 +2552,9 @@ nsresult BrowsingContext::InternalLoad(nsDocShellLoadState* aLoadState) {
   // Same reason as for the sandbox flags.
   MOZ_TRY(CheckFramebusting(aLoadState));
 
+  // Ensure we don't keep a strong reference to the source element for too long.
+  aLoadState->SetSourceElement(nullptr);
+
   if (XRE_IsParentProcess()) {
     ContentParent* cp = Canonical()->GetContentParent();
     if (!cp || !cp->CanSend()) {
@@ -3179,6 +3182,11 @@ BrowsingContext::IPCInitializer BrowsingContext::GetIPCInitializer() {
   IPCInitializer init;
   init.mId = Id();
   init.mParentId = mParentWindow ? mParentWindow->Id() : 0;
+  if (RefPtr<BrowsingContext> opener = GetOpener()) {
+    if (WindowContext* openerWindow = opener->GetCurrentWindowContext()) {
+      init.mOpenerInnerWindowId = openerWindow->Id();
+    }
+  }
   init.mWindowless = mWindowless;
   init.mUseRemoteTabs = mUseRemoteTabs;
   init.mUseRemoteSubframes = mUseRemoteSubframes;
@@ -4696,7 +4704,8 @@ bool ParamTraits<MaybeDiscarded<BrowsingContext>>::Read(
 }
 
 IMPLEMENT_IPC_SERIALIZER_WITH_FIELDS(BrowsingContext::IPCInitializer, mId,
-                                     mParentId, mWindowless, mUseRemoteTabs,
+                                     mParentId, mOpenerInnerWindowId,
+                                     mWindowless, mUseRemoteTabs,
                                      mUseRemoteSubframes, mCreatedDynamically,
                                      mChildOffset, mOriginAttributes,
                                      mRequestContextId, mSessionHistoryIndex,

@@ -1941,6 +1941,11 @@ pref("services.sync.prefs.sync.browser.urlbar.suggest.openpage", true);
 pref("services.sync.prefs.sync.browser.urlbar.suggest.searches", true);
 pref("services.sync.prefs.sync.browser.urlbar.suggest.topsites", true);
 pref("services.sync.prefs.sync.browser.urlbar.suggest.engines", true);
+pref("services.sync.prefs.sync.browser.urlbar.suggest.quickactions", true);
+pref("services.sync.prefs.sync.browser.urlbar.suggest.recentsearches", true);
+pref("services.sync.prefs.sync.browser.urlbar.suggest.quicksuggest.all", true);
+pref("services.sync.prefs.sync.browser.urlbar.suggest.quicksuggest.sponsored", true);
+pref("services.sync.prefs.sync.browser.urlbar.quicksuggest.online.enabled", true);
 pref("services.sync.prefs.sync.dom.disable_open_during_load", true);
 pref("services.sync.prefs.sync.dom.disable_window_flip", true);
 pref("services.sync.prefs.sync.dom.disable_window_move_resize", true);
@@ -2217,8 +2222,7 @@ pref("messaging-system.askForFeedback", true);
 // It's enabled by default, but could be disabled to force ASRouter to use the local files.
 pref("browser.newtabpage.activity-stream.asrouter.useRemoteL10n", true);
 
-// These prefs control if Discovery Stream is enabled.
-pref("browser.newtabpage.activity-stream.discoverystream.enabled", true);
+// These prefs control Discovery Stream.
 pref("browser.newtabpage.activity-stream.discoverystream.hardcoded-basic-layout", false);
 pref("browser.newtabpage.activity-stream.discoverystream.hybridLayout.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.hideCardBackground.enabled", false);

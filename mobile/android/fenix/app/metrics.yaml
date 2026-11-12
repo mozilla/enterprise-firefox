@@ -145,7 +145,7 @@ events:
           custom_forward, custom_forward_long_press, custom_share, customize_homepage, desktop_view_off,
           desktop_view_on, discover_more_extensions, dismiss_menu_banner, downloads,
           edit_bookmark, find_in_page, forward, forward_long_press, history, install_addon,
-          installed_addon_details, menu_banner, new_tab, open_in_app, open_in_fenix, print_content,
+          installed_addon_details, menu_banner, new_private_tab, new_tab, open_in_app, open_in_fenix, print_content,
           quit, reader_mode_appearance, reload, remove_from_top_sites, save_to_collection,
           move_to_non_private_tab, set_default_browser, settings, share, stop, sync_account,
           translate and web_extension_browser_action_clicked.
@@ -9159,6 +9159,12 @@ listen_to_page:
     description: |
       The user pressed the play button to resume. Playback starts on its own
       when the audio icon is tapped, which `requested` records.
+    extra_keys:
+      source:
+        description: |
+          Where the control was pressed: 'in_app' for player sheet, or 'media_controls' for the playback
+          notification, the lock screen and other system media controls.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2064878
     data_reviews:
@@ -9172,6 +9178,12 @@ listen_to_page:
     type: event
     description: |
       The user pressed the pause button.
+    extra_keys:
+      source:
+        description: |
+          Where the control was pressed: 'in_app' for player sheet, or 'media_controls' for the playback
+          notification, the lock screen and other system media controls.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2064878
     data_reviews:
@@ -9185,6 +9197,12 @@ listen_to_page:
     type: event
     description: |
       The user pressed the skip-back button to jump backward.
+    extra_keys:
+      source:
+        description: |
+          Where the control was pressed: 'in_app' for player sheet, or 'media_controls' for the playback
+          notification, the lock screen and other system media controls.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2064878
     data_reviews:
@@ -9198,6 +9216,12 @@ listen_to_page:
     type: event
     description: |
       The user pressed the skip-forward button to jump forward.
+    extra_keys:
+      source:
+        description: |
+          Where the control was pressed: 'in_app' for player sheet, or 'media_controls' for the playback
+          notification, the lock screen and other system media controls.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2064878
     data_reviews:
@@ -9308,6 +9332,12 @@ listen_to_page:
       speed:
         description: |
           The selected speed as a multiple of the normal reading speed.
+        type: string
+      source:
+        description: |
+          Where the speed was changed: `in_app` for the player sheet's speed
+          menu, or `media_controls` for the speed control of the playback
+          notification or the lock screen.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2064878
@@ -10049,6 +10079,110 @@ logins:
     notification_emails:
       - android-probes@mozilla.com
     expires: never
+    metadata:
+      tags:
+        - Logins
+  import_from_file_menu_click:
+    type: event
+    description: |
+      The user clicks the menu entry point to import passwords from a file.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2041577
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D337978
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Logins
+  import_started:
+    type: event
+    description: |
+      The import of passwords from a file started.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2041577
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D337978
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Logins
+  import_successful:
+    type: event
+    description: |
+      The user successfully imports passwords from a file.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2041577
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D337978
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    extra_keys:
+      logins_count:
+        description: The number of logins imported.
+        type: quantity
+    metadata:
+      tags:
+        - Logins
+  import_cancelled:
+    type: event
+    description: |
+      The user cancels the import of passwords from a file.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2041577
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D337978
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Logins
+  import_failed:
+    type: event
+    description: |
+      The import of passwords from a file failed.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2041577
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D337978
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    extra_keys:
+      error_code:
+        description: |
+          The error code describing what occurred during import.
+          Current values are:
+            1xxx - errors imply a file reading error
+            1001 - file read error
+
+            2xxx - errors imply an error encountered during parsing
+            2001 - parsing error - unsupported content type (a file with no recognizable login columns)
+            2002 - parsing error - invalid format (a required column is missing)
+            2003 - parsing error - an unexpected error related to parsing
+            2004 - parsing error - conflicting columns (two columns map to the same field)
+
+            3xxx - errors imply an error encountered during password insertion
+            3001 - passwords save error
+
+            4xxx - other errors not yet handled/classified
+            4001 - general unknown error
+        type: string
     metadata:
       tags:
         - Logins
@@ -10834,6 +10968,145 @@ app_menu:
       tags:
         - Sync
         - Settings
+customize_menu:
+  launched:
+    type: event
+    description: |
+      The user started customizing the browser menu by tapping "Customize menu", either in the popup shown after long
+      pressing the browser menu or in the customization settings.
+    extra_keys:
+      source:
+        type: string
+        description: |
+          Where the user tapped "Customize menu". One of: `menu` (the popup shown after long pressing the browser
+          menu) or `settings` (the customization settings).
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2086548
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D339827
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - MainMenu
+  shown:
+    type: event
+    description: |
+      The customize menu screen was shown, with the default menu sections merged with the user's customization.
+      Recorded once each time the user enters the screen, not again when the screen is recreated while the user is on
+      it.
+      The section lists leave out the sections which are ineligible or disabled by the user in settings, but include
+      the ones which only appear sometimes, depending on the current application or tab state.
+    extra_keys:
+      shown_sections:
+        type: string
+        description: |
+          Comma separated names of the sections marked as showing in the menu, from top to bottom.
+          Each name is one of: page_controls, reader_view, vpn, tools, library, accounts_and_settings,
+          tabs_controls, quit.
+      hidden_sections:
+        type: string
+        description: |
+          Comma separated names of the sections marked as hidden in the menu, from top to bottom.
+          Each name is one of: page_controls, reader_view, vpn, tools, library, accounts_and_settings,
+          tabs_controls, quit.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2086548
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D339829
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - MainMenu
+  section_moved:
+    type: event
+    description: |
+      The user moved a section of the browser menu to another place on the customize menu screen: to another position
+      among the sections marked as showing in the menu, to the ones marked as hidden, out of them or to another
+      position among them. Not recorded when the section is dropped where it was.
+    extra_keys:
+      section:
+        type: string
+        description: |
+          The name of the moved section. One of: page_controls, reader_view, vpn, tools, library,
+          accounts_and_settings, tabs_controls, quit.
+      hidden:
+        type: boolean
+        description: |
+          Whether the section was moved to the sections marked as hidden in the menu, or marked as showing in it.
+      position:
+        type: quantity
+        description: |
+          The position of the section after it was moved, among the sections marked as hidden in the menu if `hidden` is
+          true, among the ones marked as showing in it otherwise. Counted from top to bottom, starting at 1, inclusive.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2086548
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D339830
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - MainMenu
+  back_pressed:
+    type: event
+    description: |
+      The user pressed back on the customize menu screen, with either the back button in the toolbar or the system back
+      button or gesture.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2086548
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D339829
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - MainMenu
+  reset_to_default_clicked:
+    type: event
+    description: |
+      The user confirmed resetting to the default menu structure in the confirmation dialog on the customize menu screen.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2086544
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D339888
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - MainMenu
+  preview_clicked:
+    type: event
+    description: |
+      The user tapped "Preview" on the customize menu screen to preview the menu structure.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2086543
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D339917
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - MainMenu
 app_theme:
   dark_theme_selected:
     type: event
@@ -17756,8 +18029,7 @@ vpn:
   location_changed:
     type: event
     description:
-      Triggered when a location is selected, restored, or reverted after a
-      failed switch.
+      Triggered when a location is selected or restored.
     extra_keys:
       to:
         description: >
@@ -17767,8 +18039,7 @@ vpn:
       operation:
         description: >
           "user_action" when the user tapped a location in the location list, "restore" when a
-          saved location was applied at startup, "reset" when the previous location was put back
-          after a failed switch.
+          saved location was applied at startup.
         type: string
       proxy_state:
         description: >
@@ -17777,8 +18048,10 @@ vpn:
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2049043
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2071352
     data_reviews:
       - https://phabricator.services.mozilla.com/D326740
+      - https://phabricator.services.mozilla.com/D339737
     data_sensitivity:
       - interaction
       - technical

@@ -181,6 +181,7 @@ def _schema_1():
             "try-preset": All(str, Length(min=1)),
             "fuzzy-query": All(str, Length(min=1)),
             "fuzzy-paths": All([str], Length(min=1)),
+            "artifact-build": Boolean(),
             "tasks": All(
                 UpdatebotTasks(),
                 [
@@ -204,7 +205,6 @@ def _schema_1():
                             r"^(every|release|[1-9][0-9]* (weeks?|days?)|[1-9][0-9]* commits?|"
                             + r"[1-9][0-9]* (weeks?|days?), ?[1-9][0-9]* commits?)$"
                         ),
-                        "platform": Match(r"^(windows|linux)$"),
                     }
                 ],
             ),

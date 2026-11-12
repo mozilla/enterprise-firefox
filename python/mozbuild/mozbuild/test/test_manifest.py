@@ -278,6 +278,48 @@ updatebot:
                         "license": ["MPL-1.1", "LGPL-2.1"],
                         "name": "cairo",
                         "release": "version 1.6.4",
+                        "revision": "001122334455",
+                        "url": "https://www.cairographics.org/",
+                    },
+                    "bugzilla": {"component": "Graphics", "product": "Core"},
+                    "updatebot": {
+                        "try-preset": "foo",
+                        "artifact-build": True,
+                        "maintainer-phab": "tjr",
+                        "maintainer-bz": "a@example.com",
+                    },
+                },
+                b"""
+---
+schema: 1
+origin:
+  name: cairo
+  description: 2D Graphics Library
+  url: https://www.cairographics.org/
+  release: version 1.6.4
+  license:
+    - MPL-1.1
+    - LGPL-2.1
+  revision: 001122334455
+bugzilla:
+  product: Core
+  component: Graphics
+updatebot:
+  try-preset: foo
+  artifact-build: true
+  maintainer-phab: tjr
+  maintainer-bz: a@example.com
+            """.strip(),
+            ),
+            # -------------------------------------------------
+            (
+                {
+                    "schema": "1",
+                    "origin": {
+                        "description": "2D Graphics Library",
+                        "license": ["MPL-1.1", "LGPL-2.1"],
+                        "name": "cairo",
+                        "release": "version 1.6.4",
                         "revision": "AA001122334455",
                         "url": "https://www.cairographics.org/",
                     },
@@ -481,7 +523,6 @@ updatebot:
                                 "cc": ["b@example.com"],
                                 "needinfo": ["c@example.com"],
                                 "frequency": "1 weeks",
-                                "platform": "windows",
                                 "options": ["build-flag"],
                             },
                         ],
@@ -518,7 +559,6 @@ updatebot:
       cc: ["b@example.com"]
       needinfo: ["c@example.com"]
       frequency: 1 weeks
-      platform: windows
       options: ["build-flag"]
             """.strip(),
             ),
@@ -552,7 +592,6 @@ updatebot:
                                 "cc": ["b@example.com"],
                                 "needinfo": ["c@example.com"],
                                 "frequency": "1 weeks, 4 commits",
-                                "platform": "windows",
                             },
                         ],
                     },
@@ -588,7 +627,6 @@ updatebot:
       cc: ["b@example.com"]
       needinfo: ["c@example.com"]
       frequency: 1 weeks, 4 commits
-      platform: windows
             """.strip(),
             ),
             # -------------------------------------------------
@@ -629,7 +667,6 @@ updatebot:
       cc: ["b@example.com"]
       needinfo: ["c@example.com"]
       frequency: 1 weeks, 4 commits
-      platform: windows
             """.strip(),
             ),
             # -------------------------------------------------
@@ -665,7 +702,6 @@ updatebot:
                                 "filter": "none",
                                 "source-extensions": [".c", ".cpp"],
                                 "frequency": "2 weeks",
-                                "platform": "linux",
                             },
                         ],
                     },
@@ -704,7 +740,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 2 weeks
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -805,7 +840,6 @@ updatebot:
                                 "filter": "none",
                                 "source-extensions": [".c", ".cpp"],
                                 "frequency": "2 commits",
-                                "platform": "linux",
                             },
                         ],
                     },
@@ -844,7 +878,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 2 commits
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -885,7 +918,6 @@ updatebot:
                                 "filter": "none",
                                 "source-extensions": [".c", ".cpp"],
                                 "frequency": "2 commits",
-                                "platform": "linux",
                             },
                         ],
                     },
@@ -926,7 +958,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 2 commits
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -971,7 +1002,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 2 commits
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -1367,7 +1397,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 2 commits
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -1411,7 +1440,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 2 commits
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -1454,7 +1482,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 2 commits, 4 weeks
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -1497,7 +1524,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 4 weeks, 2 commits, 3 weeks
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -1541,7 +1567,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 2 weeks
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -1585,7 +1610,6 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 01 commits
-      platform: linux
       source-extensions:
         - .c
         - .cpp
@@ -1628,7 +1652,7 @@ updatebot:
     - type: commit-alert
       filter: none
       frequency: 2 weeks
-      platform: mac
+      platform: linux  # Updatebot only runs on Linux; platform is no longer a valid key
       source-extensions:
         - .c
         - .cpp

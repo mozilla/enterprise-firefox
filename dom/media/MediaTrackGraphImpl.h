@@ -61,16 +61,6 @@ class DeviceInputTrackManager {
 };
 
 /**
- * A per-track update message passed from the media graph thread to the
- * main thread.
- */
-struct TrackUpdate {
-  RefPtr<MediaTrack> mTrack;
-  TrackTime mNextMainThreadCurrentTime;
-  bool mNextMainThreadEnded;
-};
-
-/**
  * This represents a message run on the graph thread to modify track or graph
  * state.  These are passed from main thread to graph thread through
  * AppendMessage().  A ControlMessage often has a weak reference to a
@@ -182,10 +172,6 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
    * See EnsureStableStateEventPosted.
    */
   void EnsureRunInStableState();
-  /**
-   * Called to apply a TrackUpdate to its track.
-   */
-  void ApplyTrackUpdate(TrackUpdate* aUpdate) MOZ_REQUIRES(mMonitor);
   /**
    * Append a control message to the message queue. This queue is drained
    * during RunInStableState; the messages will run on the graph thread.
@@ -317,8 +303,10 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
    */
   void EnsureStableStateEventPosted() MOZ_REQUIRES(mMonitor);
   /**
-   * Generate messages to the main thread to update it for all state changes.
-   * mMonitor must be held.
+   * Set the canonicals' current time and hand the update runnables queued
+   * since the last update to the main thread through mUpdateRunnables.
+   * Offline graphs throttle this, except for the final update. mMonitor must
+   * be held.
    */
   void PrepareUpdatesToMainThreadState(bool aFinalUpdate)
       MOZ_REQUIRES(mMonitor);
@@ -670,8 +658,6 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   already_AddRefed<MediaInputPort> ConnectToCaptureTrack(
       uint64_t aWindowId, MediaTrack* aMediaTrack);
 
-  Watchable<GraphTime>& CurrentTime() override;
-
   /**
    * Interrupt any JS running on the graph thread.
    * Called on the main thread when shutting down the graph.
@@ -874,10 +860,6 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   // Data guarded by mMonitor (must always be accessed with mMonitor held,
   // regardless of the value of mLifecycleState).
 
-  /**
-   * State to copy to main thread
-   */
-  nsTArray<TrackUpdate> mTrackUpdates MOZ_GUARDED_BY(mMonitor);
   /**
    * Runnables to run after the next update to main thread state.
    */
@@ -1167,18 +1149,6 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
    */
   bool mCanRunMessagesSynchronously;
 #endif
-
-  /**
-   * The graph's main-thread observable graph time.
-   * Updated by the stable state runnable after each iteration.
-   */
-  Watchable<GraphTime> mMainThreadGraphTime;
-
-  /**
-   * Set based on mProcessedTime at end of iteration.
-   * Read by stable state runnable on main thread. Protected by mMonitor.
-   */
-  GraphTime mNextMainThreadGraphTime MOZ_GUARDED_BY(mMonitor) = 0;
 
   /**
    * Cached audio output latency, in seconds. Main thread only. This is reset

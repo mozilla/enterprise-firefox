@@ -896,11 +896,9 @@ let perDeviceSyncEnabled = Services.prefs.getBoolPref(
 SettingGroupManager.registerGroups({
   defaultBrowserSync: createDefaultBrowserConfig({
     includeIsDefaultPane: false,
-    inProgress: true,
     hiddenFromSearch: true,
   }),
   accountDisabled: {
-    inProgress: true,
     hidden: accountsEnabled,
     items: [
       {
@@ -914,7 +912,6 @@ SettingGroupManager.registerGroups({
     ],
   },
   account: {
-    inProgress: true,
     l10nId: "account-group-label2",
     headingLevel: 2,
     iconSrc: "chrome://browser/skin/preferences/mozilla-logo.svg",
@@ -1012,7 +1009,6 @@ SettingGroupManager.registerGroups({
     ],
   },
   sync: {
-    inProgress: true,
     l10nId: "sync-group-label",
     headingLevel: 2,
     iconSrc: "chrome://browser/skin/sync.svg",

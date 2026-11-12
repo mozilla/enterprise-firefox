@@ -121,17 +121,12 @@ void nsHtml5Tokenizer::SetViewSourceOpSink(nsAHtml5TreeOpSink* aOpSink) {
 void nsHtml5Tokenizer::RewindViewSource() { mViewSource->Rewind(); }
 
 nsHtml5String nsHtml5Tokenizer::TryAtomizeForSingleDigit() {
-  if (strBufLen == 1 && strBuf[0] >= '0' && strBuf[0] <= '9') {
-    static nsStaticAtom* const digitAtoms[10] = {
-        nsGkAtoms::_0, nsGkAtoms::_1, nsGkAtoms::_2, nsGkAtoms::_3,
-        nsGkAtoms::_4, nsGkAtoms::_5, nsGkAtoms::_6, nsGkAtoms::_7,
-        nsGkAtoms::_8, nsGkAtoms::_9};
-    nsAtom* atom = digitAtoms[strBuf[0] - '0'];
-    nsHtml5String result = nsHtml5String::FromAtom(do_AddRef(atom));
+  nsHtml5String result =
+      nsHtml5Portability::newSingleDigitAttributeValue(strBuf, strBufLen);
+  if (result) {
     clearStrBufAfterUse();
-    return result;
   }
-  return nullptr;
+  return result;
 }
 
 void nsHtml5Tokenizer::errWarnLtSlashInRcdata() {}
@@ -313,6 +308,32 @@ void nsHtml5Tokenizer::errLtGt() {
 void nsHtml5Tokenizer::errProcessingInstruction() {
   if (MOZ_LIKELY(mViewSource)) {
     mViewSource->AddErrorToCurrentNode("errProcessingInstruction");
+  }
+}
+
+void nsHtml5Tokenizer::errEofInProcessingInstruction() {
+  if (MOZ_LIKELY(mViewSource)) {
+    mViewSource->AddErrorToCurrentNode("errEofInProcessingInstruction");
+  }
+}
+
+void nsHtml5Tokenizer::errInvalidFirstCharacterOfProcessingInstructionTarget() {
+  if (MOZ_LIKELY(mViewSource)) {
+    mViewSource->AddErrorToCurrentNode(
+        "errInvalidFirstCharacterOfProcessingInstructionTarget");
+  }
+}
+
+void nsHtml5Tokenizer::errInvalidProcessingInstructionTarget() {
+  if (MOZ_LIKELY(mViewSource)) {
+    mViewSource->AddErrorToCurrentNode("errInvalidProcessingInstructionTarget");
+  }
+}
+
+void nsHtml5Tokenizer::errDisallowedProcessingInstructionTarget() {
+  if (MOZ_LIKELY(mViewSource)) {
+    mViewSource->AddErrorToCurrentNode(
+        "errDisallowedProcessingInstructionTarget");
   }
 }
 

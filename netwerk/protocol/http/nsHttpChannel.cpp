@@ -1235,9 +1235,11 @@ nsresult nsHttpChannel::ContinueOnBeforeConnect(bool aShouldUpgrade,
     // fallback mechanism, which restarts the transaction to fall back. Happy
     // Eyeballs instead races endpoints (honoring the HTTPS RR port, hints and
     // ALPN) and dispatches the sticky upgrade onto the winner with no restart,
-    // so it can safely use HTTPS RR. Only disallow HTTPS RR for upgrades that
-    // are not handled by Happy Eyeballs.
-    if (!(mCaps & NS_HTTP_USE_HAPPY_EYEBALLS)) {
+    // so it can safely use HTTPS RR. Without Happy Eyeballs, upgrades can only
+    // use HTTPS RR when nsHttpTransaction is allowed to restart them for the
+    // HTTPS RR fallback.
+    if (!(mCaps & NS_HTTP_USE_HAPPY_EYEBALLS) &&
+        !StaticPrefs::network_http_upgrade_use_https_rr()) {
       DisallowHTTPSRR(mCaps);
     }
   }
@@ -1624,6 +1626,9 @@ nsresult nsHttpChannel::ContinueConnect() {
   if (forceOffline) {
     return NS_ERROR_OFFLINE;
   }
+
+  // Not served from cache, so drop any caller-set cacheReadStart.
+  mCacheReadStart = TimeStamp();
 
   // hit the net...
   nsresult rv = DoConnect(mTransactionSticky);
@@ -6123,6 +6128,12 @@ nsresult nsHttpChannel::ReadFromCache(void) {
   rv = mCachePump->AsyncRead(this);
   if (NS_FAILED(rv)) return rv;
 
+  // Performance timing uses this as responseStart for every cache hit; keep
+  // an earlier value set by the caller, e.g. when a prefetch completed.
+  if (mCacheReadStart.IsNull()) {
+    mCacheReadStart = TimeStamp::Now();
+  }
+
   uint32_t suspendCount = mSuspendCount;
   if (LoadAsyncResumePending()) {
     LOG(
@@ -7971,6 +7982,12 @@ void nsHttpChannel::AsyncOpenFinal(TimeStamp aTimeStamp) {
   // timing.
   if (!LoadAsyncOpenTimeOverriden()) {
     mAsyncOpenTime = aTimeStamp;
+  }
+
+  // A completed prefetch's response was there before the navigation started.
+  if (mLoadInfo->GetActivatedFromNavigationalPrefetch() &&
+      mCacheReadStart.IsNull()) {
+    mCacheReadStart = mAsyncOpenTime;
   }
 
   // Remember we have Authorization header set here.  We need to check on it
