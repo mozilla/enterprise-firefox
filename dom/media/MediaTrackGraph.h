@@ -14,6 +14,7 @@
 #include "mozilla/LinkedList.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"
+#include "mozilla/StateMirroring.h"
 #include "mozilla/StateWatching.h"
 #include "mozilla/TaskQueue.h"
 #include "nsAutoRef.h"
@@ -164,23 +165,6 @@ class AudioDataListener : public AudioDataListenerInterface {
 };
 
 /**
- * This is a base class for main-thread listener callbacks.
- * This callback is invoked on the main thread when the main-thread-visible
- * state of a track has changed.
- *
- * These methods are called with the media graph monitor held, so
- * reentry into general media graph methods is not possible.
- * You should do something non-blocking and non-reentrant (e.g. dispatch an
- * event) and return. NS_DispatchToCurrentThread would be a good choice.
- * The listener is allowed to synchronously remove itself from the track, but
- * not add or remove any other listeners.
- */
-class MainThreadMediaTrackListener {
- public:
-  virtual void NotifyMainThreadTrackEnded() = 0;
-};
-
-/**
  * Helper struct used to keep track of memory usage by AudioNodes.
  */
 struct AudioNodeSizes {
@@ -275,6 +259,9 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   const TrackRate mSampleRate;
   const MediaSegment::Type mType;
 
+  enum class Flag { EnableCanonicals };
+  using Flags = EnumSet<Flag>;
+
  protected:
   // Protected destructor, to discourage deletion outside of Release():
   virtual ~MediaTrack();
@@ -290,8 +277,8 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   /**
    * Sets the graph that owns this track.  Should only be called once.
    */
-  void SetGraphImpl(MediaTrackGraphImpl* aGraph);
-  void SetGraphImpl(MediaTrackGraph* aGraph);
+  void SetGraphImpl(MediaTrackGraphImpl* aGraph, Flags aFlags);
+  void SetGraphImpl(MediaTrackGraph* aGraph, Flags aFlags);
 
   // Control API.
   void AddAudioOutput(void* aKey, const AudioDeviceInfo* aSink);
@@ -332,17 +319,6 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   // silence.
   void SetDisabledTrackMode(DisabledTrackMode aMode);
 
-  // End event will be notified by calling methods of aListener. It is the
-  // responsibility of the caller to remove aListener before it is destroyed.
-  void AddMainThreadListener(MainThreadMediaTrackListener* aListener);
-  // It's safe to call this even if aListener is not currently a listener;
-  // the call will be ignored.
-  void RemoveMainThreadListener(MainThreadMediaTrackListener* aListener) {
-    MOZ_ASSERT(NS_IsMainThread());
-    MOZ_ASSERT(aListener);
-    mMainThreadListeners.RemoveElement(aListener);
-  }
-
   /**
    * Append to the message queue a control message to execute a given lambda
    * function with no parameters.  The queue is drained during
@@ -371,13 +347,13 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   }
 
   /**
-   * Ensure a runnable will run on the main thread after running all pending
-   * updates that were sent from the graph thread or will be sent before the
-   * graph thread receives the next graph update.
+   * Queue a control message that passes aRunnable to
+   * DispatchToMainThreadStableState() on the graph thread.
    *
-   * If the graph has been shut down or destroyed, then the runnable will be
-   * dispatched to the event queue immediately.  (There are no pending updates
-   * in this situation.)
+   * If the graph has been shut down, then the runnable will be dispatched to
+   * the main thread event queue immediately.  (There are no pending updates in
+   * this situation.)  If this track has been destroyed, then the runnable will
+   * be dropped.
    *
    * Main thread only.
    */
@@ -387,21 +363,18 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   // later.
   virtual void Destroy();
 
-  // Returns the main-thread's view of how much data has been processed by
-  // this track.
-  TrackTime GetCurrentTime() const {
-    NS_ASSERTION(NS_IsMainThread(), "Call only on main thread");
-    return mMainThreadCurrentTime;
-  }
-  // Return the main thread's view of whether this track has ended.
-  bool IsEnded() const {
-    NS_ASSERTION(NS_IsMainThread(), "Call only on main thread");
-    return mMainThreadEnded;
-  }
+  /**
+   * Canonicals for state that can be mirrored to other threads. They are
+   * available from when this track is added to a graph with EnableCanonicals
+   * until Destroy(), which disconnects any mirrors. Must not be used after
+   * Destroy().
+   */
+  AbstractCanonical<TrackTime>& CanonicalCurrentTime();
+  AbstractCanonical<bool>& CanonicalEnded();
 
   bool IsDestroyed() const {
     NS_ASSERTION(NS_IsMainThread(), "Call only on main thread");
-    return mMainThreadDestroyed;
+    return mDestroyed;
   }
 
   uint64_t GetWindowId() const;
@@ -570,6 +543,10 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   virtual void AdvanceTimeVaryingValuesToCurrentTime(GraphTime aCurrentTime,
                                                      GraphTime aBlockedTime);
 
+  // Destroy the canonicals, breaking the strong reference they hold to their
+  // owner thread, which is this track's graph. Graph thread.
+  void DisconnectCanonicals();
+
  private:
   template <typename Function>
   class ControlMessageWithNoShutdown;
@@ -579,25 +556,6 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
 
   void QueueMessage(UniquePtr<ControlMessageInterface> aMessage);
   void RunMessageAfterProcessing(already_AddRefed<nsIRunnable> aMessage);
-
-  void NotifyMainThreadListeners() {
-    NS_ASSERTION(NS_IsMainThread(), "Call only on main thread");
-
-    for (int32_t i = mMainThreadListeners.Length() - 1; i >= 0; --i) {
-      mMainThreadListeners[i]->NotifyMainThreadTrackEnded();
-    }
-    mMainThreadListeners.Clear();
-  }
-
-  bool ShouldNotifyTrackEnded() {
-    NS_ASSERTION(NS_IsMainThread(), "Call only on main thread");
-    if (!mMainThreadEnded || mEndedNotificationSent) {
-      return false;
-    }
-
-    mEndedNotificationSent = true;
-    return true;
-  }
 
  protected:
   // Notifies listeners and consumers of the change in disabled mode when the
@@ -632,7 +590,6 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
 
   // Client-set volume of this track
   nsTArray<RefPtr<MediaTrackListener>> mTrackListeners;
-  nsTArray<MainThreadMediaTrackListener*> mMainThreadListeners;
   // This track's associated disabled mode. It can either by disabled by frames
   // being replaced by black, or by retaining the previous frame.
   DisabledTrackMode mDisabledMode;
@@ -652,13 +609,30 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
    */
   int32_t mSuspendedCount;
 
-  // Main-thread views of state
-  TrackTime mMainThreadCurrentTime;
-  bool mMainThreadEnded;
-  bool mEndedNotificationSent;
-  bool mMainThreadDestroyed;
+  /**
+   * State this track publishes for mirroring, as MediaTrackGraphImpl does.
+   * Created when the track joins a graph and destroyed with its graph thread
+   * state, since a canonical holds a strong reference to its owner thread --
+   * here the graph. State is set on the graph thread.
+   */
+  struct Canonicals {
+    Canonicals(AbstractThread* aGraphThread, TrackTime aCurrentTime)
+        : mCurrentTime(aGraphThread, aCurrentTime,
+                       "MediaTrack::Canonicals::mCurrentTime"),
+          mEnded(aGraphThread, false, "MediaTrack::Canonicals::mEnded") {}
 
-  // Our media track graph.  null if destroyed on the graph thread.
+    Canonical<TrackTime> mCurrentTime;
+    Canonical<bool> mEnded;
+  };
+  // Canonical state for mirroring to other threads. Valid for use on any thread
+  // until Destroy().
+  Maybe<Canonicals> mCanonicals;
+
+  // Set in Destroy(), on a control thread.
+  Atomic<bool> mDestroyed;
+
+  // Our media track graph. Valid for use on any thread until Destroy().
+  // Valid on the graph thread until cleared when destroyed on the graph thread.
   MediaTrackGraph* mGraph;
 };
 
@@ -1126,7 +1100,8 @@ class MediaTrackGraph {
    * Create a track that a media decoder (or some other source of
    * media data, such as a camera) can write to.
    */
-  SourceMediaTrack* CreateSourceTrack(MediaSegment::Type aType);
+  SourceMediaTrack* CreateSourceTrack(MediaSegment::Type aType,
+                                      MediaTrack::Flags aFlags = {});
   /**
    * Create a track that will forward data from its input track.
    *
@@ -1151,7 +1126,7 @@ class MediaTrackGraph {
   /**
    * Add a new track to the graph.  Main thread.
    */
-  void AddTrack(MediaTrack* aTrack);
+  void AddTrack(MediaTrack* aTrack, MediaTrack::Flags aFlags);
 
   /* From the main thread, ask the MTG to resolve the returned promise when
    * the device specified has started.
@@ -1202,8 +1177,12 @@ class MediaTrackGraph {
 
   /**
    * Media graph thread only.
-   * Dispatches a runnable that will run on the main thread after all
-   * main-thread track state has been updated, i.e., during stable state.
+   * Queue a runnable to run on the main thread. It is handed to the main
+   * thread at the end of the next iteration that updates the main thread,
+   * which is every iteration for a realtime graph, and throttled for an
+   * offline graph. The graph thread then ensures an event is dispatched to
+   * the main thread to run it. If the main thread has queued messages for the
+   * graph, it may run the runnable sooner, in its next stable state.
    *
    * Should only be called during MediaTrackListener callbacks or during
    * ProcessedMediaTrack::ProcessInput().
@@ -1253,12 +1232,6 @@ class MediaTrackGraph {
   void AssertOnGraphThreadOrNotRunning() const {
     MOZ_ASSERT(OnGraphThreadOrNotRunning());
   }
-
-  /**
-   * Returns a watchable of the graph's main-thread observable graph time.
-   * Main thread only.
-   */
-  virtual Watchable<GraphTime>& CurrentTime() = 0;
 
   /**
    * Graph thread function to return the time at which all processing has been

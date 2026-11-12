@@ -41,15 +41,22 @@ EXEC			= exec
 # Library rules
 #
 
-ifdef FORCE_SHARED_LIB
-ifdef MKSHLIB
-
+ifeq (clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH))
+MKSHLIB = $(LINKER) -NOLOGO -DLL -OUT:$@ $(DSO_LDOPTS)
+else
 ifdef LIB_IS_C_ONLY
-MKSHLIB			= $(MKCSHLIB)
+MKSHLIB = $(CC)
+ifneq (WINNT,$(OS_ARCH))
+MKSHLIB += $(COMPUTED_C_LDFLAGS)
 endif
-
-endif # MKSHLIB
-endif # FORCE_SHARED_LIB
+else
+MKSHLIB = $(CXX)
+ifneq (WINNT,$(OS_ARCH))
+MKSHLIB += $(COMPUTED_CXX_LDFLAGS)
+endif
+endif
+MKSHLIB += $(DSO_LDOPTS) -o $@
+endif
 
 ifeq ($(OS_ARCH),WINNT)
 
@@ -170,27 +177,6 @@ IFLAGS2 = -rb
 else
 IFLAGS1 = -m 644
 IFLAGS2 = -m 755
-endif
-
-ifeq (clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH))
-OUTOPTION = -Fo# eol
-else
-OUTOPTION = -o # eol
-endif # WINNT && clang-cl
-
-ifeq (,$(CROSS_COMPILE))
-HOST_OUTOPTION = $(OUTOPTION)
-else
-# Windows-to-Windows cross compiles should always use MSVC-style options for
-# host compiles.
-ifeq (WINNT_WINNT,$(HOST_OS_ARCH)_$(OS_ARCH))
-ifneq (,$(filter-out clang-cl,$(HOST_CC_TYPE)))
-$(error MSVC-style compilers should be used for host compilations!)
-endif
-HOST_OUTOPTION = -Fo# eol
-else
-HOST_OUTOPTION = -o # eol
-endif
 endif
 ################################################################################
 
@@ -344,9 +330,9 @@ ifeq (WINNT_clang-cl,$(HOST_OS_ARCH)_$(HOST_CC_TYPE))
 	$(HOST_LINKER) -OUT:$@ -PDB:$(HOST_PDBFILE) $($(notdir $@)_OBJS) $(WIN32_EXE_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LINKER_LIBPATHS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 else
 ifeq ($(HOST_CPP_PROG_LINK),1)
-	$(HOST_CXX) $(HOST_OUTOPTION)$@ $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $($(notdir $@)_OBJS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
+	$(HOST_CXX) $(HOST_CC_OUTOPTION)$@ $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $($(notdir $@)_OBJS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 else
-	$(HOST_CC) $(HOST_OUTOPTION)$@ $(HOST_C_LDFLAGS) $(HOST_LDFLAGS) $($(notdir $@)_OBJS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
+	$(HOST_CC) $(HOST_CC_OUTOPTION)$@ $(HOST_C_LDFLAGS) $(HOST_LDFLAGS) $($(notdir $@)_OBJS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 endif
 endif
 	$(call BUILDSTATUS,END_Program $(@F))
@@ -362,7 +348,7 @@ $(WASM_ARCHIVE): $(CWASMOBJS) $(CPPWASMOBJS) $(STATIC_LIBS) $(GLOBAL_DEPS)
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,START_WasmLib $@)
 	$(RM) $(WASM_ARCHIVE)
-	$(WASM_CXX) -o $@ $(COMPUTED_WASM_LDFLAGS) $(CWASMOBJS) $(CPPWASMOBJS) $(addprefix -l,$(WASM_LIBS))
+	$(WASM_CXX_LINK) -o $@ $(COMPUTED_WASM_LDFLAGS) $(CWASMOBJS) $(CPPWASMOBJS) $(addprefix -l,$(WASM_LIBS))
 	$(call BUILDSTATUS,END_WasmLib $@)
 
 ifeq ($(OS_ARCH),WINNT)
@@ -383,7 +369,7 @@ $(HOST_SHARED_LIBRARY): Makefile
 ifneq (,$(filter clang-cl,$(HOST_CC_TYPE)))
 	$(HOST_LINKER) -DLL -OUT:$@ $($(notdir $@)_OBJS) $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LINKER_LIBPATHS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 else
-	$(HOST_CXX) $(HOST_OUTOPTION)$@ $($(notdir $@)_OBJS) $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
+	$(HOST_CXX) $(HOST_CC_OUTOPTION)$@ $($(notdir $@)_OBJS) $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 endif
 	$(call BUILDSTATUS,END_SharedLib $@)
 
@@ -425,19 +411,19 @@ $(OBJS) $(HOST_OBJS) $(PROGOBJS) $(HOST_PROGOBJS): $(GLOBAL_DEPS)
 $(HOST_COBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(HOST_CC) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CFLAGS) $<
+	$(HOST_CC) $(HOST_CC_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CFLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(HOST_CPPOBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(HOST_CXX) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CXXFLAGS) $<
+	$(HOST_CXX) $(HOST_CC_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CXXFLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(COBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(CC) $(OUTOPTION)$@ -c $(COMPILE_CFLAGS) $($(notdir $<)_FLAGS) $<
+	$(CC) $(CC_OUTOPTION)$@ -c $(COMPILE_CFLAGS) $($(notdir $<)_FLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(CWASMOBJS):
@@ -525,7 +511,7 @@ $(SOBJS):
 $(CPPOBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(CCC) $(OUTOPTION)$@ -c $(COMPILE_CXXFLAGS) $($(notdir $<)_FLAGS) $<
+	$(CCC) $(CC_OUTOPTION)$@ -c $(COMPILE_CXXFLAGS) $($(notdir $<)_FLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(CPPWASMOBJS):

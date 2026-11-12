@@ -73,6 +73,8 @@ if CONFIG["OS_TARGET"] == "WINNT":
         "TestNamedPipeService.cpp",
         "TestNetworkLinkIdHashingWindows.cpp",
     ]
+    # Not unified: windows headers define a GetAddrInfo macro.
+    SOURCES += ["TestPlatformDNSWin.cpp"]
 
 # run the test on mac only
 if CONFIG["TARGET_OS"] == "OSX":
@@ -80,6 +82,12 @@ if CONFIG["TARGET_OS"] == "OSX":
 
     if CONFIG["MOZ_ENTERPRISE"]:
         UNIFIED_SOURCES += ["TestNetworkInterfaceDarwin.cpp"]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
+    SOURCES += ["TestPlatformDNSMac.cpp"]
+elif CONFIG["OS_TARGET"] in ("Linux", "FreeBSD"):
+    # Not unified: resolv.h defines many macros.
+    SOURCES += ["TestPlatformDNSUnix.cpp"]
 
 TEST_HARNESS_FILES.gtest += [
     "urltestdata.json",

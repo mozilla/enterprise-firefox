@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-@file:OptIn(ExperimentalAndroidComponentsApi::class)
-
 package org.mozilla.fenix.settings.ipprotection
 
 import android.os.Bundle
@@ -17,12 +15,10 @@ import androidx.fragment.compose.content
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
-import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.feature.ipprotection.IPProtectionWarningBinding
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
 import mozilla.components.feature.ipprotection.store.IPProtectionStore
 import mozilla.components.feature.ipprotection.store.state.Location
-import mozilla.components.feature.ipprotection.store.state.isActivationInFlight
 import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import org.mozilla.fenix.GleanMetrics.Vpn
@@ -50,14 +46,12 @@ class IPProtectionLocationsFragment : Fragment(), SystemInsetsPaddedFragment {
         val selectedLocation =
             components.ipProtection.store.observeAsComposableState { it.locationState.selectedLocation }.value
         val locations = components.ipProtection.store.observeAsComposableState { it.locationState.locations }.value
-        val isActivating = components.ipProtection.store.observeAsComposableState { it.isActivationInFlight }.value
 
         FirefoxTheme {
             IPProtectionLocationsScreen(
                 selectedLocation = selectedLocation,
                 locations = locations,
                 snackbarHostState = snackbarHostState,
-                isActivating = isActivating,
                 onNavigateBack = { findNavController().popBackStack() },
                 onLocationSelected = ::handleSelectedLocation,
             )

@@ -214,7 +214,7 @@ MOZ_RUNINIT HTMLEditor::AttributeFilter
               (&aAttrName == nsGkAtoms::id || &aAttrName == nsGkAtoms::dir));
         };
 
-HTMLEditor::HTMLEditor(const Document& aDocument)
+HTMLEditor::HTMLEditor(const Document& /*aDocument*/)
     : EditorBase(EditorBase::EditorType::HTML),
       mCRInParagraphCreatesParagraph(false),
       mIsObjectResizingEnabled(
@@ -4478,7 +4478,12 @@ nsresult HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak(
                          "to delete unnecessary <br>");
     return rv;
   }
-  MOZ_ASSERT(isNewLinePreformatted);
+
+  // FYI: unnecessaryLineBreak is a preformatted linefeed, but
+  // isNewLinePreformatted may be false because aNextOrAfterModifiedPoint may be
+  // before the container element of the text which specifies `white-space` to
+  // `pre-*`.
+
   if (aPreservePreformattedLineBreak == PreservePreformattedLineBreak::Yes) {
     // Do not preserve preformatted linefeed if it's a padding for empty block
     // even if the caller wants to preserve unnecessary preformatted linefeed

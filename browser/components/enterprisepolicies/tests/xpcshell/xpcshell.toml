@@ -19,6 +19,8 @@ support-files = [
 # Only run in MOZ_ENTERPRISE builds
 run-if = ["enterprise"]
 
+["test_aicontrols_custom_widgets.js"]
+
 ["test_allowed_domains_for_apps.js"]
 
 ["test_appupdatepin.js"]

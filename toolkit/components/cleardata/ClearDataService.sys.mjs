@@ -13,7 +13,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NetworkGeolocationCache:
     "moz-src:///dom/system/NetworkGeolocationCache.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
-  ServiceWorkerCleanUp: "resource://gre/modules/ServiceWorkerCleanUp.sys.mjs",
+  ServiceWorkerCleanUp:
+    "moz-src:///toolkit/components/cleardata/ServiceWorkerCleanUp.sys.mjs",
 });
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -1103,15 +1104,15 @@ const StorageAccessCleaner = {
     for (let principal of aPrincipalsWithStorage) {
       baseDomainsWithStorage.add(principal.baseDomain);
     }
-    for (let perm of Services.perms.getAllByTypeSince(
-      "storageAccessAPI",
-      // The permission manager uses milliseconds instead of microseconds
-      aFrom / 1000
-    )) {
-      if (!baseDomainsWithStorage.has(perm.principal.baseDomain)) {
-        Services.perms.removePermission(perm);
-      }
-    }
+    Services.perms.removePermissionsExceptDefaults(
+      Services.perms
+        .getAllByTypeSince(
+          "storageAccessAPI",
+          // The permission manager uses milliseconds instead of microseconds
+          aFrom / 1000
+        )
+        .filter(perm => !baseDomainsWithStorage.has(perm.principal.baseDomain))
+    );
   },
 
   async deleteByPrincipal(aPrincipal) {
@@ -1119,19 +1120,14 @@ const StorageAccessCleaner = {
   },
 
   _deleteInternal(filter, aOriginAttributesPattern = {}) {
-    Services.perms
-      .getAllForOriginAttributesPattern(
-        JSON.stringify(aOriginAttributesPattern),
-        ["storageAccessAPI"]
-      )
-      .filter(filter)
-      .forEach(perm => {
-        try {
-          Services.perms.removePermission(perm);
-        } catch (ex) {
-          console.error(ex);
-        }
-      });
+    Services.perms.removePermissionsExceptDefaults(
+      Services.perms
+        .getAllForOriginAttributesPattern(
+          JSON.stringify(aOriginAttributesPattern),
+          ["storageAccessAPI"]
+        )
+        .filter(filter)
+    );
   },
 
   async deleteByHost(aHost) {
@@ -1294,23 +1290,18 @@ const SHUTDOWN_EXCEPTION_PERMISSION = "persist-data-on-shutdown";
 
 const ShutdownExceptionsCleaner = {
   async _deleteInternal(filter, aOriginAttributesPattern = {}) {
-    Services.perms
-      .getAllForOriginAttributesPattern(
-        JSON.stringify(aOriginAttributesPattern),
-        [SHUTDOWN_EXCEPTION_PERMISSION]
-      )
-      .filter(filter)
-      .forEach(perm => {
-        try {
-          Services.perms.removePermission(perm);
-        } catch (ex) {
-          console.error(ex);
-        }
-      });
+    Services.perms.removePermissionsExceptDefaults(
+      Services.perms
+        .getAllForOriginAttributesPattern(
+          JSON.stringify(aOriginAttributesPattern),
+          [SHUTDOWN_EXCEPTION_PERMISSION]
+        )
+        .filter(filter)
+    );
   },
 
   async deleteByHost(aHost) {
-    this._deleteInternal(({ principal }) => {
+    await this._deleteInternal(({ principal }) => {
       let { host: principalHost } = principal;
       if (!principalHost?.length) {
         return false;
@@ -1327,7 +1318,7 @@ const ShutdownExceptionsCleaner = {
   },
 
   async deleteBySite(aSchemelessSite, aOriginAttributesPattern) {
-    this._deleteInternal(
+    await this._deleteInternal(
       ({ principal }) => hasSite({ principal }, aSchemelessSite),
       aOriginAttributesPattern
     );
@@ -1355,24 +1346,22 @@ const ShutdownExceptionsCleaner = {
 
 const PermissionsCleaner = {
   async _deleteInternal(filter, aOriginAttributesPattern = {}) {
-    Services.perms
-      .getAllForOriginAttributesPattern(
-        JSON.stringify(aOriginAttributesPattern),
-        []
-      )
-      // Skip persist-data-on-shutdown because it is handled by
-      // ShutdownExceptionsCleaner.
-      .filter(({ type }) => type != SHUTDOWN_EXCEPTION_PERMISSION)
-      .filter(filter)
-      .forEach(perm => {
-        try {
-          Services.perms.removePermission(perm);
-        } catch (ex) {
-          console.error(ex);
-        }
-      });
-    // Clean up interaction tracking data for removed permissions.
-    await Services.perms.removeOrphanedInteractionRecords();
+    try {
+      Services.perms.removePermissionsExceptDefaults(
+        Services.perms
+          .getAllForOriginAttributesPattern(
+            JSON.stringify(aOriginAttributesPattern),
+            []
+          )
+          // Skip persist-data-on-shutdown because it is handled by
+          // ShutdownExceptionsCleaner.
+          .filter(({ type }) => type != SHUTDOWN_EXCEPTION_PERMISSION)
+          .filter(filter)
+      );
+    } finally {
+      // Clean up interaction tracking data for removed permissions.
+      await Services.perms.removeOrphanedInteractionRecords();
+    }
   },
 
   _thirdPartyStoragePermissionMatchesHost(permissionType, aHost) {
@@ -2057,20 +2046,13 @@ const StoragePermissionsCleaner = {
     // Convert aFrom from microseconds to ms
     Services.perms.removeByTypeSince("storage-access", aFrom / 1000);
 
-    let persistentStoragePermissions = Services.perms.getAllByTypeSince(
-      "persistent-storage",
-      aFrom / 1000
+    await this._removePermissions(
+      Services.perms
+        .getAllByTypeSince("persistent-storage", aFrom / 1000)
+        // If it is an Addon Principal, do nothing.
+        // We want their persistant-storage permissions to remain (Bug 1907732)
+        .filter(perm => !this._isAddonPrincipal(perm.principal))
     );
-    persistentStoragePermissions.forEach(perm => {
-      // If it is an Addon Principal, do nothing.
-      // We want their persistant-storage permissions to remain (Bug 1907732)
-      if (this._isAddonPrincipal(perm.principal)) {
-        return;
-      }
-      Services.perms.removePermission(perm);
-    });
-    // Clean up interaction tracking data for removed permissions.
-    await Services.perms.removeOrphanedInteractionRecords();
   },
 
   async deleteByPrincipal(aPrincipal) {
@@ -2083,55 +2065,47 @@ const StoragePermissionsCleaner = {
   },
 
   async deleteByHost(aHost) {
-    let permissions = this._getStoragePermissions();
-    for (let perm of permissions) {
-      if (Services.eTLD.hasRootDomain(perm.principal.host, aHost)) {
-        Services.perms.removePermission(perm);
-      }
-    }
-    // Clean up interaction tracking data for removed permissions.
-    await Services.perms.removeOrphanedInteractionRecords();
+    await this._removePermissions(
+      this._getStoragePermissions().filter(perm =>
+        Services.eTLD.hasRootDomain(perm.principal.host, aHost)
+      )
+    );
   },
 
   async deleteBySite(aSchemelessSite, aOriginAttributesPattern) {
-    let permissions = this._getStoragePermissions(aOriginAttributesPattern);
-    for (let perm of permissions) {
-      let { principal } = perm;
-      if (hasSite({ principal }, aSchemelessSite)) {
-        Services.perms.removePermission(perm);
-      }
-    }
-    // Clean up interaction tracking data for removed permissions.
-    await Services.perms.removeOrphanedInteractionRecords();
+    await this._removePermissions(
+      this._getStoragePermissions(aOriginAttributesPattern).filter(
+        ({ principal }) => hasSite({ principal }, aSchemelessSite)
+      )
+    );
   },
 
   async deleteByLocalFiles() {
-    let permissions = this._getStoragePermissions();
-    for (let perm of permissions) {
-      if (perm.principal.schemeIs("file")) {
-        Services.perms.removePermission(perm);
-      }
-    }
-    // Clean up interaction tracking data for removed permissions.
-    await Services.perms.removeOrphanedInteractionRecords();
+    await this._removePermissions(
+      this._getStoragePermissions().filter(perm =>
+        perm.principal.schemeIs("file")
+      )
+    );
   },
 
   async deleteAll() {
     Services.perms.removeByType("storage-access");
 
     // We don't want to clear the persistent-storage permission from addons (Bug 1907732)
-    let persistentStoragePermissions = Services.perms.getAllByTypes([
-      "persistent-storage",
-    ]);
-    persistentStoragePermissions.forEach(perm => {
-      if (this._isAddonPrincipal(perm.principal)) {
-        return;
-      }
+    await this._removePermissions(
+      Services.perms
+        .getAllByTypes(["persistent-storage"])
+        .filter(perm => !this._isAddonPrincipal(perm.principal))
+    );
+  },
 
-      Services.perms.removePermission(perm);
-    });
-    // Clean up interaction tracking data for removed permissions.
-    await Services.perms.removeOrphanedInteractionRecords();
+  async _removePermissions(aPermissions) {
+    try {
+      Services.perms.removePermissionsExceptDefaults(aPermissions);
+    } finally {
+      // Clean up interaction tracking data for removed permissions.
+      await Services.perms.removeOrphanedInteractionRecords();
+    }
   },
 
   _getStoragePermissions(aOriginAttributesPattern = {}) {

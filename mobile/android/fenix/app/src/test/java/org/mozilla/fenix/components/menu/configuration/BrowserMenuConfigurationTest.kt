@@ -5,18 +5,23 @@
 package org.mozilla.fenix.components.menu.configuration
 
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Test
 import org.mozilla.fenix.components.menu.CustomizedMenuInfo
-import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.GROUP_1_ID
-import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.GROUP_2_ID
-import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.GROUP_3_ID
-import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.GROUP_4_ID
-import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.GROUP_5_ID
-import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.GROUP_6_ID
-import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.NAVIGATION_ID
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.ACCOUNTS_AND_SETTINGS_GROUP_ID
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.LIBRARY_GROUP_ID
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.PAGE_CONTROLS_GROUP_ID
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.QUIT_GROUP_ID
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.READER_VIEW_GROUP_ID
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.TABS_CONTROLS_GROUP_ID
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.TOOLS_GROUP_ID
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.VPN_GROUP_ID
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.CustomizeHomepage
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.DefaultBrowserBanner
+import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.NewPrivateTab
+import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.NewTab
+import org.mozilla.fenix.components.menu.configuration.MenuPresentationMode.Row
 
 class BrowserMenuConfigurationTest {
     @Test
@@ -24,7 +29,7 @@ class BrowserMenuConfigurationTest {
         val configuration =
             BrowserMenuConfiguration.sections(isToolbarAtBottom = true, isExpandedToolbarEnabled = false)
 
-        assertEquals(NAVIGATION_ID, configuration.last().id)
+        assertEquals(PAGE_CONTROLS_GROUP_ID, configuration.last().id)
     }
 
     @Test
@@ -32,7 +37,7 @@ class BrowserMenuConfigurationTest {
         val configuration =
             BrowserMenuConfiguration.sections(isToolbarAtBottom = false, isExpandedToolbarEnabled = false)
 
-        assertEquals(NAVIGATION_ID, configuration.first().id)
+        assertEquals(PAGE_CONTROLS_GROUP_ID, configuration.first().id)
     }
 
     @Test
@@ -40,7 +45,7 @@ class BrowserMenuConfigurationTest {
         val configuration =
             BrowserMenuConfiguration.sections(isToolbarAtBottom = false, isExpandedToolbarEnabled = true)
 
-        assertEquals(NAVIGATION_ID, configuration.last().id)
+        assertEquals(PAGE_CONTROLS_GROUP_ID, configuration.last().id)
     }
 
     @Test
@@ -53,7 +58,8 @@ class BrowserMenuConfigurationTest {
 
     @Test
     fun `GIVEN the user customized the menu WHEN building the browser menu THEN show only the shown sections in the saved order`() {
-        val customization = menuInfo(shown = listOf(GROUP_3_ID, GROUP_1_ID, GROUP_5_ID))
+        val customization =
+            menuInfo(shown = listOf(TOOLS_GROUP_ID, READER_VIEW_GROUP_ID, ACCOUNTS_AND_SETTINGS_GROUP_ID))
         val defaultSections =
             BrowserMenuConfiguration.sections(isToolbarAtBottom = false, isExpandedToolbarEnabled = false)
 
@@ -72,7 +78,7 @@ class BrowserMenuConfigurationTest {
 
     @Test
     fun `GIVEN the saved menu has sections no longer in the app WHEN building the browser menu THEN don't show them`() {
-        val customization = menuInfo(shown = listOf(GROUP_1_ID, "removed", GROUP_5_ID))
+        val customization = menuInfo(shown = listOf(READER_VIEW_GROUP_ID, "removed", ACCOUNTS_AND_SETTINGS_GROUP_ID))
 
         val configuration =
             BrowserMenuConfiguration.sections(
@@ -81,12 +87,13 @@ class BrowserMenuConfigurationTest {
                 customizationInfo = customization,
             )
 
-        assertEquals(listOf(GROUP_1_ID, GROUP_5_ID), configuration.map { it.id })
+        assertEquals(listOf(READER_VIEW_GROUP_ID, ACCOUNTS_AND_SETTINGS_GROUP_ID), configuration.map { it.id })
     }
 
     @Test
     fun `GIVEN the navigation block was saved first AND the toolbar is now at bottom WHEN building the browser menu THEN navigation block appears at the bottom`() {
-        val customization = menuInfo(shown = listOf(NAVIGATION_ID, GROUP_1_ID, GROUP_5_ID))
+        val customization =
+            menuInfo(shown = listOf(PAGE_CONTROLS_GROUP_ID, READER_VIEW_GROUP_ID, ACCOUNTS_AND_SETTINGS_GROUP_ID))
 
         val configuration =
             BrowserMenuConfiguration.sections(
@@ -96,14 +103,15 @@ class BrowserMenuConfigurationTest {
             )
 
         assertEquals(
-            listOf(GROUP_1_ID, GROUP_5_ID, NAVIGATION_ID),
+            listOf(READER_VIEW_GROUP_ID, ACCOUNTS_AND_SETTINGS_GROUP_ID, PAGE_CONTROLS_GROUP_ID),
             configuration.map { it.id },
         )
     }
 
     @Test
     fun `GIVEN the navigation block was saved last AND the toolbar is now at top WHEN building the browser menu THEN navigation block appears at the top`() {
-        val customization = menuInfo(shown = listOf(GROUP_1_ID, GROUP_5_ID, NAVIGATION_ID))
+        val customization =
+            menuInfo(shown = listOf(READER_VIEW_GROUP_ID, ACCOUNTS_AND_SETTINGS_GROUP_ID, PAGE_CONTROLS_GROUP_ID))
 
         val configuration =
             BrowserMenuConfiguration.sections(
@@ -113,14 +121,20 @@ class BrowserMenuConfigurationTest {
             )
 
         assertEquals(
-            listOf(NAVIGATION_ID, GROUP_1_ID, GROUP_5_ID),
+            listOf(PAGE_CONTROLS_GROUP_ID, READER_VIEW_GROUP_ID, ACCOUNTS_AND_SETTINGS_GROUP_ID),
             configuration.map { it.id },
         )
     }
 
     @Test
-    fun `GIVEN the navigation block was saved between other sections WHEN building the browser menu THEN keep it where the user placed it`() {
-        val customization = menuInfo(shown = listOf(GROUP_1_ID, NAVIGATION_ID, GROUP_5_ID))
+    fun `GIVEN the user moved the navigation block WHEN building the browser menu THEN keep it where the user placed it`() {
+        val customization =
+            CustomizedMenuInfo(
+                visibleSectionIds =
+                    listOf(READER_VIEW_GROUP_ID, PAGE_CONTROLS_GROUP_ID, ACCOUNTS_AND_SETTINGS_GROUP_ID),
+                hiddenSectionIds = emptyList(),
+                isNavigationSectionMoved = true,
+            )
 
         val configuration =
             BrowserMenuConfiguration.sections(
@@ -167,28 +181,130 @@ class BrowserMenuConfigurationTest {
             BrowserMenuConfiguration.sections(isToolbarAtBottom = true, isExpandedToolbarEnabled = false).map { it.id },
             defaultMenuInfo.visibleSectionIds,
         )
-        assertEquals(NAVIGATION_ID, defaultMenuInfo.visibleSectionIds.last())
-        assertEquals(emptyList(), defaultMenuInfo.hiddenSectionIds)
+        assertEquals(PAGE_CONTROLS_GROUP_ID, defaultMenuInfo.visibleSectionIds.last())
+        assertEquals(listOf(TABS_CONTROLS_GROUP_ID), defaultMenuInfo.hiddenSectionIds)
     }
 
     @Test
     fun `GIVEN the user removed sections WHEN getting the hidden browser menu sections THEN return them in the saved order`() {
         val customization =
             menuInfo(
-                shown = listOf(GROUP_1_ID, GROUP_5_ID),
-                hidden = listOf(GROUP_4_ID, "removed", NAVIGATION_ID),
+                shown = listOf(READER_VIEW_GROUP_ID, ACCOUNTS_AND_SETTINGS_GROUP_ID),
+                hidden = listOf(LIBRARY_GROUP_ID, "removed", PAGE_CONTROLS_GROUP_ID),
             )
 
         val hiddenSections = BrowserMenuConfiguration.hiddenSections(customization)
 
-        assertEquals(listOf(GROUP_4_ID, NAVIGATION_ID), hiddenSections.map { it.id })
+        assertEquals(listOf(LIBRARY_GROUP_ID, PAGE_CONTROLS_GROUP_ID), hiddenSections.map { it.id })
     }
 
     @Test
     fun `WHEN getting all the browser menu sections THEN return every section with the navigation block first`() {
         assertEquals(
-            listOf(NAVIGATION_ID, GROUP_1_ID, GROUP_2_ID, GROUP_3_ID, GROUP_4_ID, GROUP_5_ID, GROUP_6_ID),
+            listOf(
+                PAGE_CONTROLS_GROUP_ID,
+                READER_VIEW_GROUP_ID,
+                VPN_GROUP_ID,
+                TOOLS_GROUP_ID,
+                LIBRARY_GROUP_ID,
+                ACCOUNTS_AND_SETTINGS_GROUP_ID,
+                QUIT_GROUP_ID,
+                TABS_CONTROLS_GROUP_ID,
+            ),
             BrowserMenuConfiguration.allSections().map { it.id },
+        )
+    }
+
+    @Test
+    fun `WHEN checking the tabs controls section THEN it contains new tab items in Row mode and is hidden by default`() {
+        val tabsControlsSection = BrowserMenuConfiguration.allSections().first { it.id == TABS_CONTROLS_GROUP_ID }
+        assertEquals(Row, tabsControlsSection.presentationMode)
+        assertEquals(listOf(NewTab, NewPrivateTab), tabsControlsSection.items)
+        assertTrue(TABS_CONTROLS_GROUP_ID in BrowserMenuConfiguration.HIDDEN_BY_DEFAULT_SECTION_IDS)
+    }
+
+    @Test
+    fun `GIVEN the toolbar is at the top WHEN the navigation section is first THEN it was not moved`() {
+        assertFalse(
+            BrowserMenuConfiguration.isNavigationSectionMoved(
+                visibleSectionIds = listOf(PAGE_CONTROLS_GROUP_ID, READER_VIEW_GROUP_ID, VPN_GROUP_ID),
+                isToolbarAtBottom = false,
+                isExpandedToolbarEnabled = false,
+            )
+        )
+    }
+
+    @Test
+    fun `GIVEN the toolbar is at the top WHEN the navigation section is not first THEN it was moved`() {
+        assertTrue(
+            BrowserMenuConfiguration.isNavigationSectionMoved(
+                visibleSectionIds = listOf(READER_VIEW_GROUP_ID, PAGE_CONTROLS_GROUP_ID, VPN_GROUP_ID),
+                isToolbarAtBottom = false,
+                isExpandedToolbarEnabled = false,
+            )
+        )
+    }
+
+    @Test
+    fun `GIVEN the toolbar is at the bottom WHEN the navigation section is last THEN it was not moved`() {
+        assertFalse(
+            BrowserMenuConfiguration.isNavigationSectionMoved(
+                visibleSectionIds = listOf(READER_VIEW_GROUP_ID, VPN_GROUP_ID, PAGE_CONTROLS_GROUP_ID),
+                isToolbarAtBottom = true,
+                isExpandedToolbarEnabled = false,
+            )
+        )
+    }
+
+    @Test
+    fun `GIVEN the toolbar is at the bottom WHEN the navigation section is not last THEN it was moved`() {
+        assertTrue(
+            BrowserMenuConfiguration.isNavigationSectionMoved(
+                visibleSectionIds = listOf(PAGE_CONTROLS_GROUP_ID, READER_VIEW_GROUP_ID, VPN_GROUP_ID),
+                isToolbarAtBottom = true,
+                isExpandedToolbarEnabled = false,
+            )
+        )
+    }
+
+    @Test
+    fun `GIVEN the expanded toolbar is used WHEN the navigation section is last THEN it was not moved`() {
+        assertFalse(
+            BrowserMenuConfiguration.isNavigationSectionMoved(
+                visibleSectionIds = listOf(READER_VIEW_GROUP_ID, VPN_GROUP_ID, PAGE_CONTROLS_GROUP_ID),
+                isToolbarAtBottom = false,
+                isExpandedToolbarEnabled = true,
+            )
+        )
+    }
+
+    @Test
+    fun `GIVEN the navigation section is not shown THEN it was not moved`() {
+        assertFalse(
+            BrowserMenuConfiguration.isNavigationSectionMoved(
+                visibleSectionIds = listOf(READER_VIEW_GROUP_ID, VPN_GROUP_ID),
+                isToolbarAtBottom = false,
+                isExpandedToolbarEnabled = false,
+            )
+        )
+    }
+
+    @Test
+    fun `WHEN getting all the browser menu sections THEN their ids are the names recorded in telemetry`() {
+        val ids = BrowserMenuConfiguration.allSections().map { it.id }
+
+        assertEquals(
+            listOf(
+                "page_controls",
+                "reader_view",
+                "vpn",
+                "tools",
+                "library",
+                "accounts_and_settings",
+                "quit",
+                "tabs_controls",
+            ),
+            ids,
         )
     }
 

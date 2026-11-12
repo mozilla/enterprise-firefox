@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import functools
+from collections import Counter
 from math import ceil
 
 import taskgraph
@@ -26,9 +27,16 @@ from gecko_taskgraph.util.perfile import perfile_number_of_chunks
 DYNAMIC_CHUNK_DURATION = 20 * 60  # seconds
 """The approximate time each test chunk should take to run."""
 
-TESTS_PER_VERIFY_CHUNK = 10
-"""How many tests one test-verify-path chunk verifies, as many as the harness
-verifies in one per-test task."""
+VERIFY_SECONDS_PER_TEST = {
+    "browser-chrome": (160, 315, 480),
+    "mochitest": (55, 110, 165),
+    # Not measured, assumed to be like mochitest.
+    "crashtest": (55, 110, 165),
+    "xpcshell": (12, 20, 36),
+}
+"""How long verifying one test of each flavor takes on (opt, debug, tsan)
+builds, as measured on Linux test-verify-path tasks. TSan builds weren't
+measured: their values are 3 times the opt ones, as the harness timeouts are."""
 
 
 transforms = TransformSequence()
@@ -63,11 +71,34 @@ def _resolve_tests_under(paths):
     }
 
 
+def _count_tests_by_flavor(paths):
+    return Counter(
+        test["flavor"]
+        for test in _resolve_tests_under(paths).values()
+        if test.get("flavor") in VERIFY_SECONDS_PER_TEST
+        and "disabled" not in test
+        and not _is_gpu_subsuite(test.get("subsuite"))
+    )
+
+
+def _is_gpu_subsuite(subsuite):
+    return bool(subsuite) and (subsuite == "gpu" or subsuite.startswith("webgl"))
+
+
+def _verify_seconds_per_test(flavor, test_platform):
+    opt, debug, tsan = VERIFY_SECONDS_PER_TEST[flavor]
+    if test_platform.endswith("/debug"):
+        return debug
+    if "-tsan" in test_platform:
+        return tsan
+    return opt
+
+
 @transforms.add
 def set_test_verify_path_chunks(config, tasks):
-    """Size test-verify-path from the tests under the requested paths. The
-    count includes tests the harness skips on the platform, so a chunk may
-    verify fewer than TESTS_PER_VERIFY_CHUNK."""
+    """Size test-verify-path from the tests under the requested paths, for
+    chunks as long as dynamically chunked tasks. The count includes tests the
+    harness skips on the platform, so a chunk may finish sooner."""
     for task in tasks:
         if task["suite"] != "test-verify-path":
             yield task
@@ -86,9 +117,11 @@ def set_test_verify_path_chunks(config, tasks):
         requested = frozenset(
             path for suite_paths in paths.values() for path in suite_paths
         )
-        task["chunks"] = (
-            ceil(len(_resolve_tests_under(requested)) / TESTS_PER_VERIFY_CHUNK) or 1
+        duration = sum(
+            count * _verify_seconds_per_test(flavor, task["test-platform"])
+            for flavor, count in _count_tests_by_flavor(requested).items()
         )
+        task["chunks"] = ceil(duration / DYNAMIC_CHUNK_DURATION) or 1
         yield task
 
 

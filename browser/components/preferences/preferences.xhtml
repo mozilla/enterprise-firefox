@@ -54,6 +54,7 @@
   <!-- Temporary until localization is done -->
   <link rel="localization" href="preview/smartTabGroups.ftl"/>
   <link rel="localization" href="preview/privacyPreferences.ftl"/>
+  <link rel="localization" href="preview/widgets.ftl"/>
   <link rel="localization" href="browser/ipProtection.ftl"/>
   <link rel="localization" href="browser/aiFeatures.ftl"/>
 
@@ -88,7 +89,6 @@
   <script src="chrome://browser/content/preferences/findInPage.js"/>
   <script src="chrome://browser/content/migration/migration-wizard.mjs" type="module"></script>
   <script type="module" src="chrome://browser/content/backup/backup-settings.mjs"></script>
-  <script type="module" src="chrome://browser/content/preferences/widgets/dialog-button.mjs"></script>
   <script type="module" src="chrome://browser/content/preferences/widgets/placeholder-message.mjs"></script>
   <script type="module" src="chrome://browser/content/preferences/widgets/browser-language-restart-message.mjs"></script>
   <script type="module" src="chrome://browser/content/preferences/widgets/nav-notice.mjs"></script>
@@ -123,10 +123,9 @@
         data-l10n-id="pane-general-title">
       </html:moz-page-nav-button>
       <html:moz-page-nav-button id="category-sync"
-        hidden="true"
         view="paneSync"
-        iconsrc="chrome://browser/skin/preferences/category-sync.svg"
-        data-l10n-id="pane-sync-title3">
+        iconsrc="chrome://browser/skin/fxa/avatar-empty.svg"
+        data-l10n-id="pane-account-sync-title2">
       </html:moz-page-nav-button>
       <html:moz-page-nav-button id="category-home"
         view="paneHome"
@@ -254,7 +253,6 @@
         <vbox id="mainPrefPane">
 #include searchResults.inc.xhtml
 #include main.inc.xhtml
-#include sync.inc.xhtml
         </vbox>
       </vbox>
     </vbox>

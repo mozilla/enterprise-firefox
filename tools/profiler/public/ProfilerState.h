@@ -88,9 +88,11 @@
   MACRO(13, "audiocallbacktracing", AudioCallbackTracing,                  \
         "Audio callback tracing")                                          \
                                                                            \
-  MACRO(14, "notimerresolutionchange", NoTimerResolutionChange,            \
-        "Do not adjust the timer resolution for sampling, so that other "  \
-        "Firefox timers do not get affected")                              \
+  MACRO(14, "winsystemticksampling", WinSystemTickSampling,                \
+        "Keep sampling on the system timer tick, without high-resolution " \
+        "timers or timer resolution changes, to minimize wakeups and "     \
+        "timer interference. The sampling interval will be at least "      \
+        "~16ms")                                                           \
                                                                            \
   MACRO(15, "cpuallthreads", CPUAllThreads,                                \
         "Sample the CPU utilization of all registered threads")            \

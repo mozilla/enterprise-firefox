@@ -897,6 +897,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
   & .fxa-menu-sign-in-promo-message {
     margin: 0;
     font-size: var(--font-size-small);
+    color: var(--text-color-deemphasized);
 
     :root[uidensity="compact"] & {
       display: none;
@@ -2646,7 +2647,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 
 #remote-control-panel-toggle-button {
   margin: 0;
-  justify-content: center;
+  width: 100%;
 }
 
 /* Report Broken Site panels */
@@ -2726,31 +2727,22 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
     object-position: left top;
   }
 
-  button.arrow-button {
-    font-weight: normal;
-    padding: var(--space-large) var(--space-medium);
+  moz-button.arrow-button {
+    --button-content-alignment: space-between;
+    --button-padding: var(--space-large) var(--space-medium);
+    --button-font-weight: normal;
+    --button-icon-fill: currentColor;
+
+    width: 100%;
     margin: 0 0 var(--space-large);
-    border: 0;
 
-    > hbox > label {
+    &::part(moz-button-label) {
       text-align: start;
-
-      /* allow for multi-line localizations */
-      display: block !important;
       text-wrap: balance;
-      width: 100%;
     }
 
-    background: url("chrome://global/skin/icons/arrow-right.svg") no-repeat calc(100% - var(--panel-menuitem-padding-inline)) center;
     &:dir(rtl) {
-      background: url("chrome://global/skin/icons/arrow-left.svg") no-repeat var(--panel-menuitem-padding-inline) center;
-    }
-    background-color: var(--background-color-box);
-    -moz-context-properties: fill;
-    fill: currentColor;
-
-    &:not(:hover, :active) {
-      background-color: inherit;
+      --button-icon-content: url("chrome://global/skin/icons/arrow-left.svg");
     }
   }
 

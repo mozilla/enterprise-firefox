@@ -231,11 +231,17 @@ class RequestedModule {
 
 using RequestedModuleVector = GCVector<RequestedModule, 0, SystemAllocPolicy>;
 
+// Possible value types of [[BindingName]] in ResolvedBinding Records.
+enum class BindingNameType : uint8_t { String, Namespace, DeferredNamespace };
+
+// https://tc39.es/ecma262/#resolvedbinding-record
 class ResolvedBindingObject : public NativeObject {
   enum { ModuleSlotIndex = 0, BindingNameSlotIndex, SlotCount };
 
   JS_DEFINE_TYPED_SLOT(ModuleSlotIndex, MODULE_SLOT, Object);
-  JS_DEFINE_TYPED_SLOT(BindingNameSlotIndex, BINDING_NAME_SLOT, String);
+  // Holds the binding name as a String, or the BindingNameType as an Int32 for
+  // a namespace binding.
+  JS_DEFINE_TYPED_SLOT(BindingNameSlotIndex, BINDING_NAME_SLOT, String, Int32);
   static constexpr uint32_t SLOT_COUNT = SlotCount;
 
  public:
@@ -244,8 +250,17 @@ class ResolvedBindingObject : public NativeObject {
   static ResolvedBindingObject* create(JSContext* cx,
                                        Handle<ModuleObject*> module,
                                        Handle<JSAtom*> bindingName);
+  static ResolvedBindingObject* createNamespace(JSContext* cx,
+                                                Handle<ModuleObject*> module,
+                                                ImportPhase phase);
   ModuleObject* module() const;
+  BindingNameType bindingNameType() const;
+  bool isNamespace() const;
+  // Only valid when bindingNameType() is BindingNameType::String.
   JSAtom* bindingName() const;
+  // Only valid when isNamespace() is true.
+  ImportPhase namespacePhase() const;
+  bool isSameBinding(const ResolvedBindingObject* other) const;
 };
 
 class IndirectBindingMap {
@@ -253,7 +268,7 @@ class IndirectBindingMap {
   void trace(JSTracer* trc);
 
   bool put(JSContext* cx, HandleId name,
-           Handle<ModuleEnvironmentObject*> environment, HandleId targetName);
+           Handle<ResolvedBindingObject*> binding);
 
   size_t count() const { return map_ ? map_->count() : 0; }
 
@@ -277,12 +292,18 @@ class IndirectBindingMap {
   struct Binding {
     Binding(ModuleEnvironmentObject* environment, jsid targetName,
             PropertyInfo prop);
+    Binding(ModuleEnvironmentObject* environment, uint32_t slot);
     HeapPtr<ModuleEnvironmentObject*> environment;
 #ifdef DEBUG
     HeapPtr<jsid> targetName;
+    // Whether this binds to a reserved slot of the environment rather than to
+    // the property named `targetName`.
+    bool isReservedSlot;
 #endif
     PropertyInfo prop;
   };
+
+  bool putBinding(JSContext* cx, HandleId name, Binding&& binding);
 
   using Map = mozilla::HashMap<PreBarriered<jsid>, Binding,
                                mozilla::DefaultHasher<PreBarriered<jsid>>,
@@ -318,8 +339,7 @@ class ModuleNamespaceObject : public ProxyObject {
   bool isDeferred() const;
 
   bool addBinding(JSContext* cx, Handle<JSAtom*> exportedName,
-                  Handle<ModuleObject*> targetModule,
-                  Handle<JSAtom*> targetName);
+                  Handle<ResolvedBindingObject*> binding);
 
  private:
   struct ProxyHandler : public BaseProxyHandler {

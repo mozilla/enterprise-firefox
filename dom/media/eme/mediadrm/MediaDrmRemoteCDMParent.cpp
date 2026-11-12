@@ -8,6 +8,7 @@
 
 #include "mozilla/CheckedInt.h"
 #include "mozilla/EMEUtils.h"
+#include "mozilla/ProtobufReader.h"
 #include "mozilla/RemoteMediaManagerParent.h"
 
 namespace mozilla {
@@ -22,6 +23,20 @@ void MediaDrmRemoteCDMParent::InitializeStatics() {
   }
 
   sCbMap = new DrmCallbackMap();
+}
+
+// Before Android 12, AMediaDrm_openSession returns AMEDIA_OK without a session
+// ID when the plugin fails to open a session, for example because the device is
+// not provisioned or because there are too many open sessions.
+static media_status_t OpenSession(AMediaDrm* aDrm, AMediaDrmSessionId* aId) {
+  *aId = {nullptr, 0};
+  media_status_t status = AMediaDrm_openSession(aDrm, aId);
+  if (!__builtin_available(android 31, *)) {
+    if (status == AMEDIA_OK && (!aId->ptr || !aId->length)) {
+      return AMEDIA_DRM_NOT_PROVISIONED;
+    }
+  }
+  return status;
 }
 
 static MediaResult OpenSessionError(media_status_t aStatus, const char* aFor) {
@@ -184,6 +199,7 @@ void MediaDrmRemoteCDMParent::Destroy() {
     AMediaDrm_closeSession(mDrm, &i.second.id);
   }
   mSessions.clear();
+  mCertificateQueue.Clear();
 
   {
     MutexAutoLock lock(mMutex);
@@ -332,13 +348,13 @@ MediaDrmRemoteCDMParent::EnsureHasAMediaCrypto(
   EME_LOG("[{}] MediaDrmRemoteCDMParent::EnsureHasAMediaCrypto -- open session",
           fmt::ptr(this));
 
-  media_status_t status = AMediaDrm_openSession(mDrm, &mCryptoSessionId);
+  media_status_t status = OpenSession(mDrm, &mCryptoSessionId);
   if (status == AMEDIA_DRM_NOT_PROVISIONED) {
     if (aProvisioned) {
       return InternalPromise::CreateAndReject(
           MediaResult(NS_ERROR_DOM_INVALID_STATE_ERR,
-                      "AMediaDrm_openSession reports not provisioned after "
-                      "provisioning"_ns),
+                      "AMediaDrm_openSession failed for crypto after "
+                      "provisioning, not provisioned or no session ID"_ns),
           __func__);
     }
 
@@ -370,6 +386,19 @@ MediaDrmRemoteCDMParent::EnsureHasAMediaCrypto(
   MutexAutoLock lock(mMutex);
   mCrypto = MakeRefPtr<MediaDrmCrypto>(crypto);
   return InternalPromise::CreateAndResolve(true, __func__);
+}
+
+static Span<const uint8_t> TrimKeyRequest(Span<const uint8_t> aRequest) {
+  if (__builtin_available(android 29, *)) {
+    return aRequest;
+  }
+
+  Span<const uint8_t> request = widevine::TrimKeyRequest(aRequest);
+  if (request.Length() != aRequest.Length()) {
+    EME_LOG("TrimKeyRequest -- removing {} bytes",
+            aRequest.Length() - request.Length());
+  }
+  return request;
 }
 
 RefPtr<MediaDrmRemoteCDMParent::InternalPromise>
@@ -518,12 +547,13 @@ void MediaDrmRemoteCDMParent::DoCreateSession(
   };
 
   AMediaDrmSessionId sessionId;
-  media_status_t status = AMediaDrm_openSession(mDrm, &sessionId);
+  media_status_t status = OpenSession(mDrm, &sessionId);
   if (status == AMEDIA_DRM_NOT_PROVISIONED) {
     if (aProvisioned) {
-      aResolver(MediaResult(NS_ERROR_DOM_INVALID_STATE_ERR,
-                            "AMediaDrm_openSession reports not provisioned "
-                            "after provisioning"_ns));
+      aResolver(
+          MediaResult(NS_ERROR_DOM_INVALID_STATE_ERR,
+                      "AMediaDrm_openSession failed for session after "
+                      "provisioning, not provisioned or no session ID"_ns));
       return;
     }
     provisionThenRetry(std::move(aRequest), std::move(aResolver));
@@ -537,13 +567,13 @@ void MediaDrmRemoteCDMParent::DoCreateSession(
 
   NS_ConvertUTF16toUTF8 mimeType(aRequest.initDataType());
 
-  const uint8_t* keyRequest = nullptr;
+  const uint8_t* keyRequestData = nullptr;
   size_t keyRequestSize = 0;
   status =
       AMediaDrm_getKeyRequest(mDrm, &sessionId, aRequest.initData().Elements(),
                               aRequest.initData().Length(), mimeType.get(),
                               AMediaDrmKeyType::KEY_TYPE_STREAMING, nullptr, 0,
-                              &keyRequest, &keyRequestSize);
+                              &keyRequestData, &keyRequestSize);
 
   if (status == AMEDIA_DRM_NOT_PROVISIONED) {
     AMediaDrm_closeSession(mDrm, &sessionId);
@@ -565,13 +595,16 @@ void MediaDrmRemoteCDMParent::DoCreateSession(
     return;
   }
 
+  auto keyRequest = TrimKeyRequest(Span(keyRequestData, keyRequestSize));
+
   NS_ConvertUTF8toUTF16 sessionIdStr(
       reinterpret_cast<const char*>(sessionId.ptr), sessionId.length);
-  mSessions[sessionIdStr] = {sessionId, std::move(mimeType)};
-  aResolver(RemoteCDMKeyMessageIPDL(
-      std::move(sessionIdStr), MediaKeyMessageType::License_request,
-      nsTArray<uint8_t>(reinterpret_cast<const uint8_t*>(keyRequest),
-                        keyRequestSize)));
+  SessionEntry entry{sessionId, std::move(mimeType)};
+  entry.awaitingCertificate = widevine::IsServiceCertificateRequest(keyRequest);
+  mSessions[sessionIdStr] = std::move(entry);
+  aResolver(RemoteCDMKeyMessageIPDL(std::move(sessionIdStr),
+                                    MediaKeyMessageType::License_request,
+                                    nsTArray<uint8_t>(keyRequest)));
 }
 
 mozilla::ipc::IPCResult MediaDrmRemoteCDMParent::RecvLoadSession(
@@ -597,15 +630,41 @@ mozilla::ipc::IPCResult MediaDrmRemoteCDMParent::RecvUpdateSession(
   MOZ_ASSERT(mDrm);
   MOZ_ASSERT(HasCrypto());
 
+  Span<const uint8_t> response = aRequest.response();
   AMediaDrmKeySetId keySetId{};
   media_status_t status = AMediaDrm_provideKeyResponse(
-      mDrm, &i->second.id, aRequest.response().Elements(),
-      aRequest.response().Length(), &keySetId);
+      mDrm, &i->second.id, response.Elements(), response.Length(), &keySetId);
   if (NS_WARN_IF(status != AMEDIA_OK)) {
     aResolver(MediaResult(
         NS_ERROR_DOM_INVALID_STATE_ERR,
         RESULT_DETAIL("AMediaDrm_provideKeyResponse failed %d", status)));
     return IPC_OK();
+  }
+
+  if (i->second.awaitingCertificate) {
+    i->second.awaitingCertificate = false;
+    if (!__builtin_available(android 29, *)) {
+      mCertificateQueue.AppendElement(aRequest.sessionId());
+    }
+  }
+
+  // Android before 29 cannot report key statuses, so assume that the keys in
+  // a license are usable.
+  if (!__builtin_available(android 29, *)) {
+    if (!widevine::IsServiceCertificateResponse(response)) {
+      nsTArray<CDMKeyInfo> keyInfo;
+      for (auto& keyId : widevine::ParseLicenseKeyIds(response)) {
+        dom::Optional<dom::MediaKeyStatus> keyStatus;
+        keyStatus.Construct(dom::MediaKeyStatus::Usable);
+        keyInfo.AppendElement(
+            CDMKeyInfo(std::move(keyId), std::move(keyStatus)));
+      }
+
+      if (!keyInfo.IsEmpty()) {
+        (void)SendOnSessionKeyStatus(RemoteCDMKeyStatusIPDL(
+            nsString(aRequest.sessionId()), std::move(keyInfo)));
+      }
+    }
   }
 
   aResolver(MediaResult(NS_OK));
@@ -646,6 +705,7 @@ mozilla::ipc::IPCResult MediaDrmRemoteCDMParent::RecvCloseSession(
     aResolver(MediaResult(NS_OK));
   }
 
+  mCertificateQueue.RemoveElement(aSessionId);
   mSessions.erase(i);
   return IPC_OK();
 }
@@ -667,14 +727,16 @@ mozilla::ipc::IPCResult MediaDrmRemoteCDMParent::RecvSetServerCertificate(
       "setPropertyByteArray",
       fmt::ptr(this));
   media_status_t status = AMediaDrm_setPropertyByteArray(
-      mDrm, "certificate", aCertificate.Elements(), aCertificate.Length());
+      mDrm, "serviceCertificate", aCertificate.Elements(),
+      aCertificate.Length());
   EME_LOG("[{}] MediaDrmRemoteCDMParent::RecvSetServerCertificate -- status {}",
           fmt::ptr(this), static_cast<int>(status));
   if (NS_WARN_IF(status != AMEDIA_OK)) {
     aResolver(MediaResult(
         NS_ERROR_DOM_INVALID_STATE_ERR,
-        RESULT_DETAIL("AMediaDrm_setPropertyByteArray certificate failed %d",
-                      status)));
+        RESULT_DETAIL(
+            "AMediaDrm_setPropertyByteArray serviceCertificate failed %d",
+            status)));
     return IPC_OK();
   }
 
@@ -686,6 +748,22 @@ void MediaDrmRemoteCDMParent::HandleEvent(nsString&& aSessionId,
                                           AMediaDrmEventType aEventType,
                                           int aExtra, nsTArray<uint8_t>&& aData,
                                           bool aProvisioned) {
+  // Before Android 10, key request events have no session ID, so use the
+  // session that was given a service certificate first.
+  if (!__builtin_available(android 29, *)) {
+    if (aSessionId.IsEmpty() &&
+        aEventType == AMediaDrmEventType::EVENT_KEY_REQUIRED) {
+      if (mCertificateQueue.IsEmpty()) {
+        EME_LOG(
+            "[{}] MediaDrmRemoteCDMParent::HandleEvent -- no session for event",
+            fmt::ptr(this));
+        return;
+      }
+      aSessionId = std::move(mCertificateQueue[0]);
+      mCertificateQueue.RemoveElementAt(0);
+    }
+  }
+
   const auto i = mSessions.find(aSessionId);
   if (i == mSessions.end()) {
     EME_LOG("[{}] MediaDrmRemoteCDMParent::HandleEvent -- session not found",
@@ -702,7 +780,7 @@ void MediaDrmRemoteCDMParent::HandleEvent(nsString&& aSessionId,
       EnsureProvisioned();
       break;
     case AMediaDrmEventType::EVENT_KEY_REQUIRED: {
-      const uint8_t* keyRequest = nullptr;
+      const uint8_t* keyRequestData = nullptr;
       size_t keyRequestSize = 0;
       AMediaDrmKeyRequestType keyRequestType =
           AMediaDrmKeyRequestType::KEY_REQUEST_TYPE_INITIAL;
@@ -712,12 +790,13 @@ void MediaDrmRemoteCDMParent::HandleEvent(nsString&& aSessionId,
         status = AMediaDrm_getKeyRequestWithDefaultUrlAndType(
             mDrm, &i->second.id, aData.Elements(), aData.Length(),
             i->second.mimeType.get(), AMediaDrmKeyType::KEY_TYPE_STREAMING,
-            nullptr, 0, &keyRequest, &keyRequestSize, nullptr, &keyRequestType);
+            nullptr, 0, &keyRequestData, &keyRequestSize, nullptr,
+            &keyRequestType);
       } else {
         status = AMediaDrm_getKeyRequest(
             mDrm, &i->second.id, aData.Elements(), aData.Length(),
             i->second.mimeType.get(), AMediaDrmKeyType::KEY_TYPE_STREAMING,
-            nullptr, 0, &keyRequest, &keyRequestSize);
+            nullptr, 0, &keyRequestData, &keyRequestSize);
       }
 
       if (status == AMEDIA_DRM_NOT_PROVISIONED) {
@@ -748,6 +827,8 @@ void MediaDrmRemoteCDMParent::HandleEvent(nsString&& aSessionId,
         return;
       }
 
+      auto keyRequest = TrimKeyRequest(Span(keyRequestData, keyRequestSize));
+
       dom::MediaKeyMessageType keyMessageType;
       switch (keyRequestType) {
         case AMediaDrmKeyRequestType::KEY_REQUEST_TYPE_NONE:
@@ -770,10 +851,9 @@ void MediaDrmRemoteCDMParent::HandleEvent(nsString&& aSessionId,
           break;
       }
 
-      (void)SendOnSessionKeyMessage(RemoteCDMKeyMessageIPDL(
-          std::move(aSessionId), keyMessageType,
-          nsTArray<uint8_t>(reinterpret_cast<const uint8_t*>(keyRequest),
-                            keyRequestSize)));
+      (void)SendOnSessionKeyMessage(
+          RemoteCDMKeyMessageIPDL(std::move(aSessionId), keyMessageType,
+                                  nsTArray<uint8_t>(keyRequest)));
     } break;
     case AMediaDrmEventType::EVENT_KEY_EXPIRED:
       break;

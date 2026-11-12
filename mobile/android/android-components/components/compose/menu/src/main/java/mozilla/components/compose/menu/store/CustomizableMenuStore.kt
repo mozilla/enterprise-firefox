@@ -4,9 +4,14 @@
 
 package mozilla.components.compose.menu.store
 
+import mozilla.components.compose.menu.store.CustomizableMenuAction.AttemptedRemovalOfMandatorySection
+import mozilla.components.compose.menu.store.CustomizableMenuAction.BackPressed
 import mozilla.components.compose.menu.store.CustomizableMenuAction.CustomizationStatusChanged
 import mozilla.components.compose.menu.store.CustomizableMenuAction.Init
 import mozilla.components.compose.menu.store.CustomizableMenuAction.MenuStructureChanged
+import mozilla.components.compose.menu.store.CustomizableMenuAction.PreviewClicked
+import mozilla.components.compose.menu.store.CustomizableMenuAction.ResetToDefaultClicked
+import mozilla.components.compose.menu.store.CustomizableMenuAction.ResetToDefaultConfirmed
 import mozilla.components.compose.menu.store.CustomizableMenuAction.Update
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
@@ -39,5 +44,10 @@ private fun reduce(state: CustomizableMenuState, action: CustomizableMenuAction)
         is MenuStructureChanged -> state.copy(menuGroups = action.items, hiddenGroupIds = action.hiddenGroupIds)
         is CustomizationStatusChanged -> state.copy(isCustomized = action.isCustomized)
         is Init,
+        is AttemptedRemovalOfMandatorySection,
+        is BackPressed,
+        is ResetToDefaultClicked,
+        is ResetToDefaultConfirmed,
+        is PreviewClicked,
         is MenuEvent -> state
     }

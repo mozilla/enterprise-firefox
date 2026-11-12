@@ -667,6 +667,10 @@ static nsresult DoContentSecurityChecks(nsIChannel* aChannel,
 #endif
         return NS_ERROR_BLOCKED_BY_POLICY;
       }
+      if (aLoadInfo->GetRequestBlockingReason() ==
+          nsILoadInfo::BLOCKING_REASON_CONNECTION_ALLOWLIST) {
+        return NS_ERROR_CONNECTION_ALLOWLIST_VIOLATION;
+      }
       if (shouldLoad == nsIContentPolicy::REJECT_RESTARTFORCED) {
         return NS_ERROR_RESTART_FORCED;
       }

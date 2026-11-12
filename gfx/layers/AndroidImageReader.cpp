@@ -247,6 +247,7 @@ already_AddRefed<AndroidImageReader> AndroidImageReader::Create() {
   }
 
   imageReaderMap->Register(imageReader);
+  imageReader->mRegistered = true;
 
   return imageReader.forget();
 }
@@ -257,7 +258,7 @@ AndroidImageReader::AndroidImageReader()
 
 AndroidImageReader::~AndroidImageReader() {
   auto* imageReaderMap = layers::GpuProcessAndroidImageReaderMap::Get();
-  if (imageReaderMap) {
+  if (imageReaderMap && mRegistered) {
     imageReaderMap->Unregister(mImageReaderId);
   }
   ReleaseResources();
@@ -317,22 +318,22 @@ bool AndroidImageReader::Init() {
 }
 
 void AndroidImageReader::ReleaseResources() {
-  MonitorAutoLock lock(mMonitor);
-
-  if (!mAImageReader) {
+  AImageReader* reader = nullptr;
+  {
+    MonitorAutoLock lock(mMonitor);
+    reader = mAImageReader;
+    mAImageReader = nullptr;
+    // The native window is owned by AImageReader.
+    mNativeWindow = nullptr;
+  }
+  if (!reader) {
     return;
   }
 
-  AImageReader_setImageListener(mAImageReader, nullptr);
-
-  // Delete all images before closing the associated image reader.
-
-  // Delete the image reader.
-  AImageReader_delete(mAImageReader);
-  mAImageReader = nullptr;
-  // mNativeWindow is not owned by AndroidImageReader.
-  // It is owned by AImageReader.
-  mNativeWindow = nullptr;
+  // Deletion stops the callback thread. Do not hold the monitor that an
+  // in-flight OnFrameAvailable callback needs to finish.
+  AImageReader_setImageListener(reader, nullptr);
+  AImageReader_delete(reader);
 }
 
 /* static */
@@ -424,6 +425,39 @@ bool AndroidImageReader::UpdateTexImageWithReadback(
 
   const auto& gle = gl::GLContextEGL::Cast(aGL);
   const auto& egl = gle->mEgl;
+
+  auto writeFenceFd = mCurrentImage->CloneWriteFenceFd();
+  if (writeFenceFd) {
+    if (!egl->IsExtensionSupported(
+            gl::EGLExtension::ANDROID_native_fence_sync) ||
+        !egl->IsExtensionSupported(gl::EGLExtension::KHR_fence_sync)) {
+      return false;
+    }
+
+    // EGL takes ownership of the fd even if creating the sync fails.
+    const EGLint fenceAttrs[] = {LOCAL_EGL_SYNC_NATIVE_FENCE_FD_ANDROID,
+                                 writeFenceFd.release(), LOCAL_EGL_NONE};
+    EGLSync sync =
+        egl->fCreateSyncKHR(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, fenceAttrs);
+    if (!sync) {
+      gfxCriticalNote << "Failed to create ImageReader readback acquire sync";
+      return false;
+    }
+
+    // Order sampling after the decoder's writes on this GL context. Readback
+    // subsequently waits for the GL work to complete.
+    const bool waited =
+        egl->IsExtensionSupported(gl::EGLExtension::KHR_wait_sync)
+            ? egl->fWaitSync(sync, 0) == LOCAL_EGL_TRUE
+            : egl->fClientWaitSync(sync, 0, LOCAL_EGL_FOREVER) ==
+                  LOCAL_EGL_CONDITION_SATISFIED;
+    egl->fDestroySync(sync);
+    if (!waited) {
+      gfxCriticalNote
+          << "Failed to wait for ImageReader readback acquire fence";
+      return false;
+    }
+  }
 
   const EGLint attrs[] = {
       LOCAL_EGL_IMAGE_PRESERVED,
@@ -589,7 +623,7 @@ bool AndroidImageReader::AcquirePendingImage() {
     gfxCriticalNoteOnce << "AImage_getHardwareBuffer failed"
                         << static_cast<int32_t>(result);
     if (fence) {
-      AImage_deleteAsync(image, fence.get());
+      AImage_deleteAsync(image, fence.release());
     } else {
       AImage_delete(image);
     }

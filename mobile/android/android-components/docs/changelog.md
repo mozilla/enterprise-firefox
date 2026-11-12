@@ -15,6 +15,34 @@ permalink: /changelog/
   * ⚠️ **Breaking change**: Renamed `LocaleManager#updateResources` to `LocaleManager#onConfigurationChanged` to make it's API use case clear. Should only be used in `onConfigurationChanged` overrides typically in `Application`, `Activity`, `Fragment` classes.
 * **support-test**
   * 🆕 Added `assertNoUncaughtException`.
+* **feature-importer**
+    * ⚠️ **Breaking change**: `BookmarkImporter` is replaced by `ImporterScreen`, which takes a `FileImporter` and the dialog title, so it can import both bookmarks and passwords. The file picker uses the new `FileImporter.mimeType`. `ImporterMiddleware` takes a `FileImporter`. `ImporterAction.FileSelected` takes a nullable `Uri`, where `null` means the user canceled picking a file, and replaces `ImporterAction.FileSelectionCanceled`. `ImporterEvent` is now `Parcelable`, and `ImporterEvent.Failure` and `ImporterAction.ImportFailed` carry a `FileImporterError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **lib-bookmarks-file**
+    * ⚠️ **Breaking change**: `htmlImporter` is now an extension of `FileImporter.Companion`. It takes a `FileParser<BookmarksParseResult>`, returns a `FileImporter<BookmarksImportResult>` and reports failures as a `FileImporterException`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **lib-passwords-file**
+    * ⚠️ **Breaking change**: `csvImporter` is now an extension of `FileImporter.Companion`. It takes a `FileParser<PasswordsParseResult>` and returns a `FileImporter<PasswordsImportResult>`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **lib-bookmark-parser-jsoup**
+    * ⚠️ **Breaking change**: `jsoupParser` is now an extension of `FileParser.Companion` and returns a `FileParser<BookmarksParseResult>`. Parse failures are reported as a `FileParserException` carrying a `BookmarksParseError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **lib-password-parser-csv**
+    * ⚠️ **Breaking change**: `CsvPasswordsFileParser` implements `FileParser<PasswordsParseResult>`. Parse failures are reported as a `FileParserException` carrying a `PasswordsParseError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **concept-bookmarks-file**, **concept-passwords-file** and **feature-password-importer**
+    * ⚠️ **Breaking change**: Removed. Use `FileImporter` from `concept-file-importer` and `feature-importer` instead. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **concept-bookmarks-parser**
+    * ⚠️ **Breaking change**: Removed. Use `FileParser<BookmarksParseResult>` from `concept-file-parser`, with `BookmarksParseResult` and `BookmarksParseError` from `lib-bookmark-parser-jsoup`, instead of `BookmarksFileParser` and `BookmarksParserError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **concept-passwords-parser**
+    * ⚠️ **Breaking change**: Removed. Use `FileParser<PasswordsParseResult>` from `concept-file-parser`, with `PasswordsParseResult` and `PasswordsParseError` from `lib-password-parser-csv`, instead of `PasswordsFileParser` and `PasswordsParserError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **compose-draggable**
+    * Added `fixedItems` to `createListInteractionState` for list items which cannot be dragged but can have other items moved next to or dropped onto them. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * A list item moved by live reordering now animates into its new position when dropped. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * ⚠️ **Breaking change**: `InteractionState.List` finds the item in a `LazyListState` with `getLazyListItemInfo`, instead of `getLazyGridItemInfo` which now only exists on `InteractionState.Grid`. Removed `InteractionState.List.copyWithNewIndex`, as lists look up the dragged item by its key, so `InteractionState.List.Active.index` stays the index the item had when the drag started. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * A dragged list item no longer jumps back to where it was when live reordering moves it. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * ⚠️ **Breaking change**: Added `ListInteractionState.onDraggedItemPositioned` and `ListInteractionState.updateListLayoutCoordinates`, which custom `ListInteractionState` implementations must implement, to keep a dragged list item under the finger also when the list lays it out out of view. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * `InteractableDragItemContainer` for lists and for grids keeps the dragged item composed while it is scrolled out of view, callers no longer need to. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * ⚠️ **Breaking change**: Replaced `ListInteractionState.previousItemAnimatableOffset` with `ListInteractionState.computeDroppedItemOffset`, which custom `ListInteractionState` implementations must implement, to keep a dropped list item where it was let go of when the list moves it only after that, as without live reordering, instead of drawing it for a frame away from there. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * Added `scrollZoneHeight` to `createListInteractionState`, for the height of the areas at the start and at the end of a list in which a dragged item scrolls it once it went past the edge of the list there, instead of a third of the first visible item. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * The areas at the start and at the end of a list in which a dragged item scrolls it by default are no longer sized from the dragged item when this is the first visible item. [Bug 2086552](https://bugzilla.mozilla.org/show_bug.cgi?id=2086552)
+    * Added `ItemInteractionHandler.onDragEnd`, called instead of `onDragCancel` when the user lets go of a dragged item without dropping it onto another item. By default it calls `onDragCancel`. [Bug 2086550](https://bugzilla.mozilla.org/show_bug.cgi?id=2086550)
+    * Added `interceptInteractionMode` to `createListInteractionState`, to retarget or reject the interaction the list finds for a dragged item. The interaction it returns is optionally shown via a Rect parameter and acted upon when the user lets go. [Bug 2090877](https://bugzilla.mozilla.org/show_bug.cgi?id=2090877)
 
 # 161.0
 * **browser-state**

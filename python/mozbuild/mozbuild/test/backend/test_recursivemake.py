@@ -2100,13 +2100,18 @@ class TestRecursiveMakeBackend(BackendTester):
         self.assertEqual(self._cpp_unit_tests_lines({"MOZ_PROFILE_GENERATE": "1"}), [])
 
     def test_simple_programs_profile_generate(self):
-        env = self._get_environment(
-            "program-paths", substs={"MOZ_PROFILE_GENERATE": "1"}
-        )
-        self._consume("program-paths", RecursiveMakeBackend, env=env)
+        def backend_mk(**substs):
+            env = self._get_environment("program-paths", substs=substs)
+            self._consume("program-paths", RecursiveMakeBackend, env=env)
+            with open(
+                os.path.join(env.topobjdir, "dist-bin-simple", "backend.mk")
+            ) as fh:
+                return fh.read()
 
-        with open(os.path.join(env.topobjdir, "dist-bin-simple", "backend.mk")) as fh:
-            self.assertNotIn("SIMPLE_PROGRAMS", fh.read())
+        self.assertIn("simple.prog_OBJS", backend_mk())
+        profile_generate = backend_mk(MOZ_PROFILE_GENERATE="1")
+        self.assertNotIn("SIMPLE_PROGRAMS", profile_generate)
+        self.assertNotIn("simple.prog_OBJS", profile_generate)
 
     def test_linkage(self):
         env = self._consume("linkage", RecursiveMakeBackend)
@@ -2324,6 +2329,26 @@ class TestRecursiveMakeBackend(BackendTester):
             "-compatibility_version 1 -current_version 1\n",
             content,
         )
+        self.assertNotIn("-Wl,-h,", content)
+
+    def _shared_lib_dso_ldopts(self, substs, subdir="dist-bin"):
+        env = self._get_environment("shared-lib-paths", substs=substs)
+        self._consume("shared-lib-paths", RecursiveMakeBackend, env=env)
+
+        with open(os.path.join(env.topobjdir, subdir, "backend.mk")) as fh:
+            return [l.rstrip() for l in fh if l.startswith("EXTRA_DSO_LDOPTS")]
+
+    def test_soname(self):
+        self.assertEqual(
+            self._shared_lib_dso_ldopts({"OS_ARCH": "Linux", "OS_TARGET": "Linux"}),
+            ["EXTRA_DSO_LDOPTS += -Wl,-h,libdist-bin.so"],
+        )
+
+    def test_soname_netbsd(self):
+        self.assertEqual(
+            self._shared_lib_dso_ldopts({"OS_ARCH": "NetBSD", "OS_TARGET": "NetBSD"}),
+            ["EXTRA_DSO_LDOPTS += -Wl,-soname,libdist-bin.so"],
+        )
 
     def test_host_cpp_prog_link(self):
         env = self._consume("host-cpp-link", RecursiveMakeBackend)
@@ -2339,33 +2364,57 @@ class TestRecursiveMakeBackend(BackendTester):
         self.assertIn("HOST_SIMPLE_PROGRAMS += host_asimple\n", lines)
         self.assertIn("HOST_CPP_PROG_LINK := 1\n", lines)
 
-    def _windows_shared_lib_backend_mk(self, cc_type):
-        env = self._get_environment(
-            "shared-lib-paths",
-            substs={
+    def _windows_shared_lib_dso_ldopts(self, cc_type, subdir="dist-bin", **substs):
+        return self._shared_lib_dso_ldopts(
+            {
                 "OS_ARCH": "WINNT",
                 "CC_TYPE": cc_type,
                 "DLL_PREFIX": "",
                 "DLL_SUFFIX": ".dll",
                 "LIB_PREFIX": "",
                 "IMPORT_LIB_SUFFIX": "lib",
+                **substs,
             },
+            subdir,
         )
-        self._consume("shared-lib-paths", RecursiveMakeBackend, env=env)
-
-        with open(os.path.join(env.topobjdir, "dist-bin", "backend.mk")) as fh:
-            return fh.read()
 
     def test_mingw_import_library(self):
-        content = self._windows_shared_lib_backend_mk("clang")
-        self.assertIn(
-            "EXTRA_DSO_LDOPTS += -Wl,--out-implib -Wl,dist-bin.lib\n", content
+        self.assertEqual(
+            self._windows_shared_lib_dso_ldopts("clang"),
+            [
+                "EXTRA_DSO_LDOPTS += -Wl,-pdb,dist-bin.pdb -Wl,--out-implib "
+                "-Wl,dist-bin.lib"
+            ],
+        )
+
+    def test_mingw_shared_library_pdb_copy_pdbs(self):
+        self.assertEqual(
+            self._windows_shared_lib_dso_ldopts("clang", MOZ_COPY_PDBS="1"),
+            [
+                "EXTRA_DSO_LDOPTS += -Wl,-pdb,dist-bin.pdb -Wl,--out-implib "
+                "-Wl,dist-bin.lib"
+            ],
         )
 
     def test_clang_cl_import_library(self):
-        content = self._windows_shared_lib_backend_mk("clang-cl")
-        self.assertIn("EXTRA_DSO_LDOPTS += -IMPLIB:dist-bin.lib\n", content)
-        self.assertNotIn("--out-implib", content)
+        self.assertEqual(
+            self._windows_shared_lib_dso_ldopts("clang-cl"),
+            ["EXTRA_DSO_LDOPTS += -PDB:dist-bin.pdb -IMPLIB:dist-bin.lib"],
+        )
+
+    def test_clang_cl_shared_library_pdb_copy_pdbs(self):
+        self.assertEqual(
+            self._windows_shared_lib_dso_ldopts("clang-cl", MOZ_COPY_PDBS="1"),
+            ["EXTRA_DSO_LDOPTS += -PDB:../dist/bin/dist-bin.pdb -IMPLIB:dist-bin.lib"],
+        )
+
+    def test_clang_cl_shared_library_pdb_copy_pdbs_not_installed(self):
+        self.assertEqual(
+            self._windows_shared_lib_dso_ldopts(
+                "clang-cl", "not-installed", MOZ_COPY_PDBS="1"
+            ),
+            ["EXTRA_DSO_LDOPTS += -PDB:not-installed.pdb -IMPLIB:not-installed.lib"],
+        )
 
     def test_per_source_object_deps(self):
         env = self._consume("per-source-object-deps", RecursiveMakeBackend)

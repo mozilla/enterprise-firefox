@@ -97,6 +97,13 @@ XPCOMUtils.defineLazyServiceGetter(
   Ci.nsIClipboardHelper
 );
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "VIEW_PASSWORDS_DISABLED",
+  "pref.privacy.disable_button.view_passwords",
+  false
+);
+
 const PASSWORD_FIELDNAME_HINTS = ["current-password", "new-password"];
 const USERNAME_FIELDNAME_HINT = "username";
 
@@ -1224,7 +1231,7 @@ export class nsContextMenu {
       if (!this.isLoginForm()) {
         return;
       }
-      showManage = true;
+      showManage = !lazy.VIEW_PASSWORDS_DISABLED;
 
       // Disable the fill option if the user hasn't unlocked with their primary password
       // or if the password field or target field are disabled.
@@ -2353,15 +2360,16 @@ export class nsContextMenu {
    * that are known to us will be removed from the URI.
    */
   copyStrippedLink(uri = this.linkURI) {
-    let strippedLinkURI = this.getStrippedLink(uri);
-    let strippedLinkURL =
-      Services.io.createExposableURI(strippedLinkURI)?.displaySpec;
-    if (strippedLinkURL) {
-      lazy.clipboard.copyString(
-        strippedLinkURL,
-        this.actor.manager.browsingContext.currentWindowGlobal
-      );
+    if (!uri) {
+      return;
     }
+    let strippedLinkURL = lazy.BrowserUtils.getExposableURI(uri, {
+      stripTracking: true,
+    }).displaySpec;
+    lazy.clipboard.copyString(
+      strippedLinkURL,
+      this.actor.manager.browsingContext.currentWindowGlobal
+    );
   }
 
   async addSearchFieldAsEngine() {
@@ -2471,29 +2479,6 @@ export class nsContextMenu {
     }
 
     return null;
-  }
-
-  /**
-   * Strips any known query params from the link URI.
-   *
-   * @returns {nsIURI|null} - the stripped version of the URI,
-   * or the original URI if we could not strip any query parameter.
-   */
-  getStrippedLink(uri = this.linkURI) {
-    if (!uri) {
-      return null;
-    }
-    let strippedLinkURI = null;
-    try {
-      strippedLinkURI = lazy.QueryStringStripper.stripForCopyOrShare(uri);
-    } catch (e) {
-      console.warn(`getStrippedLink: ${e.message}`);
-      return uri;
-    }
-
-    // If nothing can be stripped, we return the original URI
-    // so the feature can still be used.
-    return strippedLinkURI ?? uri;
   }
 
   /**

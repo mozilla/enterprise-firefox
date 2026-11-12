@@ -9,13 +9,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import mozilla.components.concept.password.parser.PasswordsFileParser
-import mozilla.components.concept.password.parser.PasswordsParseResult
-import mozilla.components.concept.password.parser.PasswordsParserError
+import mozilla.components.concept.fileparser.FileParser
+import mozilla.components.concept.fileparser.FileParserException
 import mozilla.components.concept.storage.LoginEntry
 
-/** A [PasswordsFileParser] that reads CSV exports of password data. */
-class CsvPasswordsFileParser(private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO) : PasswordsFileParser {
+/** A [FileParser] that reads CSV exports of password data. */
+class CsvPasswordsFileParser(private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO) :
+    FileParser<PasswordsParseResult> {
 
     override suspend fun parse(inputStream: InputStream): Result<PasswordsParseResult> = runCatching {
         withContext(ioDispatcher) {
@@ -32,7 +32,11 @@ class CsvPasswordsFileParser(private val ioDispatcher: CoroutineDispatcher = Dis
             try {
                 readRows(text)
             } catch (e: ParsingFailedException) {
-                throw PasswordsParserError.UnexpectedError("Malformed CSV", e)
+                throw FileParserException(
+                    errorType = PasswordsParseError.Unexpected,
+                    message = "Malformed CSV",
+                    cause = e,
+                )
             }
         val header = rows.firstOrNull().orEmpty()
         val dataRows = if (rows.size > 1) rows.subList(1, rows.size) else emptyList()
@@ -53,14 +57,31 @@ class CsvPasswordsFileParser(private val ioDispatcher: CoroutineDispatcher = Dis
                 skipped++
                 continue
             }
+
+            // This follows the validation rules from AS login.rs:
+            // https://github.com/mozilla/application-services/blob/af81da7208a53c47e3ada8b17a4a172a25bd9d87/components/logins/src/login.rs#L862-L868
+            // Exactly one of `httpRealm` and `formActionOrigin` must be present to be a valid login entry.
+            // If both are null, the record will throw. To avoid that, we set `formActionOrigin` to an empty string.
+            // It matches any form action on a webpage, and follows the desktop logic found in LoginHelper.sys.mjs:
+            // https://searchfox.org/firefox-main/rev/cf103b9362d64aa14c7adc0c0e4b9469ccbf6caa/toolkit/components/passwordmgr/LoginHelper.sys.mjs#296
+            // If both are present, the `httpRealm` will be cleared by the Rust code.
+            // So we should convert empty records to null and not to an empty string.
+            val httpRealm = row.cellAt(httpRealmIdx).ifEmpty { null }
+            val formActionCell = row.cellAt(formActionIdx)
+            val formActionOrigin =
+                when {
+                    formActionCell.isNotEmpty() -> formActionCell
+                    httpRealm == null -> ""
+                    else -> null
+                }
+
             logins +=
                 LoginEntry(
                     origin = origin,
                     username = row.cellAt(usernameIdx),
                     password = password,
-                    // Empty httpRealm signals a form login (matches desktop LoginCSVImport).
-                    httpRealm = row.cellAt(httpRealmIdx).ifEmpty { null },
-                    formActionOrigin = formActionIdx?.let { row.cellAt(it) },
+                    httpRealm = httpRealm,
+                    formActionOrigin = formActionOrigin,
                 )
         }
         return PasswordsParseResult(logins = logins, skippedRowCount = skipped)
@@ -71,8 +92,9 @@ class CsvPasswordsFileParser(private val ioDispatcher: CoroutineDispatcher = Dis
         for ((index, column) in header.withIndex()) {
             val field = COLUMN_TO_FIELD[column.lowercase()] ?: continue
             if (indices.put(field, index) != null) {
-                throw PasswordsParserError.ConflictingColumnsError(
-                    "Two CSV columns map to the same login field: $field"
+                throw FileParserException(
+                    errorType = PasswordsParseError.ConflictingColumns,
+                    message = "Two CSV columns map to the same login field: $field",
                 )
             }
         }
@@ -82,18 +104,25 @@ class CsvPasswordsFileParser(private val ioDispatcher: CoroutineDispatcher = Dis
 
     private fun validateHeaderIndices(indices: Map<String, Int>, hasRows: Boolean) {
         if (indices.isEmpty()) {
-            throw PasswordsParserError.FileFormatError("No recognizable login columns in CSV header")
+            throw FileParserException(
+                errorType = PasswordsParseError.UnsupportedContentType,
+                message = "No recognizable login columns in CSV header",
+            )
         }
         if (hasRows) {
             val missing = REQUIRED_FIELDS.filter { it !in indices }
             if (missing.isNotEmpty()) {
-                throw PasswordsParserError.FileFormatError("Missing required column(s): $missing")
+                throw FileParserException(
+                    errorType = PasswordsParseError.FileFormat,
+                    message = "Missing required column(s): $missing",
+                )
             }
         }
     }
 
     companion object {
-        // Column-name aliases mirror toolkit/components/passwordmgr/LoginCSVImport.sys.mjs.
+        // Column-name aliases mirror toolkit/components/passwordmgr/LoginCSVImport.sys.mjs,
+        // with an addition of "user_name" to support import from Dashlane that uses that format.
         // Unrecognized columns (including guid + timestamps from a Firefox export) are silently
         // ignored — LoginsStorage.add(LoginEntry) doesn't accept that metadata.
         private val COLUMN_TO_FIELD =
@@ -101,6 +130,7 @@ class CsvPasswordsFileParser(private val ioDispatcher: CoroutineDispatcher = Dis
                 "url" to "origin",
                 "login_uri" to "origin",
                 "username" to "username",
+                "user_name" to "username",
                 "login_username" to "username",
                 "password" to "password",
                 "login_password" to "password",

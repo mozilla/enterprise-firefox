@@ -787,9 +787,8 @@ class PromiseReactionObjectStorage : public PromiseJobObject {
     // The spec says that a PromiseReaction record has a [[Capability]] field
     // whose value is either undefined or a PromiseCapability record, but we
     // just store the PromiseCapability's fields directly in this object. This
-    // is the
-    // capability's [[Promise]] field; its [[Resolve]] and [[Reject]] fields are
-    // stored in Slot::Resolve and Slot::Reject.
+    // is the capability's [[Promise]] field; its [[Resolve]] and [[Reject]]
+    // fields are stored in Slots::Resolve and Slots::Reject.
     //
     // This can be 'null' in reaction records created for a few situations:
     //
@@ -797,18 +796,16 @@ class PromiseReactionObjectStorage : public PromiseJobObject {
     //   the 'fulfill' function of a promise P2, so that resolving P1 resolves
     //   P2 in the same way, P1 gets a reaction record with the
     //   REACTION_FLAG_DEFAULT_RESOLVING_HANDLER flag set and whose
-    //   Slots::GeneratorOrPromiseToResolveOrAsyncFromSyncIterator
-    //   slot holds P2.
+    //   Slots::SpecializedReactionState slot holds P2.
     //
     // - When you await a promise. When an async function or generator awaits a
     //   value V, then the await expression generates an internal promise P,
     //   resolves it to V, and then gives P a reaction record with the
     //   REACTION_FLAG_ASYNC_FUNCTION or REACTION_FLAG_ASYNC_GENERATOR flag set
-    //   and whose Slot::GeneratorOrPromiseToResolveOrAsyncFromSyncIterator
-    //   slot holds the generator object. (Typically V is a promise, so
-    //   resolving P to V gives V a REACTION_FLAGS_DEFAULT_RESOLVING_HANDLER
-    //   reaction
-    //   record as described above.)
+    //   and whose Slots::SpecializedReactionState slot holds the generator
+    //   object. (Typically V is a promise, so resolving P to V gives V a
+    //   REACTION_FLAGS_DEFAULT_RESOLVING_HANDLER reaction record as described
+    //   above.)
     //
     // - When JS::AddPromiseReactions{,IgnoringUnhandledRejection} cause the
     //   reaction to be created. (These functions act as if they had created a
@@ -869,9 +866,8 @@ class PromiseReactionObjectStorage : public PromiseJobObject {
     //   slot stores the promise to resolve when conceptually "calling" the
     //   OnFulfilled or OnRejected handlers.
     // - When the REACTION_FLAG_ASYNC_FROM_SYNC_ITERATOR is set, this slot
-    // stores
-    //   the async-from-sync iterator object.
-    GeneratorOrPromiseToResolveOrAsyncFromSyncIterator,
+    //   stores the async-from-sync iterator object.
+    SpecializedReactionState,
 
     SlotCount,
   };
@@ -899,13 +895,11 @@ class PromiseReactionObjectStorage : public PromiseJobObject {
     return getFixedSlot(Slots::Reject).toObjectOrNull();
   }
 
-  Value reactionTarget() const {
-    return getFixedSlot(
-        Slots::GeneratorOrPromiseToResolveOrAsyncFromSyncIterator);
+  Value specializedReactionState() const {
+    return getFixedSlot(Slots::SpecializedReactionState);
   }
-  void setReactionTarget(const Value& target) {
-    setFixedSlot(Slots::GeneratorOrPromiseToResolveOrAsyncFromSyncIterator,
-                 target);
+  void setSpecializedReactionState(const Value& state) {
+    setFixedSlot(Slots::SpecializedReactionState, state);
   }
 
   JSObject* enqueueGlobalRepresentative() const {
@@ -960,19 +954,18 @@ class PromiseReaction : public Base {
   static constexpr uint32_t REACTION_FLAG_FULFILLED = 0x2;
 
   // If this flag is set, this reaction record is created for resolving
-  // one promise P1 to another promise P2, and
-  // Slot::GeneratorOrPromiseToResolveOrAsyncFromSyncIterator slot
-  // holds P2.
+  // one promise P1 to another promise P2, and Slots::SpecializedReactionState
+  // slot holds P2.
   static constexpr uint32_t REACTION_FLAG_DEFAULT_RESOLVING_HANDLER = 0x4;
 
   // If this flag is set, this reaction record is created for async function
-  // and Slot::GeneratorOrPromiseToResolveOrAsyncFromSyncIterator
-  // slot holds internal generator object of the async function.
+  // and Slots::SpecializedReactionState slot holds internal generator object
+  // of the async function.
   static constexpr uint32_t REACTION_FLAG_ASYNC_FUNCTION = 0x8;
 
   // If this flag is set, this reaction record is created for async generator
-  // and Slot::GeneratorOrPromiseToResolveOrAsyncFromSyncIterator
-  // slot holds the async generator object of the async generator.
+  // and Slots::SpecializedReactionState slot holds the async generator object
+  // of the async generator.
   static constexpr uint32_t REACTION_FLAG_ASYNC_GENERATOR = 0x10;
 
   // If this flag is set, this reaction record is created only for providing
@@ -988,9 +981,8 @@ class PromiseReaction : public Base {
   static constexpr uint32_t REACTION_FLAG_IGNORE_UNHANDLED_REJECTION = 0x40;
 
   // If this flag is set, this reaction record is created for async-from-sync
-  // iterators and
-  // Slot::GeneratorOrPromiseToResolveOrAsyncFromSyncIterator slot
-  // holds the async-from-sync iterator object.
+  // iterators and Slots::SpecializedReactionState slot holds the
+  // async-from-sync iterator object.
   static constexpr uint32_t REACTION_FLAG_ASYNC_FROM_SYNC_ITERATOR = 0x80;
 
   static constexpr uint32_t REACTION_FLAGS_ALL =
@@ -999,6 +991,11 @@ class PromiseReaction : public Base {
       REACTION_FLAG_ASYNC_GENERATOR | REACTION_FLAG_DEBUGGER_DUMMY |
       REACTION_FLAG_IGNORE_UNHANDLED_REJECTION |
       REACTION_FLAG_ASYNC_FROM_SYNC_ITERATOR;
+
+  // Reaction kinds that use the SpecializedReactionState field.
+  static constexpr uint32_t REACTION_FLAGS_WITH_SPECIALIZED_STATE =
+      REACTION_FLAG_DEFAULT_RESOLVING_HANDLER | REACTION_FLAG_ASYNC_FUNCTION |
+      REACTION_FLAG_ASYNC_GENERATOR | REACTION_FLAG_ASYNC_FROM_SYNC_ITERATOR;
 
  public:
   using Base::Base;
@@ -1051,7 +1048,7 @@ class PromiseReaction : public Base {
 
   void setIsDefaultResolvingHandler(PromiseObject* promiseToResolve) {
     setFlagOnInitialState(REACTION_FLAG_DEFAULT_RESOLVING_HANDLER);
-    this->setReactionTarget(ObjectValue(*promiseToResolve));
+    this->setSpecializedReactionState(ObjectValue(*promiseToResolve));
   }
   bool isDefaultResolvingHandler() const {
     int32_t flags = this->flags();
@@ -1059,13 +1056,15 @@ class PromiseReaction : public Base {
   }
   PromiseObject* defaultResolvingPromise() {
     MOZ_ASSERT(isDefaultResolvingHandler());
-    return &this->reactionTarget().toObject().template as<PromiseObject>();
+    return &this->specializedReactionState()
+                .toObject()
+                .template as<PromiseObject>();
   }
 
   void setIsAsyncFunction(AsyncFunctionGeneratorObject* genObj) {
     MOZ_ASSERT(this->realm() == genObj->nonCCWRealm());
     setFlagOnInitialState(REACTION_FLAG_ASYNC_FUNCTION);
-    this->setReactionTarget(ObjectValue(*genObj));
+    this->setSpecializedReactionState(ObjectValue(*genObj));
   }
   bool isAsyncFunction() const {
     int32_t flags = this->flags();
@@ -1074,7 +1073,7 @@ class PromiseReaction : public Base {
   AsyncFunctionGeneratorObject* asyncFunctionGenerator() {
     MOZ_ASSERT(isAsyncFunction());
     AsyncFunctionGeneratorObject* res =
-        &this->reactionTarget()
+        &this->specializedReactionState()
              .toObject()
              .template as<AsyncFunctionGeneratorObject>();
     MOZ_RELEASE_ASSERT(this->realm() == res->realm());
@@ -1083,7 +1082,7 @@ class PromiseReaction : public Base {
 
   void setIsAsyncGenerator(AsyncGeneratorObject* generator) {
     setFlagOnInitialState(REACTION_FLAG_ASYNC_GENERATOR);
-    this->setReactionTarget(ObjectValue(*generator));
+    this->setSpecializedReactionState(ObjectValue(*generator));
   }
   bool isAsyncGenerator() const {
     int32_t flags = this->flags();
@@ -1091,14 +1090,14 @@ class PromiseReaction : public Base {
   }
   AsyncGeneratorObject* asyncGenerator() {
     MOZ_ASSERT(isAsyncGenerator());
-    return &this->reactionTarget()
+    return &this->specializedReactionState()
                 .toObject()
                 .template as<AsyncGeneratorObject>();
   }
 
   void setIsAsyncFromSyncIterator(AsyncFromSyncIteratorObject* iterator) {
     setFlagOnInitialState(REACTION_FLAG_ASYNC_FROM_SYNC_ITERATOR);
-    this->setReactionTarget(ObjectValue(*iterator));
+    this->setSpecializedReactionState(ObjectValue(*iterator));
   }
   bool isAsyncFromSyncIterator() const {
     int32_t flags = this->flags();
@@ -1106,7 +1105,7 @@ class PromiseReaction : public Base {
   }
   AsyncFromSyncIteratorObject* asyncFromSyncIterator() {
     MOZ_ASSERT(isAsyncFromSyncIterator());
-    return &this->reactionTarget()
+    return &this->specializedReactionState()
                 .toObject()
                 .template as<AsyncFromSyncIteratorObject>();
   }
@@ -1117,6 +1116,15 @@ class PromiseReaction : public Base {
   bool isDebuggerDummy() const {
     int32_t flags = this->flags();
     return flags & REACTION_FLAG_DEBUGGER_DUMMY;
+  }
+
+  // Specialized reactions carry a promise to resolve, an async function's
+  // generator, an async generator, or an async-from-sync iterator. This is the
+  // specializedReactionState() field, separate from the result promise in
+  // promise().
+  bool hasSpecializedReactionState() const {
+    int32_t flags = this->flags();
+    return flags & REACTION_FLAGS_WITH_SPECIALIZED_STATE;
   }
 
   Value handler() {
@@ -1163,7 +1171,7 @@ const JSClass PromiseReactionRecord::class_ = {
 
 // The stack representation of a PromiseReactionRecord's data. This provides
 // the same accessors as PromiseReactionObjectStorage, but only holds the values
-// that an inline reaction can carry; see StackPromiseReaction.
+// needed by StackPromiseReaction.
 class MOZ_STACK_CLASS PromiseReactionStackStorage {
   enum Slot {
     Promise,
@@ -1172,7 +1180,8 @@ class MOZ_STACK_CLASS PromiseReactionStackStorage {
     OnRejected,
     Resolve,
     Reject,
-    ReactionTarget,
+    // See PromiseReactionObjectStorage::Slots::SpecializedReactionState.
+    SpecializedReactionState,
     IncumbentGlobalRepresentative,
     OptionalHostDefinedData,
     SlotCount,
@@ -1185,9 +1194,9 @@ class MOZ_STACK_CLASS PromiseReactionStackStorage {
 
   JS::RootedValueArray<SlotCount> slots_;
 
-  // The realm the reaction is created or run in. This is the context's current
-  // realm, which is kept alive by being entered for as long as this stack
-  // object exists, so it is neither traced nor rooted here.
+  // The realm the reaction is created or run in. This is kept alive either by
+  // being entered or, for a reaction unpacked from a promise, by the promise's
+  // global, so it is neither traced nor rooted here.
   JS::Rooted<Realm*> realm_;
 
  public:
@@ -1215,9 +1224,11 @@ class MOZ_STACK_CLASS PromiseReactionStackStorage {
   JSObject* resolve() const { return slots_[Resolve].get().toObjectOrNull(); }
   JSObject* reject() const { return slots_[Reject].get().toObjectOrNull(); }
 
-  Value reactionTarget() const { return slots_[ReactionTarget]; }
-  void setReactionTarget(const Value& target) {
-    slots_[ReactionTarget].set(target);
+  Value specializedReactionState() const {
+    return slots_[SpecializedReactionState];
+  }
+  void setSpecializedReactionState(const Value& state) {
+    slots_[SpecializedReactionState].set(state);
   }
 
   Value getIncumbentGlobalRepresentative() const {
@@ -1257,8 +1268,10 @@ static Realm* GetFunctionRealmIfSimple(JSObject* obj) {
   return obj->as<JSFunction>().realm();
 }
 
-// A reaction to an already settled promise, held on the stack rather than
-// allocated as a PromiseReactionRecord.
+// A reaction held on the stack rather than allocated as a
+// PromiseReactionRecord. It can be embedded in a pending promise or enqueued
+// for a settled promise; otherwise its fields are copied into a
+// PromiseReactionRecord.
 //
 // When the reaction is simple enough (see fitsInline), it is enqueued
 // as a MicroTask of kind InlinePromiseReaction, which holds the reaction flags
@@ -1269,7 +1282,7 @@ static Realm* GetFunctionRealmIfSimple(JSObject* obj) {
 //             representative.
 //   extra[0]: The handler.
 //   extra[1]: The handler argument.
-//   extra[2]: The GeneratorOrPromiseToResolveOrAsyncFromSyncIterator slot.
+//   extra[2]: The SpecializedReactionState slot.
 //   extra[3]: The IncumbentGlobalRepresentative slot.
 //
 // Everything else is either encoded in the payload bits or known to be null.
@@ -1285,7 +1298,7 @@ class MOZ_STACK_CLASS StackPromiseReaction
   enum Extra : size_t {
     ExtraHandler = 0,
     ExtraHandlerArg,
-    ExtraGeneratorOrPromiseToResolveOrAsyncFromSyncIterator,
+    ExtraSpecializedReactionState,
     ExtraIncumbentGlobalRepresentative,
     ExtraCount,
   };
@@ -1294,6 +1307,12 @@ class MOZ_STACK_CLASS StackPromiseReaction
   static_assert((REACTION_FLAGS_ALL & ~InlineFlagsMask) == 0);
   static_assert((InlineHasPromise & InlineFlagsMask) == 0);
   static_assert(ExtraCount == MicroTaskQueueElement::ExtraCount);
+
+  // Flags must also fit in the bits of a promise's flags reserved for its
+  // embedded reaction.
+  static_assert(PROMISE_FLAG_EMBEDDED_REACTION_FLAGS_MASK ==
+                (InlineFlagsMask
+                 << PROMISE_FLAG_EMBEDDED_REACTION_FLAGS_SHIFT));
 
  public:
   explicit StackPromiseReaction(JSContext* cx) : PromiseReaction(cx) {}
@@ -1339,8 +1358,110 @@ class MOZ_STACK_CLASS StackPromiseReaction
       setOnRejected(handler);
       setOnRejectedArg(handlerArg);
     }
-    setReactionTarget(MicroTaskQueueElement::extra(
-        task, ExtraGeneratorOrPromiseToResolveOrAsyncFromSyncIterator));
+    setSpecializedReactionState(
+        MicroTaskQueueElement::extra(task, ExtraSpecializedReactionState));
+  }
+
+  // Unpack the embedded reaction of a pending promise. Must be called in the
+  // promise's realm.
+  StackPromiseReaction(JSContext* cx, PromiseObject* promise)
+      : PromiseReaction(cx) {
+    MOZ_ASSERT(promise->state() == JS::PromiseState::Pending);
+    MOZ_ASSERT(promise->hasEmbeddedReaction());
+    MOZ_RELEASE_ASSERT(promise->realm() == cx->realm());
+
+    int32_t flags = promise->embeddedReactionFlags();
+    bool hasSpecializedState = flags & REACTION_FLAGS_WITH_SPECIALIZED_STATE;
+    Value promiseOrSpecializedState = promise->getFixedSlot(
+        PromiseObject::EMBEDDED_REACTION_PROMISE_OR_SPECIALIZED_STATE_SLOT);
+    JSObject* resultPromise = hasSpecializedState
+                                  ? nullptr
+                                  : promiseOrSpecializedState.toObjectOrNull();
+    Value incumbentGlobalRepresentative =
+        promise->embeddedReactionHasIncumbentGlobal()
+            ? ObjectValue(cx->global()->getObjectPrototype())
+            : NullValue();
+
+    initReaction(resultPromise,
+                 /* onFulfilled = */
+                 promise->getFixedSlot(PromiseObject::REACTIONS_OR_RESULT_SLOT),
+                 /* onRejected = */
+                 promise->getFixedSlot(
+                     PromiseObject::EMBEDDED_REACTION_ON_REJECTED_SLOT),
+                 /* resolve = */ nullptr, /* reject = */ nullptr,
+                 incumbentGlobalRepresentative,
+                 /* optionalHostDefinedData = */ NullValue());
+    setFlags(flags);
+    if (hasSpecializedState) {
+      setSpecializedReactionState(promiseOrSpecializedState);
+    }
+  }
+
+  // Whether this reaction can be embedded in the pending |promise|.
+  //
+  // Only the first reaction can use this representation: both handlers occupy
+  // promise slots, while the reaction flags are packed into the promise's
+  // flags.
+  bool canEmbedInPromise(JSContext* cx, PromiseObject* promise) {
+    MOZ_ASSERT(promise->state() == JS::PromiseState::Pending);
+    MOZ_ASSERT(realm() == cx->realm());
+
+    // The values stored in the promise must be in its realm.
+    if (promise->realm() != cx->realm()) {
+      return false;
+    }
+
+    if (promise->hasExistingReaction()) {
+      return false;
+    }
+
+    // Embedded reactions share a slot for the result promise and specialized
+    // reaction state. The reaction kind determines which one is present, so we
+    // cannot embed a reaction that needs both.
+    if (hasSpecializedReactionState() && this->promise()) {
+      return false;
+    }
+
+    // The incumbent global must be either absent or the current global.
+    Value incumbent = getIncumbentGlobalRepresentative();
+    if (!incumbent.isNull() &&
+        &incumbent.toObject() != &cx->global()->getObjectPrototype()) {
+      return false;
+    }
+
+    // There is no room for resolving functions or optional host defined data.
+    if (resolve() || reject()) {
+      return false;
+    }
+    if (!getOptionalHostDefinedData().isNull()) {
+      return false;
+    }
+
+    // Settlement can inflate the reaction if it cannot be enqueued inline.
+    return true;
+  }
+
+  // Embed this reaction in |promise|; see canEmbedInPromise.
+  void embedInPromise(PromiseObject* promise) {
+    uint32_t flags = uint32_t(this->flags());
+    MOZ_ASSERT((flags & ~InlineFlagsMask) == 0);
+
+    uint32_t promiseFlags =
+        uint32_t(promise->flags()) | PROMISE_FLAG_EMBEDDED_REACTION |
+        (flags << PROMISE_FLAG_EMBEDDED_REACTION_FLAGS_SHIFT);
+    if (!getIncumbentGlobalRepresentative().isNull()) {
+      promiseFlags |= PROMISE_FLAG_EMBEDDED_REACTION_REALM_INCUMBENT;
+    }
+    promise->setFixedSlotTyped(PromiseObject::FLAGS_SLOT,
+                               Int32Value(int32_t(promiseFlags)));
+    promise->setFixedSlot(PromiseObject::REACTIONS_OR_RESULT_SLOT,
+                          onFulfilled());
+    promise->setFixedSlot(PromiseObject::EMBEDDED_REACTION_ON_REJECTED_SLOT,
+                          onRejected());
+    promise->setFixedSlot(
+        PromiseObject::EMBEDDED_REACTION_PROMISE_OR_SPECIALIZED_STATE_SLOT,
+        hasSpecializedReactionState() ? specializedReactionState()
+                                      : ObjectOrNullValue(this->promise()));
   }
 
   // Whether this reaction, not yet enqueued, can be represented as a
@@ -1402,7 +1523,7 @@ class MOZ_STACK_CLASS StackPromiseReaction
     return MicroTaskQueueElement::MakeMicroTask(
         MicroTaskQueueElement::Kind::InlinePromiseReaction, bits,
         ObjectValue(promise ? *promise : cx->global()->getObjectPrototype()),
-        handler(), handlerArg(), reactionTarget(),
+        handler(), handlerArg(), specializedReactionState(),
         getIncumbentGlobalRepresentative(), flowId);
   }
 };
@@ -1419,8 +1540,28 @@ static PromiseReactionRecord* NewReactionRecordFromStack(
                          data.getIncumbentGlobalRepresentative(),
                          data.getOptionalHostDefinedData());
   reaction->setFlags(data.flags());
-  reaction->setReactionTarget(data.reactionTarget());
+  reaction->setSpecializedReactionState(data.specializedReactionState());
   return reaction;
+}
+
+// Move the embedded reaction of a pending promise into a PromiseReactionRecord,
+// for code which needs the reaction list representation. Leave the embedded
+// representation intact if allocation fails.
+[[nodiscard]] static bool MaterializeEmbeddedReaction(
+    JSContext* cx, Handle<PromiseObject*> promise) {
+  MOZ_ASSERT(promise->hasEmbeddedReaction());
+
+  AutoRealm ar(cx, promise);
+  StackPromiseReaction data(cx, promise);
+  PromiseReactionRecord* reaction = NewReactionRecordFromStack(cx, data);
+  if (!reaction) {
+    return false;
+  }
+
+  promise->clearEmbeddedReaction();
+  promise->setFixedSlot(PromiseObject::REACTIONS_OR_RESULT_SLOT,
+                        ObjectValue(*reaction));
+  return true;
 }
 
 // A Thenable Job is data bound to a specific task type when
@@ -2515,39 +2656,15 @@ static bool CanUseSameRealmEnqueue(JSContext* cx, HandleObject reactionObj,
                                                   JS::PromiseState state,
                                                   HandleValue valueOrReason);
 
-/**
- * ES2022 draft rev d03c1ec6e235a5180fa772b6178727c17974cb14
- *
- * FulfillPromise ( promise, value )
- * https://tc39.es/ecma262/#sec-fulfillpromise
- * RejectPromise ( promise, reason )
- * https://tc39.es/ecma262/#sec-rejectpromise
- *
- * This method takes an additional optional |unwrappedRejectionStack| parameter,
- * which is only used for debugging purposes.
- * It allows callers to to pass in the stack of some exception which
- * triggered the rejection of the promise.
- */
-[[nodiscard]] static bool ResolvePromise(
-    JSContext* cx, Handle<PromiseObject*> promise, HandleValue valueOrReason,
-    JS::PromiseState state,
-    Handle<SavedFrame*> unwrappedRejectionStack = nullptr) {
-  // Step 1. Assert: The value of promise.[[PromiseState]] is pending.
+// Set the result and settled state, then notify the debugger and rejection
+// tracker. Callers must save any reactions before this overwrites their slot,
+// then dispatch them after settlement.
+static void SettlePromise(JSContext* cx, Handle<PromiseObject*> promise,
+                          HandleValue valueOrReason, JS::PromiseState state,
+                          Handle<SavedFrame*> unwrappedRejectionStack) {
   MOZ_ASSERT(promise->state() == JS::PromiseState::Pending);
-  MOZ_ASSERT(state == JS::PromiseState::Fulfilled ||
-             state == JS::PromiseState::Rejected);
-  MOZ_ASSERT_IF(unwrappedRejectionStack, state == JS::PromiseState::Rejected);
-
-  // FulfillPromise
-  // Step 2. Let reactions be promise.[[PromiseFulfillReactions]].
-  // RejectPromise
-  // Step 2. Let reactions be promise.[[PromiseRejectReactions]].
-  //
-  // We only have one list of reactions for both resolution types. So
-  // instead of getting the right list of reactions, we determine the
-  // resolution type to retrieve the right information from the
-  // reaction records.
-  RootedValue reactionsVal(cx, promise->reactions());
+  MOZ_ASSERT(state != JS::PromiseState::Pending);
+  MOZ_ASSERT(!promise->hasEmbeddedReaction());
 
   // FulfillPromise
   // Step 3. Set promise.[[PromiseResult]] to value.
@@ -2576,12 +2693,109 @@ static bool CanUseSameRealmEnqueue(JSContext* cx, HandleObject reactionObj,
   promise->setFixedSlotTyped(PromiseObject::REJECT_FUNCTION_SLOT,
                              UndefinedValue());
 
-  // Now that everything else is done, do the things the debugger needs.
-
+  // onSettled observes the settled state, so it must come last.
+  //
   // RejectPromise
   // Step 7. If promise.[[PromiseIsHandled]] is false, perform
   //         HostPromiseRejectionTracker(promise, "reject").
   PromiseObject::onSettled(cx, promise, unwrappedRejectionStack);
+}
+
+// ResolvePromise for a promise whose only reaction is embedded. The reaction
+// belongs to the promise's realm, which need not be the current realm.
+[[nodiscard]] static bool ResolvePromiseWithEmbeddedReaction(
+    JSContext* cx, Handle<PromiseObject*> promise, HandleValue valueOrReason,
+    JS::PromiseState state, Handle<SavedFrame*> unwrappedRejectionStack) {
+  bool isCrossRealm = cx->realm() != promise->realm();
+
+  // FulfillPromise
+  // Step 2. Let reactions be promise.[[PromiseFulfillReactions]].
+  // RejectPromise
+  // Step 2. Let reactions be promise.[[PromiseRejectReactions]].
+  // Root the reaction before clearing its slots. Settlement reuses the first
+  // handler's slot for the result and may allocate to record debugger data.
+  // Unpacking can't fail, so the promise is always settled.
+  mozilla::Maybe<AutoRealm> reactionRealm;
+  if (isCrossRealm) {
+    reactionRealm.emplace(cx, promise);
+  }
+  StackPromiseReaction reaction(cx, promise);
+  promise->clearEmbeddedReaction();
+  reactionRealm.reset();
+
+  // FulfillPromise
+  // Steps 3-6.
+  // RejectPromise
+  // Steps 3-7.
+  SettlePromise(cx, promise, valueOrReason, state, unwrappedRejectionStack);
+
+  // FulfillPromise
+  // Step 7. Return TriggerPromiseReactions(reactions, value).
+  // RejectPromise
+  // Step 8. Return TriggerPromiseReactions(reactions, reason).
+  // Choose the microtask representation now that the settlement outcome is
+  // known.
+
+  // As with reaction records, the job is created in the reaction's realm.
+  if (isCrossRealm) {
+    reactionRealm.emplace(cx, promise);
+  }
+  if (MOZ_LIKELY(reaction.fitsInline(cx->realm(), state))) {
+    return EnqueuePromiseReactionJob(cx, &reaction, valueOrReason, state);
+  }
+
+  Rooted<PromiseReactionRecord*> reactionObj(
+      cx, NewReactionRecordFromStack(cx, reaction));
+  if (!reactionObj) {
+    return false;
+  }
+  return EnqueuePromiseReactionJob(cx, reactionObj, valueOrReason, state);
+}
+
+/**
+ * ES2022 draft rev d03c1ec6e235a5180fa772b6178727c17974cb14
+ *
+ * FulfillPromise ( promise, value )
+ * https://tc39.es/ecma262/#sec-fulfillpromise
+ * RejectPromise ( promise, reason )
+ * https://tc39.es/ecma262/#sec-rejectpromise
+ *
+ * This method takes an additional optional |unwrappedRejectionStack| parameter,
+ * which is only used for debugging purposes.
+ * It allows callers to to pass in the stack of some exception which
+ * triggered the rejection of the promise.
+ */
+[[nodiscard]] static bool ResolvePromise(
+    JSContext* cx, Handle<PromiseObject*> promise, HandleValue valueOrReason,
+    JS::PromiseState state,
+    Handle<SavedFrame*> unwrappedRejectionStack = nullptr) {
+  // Step 1. Assert: The value of promise.[[PromiseState]] is pending.
+  MOZ_ASSERT(promise->state() == JS::PromiseState::Pending);
+  MOZ_ASSERT(state == JS::PromiseState::Fulfilled ||
+             state == JS::PromiseState::Rejected);
+  MOZ_ASSERT_IF(unwrappedRejectionStack, state == JS::PromiseState::Rejected);
+
+  if (promise->hasEmbeddedReaction()) {
+    return ResolvePromiseWithEmbeddedReaction(cx, promise, valueOrReason, state,
+                                              unwrappedRejectionStack);
+  }
+
+  // FulfillPromise
+  // Step 2. Let reactions be promise.[[PromiseFulfillReactions]].
+  // RejectPromise
+  // Step 2. Let reactions be promise.[[PromiseRejectReactions]].
+  //
+  // We only have one list of reactions for both resolution types. So
+  // instead of getting the right list of reactions, we determine the
+  // resolution type to retrieve the right information from the
+  // reaction records.
+  RootedValue reactionsVal(cx, promise->reactions());
+
+  // FulfillPromise
+  // Steps 3-6.
+  // RejectPromise
+  // Steps 3-7.
+  SettlePromise(cx, promise, valueOrReason, state, unwrappedRejectionStack);
 
   // FulfillPromise
   // Step 7. Return TriggerPromiseReactions(reactions, value).
@@ -7193,35 +7407,39 @@ template <typename ExtraStep>
     JSContext* cx, Handle<PromiseObject*> promise,
     Handle<PromiseCapability> resultCapability, HandleValue onFulfilled,
     HandleValue onRejected, ExtraStep extraStep) {
+  // Steps 7-8. Create the combined fulfill and reject reaction record.
+  //
+  // It is first held on the stack, so that it can be enqueued inline if the
+  // promise is settled, or embedded in the promise if it is pending.
+  StackPromiseReaction data(cx);
+  if (!InitPromiseReaction(cx, &data, resultCapability, onFulfilled,
+                           onRejected)) {
+    return false;
+  }
+  extraStep(&data);
+
   JS::PromiseState state = promise->state();
-  // For settled promises, try to enqueue inline.
   if (state != JS::PromiseState::Pending) {
-    StackPromiseReaction data(cx);
-    if (!InitPromiseReaction(cx, &data, resultCapability, onFulfilled,
-                             onRejected)) {
-      return false;
-    }
-    extraStep(&data);
     if (MOZ_LIKELY(data.fitsInline(cx->realm(), state))) {
       return PerformPromiseThenWithSettledReaction(cx, promise, &data);
     }
+  } else if (MOZ_LIKELY(data.canEmbedInPromise(cx, promise))) {
+    // Step 9.a. Append fulfillReaction as the last element of the List that is
+    //           promise.[[PromiseFulfillReactions]].
+    // Step 9.b. Append rejectReaction as the last element of the List that is
+    //           promise.[[PromiseRejectReactions]].
+    data.embedInPromise(promise);
 
-    Rooted<PromiseReactionRecord*> reaction(
-        cx, NewReactionRecordFromStack(cx, data));
-    if (!reaction) {
-      return false;
-    }
-    return PerformPromiseThenWithReaction(cx, promise, reaction);
+    // Step 12. Set promise.[[PromiseIsHandled]] to true.
+    promise->setHandled();
+    return true;
   }
 
-  // Steps 7-8. Create the combined fulfill and reject reaction record.
-  Rooted<PromiseReactionRecord*> reaction(
-      cx, NewReactionRecord(cx, resultCapability, onFulfilled, onRejected));
+  Rooted<PromiseReactionRecord*> reaction(cx,
+                                          NewReactionRecordFromStack(cx, data));
   if (!reaction) {
     return false;
   }
-
-  extraStep(reaction);
   return PerformPromiseThenWithReaction(cx, promise, reaction);
 }
 
@@ -8220,6 +8438,13 @@ template <typename InlineOrObjectReaction>
   }
   Handle<PromiseObject*> promise = unwrappedPromise;
 
+  // An embedded reaction can't be stored alongside another, so move it into a
+  // reaction record first.
+  if (promise->hasEmbeddedReaction() &&
+      !MaterializeEmbeddedReaction(cx, promise)) {
+    return false;
+  }
+
   // Step 9.a. Append fulfillReaction as the last element of the List that is
   //           promise.[[PromiseFulfillReactions]].
   // Step 9.b. Append rejectReaction as the last element of the List that is
@@ -8330,8 +8555,15 @@ bool PromiseObject::dependentPromises(JSContext* cx,
     return true;
   }
 
+  Rooted<PromiseObject*> self(cx, this);
+  // Debugger inspection expects reaction records, including for reactions
+  // embedded before this global became a debuggee.
+  if (self->hasEmbeddedReaction() && !MaterializeEmbeddedReaction(cx, self)) {
+    return false;
+  }
+
   uint32_t valuesIndex = 0;
-  RootedValue reactionsVal(cx, reactions());
+  RootedValue reactionsVal(cx, self->reactions());
 
   return ForEachReaction(cx, reactionsVal, [&](MutableHandleObject obj) {
     if (IsProxy(obj)) {
@@ -8367,11 +8599,18 @@ bool PromiseObject::forEachReactionRecord(
     return true;
   }
 
+  Rooted<PromiseObject*> self(cx, this);
+  // Debugger inspection expects reaction records, including for reactions
+  // embedded before this global became a debuggee.
+  if (self->hasEmbeddedReaction() && !MaterializeEmbeddedReaction(cx, self)) {
+    return false;
+  }
+
   RootedTuple<Value, PromiseReactionRecord*, AsyncFunctionGeneratorObject*,
               AsyncGeneratorObject*, PromiseObject*, JSObject*, JSObject*,
               JSObject*>
       roots(cx);
-  RootedField<Value, 0> reactionsVal(roots, reactions());
+  RootedField<Value, 0> reactionsVal(roots, self->reactions());
   if (reactionsVal.isNullOrUndefined()) {
     // No reaction records are attached to this promise.
     return true;
@@ -8713,22 +8952,19 @@ void PromiseReactionRecord::dumpOwnFields(js::JSONPrinter& json) const {
 
   if (isDefaultResolvingHandler()) {
     js::GenericPrinter& out = json.beginStringProperty("promiseToResolve");
-    getFixedSlot(GeneratorOrPromiseToResolveOrAsyncFromSyncIterator)
-        .dumpStringContent(out);
+    getFixedSlot(SpecializedReactionState).dumpStringContent(out);
     json.endStringProperty();
   }
 
   if (isAsyncFunction()) {
     js::GenericPrinter& out = json.beginStringProperty("generator");
-    getFixedSlot(GeneratorOrPromiseToResolveOrAsyncFromSyncIterator)
-        .dumpStringContent(out);
+    getFixedSlot(SpecializedReactionState).dumpStringContent(out);
     json.endStringProperty();
   }
 
   if (isAsyncGenerator()) {
     js::GenericPrinter& out = json.beginStringProperty("generator");
-    getFixedSlot(GeneratorOrPromiseToResolveOrAsyncFromSyncIterator)
-        .dumpStringContent(out);
+    getFixedSlot(SpecializedReactionState).dumpStringContent(out);
     json.endStringProperty();
   }
 }
@@ -8818,6 +9054,12 @@ void ForEachPromiseFlag(uint32_t flags, KnownF known, UnknownF unknown) {
       case PROMISE_FLAG_HAD_USER_INTERACTION_UPON_CREATION:
         known("HAD_USER_INTERACTION_UPON_CREATION");
         break;
+      case PROMISE_FLAG_EMBEDDED_REACTION:
+        known("EMBEDDED_REACTION");
+        break;
+      case PROMISE_FLAG_EMBEDDED_REACTION_REALM_INCUMBENT:
+        known("EMBEDDED_REACTION_REALM_INCUMBENT");
+        break;
       default:
         unknown(i);
         break;
@@ -8828,7 +9070,8 @@ void ForEachPromiseFlag(uint32_t flags, KnownF known, UnknownF unknown) {
 void PromiseObject::dumpOwnFields(js::JSONPrinter& json) const {
   json.beginInlineListProperty("flags");
   ForEachPromiseFlag(
-      flags(), [&](const char* name) { json.value("%s", name); },
+      flags() & ~PROMISE_FLAG_EMBEDDED_REACTION_FLAGS_MASK,
+      [&](const char* name) { json.value("%s", name); },
       [&](uint32_t value) { json.value("Unknown(%08x)", value); });
   json.endInlineList();
 
@@ -8836,7 +9079,26 @@ void PromiseObject::dumpOwnFields(js::JSONPrinter& json) const {
     json.property("state", "pending");
 
     json.beginListProperty("reactions");
-    DumpReactions(json, reactions());
+    if (hasEmbeddedReaction()) {
+      json.beginObject();
+      json.formatProperty(
+          "embeddedReactionFlags", "0x%x",
+          (flags() & PROMISE_FLAG_EMBEDDED_REACTION_FLAGS_MASK) >>
+              PROMISE_FLAG_EMBEDDED_REACTION_FLAGS_SHIFT);
+      json.beginObjectProperty("onFulfilled");
+      getFixedSlot(REACTIONS_OR_RESULT_SLOT).dumpFields(json);
+      json.endObject();
+      json.beginObjectProperty("onRejected");
+      getFixedSlot(EMBEDDED_REACTION_ON_REJECTED_SLOT).dumpFields(json);
+      json.endObject();
+      json.beginObjectProperty("promiseOrSpecializedState");
+      getFixedSlot(EMBEDDED_REACTION_PROMISE_OR_SPECIALIZED_STATE_SLOT)
+          .dumpFields(json);
+      json.endObject();
+      json.endObject();
+    } else {
+      DumpReactions(json, reactions());
+    }
     json.endList();
   } else if (state() == JS::PromiseState::Fulfilled) {
     json.property("state", "fulfilled");

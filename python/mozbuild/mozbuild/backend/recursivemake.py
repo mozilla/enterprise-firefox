@@ -473,6 +473,13 @@ class RecursiveMakeBackend(MakeBackend):
         if not isinstance(obj, Defines):
             self.consume_object(obj.defines)
 
+        # Don't build SIMPLE_PROGRAMS during the MOZ_PROFILE_GENERATE pass, and do
+        # not attempt to install them
+        if isinstance(obj, SimpleProgram) and self.environment.substs.get(
+            "MOZ_PROFILE_GENERATE"
+        ):
+            return True
+
         if isinstance(obj, Linkable):
             self._process_test_support_file(obj)
             self._process_relrhack(obj)
@@ -1536,10 +1543,6 @@ class RecursiveMakeBackend(MakeBackend):
         rules.dump(backend_file.fh)
 
     def _process_simple_program(self, obj, backend_file):
-        # Don't build SIMPLE_PROGRAMS during the MOZ_PROFILE_GENERATE pass, and do
-        # not attempt to install them
-        if self.environment.substs.get("MOZ_PROFILE_GENERATE"):
-            return
         backend_file.write(f"SIMPLE_PROGRAMS += {obj.program}\n")
         if obj.is_unit_test:
             # Compile the tests along with the other SIMPLE_PROGRAMS, and also
@@ -1685,8 +1688,6 @@ class RecursiveMakeBackend(MakeBackend):
         backend_file.write("SHARED_LIBRARY := %s\n" % shared_lib)
         self._add_lto_object_path_flags(libdef, shared_lib, backend_file)
         self._add_dump_syms_target(libdef, shared_lib, backend_file)
-        if libdef.soname:
-            backend_file.write("DSO_SONAME := %s\n" % libdef.soname)
         if libdef.dso_link_flags:
             backend_file.write(
                 f"EXTRA_DSO_LDOPTS += {' '.join(libdef.dso_link_flags)}\n"
