@@ -97,6 +97,69 @@ class FeltUpdaterErrors(FeltUpdaterErrorsBase):
         self.assert_updates_check_allowed(True)
         self.assert_updates_served(1)
 
+        # Failures for an older version are stale, we allow
+        stale_build_id = "20000101000000"
+        self.write_updates_xml([
+            self.one_xml("failed", stale_build_id, app_version="1.0"),
+            self.one_xml("failed", stale_build_id, app_version="1.0"),
+            self.one_xml("failed", stale_build_id, app_version="1.0"),
+            self.one_xml("failed", stale_build_id, app_version="1.0"),
+        ])
+        self.reset_updates_served()
+        self.reload_chrome_window()
+        self.assert_updates_check_allowed(True)
+        self.assert_updates_served(1)
+
+        # Failures for the running version and build are stale too, e.g. after
+        # the failing update was installed manually, we allow
+        current_version, current_build_id = self.get_app_info()
+        self.write_updates_xml([
+            self.one_xml("failed", current_build_id, app_version=current_version),
+            self.one_xml("failed", current_build_id, app_version=current_version),
+            self.one_xml("failed", current_build_id, app_version=current_version),
+            self.one_xml("failed", current_build_id, app_version=current_version),
+        ])
+        self.reset_updates_served()
+        self.reload_chrome_window()
+        self.assert_updates_check_allowed(True)
+        self.assert_updates_served(1)
+
+        # A higher version still counts even with an earlier build ID, since
+        # the updater would offer it again, we block
+        self.write_updates_xml([
+            self.one_xml("failed", stale_build_id),
+            self.one_xml("failed", stale_build_id),
+            self.one_xml("failed", stale_build_id),
+            self.one_xml("failed", stale_build_id),
+        ])
+        self.reset_updates_served()
+        self.reload_chrome_window()
+        self.assert_updates_check_allowed(False)
+        self.assert_updates_served(0)
+
+        # A user value for the threshold is ignored, so -1 cannot block
+        # checks without any failure
+        self.write_updates_xml([self.one_xml("succeeded")])
+        self._driver.set_pref("enterprise.felt.max_consecutive_update_failure", -1)
+        self.reset_updates_served()
+        self.reload_chrome_window()
+        self.assert_updates_check_allowed(True)
+        self.assert_updates_served(1)
+
+        # ...and a high user value cannot lift the block either
+        self._driver.set_pref("enterprise.felt.max_consecutive_update_failure", 10)
+        self.write_updates_xml([
+            self.one_xml("failed"),
+            self.one_xml("failed"),
+            self.one_xml("failed"),
+            self.one_xml("failed"),
+        ])
+        self.reset_updates_served()
+        self.reload_chrome_window()
+        self.assert_updates_check_allowed(False)
+        self.assert_updates_served(0)
+        self._driver.clear_pref("enterprise.felt.max_consecutive_update_failure")
+
         assert os.path.isfile(self._updates_history), (
             f"Updates history is present at {self._updates_history}"
         )
