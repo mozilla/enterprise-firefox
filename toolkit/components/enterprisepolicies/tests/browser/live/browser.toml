@@ -15,6 +15,8 @@ run-if = [
 
 ["browser_live_disable_local_policies.js"]
 
+["browser_live_network_loss.js"]
+
 ["browser_live_policies_basic_tests.js"]
 
 ["browser_live_policies_diffing.js"]

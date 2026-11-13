@@ -39,6 +39,8 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
 });
 
 export const FeltLocking = {
+  _tokenWriteGeneration: 0,
+
   /**
    * Attempt to resume a previously locked session for the given user. Requires
    * OS-level authentication and a stored, still-valid refresh token. The
@@ -56,6 +58,7 @@ export const FeltLocking = {
     // so its presence is the authorization to resume: the locking pref lives in
     // the browser process, which the Felt UI process cannot read.
     if (lazy.FeltStorage.hasLockingToken(email)) {
+      const startGeneration = lazy.FeltStorage.sessionGeneration;
       const [messageText, captionText] = await lazy.localization.formatValues([
         "felt-sso-unlock-os-auth-dialog-message",
         "felt-sso-unlock-os-auth-dialog-caption",
@@ -75,6 +78,10 @@ export const FeltLocking = {
           lazy.log.warn(
             `tryUnlock: decrypt failed, falling back to sign-in: ${err}`
           );
+        }
+        // A sign-in that began while this unlock was waiting supersedes it.
+        if (startGeneration !== lazy.FeltStorage.sessionGeneration) {
+          return false;
         }
         if (!lockingToken) {
           Services.felt.clearTokens();
@@ -108,8 +115,24 @@ export const FeltLocking = {
           return false;
         }
 
+        if (startGeneration !== lazy.FeltStorage.sessionGeneration) {
+          return false;
+        }
         // Only the refresh token is available here; force a refresh below.
-        await lazy.FeltStorage.beginSession(email);
+        lazy.ConsoleClient.cancelPendingRefresh();
+        const sessionGeneration = await lazy.FeltStorage.beginSession(email);
+        if (sessionGeneration !== lazy.FeltStorage.sessionGeneration) {
+          return false;
+        }
+        // A sign-in that starts while this unlock is awaiting owns the session
+        // from then on, so only end the session this unlock began itself.
+        const maybeEndSession = async () => {
+          if (sessionGeneration !== lazy.FeltStorage.sessionGeneration) {
+            return;
+          }
+          Services.felt.clearTokens();
+          await lazy.FeltStorage.endSession();
+        };
         Services.felt.setTokens("", lockingToken, 0);
         try {
           tokenData = await lazy.ConsoleClient.refreshTokens({ posture });
@@ -117,7 +140,7 @@ export const FeltLocking = {
           // refreshTokens has already committed the rotated pair, so failing
           // to persist it must not tear the working session down. The stored
           // copy now holds a spent token, so drop it if persisting fails.
-          await lazy.FeltStorage.setLockingToken(
+          const stored = await lazy.FeltStorage.setLockingToken(
             email,
             tokenData.refresh_token
           ).catch(err => {
@@ -126,8 +149,14 @@ export const FeltLocking = {
             );
             lazy.FeltStorage.clearLockingToken(email);
           });
+          if (stored === false) {
+            await maybeEndSession();
+            return false;
+          }
+          if (sessionGeneration !== lazy.FeltStorage.sessionGeneration) {
+            return false;
+          }
         } catch (err) {
-          Services.felt.clearTokens();
           if (err?.name === "ReauthRequiredError") {
             // The refresh token is genuinely invalid/revoked: drop it so we
             // fall back to a full SSO sign-in.
@@ -139,7 +168,7 @@ export const FeltLocking = {
               `tryUnlock: transient failure resuming from token, keeping it: ${err}`
             );
           }
-          await lazy.FeltStorage.endSession();
+          await maybeEndSession();
           return false;
         }
 
@@ -211,13 +240,28 @@ export const FeltLocking = {
         "store: missing refresh token or user id, cannot persist locked session"
       );
     }
+    const generation = FeltLocking._tokenWriteGeneration;
     const email = await FeltLocking.getUserEmail();
+    if (generation !== FeltLocking._tokenWriteGeneration) {
+      throw new Error(
+        "store: session ended before locking token could be saved"
+      );
+    }
     if (!email) {
       throw new Error(
         "store: no signed-in user known, cannot persist locked session"
       );
     }
-    await lazy.FeltStorage.setLockingToken(email, refresh_token, userId);
+    const stored = await lazy.FeltStorage.setLockingToken(
+      email,
+      refresh_token,
+      userId
+    );
+    if (!stored || generation !== FeltLocking._tokenWriteGeneration) {
+      throw new Error(
+        "store: session ended before locking token could be saved"
+      );
+    }
   },
 
   /**
@@ -229,8 +273,13 @@ export const FeltLocking = {
    * @returns {Promise<void>}
    */
   updateStoredToken: async refresh_token => {
+    const generation = FeltLocking._tokenWriteGeneration;
     const email = await FeltLocking.getUserEmail();
-    if (!email || !lazy.FeltStorage.hasLockingToken(email)) {
+    if (
+      generation !== FeltLocking._tokenWriteGeneration ||
+      !email ||
+      !lazy.FeltStorage.hasLockingToken(email)
+    ) {
       return;
     }
     await lazy.FeltStorage.setLockingToken(email, refresh_token);
@@ -244,6 +293,7 @@ export const FeltLocking = {
    * @returns {void}
    */
   clear: () => {
+    FeltLocking._tokenWriteGeneration += 1;
     const email = lazy.FeltStorage.getLastSignedInUser();
     if (!email) {
       return;
