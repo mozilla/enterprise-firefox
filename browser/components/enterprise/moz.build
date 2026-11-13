@@ -8,7 +8,6 @@ with Files("**"):
     BUG_COMPONENT = ("Enterprise Products", "Firefox")
 
 MOZ_SRC_FILES += [
-    "AccessConnectorButton.sys.mjs",
     "EnterpriseForcedQuit.sys.mjs",
     "EnterpriseHandler.sys.mjs",
     "EnterpriseThemeMigration.sys.mjs",
