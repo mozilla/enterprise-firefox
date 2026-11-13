@@ -17,6 +17,8 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 
 export const FeltCommon = {
   PRIVATE_BROWSING_ID: 1,
+  // Must match usercontextid on #portal-browser in felt.xhtml.
+  PORTAL_USER_CONTEXT_ID: 1,
   ENTERPRISE_PROFILE: `enterprise-profile-${AppConstants.MOZ_UPDATE_CHANNEL}`,
   POLICY_POLLING_FREQUENCY: 60_000,
 };
