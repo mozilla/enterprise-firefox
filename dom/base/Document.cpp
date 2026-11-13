@@ -9331,8 +9331,9 @@ void Document::CreateCustomContentContainerIfNeeded() {
 }
 
 already_AddRefed<AnonymousContent> Document::InsertAnonymousContent(
+    const AnonymousContentOptions& aOptions,
     ErrorResult& aRv) {
-  RefPtr<AnonymousContent> anonContent = AnonymousContent::Create(*this);
+  RefPtr<AnonymousContent> anonContent = AnonymousContent::Create(*this, aOptions.mIncludeInPrint);
   if (!anonContent) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return nullptr;
@@ -13440,6 +13441,24 @@ nsresult Document::CloneDocHelper(Document* clone) const {
     // once, so we don't do that here. However, we do want to act as if there is
     // a script handling object. So we set mHasHadScriptHandlingObject.
     clone->mHasHadScriptHandlingObject = true;
+
+    // Cloning needs to happen after setting mHasHadScriptHandlingObject,
+    // otherwise nsINode::CloneAndAdopt rejects importing from a scriptable source
+    // by setting NS_ERROR_UNEXPECTED and returning null.
+    BooleanOrImportNodeOptions cloneOptions;
+    cloneOptions.SetAsBoolean() = true;
+
+    for (auto& content : mAnonymousContents) {
+      if (!content->IsIncludedInPrint()) {
+        continue;
+      }
+
+      RefPtr destination = clone->InsertAnonymousContent(AnonymousContentOptions{}, IgnoreErrors());
+      for (nsIContent* child = content->Root()->GetFirstChild(); child; child = child->GetNextSibling()) {
+        RefPtr clonedChild = clone->ImportNode(*child, cloneOptions, IgnoreErrors());
+        destination->Root()->AppendChild(*clonedChild, IgnoreErrors());
+      }
+    }
   } else if (scriptObject) {
     clone->SetScriptHandlingObject(scriptObject);
   } else {

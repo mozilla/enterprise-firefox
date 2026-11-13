@@ -8,12 +8,6 @@
  * page using Document.insertAnonymousContent(), which inserts the markup into
  * the document's canvasFrame anonymous content, on top of the page but
  * inaccessible to it.
- *
- * Anonymous content isn't included when a document is cloned for printing,
- * so it's not enough to watermark printed pages. For that, a second,
- * real (non-anonymous) watermark node is inserted directly into the document
- * on "beforeprint", and removed again on "afterprint" (see
- * #applyPrintWatermark).
  */
 
 /**
@@ -127,8 +121,6 @@ function watermarkSvg(doc, config, patternId) {
   return svg;
 }
 
-const PRINT_EVENT_OPTIONS = { mozSystemGroup: true };
-
 /**
  * Returns the height, in pixels, that the watermark should cover to fill
  * the visible viewport as well as any content that overflows it.
@@ -178,28 +170,14 @@ function watermarkCommonStyle() {
  */
 function watermarkScreenStyle(width, height) {
   return [
+    "display: inline !important",
+    "opacity: 1 !important",
+    "visibility: visible !important",
     "position: absolute !important",
     "top: 0 !important",
     "left: 0 !important",
     `min-width: ${width}px !important`,
     `min-height: ${height}px !important`,
-    ...watermarkCommonStyle(),
-    "print-color-adjust: exact !important",
-  ].join("; ");
-}
-
-/**
- * CSS declarations for the print-only watermark node.
- *
- * @returns {string}
- */
-function watermarkPrintStyle() {
-  return [
-    "position: fixed !important",
-    "top: 0 !important",
-    "left: 0 !important",
-    "min-width: 100% !important",
-    "min-height: 100% !important",
     ...watermarkCommonStyle(),
     "print-color-adjust: exact !important",
   ].join("; ");
@@ -212,7 +190,6 @@ function watermarkPrintStyle() {
 export class WatermarkPolicyChild extends JSWindowActorChild {
   #content = null;
   #node = null;
-  #printNode = null;
   #resizeObserver = null;
   // Watermark configuration for this document, fetched from the parent when
   // the actor is created and updated by "Watermark:Refresh". Null until it has
@@ -223,22 +200,9 @@ export class WatermarkPolicyChild extends JSWindowActorChild {
   #loaded = false;
 
   /**
-   * Registers the "beforeprint"/"afterprint" listeners used to show a
-   * separate, non-anonymous watermark node while printing, and fetches the
-   * watermark configuration from the parent.
+   * Fetches the watermark configuration from the parent.
    */
   async actorCreated() {
-    this.contentWindow?.addEventListener(
-      "beforeprint",
-      this,
-      PRINT_EVENT_OPTIONS
-    );
-    this.contentWindow?.addEventListener(
-      "afterprint",
-      this,
-      PRINT_EVENT_OPTIONS
-    );
-
     let config;
     try {
       config = await this.sendQuery("Watermark:GetConfig");
@@ -271,12 +235,6 @@ export class WatermarkPolicyChild extends JSWindowActorChild {
           this.#applyWatermark();
         }
         break;
-      case "beforeprint":
-        this.#applyPrintWatermark();
-        break;
-      case "afterprint":
-        this.#removePrintWatermark();
-        break;
     }
   }
 
@@ -295,11 +253,6 @@ export class WatermarkPolicyChild extends JSWindowActorChild {
   // Test-only introspection
   get isShowingWatermark() {
     return !!this.#content;
-  }
-
-  // Test-only introspection
-  get isShowingPrintWatermark() {
-    return !!this.#printNode;
   }
 
   // Test-only introspection
@@ -344,21 +297,10 @@ export class WatermarkPolicyChild extends JSWindowActorChild {
   }
 
   /**
-   * Removes the print listeners and tears down both watermark nodes.
+   * Tears down watermark node.
    */
   didDestroy() {
-    this.contentWindow?.removeEventListener(
-      "beforeprint",
-      this,
-      PRINT_EVENT_OPTIONS
-    );
-    this.contentWindow?.removeEventListener(
-      "afterprint",
-      this,
-      PRINT_EVENT_OPTIONS
-    );
     this.#destroyWatermark();
-    this.#removePrintWatermark();
   }
 
   /**
@@ -386,7 +328,7 @@ export class WatermarkPolicyChild extends JSWindowActorChild {
     };
 
     try {
-      this.#content = doc.insertAnonymousContent();
+      this.#content = doc.insertAnonymousContent({ includeInPrint: true });
       this.#node = this.#buildNode(watermarkConfig);
       this.#content.root.appendChild(this.#node);
 
@@ -440,54 +382,5 @@ export class WatermarkPolicyChild extends JSWindowActorChild {
       }
       this.#content = null;
     }
-  }
-
-  /**
-   * Inserts a real (non-anonymous) watermark node into the document for
-   * printing, since anonymous content isn't included in cloned print documents.
-   * Uses the configuration cached by the actor, so it can run synchronously
-   * within the "beforeprint" handler. A no-op if no configuration has been
-   * received yet, or the policy has just been removed.
-   */
-  #applyPrintWatermark() {
-    this.#removePrintWatermark();
-
-    let doc = this.document;
-    let config = this.#config;
-    if (!doc?.documentElement || !config) {
-      return;
-    }
-    if (!this.#matchesDocument(config)) {
-      return;
-    }
-
-    let watermarkConfig = {
-      ...config,
-      // Timestamp here reflects when the document was printed, rather than when it was loaded.
-      timestamp: Temporal.Now.instant().toString({ smallestUnit: "second" }),
-    };
-
-    try {
-      let node = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
-      node.setAttribute("id", "enterprise-watermark-print");
-      // Style via CSSOM to avoid CSP violation.
-      node.style.cssText = watermarkPrintStyle();
-      node.appendChild(
-        watermarkSvg(doc, watermarkConfig, "enterprise-watermark-print-pattern")
-      );
-      doc.documentElement.appendChild(node);
-      this.#printNode = node;
-    } catch (e) {
-      lazy.log.error(`Failed to draw print watermark: ${e}`);
-      this.#removePrintWatermark();
-    }
-  }
-
-  /**
-   * Removes the print-only watermark node inserted by #applyPrintWatermark.
-   */
-  #removePrintWatermark() {
-    this.#printNode?.remove();
-    this.#printNode = null;
   }
 }

@@ -16,7 +16,7 @@ namespace mozilla::dom {
 // Ref counting and cycle collection
 NS_IMPL_CYCLE_COLLECTION(AnonymousContent, mHost, mRoot)
 
-already_AddRefed<AnonymousContent> AnonymousContent::Create(Document& aDoc) {
+already_AddRefed<AnonymousContent> AnonymousContent::Create(Document& aDoc, bool aIsIncludedInPrint) {
   RefPtr<Element> host = aDoc.CreateHTMLElement(nsGkAtoms::div);
   if (!host) {
     return nullptr;
@@ -30,12 +30,13 @@ already_AddRefed<AnonymousContent> AnonymousContent::Create(Document& aDoc) {
   RefPtr<ShadowRoot> root =
       host->AttachShadowWithoutNameChecks(init, Nothing());
   root->SetIsUAWidget();
-  return do_AddRef(new AnonymousContent(host.forget(), root.forget()));
+  return do_AddRef(new AnonymousContent(host.forget(), root.forget(), aIsIncludedInPrint));
 }
 
 AnonymousContent::AnonymousContent(already_AddRefed<Element> aHost,
-                                   already_AddRefed<ShadowRoot> aRoot)
-    : mHost(aHost), mRoot(aRoot) {
+                                   already_AddRefed<ShadowRoot> aRoot,
+                                   bool aIsIncludedInPrint)
+    : mHost(aHost), mRoot(aRoot), mIsIncludedInPrint(aIsIncludedInPrint) {
   MOZ_ASSERT(mHost);
   MOZ_ASSERT(mRoot);
 }
