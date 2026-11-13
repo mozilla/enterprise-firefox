@@ -195,7 +195,12 @@ class MacroAssemblerRiscv64 : public Assembler {
   BufferOffset ma_liPatchable(Register dest, ImmPtr imm) {
     return li_ptr(dest, uintptr_t(imm.value));
   }
+  // Use the shorter li_ptr when the value fits, as pointers and placeholders
+  // such as -1 do. Any value patched in later must fit too.
   BufferOffset ma_liPatchable(Register dest, ImmWord imm) {
+    if (IsLiPtrImmediate(imm.value)) {
+      return li_ptr(dest, imm.value);
+    }
     return li_constant(dest, imm.value);
   }
   void ma_li(Register dest, ImmGCPtr ptr);
@@ -347,6 +352,7 @@ class MacroAssemblerRiscv64 : public Assembler {
   void CompareIsNanF64(Register rd, FPURegister cmp1, FPURegister cmp2);
 
   BufferOffset ma_call(ImmPtr dest);
+  BufferOffset ma_call(Register rd, void* target, Register scratch);
 
   BufferOffset ma_jump(ImmPtr dest);
 
@@ -715,15 +721,10 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
   }
 
   void branch(JitCode* c) {
-    // 6 instruction to materialize the constant.
-    // + 1 instruction for jr.
-    AutoForbidPoolsAndNops afp(this, 7);
-
     UseScratchRegisterScope temps(this);
     Register scratch = temps.Acquire();
-    BufferOffset bo = ma_liPatchable(scratch, ImmPtr(c->raw()));
+    BufferOffset bo = ma_call(zero, c->raw(), scratch);
     addPendingJump(bo, ImmPtr(c->raw()), RelocationKind::JITCODE);
-    jr(scratch);
   }
   void branch(const Register reg) { jr(reg); }
   BufferOffset ret() {
@@ -811,8 +812,8 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
   CodeOffset toggledCall(JitCode* target, bool enabled);
 
   static size_t ToggledCallSize(uint8_t* code) {
-    // Seven instructions used in: MacroAssemblerRiscv64Compat::toggledCall
-    return 7 * kInstrSize;
+    // Three instructions used in: MacroAssemblerRiscv64Compat::toggledCall
+    return 3 * kInstrSize;
   }
 
   CodeOffset pushWithPatch(ImmWord imm) {

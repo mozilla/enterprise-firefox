@@ -6,27 +6,14 @@
 //! https://drafts.csswg.org/css-variables-2/#funcdef-var
 
 use super::{
-    ArbitraryDeclarationValue, ParsedArgument, Substitution, SubstitutionArgument,
-    SubstitutionParserContext, SubstitutionReplacementContext, parse_optional_fallback,
+    ArbitraryDeclarationValue, CustomPropertyName, ParsedArgument, Substitution,
+    SubstitutionArgument, SubstitutionParserContext, SubstitutionReplacementContext,
+    parse_optional_fallback,
 };
-use crate::custom_properties::{Name, VariableValue, parse_name};
-use crate::parser::Parse;
-use crate::{Atom, derives::*};
+use crate::custom_properties::{Name, VariableValue};
+use crate::derives::*;
 use cssparser::{Delimiter, Parser};
-use style_traits::{ParseError, StyleParseErrorKind};
-
-/// A custom property name, without the leading `--`.
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, ToShmem)]
-pub struct CustomPropertyName(pub Name);
-
-impl Parse for CustomPropertyName {
-    fn parse(_: &crate::parser::ParserContext, input: &mut Parser) -> Result<Self, ParseError> {
-        parse_name(input.expect_ident()?.as_ref())
-            .map(Atom::from)
-            .map(CustomPropertyName)
-            .map_err(|_| ParseError::custom(StyleParseErrorKind::UnexpectedIdent))
-    }
-}
+use style_traits::ParseError;
 
 /// Data specific to a `var()` function.
 #[derive(Clone, Debug, MallocSizeOf, PartialEq, ToShmem)]
@@ -74,40 +61,28 @@ impl VarFunction {
         context: &mut SubstitutionReplacementContext<'a, '_, '_, '_>,
     ) -> Option<Substitution<'a>> {
         let registration = context.stylist.get_custom_property_registration(name);
-        match context.substitution_functions.get_var(registration, name) {
-            None => None,
-            // If the referenced value is itself still unresolved (i.e. it has references), we
-            // are substituting against a partially-resolved map -- this happens while applying
-            // a prioritary property in the middle of custom-property resolution. Resolve it
-            // recursively, guarding against cycles (which the resolver will also remove, but it
-            // may not have gotten to this variable yet).
-            Some(v) => match v.as_universal() {
-                Some(u) if u.has_references() => {
-                    if context.seen.contains(name) {
-                        // Cycle: the primary is guaranteed-invalid, so fall through to the
-                        // fallback (if any), like any other invalid primary.
-                        None
-                    } else {
-                        context.seen.push(name.clone());
-                        let result =
-                            context.substitute_variable_value(u, /* attr_taint */ None);
-                        context.seen.pop();
-                        match result {
-                            Ok(mut substitution) => {
-                                substitution.attr_tainted |= v.attr_tainted;
-                                Some(substitution)
-                            },
-                            // The primary couldn't be resolved (invalid); use the fallback.
-                            Err(()) => None,
-                        }
-                    }
-                },
-                _ => Some(Substitution::from_value(
-                    v.to_variable_value(),
-                    v.attr_tainted,
-                )),
-            },
+        let v = context.substitution_functions.get_var(registration, name)?;
+        let Some(u) = v.as_universal() else {
+            // For non-universal values, return the computed value as a Substitution.
+            // TODO(emilio): Can we cache the serialization or so perhaps?
+            return Some(Substitution::from_value(v.to_variable_value(), v.attr_tainted));
+        };
+        if !u.has_references() {
+            // If we know we have no references, we can just borrow the value.
+            return Some(Substitution::from_borrowed_value(u, v.attr_tainted));
         }
+        if context.seen.contains(name) {
+            // Cycle: the primary is guaranteed-invalid, so fall through to the
+            // fallback (if any), like any other invalid primary.
+            return None;
+        }
+        context.seen.push(name.clone());
+        let result =
+            context.substitute_variable_value(u, /* attr_taint */ None);
+        context.seen.pop();
+        let mut substitution = result.ok()?;
+        substitution.attr_tainted |= v.attr_tainted;
+        return Some(substitution);
     }
 
     /// Returns the name, substituting and parsing it first if it has references.

@@ -2119,7 +2119,7 @@ export class ExtensionData {
       }
 
       let moduleData = data => ({
-        url: this.rootURI.resolve(data.script),
+        url: this.getURL(data.script),
         events: data.events,
         paths: data.paths,
         scopes: data.scopes,
@@ -2409,7 +2409,7 @@ export class ExtensionData {
   }
 
   getAPIManager() {
-    /** @type {(InstanceType<typeof ExtensionCommon.LazyAPIManager>)[]} */
+    /** @type {InstanceType<typeof ExtensionCommon.SchemaAPIManager>[]} */
     let apiManagers = [Management];
 
     for (let id of this.dependencies) {
@@ -4304,6 +4304,7 @@ export class Extension extends ExtensionData {
       if (this.policy) {
         this.policy.active = false;
       }
+      this.experimentAPIManager?.disableNewScripts();
 
       this.cleanupGeneratedFile();
 
@@ -4566,6 +4567,7 @@ export class Extension extends ExtensionData {
 
     Management.emit("shutdown", this);
     this.emit("shutdown", isAppShutdown);
+    this.experimentAPIManager?.disableNewScripts();
 
     const TIMED_OUT = Symbol();
 

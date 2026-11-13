@@ -2131,8 +2131,8 @@ export class UrlbarProvider {
    *   {number} selIndex
    *       The index of the picked result.
    *   {string} selType
-   *       The type of the selected result.  See TelemetryEvent.record() in
-   *       UrlbarParentController.sys.mjs.
+   *       The type of the selected result.  See UrlbarSession.record() in
+   *       UrlbarSession.sys.mjs.
    *   {string} provider
    *       The name of the provider that produced the picked result.
    *

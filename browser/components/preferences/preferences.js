@@ -251,7 +251,7 @@ const CONFIG_PANES = Object.freeze({
   about: {
     l10nId: "about-firefox-header",
     iconSrc: "chrome://browser/skin/sidebar/firefox.svg",
-    groupIds: ["updates", "support"],
+    groupIds: ["updates", "support", "newsletter"],
     module: "chrome://browser/content/preferences/config/about-firefox.mjs",
     visible: () => srdSectionPrefs.all,
   },
@@ -419,7 +419,12 @@ const CONFIG_PANES = Object.freeze({
     l10nId: "ai-window-personalize-header",
     iconSrc: "chrome://browser/skin/smart-window-mono-32.svg",
     badge: "beta",
-    groupIds: ["assistantDefaultGroup", "assistantModelGroup", "memoriesGroup"],
+    groupIds: Services.prefs.getBoolPref(
+      "browser.smartwindow.firstrun.singlePageWithAutoModel",
+      false
+    )
+      ? ["assistantDefaultGroup", "memoriesGroup", "assistantModelGroup"]
+      : ["assistantDefaultGroup", "assistantModelGroup", "memoriesGroup"],
     module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
   },
   passwordsAutofill: {
@@ -623,7 +628,6 @@ function init_all() {
   }
 
   gSearchResultsPane.init();
-  gMainPane.preInit();
 
   let categories = document.getElementById("categories");
   categories.addEventListener("change-view", event => {

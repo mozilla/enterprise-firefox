@@ -2072,6 +2072,18 @@ void ViewTransition::SkipTransition(SkipTransitionReason aReason) {
   SkipTransition(aReason, JS::UndefinedHandleValue);
 }
 
+/* static */
+void ViewTransition::SkipAllAfterRenderingReset(Document& aDocument) {
+  if (RefPtr<ViewTransition> transition = aDocument.GetActiveViewTransition()) {
+    transition->SkipTransition(SkipTransitionReason::ResetRendering);
+  }
+
+  aDocument.EnumerateSubDocuments([&](Document& aSubDoc) {
+    SkipAllAfterRenderingReset(aSubDoc);
+    return CallState::Continue;
+  });
+}
+
 // https://drafts.csswg.org/css-view-transitions-1/#skip-the-view-transition
 // https://drafts.csswg.org/css-view-transitions-1/#dom-viewtransition-skiptransition
 void ViewTransition::SkipTransition(
@@ -2369,9 +2381,9 @@ void ViewTransition::UpdateActiveRectForCapturedFrame(
   capSize.width *= aInheritedScale.xScale;
   capSize.height *= aInheritedScale.yScale;
 
-  // If the capture size is smaller than the visual viewport, it's a good
+  // If the capture size is not larger than the visual viewport, it's a good
   // indication that it is not unreasonably large, so we can early out.
-  if (capSize.width < vvpSize.width && capSize.height < vvpSize.height) {
+  if (capSize.width <= vvpSize.width && capSize.height <= vvpSize.height) {
     return;
   }
 

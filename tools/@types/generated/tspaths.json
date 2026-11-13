@@ -445,8 +445,8 @@
       "chrome://browser/content/tabbrowser/drag-and-drop.mjs": [
         "../../../browser/components/tabbrowser/content/drag-and-drop.mjs"
       ],
-      "chrome://browser/content/tabbrowser/split-view-footer.mjs": [
-        "../../../browser/components/tabbrowser/content/split-view-footer.mjs"
+      "chrome://browser/content/tabbrowser/address-footer.mjs": [
+        "../../../browser/components/tabbrowser/content/address-footer.mjs"
       ],
       "chrome://browser/content/tabbrowser/tab-groups-list.mjs": [
         "../../../browser/components/tabbrowser/content/tab-groups-list.mjs"
@@ -502,8 +502,8 @@
       "chrome://browser/content/urlbar/UrlbarChildController.mjs": [
         "../../../browser/components/urlbar/content/UrlbarChildController.mjs"
       ],
-      "chrome://browser/content/urlbar/UrlbarChildTelemetry.mjs": [
-        "../../../browser/components/urlbar/content/UrlbarChildTelemetry.mjs"
+      "chrome://browser/content/urlbar/UrlbarChildSession.mjs": [
+        "../../../browser/components/urlbar/content/UrlbarChildSession.mjs"
       ],
       "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs": [
         "../../../browser/components/urlbar/content/UrlbarContentPrefs.mjs"
@@ -5785,15 +5785,6 @@
       "resource://gre/modules/ContentDispatchChooser.sys.mjs": [
         "../../../toolkit/mozapps/handling/ContentDispatchChooser.sys.mjs"
       ],
-      "resource://gre/modules/ContentPrefServiceChild.sys.mjs": [
-        "../../../toolkit/components/contentprefs/ContentPrefServiceChild.sys.mjs"
-      ],
-      "resource://gre/modules/ContentPrefStore.sys.mjs": [
-        "../../../toolkit/components/contentprefs/ContentPrefStore.sys.mjs"
-      ],
-      "resource://gre/modules/ContentPrefUtils.sys.mjs": [
-        "../../../toolkit/components/contentprefs/ContentPrefUtils.sys.mjs"
-      ],
       "resource://gre/modules/ContentRelevancyManager.sys.mjs": [
         "../../../toolkit/components/contentrelevancy/ContentRelevancyManager.sys.mjs"
       ],
@@ -7137,15 +7128,6 @@
       ],
       "resource://pdf.js/build/pdf.worker.mjs": [
         "../../../toolkit/components/pdfjs/content/build/pdf.worker.mjs"
-      ],
-      "resource://pdf.js/web/wasm/hellbox_nowasm_fallback.js": [
-        "../../../toolkit/components/pdfjs/content/web/wasm/hellbox_nowasm_fallback.js"
-      ],
-      "resource://pdf.js/web/wasm/jbig2_nowasm_fallback.js": [
-        "../../../toolkit/components/pdfjs/content/web/wasm/jbig2_nowasm_fallback.js"
-      ],
-      "resource://pdf.js/web/wasm/openjpeg_nowasm_fallback.js": [
-        "../../../toolkit/components/pdfjs/content/web/wasm/openjpeg_nowasm_fallback.js"
       ],
       "resource://reftest/AsyncSpellCheckTestHelper.sys.mjs": [
         "../../../editor/AsyncSpellCheckTestHelper.sys.mjs"

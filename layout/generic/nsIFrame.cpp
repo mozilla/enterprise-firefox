@@ -618,6 +618,14 @@ bool nsIFrame::IsAtomicInline() const {
          (IsReplaced() || !StyleDisplay()->IsInlineInsideStyle());
 }
 
+bool nsIFrame::IsNonReplacedInline() const {
+  // Note that width/height don't apply to ruby boxes either, see
+  // https://drafts.csswg.org/css-ruby/#box-style
+  return StyleDisplay()->IsInlineInsideStyle() && !IsReplaced() &&
+         !IsFieldSetFrame() && !IsBlockFrame() && !IsScrollContainerFrame() &&
+         !IsColumnSetWrapperFrame();
+}
+
 bool nsIFrame::ShouldPropagateRepaintsToRoot() const {
   if (!IsPrimaryFrame()) {
     // special case for table frames because style images are associated to the
@@ -1747,7 +1755,7 @@ WritingMode nsIFrame::WritingModeForLine(WritingMode aSelfWM,
 
   if (StyleTextReset()->mUnicodeBidi == StyleUnicodeBidi::Plaintext) {
     mozilla::intl::BidiEmbeddingLevel frameLevel =
-        nsBidiPresUtils::GetFrameBaseLevel(aSubFrame);
+        nsBidiPresUtils::GetLineBaseLevel(aSubFrame);
     writingMode.SetDirectionFromBidiLevel(frameLevel);
   }
 
@@ -1988,6 +1996,12 @@ bool nsIFrame::GetBorderRadii(const nsSize& aFrameSize,
     // In an ideal world, we might have a way for the them to tell us an
     // border radius, but since we don't, we're better off assuming
     // zero.
+    return false;
+  }
+
+  // https://drafts.csswg.org/css-borders-4/#border-shape: border-shape
+  // replaces the border-radius geometry.
+  if (!StyleBorder()->mBorderShape.IsNone()) {
     return false;
   }
 
@@ -8837,6 +8851,14 @@ static nsRect ComputeEffectsRect(nsIFrame* aFrame, const nsRect& aOverflowRect,
     r.UnionRect(r, outsetRect);
   }
 
+  // A border-shape with margin-box geometry paints into the margin area, and
+  // a single shape is stroked centered on the path.
+  if (!styleBorder->mBorderShape.IsNone()) {
+    nsRect shapeRect(nsPoint(0, 0), aNewSize);
+    shapeRect.Inflate(nsCSSRendering::BorderShapePaintOverflow(aFrame));
+    r.UnionRect(r, shapeRect);
+  }
+
   // Note that we don't remove the outlineInnerRect if a frame loses outline
   // style. That would require an extra property lookup for every frame,
   // or a new frame state bit to track whether a property had been stored,
@@ -9922,9 +9944,17 @@ static nsresult GetNextPrevLineFromBlockFrame(PeekOffsetStruct* aPos,
         nsPoint offset = resultFrame->GetOffsetToRootFrame();
         if (resultFrame->GetWritingMode().IsVertical()) {
           point.y = aPos->mDesiredCaretPos.y;
-          point.x = tempRect.width + offset.x;
+          point.x = offset.x;
+          // If we're going backwards, look at the end of the
+          // frame, otherwise look at the start of the frame.
+          if (aPos->mDirection == eDirPrevious) {
+            point.x += tempRect.width;
+          }
         } else {
-          point.y = tempRect.height + offset.y;
+          point.y = offset.y;
+          if (aPos->mDirection == eDirPrevious) {
+            point.y += tempRect.height;
+          }
           point.x = aPos->mDesiredCaretPos.x;
         }
 
@@ -12303,7 +12333,7 @@ void nsIFrame::SetParent(nsContainerFrame* aParent) {
 
   // Note that the current mParent may already be destroyed at this point.
   mParent = aParent;
-  MOZ_ASSERT(!mParent || PresShell() == mParent->PresShell());
+  MOZ_RELEASE_ASSERT(!mParent || PresContext() == mParent->PresContext());
 
   nsFrameState flagsToPropagateSameDoc =
       GetStateBits() & (NS_FRAME_CONTAINS_RELATIVE_BSIZE |

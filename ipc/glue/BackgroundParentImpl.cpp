@@ -501,7 +501,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateFileSystemManagerParent(
 
 mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
     const nsAString& aURL, Tainted<RefPtr<nsIPrincipal>>&& aPrincipal,
-    const uint64_t& aBrowsingContextID, const IPCClientInfo& aClientInfo,
+    const uint64_t& aBrowsingContextID, Tainted<IPCClientInfo>&& aClientInfo,
     const bool& aDedicated, const bool& aRequireUnreliable,
     const uint32_t& aCongestionControl, nsTArray<nsString>&& aProtocols,
     nsTArray<WebTransportHeader>&& aHeaders,
@@ -520,9 +520,9 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
     return IPC_FAIL(this, "CreateWebTransport aPrincipal is invalid");
   }
 
-  if (!dom::ClientIsValidPrincipalInfo(
-          aClientInfo.principalInfo(),
-          BackgroundParent::GetLoadedOrigins(this))) {
+  Maybe<IPCClientInfo&> clientInfo = dom::ValidateClientInfo(
+      aClientInfo, BackgroundParent::GetLoadedOrigins(this));
+  if (!clientInfo) {
     return IPC_FAIL(
         this,
         "CreateWebTransport ClientInfo principal not valid for remote type");
@@ -530,7 +530,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
 
   RefPtr<mozilla::dom::WebTransportParent> webt =
       new mozilla::dom::WebTransportParent();
-  webt->Create(aURL, *principal, aBrowsingContextID, aClientInfo, aDedicated,
+  webt->Create(aURL, *principal, aBrowsingContextID, *clientInfo, aDedicated,
                aRequireUnreliable, aCongestionControl, std::move(aProtocols),
                std::move(aHeaders), std::move(aServerCertHashes),
                aAnticipatedConcurrentIncomingUnidirectionalStreams,
@@ -1276,8 +1276,8 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateMLSTransaction(
 
   // Dispatch the task to the MLS task queue
   sMLSTaskQueue->Dispatch(NS_NewRunnableFunction(
-      "CreateMLSTransactionRunnable",
-      [endpoint = std::move(aEndpoint), file, principal]() mutable {
+      "CreateMLSTransactionRunnable", [endpoint = std::move(aEndpoint), file,
+                                       principal = *principal]() mutable {
         // Create the mls directory if it doesn't exist
         nsresult rv =
             mozilla::dom::MLSTransactionParent::CreateDirectoryIfNotExists(
@@ -1289,7 +1289,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateMLSTransaction(
         // Construct the database's full path
         nsAutoCString databasePath;
         rv = mozilla::dom::MLSTransactionParent::ConstructDatabaseFullPath(
-            file, *principal, databasePath);
+            file, principal, databasePath);
         if (NS_WARN_IF(NS_FAILED(rv))) {
           return;
         }
@@ -1364,7 +1364,7 @@ BackgroundParentImpl::RecvPServiceWorkerContainerConstructor(
 
 already_AddRefed<PServiceWorkerRegistrationParent>
 BackgroundParentImpl::AllocPServiceWorkerRegistrationParent(
-    const IPCServiceWorkerRegistrationDescriptor&, const IPCClientInfo&) {
+    const IPCServiceWorkerRegistrationDescriptor&, Tainted<IPCClientInfo>&) {
   return MakeAndAddRef<mozilla::dom::ServiceWorkerRegistrationParent>();
 }
 
@@ -1372,19 +1372,19 @@ mozilla::ipc::IPCResult
 BackgroundParentImpl::RecvPServiceWorkerRegistrationConstructor(
     PServiceWorkerRegistrationParent* aActor,
     const IPCServiceWorkerRegistrationDescriptor& aDescriptor,
-    const IPCClientInfo& aForClient) {
+    Tainted<IPCClientInfo>&& aForClient) {
   if (!BackgroundParent::ValidatePrincipalInfo(this,
                                                aDescriptor.principalInfo())) {
     return IPC_FAIL(this, "Invalid principal for PServiceWorkerRegistration");
   }
 
-  if (!dom::ClientIsValidPrincipalInfo(
-          aForClient.principalInfo(),
-          BackgroundParent::GetLoadedOrigins(this))) {
+  Maybe<IPCClientInfo&> forClient = dom::ValidateClientInfo(
+      aForClient, BackgroundParent::GetLoadedOrigins(this));
+  if (!forClient) {
     return IPC_FAIL(this, "Invalid ClientInfo for PServiceWorkerRegistration");
   }
 
-  dom::InitServiceWorkerRegistrationParent(aActor, aDescriptor, aForClient);
+  dom::InitServiceWorkerRegistrationParent(aActor, aDescriptor, *forClient);
   return IPC_OK();
 }
 

@@ -4,17 +4,15 @@
 
 package org.mozilla.fenix.onboarding.view
 
-import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.annotation.VisibleForTesting
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,31 +37,27 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.paint
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import mozilla.components.compose.base.PagerIndicator
 import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
+import mozilla.components.compose.base.button.TextButton
 import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.support.base.log.logger.Logger
 import org.mozilla.fenix.FeatureFlags
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.theme.FirefoxTheme
-import org.mozilla.fenix.utils.isLargeScreenSize
 
 private val logger = Logger("OnboardingScreen")
-
-/** The small device max height. The value comes from [org.mozilla.fenix.ext.isTallWindow]. */
-private val SMALL_SCREEN_MAX_HEIGHT = 570.dp
 
 /**
  * A screen for displaying onboarding.
@@ -74,6 +68,9 @@ private val SMALL_SCREEN_MAX_HEIGHT = 570.dp
  * @param onSkipDefaultClick Invoked when negative button on default browser page is clicked.
  * @param onSignInButtonClick Invoked when the positive button on the sign in page is clicked.
  * @param onSkipSignInClick Invoked when the negative button on the sign in page is clicked.
+ * @param onSyncPairingScanClick Invoked when the scan button on the pairing sync page is clicked.
+ * @param onSyncPairingEmailClick Invoked when the email button on the pairing sync page is clicked.
+ * @param onSyncPairingSkipClick Invoked when the skip button on the pairing sync page is clicked.
  * @param termsOfServiceEventHandler Invoked when the primary button on the terms of service page is clicked.
  * @param onMarketingDataLearnMoreClick callback for when the user clicks the learn more text link
  * @param onMarketingOptInToggle callback for when the user toggles the opt-in checkbox
@@ -95,6 +92,9 @@ fun OnboardingScreen(
     onSkipDefaultClick: () -> Unit,
     onSignInButtonClick: () -> Unit,
     onSkipSignInClick: () -> Unit,
+    onSyncPairingScanClick: () -> Unit,
+    onSyncPairingEmailClick: () -> Unit,
+    onSyncPairingSkipClick: () -> Unit,
     termsOfServiceEventHandler: OnboardingTermsOfServiceEventHandler,
     onMarketingDataLearnMoreClick: () -> Unit,
     onMarketingOptInToggle: (optIn: Boolean) -> Unit,
@@ -106,10 +106,13 @@ fun OnboardingScreen(
     onNavigateToNextPage: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    // Pages can be appended from a background thread. Create a copy per composition so the pager's page count always
+    // matches the page states built in `OnboardingContent`.
+    val pages = pagesToDisplay.toList()
     val pagerState =
         rememberPagerState(
-            initialPage = resumedPageIndex(initialPageIndex, pagesToDisplay.size),
-            pageCount = { pagesToDisplay.size },
+            initialPage = resumedPageIndex(initialPageIndex, pages.size),
+            pageCount = { pages.size },
         )
     val isSignedIn: State<Boolean?> =
         components.backgroundServices.syncStore.observeAsComposableState { it.account != null }
@@ -178,7 +181,7 @@ fun OnboardingScreen(
     }
 
     OnboardingContent(
-        pagesToDisplay = pagesToDisplay,
+        pagesToDisplay = pages,
         pagerState = pagerState,
         onMakeFirefoxDefaultClick = {
             setToDefaultClick(
@@ -212,6 +215,18 @@ fun OnboardingScreen(
         },
         onMarketingDataSkipClick = {
             onMarketingDataSkipClick()
+            scrollToNextPageOrDismiss()
+        },
+        onSyncPairingScanClick = {
+            onSyncPairingScanClick()
+            scrollToNextPageOrDismiss()
+        },
+        onSyncPairingEmailClick = {
+            onSyncPairingEmailClick()
+            scrollToNextPageOrDismiss()
+        },
+        onSyncPairingSkipClick = {
+            onSyncPairingSkipClick()
             scrollToNextPageOrDismiss()
         },
     )
@@ -311,14 +326,17 @@ private fun shouldLaunchEffectScrollToNextPage(
     return scrollToNextCard
 }
 
-private fun scrollToNextCardFromSignIn(
+@VisibleForTesting
+internal fun scrollToNextCardFromSignIn(
     pagesToDisplay: List<OnboardingPageUiData>,
     currentPageIndex: Int,
     isSignedIn: Boolean,
 ): Boolean {
-    val indexOfSignInPage = pagesToDisplay.indexOfFirst { it.type == OnboardingPageUiData.Type.SYNC_SIGN_IN }
-    val currentPageIsSignInPage = currentPageIndex == indexOfSignInPage
-    return isSignedIn && currentPageIsSignInPage
+    val currentPageType = pagesToDisplay.getOrNull(currentPageIndex)?.type
+    val isSyncPage =
+        currentPageType == OnboardingPageUiData.Type.SYNC_SIGN_IN ||
+            currentPageType == OnboardingPageUiData.Type.SYNC_PAIRING
+    return isSignedIn && isSyncPage
 }
 
 private fun scrollToNextCardFromSetToDefault(
@@ -332,7 +350,7 @@ private fun scrollToNextCardFromSetToDefault(
 }
 
 @Composable
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod")
 private fun OnboardingContent(
     pagesToDisplay: List<OnboardingPageUiData>,
     pagerState: PagerState,
@@ -340,6 +358,9 @@ private fun OnboardingContent(
     onMakeFirefoxDefaultSkipClick: () -> Unit,
     onSignInButtonClick: () -> Unit,
     onSignInSkipClick: () -> Unit,
+    onSyncPairingScanClick: () -> Unit,
+    onSyncPairingEmailClick: () -> Unit,
+    onSyncPairingSkipClick: () -> Unit,
     termsOfServiceEventHandler: OnboardingTermsOfServiceEventHandler,
     onAgreeAndConfirmTermsOfService: () -> Unit,
     onMarketingOptInToggle: (optIn: Boolean) -> Unit,
@@ -349,6 +370,22 @@ private fun OnboardingContent(
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val layout = getOnboardingLayout(this)
+
+        val pageStates = pagesToDisplay.map { pageUiData ->
+            mapToOnboardingPageState(
+                onboardingPageUiData = pageUiData,
+                onMakeFirefoxDefaultClick = onMakeFirefoxDefaultClick,
+                onMakeFirefoxDefaultSkipClick = onMakeFirefoxDefaultSkipClick,
+                onSignInButtonClick = onSignInButtonClick,
+                onSignInSkipClick = onSignInSkipClick,
+                onSyncPairingScanClick = onSyncPairingScanClick,
+                onSyncPairingEmailClick = onSyncPairingEmailClick,
+                onSyncPairingSkipClick = onSyncPairingSkipClick,
+                onTermsOfServiceButtonClick = onAgreeAndConfirmTermsOfService,
+                isSmallDevice = layout.isSmall,
+            )
+        }
+
         OnboardingBackground(
             isVisible =
                 !isNonLargeScreenLandscape(
@@ -364,6 +401,14 @@ private fun OnboardingContent(
         ) {
             Spacer(Modifier.weight(1f)).takeIf { !layout.isSmall }
 
+            if (pageStates.any { it.onSkipClick != null }) {
+                OnboardingSkipButton(
+                    onClick = pageStates.getOrNull(pagerState.currentPage)?.onSkipClick,
+                    isSmallDevice = layout.isSmall,
+                    modifier = Modifier.align(Alignment.End).padding(layout.contentPadding),
+                )
+            }
+
             HorizontalPager(
                 state = pagerState,
                 modifier =
@@ -378,21 +423,9 @@ private fun OnboardingContent(
                 key = { pagesToDisplay[it].type },
                 overscrollEffect = null,
             ) { pageIndex ->
-                val pageUiState = pagesToDisplay[pageIndex]
-                val onboardingPageState =
-                    mapToOnboardingPageState(
-                        onboardingPageUiData = pageUiState,
-                        onMakeFirefoxDefaultClick = onMakeFirefoxDefaultClick,
-                        onMakeFirefoxDefaultSkipClick = onMakeFirefoxDefaultSkipClick,
-                        onSignInButtonClick = onSignInButtonClick,
-                        onSignInSkipClick = onSignInSkipClick,
-                        onTermsOfServiceButtonClick = onAgreeAndConfirmTermsOfService,
-                        isSmallDevice = layout.isSmall,
-                    )
-
                 OnboardingPageForType(
-                    type = pageUiState.type,
-                    state = onboardingPageState,
+                    type = pagesToDisplay[pageIndex].type,
+                    state = pageStates[pageIndex],
                     termsOfServiceEventHandler = termsOfServiceEventHandler,
                     onMarketingDataLearnMoreClick = onMarketingDataLearnMoreClick,
                     onMarketingOptInToggle = onMarketingOptInToggle,
@@ -422,7 +455,7 @@ private fun OnboardingBackground(isVisible: Boolean, isSolidBackground: Boolean)
 
     val backgroundModifier =
         if (isSolidBackground) {
-            Modifier.background(color = MaterialTheme.colorScheme.surface)
+            Modifier.background(color = MaterialTheme.colorScheme.surfaceBright)
         } else {
             Modifier.paint(
                 painter = painterResource(R.drawable.nova_onboarding_background),
@@ -431,6 +464,39 @@ private fun OnboardingBackground(isVisible: Boolean, isSolidBackground: Boolean)
         }
 
     Box(modifier = Modifier.fillMaxSize().then(backgroundModifier))
+}
+
+/**
+ * Skip button shown above the onboarding card for pages that define a skip action.
+ *
+ * @param onClick Invoked when the button is clicked.
+ * @param isSmallDevice Whether the card fills the screen, in which case the button has no bottom padding.
+ * @param modifier The [Modifier] to be applied to the button.
+ */
+@Composable
+private fun OnboardingSkipButton(
+    onClick: (() -> Unit)?,
+    isSmallDevice: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val isVisible = onClick != null
+    val alpha by
+        animateFloatAsState(
+            targetValue = if (isVisible) 1f else 0f,
+            label = "SkipButtonAlpha",
+        )
+    val bottomPadding = if (isSmallDevice) 0.dp else FirefoxTheme.layout.space.static200
+
+    TextButton(
+        text = stringResource(R.string.nova_onboarding_skip_button),
+        onClick = { onClick?.invoke() },
+        modifier =
+            modifier
+                .padding(bottom = bottomPadding)
+                .graphicsLayer { this.alpha = alpha }
+                .then(if (isVisible) Modifier else Modifier.clearAndSetSemantics {}),
+        enabled = isVisible,
+    )
 }
 
 @Composable
@@ -445,6 +511,7 @@ private fun OnboardingPageForType(
 ) {
     when (type) {
         OnboardingPageUiData.Type.DEFAULT_BROWSER,
+        OnboardingPageUiData.Type.SYNC_PAIRING,
         OnboardingPageUiData.Type.SYNC_SIGN_IN -> OnboardingPage(state)
 
         OnboardingPageUiData.Type.MARKETING_DATA ->
@@ -463,154 +530,6 @@ private fun OnboardingPageForType(
             )
     }
 }
-
-@Composable
-private fun getOnboardingLayout(scope: BoxWithConstraintsScope): OnboardingLayout {
-    val context = LocalContext.current
-    val config = LocalConfiguration.current
-    val isSmall = scope.maxHeight <= SMALL_SCREEN_MAX_HEIGHT
-    val isLarge = context.isLargeScreenSize()
-    val isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
-
-    val pagerWidth =
-        pageContentWidth(
-            scope = scope,
-            isLandscape = isLandscape,
-            isSmallScreen = isSmall,
-            isLargeScreen = isLarge,
-        )
-    val pagerHeight =
-        pageContentHeight(
-            scope = scope,
-            isLargeScreen = isLarge,
-            isSmallScreen = isSmall,
-            isLandscape = isLandscape,
-        )
-
-    // Ensure the adjacent card always peeks by 12dp. Since pageSpacing shares the same space, the
-    // configured peek must be at least 24dp to leave a 12dp reveal after 12dp page spacing.
-    val peek = ((scope.maxWidth - pagerWidth) / 2).coerceAtLeast(FirefoxTheme.layout.size.static300)
-
-    val padding =
-        when {
-            isSmall && !isLandscape -> PaddingValues(0.dp)
-            !isLarge && isLandscape -> PaddingValues(0.dp)
-            else -> PaddingValues(horizontal = peek)
-        }
-
-    return OnboardingLayout(
-        pagerHeight = pagerHeight,
-        contentPadding = padding,
-        pagePeekWidth = peek,
-        isSmall = isSmall,
-        isLarge = isLarge,
-        isLandscape = isLandscape,
-    )
-}
-
-private object PageContentLayout {
-    val MIN_HEIGHT_DP = 650.dp
-    val MIN_WIDTH_DP = 360.dp
-    val MIN_HEIGHT_SMALL_SCREEN_DP = 430.dp
-    val MIN_WIDTH_SMALL_SCREEN_DP = 300.dp
-    val MIN_HEIGHT_TABLET_DP = 620.dp
-    val MIN_WIDTH_TABLET_DP = 440.dp
-    const val HEIGHT_RATIO = 0.6f
-    const val WIDTH_RATIO = 0.85f
-    const val TABLET_WIDTH_RATIO = 0.35f
-    const val TABLET_HEIGHT_RATIO = 0.50f
-    const val HEIGHT_RATIO_LANDSCAPE_NON_LARGE_SCREEN = 1f
-    const val WIDTH_RATIO_LANDSCAPE_NON_LARGE_SCREEN = 1f
-    const val HEIGHT_RATIO_SMALL_SCREEN = 0.9f
-    const val WIDTH_RATIO_SMALL_SCREEN = 0.9f
-}
-
-private fun pageContentHeight(
-    scope: BoxWithConstraintsScope,
-    isLargeScreen: Boolean,
-    isSmallScreen: Boolean,
-    isLandscape: Boolean,
-): Dp {
-    val minHeight = minHeight(isLargeScreen, isSmallScreen)
-    val heightRatio = heightRatio(isLargeScreen, isSmallScreen, isLandscape)
-
-    return scope.maxHeight.times(heightRatio).coerceAtLeast(minHeight)
-}
-
-private fun minHeight(
-    isLargeScreen: Boolean,
-    isSmallScreen: Boolean,
-): Dp =
-    when {
-        isLargeScreen -> PageContentLayout.MIN_HEIGHT_TABLET_DP
-        isSmallScreen -> PageContentLayout.MIN_HEIGHT_SMALL_SCREEN_DP
-        else -> PageContentLayout.MIN_HEIGHT_DP
-    }
-
-private fun heightRatio(
-    isLargeScreen: Boolean,
-    isSmallScreen: Boolean,
-    isLandscape: Boolean,
-): Float =
-    when {
-        isLargeScreen -> PageContentLayout.TABLET_HEIGHT_RATIO
-        isSmallScreen -> PageContentLayout.HEIGHT_RATIO_SMALL_SCREEN
-        !isLargeScreen && isLandscape -> PageContentLayout.HEIGHT_RATIO_LANDSCAPE_NON_LARGE_SCREEN
-        else -> PageContentLayout.HEIGHT_RATIO
-    }
-
-private fun pageContentWidth(
-    scope: BoxWithConstraintsScope,
-    isLargeScreen: Boolean,
-    isSmallScreen: Boolean,
-    isLandscape: Boolean,
-): Dp {
-    val minWidth = minWidth(isLargeScreen, isSmallScreen)
-    val widthRatio = widthRatio(isLargeScreen, isSmallScreen, isLandscape)
-
-    return scope.maxWidth.times(widthRatio).coerceAtLeast(minWidth)
-}
-
-private fun widthRatio(
-    isLargeScreen: Boolean,
-    isSmallScreen: Boolean,
-    isLandscape: Boolean,
-): Float =
-    when {
-        isLargeScreen -> PageContentLayout.TABLET_WIDTH_RATIO
-        isSmallScreen -> PageContentLayout.WIDTH_RATIO_SMALL_SCREEN
-        !isLargeScreen && isLandscape -> PageContentLayout.WIDTH_RATIO_LANDSCAPE_NON_LARGE_SCREEN
-        else -> PageContentLayout.WIDTH_RATIO
-    }
-
-private fun minWidth(
-    isLargeScreen: Boolean,
-    isSmallScreen: Boolean,
-): Dp =
-    when {
-        isLargeScreen -> PageContentLayout.MIN_WIDTH_TABLET_DP
-        isSmallScreen -> PageContentLayout.MIN_WIDTH_SMALL_SCREEN_DP
-        else -> PageContentLayout.MIN_WIDTH_DP
-    }
-
-private fun isNonLargeScreenLandscape(isLargeScreen: Boolean, isLandscape: Boolean) = (isLandscape && !isLargeScreen)
-
-@Composable
-private fun pageSpacing(isLargeScreen: Boolean, isSmallScreen: Boolean, pagePeekWidth: Dp) =
-    when {
-        isLargeScreen -> pagePeekWidth
-        isSmallScreen -> 0.dp
-        else -> FirefoxTheme.layout.size.static150
-    }
-
-private data class OnboardingLayout(
-    val pagerHeight: Dp,
-    val contentPadding: PaddingValues,
-    val pagePeekWidth: Dp,
-    val isSmall: Boolean,
-    val isLarge: Boolean,
-    val isLandscape: Boolean,
-)
 
 // *** Code below used for previews only *** //
 
@@ -635,6 +554,43 @@ private fun OnboardingScreenPreview() {
             onMarketingOptInToggle = {},
             onMarketingDataContinueClick = {},
             onMarketingDataSkipClick = {},
+            onSyncPairingScanClick = {},
+            onSyncPairingEmailClick = {},
+            onSyncPairingSkipClick = {},
+        )
+    }
+}
+
+@FlexibleWindowLightDarkPreview
+@Composable
+private fun OnboardingScreenPairingPreview() {
+    val syncPairingPageUiData =
+        OnboardingPageUiData(
+            type = OnboardingPageUiData.Type.SYNC_PAIRING,
+            imageRes = R.drawable.nova_onboarding_sync_qr,
+            title = stringResource(R.string.nova_onboarding_sync_pairing_title),
+            description = stringResource(R.string.nova_onboarding_sync_pairing_body),
+            primaryButtonLabel = stringResource(R.string.nova_onboarding_sync_pairing_scan_button),
+            secondaryButtonLabel = stringResource(R.string.nova_onboarding_sync_pairing_email_button),
+        )
+
+    FirefoxTheme {
+        OnboardingContent(
+            pagesToDisplay = listOf(syncPairingPageUiData),
+            pagerState = rememberPagerState(initialPage = 0) { 1 },
+            onMakeFirefoxDefaultClick = {},
+            onMakeFirefoxDefaultSkipClick = {},
+            onSignInButtonClick = {},
+            onSignInSkipClick = {},
+            onAgreeAndConfirmTermsOfService = {},
+            termsOfServiceEventHandler = object : OnboardingTermsOfServiceEventHandler {},
+            onMarketingDataLearnMoreClick = {},
+            onMarketingOptInToggle = {},
+            onMarketingDataContinueClick = {},
+            onMarketingDataSkipClick = {},
+            onSyncPairingScanClick = {},
+            onSyncPairingEmailClick = {},
+            onSyncPairingSkipClick = {},
         )
     }
 }
