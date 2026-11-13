@@ -21,14 +21,6 @@ function assertJitAllowed(url, isAllowed) {
   );
 }
 
-function assertHasSitePolicy(url, expected) {
-  Assert.equal(
-    Services.policies.hasSitePoliciesForURI(Services.io.newURI(url)),
-    expected,
-    `hasSitePoliciesForURI should return ${expected} for ${url}`
-  );
-}
-
 // Assert the site-policy shared data in parent and content
 async function assertSitePolicyCount(urls, expected) {
   let shared = Services.ppmm.sharedData.get("EnterprisePolicies:SitePolicies");
@@ -60,8 +52,6 @@ async function assertSitePolicyCount(urls, expected) {
 }
 
 async function assertNoSitePolicies() {
-  assertHasSitePolicy("https://example.com/", false);
-  assertHasSitePolicy("https://example.org/", false);
   assertJitAllowed("https://example.com/", true);
   assertJitAllowed("https://example.org/", true);
   await assertSitePolicyCount(
@@ -88,8 +78,6 @@ add_task(async function test_apply_then_remove_sitepolicies() {
     null
   );
 
-  assertHasSitePolicy("https://example.com/", true);
-  assertHasSitePolicy("https://example.org/", false);
   assertJitAllowed("https://example.com/", false);
   assertJitAllowed("https://example.org/", true);
   await assertSitePolicyCount(
@@ -140,8 +128,6 @@ add_task(async function test_apply_then_update_sitepolicies() {
     ],
   });
 
-  assertHasSitePolicy("https://example.com/", false);
-  assertHasSitePolicy("https://example.org/", true);
   assertJitAllowed("https://example.com/", true);
   assertJitAllowed("https://example.org/", false);
   await assertSitePolicyCount(

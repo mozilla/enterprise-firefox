@@ -1142,10 +1142,6 @@ EnterprisePoliciesManager.prototype = {
     );
   },
 
-  hasSitePoliciesForURI(uri) {
-    return lazy.SitePolicyUtils.hasSitePoliciesForURI(SitePolicies, uri);
-  },
-
   getContainerForURI(uri) {
     let normalized = lazy.SitePolicyUtils.normalizeURI(uri);
 
