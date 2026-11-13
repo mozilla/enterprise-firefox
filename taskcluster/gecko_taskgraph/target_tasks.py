@@ -672,8 +672,23 @@ def target_tasks_enterprise_firefox_with_tests(
         full_task_graph, parameters, graph_config
     )
 
+    # WIP: DO NOT LAND - Thunderbird Enterprise pull requests schedule the
+    # shippable builds, and the repacks and OCI uploads made from them.
+    wip_thunderbird_pull_request = "thunderbird" in parameters[
+        "project"
+    ] and parameters["tasks_for"].startswith("github-pull-request")
+
+    def wip_is_thunderbird_shippable(task):
+        return wip_thunderbird_pull_request and (
+            task.attributes.get("shippable")
+            or "-enterprise-shippable" in (task.attributes.get("build_platform") or "")
+            or task.kind.startswith("enterprise-oci-")
+        )
+
     def filter(task):
-        if parameters["tasks_for"].startswith("github-pull-request"):
+        if parameters["tasks_for"].startswith(
+            "github-pull-request"
+        ) and not wip_is_thunderbird_shippable(task):
             tier = task.task.get("extra", {}).get("treeherder", {}).get("tier", 3)
             platform = (
                 task.task
@@ -738,7 +753,9 @@ def target_tasks_enterprise_firefox_with_tests(
 
         level = int(parameters["level"])
         if level < 3:
-            if "shippable" in task.label or shippable:
+            if (
+                "shippable" in task.label or shippable
+            ) and not wip_is_thunderbird_shippable(task):
                 return False
 
             if task.kind == "complete":
@@ -757,7 +774,9 @@ def target_tasks_enterprise_firefox_with_tests(
         ):
             return False
 
-        if "thunderbird" in parameters["project"] and level == 3:
+        if "thunderbird" in parameters["project"] and (
+            level == 3 or wip_thunderbird_pull_request
+        ):
             if build_platform and "enterprise" not in build_platform:
                 return False
 

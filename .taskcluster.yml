@@ -757,17 +757,10 @@ tasks:
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
                   commBaseRev: 61c2e16a6afcf71f040838acab571ad8b2d63496
-                  commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
-                  commHeadRef:
-                      $if: 'project == "enterprise-firefox-try"'
-                      then: "refs/heads/main"
-                      else:
-                          $switch:
-                              'baseRef == "enterprise-main" || baseRef == "refs/heads/enterprise-main"': "refs/heads/main"
-                              'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
-                              'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
-                              $default: "master"
-                  commHeadRev: 61c2e16a6afcf71f040838acab571ad8b2d63496
+                  # WIP: DO NOT LAND - Thunderbird Enterprise shippable repacks on pull requests.
+                  commHeadRepoUrl: https://github.com/lissyx/thunderbird-desktop
+                  commHeadRef: refs/heads/enterprise-bug2088454_tbird_oci
+                  commHeadRev: 7d12c698ada31f4e8ce992e3b59a5c7f962005c0
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}
