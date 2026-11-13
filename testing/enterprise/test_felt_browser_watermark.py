@@ -69,31 +69,25 @@ class BrowserWatermark(FeltTests):
 
         self._child_driver.set_context("content")
 
-        # The on-screen watermark is anonymous content and isn't reachable from
-        # the page DOM, but the print watermark is a real node. Dispatching
-        # "beforeprint" inserts it once the actor has fetched its configuration
-        # (which happens asynchronously), so retry until it appears as inline
-        # SVG.
         def watermark_drawn(driver):
-            driver.execute_script("window.dispatchEvent(new Event('beforeprint'));")
             return driver.execute_script(
                 """
                 function findWatermark(node) {
                     if (node.nodeType === 1 && node.id === "enterprise-watermark") {
                         return node;
                     }
-                }
 
-                for (let child of InspectorUtils.getChildrenForNode(node, true, false)) {
-                    let found = findWatermark(child);
-                    if (found) {
-                        return found;
+                    for (let child of InspectorUtils.getChildrenForNode(node, true, false)) {
+                        let found = findWatermark(child);
+                        if (found) {
+                            return found;
+                        }
                     }
 
                     return null;
                 }
 
-                findWatermark(document)?.querySelector("svg pattern");
+                return !!findWatermark(document)?.querySelector("svg pattern");
                 """,
                 sandbox="system",
             )
