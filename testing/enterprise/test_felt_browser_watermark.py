@@ -77,8 +77,25 @@ class BrowserWatermark(FeltTests):
         def watermark_drawn(driver):
             driver.execute_script("window.dispatchEvent(new Event('beforeprint'));")
             return driver.execute_script(
-                "return !!document.getElementById('enterprise-watermark-print')"
-                "?.querySelector('svg pattern');"
+                """
+                function findWatermark(node) {
+                    if (node.nodeType === 1 && node.id === "enterprise-watermark") {
+                        return node;
+                    }
+                }
+
+                for (let child of InspectorUtils.getChildrenForNode(node, true, false)) {
+                    let found = findWatermark(child);
+                    if (found) {
+                        return found;
+                    }
+
+                    return null;
+                }
+
+                findWatermark(document)?.querySelector("svg pattern");
+                """,
+                sandbox="system",
             )
 
         try:
