@@ -2354,15 +2354,18 @@ export class Tabbrowser {
       // such as a video in fullscreen mode. Opening a new tab will cancel
       // fullscreen mode, so we need to wait for that to happen and then
       // select the url field.
-      if (this.document.documentElement.hasAttribute("inDOMFullscreen")) {
-        this.documentGlobal.addEventListener(
-          "MozDOMFullscreen:Exited",
-          selectURL,
-          {
-            once: true,
-            wantsUntrusted: false,
+      let { documentElement } = this.document;
+      if (documentElement.hasAttribute("inDOMFullscreen")) {
+        let observer = new this.documentGlobal.MutationObserver(() => {
+          if (!documentElement.hasAttribute("inDOMFullscreen")) {
+            observer.disconnect();
+            selectURL();
           }
-        );
+        });
+        observer.observe(documentElement, {
+          attributes: true,
+          attributeFilter: ["inDOMFullscreen"],
+        });
         return;
       }
 
@@ -4229,7 +4232,7 @@ export class Tabbrowser {
     const panels = [];
     for (const tab of tabs) {
       this.#insertBrowser(tab);
-      this.#insertSplitViewFooter(tab);
+      this.#insertAddressFooter(tab);
       if (tab.linkedBrowser) {
         tab.linkedBrowser.docShellIsActive = true;
         panels.push(tab.linkedPanel);
@@ -4245,13 +4248,13 @@ export class Tabbrowser {
    *
    * @param {MozTabbrowserTab} tab
    */
-  #insertSplitViewFooter(tab) {
+  #insertAddressFooter(tab) {
     const panelEl = this.document.getElementById(tab.linkedPanel);
-    if (panelEl?.querySelector("split-view-footer")) {
+    if (panelEl?.querySelector("address-footer")) {
       return;
     }
     if (panelEl) {
-      const footer = this.document.createXULElement("split-view-footer");
+      const footer = this.document.createXULElement("address-footer");
       footer.setTab(tab);
       panelEl.querySelector(".browserStack").appendChild(footer);
     }
@@ -4261,7 +4264,7 @@ export class Tabbrowser {
     const menu = this.document.getElementById("split-view-menu");
     const isFromFooter =
       anchorElement?.localName === "toolbarbutton" &&
-      anchorElement?.parentElement?.localName === "split-view-footer";
+      anchorElement?.parentElement?.localName === "address-footer";
     menu.setAttribute("data-trigger-source", isFromFooter ? "footer" : "icon");
     menu.openPopup(anchorElement, "after_start");
   }

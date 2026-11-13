@@ -110,6 +110,7 @@ import org.mozilla.fenix.tabstray.data.toTabStorageUpdate
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
 import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
 import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
+import org.mozilla.fenix.tabstray.redux.ext.withExpandedTabGroup
 import org.mozilla.fenix.tabstray.redux.ext.withStorageUpdate
 import org.mozilla.fenix.tabstray.redux.middleware.CollectionsMigrationMiddleware
 import org.mozilla.fenix.tabstray.redux.middleware.TabManagerUiStateStorageMiddleware
@@ -120,7 +121,6 @@ import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabGroupFormState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
-import org.mozilla.fenix.tabstray.repository.uistate.DefaultTabManagerUiStateRepository
 import org.mozilla.fenix.tabstray.syncedtabs.SyncedTabsIntegration
 import org.mozilla.fenix.tabstray.ui.animation.defaultPredictivePopTransitionSpec
 import org.mozilla.fenix.tabstray.ui.animation.defaultTransitionSpec
@@ -692,11 +692,7 @@ class TabManagementFragment : Fragment() {
                             mainScope = lifecycleScope,
                         ),
                         TabManagerUiStateStorageMiddleware(
-                            uiStateRepository =
-                                DefaultTabManagerUiStateRepository(
-                                    context = requireContext().applicationContext,
-                                    stateFlowScope = lifecycleScope,
-                                ),
+                            uiStateRepository = requireComponents.core.tabManagerUiStateRepository,
                             scope = lifecycleScope,
                         ),
                         CollectionsMigrationMiddleware(repository = requireComponents.collectionsMigrationRepository),
@@ -761,7 +757,7 @@ class TabManagementFragment : Fragment() {
                     ),
             )
 
-        return baseState.withStorageUpdate(storageUpdate = tabStorageUpdate)
+        return baseState.withStorageUpdate(storageUpdate = tabStorageUpdate).withExpandedTabGroup(args.groupId)
     }
 
     /**

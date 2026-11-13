@@ -1241,6 +1241,7 @@ bool DCLayerTree::EnsureVideoProcessor(const gfx::IntSize& aInputSize,
 
   mVideoProcessor = nullptr;
   mVideoProcessorEnumerator = nullptr;
+  mVideoProcessorAutoHDREnabled = false;
 
   D3D11_VIDEO_PROCESSOR_CONTENT_DESC desc = {};
   desc.InputFrameFormat = D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE;
@@ -1280,6 +1281,23 @@ bool DCLayerTree::EnsureVideoProcessor(const gfx::IntSize& aInputSize,
   mVideoInputSize = aInputSize;
   mVideoOutputSize = aOutputSize;
 
+  return true;
+}
+
+bool DCLayerTree::SetVideoProcessorAutoHDR(bool aEnable) {
+  // Cache state on the shared processor, not on an individual video surface.
+  // In particular, do not send NVIDIA extensions to unsupported devices when
+  // AutoHDR has never been enabled.
+  if (mVideoProcessorAutoHDREnabled == aEnable) {
+    return true;
+  }
+  const UINT vendorId = GetVendorId(mVideoDevice);
+  HRESULT hr = SetVpAutoHDR(vendorId, mVideoContext, mVideoProcessor, aEnable);
+  if (FAILED(hr)) {
+    gfxCriticalNoteOnce << "SetVpAutoHDR failed: " << gfx::hexa(hr);
+    return false;
+  }
+  mVideoProcessorAutoHDREnabled = aEnable;
   return true;
 }
 
@@ -2399,16 +2417,16 @@ bool DCSurfaceVideo::CalculateSwapChainSize(gfx::Matrix& aTransform) {
     PROFILER_MARKER_TEXT("DCSurfaceVideo", GRAPHICS, {}, str);
   }
 
+  auto swapChainFormat =
+      GetSwapChainFormat(useVpAutoHDR, useHDRRGB10A2, useHDRRGBA16F);
   if (!mVideoSwapChain || mSwapChainSize != swapChainSize || mIsDRM != isDRM ||
-      mUseVpAutoHDR != useVpAutoHDR) {
+      mUseVpAutoHDR != useVpAutoHDR || mSwapChainFormat != swapChainFormat) {
     needsToPresent = true;
     ReleaseDecodeSwapChainResources();
     // Update mSwapChainSize before creating SwapChain
     mSwapChainSize = swapChainSize;
     mIsDRM = isDRM;
 
-    auto swapChainFormat =
-        GetSwapChainFormat(useVpAutoHDR, useHDRRGB10A2, useHDRRGBA16F);
     bool useYUVSwapChain = IsYUVSwapChainFormat(swapChainFormat);
     if (useYUVSwapChain) {
       // Tries to create YUV SwapChain
@@ -2419,6 +2437,8 @@ bool DCSurfaceVideo::CalculateSwapChainSize(gfx::Matrix& aTransform) {
       if (!mVideoSwapChain) {
         mFailedYuvSwapChain = true;
         ReleaseDecodeSwapChainResources();
+        swapChainFormat =
+            GetSwapChainFormat(useVpAutoHDR, useHDRRGB10A2, useHDRRGBA16F);
 
         gfxCriticalNote << "Fallback to RGB SwapChain";
       }
@@ -2467,6 +2487,11 @@ void DCSurfaceVideo::PresentVideo() {
   }
 
   if (!CallVideoProcessorBlt()) {
+    if (mUseVpAutoHDR && mVpAutoHDRFailed) {
+      // Retry without AutoHDR on the next frame instead of disabling overlay.
+      ReleaseDecodeSwapChainResources();
+      return;
+    }
     bool useYUVSwapChain = IsYUVSwapChainFormat(mSwapChainFormat);
     if (useYUVSwapChain) {
       mFailedYuvSwapChain = true;
@@ -2652,11 +2677,22 @@ bool DCSurfaceVideo::CreateVideoSwapChain(DXGI_FORMAT aSwapChainFormat) {
   if (FAILED(hr)) {
     gfxCriticalNote << "Failed to create video SwapChain: " << gfx::hexa(hr)
                     << " " << mSwapChainSize;
+    // A caller may retry immediately with a different format.
+    ::CloseHandle(mSwapChainSurfaceHandle);
+    mSwapChainSurfaceHandle = 0;
     return false;
   }
 
   mSwapChainFormat = aSwapChainFormat;
-  mContentVisual->SetContent(mVideoSwapChain);
+  hr = mContentVisual->SetContent(mVideoSwapChain);
+  if (FAILED(hr)) {
+    gfxCriticalNoteOnce << "SetContent(video swap chain) failed: "
+                        << gfx::hexa(hr);
+    ReleaseDecodeSwapChainResources();
+    return false;
+  }
+  // Geometry can remain unchanged when the video swap chain is replaced.
+  mDCLayerTree->SetPendingCommit();
   return true;
 }
 
@@ -3796,13 +3832,13 @@ bool DCSurfaceVideo::CallVideoProcessorBlt() {
   RefPtr<ID3D11VideoContext2> videoContext2;
   videoContext->QueryInterface(
       (ID3D11VideoContext2**)getter_AddRefs(videoContext2));
-  if (hdrMetadata.isSome() && videoContext2) {
+  if (videoContext2) {
     // If we had to fall back to non-HDR color spaces in VideoProcessorBlt we
     // should remove the HDR meta data to avoid confusing the
     // VideoProcessorBlt implementation.  We'll still display as HDR if it was
     // PQ content but without the metadata being fed to VideoProcessorBlt, so it
     // may be too bright but at least it should work.
-    if (mFailedVideoProcessorBltYUVHLGToRGBPQ ||
+    if (hdrMetadata.isNothing() || mFailedVideoProcessorBltYUVHLGToRGBPQ ||
         mFailedVideoProcessorBltYUVPQtoRGBPQ) {
       videoContext2->VideoProcessorSetOutputHDRMetaData(
           videoProcessor, DXGI_HDR_METADATA_TYPE_NONE, 0, NULL);
@@ -3820,6 +3856,11 @@ bool DCSurfaceVideo::CallVideoProcessorBlt() {
       videoContext2->VideoProcessorSetStreamHDRMetaData(
           videoProcessor, 0, DXGI_HDR_METADATA_TYPE_HDR10, sizeof(hdr10),
           &hdr10);
+    } else {
+      // The processor is shared by surfaces; do not inherit another stream's
+      // mastering metadata when the current frame has none.
+      videoContext2->VideoProcessorSetStreamHDRMetaData(
+          videoProcessor, 0, DXGI_HDR_METADATA_TYPE_NONE, 0, nullptr);
     }
   }
 
@@ -3922,13 +3963,16 @@ bool DCSurfaceVideo::CallVideoProcessorBlt() {
                                                    videoProcessor);
   }
 
-  if (mUseVpAutoHDR) {
+  {
+    // The processor outlives an individual swap chain and is shared by
+    // surfaces. Apply both transitions, including AutoHDR being disabled.
     PROFILER_MARKER_TEXT("DCSurfaceVideo", GRAPHICS, {}, "SetVpAutoHDR"_ns);
-
-    hr = SetVpAutoHDR(vendorId, videoContext, videoProcessor, true);
-    if (FAILED(hr)) {
-      gfxCriticalNoteOnce << "SetVpAutoHDR failed: " << gfx::hexa(hr);
-      mVpAutoHDRFailed = true;
+    if (!mDCLayerTree->SetVideoProcessorAutoHDR(mUseVpAutoHDR)) {
+      if (mUseVpAutoHDR) {
+        mVpAutoHDRFailed = true;
+      }
+      // Do not present output with a color space that assumes another mode.
+      return false;
     }
   }
 

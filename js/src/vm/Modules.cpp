@@ -578,6 +578,32 @@ JS_PUBLIC_API void JS::ResetPreloadedModule(JSObject* module) {
   moduleObj.loadedModules().clear();
 }
 
+JS_PUBLIC_API bool JS::GetLoadedModules(JSContext* cx,
+                                        Handle<JSObject*> moduleRecordArg,
+                                        MutableHandleObjectVector result) {
+  AssertHeapIsIdle();
+  CHECK_THREAD(cx);
+  cx->check(moduleRecordArg);
+
+  result.clear();
+
+  auto& moduleRecord = moduleRecordArg->as<ModuleObject>();
+  if (!moduleRecord.hasCyclicModuleFields()) {
+    return true;
+  }
+
+  LoadedModuleMap& loadedModules = moduleRecord.loadedModules();
+  if (!result.reserve(loadedModules.count())) {
+    return false;
+  }
+
+  for (auto iter = loadedModules.iter(); !iter.done(); iter.next()) {
+    result.infallibleAppend(iter.get().value().get());
+  }
+
+  return true;
+}
+
 JS_PUBLIC_API bool JS::ModuleLink(JSContext* cx, Handle<JSObject*> moduleArg) {
   AssertHeapIsIdle();
   CHECK_THREAD(cx);
@@ -926,7 +952,10 @@ ModuleObject* js::GetImportedModule(
   //         Impl note: Updated to perform lookup using ModuleRequestObject as
   //         per the Import Attributes Proposal.
   auto record = referrer->loadedModules().lookup(moduleRequest);
-  MOZ_ASSERT(record);
+
+  // Use a release assert in case the [[LoadedModules]] is cleared by
+  // JS::ResetPreloadedModule.
+  MOZ_RELEASE_ASSERT(record);
 
   // Step 2. Let record be the Record in referrer.[[LoadedModules]] whose
   //         [[Specifier]] is specifier.

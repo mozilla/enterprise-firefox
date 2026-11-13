@@ -365,7 +365,7 @@ class WindowGlobalParent final : public WindowContext,
       ParentProcessChannelHandle* aDocumentHandle,
       ParentProcessChannelHandle* aFailedHandle);
   mozilla::ipc::IPCResult RecvSetClientInfo(
-      const IPCClientInfo& aIPCClientInfo);
+      Tainted<IPCClientInfo>&& aIPCClientInfo);
   mozilla::ipc::IPCResult RecvDestroy();
   mozilla::ipc::IPCResult RecvRawMessage(const JSActorMessageMeta& aMeta,
                                          JSIPCValue&& aData,
@@ -427,9 +427,8 @@ class WindowGlobalParent final : public WindowContext,
       GetStorageAccessPermissionResolver&& aResolve);
 
   mozilla::ipc::IPCResult RecvSetCookies(
-      const nsCString& aBaseDomain, const OriginAttributes& aOriginAttributes,
-      nsIURI* aHost, bool aIsThirdParty,
-      const nsTArray<CookieStruct>& aCookies);
+      const OriginAttributes& aOriginAttributes, nsIURI* aHost,
+      bool aIsThirdParty, const nsTArray<CookieStruct>& aCookies);
 
   mozilla::ipc::IPCResult RecvRecordUserActivationForBTP();
 

@@ -1121,10 +1121,10 @@ pub extern "C" fn Servo_StyleSet_GetBaseComputedValuesForElement(
     };
 
     let doc_data = raw_style_set.borrow();
-    let without_animations_rules = doc_data.stylist.rule_tree().remove_animation_rules(rules);
-    if without_animations_rules == *rules {
+    let Some(without_animations_rules) = doc_data.stylist.rule_tree().remove_animation_rules(rules)
+    else {
         return computed_values.clone_arc().into();
-    }
+    };
 
     let element = GeckoElement(element);
 
@@ -11601,6 +11601,7 @@ fn compute_arbritrary_substitution_functions(
                 stylist,
                 context,
                 &mut attribute_tracker,
+                parser_context.url_data,
             );
             let arg = attr.replace_arg(&variable_value, &mut replacement_context);
             let arg = arg.value.filter(|arg| arg.has_type())?;
@@ -11758,7 +11759,7 @@ pub unsafe extern "C" fn Servo_GetComputationSteps(
 
     let property = unsafe { property.as_str_unchecked() };
     let string = unsafe { string.as_str_unchecked() };
-    let parser_context = dummy_author_style_rule_context();
+    let mut parser_context = dummy_author_style_rule_context();
     let property_id = PropertyId::parse(&property, &parser_context).ok();
     let mut substituted = None;
     let element = GeckoElement(raw_element);

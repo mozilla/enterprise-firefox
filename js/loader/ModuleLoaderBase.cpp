@@ -20,6 +20,7 @@
 #include "nsContentUtils.h"
 #include "nsICacheInfoChannel.h"  // nsICacheInfoChannel
 #include "nsNetUtil.h"            // NS_NewURI
+#include "nsTHashSet.h"
 #include "ScriptLoaderInterface.h"
 #include "ScriptLoadRequest.h"
 #include "xpcpublic.h"
@@ -218,7 +219,7 @@ bool ModuleLoaderBase::HostLoadImportedModule(
     // scripts.
     //
     // See https://html.spec.whatwg.org/#resolve-a-module-specifier
-    loader->AddToResolvedModuleSet(std::move(record), aHostDefined);
+    loader->AddToResolvedModuleSet(std::move(record), fetchInfo);
   }
 
   ModuleType moduleType = GetModuleRequestType(aCx, aModuleRequest);
@@ -429,7 +430,7 @@ JSString* ModuleLoaderBase::ImportMetaResolveImpl(
     if (ImportMap::IsMultipleImportMapsSupported()) {
       // This implements the 'Add module to resolved module set' part defined in
       // 'resolve a module specifier'.
-      loader->AddToResolvedModuleSet(std::move(record));
+      loader->AddToResolvedModuleSet(std::move(record), fetchInfo);
     }
 
     nsAutoCString url;
@@ -1067,7 +1068,8 @@ nsresult ModuleLoaderBase::CreateModuleScript(ModuleLoadRequest* aRequest) {
 
     aRequest->mModuleScript = moduleScript;
 
-    moduleScript->SetForPreload(aRequest->mLoadContext->IsPreload());
+    aRequest->FetchInfo()->SetForModulePreload(
+        aRequest->mLoadContext->IsPreload());
     moduleScript->SetHadImportMap(HasImportMapRegistered());
 
     if (!module) {
@@ -1178,138 +1180,143 @@ static void AddToResolvedSet(ResolvedModuleSet* aSet,
   MOZ_ALWAYS_TRUE(aSet->add(ptr, std::move(aRecord)));
 }
 
-void ModuleLoaderBase::AddToPreloadedResolvedSet(
-    ModuleLoadRequest* aRootRequest,
-    UniquePtr<SpecifierResolutionRecord> aRecord) {
-  MOZ_ASSERT(aRootRequest);
-  MOZ_ASSERT(aRootRequest->mModuleScript);
-
-  ResolvedModuleSet* set =
-      aRootRequest->mModuleScript->GetPreloadedResolvedSet();
-  MOZ_ASSERT(set);
-  AddToResolvedSet(set, std::move(aRecord));
-}
-
 void ModuleLoaderBase::AddToGlobalResolvedSet(
     UniquePtr<SpecifierResolutionRecord> aRecord) {
   AddToResolvedSet(GetResolvedModuleSet(), std::move(aRecord));
 }
 
-static ModuleLoadRequest* GetPreloadRootModuleRequest(
-    JS::Handle<JS::Value> aHostDefined) {
-  MOZ_ASSERT(!aHostDefined.isUndefined());
-  ModuleLoadRequest* parent =
-      static_cast<ModuleLoadRequest*>(aHostDefined.toPrivate());
-  MOZ_ASSERT(parent);
-  return parent->GetRootModule();
-}
-
 void ModuleLoaderBase::AddToResolvedModuleSet(
     UniquePtr<SpecifierResolutionRecord> aRecord,
-    Handle<Value> aHostDefined /* = UndefinedHandleValue */) {
+    ScriptFetchInfo* aReferrerFetchInfo) {
   // 2. If global does not implement Window, then return.
   if (!mLoader->IsImportMapSupported()) {
     return;
   }
 
-  // aHostDefined is undefined only for dynamic imports, which are never part of
-  // a preload. Otherwise it is for static imports, whose root request tracks
-  // whether the graph is still being preloaded.
-  if (!aHostDefined.isUndefined()) {
-    RefPtr<ModuleLoadRequest> root = GetPreloadRootModuleRequest(aHostDefined);
-    if (root->mLoadContext->IsPreload()) {
-      AddToPreloadedResolvedSet(root, std::move(aRecord));
-      return;
-    }
-  }
-
   // release the mResult from the record as it is not needed.
   nsCOMPtr<nsIURI> _ = aRecord->TakeResult();
+
+  if (aReferrerFetchInfo && aReferrerFetchInfo->IsForModulePreload()) {
+    AddToResolvedSet(aReferrerFetchInfo->GetPreloadedResolvedSet(),
+                     std::move(aRecord));
+    return;
+  }
+
   AddToGlobalResolvedSet(std::move(aRecord));
 }
 
-// This just flip the preload flag in the module script and ModuleObject.
-void ModuleLoaderBase::ResetPreloadFlag(nsIURI* aURI) {
-  MOZ_ASSERT(aURI);
-  ModuleMapKey key(aURI, ModuleType::JavaScript);
-  if (!IsModuleFetched(key)) {
+void ModuleLoaderBase::MigratePreloadedResolvedSet(
+    ScriptFetchInfo* aFetchInfo) {
+  MOZ_ASSERT(aFetchInfo);
+
+  if (!aFetchInfo->HasPreloadedResolvedSet()) {
     return;
   }
 
-  RefPtr<ModuleScript> ms;
-  MOZ_ALWAYS_TRUE(mFetchedModules.Get(key, getter_AddRefs(ms)));
-
-  // This function is called from a preloaded module graph, but it may have a
-  // module script from another preloaded module graph which has been turned
-  // into a normal load, so we don't assert the module script is a preloaded
-  // one.
-  ms->SetForPreload(false);
-}
-
-// This is called when a preloaded module request is reused, so we need to move
-// the resolved set into the global's set.
-// Also, we need to flip the preload flag in the module script.
-void ModuleLoaderBase::MovePreloadedSetToResolvedSet(
-    ModuleLoadRequest* aRootRequest) {
-  LOG(("ScriptLoadRequest (%p): MovePreloadedSetToResolvedSet", aRootRequest));
-  MOZ_ASSERT(ImportMap::IsMultipleImportMapsSupported());
-  MOZ_ASSERT(aRootRequest);
-
-  // ScriptLoader has flipped the preload flag to false.
-  MOZ_ASSERT(!aRootRequest->mLoadContext->IsPreload());
-
-  ModuleScript* ms = aRootRequest->mModuleScript;
-  if (!ms) {
-    return;
-  }
-
-  ms->SetForPreload(false);
-  if (!ms->HasPreloadedResolvedSet()) {
-    return;
-  }
-
-  ResolvedModuleSet* set = ms->GetPreloadedResolvedSet();
+  ResolvedModuleSet* set = aFetchInfo->GetPreloadedResolvedSet();
   for (auto iter = set->modIter(); !iter.done(); iter.next()) {
-    auto record = std::move(iter.getMutable());
-    nsCOMPtr<nsIURI> uri = record->TakeResult();
-    ResetPreloadFlag(uri);
-    AddToGlobalResolvedSet(std::move(record));
+    AddToGlobalResolvedSet(std::move(iter.getMutable()));
   }
-
-  set->clear();
-  ms->ReleasePreloadedResolvedSet();
+  aFetchInfo->ReleasePreloadedResolvedSet();
 }
 
-// If the module script is preloaded, reset the [[LoadedModules]]
-//
-void ModuleLoaderBase::ResetPreloadedModule(nsIURI* aURI) {
-  MOZ_ASSERT(aURI);
-  ModuleMapKey key(aURI, ModuleType::JavaScript);
-  if (!IsModuleFetched(key)) {
+static ScriptFetchInfo* GetModuleFetchInfo(JSObject* aModule) {
+  JS::Value priv = JS::GetModulePrivate(aModule);
+  MOZ_ASSERT(!priv.isUndefined());
+  return static_cast<ScriptFetchInfo*>(priv.toPrivate());
+}
+
+// Get the modules whose preload flag is still true, and the result is stored in
+// |aResult|. |aModuleRecord| itself is not included in the |aResult|.
+// Crashes on OOM, as a partial result would leave modules with stale preload
+// state.
+static void GetPreloadedModuleGraph(JSContext* aCx,
+                                    JS::Handle<JSObject*> aModuleRecord,
+                                    JS::MutableHandleObjectVector aResult) {
+  js::AutoEnterOOMUnsafeRegion oomUnsafe;
+
+  nsTHashSet<ScriptFetchInfo*> visited;
+  if (JS::IsCyclicModule(aModuleRecord)) {
+    visited.Insert(GetModuleFetchInfo(aModuleRecord));
+  }
+
+  JS::RootedObjectVector worklist(aCx);
+  if (!JS::GetLoadedModules(aCx, aModuleRecord, &worklist)) {
+    oomUnsafe.crash("GetPreloadedModuleGraph");
+  }
+
+  JS::RootedObjectVector children(aCx);
+  JS::Rooted<JSObject*> module(aCx);
+  while (!worklist.empty()) {
+    module = worklist.back();
+    worklist.popBack();
+
+    if (!JS::IsCyclicModule(module)) {
+      continue;
+    }
+
+    ScriptFetchInfo* fetchInfo = GetModuleFetchInfo(module);
+    if (!fetchInfo->IsForModulePreload() ||
+        !visited.EnsureInserted(fetchInfo)) {
+      continue;
+    }
+
+    if (!aResult.append(module) ||
+        !JS::GetLoadedModules(aCx, module, &children) ||
+        !worklist.appendAll(children)) {
+      oomUnsafe.crash("GetPreloadedModuleGraph");
+    }
+  }
+}
+
+static void ClearModulePreloadFlag(ScriptFetchInfo* aFetchInfo,
+                                   JSObject* aModuleRecord) {
+  MOZ_ASSERT(aFetchInfo->IsForModulePreload());
+  aFetchInfo->SetForModulePreload(false);
+#ifdef DEBUG
+  if (aModuleRecord) {
+    JS::SetModulePreload(aModuleRecord, false);
+  }
+#endif
+}
+
+void ModuleLoaderBase::MovePreloadedSetToResolvedSet(
+    ModuleScript* aModuleScript) {
+  MOZ_ASSERT(aModuleScript);
+
+  ScriptFetchInfo* fetchInfo = aModuleScript->FetchInfo();
+  // The module script may have already been used by a normal load.
+  if (fetchInfo->IsForModulePreload()) {
+    ClearModulePreloadFlag(fetchInfo, aModuleScript->ModuleRecord());
+  }
+  MigratePreloadedResolvedSet(fetchInfo);
+
+  AutoJSAPI jsapi;
+  if (!jsapi.Init(mGlobalObject)) {
+    return;
+  }
+  JSContext* cx = jsapi.cx();
+  JS::Rooted<JSObject*> moduleRecord(cx, aModuleScript->ModuleRecord());
+  if (!moduleRecord) {
     return;
   }
 
-  RefPtr<ModuleScript> ms;
-  MOZ_ALWAYS_TRUE(mFetchedModules.Get(key, getter_AddRefs(ms)));
-  if (!ms->ForPreload()) {
-    return;
-  }
+  JS::RootedObjectVector modules(cx);
+  GetPreloadedModuleGraph(cx, moduleRecord, &modules);
 
-  LOG(
-      ("ModuleLoaderBase::ResetPreloadedModule: module script (%p) reset "
-       "preloaded info",
-       ms.get()));
-  ms->ResetPreload();
+  for (JSObject* module : modules) {
+    ScriptFetchInfo* moduleFetchInfo = GetModuleFetchInfo(module);
+    ClearModulePreloadFlag(moduleFetchInfo, module);
+    MigratePreloadedResolvedSet(moduleFetchInfo);
+  }
 }
 
-// This is called before registering an import map, so we clear the remaing
-// mPreloads from the ScriptLoader
-void ModuleLoaderBase::ClearPreloadedModuleGraph(
+void ModuleLoaderBase::ResetPreloadedModuleGraph(
     ModuleLoadRequest* aRootRequest) {
   MOZ_ASSERT(ImportMap::IsMultipleImportMapsSupported());
   MOZ_ASSERT(aRootRequest);
   MOZ_ASSERT(aRootRequest->mLoadContext->IsPreload());
-  LOG(("ScriptLoadRequest (%p): ClearPreloadedModuleGraph", aRootRequest));
+  LOG(("ScriptLoadRequest (%p): ResetPreloadedModuleGraph", aRootRequest));
 
   ModuleScript* ms = aRootRequest->mModuleScript;
   if (!ms) {
@@ -1323,20 +1330,27 @@ void ModuleLoaderBase::ClearPreloadedModuleGraph(
     return;
   }
 
-  ms->ResetPreload();
+  if (ms->ModuleRecord()) {
+    AutoJSAPI jsapi;
+    if (jsapi.Init(mGlobalObject)) {
+      JSContext* cx = jsapi.cx();
+      JS::Rooted<JSObject*> moduleRecord(cx, ms->ModuleRecord());
+      JS::RootedObjectVector modules(cx);
+      GetPreloadedModuleGraph(cx, moduleRecord, &modules);
 
-  if (!ms->HasPreloadedResolvedSet()) {
-    return;
+      // Dormant preloads: leave the preload flag set so a future load still
+      // treats them as one, but drop the stale graph data this import map
+      // registration has just invalidated.
+      for (JSObject* module : modules) {
+        JS::ResetPreloadedModule(module);
+        GetModuleFetchInfo(module)->ReleasePreloadedResolvedSet();
+      }
+    }
+    JS::ResetPreloadedModule(ms->ModuleRecord());
   }
 
-  ResolvedModuleSet* set = ms->GetPreloadedResolvedSet();
-  for (auto iter = set->iter(); !iter.done(); iter.next()) {
-    nsCOMPtr<nsIURI> uri = iter.get()->TakeResult();
-    MOZ_ASSERT(uri);
-    ResetPreloadedModule(uri);
-  }
-  set->clear();
-  ms->ReleasePreloadedResolvedSet();
+  ms->FetchInfo()->ReleasePreloadedResolvedSet();
+  ms->ResetPreloadErrors();
 }
 
 void ModuleLoaderBase::StartFetchingModuleDependencies(
@@ -1975,9 +1989,9 @@ void ModuleLoaderBase::RegisterImportMap(UniquePtr<ImportMap> aImportMap,
     return true;
   });
 
-  // When the pref of multiple import maps is enabled, for preloaded and fetched
-  // module scripts, the module graphs have been cleared in
-  // ClearPreloadedModuleGraph.
+  // When the pref of multiple import maps is enabled, the preloaded module
+  // scripts are kept in the module map, and their module graphs have been reset
+  // in ResetPreloadedModuleGraph.
   if (!multiImportMapsEnabled) {
     // If speculative preloading has added modules to the module map, remove
     // them.

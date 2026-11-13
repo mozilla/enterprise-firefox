@@ -148,9 +148,11 @@ class CustomizeMenuFragment : Fragment(), UserInteractionHandler, SystemInsetsPa
             isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
             quitApplicationDelegate = activity::finishAndRemoveTask,
             setAsDefaultBrowserDelegate = activity::openSetDefaultBrowserOption,
+            tabDataCoordinator = components.tabDataCoordinator,
             menuViewScope = viewLifecycleOwner.lifecycle.coroutineScope,
             applicationScope = components.applicationScope,
             browsingModeManager = (activity as HomeActivity).browsingModeManager,
+            tabGroupFeatureConfiguration = components.core.tabGroupDiscoveryFeatureConfiguration,
         )
     }
 }

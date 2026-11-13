@@ -450,3 +450,87 @@ add_task(async function test_eventpage_with_experiments_resetOnIdleAssert() {
 
   await extension.unload();
 });
+
+add_task(async function test_experiment_module_not_loaded_after_shutdown() {
+  let extension = ExtensionTestUtils.loadExtension({
+    isPrivileged: true,
+    manifest: { experiment_apis: fooExperimentAPIs },
+    files: fooExperimentFiles,
+  });
+  await extension.startup();
+
+  let { experimentAPIManager } = extension.extension;
+
+  // The module must not have been loaded before shutdown, otherwise the
+  // cached result would be returned without checking whether it may load.
+  let module = experimentAPIManager.getModule("foo");
+  ok(
+    !module.loaded && !module.asyncLoaded,
+    "Module was not loaded before shutdown"
+  );
+
+  await extension.unload();
+
+  Assert.throws(
+    () => experimentAPIManager.loadModule("foo"),
+    /Cannot load module 'foo' because new scripts are disabled/,
+    "Module cannot be loaded synchronously after shutdown"
+  );
+  Assert.throws(
+    () => experimentAPIManager.asyncLoadModule("foo"),
+    /Cannot load module 'foo' because new scripts are disabled/,
+    "Module cannot be loaded asynchronously after shutdown"
+  );
+});
+
+add_task(async function test_experiment_module_not_executed_after_shutdown() {
+  let extension = ExtensionTestUtils.loadExtension({
+    isPrivileged: true,
+    manifest: { experiment_apis: fooExperimentAPIs },
+    files: fooExperimentFiles,
+  });
+  await extension.startup();
+
+  let { experimentAPIManager } = extension.extension;
+
+  // "shutdown" listeners are called synchronously before shutdown disables
+  // new scripts, so this load starts compiling before they are disabled and
+  // finishes after.
+  let promiseLoaded;
+  extension.extension.once("shutdown", () => {
+    promiseLoaded = experimentAPIManager.asyncLoadModule("foo");
+  });
+
+  await extension.unload();
+
+  await Assert.rejects(
+    promiseLoaded,
+    /Cannot load module 'foo' because new scripts are disabled/,
+    "Module compiled during shutdown is not executed"
+  );
+});
+
+add_task(async function test_experiment_module_urls() {
+  let extension = ExtensionTestUtils.loadExtension({
+    isPrivileged: true,
+    manifest: { experiment_apis: fooExperimentAPIs },
+    files: fooExperimentFiles,
+  });
+  await extension.startup();
+
+  let { modules } = extension.extension;
+  let getModuleURL = scope =>
+    modules[scope].deserialize({}, true).modules.get("foo").url;
+  equal(
+    getModuleURL("parent"),
+    `moz-extension://${extension.uuid}/parent.js`,
+    "Parent module is loaded from a moz-extension: URL"
+  );
+  equal(
+    getModuleURL("child"),
+    `moz-extension://${extension.uuid}/child.js`,
+    "Child module is loaded from a moz-extension: URL"
+  );
+
+  await extension.unload();
+});

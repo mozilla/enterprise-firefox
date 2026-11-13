@@ -288,7 +288,11 @@ static void nr_ice_candidate_mark_done(nr_ice_candidate *cand, int state)
       /* Skip piggybacking srflx candidates — the relay candidate fires for them. */
       int is_piggybacking_srflx = (cand->type == SERVER_REFLEXIVE &&
                                    cand->u.srvrflx.relay_candidate != NULL);
-      if (!is_piggybacking_srflx) {
+      // Errors for pooled candidates are held back until the candidates are
+      // used, like their icecandidate events. Whether that is what the spec
+      // intends, and whether they should then be filtered by the ICE transport
+      // policy, is https://github.com/w3c/webrtc-pc/issues/3141
+      if (!is_piggybacking_srflx && !cand->stream->defer_gathering_events) {
         nr_ice_gather_handler *gh = cand->stream->ctx->gather_handler;
         if (gh && gh->vtbl->candidate_error) {
           gh->vtbl->candidate_error(gh->obj, cand->stream, cand);
@@ -582,14 +586,6 @@ int nr_ice_candidate_compute_priority(nr_ice_candidate *cand)
     return(_status);
   }
 
-static void nr_ice_candidate_fire_ready_cb(NR_SOCKET s, int how, void *cb_arg)
-  {
-    nr_ice_candidate *cand = (nr_ice_candidate*)cb_arg;
-
-    cand->ready_cb_timer = 0;
-    cand->ready_cb(0, 0, cand->ready_cb_arg);
-  }
-
 static int nr_ice_candidate_use_nr_resolver(nr_transport_addr *addr)
   {
     if(addr->fqdn[0] == 0) {
@@ -652,10 +648,13 @@ int nr_ice_candidate_initialize(nr_ice_candidate *cand, NR_async_cb ready_cb, vo
         if(r=nr_socket_getaddr(cand->isock->sock,&cand->addr))
           ABORT(r);
         cand->osock=cand->isock->sock;
-        // Post this so that it doesn't happen in-line
-        cand->ready_cb = ready_cb;
-        cand->ready_cb_arg = cb_arg;
-        NR_ASYNC_TIMER_SET(0, nr_ice_candidate_fire_ready_cb, (void *)cand, &cand->ready_cb_timer);
+        // Post this so that it doesn't happen in-line. The timer handle is
+        // cleared first, since nr_ice_candidate_stop_gathering cancels it.
+        NR_ASYNC_TIMER_SET(0, [](NR_SOCKET, int, void *cb_arg) {
+            nr_ice_candidate *cand = static_cast<nr_ice_candidate*>(cb_arg);
+            cand->ready_cb_timer = 0;
+            nr_ice_candidate_mark_done(cand, NR_ICE_CAND_STATE_INITIALIZED);
+          }, (void *)cand, &cand->ready_cb_timer);
         break;
       case RELAYED:
         protocol=NR_RESOLVE_PROTOCOL_TURN;

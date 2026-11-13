@@ -3690,11 +3690,6 @@
   value: true
   mirror: always
 
-- name: dom.intersection_observer.scroll_margin.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # How often to check for reply timeouts (ms).
 - name: dom.ipc.reply.timeout
   type: uint32_t
@@ -4194,7 +4189,7 @@
 # Use the new Navigation API history behaviour and load path for iframes.
 - name: dom.navigation.new_frame_load_behavior.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Network Information API
@@ -5741,7 +5736,7 @@
 
 - name: dom.headingoffset.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -6280,11 +6275,6 @@
 - name: dom.shadowdom.referenceTarget.enabled
   type: bool
   value: false
-  mirror: always
-
-- name: dom.shadowdom.shadowRootSlotAssignment.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # NOTE: This preference is used in unit tests. If it is removed or its default
@@ -8109,15 +8099,6 @@
     mirror: always
 #endif
 
-#if defined(XP_DARWIN)
-  # Set to true to revert from HarfBuzz AAT shaping to the old Core Text
-  # backend.
--   name: gfx.font_rendering.coretext.enabled
-    type: RelaxedAtomicBool
-    value: false
-    mirror: always
-#endif
-
 - name: gfx.font_rendering.opentype_svg.enabled
   type: RelaxedAtomicBool
   value: true
@@ -8554,7 +8535,7 @@
 # WebRender image's color multiplier instead of being rasterized in a blob.
 - name: gfx.webrender.svg-images.opacity
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: gfx.webrender.svg-shapes
@@ -8581,21 +8562,21 @@
 # skew).
 - name: gfx.webrender.svg-shapes.gradients
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Shapes and images with mix-blend-mode can be drawn with WebRender; the blend
 # is performed by the enclosing nsDisplayBlendMode stacking context.
 - name: gfx.webrender.svg-shapes.blend
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # SVG <text> with a plain opaque fill and no stroke is drawn with WebRender
 # text primitives instead of being rasterized in a blob image.
 - name: gfx.webrender.svg-text
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # SVG <text> with fill-opacity below 1 is drawn with WebRender text
@@ -11333,6 +11314,13 @@
   mirror: always
   rust: true
 
+# Is support for CSS Borders 4 border-shape enabled?
+- name: layout.css.border-shape.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Is support for CSS Borders 4 corner-shape enabled?
 - name: layout.css.corner-shape.enabled
   type: RelaxedAtomicBool
@@ -11453,6 +11441,14 @@
 # Is support for the ident() arbitrary substitution function enabled?
 # https://drafts.csswg.org/css-values-5/#ident
 - name: layout.css.ident-function.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for the inherit() arbitrary substitution function enabled?
+# https://drafts.csswg.org/css-values-5/#funcdef-inherit
+- name: layout.css.inherit-function.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
@@ -12874,6 +12870,13 @@
   type: bool
   value: @IS_ANDROID@
   mirror: always
+
+# For tests, the server to send MediaDrm provisioning requests to instead of
+# the one the plugin gives.
+- name: media.eme.mediadrm.provisioning.url-override
+  type: String
+  value: ""
+  mirror: never
 
 - name: media.eme.max-throughput-ms
   type: RelaxedAtomicUint32
@@ -21146,6 +21149,12 @@
 - name: webgl.perf.spew-frame-allocs
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+
+- name: webgl.workarounds.finish-before-blitframebuffer-with-multiple-attachments
+  type: RelaxedAtomicInt32
+  value: 0
   mirror: always
 
 #---------------------------------------------------------------------------
