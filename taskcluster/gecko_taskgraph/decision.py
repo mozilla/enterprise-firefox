@@ -40,6 +40,7 @@ from .parameters import (
 )
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
 from .util.bugbug import push_schedules, start_push_schedules
+from .util.comm_decision import CHILD_GRAPH_ENV
 from .util.hg import get_hg_revision_metadata
 from .util.partials import populate_release_history
 from .util.partners import (
@@ -461,6 +462,12 @@ def get_decision_parameters(graph_config, options):
     parameters["try_mode"] = None
     parameters["try_task_config"] = {}
 
+    # Set by the task generating this graph from its own graph, see
+    # util/comm_decision.py. Needed by the lookups below, e.g. of the push
+    # graph for `--include-push-tasks`.
+    if child_graph := os.environ.get(CHILD_GRAPH_ENV):
+        parameters["child_graph"] = json.loads(child_graph)
+
     # owner must be an email, but sometimes (e.g., for ffxbld) it is not, in which
     # case, fake it
     if "@" not in parameters["owner"]:
@@ -552,6 +559,16 @@ def get_decision_parameters(graph_config, options):
         find_object(graph_config["taskgraph"]["decision-parameters"])(
             graph_config, parameters
         )
+
+    # WIP: Thunderbird pull requests run the shippable Linux aarch64 build and
+    # its signing, otherwise skipped unless on a backstop push.
+    if "thunderbird" in parameters["project"] and parameters["tasks_for"].startswith(
+        "github-pull-request"
+    ):
+        parameters["do_not_optimize"] = parameters["do_not_optimize"] + [
+            "build-linux64-aarch64-enterprise-shippable/opt",
+            "build-signing-linux64-aarch64-enterprise-shippable/opt",
+        ]
 
     # load extra parameters from file or note if able
     if options.get("allow_parameter_override"):

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import mozunit
 import pytest
+import yaml
 from mozversioncontrol.repo.git import GitRepository
 from responses import RequestsMock
 from tryselect import push
@@ -610,6 +611,134 @@ def test_push_to_try_skips_git_backing_when_disabled():
     config = json.loads(call_kwargs["changed_files"]["try_task_config.json"])
     assert "head_git_repository" not in config.get("parameters", {})
     assert "head_git_rev" not in config.get("parameters", {})
+
+
+COMM_REV_FILE_CONTENT = """\
+# License header
+---
+base-repository: https://github.com/thunderbird/thunderbird-desktop
+head-repository: https://github.com/thunderbird/thunderbird-desktop
+refs:
+    enterprise-main: refs/heads/main
+    default: refs/heads/main
+base-rev: pinnedrev
+head-rev: pinnedrev
+"""
+
+
+def run_enterprise_comm_push(tmp_path, comm_rev, comm_remote, do_push=True):
+    """Push to try from the comm checkout of an Enterprise tree.
+
+    Returns the mocked Gecko and comm repositories."""
+    (tmp_path / ".comm_rev.yml").write_text(COMM_REV_FILE_CONTENT)
+    mock_vcs = MagicMock()
+    mock_vcs.name = "git"
+    mock_vcs.path = str(tmp_path)
+    mock_vcs.base_ref_as_commit.return_value = "def456fakebaserev"
+    comm_vcs = MagicMock()
+    comm_vcs.path = str(tmp_path / "comm")
+    comm_vcs.head_rev = comm_rev
+    comm_vcs.working_directory_clean.return_value = True
+    comm_vcs.get_remote_url.return_value = (
+        "git@github.com:someone/thunderbird-desktop.git"
+    )
+    try_task_config = push.generate_try_task_config("fuzzy", ["build-linux64/opt"])
+
+    with ExitStack() as stack:
+        stack.enter_context(patch("tryselect.push.vcs", mock_vcs))
+        stack.enter_context(
+            patch("tryselect.push.get_project_topsrcdir", return_value=comm_vcs.path)
+        )
+        stack.enter_context(
+            patch("tryselect.push.get_repository_object", return_value=comm_vcs)
+        )
+        stack.enter_context(
+            patch("tryselect.push.MACH_TRY_REMOTE", "https://example.com/fake-try-repo")
+        )
+        stack.enter_context(patch("tryselect.push.MACH_TRY_COMM_REMOTE", comm_remote))
+        environ = stack.enter_context(patch.dict("os.environ"))
+        environ.pop("MACH_TRY_COMM_REMOTE", None)
+        environ.pop("MACH_TRY_REMOTE", None)
+        stack.enter_context(patch("tryselect.push.check_working_directory"))
+        stack.enter_context(patch("tryselect.push.write_task_config_history"))
+        stack.enter_context(
+            patch("tryselect.push.is_enterprise_comm_try", return_value=True)
+        )
+        stack.enter_context(
+            patch("tryselect.push.is_thunderbird_try", return_value=True)
+        )
+        check_call = stack.enter_context(patch("tryselect.push.subprocess.check_call"))
+        push._is_hg_try.cache_clear()
+        push.push_to_try(
+            "fuzzy",
+            "try: test",
+            MagicMock(),
+            try_task_config=try_task_config,
+            dry_run=not do_push,
+        )
+    return mock_vcs, comm_vcs, check_call
+
+
+def test_push_to_try_enterprise_comm(tmp_path):
+    """An Enterprise Thunderbird push selects the comm tasks in their own file,
+    and only the comm decision task in try_task_config.json."""
+    mock_vcs, _, check_call = run_enterprise_comm_push(tmp_path, "pinnedrev", None)
+
+    changed_files = mock_vcs.push_to_try.call_args.kwargs["changed_files"]
+    assert mock_vcs.push_to_try.call_args.kwargs["remote"] == (
+        "https://example.com/fake-try-repo"
+    )
+    gecko = json.loads(changed_files["try_task_config.json"])
+    comm = json.loads(changed_files[push.COMM_TRY_TASK_CONFIG])
+    assert gecko["parameters"]["try_task_config"]["tasks"] == ["comm-decision"]
+    assert gecko["parameters"]["base_rev"] == "def456fakebaserev"
+    assert comm["parameters"]["try_task_config"]["tasks"] == ["build-linux64/opt"]
+    assert comm["parameters"]["base_rev"] == "def456fakebaserev"
+    # The comm checkout is at the pinned revision: nothing to push or change.
+    assert push.COMM_REV_FILE not in changed_files
+    check_call.assert_not_called()
+
+
+def test_push_to_try_enterprise_comm_checkout(tmp_path):
+    """A comm checkout away from the pinned revision is pushed to the comm
+    remote, and used by the try push."""
+    mock_vcs, comm_vcs, check_call = run_enterprise_comm_push(
+        tmp_path, "localrev", "someone"
+    )
+
+    comm_vcs.get_remote_url.assert_called_once_with("someone")
+    check_call.assert_called_once_with(
+        ["git", "push", "someone", "localrev:refs/heads/try/comm/localrev"],
+        cwd=comm_vcs.path,
+    )
+    changed_files = mock_vcs.push_to_try.call_args.kwargs["changed_files"]
+    comm_rev = changed_files[push.COMM_REV_FILE]
+    assert comm_rev.startswith("# License header\n")
+    assert yaml.safe_load(comm_rev) == {
+        "base-repository": "https://github.com/thunderbird/thunderbird-desktop",
+        "head-repository": "https://github.com/someone/thunderbird-desktop",
+        "refs": {"default": "refs/heads/try/comm/localrev"},
+        "base-rev": "pinnedrev",
+        "head-rev": "localrev",
+    }
+
+
+def test_push_to_try_enterprise_comm_checkout_dry_run(tmp_path, capsys):
+    mock_vcs, _, check_call = run_enterprise_comm_push(
+        tmp_path,
+        "localrev",
+        "https://github.com/someone/thunderbird-desktop.git",
+        do_push=False,
+    )
+    check_call.assert_not_called()
+    mock_vcs.push_to_try.assert_not_called()
+    assert "head-rev: localrev" in capsys.readouterr().out
+
+
+def test_push_to_try_enterprise_comm_checkout_no_remote(tmp_path, capsys):
+    with pytest.raises(SystemExit):
+        run_enterprise_comm_push(tmp_path, "localrev", None)
+    assert "try.comm-pushremote" in capsys.readouterr().out
 
 
 if __name__ == "__main__":

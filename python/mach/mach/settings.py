@@ -123,6 +123,13 @@ class MachSettings:
                     "git@github.com:mozilla/enterprise-firefox-try.git",
                 ),
                 (
+                    "try.comm-pushremote",
+                    "string",
+                    "Remote name or url to push the comm (Thunderbird) checkout to, "
+                    "for the comm tasks of an Enterprise try push to use it.",
+                    "",
+                ),
+                (
                     "try.params",
                     "string",
                     "Default set of parameters to generate tasks with.",

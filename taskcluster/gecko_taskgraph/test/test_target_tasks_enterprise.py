@@ -343,6 +343,92 @@ def test_with_tests_keeps_android_builds_and_lints(monkeypatch, task):
     """Level 3 only: below it, builds not named enterprise are dropped anyway."""
     assert _with_tests(monkeypatch, [task], "3") == [task.label]
 
+def _graph_of(*tasks):
+    tasks = {task.label: task for task in tasks}
+    return TaskGraph(tasks=tasks, graph=Graph(nodes=set(tasks), edges=set()))
+
+
+def _comm_decision():
+    return Task(kind="comm-decision", label="comm-decision", attributes={}, task={})
+
+
+def test_nightly_generates_the_comm_graph(graph):
+    """The Gecko nightly also schedules the comm decision task, which runs the
+    same method on the comm graph."""
+    graph = _graph_of(*graph.tasks.values(), _comm_decision())
+    labels = target_tasks.target_tasks_nightly_enterprise(graph, PARAMETERS, {})
+    assert "comm-decision" in labels
+
+
+def test_nightly_already_ran_skips_the_comm_graph(graph, monkeypatch):
+    monkeypatch.setattr(target_tasks, "cron_index_exists", lambda *args, **kw: True)
+    graph = _graph_of(*graph.tasks.values(), _comm_decision())
+    assert target_tasks.target_tasks_nightly_enterprise(graph, PARAMETERS, {}) == []
+
+
+def test_thunderbird_nightly_repacks_every_partner_config():
+    """In the comm graph, the nightly selects the Thunderbird Enterprise tasks,
+    with every partner config of the Thunderbird manifest."""
+    graph = _graph_of(
+        _task(
+            "build",
+            "build-linux64-enterprise-shippable/opt",
+            shipping_product="thunderbird-enterprise",
+        ),
+        *(
+            _task(
+                "enterprise-repack-repackage",
+                f"enterprise-repack-repackage-{config.replace('/', '-')}",
+                config,
+                shipping_product="thunderbird-enterprise",
+            )
+            for config in ("moz/generic", "moz/sbxTb", "hosted/vesta", "smp/sbxTb")
+        ),
+        _task("build", "build-linux64-firefox/opt"),
+    )
+    parameters = {
+        "release_product": "thunderbird-enterprise",
+        "release_partner_config": {
+            "enterprise-repack-repackage": {
+                "moz": {"generic": {}, "sbxTb": {}},
+                "hosted": {"vesta": {}},
+            },
+            "repackage-msi": {"moz": {"generic": {}}},
+        },
+    }
+    labels = target_tasks.target_tasks_nightly_enterprise(graph, parameters, {})
+    assert sorted(labels) == [
+        "build-linux64-enterprise-shippable/opt",
+        "enterprise-repack-repackage-hosted-vesta",
+        "enterprise-repack-repackage-moz-generic",
+        "enterprise-repack-repackage-moz-sbxTb",
+    ]
+
+
+@pytest.mark.parametrize(
+    "release_product,with_comm_decision,expected",
+    (
+        (
+            "firefox-enterprise",
+            True,
+            ["maybe-release-firefox-enterprise", "comm-decision"],
+        ),
+        # The comm graph has no comm decision task.
+        ("thunderbird-enterprise", False, ["maybe-release-thunderbird-enterprise"]),
+    ),
+)
+def test_daily_releases_enterprise(release_product, with_comm_decision, expected):
+    tasks = [
+        _task("maybe-release", f"maybe-release-{product}", shipping_product=product)
+        for product in ("firefox", "firefox-enterprise", "thunderbird-enterprise")
+    ]
+    if with_comm_decision:
+        tasks.append(_comm_decision())
+    labels = target_tasks.target_tasks_daily_releases_enterprise(
+        _graph_of(*tasks), {"release_product": release_product}, {}
+    )
+    assert labels == expected
+
 
 if __name__ == "__main__":
     main()
