@@ -13,6 +13,8 @@ run-if = ["buildapp == 'browser' && enterprise"]
 # Sync is disabled on Thunderbird Enterprise
 run-if = ["buildapp == 'browser' && enterprise"]
 
+["test_live_polling_interval_from_felt.js"]
+
 ["test_live_remote_fetch_error_message.js"]
 
 ["test_live_repeated_poll_errors.js"]

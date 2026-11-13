@@ -12,14 +12,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
+  getFirefoxConfig:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return lazy.createEnterpriseLogger("EnterpriseBadge");
 });
-
-const COMPANY_LOGO_URL_PREF = "enterprise.configs.company_logo_url";
-const LEARN_MORE_URL_PREF = "enterprise.configs.learn_more_url";
 
 /**
  * Parses a given url string
@@ -224,7 +223,7 @@ export const EnterpriseBadge = {
    * Returns null if the url is invalid.
    */
   _retrieveLearnMoreLink() {
-    const learnMoreUrl = Services.prefs.getStringPref(LEARN_MORE_URL_PREF, "");
+    const learnMoreUrl = lazy.getFirefoxConfig()?.learn_more_url;
 
     if (!learnMoreUrl) {
       lazy.log.warn("No learn more url available.");
@@ -304,12 +303,10 @@ export const EnterpriseBadge = {
   },
 
   _updateLogo(window) {
-    const logoUrl = Services.prefs.getStringPref(COMPANY_LOGO_URL_PREF, "");
+    const logoUrl = lazy.getFirefoxConfig()?.company_logo_url;
 
     if (!logoUrl) {
-      lazy.log.warn(
-        `Unable to retrieve company logo url from: ${COMPANY_LOGO_URL_PREF}`
-      );
+      lazy.log.warn("No company logo url available.");
       return;
     }
 
