@@ -7,13 +7,14 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   WindowsRegistry: "resource://gre/modules/WindowsRegistry.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("EnterpriseOSInfo");
+  return console.createInstance({
+    logModule: "EnterpriseOSInfo",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 const WINDOWS_CURRENT_VERSION_KEY =
