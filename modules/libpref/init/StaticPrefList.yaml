@@ -1327,6 +1327,19 @@
   value: ""
   mirror: never
 
+# The largest request or content, in bytes, that the built-in DLP backend
+# analyzes; anything larger gets the result for an analysis error, i.e.
+# browser.contentanalysis.default_result. Pasted text is part of the request.
+# The DLP wasm module matches content in place, but holds a paste twice (the
+# request and the decoded text) in its 4 GiB of 32-bit memory, and Rust caps
+# any single allocation at isize::MAX bytes (2^31 - 1 on wasm32, 2,147,483,640
+# after the module's 8-byte alignment). 1984 MiB keeps both pastes and files
+# under those limits with headroom.
+- name: browser.contentanalysis.wasm_backend_max_content_bytes
+  type: uint32_t
+  value: 2080374784
+  mirror: always
+
 # On Windows, whether to bring the foreground window to the front when printing
 # to avoid a DLP agent stealing focus and cancelling the print (bug 1980225)
 - name: browser.contentanalysis.print_set_foreground_window
