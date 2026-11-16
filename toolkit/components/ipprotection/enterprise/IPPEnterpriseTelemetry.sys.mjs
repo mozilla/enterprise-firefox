@@ -11,6 +11,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPProxyStates:
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
+  IPPPrincipalRules:
+    "moz-src:///toolkit/components/ipprotection/IPPSiteRuleManager.sys.mjs",
+  IPPSiteRuleManager:
+    "moz-src:///toolkit/components/ipprotection/IPPSiteRuleManager.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "logConsole", () =>
@@ -22,18 +26,70 @@ const STOP_REQUEST_TOPIC = "http-on-stop-request";
 // loads already in flight when the key changed need an old key, and those
 // finish long before ten more rotations.
 const MAX_TRACKED_ISOLATION_KEYS = 10;
+const PROXY_HTTP_ERROR_MIN = Cr.NS_ERROR_PROXY_CODE_BASE + 300;
+const PROXY_HTTP_ERROR_MAX = Cr.NS_ERROR_PROXY_CODE_BASE + 599;
 
 /**
- * Records an Access Connector security event the first time a top-level page
- * on a domain loads through the proxy without a network or proxy error. Each
- * time the proxy becomes active again, domains are reported anew.
+ * Returns true if a finished channel failed because of the proxy rather than
+ * the site.
+ *
+ * @param {nsIHttpChannel} channel
+ * @returns {boolean}
+ */
+function isProxyFailure(channel) {
+  const { status } = channel;
+  if (
+    status === Cr.NS_ERROR_PROXY_CONNECTION_REFUSED ||
+    status === Cr.NS_ERROR_UNKNOWN_PROXY_HOST ||
+    (status >= PROXY_HTTP_ERROR_MIN && status <= PROXY_HTTP_ERROR_MAX)
+  ) {
+    return true;
+  }
+  // -1 means the load didn't tunnel and 0 that the tunnel never answered.
+  const { httpProxyConnectResponseCode } = channel.QueryInterface(
+    Ci.nsIProxiedChannel
+  );
+  return httpProxyConnectResponseCode >= 300;
+}
+
+/**
+ * Returns true if the page came from the cache without reaching the network.
+ * isFromCache() is unavailable once the channel has stopped.
+ *
+ * @param {nsIHttpChannel} channel
+ * @returns {boolean}
+ */
+function isCacheHit(channel) {
+  try {
+    return (
+      channel.QueryInterface(Ci.nsICacheInfoChannel).getCacheDisposition() ===
+      Ci.nsICacheInfoChannel.kCacheHit
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Records Access Connector security events for top-level page loads routed
+ * through the proxy: the first time a domain loads without a network or proxy
+ * error, and the first time a domain fails to load because of the proxy.
+ * Successful loads are reported anew each time the proxy becomes active again,
+ * and failures once until the domain loads through the proxy again.
  */
 class IPPEnterpriseTelemetrySingleton {
   #initialized = false;
   #observing = false;
+  /**
+   * True from the proxy entering the error state until it is active again.
+   * The failed connection's loads keep finishing after it is torn down.
+   */
+  #connectionFailed = false;
   /** @type {Set<string>} Domains reported since the proxy became active. */
   #accessedDomains = new Set();
-  /** @type {Set<string>} Isolation keys used since the proxy became active. */
+  /** @type {Set<string>} Domains reported as failing that haven't loaded since. */
+  #errorDomains = new Set();
+  /** @type {Set<string>} Isolation keys used by the current connection. */
   #isolationKeys = new Set();
 
   constructor() {
@@ -73,14 +129,39 @@ class IPPEnterpriseTelemetrySingleton {
       this.handleIsolationKeyEvent
     );
     this.#setObserving(false);
+    this.#connectionFailed = false;
     this.#accessedDomains.clear();
+    this.#errorDomains.clear();
     this.#isolationKeys.clear();
   }
 
-  #onProxyStateChanged() {
-    if (lazy.IPPProxyManager.state !== lazy.IPPProxyStates.ACTIVE) {
+  /**
+   * IPPAlwaysOn stops the proxy while the ERROR notification is still being
+   * dispatched, so this can receive READY before ERROR, and the manager's
+   * state already reads READY for both. The event's own states are used
+   * instead.
+   *
+   * @param {CustomEvent} event
+   */
+  #onProxyStateChanged({ detail: { state, prevState } }) {
+    if (state === lazy.IPPProxyStates.ACTIVE) {
+      // Reaching ACTIVE doesn't show that the proxy works, so failing domains
+      // stay reported until they load.
+      if (this.#connectionFailed) {
+        this.#connectionFailed = false;
+        this.#isolationKeys.clear();
+      }
+    } else {
       this.#accessedDomains.clear();
-      this.#isolationKeys.clear();
+      if (
+        state === lazy.IPPProxyStates.ERROR ||
+        prevState === lazy.IPPProxyStates.ERROR
+      ) {
+        this.#connectionFailed = true;
+      } else if (!this.#connectionFailed) {
+        this.#errorDomains.clear();
+        this.#isolationKeys.clear();
+      }
     }
     this.#updateObserving();
   }
@@ -95,10 +176,14 @@ class IPPEnterpriseTelemetrySingleton {
   }
 
   /**
-   * Observes requests only while the proxy connection exists.
+   * Observes requests while the proxy connection exists, and after it fails
+   * until it is active again.
    */
   #updateObserving() {
-    this.#setObserving(this.#initialized && !!lazy.IPPProxyManager.active);
+    this.#setObserving(
+      this.#initialized &&
+        (!!lazy.IPPProxyManager.active || this.#connectionFailed)
+    );
     if (
       this.#observing &&
       lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE &&
@@ -131,6 +216,8 @@ class IPPEnterpriseTelemetrySingleton {
     let channel;
     try {
       channel = subject.QueryInterface(Ci.nsIHttpChannel);
+      // Channels served by a service worker aren't proxied channels.
+      channel.QueryInterface(Ci.nsIProxiedChannel);
     } catch {
       return;
     }
@@ -138,9 +225,6 @@ class IPPEnterpriseTelemetrySingleton {
       channel.loadInfo?.externalContentPolicyType !==
       Ci.nsIContentPolicy.TYPE_DOCUMENT
     ) {
-      return;
-    }
-    if (!this.#hasTrackedIsolationKey(channel)) {
       return;
     }
 
@@ -154,9 +238,21 @@ class IPPEnterpriseTelemetrySingleton {
       return;
     }
 
+    if (isProxyFailure(channel)) {
+      if (
+        !this.#errorDomains.has(domain) &&
+        this.#isAccessConnectorFailure(channel)
+      ) {
+        this.#errorDomains.add(domain);
+        this.#record(Glean.accessConnector.proxyError, domain);
+      }
+      return;
+    }
+
     if (
+      lazy.IPPProxyManager.state !== lazy.IPPProxyStates.ACTIVE ||
       !Components.isSuccessCode(channel.status) ||
-      this.#accessedDomains.has(domain)
+      !this.#hasTrackedIsolationKey(channel)
     ) {
       return;
     }
@@ -169,8 +265,45 @@ class IPPEnterpriseTelemetrySingleton {
       return;
     }
 
+    // A page from the cache doesn't show that the proxy works again.
+    if (!isCacheHit(channel)) {
+      this.#errorDomains.delete(domain);
+    }
+    if (this.#accessedDomains.has(domain)) {
+      return;
+    }
+
     this.#accessedDomains.add(domain);
     this.#record(Glean.accessConnector.domainAccessStarted, domain);
+  }
+
+  /**
+   * Returns true if a channel that failed because of a proxy was routed
+   * through the Access Connector.
+   *
+   * @param {nsIHttpChannel} channel
+   * @returns {boolean}
+   */
+  #isAccessConnectorFailure(channel) {
+    if (this.#hasTrackedIsolationKey(channel)) {
+      return true;
+    }
+
+    // When the connection fails, IPPChannelFilter cancels the loads it would
+    // proxy before they reach a proxy, so they carry no isolation key.
+    if (
+      !this.#connectionFailed ||
+      channel.status !== Cr.NS_ERROR_PROXY_CONNECTION_REFUSED ||
+      channel.QueryInterface(Ci.nsIProxiedChannel).proxyInfo
+    ) {
+      return false;
+    }
+    const { targetBrowsingContext, browsingContext } = channel.loadInfo;
+    const rule = lazy.IPPSiteRuleManager.getRule(
+      Services.scriptSecurityManager.getChannelURIPrincipal(channel),
+      (targetBrowsingContext ?? browsingContext)?.top.browserId
+    );
+    return rule === lazy.IPPPrincipalRules.INCLUDED;
   }
 
   /**
