@@ -197,6 +197,7 @@ firefox_enterprise_metrics = [
     "browser/components/enterprise/enterprise_metrics.yaml",
     "browser/components/enterprisepolicies/enterprise_metrics.yaml",
     "toolkit/components/contentanalysis/enterprise_metrics.yaml",
+    "toolkit/components/ipprotection/enterprise_metrics.yaml",
     "toolkit/components/printing/enterprise_metrics.yaml",
     "toolkit/components/reputationservice/enterprise_metrics.yaml",
     "toolkit/components/url-classifier/enterprise_metrics.yaml",

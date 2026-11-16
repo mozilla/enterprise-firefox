@@ -1222,6 +1222,55 @@ add_task(async function test_IPPProxyManager_rotateProxyPass_changes_pass() {
   IPProtectionService.uninit();
 });
 
+add_task(
+  { skip_if: () => !AppConstants.MOZ_ENTERPRISE },
+  async function test_IPPProxyManager_announces_isolation_keys() {
+    setupStubs({ validProxyPass: true });
+
+    const readyEvent = waitForEvent(
+      IPProtectionService,
+      "IPProtectionService:StateChanged",
+      () => IPProtectionService.state === IPProtectionStates.READY
+    );
+
+    IPProtectionService.init();
+    await readyEvent;
+
+    const activeEventPromise = waitForEvent(
+      IPPProxyManager,
+      "IPPProxyManager:StateChanged",
+      () => IPPProxyManager.state === IPPProxyStates.ACTIVE
+    );
+    const initialKeyEvent = waitForEvent(
+      IPPProxyManager,
+      "IPPProxyManager:IsolationKeyAdded"
+    );
+    IPPProxyManager.start();
+    await activeEventPromise;
+    const initialKey = (await initialKeyEvent).detail.isolationKey;
+    Assert.equal(
+      initialKey,
+      IPPProxyManager.isolationKey,
+      "Activation announces the connection's isolation key"
+    );
+
+    const rotatedKeyEvent = waitForEvent(
+      IPPProxyManager,
+      "IPPProxyManager:IsolationKeyAdded"
+    );
+    await IPPProxyManager.rotateProxyPass();
+    const rotatedKey = (await rotatedKeyEvent).detail.isolationKey;
+    Assert.equal(
+      rotatedKey,
+      IPPProxyManager.isolationKey,
+      "Rotation announces its key"
+    );
+    Assert.notEqual(rotatedKey, initialKey, "Rotation creates a new key");
+
+    IPProtectionService.uninit();
+  }
+);
+
 /**
  * fromResponse anchors a proxy pass to the local clock at receipt: the pass is
  * valid from now for the token's lifetime (exp - nbf), regardless of how far
