@@ -193,14 +193,14 @@ ExtensionPreferencesManager.addSetting("newTabPosition", {
 
 ExtensionPreferencesManager.addSetting("openBookmarksInNewTabs", {
   permission: "browserSettings",
-  prefNames: ["browser.tabs.loadBookmarksInTabs"],
+  prefNames: ["browser.tabs.loadUILinkInTab"],
 
   setCallback(value) {
     return { [this.prefNames[0]]: value };
   },
 
   getCallback() {
-    return Services.prefs.getBoolPref("browser.tabs.loadBookmarksInTabs");
+    return Services.prefs.getBoolPref("browser.tabs.loadUILinkInTab");
   },
 });
 

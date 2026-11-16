@@ -5,7 +5,12 @@
 import React, { useCallback, useContext, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
-import { PREF_WEATHER_SIZE, WIDGET_REGISTRY } from "common/WidgetsRegistry.mjs";
+import {
+  PREF_WEATHER_SIZE,
+  WIDGET_REGISTRY,
+  WIDGET_USER_ACTIONS,
+  WIDGET_SOURCES,
+} from "common/WidgetsRegistry.mjs";
 import { LocationSearch } from "content-src/components/Weather/LocationSearch";
 import { SizeSubmenu } from "../SizeSubmenu";
 import { WidgetMenuButton } from "../WidgetMenuButton";
@@ -14,11 +19,10 @@ import { useWidgetTelemetry } from "../useWidgetTelemetry";
 import { SpaceActiveContext } from "content-src/lib/SpaceActiveContext";
 
 const USER_ACTION_TYPES = {
+  ...WIDGET_USER_ACTIONS,
   CHANGE_LOCATION: "change_location",
   DETECT_LOCATION: "detect_location",
   CHANGE_TEMP_UNIT: "change_temperature_units",
-  CHANGE_SIZE: "change_size",
-  LEARN_MORE: "learn_more",
   OPT_IN_ACCEPTED: "opt_in_accepted",
   PROVIDER_LINK_CLICK: "provider_link_click",
 };
@@ -76,7 +80,7 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
         })
       );
       recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
-        source: "context_menu",
+        source: WIDGET_SOURCES.CONTEXT_MENU,
         value: newSize,
         size: newSize,
       });
@@ -155,7 +159,7 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
       })
     );
     recordUserAction(USER_ACTION_TYPES.CHANGE_LOCATION, {
-      source: "context_menu",
+      source: WIDGET_SOURCES.CONTEXT_MENU,
     });
   }
 
@@ -166,7 +170,7 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
       })
     );
     recordUserAction(USER_ACTION_TYPES.DETECT_LOCATION, {
-      source: "context_menu",
+      source: WIDGET_SOURCES.CONTEXT_MENU,
     });
   }
 
@@ -181,18 +185,20 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
       })
     );
     recordUserAction(USER_ACTION_TYPES.CHANGE_TEMP_UNIT, {
-      source: "context_menu",
+      source: WIDGET_SOURCES.CONTEXT_MENU,
       value: unit,
     });
   }
 
   function handleLearnMore() {
-    recordUserAction(USER_ACTION_TYPES.LEARN_MORE, { source: "context_menu" });
+    recordUserAction(USER_ACTION_TYPES.LEARN_MORE, {
+      source: WIDGET_SOURCES.CONTEXT_MENU,
+    });
   }
 
   function handleProviderLinkClick() {
     recordUserAction(USER_ACTION_TYPES.PROVIDER_LINK_CLICK, {
-      source: "widget",
+      source: WIDGET_SOURCES.WIDGET,
     });
   }
 
@@ -210,7 +216,7 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
       })
     );
     recordUserAction(USER_ACTION_TYPES.OPT_IN_ACCEPTED, {
-      source: "widget",
+      source: WIDGET_SOURCES.WIDGET,
       value: "choose_location",
     });
   }
@@ -228,7 +234,7 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
       })
     );
     recordUserAction(USER_ACTION_TYPES.OPT_IN_ACCEPTED, {
-      source: "widget",
+      source: WIDGET_SOURCES.WIDGET,
       value: "use_location",
     });
   }

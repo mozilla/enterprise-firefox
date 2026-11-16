@@ -25,11 +25,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.browser.state.action.SearchAction
+import mozilla.components.concept.engine.preferences.Branch
 import mozilla.components.support.AppServicesInitializer
 import mozilla.components.support.AppServicesInitializer.Config as AppServiceConfig
 import mozilla.components.support.base.facts.register
 import mozilla.components.support.base.log.Log
+import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.base.log.sink.AndroidLogSink
 import mozilla.components.support.ktx.android.content.isMainProcess
 import mozilla.components.support.locale.LocaleManager
@@ -124,6 +127,8 @@ open class FocusApplication : Application(), Provider {
             components.startupActivityLog.registerInAppOnCreate(this)
 
             ProcessLifecycleOwner.get().lifecycle.addObserver(lockObserver)
+
+            enableBrowserPdfToolbar()
 
             applicationScope.launch {
                 // Initialize EmojiCompat manually.
@@ -344,6 +349,23 @@ open class FocusApplication : Application(), Provider {
                     private = isPrivate,
                 )
             },
+        )
+    }
+
+    /**
+     * Focus has no native PDF controls right now, so it keeps the browser PDF toolbar for downloading PDFs. Bug 2092688
+     * tracks the long-term solution in Focus.
+     */
+    @OptIn(ExperimentalAndroidComponentsApi::class)
+    private fun enableBrowserPdfToolbar() {
+        // When pdfjs.enableAndroidEditing is true, the PDF viewer expects that the app will provide PDF controls.
+        // When it is false, the PDF viewer provides the controls on screen.
+        components.engine.setBrowserPref(
+            pref = "pdfjs.enableAndroidEditing",
+            value = false,
+            branch = Branch.DEFAULT,
+            onSuccess = {},
+            onError = { Logger.warn("Could not enable the browser PDF toolbar.", it) },
         )
     }
 

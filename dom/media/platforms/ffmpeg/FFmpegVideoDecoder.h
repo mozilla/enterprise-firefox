@@ -130,6 +130,7 @@ class FFmpegVideoDecoder<LIBAV_VER>
   Maybe<MediaDataDecoder::PropertyValue> GetDecodeProperty(
       MediaDataDecoder::PropertyName aName) const override;
 #endif
+  void SetSeekThreshold(const media::TimeUnit& aTime) override;
 
   static AVCodecID GetCodecId(const nsACString& aMimeType);
 
@@ -161,6 +162,18 @@ class FFmpegVideoDecoder<LIBAV_VER>
 
  private:
   RefPtr<FlushPromise> ProcessFlush() override;
+#if LIBAVCODEC_VERSION_MAJOR >= 58
+  // Creates the image for mFrame with the current decoding backend.
+  MediaResult CreateImageForFrame(int64_t aOffset, int64_t aPts,
+                                  int64_t aDuration, int64_t aTimecode,
+                                  MediaDataDecoder::DecodedData& aResults);
+#endif
+  // Returns true if mFrame should not be output, such as when it ends before
+  // mSeekTarget.
+  bool MaybeDropFrame(int64_t aPts, int64_t aDuration);
+
+  // Only accessed on the task queue.
+  Maybe<media::TimeUnit> mSeekTarget;
   void ProcessShutdown() override;
   MediaResult DoDecode(MediaRawData* aSample, uint8_t* aData, int aSize,
                        bool* aGotFrame, DecodedData& aResults) override;

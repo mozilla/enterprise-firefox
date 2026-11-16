@@ -1,5 +1,3 @@
-/* eslint-disable mozilla/no-arbitrary-setTimeout */
-
 const PREF_DISABLE_OPEN_NEW_WINDOW =
   "browser.link.open_newwindow.disabled_in_fullscreen";
 const PREF_BLOCK_TOPLEVEL_DATA =
@@ -28,15 +26,22 @@ async function test() {
     uriString: gHttpTestRoot + TEST_FILE,
   });
 
-  // Enter browser fullscreen mode.
+  // Enter browser fullscreen mode, and let the native transition finish before
+  // the tests open windows.
+  let fullscreenEntered =
+    isOSX && promiseNativeFullscreenTransitionEnd(getAppWindow(newWin));
   newWin.BrowserCommands.fullScreen();
+  await fullscreenEntered;
 
   runNextTest();
 }
 
 registerCleanupFunction(async function () {
   // Exit browser fullscreen mode.
+  let fullscreenExited =
+    isOSX && promiseNativeFullscreenTransitionEnd(getAppWindow(newWin));
   newWin.BrowserCommands.fullScreen();
+  await fullscreenExited;
 
   await BrowserTestUtils.closeWindow(newWin);
 
@@ -272,6 +277,21 @@ function waitForWindowOpen(aOptions) {
   });
 }
 
+function getAppWindow(aWindow) {
+  return aWindow.docShell.treeOwner
+    .QueryInterface(Ci.nsIInterfaceRequestor)
+    .getInterface(Ci.nsIAppWindow);
+}
+
+// Lets a macOS native fullscreen transition finish before the window closes or
+// the next run starts.
+function promiseNativeFullscreenTransitionEnd(appWindow) {
+  return TestUtils.topicObserved(
+    "macos-native-fullscreen-transition-end",
+    subject => subject == appWindow
+  );
+}
+
 function executeWindowOpenInContent(aParam) {
   SpecialPowers.spawn(
     newBrowser.selectedBrowser,
@@ -333,7 +353,21 @@ WindowListener.prototype = {
     Services.wm.removeListener(this);
 
     let domwindow = aXULWindow.docShell.domWindow;
-    let onLoad = () => {
+    let shown, transitionEnd;
+    if (isOSX) {
+      shown = TestUtils.topicObserved(
+        "xul-window-visible",
+        subject => subject == aXULWindow
+      );
+      let onTransitionStart = () => {
+        transitionEnd ??= promiseNativeFullscreenTransitionEnd(aXULWindow).then(
+          () => (transitionEnd = null)
+        );
+      };
+      domwindow.addEventListener("willenterfullscreen", onTransitionStart);
+      domwindow.addEventListener("willexitfullscreen", onTransitionStart);
+    }
+    let onLoad = async () => {
       is(
         domwindow.document.location.href,
         this.test_url,
@@ -345,16 +379,24 @@ WindowListener.prototype = {
 
       domwindow.removeEventListener("load", onLoad, true);
 
-      // wait for trasition to fullscreen on OSX Lion later
       if (isOSX) {
-        setTimeout(() => {
-          domwindow.close();
-          executeSoon(this.callBack_onFinalize);
-        }, 3000);
-      } else {
-        domwindow.close();
-        executeSoon(this.callBack_onFinalize);
+        // If AppKit gives the window a fullscreen Space of its own, it starts
+        // that entry while showing the window.
+        await shown;
+        while (transitionEnd) {
+          await transitionEnd;
+        }
+        if (domwindow.fullScreen) {
+          // Closing it in its fullscreen Space may leave a transition that
+          // reverts the next run's entry.
+          let fullscreenExited =
+            promiseNativeFullscreenTransitionEnd(aXULWindow);
+          domwindow.fullScreen = false;
+          await fullscreenExited;
+        }
       }
+      domwindow.close();
+      executeSoon(this.callBack_onFinalize);
     };
     domwindow.addEventListener("load", onLoad, true);
   },

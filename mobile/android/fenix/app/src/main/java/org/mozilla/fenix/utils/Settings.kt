@@ -9,6 +9,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.os.Environment
 import android.view.accessibility.AccessibilityManager
@@ -2133,6 +2134,20 @@ class Settings(
             default = appContext.getString(R.string.pref_key_open_links_in_youtube_never),
         )
 
+    /** Check to see if we should open a YouTube link in the YouTube app */
+    fun shouldOpenYoutubeInApp(): Boolean {
+        return when (openLinksInYoutube) {
+            appContext.getString(R.string.pref_key_open_links_in_youtube_always) -> true
+            appContext.getString(R.string.pref_key_open_links_in_youtube_ask) -> true
+            else -> false
+        }
+    }
+
+    /** Check to see if we need to prompt the user before opening a YouTube link in the YouTube app */
+    fun shouldPromptOpenYoutubeInApp(): Boolean {
+        return openLinksInYoutube == appContext.getString(R.string.pref_key_open_links_in_youtube_ask)
+    }
+
     /** Whether the in-development open links in YouTube app preference is revealed via secret settings. */
     var openLinksInYoutubeFeatureEnabled by
         booleanPreference(
@@ -2701,6 +2716,19 @@ class Settings(
     /** Indicates if the regional default shortcuts are enabled. */
     val enableRegionalDefaultShortcuts: Boolean
         get() = FxNimbus.features.regionalDefaultShortcuts.value().enabled
+
+    /** Indicates if videos are shown in picture-in-picture by cloning them into a window of their own. */
+    var enablePictureInPictureWindow by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_enable_picture_in_picture_window),
+            default = { FxNimbus.features.pictureInPictureWindow.value().enabled },
+        )
+
+    /** Indicates if videos can be shown in a picture-in-picture window of their own on this device. */
+    val isPictureInPictureWindowAvailable: Boolean
+        get() =
+            enablePictureInPictureWindow &&
+                appContext.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
     /** Indicates if the Homepage Weather Widget is enabled. */
     var enableHomepageWeatherWidget by
@@ -3527,12 +3555,13 @@ class Settings(
             default = { FxNimbus.features.homepageTrendingRecentSearch.value().enabled },
         )
 
-    /** Indicates if the Android PDF tools are enabled for the PDF viewer. */
-    var enablePdfTools by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_enable_pdf_tools),
-            default = { FxNimbus.features.pdfViewer.value().androidUiTools },
-        )
+    /**
+     * Indicates if the Android PDF tools are enabled for the PDF viewer.
+     *
+     * When no experiment sets this value, it should follow the same build default as pdfjs.enableAndroidEditing.
+     */
+    val enablePdfTools: Boolean
+        get() = FxNimbus.features.pdfViewer.value().enablePdfSignatures ?: Config.channel.isNightlyOrDebug
 
     var accountSettingsNewUi by
         booleanPreference(

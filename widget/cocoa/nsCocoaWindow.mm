@@ -48,6 +48,7 @@
 #include "nsIDOMWindowUtils.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsILocalFileMac.h"
+#include "nsIObserverService.h"
 #include "nsIRollupListener.h"
 #include "nsIScreenManager.h"
 #include "nsISupportsPrimitives.h"
@@ -82,6 +83,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_general.h"
@@ -2748,7 +2750,8 @@ static bool ShouldDispatchBackForwardCommandForMouseButton(int16_t aButton) {
   }
 
   int16_t button = nsCocoaUtils::ButtonForEvent(theEvent);
-  if (ShouldDispatchBackForwardCommandForMouseButton(button)) {
+  if (ShouldDispatchBackForwardCommandForMouseButton(button) &&
+      !StaticPrefs::dom_event_mouse_xbuttons_enabled()) {
     WidgetCommandEvent appCommandEvent(
         true,
         (button == MouseButton::eX2) ? nsGkAtoms::Forward : nsGkAtoms::Back,
@@ -2777,7 +2780,10 @@ static bool ShouldDispatchBackForwardCommandForMouseButton(int16_t aButton) {
   }
 
   int16_t button = nsCocoaUtils::ButtonForEvent(theEvent);
-  if (ShouldDispatchBackForwardCommandForMouseButton(button)) {
+  const bool shouldDispatchBackForward =
+      ShouldDispatchBackForwardCommandForMouseButton(button);
+  if (!StaticPrefs::dom_event_mouse_xbuttons_enabled() &&
+      shouldDispatchBackForward) {
     return;
   }
 
@@ -2785,6 +2791,10 @@ static bool ShouldDispatchBackForwardCommandForMouseButton(int16_t aButton) {
                               WidgetMouseEvent::eReal);
   [self convertCocoaMouseEvent:theEvent toGeckoEvent:&geckoEvent];
   geckoEvent.mButton = button;
+  if (shouldDispatchBackForward) {
+    geckoEvent.mCommand =
+        button == MouseButton::eX2 ? nsGkAtoms::Forward : nsGkAtoms::Back;
+  }
 
   nsAutoRetainCocoaObject kungFuDeathGrip(self);
   mGeckoChild->DispatchInputEvent(&geckoEvent);
@@ -6487,6 +6497,7 @@ void nsCocoaWindow::CocoaWindowWillEnterFullscreen(bool aFullscreen) {
 }
 
 void nsCocoaWindow::CocoaWindowDidEnterFullscreen(bool aFullscreen) {
+  RefPtr<nsCocoaWindow> kungFuDeathGrip(this);
   EndOurNativeTransition();
   mHasStartedNativeFullscreen = false;
   // AppKit can finish the transition before removing its occluding overlay.
@@ -6564,6 +6575,18 @@ void nsCocoaWindow::CocoaWindowDidEnterFullscreen(bool aFullscreen) {
   if (!receivedExpectedFullscreen && mSizeMode == sizeModeBefore &&
       mWidgetListener) {
     mWidgetListener->FullscreenChangeFailed(aFullscreen);
+  }
+
+  // The fullscreen and sizemode events fire when the native transition starts,
+  // so tell observers, tests in particular, when it is over and another window
+  // can start one.
+  if (mWidgetListener) {
+    if (nsCOMPtr<nsIAppWindow> appWindow = mWidgetListener->GetAppWindow()) {
+      if (nsCOMPtr<nsIObserverService> obs = services::GetObserverService()) {
+        obs->NotifyObservers(appWindow,
+                             "macos-native-fullscreen-transition-end", nullptr);
+      }
+    }
   }
 }
 

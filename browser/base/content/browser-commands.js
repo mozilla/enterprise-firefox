@@ -185,7 +185,7 @@ var BrowserCommands = {
       case "tab": {
         const urls = homePage.split("|");
         const loadInBackground = Services.prefs.getBoolPref(
-          "browser.tabs.loadBookmarksInBackground",
+          "browser.tabs.loadUILinkInBackground",
           false
         );
         // The homepage observer event should only be triggered when the homepage opens

@@ -89,7 +89,6 @@ NS_IMPL_ISUPPORTS(DialogCloseWatcherListener, nsIDOMEventListener)
 // https://html.spec.whatwg.org/#computed-closed-by-state
 void HTMLDialogElement::GetClosedBy(nsAString& aResult) const {
   aResult.Truncate();
-  MOZ_ASSERT(StaticPrefs::dom_dialog_light_dismiss_enabled());
   const nsAttrValue* val = mAttrs.GetAttr(nsGkAtoms::closedby);
   // 1. If the state of dialog's closedby attribute is Auto:
   if (!val || val->GetEnumValue() == kClosedbyAuto->value) {
@@ -106,10 +105,6 @@ void HTMLDialogElement::GetClosedBy(nsAString& aResult) const {
 
 // https://html.spec.whatwg.org/#computed-closed-by-state
 HTMLDialogElement::ClosedBy HTMLDialogElement::GetClosedBy() const {
-  if (!StaticPrefs::dom_dialog_light_dismiss_enabled()) {
-    return static_cast<ClosedBy>(IsInTopLayer() ? kClosedbyModalDefault->value
-                                                : kClosedbyDefault->value);
-  }
   const nsAttrValue* val = mAttrs.GetAttr(nsGkAtoms::closedby);
   // 1. If the state of dialog's closedby attribute is Auto:
   if (!val || val->GetEnumValue() == kClosedbyAuto->value) {
@@ -133,8 +128,7 @@ bool HTMLDialogElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
                                        nsIPrincipal* aMaybeScriptedPrincipal,
                                        nsAttrValue& aResult) {
   if (aNamespaceID == kNameSpaceID_None) {
-    if (StaticPrefs::dom_dialog_light_dismiss_enabled() &&
-        aAttribute == nsGkAtoms::closedby) {
+    if (aAttribute == nsGkAtoms::closedby) {
       return ParseClosedByAttribute(aValue, aResult);
     }
   }
@@ -252,17 +246,13 @@ void HTMLDialogElement::RequestClose(Element* aSource,
   }
 
   // 3. Assert: subject's close watcher is not null.
-  if (StaticPrefs::dom_closewatcher_enabled()) {
-    MOZ_ASSERT(closeWatcher, "RequestClose needs mCloseWatcher");
-  }
+  MOZ_ASSERT(closeWatcher, "RequestClose needs mCloseWatcher");
 
   // 4. Set subject's enable close watcher for request close to true.
-  if (StaticPrefs::dom_closewatcher_enabled()) {
-    // XXX: Rather than store a "enable close watcher for request close" state,
-    // we set the CloseWatcher Enabled state to true manually here, and revert
-    // it lower down...
-    closeWatcher->SetEnabled(true);
-  }
+  // XXX: Rather than store a "enable close watcher for request close" state,
+  // we set the CloseWatcher Enabled state to true manually here, and revert
+  // it lower down...
+  closeWatcher->SetEnabled(true);
 
   // 5. Set subject's request close return value to returnValue.
   if (aReturnValue.isSome()) {
@@ -273,11 +263,7 @@ void HTMLDialogElement::RequestClose(Element* aSource,
   mRequestCloseSourceElement = do_GetWeakReference(aSource);
 
   // 7. Request to close subject's close watcher with false.
-  if (StaticPrefs::dom_closewatcher_enabled()) {
-    closeWatcher->RequestToClose(false);
-  } else {
-    RunCancelDialogSteps();
-  }
+  closeWatcher->RequestToClose(false);
 
   // 8. Set subject's enable close watcher for request close to false.
   if (closeWatcher) {
@@ -486,9 +472,7 @@ void HTMLDialogElement::ShowModal(Element* aSource, ErrorResult& aError) {
   SetOpen(true, aError);
 
   // 12. Assert: subject's close watcher is not null.
-  if (StaticPrefs::dom_closewatcher_enabled()) {
-    MOZ_ASSERT(mCloseWatcher, "ShowModal needs mCloseWatcher");
-  }
+  MOZ_ASSERT(mCloseWatcher, "ShowModal needs mCloseWatcher");
 
   // 13. Set is modal of subject to true.
   // 14. Set subject's node document to be blocked by the modal dialog subject.
@@ -602,34 +586,6 @@ void HTMLDialogElement::FocusDialog() {
 
 int32_t HTMLDialogElement::TabIndexDefault() { return 0; }
 
-void HTMLDialogElement::QueueCancelDialog() {
-  // queues an element task on the user interaction task source
-  OwnerDoc()->Dispatch(
-      NewRunnableMethod("HTMLDialogElement::RunCancelDialogSteps", this,
-                        &HTMLDialogElement::RunCancelDialogSteps));
-}
-
-void HTMLDialogElement::RunCancelDialogSteps() {
-  // 1) Let close be the result of firing an event named cancel at dialog,
-  // with the cancelable attribute initialized to true.
-  bool defaultAction = true;
-  nsContentUtils::DispatchTrustedEvent(this, u"cancel"_ns, CanBubble::eNo,
-                                       Cancelable::eYes, &defaultAction);
-
-  // 2) If close is true and dialog has an open attribute, then close the
-  // dialog with ~~no return value.~~
-  // XXX(keithamus): RequestClose's steps expect the return value to be
-  // RequestCloseReturnValue. RunCancelDialogSteps has been refactored out of
-  // the spec, over CloseWatcher though, so one day this code will need to be
-  // refactored when the CloseWatcher specifications settle.
-  if (defaultAction) {
-    Maybe<nsAutoString> retValue;
-    GetRequestCloseReturnValue(retValue);
-    RefPtr<Element> source = GetRequestCloseSourceElement();
-    Close(source, retValue);
-  }
-}
-
 bool HTMLDialogElement::IsValidCommandAction(Command aCommand) const {
   return nsGenericHTMLElement::IsValidCommandAction(aCommand) ||
          aCommand == Command::ShowModal || aCommand == Command::Close ||
@@ -690,7 +646,6 @@ void HTMLDialogElement::QueueToggleEventTask(Element* aSource) {
 
 // https://html.spec.whatwg.org/#set-the-dialog-close-watcher
 void HTMLDialogElement::SetDialogCloseWatcherIfNeeded() {
-  MOZ_ASSERT(StaticPrefs::dom_closewatcher_enabled(), "CloseWatcher enabled");
   // 1. Assert: dialog's close watcher is null.
   MOZ_ASSERT(!mCloseWatcher);
 
@@ -749,13 +704,11 @@ void HTMLDialogElement::SetupSteps() {
   OwnerDoc()->AddOpenDialog(*this);
 
   // 5. Set the dialog close watcher with subject.
-  if (StaticPrefs::dom_closewatcher_enabled()) {
-    SetDialogCloseWatcherIfNeeded();
-  }
+  SetDialogCloseWatcherIfNeeded();
 }
 
 void HTMLDialogElement::SetCloseWatcherEnabledState() {
-  if (StaticPrefs::dom_closewatcher_enabled() && mCloseWatcher) {
+  if (mCloseWatcher) {
     mCloseWatcher->SetEnabled(GetClosedBy() != ClosedBy::None);
   }
 }

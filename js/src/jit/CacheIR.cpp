@@ -2297,7 +2297,7 @@ bool IRGenerator::canOptimizeConstantDataProperty(NativeObject* holder,
   // Warp supports nursery objects and strings. Strings are atomized below,
   // and if that were not the case, WarpOracle would handle it. Warp does not
   // support nursery BigInts, a very uncommon case, so we currently don't
-  // optimize such properties.
+  // optimize such properties (bug 2092482).
   Value result = holder->getSlot(prop.slot());
   if (result.isGCThing() && !result.toGCThing()->isTenured() &&
       !result.isObject() && !result.isString()) {
@@ -14156,10 +14156,10 @@ AttachDecision CallIRGenerator::tryAttachCallNative(HandleFunction calleeFunc) {
     TRY_ATTACH(tryAttachInlinableNative(calleeFunc, flags));
   }
 
-  // Verify that spread calls have a reasonable number of arguments.
+  // Verify that calls have a reasonable number of arguments.
   // We check this after trying to attach inlinable natives, because some
-  // inlinable natives can safely ignore the limit.
-  if (isSpread && argsLength() > JIT_ARGS_LENGTH_MAX) {
+  // inlinable natives can safely ignore the limit for spread calls.
+  if (argsLength() > JIT_ARGS_LENGTH_MAX) {
     return AttachDecision::NoAction;
   }
 
@@ -14438,8 +14438,8 @@ AttachDecision CallIRGenerator::tryAttachBoundNative(
     return AttachDecision::NoAction;
   }
 
-  // Verify that spread calls have a reasonable number of arguments.
-  if (isSpread && argsLength() > JIT_ARGS_LENGTH_MAX) {
+  // Verify that calls have a reasonable number of arguments.
+  if (argsLength() > JIT_ARGS_LENGTH_MAX) {
     return AttachDecision::NoAction;
   }
 

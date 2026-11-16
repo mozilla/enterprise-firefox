@@ -401,13 +401,6 @@ add_task(async function test_run_search_generated_query_path() {
     response: "Start",
   });
 
-  // Turn 0 finishing regenerates the sidebar starters; answer that request so
-  // it doesn't reject turn 1's chat request.
-  await mockEngineManager.respondTo({
-    purpose: "convo-starters-sidebar",
-    response: "A suggested conversation starter.",
-  });
-
   // run_search hasn't run yet, so no untrusted web content has entered.
   Assert.equal(
     conversation.securityProperties.untrustedInput,

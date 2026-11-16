@@ -1154,16 +1154,13 @@ bool FFmpegVideoDecoder<LIBAV_VER>::FFmpegVulkanVideoDecoder::
   auto vkEnumeratePhysicalDevices =
       (PFN_vkEnumeratePhysicalDevices)vkGetInstanceProcAddr(
           instance, "vkEnumeratePhysicalDevices");
-  auto vkGetPhysicalDeviceProperties =
-      (PFN_vkGetPhysicalDeviceProperties)vkGetInstanceProcAddr(
-          instance, "vkGetPhysicalDeviceProperties");
   auto vkGetPhysicalDeviceProperties2 =
       (PFN_vkGetPhysicalDeviceProperties2)vkGetInstanceProcAddr(
           instance, "vkGetPhysicalDeviceProperties2");
   auto vkEnumerateDeviceExtensionProperties =
       (PFN_vkEnumerateDeviceExtensionProperties)vkGetInstanceProcAddr(
           instance, "vkEnumerateDeviceExtensionProperties");
-  if (!vkEnumeratePhysicalDevices || !vkGetPhysicalDeviceProperties ||
+  if (!vkEnumeratePhysicalDevices || !vkGetPhysicalDeviceProperties2 ||
       !vkEnumerateDeviceExtensionProperties) {
     NS_WARNING("Failed to get Vulkan enumeration functions");
     return false;
@@ -1185,23 +1182,22 @@ bool FFmpegVideoDecoder<LIBAV_VER>::FFmpegVulkanVideoDecoder::
   for (uint32_t i = 0; i < count; i++) {
     VkPhysicalDeviceProperties p = {};
     bool isDecoderMatchesRendererFound = false;
+    VkPhysicalDeviceDriverProperties driverProps = {};
+    driverProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
     VkPhysicalDeviceDrmPropertiesEXT drmProps = {};
     drmProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT;
-    if (vkGetPhysicalDeviceProperties2) {
-      VkPhysicalDeviceProperties2 props2 = {};
-      props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-      props2.pNext = &drmProps;
-      vkGetPhysicalDeviceProperties2(devices[i], &props2);
-      p = props2.properties;
-      isDecoderMatchesRendererFound =
-          rendererDrmMajor && rendererDrmMinor &&
-          ((drmProps.hasRender && rendererDrmMajor == drmProps.renderMajor &&
-            rendererDrmMinor == drmProps.renderMinor) ||
-           (drmProps.hasPrimary && rendererDrmMajor == drmProps.primaryMajor &&
-            rendererDrmMinor == drmProps.primaryMinor));
-    } else {
-      vkGetPhysicalDeviceProperties(devices[i], &p);
-    }
+    drmProps.pNext = &driverProps;
+    VkPhysicalDeviceProperties2 props2 = {};
+    props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    props2.pNext = &drmProps;
+    vkGetPhysicalDeviceProperties2(devices[i], &props2);
+    p = props2.properties;
+    isDecoderMatchesRendererFound =
+        rendererDrmMajor && rendererDrmMinor &&
+        ((drmProps.hasRender && rendererDrmMajor == drmProps.renderMajor &&
+          rendererDrmMinor == drmProps.renderMinor) ||
+         (drmProps.hasPrimary && rendererDrmMajor == drmProps.primaryMajor &&
+          rendererDrmMinor == drmProps.primaryMinor));
     if (p.deviceType != VK_PHYSICAL_DEVICE_TYPE_CPU) {
       uint32_t major = VK_API_VERSION_MAJOR(p.apiVersion);
       uint32_t minor = VK_API_VERSION_MINOR(p.apiVersion);
@@ -1212,8 +1208,9 @@ bool FFmpegVideoDecoder<LIBAV_VER>::FFmpegVulkanVideoDecoder::
           continue;
         }
 #  ifdef XP_LINUX
-        // The modeset workaround and DRM capability fallback are NVIDIA-only.
-        if (p.vendorID == 0x10de) {
+        // The modeset workaround and DRM capability fallback are specific to
+        // NVIDIA's proprietary Vulkan driver.
+        if (driverProps.driverID == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
           FFMPEGV_LOG("Checking {}: nvidia_drm modeset status", p.deviceName);
           if (NvidiaDrmModesetDisabled(drmProps)) {
             FFMPEGV_LOG(

@@ -45,6 +45,8 @@ support-files = [
   "test_smartwindow_prompts.mjs",
   "test_smartwindow_panel_list_page.html",
   "test_smartwindow_panel_list.mjs",
+  "test_smartwindow_onboarding_page.html",
+  "test_smartwindow_onboarding.mjs",
   "test_smartwindow_option_select_page.html",
   "test_smartwindow_option_select.mjs",
   "test_smartformfill.html",
@@ -84,8 +86,6 @@ skip-if = [
 ["browser_security_search_browsing_history.js"]
 
 ["browser_security_tab_group_mentions.js"]
-
-["browser_smart_actions_toolbar.js"]
 
 ["browser_smartformfill_form_review_editing.js"]
 
@@ -179,6 +179,8 @@ skip-if = [
 ["browser_smartwindow_metrics_telemetry.js"]
 
 ["browser_smartwindow_nimbus.js"]
+
+["browser_smartwindow_onboarding.js"]
 
 ["browser_smartwindow_option_select.js"]
 

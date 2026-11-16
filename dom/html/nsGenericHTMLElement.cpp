@@ -733,9 +733,6 @@ constexpr PopoverAttributeState ToPopoverAttributeState(
     case PopoverAttributeKeyword::Auto:
       return PopoverAttributeState::Auto;
     case PopoverAttributeKeyword::Hint:
-      if (!StaticPrefs::dom_element_popoverhint_enabled()) {
-        return PopoverAttributeState::Manual;
-      }
       return PopoverAttributeState::Hint;
     case PopoverAttributeKeyword::EmptyString:
       return PopoverAttributeState::Auto;
@@ -765,11 +762,6 @@ void nsGenericHTMLElement::AfterSetPopoverAttr() {
 
   PopoverAttributeState newState =
       mapPopoverState(GetParsedAttr(nsGkAtoms::popover));
-
-  if (!StaticPrefs::dom_element_popoverhint_enabled() &&
-      newState == PopoverAttributeState::Hint) {
-    newState = PopoverAttributeState::Manual;
-  }
 
   const PopoverAttributeState oldState = GetPopoverAttributeState();
 
@@ -3759,9 +3751,7 @@ void nsGenericHTMLElement::ShowPopoverInternal(Element* aSource,
       GetPopoverData()->SetOpenedInMode(PopoverAttributeState::Hint);
     }
     // 19.6. Set element's popover close watcher.
-    if (StaticPrefs::dom_closewatcher_enabled()) {
-      GetPopoverData()->EnsureCloseWatcher(this);
-    }
+    GetPopoverData()->EnsureCloseWatcher(this);
   }
 
   // 20. Set element's previously focused element to null.

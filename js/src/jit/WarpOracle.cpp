@@ -10,6 +10,7 @@
 
 #include <algorithm>
 
+#include "builtin/ModuleObject.h"
 #include "jit/CacheIR.h"
 #include "jit/CacheIRCompiler.h"
 #include "jit/CacheIRReader.h"
@@ -27,10 +28,13 @@
 #include "jit/TypeData.h"
 #include "jit/WarpBuilder.h"
 #include "js/ColumnNumber.h"  // JS::LimitedColumnNumberOneOrigin
+#include "js/Prefs.h"
 #include "util/DifferentialTesting.h"
 #include "vm/BuiltinObjectKind.h"
 #include "vm/BytecodeIterator.h"
 #include "vm/BytecodeLocation.h"
+#include "vm/Scope.h"
+#include "vm/Shape.h"
 
 #include "jit/InlineScriptTree-inl.h"
 #include "vm/BytecodeIterator-inl.h"
@@ -54,8 +58,16 @@ class MOZ_STACK_CLASS WarpScriptOracle {
   HandleScript script_;
   const CompileInfo* info_;
   ICScript* icScript_;
+
+  // The current function. Set only if we're inlining and the caller guards the
+  // callee is a specific function.
+  JSFunction* maybeFunction_;
+
   Vector<uint32_t, 16, SystemAllocPolicy> monomorphicInlineHints_;
   bool monomorphicInlineHintsComputed_ = false;
+
+  // Whether this script is nested in a module.
+  const bool isInModule_;
 
   // Index of the next ICEntry for getICEntry. This assumes the script's
   // bytecode is processed from first to last instruction.
@@ -67,6 +79,27 @@ class MOZ_STACK_CLASS WarpScriptOracle {
   }
 
   WarpEnvironment createEnvironment();
+  AbortReasonOr<bool> maybeAddConstantBinding(WarpOpSnapshotList& snapshots,
+                                              BytecodeLocation loc,
+                                              EnvironmentObject* env,
+                                              uint32_t slot);
+  // The scope of the binding accessed by an AliasedVar op and its environment
+  // object, if that's known at compile time.
+  struct AliasedVarTarget {
+    Scope* scope;
+    EnvironmentObject* env;
+  };
+  AliasedVarTarget findAliasedVarTarget(BytecodeLocation loc);
+  bool canSpecializeEnvironments() const;
+  AbortReasonOr<Ok> addKnownEnvironment(WarpOpSnapshotList& snapshots,
+                                        BytecodeLocation loc,
+                                        EnvironmentObject* env);
+  AbortReasonOr<Ok> maybeSnapshotGetAliasedVar(WarpOpSnapshotList& snapshots,
+                                               BytecodeLocation loc);
+  AbortReasonOr<Ok> maybeSnapshotSetAliasedVar(WarpOpSnapshotList& snapshots,
+                                               BytecodeLocation loc);
+  AbortReasonOr<Ok> snapshotGetImport(WarpOpSnapshotList& snapshots,
+                                      BytecodeLocation loc);
   AbortReasonOr<Ok> maybeInlineIC(WarpOpSnapshotList& snapshots,
                                   BytecodeLocation loc);
   AbortReasonOr<Ok> ensureMonomorphicInlineHints();
@@ -90,14 +123,19 @@ class MOZ_STACK_CLASS WarpScriptOracle {
 
  public:
   WarpScriptOracle(JSContext* cx, WarpOracle* oracle, HandleScript script,
-                   const CompileInfo* info, ICScript* icScript)
+                   const CompileInfo* info, ICScript* icScript,
+                   JSFunction* maybeFunction = nullptr)
       : cx_(cx),
         oracle_(oracle),
         mirGen_(oracle->mirGen()),
         alloc_(mirGen_.alloc()),
         script_(script),
         info_(info),
-        icScript_(icScript) {}
+        icScript_(icScript),
+        maybeFunction_(maybeFunction),
+        isInModule_(script->bodyScope()->hasOnChain<ModuleScope>()) {
+    MOZ_ASSERT_IF(maybeFunction, maybeFunction->nonLazyScript() == script);
+  }
 
   AbortReasonOr<WarpScriptSnapshot*> createScriptSnapshot();
 
@@ -235,12 +273,12 @@ template <typename T, typename... Args>
   return true;
 }
 
-[[nodiscard]] static bool AddWarpGetImport(TempAllocator& alloc,
-                                           WarpOpSnapshotList& snapshots,
-                                           uint32_t offset, JSScript* script,
-                                           PropertyName* name) {
-  ModuleEnvironmentObject* env = GetModuleEnvironmentForScript(script);
+AbortReasonOr<Ok> WarpScriptOracle::snapshotGetImport(
+    WarpOpSnapshotList& snapshots, BytecodeLocation loc) {
+  ModuleEnvironmentObject* env = GetModuleEnvironmentForScript(script_);
   MOZ_ASSERT(env);
+
+  PropertyName* name = loc.getPropertyName(script_);
 
   mozilla::Maybe<PropertyInfo> prop;
   ModuleEnvironmentObject* targetEnv;
@@ -248,15 +286,209 @@ template <typename T, typename... Args>
 
   uint32_t numFixedSlots = targetEnv->numFixedSlots();
   uint32_t slot = prop->slot();
+  Value value = targetEnv->getSlot(slot);
+
+  if (!prop->writable() && JS::Prefs::ion_environment_specialization()) {
+    bool addedConstant =
+        MOZ_TRY(maybeAddConstantBinding(snapshots, loc, targetEnv, slot));
+    if (addedConstant) {
+      return Ok();
+    }
+  }
 
   // In the rare case where this import hasn't been initialized already (we have
   // an import cycle where modules reference each other's imports), we need a
   // check.
-  bool needsLexicalCheck =
-      targetEnv->getSlot(slot).isMagic(JS_UNINITIALIZED_LEXICAL);
+  bool needsLexicalCheck = value.isMagic(JS_UNINITIALIZED_LEXICAL);
 
-  return AddOpSnapshot<WarpGetImport>(alloc, snapshots, offset, targetEnv,
-                                      numFixedSlots, slot, needsLexicalCheck);
+  if (!AddOpSnapshot<WarpGetImport>(alloc_, snapshots,
+                                    loc.bytecodeToOffset(script_), targetEnv,
+                                    numFixedSlots, slot, needsLexicalCheck)) {
+    return abort(AbortReason::Alloc);
+  }
+  return Ok();
+}
+
+bool WarpOracle::isImmutableEnvironmentSlot(Scope* scope, uint32_t slot) {
+  // Check the cached information for this scope.
+  for (const FirstImmutableSlot& entry : firstImmutableSlots_) {
+    if (entry.scope == scope) {
+      return slot >= entry.slot;
+    }
+  }
+
+  SharedShape* shape = scope->environmentShape();
+  MOZ_ASSERT(shape);
+  MOZ_ASSERT(slot < shape->slotSpan());
+
+  // Non-writable properties for e.g. |const| bindings are stored last, so walk
+  // backwards until we find the first writable property.
+  uint32_t firstImmutableSlot = shape->slotSpan();
+  for (SharedShapePropertyIter<NoGC> iter(shape); !iter.done(); iter++) {
+    if (iter->writable()) {
+      break;
+    }
+    firstImmutableSlot--;
+    MOZ_ASSERT(iter->slot() == firstImmutableSlot);
+  }
+#ifdef DEBUG
+  for (SharedShapePropertyIter<NoGC> iter(shape); !iter.done(); iter++) {
+    MOZ_ASSERT_IF(iter->slot() < firstImmutableSlot, iter->writable());
+  }
+#endif
+
+  // This is just a cache, so ignore OOM.
+  (void)firstImmutableSlots_.emplaceBack(scope, firstImmutableSlot);
+  return slot >= firstImmutableSlot;
+}
+
+AbortReasonOr<bool> WarpScriptOracle::maybeAddConstantBinding(
+    WarpOpSnapshotList& snapshots, BytecodeLocation loc, EnvironmentObject* env,
+    uint32_t slot) {
+  Value value = env->getSlot(slot);
+
+  // Uninitialized lexical bindings need a TDZ check.
+  if (value.isMagic()) {
+    return false;
+  }
+
+  // MConstant requires strings to be atoms. Store the atom in the environment
+  // so that we don't have to atomize the string again for later compilations.
+  if (value.isString() && !value.toString()->isAtom()) {
+    JSAtom* atom = AtomizeString(cx_, value.toString());
+    if (!atom) {
+      return abort(AbortReason::Alloc);
+    }
+    value.setString(atom);
+    env->setSlot(slot, value);
+  }
+
+  uint32_t offset = loc.bytecodeToOffset(script_);
+  if (value.isGCThing() && IsInsideNursery(value.toGCThing())) {
+    if (!value.isObject()) {
+      // Nursery BigInts aren't supported yet (bug 2092482).
+      MOZ_ASSERT(value.isBigInt());
+      return false;
+    }
+    uint32_t nurseryIndex;
+    if (!oracle_->registerNurseryObject(&value.toObject(), &nurseryIndex)) {
+      return abort(AbortReason::Alloc);
+    }
+    if (!AddOpSnapshot<WarpConstantBinding>(alloc_, snapshots, offset,
+                                            nurseryIndex)) {
+      return abort(AbortReason::Alloc);
+    }
+    return true;
+  }
+
+  if (!AddOpSnapshot<WarpConstantBinding>(alloc_, snapshots, offset, value)) {
+    return abort(AbortReason::Alloc);
+  }
+  return true;
+}
+
+WarpScriptOracle::AliasedVarTarget WarpScriptOracle::findAliasedVarTarget(
+    BytecodeLocation loc) {
+  // Walk the scopes. If we know the target function, we also walk its
+  // environment chain once we reach the function's enclosing scope.
+  Scope* enclosingScope = script_->enclosingScope();
+  JSObject* env = nullptr;
+  uint32_t hops = loc.getEnvironmentCoordinate().hops();
+  for (ScopeIter si(script_->innermostScope(loc.toRawBytecode())); si; si++) {
+    if (si.scope() == enclosingScope && maybeFunction_) {
+      env = maybeFunction_->environment();
+    }
+    if (!si.hasSyntacticEnvironment()) {
+      continue;
+    }
+    if (hops > 0) {
+      hops--;
+      if (env) {
+        env = &env->as<EnvironmentObject>().enclosingEnvironment();
+      }
+      continue;
+    }
+
+    Scope* scope = si.scope();
+    if (scope->is<ModuleScope>()) {
+      // A module scope has a single environment object.
+      ModuleEnvironmentObject* moduleEnv =
+          scope->as<ModuleScope>().module()->environment();
+      MOZ_ASSERT_IF(moduleEnv, moduleEnv->shape() == scope->environmentShape());
+      return {scope, moduleEnv};
+    }
+
+    return {scope, env ? &env->as<EnvironmentObject>() : nullptr};
+  }
+  MOZ_CRASH("Invalid environment coordinate");
+}
+
+bool WarpScriptOracle::canSpecializeEnvironments() const {
+  if (!JS::Prefs::ion_environment_specialization()) {
+    return false;
+  }
+
+  // Environments are known at compile time only if we're inlining a specific
+  // JSFunction or if we're in a module script.
+  return maybeFunction_ || isInModule_;
+}
+
+AbortReasonOr<Ok> WarpScriptOracle::addKnownEnvironment(
+    WarpOpSnapshotList& snapshots, BytecodeLocation loc,
+    EnvironmentObject* env) {
+  uint32_t offset = loc.bytecodeToOffset(script_);
+  if (IsInsideNursery(env)) {
+    uint32_t nurseryIndex;
+    if (!oracle_->registerNurseryObject(env, &nurseryIndex)) {
+      return abort(AbortReason::Alloc);
+    }
+    if (!AddOpSnapshot<WarpKnownEnvironment>(alloc_, snapshots, offset,
+                                             nurseryIndex)) {
+      return abort(AbortReason::Alloc);
+    }
+    return Ok();
+  }
+
+  if (!AddOpSnapshot<WarpKnownEnvironment>(alloc_, snapshots, offset, env)) {
+    return abort(AbortReason::Alloc);
+  }
+  return Ok();
+}
+
+AbortReasonOr<Ok> WarpScriptOracle::maybeSnapshotGetAliasedVar(
+    WarpOpSnapshotList& snapshots, BytecodeLocation loc) {
+  if (!canSpecializeEnvironments()) {
+    return Ok();
+  }
+
+  AliasedVarTarget target = findAliasedVarTarget(loc);
+  if (!target.env) {
+    return Ok();
+  }
+
+  uint32_t slot = loc.getEnvironmentCoordinate().slot();
+  if (oracle_->isImmutableEnvironmentSlot(target.scope, slot)) {
+    bool addedConstant =
+        MOZ_TRY(maybeAddConstantBinding(snapshots, loc, target.env, slot));
+    if (addedConstant) {
+      return Ok();
+    }
+  }
+
+  return addKnownEnvironment(snapshots, loc, target.env);
+}
+
+AbortReasonOr<Ok> WarpScriptOracle::maybeSnapshotSetAliasedVar(
+    WarpOpSnapshotList& snapshots, BytecodeLocation loc) {
+  if (!canSpecializeEnvironments()) {
+    return Ok();
+  }
+
+  AliasedVarTarget target = findAliasedVarTarget(loc);
+  if (!target.env) {
+    return Ok();
+  }
+  return addKnownEnvironment(snapshots, loc, target.env);
 }
 
 ICEntry& WarpScriptOracle::getICEntryAndFallback(BytecodeLocation loc,
@@ -422,13 +654,18 @@ AbortReasonOr<WarpScriptSnapshot*> WarpScriptOracle::createScriptSnapshot() {
         break;
       }
 
-      case JSOp::GetImport: {
-        PropertyName* name = loc.getPropertyName(script_);
-        if (!AddWarpGetImport(alloc_, opSnapshots, offset, script_, name)) {
-          return abort(AbortReason::Alloc);
-        }
+      case JSOp::GetAliasedVar:
+        MOZ_TRY(maybeSnapshotGetAliasedVar(opSnapshots, loc));
         break;
-      }
+
+      case JSOp::SetAliasedVar:
+      case JSOp::InitAliasedLexical:
+        MOZ_TRY(maybeSnapshotSetAliasedVar(opSnapshots, loc));
+        break;
+
+      case JSOp::GetImport:
+        MOZ_TRY(snapshotGetImport(opSnapshots, loc));
+        break;
 
       case JSOp::GetElemSuper: {
 #if defined(JS_CODEGEN_X86)
@@ -676,9 +913,6 @@ AbortReasonOr<WarpScriptSnapshot*> WarpScriptOracle::createScriptSnapshot() {
       case JSOp::Callee:
       case JSOp::ToAsyncIter:
       case JSOp::ObjWithProto:
-      case JSOp::GetAliasedVar:
-      case JSOp::SetAliasedVar:
-      case JSOp::InitAliasedLexical:
       case JSOp::EnvCallee:
       case JSOp::MoreIter:
       case JSOp::EndIter:
@@ -1487,7 +1721,8 @@ AbortReasonOr<bool> WarpScriptOracle::maybeInlineCall(
 
   // Take a snapshot of the inlined script (which may do more
   // inlining recursively).
-  WarpScriptOracle scriptOracle(cx_, oracle_, targetScript, info, icScript);
+  WarpScriptOracle scriptOracle(cx_, oracle_, targetScript, info, icScript,
+                                inlineData->targetFunction);
 
   AbortReasonOr<WarpScriptSnapshot*> maybeScriptSnapshot =
       scriptOracle.createScriptSnapshot();

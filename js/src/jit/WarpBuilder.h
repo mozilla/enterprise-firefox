@@ -281,6 +281,8 @@ class MOZ_STACK_CLASS WarpBuilder : public WarpBuilderShared {
                                            CacheKind kind);
 
   [[nodiscard]] bool buildEnvironmentChain();
+  void pushConstantBinding(const WarpConstantBinding* snapshot);
+  MDefinition* aliasedVarEnvironment(BytecodeLocation loc);
   MInstruction* buildNamedLambdaEnv(MDefinition* callee, MDefinition* env,
                                     NamedLambdaObject* templateObj,
                                     gc::Heap initialHeap);

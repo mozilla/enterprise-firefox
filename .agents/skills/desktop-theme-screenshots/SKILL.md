@@ -48,7 +48,7 @@ decides what you capture, force or log:
   later captures depend on it.
 - **Too small for the capture to isolate.** A color that moves a few sRGB units
   in any painted property, or a box that moves less than a device pixel, is lost
-  to rounding or to `pixel-diff.py`'s threshold (§5). Log the computed value of
+  to rounding or to `./mach theme pixel-diff`'s threshold (§5). Log the computed value of
   each property the diff changes, on the element it changes, in both halves, and
   hand over the measurement, as for a 1px `color-mix()` border. A hue change
   across a wide area (a translucent shadow's color) can stay visible below the
@@ -75,7 +75,7 @@ decides what you capture, force or log:
 | Surface | Route |
 |---|---|
 | Chrome, rendered by a suite's fixture | a scratch browser-chrome test pasting `capture.js`; `capture-pair.sh` (§3) runs it |
-| Chrome, no fixture needed | `firefox-probe.py --context chrome --async` running `capture.js` |
+| Chrome, no fixture needed | `firefox-probe.py --realm chrome --async` running `capture.js` |
 | Content, such as a web page or an about: page | `firefox-probe.py --steps` with a `drawSnapshot` step; the devtools MCP last |
 | Chrome ink inside the browser's rect, such as an outline or border drawn over the page's edge | a compositor grab: `drawWindow` paints chrome over the tab panel's background, never under the composited page, so ink the page covers reads visible (§1 "Chrome and content canvases" in `desktop-theme-probing`'s [`measuring-pixels.md`](../desktop-theme-probing/references/measuring-pixels.md)) |
 | An open panel or menupopup | a compositor grab (§2 "The compositor's output" in `desktop-theme-probing`'s [`measuring-pixels.md`](../desktop-theme-probing/references/measuring-pixels.md)) |
@@ -133,7 +133,7 @@ the browser's stdout, so include `globalThis.__shots` in what the probe returns
 `SHOT` from it. A string-typed pref that looks like an integer takes single
 quotes, as in `--setpref "layout.css.devPixelsPerPx='2'"`.
 
-**Content route.** A `--steps` list run with `--context content --url <page>`
+**Content route.** A `--steps` list run with `--realm content --url <page>`
 drives the page headless, and a `chrome` step calling
 `gBrowser.selectedBrowser.browsingContext.currentWindowGlobal.drawSnapshot(rect,
 scale, "white")` composites the content process into an `ImageBitmap`; draw it
@@ -253,18 +253,22 @@ guards the other direction: if it differs, the capture picks up run-to-run noise
 and neither half is trustworthy.
 
 To learn whether the files differ *where you changed something*,
-`scripts/pixel-diff.py` prints the count of differing pixels and their bounding
+`./mach theme pixel-diff` prints the count of differing pixels and their bounding
 box, confined by `--rect` to the element; a zero count also reports the
 differences under `--threshold`, which is §1's "too small" case. `--help`
 covers the rect's origin, `--dpr`, `--offset`, `--lines` (what a caption for a
 change one or two device pixels wide quotes) and the exit codes; the host's
 platform file in `desktop-theme-probing`, section GRABS, gives a grab's scale.
 It needs Pillow, which the `wpt` site carries. On Linux the site's first run can
-print a `PyGObject` build failure, an optional package, and then succeed, so
-ignore the warning and read the exit code:
+print a `PyGObject` build failure, an optional package, and then succeed (bug
+2090261), so ignore the warning and read the exit code. A completed comparison
+exits 0 when no pixel inside `--rect` differs by more than `--threshold`, 1 when
+some do and 2 on an error. Mach itself exits 1 when it fails before the
+comparison runs (e.g. the `wpt` site fails to set up), so a 1 is a result only
+when the count and bounding box were printed:
 
 ```sh
-./mach python --virtualenv wpt -- .claude/skills/desktop-theme-screenshots/scripts/pixel-diff.py \
+./mach theme pixel-diff \
   after-<name>.png before-<name>.png --rect <x>,<y>,<w>,<h>
 ```
 

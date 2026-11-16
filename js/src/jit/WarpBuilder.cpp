@@ -2091,9 +2091,36 @@ MDefinition* WarpBuilder::walkEnvironmentChain(uint32_t numHops) {
   return env;
 }
 
+MDefinition* WarpBuilder::aliasedVarEnvironment(BytecodeLocation loc) {
+  if (auto* snapshot = getOpSnapshot<WarpKnownEnvironment>(loc)) {
+    if (snapshot->isNurseryEnvironment()) {
+      auto* obj = MNurseryObject::New(alloc(), snapshot->nurseryIndex());
+      current->add(obj);
+      return obj;
+    }
+    return constant(ObjectValue(*snapshot->env()));
+  }
+  return walkEnvironmentChain(loc.getEnvironmentCoordinate().hops());
+}
+
+void WarpBuilder::pushConstantBinding(const WarpConstantBinding* snapshot) {
+  if (snapshot->isNurseryObject()) {
+    auto* obj = MNurseryObject::New(alloc(), snapshot->nurseryIndex());
+    current->add(obj);
+    current->push(obj);
+    return;
+  }
+  pushConstant(snapshot->value());
+}
+
 bool WarpBuilder::build_GetAliasedVar(BytecodeLocation loc) {
+  if (auto* snapshot = getOpSnapshot<WarpConstantBinding>(loc)) {
+    pushConstantBinding(snapshot);
+    return true;
+  }
+
   EnvironmentCoordinate ec = loc.getEnvironmentCoordinate();
-  MDefinition* obj = walkEnvironmentChain(ec.hops());
+  MDefinition* obj = aliasedVarEnvironment(loc);
   if (!obj) {
     return false;
   }
@@ -2117,7 +2144,7 @@ bool WarpBuilder::build_GetAliasedVar(BytecodeLocation loc) {
 bool WarpBuilder::build_SetAliasedVar(BytecodeLocation loc) {
   EnvironmentCoordinate ec = loc.getEnvironmentCoordinate();
   MDefinition* val = current->peek(-1);
-  MDefinition* obj = walkEnvironmentChain(ec.hops());
+  MDefinition* obj = aliasedVarEnvironment(loc);
   if (!obj) {
     return false;
   }
@@ -3292,6 +3319,11 @@ MInstruction* WarpBuilder::buildLoadSlot(MDefinition* obj,
 }
 
 bool WarpBuilder::build_GetImport(BytecodeLocation loc) {
+  if (auto* constant = getOpSnapshot<WarpConstantBinding>(loc)) {
+    pushConstantBinding(constant);
+    return true;
+  }
+
   auto* snapshot = getOpSnapshot<WarpGetImport>(loc);
 
   ModuleEnvironmentObject* targetEnv = snapshot->targetEnv();

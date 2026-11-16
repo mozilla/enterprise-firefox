@@ -18,7 +18,7 @@ add_setup(async () => {
     Services.prefs.clearUserPref("middlemouse.openNewWindow");
     Services.prefs.clearUserPref("browser.tabs.opentabfor.middleclick");
     Services.prefs.clearUserPref("browser.startup.homepage");
-    Services.prefs.clearUserPref("browser.tabs.loadBookmarksInBackground");
+    Services.prefs.clearUserPref("browser.tabs.loadUILinkInBackground");
     SpecialPowers.clipboardCopyString("");
 
     CustomizableUI.removeWidgetFromArea("home-button");
@@ -230,12 +230,12 @@ async function testMiddleClickOnHomeButton({
 }) {
   info(`middlemouse.paste [${isMiddleMousePastePrefOn}]`);
   info(`browser.startup.homepage [${startPagePref}]`);
-  info(`browser.tabs.loadBookmarksInBackground [${isLoadInBackground}]`);
+  info(`browser.tabs.loadUILinkInBackground [${isLoadInBackground}]`);
 
   info("Set initial value");
   Services.prefs.setCharPref("browser.startup.homepage", startPagePref);
   Services.prefs.setBoolPref(
-    "browser.tabs.loadBookmarksInBackground",
+    "browser.tabs.loadUILinkInBackground",
     isLoadInBackground
   );
   Services.prefs.setBoolPref("middlemouse.paste", isMiddleMousePastePrefOn);

@@ -158,6 +158,22 @@ void WarpGetIntrinsic::dumpData(GenericPrinter& out) const {
   out.printf("    intrinsic: 0x%016" PRIx64 "\n", intrinsic().asRawBits());
 }
 
+void WarpConstantBinding::dumpData(GenericPrinter& out) const {
+  if (isNurseryObject()) {
+    out.printf("    nurseryIndex: %u\n", nurseryIndex());
+  } else {
+    out.printf("    value: 0x%016" PRIx64 "\n", value().asRawBits());
+  }
+}
+
+void WarpKnownEnvironment::dumpData(GenericPrinter& out) const {
+  if (isNurseryEnvironment()) {
+    out.printf("    nurseryIndex: %u\n", nurseryIndex());
+  } else {
+    out.printf("    env: 0x%p\n", env());
+  }
+}
+
 void WarpGetImport::dumpData(GenericPrinter& out) const {
   out.printf("    targetEnv: 0x%p\n", targetEnv());
   out.printf("    numFixedSlots: %u\n", numFixedSlots());
@@ -327,6 +343,20 @@ void WarpBuiltinObject::traceData(JSTracer* trc) {
 
 void WarpGetIntrinsic::traceData(JSTracer* trc) {
   TraceOffthreadGCPtr(trc, intrinsic_, "warp-intrinsic");
+}
+
+void WarpConstantBinding::traceData(JSTracer* trc) {
+  if (!isNurseryObject()) {
+    TraceOffthreadGCPtr(trc, value_.as<OffthreadGCPtr<Value>>(),
+                        "warp-constant-binding");
+  }
+}
+
+void WarpKnownEnvironment::traceData(JSTracer* trc) {
+  if (!isNurseryEnvironment()) {
+    TraceOffthreadGCPtr(trc, env_.as<OffthreadGCPtr<EnvironmentObject*>>(),
+                        "warp-known-env");
+  }
 }
 
 void WarpGetImport::traceData(JSTracer* trc) {
