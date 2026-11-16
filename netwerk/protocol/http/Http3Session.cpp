@@ -347,6 +347,7 @@ nsresult Http3Session::SendPriorityUpdateFrame(uint64_t aStreamId,
 static void ForgetStreamQueueMembership(Http3StreamBase* aStream) {
   aStream->SetInTxQueue(false);
   aStream->SetQueued(false);
+  aStream->SetInRxQueue(false);
 }
 
 // Shutdown the http3session and close all transactions.
@@ -489,7 +490,9 @@ void Http3Session::Shutdown() {
   while ((stream = mReadyForWrite.PopFront())) {
     stream->SetInTxQueue(false);
   }
-  mSlowConsumersReadyForRead.Clear();
+  while ((stream = mSlowConsumersReadyForRead.PopFront())) {
+    stream->SetInRxQueue(false);
+  }
   mWebTransportStreams.Clear();
 }
 
@@ -1680,8 +1683,10 @@ void Http3Session::RemoveStreamFromQueues(Http3StreamBase* aStream) {
   if (aStream->Queued()) {
     RemoveStreamFromQueue(aStream, mQueuedStreams);
   }
+  if (aStream->IsInRxQueue()) {
+    RemoveStreamFromQueue(aStream, mSlowConsumersReadyForRead);
+  }
   ForgetStreamQueueMembership(aStream);
-  mSlowConsumersReadyForRead.RemoveElement(aStream);
 }
 
 // This is called by Http3Stream::OnReadSegment.
@@ -2212,13 +2217,12 @@ void Http3Session::MaybeResumeSend() {
 }
 
 nsresult Http3Session::ProcessSlowConsumers() {
-  if (mSlowConsumersReadyForRead.IsEmpty()) {
+  RefPtr<Http3StreamBase> slowConsumer = mSlowConsumersReadyForRead.PopFront();
+  if (!slowConsumer) {
     return NS_OK;
   }
-
-  RefPtr<Http3StreamBase> slowConsumer =
-      mSlowConsumersReadyForRead.ElementAt(0);
-  mSlowConsumersReadyForRead.RemoveElementAt(0);
+  MOZ_ASSERT(slowConsumer->IsInRxQueue());
+  slowConsumer->SetInRxQueue(false);
 
   nsresult rv = ProcessTransactionRead(slowConsumer);
 
@@ -2714,7 +2718,10 @@ void Http3Session::TransactionHasDataToRecv(nsAHttpTransaction* caller) {
 void Http3Session::ConnectSlowConsumer(Http3StreamBase* stream) {
   LOG3(("Http3Session::ConnectSlowConsumer %p 0x%" PRIx64 "\n", this,
         stream->StreamId()));
-  mSlowConsumersReadyForRead.AppendElement(stream);
+  if (!stream->IsInRxQueue()) {
+    mSlowConsumersReadyForRead.Push(stream);
+    stream->SetInRxQueue(true);
+  }
   (void)ForceRecv();
 }
 
@@ -3270,26 +3277,31 @@ void Http3Session::SendDatagram(Http3WebTransportSession* aSession,
        this, static_cast<uint32_t>(rv), belowHighWaterMark, aSendGroupId,
        aSendOrder));
 
-  // Per spec section 4.3 step 9: if queue is below high water mark,
-  // resolve promise immediately (send OnDatagramReady now).
-  // neqo will also emit a DatagramOutcome event for this datagram once it is
-  // actually sent/dropped, which results in a second, redundant
-  // OnDatagramReady/DatagramReady for the same tracking ID. This is
-  // intentional: the content-process side treats an unknown tracking ID as a
-  // harmless no-op (the promise was already resolved by the first
-  // notification), so we accept the extra IPC round-trip rather than track
-  // per-ID dedup state here.
-  if (aTrackingId && NS_SUCCEEDED(rv) && belowHighWaterMark) {
+  // Settle the write as soon as neqo has accepted or refused the datagram,
+  // whether or not the queue is above its high water mark.  neqo reports no
+  // later outcome for a queued datagram that expires or is evicted, and
+  // Http3Client doesn't forward the ones it does report, so a write left
+  // waiting for one would never settle, and content would stop writing once
+  // outgoingMaxBufferedDatagrams of them were outstanding.
+  //
+  // This knowingly departs from writeDatagrams
+  // (https://w3c.github.io/webtransport/#writedatagrams), which holds a write
+  // made while the send queue is full until queued datagrams are dequeued;
+  // bug 1818883 restores backpressure by pacing writes against neqo's queue
+  // capacity.
+  if (aTrackingId && NS_SUCCEEDED(rv)) {
     aSession->OnOutgoingDatagramOutCome(
         aTrackingId, WebTransportSessionEventListener::DatagramOutcome::SENT);
   }
 
-  // Only report immediate failures if queuing itself failed.
   if (aTrackingId && NS_FAILED(rv)) {
     WebTransportSessionEventListener::DatagramOutcome outcome;
     if (rv == NS_ERROR_NOT_AVAILABLE) {
       outcome = WebTransportSessionEventListener::DatagramOutcome::
           DROPPED_TOO_MUCH_DATA;
+    } else if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
+      outcome =
+          WebTransportSessionEventListener::DatagramOutcome::DROPPED_QUEUE_FULL;
     } else {
       outcome = WebTransportSessionEventListener::DatagramOutcome::UNKNOWN;
     }
@@ -3428,6 +3440,9 @@ already_AddRefed<HttpConnectionUDP> Http3Session::CreateTunnelStream(
 
   RefPtr<HttpConnectionUDP> conn =
       stream->GetHttp3ConnectUDPStream()->CreateUDPConnection(aCallbacks);
+  if (conn) {
+    conn->SetTunnelOverHttp3();
+  }
   return conn.forget();
 }
 

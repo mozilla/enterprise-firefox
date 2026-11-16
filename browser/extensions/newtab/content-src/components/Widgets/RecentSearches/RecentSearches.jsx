@@ -6,7 +6,12 @@
 import React, { useCallback } from "react";
 import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
-import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
+import {
+  WIDGET_REGISTRY,
+  resolveWidgetSize,
+  WIDGET_USER_ACTIONS,
+  WIDGET_SOURCES,
+} from "common/WidgetsRegistry.mjs";
 import { WidgetMenuButton } from "../WidgetMenuButton";
 import { WidgetMenuFooter } from "../WidgetMenuFooter";
 import { SizeSubmenu } from "../SizeSubmenu";
@@ -14,9 +19,8 @@ import { useWidgetTelemetry } from "../useWidgetTelemetry";
 import { formatRelativeTime } from "content-src/lib/utils";
 
 const USER_ACTION_TYPES = {
-  CHANGE_SIZE: "change_size",
+  ...WIDGET_USER_ACTIONS,
   CHANGE_TAB: "change_tab",
-  LEARN_MORE: "learn_more",
   OPEN_LINK: "open_link",
   REMOVE_SEARCH: "remove_search",
 };
@@ -117,7 +121,7 @@ function RecentSearches({
       // `value` is action_value; `size` overrides the reported widget_size,
       // which would otherwise still be the pre-change size.
       recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
-        source: "context_menu",
+        source: WIDGET_SOURCES.CONTEXT_MENU,
         value: size,
         size,
       });
@@ -128,7 +132,9 @@ function RecentSearches({
 
   // The shared footer opens the support link; here we only record the click.
   function handleLearnMore() {
-    recordUserAction(USER_ACTION_TYPES.LEARN_MORE, { source: "context_menu" });
+    recordUserAction(USER_ACTION_TYPES.LEARN_MORE, {
+      source: WIDGET_SOURCES.CONTEXT_MENU,
+    });
     handleInteraction();
   }
 
@@ -144,7 +150,7 @@ function RecentSearches({
         })
       );
       recordUserAction(USER_ACTION_TYPES.CHANGE_TAB, {
-        source: "widget",
+        source: WIDGET_SOURCES.WIDGET,
         value: tab,
       });
       handleInteraction();
@@ -160,7 +166,9 @@ function RecentSearches({
           data: { search },
         })
       );
-      recordUserAction(USER_ACTION_TYPES.REMOVE_SEARCH, { source: "widget" });
+      recordUserAction(USER_ACTION_TYPES.REMOVE_SEARCH, {
+        source: WIDGET_SOURCES.WIDGET,
+      });
       handleInteraction();
     },
     [dispatch, recordUserAction, handleInteraction]
@@ -184,7 +192,9 @@ function RecentSearches({
           },
         })
       );
-      recordUserAction(USER_ACTION_TYPES.OPEN_LINK, { source: "widget" });
+      recordUserAction(USER_ACTION_TYPES.OPEN_LINK, {
+        source: WIDGET_SOURCES.WIDGET,
+      });
       handleInteraction();
     },
     [dispatch, recordUserAction, handleInteraction]

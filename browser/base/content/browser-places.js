@@ -785,14 +785,7 @@ class HistoryMenu extends PlacesMenu {
     aEvent = BrowserUtils.getRootEvent(aEvent);
     let placesNode = aEvent.target._placesNode;
     if (placesNode) {
-      if (!PrivateBrowsingUtils.isWindowPrivate(window)) {
-        PlacesUIUtils.markPageAsTyped(placesNode.uri);
-      }
-      openUILink(placesNode.uri, aEvent, {
-        ignoreAlt: true,
-        triggeringPrincipal:
-          Services.scriptSecurityManager.getSystemPrincipal(),
-      });
+      PlacesUIUtils.openNodeWithEvent(placesNode, aEvent);
     }
   }
 }

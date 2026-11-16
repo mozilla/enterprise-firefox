@@ -21,12 +21,7 @@ class PdfSignatureTest : BaseSessionTest() {
     @Test
     @WithDisplay(width = 400, height = 600)
     fun addSignatureToPdf() {
-        sessionRule.setPrefsUntilTestEnd(
-            mapOf(
-                "pdfjs.enableSignatureEditor" to true,
-                "pdfjs.annotationEditorMode" to 0,
-            )
-        )
+        sessionRule.setPrefsUntilTestEnd(mapOf("pdfjs.enableAndroidEditing" to true))
 
         mainSession.loadTestPath(TRACEMONKEY_PDF_PATH)
         mainSession.waitForPageStop()

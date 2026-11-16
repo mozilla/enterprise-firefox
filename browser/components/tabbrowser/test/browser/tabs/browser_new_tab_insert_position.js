@@ -131,7 +131,7 @@ async function doTest(
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.tabs.opentabfor.middleclick", true],
-      ["browser.tabs.loadBookmarksInBackground", false],
+      ["browser.tabs.loadUILinkInBackground", false],
       ["browser.tabs.insertRelatedAfterCurrent", aInsertRelatedAfterCurrent],
       ["browser.tabs.insertAfterCurrent", aInsertAfterCurrent],
       [

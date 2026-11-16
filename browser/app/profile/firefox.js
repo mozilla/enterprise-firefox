@@ -1199,8 +1199,8 @@ pref("browser.tabs.warnOnCloseOtherTabs", true);
 pref("browser.tabs.warnOnOpen", true);
 pref("browser.tabs.maxOpenBeforeWarn", 15);
 pref("browser.tabs.loadDivertedInBackground", false);
-pref("browser.tabs.loadBookmarksInBackground", false);
-pref("browser.tabs.loadBookmarksInTabs", false);
+pref("browser.tabs.loadUILinkInBackground", false);
+pref("browser.tabs.loadUILinkInTab", false);
 pref("browser.tabs.tabClipWidth", 140);
 pref("browser.tabs.tabMinWidth", 76);
 

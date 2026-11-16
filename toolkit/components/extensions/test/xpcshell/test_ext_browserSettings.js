@@ -31,7 +31,7 @@ add_task(async function test_browser_settings() {
     "permissions.default.desktop-notification": PERM_UNKNOWN_ACTION,
     "ui.context_menus.after_mouseup": false,
     "browser.tabs.closeTabByDblclick": false,
-    "browser.tabs.loadBookmarksInTabs": false,
+    "browser.tabs.loadUILinkInTab": false,
     "browser.search.openintab": false,
     "browser.tabs.insertRelatedAfterCurrent": true,
     "browser.tabs.insertAfterCurrent": false,
@@ -231,10 +231,10 @@ add_task(async function test_browser_settings() {
   });
 
   await testSetting("openBookmarksInNewTabs", true, {
-    "browser.tabs.loadBookmarksInTabs": true,
+    "browser.tabs.loadUILinkInTab": true,
   });
   await testSetting("openBookmarksInNewTabs", false, {
-    "browser.tabs.loadBookmarksInTabs": false,
+    "browser.tabs.loadUILinkInTab": false,
   });
 
   await testSetting("openSearchResultsInNewTabs", true, {

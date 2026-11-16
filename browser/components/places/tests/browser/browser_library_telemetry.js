@@ -113,7 +113,7 @@ add_setup(async function () {
 
 add_task(async function test_library_history_telemetry() {
   Services.telemetry.clearScalars();
-  let cumulativeSearchesHistogram = Services.telemetry.getHistogramById(
+  let cumulativeSearchesHistogram = TelemetryTestUtils.getAndClearHistogram(
     "PLACES_LIBRARY_CUMULATIVE_HISTORY_SEARCHES"
   );
 

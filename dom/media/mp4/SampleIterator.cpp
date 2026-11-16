@@ -523,6 +523,17 @@ void SampleIterator::Seek(const TimeUnit& aTime) {
   mCurrentSample = 0;
   mCurrentMoof = 0;
   if (!mIndex->mIsAudio) {
+    if (mIndex->mMoofParser) {
+      // The keyframe map holds only the parsed moofs. Parse moofs until one
+      // ends after the target. Then the map holds the keyframe at or before the
+      // target.
+      const nsTArray<Moof>& moofs = mIndex->mMoofParser->Moofs();
+      while (moofs.IsEmpty() || moofs.LastElement().mTimeRange.end <= aTime) {
+        if (NS_FAILED(mIndex->BlockingReadNextMoof())) {
+          break;
+        }
+      }
+    }
     auto entry = mIndex->mKeyframeMap.GetNearestUpTo(aTime);
     if (!entry && mIndex->HaveCheckedSurroundingKeyframes(aTime)) {
       LOG("No keyframe before target {}, seek to next one after",
@@ -970,17 +981,25 @@ size_t MP4SampleIndex::NumSamplesBetween(const SampleLocation& aStart,
   }
   if (mMoofParser) {
     const auto nMoofs = mMoofParser->Moofs().Length();
-    MOZ_ASSERT_DEBUG_OR_FUZZING(aEnd.mMoof < nMoofs);
-    if (aEnd.mMoof >= nMoofs) {
+    // {nMoofs, 0} is the position after the last sample.
+    MOZ_ASSERT_DEBUG_OR_FUZZING(aEnd.mMoof < nMoofs ||
+                                (aEnd == SampleLocation{nMoofs, 0}));
+    if (aEnd.mMoof > nMoofs) {
       return 0;
     }
-    const size_t startMoofLen =
-        mMoofParser->Moofs()[aStart.mMoof].mIndex.Length();
-    const size_t endMoofLen = mMoofParser->Moofs()[aEnd.mMoof].mIndex.Length();
+    const auto moofLength = [&](size_t aMoof) -> size_t {
+      return aMoof < nMoofs ? mMoofParser->Moofs()[aMoof].mIndex.Length() : 0;
+    };
+    const size_t startMoofLen = moofLength(aStart.mMoof);
+    const size_t endMoofLen = moofLength(aEnd.mMoof);
     MOZ_ASSERT_DEBUG_OR_FUZZING(aStart.mSample <= startMoofLen &&
                                 aEnd.mSample <= endMoofLen);
-    size_t count = startMoofLen - std::min(startMoofLen, aStart.mSample) +
-                   std::min(endMoofLen, aEnd.mSample);
+    const size_t startSample = std::min(startMoofLen, aStart.mSample);
+    const size_t endSample = std::min(endMoofLen, aEnd.mSample);
+    if (aStart.mMoof == aEnd.mMoof) {
+      return endSample - startSample;
+    }
+    size_t count = startMoofLen - startSample + endSample;
     for (size_t moof = aStart.mMoof + 1; moof < aEnd.mMoof; ++moof) {
       count += mMoofParser->Moofs()[moof].mIndex.Length();
     }

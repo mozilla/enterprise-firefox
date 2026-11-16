@@ -591,6 +591,8 @@ void nsHttpTransaction::SetConnection(nsAHttpConnection* conn) {
     mConnection = conn;
     if (mConnection) {
       mIsHttp3Used = mConnection->Version() == HttpVersion::v3_0;
+      RefPtr<HttpConnectionBase> conn = mConnection->HttpConnection();
+      mIsTunnelOverHttp3 = conn && conn->TunnelOverHttp3();
       if (mActivated) {
         mConnection->GetSelfAddr(&mSelfAddr);
         mConnection->GetPeerAddr(&mPeerAddr);
@@ -1152,6 +1154,8 @@ int64_t nsHttpTransaction::GetTransferSize() { return mTransferSize; }
 int64_t nsHttpTransaction::GetRequestSize() { return mRequestSize; }
 
 bool nsHttpTransaction::IsHttp3Used() { return mIsHttp3Used; }
+
+bool nsHttpTransaction::IsTunnelOverHttp3() { return mIsTunnelOverHttp3; }
 
 bool nsHttpTransaction::Http2Disabled() const {
   return mCaps & NS_HTTP_DISALLOW_SPDY;
@@ -2570,6 +2574,11 @@ bool nsHttpTransaction::HandleWebTransportResponse(uint16_t aStatus) {
   if (!wtSession) {
     return false;
   }
+  if (!wtSession->GetHttp3WebTransportSession() &&
+      !StaticPrefs::network_webtransport_http2_enabled()) {
+    LOG(("HandleWebTransportResponse: WebTransport over HTTP/2 is disabled"));
+    return false;
+  }
 
   nsCOMPtr<WebTransportSessionEventListener> webTransportListener;
   {
@@ -2655,10 +2664,14 @@ nsresult nsHttpTransaction::HandleContentStart() {
     if (mIsForWebTransport) {
       responseChecked = HandleWebTransportResponse(mResponseHead->Status());
       LOG(("HandleWebTransportResponse res=%d", responseChecked));
-      if (responseChecked) {
-        mNoContent = true;
-        mPreserveStream = true;
+      if (!responseChecked) {
+        // There is no WebTransport session to hand the response to, e.g. the
+        // request was sent over HTTP/1.1. Fail it rather than delivering the
+        // response body.
+        return NS_ERROR_FAILURE;
       }
+      mNoContent = true;
+      mPreserveStream = true;
     }
 
     if (!responseChecked) {

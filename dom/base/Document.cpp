@@ -2460,6 +2460,11 @@ void Document::AccumulatePageLoadTelemetry() {
       mPageloadEventData.set_trrDomain(dnsKey);
     }
 
+    nsIHttpChannelInternal::ProxyType proxyType;
+    if (NS_SUCCEEDED(httpChannel->GetProxyType(&proxyType))) {
+      mPageloadEventData.set_proxyType(proxyType);
+    }
+
     uint32_t major;
     uint32_t minor;
     if (NS_SUCCEEDED(httpChannel->GetResponseVersion(&major, &minor))) {
@@ -13295,20 +13300,6 @@ void Document::OnPageHide(bool aPersisted, EventTarget* aDispatchStartTarget,
     // reference to the root (in Document::mFullscreenRoot) since we can't
     // just traverse the doctree to get the root.
     Document::ExitFullscreenInDocTree(this);
-
-    // Since the document is removed from the doctree before OnPageHide() is
-    // called, ExitFullscreen() can't traverse from the root down to *this*
-    // document, so we must manually call CleanupFullscreenState() below too.
-    // Note that CleanupFullscreenState() clears Document::mFullscreenRoot,
-    // so we *must* call it after ExitFullscreen(), not before.
-    // OnPageHide() is called in every hidden (i.e. descendant) document,
-    // so calling CleanupFullscreenState() here will ensure all hidden
-    // documents have their fullscreen state reset.
-    CleanupFullscreenState();
-
-    // The fullscreenchange event is to be queued in the refresh driver,
-    // however a hidden page wouldn't trigger that again, so it makes no
-    // sense to dispatch such event here.
   }
 
   if (auto* element = HTMLVideoElement::FromNodeOrNull(
@@ -16150,56 +16141,6 @@ size_t Document::CountFullscreenElements() const {
   return count;
 }
 
-// https://github.com/whatwg/html/issues/9143
-// We need to consider the precedence between active modal dialog, topmost auto
-// popover and fullscreen element once it's specified.
-// TODO: https://bugzilla.mozilla.org/show_bug.cgi?id=1859702 This can be
-// removed after CloseWatcher has shipped.
-void Document::HandleEscKey() {
-  for (const nsWeakPtr& weakPtr : Reversed(mTopLayer)) {
-    nsCOMPtr<Element> element(do_QueryReferent(weakPtr));
-    if (RefPtr popoverHTMLEl = nsGenericHTMLElement::FromNodeOrNull(element)) {
-      if (element->IsPopoverOpenedInMode(PopoverAttributeState::Hint)) {
-        popoverHTMLEl->HidePopover(IgnoreErrors());
-        return;
-      }
-      if (element->IsPopoverOpenedInMode(PopoverAttributeState::Auto)) {
-        popoverHTMLEl->HidePopover(IgnoreErrors());
-        return;
-      }
-    }
-    if (RefPtr dialogElement = HTMLDialogElement::FromNodeOrNull(element)) {
-      if (StaticPrefs::dom_dialog_light_dismiss_enabled()) {
-        if (dialogElement->GetClosedBy() != HTMLDialogElement::ClosedBy::None) {
-          const mozilla::dom::Optional<nsAString> returnValue;
-          dialogElement->RequestClose(returnValue);
-        }
-      } else {
-        dialogElement->QueueCancelDialog();
-      }
-      // If the dialog element's `closedby` attribute is "none", then this
-      // means the dialog is effectively blocking the Esc key from
-      // functioning. Returning without closing is the correct behaviour - as
-      // this is the topmost element "handling" the esc key press.
-      return;
-    }
-  }
-  // Not all dialogs exist in the top layer, so despite already iterating
-  // through all top layer elements we also need to check open dialogs that are
-  // _not_ open via the top-layer (showModal).
-  // The top-most dialog in mOpenDialogs may need to be closed.
-  if (RefPtr<HTMLDialogElement> dialog =
-          mOpenDialogs.SafeLastElement(nullptr)) {
-    if (dialog->GetClosedBy() != HTMLDialogElement::ClosedBy::None) {
-      MOZ_ASSERT(StaticPrefs::dom_dialog_light_dismiss_enabled(),
-                 "Light Dismiss must have been enabled for GetClosedBy() "
-                 "returns != ClosedBy::None");
-      const mozilla::dom::Optional<nsAString> returnValue;
-      dialog->RequestClose(returnValue);
-    }
-  }
-}
-
 MOZ_CAN_RUN_SCRIPT void Document::ProcessCloseRequest() {
   if (RefPtr win = GetInnerWindow()) {
     if (win->IsFullyActive()) {
@@ -16347,12 +16288,19 @@ bool Document::IsFullscreenLeaf() {
   return GetFullscreenLeaf(*root);
 }
 
-static CallState ResetFullscreen(Document& aDocument) {
+enum class DispatchFullscreenChangeEvent : bool { No, Yes };
+
+static CallState ResetFullscreen(Document& aDocument,
+                                 DispatchFullscreenChangeEvent aDispatchEvent) {
   if (Element* fsElement = aDocument.GetUnretargetedFullscreenElement()) {
     aDocument.CleanupFullscreenState();
     NS_ASSERTION(!aDocument.Fullscreen(), "Should reset fullscreen");
-    DispatchFullscreenChange(aDocument, fsElement);
-    aDocument.EnumerateSubDocuments(ResetFullscreen);
+    if (aDispatchEvent == DispatchFullscreenChangeEvent::Yes) {
+      DispatchFullscreenChange(aDocument, fsElement);
+    }
+    aDocument.EnumerateSubDocuments([aDispatchEvent](Document& aSubDoc) {
+      return ResetFullscreen(aSubDoc, aDispatchEvent);
+    });
   }
   return CallState::Continue;
 }
@@ -16418,9 +16366,7 @@ void Document::ExitFullscreenInDocTree(Document* aMaybeNotARootDoc) {
     //
     // We still reset this document, otherwise it could keep a stale element
     // in its top layer with the fullscreen flag set.
-    if (aMaybeNotARootDoc->GetUnretargetedFullscreenElement()) {
-      aMaybeNotARootDoc->CleanupFullscreenState();
-    }
+    ResetFullscreen(*aMaybeNotARootDoc, DispatchFullscreenChangeEvent::No);
     return;
   }
 
@@ -16431,7 +16377,19 @@ void Document::ExitFullscreenInDocTree(Document* aMaybeNotARootDoc) {
   Document* fullscreenLeaf = GetFullscreenLeaf(root);
 
   // Walk the tree of fullscreen documents, and reset their fullscreen state.
-  ResetFullscreen(*root);
+  ResetFullscreen(*root, DispatchFullscreenChangeEvent::Yes);
+  // *aMaybeNotARootDoc* may have already been removed from the doctree, e.g.
+  // when ExitFullscreenInDocTree() is called from OnPageHide(). In that case
+  // we can't traverse from the root down to *aMaybeNotARootDoc*, so we must
+  // manually call ResetFullscreen() on it to ensure all hidden documents have
+  // their fullscreen state reset. If *aMaybeNotARootDoc* is reachable from
+  // the root, its fullscreen state has already been reset above and this call
+  // does nothing.
+  //
+  // The fullscreenchange event is to be queued in the refresh driver,
+  // however a hidden page wouldn't trigger that again, so it makes no
+  // sense to dispatch such event here.
+  ResetFullscreen(*aMaybeNotARootDoc, DispatchFullscreenChangeEvent::No);
 
   NS_ASSERTION(!root->Fullscreen(),
                "Fullscreen root should no longer be a fullscreen doc...");
@@ -16558,7 +16516,9 @@ void Document::RestorePreviousFullscreenState(UniquePtr<FullscreenExit> aExit) {
     if (!exitDoc->Fullscreen()) {
       // The document may have other fullscreen subdocuments which are not part
       // of the current fullscreen document chain, reset them as well.
-      exitDoc->EnumerateSubDocuments(ResetFullscreen);
+      exitDoc->EnumerateSubDocuments([](Document& aSubDoc) {
+        return ResetFullscreen(aSubDoc, DispatchFullscreenChangeEvent::Yes);
+      });
     }
   }
   aExit->MayResolvePromise();

@@ -13,6 +13,8 @@ import {
   resolveWidgetEventSource,
   resolveWidgetFrame,
   resolveWidgetSize,
+  WIDGET_USER_ACTIONS,
+  WIDGET_SOURCES,
 } from "common/WidgetsRegistry.mjs";
 import { SizeSubmenu } from "../SizeSubmenu";
 import { WidgetMenuButton } from "../WidgetMenuButton";
@@ -26,8 +28,7 @@ import {
 } from "../useFramedWidgetMessages";
 
 const USER_ACTION_TYPES = {
-  CHANGE_SIZE: "change_size",
-  LEARN_MORE: "learn_more",
+  ...WIDGET_USER_ACTIONS,
   POWERED_BY_KAYAK: "powered_by_kayak",
 };
 
@@ -144,7 +145,7 @@ function Travel({
       );
       // Without `size`, the event would report the size before the change.
       recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
-        source: "context_menu",
+        source: WIDGET_SOURCES.CONTEXT_MENU,
         value: size,
         size,
       });
@@ -157,7 +158,7 @@ function Travel({
 
   function handleLearnMore() {
     recordUserAction(USER_ACTION_TYPES.LEARN_MORE, {
-      source: "context_menu",
+      source: WIDGET_SOURCES.CONTEXT_MENU,
     });
     handleInteraction();
   }

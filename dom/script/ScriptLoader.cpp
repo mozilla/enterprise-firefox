@@ -1990,11 +1990,13 @@ bool ScriptLoader::ProcessInlineScript(nsIScriptElement* aElement,
             return false;
           }
 
-          info.mRequest->Cancel();
+          // Reset before cancelling, as cancelling an unfinished request
+          // clears its module script.
           if (multiImportMapsEnabled) {
             mModuleLoader->ResetPreloadedModuleGraph(
                 info.mRequest->AsModuleRequest());
           }
+          info.mRequest->Cancel();
 
           return true;
         });
@@ -3065,6 +3067,14 @@ void ScriptLoader::FireScriptAvailable(nsresult aResult,
     obs->ScriptAvailable(aResult, scriptElement,
                          aRequest->GetScriptLoadContext()->mIsInline, uri,
                          aRequest->GetScriptLoadContext()->mLineNo);
+  }
+
+  // https://html.spec.whatwg.org/#execute-the-script-element
+  // Step 3. Unblock rendering on el. A load that a navigation aborted never
+  // completes, so rendering stays blocked.
+  if (!aRequest->GetScriptLoadContext()->mWasAbortedByNavigation) {
+    nsCOMPtr<Element> element = do_QueryInterface(scriptElement);
+    element->OwnerDoc()->UnblockRendering(*element);
   }
 
   const bool isInlineClassicScript =
@@ -4980,6 +4990,16 @@ nsresult ScriptLoader::OnStreamComplete(
 
   if (aRequest->IsCanceled()) {
     return NS_BINDING_ABORTED;
+  }
+
+  // A navigation aborts the document's fetches, see
+  // https://html.spec.whatwg.org/#abort-a-document
+  if (aChannelStatus == NS_BINDING_ABORTED && aChannel) {
+    nsAutoCString reason;
+    aChannel->GetCanceledReason(reason);
+    if (reason.EqualsLiteral("navigation")) {
+      aRequest->GetScriptLoadContext()->mWasAbortedByNavigation = true;
+    }
   }
 
   nsresult rv = VerifySRI(aRequest, aChannel, aSRIStatus, aSRIDataVerifier);

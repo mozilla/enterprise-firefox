@@ -177,7 +177,12 @@ nsIFrame* nsILineIterator::LineInfo::GetLastFrameOnLine() const {
 }
 
 #ifdef HAVE_64BIT_BUILD
+#  ifdef DEBUG
+// The DEBUG-only bitfield spills into a third byte, growing the frame by 8.
 static_assert(sizeof(nsIFrame) == 120, "nsIFrame should remain small");
+#  else
+static_assert(sizeof(nsIFrame) == 112, "nsIFrame should remain small");
+#  endif
 #else
 static_assert(sizeof(void*) == 4, "Odd build config?");
 // FIXME(emilio): Investigate why win32 and android-arm32 have bigger sizes (80)
@@ -673,11 +678,9 @@ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
                   NS_FRAME_CAN_HAVE_ABSPOS_CHILDREN |
                   NS_FRAME_PART_OF_IBSPLIT |
                   NS_FRAME_MAY_BE_TRANSFORMED |
+                  NS_FRAME_HAS_COLUMN_SPAN_SIBLINGS |
                   NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR));
     // clang-format on
-
-    // Copy other bits in nsIFrame from prev-in-flow.
-    mHasColumnSpanSiblings = aPrevInFlow->HasColumnSpanSiblings();
 
     // If our prev-in-flow is an absolute containing block, we must be one, too.
     if (aPrevInFlow->IsAbsoluteContainer()) {
@@ -1233,6 +1236,21 @@ void nsIFrame::RemoveDisplayItemDataForDeletion() {
       data->RemoveFromTable();
     }
     delete userDataTable;
+  }
+
+  // A frame only has an entry in the retained display list data while it is
+  // modified or has an override dirty region, so without those and without
+  // display items there is nothing to remove.
+  if (!IsFrameModified() && !HasOverrideDirtyRegion() &&
+      DisplayItems().IsEmpty()) {
+#ifdef DEBUG
+    if (auto* builder = nsLayoutUtils::GetRetainedDisplayListBuilder(this)) {
+      MOZ_ASSERT(builder->Data()->GetFlags(this).isEmpty(),
+                 "Frame has retained display list data without being modified "
+                 "or having an override dirty region");
+    }
+#endif
+    return;
   }
 
   auto* builder = nsLayoutUtils::GetRetainedDisplayListBuilder(this);

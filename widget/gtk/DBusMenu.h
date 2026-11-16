@@ -25,6 +25,8 @@ namespace widget {
        (DbusmenuMenuitem * mi, DbusmenuMenuitem * child))                    \
   FUNC(dbusmenu_menuitem_child_delete, gboolean,                             \
        (DbusmenuMenuitem * mi, DbusmenuMenuitem * child))                    \
+  FUNC(dbusmenu_menuitem_child_reorder, gboolean,                            \
+       (DbusmenuMenuitem * mi, DbusmenuMenuitem * child, guint position))    \
   FUNC(dbusmenu_menuitem_get_children, GList*, (DbusmenuMenuitem * mi))      \
   FUNC(dbusmenu_menuitem_new, DbusmenuMenuitem*, (void))                     \
   FUNC(dbusmenu_menuitem_property_get, const gchar*,                         \
@@ -101,6 +103,8 @@ class DBusMenuFunctions {
   DBusMenuFunctions::s_dbusmenu_menuitem_child_append
 #define dbusmenu_menuitem_child_delete \
   DBusMenuFunctions::s_dbusmenu_menuitem_child_delete
+#define dbusmenu_menuitem_child_reorder \
+  DBusMenuFunctions::s_dbusmenu_menuitem_child_reorder
 #define dbusmenu_menuitem_get_children \
   DBusMenuFunctions::s_dbusmenu_menuitem_get_children
 #define dbusmenu_menuitem_new DBusMenuFunctions::s_dbusmenu_menuitem_new

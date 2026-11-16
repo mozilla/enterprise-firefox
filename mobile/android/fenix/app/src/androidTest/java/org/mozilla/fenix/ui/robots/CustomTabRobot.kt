@@ -28,6 +28,7 @@ import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.uiautomator.UiSelector
 import mozilla.components.compose.browser.toolbar.concept.BrowserToolbarTestTags.ADDRESSBAR_URL_BOX
 import mozilla.components.feature.customtabs.R as customtabsR
+import org.mozilla.fenix.Config
 import org.mozilla.fenix.R
 import org.mozilla.fenix.helpers.Constants.LONG_CLICK_DURATION
 import org.mozilla.fenix.helpers.Constants.TAG
@@ -36,6 +37,7 @@ import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectExists
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithDescription
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
 import org.mozilla.fenix.helpers.TestAssetHelper
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
@@ -180,6 +182,12 @@ class CustomTabRobot(private val composeTestRule: ComposeTestRule) {
 
     @OptIn(ExperimentalTestApi::class)
     fun verifyPDFReaderToolbarItems() {
+        // Bug 2081247 to switch to new toolbar for testing
+        if (!Config.channel.isNightlyOrDebug) {
+            assertUIObjectExists(itemWithResIdContainingText("download", "Download"))
+            return
+        }
+
         Log.i(TAG, "verifyPDFReaderToolbarItems: Waiting for $waitingTime until the PDF tools bar exists")
         composeTestRule.waitUntilAtLeastOneExists(hasTestTag(PdfToolsTestTag.BAR), waitingTime)
         Log.i(TAG, "verifyPDFReaderToolbarItems: Waited for $waitingTime until the PDF tools bar exists")

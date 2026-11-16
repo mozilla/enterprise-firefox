@@ -256,7 +256,6 @@ class CustomTabsTest {
         val pdfTitle = "Untitled document - pdfForm.pdf"
         val downloadFile = "pdfForm.pdf"
 
-        composeTestRule.activityRule.applySettingsExceptions { it.isPdfToolsEnabled = true }
         intentReceiverActivityTestRule.launchActivity(createCustomTabIntent(customTabPage.url.toString()))
 
         customTabScreen(composeTestRule) {

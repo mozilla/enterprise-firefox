@@ -907,7 +907,7 @@ export var PlacesUIUtils = {
     let window = aEvent.target.documentGlobal;
 
     let where = lazy.BrowserUtils.whereToOpenLink(aEvent, false, true);
-    if (this.loadBookmarksInTabs && lazy.PlacesUtils.nodeIsBookmark(aNode)) {
+    if (this.loadUILinkInTab) {
       if (where == "current" && !aNode.uri.startsWith("javascript:")) {
         where = "tab";
       }
@@ -981,7 +981,7 @@ export var PlacesUIUtils = {
       }
       aWindow.openTrustedLinkIn(aNode.uri, aWhere, {
         allowPopups: isJavaScriptURL,
-        inBackground: this.loadBookmarksInBackground,
+        inBackground: this.loadUILinkInBackground,
         allowInheritPrincipal: isJavaScriptURL,
         private: aPrivate,
         userContextId,
@@ -1472,7 +1472,7 @@ export var PlacesUIUtils = {
 
     PlacesUIUtils.lastContextMenuTriggerNode = menupopup.triggerNode;
 
-    if (Services.prefs.getBoolPref("browser.tabs.loadBookmarksInTabs", false)) {
+    if (PlacesUIUtils.loadUILinkInTab) {
       menupopup.ownerDocument
         .getElementById("placesContext_open")
         .removeAttribute("default");
@@ -1902,14 +1902,14 @@ XPCOMUtils.defineLazyPreferenceGetter(
 );
 XPCOMUtils.defineLazyPreferenceGetter(
   PlacesUIUtils,
-  "loadBookmarksInBackground",
-  "browser.tabs.loadBookmarksInBackground",
+  "loadUILinkInBackground",
+  "browser.tabs.loadUILinkInBackground",
   false
 );
 XPCOMUtils.defineLazyPreferenceGetter(
   PlacesUIUtils,
-  "loadBookmarksInTabs",
-  "browser.tabs.loadBookmarksInTabs",
+  "loadUILinkInTab",
+  "browser.tabs.loadUILinkInTab",
   false
 );
 XPCOMUtils.defineLazyPreferenceGetter(

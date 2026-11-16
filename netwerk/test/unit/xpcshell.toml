@@ -521,6 +521,8 @@ prefs = ["browser.cache.disk.encryption.enabled=true"]
 
 ["test_cache2-45-clear-base-domain-context-evictor.js"]
 
+["test_cache2-46-output-stream-outlives-entry.js"]
+
 ["test_cache2_clear_with_principal.js"]
 
 ["test_cache2_clear_with_usercontext_oa.js"]
@@ -1518,8 +1520,11 @@ run-if = [
 ["test_ntlm_native_server_validation.js"]
 # Needs "sys-ntlm" to resolve to a real native module, which is nsAuthSSPI on
 # Windows; elsewhere nsHttpNTLMAuth silently falls back to the internal one.
-run-if = [
-  "os == 'win'",
+# run-if = [
+#   "os == 'win'",
+# ]
+skip-if = [
+  "os == 'win'", # Bug 2092666 - NTLM changes in Windows 11 updated November 2026 (KB 5135557)
 ]
 
 ["test_ntlm_proxy_and_web_auth.js"]
@@ -1533,6 +1538,9 @@ prefs = ["network.auth.force-generic-ntlm=true"]
 prefs = ["network.auth.force-generic-ntlm=true"]
 
 ["test_ntlm_web_auth.js"]
+skip-if = [
+  "os == 'win'", # Bug 2092666 - NTLM changes in Windows 11 updated November 2026 (KB 5135557)
+]
 
 ["test_oblivious_http.js"]
 
@@ -2023,6 +2031,12 @@ run-sequentially = ["true"] # node server exceptions dont replay well
 skip-if = [
   "os == 'android' && os_version == '14' && arch == 'x86_64'", # Bug 1982955
   "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix", # Bug 1808049
+]
+
+["test_webtransport_https_rr_no_h3.js"]
+skip-if = [
+  "os == 'android'", # The node servers run on the host machine
+  "os == 'win' && msix", # Bug 1808049
 ]
 
 ["test_webtransport_simple.js"]

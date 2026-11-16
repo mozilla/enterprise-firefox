@@ -110,9 +110,6 @@ interface FeatureSettingsHelper {
     /** Whether FxSuggest feature is enabled. */
     var isFxSuggestEnabled: Boolean
 
-    /** Whether the Android PDF tools are shown in the PDF viewer. */
-    var isPdfToolsEnabled: Boolean
-
     /** Whether the current URL is shown separate from the addressbar when tapped. */
     var showAddressBarInFocusMode: Boolean
 

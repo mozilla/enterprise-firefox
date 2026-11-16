@@ -1,0 +1,23 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+linux64-mold:
+    description: "mold toolchain build"
+    treeherder:
+        symbol: TL(mold)
+    worker-type: b-linux-docker-amd
+    worker:
+        max-run-time: 3600
+    run:
+        script: build-mold.sh
+        resources:
+            - taskcluster/scripts/misc/mold-icf-symtab.patch
+        toolchain-artifact: public/build/mold.tar.zst
+    fetches:
+        fetch:
+            - mold
+        toolchain:
+            - linux64-clang-toolchain
+            - linux64-rust-toolchain
+            - linux64-toolchain-sysroot

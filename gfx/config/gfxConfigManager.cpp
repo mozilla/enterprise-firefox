@@ -68,9 +68,6 @@ void gfxConfigManager::Init() {
 #ifdef NIGHTLY_BUILD
   mIsNightly = true;
 #endif
-#ifdef EARLY_BETA_OR_EARLIER
-  mIsEarlyBetaOrEarlier = true;
-#endif
   mSafeMode = gfxPlatform::InSafeMode();
 
   mGfxInfo = components::GfxInfo::Service();

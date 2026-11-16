@@ -169,20 +169,6 @@
 #define IS_NOT_MOZILLA_OFFICIAL true
 #endif
 
-#ifdef EARLY_BETA_OR_EARLIER
-#define IS_EARLY_BETA_OR_EARLIER true
-#define IS_NOT_EARLY_BETA_OR_EARLIER false
-#else
-#define IS_EARLY_BETA_OR_EARLIER false
-#define IS_NOT_EARLY_BETA_OR_EARLIER true
-#endif
-
-#if defined(MOZ_DEV_EDITION) || defined(EARLY_BETA_OR_EARLIER)
-#define IS_DEV_EDITION_OR_EARLY_BETA_OR_EARLIER true
-#else
-#define IS_DEV_EDITION_OR_EARLY_BETA_OR_EARLIER false
-#endif
-
 #ifdef ANDROID
 #define IS_ANDROID true
 #define IS_NOT_ANDROID false
@@ -2784,18 +2770,6 @@
   value: false
   mirror: always
 
-# https://whatpr.org/html/10168/interaction.html#closewatcher
-- name: dom.closewatcher.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# https://github.com/whatwg/html/pull/10737
-- name: dom.dialog.light-dismiss.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Allow control characters appear in composition string.
 # When this is false, control characters except
 # CHARACTER TABULATION (horizontal tab) are removed from
@@ -2941,13 +2915,6 @@
   value: false
   mirror: always
 
-# HTMLDialogElement.prototype.requestClose
-# See https://html.spec.whatwg.org/#dom-dialog-requestclose
-- name: dom.element.dialog.request_close.enabled
-  type: bool
-  value: true
-  mirror: always
-
 - name: dom.element.transform-getters.enabled
   type: bool
   value: false
@@ -2981,12 +2948,6 @@
 - name: dom.element.commandfor.on_details.enabled
   type: bool
   value: false
-  mirror: always
-
-# Eanbles the popover=hint attribute
-- name: dom.element.popoverhint.enabled
-  type: bool
-  value: true
   mirror: always
 
 - name: dom.mouse_capture.enabled
@@ -3123,6 +3084,12 @@
 - name: dom.event.mouse.fractional_coordinates.untrusted.enabled
   type: bool
   value: false
+  mirror: always
+
+# Whether to fire mousedown/mouseup/auxclick for X1/X2 mouse buttons.
+- name: dom.event.mouse.xbuttons.enabled
+  type: bool
+  value: true
   mirror: always
 
 # Whether pointer boundary events should be dispatched after the element is
@@ -4148,7 +4115,7 @@
 # Enable mutiple import maps.
 - name: dom.multiple_import_maps.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Limit of navigations initiated by content in a time span per
@@ -9972,6 +9939,13 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+# Whether Warp optimizes environment objects that are known at compile time.
+- name: javascript.options.ion.environment_specialization
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
 # No-op pref for testing the SpiderMonkey pref system.
 - name: javascript.options.tests.uint32-pref
   type: uint32_t
@@ -10160,13 +10134,6 @@
   mirror: always
   set_spidermonkey_pref: always
 
-  # Experimental support for RegExp Buffer Boundaries in JavaScript.
-- name: javascript.options.experimental.regexp_buffer_boundaries
-  type: bool
-  value: false
-  mirror: always
-  set_spidermonkey_pref: startup
-
   # Experimental support for deferred import evaluation in JavaScript.
 - name: javascript.options.experimental.defer_import_eval
   type: bool
@@ -10175,6 +10142,13 @@
   set_spidermonkey_pref: startup
   fuzzing_safe: false
 #endif  // NIGHTLY_BUILD
+
+  # Experimental support for RegExp Buffer Boundaries in JavaScript.
+- name: javascript.options.experimental.regexp_buffer_boundaries
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
 
   # Capture stack traces for OOM
 - name: javascript.options.experimental.capture_oom_stack_trace
@@ -17786,6 +17760,13 @@
 
 # WebTransport Redirect support
 - name: network.webtransport.redirect.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# WebTransport over HTTP/2. Not fully implemented yet, so a WebTransport session
+# is only accepted over HTTP/3 unless this is enabled.
+- name: network.webtransport.http2.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always

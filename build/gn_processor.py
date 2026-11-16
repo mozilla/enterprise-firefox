@@ -12,7 +12,7 @@ import tempfile
 from collections import defaultdict, deque
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from copy import deepcopy
-from itertools import chain, combinations
+from itertools import combinations
 from pathlib import Path
 from shutil import which
 
@@ -335,8 +335,10 @@ def filter_gn_config(
                 # relative to the target dir.
                 def rebase_include_dir(d):
                     d_path = Path(d)
-                    if gen_path in chain([d_path], d_path.parents):
-                        return f"!//gen/{d_path.relative_to(gen_path).as_posix()}"
+                    if d_path == gen_path:
+                        return "!//gen"
+                    if gen_path in d_path.parents:
+                        return "!//gen/" + d_path.relative_to(gen_path).as_posix()
                     return d
 
                 spec[spec_attr] = [rebase_include_dir(d) for d in spec[spec_attr]]

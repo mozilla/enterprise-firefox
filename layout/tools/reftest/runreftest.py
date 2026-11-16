@@ -372,15 +372,17 @@ class RefTest:
         locations.add_host(server, scheme="http", port=port)
         locations.add_host(server, scheme="https", port=port)
 
-        sandbox_allowlist_paths = options.sandboxReadWhitelist
+        sandbox_allowlist_paths = [
+            os.path.normpath(p) for p in options.sandboxReadWhitelist
+        ]
         if platform.system() == "Linux" or platform.system() in (
             "Windows",
             "Microsoft",
         ):
             # Trailing slashes are needed to indicate directories on Linux and Windows
-            sandbox_allowlist_paths = map(
-                lambda p: os.path.join(p, ""), sandbox_allowlist_paths
-            )
+            sandbox_allowlist_paths = [
+                os.path.join(p, "") for p in sandbox_allowlist_paths
+            ]
 
         addons = []
         if not self.use_marionette:
@@ -843,6 +845,8 @@ class RefTest:
         valgrindPath=None,
         valgrindArgs=None,
         valgrindSuppFiles=None,
+        checkLeaks=False,
+        leakScope=None,
         **profileArgs,
     ):
         if cmdargs is None:
@@ -868,7 +872,8 @@ class RefTest:
             debug_args = [debuggerInfo.path] + debuggerInfo.args
 
         def record_last_test(message):
-            """Records the last test seen by this harness for the benefit of crash logging."""
+            """Records the last test seen by this harness for crash logging and
+            sanitizer reports."""
 
             def testid(test):
                 if " " in test:
@@ -882,6 +887,7 @@ class RefTest:
                     self.lastTestSeen = self.currentManifest
                 else:
                     self.lastTestSeen = "{} (finished)".format(testid(message["test"]))
+            self.outputHandler.lastTestSeen = self.lastTestSeen
 
         self.log.add_handler(record_last_test)
 
@@ -961,6 +967,7 @@ class RefTest:
         status = runner.wait()
         runner.process_handler = None
         self.outputHandler.proc_name = None
+        self.outputHandler.finish()
 
         crashed = mozcrash.log_crashes(
             self.log,
@@ -1000,6 +1007,18 @@ class RefTest:
         if status and not crashed:
             msg = "application terminated with exit code %s" % (status)
             self.log.shutdown_failure(group=self.lastTestSeen, message=msg)
+
+        # The leak logs live in the profile, so process them before removing it.
+        # Do not process them when we crash/assert.
+        if checkLeaks and status == 0:
+            mozleak.process_leak_log(
+                self.leakLogFile,
+                leak_thresholds=options.leakThresholds,
+                stack_fixer=get_stack_fixer_function(
+                    options.utilityPath, options.symbolsPath
+                ),
+                scope=leakScope or options.suite,
+            )
 
         runner.cleanup()
         self.cleanup(profile.profile)
@@ -1076,18 +1095,9 @@ class RefTest:
                 timeout=options.timeout + 70.0,
                 debuggerInfo=debuggerInfo,
                 symbolsPath=options.symbolsPath,
+                checkLeaks=True,
                 **kwargs,
             )
-
-            # do not process leak log when we crash/assert
-            if status == 0:
-                mozleak.process_leak_log(
-                    self.leakLogFile,
-                    leak_thresholds=options.leakThresholds,
-                    stack_fixer=get_stack_fixer_function(
-                        options.utilityPath, options.symbolsPath
-                    ),
-                )
             return status
 
         if not self.run_by_manifest:
@@ -1121,7 +1131,9 @@ class RefTest:
             self.currentManifest = manifest
             self.currentManifestID = manifest_id
             self.lastTestSeen = manifest
-            status = run(tests=tests)
+            self.outputHandler.lastTestSeen = self.lastTestSeen
+            self.outputHandler.scope = manifest_id
+            status = run(tests=tests, leakScope=manifest_id)
             overall = overall or status
             self.log.group_end(name=manifest_id)
         if status == -1:

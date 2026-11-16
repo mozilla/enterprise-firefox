@@ -1145,6 +1145,24 @@ export let ProfileDataUpgrader = {
       Services.prefs.clearUserPref("browser.ipProtection.locationListCache");
     }
 
+    if (existingDataVersion < 185) {
+      for (let [oldPref, newPref] of [
+        ["browser.tabs.loadBookmarksInTabs", "browser.tabs.loadUILinkInTab"],
+        [
+          "browser.tabs.loadBookmarksInBackground",
+          "browser.tabs.loadUILinkInBackground",
+        ],
+      ]) {
+        if (Services.prefs.prefHasUserValue(oldPref)) {
+          Services.prefs.setBoolPref(
+            newPref,
+            Services.prefs.getBoolPref(oldPref)
+          );
+          Services.prefs.clearUserPref(oldPref);
+        }
+      }
+    }
+
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", newVersion);
   },

@@ -18,6 +18,8 @@ import {
   WIDGET_REGISTRY,
   resolveWidgetFrame,
   resolveWidgetSize,
+  WIDGET_USER_ACTIONS,
+  WIDGET_SOURCES,
 } from "common/WidgetsRegistry.mjs";
 import { MoveSubmenu } from "../MoveSubmenu";
 import { WidgetHideMenuItem } from "../WidgetPlacement";
@@ -26,8 +28,13 @@ import { WidgetMenuButton } from "../WidgetMenuButton";
 import { WidgetMenuPoweredBy } from "../WidgetMenuPoweredBy";
 
 const USER_ACTION_TYPES = {
-  CHANGE_SIZE: "change_size",
+  ...WIDGET_USER_ACTIONS,
   POWERED_BY_PARTICLE: "powered_by_particle",
+  PUZZLE_COMPLETED: "puzzle_completed",
+  // Also sent to the Particle bundle as menu_action commands, so changing
+  // either value breaks that menu item.
+  REVEAL_GRID: "reveal_grid",
+  SHOW_ALL_CLUES: "show_all_clues",
 };
 
 const PARTICLE_URL = "https://particle.news";
@@ -97,14 +104,14 @@ const MENU_ACTION_ITEMS = [
   {
     key: "show-all-clues",
     label: "Show clues",
-    action: "show_all_clues",
+    action: USER_ACTION_TYPES.SHOW_ALL_CLUES,
   },
   {
     // "Solve puzzle" only shows when the crossword is in the intro state or
     // in-progress, so it is hidden once the puzzle is completed.
     key: "solve-puzzle",
     label: "Solve puzzle",
-    action: "reveal_grid",
+    action: USER_ACTION_TYPES.REVEAL_GRID,
     hideWhenCompleted: true,
   },
 ];
@@ -241,8 +248,8 @@ function Crossword({
           break;
         case EVENT_TYPES.PUZZLE_COMPLETED:
           setPuzzleCompleted(true);
-          recordUserAction("puzzle_completed", {
-            source: "iframe",
+          recordUserAction(USER_ACTION_TYPES.PUZZLE_COMPLETED, {
+            source: WIDGET_SOURCES.IFRAME,
             value: payload.hintsTaken,
             alsoToMain: true,
           });
@@ -258,7 +265,7 @@ function Crossword({
           handleInteraction();
           if (INTERACTION_TELEMETRY_ALLOWLIST.has(payload.action)) {
             recordUserAction(payload.action, {
-              source: "iframe",
+              source: WIDGET_SOURCES.IFRAME,
               alsoToMain: true,
             });
           }
@@ -306,7 +313,7 @@ function Crossword({
     action => {
       handleInteraction();
       postMenuAction(action);
-      recordUserAction(action, { source: "context_menu" });
+      recordUserAction(action, { source: WIDGET_SOURCES.CONTEXT_MENU });
     },
     [handleInteraction, postMenuAction, recordUserAction]
   );
@@ -318,7 +325,7 @@ function Crossword({
         data: { name: CROSSWORD_ENTRY.enabledPref, value: false },
       })
     );
-    recordEnabled(false, { source: "context_menu" });
+    recordEnabled(false, { source: WIDGET_SOURCES.CONTEXT_MENU });
   }
 
   const handleChangeSize = useCallback(
@@ -331,7 +338,7 @@ function Crossword({
         })
       );
       recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
-        source: "context_menu",
+        source: WIDGET_SOURCES.CONTEXT_MENU,
         value: size,
         size,
       });
@@ -351,7 +358,9 @@ function Crossword({
         },
       })
     );
-    recordUserAction("learn_more", { source: "context_menu" });
+    recordUserAction(USER_ACTION_TYPES.LEARN_MORE, {
+      source: WIDGET_SOURCES.CONTEXT_MENU,
+    });
   }
 
   if (frameState === "hidden") {

@@ -636,8 +636,9 @@ nsresult nsHttpChannel::PrepareToConnect() {
   // off the async operation that can result in calling the lambda (which
   // will Resume), to avoid a race condition.
   nsresult rv = gHttpHandler->AddAcceptAndDictionaryHeaders(
-      mURI, mLoadInfo->GetExternalContentPolicyType(), &mRequestHead, IsHTTPS(),
-      this, nsHttpChannel::StaticSuspend,
+      mURI, mLoadInfo->GetExternalContentPolicyType(), &mRequestHead,
+      IsHTTPS() && IsReadableForDictionaries(false), this,
+      nsHttpChannel::StaticSuspend,
       [self = RefPtr(this)](bool aNeedsResume, DictionaryCacheEntry* aDict) {
         if (aNeedsResume) {
           LOG_DICTIONARIES(("Resuming after getting Dictionary headers"));
@@ -1273,9 +1274,10 @@ nsresult nsHttpChannel::ContinueOnBeforeConnect(bool aShouldUpgrade,
           .SetTRRMode(nsIRequest::GetTRRMode())
           .SetIPv4Disabled(mCaps & NS_HTTP_DISABLE_IPV4)
           .SetIPv6Disabled(mCaps & NS_HTTP_DISABLE_IPV6)
-          .SetHttp3Policy((mCaps & NS_HTTP_DISALLOW_HTTP3)
-                              ? Http3Policy::Disabled
-                              : Http3Policy::Allowed)
+          .SetHttp3Policy(
+              (mCaps & NS_HTTP_DISALLOW_HTTP3)  ? Http3Policy::Disabled
+              : mConnectionInfo->GetHttp3Only() ? Http3Policy::Only
+                                                : Http3Policy::Allowed)
           .SetAnonymousAllowClientCert(
               (mLoadFlags & LOAD_ANONYMOUS_ALLOW_CLIENT_CERT) != 0)
           .Finalize();
@@ -3748,7 +3750,8 @@ nsresult nsHttpChannel::ContinueProcessNormal(nsresult rv) {
     // and improve hitrate.  Downside is CPU use, complexity and perhaps delay,
     // maybe.
     nsAutoCString dictionary;
-    if (StaticPrefs::network_http_dictionaries_enable() && IsHTTPS()) {
+    if (StaticPrefs::network_http_dictionaries_enable() && IsHTTPS() &&
+        IsReadableForDictionaries(true)) {
       (void)mResponseHead->GetHeader(nsHttp::Use_As_Dictionary, dictionary);
       if (!dictionary.IsEmpty()) {
         if (!ParseDictionary(mCacheEntry, mResponseHead.get(), true)) {
@@ -6502,6 +6505,24 @@ nsresult nsHttpChannel::UpdateCacheEntryHeaders(nsICacheEntry* entry,
   return entry->MetaDataReady();
 }
 
+bool nsHttpChannel::IsReadableForDictionaries(bool aCheckResponse) {
+  ExtContentPolicyType type = mLoadInfo->GetExternalContentPolicyType();
+  // Navigations are never opaque, even though cross-origin subdocument loads
+  // get opaque tainting in Gecko.
+  if (type == ExtContentPolicy::TYPE_DOCUMENT ||
+      type == ExtContentPolicy::TYPE_SUBDOCUMENT) {
+    return true;
+  }
+  LoadTainting tainting = mLoadInfo->GetTainting();
+  if (tainting == LoadTainting::Opaque) {
+    return false;
+  }
+  if (aCheckResponse && tainting == LoadTainting::CORS) {
+    return PerformCORSCheck();
+  }
+  return true;
+}
+
 bool nsHttpChannel::ParseDictionary(nsICacheEntry* aEntry,
                                     nsHttpResponseHead* aResponseHead,
                                     bool aModified) {
@@ -8213,6 +8234,12 @@ nsresult nsHttpChannel::BeginConnect() {
         connInfo =
             new nsHttpConnectionInfo(host, port, "h3"_ns, mUsername, proxyInfo,
                                      originAttributes, isHttps, true, true);
+        // WebTransport over HTTP/2 is not fully implemented, so don't let the
+        // session fall back to a TCP connection.
+        if (!StaticPrefs::network_webtransport_http2_enabled()) {
+          connInfo =
+              connInfo->Mutate().SetHttp3Policy(Http3Policy::Only).Finalize();
+        }
       }
       wtconSettings->GetDedicated(&dedicated);
       if (dedicated) {
@@ -8834,48 +8861,34 @@ nsHttpChannel::OnProxyAvailable(nsICancelable* request, nsIChannel* channel,
     mProxyInfo = pi;
 
     if (mProxyInfo) {
-      nsAutoCStringN<8> type;
-      mProxyInfo->GetType(type);
-      uint32_t flags = 0;
-      mProxyInfo->GetFlags(&flags);
-
-      if (type.EqualsLiteral("socks")) {
-        if (flags & nsIProxyInfo::TRANSPARENT_PROXY_RESOLVES_HOST) {
-          glean::networking::proxy_info_type
-              .EnumGet(glean::networking::ProxyInfoTypeLabel::eSocks5h)
-              .Add(1);
-        } else {
-          glean::networking::proxy_info_type
-              .EnumGet(glean::networking::ProxyInfoTypeLabel::eSocks5)
-              .Add(1);
-        }
-      } else if (type.EqualsLiteral("socks4")) {
-        if (flags & nsIProxyInfo::TRANSPARENT_PROXY_RESOLVES_HOST) {
-          glean::networking::proxy_info_type
-              .EnumGet(glean::networking::ProxyInfoTypeLabel::eSocks4a)
-              .Add(1);
-        } else {
-          glean::networking::proxy_info_type
-              .EnumGet(glean::networking::ProxyInfoTypeLabel::eSocks4)
-              .Add(1);
-        }
-      } else if (type.EqualsLiteral("http")) {
-        glean::networking::proxy_info_type
-            .EnumGet(glean::networking::ProxyInfoTypeLabel::eHttp)
-            .Add(1);
-      } else if (type.EqualsLiteral("https")) {
-        glean::networking::proxy_info_type
-            .EnumGet(glean::networking::ProxyInfoTypeLabel::eHttps)
-            .Add(1);
-      } else if (type.EqualsLiteral("direct")) {
-        glean::networking::proxy_info_type
-            .EnumGet(glean::networking::ProxyInfoTypeLabel::eDirect)
-            .Add(1);
-      } else {
-        glean::networking::proxy_info_type
-            .EnumGet(glean::networking::ProxyInfoTypeLabel::eUnknown)
-            .Add(1);
+      glean::networking::ProxyInfoTypeLabel label;
+      switch (GetProxyTypeHelper(mProxyInfo)) {
+        case nsIHttpChannelInternal::PROXY_TYPE_DIRECT:
+          label = glean::networking::ProxyInfoTypeLabel::eDirect;
+          break;
+        case nsIHttpChannelInternal::PROXY_TYPE_HTTP:
+          label = glean::networking::ProxyInfoTypeLabel::eHttp;
+          break;
+        case nsIHttpChannelInternal::PROXY_TYPE_HTTPS:
+          label = glean::networking::ProxyInfoTypeLabel::eHttps;
+          break;
+        case nsIHttpChannelInternal::PROXY_TYPE_SOCKS4:
+          label = glean::networking::ProxyInfoTypeLabel::eSocks4;
+          break;
+        case nsIHttpChannelInternal::PROXY_TYPE_SOCKS4A:
+          label = glean::networking::ProxyInfoTypeLabel::eSocks4a;
+          break;
+        case nsIHttpChannelInternal::PROXY_TYPE_SOCKS5:
+          label = glean::networking::ProxyInfoTypeLabel::eSocks5;
+          break;
+        case nsIHttpChannelInternal::PROXY_TYPE_SOCKS5H:
+          label = glean::networking::ProxyInfoTypeLabel::eSocks5h;
+          break;
+        default:
+          label = glean::networking::ProxyInfoTypeLabel::eUnknown;
+          break;
       }
+      glean::networking::proxy_info_type.EnumGet(label).Add(1);
     }
   }
 
@@ -9498,6 +9511,17 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
     mResponseHead =
         mTransaction->TakeResponseHeadAndConnInfo(getter_AddRefs(connInfo));
     mSupportsHTTP3 = mTransaction->GetSupportsHTTP3();
+    if (connInfo) {
+      nsIHttpChannelInternal::ProxyType proxyType =
+          GetProxyTypeHelper(connInfo->ProxyInfo());
+      // A MASQUE proxy can also be reached over TCP, when the HTTP/3
+      // connection to it fails or loses the Happy Eyeballs race.
+      if (proxyType == nsIHttpChannelInternal::PROXY_TYPE_MASQUE &&
+          !mTransaction->IsTunnelOverHttp3()) {
+        proxyType = nsIHttpChannelInternal::PROXY_TYPE_HTTPS;
+      }
+      mProxyType = Some(proxyType);
+    }
     // the response head may be null if the transaction was cancelled.  in
     // which case we just need to call OnStartRequest/OnStopRequest.
     if (mResponseHead) {

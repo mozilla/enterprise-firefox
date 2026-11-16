@@ -380,8 +380,8 @@ API as part of introducing support for the Event Page may also be useful:
 - [Bug-1748546] ported the browserAction and pageAction API namespace implementations to
   `ExtensionAPIPersistent` and, in particular, the changes applied to:
 
-  - ext-browserAction.js: <https://hg.mozilla.org/integration/autoland/rev/08a3eaa8bce7>
-  - ext-pageAction.js: <https://hg.mozilla.org/integration/autoland/rev/ed616e2e0abb>
+  - ext-browserAction.js: <https://github.com/mozilla-firefox/firefox/commit/6f2b70ed2bbf01f6c2fc0041ba75c1fa0e9a62bc>
+  - ext-pageAction.js: <https://github.com/mozilla-firefox/firefox/commit/3adc1d5966d0c3c08d86507fd4d891340457cc23>
 
 Follows an example of what has been described previously in a code snippet form:
 

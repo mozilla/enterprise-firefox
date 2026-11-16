@@ -1081,3 +1081,45 @@ add_task(async function test_get_all_settings() {
 
   await promiseShutdownManager();
 });
+
+add_task(async function test_migrate_loadBookmarksInTabs() {
+  await ExtensionSettingsStore.initialize();
+
+  let previousSettings = {
+    initialValue: { "browser.tabs.loadBookmarksInTabs": true },
+    precedenceList: [
+      {
+        id: "@first",
+        installDate: 1700000000000,
+        value: false,
+        enabled: true,
+      },
+    ],
+  };
+  await IOUtils.writeJSON(
+    PathUtils.join(PathUtils.profileDir, "extension-settings.json"),
+    {
+      version: 3,
+      prefs: {
+        openBookmarksInNewTabs: previousSettings,
+      },
+    }
+  );
+  await ExtensionSettingsStore._reloadFile(false);
+
+  let { initialValue } = ExtensionSettingsStore.select(
+    null,
+    "prefs",
+    "openBookmarksInNewTabs"
+  );
+  Assert.deepEqual(initialValue, { "browser.tabs.loadUILinkInTab": true });
+
+  let settings = ExtensionSettingsStore.getAllSettings(
+    "prefs",
+    "openBookmarksInNewTabs"
+  );
+  Assert.equal(settings.length, 1);
+  Assert.equal(settings[0].id, previousSettings.precedenceList[0].id);
+  Assert.equal(settings[0].value, previousSettings.precedenceList[0].value);
+  Assert.equal(settings[0].enabled, previousSettings.precedenceList[0].enabled);
+});

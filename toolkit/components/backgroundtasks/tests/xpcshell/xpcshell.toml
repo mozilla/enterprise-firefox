@@ -60,6 +60,7 @@ skip-if = [
 run-sequentially = ["true"] # perma-fail in parallel
 skip-if = [
   "enterprise", # Bug 2065476: skip tests for enterprise builds
+  "os == 'win'", # Bug 2092048: leaked xpcshell holds the update lock
 ]
 
 ["test_backgroundtask_simultaneous_instances.js"]

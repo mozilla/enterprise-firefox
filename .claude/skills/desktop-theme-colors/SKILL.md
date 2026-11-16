@@ -2,14 +2,8 @@
 name: desktop-theme-colors
 description: "CSS issues, changes and reviews involving color - high contrast, forced colors, prefers-contrast, dark mode, system colors; a border, shadow, focus ring or icon that vanishes; states like hover/selected/focus that don't look distinct; a color right in chrome but wrong in an about: page or vice versa; a Firefox::Theme or Toolkit::Themes bug, even when the report already names the rule or token."
 allowed-tools:
-  - Bash(./mach python --virtualenv wpt .agents/skills/desktop-theme-colors/scripts/pair-walk.py:*)
-  - Bash(./mach python --virtualenv wpt .claude/skills/desktop-theme-colors/scripts/pair-walk.py:*)
-  - Bash(./mach python --virtualenv wpt -- .agents/skills/desktop-theme-colors/scripts/pair-walk.py:*)
-  - Bash(./mach python --virtualenv wpt -- .claude/skills/desktop-theme-colors/scripts/pair-walk.py:*)
-  - Bash(./mach python --virtualenv wpt .agents/skills/desktop-theme-colors/scripts/contrast.py:*)
-  - Bash(./mach python --virtualenv wpt .claude/skills/desktop-theme-colors/scripts/contrast.py:*)
-  - Bash(./mach python --virtualenv wpt -- .agents/skills/desktop-theme-colors/scripts/contrast.py:*)
-  - Bash(./mach python --virtualenv wpt -- .claude/skills/desktop-theme-colors/scripts/contrast.py:*)
+  - Bash(./mach theme check-hcm-colors:*)
+  - Bash(./mach theme contrast:*)
 ---
 
 # Settle what a color paints
@@ -18,7 +12,7 @@ Each of the four regimes in css_guidelines "High contrast mode" resolves
 differently in a chrome window than in an `about:` page, and two differ by
 platform. Name which regime each side is in before calling chrome and the page
 inconsistent. Load `desktop-theme-probing` before the first live launch (a
-`token-resolve.py` run is not one); it defines the platform files (the probing
+`./mach theme resolve-token` run is not one); it defines the platform files (the probing
 machine's and the target's) that this skill cites by section.
 
 **Read the used value off the live element** with the instruments in
@@ -62,6 +56,12 @@ That is the `firefox-probe.py -e` shape; `desktop-theme-probing` §1 has the
 others. Read every field: css_guidelines "High contrast mode" says why the two
 forced-colors queries and the contrast grades can disagree.
 
+Where no build can run (e.g. a report from a platform you can't probe on), name
+the regime from the report's preconditions and the rule's own conditions
+instead. `./mach theme resolve-token --effective` reads the token
+sheets without a launch and prints each candidate regime's values; say the
+regime is inferred, not probed.
+
 **Reproduce in the regime the report names.** A report's preconditions (e.g. a
 theme, a pref) and its platforms set the regime, and the default on the machine
 you probe on is often a different one. Linux defaults to the native theme
@@ -69,7 +69,7 @@ you probe on is often a different one. Linux defaults to the native theme
 built-in theme never uses the native theme. The README's "Chrome native OS
 theme" table gives the layer each case paints. A Linux report may come from
 either branch, so reproduce both where the changed rule differs between them:
-run `desktop-theme-tokens`' `token-resolve.py --effective` on the tokens the
+run `./mach theme resolve-token --effective` on the tokens the
 rule reads and compare the `default` and `-moz-native-theme` rows, and check the
 rule itself for a `(-moz-native-theme)` condition. For a report from another
 platform than the one you probe on, read that platform's file
@@ -103,7 +103,7 @@ Reach either realm's regime on any platform:
   `(forced-colors: requested)` and the bare `(forced-colors)`, so check which
   form a rule uses before trusting a simulated pass. The override covers one
   window: set it on each window's own `browsingContext` and reset each to
-  `"none"` afterward. Before passing a window to `pair-walk.py`, read §2
+  `"none"` afterward. Before passing a window to `./mach theme check-hcm-colors`, read §2
   "Putting chrome under forced colors" in `references/forced-color-filter.md`.
 
 All three take effect live. Set `ui.useAccessibilityTheme` at startup to load
@@ -170,7 +170,7 @@ system color as §1 "Two names can be one pair" in
 
 Pairing applies wherever system colors paint, filtered or not: content under
 forced colors, Windows chrome under `requested`, and `prefers-contrast`. The
-pairs, as `PAIRS` in `scripts/pair-walk.py` lists them:
+pairs, as `PAIRS` in `toolkit/themes/tools/pair_walk.py` lists them:
 
 | background | text | border |
 |---|---|---|
@@ -190,8 +190,8 @@ colors.** Forced colors leave `opacity` alone, so a disabled control faded over
 `ButtonText` paints a color outside the user's palette. First establish what the
 state means by reading the code that sets its class or attribute: a token named
 for one state, consumed for another, is itself the finding. Then look for a
-token for that state that already varies by regime (`desktop-theme-tokens`'
-`token-resolve.py --effective` prints its value in each). A derived token keeps
+token for that state that already varies by regime
+(`./mach theme resolve-token --effective` prints its value in each). A derived token keeps
 the root's value under an element that redefines its base: check per the
 derived-token rule in `desktop-theme-tokens` §4 "Where a token's value belongs"
 before consuming one outside the rule that already reads it, or judging whether
@@ -200,8 +200,8 @@ consumers need no `@media (forced-colors)`. Only where no token covers the state
 does the consumer sheet give it, under forced colors, its pair at full opacity:
 `GrayText` for disabled content, its icon's `fill` included.
 
-Before running `scripts/pair-walk.py`, read §3 "Per descendant, with
-pair-walk.py" in `references/system-color-pairs.md` for its setup; in chrome on
+Before running `./mach theme check-hcm-colors`, read §3 "Per descendant, with
+./mach theme check-hcm-colors" in `references/system-color-pairs.md` for its setup; in chrome on
 Linux and macOS that setup includes the override from §2 above, and the walk
 exits 1 when an entry judged nothing. Before judging a state, read its §2 "Per
 state" and §4 "Per selector": a diff-only read misses the state the patch left
@@ -218,13 +218,15 @@ with tokens that resolve to literals; measure the ratio wherever a literal
 paints, against 7:1, where `Gecko_MediaFeatures_PrefersContrast` grades `more`.
 In the default regime, a theme's colors included, judge a text pair against WCAG
 AA: 4.5:1, or 3:1 for large text, and a focus ring or separator against its
-surface at 3:1 (`--non-text`). Measure with `scripts/contrast.py`, never by
-hand, and name the palette it was measured on. `--help` has the flags, the state
-locks, and the cases it reports not judged, which need a pixel sample. Where a
-sibling paints a state (e.g. a tab's `.tab-background` behind its label), a
-state entry without `--surface` reads the unchanged background and passes; the
-only sign is a warning on stderr, so treat that entry as not judged until you
-rerun it with `--surface`.
+surface at 3:1 (`--non-text`). Measure with `./mach theme contrast`, never by
+hand, and name the palette it was measured on; without a build, or where the
+chain ends at a transparent root over a backdrop the OS paints (e.g. Windows
+Mica), its `--colors` mode takes resolved values. `--help` has the flags, the
+state locks, how to get the backdrop values for `--colors`, and the cases it reports
+not judged, which need a pixel sample. Where a sibling paints a state (e.g. a
+tab's `.tab-background` behind its label), a state entry without `--surface`
+reads the unchanged background and passes; the only sign is a warning on
+stderr, so treat that entry as not judged until you rerun it with `--surface`.
 
 ## 5. Traps when reading a value back
 
@@ -254,6 +256,11 @@ rerun it with `--surface`.
 ## 6. Judge the fix in every regime, then restore the prefs
 
 Check that each cell moves the way it should (`desktop-theme-probing` §5).
+Measure each cell's ratio with `./mach theme contrast` (§4), never by hand: one
+run per row, light or dark side and variant, each with its own `--setup-file`
+that sets the row's live state (e.g. §2's override, the scheme prefs). To judge
+a revision you have not applied, set its changed declarations inline on the
+subject in that setup file, so the before and after runs differ by those lines.
 `document_color_use` is `browser.display.document_color_use`:
 
 | regime | how to reach it |
@@ -273,6 +280,7 @@ Check that each cell moves the way it should (`desktop-theme-probing` §5).
 | system accent color | `ui.accentcolor=#rrggbb` and `ui.accentcolortext=#rrggbb`; without them the accent depends on the host and the display (the host's platform file in `desktop-theme-probing`, section HEADLESS) |
 | in-app light/dark pair on Linux | `browser.theme.native-theme=false` |
 | native theme on Windows or macOS | `browser.theme.native-theme=true`, with the default theme: a built-in in-app theme takes the in-app layer whatever the pref says |
+| a backdrop the OS paints (e.g. Windows Mica) | `ui.windowsMica=1` makes `(-moz-windows-mica)` match on any platform, but the Windows-only sheets are absent elsewhere and nothing paints the backdrop; inject the rule as `desktop-theme-probing`'s `references/probe-recipes.md` §4 "Test another platform's rule" says, and measure over the backdrop's light and dark values with this skill's §4 `./mach theme contrast --colors` |
 
 When the fix is in a shared sheet, run every row in both realms, the healthy one
 included; for a token change, a realm where no sheet reads a changed token is

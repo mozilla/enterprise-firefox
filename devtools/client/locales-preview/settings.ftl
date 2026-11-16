@@ -40,6 +40,12 @@ devtools-settings-tool-antitracking =
 # what the toolbox is currently debugging.
 devtools-settings-tool-not-supported = Not supported for current toolbox target
 
+## Additional Tools section. Each checkbox enables or disables a tool
+## provided by an add-on.
+
+devtools-settings-additional-tools =
+    .label = Developer Tools installed by add-ons
+
 ## Toolbox Buttons section. Each checkbox shows or hides a button in the
 ## DevTools toolbox toolbar.
 
@@ -98,6 +104,20 @@ devtools-settings-webconsole =
 devtools-settings-webconsole-split-console =
     .label = Enable Split Console
     .title = Open Split Console with the Escape Key
+
+## Themes section.
+
+devtools-settings-themes =
+    .label = Themes
+
+# Accessible name for the group of buttons choosing the color theme used by
+# DevTools.
+devtools-settings-theme =
+    .aria-label = Theme
+
+# Follows the operating system's light or dark preference.
+devtools-settings-theme-auto =
+    .label = Auto
 
 ## Inspector section, configuring the page inspector.
 
@@ -160,6 +180,24 @@ devtools-settings-inspector-color-unit-hwb =
 # Uses CSS named colors, like "red", where one matches the color.
 devtools-settings-inspector-color-unit-name =
     .label = Color Names
+
+## Network Monitor section.
+
+devtools-settings-netmonitor =
+    .label = Network Monitor
+
+devtools-settings-netmonitor-body-limit-label = Maximum request and response body size (set to 0 for unlimited):
+devtools-settings-netmonitor-body-limit-tooltip =
+    .title = Request or response bodies which exceed the specified size will be truncated when displayed or downloaded in the Network Monitor. Set to 0 to have no limitation.
+# Shown in place of the body size limit when it's set to 0.
+devtools-settings-netmonitor-body-limit-unlimited = Unlimited
+
+devtools-settings-netmonitor-body-limit-edit =
+    .title = Edit the maximum request/response body size.
+devtools-settings-netmonitor-body-limit-reset =
+    .title = Restore the default value for maximum request/response body size.
+devtools-settings-netmonitor-body-limit-save =
+    .title = Set the current input value as maximum request/response body size.
 
 ## Style Editor section, configuring the CSS Style Editor.
 

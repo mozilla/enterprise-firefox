@@ -51,7 +51,7 @@ const SETTING_USER_SET = null;
 const SETTING_PRECEDENCE_ORDER = undefined;
 
 const JSON_FILE_NAME = "extension-settings.json";
-const JSON_FILE_VERSION = 3;
+const JSON_FILE_VERSION = 4;
 const STORE_PATH = PathUtils.join(
   Services.dirsvc.get("ProfD", Ci.nsIFile).path,
   JSON_FILE_NAME
@@ -60,7 +60,8 @@ const STORE_PATH = PathUtils.join(
 let _initializePromise;
 let _store = {};
 
-// Processes the JSON data when read from disk to convert string dates into numbers.
+// Processes the JSON data when read from disk to migrate data written by older
+// versions, e.g. to convert string dates into numbers or to follow renamed prefs.
 function dataPostProcessor(json) {
   if (json.version !== JSON_FILE_VERSION) {
     for (let storeType in json) {
@@ -73,8 +74,21 @@ function dataPostProcessor(json) {
             extData.installDate = new Date(extData.installDate).valueOf();
           }
         }
+
+        if (storeType == "prefs" && setting == "openBookmarksInNewTabs") {
+          let initialValue = json[storeType][setting].initialValue;
+          if (
+            initialValue &&
+            Object.hasOwn(initialValue, "browser.tabs.loadBookmarksInTabs")
+          ) {
+            initialValue["browser.tabs.loadUILinkInTab"] =
+              initialValue["browser.tabs.loadBookmarksInTabs"];
+            delete initialValue["browser.tabs.loadBookmarksInTabs"];
+          }
+        }
       }
     }
+
     json.version = JSON_FILE_VERSION;
   }
   return json;

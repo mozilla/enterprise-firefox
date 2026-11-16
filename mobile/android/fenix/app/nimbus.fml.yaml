@@ -20,13 +20,8 @@ import:
       pdfjs:
         - channel: developer
           value: {
-          download-button: false,
-          open-in-app-button: false
-        }
-        - channel: nightly
-          value: {
-          download-button: false,
-          open-in-app-button: false
+          download-button: true,
+          open-in-app-button: true
         }
   - path: ../../android-components/components/feature/fxsuggest/fxsuggest.fml.yaml
     channel: release
@@ -915,7 +910,7 @@ features:
           enabled: false
       - channel: developer
         value:
-          enabled: true
+          enabled: false
 
   tab-management-enhancements:
     description: Control the visibility of the tab management enhancements.
@@ -1332,6 +1327,13 @@ features:
         description: If true, the OLED theme option is shown.
         type: Boolean
         default: false
+    defaults:
+      - channel: developer
+        value:
+          enabled: true
+      - channel: nightly
+        value:
+          enabled: true
 
   pairing-signin-prompt:
     description: >
@@ -1346,21 +1348,29 @@ features:
         description: The "utm_content" value used to identify installs from the pairing campaign.
         type: String
         default: "DTM_SYNC_PAIR_V2"
+    defaults:
+      - channel: developer
+        value:
+          enabled: true
+      - channel: nightly
+        value:
+          enabled: true
+      - channel: beta
+        value:
+          enabled: true
 
   pdf-viewer:
     description: Feature for the PDF viewer tools for users on Firefox for Android.
     variables:
-      android-ui-tools:
-        description: If true, the Android PDF UI tools are shown.
-        type: Boolean
-        default: false
-    defaults:
-      - channel: developer
-        value:
-          android-ui-tools: true
-      - channel: nightly
-        value:
-          android-ui-tools: true
+      enable-pdf-signatures:
+        description: >
+          If true, the Android PDF UI tools are shown, the PDF.js editor is enabled,
+          and the original PDF.js toolbar is hidden.
+          When no value is set, the build default is used (currently enabled on Nightly).
+        type: Option<Boolean>
+        gecko-pref:
+          pref: "pdfjs.enableAndroidEditing"
+          branch: "default"
 
   tab-reload-cover:
     description: >
@@ -1406,6 +1416,16 @@ features:
     variables:
       enabled:
         description: If true, the "Check Archived Version" button is shown on eligible error pages.
+        type: Boolean
+        default: false
+
+  picture-in-picture-window:
+    description: >
+      Feature that shows a video in picture-in-picture by cloning it.
+    variables:
+      enabled:
+        description: >
+          If true, videos requested for picture-in-picture are cloned into a picture-in-picture window.
         type: Boolean
         default: false
 
