@@ -154,7 +154,7 @@ restart-forced-heading = Restart to continue using { -brand-short-name }.
 restart-forced-intro = Company policy requires that { -brand-short-name } be restarted.
 window-restoration-info = Your windows and tabs will be quickly restored, except private ones.
 
-restart-button-label = Restart { -brand-short-name }
+restart-forced-button-label = Restart { -brand-short-name }
 
 # Variables:
 #   $datetime (number) - Timestamp of the time the browser will be restarted at.
