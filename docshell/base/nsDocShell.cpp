@@ -4694,7 +4694,7 @@ nsDocShell::Destroy() {
     const char* msg = mItemType == typeContent
                           ? NS_WEBNAVIGATION_DESTROY
                           : NS_CHROME_WEBNAVIGATION_DESTROY;
-    serv->NotifyObservers(GetAsSupports(this), msg, nullptr);
+    serv->NotifyWhenScriptSafe(GetAsSupports(this), msg, nullptr);
   }
 
   mIsBeingDestroyed = true;
@@ -10087,8 +10087,7 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
     return mBrowsingContext->GetParentWindowContext();
   };
 
-  if (StaticPrefs::dom_security_trusted_types_enabled() &&
-      aLoadState->URI()->SchemeIs("javascript")) {
+  if (aLoadState->URI()->SchemeIs("javascript")) {
     if (WindowContext* sourceWindowContext = getSourceWindowContext()) {
       RefPtr<nsGlobalWindowInner> window =
           sourceWindowContext->GetInnerWindow();

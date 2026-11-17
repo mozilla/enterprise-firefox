@@ -196,7 +196,7 @@ bool BackgroundChildImpl::DeallocPBackgroundLSRequestChild(
 
 BackgroundChildImpl::PBackgroundLocalStorageCacheChild*
 BackgroundChildImpl::AllocPBackgroundLocalStorageCacheChild(
-    const PrincipalInfo& /*aPrincipalInfo*/, const nsACString& /*aOriginKey*/,
+    NotNull<nsIPrincipal*> /*aPrincipal*/, const nsACString& /*aOriginKey*/,
     const uint32_t& /*aPrivateBrowsingId*/) {
   MOZ_CRASH(
       "PBackgroundLocalStorageChild actors should be manually "
@@ -286,7 +286,7 @@ bool BackgroundChildImpl::DeallocPFileCreatorChild(PFileCreatorChild* aActor) {
 // -----------------------------------------------------------------------------
 
 dom::PBroadcastChannelChild* BackgroundChildImpl::AllocPBroadcastChannelChild(
-    const PrincipalInfo& /*aPrincipalInfo*/, const nsACString& /*aOrigin*/,
+    NotNull<nsIPrincipal*> /*aPrincipal*/, const nsACString& /*aOrigin*/,
     const nsAString& /*aChannel*/) {
   RefPtr<dom::BroadcastChannelChild> agent = new dom::BroadcastChannelChild();
   return agent.forget().take();

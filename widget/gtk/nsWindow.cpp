@@ -584,6 +584,8 @@ void nsWindow::Destroy() {
   MOZ_ASSERT(!gtk_widget_get_mapped(mShell));
   MOZ_ASSERT(!gtk_widget_get_mapped(GTK_WIDGET(mContainer)));
 
+  DeleteVSyncSource();
+
   DestroyLayerManager();
 
   // mSurfaceProvider holds reference to this nsWindow so we need to explicitly
@@ -4452,8 +4454,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
     // set it early.
     if (parentnsWindow) {
       WaylandSurfaceLock lock(mSurface);
-      mSurface->SetParentLocked(
-          lock, MOZ_WL_SURFACE(parentnsWindow->GetMozContainer()));
+      mSurface->SetParentLocked(lock, parentnsWindow->GetWaylandSurface());
     }
   }
   container = moz_container_new(this, mSurface);
@@ -4515,6 +4516,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
 
   CreateNative();
   ConfigureToplevelWindow();
+  CreateVSyncSource();
 
   // make sure this is the focus widget in the container
   if (shouldFocus) {
@@ -7451,12 +7453,6 @@ void nsWindow::OnMap() {
 void nsWindow::OnUnmap() {
   LOG("nsWindow::OnUnmap");
 
-#ifdef MOZ_WAYLAND
-  if (auto* toplevel = AsWaylandToplevel()) {
-    toplevel->ClearPipResources();
-  }
-#endif
-
   {
     mIsMapped = false;
     mHasReceivedSizeAllocate = false;
@@ -7484,6 +7480,8 @@ void nsWindow::OnUnmap() {
   if (mWindowType == WindowType::Popup && !mPopupTemporaryHidden) {
     DestroyLayerManager();
   }
+
+  OnUnmapNative();
 }
 
 void nsWindow::NotifyOcclusionState(OcclusionState aState) {
@@ -7518,7 +7516,7 @@ UniquePtr<WaylandSurfaceLock> nsWindow::LockSurface() {
   if (mIsDestroyed || !mSurface) {
     return nullptr;
   }
-  return std::make_unique<WaylandSurfaceLock>(MOZ_WL_SURFACE(mContainer));
+  return std::make_unique<WaylandSurfaceLock>(mSurface);
 #else
   return nullptr;
 #endif

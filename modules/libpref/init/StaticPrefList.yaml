@@ -3257,13 +3257,6 @@
   value: true
   mirror: always
 
-# Whether to validate that a fetch request's principal is compatible with the
-# remote type of the process it originates from.
-- name: dom.fetch.validatePrincipalForRemoteType
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Whether to allow the TYPE_INTERNAL_FORCE_ALLOWED_DTD content policy type on
 # fetch requests received from a content process. Only consumers such as
 # Thunderbird that still rely on DTD loads should enable this.
@@ -5140,13 +5133,6 @@
 - name: dom.security.skip_remote_script_assertion_in_system_priv_context
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# If and only if true, support for Trusted Types
-# (https://w3c.github.io/trusted-types/dist/spec/) is enabled.
-- name: dom.security.trusted_types.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # If true, record the security.trusted_types_readiness Glean metric when a
@@ -11260,12 +11246,9 @@
   mirror: always
 
 # Is support for CSS background-clip: border-area enabled?
-#
-# NOTE(emilio): Before enabling on content, we need to add support for dotted /
-# dashed / double borders to the codepath, see bug 2046372.
 - name: layout.css.background-clip.border-area.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -11588,6 +11571,14 @@
 - name: layout.css.random.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is support for the random-item() function enabled?
+# https://drafts.csswg.org/css-values-5/#random-item
+- name: layout.css.random-item.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -17001,6 +16992,17 @@
 - name: network.http.http2.default-concurrent
   type: RelaxedAtomicInt32
   value: 100
+  mirror: always
+
+# The most an HTTP/2 session may buffer for writing, in bytes. The session
+# fails rather than growing its output queue beyond this.
+# The queue normally stays at a few tens of KB and only grows while the socket
+# can't be written to. 256 MB is far above that, and matches the largest IPC
+# message (IPC::Channel::kMaximumMessageSize), which bounds the request data a
+# content process can send.
+- name: network.http.http2.max_output_queue_size
+  type: RelaxedAtomicUint32
+  value: 256 * 1024 * 1024
   mirror: always
 
 - name: network.http.http2.default-hpack-buffer

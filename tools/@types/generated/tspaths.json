@@ -451,6 +451,12 @@
       "chrome://browser/content/tabbrowser/drag-and-drop.mjs": [
         "../../../browser/components/tabbrowser/content/drag-and-drop.mjs"
       ],
+      "chrome://browser/content/tabbrowser/status-panel.mjs": [
+        "../../../browser/components/tabbrowser/content/status-panel.mjs"
+      ],
+      "chrome://browser/content/tabbrowser/tab-bar-visibility.mjs": [
+        "../../../browser/components/tabbrowser/content/tab-bar-visibility.mjs"
+      ],
       "chrome://browser/content/tabbrowser/tab-groups-list.mjs": [
         "../../../browser/components/tabbrowser/content/tab-groups-list.mjs"
       ],
@@ -5778,9 +5784,6 @@
       ],
       "resource://gre/modules/Console.sys.mjs": [
         "../../../toolkit/modules/Console.sys.mjs"
-      ],
-      "resource://gre/modules/ContentClassifierRemoteSettingsClient.sys.mjs": [
-        "../../../toolkit/components/content-classifier/ContentClassifierRemoteSettingsClient.sys.mjs"
       ],
       "resource://gre/modules/ContentDOMReference.sys.mjs": [
         "../../../toolkit/modules/ContentDOMReference.sys.mjs"

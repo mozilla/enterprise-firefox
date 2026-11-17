@@ -48,8 +48,8 @@ class nsHttpResponseHead;
 
 namespace SharedSubResourceCacheUtils {
 
-void AddMemoryPressureObserver(nsIObserver* aObserver);
-void RemoveMemoryPressureObserver(nsIObserver* aObserver);
+void AddMemoryPressureAndSafeBrowsingObserver(nsIObserver* aObserver);
+void RemoveMemoryPressureAndSafeBrowsingObserver(nsIObserver* aObserver);
 
 }  // namespace SharedSubResourceCacheUtils
 
@@ -174,13 +174,17 @@ class SharedSubResourceCache {
     MOZ_DIAGNOSTIC_ASSERT(!sSingleton);
     sSingleton = new Derived();
     sSingleton->Init();
-    SharedSubResourceCacheUtils::AddMemoryPressureObserver(sSingleton);
+    sSingleton->AddPrefCallback();
+    SharedSubResourceCacheUtils::AddMemoryPressureAndSafeBrowsingObserver(
+        sSingleton);
     return sSingleton.get();
   }
 
   static void DeleteSingleton() {
     if (sSingleton) {
-      SharedSubResourceCacheUtils::RemoveMemoryPressureObserver(sSingleton);
+      SharedSubResourceCacheUtils::RemoveMemoryPressureAndSafeBrowsingObserver(
+          sSingleton);
+      sSingleton->RemovePrefCallback();
     }
     sSingleton = nullptr;
   }
@@ -290,6 +294,17 @@ class SharedSubResourceCache {
   // Subclass should implement nsIObserver and call this method.
   nsresult DoObserve(nsISupports* aSubject, const char* aTopic,
                      const char16_t* aData) {
+    if (strcmp(aTopic, "safebrowsing-update-finished") == 0) {
+      nsDependentString data(aData);
+      if (data.EqualsLiteral("success:mozilla")) {
+        // Classifiers provided by "mozilla" are applied to subresources.
+        // Classifiers provided by "google4" and "google5" are applied
+        // only to the document.
+        ClearAllProcessesForSafeBrowsingUpdate();
+      }
+      return NS_OK;
+    }
+
     if (ShouldIgnoreMemoryPressure()) {
       return NS_OK;
     }
@@ -310,6 +325,48 @@ class SharedSubResourceCache {
   virtual void ClearInProcessForMemoryPressure() {
     ClearInProcess(Nothing(), Nothing(), Nothing(), Nothing(), Nothing());
   }
+
+  void AddPrefCallback() {
+    // URL classification (tracking protection etc) are handled inside
+    // nsHttpChannel.
+    // The cache reflects the policy for whether to block or not, and once
+    // the policy is modified, we should discard the cache, to avoid running
+    // a cached script which is supposed to be blocked.
+    Preferences::RegisterPrefixCallback(OnPrefChanged, "urlclassifier.");
+    Preferences::RegisterPrefixCallback(OnPrefChanged,
+                                        "privacy.trackingprotection.");
+  }
+
+  void RemovePrefCallback() {
+    Preferences::UnregisterPrefixCallback(OnPrefChanged, "urlclassifier.");
+    Preferences::UnregisterPrefixCallback(OnPrefChanged,
+                                          "privacy.trackingprotection.");
+  }
+
+  static void OnPrefChanged(const char* aPref, void* aData) {
+    if (!sSingleton) {
+      return;
+    }
+
+    // The preference callbacks are called on each process, and thus we don't
+    // have to clear other processes' cache.
+    //
+    // The URL classification should be applied only to the web content
+    // resources.
+    sSingleton->ClearInProcessForContentFilteringUpdate();
+  }
+
+  void ClearInProcessForContentFilteringUpdate() {
+    ClearInProcess(/* aChrome = */ Some(false), Nothing(), Nothing(), Nothing(),
+                   Nothing());
+  }
+
+  // The safe browsing update notification is performed only in the parent
+  // process.
+  //
+  // Each subclass is responsible for handling IPC to clear the cache in all
+  // content process.
+  virtual void ClearAllProcessesForSafeBrowsingUpdate() = 0;
 
   void CancelPendingLoadsForLoader(Loader&);
 

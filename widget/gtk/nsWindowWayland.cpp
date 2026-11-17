@@ -477,6 +477,28 @@ RefPtr<VsyncDispatcher> nsWindowWaylandToplevel::GetVsyncDispatcher() {
   return mWaylandVsyncDispatcher;
 }
 
+void nsWindowWaylandToplevel::CreateVSyncSource() {
+  // Initialize the window specific VsyncSource early in order to avoid races
+  // with BrowserParent::UpdateVsyncParentVsyncDispatcher().
+  // Only use for toplevel windows for now, see bug 1619246.
+  if (StaticPrefs::widget_wayland_vsync_enabled_AtStartup() &&
+      IsTopLevelWidget()) {
+    LOG_VSYNC("  create WaylandVsyncSource");
+    mWaylandVsyncSource = new WaylandVsyncSource(this);
+    mWaylandVsyncSource->Init();
+    mWaylandVsyncDispatcher = new VsyncDispatcher(mWaylandVsyncSource);
+    mWaylandVsyncSource->EnableVSyncSource();
+  }
+}
+
+void nsWindowWaylandToplevel::DeleteVSyncSource() {
+  if (mWaylandVsyncSource) {
+    mWaylandVsyncSource->Shutdown();
+    mWaylandVsyncSource = nullptr;
+  }
+  mWaylandVsyncDispatcher = nullptr;
+}
+
 void nsWindowWaylandToplevel::EnableVSyncSource() {
   if (mWaylandVsyncSource) {
     mWaylandVsyncSource->EnableVSyncSource();
@@ -919,7 +941,7 @@ void nsWindowWaylandPopup::WaylandPopupCloseOrphanedPopups() {
   nsWindowWaylandPopup* popup = this;
   bool dangling = false;
   while (popup) {
-    if (!dangling && !MOZ_WL_SURFACE(popup->GetMozContainer())->IsVisible()) {
+    if (!dangling && !popup->GetWaylandSurface()->IsVisible()) {
       LOG("  popup [%p] is waiting to show, close all child popups", popup);
       dangling = true;
     } else if (dangling) {

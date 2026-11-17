@@ -110,6 +110,7 @@ object BrowserToolbarStoreBuilder {
                                     translationsFeatureSettings = TranslationsEnabledSettings.dataStore(activity),
                                     listenSettings = components.listenToPage.settings,
                                     pictureInPictureUseCases = components.useCases.pictureInPictureUseCases,
+                                    menuCustomizationRepository = components.menuCustomizationRepository,
                                     shareUseCases = components.useCases.shareUseCases,
                                     navController = navController,
                                     summarizationNavigator =
@@ -162,7 +163,6 @@ object BrowserToolbarStoreBuilder {
                                     navController = navController,
                                     closeTabDelegate = { activity.finishAndRemoveTask() },
                                     scope = lifecycleScope,
-                                    settings = components.settings,
                                     isSandboxCustomTab = isSandboxCustomTab,
                                 )
                             )

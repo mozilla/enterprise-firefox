@@ -8,13 +8,13 @@
 #include <utility>
 
 #include "mozilla/Preferences.h"
-#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/TrustedTypesConstants.h"
 #include "nsCOMPtr.h"
 #include "nsCSPUtils.h"
 #include "nsContentUtils.h"
+#include "nsIPrincipal.h"
 #include "nsIScriptError.h"
 #include "nsNetUtil.h"
 #include "nsReadableUtils.h"
@@ -56,6 +56,7 @@ nsCSPParser::nsCSPParser(policyTokens& aTokens, nsIURI* aSelfURI,
       mScriptSrc(nullptr),
       mStyleSrc(nullptr),
       mParsingFrameAncestorsDir(false),
+      mOriginOnly(false),
       mTokens(aTokens.Clone()),
       mSelfURI(aSelfURI),
       mPolicy(nullptr),
@@ -478,8 +479,7 @@ nsCSPBaseSrc* nsCSPParser::keywordSource() {
     return new nsCSPKeywordSrc(CSP_UTF16KeywordToEnum(mCurToken));
   }
 
-  if (StaticPrefs::dom_security_trusted_types_enabled() &&
-      CSP_IsKeyword(mCurToken, CSP_TRUSTED_TYPES_EVAL)) {
+  if (CSP_IsKeyword(mCurToken, CSP_TRUSTED_TYPES_EVAL)) {
     return new nsCSPKeywordSrc(CSP_UTF16KeywordToEnum(mCurToken));
   }
 
@@ -523,6 +523,11 @@ nsCSPHostSrc* nsCSPParser::hostSource() {
     // see also https://w3c.github.io/webappsec-csp/#grammardef-path-part
     delete cspHost;
     return nullptr;
+  }
+  // flag only set for Permissions Policy source-expression
+  // because it matches origins instead of URLs
+  if (mOriginOnly) {
+    cspHost->clearPath();
   }
   return cspHost;
 }
@@ -711,6 +716,10 @@ nsCSPBaseSrc* nsCSPParser::sourceExpression() {
     return cspUrlHash;
   }
 
+  return schemeOrHostSource();
+}
+
+nsCSPBaseSrc* nsCSPParser::schemeOrHostSource() {
   // We handle a single "*" as host here, to avoid any confusion when applying
   // the default scheme. However, we still would need to apply the default
   // scheme in case we would parse "*:80".
@@ -776,6 +785,29 @@ nsCSPBaseSrc* nsCSPParser::sourceExpression() {
   }
   // Error was reported in hostSource()
   return nullptr;
+}
+
+/* static */
+mozilla::UniquePtr<nsCSPBaseSrc> nsCSPParser::parseSingleSourceExpression(
+    const nsAString& aSourceExpression, nsIPrincipal* aPrincipal) {
+  MOZ_ASSERT(aPrincipal);
+
+  nsCOMPtr<nsIURI> selfURI = aPrincipal->GetURI();
+  if (!selfURI) {
+    return nullptr;
+  }
+
+  if (aSourceExpression.IsEmpty() ||
+      CSP_IsInvalidDirectiveValue(aSourceExpression)) {
+    return nullptr;
+  }
+
+  policyTokens tokens;
+  nsCSPParser parser(tokens, selfURI, nullptr, false, true);
+  parser.mCurToken = aSourceExpression;
+  parser.mOriginOnly = true;
+
+  return mozilla::UniquePtr<nsCSPBaseSrc>(parser.schemeOrHostSource());
 }
 
 void nsCSPParser::logWarningForIgnoringNoneKeywordToConsole() {
@@ -1116,11 +1148,7 @@ nsCSPDirective* nsCSPParser::directiveName() {
 
   // Check if it is a valid directive
   CSPDirective directive = CSP_StringToCSPDirective(mCurToken);
-  if (directive == nsIContentSecurityPolicy::NO_DIRECTIVE ||
-      (!StaticPrefs::dom_security_trusted_types_enabled() &&
-       (directive ==
-            nsIContentSecurityPolicy::REQUIRE_TRUSTED_TYPES_FOR_DIRECTIVE ||
-        directive == nsIContentSecurityPolicy::TRUSTED_TYPES_DIRECTIVE))) {
+  if (directive == nsIContentSecurityPolicy::NO_DIRECTIVE) {
     AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
                              "couldNotProcessUnknownDirective", params);

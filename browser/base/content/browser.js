@@ -129,6 +129,16 @@ ChromeUtils.defineESModuleGetters(this, {
   ZoomUI: "resource:///modules/ZoomUI.sys.mjs",
 });
 
+ChromeUtils.defineESModuleGetters(
+  this,
+  {
+    StatusPanel: "chrome://browser/content/tabbrowser/status-panel.mjs",
+    TabBarVisibility:
+      "chrome://browser/content/tabbrowser/tab-bar-visibility.mjs",
+  },
+  { global: "current" }
+);
+
 ChromeUtils.defineLazyGetter(this, "fxAccounts", () => {
   return ChromeUtils.importESModule(
     "resource://gre/modules/FxAccounts.sys.mjs"
@@ -1250,21 +1260,12 @@ var gKeywordURIFixup = {
         }
 
         let displayHostName = "http://" + hostName + "/";
-        let message = gNavigatorBundle.getFormattedString(
-          "keywordURIFixup.message",
-          [displayHostName]
-        );
-        let yesMessage = gNavigatorBundle.getFormattedString(
-          "keywordURIFixup.goTo",
-          [displayHostName]
-        );
+        let l10nArgs = { hostName: displayHostName };
 
         let buttons = [
           {
-            label: yesMessage,
-            accessKey: gNavigatorBundle.getString(
-              "keywordURIFixup.goTo.accesskey"
-            ),
+            "l10n-id": "keyword-uri-fixup-go-to-button",
+            "l10n-args": l10nArgs,
             callback() {
               // Do not set this preference while in private browsing.
               if (!PrivateBrowsingUtils.isWindowPrivate(window)) {
@@ -1286,7 +1287,10 @@ var gKeywordURIFixup = {
         let notification = await notificationBox.appendNotification(
           "keyword-uri-fixup",
           {
-            label: message,
+            label: {
+              "l10n-id": "keyword-uri-fixup-message",
+              "l10n-args": l10nArgs,
+            },
             priority: notificationBox.PRIORITY_INFO_HIGH,
           },
           buttons
