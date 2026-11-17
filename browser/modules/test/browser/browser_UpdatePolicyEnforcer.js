@@ -39,6 +39,15 @@ function popPrefs() {
   return SpecialPowers.popPrefEnv();
 }
 
+// InfoBar won't show a new infobar until the removed one is cleaned up.
+async function removeInfoBars(win) {
+  win.gNotificationBox.removeAllNotifications();
+  await TestUtils.waitForCondition(
+    () => !InfoBar._activeInfobar,
+    "Waiting for the infobar to be cleaned up"
+  );
+}
+
 add_task(async function test_compulsoryRestartNotification() {
   await pushPrefs([prefName, JSON.stringify(prefValue)]);
   let win = Services.wm.getMostRecentBrowserWindow("navigator:browser");
@@ -86,7 +95,7 @@ add_task(async function test_compulsoryRestartNotification() {
     );
   } finally {
     testingOnly_resetTasks();
-    win.gNotificationBox.removeAllNotifications();
+    await removeInfoBars(win);
     await popPrefs();
   }
 });
@@ -97,10 +106,10 @@ add_task(async function test_compulsoryRestartNotification() {
  */
 add_task(async function test_compulsoryRestartNotificationFromFelt() {
   await pushPrefs([prefName, JSON.stringify(prefValue)]);
+  let win = Services.wm.getMostRecentBrowserWindow();
   try {
     testingOnly_resetTasks();
 
-    let win = Services.wm.getMostRecentBrowserWindow();
     for (let n of [...win.gNotificationBox.allNotifications]) {
       n.dismiss();
     }
@@ -118,6 +127,7 @@ add_task(async function test_compulsoryRestartNotificationFromFelt() {
     );
   } finally {
     testingOnly_resetTasks();
+    await removeInfoBars(win);
     await popPrefs();
   }
 });
