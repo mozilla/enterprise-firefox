@@ -3,3 +3,4 @@ head = "head.js"
 support-files = ["content_analysis_wasm.wasm"]
 
 ["test_wasm_backend.js"]
+run-if = ["enterprise"]  # The built-in DLP module is fetched through the enterprise-only ConsoleClient

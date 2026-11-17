@@ -61,6 +61,7 @@ skip-if = ["enterprise"] # Applies Bookmarks, unsupported in enterprise builds
 https_first_disabled = true
 
 ["browser_policy_data_loss_prevention.js"]
+run-if = ["enterprise"]  # The DataLossPrevention policy is enterprise-only
 
 ["browser_policy_default_browser_setting.js"]
 
