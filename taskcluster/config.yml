@@ -915,7 +915,7 @@ workers:
             implementation: generic-worker
             os: linux
             worker-type: 't-linux-2404-wayland-snap'
-        t-linux-arm64-docker:
+        t-linux-arm64(|-light)-docker:
             provisioner: '{trust-domain}-t'
             implementation: docker-worker
             os: linux
