@@ -15,6 +15,8 @@
  * from analyze() if that races it), and reused for the runner's lifetime.
  */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient:
@@ -76,6 +78,12 @@ export class ContentAnalysisWasmRunner {
   }
 
   async #fetchModule() {
+    if (!AppConstants.MOZ_ENTERPRISE) {
+      throw Components.Exception(
+        "the DLP wasm module is only available on enterprise builds",
+        Cr.NS_ERROR_NOT_AVAILABLE
+      );
+    }
     const buffer = await lazy.ConsoleClient.getDlpWasmModule();
     // Note that `getDlpWasmModule()` will return 204 No Content
     // if the version of the DLP module is >= the version we have already.

@@ -4,3 +4,7 @@ support-files = ["content_analysis_wasm.wasm"]
 
 ["test_wasm_backend.js"]
 run-if = ["enterprise"]  # The built-in DLP module is fetched through the enterprise-only ConsoleClient
+
+["test_wasm_runner_not_enterprise.js"]
+head = ""
+skip-if = ["enterprise"]  # Tests the non-enterprise fallback
