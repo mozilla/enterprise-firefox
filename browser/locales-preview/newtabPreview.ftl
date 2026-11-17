@@ -10,6 +10,8 @@
 # show.
 newtab-widget-placeholder = Watch this space
 
+newtab-wallpaper-category-title-predecessor = Predecessor
+
 ## Solitaire widget
 
 # Context menu item linking to the Yahoo website, the provider of the solitaire game.
@@ -20,3 +22,15 @@ newtab-solitaire-menu-powered-by-yahoo = Powered by Yahoo
 newtab-solitaire-widget-close-button =
     .title = Close
     .aria-label = Close Solitaire
+
+## Crossword widget
+
+newtab-crossword-widget-title = Daily crossword
+# Accessible name for the iframe that contains the crossword puzzle.
+newtab-crossword-widget-frame =
+    .title = Crossword
+newtab-crossword-widget-menu-show-clues = Show clues
+newtab-crossword-widget-menu-solve-puzzle = Solve puzzle
+# Context menu item linking to the Particle website, the provider of the crossword.
+newtab-crossword-menu-powered-by-particle = Powered by Particle
+newtab-crossword-widget-menu-learn-more = Learn more

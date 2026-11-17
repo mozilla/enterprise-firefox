@@ -372,7 +372,6 @@ class nsWindow : public nsIWidget {
 
   static guint32 sLastButtonPressTime;
 
-  MozContainer* GetMozContainer() { return mContainer; }
   GdkWindow* GetGdkWindow() const { return mGdkWindow; }
   void SetGdkWindow(GdkWindow* aGdkWindow);
   GdkWindow* GetToplevelGdkWindow() const;
@@ -553,6 +552,10 @@ class nsWindow : public nsIWidget {
 
   // Native implementation of OnMap() event for X11/Wayland.
   virtual void OnMapNative() {}
+  virtual void OnUnmapNative() {}
+
+  virtual void CreateVSyncSource() {}
+  virtual void DeleteVSyncSource() {}
 
   virtual void EnableVSyncSource() {}
   virtual void DisableVSyncSource() {}

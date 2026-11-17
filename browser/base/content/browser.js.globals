@@ -152,6 +152,8 @@
   "WebNavigationFrames",
   "webrtcUI",
   "ZoomUI",
+  "StatusPanel",
+  "TabBarVisibility",
   "fxAccounts",
   "PlacesTreeView",
   "PlacesInsertionPoint",

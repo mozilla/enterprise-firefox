@@ -957,6 +957,8 @@ Tester.prototype = {
   },
 
   finish: function Tester_finish() {
+    this.PerTestCoverageUtils.afterSuiteSync();
+
     var passCount = this.tests.reduce((a, f) => a + f.passCount, 0);
     var failCount = this.tests.reduce((a, f) => a + f.failCount, 0);
     var todoCount = this.tests.reduce((a, f) => a + f.todoCount, 0);
@@ -1681,6 +1683,9 @@ Tester.prototype = {
     // test_end is logged, otherwise the new windows created by addTab will be
     // tracked by ShutdownLeaks as belonging to the test and cause false leak reports.
     if (window.gBrowser) {
+      // Tests start with the selected browser focused. Restore that before
+      // replacing the tab, as focus left on a tab would move to the new one.
+      gBrowser.selectedBrowser.focus();
       gBrowser.addTab("about:blank", {
         skipAnimation: true,
         triggeringPrincipal:

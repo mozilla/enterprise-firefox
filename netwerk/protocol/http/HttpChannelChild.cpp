@@ -413,6 +413,14 @@ void HttpChannelChild::OnStartRequest(
   mSecurityInfo = aArgs.securityInfo();
 
   ipc::MergeParentLoadInfoForwarder(aArgs.loadInfoForwarder(), mLoadInfo);
+  if (aArgs.earlyHintResultPrincipalURI()) {
+    MOZ_ASSERT(mEarlyHintPreloaderId);
+    mLoadInfo->SetResultPrincipalURI(aArgs.earlyHintResultPrincipalURI());
+  }
+  if (aArgs.earlyHintFinalURI()) {
+    MOZ_ASSERT(mEarlyHintPreloaderId);
+    mURI = aArgs.earlyHintFinalURI();
+  }
 
   mIsFromCache = aArgs.isFromCache();
   mCacheEntryAvailable = aArgs.cacheEntryAvailable();
@@ -3304,17 +3312,12 @@ NS_IMETHODIMP
 HttpChannelChild::RemoveCorsPreflightCacheEntry(
     nsIURI* aURI, nsIPrincipal* aPrincipal,
     const OriginAttributes& aOriginAttributes) {
-  PrincipalInfo principalInfo;
   MOZ_ASSERT(aURI, "aURI should not be null");
-  nsresult rv = PrincipalToPrincipalInfo(aPrincipal, &principalInfo);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
   bool result = false;
   // Be careful to not attempt to send a message to the parent after the
   // actor has been destroyed.
   if (CanSend()) {
-    result = SendRemoveCorsPreflightCacheEntry(aURI, principalInfo,
+    result = SendRemoveCorsPreflightCacheEntry(aURI, WrapNotNull(aPrincipal),
                                                aOriginAttributes);
   }
   return result ? NS_OK : NS_ERROR_FAILURE;

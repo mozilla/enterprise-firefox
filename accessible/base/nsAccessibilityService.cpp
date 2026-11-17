@@ -1514,8 +1514,13 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
     // expose their native roles.
     if (!roleMapEntry && newAcc && aContext->HasStrongARIARole()) {
       if (frame->AccessibleType() == eHTMLTableRowType) {
-        const nsRoleMapEntry* contextRoleMap = aContext->ARIARoleMap();
-        if (!contextRoleMap->IsOfType(eTable)) {
+        LocalAccessible* table = aContext;
+        if (!aContext->IsTable() &&
+            aContext->ARIARoleMap()->role == roles::ROWGROUP) {
+          table = aContext->LocalParent();
+        }
+        if (table->HasStrongARIARole() &&
+            !table->ARIARoleMap()->IsOfType(eTable)) {
           roleMapEntry = &aria::gEmptyRoleMap;
         }
 
@@ -2100,8 +2105,8 @@ void nsAccessibilityService::NotifyOfConsumersChange() {
 
   nsAutoString consumers;
   GetConsumers(consumers);
-  observerService->NotifyObservers(nullptr, "a11y-consumers-changed",
-                                   consumers.get());
+  observerService->NotifyWhenScriptSafe(nullptr, "a11y-consumers-changed",
+                                        consumers.get());
 }
 
 const mozilla::a11y::MarkupMapInfo* nsAccessibilityService::GetMarkupMapInfoFor(

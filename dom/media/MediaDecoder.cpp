@@ -16,11 +16,9 @@
 #include "MediaResource.h"
 #include "MediaShutdownManager.h"
 #include "MediaTrackGraph.h"
-#include "PDMFactory.h"
 #include "TelemetryProbesReporter.h"
 #include "VideoFrameContainer.h"
 #include "VideoUtils.h"
-#include "gfxPlatform.h"
 #include "mozilla/AbstractThread.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_media.h"
@@ -183,7 +181,12 @@ void MediaDecoder::SetOutputTracksPrincipal(
     const RefPtr<nsIPrincipal>& aPrincipal) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mDecoderStateMachine, "Must be called after Load().");
-  mOutputPrincipal = MakePrincipalHandle(aPrincipal);
+  if (GetPrincipalFromHandle(mOutputPrincipal) == aPrincipal) {
+    // Every new handle has a new generation id, which downstream sees as a
+    // principal change. Keep the current handle if nothing really changed.
+    return;
+  }
+  mOutputPrincipal = PrincipalHandle(aPrincipal);
 }
 
 double MediaDecoder::GetDuration() {
@@ -558,11 +561,6 @@ void MediaDecoder::FinishShutdown() {
 nsresult MediaDecoder::CreateAndInitStateMachine(bool aIsLiveStream,
                                                  bool aDisableExternalEngine) {
   MOZ_ASSERT(NS_IsMainThread());
-  // The graphics devices are lazily initialized with WebRender, and decoders in
-  // this process may need them.
-  if (!PDMFactory::AllDecodersAreRemote()) {
-    gfxPlatform::GetPlatform()->EnsureDevicesInitialized();
-  }
   SetStateMachine(CreateStateMachine(aDisableExternalEngine));
 
   NS_ENSURE_TRUE(GetStateMachine(), NS_ERROR_FAILURE);

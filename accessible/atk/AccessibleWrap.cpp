@@ -684,6 +684,13 @@ static AtkAttributeSet* ConvertToAtkAttributeSet(AccAttributes* aAttributes) {
   return objAttributeSet;
 }
 
+// Whether the value of aAcc should be exposed via the valuetext object
+// attribute. We don't want to expose traditional Value() information such as
+// URLs on links and documents, or text in an input or editable combobox.
+static bool ShouldExposeValueText(Accessible* aAcc) {
+  return aAcc->HasNumericValue() || (aAcc->IsCombobox() && !aAcc->IsEditable());
+}
+
 AtkAttributeSet* getAttributesCB(AtkObject* aAtkObj) {
   Accessible* acc = GetInternalObj(aAtkObj);
   if (!acc) {
@@ -691,6 +698,15 @@ AtkAttributeSet* getAttributesCB(AtkObject* aAtkObj) {
   }
   RefPtr<AccAttributes> attributes = acc->Attributes();
   nsAccUtils::SetAccGroupAttrs(attributes, acc);
+  // ATK has no way to retrieve a textual value, so expose it via the valuetext
+  // object attribute.
+  if (ShouldExposeValueText(acc)) {
+    nsString value;
+    acc->Value(value);
+    // This is exposed as "valuetext" because AccAttributes::NameAsString
+    // strips the "aria-" prefix.
+    attributes->SetAttribute(nsGkAtoms::aria_valuetext, std::move(value));
+  }
   return ConvertToAtkAttributeSet(attributes);
 }
 
@@ -983,9 +999,10 @@ void a11y::PlatformEvent(Accessible* aTarget, uint32_t aEventType) {
       break;
     case nsIAccessibleEvent::EVENT_VALUE_CHANGE:
     case nsIAccessibleEvent::EVENT_TEXT_VALUE_CHANGE:
-      if (aTarget->HasNumericValue()) {
-        // Make sure this is a numeric value. Don't fire for string value
-        // changes (e.g. text editing) ATK values are always numeric.
+      // Only fire if we expose valuetext. Don't fire for other string value
+      // changes (e.g. text editing). This works even for Accessibles which
+      // don't support AtkValue, such as comboboxes.
+      if (ShouldExposeValueText(aTarget)) {
         g_object_notify((GObject*)wrapper, "accessible-value");
       }
       break;
