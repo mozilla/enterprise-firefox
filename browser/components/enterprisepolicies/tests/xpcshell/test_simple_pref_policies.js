@@ -1447,6 +1447,7 @@ const POLICIES_TESTS = [
 
   // CrashReportsSubmit - enabled
   {
+    enterpriseOnly: true,
     policies: {
       CrashReportsSubmit: {
         Enabled: true,
@@ -1466,6 +1467,7 @@ const POLICIES_TESTS = [
 
   // CrashReportsSubmit - disabled
   {
+    enterpriseOnly: true,
     policies: {
       CrashReportsSubmit: {
         Enabled: false,
@@ -1484,6 +1486,7 @@ const POLICIES_TESTS = [
 
   // POLICY: ContentAnalysisTelemetry
   {
+    enterpriseOnly: true,
     policies: {
       ContentAnalysisTelemetry: {
         Enabled: true,
@@ -1496,6 +1499,7 @@ const POLICIES_TESTS = [
     },
   },
   {
+    enterpriseOnly: true,
     policies: {
       ContentAnalysisTelemetry: {
         Enabled: false,
@@ -1510,6 +1514,7 @@ const POLICIES_TESTS = [
 
   // POLICY: SignOut
   {
+    enterpriseOnly: true,
     policies: {
       SignOut: {
         Shutdown: {
@@ -1523,6 +1528,7 @@ const POLICIES_TESTS = [
     },
   },
   {
+    enterpriseOnly: true,
     policies: {
       SignOut: {
         Shutdown: {
@@ -1535,6 +1541,7 @@ const POLICIES_TESTS = [
     },
   },
   {
+    enterpriseOnly: true,
     policies: {
       SignOut: {
         Restart: {
@@ -1549,6 +1556,7 @@ const POLICIES_TESTS = [
     },
   },
   {
+    enterpriseOnly: true,
     policies: {
       SignOut: {
         Restart: {
@@ -1561,6 +1569,7 @@ const POLICIES_TESTS = [
     },
   },
   {
+    enterpriseOnly: true,
     policies: {
       SignOut: {
         Crash: {
@@ -1575,6 +1584,7 @@ const POLICIES_TESTS = [
     },
   },
   {
+    enterpriseOnly: true,
     policies: {
       SignOut: {
         Crash: {
@@ -1607,6 +1617,14 @@ add_task(async function test_policy_simple_prefs() {
         `Skipping ${Object.keys(test.policies).join(
           ", "
         )}: not supported on enterprise builds`
+      );
+      continue;
+    }
+    if (test.enterpriseOnly && !AppConstants.MOZ_ENTERPRISE) {
+      info(
+        `Skipping ${Object.keys(test.policies).join(
+          ", "
+        )}: only supported on enterprise builds`
       );
       continue;
     }
