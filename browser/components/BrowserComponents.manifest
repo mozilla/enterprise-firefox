@@ -58,6 +58,7 @@ category browser-window-domcontentloaded chrome://browser/content/browser.js Fir
 category browser-window-domcontentloaded moz-src:///toolkit/components/enterprise/modules/EnterpriseBadge.sys.mjs EnterpriseBadge.init
 category browser-window-domcontentloaded moz-src:///browser/components/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
 category browser-window-domcontentloaded moz-src:///browser/components/enterprise/AccessConnectorButton.sys.mjs AccessConnectorButtonHandler.init
+category browser-window-domcontentloaded moz-src:///browser/components/enterprise/SitePoliciesButton.sys.mjs SitePoliciesButtonHandler.init
 #endif
 
 category browser-window-load-before-sessionstore-init chrome://browser/content/browser-captivePortal.js CaptivePortalWatcher.init

@@ -6,6 +6,12 @@
 const { EnterprisePolicyTesting } = ChromeUtils.importESModule(
   "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
 );
+const { SITE_PROTECTIONS } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/enterprise/SitePoliciesButton.sys.mjs"
+);
+const { schema } = ChromeUtils.importESModule(
+  "resource:///modules/policies/schema.sys.mjs"
+);
 
 const LOCKED_URL = "https://example.com/";
 const UNLOCKED_URL = "https://example.org/";
@@ -21,8 +27,8 @@ const SITE_POLICIES = {
   },
 };
 
-function getLockdownUrlbarButton() {
-  return document.getElementById("lockdown-mode-button");
+function getLockdownUrlbarButton(win = window) {
+  return win.document.getElementById("lockdown-mode-button");
 }
 
 async function setupWithSitePolicies() {
@@ -202,5 +208,268 @@ add_task(async function test_subview_content() {
     let panelHidden = BrowserTestUtils.waitForEvent(tempPanel, "popuphidden");
     PanelMultiView.hidePopup(tempPanel);
     await panelHidden;
+  });
+});
+
+async function openMainView(win = window) {
+  EventUtils.synthesizeMouseAtCenter(getLockdownUrlbarButton(win), {}, win);
+  let tempPanel = win.document.getElementById("customizationui-widget-panel");
+  await BrowserTestUtils.waitForEvent(tempPanel, "popupshown");
+  return tempPanel;
+}
+
+async function openDetailsSubview(win = window) {
+  let tempPanel = await openMainView(win);
+
+  let detailsView = win.document.getElementById(
+    "panelUI-lockdown-mode-details"
+  );
+  let viewShown = BrowserTestUtils.waitForEvent(detailsView, "ViewShown");
+  tempPanel.querySelector("#lockdown-mode-details-button").click();
+  await viewShown;
+
+  return { tempPanel, detailsView };
+}
+
+async function closePanel(tempPanel) {
+  let panelHidden = BrowserTestUtils.waitForEvent(tempPanel, "popuphidden");
+  tempPanel.documentGlobal.PanelMultiView.hidePopup(tempPanel);
+  await panelHidden;
+}
+
+function getListedPolicies(detailsView) {
+  return Array.from(
+    detailsView.querySelectorAll(".lockdown-mode-protection-name"),
+    node => node.textContent
+  );
+}
+
+add_task(async function test_details_subview_lists_applied_protections() {
+  await EnterprisePolicyTesting.setupPolicyEngineWithJson({
+    policies: {
+      SitePolicies: [
+        {
+          Match: ["*.example.com"],
+          Policies: { DisableJit: true, DisableServiceWorkers: true },
+        },
+        {
+          Match: ["*.example.com"],
+          Policies: { DisableJit: false, HttpsOnly: true },
+        },
+        {
+          Match: ["*.example.org"],
+          Policies: { HttpsOnly: false },
+        },
+      ],
+    },
+  });
+
+  await BrowserTestUtils.withNewTab(LOCKED_URL, async () => {
+    let { tempPanel, detailsView } = await openDetailsSubview();
+
+    Assert.equal(
+      tempPanel.querySelector("#lockdown-mode-details-count").textContent,
+      "3",
+      "The details row should show how many protections apply"
+    );
+    Assert.ok(
+      detailsView.querySelector(".panel-header .subviewbutton-back"),
+      "Details subview should have a back button"
+    );
+    Assert.deepEqual(
+      getListedPolicies(detailsView),
+      ["HttpsOnly", "DisableServiceWorkers", "DisableJit"],
+      "Only the protections applied to the site should be listed, in order"
+    );
+    Assert.deepEqual(
+      Array.from(
+        detailsView.querySelectorAll(".lockdown-mode-protection-description"),
+        node => node.dataset.l10nId
+      ),
+      [
+        "lockdown-mode-protection-https-only",
+        "lockdown-mode-protection-disable-service-workers",
+        "lockdown-mode-protection-disable-jit",
+      ],
+      "Each protection should have its description"
+    );
+    Assert.ok(
+      Array.from(
+        detailsView.querySelectorAll(".lockdown-mode-protection-description")
+      ).every(node => node.textContent),
+      "Descriptions should be translated before the view is shown"
+    );
+
+    let mainView = document.getElementById("panelUI-lockdown-mode");
+    let mainShown = BrowserTestUtils.waitForEvent(mainView, "ViewShown");
+    detailsView.querySelector(".subviewbutton-back").click();
+    await mainShown;
+    Assert.ok(true, "Back button should return to the main view");
+
+    await closePanel(tempPanel);
+  });
+});
+
+add_task(async function test_details_subview_updates_per_site() {
+  await EnterprisePolicyTesting.setupPolicyEngineWithJson({
+    policies: {
+      SitePolicies: [
+        { Match: ["*.example.com"], Policies: { DisableJit: true } },
+        { Match: ["*.example.org"], Policies: { HttpsOnly: true } },
+      ],
+    },
+  });
+
+  await BrowserTestUtils.withNewTab(LOCKED_URL, async () => {
+    let { tempPanel, detailsView } = await openDetailsSubview();
+    Assert.deepEqual(getListedPolicies(detailsView), ["DisableJit"]);
+    await closePanel(tempPanel);
+  });
+
+  await BrowserTestUtils.withNewTab(UNLOCKED_URL, async () => {
+    let { tempPanel, detailsView } = await openDetailsSubview();
+    Assert.deepEqual(getListedPolicies(detailsView), ["HttpsOnly"]);
+    await closePanel(tempPanel);
+  });
+});
+
+add_task(async function test_every_site_policy_is_listed() {
+  const sitePolicyNames = Object.keys(
+    schema.properties.SitePolicies.items.properties.Policies.properties
+  );
+  Assert.deepEqual(
+    SITE_PROTECTIONS.map(({ policy }) => policy).sort(),
+    sitePolicyNames.sort(),
+    "Every SitePolicies policy in the schema should have a listed protection"
+  );
+});
+
+add_task(async function test_button_hidden_when_no_protections_applied() {
+  await EnterprisePolicyTesting.setupPolicyEngineWithJson({
+    policies: {
+      SitePolicies: [
+        {
+          Match: ["*.example.com"],
+          Policies: { DisableJit: false, HttpsOnly: false },
+        },
+        { Match: ["*.example.com"], Policies: { DisableJit: true } },
+        {
+          Match: ["*.example.org"],
+          Policies: { DisableJit: false, DisableServiceWorkers: true },
+        },
+      ],
+    },
+  });
+
+  await BrowserTestUtils.withNewTab(LOCKED_URL, async () => {
+    Assert.ok(
+      getLockdownUrlbarButton().hidden,
+      "The button should be hidden when every matching protection is turned off"
+    );
+  });
+
+  await BrowserTestUtils.withNewTab(UNLOCKED_URL, async () => {
+    Assert.ok(
+      !getLockdownUrlbarButton().hidden,
+      "The button should be shown when at least one protection is applied"
+    );
+    let { tempPanel, detailsView } = await openDetailsSubview();
+    Assert.equal(
+      tempPanel.querySelector("#lockdown-mode-details-count").textContent,
+      "1",
+      "The count should not include protections that are turned off"
+    );
+    Assert.deepEqual(
+      getListedPolicies(detailsView),
+      ["DisableServiceWorkers"],
+      "Only the protection that is turned on should be listed"
+    );
+    await closePanel(tempPanel);
+  });
+});
+
+add_task(async function test_container_listed_only_when_tab_uses_it() {
+  await EnterprisePolicyTesting.setupPolicyEngineWithJson({
+    policies: {
+      SitePolicies: [
+        {
+          Match: ["*.example.com"],
+          Policies: { DisableJit: true, Container: { id: "lockdown-test" } },
+        },
+      ],
+    },
+  });
+  const userContextId = Services.policies.getContainerForURI(
+    Services.io.newURI(LOCKED_URL)
+  );
+  Assert.notEqual(userContextId, 0, "The policy should create a container");
+
+  let tab = BrowserTestUtils.addTab(gBrowser, LOCKED_URL, { userContextId });
+  gBrowser.selectedTab = tab;
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  let { tempPanel, detailsView } = await openDetailsSubview();
+  Assert.deepEqual(
+    getListedPolicies(detailsView),
+    ["Container", "DisableJit"],
+    "Container should be listed for a tab in the policy container"
+  );
+  await closePanel(tempPanel);
+  BrowserTestUtils.removeTab(tab);
+
+  // Private windows never switch containers, so the page stays outside it.
+  let privateWin = await BrowserTestUtils.openNewBrowserWindow({
+    private: true,
+  });
+  BrowserTestUtils.startLoadingURIString(
+    privateWin.gBrowser.selectedBrowser,
+    LOCKED_URL
+  );
+  await BrowserTestUtils.browserLoaded(privateWin.gBrowser.selectedBrowser);
+  ({ tempPanel, detailsView } = await openDetailsSubview(privateWin));
+  Assert.deepEqual(
+    getListedPolicies(detailsView),
+    ["DisableJit"],
+    "Container should not be listed for a page outside the policy container"
+  );
+  await closePanel(tempPanel);
+  await BrowserTestUtils.closeWindow(privateWin);
+});
+
+add_task(async function test_button_hidden_when_container_not_used() {
+  await EnterprisePolicyTesting.setupPolicyEngineWithJson({
+    policies: {
+      SitePolicies: [
+        {
+          Match: ["*.example.com"],
+          Policies: { Container: { id: "lockdown-test" } },
+        },
+      ],
+    },
+  });
+
+  let privateWin = await BrowserTestUtils.openNewBrowserWindow({
+    private: true,
+  });
+  BrowserTestUtils.startLoadingURIString(
+    privateWin.gBrowser.selectedBrowser,
+    LOCKED_URL
+  );
+  await BrowserTestUtils.browserLoaded(privateWin.gBrowser.selectedBrowser);
+  Assert.ok(
+    getLockdownUrlbarButton(privateWin).hidden,
+    "The button should be hidden when the only protection is an unused container"
+  );
+  await BrowserTestUtils.closeWindow(privateWin);
+});
+
+add_task(async function test_panel_closes_on_navigation() {
+  await setupWithSitePolicies();
+
+  await BrowserTestUtils.withNewTab(LOCKED_URL, async browser => {
+    let tempPanel = await openMainView();
+    let panelHidden = BrowserTestUtils.waitForEvent(tempPanel, "popuphidden");
+    BrowserTestUtils.startLoadingURIString(browser, UNLOCKED_URL);
+    await panelHidden;
+    Assert.ok(true, "The panel should close when the page navigates");
   });
 });

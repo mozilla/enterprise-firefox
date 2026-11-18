@@ -43,57 +43,13 @@ export const EnterpriseHandler = {
 
   /**
    * Handles the enterprise state for each new browser window.
-   * On every call:
-   *    - Initializes the URL bar buttons on every call
-   *
-   * @param {Window} window chrome window
    */
-  init(window) {
+  init() {
     if (Services.felt.isFeltUI()) {
       // Nothing to setup for the felt window
       return;
     }
     this._initLockingPrefObservers();
-    this._initUrlbarButtons(window);
-  },
-
-  /**
-   * Initializes the enterprise-related urlbar buttons.
-   *
-   * @param {Window} window chrome window
-   */
-  _initUrlbarButtons(window) {
-    this._initLockdownModeButton(window);
-  },
-
-  /**
-   * Initializes the lockdown mode button in the urlbar.
-   *
-   * The button will be visible based on whether the current page is in lockdown mode, as determined by the JIT policy state for the page's URI.
-   *
-   * @param {Window} window chrome window
-   */
-  _initLockdownModeButton(window) {
-    const button = window.document.getElementById("lockdown-mode-button");
-
-    button.addEventListener("click", event => {
-      window.PanelUI.showSubView("panelUI-lockdown-mode", button, event);
-    });
-
-    window.gBrowser.addProgressListener({
-      onLocationChange(webProgress, _request, location) {
-        if (!webProgress.isTopLevel) {
-          return;
-        }
-        let isLockedDown = false;
-        try {
-          isLockedDown = Services.policies.hasSitePoliciesForURI(location);
-        } catch (e) {
-          lazy.log.warn("Failed to check lockdown state for URI: ", e);
-        }
-        button.hidden = !isLockedDown;
-      },
-    });
   },
 
   /**
