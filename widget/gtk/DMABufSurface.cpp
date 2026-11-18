@@ -97,6 +97,8 @@ static LazyLogModule gDmabufRefLog("DmabufRef");
             ("%s: " str, GetDebugTag().get(), ##__VA_ARGS__))
 #else
 #  define LOGDMABUF(str, ...)
+#  define LOGDMAVERBOSES(str, ...)
+#  define LOGDMABUFS(str, ...)
 #  define LOGDMABUFREF(str, ...)
 #endif /* MOZ_LOGGING */
 
@@ -468,11 +470,9 @@ void DMABufSurface::GlobalRefCountDelete() {
 
 bool DMABufSurface::ReleaseDMABuf() {
   LOGDMABUF("DMABufSurface::ReleaseDMABuf() UID %d", mUID);
-#ifdef MOZ_LOGGING
   for (int i = 0; i < mBufferPlaneCount; i++) {
     Unmap(i);
   }
-#endif
 
   bool released = CloseFileDescriptors();
 
@@ -552,6 +552,20 @@ void DMABufSurface::FenceSet() {
   mGL->fFinish();
 }
 
+// Waits for the sync_file fd to become readable, which happens when the
+// fence signals.
+static void PollSyncFd(int aRawFd) {
+  if (aRawFd < 0) {
+    return;
+  }
+  constexpr int kSyncPollTimeoutMs = 100;
+  struct pollfd pfd = {aRawFd, POLLIN, 0};
+  int ret = poll(&pfd, 1, kSyncPollTimeoutMs);
+  if (!(ret == 1 && (pfd.revents & POLLIN))) {
+    gfxCriticalNoteOnce << "poll failed: " << ret;
+  }
+}
+
 /* static */
 void DMABufSurface::FenceWaitFd(RefPtr<gl::GLContext> aGL,
                                 RefPtr<gfx::FileHandleWrapper> aSyncFd) {
@@ -565,17 +579,8 @@ void DMABufSurface::FenceWaitFd(RefPtr<gl::GLContext> aGL,
       egl->fCreateSyncKHR(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, attribs);
   if (!sync) {
     gfxCriticalNoteOnce << "CreateSync failed";
-    int rawFd = syncFd.get();
-    if (rawFd >= 0) {
-      // CreateSync failed, so we cannot use eglClientWaitSync; poll(POLLIN)
-      // waits for the sync_file fd to become readable when the fence signals.
-      constexpr int kSyncPollTimeoutMs = 100;
-      struct pollfd pfd = {rawFd, POLLIN, 0};
-      int ret = poll(&pfd, 1, kSyncPollTimeoutMs);
-      if (!(ret == 1 && (pfd.revents & POLLIN))) {
-        gfxCriticalNoteOnce << "poll failed: " << ret;
-      }
-    }
+    // CreateSync failed, so we cannot use eglClientWaitSync.
+    PollSyncFd(syncFd.get());
     return;
   }
 
@@ -599,15 +604,16 @@ void DMABufSurface::FenceWait(mozilla::gl::GLContext* aGLContext) {
     if (!gl) {
       gl = aGLContext;
     }
-    if (!gl) {
-      gfxCriticalNoteOnce
-          << "DMABufSurface::FenceWait() failed: missing GL context";
-      return;
-    }
     syncFd = mSyncFd.forget();
   }
 
   LOGDMABUF("DMABufSurface::FenceWait() UID %d", mUID);
+  if (!gl) {
+    // Without a GL context, e.g. in the parent process when rendering happens
+    // in the GPU process, wait for the fence on the CPU.
+    PollSyncFd(syncFd->GetHandle());
+    return;
+  }
   FenceWaitFd(std::move(gl), std::move(syncFd));
 }
 
@@ -857,6 +863,10 @@ bool DMABufSurfaceRGBA::Create(mozilla::gl::GLContext* aGLContext, int aWidth,
     }
   } else {
     mFOURCCFormat = aFormat->GetFormat();
+  }
+
+  if (aDMABufSurfaceFlags & DMABUF_CPU_ACCESS) {
+    return CreateGBM(aWidth, aHeight, aDMABufSurfaceFlags, aFormat);
   }
 
   bool useGLSnapshot = gfx::gfxVars::UseDMABufSurfaceExport() && !aGLContext;
@@ -1367,20 +1377,19 @@ wl_buffer* DMABufSurfaceRGBA::CreateWlBuffer() {
 }
 #endif
 
-#ifdef MOZ_LOGGING
 // We should synchronize DMA Buffer object access from CPU to avoid potential
 // cache incoherency and data loss.
 // See
-// https://01.org/linuxgraphics/gfx-docs/drm/driver-api/dma-buf.html#cpu-access-to-dma-buffer-objects
+// https://docs.kernel.org/driver-api/dma-buf.html#cpu-access-to-dma-buffer-objects
 struct dma_buf_sync {
   uint64_t flags;
 };
-#  define DMA_BUF_SYNC_READ (1 << 0)
-#  define DMA_BUF_SYNC_WRITE (2 << 0)
-#  define DMA_BUF_SYNC_START (0 << 2)
-#  define DMA_BUF_SYNC_END (1 << 2)
-#  define DMA_BUF_BASE 'b'
-#  define DMA_BUF_IOCTL_SYNC _IOW(DMA_BUF_BASE, 0, struct dma_buf_sync)
+#define DMA_BUF_SYNC_READ (1 << 0)
+#define DMA_BUF_SYNC_WRITE (2 << 0)
+#define DMA_BUF_SYNC_START (0 << 2)
+#define DMA_BUF_SYNC_END (1 << 2)
+#define DMA_BUF_BASE 'b'
+#define DMA_BUF_IOCTL_SYNC _IOW(DMA_BUF_BASE, 0, struct dma_buf_sync)
 
 static void SyncDmaBuf(int aFd, uint64_t aFlags) {
   struct dma_buf_sync sync = {0};
@@ -1431,6 +1440,7 @@ void* DMABufSurface::MapInternal(uint32_t aX, uint32_t aY, uint32_t aWidth,
   return mMappedRegion[aPlane];
 }
 
+#ifdef MOZ_LOGGING
 void* DMABufSurfaceRGBA::MapReadOnly(uint32_t aX, uint32_t aY, uint32_t aWidth,
                                      uint32_t aHeight, uint32_t* aStride) {
   return MapInternal(aX, aY, aWidth, aHeight, aStride, GBM_BO_TRANSFER_READ);
@@ -1440,6 +1450,7 @@ void* DMABufSurfaceRGBA::MapReadOnly(uint32_t* aStride) {
   return MapInternal(0, 0, mWidth[0], mHeight[0], aStride,
                      GBM_BO_TRANSFER_READ);
 }
+#endif
 
 void* DMABufSurfaceRGBA::Map(uint32_t aX, uint32_t aY, uint32_t aWidth,
                              uint32_t aHeight, uint32_t* aStride) {
@@ -1452,6 +1463,29 @@ void* DMABufSurfaceRGBA::Map(uint32_t* aStride) {
                      GBM_BO_TRANSFER_READ_WRITE);
 }
 
+already_AddRefed<gfx::DrawTarget> DMABufSurfaceRGBA::Lock() {
+  LOGDMABUF("DMABufSurfaceRGBA::Lock() UID %d", mUID);
+  uint32_t stride = 0;
+  void* data = Map(&stride);
+  if (!data) {
+    return nullptr;
+  }
+  RefPtr<gfx::DrawTarget> dt = gfx::Factory::CreateDrawTargetForData(
+      gfx::BackendType::SKIA, static_cast<unsigned char*>(data), GetSize(),
+      stride, GetFormat());
+  if (!dt) {
+    Unmap();
+    return nullptr;
+  }
+  static gfx::UserDataKey sUnmapKey;
+  dt->AddUserData(&sUnmapKey, do_AddRef(this).take(), [](void* aSurface) {
+    RefPtr<DMABufSurfaceRGBA> surface =
+        dont_AddRef(static_cast<DMABufSurfaceRGBA*>(aSurface));
+    surface->Unmap();
+  });
+  return dt.forget();
+}
+
 void DMABufSurface::Unmap(int aPlane) {
   if (mMappedRegion[aPlane]) {
     LOGDMABUF("DMABufSurface::Unmap() UID %d plane %d\n", mUID, aPlane);
@@ -1462,7 +1496,6 @@ void DMABufSurface::Unmap(int aPlane) {
     mMappedRegionStride[aPlane] = 0;
   }
 }
-#endif  // MOZ_LOGGING
 
 nsresult DMABufSurface::BuildSurfaceDescriptorBuffer(
     SurfaceDescriptorBuffer& aSdBuffer, Image::BuildSdbFlags aFlags,

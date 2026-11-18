@@ -16,9 +16,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
 );
 
 /**
- * Sync's XPCOM service.
- *
- * It is named "Weave" for historical reasons.
+ * Sync's WeaveService. It is named "Weave" for historical reasons.
  *
  * It's worth noting how Sync is lazily loaded. We register a timer that
  * loads Sync a few seconds after app startup. This is so Sync does not
@@ -29,62 +27,34 @@ XPCOMUtils.defineLazyPreferenceGetter(
  * should use the promise-base function whenLoaded() - something like the
  * following:
  *
- * // 1. Grab a handle to the Sync XPCOM service.
- * let service = Cc["@mozilla.org/weave/service;1"]
- *                 .getService(Components.interfaces.nsISupports)
- *                 .wrappedJSObject;
+ * ```js
+ * // 1. Grab a handle to the Sync service.
+ * let {WeaveService} = ChromeUtils.importESModule(
+ *   "moz-src:///services/sync/Weave.sys.mjs"
+ * );
  *
  * // 2. Use the .then method of the promise.
- * service.whenLoaded().then(() => {
- *   // You are free to interact with "Weave." objects.
+ * WeaveService.whenLoaded().then(() => {
+ *   // You are free to interact with "WeaveService." objects.
  *   return;
  * });
- *
- * And that's it!  However, if you really want to avoid promises and do it
- * old-school, then
- *
- * // 1. Get a reference to the service as done in (1) above.
- *
- * // 2. Check if the service has been initialized.
- * if (service.ready) {
- *   // You are free to interact with "Weave." objects.
- *   return;
- * }
- *
- * // 3. Install "ready" listener.
- * Services.obs.addObserver(function onReady() {
- *   Services.obs.removeObserver(onReady, "weave:service:ready");
- *
- *   // You are free to interact with "Weave." objects.
- * }, "weave:service:ready", false);
- *
- * // 4. Trigger loading of Sync.
- * service.ensureLoaded();
+ * ```
+ * And that's it!
  */
-export function WeaveService() {
-  this.wrappedJSObject = this;
-  this.ready = false;
-}
-
-WeaveService.prototype = {
-  classID: Components.ID("{74b89fb0-f200-4ae8-a3ec-dd164117f6de}"),
-
-  QueryInterface: ChromeUtils.generateQI([
-    "nsIObserver",
-    "nsISupportsWeakReference",
-  ]),
+class _WeaveService {
+  ready = false;
 
   get Weave() {
     const { Weave } = ChromeUtils.importESModule(
       "resource://services-sync/main.sys.mjs"
     );
     return Weave;
-  },
+  }
 
   ensureLoaded() {
     // Side-effect of accessing the service is that it is instantiated.
     this.Weave.Service;
-  },
+  }
 
   whenLoaded() {
     if (this.ready) {
@@ -98,7 +68,7 @@ WeaveService.prototype = {
     });
     this.ensureLoaded();
     return onReadyPromise;
-  },
+  }
 
   init() {
     // Force Weave service to load if it hasn't triggered from overlays
@@ -128,7 +98,7 @@ WeaveService.prototype = {
       10000,
       Ci.nsITimer.TYPE_ONE_SHOT
     );
-  },
+  }
 
   /**
    * Whether Sync appears to be enabled.
@@ -143,5 +113,7 @@ WeaveService.prototype = {
       !!lazy.syncUsername &&
       Services.prefs.getBoolPref("identity.fxaccounts.enabled")
     );
-  },
-};
+  }
+}
+
+export const WeaveService = new _WeaveService();

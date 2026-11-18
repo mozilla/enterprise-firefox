@@ -10,6 +10,8 @@
 #include "WindowSurfaceProvider.h"
 #include "mozilla/DataMutex.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/ipc/Endpoint.h"
+#include "mozilla/layers/NativeLayerRemoteChild.h"
 #include "mozilla/widget/CompositorWidget.h"
 
 class nsIWidget;
@@ -26,7 +28,6 @@ namespace widget {
 class PlatformCompositorWidgetDelegate : public CompositorWidgetDelegate {
  public:
   virtual void NotifyFullscreenChanged(bool aIsFullscreen) = 0;
-  virtual GtkCompositorWidget* AsGtkCompositorWidget() { return nullptr; };
 
   virtual void CleanupResources() = 0;
 
@@ -39,8 +40,7 @@ class PlatformCompositorWidgetDelegate : public CompositorWidgetDelegate {
 
 class GtkCompositorWidgetInitData;
 
-class GtkCompositorWidget : public CompositorWidget,
-                            public PlatformCompositorWidgetDelegate {
+class GtkCompositorWidget : public CompositorWidget {
  public:
   GtkCompositorWidget(const GtkCompositorWidgetInitData& aInitData,
                       const layers::CompositorOptions& aOptions,
@@ -62,7 +62,6 @@ class GtkCompositorWidget : public CompositorWidget,
 
   nsIWidget* RealWidget() override;
   GtkCompositorWidget* AsGTK() override { return this; }
-  CompositorWidgetDelegate* AsDelegate() override { return this; }
 
   EGLNativeWindowType GetEGLNativeWindow();
 
@@ -70,7 +69,7 @@ class GtkCompositorWidget : public CompositorWidget,
 
   // Suspend rendering of this remote widget and clear all resources.
   // Can be used when underlying window is hidden/unmapped.
-  void CleanupResources() override;
+  void CleanupResources();
 
   // Set EGLWindow size to avoid rendering artifacts
   void SetEGLNativeWindowSize(const LayoutDeviceIntSize& aEGLWindowSize);
@@ -79,13 +78,12 @@ class GtkCompositorWidget : public CompositorWidget,
   Window XWindow() const { return mProvider.GetXWindow(); }
 #endif
 #if defined(MOZ_WAYLAND)
+  void Init(CompositorWidgetInitData&& aInitData);
   mozilla::layers::NativeLayerRoot* GetNativeLayerRoot() override;
 #endif
 
-  // PlatformCompositorWidgetDelegate Overrides
-
-  void NotifyClientSizeChanged(const LayoutDeviceIntSize& aClientSize) override;
-  void NotifyFullscreenChanged(bool aIsFullscreen) override;
+  void NotifyClientSizeChanged(const LayoutDeviceIntSize& aClientSize);
+  void NotifyFullscreenChanged(bool aIsFullscreen);
 
   UniquePtr<WaylandSurfaceLock> LockSurface();
 
@@ -104,6 +102,10 @@ class GtkCompositorWidget : public CompositorWidget,
   RefPtr<nsWindow> mWidget;
 
  private:
+#ifdef MOZ_WAYLAND
+  void CreateNativeLayerRoot();
+#endif
+
   // This field is written to on the main thread and read from on the compositor
   // or renderer thread. During window resizing, this is subject to a (largely
   // benign) read/write race, see bug 1665726. The DataMutex doesn't prevent the
@@ -112,11 +114,15 @@ class GtkCompositorWidget : public CompositorWidget,
   // of the two.
   DataMutex<LayoutDeviceIntSize> mClientSize;
 
+  ipc::Endpoint<mozilla::layers::PNativeLayerRemoteChild> mChildEndpoint;
+
   // Holds rendering resources
   WindowSurfaceProvider mProvider;
 
 #ifdef MOZ_WAYLAND
-  RefPtr<mozilla::layers::NativeLayerRootWayland> mNativeLayerRoot;
+  // A NativeLayerRootWayland in the parent process, or a
+  // NativeLayerRootRemoteWaylandChild in the GPU process.
+  RefPtr<mozilla::layers::NativeLayerRoot> mNativeLayerRoot;
 #endif
 };
 

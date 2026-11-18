@@ -15,6 +15,7 @@
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_general.h"
 #include "nsXULAppAPI.h"
+#include "prenv.h"
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
 #  include "mozilla/Sandbox.h"
@@ -113,50 +114,45 @@ bool UtilityProcessHost::Launch(geckoargs::ChildProcessArgs aExtraOpts) {
     mPrefSerializer = nullptr;
     return false;
   }
-  LOGD("[%p] UtilityProcessHost::Launch launching async", this);
-  return true;
-}
-
-RefPtr<UtilityProcessHost::LaunchPromiseType>
-UtilityProcessHost::LaunchPromise() {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  if (mLaunchPromiseLaunched) {
-    return mLaunchPromise;
-  }
 
   WhenProcessHandleReady()->Then(
-      GetCurrentSerialEventTarget(), __func__,
-      [this, self = RefPtr{this}](
+      GetMainThreadSerialEventTarget(), __func__,
+      [self = RefPtr{this}](
           const ipc::ProcessHandlePromise::ResolveOrRejectValue& aResult) {
-        if (mLaunchCompleted) {
-          return;
+        if (!self->mShutdownRequested &&
+            self->mLaunchPhase == LaunchPhase::Waiting) {
+          // FIXME: It would be better if we could pass the reject through
+          // InitAfterConnect.
+          if (aResult.IsResolve()) {
+            self->InitAfterConnect(true);
+          } else {
+            self->RejectPromise(aResult.RejectValue());
+          }
         }
-        mLaunchCompleted = true;
-        if (aResult.IsReject()) {
-          RejectPromise(aResult.RejectValue());
-        }
-        // If aResult.IsResolve() then we have succeeded in launching the
-        // Utility process. The promise will be resolved once the channel has
-        // connected (or failed to) later.
       });
 
-  mLaunchPromiseLaunched = true;
-  return mLaunchPromise;
-}
+  uint32_t timeoutMs = StaticPrefs::dom_ipc_utilityProcess_startup_timeout_ms();
+  if (PR_GetEnv("MOZ_DEBUG_CHILD_PROCESS") ||
+      PR_GetEnv("MOZ_DEBUG_CHILD_PAUSE")) {
+    timeoutMs = 0;
+  }
+  if (timeoutMs) {
+    NS_NewTimerWithCallback(
+        getter_AddRefs(mLaunchTimeoutTimer),
+        [this, self = RefPtr{this}](nsITimer*) {
+          LOGD("[%p] UtilityProcessHost launch timed out", this);
+          NS_WARNING("Utility process launch timed out, abandoning it.");
+          RejectPromise(LaunchError("UtilityProcessHost::LaunchTimeout"));
+          if (mListener) {
+            mListener->OnProcessUnexpectedShutdown(this);
+          }
+        },
+        timeoutMs, nsITimer::TYPE_ONE_SHOT,
+        "ipc::UtilityProcessHost::LaunchTimeout"_ns);
+  }
 
-void UtilityProcessHost::OnChannelConnected(base::ProcessId peer_pid) {
-  MOZ_ASSERT(!NS_IsMainThread());
-  LOGD("[%p] UtilityProcessHost::OnChannelConnected", this);
-
-  GeckoChildProcessHost::OnChannelConnected(peer_pid);
-
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      "UtilityProcessHost::OnChannelConnected", [this, self = RefPtr{this}]() {
-        if (!mShutdownRequested && mLaunchPhase == LaunchPhase::Waiting) {
-          InitAfterConnect(true);
-        }
-      }));
+  LOGD("[%p] UtilityProcessHost::Launch launching async", this);
+  return true;
 }
 
 void UtilityProcessHost::InitAfterConnect(bool aSucceeded) {
@@ -365,6 +361,11 @@ void UtilityProcessHost::ResolvePromise() {
     mLaunchPromiseSettled = true;
   }
 
+  if (mLaunchTimeoutTimer) {
+    mLaunchTimeoutTimer->Cancel();
+    mLaunchTimeoutTimer = nullptr;
+  }
+
   mLaunchCompleted = true;
 }
 
@@ -376,6 +377,11 @@ void UtilityProcessHost::RejectPromise(LaunchError err) {
   if (!mLaunchPromiseSettled) {
     mLaunchPromise->Reject(std::move(err), __func__);
     mLaunchPromiseSettled = true;
+  }
+
+  if (mLaunchTimeoutTimer) {
+    mLaunchTimeoutTimer->Cancel();
+    mLaunchTimeoutTimer = nullptr;
   }
 
   mLaunchCompleted = true;

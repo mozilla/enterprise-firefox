@@ -32,7 +32,7 @@ class GpuFence;
 class NativeLayer;
 class NativeLayerCA;
 class NativeLayerRemoteMac;
-class NativeLayerWayland;
+class NativeLayerRemoteWayland;
 class NativeLayerRootCA;
 class NativeLayerRootWayland;
 class NativeLayerRootSnapshotter;
@@ -59,6 +59,13 @@ class NativeLayerRoot {
       bool aIsOpaque) = 0;
   virtual already_AddRefed<NativeLayer> CreateLayerForColor(
       gfx::DeviceColor aColor) {
+    return nullptr;
+  }
+
+  // A layer creation method for when the layer will be handed surfaces
+  // directly.
+  virtual already_AddRefed<NativeLayer> CreateLayerForSurfacePresentation(
+      const gfx::IntSize& aSize, bool aIsOpaque) {
     return nullptr;
   }
 
@@ -140,6 +147,9 @@ class NativeLayer {
 
   virtual NativeLayerCA* AsNativeLayerCA() { return nullptr; }
   virtual NativeLayerRemoteMac* AsNativeLayerRemoteMac() { return nullptr; }
+  virtual NativeLayerRemoteWayland* AsNativeLayerRemoteWayland() {
+    return nullptr;
+  }
   virtual NativeLayerWayland* AsNativeLayerWayland() { return nullptr; }
 
   // The size and opaqueness of a layer are supplied during layer creation and

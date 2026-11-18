@@ -9,8 +9,12 @@ prefs = [
   "browser.smartwindow.enabled=true",
 ]
 
+["browser_DigestStore.js"]
 ["browser_JourneyManager.js"]
 ["browser_JourneyStore.js"]
+["browser_JourneysGenerationRunTelemetry.js"]
+["browser_MemoriesGenerationRunTelemetry.js"]
+["browser_MemoriesMaintenanceRunTelemetry.js"]
 ["browser_MemoriesManager.js"]
 ["browser_MemoriesSchedulers.js"]
 ["browser_aitab.js"]

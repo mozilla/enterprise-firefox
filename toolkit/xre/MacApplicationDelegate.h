@@ -15,7 +15,7 @@ void EnsureUseCocoaDockAPI();
 void SetupMacApplicationDelegate(bool* gRestartedByOS);
 void InitializeMacApp();
 nsTArray<nsCString> TakeStartupURLs();
-void DisableAppNap();
+void RegisterEarlyUserDefaults();
 
 #ifdef MOZ_ENTERPRISE
 void SuppressMacDockIcon(void);

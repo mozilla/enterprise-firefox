@@ -502,7 +502,7 @@ export class MLEngineParent extends JSProcessActorParent {
    * the model hub root or an absolute URL.
    * @param {string} config.featureId - The engine id.
    * @param {string} config.sessionId - Shared across the same model download session.
-   * @returns {Promise<[string, object]>} The file local path and headers
+   * @returns {Promise<[File, object]>} The model file and headers
    */
   async getModelFile({
     engineId,
@@ -536,7 +536,7 @@ export class MLEngineParent extends JSProcessActorParent {
     // if this errors out, it will be caught in the worker
     const parsedUrl = this.modelHub.parseUrl(url, { rootUrl, urlTemplate });
 
-    const [data, headers] = await this.modelHub.getModelDataAsFile({
+    const [filePath, headers] = await this.modelHub.getModelDataAsFile({
       engineId,
       taskName,
       model: parsedUrl.model,
@@ -556,7 +556,7 @@ export class MLEngineParent extends JSProcessActorParent {
       ...parsedUrl,
     });
 
-    const sizeMB = Math.round(headers.fileSize / (1024 * 1024));
+    const sizeMB = Math.round((headers.fileSize ?? 0) / (1024 * 1024));
     lazy.console.debug(
       `Model ${parsedUrl.model} was fetched from ${url}, size ${sizeMB}MiB`
     );
@@ -567,7 +567,8 @@ export class MLEngineParent extends JSProcessActorParent {
       `Downloaded model ${parsedUrl.file}: ${sizeMB}MB`
     );
 
-    return [data, headers];
+    const handle = await lazy.OPFS.getFileHandle(filePath);
+    return [await handle.getFile(), headers];
   }
 
   /**
@@ -800,10 +801,10 @@ export class MLEngineParent extends JSProcessActorParent {
     const fileObject = await lazy.OPFS.download({
       savePath: `${RUNTIME_ROOT_IN_OPFS}/${localRoot}/${version}/${filename}`,
       deletePreviousVersions: true,
-      skipIfExists: true,
+      useCache: true,
       source: baseURL + location,
-      sha256Hash: hash,
-      fileSize: size,
+      expectedHash: hash,
+      expectedFileSize: size,
     });
 
     return fileObject.arrayBuffer();

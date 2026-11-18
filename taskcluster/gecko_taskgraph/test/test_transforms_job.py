@@ -160,6 +160,7 @@ def test_use_gradle(transform):
         pytest.param("linux", "b-linux-docker-amd", "linux64", id="linux-x64"),
         pytest.param("windows", "b-win-aarch64", "win64", id="windows-arm"),
         pytest.param("windows", "b-win2022", "win64", id="windows-x64"),
+        pytest.param("windows", "b-win2025", "win64", id="windows2025-x64"),
     ],
 )
 def test_get_platform(worker_os, worker_type, expected):
@@ -208,8 +209,8 @@ def test_generic_worker_run_task_resource_monitor(
         assert worker["env"]["RUN_TASK_STARTUP_HOOK"] == "run_task_resource_monitor.py"
     else:
         assert "RUN_TASK_STARTUP_HOOK" not in worker["env"]
-    assert mounts["./mozsystemmonitor/resourcemonitor.py"]["content"]["url"].endswith(
-        "/public/resourcemonitor.py"
+    assert mounts["./mozsystemmonitor/basemonitor.py"]["content"]["url"].endswith(
+        "/public/basemonitor.py"
     )
     deps = {
         path.rsplit("/", 1)[1]: mount

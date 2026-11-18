@@ -16,15 +16,29 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
   CONVERSATION:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  GENERATION_RUN_OUTCOME:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  GENERATION_RUN_ERROR_STAGE:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  GENERATION_RUN_MERGE_STATUS:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  MAINTENANCE_RUN_OUTCOME:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  GENERATION_RUN_ERROR_TYPE:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  setGenerationRunError:
+    "moz-src:///browser/components/aiwindow/models/memories/Memories.sys.mjs",
   openAIEngine: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   JourneyManager:
     "moz-src:///browser/components/aiwindow/models/memories/journeys/JourneyManager.sys.mjs",
+  JourneyStore:
+    "moz-src:///browser/components/aiwindow/models/memories/journeys/JourneyStore.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "console", function () {
   return console.createInstance({
     logModule: "MemoriesSchedulers",
-    maxLogLevelPref: "browser.smartwindow.memoriesLogLevel",
+    maxLogLevelPref: "browser.smartwindow.memories.logLevel",
   });
 });
 
@@ -293,27 +307,78 @@ export class MemoriesSchedulers {
     this.#running = true;
     this.#stopInterval();
 
+    /** @type {import("./MemoriesConstants.sys.mjs").MemoriesGenerationRunStats | null} */
+    let runStats = null;
+    // Records all core generation pipeline steps (initial list and filtering) finished.
+    let runStepsDone = false;
     try {
       const now = Date.now();
 
       // Maintenance is on its own clock, so it runs regardless of the cooldown
       // and evidence accumulation checks that gate generation and merging.
       if (now - this.#lastMaintenanceMs >= MEMORIES_MAINTENANCE_INTERVAL_MS) {
+        /** @type {import("./MemoriesConstants.sys.mjs").MemoriesMaintenanceRunStats} */
+        const maintenanceStats = {};
         try {
           lazy.console.debug("Running memories maintenance...");
-          await lazy.MemoriesManager.runMemoryMaintenance();
+          await lazy.MemoriesManager.runMemoryMaintenance({
+            stats: maintenanceStats,
+          });
           lazy.console.debug("Memories maintenance complete.");
         } catch (error) {
           lazy.console.error("Failed to run memories maintenance", error);
+          // Records an error outside those runMemoryMaintenance handles
+          maintenanceStats.outcome ??= lazy.MAINTENANCE_RUN_OUTCOME.ERROR;
+          maintenanceStats.error_type ??=
+            lazy.GENERATION_RUN_ERROR_TYPE.FIREFOX_INTERNAL;
+        } finally {
+          maintenanceStats.memories_after = await this.#countForStats(
+            async () =>
+              (
+                await lazy.MemoriesManager.getAllMemories({
+                  includeSoftDeleted: true,
+                })
+              ).length,
+            "memories"
+          );
+          Glean.smartWindow.memoriesMaintenanceRun.record(maintenanceStats);
         }
+        /** @type {import("./MemoriesConstants.sys.mjs").JourneysMaintenanceRunStats} */
+        const journeyMaintenanceStats = {};
+        let recordJourneyMaintenance = true;
         try {
           lazy.console.debug("Running journey maintenance...");
-          await lazy.JourneyManager.runJourneyMaintenance();
+          const { removed, isLocaleSupported } =
+            await lazy.JourneyManager.runJourneyMaintenance({
+              stats: journeyMaintenanceStats,
+            });
+          // Only record telemetry if the locale supports Journeys
+          recordJourneyMaintenance = isLocaleSupported;
+          journeyMaintenanceStats.journeys_removed = removed;
+          journeyMaintenanceStats.outcome =
+            lazy.MAINTENANCE_RUN_OUTCOME.SUCCESS;
           lazy.console.debug("Journey maintenance complete.");
         } catch (error) {
           lazy.console.error("Failed to run journey maintenance", error);
+          journeyMaintenanceStats.outcome = lazy.MAINTENANCE_RUN_OUTCOME.ERROR;
+          journeyMaintenanceStats.error_type =
+            lazy.GENERATION_RUN_ERROR_TYPE.FIREFOX_INTERNAL;
         } finally {
           this.#lastMaintenanceMs = now;
+          if (recordJourneyMaintenance) {
+            journeyMaintenanceStats.journeys_after = await this.#countForStats(
+              async () => (await lazy.JourneyStore.getAll()).length,
+              "journeys"
+            );
+            journeyMaintenanceStats.journeys_eligible_after =
+              await this.#countForStats(
+                () => lazy.JourneyManager.countEligibleJourneys(),
+                "journeys"
+              );
+            Glean.smartWindow.journeysMaintenanceRun.record(
+              journeyMaintenanceStats
+            );
+          }
         }
       } else {
         lazy.console.debug(
@@ -354,6 +419,9 @@ export class MemoriesSchedulers {
       // If not enough evidence accumulated on this cycle, re-arm the trigger and wait {@link MEMORIES_SCHEDULER_COOLDOWN_MS}
       if (!shouldRunGeneration) {
         lazy.console.debug("No trigger met this interval; skipping.");
+        Glean.smartWindow.memoriesGenerationRun.record({
+          generation_triggered: false,
+        });
         this.#lastGenerationMs = Date.now();
         await lazy.MemoriesManager.setLastGenerationRunTimestamp(
           this.#lastGenerationMs
@@ -363,8 +431,17 @@ export class MemoriesSchedulers {
 
       // Run memories generation
       lazy.console.debug("Generating memories from sessions...");
+      runStats = {
+        generation_triggered: true,
+        memories_before: await this.#countForStats(
+          async () => (await lazy.MemoriesManager.getAllMemories()).length,
+          "memories"
+        ),
+      };
       const persistedMemories =
-        await lazy.MemoriesManager.generateMemoriesFromSessions();
+        await lazy.MemoriesManager.generateMemoriesFromSessions({
+          stats: runStats,
+        });
       this.#lastGenerationMs = Date.now();
       await lazy.MemoriesManager.setLastGenerationRunTimestamp(
         this.#lastGenerationMs
@@ -378,11 +455,18 @@ export class MemoriesSchedulers {
       // through a merge pass, and it requires an LLM call
       if (persistedMemories.length) {
         lazy.console.debug("Merging memories...");
-        await lazy.MemoriesManager.mergeMemories();
+        await lazy.MemoriesManager.mergeMemories({ stats: runStats });
         lazy.console.debug("Merging memories complete.");
+        runStats.outcome ??= lazy.GENERATION_RUN_OUTCOME.SUCCESS;
       } else {
         lazy.console.debug("No new memories generated; skipping merge step.");
+        runStats.merge_status =
+          runStats.outcome === lazy.GENERATION_RUN_OUTCOME.ERROR
+            ? lazy.GENERATION_RUN_MERGE_STATUS.NOT_REACHED
+            : lazy.GENERATION_RUN_MERGE_STATUS.NOT_RUN;
       }
+
+      runStepsDone = true;
 
       // Generate novel journey metadata.
       const postMergeMemories = await lazy.MemoriesManager.getAllMemories({
@@ -390,7 +474,31 @@ export class MemoriesSchedulers {
       });
       if (postMergeMemories.length) {
         lazy.console.debug("Generating novel journey metadata...");
-        await lazy.JourneyManager.generateAndPersistJourneys(postMergeMemories);
+        /** @type {import("./MemoriesConstants.sys.mjs").JourneysGenerationRunStats} */
+        const journeyStats = {};
+        try {
+          await lazy.JourneyManager.generateAndPersistJourneys(
+            postMergeMemories,
+            { stats: journeyStats }
+          );
+        } catch (error) {
+          // Records an error outside those generateAndPersistJourneys handles
+          lazy.setGenerationRunError(
+            journeyStats,
+            lazy.GENERATION_RUN_ERROR_STAGE.OTHER,
+            error
+          );
+          throw error;
+        } finally {
+          // No outcome means the run was skipped for an unsupported locale
+          if (journeyStats.outcome) {
+            journeyStats.journeys_eligible_after = await this.#countForStats(
+              () => lazy.JourneyManager.countEligibleJourneys(),
+              "journeys"
+            );
+            Glean.smartWindow.journeysGenerationRun.record(journeyStats);
+          }
+        }
         lazy.console.debug("Journey metadata generation complete.");
       } else {
         lazy.console.debug(
@@ -398,6 +506,14 @@ export class MemoriesSchedulers {
         );
       }
     } catch (error) {
+      if (runStats && !runStepsDone) {
+        // Records some additional error outside those the individual steps handle
+        lazy.setGenerationRunError(
+          runStats,
+          lazy.GENERATION_RUN_ERROR_STAGE.OTHER,
+          error
+        );
+      }
       if (lazy.openAIEngine.is429Error(error)) {
         this.#backoffUntilMs = Date.now() + MEMORIES_SCHEDULER_COOLDOWN_MS;
         lazy.console.warn(
@@ -418,12 +534,37 @@ export class MemoriesSchedulers {
         lazy.console.error("Memories pipeline failed", error);
       }
     } finally {
+      if (runStats) {
+        // Gather final telemetry stats before wrapping up
+        runStats.merge_status ??= lazy.GENERATION_RUN_MERGE_STATUS.NOT_REACHED;
+        runStats.memories_after = await this.#countForStats(
+          async () => (await lazy.MemoriesManager.getAllMemories()).length,
+          "memories"
+        );
+        Glean.smartWindow.memoriesGenerationRun.record(runStats);
+      }
       this.#running = false;
       if (!this.#destroyed && MemoriesSchedulers.#anySourceEnabled()) {
         this.#startInterval();
       }
     }
   };
+
+  /**
+   * Runs a count for run telemetry, logging failures instead of throwing.
+   *
+   * @param {() => Promise<number>} countFn Returns the count.
+   * @param {string} label What is counted, for the error message.
+   * @returns {Promise<number|undefined>} The count, or undefined if it failed.
+   */
+  async #countForStats(countFn, label) {
+    try {
+      return await countFn();
+    } catch (error) {
+      lazy.console.error(`Failed to count ${label} for telemetry`, error);
+      return undefined;
+    }
+  }
 
   /**
    * Cleans up scheduler resources: stops the interval, unsubscribes from Places

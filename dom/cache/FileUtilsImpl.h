@@ -24,11 +24,11 @@ nsresult BodyTraverseFilesForCleanup(
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
     MOZ_DIAGNOSTIC_ASSERT(parentFile);
 
-    nsAutoCString nativeLeafName;
-    rv = parentFile->GetNativeLeafName(nativeLeafName);
+    nsAutoString leafName;
+    rv = parentFile->GetLeafName(leafName);
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
 
-    MOZ_DIAGNOSTIC_ASSERT(StringEndsWith(nativeLeafName, "morgue"_ns));
+    MOZ_DIAGNOSTIC_ASSERT(StringEndsWith(leafName, kMorgueDirectory));
   }
 #endif
 
@@ -56,7 +56,7 @@ nsresult BodyTraverseFilesForCleanup(
             // considered orphans.
             if (StringEndsWith(leafName, ".tmp"_ns)) {
               DebugOnly<nsresult> result = RemoveNsIFile(
-                  aDirectoryMetadata, *file, /* aTrackQuota */ true);
+                  aDirectoryMetadata, *file, /* aTrackQuota */ false);
               MOZ_ASSERT(NS_SUCCEEDED(result));
               return Ok{};
             }

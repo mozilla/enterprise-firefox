@@ -198,11 +198,10 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
     }
 
     /**
-     * Set whether the to report the full bit depth of the device.
+     * Set whether to report the full bit depth of the device.
      *
-     * <p>By default, 24 bits are reported for high memory devices and 16 bits for low memory
-     * devices. If set to true, the device's maximum bit depth is reported. On most modern devices
-     * this will be 32 bit screen depth.
+     * <p>By default, 24 bits are reported, covering only the color channels. If set to true, 32
+     * bits are reported, which also includes the alpha channel.
      *
      * @param enable A flag determining whether maximum screen depth should be used.
      * @return This Builder.
@@ -353,6 +352,19 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
      */
     public @NonNull Builder loginAutofillEnabled(final boolean enabled) {
       getSettings().setLoginAutofillEnabled(enabled);
+      return this;
+    }
+
+    /**
+     * Set whether credit card security codes (CVV) can be captured from web forms and passed to
+     * {@link Autocomplete.StorageDelegate#onCreditCardSave onCreditCardSave}.
+     *
+     * @param enabled A flag determining whether credit card security codes should be captured.
+     * @return The builder instance.
+     */
+    @ExperimentalGeckoViewApi
+    public @NonNull Builder creditCardSecurityCodeEnabled(final boolean enabled) {
+      getSettings().setCreditCardSecurityCodeEnabled(enabled);
       return this;
     }
 
@@ -780,6 +792,8 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
       new Pref<Boolean>("signon.autofillForms", true);
   /* package */ final PrefWithoutDefault<String> mFirefoxRelay =
       new PrefWithoutDefault<>("signon.firefoxRelay.feature");
+  /* package */ final Pref<String> mCreditCardSecurityCodeSupported =
+      new Pref<>("extensions.formautofill.creditCards.cvv.supported", "off");
   /* package */ final PrefWithoutDefault<String> mIpProtectionAuthProvider =
       new PrefWithoutDefault<>("toolkit.ipProtection.android.authProvider");
   /* package */ final Pref<Boolean> mAutomaticallyOfferPopup =
@@ -2038,6 +2052,29 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
    */
   public @NonNull GeckoRuntimeSettings setLoginAutofillEnabled(final boolean enabled) {
     mAutofillLogins.commit(enabled);
+    return this;
+  }
+
+  /**
+   * Get whether credit card security codes (CVV) can be captured from web forms.
+   *
+   * @return True if credit card security codes can be captured.
+   */
+  @ExperimentalGeckoViewApi
+  public boolean getCreditCardSecurityCodeEnabled() {
+    return "on".equals(mCreditCardSecurityCodeSupported.get());
+  }
+
+  /**
+   * Set whether credit card security codes (CVV) can be captured from web forms and passed to
+   * {@link Autocomplete.StorageDelegate#onCreditCardSave onCreditCardSave}.
+   *
+   * @param enabled A flag determining whether credit card security codes should be captured.
+   * @return This GeckoRuntimeSettings instance.
+   */
+  @ExperimentalGeckoViewApi
+  public @NonNull GeckoRuntimeSettings setCreditCardSecurityCodeEnabled(final boolean enabled) {
+    mCreditCardSecurityCodeSupported.commit(enabled ? "on" : "off");
     return this;
   }
 

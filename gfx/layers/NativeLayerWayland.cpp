@@ -297,6 +297,8 @@ void NativeLayerRootWayland::Shutdown() {
     mRootSurface->ClearMapCallbackLocked(lock);
     mRootSurface->ClearUnmapCallbackLocked(lock);
     mRootSurface->ClearGdkCommitCallbackLocked(lock);
+    mRootSurface->SetVSyncCallbackStateHandlerLocked(lock, nullptr);
+    mRootSurface->SetVSyncEmulateCheckLocked(lock, nullptr, /* aForce */ true);
     mRootSurface->DisableDMABufFormatsLocked(lock);
   }
 
@@ -352,6 +354,16 @@ NativeLayerRootWayland::CreateLayerForExternalTexture(bool aIsOpaque) {
       "opaque %d",
       GetLoggingWidget(), aIsOpaque);
   return MakeAndAddRef<NativeLayerWaylandExternal>(this, aIsOpaque);
+}
+
+already_AddRefed<NativeLayer>
+NativeLayerRootWayland::CreateLayerForSurfacePresentation(
+    const gfx::IntSize& aSize, bool aIsOpaque) {
+  LOG("NativeLayerRootWayland::CreateLayerForSurfacePresentation() [%d x %d] "
+      "nsWindow [%p] "
+      "opaque %d",
+      aSize.width, aSize.height, GetLoggingWidget(), aIsOpaque);
+  return MakeAndAddRef<NativeLayerWaylandPresentation>(this, aSize, aIsOpaque);
 }
 
 UniquePtr<NativeLayerRootSnapshotter>
@@ -688,11 +700,15 @@ void NativeLayerRootWayland::VSyncCallbackHandler(uint32_t aTime,
                                                   bool aEmulated) {
   MOZ_DIAGNOSTIC_ASSERT(!aEmulated,
                         "VSyncCallbackHandler() is supposed to be HW only");
+  RefPtr<WaylandSurface> rootSurface = mRootSurface;
+  if (!rootSurface) {
+    return;
+  }
   {
     // Child layer wl_subsurface already requested next frame callback
     // and we need to commit to root surface too as we're in
     // wl_subsurface synced mode.
-    WaylandSurfaceLock lock(mRootSurface);
+    WaylandSurfaceLock lock(rootSurface);
   }
 
   if (aTime <= mLastFrameCallbackTime) {
@@ -707,9 +723,9 @@ void NativeLayerRootWayland::VSyncCallbackHandler(uint32_t aTime,
   LOG_VSYNC(
       "NativeLayerRootWayland::VSyncCallbackHandler() time %d emulated [%d]",
       aTime, aEmulated);
-  mRootSurface->VSyncCallbackHandler(nullptr, aTime,
-                                     /* aEmulated */ aEmulated,
-                                     /* aRoutedFromChildSurface */ true);
+  rootSurface->VSyncCallbackHandler(nullptr, aTime,
+                                    /* aEmulated */ aEmulated,
+                                    /* aRoutedFromChildSurface */ true);
 }
 
 // We don't need to lock access to GdkWindow() as we process all Gdk/Gtk
@@ -869,6 +885,14 @@ Maybe<gfx::RoundedRect> NativeLayerWayland::RoundedClipRect() {
 IntRect NativeLayerWayland::CurrentSurfaceDisplayRect() {
   WaylandSurfaceLock lock(mSurface);
   return mDisplayRect;
+}
+
+void NativeLayerWayland::SetDisplayRect(const IntRect& aDisplayRect) {
+  WaylandSurfaceLock lock(mSurface);
+  if (!mDisplayRect.IsEqualEdges(aDisplayRect)) {
+    mDisplayRect = aDisplayRect;
+    mState.mMutatedPlacement = true;
+  }
 }
 
 void NativeLayerWayland::SetScalelocked(
@@ -1506,6 +1530,75 @@ bool NativeLayerWaylandExternal::CommitFrontBufferToScreenLocked(
 
 NativeLayerWaylandExternal::~NativeLayerWaylandExternal() {
   LOG("NativeLayerWaylandExternal::~NativeLayerWaylandExternal()");
+}
+
+NativeLayerWaylandPresentation::NativeLayerWaylandPresentation(
+    NativeLayerRootWayland* aRootLayer, const gfx::IntSize& aSize,
+    bool aIsOpaque)
+    : NativeLayerWayland(aRootLayer, aSize, aIsOpaque) {}
+
+void NativeLayerWaylandPresentation::AttachExternalImage(
+    wr::RenderTextureHost* aExternalImage) {
+  MOZ_CRASH(
+      "NativeLayerWaylandPresentation::AttachExternalImage() not implemented.");
+}
+
+void NativeLayerWaylandPresentation::SetBufferToPresent(
+    RefPtr<widget::WaylandBuffer> aBuffer, const IntSize& aSize) {
+  WaylandSurfaceLock lock(mSurface);
+  LOG("NativeLayerWaylandPresentation::SetBufferToPresent() [%p] [%d x %d]",
+      aBuffer.get(), aSize.width, aSize.height);
+  if (mSize != aSize) {
+    mSize = aSize;
+    mState.mMutatedPlacement = true;
+  }
+  mFrontBuffer = std::move(aBuffer);
+  mState.mMutatedFrontBuffer = true;
+}
+
+void NativeLayerWaylandPresentation::DiscardBackbuffersLocked(
+    const WaylandSurfaceLock& aProofOfLock, bool aForce) {
+  LOG("NativeLayerWaylandPresentation::DiscardBackbuffersLocked()");
+  // An attached buffer is kept alive by the WaylandSurface until the
+  // compositor releases it.
+  mFrontBuffer = nullptr;
+}
+
+RefPtr<DrawTarget> NativeLayerWaylandPresentation::NextSurfaceAsDrawTarget(
+    const IntRect& aDisplayRect, const IntRegion& aUpdateRegion,
+    BackendType aBackendType) {
+  MOZ_CRASH(
+      "NativeLayerWaylandPresentation::NextSurfaceAsDrawTarget() not "
+      "implemented!");
+  return nullptr;
+}
+
+Maybe<GLuint> NativeLayerWaylandPresentation::NextSurfaceAsFramebuffer(
+    const IntRect& aDisplayRect, const IntRegion& aUpdateRegion,
+    bool aNeedsDepth) {
+  MOZ_CRASH(
+      "NativeLayerWaylandPresentation::NextSurfaceAsFramebuffer() "
+      "not implemented!");
+  return Nothing();
+}
+
+bool NativeLayerWaylandPresentation::IsFrontBufferChanged() {
+  return mState.mMutatedFrontBuffer;
+}
+
+bool NativeLayerWaylandPresentation::CommitFrontBufferToScreenLocked(
+    const WaylandSurfaceLock& aProofOfLock) {
+  LOG("NativeLayerWaylandPresentation::CommitFrontBufferToScreenLocked()");
+  if (auto* surface = mFrontBuffer->GetDMABufSurface()) {
+    surface->FenceWait(mRootLayer->gl());
+  }
+  mSurface->InvalidateLocked(aProofOfLock);
+  mSurface->AttachLocked(aProofOfLock, mFrontBuffer);
+  return true;
+}
+
+NativeLayerWaylandPresentation::~NativeLayerWaylandPresentation() {
+  LOG("NativeLayerWaylandPresentation::~NativeLayerWaylandPresentation()");
 }
 
 /* static */ UniquePtr<NativeLayerRootSnapshotterWayland>
