@@ -93,6 +93,22 @@ const backgroundtaskPhases = {
         "@mozilla.org/xpcom/debug;1",
         "@mozilla.org/xre/app-info;1",
         "@mozilla.org/mime;1",
+        {
+          name: "@mozilla.org/toolkit/library/felt;1",
+          condition: AppConstants.MOZ_ENTERPRISE,
+        },
+        {
+          name: "@mozilla.org/readconfig;1",
+          condition: AppConstants.MOZ_ENTERPRISE,
+        },
+        ...[
+          "@mozilla.org/psm;1",
+          "@mozilla.org/security/certoverride;1",
+          "@mozilla.org/security/certstorage;1",
+          "@mozilla.org/security/clientAuthRememberService;1",
+          "@mozilla.org/security/datastoragemanager;1",
+          "@mozilla.org/ssservice;1",
+        ].map(name => ({ name, condition: AppConstants.MOZ_ENTERPRISE })),
       ],
     },
   },
