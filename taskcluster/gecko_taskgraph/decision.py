@@ -580,7 +580,9 @@ def get_decision_parameters(graph_config, options):
     # make the diff cover the whole tree. `mach try` records the real base in the
     # parameter overrides applied above, so only derive `files_changed` now.
     if parameters["repository_type"] == "git" and "files_changed" not in parameters:
-        parameters["files_changed"] = get_git_files_changed(repo, parameters)
+        parameters["files_changed"] = get_git_files_changed(
+            repo, parameters, graph_config
+        )
 
     parameters["files_changed"] = [
         path for path in parameters["files_changed"] if path != "try_task_config.json"
@@ -624,7 +626,72 @@ def get_note(repo, note_ref, remote):
         SystemResourceMonitor.end_marker("git", text)
 
 
-def get_git_files_changed(repo, parameters):
+# The branches of try repositories are not kept up to date with the repository
+# their pushes are based on, so the base is searched for in the release branches
+# of the latter, a sibling of the try repository.
+TRY_PARENT_REPOSITORIES = {
+    "enterprise-firefox-try": "enterprise-firefox",
+}
+PARENT_FETCH_DEPTH = 50
+
+
+def _git_fetch(repo, *args):
+    text = f"fetch {' '.join(args)}"
+    SystemResourceMonitor.begin_marker("git", text)
+    try:
+        repo.run("fetch", *args)
+        return True
+    except subprocess.CalledProcessError:
+        logger.warning(f"Could not git {text}")
+        return False
+    finally:
+        SystemResourceMonitor.end_marker("git", text)
+
+
+def find_parent_base_rev(repo, parameters, graph_config):
+    """Return the closest common ancestor of `head_rev` and the release branches
+    of the parent repository of a try repository, or None."""
+    parent = TRY_PARENT_REPOSITORIES.get(parameters["project"])
+    if not parent:
+        return None
+    branches = graph_config["release-branches"].get(parent)
+    if not isinstance(branches, list):
+        return None
+
+    head_rev = parameters["head_rev"]
+    repository = "{}/{}".format(
+        parameters["head_repository"].rstrip("/").rsplit("/", 1)[0], parent
+    )
+    refs = [f"refs/remotes/{parent}/{branch}" for branch in branches]
+    refspecs = [f"+refs/heads/{branch}:{ref}" for branch, ref in zip(branches, refs)]
+    shallow = repo.is_shallow
+    fetch_args = ["--no-tags"]
+    if shallow:
+        fetch_args.append(f"--depth={PARENT_FETCH_DEPTH}")
+    if not _git_fetch(repo, *fetch_args, repository, *refspecs):
+        return None
+    if shallow:
+        _git_fetch(repo, *fetch_args, parameters["head_repository"], head_rev)
+
+    candidates = []
+    for ref in refs:
+        base_rev = repo.find_latest_common_revision(ref, head_rev)
+        if base_rev != repo.NULL_REVISION:
+            distance = int(repo.run("rev-list", "--count", f"{base_rev}..{head_rev}"))
+            candidates.append((distance, base_rev))
+    if candidates:
+        base_rev = min(candidates)[1]
+        logger.info(f"Using {base_rev} from {repository} as base")
+        return base_rev
+
+    logger.warning(f"No common ancestor with {repository} found")
+    return None
+
+
+def get_git_files_changed(repo, parameters, graph_config):
+    if base_rev := find_parent_base_rev(repo, parameters, graph_config):
+        return repo.get_changed_files(rev=parameters["head_rev"], base=base_rev)
+
     base_rev = parameters["base_rev"]
     if base_rev != repo.NULL_REVISION and repo.is_shallow:
         text = f"fetch --depth=1 {parameters['base_repository']} {base_rev}"

@@ -6,6 +6,7 @@
 import os
 import pathlib
 import shutil
+import subprocess
 import tempfile
 from unittest.mock import MagicMock, patch
 
@@ -303,6 +304,110 @@ def test_decision_parameters_hg_files_changed_ignores_try_task_config(
         "mobile/android/fenix/app/build.gradle",
         "taskcluster/try_task_config.json",
     ]
+
+
+ENTERPRISE = "https://github.com/mozilla/enterprise-firefox"
+ENTERPRISE_TRY = "https://github.com/mozilla/enterprise-firefox-try"
+
+
+def _parent_mock_repo(merge_bases, distances, fetch_fails=False, shallow=True):
+    """`merge_bases` maps parent branches to their merge-base with the head,
+    `distances` the merge-bases to their commit count to the head."""
+    mock_repo = MagicMock()
+    mock_repo.NULL_REVISION = "0" * 40
+    mock_repo.is_shallow = shallow
+    mock_repo.fetches = []
+
+    def run(*args):
+        if args[0] == "fetch":
+            mock_repo.fetches.append(args[1:])
+            if fetch_fails and ENTERPRISE in args:
+                raise subprocess.CalledProcessError(1, args)
+            return ""
+        if args[:2] == ("rev-list", "--count"):
+            return f"{distances[args[2].split('..')[0]]}\n"
+        raise AssertionError(args)
+
+    def find_latest_common_revision(ref, head_rev):
+        branch = ref.removeprefix("refs/remotes/enterprise-firefox/")
+        return merge_bases.get(branch, mock_repo.NULL_REVISION)
+
+    mock_repo.run.side_effect = run
+    mock_repo.find_latest_common_revision.side_effect = find_latest_common_revision
+    return mock_repo
+
+
+def _parent_params(project="enterprise-firefox-try"):
+    return {
+        "base_rev": "cafe",
+        "base_repository": ENTERPRISE_TRY,
+        "head_repository": ENTERPRISE_TRY,
+        "head_rev": "abcd",
+        "project": project,
+    }
+
+
+PARENT_GRAPH_CONFIG = load_yaml(GECKO, "taskcluster", "config.yml")
+
+
+PARENT_REFSPECS = (
+    "+refs/heads/enterprise-main:refs/remotes/enterprise-firefox/enterprise-main",
+    "+refs/heads/enterprise-beta:refs/remotes/enterprise-firefox/enterprise-beta",
+    "+refs/heads/enterprise-release:refs/remotes/enterprise-firefox/enterprise-release",
+)
+
+
+def test_get_git_files_changed_closest_parent_branch():
+    mock_repo = _parent_mock_repo(
+        {"enterprise-main": "main1", "enterprise-beta": "beta1"},
+        {"main1": 40, "beta1": 3},
+    )
+
+    decision.get_git_files_changed(mock_repo, _parent_params(), PARENT_GRAPH_CONFIG)
+
+    assert mock_repo.fetches == [
+        ("--no-tags", "--depth=50", ENTERPRISE, *PARENT_REFSPECS),
+        ("--no-tags", "--depth=50", ENTERPRISE_TRY, "abcd"),
+    ]
+    mock_repo.get_changed_files.assert_called_once_with(rev="abcd", base="beta1")
+
+
+def test_get_git_files_changed_parent_not_shallow():
+    mock_repo = _parent_mock_repo(
+        {"enterprise-main": "main1"}, {"main1": 1}, shallow=False
+    )
+
+    decision.get_git_files_changed(mock_repo, _parent_params(), PARENT_GRAPH_CONFIG)
+
+    assert mock_repo.fetches == [("--no-tags", ENTERPRISE, *PARENT_REFSPECS)]
+    mock_repo.get_changed_files.assert_called_once_with(rev="abcd", base="main1")
+
+
+@pytest.mark.parametrize(
+    "merge_bases,fetch_fails",
+    (
+        pytest.param({}, False, id="no_common_ancestor"),
+        pytest.param({"enterprise-main": "main1"}, True, id="fetch_fails"),
+    ),
+)
+def test_get_git_files_changed_parent_fallback(merge_bases, fetch_fails):
+    mock_repo = _parent_mock_repo(merge_bases, {"main1": 1}, fetch_fails=fetch_fails)
+
+    decision.get_git_files_changed(mock_repo, _parent_params(), PARENT_GRAPH_CONFIG)
+
+    assert mock_repo.fetches[-1] == ("--depth=1", ENTERPRISE_TRY, "cafe")
+    mock_repo.get_changed_files.assert_called_once_with(rev="abcd", base="cafe")
+
+
+def test_get_git_files_changed_not_try():
+    mock_repo = _parent_mock_repo({}, {})
+
+    decision.get_git_files_changed(
+        mock_repo, _parent_params("enterprise-firefox"), PARENT_GRAPH_CONFIG
+    )
+
+    assert mock_repo.fetches == [("--depth=1", ENTERPRISE_TRY, "cafe")]
+    mock_repo.get_changed_files.assert_called_once_with(rev="abcd", base="cafe")
 
 
 @patch("gecko_taskgraph.decision.get_repository")
