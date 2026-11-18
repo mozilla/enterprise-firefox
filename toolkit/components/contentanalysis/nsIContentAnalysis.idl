@@ -7,6 +7,7 @@
 interface nsIFile;
 interface nsITransferable;
 interface nsIURI;
+webidl Blob;
 webidl BrowsingContext;
 webidl DataTransfer;
 webidl DragEvent;
@@ -599,18 +600,32 @@ interface nsIContentAnalysisWasmRunner : nsISupports {
   /**
    * Analyze a request asynchronously.
    *
-   * @param aRequestBytes  Serialized content_analysis.sdk.ContentAnalysisRequest.
-   * @param aContentBytes  Bytes for file_path/print_data content,
-   *                       or empty for inline text_content requests.
+   * aRequest and aContent are read incrementally by the process running the
+   * module, so neither is held in full by the caller.
+   *
+   * @param aUserActionId  The user action the request belongs to, which
+   *                       cancel() refers to.
+   * @param aRequest       Blob holding the serialized
+   *                       content_analysis.sdk.ContentAnalysisRequest, which
+   *                       includes any inline text_content.
+   * @param aContent       Blob holding the file_path/print_data content, or
+   *                       null for inline text_content requests.
    * @param aRules         DLP rules to evaluate. The runner marshals these into the
    *                       module's FfiRule ABI.
    * @return A Promise that resolves with the serialized
    *         content_analysis.sdk.ContentAnalysisResponse (as an Array<octet>), or
-   *         rejects if the module is unavailable.
+   *         rejects if the module is unavailable or the analysis is canceled.
    */
-  Promise analyze(in Array<octet> aRequestBytes,
-                  in Array<octet> aContentBytes,
+  Promise analyze(in ACString aUserActionId,
+                  in Blob aRequest,
+                  in Blob aContent,
                   in Array<nsIContentAnalysisRule> aRules);
+
+  /**
+   * Stop analyzing the requests of a user action that has been canceled or has
+   * timed out, rejecting their promises, so that they stop reading their data.
+   */
+  void cancel(in ACString aUserActionId);
 
   /**
    * Ensures the module has been fetched from the console, fetching it only
