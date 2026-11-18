@@ -39,6 +39,11 @@ using mozilla::dom::quota::nsIFileKind;
 using mozilla::dom::quota::QuotaManager;
 using mozilla::dom::quota::QuotaObject;
 
+const nsLiteralString kCachesSQLiteFilename = u"caches.sqlite"_ns;
+const nsLiteralString kMorgueDirectory = u"morgue"_ns;
+const nsLiteralString kPaddingFilename = u".padding"_ns;
+const nsLiteralString kPaddingTmpFilename = u".padding-tmp"_ns;
+
 namespace {
 
 // Const variable for generate padding size.
@@ -70,8 +75,6 @@ int64_t BodyGeneratePadding(int64_t aBodyFileSize, uint32_t aPaddingInfo);
 nsresult DirectoryPaddingWrite(nsIFile& aBaseDir,
                                DirPaddingFile aPaddingFileType,
                                int64_t aPaddingSize);
-
-const auto kMorgueDirectory = u"morgue"_ns;
 
 bool IsFileNotFoundError(const nsresult aRv) {
   return aRv == NS_ERROR_FILE_NOT_FOUND;
@@ -285,29 +288,69 @@ nsresult BodyMaybeUpdatePaddingSize(
   return NS_OK;
 }
 
-nsresult BodyDeleteFiles(const CacheDirectoryMetadata& aDirectoryMetadata,
-                         nsIFile& aBaseDir, const nsTArray<nsID>& aIdList) {
-  for (const auto id : aIdList) {
-    bool exists;
+namespace {
+nsresult BodyDeleteFile(const CacheDirectoryMetadata& aDirectoryMetadata,
+                        nsIFile& aBaseDir, const nsID& aId,
+                        const BodyFileType aFileType, const bool aTrackQuota) {
+  QM_TRY_INSPECT(const auto& bodyfile, BodyIdToFile(aBaseDir, aId, aFileType));
+  bool exists = false;
+  QM_TRY(MOZ_TO_RESULT(bodyfile->Exists(&exists)));
+  if (!exists) {
+    return NS_OK;
+  }
 
-    QM_TRY_INSPECT(const auto& finalFile,
-                   BodyIdToFile(aBaseDir, id, BODY_FILE_FINAL));
-    QM_TRY(MOZ_TO_RESULT(finalFile->Exists(&exists)));
-    if (exists) {
-      QM_TRY(MOZ_TO_RESULT(RemoveNsIFile(aDirectoryMetadata, *finalFile,
-                                         /* aTrackQuota */ true)));
-    }
-
-    QM_TRY_INSPECT(const auto& tempFile,
-                   BodyIdToFile(aBaseDir, id, BODY_FILE_TMP));
-    QM_TRY(MOZ_TO_RESULT(tempFile->Exists(&exists)));
-    if (exists) {
-      QM_TRY(MOZ_TO_RESULT(RemoveNsIFile(aDirectoryMetadata, *tempFile,
-                                         /* aTrackQuota */ true)));
+  if (aTrackQuota) {
+    // Decrease the usage before removing the file, so that a removal failure
+    // leaves a file that is unknown to both the database and the quota usage,
+    // like the ones BodyDeleteOrphanedFiles cleans up.
+    int64_t fileSize = 0;
+    QM_TRY(MOZ_TO_RESULT(bodyfile->GetFileSize(&fileSize)));
+    if (fileSize > 0) {
+      DecreaseUsageForDirectoryMetadata(aDirectoryMetadata, fileSize);
     }
   }
 
+  QM_TRY(MOZ_TO_RESULT(
+      RemoveNsIFile(aDirectoryMetadata, *bodyfile, /* aTrackQuota */ false)));
   return NS_OK;
+}
+}  // namespace
+
+void BodyDeleteFiles(const CacheDirectoryMetadata& aDirectoryMetadata,
+                     nsIFile& aBaseDir, const nsTArray<nsID>& aIdList,
+                     const bool aTrackQuota, bool* aHasOrphanData) {
+  MOZ_ASSERT(aHasOrphanData);
+  const auto noteOrphan = [aHasOrphanData](const nsresult) {
+    *aHasOrphanData = true;
+  };
+  for (const auto& id : aIdList) {
+    QM_WARNONLY_TRY(
+        MOZ_TO_RESULT(BodyDeleteFile(aDirectoryMetadata, aBaseDir, id,
+                                     BODY_FILE_FINAL, aTrackQuota)),
+        noteOrphan);
+    QM_WARNONLY_TRY(
+        MOZ_TO_RESULT(BodyDeleteFile(aDirectoryMetadata, aBaseDir, id,
+                                     BODY_FILE_TMP, aTrackQuota)),
+        noteOrphan);
+
+    // Try to remove the cache dir in case it's now empty.
+    // It might not be: in this case `Remove` will fail with
+    // NS_ERROR_FILE_DIR_NOT_EMPTY, which we should ignore. Otherwise, log the
+    // error as warning but don't fail the function (an empty directory does no
+    // harm).
+    QM_WARNONLY_TRY_UNWRAP(const auto maybeBodyDir,
+                           BodyGetCacheDir(aBaseDir, id,
+                                           /* aCreateDirIfNotExists */ false));
+    if (maybeBodyDir) {
+      QM_WARNONLY_TRY(QM_OR_ELSE_LOG_VERBOSE_IF(
+          // Expression.
+          MOZ_TO_RESULT(maybeBodyDir.ref()->Remove(/* aRecursive */ false)),
+          // Predicate.
+          IsSpecificError<NS_ERROR_FILE_DIR_NOT_EMPTY>,
+          // Fallback.
+          ErrToDefaultOk<>));
+    }
+  }
 }
 
 namespace {
@@ -352,6 +395,11 @@ int64_t BodyGeneratePadding(const int64_t aBodyFileSize,
   return RoundUp(randomSize, kRoundUpNumber) - aBodyFileSize;
 }
 
+nsLiteralString GetPaddingFilename(const DirPaddingFile aPaddingFileType) {
+  return aPaddingFileType == DirPaddingFile::TMP_FILE ? kPaddingTmpFilename
+                                                      : kPaddingFilename;
+}
+
 nsresult DirectoryPaddingWrite(nsIFile& aBaseDir,
                                DirPaddingFile aPaddingFileType,
                                int64_t aPaddingSize) {
@@ -359,9 +407,7 @@ nsresult DirectoryPaddingWrite(nsIFile& aBaseDir,
 
   QM_TRY_INSPECT(
       const auto& file,
-      CloneFileAndAppend(aBaseDir, aPaddingFileType == DirPaddingFile::TMP_FILE
-                                       ? nsLiteralString(PADDING_TMP_FILE_NAME)
-                                       : nsLiteralString(PADDING_FILE_NAME)));
+      CloneFileAndAppend(aBaseDir, GetPaddingFilename(aPaddingFileType)));
 
   QM_TRY_INSPECT(const auto& outputStream, NS_NewLocalFileOutputStream(file));
 
@@ -404,8 +450,8 @@ nsresult BodyDeleteOrphanedFiles(
               // Finally, parse the uuid out of the name.  If it fails to parse,
               // then ignore the file.
               auto cleanup = MakeScopeExit([&dirMetaData, &bodyFile] {
-                DebugOnly<nsresult> result =
-                    RemoveNsIFile(dirMetaData, bodyFile);
+                DebugOnly<nsresult> result = RemoveNsIFile(
+                    dirMetaData, bodyFile, /* aTrackQuota */ false);
                 MOZ_ASSERT(NS_SUCCEEDED(result));
               });
 
@@ -623,9 +669,7 @@ bool DirectoryPaddingFileExists(nsIFile& aBaseDir,
                                 DirPaddingFile aPaddingFileType) {
   QM_TRY_INSPECT(
       const auto& file,
-      CloneFileAndAppend(aBaseDir, aPaddingFileType == DirPaddingFile::TMP_FILE
-                                       ? nsLiteralString(PADDING_TMP_FILE_NAME)
-                                       : nsLiteralString(PADDING_FILE_NAME)),
+      CloneFileAndAppend(aBaseDir, GetPaddingFilename(aPaddingFileType)),
       false);
 
   QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER(file, Exists), false);
@@ -635,9 +679,8 @@ Result<int64_t, nsresult> DirectoryPaddingGet(nsIFile& aBaseDir) {
   MOZ_DIAGNOSTIC_ASSERT(
       !DirectoryPaddingFileExists(aBaseDir, DirPaddingFile::TMP_FILE));
 
-  QM_TRY_INSPECT(
-      const auto& file,
-      CloneFileAndAppend(aBaseDir, nsLiteralString(PADDING_FILE_NAME)));
+  QM_TRY_INSPECT(const auto& file,
+                 CloneFileAndAppend(aBaseDir, kPaddingFilename));
 
   QM_TRY_UNWRAP(auto stream, NS_NewLocalFileInputStream(file));
 
@@ -755,12 +798,10 @@ nsresult DirectoryPaddingFinalizeWrite(nsIFile& aBaseDir) {
   MOZ_DIAGNOSTIC_ASSERT(
       DirectoryPaddingFileExists(aBaseDir, DirPaddingFile::TMP_FILE));
 
-  QM_TRY_INSPECT(
-      const auto& file,
-      CloneFileAndAppend(aBaseDir, nsLiteralString(PADDING_TMP_FILE_NAME)));
+  QM_TRY_INSPECT(const auto& file,
+                 CloneFileAndAppend(aBaseDir, kPaddingTmpFilename));
 
-  QM_TRY(MOZ_TO_RESULT(
-      file->RenameTo(nullptr, nsLiteralString(PADDING_FILE_NAME))));
+  QM_TRY(MOZ_TO_RESULT(file->RenameTo(nullptr, kPaddingFilename)));
 
   return NS_OK;
 }
@@ -790,9 +831,7 @@ nsresult DirectoryPaddingDeleteFile(nsIFile& aBaseDir,
                                     DirPaddingFile aPaddingFileType) {
   QM_TRY_INSPECT(
       const auto& file,
-      CloneFileAndAppend(aBaseDir, aPaddingFileType == DirPaddingFile::TMP_FILE
-                                       ? nsLiteralString(PADDING_TMP_FILE_NAME)
-                                       : nsLiteralString(PADDING_FILE_NAME)));
+      CloneFileAndAppend(aBaseDir, GetPaddingFilename(aPaddingFileType)));
 
   QM_TRY(QM_OR_ELSE_WARN_IF(
       // Expression.

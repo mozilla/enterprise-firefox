@@ -217,6 +217,14 @@ void HWInferenceParent::ActorDestroy(ActorDestroyReason aReason) {
 nsresult HWInferenceParent::BindToUtilityProcess(
     const RefPtr<ipc::UtilityProcessParent>& aUtilityParent) {
   LOGD("{}", __func__);
+  if (!aUtilityParent) {
+    mReadyPromise->Reject(NS_ERROR_NOT_AVAILABLE, __func__);
+    if (mOwner) {
+      mOwner->OnLaunchFailed(this);
+    }
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
   if (!aUtilityParent->SendPHWInferenceConstructor(this)) {
     LOGE("Failed to construct the HWInference actor");
     MOZ_ASSERT(false, "HWInference actor construction failure");

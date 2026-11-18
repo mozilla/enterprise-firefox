@@ -73,6 +73,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TelemetryReportingPolicy:
     "resource://gre/modules/TelemetryReportingPolicy.sys.mjs",
   TRRRacer: "resource:///modules/TRRPerformance.sys.mjs",
+  WeaveService: "moz-src:///services/sync/Weave.sys.mjs",
   WebChannel: "resource://gre/modules/WebChannel.sys.mjs",
   WebProtocolHandlerRegistrar:
     "moz-src:///browser/components/protocolhandler/WebProtocolHandlerRegistrar.sys.mjs",
@@ -119,12 +120,6 @@ if (AppConstants.ENABLE_WEBDRIVER) {
 }
 
 const PREF_PDFJS_ISDEFAULT_CACHE_STATE = "pdfjs.enabledCache.state";
-
-ChromeUtils.defineLazyGetter(
-  lazy,
-  "WeaveService",
-  () => Cc["@mozilla.org/weave/service;1"].getService().wrappedJSObject
-);
 
 if (AppConstants.MOZ_CRASHREPORTER) {
   ChromeUtils.defineESModuleGetters(lazy, {
@@ -296,20 +291,20 @@ BrowserGlue.prototype = {
       case "handle-xul-text-link": {
         let linkHandled = subject.QueryInterface(Ci.nsISupportsPRBool);
         if (!linkHandled.data) {
+          // The caller reads linkHandled.data as soon as notifyObservers
+          // returns, so claim the link before waiting for a new window.
+          linkHandled.data = true;
           let win =
             lazy.BrowserWindowTracker.getTopWindow() ??
             (await lazy.BrowserWindowTracker.promiseOpenWindow());
-          if (win) {
-            data = JSON.parse(data);
-            let where = lazy.BrowserUtils.whereToOpenLink(data);
-            // Preserve legacy behavior of non-modifier left-clicks
-            // opening in a new selected tab.
-            if (where == "current") {
-              where = "tab";
-            }
-            win.openTrustedLinkIn(data.href, where);
-            linkHandled.data = true;
+          data = JSON.parse(data);
+          let where = lazy.BrowserUtils.whereToOpenLink(data);
+          // Preserve legacy behavior of non-modifier left-clicks
+          // opening in a new selected tab.
+          if (where == "current") {
+            where = "tab";
           }
+          win.openTrustedLinkIn(data.href, where);
         }
         break;
       }

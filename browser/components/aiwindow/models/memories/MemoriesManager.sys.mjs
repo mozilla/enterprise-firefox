@@ -41,7 +41,15 @@ import {
   MEMORY_MERGE_MIN_MEMORY_COUNT,
   MAX_SESSIONS_FIRST_RUN,
   MAX_SESSIONS_DELTA_RUN,
+  GENERATION_RUN_OUTCOME,
+  GENERATION_RUN_ERROR_STAGE,
+  GENERATION_RUN_MERGE_STATUS,
+  MAINTENANCE_RUN_OUTCOME,
+  GENERATION_RUN_ERROR_TYPE,
   MEMORY_TYPE_PROFILE_FACT,
+  MEMORY_TYPE_DURABLE_MEMORY,
+  MEMORY_TYPE_LONG_TERM_MEMORY,
+  MEMORY_TYPE_LADDER,
   DEFAULT_RELEVANT_MEMORIES_TOP_K,
   DEFAULT_RELEVANT_MEMORIES_SIMILARITY_THRESHOLD,
 } from "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs";
@@ -54,15 +62,19 @@ import {
   classifyMemoryAndCapStrength,
   getMergeMemoryCandidates,
   createMergedMemories,
+  setGenerationRunError,
 } from "moz-src:///browser/components/aiwindow/models/memories/Memories.sys.mjs";
 import { AIWindow } from "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs";
 import { EveryWindow } from "resource:///modules/EveryWindow.sys.mjs";
+
+/** @typedef {import("./MemoriesConstants.sys.mjs").MemoriesGenerationRunStats} MemoriesGenerationRunStats */
+/** @typedef {import("./MemoriesConstants.sys.mjs").MemoriesMaintenanceRunStats} MemoriesMaintenanceRunStats */
 
 const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "console", function () {
   return console.createInstance({
     logModule: "MemoriesManager",
-    maxLogLevelPref: "browser.smartwindow.memoriesLogLevel",
+    maxLogLevelPref: "browser.smartwindow.memories.logLevel",
   });
 });
 
@@ -76,6 +88,44 @@ const LAST_SESSION_MEMORY_TS_ATTRIBUTE = "last_session_memory_ts";
 const LAST_GENERATION_RUN_TS_ATTRIBUTE = "last_generation_run_ts";
 
 const PREF_FIRSTRUN_HAS_COMPLETED = "browser.smartwindow.firstrun.hasCompleted";
+
+/**
+ * Counts live memories for run telemetry.
+ *
+ * @returns {Promise<number|undefined>} The count, or undefined if it failed.
+ */
+async function countMemoriesForStats() {
+  try {
+    return (await MemoryStore.getMemories()).length;
+  } catch (e) {
+    lazy.console.error("Failed to count memories for telemetry", e);
+    return undefined;
+  }
+}
+
+/**
+ * Returns the maintenance stats key counting a memory type change.
+ *
+ * @param {string} fromType Memory type before maintenance
+ * @param {string} toType Memory type after maintenance
+ * @returns {string|null} The key, or null when the type didn't move on
+ *   {@link MEMORY_TYPE_LADDER}.
+ */
+function getMaintenanceStatKeyForTypeChange(fromType, toType) {
+  const from = MEMORY_TYPE_LADDER.indexOf(fromType);
+  const to = MEMORY_TYPE_LADDER.indexOf(toType);
+  if (from === -1 || to === -1 || from === to) {
+    return null;
+  }
+  switch (toType) {
+    case MEMORY_TYPE_DURABLE_MEMORY:
+      return "promoted_to_durable";
+    case MEMORY_TYPE_LONG_TERM_MEMORY:
+      return to < from ? "promoted_to_long_term" : "demoted_to_long_term";
+    default:
+      return "demoted_to_short_term";
+  }
+}
 
 // Single shared detector instance, mirroring MemoriesChatSource /
 // MemoriesHistorySource usage.
@@ -201,66 +251,107 @@ export class MemoriesManager {
    * If a memory is not deleted, we update its attributes. Attribute updates and the
    * decay check are per-memory daily: each memory tracks its own day in `updated_at`
    * and is skipped until a full day has elapsed for it.
+   *
+   * @param {object} [options]
+   * @param {MemoriesMaintenanceRunStats} [options.stats]
+   *   Stats object to record telemetry information.
    */
-  static async runMemoryMaintenance() {
+  static async runMemoryMaintenance({ stats = {} } = {}) {
     const now = Date.now();
 
     // Tracks whether the in-memory state of the MemoryStore changed while this function
     // is running to request a save at the end
     let changed = false;
 
-    // Pull all memories, including soft deleted ones
-    const allMemories = await MemoryStore.getMemories({
-      includeSoftDeleted: true,
-    });
+    try {
+      // Pull all memories, including soft deleted ones
+      const allMemories = await MemoryStore.getMemories({
+        includeSoftDeleted: true,
+      });
+      stats.memories_before = allMemories.length;
 
-    // Hard delete any soft deleted memories first
-    for (const memory of allMemories.filter(mem => mem.is_deleted)) {
-      await MemoryStore.hardDeleteMemory(memory.id);
-      changed = true;
-    }
-
-    // Filter for the remainder that aren't soft deleted
-    const liveMemories = allMemories.filter(memory => !memory.is_deleted);
-
-    for (const memory of liveMemories) {
-      const daysElapsed = Math.floor(
-        (now - memory.updated_at) / (24 * 60 * 60 * 1000)
-      );
-      // Skip if a full day hasn't passed since last update
-      if (daysElapsed < 1) {
-        continue;
+      // Hard delete any soft deleted memories first
+      let softDeletedRemoved = 0;
+      for (const memory of allMemories.filter(mem => mem.is_deleted)) {
+        if (await MemoryStore.hardDeleteMemory(memory.id)) {
+          softDeletedRemoved++;
+        }
+        changed = true;
       }
+      stats.soft_deleted_removed = softDeletedRemoved;
 
-      // Age the rolling usage window by however many whole days have elapsed
-      const shifted = {};
-      for (let day = 0; day < MEMORY_FRECENCY_MAX_DAYS; day++) {
-        const source = day - daysElapsed;
-        shifted[day] =
-          source >= 0 ? (memory.recent_accessed_counts[source] ?? 0) : 0;
+      // Filter for the remainder that aren't soft deleted
+      const liveMemories = allMemories.filter(memory => !memory.is_deleted);
+
+      stats.memories_skipped = 0;
+      stats.memories_aged = 0;
+      // Results of ageing, recorded only once every memory has been aged
+      const ageingResults = {
+        promoted_to_long_term: 0,
+        promoted_to_durable: 0,
+        demoted_to_long_term: 0,
+        demoted_to_short_term: 0,
+        memories_decayed: 0,
+      };
+      for (const memory of liveMemories) {
+        const daysElapsed = Math.floor(
+          (now - memory.updated_at) / (24 * 60 * 60 * 1000)
+        );
+        // Skip if a full day hasn't passed since last update
+        if (daysElapsed < 1) {
+          stats.memories_skipped++;
+          continue;
+        }
+
+        // Age the rolling usage window by however many whole days have elapsed
+        const shifted = {};
+        for (let day = 0; day < MEMORY_FRECENCY_MAX_DAYS; day++) {
+          const source = day - daysElapsed;
+          shifted[day] =
+            source >= 0 ? (memory.recent_accessed_counts[source] ?? 0) : 0;
+        }
+        memory.recent_accessed_counts = shifted;
+
+        // Update computed properties
+        const typeBefore = memory.type;
+        memory.frecency = computeMemoryFrecency(memory);
+        memory.strength = computeMemoryStrength(memory);
+        classifyMemoryAndCapStrength(memory);
+
+        // Set updated_at to now, starting this memory's next day
+        memory.updated_at = now;
+
+        changed = true;
+        stats.memories_aged++;
+
+        // If a memory should be deleted due to decay, hard delete it now that its strength is updated
+        if (isShouldDeleteMemoryDueToDecay(memory)) {
+          if (await MemoryStore.hardDeleteMemory(memory.id)) {
+            ageingResults.memories_decayed++;
+          }
+          continue;
+        }
+
+        const typeChangeKey = getMaintenanceStatKeyForTypeChange(
+          typeBefore,
+          memory.type
+        );
+        if (typeChangeKey) {
+          ageingResults[typeChangeKey]++;
+        }
       }
-      memory.recent_accessed_counts = shifted;
+      Object.assign(stats, ageingResults);
 
-      // Update computed properties
-      memory.frecency = computeMemoryFrecency(memory);
-      memory.strength = computeMemoryStrength(memory);
-      classifyMemoryAndCapStrength(memory);
-
-      // Set updated_at to now, starting this memory's next day
-      memory.updated_at = now;
-
-      changed = true;
-
-      // If a memory should be deleted due to decay, hard delete it now that its strength is updated
-      if (isShouldDeleteMemoryDueToDecay(memory)) {
-        await MemoryStore.hardDeleteMemory(memory.id);
+      // If anything was changed to the in-memory MemoryStore, save it to disk
+      if (changed) {
+        await MemoryStore.requestSave();
       }
+    } catch (e) {
+      stats.outcome = MAINTENANCE_RUN_OUTCOME.ERROR;
+      stats.error_type = GENERATION_RUN_ERROR_TYPE.FIREFOX_INTERNAL;
+      throw e;
     }
-
-    // If anything was changed to the in-memory MemoryStore, save it to disk
-    if (changed) {
-      await MemoryStore.requestSave();
-    }
+    stats.outcome = MAINTENANCE_RUN_OUTCOME.SUCCESS;
   }
 
   /**
@@ -283,7 +374,8 @@ export class MemoriesManager {
    * @param {object} [pipelineOpts={}]
    *        Options forwarded to {@link runSessionMemoryPipeline} (e.g.
    *        `batchSize`, `maxBatchRetries`). Omitted keys fall back to the
-   *        pipeline's own defaults.
+   *        pipeline's own defaults. `stats` ({@link MemoriesGenerationRunStats})
+   *        is an object to store telemetry information.
    * @returns {Promise<Memory[]>}  Persisted memories (possibly empty).
    */
   static async generateMemoriesFromSessions(pipelineOpts = {}) {
@@ -296,43 +388,69 @@ export class MemoriesManager {
       return [];
     }
 
+    const stats = pipelineOpts.stats ?? {};
     const watermarkMs = await this.getLastSessionMemoryTimestamp();
     const isDelta = watermarkMs > 0;
     const deltaStartMs = this.getSessionMemoryDeltaStartMs(watermarkMs);
+    stats.is_first_run = !isDelta;
 
     let historyRows = [];
-    if (historyEnabled) {
-      const recentHistoryOpts = isDelta
-        ? {
-            sinceMicros: deltaStartMs * 1000,
-            maxResults: DEFAULT_HISTORY_DELTA_MAX_RESULTS,
-          }
-        : {
-            days: DEFAULT_HISTORY_FULL_LOOKUP_DAYS,
-            maxResults: DEFAULT_HISTORY_FULL_MAX_RESULTS,
-          };
-      historyRows = await this._getRecentHistory(recentHistoryOpts);
-    }
-
     let chatMessages = [];
-    if (conversationEnabled) {
-      chatMessages = await this._getRecentChats(
-        deltaStartMs,
-        DEFAULT_CHAT_FULL_MAX_RESULTS,
-        DEFAULT_CHAT_HALF_LIFE_DAYS_FULL_RESULTS
-      );
+    try {
+      if (historyEnabled) {
+        const recentHistoryOpts = isDelta
+          ? {
+              sinceMicros: deltaStartMs * 1000,
+              maxResults: DEFAULT_HISTORY_DELTA_MAX_RESULTS,
+            }
+          : {
+              days: DEFAULT_HISTORY_FULL_LOOKUP_DAYS,
+              maxResults: DEFAULT_HISTORY_FULL_MAX_RESULTS,
+            };
+        historyRows = await this._getRecentHistory({
+          ...recentHistoryOpts,
+          stats,
+        });
+      }
+
+      if (conversationEnabled) {
+        chatMessages = await this._getRecentChats(
+          deltaStartMs,
+          DEFAULT_CHAT_FULL_MAX_RESULTS,
+          DEFAULT_CHAT_HALF_LIFE_DAYS_FULL_RESULTS,
+          stats
+        );
+      }
+    } catch (e) {
+      setGenerationRunError(stats, GENERATION_RUN_ERROR_STAGE.SOURCES, e);
+      throw e;
     }
 
     const sessions = buildSessions(historyRows, chatMessages);
     const gatedSessions = sessions.filter(
       session => runHeuristicGate(session).decision !== GATE_SKIP
     );
+    stats.sessions_built = sessions.length;
+    stats.sessions_skipped = sessions.length - gatedSessions.length;
 
     // Cap sessions after gating.
     const maxSessions = isDelta
       ? MAX_SESSIONS_DELTA_RUN
       : MAX_SESSIONS_FIRST_RUN;
     const retainedSessions = takeMostRecentSessions(gatedSessions, maxSessions);
+    stats.sessions_processed = retainedSessions.length;
+    if (retainedSessions.length) {
+      const sizes = retainedSessions.map(
+        session =>
+          session.visit_count + session.search_count + session.chat_count
+      );
+      stats.sessions_processed_events = sizes.reduce(
+        (sum, size) => sum + size,
+        0
+      );
+      stats.sessions_processed_events_min = Math.min(...sizes);
+      stats.sessions_processed_events_max = Math.max(...sizes);
+    }
     if (retainedSessions.length < gatedSessions.length) {
       lazy.console.debug(
         "[generateMemoriesFromSessions] " +
@@ -343,6 +461,7 @@ export class MemoriesManager {
     }
 
     if (!retainedSessions.length) {
+      stats.outcome ??= GENERATION_RUN_OUTCOME.NO_SESSIONS;
       // Since no retainedSessions are present due to SKIP decisions, then advance
       // the watermark past them to avoid re-pulling and re-gating the same
       // trivial sessions next run.
@@ -360,16 +479,24 @@ export class MemoriesManager {
       return [];
     }
 
-    const conversation = await this.ensureConversationForGeneration();
+    let conversation;
+    try {
+      conversation = await this.ensureConversationForGeneration();
+    } catch (e) {
+      setGenerationRunError(stats, GENERATION_RUN_ERROR_STAGE.GENERATION, e);
+      throw e;
+    }
 
     let result;
     try {
-      result = await runSessionMemoryPipeline(
-        conversation,
-        retainedSessions,
-        pipelineOpts
-      );
+      result = await runSessionMemoryPipeline(conversation, retainedSessions, {
+        ...pipelineOpts,
+        stats,
+      });
     } catch (e) {
+      // The pipeline tags its own generation and filter errors; this covers
+      // anything else it throws.
+      setGenerationRunError(stats, GENERATION_RUN_ERROR_STAGE.GENERATION, e);
       // Pipeline failed; don't advance the watermark. Re-throw retryable errors
       // so the scheduler can back off; swallow permanent ones.
       console.error(
@@ -383,7 +510,13 @@ export class MemoriesManager {
       return [];
     }
 
-    const { persistedMemories } = await this.saveMemories(result.memories);
+    let persistedMemories;
+    try {
+      ({ persistedMemories } = await this.saveMemories(result.memories, stats));
+    } catch (e) {
+      setGenerationRunError(stats, GENERATION_RUN_ERROR_STAGE.SAVE, e);
+      throw e;
+    }
 
     if (result.processedThroughMs > 0) {
       await this.setLastSessionMemoryTimestamp(
@@ -404,9 +537,12 @@ export class MemoriesManager {
    *   Number of mergeable memories that must be exceeded before a merge pass
    *   runs. Only overridden by tests, which set it to 0 to exercise merging on
    *   small fixtures.
+   * @param {MemoriesGenerationRunStats} [options.stats]
+   *   Stats object to record telemetry information.
    */
   static async mergeMemories({
     minMemoryCount = MEMORY_MERGE_MIN_MEMORY_COUNT,
+    stats = {},
   } = {}) {
     // Pull all memories, not including soft deleted ones
     const allMemories = await MemoryStore.getMemories();
@@ -419,33 +555,48 @@ export class MemoriesManager {
     // Return immediately if there aren't enough memories to merge
     // Too few memories and memory merging results in too much compression.
     if (mergeableMemories.length <= minMemoryCount) {
+      stats.merge_status = GENERATION_RUN_MERGE_STATUS.BELOW_THRESHOLD;
       return;
     }
 
-    // Create merge candidate memory objects
-    const conversation = await this.ensureConversationForGeneration();
-    const mergeMemoryCandidates = await getMergeMemoryCandidates(
-      conversation,
-      mergeableMemories
-    );
-    const { finalMergedMemories, componentMemoryIdsToDelete } =
-      createMergedMemories(mergeMemoryCandidates, mergeableMemories);
+    stats.merge_status = GENERATION_RUN_MERGE_STATUS.RAN;
+    try {
+      // Create merge candidate memory objects
+      const conversation = await this.ensureConversationForGeneration();
+      const mergeMemoryCandidates = await getMergeMemoryCandidates(
+        conversation,
+        mergeableMemories
+      );
+      stats.merge_groups_proposed = Array.isArray(mergeMemoryCandidates)
+        ? mergeMemoryCandidates.length
+        : 0;
+      const { finalMergedMemories, componentMemoryIdsToDelete } =
+        createMergedMemories(mergeMemoryCandidates, mergeableMemories);
 
-    // Save merge candidates in the MemoryStore and delete their component memories
-    const mergedMemoryIds = new Set();
-    for (const finalMergedMemory of finalMergedMemories) {
-      const saved = await MemoryStore.addMemory(finalMergedMemory);
-      mergedMemoryIds.add(saved.id);
-    }
-
-    for (const componentMemoryId of componentMemoryIdsToDelete) {
-      // Guard to make sure we don't delete a merged memory if its ID happens to be the same as a candidate
-      // Memory IDs are hashes computed from the memory summary, so it may be possible that a merged memory
-      // has the same ID as an existing component
-      if (mergedMemoryIds.has(componentMemoryId)) {
-        continue;
+      // Save merge candidates in the MemoryStore and delete their component memories
+      const mergedMemoryIds = new Set();
+      for (const finalMergedMemory of finalMergedMemories) {
+        const saved = await MemoryStore.addMemory(finalMergedMemory);
+        mergedMemoryIds.add(saved.id);
       }
-      await this.hardDeleteMemoryById(componentMemoryId);
+      stats.merge_groups_saved = finalMergedMemories.length;
+
+      let removed = 0;
+      for (const componentMemoryId of componentMemoryIdsToDelete) {
+        // Guard to make sure we don't delete a merged memory if its ID happens to be the same as a candidate
+        // Memory IDs are hashes computed from the memory summary, so it may be possible that a merged memory
+        // has the same ID as an existing component
+        if (mergedMemoryIds.has(componentMemoryId)) {
+          continue;
+        }
+        if (await this.hardDeleteMemoryById(componentMemoryId)) {
+          removed++;
+        }
+      }
+      stats.merge_components_removed = removed;
+    } catch (e) {
+      setGenerationRunError(stats, GENERATION_RUN_ERROR_STAGE.MERGE, e);
+      throw e;
     }
   }
 
@@ -602,16 +753,29 @@ export class MemoriesManager {
    *
    * @param {Array<object>|null|undefined} generatedMemories
    *        Array of MemoryPartial-like objects to persist.
+   * @param {MemoriesGenerationRunStats} [stats]
+   *        Stats object to record telemetry information.
    * @returns {Promise<{ persistedMemories: Array<object> }>}
    */
-  static async saveMemories(generatedMemories) {
+  static async saveMemories(generatedMemories, stats) {
     const persistedMemories = [];
+    const countBefore =
+      stats && generatedMemories?.length
+        ? await countMemoriesForStats()
+        : undefined;
 
     if (Array.isArray(generatedMemories)) {
       for (const memoryPartial of generatedMemories) {
         const stored = await MemoryStore.addMemory(memoryPartial);
         persistedMemories.push(stored);
       }
+    }
+
+    const countAfter =
+      countBefore === undefined ? undefined : await countMemoriesForStats();
+    if (countAfter !== undefined) {
+      stats.save_new = countAfter - countBefore;
+      stats.save_updated = persistedMemories.length - stats.save_new;
     }
 
     return { persistedMemories };
@@ -706,8 +870,9 @@ export class MemoriesManager {
    * by UI to allow users to delete memories they no longer want stored.
    *
    * @param {string} memoryId       ID of the memory to hard-delete
-   * @param {string} trigger        What was the trigger (assistant, settings, other)
-   * @param {number|null} inUse     Number of memories still applied to the message after removal, or null if not triggered by assistant
+   * @param {string|null} [trigger] Where the user removed the memory (assistant, settings), or omitted for
+   *                                removals the user didn't make, which record no memory_removed_panel event
+   * @param {number|null} [inUse]   Number of memories still applied to the message after removal, or null if not triggered by assistant
    * @returns {Promise<boolean>}    True if the memory was found and deleted, false otherwise
    */
   static async hardDeleteMemoryById(memoryId, trigger, inUse) {

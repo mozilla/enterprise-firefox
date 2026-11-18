@@ -23,6 +23,7 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -32,6 +33,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -87,6 +90,8 @@ import org.mozilla.fenix.settings.trustpanel.store.TrustPanelState
 import org.mozilla.fenix.settings.trustpanel.store.TrustPanelStore
 import org.mozilla.fenix.settings.trustpanel.store.WebsiteInfoState
 import org.mozilla.fenix.settings.trustpanel.store.WebsitePermission
+import org.mozilla.fenix.settings.trustpanel.ui.CertificateDetailsPanel
+import org.mozilla.fenix.settings.trustpanel.ui.CertificateIssuedTo
 import org.mozilla.fenix.settings.trustpanel.ui.ClearSiteDataDialog
 import org.mozilla.fenix.settings.trustpanel.ui.ProtectionPanel
 import org.mozilla.fenix.settings.trustpanel.ui.TrackerCategoryDetailsPanel
@@ -202,10 +207,12 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
             val appStore = components.appStore
 
             val initRoute = Route.ProtectionPanel
-            var contentState: Route by remember { mutableStateOf(initRoute) }
+            var routeState: Route by rememberSaveable(stateSaver = RouteSaver) { mutableStateOf(initRoute) }
+            var focusSecureConnectionLink by rememberSaveable { mutableStateOf(false) }
+            val protectionPanelScrollState = rememberScrollState()
             val isShowingProtectionsDashboard =
-                remember(contentState) {
-                    contentState == Route.TrackersProtectionDashboard
+                remember(routeState) {
+                    routeState == Route.TrackersProtectionDashboard
                 }
 
             MenuDialogBottomSheet(
@@ -300,17 +307,14 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                     }
                 }
 
-                BackHandler {
-                    when (contentState) {
-                        Route.TrackersPanel -> contentState = Route.ProtectionPanel
-
-                        Route.TrackerCategoryDetailsPanel -> contentState = Route.TrackersPanel
-
-                        Route.TrackersProtectionDashboard -> contentState = Route.TrackersPanel
-
-                        else -> this@TrustPanelFragment.dismissAllowingStateLoss()
-                    }
-                }
+                TrustPanelBackHandler(
+                    route = routeState,
+                    onNavigateBack = { previousRoute ->
+                        focusSecureConnectionLink = routeState == Route.CertificateDetailsPanel
+                        routeState = previousRoute
+                    },
+                    onDismiss = { this@TrustPanelFragment.dismissAllowingStateLoss() },
+                )
 
                 LaunchedEffect(Unit) {
                     observeTrackersChange(components.core.store) {
@@ -331,8 +335,8 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                 }
 
                 AnimatedContent(
-                    targetState = contentState,
-                    transitionSpec = trustPanelTransitionSpec(contentState),
+                    targetState = routeState,
+                    transitionSpec = trustPanelTransitionSpec(routeState),
                     label = "MenuDialogAnimation",
                 ) { route ->
                     when (route) {
@@ -345,18 +349,22 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                                 isGlobalTrackingProtectionEnabled = isGlobalTrackingProtectionEnabled,
                                 isLocalPdf = args.isLocalPdf,
                                 isPrivate = sessionState?.content?.private ?: false,
+                                // With the QWAC UI, the certificate details are opened from the header instead of the
+                                // connection security group.
+                                showCertificateDetailsLink =
+                                    settings.isQwacUiEnabled && websiteInfoState.canOpenCertificateDetails,
                                 showIPProtection = showIpProtection,
                                 numberOfTrackersBlocked = numberOfTrackersBlocked,
                                 websitePermissions = websitePermissions.filter { it.isVisible },
                                 onTrackerBlockedMenuClick = {
-                                    contentState = Route.TrackersPanel
+                                    routeState = Route.TrackersPanel
                                 },
                                 onTrackingProtectionToggleClick = {
                                     store.dispatch(TrustPanelAction.ToggleTrackingProtection)
                                 },
                                 onClearSiteDataMenuClick = {
                                     store.dispatch(TrustPanelAction.RequestClearSiteDataDialog)
-                                    contentState = Route.ClearSiteDataDialog
+                                    routeState = Route.ClearSiteDataDialog
                                 },
                                 onPrivacySecuritySettingsClick = {
                                     store.dispatch(TrustPanelAction.Navigate.PrivacySecuritySettings)
@@ -373,6 +381,12 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                                 onViewQWACClick = {
                                     store.dispatch(TrustPanelAction.Navigate.QWAC)
                                 },
+                                onSecureConnectionClick = {
+                                    routeState = Route.CertificateDetailsPanel
+                                },
+                                scrollState = protectionPanelScrollState,
+                                focusSecureConnectionLink = focusSecureConnectionLink,
+                                onSecureConnectionLinkFocusHandled = { focusSecureConnectionLink = false },
                                 onIPProtectionToggle = {
                                     handleIPProtectionToggleAndRecordTelemetry(ipProtectionMenuState, components)
                                 },
@@ -396,14 +410,14 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                                     store.dispatch(
                                         TrustPanelAction.UpdateDetailedTrackerCategory(detailedTrackerCategory)
                                     )
-                                    contentState = Route.TrackerCategoryDetailsPanel
+                                    routeState = Route.TrackerCategoryDetailsPanel
                                 },
                                 onTrackersBlockedThisWeekClicked = {
                                     store.dispatch(TrustPanelAction.Navigate.TrackersProtectionDashboard)
-                                    contentState = Route.TrackersProtectionDashboard
+                                    routeState = Route.TrackersProtectionDashboard
                                 },
                                 onBackButtonClick = {
-                                    contentState = Route.ProtectionPanel
+                                    routeState = Route.ProtectionPanel
                                 },
                             )
                         }
@@ -415,7 +429,7 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                                 detailedTrackerCategory = detailedTrackerCategory,
                                 bucketedTrackers = bucketedTrackers,
                                 onBackButtonClick = {
-                                    contentState = Route.TrackersPanel
+                                    routeState = Route.TrackersPanel
                                 },
                             )
                         }
@@ -431,8 +445,18 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                                 trackersBlockedThisWeek = blockedTrackersState.trackersBlockedThisWeek,
                                 earliestTrackingDate = blockedTrackersState.earliestTrackingDate,
                                 onDismiss = {
-                                    contentState = Route.TrackersPanel
+                                    routeState = Route.TrackersPanel
                                 },
+                            )
+                        }
+
+                        Route.CertificateDetailsPanel -> {
+                            CertificateDetailsPanel(
+                                url = websiteInfoState.websiteUrl,
+                                icon = sessionState?.content?.icon,
+                                isQwac = websiteInfoState.isQwac,
+                                issuedTo = { CertificateIssuedTo(websiteInfoState.certificateDetails) },
+                                verifiedBy = {},
                             )
                         }
 
@@ -542,6 +566,7 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                     urlHost = args.url.toUri().host,
                     onSecurityInfoUpdate = { store.dispatch(it) },
                     onHostChange = { dismissAllowingStateLoss() },
+                    onSessionClosed = { dismissAllowingStateLoss() },
                 ),
             owner = viewLifecycleOwner,
             view = view,
@@ -550,9 +575,9 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
 
     @Composable
     private fun trustPanelTransitionSpec(
-        contentState: Route
+        routeState: Route
     ): AnimatedContentTransitionScope<Route>.() -> ContentTransform = {
-        if (contentState == Route.ProtectionPanel || contentState == Route.ClearSiteDataDialog) {
+        if (routeState == Route.ProtectionPanel || routeState == Route.ClearSiteDataDialog) {
             enterMenu(
                     duration = DURATION_MS_MAIN_MENU,
                     delay = DELAY_MS_MAIN_MENU,
@@ -609,4 +634,57 @@ enum class Route {
     TrackerCategoryDetailsPanel,
     TrackersProtectionDashboard,
     ClearSiteDataDialog,
+    CertificateDetailsPanel,
 }
+
+/**
+ * Handles system back, including the back gesture, by going back to the previous route of [route], or dismissing the
+ * trust panel if there is none.
+ *
+ * @param route The currently shown [Route].
+ * @param onNavigateBack Invoked with the route to go back to.
+ * @param onDismiss Invoked when going back dismisses the trust panel.
+ */
+@Composable
+internal fun TrustPanelBackHandler(
+    route: Route,
+    onNavigateBack: (Route) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    BackHandler {
+        val previousRoute = route.previousRoute()
+        if (previousRoute != null) {
+            onNavigateBack(previousRoute)
+        } else {
+            onDismiss()
+        }
+    }
+}
+
+/** Saves a [Route] as its [restorableRoute], as the [TrustPanelStore] does not survive process death. */
+private val RouteSaver = Saver<Route, Route>(save = { it.restorableRoute() }, restore = { it })
+
+/**
+ * Returns the route to restore this route as. Routes whose content depends on [TrustPanelStore] state that is only set
+ * when navigating to them fall back to the route they were opened from.
+ */
+internal fun Route.restorableRoute(): Route =
+    when (this) {
+        Route.ProtectionPanel,
+        Route.TrackersPanel,
+        Route.TrackersProtectionDashboard,
+        Route.CertificateDetailsPanel -> this
+        Route.TrackerCategoryDetailsPanel -> Route.TrackersPanel
+        Route.ClearSiteDataDialog -> Route.ProtectionPanel
+    }
+
+/** Returns the route to go back to from this route, or null if going back dismisses the trust panel. */
+internal fun Route.previousRoute(): Route? =
+    when (this) {
+        Route.TrackersPanel,
+        Route.CertificateDetailsPanel -> Route.ProtectionPanel
+        Route.TrackerCategoryDetailsPanel,
+        Route.TrackersProtectionDashboard -> Route.TrackersPanel
+        Route.ProtectionPanel,
+        Route.ClearSiteDataDialog -> null
+    }

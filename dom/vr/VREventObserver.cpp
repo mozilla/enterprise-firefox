@@ -18,7 +18,7 @@ using namespace gfx;
  * window.onvrdisplaypresentchange.
  */
 VREventObserver::VREventObserver(nsGlobalWindowInner* aGlobalWindow)
-    : mWindow(aGlobalWindow), mIs2DView(true), mStopActivity(false) {
+    : mWindow(aGlobalWindow), mStopActivity(false) {
   MOZ_ASSERT(aGlobalWindow);
 
   VRManagerChild* vmc = VRManagerChild::Get();
@@ -64,75 +64,21 @@ void VREventObserver::NotifyAfterLoad() {
   }
 }
 
-void VREventObserver::NotifyVRDisplayMounted(uint32_t aDisplayID) {
-  if (mWindow && mWindow->IsCurrentInnerWindow() && IsWebVR(aDisplayID)) {
-    MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
-    mWindow->DispatchVRDisplayActivate(aDisplayID,
-                                       VRDisplayEventReason::Mounted);
-  }
-}
+void VREventObserver::NotifyVRDisplayMounted(uint32_t aDisplayID) {}
 
-void VREventObserver::NotifyVRDisplayNavigation(uint32_t aDisplayID) {
-  if (mWindow && mWindow->IsCurrentInnerWindow() && IsWebVR(aDisplayID)) {
-    MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
-    mWindow->DispatchVRDisplayActivate(aDisplayID,
-                                       VRDisplayEventReason::Navigation);
-  }
-}
+void VREventObserver::NotifyVRDisplayNavigation(uint32_t aDisplayID) {}
 
-void VREventObserver::NotifyVRDisplayRequested(uint32_t aDisplayID) {
-  if (mWindow && mWindow->IsCurrentInnerWindow() && IsWebVR(aDisplayID)) {
-    MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
-    mWindow->DispatchVRDisplayActivate(aDisplayID,
-                                       VRDisplayEventReason::Requested);
-  }
-}
+void VREventObserver::NotifyVRDisplayRequested(uint32_t aDisplayID) {}
 
-void VREventObserver::NotifyVRDisplayUnmounted(uint32_t aDisplayID) {
-  if (mWindow && mWindow->IsCurrentInnerWindow() && IsWebVR(aDisplayID)) {
-    MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
-    mWindow->DispatchVRDisplayDeactivate(aDisplayID,
-                                         VRDisplayEventReason::Unmounted);
-  }
-}
+void VREventObserver::NotifyVRDisplayUnmounted(uint32_t aDisplayID) {}
 
-void VREventObserver::NotifyVRDisplayConnect(uint32_t aDisplayID) {
-  /**
-   * We do not call nsGlobalWindowInner::NotifyActiveVRDisplaysChanged here, as
-   * we can assume that a newly enumerated display is not presenting WebVR
-   * content.
-   */
-  if (mWindow && mWindow->IsCurrentInnerWindow() && IsWebVR(aDisplayID)) {
-    MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
-    mWindow->DispatchVRDisplayConnect(aDisplayID);
-  }
-}
+void VREventObserver::NotifyVRDisplayConnect(uint32_t aDisplayID) {}
 
-void VREventObserver::NotifyVRDisplayDisconnect(uint32_t aDisplayID) {
-  if (mWindow && mWindow->IsCurrentInnerWindow() && IsWebVR(aDisplayID)) {
-    mWindow->NotifyActiveVRDisplaysChanged();
-    MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
-    mWindow->DispatchVRDisplayDisconnect(aDisplayID);
-  }
-}
+void VREventObserver::NotifyVRDisplayDisconnect(uint32_t aDisplayID) {}
 
-void VREventObserver::NotifyVRDisplayPresentChange(uint32_t aDisplayID) {
-  // When switching to HMD present mode, it is no longer
-  // to be a 2D view.
-  mIs2DView = false;
-
-  if (mWindow && mWindow->IsCurrentInnerWindow() && IsWebVR(aDisplayID)) {
-    mWindow->NotifyActiveVRDisplaysChanged();
-    MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
-    mWindow->DispatchVRDisplayPresentChange(aDisplayID);
-  }
-}
+void VREventObserver::NotifyVRDisplayPresentChange(uint32_t aDisplayID) {}
 
 void VREventObserver::NotifyPresentationGenerationChanged(uint32_t aDisplayID) {
-  if (mWindow && mWindow->IsCurrentInnerWindow() && IsWebVR(aDisplayID)) {
-    MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
-    mWindow->NotifyPresentationGenerationChanged(aDisplayID);
-  }
 }
 
 void VREventObserver::NotifyEnumerationCompleted() {}
@@ -142,14 +88,6 @@ void VREventObserver::NotifyDetectRuntimesCompleted() {
     MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
     mWindow->NotifyDetectXRRuntimesCompleted();
   }
-}
-
-bool VREventObserver::IsWebVR(uint32_t aDisplayID) const {
-  VRManagerChild* vmc = VRManagerChild::Get();
-  if (vmc) {
-    return vmc->GetVRAPIMode(aDisplayID) == gfx::VRAPIMode::WebVR;
-  }
-  return true;
 }
 
 }  // namespace mozilla::dom

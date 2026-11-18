@@ -52,15 +52,27 @@ const MODEL_OPTIONS_BY_ID = {
   },
 };
 
+/**
+ * Builds the model options for the select. Options with an l10nId get their
+ * text from Fluent; the others use the model's name from Remote Settings.
+ *
+ * @param {object} models - Model data keyed by model choice id.
+ * @returns {object[]} Options for smartwindow-option-select.
+ */
 function getModelOptions(models) {
   return [...new Set([AUTO_MODEL_CHOICE_ID, ...getModelDisplayOrder()])]
     .filter(id => MODEL_OPTIONS_BY_ID[id])
-    .map(id => ({
-      ...MODEL_OPTIONS_BY_ID[id],
-      iconSrc: getModelIconSrc(id),
-      label: models[id]?.shortName,
-      buttonLabel: models[id]?.brandName,
-    }));
+    .map(id => {
+      const option = {
+        ...MODEL_OPTIONS_BY_ID[id],
+        iconSrc: getModelIconSrc(id),
+      };
+      if (!option.l10nId) {
+        option.label = models[id]?.shortName;
+        option.buttonLabel = models[id]?.brandName;
+      }
+      return option;
+    });
 }
 
 const MEMORIES_OPTIONS = [
@@ -88,7 +100,10 @@ const MEMORIES_OPTIONS = [
 
 /**
  * First-run UI. Emits smartwindow-onboarding:save with the three choices
- * in event.detail, without writing preferences.
+ * in event.detail, without writing preferences. Also emits
+ * smartwindow-onboarding:impression with { screen: "welcome" | "setup" } and
+ * smartwindow-onboarding:change with
+ * { field: "model" | "memories" | "defaultWindow", value } for telemetry.
  *
  * @property {string} modelChoiceId - Model choice: "4", "2", "3", or "1".
  * @property {string} recommendedModelChoiceId - Model that receives the recommendation badge.
@@ -121,6 +136,9 @@ export class SmartwindowOnboarding extends MozLitElement {
   }
 
   async firstUpdated() {
+    if (!this.showingSetup && this.autoAdvanceMS > 0) {
+      this.#emit("impression", { screen: "welcome" });
+    }
     this.modelOptions = getModelOptions(await getAllModelsData());
   }
 
@@ -143,6 +161,19 @@ export class SmartwindowOnboarding extends MozLitElement {
     if (changed.has("autoAdvanceMS")) {
       this.#scheduleAdvance();
     }
+    if (changed.has("showingSetup") && this.showingSetup) {
+      this.#emit("impression", { screen: "setup" });
+    }
+  }
+
+  #emit(type, detail) {
+    this.dispatchEvent(
+      new CustomEvent(`smartwindow-onboarding:${type}`, {
+        detail,
+        bubbles: true,
+        composed: true,
+      })
+    );
   }
 
   #scheduleAdvance() {
@@ -169,17 +200,11 @@ export class SmartwindowOnboarding extends MozLitElement {
   }
 
   #save() {
-    this.dispatchEvent(
-      new CustomEvent("smartwindow-onboarding:save", {
-        detail: {
-          modelChoiceId: this.modelChoiceId,
-          memoriesChoice: this.memoriesChoice,
-          isDefaultWindow: this.isDefaultWindow,
-        },
-        bubbles: true,
-        composed: true,
-      })
-    );
+    this.#emit("save", {
+      modelChoiceId: this.modelChoiceId,
+      memoriesChoice: this.memoriesChoice,
+      isDefaultWindow: this.isDefaultWindow,
+    });
   }
 
   render() {
@@ -270,6 +295,10 @@ export class SmartwindowOnboarding extends MozLitElement {
               .value=${this.modelChoiceId}
               @smartwindow-option-select:change=${event => {
                 this.modelChoiceId = event.detail.value;
+                this.#emit("change", {
+                  field: "model",
+                  value: this.modelChoiceId,
+                });
               }}
             ></smartwindow-option-select>
           </div>
@@ -305,6 +334,10 @@ export class SmartwindowOnboarding extends MozLitElement {
               .value=${this.memoriesChoice}
               @smartwindow-option-select:change=${event => {
                 this.memoriesChoice = event.detail.value;
+                this.#emit("change", {
+                  field: "memories",
+                  value: this.memoriesChoice,
+                });
               }}
             ></smartwindow-option-select>
           </div>
@@ -324,6 +357,10 @@ export class SmartwindowOnboarding extends MozLitElement {
               .pressed=${this.isDefaultWindow}
               @toggle=${event => {
                 this.isDefaultWindow = event.target.pressed;
+                this.#emit("change", {
+                  field: "defaultWindow",
+                  value: this.isDefaultWindow,
+                });
               }}
             ></moz-toggle>
           </div>

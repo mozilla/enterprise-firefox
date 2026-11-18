@@ -10,12 +10,18 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.view.isVisible
+import androidx.fragment.app.testing.FragmentScenario
+import androidx.fragment.app.testing.launchFragment
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.google.android.material.R as materialR
 import kotlin.test.assertNotNull
 import mozilla.components.concept.storage.CreditCardEntry
 import mozilla.components.concept.storage.CreditCardValidationDelegate
 import mozilla.components.feature.prompts.PromptFeature
 import mozilla.components.feature.prompts.R
+import mozilla.components.feature.prompts.dialog.TestPrompt
+import mozilla.components.feature.prompts.dialog.TestPromptFeature
 import mozilla.components.feature.prompts.facts.CreditCardAutofillDialogFacts
 import mozilla.components.support.base.Component
 import mozilla.components.support.base.facts.Action
@@ -25,6 +31,7 @@ import mozilla.components.support.test.ext.appCompatContext
 import mozilla.components.support.test.mock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,6 +66,8 @@ class CreditCardSaveDialogFragmentTest {
                     promptRequestUID = promptRequestUID,
                     shouldDismissOnLoad = true,
                     creditCard = creditCard,
+                    isSecurityCodeSaveEnabled = false,
+                    saveSecurityCode = true,
                 )
             )
 
@@ -106,6 +115,8 @@ class CreditCardSaveDialogFragmentTest {
                     promptRequestUID = promptRequestUID,
                     shouldDismissOnLoad = true,
                     creditCard = creditCard,
+                    isSecurityCodeSaveEnabled = false,
+                    saveSecurityCode = true,
                 )
             )
 
@@ -178,6 +189,8 @@ class CreditCardSaveDialogFragmentTest {
                     promptRequestUID = promptRequestUID,
                     shouldDismissOnLoad = true,
                     creditCard = creditCard,
+                    isSecurityCodeSaveEnabled = false,
+                    saveSecurityCode = true,
                 )
             )
 
@@ -232,6 +245,8 @@ class CreditCardSaveDialogFragmentTest {
                     promptRequestUID = promptRequestUID,
                     shouldDismissOnLoad = true,
                     creditCard = creditCard,
+                    isSecurityCodeSaveEnabled = false,
+                    saveSecurityCode = true,
                 )
             )
 
@@ -284,6 +299,8 @@ class CreditCardSaveDialogFragmentTest {
                     promptRequestUID = promptRequestUID,
                     shouldDismissOnLoad = true,
                     creditCard = creditCard,
+                    isSecurityCodeSaveEnabled = false,
+                    saveSecurityCode = true,
                 )
             )
 
@@ -312,6 +329,8 @@ class CreditCardSaveDialogFragmentTest {
                     promptRequestUID = promptRequestUID,
                     shouldDismissOnLoad = true,
                     creditCard = creditCard,
+                    isSecurityCodeSaveEnabled = false,
+                    saveSecurityCode = true,
                 )
             )
 
@@ -329,5 +348,95 @@ class CreditCardSaveDialogFragmentTest {
                 fact.item,
             )
         }
+    }
+
+    private fun launchSecurityCodeFragment(
+        feature: TestPromptFeature,
+        isSecurityCodeSaveEnabled: Boolean,
+    ): FragmentScenario<CreditCardSaveDialogFragment> {
+        val arguments =
+            CreditCardSaveDialogFragment.newInstance(
+                    sessionId = sessionId,
+                    promptRequestUID = promptRequestUID,
+                    shouldDismissOnLoad = true,
+                    creditCard = creditCard.copy(cardCvv = "123"),
+                    isSecurityCodeSaveEnabled = isSecurityCodeSaveEnabled,
+                    saveSecurityCode = true,
+                )
+                .requireArguments()
+        val scenario =
+            launchFragment<CreditCardSaveDialogFragment>(
+                initialState = Lifecycle.State.CREATED,
+                fragmentArgs = arguments,
+                themeResId = materialR.style.Theme_MaterialComponents,
+            )
+        scenario.onFragment { it.feature = feature }
+        scenario.moveToState(Lifecycle.State.RESUMED)
+        return scenario
+    }
+
+    @Test
+    fun `GIVEN security code saving is enabled and the toggle is on WHEN save is clicked THEN the security code is confirmed and the toggle is reported`() {
+        val feature = TestPromptFeature()
+        val scenario = launchSecurityCodeFragment(feature, isSecurityCodeSaveEnabled = true)
+
+        scenario.onFragment { it.onSaveClicked(saveSecurityCode = true) }
+
+        assertEquals(true, feature.saveSecurityCode)
+        assertEquals(
+            TestPrompt(sessionId, promptRequestUID, creditCard.copy(cardCvv = "123")),
+            feature.confirmedPrompt,
+        )
+    }
+
+    @Test
+    fun `GIVEN security code saving is enabled and the toggle is off WHEN save is clicked THEN the security code is not confirmed and the toggle is reported`() {
+        val feature = TestPromptFeature()
+        val scenario = launchSecurityCodeFragment(feature, isSecurityCodeSaveEnabled = true)
+
+        scenario.onFragment { it.onSaveClicked(saveSecurityCode = false) }
+
+        assertEquals(false, feature.saveSecurityCode)
+        assertEquals(
+            TestPrompt(sessionId, promptRequestUID, creditCard.copy(cardCvv = null)),
+            feature.confirmedPrompt,
+        )
+    }
+
+    @Test
+    fun `GIVEN security code saving is disabled WHEN save is clicked THEN the security code is not confirmed and no toggle is reported`() {
+        val feature = TestPromptFeature()
+        val scenario = launchSecurityCodeFragment(feature, isSecurityCodeSaveEnabled = false)
+
+        scenario.onFragment { it.onSaveClicked(saveSecurityCode = true) }
+
+        assertNull(feature.saveSecurityCode)
+        assertEquals(
+            TestPrompt(sessionId, promptRequestUID, creditCard.copy(cardCvv = null)),
+            feature.confirmedPrompt,
+        )
+    }
+
+    @Test
+    fun `GIVEN security code saving is enabled WHEN the prompt is dismissed THEN nothing is confirmed and no toggle is reported`() {
+        val feature = TestPromptFeature()
+        val scenario = launchSecurityCodeFragment(feature, isSecurityCodeSaveEnabled = true)
+
+        scenario.onFragment { it.onDismissClicked() }
+
+        assertNull(feature.saveSecurityCode)
+        assertNull(feature.confirmedPrompt)
+        assertEquals(TestPrompt(sessionId, promptRequestUID, null), feature.canceledPrompt)
+    }
+
+    @Test
+    fun `GIVEN the user edited the credit card WHEN save is clicked THEN the edited credit card is confirmed`() {
+        val feature = TestPromptFeature()
+        val scenario = launchSecurityCodeFragment(feature, isSecurityCodeSaveEnabled = true)
+        val editedCard = creditCard.copy(name = "Firstname Lastname", expiryMonth = "8", cardCvv = "4567")
+
+        scenario.onFragment { it.onSaveClicked(saveSecurityCode = true, card = editedCard) }
+
+        assertEquals(TestPrompt(sessionId, promptRequestUID, editedCard), feature.confirmedPrompt)
     }
 }

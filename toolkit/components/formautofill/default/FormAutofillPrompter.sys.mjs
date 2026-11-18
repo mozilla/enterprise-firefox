@@ -902,6 +902,8 @@ export class CreditCardSaveDoorhanger extends AutofillDoorhanger {
 
   static dataType = AutofillDataTypes.CREDIT_CARD;
   static telemetryObject = "capture_doorhanger";
+  // The telemetry source recorded when the security codes toggle is used.
+  // Subclasses set it to null to hide the toggle.
   static securityCodeToggleSource = "save_prompt";
 
   static spotlightURL = "about:preferences#privacy-credit-card-autofill";
@@ -1171,10 +1173,6 @@ export class CreditCardSaveDoorhanger extends AutofillDoorhanger {
     );
   }
 
-  appendSecurityCodeControl() {
-    this.appendSecurityCodeToggle();
-  }
-
   createPrivacyPanelButton() {
     const button = this.doc.createElement("moz-button");
     button.className = "payments-doorhanger-options-button";
@@ -1213,10 +1211,14 @@ export class CreditCardSaveDoorhanger extends AutofillDoorhanger {
 
     this.appendDescription();
 
-    // Offered whenever security codes are supported, so a user who turned
-    // saving them off can turn it back on from here.
-    if (FormAutofill.isAutofillCreditCardCVVSupported) {
-      this.appendSecurityCodeControl();
+    // Only offered while saving security codes is on. Once it's off, only
+    // Settings turns it back on. A null securityCodeToggleSource means this
+    // doorhanger has no toggle.
+    if (
+      this.constructor.securityCodeToggleSource &&
+      FormAutofill.isAutofillCreditCardCVVEnabled
+    ) {
+      this.appendSecurityCodeToggle();
     }
   }
 
@@ -1254,6 +1256,7 @@ export class CreditCardSaveDoorhanger extends AutofillDoorhanger {
 export class CreditCardUpdateDoorhanger extends CreditCardSaveDoorhanger {
   static dataType = AutofillDataTypes.CREDIT_CARD;
   static telemetryObject = "update_doorhanger";
+  static securityCodeToggleSource = null;
 
   constructor(browser, oldRecord, newRecord, flowId) {
     super(browser, oldRecord, newRecord, flowId);
@@ -1266,8 +1269,6 @@ export class CreditCardUpdateDoorhanger extends CreditCardSaveDoorhanger {
   get cvvPromptType() {
     return null;
   }
-
-  appendSecurityCodeControl() {}
 
   // A form submitted without a security code would otherwise clear the stored
   // one.
@@ -1302,10 +1303,6 @@ export class CreditCardSecurityCodeUpdateDoorhanger extends CreditCardUpdateDoor
 
   get cvvPromptType() {
     return "existing_card";
-  }
-
-  appendSecurityCodeControl() {
-    this.appendSecurityCodeToggle();
   }
 
   onSecurityCodeToggled() {
@@ -2146,11 +2143,19 @@ export let FormAutofillPrompter = {
     newRecord
   ) {
     let changedGUID = null;
-    if (oldRecord) {
-      changedGUID = oldRecord.guid;
-      await storage.update(changedGUID, newRecord, true);
-    } else {
-      changedGUID = await storage.add(newRecord);
+    try {
+      if (oldRecord) {
+        changedGUID = oldRecord.guid;
+        await storage.update(changedGUID, newRecord, true);
+      } else {
+        changedGUID = await storage.add(newRecord);
+      }
+    } catch (e) {
+      // The write needed a key the user declined to unlock.
+      if (e.result == Cr.NS_ERROR_ABORT) {
+        return;
+      }
+      throw e;
     }
     await storage.notifyUsed(changedGUID);
 

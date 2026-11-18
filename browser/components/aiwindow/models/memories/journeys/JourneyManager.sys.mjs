@@ -3,6 +3,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /** @typedef {import("./JourneyStore.sys.mjs").JourneyMetadata} JourneyMetadata */
+/** @typedef {import("../MemoriesConstants.sys.mjs").JourneysGenerationRunStats} JourneysGenerationRunStats */
+/** @typedef {import("../MemoriesConstants.sys.mjs").JourneysMaintenanceRunStats} JourneysMaintenanceRunStats */
 
 const JOURNEY_SUPPORTED_LOCALES = ["en"];
 
@@ -44,6 +46,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   MEMORY_SENSITIVITY_CATEGORY_NOT_SENSITIVE:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  GENERATION_RUN_ERROR_STAGE:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  JOURNEYS_GENERATION_RUN_OUTCOME:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  setGenerationRunError:
+    "moz-src:///browser/components/aiwindow/models/memories/Memories.sys.mjs",
   buildConversation:
     "moz-src:///browser/components/aiwindow/models/PromptLoader.sys.mjs",
   loadPrompt:
@@ -71,7 +79,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineLazyGetter(lazy, "console", () =>
   console.createInstance({
     logModule: "JourneyManager",
-    maxLogLevelPref: "browser.smartwindow.memoriesLogLevel",
+    maxLogLevelPref: "browser.smartwindow.memories.logLevel",
   })
 );
 
@@ -82,18 +90,28 @@ export const JourneyManager = {
    *   and belong to a live memory.
    */
   async hasEligibleJourneys() {
+    return (await this.countEligibleJourneys()) > 0;
+  },
+
+  /**
+   * Returns the number of stored, usable journeys.
+   *
+   * @returns {Promise<number>} Number of stored journeys that are not
+   *   suppressed and belong to a live memory. 0 for unsupported locales.
+   */
+  async countEligibleJourneys() {
     if (!this._isJourneyLocaleSupported()) {
-      return false;
+      return 0;
     }
     const memoryIds = new Set(
       (
         await lazy.MemoriesManager.getAllMemories({ includeSoftDeleted: false })
       ).map(memory => memory.id)
     );
-    return (await lazy.JourneyStore.getAll()).some(
+    return (await lazy.JourneyStore.getAll()).filter(
       journey =>
         !this.isJourneySuppressed(journey) && memoryIds.has(journey.memory_id)
-    );
+    ).length;
   },
 
   /**
@@ -124,6 +142,7 @@ export const JourneyManager = {
    * @param {number} [options.batchSize] - Positive integer maximum memories per batch.
    * @param {number} [options.maxBatchAttempts] - Maximum inference attempts per batch.
    * @param {number} [options.retryDelayMs] - Delay between retryable inference attempts.
+   * @param {JourneysGenerationRunStats} [options.stats] - Stats object to record telemetry information.
    * @returns {Promise<Array<{memoryId: string, headline: string, status: string}>>}
    *   Generated journeys that were persisted.
    */
@@ -134,6 +153,7 @@ export const JourneyManager = {
       batchSize = JOURNEY_GENERATION_BATCH_SIZE,
       maxBatchAttempts = JOURNEY_GENERATION_MAX_BATCH_ATTEMPTS,
       retryDelayMs = JOURNEY_GENERATION_RETRY_DELAY_MS,
+      stats = {},
     } = {}
   ) {
     if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
@@ -146,17 +166,39 @@ export const JourneyManager = {
       (await lazy.JourneyStore.getAll()).map(journey => journey.memory_id)
     );
 
+    const eligibleMemories = this._getJourneyTypeMemories(
+      memories.filter(memory => !memory.is_deleted),
+      storedJourneyMemoryIds
+    );
+    stats.memories_eligible = eligibleMemories.length;
     const newMemories = this._selectTopJourneyMemories(
-      this._getJourneyTypeMemories(
-        memories.filter(memory => !memory.is_deleted),
-        storedJourneyMemoryIds
-      ),
+      eligibleMemories,
       maxMemories
     );
 
+    stats.journey_memory_candidates = 0;
+    let candidateCount = 0;
+    let lastBatchError;
+    let lastSaveError;
     const persisted = [];
     for (const batch of this._batchMemories(newMemories, batchSize)) {
-      const inputs = await this._resolveJourneyContext(batch);
+      let inputs;
+      try {
+        inputs = await this._resolveJourneyContext(batch);
+      } catch (error) {
+        lazy.setGenerationRunError(
+          stats,
+          lazy.GENERATION_RUN_ERROR_STAGE.SOURCES,
+          error
+        );
+        throw error;
+      }
+      stats.journey_memory_candidates += inputs.length;
+      // A batch with no inputs sends no request, so it is not counted.
+      if (inputs.length) {
+        stats.generation_batches = (stats.generation_batches ?? 0) + 1;
+        stats.generation_batches_skipped ??= 0;
+      }
 
       let metadata = [];
       for (let attempt = 0; attempt < maxBatchAttempts; attempt++) {
@@ -169,19 +211,59 @@ export const JourneyManager = {
               "Journey metadata generation failed; skipping batch",
               error
             );
+            stats.generation_batches_skipped++;
+            lastBatchError = error;
             break;
           }
           if (attempt === maxBatchAttempts - 1) {
+            lazy.setGenerationRunError(
+              stats,
+              lazy.GENERATION_RUN_ERROR_STAGE.GENERATION,
+              error
+            );
             throw error;
           }
           await new Promise(resolve => lazy.setTimeout(resolve, retryDelayMs));
         }
       }
+      candidateCount += metadata.length;
 
       for (const journey of metadata) {
-        if (await this._tryPersistJourney(journey)) {
+        stats.save_new ??= 0;
+        const { saved, error } = await this._tryPersistJourney(journey);
+        if (saved) {
           persisted.push(journey);
+          stats.save_new++;
+        } else {
+          lastSaveError = error;
         }
+      }
+    }
+
+    if (stats.generation_batches) {
+      stats.journeys_generated = candidateCount;
+      if (stats.generation_batches_skipped === stats.generation_batches) {
+        lazy.setGenerationRunError(
+          stats,
+          lazy.GENERATION_RUN_ERROR_STAGE.GENERATION,
+          lastBatchError
+        );
+      }
+    }
+    if (candidateCount && !persisted.length) {
+      lazy.setGenerationRunError(
+        stats,
+        lazy.GENERATION_RUN_ERROR_STAGE.SAVE,
+        lastSaveError
+      );
+    }
+    if (!stats.outcome) {
+      if (!stats.journey_memory_candidates) {
+        stats.outcome = lazy.JOURNEYS_GENERATION_RUN_OUTCOME.NO_MEMORIES;
+      } else if (!candidateCount) {
+        stats.outcome = lazy.JOURNEYS_GENERATION_RUN_OUTCOME.NO_CANDIDATES;
+      } else {
+        stats.outcome = lazy.JOURNEYS_GENERATION_RUN_OUTCOME.SUCCESS;
       }
     }
     return persisted;
@@ -191,32 +273,46 @@ export const JourneyManager = {
    * Persists a generated journey, logging and swallowing validation errors.
    *
    * @param {{memoryId: string, headline: string, status: string}} journey
-   * @returns {Promise<boolean>} Whether the journey was persisted.
+   * @returns {Promise<{saved: boolean, error?: Error}>} Whether the journey
+   *   was persisted, and the validation error when it was rejected.
    */
   async _tryPersistJourney(journey) {
     try {
-      return await lazy.JourneyStore.addOrUpdateJourney(journey);
+      return { saved: await lazy.JourneyStore.addOrUpdateJourney(journey) };
     } catch (error) {
       lazy.console.warn("Rejected generated journey metadata", error);
-      return false;
+      return { saved: false, error };
     }
   },
 
   /**
    * Removes journey metadata whose corresponding memory is no longer live.
    *
-   * @returns {Promise<void>}
+   * @param {object} [options]
+   * @param {JourneysMaintenanceRunStats} [options.stats] - Stats object to
+   *   record telemetry information.
+   * @returns {Promise<{removed: number, isLocaleSupported: boolean}>} Number
+   *   of journeys deleted, and whether the app locale supports journeys.
    */
-  async runJourneyMaintenance() {
+  async runJourneyMaintenance({ stats = {} } = {}) {
+    const isLocaleSupported = this._isJourneyLocaleSupported();
     const memories = await lazy.MemoriesManager.getAllMemories({
       includeSoftDeleted: false,
     });
     const memoryIds = new Set(memories.map(memory => memory.id));
-    for (const journey of await lazy.JourneyStore.getAll()) {
-      if (!memoryIds.has(journey.memory_id)) {
-        await lazy.JourneyStore.deleteJourney(journey.memory_id);
+    const journeys = await lazy.JourneyStore.getAll();
+    stats.journeys_before = journeys.length;
+
+    let removed = 0;
+    for (const journey of journeys) {
+      if (
+        !memoryIds.has(journey.memory_id) &&
+        (await lazy.JourneyStore.deleteJourney(journey.memory_id))
+      ) {
+        removed++;
       }
     }
+    return { removed, isLocaleSupported };
   },
 
   /**
@@ -721,11 +817,13 @@ export const JourneyManager = {
       }
       return {
         memoryId: memory.id,
-        headline: (journey?.headline || "").replace(/[.!?;:,]+$/, ""),
-        status: (journey?.status || "").replace(/[.!?;:,]+$/, ""),
+        headline: journey.headline.trim().replace(/[.!?;:,]+$/, ""),
+        status: journey.status.trim().replace(/[.!?;:,]+$/, ""),
       };
     });
-    return journeyMetadata.filter(Boolean);
+    return journeyMetadata.filter(
+      journey => journey?.headline && journey.status
+    );
   },
 
   _isJourneyLocaleSupported() {

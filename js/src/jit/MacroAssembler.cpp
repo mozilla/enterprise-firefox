@@ -959,7 +959,7 @@ void MacroAssembler::initTypedArraySlots(
 
   static_assert(
       FixedLengthTypedArrayObject::FIXED_DATA_START ==
-          FixedLengthTypedArrayObject::DATA_SLOT + 1,
+          FixedLengthTypedArrayObject::DATA_SLOT.index() + 1,
       "fixed inline element data assumed to begin after the data slot");
 
   static_assert(
@@ -1011,7 +1011,7 @@ void MacroAssembler::initTypedArraySlotsInline(
 
   static_assert(
       FixedLengthTypedArrayObject::FIXED_DATA_START ==
-          FixedLengthTypedArrayObject::DATA_SLOT + 1,
+          FixedLengthTypedArrayObject::DATA_SLOT.index() + 1,
       "fixed inline element data assumed to begin after the data slot");
 
   static_assert(
@@ -6879,7 +6879,7 @@ CodeOffset MacroAssembler::wasmReturnCallImport(
   wasm::CallSiteDesc stubDesc(desc.bytecodeOffset(),
                               wasm::CallSiteKind::ReturnStub);
   wasmCollapseFrameSlow(retCallInfo, stubDesc);
-  jump(ABINonArgReg0);
+  tailJump(ABINonArgReg0);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
   return CodeOffset(currentOffset());
 }
@@ -7176,7 +7176,7 @@ FaultingCodeRange MacroAssembler::wasmReturnCallIndirect(
   wasm::CallSiteDesc stubDesc(desc.bytecodeOffset(),
                               wasm::CallSiteKind::ReturnStub);
   wasmCollapseFrameSlow(retCallInfo, stubDesc);
-  jump(calleeScratch);
+  tailJump(calleeScratch);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
 
   // Fast path: just load the code pointer and go.
@@ -7187,7 +7187,7 @@ FaultingCodeRange MacroAssembler::wasmReturnCallIndirect(
           calleeScratch);
 
   wasmCollapseFrameFast(retCallInfo);
-  jump(calleeScratch);
+  tailJump(calleeScratch);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
 
   return fcr;
@@ -7317,7 +7317,7 @@ void MacroAssembler::wasmReturnCallRef(
   wasm::CallSiteDesc stubDesc(desc.bytecodeOffset(),
                               wasm::CallSiteKind::ReturnStub);
   wasmCollapseFrameSlow(retCallInfo, stubDesc);
-  jump(calleeScratch);
+  tailJump(calleeScratch);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
 
   // Fast path: just load WASM_FUNC_UNCHECKED_ENTRY_SLOT value and go.
@@ -7328,7 +7328,7 @@ void MacroAssembler::wasmReturnCallRef(
   loadPtr(Address(calleeFnObj, uncheckedEntrySlotOffset), calleeScratch);
 
   wasmCollapseFrameFast(retCallInfo);
-  jump(calleeScratch);
+  tailJump(calleeScratch);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
 }
 
