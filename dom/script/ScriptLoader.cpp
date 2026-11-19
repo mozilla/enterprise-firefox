@@ -1982,17 +1982,21 @@ bool ScriptLoader::ProcessInlineScript(nsIScriptElement* aElement,
 
     // Remove any module preloads. Module specifier resolution is invalidated by
     // adding an import map, and incorrect dependencies may have been loaded.
+    // With multiple import maps, the preloaded module scripts are kept in the
+    // module map, and only their module graphs are reset.
     mPreloads.RemoveElementsBy(
         [this, multiImportMapsEnabled](const PreloadInfo& info) {
           if (!info.mRequest->IsModuleRequest()) {
             return false;
           }
 
-          info.mRequest->Cancel();
+          // Reset before cancelling, as cancelling an unfinished request
+          // clears its module script.
           if (multiImportMapsEnabled) {
-            mModuleLoader->ClearPreloadedModuleGraph(
+            mModuleLoader->ResetPreloadedModuleGraph(
                 info.mRequest->AsModuleRequest());
           }
+          info.mRequest->Cancel();
 
           return true;
         });
@@ -2169,7 +2173,9 @@ ScriptLoadRequest* ScriptLoader::LookupPreloadRequest(
     // script. Now the preload request is reused, so adding the resolved
     // specifiers into the global's resolved module set.
     if (request->IsModuleRequest()) {
-      mModuleLoader->MovePreloadedSetToResolvedSet(request->AsModuleRequest());
+      if (ModuleScript* ms = request->AsModuleRequest()->mModuleScript) {
+        mModuleLoader->MovePreloadedSetToResolvedSet(ms);
+      }
     }
   }
 
@@ -2377,12 +2383,14 @@ nsresult ScriptLoader::AttemptOffThreadScriptCompile(
     return NS_OK;
   }
 
-  // Don't off-thread compile JSON or CSS modules.
+  // Don't off-thread compile JSON, CSS, or text modules.
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1912112 (JSON)
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1987143 (CSS)
+  // https://bugzilla.mozilla.org/show_bug.cgi?id=2090781 (Text)
   if (aRequest->IsModuleRequest() &&
       (aRequest->AsModuleRequest()->mModuleType == JS::ModuleType::JSON ||
-       aRequest->AsModuleRequest()->mModuleType == JS::ModuleType::CSS)) {
+       aRequest->AsModuleRequest()->mModuleType == JS::ModuleType::CSS ||
+       aRequest->AsModuleRequest()->mModuleType == JS::ModuleType::Text)) {
     return NS_OK;
   }
 
@@ -3063,6 +3071,14 @@ void ScriptLoader::FireScriptAvailable(nsresult aResult,
                          aRequest->GetScriptLoadContext()->mLineNo);
   }
 
+  // https://html.spec.whatwg.org/#execute-the-script-element
+  // Step 3. Unblock rendering on el. A load that a navigation aborted never
+  // completes, so rendering stays blocked.
+  if (!aRequest->GetScriptLoadContext()->mWasAbortedByNavigation) {
+    nsCOMPtr<Element> element = do_QueryInterface(scriptElement);
+    element->OwnerDoc()->UnblockRendering(*element);
+  }
+
   const bool isInlineClassicScript =
       aRequest->GetScriptLoadContext()->mIsInline &&
       !aRequest->IsModuleRequest();
@@ -3288,6 +3304,13 @@ void ScriptLoader::CalculateCacheFlag(ScriptLoadRequest* aRequest) {
     // NOTE: An inline script tag can have an SRI, but we don't calculate it
     //       for this case.
     MOZ_ASSERT(aRequest->HasNoSRIOrSRIAndSerializedStencil());
+    return;
+  }
+
+  if (aRequest->HadRedirected()) {
+    LOG(("ScriptLoadRequest (%p): Bytecode-cache: Skip all: redirected",
+         aRequest));
+    aRequest->MarkNotCacheable();
     return;
   }
 
@@ -3934,8 +3957,6 @@ void ScriptLoader::InstantiateClassicScriptFromCachedStencil(
   aRequest->GetScriptLoadContext()->GetProfilerLabel(profilerLabelString);
 
   CalculateCacheFlag(aRequest);
-
-  MOZ_ASSERT(aRequest->PassedConditionForMemoryCache());
 
   // For cached stencils, there can be already ongoing work for the in-memory
   // cache and the disk cache.
@@ -4971,6 +4992,16 @@ nsresult ScriptLoader::OnStreamComplete(
 
   if (aRequest->IsCanceled()) {
     return NS_BINDING_ABORTED;
+  }
+
+  // A navigation aborts the document's fetches, see
+  // https://html.spec.whatwg.org/#abort-a-document
+  if (aChannelStatus == NS_BINDING_ABORTED && aChannel) {
+    nsAutoCString reason;
+    aChannel->GetCanceledReason(reason);
+    if (reason.EqualsLiteral("navigation")) {
+      aRequest->GetScriptLoadContext()->mWasAbortedByNavigation = true;
+    }
   }
 
   nsresult rv = VerifySRI(aRequest, aChannel, aSRIStatus, aSRIDataVerifier);

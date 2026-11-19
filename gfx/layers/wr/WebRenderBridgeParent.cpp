@@ -779,8 +779,9 @@ bool WebRenderBridgeParent::UpdateResources(
 
         wr::Vec<uint8_t> bytes;
         if (reader.Read(op.bytes(), bytes)) {
-          aUpdates.AddBlobImage(op.key(), op.descriptor(), mBlobTileSize, bytes,
-                                wr::ToDeviceIntRect(op.visibleRect()));
+          aUpdates.AddBlobImage(op.key(), op.descriptor(),
+                                op.tiling() ? op.tiling() : mBlobTileSize,
+                                bytes, wr::ToDeviceIntRect(op.visibleRect()));
         } else {
           gfxCriticalNote << "TOpAddBlobImage failed";
           success = false;
@@ -2270,6 +2271,13 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvGetSnapshot(
     return IPC_FAIL_NO_REASON(this);
   }
 
+  // Snapshots must include async remote texture frames that are not ready yet,
+  // which would otherwise only be shown by a later composite. Applying them
+  // may update the scene, so do so before flushing the scene builds.
+  if (mLateInit->mAsyncImageManager->WaitForPendingRemoteTextures()) {
+    FlushFrameGeneration(wr::RenderReasons::SNAPSHOT);
+  }
+
   FlushSceneBuilds();
   FlushFrameGeneration(wr::RenderReasons::SNAPSHOT);
   mLateInit->mApi->Readback(start, size, bufferTexture->GetFormat(),
@@ -2330,10 +2338,10 @@ void WebRenderBridgeParent::AddPipelineIdForCompositable(
 
   // The AsyncImagePipelineManager is shared by every bridge composited into
   // this window, including the window's root pipeline. A pipeline id must not
-  // collide with one that is already live there, possibly registered by
-  // another bridge. Pipeline ids are never legitimately reused, so reject
-  // collisions outright.
-  if (mLateInit->mAsyncImageManager->HasLivePipeline(aPipelineId)) {
+  // collide with one that is already registered there, possibly by another
+  // bridge. Pipeline ids are never legitimately reused, so reject collisions
+  // outright.
+  if (mLateInit->mAsyncImageManager->HasPipeline(aPipelineId)) {
     gfxCriticalNote << "Content attempted AddPipelineIdForCompositable with "
                        "pipelineId already registered";
     return;

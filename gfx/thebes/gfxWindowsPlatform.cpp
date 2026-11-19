@@ -64,6 +64,7 @@
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/gfx/DeviceManagerDx.h"
 #include "mozilla/gfx/DisplayConfigWindows.h"
+#include "mozilla/gfx/FontPathSet.h"
 #include "mozilla/gfx/GPUProcessManager.h"
 #include "mozilla/layers/DeviceAttachmentsD3D11.h"
 
@@ -224,6 +225,13 @@ gfxWindowsPlatform::gfxWindowsPlatform() {
   if (!IsWin32kLockedDown()) {
     RegisterStrongMemoryReporter(MakeAndAddRef<GPUAdapterReporter>());
     RegisterStrongMemoryReporter(MakeAndAddRef<D3DSharedTexturesReporter>());
+  }
+
+  // This must be enabled before the GPU process is launched and before the font
+  // list is created.
+  if (XRE_IsParentProcess() &&
+      StaticPrefs::gfx_font_path_set_enabled_AtStartup()) {
+    FontPathSet::Enable();
   }
 }
 
@@ -1657,7 +1665,7 @@ class D3DVsyncSource final : public VsyncSource {
     const int microseconds = 1000000;
     int64_t adjust = qpcNow.QuadPart - vblankTime.qpcVBlank;
     int64_t usAdjust = (adjust * microseconds) / frequency.QuadPart;
-    vsync -= TimeDuration::FromMicroseconds((double)usAdjust);
+    vsync -= TimeDuration::FromMicroseconds(usAdjust);
 
     // On Windows 10 and on, DWMGetCompositionTimingInfo, mostly
     // reports the upcoming vsync time, which is in the future.

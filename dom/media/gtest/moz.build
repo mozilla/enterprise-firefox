@@ -66,7 +66,6 @@ UNIFIED_SOURCES += [
     "TestMediaCapabilities.cpp",
     "TestMediaCodecsSupport.cpp",
     "TestMediaDataDecoder.cpp",
-    "TestMediaDataEncoder.cpp",
     "TestMediaEventSource.cpp",
     "TestMediaFormatReader.cpp",
     "TestMediaInfo.cpp",
@@ -81,6 +80,8 @@ UNIFIED_SOURCES += [
     "TestOggWriter.cpp",
     "TestOpusParser.cpp",
     "TestPDMFactorySupport.cpp",
+    "TestPrincipalHandle.cpp",
+    "TestProtobufReader.cpp",
     "TestQuantizableBuffer.cpp",
     "TestRemoteImageHolder.cpp",
     "TestRust.cpp",
@@ -101,6 +102,17 @@ UNIFIED_SOURCES += [
     "TestYUVBufferGenerator.cpp",
     "YUVBufferGenerator.cpp",
 ]
+
+if CONFIG["OS_TARGET"] == "Darwin":
+    # AppleVTEncoder.h includes Carbon headers that conflict with declarations
+    # in unified gtest translation units.
+    SOURCES += [
+        "TestMediaDataEncoder.cpp",
+    ]
+else:
+    UNIFIED_SOURCES += [
+        "TestMediaDataEncoder.cpp",
+    ]
 
 # Not in UNIFIED_SOURCES: on macOS it includes MacIOSurface.h, which pulls in
 # CoreVideo, see the MOZ_APPLEMEDIA block.
@@ -129,6 +141,7 @@ if CONFIG["OS_TARGET"] != "Android":
         "TestGMPCrossOrigin.cpp",
         "TestGMPPluginScan.cpp",
         "TestGMPRemoveAndDelete.cpp",
+        "TestGMPServiceCreation.cpp",
         "TestSpeechModelMapping.cpp",
     ]
 
@@ -169,6 +182,12 @@ TEST_HARNESS_FILES.gtest += [
     "../mediasource/test/bug2065262_init.webm",
     "../test/adts.aac",
     "../test/av1.mp4",
+    "../test/bad-stss/stss-1st-wrong-h264.mp4",
+    "../test/bad-stss/stss-1st-wrong-h265.mp4",
+    "../test/bad-stss/stss-2nd-wrong-h264.mp4",
+    "../test/bad-stss/stss-2nd-wrong-h265.mp4",
+    "../test/bad-stss/stss-extra-entries-h264.mp4",
+    "../test/bad-stss/stss-extra-entries-h265.mp4",
     "../test/gizmo-frag.mp4",
     "../test/gizmo.mp4",
     "../test/output_aac.mkv",
@@ -177,13 +196,18 @@ TEST_HARNESS_FILES.gtest += [
     "../test/output_hevc_aac.mkv",
     "../test/output_mp3.mkv",
     "../test/reftest/color_quads/720p.png.bt2020.pq.tv.yuv420p10.hevc.mp4",
+    "../test/seig-key-rotation-cbcs.mp4",
+    "../test/seig-key-rotation-cenc.mp4",
     "../test/vp9cake.webm",
     "av1-color-metadata.mp4",
     "dash_dashinit.mp4",
+    "frag_bframes.mp4",
+    "frag_multi_gop.mp4",
     "id3v2header.mp3",
     "negative_duration.mp4",
     "noise.mp3",
     "noise_vbr.mp3",
+    "nonzero_first_pts.mp4",
     "short-zero-in-moov.mp4",
     "short-zero-inband.mov",
     "small-shot-false-positive.mp3",

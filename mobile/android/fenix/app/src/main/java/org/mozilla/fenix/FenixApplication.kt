@@ -17,6 +17,7 @@ import android.os.SystemClock
 import android.util.Log.INFO
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
@@ -43,14 +44,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mozilla.appservices.autofill.AutofillApiException
-import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.browser.state.action.SearchAction.SearchConfigurationAvailabilityChanged
 import mozilla.components.browser.state.action.SystemAction
 import mozilla.components.browser.state.state.selectedOrDefaultPrivateSearchEngine
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.browser.storage.sync.GlobalPlacesDependencyProvider
 import mozilla.components.compose.base.theme.Theme
-import mozilla.components.compose.base.theme.Theme.Private
 import mozilla.components.concept.ai.controls.isEnabled
 import mozilla.components.concept.base.crash.Breadcrumb
 import mozilla.components.concept.engine.webextension.WebExtension
@@ -67,6 +66,7 @@ import mozilla.components.feature.summarize.settings.SummarizationSettings
 import mozilla.components.feature.syncedtabs.commands.GlobalSyncedTabsCommandsProvider
 import mozilla.components.lib.crash.CrashReporter
 import mozilla.components.service.fxa.manager.SyncEnginesStorage
+import mozilla.components.service.merino.sports.GlobalMerinoSportsDependencyProvider
 import mozilla.components.service.sync.autofill.GlobalAutofillDependencyProvider
 import mozilla.components.service.sync.logins.GlobalLoginsDependencyProvider
 import mozilla.components.service.sync.logins.LoginsApiException
@@ -110,6 +110,7 @@ import org.mozilla.fenix.GleanMetrics.TabStrip
 import org.mozilla.fenix.GleanMetrics.TermsOfUse
 import org.mozilla.fenix.GleanMetrics.UserAiSummarize
 import org.mozilla.fenix.autofill.AutofillService
+import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.Components
 import org.mozilla.fenix.components.Core
 import org.mozilla.fenix.components.appstate.AppAction
@@ -142,8 +143,8 @@ import org.mozilla.fenix.session.VisibilityLifecycleCallback
 import org.mozilla.fenix.settings.doh.DefaultDohSettingsProvider
 import org.mozilla.fenix.settings.doh.DohSettingsProvider
 import org.mozilla.fenix.startupCrash.StartupCrashActivity
-import org.mozilla.fenix.theme.DefaultThemeProvider
 import org.mozilla.fenix.theme.ThemeProvider
+import org.mozilla.fenix.theme.getTheme
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.isLargeScreenSize
 import org.mozilla.fenix.wallpapers.Wallpaper
@@ -206,7 +207,7 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
     override fun attachBaseContext(base: Context) {
         // Sets the locale information. Other threads do not have locale aware needs
         if (base.isMainProcess()) {
-            val localeAwareContext = LocaleManager.updateResources(base)
+            val localeAwareContext = LocaleManager.onAttachBaseContext(base)
             super.attachBaseContext(localeAwareContext)
         } else {
             super.attachBaseContext(base)
@@ -392,6 +393,10 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
         GlobalAutofillDependencyProvider.initialize(lazy { components.core.autofillStorage })
 
         GlobalSyncedTabsCommandsProvider.initialize(lazy { components.backgroundServices.syncedTabsCommands })
+        GlobalMerinoSportsDependencyProvider.initialize(
+            provider = lazy { components.sports.merinoSportsProvider },
+            storage = lazy { components.sports.merinoMatchesStorage },
+        )
 
         initializeRemoteSettingsSupport()
 
@@ -652,7 +657,6 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
         }
     }
 
-    @OptIn(ExperimentalAndroidComponentsApi::class)
     private fun queueNimbusFetchInForeground(queue: RunWhenReadyQueue) =
         runOnVisualCompleteness(queue) {
             components.nimbus.geckoPrefHandler.start()
@@ -894,14 +898,17 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
     @VisibleForTesting
     internal fun setupRefreshingSearchEngines(
         updatedCollections: List<String>,
+        settings: Settings = components.settings,
         browserStore: BrowserStore = components.core.store,
     ) {
-        val searchRelatedCollections =
-            listOf(
-                "search-config-v2",
-                "search-config-overrides-v2",
-                "search-config-icons",
-            )
+        val searchRelatedCollections = buildList {
+            add("search-config-v2")
+            add("search-config-overrides-v2")
+            add("search-config-icons")
+            if (settings.useSearchConfigV3) {
+                add("search-config-v3")
+            }
+        }
         if (searchRelatedCollections.any { it in updatedCollections }) {
             browserStore.dispatch(SearchConfigurationAvailabilityChanged(true))
         }
@@ -1304,11 +1311,6 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
     }
 
     override fun onConfigurationChanged(config: android.content.res.Configuration) {
-        // Workaround for androidx appcompat issue where follow system day/night mode config changes
-        // are not triggered when also using createConfigurationContext like we do in LocaleManager
-        // https://issuetracker.google.com/issues/143570309#comment3
-        applicationContext.resources.configuration.uiMode = config.uiMode
-
         if (isMainProcess()) {
             // We can only do this on the main process as resetAfter will access components.core, which
             // will initialize the engine and create an additional GeckoRuntime from the Gecko
@@ -1319,7 +1321,7 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
             components.strictMode.allowViolation(StrictMode::allowThreadDiskReads) {
                 super.onConfigurationChanged(config)
                 // Update locale on main process
-                LocaleManager.updateResources(this)
+                LocaleManager.onConfigurationChanged(this)
             }
         } else {
             super.onConfigurationChanged(config)
@@ -1359,13 +1361,20 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
     }
 
     @Composable
-    override fun provideTheme(): Theme {
-        return if (components.appStore.state.mode.isPrivate) {
-            Private
-        } else {
-            DefaultThemeProvider.provideTheme()
-        }
-    }
+    override fun provideTheme(): Theme =
+        getTheme(
+            browsingMode = components.appStore.state.mode,
+            isSystemInDarkTheme = isSystemInDarkTheme(),
+            shouldUseOledTheme = components.settings.shouldUseOledTheme,
+        )
+
+    @Composable
+    override fun provideNonPrivateTheme(): Theme =
+        getTheme(
+            browsingMode = BrowsingMode.Normal,
+            isSystemInDarkTheme = isSystemInDarkTheme(),
+            shouldUseOledTheme = components.settings.shouldUseOledTheme,
+        )
 
     /**
      * Initializes EmojiCompat manually on a background thread.

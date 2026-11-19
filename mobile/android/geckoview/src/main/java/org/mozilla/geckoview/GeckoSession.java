@@ -247,7 +247,9 @@ public class GeckoSession {
         return;
       }
       if (mMagnifier == null) {
-        mMagnifier = new Magnifier(mView);
+        @SuppressWarnings("deprecation")
+        final Magnifier magnifier = new Magnifier(mView);
+        mMagnifier = magnifier;
       }
 
       if (mView instanceof MagnifiableSurfaceView) {
@@ -329,6 +331,11 @@ public class GeckoSession {
   /* protected */ class Compositor extends JNIObject {
     public boolean isReady() {
       return GeckoSession.this.isCompositorReady();
+    }
+
+    @WrapForJNI(calledFrom = "ui")
+    private GeckoSession getSession() {
+      return GeckoSession.this;
     }
 
     @WrapForJNI(calledFrom = "ui")
@@ -416,12 +423,8 @@ public class GeckoSession {
     // cases, the viewport information we have in Java is no longer valid and needs to
     // be replaced with the new viewport information provided.
     @WrapForJNI(calledFrom = "ui")
-    private void notifyCompositorScrollUpdate(
-        final float scrollX,
-        final float scrollY,
-        final float zoom,
-        final @ScrollPositionUpdate.SourceType int source) {
-      GeckoSession.this.onCompositorScrollUpdate(scrollX, scrollY, zoom, source);
+    private void notifyCompositorScrollUpdate(final ScrollPositionUpdate update) {
+      GeckoSession.this.onCompositorScrollUpdate(update);
     }
 
     @WrapForJNI(calledFrom = "ui")
@@ -1574,6 +1577,15 @@ public class GeckoSession {
     public native void requestContentMetrics(
         GeckoResult<ContentMetrics> result, ContentMetrics metrics);
 
+    // Records the outcome of a scroll capture image request as the
+    // geckoview.scroll_capture_tile_result labeled counter. The outcome values match
+    // the switch in GeckoViewSupport::RecordScrollCaptureTileResult.
+    @WrapForJNI(calledFrom = "ui", dispatchTo = "proxy")
+    public native void recordScrollCaptureTileResult(final int outcome);
+
+    @WrapForJNI(calledFrom = "ui", dispatchTo = "proxy")
+    public native void recordScrollCaptureOutcome(final int outcome);
+
     @WrapForJNI(calledFrom = "gecko")
     private synchronized void onReady(final @Nullable NativeQueue queue) {
       // onReady is called the first time the Gecko window is ready, with a null queue
@@ -1788,6 +1800,7 @@ public class GeckoSession {
    *
    * @param settings The settings to configure this GeckoSession, or null to use defaults.
    */
+  @SuppressWarnings("this-escape")
   public GeckoSession(final @Nullable GeckoSessionSettings settings) {
     mSettings = new GeckoSessionSettings(settings, this);
     mListener.registerListeners();
@@ -2927,9 +2940,9 @@ public class GeckoSession {
   /**
    * Set this GeckoSession as active or inactive, same as {@link #setActive}, except that going
    * inactive is skipped while {@link
-   * PictureInPictureController.SessionPictureInPicture#setKeepActive} is set. Once the embedder
-   * clears the flag, it must call {@link #setActive} with {@code false} if the session is no longer
-   * showing anywhere.
+   * PictureInPictureController.SessionPictureInPicture#setKeepActive} is set. A skipped
+   * deactivation is reported by {@link
+   * PictureInPictureController.SessionPictureInPicture#setKeepActive}.
    *
    * @param active A boolean determining whether the GeckoSession is active.
    */
@@ -2937,8 +2950,10 @@ public class GeckoSession {
   @OptIn(markerClass = ExperimentalGeckoViewApi.class)
   /* package */ void maybeSetActive(final boolean active) {
     if (!active && mPictureInPicture.keepsActive()) {
+      mPictureInPicture.setDeactivationDeferred(true);
       return;
     }
+    mPictureInPicture.setDeactivationDeferred(false);
     setActive(active);
   }
 
@@ -4737,7 +4752,7 @@ public class GeckoSession {
      */
     @UiThread
     default @Nullable GeckoResult<AllowOrDeny> onShowClipboardPermissionRequest(
-        @NonNull final GeckoSession session, @NonNull ClipboardPermission permission) {
+        @NonNull final GeckoSession session, @NonNull final ClipboardPermission permission) {
       return GeckoResult.deny();
     }
 
@@ -4807,10 +4822,10 @@ public class GeckoSession {
      */
     @UiThread
     default void onLocationChange(
-        @NonNull GeckoSession session,
-        @Nullable String url,
+        @NonNull final GeckoSession session,
+        @Nullable final String url,
         final @NonNull List<PermissionDelegate.ContentPermission> perms,
-        @NonNull Boolean hasUserGesture) {}
+        @NonNull final Boolean hasUserGesture) {}
 
     /**
      * The view's ability to go back has changed.
@@ -5083,7 +5098,7 @@ public class GeckoSession {
          * @param prompt the prompt that was completed.
          */
         @AnyThread
-        default void onPromptCompleted(@NonNull BasePrompt prompt) {}
+        default void onPromptCompleted(@NonNull final BasePrompt prompt) {}
       }
 
       private void complete() {
@@ -7100,6 +7115,7 @@ public class GeckoSession {
      * @param source The source of the scroll position change, one of {@link
      *     #SOURCE_USER_INTERACTION} or {@link #SOURCE_OTHER}.
      */
+    @WrapForJNI
     public ScrollPositionUpdate(
         final float scrollX, final float scrollY, final float zoom, final @SourceType int source) {
       this.scrollX = scrollX;
@@ -7694,7 +7710,7 @@ public class GeckoSession {
      */
     @UiThread
     default @Nullable GeckoResult<Integer> onContentPermissionRequest(
-        @NonNull final GeckoSession session, @NonNull ContentPermission perm) {
+        @NonNull final GeckoSession session, @NonNull final ContentPermission perm) {
       return GeckoResult.fromValue(ContentPermission.VALUE_PROMPT);
     }
 
@@ -8214,22 +8230,17 @@ public class GeckoSession {
     mOverscroll.setDistance(y, OverscrollEdgeEffect.AXIS_Y);
   }
 
-  /* package */ void onCompositorScrollUpdate(
-      final float scrollX,
-      final float scrollY,
-      final float zoom,
-      final @ScrollPositionUpdate.SourceType int source) {
+  /* package */ void onCompositorScrollUpdate(final ScrollPositionUpdate update) {
     if (DEBUG) {
       ThreadUtils.assertOnUiThread();
     }
 
     // Tbe incoming scrollX and scrollY are in CSS pixels.
     // For mViewportLeft/Top, convert them to Screen pixels.
-    mViewportLeft = scrollX * zoom;
-    mViewportTop = scrollY * zoom;
-    mViewportZoom = zoom;
+    mViewportLeft = update.scrollX * update.zoom;
+    mViewportTop = update.scrollY * update.zoom;
+    mViewportZoom = update.zoom;
 
-    final ScrollPositionUpdate update = new ScrollPositionUpdate(scrollX, scrollY, zoom, source);
     mLastScrollPositionUpdate = update;
     if (mCompositorScrollDelegate != null) {
       mCompositorScrollDelegate.onScrollChanged(this, update);
@@ -8865,6 +8876,9 @@ public class GeckoSession {
   /** Thrown when failure occurs when printing from a website. */
   @WrapForJNI
   public static class GeckoPrintException extends Exception {
+    @WrapForJNI(skip = true)
+    private static final long serialVersionUID = 1L;
+
     /** The print service was not available. */
     public static final int ERROR_PRINT_SETTINGS_SERVICE_NOT_AVAILABLE = -1;
 

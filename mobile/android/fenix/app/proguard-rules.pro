@@ -1,4 +1,17 @@
--dontobfuscate
+####################################################################################################
+# Keep Fenix names readable in stack traces, while still allowing R8 to shrink and optimize Fenix
+####################################################################################################
+
+-keep,allowshrinking,allowoptimization class org.mozilla.fenix.** { *; }
+
+####################################################################################################
+# Protobuf-lite reads and writes message fields through Unsafe, using the types declared in the
+# .proto, so R8 must not change them
+####################################################################################################
+
+-keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite {
+    <fields>;
+}
 
 ####################################################################################################
 # GeckoView built-ins

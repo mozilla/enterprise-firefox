@@ -37,105 +37,25 @@ endif
 
 EXEC			= exec
 
-################################################################################
-# Testing frameworks support
-################################################################################
-
-ifdef ENABLE_TESTS
-ifdef CPP_UNIT_TESTS
-ifdef COMPILE_ENVIRONMENT
-
-# Compile the tests to $(DIST)/bin.  Make lots of niceties available by default
-# through TestHarness.h, by modifying the list of includes and the libs against
-# which stuff links.
-SIMPLE_PROGRAMS += $(CPP_UNIT_TESTS)
-
-ifndef MOZ_PROFILE_GENERATE
-CPP_UNIT_TESTS_FILES = $(CPP_UNIT_TESTS)
-CPP_UNIT_TESTS_DEST = $(DIST)/cppunittests
-CPP_UNIT_TESTS_TARGET = target
-INSTALL_TARGETS += CPP_UNIT_TESTS
-endif
-
-endif # COMPILE_ENVIRONMENT
-endif # CPP_UNIT_TESTS
-endif # ENABLE_TESTS
-
-
 #
 # Library rules
 #
 
-ifdef FORCE_SHARED_LIB
-ifdef MKSHLIB
-
+ifeq (clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH))
+MKSHLIB = $(LINKER) -NOLOGO -DLL -OUT:$@ $(DSO_LDOPTS)
+else
 ifdef LIB_IS_C_ONLY
-MKSHLIB			= $(MKCSHLIB)
+MKSHLIB = $(CC)
+ifneq (WINNT,$(OS_ARCH))
+MKSHLIB += $(COMPUTED_C_LDFLAGS)
 endif
-
-endif # MKSHLIB
-endif # FORCE_SHARED_LIB
-
-ifeq ($(OS_ARCH),WINNT)
-
-#
-# This next line captures both the default (non-MOZ_COPY_PDBS)
-# case as well as the MOZ_COPY_PDBS-for-mingwclang case.
-#
-# For the default case, placing the pdb in the build
-# directory is needed.
-#
-# For the MOZ_COPY_PDBS, non-mingwclang case - we need to
-# build the pdb next to the executable (handled in the if
-# statement immediately below.)
-#
-# For the MOZ_COPY_PDBS, mingwclang case - we also need to
-# build the pdb next to the executable, but this macro doesn't
-# work for jsapi-tests which is a little special, so we specify
-# the output directory below with MOZ_PROGRAM_LDFLAGS.
-#
-LINK_PDBFILE ?= $(basename $(@F)).pdb
-
-ifdef MOZ_COPY_PDBS
-ifneq ($(CC_TYPE),clang)
-LINK_PDBFILE = $(basename $@).pdb
+else
+MKSHLIB = $(CXX)
+ifneq (WINNT,$(OS_ARCH))
+MKSHLIB += $(COMPUTED_CXX_LDFLAGS)
 endif
 endif
-
-ifeq ($(CC_TYPE),clang-cl)
-
-ifdef SIMPLE_PROGRAMS
-COMPILE_PDB_FLAG ?= -Fd$(basename $(@F)).pdb
-COMPILE_CFLAGS += $(COMPILE_PDB_FLAG)
-COMPILE_CXXFLAGS += $(COMPILE_PDB_FLAG)
-endif
-
-ifdef MOZ_DEBUG
-CODFILE=$(basename $(@F)).cod
-endif
-
-endif # CC_TYPE == clang-cl
-endif # WINNT
-
-ifeq ($(OS_ARCH),WINNT)
-ifeq ($(CC_TYPE),clang)
-MOZ_PROGRAM_LDFLAGS += -Wl,-pdb,$(dir $@)/$(LINK_PDBFILE)
-endif
-endif
-
-ifeq ($(HOST_OS_ARCH),WINNT)
-HOST_PDBFILE=$(basename $(@F)).pdb
-HOST_PDB_FLAG ?= -PDB:$(HOST_PDBFILE)
-HOST_C_LDFLAGS += -DEBUG $(HOST_PDB_FLAG)
-HOST_CXX_LDFLAGS += -DEBUG $(HOST_PDB_FLAG)
-endif
-
-# Don't build SIMPLE_PROGRAMS during the MOZ_PROFILE_GENERATE pass, and do not
-# attempt to install them
-ifdef MOZ_PROFILE_GENERATE
-$(foreach category,$(INSTALL_TARGETS),\
-  $(eval $(category)_FILES := $(foreach file,$($(category)_FILES),$(if $(filter $(SIMPLE_PROGRAMS),$(notdir $(file))),,$(file)))))
-SIMPLE_PROGRAMS :=
+MKSHLIB += $(DSO_LDOPTS) -o $@
 endif
 
 ifdef COMPILE_ENVIRONMENT
@@ -210,53 +130,12 @@ endif
 #
 TAG_PROGRAM		= xargs etags -a
 
-#
-# MacOS X specific stuff
-#
-
-ifeq ($(OS_ARCH),Darwin)
-ifneq (,$(SHARED_LIBRARY))
-_LOADER_PATH := @rpath
-EXTRA_DSO_LDOPTS	+= -dynamiclib -install_name $(_LOADER_PATH)/$(@F) -compatibility_version 1 -current_version 1
-endif
-endif
-
-#
-# MINGW32
-#
-ifeq ($(OS_ARCH),WINNT)
-ifneq ($(CC_TYPE),clang-cl)
-DSO_LDOPTS += -Wl,--out-implib -Wl,$(IMPORT_LIBRARY)
-endif
-endif
-
 ifeq ($(USE_TVFS),1)
 IFLAGS1 = -rb
 IFLAGS2 = -rb
 else
 IFLAGS1 = -m 644
 IFLAGS2 = -m 755
-endif
-
-ifeq (clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH))
-OUTOPTION = -Fo# eol
-else
-OUTOPTION = -o # eol
-endif # WINNT && clang-cl
-
-ifeq (,$(CROSS_COMPILE))
-HOST_OUTOPTION = $(OUTOPTION)
-else
-# Windows-to-Windows cross compiles should always use MSVC-style options for
-# host compiles.
-ifeq (WINNT_WINNT,$(HOST_OS_ARCH)_$(OS_ARCH))
-ifneq (,$(filter-out clang-cl,$(HOST_CC_TYPE)))
-$(error MSVC-style compilers should be used for host compilations!)
-endif
-HOST_OUTOPTION = -Fo# eol
-else
-HOST_OUTOPTION = -o # eol
-endif
 endif
 ################################################################################
 
@@ -350,7 +229,7 @@ $(PROGRAM): $(PROGOBJS) $(STATIC_LIBS) $(call resfile,$(PROGRAM)) $(GLOBAL_DEPS)
 	$(REPORT_BUILD)
 	$(call BUILDSTATUS,START_Program $(@F))
 ifeq (clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH))
-	$(LINKER) -OUT:$@ -PDB:$(LINK_PDBFILE) -IMPLIB:$(basename $(@F)).lib $(WIN32_EXE_LDFLAGS) $(COMPUTED_PROGRAM_LDFLAGS) $(LDFLAGS) $(MOZ_PROGRAM_LDFLAGS) $($(notdir $@)_OBJS) $(filter %.res,$^) $(STATIC_LIBS) $(SHARED_LIBS) $(OS_LIBS)
+	$(LINKER) -OUT:$@ -IMPLIB:$(basename $(@F)).lib $(WIN32_EXE_LDFLAGS) $(COMPUTED_PROGRAM_LDFLAGS) $(LDFLAGS) $(MOZ_PROGRAM_LDFLAGS) $($(notdir $@)_OBJS) $(filter %.res,$^) $(STATIC_LIBS) $(SHARED_LIBS) $(OS_LIBS)
 else # !WINNT || !clang-cl
 	$(call EXPAND_CC_OR_CXX,$@) -o $@ $(COMPUTED_CXX_LDFLAGS) $($(notdir $@)_OBJS) $(filter %.res,$^) $(WIN32_EXE_LDFLAGS) $(LDFLAGS) $(STATIC_LIBS) $(COMPUTED_PROGRAM_LDFLAGS) $(MOZ_PROGRAM_LDFLAGS) $(SHARED_LIBS) $(OS_LIBS)
 	$(call py_action,check_binary $(@F),$@)
@@ -365,7 +244,7 @@ $(HOST_PROGRAM): $(HOST_PROGOBJS) $(HOST_LIBS) $(GLOBAL_DEPS) $(call mkdir_deps,
 	$(REPORT_BUILD)
 	$(call BUILDSTATUS,START_Program $(@F))
 ifeq (clang-cl_WINNT,$(HOST_CC_TYPE)_$(HOST_OS_ARCH))
-	$(HOST_LINKER) -OUT:$@ -PDB:$(HOST_PDBFILE) $($(notdir $@)_OBJS) $(WIN32_EXE_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LINKER_LIBPATHS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
+	$(HOST_LINKER) -OUT:$@ $($(notdir $@)_OBJS) $(WIN32_EXE_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LINKER_LIBPATHS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 else
 ifeq ($(HOST_CPP_PROG_LINK),1)
 	$(HOST_CXX) -o $@ $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $($(notdir $@)_OBJS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
@@ -392,7 +271,7 @@ $(SIMPLE_PROGRAMS):
 	$(REPORT_BUILD)
 	$(call BUILDSTATUS,START_Program $(@F))
 ifeq (clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH))
-	$(LINKER) -out:$@ -pdb:$(LINK_PDBFILE) $($@_OBJS) $(filter %.res,$^) $(WIN32_EXE_LDFLAGS) $(COMPUTED_PROGRAM_LDFLAGS) $(LDFLAGS) $(MOZ_PROGRAM_LDFLAGS) $(STATIC_LIBS) $(SHARED_LIBS) $(OS_LIBS)
+	$(LINKER) -out:$@ $($@_OBJS) $(filter %.res,$^) $(WIN32_EXE_LDFLAGS) $(COMPUTED_PROGRAM_LDFLAGS) $(LDFLAGS) $(MOZ_PROGRAM_LDFLAGS) $(STATIC_LIBS) $(SHARED_LIBS) $(OS_LIBS)
 else
 	$(call EXPAND_CC_OR_CXX,$@) $(COMPUTED_CXX_LDFLAGS) -o $@ $($@_OBJS) $(filter %.res,$^) $(WIN32_EXE_LDFLAGS) $(LDFLAGS) $(STATIC_LIBS) $(COMPUTED_PROGRAM_LDFLAGS) $(MOZ_PROGRAM_LDFLAGS) $(SHARED_LIBS) $(OS_LIBS)
 	$(call py_action,check_binary $(@F),$@)
@@ -407,12 +286,12 @@ $(HOST_SIMPLE_PROGRAMS): host_%$(HOST_BIN_SUFFIX): $(HOST_LIBS) $(GLOBAL_DEPS)
 	$(REPORT_BUILD)
 	$(call BUILDSTATUS,START_Program $(@F))
 ifeq (WINNT_clang-cl,$(HOST_OS_ARCH)_$(HOST_CC_TYPE))
-	$(HOST_LINKER) -OUT:$@ -PDB:$(HOST_PDBFILE) $($(notdir $@)_OBJS) $(WIN32_EXE_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LINKER_LIBPATHS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
+	$(HOST_LINKER) -OUT:$@ $($(notdir $@)_OBJS) $(WIN32_EXE_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LINKER_LIBPATHS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 else
 ifeq ($(HOST_CPP_PROG_LINK),1)
-	$(HOST_CXX) $(HOST_OUTOPTION)$@ $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $($(notdir $@)_OBJS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
+	$(HOST_CXX) $(HOST_CC_OUTOPTION)$@ $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $($(notdir $@)_OBJS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 else
-	$(HOST_CC) $(HOST_OUTOPTION)$@ $(HOST_C_LDFLAGS) $(HOST_LDFLAGS) $($(notdir $@)_OBJS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
+	$(HOST_CC) $(HOST_CC_OUTOPTION)$@ $(HOST_C_LDFLAGS) $(HOST_LDFLAGS) $($(notdir $@)_OBJS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 endif
 endif
 	$(call BUILDSTATUS,END_Program $(@F))
@@ -421,14 +300,14 @@ $(LIBRARY): $(OBJS) $(STATIC_LIBS) $(GLOBAL_DEPS)
 	$(REPORT_BUILD)
 	$(call BUILDSTATUS,START_StaticLib $@)
 	$(RM) $(REAL_LIBRARY)
-	$(AR) $(AR_FLAGS) $($@_OBJS)
+	$(AR) $(call subst_paths,$(AR_FLAGS)) $($@_OBJS)
 	$(call BUILDSTATUS,END_StaticLib $@)
 
 $(WASM_ARCHIVE): $(CWASMOBJS) $(CPPWASMOBJS) $(STATIC_LIBS) $(GLOBAL_DEPS)
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,START_WasmLib $@)
 	$(RM) $(WASM_ARCHIVE)
-	$(WASM_CXX) -o $@ -Wl,--export-all -Wl,--stack-first -Wl,-z,stack-size=$(if $(MOZ_OPTIMIZE),262144,1048576) -Wl,--no-entry -Wl,--import-memory -Wl,--import-table $(CWASMOBJS) $(CPPWASMOBJS) $(addprefix -l,$(WASM_LIBS))
+	$(WASM_CXX_LINK) -o $@ $(COMPUTED_WASM_LDFLAGS) $(CWASMOBJS) $(CPPWASMOBJS) $(addprefix -l,$(WASM_LIBS))
 	$(call BUILDSTATUS,END_WasmLib $@)
 
 ifeq ($(OS_ARCH),WINNT)
@@ -449,7 +328,7 @@ $(HOST_SHARED_LIBRARY): Makefile
 ifneq (,$(filter clang-cl,$(HOST_CC_TYPE)))
 	$(HOST_LINKER) -DLL -OUT:$@ $($(notdir $@)_OBJS) $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LINKER_LIBPATHS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 else
-	$(HOST_CXX) $(HOST_OUTOPTION)$@ $($(notdir $@)_OBJS) $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
+	$(HOST_CXX) $(HOST_CC_OUTOPTION)$@ $($(notdir $@)_OBJS) $(HOST_CXX_LDFLAGS) $(HOST_LDFLAGS) $(HOST_LIBS) $(HOST_EXTRA_LIBS)
 endif
 	$(call BUILDSTATUS,END_SharedLib $@)
 
@@ -462,7 +341,7 @@ $(SHARED_LIBRARY): $(OBJS) $(call resfile,$(SHARED_LIBRARY)) $(STATIC_LIBS) $(GL
 	$(REPORT_BUILD)
 	$(call BUILDSTATUS,START_SharedLib $@)
 	$(RM) $@
-	$(MKSHLIB) $(if $(filter clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH)),-IMPLIB:$(basename $(@F)).lib )$($(notdir $@)_OBJS) $(filter %.res,$^) $(RELRHACK_LDFLAGS) $(LDFLAGS) $(STATIC_LIBS) $(SHARED_LIBS) $(EXTRA_DSO_LDOPTS) $(OS_LIBS)
+	$(MKSHLIB) $($(notdir $@)_OBJS) $(filter %.res,$^) $(RELRHACK_LDFLAGS) $(LDFLAGS) $(STATIC_LIBS) $(SHARED_LIBS) $(EXTRA_DSO_LDOPTS) $(OS_LIBS)
 	$(call py_action,check_binary,$@)
 
 ifeq (clang-cl_WINNT,$(CC_TYPE)_$(OS_ARCH))
@@ -491,19 +370,19 @@ $(OBJS) $(HOST_OBJS) $(PROGOBJS) $(HOST_PROGOBJS): $(GLOBAL_DEPS)
 $(HOST_COBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(HOST_CC) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CFLAGS) $(NSPR_CFLAGS) $<
+	$(HOST_CC) $(HOST_CC_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CFLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(HOST_CPPOBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(HOST_CXX) $(HOST_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CXXFLAGS) $(NSPR_CFLAGS) $<
+	$(HOST_CXX) $(HOST_CC_OUTOPTION)$@ -c $(HOST_CPPFLAGS) $(HOST_CXXFLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(COBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(CC) $(OUTOPTION)$@ -c $(COMPILE_CFLAGS) $($(notdir $<)_FLAGS) $<
+	$(CC) $(CC_OUTOPTION)$@ -c $(COMPILE_CFLAGS) $($(notdir $<)_FLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(CWASMOBJS):
@@ -546,11 +425,6 @@ define syms_template
 $(2): $(1)
 ifdef MOZ_CRASHREPORTER
 	$$(call py_action,dumpsymbols $$@,$$(abspath $$<) $$(abspath $$@) $$(DUMP_SYMBOLS_FLAGS))
-ifeq ($(OS_ARCH),WINNT)
-ifdef WINCHECKSEC
-	$$(PYTHON3) $$(topsrcdir)/build/win32/autowinchecksec.py $$<
-endif # WINCHECKSEC
-endif # WINNT
 endif
 endef
 
@@ -559,10 +433,6 @@ endef
 # main symbols archive, so that other tasks don't have to download them.
 ifneq (,$(filter $(DIST)/bin/gtest%,$(FINAL_TARGET)))
 DUMP_SYMBOLS_FLAGS += --symbols-dir=crashreporter-symbols-gtest
-endif
-
-ifneq (,$(filter $(DIST)/bin%,$(FINAL_TARGET)))
-DUMP_SYMS_TARGETS := $(filter-out $(MOZBUILD_NON_DEFAULT_TARGETS),$(SHARED_LIBRARY) $(PROGRAM) $(SIMPLE_PROGRAMS) $(RUST_PROGRAMS))
 endif
 
 ifdef MOZ_AUTOMATION
@@ -600,7 +470,7 @@ $(SOBJS):
 $(CPPOBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(CCC) $(OUTOPTION)$@ -c $(COMPILE_CXXFLAGS) $($(notdir $<)_FLAGS) $<
+	$(CCC) $(CC_OUTOPTION)$@ -c $(COMPILE_CXXFLAGS) $($(notdir $<)_FLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
 $(CPPWASMOBJS):

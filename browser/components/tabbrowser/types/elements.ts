@@ -51,6 +51,21 @@ interface MozFindbar extends XULElement {
 interface MozToolbarbutton extends XULElement {
   readonly menupopup: XULPopupElement | null;
   readonly icon: Element | null;
+  disabled: boolean;
+}
+
+// toolkit/content/widgets/moz-checkbox, whose Lit reactive properties tsc
+// cannot see. Declares only the members tabbrowser uses.
+interface MozCheckbox extends HTMLElement {
+  label: string;
+  iconSrc: string;
+  checked: boolean;
+}
+
+// toolkit/content/widgets/moz-visual-picker, whose Lit reactive properties tsc
+// cannot see. Declares only the members tabbrowser uses.
+interface MozVisualPickerItem extends HTMLElement {
+  value: string;
 }
 
 // toolkit/content/widgets/arrowscrollbox.js, which tsc cannot see. Declares

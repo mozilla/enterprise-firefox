@@ -16,6 +16,8 @@ import {
   PREF_WIDGETS_CLOCKS_ENABLED,
   WIDGET_REGISTRY,
   resolveWidgetSize,
+  WIDGET_USER_ACTIONS,
+  WIDGET_SOURCES,
 } from "common/WidgetsRegistry.mjs";
 import { useWidgetTelemetry } from "../useWidgetTelemetry";
 import { AddClockForm } from "./AddClockForm";
@@ -37,14 +39,13 @@ import {
 } from "./ClocksHelpers";
 
 const USER_ACTION_TYPES = {
+  ...WIDGET_USER_ACTIONS,
   ADD_CLOCK: "add_clock",
   ADD_NICKNAME: "add_nickname",
   CHANGE_HOUR_FORMAT: "change_hour_format",
-  CHANGE_SIZE: "change_size",
   COLLAPSE: "collapse",
   EDIT_CLOCK: "edit_clock",
   EXPAND: "expand",
-  LEARN_MORE: "learn_more",
   REMOVE_CLOCK: "remove_clock",
 };
 
@@ -55,7 +56,7 @@ const CLOCKS_PANEL = {
   EDIT: "edit",
 };
 const CLOCK_WIDGET_SOURCE = {
-  CONTEXT_MENU: "context_menu",
+  ...WIDGET_SOURCES,
   MANAGE: "manage",
   ROW: "row",
   TOOLBAR: "toolbar",

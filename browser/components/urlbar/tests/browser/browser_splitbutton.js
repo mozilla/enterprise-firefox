@@ -47,7 +47,7 @@ const TEST_RESULTS = [
             {
               name: "menu-command-2-2",
               l10n: {
-                id: "urlbar-result-menu-dismiss-suggestion2",
+                id: "urlbar-result-menu-manage-firefox-suggest2",
               },
             },
           ],
@@ -69,13 +69,13 @@ const TEST_RESULTS = [
             {
               name: "menu-command-3-2",
               l10n: {
-                id: "urlbar-result-menu-dismiss-suggestion2",
+                id: "urlbar-result-menu-manage-firefox-suggest2",
               },
             },
             {
               name: "menu-command-3-3",
               l10n: {
-                id: "urlbar-result-menu-dismiss-suggestion2",
+                id: "urlbar-result-menu-learn-more2",
               },
             },
           ],
@@ -213,11 +213,9 @@ async function doActivateTest({
   expectedMenuCommands,
 }) {
   let engaged;
-  sinon
-    .stub(gURLBar.controller.engagementEvent, "record")
-    .callsFake((...args) => {
-      engaged = args[1].selType;
-    });
+  sinon.stub(gURLBar.controller.session, "record").callsFake((...args) => {
+    engaged = args[1].selType;
+  });
 
   info("Test for main button");
   const splitButtonMain = splitButton.querySelector(

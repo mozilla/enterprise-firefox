@@ -135,6 +135,7 @@ const char* const XPCJSRuntime::mStrings[] = {
     "indexedDB",        // IDX_INDEXEDDB
     "structuredClone",  // IDX_STRUCTUREDCLONE
     "locks",            // IDX_LOCKS
+    "storage",          // IDX_STORAGE
     "suppressed",       // IDX_SUPPRESSED
     "error",            // IDX_ERROR
     // IDX_REACT_DEVTOOLS_GLOBAL_HOOK
@@ -782,7 +783,7 @@ void XPCJSRuntime::BeginCycleCollectionCallback(CCReason aReason) {
 
   nsCOMPtr<nsIObserverService> obs = xpc::GetObserverService();
   if (obs) {
-    obs->NotifyObservers(nullptr, "cycle-collector-begin", nullptr);
+    obs->NotifyWhenScriptSafe(nullptr, "cycle-collector-begin", nullptr);
   }
 }
 
@@ -791,7 +792,7 @@ void XPCJSRuntime::EndCycleCollectionCallback(CycleCollectorResults& aResults) {
 
   nsCOMPtr<nsIObserverService> obs = xpc::GetObserverService();
   if (obs) {
-    obs->NotifyObservers(nullptr, "cycle-collector-end", nullptr);
+    obs->NotifyWhenScriptSafe(nullptr, "cycle-collector-end", nullptr);
   }
 }
 
@@ -817,10 +818,10 @@ void XPCJSRuntime::GCSliceCallback(JSContext* cx, JS::GCProgress progress,
   if (obs) {
     switch (progress) {
       case JS::GC_CYCLE_BEGIN:
-        obs->NotifyObservers(nullptr, "garbage-collector-begin", nullptr);
+        obs->NotifyWhenScriptSafe(nullptr, "garbage-collector-begin", nullptr);
         break;
       case JS::GC_CYCLE_END:
-        obs->NotifyObservers(nullptr, "garbage-collector-end", nullptr);
+        obs->NotifyWhenScriptSafe(nullptr, "garbage-collector-end", nullptr);
         break;
       default:
         break;
@@ -1789,7 +1790,10 @@ static void ReportRealmStats(const JS::RealmStats& realmStats,
                              nsISupports* data, size_t* gcTotalOut = nullptr) {
   static const nsDependentCString addonPrefix("explicit/add-ons/");
 
-  size_t gcTotal = 0, sundriesGCHeap = 0, sundriesMallocHeap = 0;
+  size_t gcTotal = 0;
+  size_t sundriesGCHeap = 0;
+  size_t sundriesMallocHeap = 0;
+  size_t sundriesNonHeap = 0;
   nsAutoCString realmJSPathPrefix(extras.jsPathPrefix);
   nsAutoCString realmDOMPathPrefix(extras.domPathPrefix);
 
@@ -1827,13 +1831,13 @@ static void ReportRealmStats(const JS::RealmStats& realmStats,
       "JSScript instances. There is one per user-defined function in a "
       "script, and one for the top-level code in a script.");
 
-  ZRREPORT_BYTES(realmJSPathPrefix + "scripts/gc-buffers"_ns,
-                 realmStats.scriptsGCBuffers,
-                 "Various variable-length tables in JSScripts.");
+  ZRREPORT_NONHEAP_BYTES(realmJSPathPrefix + "scripts/gc-buffers"_ns,
+                         realmStats.scriptsGCBuffers,
+                         "Various variable-length tables in JSScripts.");
 
-  ZRREPORT_BYTES(realmJSPathPrefix + "baseline/data"_ns,
-                 realmStats.baselineData,
-                 "The Baseline JIT's compilation data (BaselineScripts).");
+  ZRREPORT_NONHEAP_BYTES(
+      realmJSPathPrefix + "baseline/data"_ns, realmStats.baselineData,
+      "The Baseline JIT's compilation data (BaselineScripts).");
 
   ZRREPORT_BYTES(realmJSPathPrefix + "alloc-sites"_ns, realmStats.allocSites,
                  "GC allocation site data associated with IC stubs.");
@@ -1842,8 +1846,8 @@ static void ReportRealmStats(const JS::RealmStats& realmStats,
                  realmStats.cacheIRStubs,
                  "The JIT's IC stubs (excluding code).");
 
-  ZRREPORT_BYTES(realmJSPathPrefix + "ion-data"_ns, realmStats.ionData,
-                 "The IonMonkey JIT's compilation data (IonScripts).");
+  ZRREPORT_NONHEAP_BYTES(realmJSPathPrefix + "ion-data"_ns, realmStats.ionData,
+                         "The IonMonkey JIT's compilation data (IonScripts).");
 
   ZRREPORT_BYTES(realmJSPathPrefix + "jit-scripts"_ns, realmStats.jitScripts,
                  "JIT data associated with scripts.");
@@ -1883,6 +1887,15 @@ static void ReportRealmStats(const JS::RealmStats& realmStats,
         realmJSPathPrefix + "sundries/malloc-heap"_ns, KIND_HEAP,
         sundriesMallocHeap,
         "The sum of all 'malloc-heap' measurements that are too small to "
+        "be worth showing individually.");
+  }
+
+  if (sundriesNonHeap > 0) {
+    // We deliberately don't use ZRREPORT_NONHEAP_BYTES here.
+    REPORT_BYTES(
+        realmJSPathPrefix + "sundries/other-heap"_ns, KIND_NONHEAP,
+        sundriesNonHeap,
+        "The sum of all non-malloc/gc measurements that are too small to "
         "be worth showing individually.");
   }
 

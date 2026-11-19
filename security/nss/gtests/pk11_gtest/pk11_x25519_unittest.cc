@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <memory>
+#include <vector>
 #include "nss.h"
 
 #include "json_reader.h"
@@ -93,16 +94,14 @@ TEST_P(Pkcs11X25519Test, ImportExportPkcs8) {
   ScopedSECKEYPrivateKey key = ImportPrivateKey(GetParam().pkcs8_);
   EXPECT_EQ(key.get()->keyType, ecMontKey);
 
-  SECKEYPrivateKeyInfo* pkInfo =
-      nss_test::ExportPrivKeyInfo(key.get(), nullptr);
+  ScopedSECKEYPrivateKeyInfo pkInfo(
+      nss_test::ExportPrivKeyInfo(key.get(), nullptr));
   ASSERT_TRUE(pkInfo);
   /* empty parameters for X25519*/
   ASSERT_EQ(pkInfo->algorithm.parameters.len, (unsigned int)0);
   ASSERT_TRUE(CheckAlgIsX25519(&pkInfo->algorithm.algorithm));
   ExportPrivateKey(&key, exported);
   EXPECT_EQ(GetParam().pkcs8_, exported);
-
-  SECKEY_DestroyPrivateKeyInfo(pkInfo, PR_TRUE);
 }
 
 TEST_P(Pkcs11X25519Test, ImportExportSpki) {
@@ -231,11 +230,6 @@ TEST_F(Pkcs11X25519Test, ImportPkcs8NotSupportedOID) {
 }
 
 TEST_F(Pkcs11X25519Test, ImportPkcs8ShortLenPrivateKey) {
-  // FIPS tokens import by unwrapping, and softoken's PKCS#8 parser is
-  // stricter about this than pk11wrap's.
-  if (PK11_IsFIPS()) {
-    GTEST_SKIP() << "softoken rejects short X25519 keys on unwrap";
-  }
   /* We change the length of the private key from 0x20 to 0x1f.
      Such way all the lengths will be decreased by one */
   const uint8_t x25519_shortPrivateKey[] = {
@@ -251,7 +245,41 @@ TEST_F(Pkcs11X25519Test, ImportPkcs8ShortLenPrivateKey) {
   DataBuffer privateKeyPkcs8(
       DataBuffer(x25519_shortPrivateKey, sizeof(x25519_shortPrivateKey)));
   ScopedSECKEYPrivateKey key = ImportPrivateKey(privateKeyPkcs8);
-  ASSERT_TRUE(key);
+  ASSERT_FALSE(key);
+}
+
+TEST_F(Pkcs11X25519Test, ImportPkcs8LongLenPrivateKey) {
+  // As above, but the key grows from 0x20 to 0x21 bytes, so every length
+  // increases by one. The key bytes are left as zeros.
+  const uint8_t pkcs8[49] = {0x30, 0x2f, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
+                             0x03, 0x2b, 0x65, 0x6e, 0x04, 0x23, 0x04, 0x21};
+  ScopedSECKEYPrivateKey key =
+      ImportPrivateKey(DataBuffer(pkcs8, sizeof(pkcs8)));
+  ASSERT_FALSE(key);
+}
+
+TEST_F(Pkcs11X25519Test, CreateWrongLenPrivateKey) {
+  if (PK11_IsFIPS()) {
+    GTEST_SKIP() << "FIPS tokens take no raw private key templates";
+  }
+  ScopedPK11SlotInfo slot(PK11_GetInternalSlot());
+  ASSERT_TRUE(slot);
+  for (size_t len : {31, 33}) {
+    CK_OBJECT_CLASS keyClass = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE keyType = CKK_EC_MONTGOMERY;
+    CK_BBOOL ckfalse = CK_FALSE;
+    uint8_t params[] = {0x06, 0x03, 0x2b, 0x65, 0x6e};
+    std::vector<uint8_t> value(len, 0x42);
+    CK_ATTRIBUTE templ[] = {
+        {CKA_CLASS, &keyClass, sizeof(keyClass)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &ckfalse, sizeof(ckfalse)},
+        {CKA_EC_PARAMS, params, sizeof(params)},
+        {CKA_VALUE, value.data(), static_cast<CK_ULONG>(value.size())}};
+    ScopedSECKEYPrivateKey key(PK11_CreatePrivateKeyFromTemplate(
+        slot.get(), templ, PR_ARRAY_SIZE(templ), nullptr));
+    EXPECT_FALSE(key) << len << "-byte key";
+  }
 }
 
 /* We allow importing all-zero keys*/
@@ -277,8 +305,8 @@ TEST_P(Pkcs11X25519Test, KeyGeneration) {
   ASSERT_TRUE(priv);
   ASSERT_TRUE(pub);
 
-  SECKEYPrivateKeyInfo* pkInfo =
-      nss_test::ExportPrivKeyInfo(priv.get(), nullptr);
+  ScopedSECKEYPrivateKeyInfo pkInfo(
+      nss_test::ExportPrivKeyInfo(priv.get(), nullptr));
   ASSERT_TRUE(pkInfo);
   /* 0x04 + len +  32 bytes the key */
   ASSERT_EQ(pkInfo->privateKey.len, (unsigned int)34);
@@ -291,8 +319,6 @@ TEST_P(Pkcs11X25519Test, KeyGeneration) {
   ASSERT_TRUE(CheckAlgIsX25519(&spki->algorithm.algorithm));
   /* empty parameters for X25519*/
   ASSERT_EQ(spki->algorithm.parameters.len, (unsigned int)0);
-
-  SECKEY_DestroyPrivateKeyInfo(pkInfo, PR_TRUE);
 }
 
 /* Public Key ASN.1 encoding errors */

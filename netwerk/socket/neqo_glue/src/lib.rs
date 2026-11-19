@@ -401,6 +401,7 @@ impl NeqoHttp3Conn {
         idle_timeout: u32,
         fast_pto: u32,
         pmtud_enabled: bool,
+        pacing_enabled: bool,
         socket: Option<i64>,
     ) -> Result<RefPtr<Self>, nsresult> {
         // Nss init.
@@ -523,6 +524,7 @@ impl NeqoHttp3Conn {
             // MLKEM support is configured further below. By default, disable it.
             .mlkem(false)
             .pmtud(pmtud_enabled)
+            .pacing(pacing_enabled)
             .spurious_recovery(spurious_recovery)
             .abe(static_prefs::pref!("network.http.http3.abe"))
             .hystart_css_baseline(css_baseline);
@@ -1142,6 +1144,7 @@ pub extern "C" fn neqo_http3conn_new(
         idle_timeout,
         fast_pto,
         pmtud_enabled,
+        true,
         Some(socket),
     ) {
         Ok(http3_conn) => {
@@ -1168,6 +1171,7 @@ pub extern "C" fn neqo_http3conn_new_use_nspr_for_io(
     qlog_dir: &nsACString,
     idle_timeout: u32,
     fast_pto: u32,
+    pacing_enabled: bool,
     result: &mut *const NeqoHttp3Conn,
 ) -> nsresult {
     *result = ptr::null_mut();
@@ -1187,6 +1191,7 @@ pub extern "C" fn neqo_http3conn_new_use_nspr_for_io(
         idle_timeout,
         fast_pto,
         false,
+        pacing_enabled,
         None,
     ) {
         Ok(http3_conn) => {
@@ -1647,7 +1652,7 @@ pub extern "C" fn neqo_http3conn_fetch(
     match conn.conn.fetch(
         Instant::now(),
         method_tmp,
-        (scheme_tmp, host_tmp, path_tmp),
+        &(scheme_tmp, host_tmp, path_tmp),
         &hdrs,
         priority,
     ) {
@@ -2255,7 +2260,7 @@ pub extern "C" fn neqo_http3conn_event(
             Http3ClientEvent::DataWritable { stream_id } => Http3Event::DataWritable {
                 stream_id: stream_id.as_u64(),
             },
-            Http3ClientEvent::OutgoingDatagramSpaceAvailable => Http3Event::NoEvent,
+            Http3ClientEvent::OutgoingDatagramSpaceAvailable { .. } => Http3Event::NoEvent,
             Http3ClientEvent::StopSending { stream_id, error } => Http3Event::StopSending {
                 stream_id: stream_id.as_u64(),
                 error,
@@ -2582,7 +2587,7 @@ pub extern "C" fn neqo_http3conn_webtransport_create_session(
 
     match conn.conn.webtransport_create_session(
         Instant::now(),
-        ("https", host_tmp, path_tmp),
+        &("https", host_tmp, path_tmp),
         &hdrs,
     ) {
         Ok(id) => {
@@ -2617,7 +2622,7 @@ pub extern "C" fn neqo_http3conn_connect_udp_create_session(
 
     match conn
         .conn
-        .connect_udp_create_session(Instant::now(), ("https", host_tmp, path_tmp), &hdrs)
+        .connect_udp_create_session(Instant::now(), &("https", host_tmp, path_tmp), &hdrs)
     {
         Ok(id) => {
             *stream_id = id.as_u64();

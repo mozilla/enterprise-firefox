@@ -9,6 +9,7 @@ import { createEngine } from "chrome://global/content/ml/EngineProcess.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
 });
 
@@ -264,6 +265,14 @@ export const IntentClassifier = {
   _createEngine: createEngine,
 
   /**
+   * Smart bar pin from the smartWindow feature. "search" or "chat" skips the
+   * classifier. Null or empty keeps it. Nimbus enforces the enum.
+   */
+  get smartbarIntent() {
+    return lazy.NimbusFeatures.smartWindow.getVariable("smartbarIntent");
+  },
+
+  /**
    * Lazily-built forced-chat checkers, keyed by model id so each locale's
    * allowlist is only compiled once. Kept as a property for easy stubbing.
    */
@@ -291,9 +300,12 @@ export const IntentClassifier = {
    * Gets the intent of the prompt using a text classification model.
    *
    * @param {string} query
-   * @returns {string} "search" | "chat"
+   * @returns {Promise<"search" | "chat">}
    */
   async getPromptIntent(query) {
+    if (this.smartbarIntent) {
+      return this.smartbarIntent;
+    }
     try {
       const modelInfo = getIntentModelInfoForLocale();
       const cleanedQuery = this._preprocessQuery(query);

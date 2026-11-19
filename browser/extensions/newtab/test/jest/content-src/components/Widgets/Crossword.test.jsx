@@ -243,7 +243,7 @@ describe("<Crossword>", () => {
       expect(frame).toBeInTheDocument();
       expect(frame).toHaveAttribute(
         "sandbox",
-        "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+        "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
       );
       expect(frame).toHaveAttribute(
         "src",
@@ -278,6 +278,39 @@ describe("<Crossword>", () => {
         state: { ...baseState, FramedWidgets: {} },
       });
       expect(container.querySelector("article.crossword")).toBeNull();
+    });
+
+    // A preloaded newtab renders while hidden; a puzzle loaded then would show
+    // its state from before the user solved it in another tab.
+    it("waits for a hidden page to be shown before loading the puzzle", () => {
+      const setVisibility = value => {
+        Object.defineProperty(document, "visibilityState", {
+          configurable: true,
+          value,
+        });
+        fireEvent(document, new Event("visibilitychange"));
+      };
+      try {
+        setVisibility("hidden");
+        const { container } = renderCrossword();
+        const frame = container.querySelector("iframe.crossword-frame");
+        expect(frame).not.toHaveAttribute("src");
+
+        setVisibility("visible");
+        expect(frame).toHaveAttribute(
+          "src",
+          "https://prod-games-particle.merino.prod.webservices.mozgcp.net/index.html"
+        );
+
+        // Hiding the page again keeps the loaded puzzle.
+        setVisibility("hidden");
+        expect(frame).toHaveAttribute(
+          "src",
+          "https://prod-games-particle.merino.prod.webservices.mozgcp.net/index.html"
+        );
+      } finally {
+        setVisibility("visible");
+      }
     });
   });
 
@@ -895,8 +928,8 @@ describe("<Crossword>", () => {
     });
   });
 
-  describe("menu strings", () => {
-    it("hardcodes the crossword-specific items and keeps shared chrome ids", () => {
+  describe("localized strings", () => {
+    it("uses preview Fluent ids for crossword items and keeps shared chrome ids", () => {
       const { container } = renderCrossword();
       const menu = container.querySelector("#crossword-context-menu");
 
@@ -906,18 +939,31 @@ describe("<Crossword>", () => {
         "data-l10n-id",
         "newtab-crossword-widget-open-menu-button"
       );
-      // Crossword-specific menu items are hardcoded inline (English-only).
-      expect(menu.querySelector("panel-item.show-all-clues")).toHaveTextContent(
-        "Show clues"
+      // Crossword-specific strings live in the English-only newtabPreview.ftl.
+      expect(
+        container.querySelector(".newtab-crossword-title")
+      ).toHaveAttribute("data-l10n-id", "newtab-crossword-widget-title");
+      expect(container.querySelector("iframe.crossword-frame")).toHaveAttribute(
+        "data-l10n-id",
+        "newtab-crossword-widget-frame"
       );
-      expect(menu.querySelector("panel-item.solve-puzzle")).toHaveTextContent(
-        "Solve puzzle"
+      expect(menu.querySelector("panel-item.show-all-clues")).toHaveAttribute(
+        "data-l10n-id",
+        "newtab-crossword-widget-menu-show-clues"
+      );
+      expect(menu.querySelector("panel-item.solve-puzzle")).toHaveAttribute(
+        "data-l10n-id",
+        "newtab-crossword-widget-menu-solve-puzzle"
       );
       expect(
         menu.querySelector(
           "panel-item[data-l10n-id='newtab-crossword-menu-powered-by-particle']"
         )
       ).toBeInTheDocument();
+      expect(menu.querySelector("panel-item.learn-more")).toHaveAttribute(
+        "data-l10n-id",
+        "newtab-crossword-widget-menu-learn-more"
+      );
 
       // Generic chrome keeps the shared, translated Fluent ids.
       expect(

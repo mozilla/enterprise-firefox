@@ -15,6 +15,8 @@ export { openAIEngine };
 export const MODEL_PREF = "browser.smartwindow.model";
 export const GENERIC_MODEL_NAME = "generic";
 const MODEL_CHOICE_PREF = "browser.smartwindow.firstrun.modelChoice";
+const AUTO_MODEL_PREF = "browser.smartwindow.firstrun.singlePageWithAutoModel";
+export const AUTO_MODEL_CHOICE_ID = "4";
 
 const RS_AI_WINDOW_COLLECTION = "ai-window-prompts";
 
@@ -203,6 +205,7 @@ export const MODEL_FEATURES = Object.freeze({
   MEMORIES_CONTEXT: "memories-context",
   // agents
   AGENT_MONITOR: "agent-monitor",
+  AGENT_MONITOR_SETUP: "agent-monitor-setup",
   // search agent
   SEARCH_ANSWER_GENERATION: "search-answer-generation",
   // Exa /answers service. Not Remote Settings-backed — the model and service
@@ -224,6 +227,7 @@ export const SERVICE_TYPES = Object.freeze({
   AI: "ai",
   MEMORIES: "memories",
   AGENT: "agent",
+  CONVERSATION_STARTERS: "convo-starters",
   SW_ANSWER: "sw-answer",
   WIDGET_GENERATION: "widget-generation",
 });
@@ -236,8 +240,9 @@ export const PURPOSES = Object.freeze({
   SMART_FORM_FILL: "smart-form-fill",
   TITLE_GENERATION: "title-generation",
   TAB_GROUP_NAMING: "auto-tab-grouping",
-  CONVERSATION_STARTERS_SIDEBAR: "convo-starters-sidebar",
   MEMORY_GENERATION: "memory-generation",
+  // convo-starters
+  CONVERSATION_STARTERS_SIDEBAR: "convo-starters-sidebar",
   // agents
   MONITOR: "monitor",
   // aitab structured-page generation
@@ -283,6 +288,7 @@ export const FEATURE_MAJOR_VERSIONS = Object.freeze({
   [MODEL_FEATURES.BROWSER_CONTEXT]: 1,
   // agents
   [MODEL_FEATURES.AGENT_MONITOR]: 2,
+  [MODEL_FEATURES.AGENT_MONITOR_SETUP]: 1,
   // search agent
   [MODEL_FEATURES.SEARCH_ANSWER_GENERATION]: 1,
   // aitab structured-page generation. Paired with the `version` major in
@@ -387,6 +393,7 @@ export const FALLBACK_MODELS = {
     shortName: "Mistral Small 4",
     brandName: "Mistral",
   },
+  [AUTO_MODEL_CHOICE_ID]: { model: "auto", ownerName: "", labelId: "auto" },
 };
 
 /**
@@ -566,12 +573,17 @@ export async function resolveChatModelChoice(
     }
 
     const details = parseModelDetails(record);
+    const ownDetails = choiceId === AUTO_MODEL_CHOICE_ID ? null : details;
     return {
       model: record.model,
-      ownerName: details?.ownerName || record.owner_name || "",
-      labelId: details?.labelId ?? "",
-      shortName: details?.shortName ?? "",
-      brandName: details?.brandName ?? "",
+      ownerName: ownDetails?.ownerName || record.owner_name || "",
+      labelId: ownDetails?.labelId ?? "",
+      shortName: ownDetails?.shortName ?? "",
+      brandName: ownDetails?.brandName ?? "",
+      ...(record.inference_model && {
+        inferenceModel: record.inference_model,
+        inferenceShortName: details?.shortName ?? "",
+      }),
     };
   } catch (error) {
     console.warn(
@@ -586,12 +598,25 @@ export async function resolveChatModelChoice(
  * Single source of truth for the order model choices are shown in across the
  * UI (smartbar selector, settings, onboarding). Choice IDs keep their
  * server-defined identity; only the display position lives here. Change this
- * list to reorder every surface at once.
+ * list to reorder every surface at once. Custom ("0") is not listed; each
+ * surface places it.
  *
  * @returns {string[]} Choice IDs in display order.
  */
 export function getModelDisplayOrder() {
-  return ["3", "1", "2"];
+  return isAutoModelEnabled()
+    ? [AUTO_MODEL_CHOICE_ID, "2", "3", "1"]
+    : ["3", "1", "2"];
+}
+
+/**
+ * Whether the Auto model choice is offered. Shares its pref with the
+ * single-page onboarding.
+ *
+ * @returns {boolean}
+ */
+export function isAutoModelEnabled() {
+  return Services.prefs.getBoolPref(AUTO_MODEL_PREF, false);
 }
 
 /**
@@ -625,6 +650,8 @@ export async function getModelForChoice(choiceId = getCurrentModelChoiceId()) {
  * @property {string} [labelId] - Fallback label identifier for the choice
  * @property {string} [shortName] - Display name of the model collection
  * @property {string} [brandName] - Short brand name for the model
+ * @property {string} [inferenceModel] - Model the request is routed to
+ * @property {string} [inferenceShortName] - Display name of inferenceModel
  */
 
 /**
@@ -635,10 +662,21 @@ export async function getModelForChoice(choiceId = getCurrentModelChoiceId()) {
  */
 let _modelsDataCache = null;
 
+export const MODELS_DATA_CHANGED_TOPIC = "smartwindow-models-data-changed";
+
 export async function refreshModelsDataCache() {
   _modelsDataCache = null;
   await getAllModelsData();
+  Services.obs.notifyObservers(null, MODELS_DATA_CHANGED_TOPIC);
 }
+
+// The cache only holds models in getModelDisplayOrder(), which changes with the
+// Auto pref, so reload it when the pref flips.
+Services.prefs.addObserver(AUTO_MODEL_PREF, () => {
+  refreshModelsDataCache().catch(e =>
+    console.error("Failed to refresh models cache on Auto pref change", e)
+  );
+});
 
 /**
  * Gets metadata for all models, with fallback. Result is cached after first call.
@@ -716,7 +754,7 @@ export function renderPrompt(rawPromptContent, stringsToReplace = {}) {
     const value = stringsToReplace[key];
     return Boolean(value) || value === 0;
   };
-  let finalPromptContent = rawPromptContent
+  return rawPromptContent
     .replace(
       PROMPT_STANDALONE_SECTION_REGEX,
       (match, indent, key, content, lineEnd) =>
@@ -724,14 +762,12 @@ export function renderPrompt(rawPromptContent, stringsToReplace = {}) {
     )
     .replace(PROMPT_INLINE_SECTION_REGEX, (match, key, content) =>
       hasValue(key) ? content : ""
+    )
+    .replace(/\{(\w+)\}/g, (match, key) =>
+      Object.hasOwn(stringsToReplace, key)
+        ? String(stringsToReplace[key])
+        : match
     );
-
-  for (const [orig, repl] of Object.entries(stringsToReplace)) {
-    const regex = new RegExp(`{${orig}}`, "g");
-    finalPromptContent = finalPromptContent.replace(regex, () => repl);
-  }
-
-  return finalPromptContent;
 }
 
 /**

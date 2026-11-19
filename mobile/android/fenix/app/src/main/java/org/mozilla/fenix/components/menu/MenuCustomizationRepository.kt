@@ -40,14 +40,14 @@ class MenuCustomizationRepository(
             }
             .stateIn(scope, SharingStarted.Eagerly, null)
 
-    /**
-     * Persist a new customization.
-     *
-     * @param visibleSectionIds Ids of the sections to show, in the order they should be shown in.
-     * @param hiddenSectionIds Ids of the sections the user removed from the menu.
-     */
-    fun save(visibleSectionIds: List<String>, hiddenSectionIds: List<String>) {
-        scope.launch { update { CustomizedMenuInfo(visibleSectionIds, hiddenSectionIds).reconciled().toRecord() } }
+    /** Persist a new customization. */
+    fun save(menuInfo: CustomizedMenuInfo) {
+        scope.launch { update { menuInfo.reconciled().toRecord() } }
+    }
+
+    /** Reset the customization back to default. */
+    fun reset() {
+        scope.launch { update { CustomizedMenuRecord.getDefaultInstance() } }
     }
 
     /**
@@ -67,6 +67,7 @@ class MenuCustomizationRepository(
             CustomizedMenuInfo(
                     visibleSectionIds = sectionsList.map { it.id },
                     hiddenSectionIds = hiddenSectionsList.map { it.id },
+                    isNavigationSectionMoved = isNavigationSectionMoved,
                 )
                 .reconciled()
         } else {
@@ -78,6 +79,7 @@ class MenuCustomizationRepository(
             .setSchemaVersion(SCHEMA_VERSION)
             .addAllSections(visibleSectionIds.map { it.toSectionRecord() })
             .addAllHiddenSections(hiddenSectionIds.map { it.toSectionRecord() })
+            .setIsNavigationSectionMoved(isNavigationSectionMoved)
             .build()
 
     private fun String.toSectionRecord(): CustomizedMenuRecord.Section =

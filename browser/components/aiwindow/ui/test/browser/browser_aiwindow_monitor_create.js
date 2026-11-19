@@ -13,6 +13,7 @@ const { Region } = ChromeUtils.importESModule(
 
 const SUPPORTED_REGIONS_PREF = "browser.smartwindow.agent.supportedRegions";
 const TEST_REGION = "US";
+const TEST_MARKETS = JSON.stringify([[TEST_REGION, ["en-*"]]]);
 
 /**
  * Tests for monitor creation in ai-tasks component
@@ -33,7 +34,7 @@ add_task(async function test_ai_tasks_page_loads() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.smartwindow.enabled", true],
-      [SUPPORTED_REGIONS_PREF, TEST_REGION],
+      [SUPPORTED_REGIONS_PREF, TEST_MARKETS],
     ],
   });
 
@@ -74,7 +75,7 @@ add_task(async function test_dialog_opens() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.smartwindow.enabled", true],
-      [SUPPORTED_REGIONS_PREF, TEST_REGION],
+      [SUPPORTED_REGIONS_PREF, TEST_MARKETS],
     ],
   });
 
@@ -166,7 +167,7 @@ add_task(async function test_form_validation() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.smartwindow.enabled", true],
-      [SUPPORTED_REGIONS_PREF, TEST_REGION],
+      [SUPPORTED_REGIONS_PREF, TEST_MARKETS],
     ],
   });
 
@@ -316,7 +317,7 @@ add_task(async function test_monitor_creation() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.smartwindow.enabled", true],
-      [SUPPORTED_REGIONS_PREF, TEST_REGION],
+      [SUPPORTED_REGIONS_PREF, TEST_MARKETS],
     ],
   });
 
@@ -521,7 +522,7 @@ add_task(async function test_add_button_shown_when_region_supported() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.smartwindow.enabled", true],
-      [SUPPORTED_REGIONS_PREF, TEST_REGION],
+      [SUPPORTED_REGIONS_PREF, TEST_MARKETS],
     ],
   });
 
@@ -582,7 +583,13 @@ add_task(async function test_add_button_shown_for_secondary_region() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.smartwindow.enabled", true],
-      [SUPPORTED_REGIONS_PREF, "US,CA"],
+      [
+        SUPPORTED_REGIONS_PREF,
+        JSON.stringify([
+          ["US", ["en-*"]],
+          ["CA", ["en-*"]],
+        ]),
+      ],
     ],
   });
 
@@ -612,7 +619,7 @@ add_task(async function test_add_button_shown_for_secondary_region() {
 
       Assert.ok(
         aiTasksJS._constants.isMonitorRegionSupported,
-        "A home region of CA in the US,CA list resolves to supported"
+        "A home region of CA covered by the markets resolves to supported"
       );
       await aiTasksJS.updateComplete;
 
@@ -633,7 +640,7 @@ add_task(async function test_added_page_chip_shows_open_tab_title() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.smartwindow.enabled", true],
-      [SUPPORTED_REGIONS_PREF, TEST_REGION],
+      [SUPPORTED_REGIONS_PREF, TEST_MARKETS],
     ],
   });
   const OPEN_URL =
@@ -751,5 +758,100 @@ add_task(async function test_title_requests_are_limited_to_watchable_pages() {
     BrowserTestUtils.removeTab(tab);
     BrowserTestUtils.removeTab(pageTab);
     await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function test_tasks_dialog_has_no_write_it_for_me() {
+  const { MockEngineManager } = ChromeUtils.importESModule(
+    "resource://testing-common/AIWindowTestUtils.sys.mjs"
+  );
+  const mockEngineManager = new MockEngineManager();
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.smartwindow.enabled", true],
+      [SUPPORTED_REGIONS_PREF, TEST_MARKETS],
+    ],
+  });
+  const WATCH_URL = "https://example.com/product";
+  const tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "about:smartwindowtasks"
+  );
+
+  try {
+    await SpecialPowers.spawn(tab.linkedBrowser, [WATCH_URL], async url => {
+      await content.customElements.whenDefined("ai-tasks");
+      const aiTasks = content.document.querySelector("ai-tasks");
+      aiTasks.shadowRoot.querySelector(".add-task-button").click();
+
+      const card = await ContentTaskUtils.waitForCondition(
+        () =>
+          aiTasks.shadowRoot.querySelector("dialog[open] agent-monitor-item"),
+        "Wait for the create card"
+      );
+      await card.updateComplete;
+      const field = selector => card.shadowRoot.querySelector(selector);
+
+      Assert.ok(
+        !field(".suggest-button, .suggest-status"),
+        "The blank form has no Write it for me button"
+      );
+      Assert.ok(
+        field(".create-header .monitor-card-state-title"),
+        "but keeps its title"
+      );
+
+      card.wrappedJSObject.pendingUrl = url;
+      await card.updateComplete;
+      field(".add-page-btn").click();
+      await card.updateComplete;
+      Assert.deepEqual(
+        Array.from(card.wrappedJSObject.pageUrls),
+        [url],
+        "A page was added to the form"
+      );
+      Assert.ok(
+        !field(".suggest-button, .suggest-status"),
+        "With a page in the form there is still no button"
+      );
+
+      // The card's actor is on this page for page titles. Asked for a
+      // suggestion by hand, it answers with nothing.
+      const answered = ContentTaskUtils.waitForEvent(
+        card,
+        "agent-monitor-item:suggestion",
+        false,
+        null,
+        true
+      );
+      card.dispatchEvent(
+        new content.CustomEvent("agent-monitor-item:request-suggestion", {
+          bubbles: true,
+          composed: true,
+          detail: Cu.cloneInto({ requestId: 7, watchUrls: [url] }, content),
+        })
+      );
+      const { requestId, title, condition } = (await answered).detail;
+      Assert.deepEqual(
+        { requestId, title, condition },
+        { requestId: 7, title: "", condition: "" },
+        "The request is answered with no suggestion"
+      );
+      Assert.equal(
+        field(".monitor-name-input").wrappedJSObject.value,
+        "",
+        "and the form is left alone"
+      );
+    });
+
+    Assert.equal(
+      mockEngineManager.engines.size,
+      0,
+      "The Tasks page never gets as far as the model"
+    );
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+    mockEngineManager.cleanupMocks();
   }
 });

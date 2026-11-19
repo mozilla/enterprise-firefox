@@ -15,14 +15,14 @@ class TestReopenFromLibrary(WindowManagerMixin, MarionetteTestCase):
         self.original_showForNewBookmarks_pref = self.marionette.get_pref(
             "browser.bookmarks.editDialog.showForNewBookmarks"
         )
-        self.original_loadBookmarksInTabs_pref = self.marionette.get_pref(
-            "browser.tabs.loadBookmarksInTabs"
+        self.original_loadUILinkInTab_pref = self.marionette.get_pref(
+            "browser.tabs.loadUILinkInTab"
         )
 
         self.marionette.set_pref(
             "browser.bookmarks.editDialog.showForNewBookmarks", False
         )
-        self.marionette.set_pref("browser.tabs.loadBookmarksInTabs", True)
+        self.marionette.set_pref("browser.tabs.loadUILinkInTab", True)
 
     def tearDown(self):
         self.close_all_windows()

@@ -1439,6 +1439,15 @@ html {
 .onboardingContainer:has(.embedded-backup-restore-container) .screen[pos=split][fullscreen] .section-main .main-content .welcome-text h1, .onboardingContainer:has(.embedded-backup-restore-container) .screen[pos=split][fullscreen] .section-main .main-content .welcome-text h2 {
   max-width: 300px;
 }
+.onboardingContainer:has(.embedded-backup-restore-container) .screen[pos=center-large][fullscreen] .embedded-backup-restore-container {
+  margin: 0.5em 1em;
+}
+.onboardingContainer:has(.embedded-backup-restore-container) .screen[pos=center-large][fullscreen] .info-tile {
+  background-color: light-dark(var(--color-violet-desaturated-10), var(--color-violet-desaturated-80));
+}
+.onboardingContainer:has(.embedded-backup-restore-container) .screen[pos=center-large][fullscreen] .cta-paragraph-icon {
+  color: var(--icon-color-information);
+}
 
 .onboardingContainer {
   --grey-subtitle-1: light-dark(var(--color-gray-70), white);
@@ -1644,6 +1653,80 @@ html {
 .onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .secondary-cta .secondary:hover:active, .onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .secondary-cta .secondary[open]:active {
   background-color: var(--button-background-color-active);
   color: var(--button-text-color-active);
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .language-switcher-container {
+  width: 100%;
+  margin: 16px auto;
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .language-switcher-container .primary {
+  margin-bottom: 5px;
+  width: 72%;
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .rtamo-icon-wrapper {
+  display: flex;
+  margin: auto;
+  background: light-dark(var(--color-violet-desaturated-10), var(--color-violet-desaturated-80));
+  border-radius: var(--border-radius-xlarge);
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .rtamo-icon-wrapper .logo-separator {
+  background: url("chrome://global/skin/icons/close.svg") center center/100% no-repeat;
+  height: 12px;
+  width: 12px;
+  margin-block: auto;
+  fill: currentColor;
+  -moz-context-properties: fill;
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .rtamo-icon {
+  text-align: center;
+  margin-inline: 40px 10px;
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .rtamo-icon .brand-logo {
+  height: 60px;
+  margin-block: 40px;
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .rtamo-icon .rtamo-theme-icon {
+  max-height: unset;
+  height: 60px;
+  width: 60px;
+  margin-block: 40px;
+  object-fit: cover;
+  object-position: -54px;
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .rtamo-logo {
+  margin-inline: 10px 40px;
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .rtamo-logo .brand-logo {
+  height: 60px;
+  margin-block: 40px;
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .loader {
+  width: 1em;
+  height: 1em;
+  border: 3px solid var(--button-text-color-primary);
+  border-bottom-color: transparent;
+  border-radius: var(--border-radius-circle);
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+  margin: auto;
+}
+@keyframes rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .loaderContainer {
+  display: flex;
+  padding: 1.5px 37.5px;
+  margin: auto;
+}
+.onboardingContainer:has([pos=center-large][fullscreen]) .section-main .main-content .main-content-inner .install-button-wrapper button {
+  margin-block: var(--space-large) 0;
+  padding-block: var(--space-small);
+  width: 100%;
+  max-width: 450px;
 }
 .onboardingContainer:has([pos=center-large][fullscreen]) .corner-image-container {
   position: absolute;
@@ -4275,7 +4358,6 @@ html {
   --button-min-height-small: var(--button-min-height);
   --button-padding-block-small: var(--space-xxsmall);
   --button-padding-inline-small: var(--space-medium);
-  line-height: 1;
 }
 @media (forced-colors: none) and (prefers-contrast: no-preference) {
   .onboardingContainer .carousel-nav moz-segmented-control {
@@ -4745,7 +4827,7 @@ html {
   border-radius: var(--border-radius-medium);
   background-color: var(--multi-select-card-background-color);
   border: 1px solid var(--multi-select-card-border-color);
-  padding: var(--space-xxlarge);
+  padding: 22px;
   font-size: 16px;
 }
 .onboardingContainer .multi-select-container.select-card .checkbox-container.multi-select-item input {
@@ -5031,10 +5113,10 @@ html {
 .onboardingContainer button.content-tiles-header .arrow-icon {
   margin-inline: 1em;
 }
-.onboardingContainer .main-content-inner:has(#content-tiles-container) .action-buttons {
+.onboardingContainer .screen[pos=center-large] .main-content-inner:has(#content-tiles-container) .action-buttons {
   margin-inline: 48px;
 }
-.onboardingContainer .main-content-inner:has(#content-tiles-container) .action-buttons .primary:only-child {
+.onboardingContainer .screen[pos=center-large] .main-content-inner:has(#content-tiles-container) .action-buttons .primary:only-child {
   margin-inline: 0;
 }
 .onboardingContainer #content-tiles-container {
@@ -6008,10 +6090,10 @@ html {
   flex-shrink: 0;
   width: var(--icon-size-small);
   height: var(--icon-size-small);
-  background: url("chrome://global/skin/media/pause-fill.svg") no-repeat center/contain;
+  background: url("resource://content-accessible/media/pause-fill.svg") no-repeat center/contain;
 }
 .onboardingContainer .animation-play-pause-button.paused::before {
-  background-image: url("chrome://global/skin/media/play-fill.svg");
+  background-image: url("resource://content-accessible/media/play-fill.svg");
 }
 .onboardingContainer .animation-play-pause-button:hover {
   background-color: color-mix(in srgb, var(--background-color-canvas), currentColor 14%);

@@ -6,6 +6,7 @@
 #define mozilla_dom_ViewTransition_h
 
 #include <functional>
+#include <memory>
 
 #include "mozilla/Attributes.h"
 #include "mozilla/UniquePtr.h"
@@ -88,6 +89,7 @@ enum class ViewTransitionPhase : uint8_t {
 };
 
 struct ViewTransitionCapturedElement;
+struct OldSnapshotData;
 
 using ViewTransitionNamedElements =
     nsClassHashtable<nsAtomHashKey, ViewTransitionCapturedElement>;
@@ -129,6 +131,11 @@ class ViewTransition final : public nsISupports, public nsWrapperCache {
   // aRenderer. Does nothing if aRenderer does not use WebRender.
   static void AdoptOldSnapshots(WindowRenderer* aRenderer,
                                 ViewTransitionNamedElements& aNamedElements);
+
+  // Skips the active view transitions of aDocument and its subdocuments.
+  // Snapshot image keys are not valid anymore after the WebRender instance or
+  // id namespace changes.
+  static void SkipAllAfterRenderingReset(Document& aDocument);
 
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT UniquePtr<ViewTransitionParams>
   CaptureOldStateForCrossDocument();
@@ -193,6 +200,27 @@ class ViewTransition final : public nsISupports, public nsWrapperCache {
       nsIFrame* capturedFrame, const gfx::MatrixScales& aInheritedScale,
       nsRect& aOutCapturedRect);
 
+  // For a transition in an in-process subdocument, the embedder paints a
+  // snapshot of the whole subdocument while rendering is suppressed for the
+  // transition, instead of the subdocument itself.
+  bool IsCapturingSubdocumentSnapshot() const {
+    return mCapturingSubdocumentSnapshot;
+  }
+  // Whether the embedder holds the subdocument's last paint. It then paints the
+  // snapshot if there is one, and nothing otherwise, e.g. if the subdocument
+  // wasn't visible when the snapshot was taken.
+  bool IsHoldingSubdocument() const { return !!mSubdocumentSnapshot; }
+  // The snapshot rect, relative to the embedder frame.
+  nsRect SubdocumentSnapshotRect() const;
+  // Restricts the snapshot rect to aRect, relative to the embedder frame, and
+  // returns the result.
+  nsRect ClipSubdocumentSnapshotRect(const nsRect& aRect);
+  // Same as GetOrCreateOldImageKey and ReadOldImageKey, for the subdocument
+  // snapshot.
+  const wr::ImageKey* GetOrCreateSubdocumentSnapshotKey(
+      layers::RenderRootStateManager*, wr::IpcResourceUpdateQueue&);
+  const wr::ImageKey* ReadSubdocumentSnapshotKey();
+
   Element* FindPseudo(const PseudoStyleRequest&) const;
 
   const StyleLockedDeclarationBlock* GetDynamicRuleFor(const Element&) const;
@@ -229,6 +257,8 @@ class ViewTransition final : public nsISupports, public nsWrapperCache {
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT Maybe<SkipTransitionReason>
   CaptureOldState();
   [[nodiscard]] Maybe<SkipTransitionReason> CaptureNewState();
+  MOZ_CAN_RUN_SCRIPT void CaptureSubdocumentSnapshotIfNeeded();
+  void ReleaseSubdocumentSnapshot();
   void SetupTransitionPseudoElements();
   [[nodiscard]] bool UpdatePseudoElementStyles(bool aNeedsInvalidation);
   void ClearNamedElements();
@@ -261,6 +291,10 @@ class ViewTransition final : public nsISupports, public nsWrapperCache {
       AutoTArray<std::pair<nsIFrame*, RefPtr<nsAtom>>, 32>;
   // Short lived array pointer used to mark old captures for DL building.
   OldCaptureFramesArray* mOldCaptureElements = nullptr;
+
+  // See IsCapturingSubdocumentSnapshot.
+  std::unique_ptr<OldSnapshotData> mSubdocumentSnapshot;
+  bool mCapturingSubdocumentSnapshot = false;
 
   // The element identifier for the elements which need the auto-generated
   // view-transition-name. The lifetime of those element identifiers is

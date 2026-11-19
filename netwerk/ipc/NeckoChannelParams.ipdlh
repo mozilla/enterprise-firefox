@@ -4,7 +4,6 @@
 
 include protocol PHttpChannel;
 include ClientIPCTypes;
-include URIParams;
 include IPCServiceWorkerDescriptor;
 include IPCStream;
 include PBackgroundSharedTypes;
@@ -105,14 +104,14 @@ struct PreferredAlternativeDataTypeParams
 
 struct RedirectHistoryEntryInfo
 {
-  PrincipalInfo       principalInfo;
-  URIParams?          referrerUri;
+  nsIPrincipal        principal;
+  nullable nsIURI     referrerUri;
   nsCString           remoteAddress;
 };
 
 struct InterceptionInfoArg
 {
-  PrincipalInfo?              triggeringPrincipalInfo;
+  nsIPrincipal                triggeringPrincipal;
   nsContentPolicyType         contentPolicyType;
   RedirectHistoryEntryInfo[]  redirectChain;
   bool                        fromThirdParty;
@@ -120,11 +119,12 @@ struct InterceptionInfoArg
 
 struct LoadInfoArgs
 {
-  PrincipalInfo?              requestingPrincipalInfo;
-  PrincipalInfo               triggeringPrincipalInfo;
-  PrincipalInfo?              principalToInheritInfo;
-  PrincipalInfo?              topLevelPrincipalInfo;
-  URIParams?                  resultPrincipalURI;
+  nullable nsIPrincipal       requestingPrincipal;
+  // TODO(Bug 2091749): Make this non-nullable.
+  nullable nsIPrincipal       triggeringPrincipal;
+  nullable nsIPrincipal       principalToInherit;
+  nullable nsIPrincipal       topLevelPrincipal;
+  nullable nsIURI             resultPrincipalURI;
   RemoteType                  triggeringRemoteType;
   nsID                        sandboxedNullPrincipalID;
   uint32_t                    securityFlags;
@@ -225,7 +225,7 @@ struct LoadInfoArgs
   UserNavigationInvolvement   userNavigationInvolvement;
   PermissionsPolicyInfo?       containerPermissionsPolicyInfo;
   // https://html.spec.whatwg.org/#dom-location-ancestororigins
-  PrincipalInfo?[]             ancestorOrigins;
+  nullable nsIPrincipal[]     ancestorOrigins;
 };
 
 /**
@@ -569,31 +569,6 @@ struct ResourceTimingStructArgs {
 };
 
 //-----------------------------------------------------------------------------
-// GIO IPDL structs
-//-----------------------------------------------------------------------------
-
-struct GIOChannelOpenArgs
-{
-  URIParams                 uri;
-  uint64_t                  startPos;
-  nsCString                 entityID;
-  IPCStream?                uploadStream;
-  LoadInfoArgs              loadInfo;
-  uint32_t                  loadFlags;
-};
-
-struct GIOChannelConnectArgs
-{
-  uint32_t channelId;
-};
-
-union GIOChannelCreationArgs
-{
-  GIOChannelOpenArgs;      // For AsyncOpen: the common case.
-  GIOChannelConnectArgs;   // Used for redirected-to channels
-};
-
-//-----------------------------------------------------------------------------
 // File IPDL structs
 //-----------------------------------------------------------------------------
 
@@ -613,7 +588,7 @@ struct FileChannelInfo
 
 struct GeckoViewContentChannelOpenArgs
 {
-  URIParams uri;
+  nullable nsIURI uri;
   LoadInfoArgs loadInfo;
   uint32_t loadFlags;
 };

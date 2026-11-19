@@ -4,7 +4,7 @@
 
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 import { UrlbarQueryContext } from "chrome://browser/content/urlbar/UrlbarQueryContext.mjs";
-import { UrlbarChildTelemetry } from "chrome://browser/content/urlbar/UrlbarChildTelemetry.mjs";
+import { UrlbarChildSession } from "chrome://browser/content/urlbar/UrlbarChildSession.mjs";
 import { UrlbarParentControllerProxy } from "chrome://browser/content/urlbar/UrlbarParentControllerProxy.mjs";
 import { UrlbarContentUtils } from "chrome://browser/content/urlbar/UrlbarContentUtils.mjs";
 import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs";
@@ -21,7 +21,7 @@ const lazy = XPCOMUtils?.declareLazy({
 });
 
 /**
- * @import {TelemetryEvent} from "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs"
+ * @import {UrlbarSession} from "moz-src:///browser/components/urlbar/UrlbarSession.sys.mjs"
  * @import {UrlbarView} from "chrome://browser/content/urlbar/UrlbarView.mjs"
  * @import {SmartbarInput} from "moz-src:///browser/components/urlbar/content/SmartbarInput.mjs"
  * @import {UrlbarParent} from "moz-src:///browser/components/urlbar/actors/UrlbarParent.sys.mjs"
@@ -95,11 +95,11 @@ export class UrlbarChildController {
 
   /**
    * The content-side engagement-telemetry collector, created lazily on the
-   * message path (where the parent stand-in has no `engagementEvent`).
+   * message path (where the parent stand-in has no `session`).
    *
-   * @type {UrlbarChildTelemetry}
+   * @type {UrlbarChildSession}
    */
-  #childTelemetry = null;
+  #childSession = null;
 
   /**
    * @param {object} options
@@ -150,12 +150,12 @@ export class UrlbarChildController {
    * parent stand-in has none, so use a content-side collector that ships
    * engagements to the parent recorder.
    *
-   * @type {UrlbarChildTelemetry|TelemetryEvent}
+   * @type {UrlbarChildSession|UrlbarSession}
    */
-  get engagementEvent() {
+  get session() {
     return this.#parentController instanceof UrlbarParentControllerProxy
-      ? (this.#childTelemetry ??= new UrlbarChildTelemetry(this))
-      : this.#parentController.engagementEvent;
+      ? (this.#childSession ??= new UrlbarChildSession(this))
+      : this.#parentController.session;
   }
 
   /**
@@ -707,7 +707,7 @@ export class UrlbarChildController {
       return false;
     }
 
-    this.engagementEvent.record(event, {
+    this.session.record(event, {
       result,
       selType: "dismiss",
       searchString: queryContext.searchString,

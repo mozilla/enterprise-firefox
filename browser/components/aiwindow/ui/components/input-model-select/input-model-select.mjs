@@ -8,6 +8,7 @@ import {
   repeat,
 } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
+import { getModelIconSrc } from "chrome://browser/content/aiwindow/modules/ModelIcons.mjs";
 // eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://global/content/elements/moz-button.mjs";
 // eslint-disable-next-line import-x/no-unassigned-import
@@ -20,25 +21,30 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 );
 
 const CUSTOM_MODEL_NAME_PREF = "browser.smartwindow.model";
-const { getModelDisplayOrder } = window.IS_STORYBOOK
-  ? { getModelDisplayOrder: () => ["3", "1", "2"] }
-  : ChromeUtils.importESModule(
-      "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
-    );
+const { getModelDisplayOrder, AUTO_MODEL_CHOICE_ID, isAutoModelEnabled } =
+  window.IS_STORYBOOK
+    ? {
+        getModelDisplayOrder: () => ["3", "1", "2"],
+        AUTO_MODEL_CHOICE_ID: "4",
+        isAutoModelEnabled: () => false,
+      }
+    : ChromeUtils.importESModule(
+        "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
+      );
 
-// Icon URL and l10n ID inlined as full URLs so they stay greppable
-
-const MODEL_ICONS = {
-  0: "chrome://browser/content/aiwindow/assets/model-choice-0.svg",
-  1: "chrome://browser/content/aiwindow/assets/model-choice-gemini.svg",
-  2: "chrome://browser/content/aiwindow/assets/model-choice-qwen.svg",
-  3: "chrome://browser/content/aiwindow/assets/model-choice-mistral.svg",
-};
 const BUTTON_LABEL_L10N_IDS = {
   0: "aiwindow-input-model-select-button-label-custom",
   1: "aiwindow-input-model-select-button-label-fast",
   2: "aiwindow-input-model-select-button-label-allpurpose",
   3: "aiwindow-input-model-select-button-label-personal",
+  4: "aiwindow-input-model-select-button-label-auto",
+};
+const AUTO_MODEL_DETAILS_L10N_IDS = {
+  ...BUTTON_LABEL_L10N_IDS,
+  1: "aiwindow-input-model-select-fast-description",
+  2: "aiwindow-input-model-select-flexible-description",
+  3: "aiwindow-input-model-select-personal-description",
+  4: "aiwindow-input-model-select-auto-description",
 };
 
 /**
@@ -177,10 +183,6 @@ export class InputModelSelect extends MozLitElement {
     return lastSegment.split(/[-_:]/).find(Boolean) ?? "";
   }
 
-  #iconSrc(index) {
-    return MODEL_ICONS[index];
-  }
-
   render() {
     const selectedModel = this.#selectedModel;
     if (!this.#modelsList.length || !selectedModel) {
@@ -188,6 +190,9 @@ export class InputModelSelect extends MozLitElement {
     }
 
     const buttonLabel = this.#modelBrandName(selectedModel);
+    const detailsL10nIds = isAutoModelEnabled()
+      ? AUTO_MODEL_DETAILS_L10N_IDS
+      : BUTTON_LABEL_L10N_IDS;
 
     const panelListTemplate = html`<panel-list
       id=${this._menuId}
@@ -208,7 +213,7 @@ export class InputModelSelect extends MozLitElement {
                 class="model-item-icon${item.index === "0"
                   ? " model-item-icon--custom"
                   : ""}"
-                src=${this.#iconSrc(item.index)}
+                src=${getModelIconSrc(item.index)}
                 alt=${this.#modelName(item)}
             /></span>
             <span class="model-item-content">
@@ -221,6 +226,13 @@ export class InputModelSelect extends MozLitElement {
                       class="model-item-label"
                       data-l10n-id=${this.#getButtonLabelL10nId(item.index)}
                     ></span>`}
+                ${item.index === AUTO_MODEL_CHOICE_ID &&
+                item.index !== this.defaultModelChoiceId
+                  ? html`<moz-badge
+                      type="new"
+                      data-l10n-id="aiwindow-input-model-select-recommended-badge"
+                    ></moz-badge>`
+                  : ""}
                 ${item.index === this.defaultModelChoiceId
                   ? html`<moz-badge
                       type="new"
@@ -230,7 +242,7 @@ export class InputModelSelect extends MozLitElement {
               </span>
               <span
                 class="model-item-details"
-                data-l10n-id=${this.#getButtonLabelL10nId(item.index)}
+                data-l10n-id=${detailsL10nIds[item.index]}
               ></span>
             </span>
             ${item.model === this.selectedModelId

@@ -85,7 +85,6 @@ function recordsHistory() {
 const PREF_DEFAULTS = [
   { type: "bool", key: "logowordmark.alwaysVisible", defaultValue: false },
   { type: "bool", key: "feeds.section.topstories", defaultValue: false },
-  { type: "bool", key: "discoverystream.enabled", defaultValue: false },
   {
     type: "bool",
     key: "discoverystream.hardcoded-basic-layout",
@@ -107,6 +106,10 @@ const PREF_DEFAULTS = [
 
 ChromeUtils.defineLazyGetter(lazy, "logConsole", function () {
   return console.createInstance({
+    logModule: "PrefsFeed",
+    // @backward-compat { version 162 }
+    // Older versions ignore logModule and name the module after the prefix.
+    // Remove prefix: once 162 reaches Release.
     prefix: "PrefsFeed",
     maxLogLevel: Services.prefs.getBoolPref(
       "browser.newtabpage.activity-stream.activationWindow.log",
@@ -717,6 +720,24 @@ export class PrefsFeed {
     // computed in main process
     values.isPrivateBrowsingEnabled = lazy.PrivateBrowsingUtils.enabled;
     values.platform = AppConstants.platform;
+    Object.assign(values, {
+      /**
+       * @backward-compat { version 161 }
+       * MozAdsReportReason only has SCAM, MISLEADING and OFFENSIVE from 161, so
+       * ReportContent keeps showing the legacy ad report reasons before that.
+       */
+      adsNewReportReasonsSupported:
+        Services.vc.compare(AppConstants.MOZ_APP_VERSION, "161.0a1") >= 0,
+      /**
+       * @backward-compat { version 162 }
+       * play-fill.svg and pause-fill.svg moved from chrome://global/skin/media/
+       * to resource://content-accessible/media/ in Firefox 162 (bug 2093279).
+       */
+      mediaIconsPath:
+        Services.vc.compare(AppConstants.MOZ_APP_VERSION, "162.0a1") >= 0
+          ? "resource://content-accessible/media"
+          : "chrome://global/skin/media",
+    });
 
     // Save the geo pref if we have it
     if (lazy.Region.home) {

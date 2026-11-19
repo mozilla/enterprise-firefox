@@ -279,6 +279,60 @@ def test_decision_parameters_git_files_changed_base(mock_get_repository, options
     assert params["files_changed"] == ["python/mozboot/mozboot/debian.py"]
 
 
+@patch("gecko_taskgraph.decision.get_hg_revision_metadata")
+@patch("gecko_taskgraph.decision.get_repository")
+@patch("gecko_taskgraph.decision.get_changed_files")
+def test_decision_parameters_hg_files_changed_ignores_try_task_config(
+    mock_get_changed_files,
+    mock_get_repository,
+    mock_get_hg_revision_metadata,
+    options,
+):
+    mock_get_changed_files.return_value = [
+        "try_task_config.json",
+        "mobile/android/fenix/app/build.gradle",
+        "taskcluster/try_task_config.json",
+    ]
+    _note_mock_repo(mock_get_repository, mock_get_hg_revision_metadata, note=None)
+    opts = {**options, "project": "try"}
+    ttc = {"version": 2, "parameters": {"optimize_target_tasks": True}}
+    with MockedOpen({TTC_FILE: json.dumps(ttc)}):
+        params = decision.get_decision_parameters(FAKE_GRAPH_CONFIG, opts)
+
+    assert params["files_changed"] == [
+        "mobile/android/fenix/app/build.gradle",
+        "taskcluster/try_task_config.json",
+    ]
+
+
+@patch("gecko_taskgraph.decision.get_repository")
+def test_decision_parameters_git_files_changed_ignores_try_task_config(
+    mock_get_repository, options
+):
+    mock_repo = MagicMock()
+    mock_repo.NULL_REVISION = "0" * 40
+    mock_repo.get_commit_message.return_value = "commit message"
+    mock_repo.get_note.return_value = None
+    mock_repo.get_changed_files.return_value = [
+        "mobile/android/fenix/app/build.gradle",
+        "try_task_config.json",
+    ]
+    mock_get_repository.return_value = mock_repo
+
+    opts = {
+        **options,
+        "base_repository": "https://github.com/mozilla-firefox/firefox",
+        "head_repository": "https://github.com/mozilla-firefox/firefox",
+        "project": "try",
+        "repository_type": "git",
+        "tasks_for": "github-push",
+    }
+    with MockedOpen({TTC_FILE: None}):
+        params = decision.get_decision_parameters(FAKE_GRAPH_CONFIG, opts)
+
+    assert params["files_changed"] == ["mobile/android/fenix/app/build.gradle"]
+
+
 @pytest.mark.parametrize(
     "project,tasks_for,target_tasks_method,expected",
     (
@@ -466,6 +520,91 @@ def test_build_decision_perfherder_data(
     with open(PERFHERDER_SCHEMA_PATH) as f:
         schema = json.load(f)
     jsonschema.validate(data, schema)
+
+
+@pytest.mark.parametrize(
+    "project,override,ttc,expected",
+    (
+        pytest.param("autoland", False, None, True, id="autoland"),
+        pytest.param("try", True, None, False, id="no try_task_config"),
+        pytest.param(
+            "try",
+            True,
+            {"version": 2, "parameters": {"test_manifest_loader": "bugbug"}},
+            True,
+            id="bugbug loader",
+        ),
+        pytest.param(
+            "try",
+            False,
+            {"version": 2, "parameters": {"test_manifest_loader": "bugbug"}},
+            False,
+            id="override disallowed",
+        ),
+        pytest.param(
+            "try",
+            True,
+            {"version": 2, "parameters": {"test_manifest_loader": "default"}},
+            False,
+            id="default loader",
+        ),
+        pytest.param("try", True, {"tasks": ["a"]}, False, id="version 1"),
+    ),
+)
+def test_uses_bugbug(project, override, ttc, expected):
+    options = {"project": project, "allow_parameter_override": override}
+    with MockedOpen({TTC_FILE: json.dumps(ttc) if ttc is not None else None}):
+        assert decision.uses_bugbug(options) == expected
+
+
+def test_shared_bugbug_query(monkeypatch):
+    from gecko_taskgraph.util.bugbug import PUSH_SCHEDULES_ENV
+
+    monkeypatch.setattr(decision.create, "testing", False)
+    monkeypatch.delenv(PUSH_SCHEDULES_ENV, raising=False)
+    started = []
+    calls = []
+
+    class FakeProc:
+        def kill(self):
+            calls.append("kill")
+
+        def wait(self):
+            calls.append("wait")
+
+    def fake_start_push_schedules(branch, rev, result_path):
+        started.append((branch, rev, result_path))
+        return FakeProc()
+
+    monkeypatch.setattr(decision, "start_push_schedules", fake_start_push_schedules)
+    options = {"project": "autoland", "head_rev": "abcdef"}
+
+    with decision.shared_bugbug_query(options) as yielded_path:
+        [(branch, rev, result_path)] = started
+        assert yielded_path == result_path
+        assert (branch, rev) == ("autoland", "abcdef")
+        assert os.environ[PUSH_SCHEDULES_ENV] == result_path
+        result_dir = os.path.dirname(result_path)
+        assert os.path.isdir(result_dir)
+        with open(result_path, "w") as fh:
+            fh.write("{}")
+
+    assert calls == ["kill", "wait"]
+    assert not os.path.exists(result_dir)
+    assert PUSH_SCHEDULES_ENV not in os.environ
+
+
+def test_shared_bugbug_query_unused(monkeypatch):
+    from gecko_taskgraph.util.bugbug import PUSH_SCHEDULES_ENV
+
+    monkeypatch.setattr(decision.create, "testing", False)
+    monkeypatch.delenv(PUSH_SCHEDULES_ENV, raising=False)
+    monkeypatch.setattr(decision, "start_push_schedules", None)
+    options = {"project": "mozilla-central", "head_rev": "abcdef"}
+
+    with decision.shared_bugbug_query(options) as result_path:
+        assert result_path is None
+        assert PUSH_SCHEDULES_ENV not in os.environ
 
 
 if __name__ == "__main__":

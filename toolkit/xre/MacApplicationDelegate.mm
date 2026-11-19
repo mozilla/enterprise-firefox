@@ -76,6 +76,7 @@ enum class LaunchStatus {
 
 static LaunchStatus sLaunchStatus = LaunchStatus::Initial;
 static bool sHasFinishedLaunching = false;
+static bool sShouldActivateAfterLaunch = false;
 
 #ifdef NIGHTLY_BUILD
 static mozilla::TimeStamp sStartupRunLoopStart;
@@ -151,17 +152,27 @@ void EnsureUseCocoaDockAPI() {
   NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
 
-void DisableAppNap() {
+// These defaults have to be registered early during startup, before the OS
+// reads them for the process.
+void RegisterEarlyUserDefaults() {
+  NSMutableDictionary* defaults = [NSMutableDictionary dictionary];
+
   // Prevent the parent process from entering App Nap. macOS does not put our
   // child processes into App Nap and, as a result, when the parent is in
   // App Nap, child processes continue to run normally generating IPC messages
   // for the parent which can end up being queued. This can cause the browser
   // to be unresponsive for a period of time after the App Nap until the parent
-  // process "catches up." NSAppSleepDisabled has to be set early during
-  // startup before the OS reads the value for the process.
-  [[NSUserDefaults standardUserDefaults] registerDefaults:@{
-    @"NSAppSleepDisabled" : @YES,
-  }];
+  // process "catches up."
+  defaults[@"NSAppSleepDisabled"] = @YES;
+
+#ifdef NIGHTLY_BUILD
+  // On macOS 27, AppKit opts the Firefox, Firefox Beta and Developer Edition
+  // bundle identifiers into gesture recognizers that emulate mouse events and
+  // scrolling from touch input. Opt Nightly in as well.
+  defaults[@"NSApplicationRequiresGestureRecognizersFor3rdPartyToolKit"] = @YES;
+#endif
+
+  [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
 }
 
 #ifdef MOZ_ENTERPRISE
@@ -300,6 +311,12 @@ void InitializeMacApp() {
 
 nsTArray<nsCString> TakeStartupURLs() { return std::move(StartupURLs()); }
 
+void ActivateMacAppAfterLaunch() {
+  MOZ_ASSERT(!sHasFinishedLaunching,
+             "Must be requested before AppKit finishes launching");
+  sShouldActivateAfterLaunch = true;
+}
+
 @implementation MacApplicationDelegate
 
 - (IBAction)undo:(id)aSender {
@@ -429,6 +446,13 @@ nsTArray<nsCString> TakeStartupURLs() { return std::move(StartupURLs()); }
 
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
   sHasFinishedLaunching = true;
+  if (sShouldActivateAfterLaunch) {
+    sShouldActivateAfterLaunch = false;
+    ProcessSerialNumber psn;
+    if (::GetCurrentProcess(&psn) == noErr) {
+      ::SetFrontProcess(&psn);
+    }
+  }
   LOG_STARTUP_RUN_LOOP_EVENT("didfinish");
 }
 

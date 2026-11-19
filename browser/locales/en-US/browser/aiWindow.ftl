@@ -143,11 +143,26 @@ aiwindow-input-model-select-button-label-fast = Fast
 aiwindow-input-model-select-button-label-allpurpose = Flexible
 aiwindow-input-model-select-button-label-personal = Personal
 aiwindow-input-model-select-button-label-custom = Custom
+# Auto lets Smart Window pick the model for each request.
+aiwindow-input-model-select-button-label-auto = Auto
 
 aiwindow-input-model-select-default-badge =
     .label = Default
     .title = The selected default model
+# Badge next to the Auto model in the smartbar model select, shown when Auto
+# isn't the default model.
+aiwindow-input-model-select-recommended-badge =
+    .label = Recommended
+    .title = The recommended model
 aiwindow-input-model-select-settings-link = Model settings
+
+## Descriptions shown under each model in the smartbar model select when the
+## Auto model is offered.
+
+aiwindow-input-model-select-auto-description = { -smart-window-brand-name } picks the best model for your task
+aiwindow-input-model-select-fast-description = Quick answers when you’re moving fast
+aiwindow-input-model-select-flexible-description = Ready for a variety of tasks
+aiwindow-input-model-select-personal-description = Good if you chat and browse in multiple languages
 
 ## Firstrun memories onboarding
 
@@ -407,3 +422,35 @@ aiwindow-starter-scroll-end =
 aiwindow-starter-dismiss =
     .title = Dismiss { $text }
     .aria-label = Dismiss { $text }
+
+## Single-page onboarding
+
+# The line break is intentional and is preserved when displayed.
+smartwindow-onboarding-welcome-subtitle =
+    It works alongside you to get stuff done.
+    Plan, compare, explore, and more.
+smartwindow-onboarding-title = Let’s make it yours
+smartwindow-onboarding-subtitle = Set up { -smart-window-brand-name } the way you like. Make changes anytime in settings.
+smartwindow-onboarding-model-label = Pick your AI model
+smartwindow-onboarding-model-description = The model powers chats and actions in { -smart-window-brand-name }.
+smartwindow-onboarding-model-auto = Auto
+# Badge identifying the recommended model during onboarding: Mistral in the EEA, Auto elsewhere.
+smartwindow-onboarding-model-recommended = Recommended
+smartwindow-onboarding-model-auto-description = { -smart-window-brand-name } picks the best model for your task
+smartwindow-onboarding-model-mistral-description = Good if you chat and browse in multiple languages
+smartwindow-onboarding-model-gemini-description = Quick answers when you’re moving fast
+smartwindow-onboarding-memories-label = Choose how { -smart-window-brand-name } learns about you
+smartwindow-onboarding-memories-description = { -smart-window-brand-name } can learn from chats, browsing, or both to create memories. It uses them to personalize your experience over time.
+smartwindow-onboarding-memories-both = Chats and browsing
+smartwindow-onboarding-memories-browsing = Browsing only
+smartwindow-onboarding-memories-chats = Chats only
+smartwindow-onboarding-memories-none = Don’t learn from activity
+smartwindow-onboarding-memories-both-description = Chats in { -smart-window-brand-name }, browsing across { -brand-short-name }
+smartwindow-onboarding-memories-browsing-description = Browsing across { -brand-short-name }
+smartwindow-onboarding-memories-chats-description = Chats in { -smart-window-brand-name }
+smartwindow-onboarding-memories-none-description = You’ll see fewer tailored suggestions and may need to repeat details across chats.
+smartwindow-onboarding-default-window =
+    .label = Start in { -smart-window-brand-name }
+    .description = Use it when { -brand-short-name } starts, restarts, or opens links from other apps.
+smartwindow-onboarding-save =
+    .label = Save and go

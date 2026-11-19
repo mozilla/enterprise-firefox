@@ -100,14 +100,13 @@ NSSCertDBTrustDomain::NSSCertDBTrustDomain(
       mBuiltInRootsModule(SECMOD_FindModule(kRootModuleName.get())),
       mOCSPFetchStatus(OCSPFetchStatus::NotFetched) {}
 
-static void FindRootsWithSubject(UniqueSECMODModule& rootsModule,
-                                 SECItem subject,
-                                 /*out*/ nsTArray<nsTArray<uint8_t>>& roots) {
-  MOZ_ASSERT(rootsModule);
+static void FindCertsWithSubject(SECMODModule* module, SECItem subject,
+                                 /*out*/ nsTArray<nsTArray<uint8_t>>& certs) {
+  MOZ_ASSERT(module);
   AutoSECMODListReadLock lock;
-  for (int slotIndex = 0; slotIndex < rootsModule->slotCount; slotIndex++) {
+  for (int slotIndex = 0; slotIndex < module->slotCount; slotIndex++) {
     CERTCertificateList* rawResults = nullptr;
-    if (PK11_FindRawCertsWithSubject(rootsModule->slots[slotIndex], &subject,
+    if (PK11_FindRawCertsWithSubject(module->slots[slotIndex], &subject,
                                      &rawResults) != SECSuccess) {
       continue;
     }
@@ -117,10 +116,10 @@ static void FindRootsWithSubject(UniqueSECMODModule& rootsModule,
     }
     UniqueCERTCertificateList results(rawResults);
     for (int certIndex = 0; certIndex < results->len; certIndex++) {
-      nsTArray<uint8_t> root;
-      root.AppendElements(results->certs[certIndex].data,
+      nsTArray<uint8_t> cert;
+      cert.AppendElements(results->certs[certIndex].data,
                           results->certs[certIndex].len);
-      roots.AppendElement(std::move(root));
+      certs.AppendElement(std::move(cert));
     }
   }
 }
@@ -218,7 +217,7 @@ Result NSSCertDBTrustDomain::FindIssuer(Input encodedIssuerName,
   // does something unexpected.
   nsTArray<nsTArray<uint8_t>> builtInRoots;
   if (mBuiltInRootsModule) {
-    FindRootsWithSubject(mBuiltInRootsModule, encodedIssuerNameItem,
+    FindCertsWithSubject(mBuiltInRootsModule.get(), encodedIssuerNameItem,
                          builtInRoots);
     for (const auto& root : builtInRoots) {
       Input rootInput;
@@ -328,71 +327,64 @@ Result NSSCertDBTrustDomain::FindIssuer(Input encodedIssuerName,
     return Success;
   }
 
-  // Synchronously dispatch a task to the socket thread to find
-  // CERTCertificates with the given subject. This involves querying NSS
-  // structures and databases, so it should be done on the socket thread.
-  nsTArray<nsTArray<uint8_t>> nssRootCandidates;
-  nsTArray<nsTArray<uint8_t>> nssIntermediateCandidates;
-  RefPtr<Runnable> getCandidatesTask =
-      NS_NewRunnableFunction("NSSCertDBTrustDomain::FindIssuer", [&]() {
-        if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed)) {
-          return;
-        }
-        AutoSearchingForCertificates _;
-        // NSS seems not to differentiate between "no potential issuers found"
-        // and "there was an error trying to retrieve the potential issuers." We
-        // assume there was no error if CERT_CreateSubjectCertList returns
-        // nullptr.
-        UniqueCERTCertList candidates(
-            CERT_CreateSubjectCertList(nullptr, CERT_GetDefaultCertDB(),
-                                       &encodedIssuerNameItem, 0, false));
-        if (candidates) {
-          for (CERTCertListNode* n = CERT_LIST_HEAD(candidates);
-               !CERT_LIST_END(n, candidates); n = CERT_LIST_NEXT(n)) {
-            nsTArray<uint8_t> candidate;
-            candidate.AppendElements(n->cert->derCert.data,
-                                     n->cert->derCert.len);
-            if (n->cert->isRoot) {
-              nssRootCandidates.AppendElement(std::move(candidate));
-            } else {
-              nssIntermediateCandidates.AppendElement(std::move(candidate));
-            }
-          }
-        }
-      });
-  nsCOMPtr<nsIEventTarget> socketThread(
-      do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID));
-  if (!socketThread) {
-    return Result::FATAL_ERROR_LIBRARY_FAILURE;
-  }
-  rv = SyncRunnable::DispatchToThread(socketThread, getCandidatesTask);
-  if (NS_FAILED(rv)) {
-    return Result::FATAL_ERROR_LIBRARY_FAILURE;
-  }
-
-  nsTArray<IssuerCandidateWithSource> nssCandidates;
-  for (const auto& rootCandidate : nssRootCandidates) {
+  // Find potential issuers stored in the internal module, commonly referred to
+  // as the NSS certDB.
+  SECMODModule* internalModule(SECMOD_GetInternalModule());
+  nsTArray<nsTArray<uint8_t>> nssCertDBCandidates;
+  FindCertsWithSubject(internalModule, encodedIssuerNameItem,
+                       nssCertDBCandidates);
+  nsTArray<IssuerCandidateWithSource> nssCertDBCandidatesWithSource;
+  for (const auto& candidate : nssCertDBCandidates) {
     Input certDER;
-    Result rv = certDER.Init(rootCandidate.Elements(), rootCandidate.Length());
+    Result rv = certDER.Init(candidate.Elements(), candidate.Length());
     if (rv != Success) {
       continue;  // probably too big
     }
-    nssCandidates.AppendElement(
+    nssCertDBCandidatesWithSource.AppendElement(
         IssuerCandidateWithSource{std::move(certDER), IssuerSource::NSSCertDB});
   }
-  for (const auto& intermediateCandidate : nssIntermediateCandidates) {
+  result = CheckCandidates(checker, nssCertDBCandidatesWithSource,
+                           nameConstraintsInputPtr, keepGoing);
+  if (result != Success) {
+    return result;
+  }
+  if (!keepGoing) {
+    return Success;
+  }
+
+  // Finally, look for potential issuers among any third-party PKCS#11 modules.
+  nsTArray<UniqueSECMODModule> modules;
+  {
+    AutoSECMODListReadLock lock;
+    for (SECMODModuleList* list = SECMOD_GetDefaultModuleList(); list;
+         list = list->next) {
+      if (list->module != SECMOD_GetInternalModule() &&
+          list->module != mBuiltInRootsModule.get() &&
+          !kOSClientCertsModuleName.Equals(list->module->commonName)) {
+        modules.AppendElement(SECMOD_ReferenceModule(list->module));
+      }
+    }
+  }
+  nsTArray<nsTArray<uint8_t>> pkcs11Candidates;
+  {
+    AutoSearchingForCertificates _;
+    for (const auto& module : modules) {
+      FindCertsWithSubject(module.get(), encodedIssuerNameItem,
+                           pkcs11Candidates);
+    }
+  }
+  nsTArray<IssuerCandidateWithSource> pkcs11CandidatesWithSource;
+  for (const auto& candidate : pkcs11Candidates) {
     Input certDER;
-    Result rv = certDER.Init(intermediateCandidate.Elements(),
-                             intermediateCandidate.Length());
+    Result rv = certDER.Init(candidate.Elements(), candidate.Length());
     if (rv != Success) {
       continue;  // probably too big
     }
-    nssCandidates.AppendElement(
-        IssuerCandidateWithSource{std::move(certDER), IssuerSource::NSSCertDB});
+    pkcs11CandidatesWithSource.AppendElement(IssuerCandidateWithSource{
+        std::move(certDER), IssuerSource::PKCS11Module});
   }
-
-  return CheckCandidates(checker, nssCandidates, nameConstraintsInputPtr,
-                         keepGoing);
+  return CheckCandidates(checker, pkcs11CandidatesWithSource,
+                         nameConstraintsInputPtr, keepGoing);
 }
 
 void HashTrustParams(EndEntityOrCA endEntityOrCA, const CertPolicyId& policy,
@@ -664,8 +656,8 @@ static void RecordCRLiteNotCoveredCertAge(
     return;
   }
   mozilla::glean::cert_verifier::crlite_not_covered_cert_age
-      .AccumulateRawDuration(TimeDuration::FromMilliseconds(
-          static_cast<double>(timeMs - mostRecentMs)));
+      .AccumulateRawDuration(
+          TimeDuration::FromMilliseconds(timeMs - mostRecentMs));
 }
 
 Result NSSCertDBTrustDomain::CheckCRLite(
@@ -803,7 +795,7 @@ Result NSSCertDBTrustDomain::CheckRevocationByCRLite(
   // disabled we will pass unverified timestamps from embedded SCTs to CRLite.
   if (GetCertificateTransparencyMode() ==
       CertVerifier::CertificateTransparencyMode::Disabled) {
-    size_t decodingErrors;
+    size_t decodingErrors = 0;
     std::vector<SignedCertificateTimestamp> decodedSCTsFromExtension;
     DecodeSCTs(GetSCTListFromCertificate(), decodedSCTsFromExtension,
                decodingErrors);
@@ -1403,7 +1395,7 @@ Result NSSCertDBTrustDomain::VerifyRSAPKCS1SignedData(
   return VerifySignedDataWithCache(
       der::PublicKeyAlgorithm::RSA_PKCS1,
       mozilla::glean::cert_signature_cache::total,
-      mozilla::glean::cert_signature_cache::hits, data, digestAlgorithm,
+      mozilla::glean::cert_signature_cache::hits, data, Some(digestAlgorithm),
       signature, subjectPublicKeyInfo, mSignatureCache, mPinArg);
 }
 
@@ -1413,7 +1405,7 @@ Result NSSCertDBTrustDomain::VerifyRSAPSSSignedData(
   return VerifySignedDataWithCache(
       der::PublicKeyAlgorithm::RSA_PSS,
       mozilla::glean::cert_signature_cache::total,
-      mozilla::glean::cert_signature_cache::hits, data, digestAlgorithm,
+      mozilla::glean::cert_signature_cache::hits, data, Some(digestAlgorithm),
       signature, subjectPublicKeyInfo, mSignatureCache, mPinArg);
 }
 
@@ -1435,8 +1427,36 @@ Result NSSCertDBTrustDomain::VerifyECDSASignedData(
   return VerifySignedDataWithCache(
       der::PublicKeyAlgorithm::ECDSA,
       mozilla::glean::cert_signature_cache::total,
-      mozilla::glean::cert_signature_cache::hits, data, digestAlgorithm,
+      mozilla::glean::cert_signature_cache::hits, data, Some(digestAlgorithm),
       signature, subjectPublicKeyInfo, mSignatureCache, mPinArg);
+}
+
+Result NSSCertDBTrustDomain::CheckMLDSAParameterSetIsAcceptable(
+    EndEntityOrCA /*endEntityOrCA*/, MLDSAParameterSet parameterSet) {
+  return CheckMLDSAParameterSetIsEnabled(parameterSet);
+}
+
+Result NSSCertDBTrustDomain::VerifyMLDSASignedData(
+    Input data, MLDSAParameterSet parameterSet, Input signature,
+    Input subjectPublicKeyInfo) {
+  der::PublicKeyAlgorithm publicKeyAlg;
+  switch (parameterSet) {
+    case MLDSAParameterSet::ml_dsa_44:
+      publicKeyAlg = der::PublicKeyAlgorithm::MLDSA_44;
+      break;
+    case MLDSAParameterSet::ml_dsa_65:
+      publicKeyAlg = der::PublicKeyAlgorithm::MLDSA_65;
+      break;
+    case MLDSAParameterSet::ml_dsa_87:
+      publicKeyAlg = der::PublicKeyAlgorithm::MLDSA_87;
+      break;
+    default:
+      return Result::FATAL_ERROR_INVALID_ARGS;
+  }
+  return VerifySignedDataWithCache(
+      publicKeyAlg, mozilla::glean::cert_signature_cache::total,
+      mozilla::glean::cert_signature_cache::hits, data, Nothing(), signature,
+      subjectPublicKeyInfo, mSignatureCache, mPinArg);
 }
 
 Result NSSCertDBTrustDomain::CheckValidityIsAcceptable(
@@ -1543,8 +1563,8 @@ SECStatus InitializeNSS(const nsACString& dir, NSSDBConfig nssDbConfig,
   nsAutoCString dbTypeAndDirectory("sql:");
   dbTypeAndDirectory.Append(dir);
   MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
-          ("InitializeNSS(%s, %d, %d)", dbTypeAndDirectory.get(),
-           (int)nssDbConfig, (int)pkcs11DbConfig));
+          ("InitializeNSS(%s, %u, %u, 0x%x)", dbTypeAndDirectory.get(),
+           (unsigned int)nssDbConfig, (unsigned int)pkcs11DbConfig, flags));
   SECStatus srv =
       NSS_Initialize(dbTypeAndDirectory.get(), "", "", SECMOD_DB, flags);
   if (srv != SECSuccess) {

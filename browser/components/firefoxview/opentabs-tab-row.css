@@ -59,11 +59,11 @@
     position: absolute;
 
     &[muted="true"] {
-      background-image: url("chrome://global/skin/media/audio-muted.svg");
+      background-image: url("resource://content-accessible/media/audio-muted.svg");
     }
 
     &[soundplaying="true"] {
-      background-image: url("chrome://global/skin/media/audio.svg");
+      background-image: url("resource://content-accessible/media/audio.svg");
     }
 
     &:active,
@@ -83,6 +83,32 @@
 
   @media -moz-pref("browser.nova.enabled") {
     fill: var(--identity-color);
+  }
+}
+
+:host(.pinned) {
+  position: relative;
+}
+
+.fxview-tab-row-pinned-context-line {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: calc(var(--border-radius-small) / 2);
+  height: 2px;
+  border-radius: var(--border-radius-xsmall);
+  background-color: var(--identity-icon-color);
+
+  @media -moz-pref("browser.nova.enabled") {
+    --context-line-thickness: 2px;
+    --context-line-gap: 2px;
+    inset-block-start: calc(-1 * (var(--context-line-gap) + var(--context-line-thickness)));
+    inset-inline: 0;
+    width: 16px;
+    margin-inline: auto;
+    height: 0;
+    border-block: calc(var(--context-line-thickness) / 2) solid transparent;
+    border-radius: var(--context-line-thickness) var(--context-line-thickness) 0 0;
+    background: var(--identity-color) border-box border-box;
   }
 }
 

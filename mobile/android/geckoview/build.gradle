@@ -82,6 +82,7 @@ android {
 
     lint {
         abortOnError = false
+        warningsAsErrors = true
         lintConfig = file("lint.xml")
     }
 
@@ -217,7 +218,7 @@ dependencies {
     androidTestImplementation libs.androidx.test.runner
     androidTestImplementation libs.kotlin.test
     androidTestImplementation libs.kotlinx.coroutines.test
-    androidTestImplementation 'com.koushikdutta.async:androidasync:3.1.0'
+    androidTestImplementation libs.mockwebserver
 }
 
 apply from: "${topsrcdir}/mobile/android/gradle/with_gecko_binaries.gradle"
@@ -306,7 +307,6 @@ androidComponents.onVariants(androidComponents.selector().all()) { variant ->
         }
 
         options.memberLevel = JavadocMemberLevel.PROTECTED
-        options.source = 11
         options.links("https://developer.android.com/reference")
 
         options.docTitle = "GeckoView ${mozconfig.substs.MOZ_APP_VERSION} API"
@@ -353,7 +353,7 @@ androidComponents.onVariants(androidComponents.selector().all()) { variant ->
 checkstyle {
     configDirectory = file(".")
     configFile = file("checkstyle.xml")
-    toolVersion = "8.36.2"
+    toolVersion = libs.versions.checkstyle.get()
 }
 
 // AGP creates the javac and bundleLibRuntimeToJar tasks after onVariants runs, so wire the
@@ -425,14 +425,17 @@ afterEvaluate {
 
             scm {
                 if (gradle.mozconfig.substs.MOZ_INCLUDE_SOURCE_INFO) {
-                    // URL is like "https://hg.mozilla.org/mozilla-central/rev/1e64b8a0c546a49459d404aaf930d5b1f621246a".
-                    connection = "scm:hg:${gradle.mozconfig.source_repo.MOZ_SOURCE_REPO}"
+                    // URL is like "https://hg.mozilla.org/mozilla-central/rev/1e64b8a0c546a49459d404aaf930d5b1f621246a"
+                    // or "https://github.com/mozilla-firefox/firefox/commit/1e64b8a0c546a49459d404aaf930d5b1f621246a".
+                    def sourceRepo = gradle.mozconfig.source_repo.MOZ_SOURCE_REPO
+                    def scmProvider = sourceRepo?.contains('hg.mozilla.org') ? 'hg' : 'git'
+                    connection = "scm:${scmProvider}:${sourceRepo}"
                     url = gradle.mozconfig.source_repo.MOZ_SOURCE_URL
                     tag = gradle.mozconfig.source_repo.MOZ_SOURCE_STAMP
                 } else {
-                    // Default to mozilla-central.
-                    connection = 'scm:hg:https://hg.mozilla.org/mozilla-central/'
-                    url = 'https://hg.mozilla.org/mozilla-central/'
+                    // Default to the main Firefox repository.
+                    connection = 'scm:git:https://github.com/mozilla-firefox/firefox/'
+                    url = 'https://github.com/mozilla-firefox/firefox/'
                 }
             }
         }

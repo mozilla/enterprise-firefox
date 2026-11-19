@@ -203,11 +203,12 @@ export const MessageLoaderUtils = {
     return provider.messages;
   },
 
-  async _remoteLoaderCache(storage) {
+  async _remoteLoaderCache(routerStorage) {
     let allCached;
     try {
       allCached =
-        (await storage.get(MessageLoaderUtils.REMOTE_LOADER_CACHE_KEY)) || {};
+        (await routerStorage.get(MessageLoaderUtils.REMOTE_LOADER_CACHE_KEY)) ||
+        {};
     } catch (e) {
       // istanbul ignore next
       MessageLoaderUtils.reportError(e);
@@ -745,9 +746,9 @@ export const MessageLoaderUtils = {
    *
    * @param {Array} providers A list of activer AS Router providers
    */
-  async cleanupCache(providers, storage) {
+  async cleanupCache(providers, routerStorage) {
     const ids = providers.filter(p => p.type === "remote").map(p => p.id);
-    const cache = await MessageLoaderUtils._remoteLoaderCache(storage);
+    const cache = await MessageLoaderUtils._remoteLoaderCache(routerStorage);
     let dirty = false;
     for (let id in cache) {
       if (!ids.includes(id)) {
@@ -756,7 +757,10 @@ export const MessageLoaderUtils = {
       }
     }
     if (dirty) {
-      await storage.set(MessageLoaderUtils.REMOTE_LOADER_CACHE_KEY, cache);
+      await routerStorage.set(
+        MessageLoaderUtils.REMOTE_LOADER_CACHE_KEY,
+        cache
+      );
     }
   },
 
@@ -1200,7 +1204,7 @@ export class _ASRouter {
    * @memberof _ASRouter
    */
   async init({
-    storage,
+    storage: routerStorage,
     sendTelemetry,
     clearChildMessages,
     clearChildProviders,
@@ -1211,7 +1215,7 @@ export class _ASRouter {
       return null;
     }
     this.initializing = true;
-    this._storage = storage;
+    this._storage = routerStorage;
     this.ALLOWLIST_HOSTS = this._loadAllowHosts();
     this.clearChildMessages = this.toWaitForInitFunc(clearChildMessages);
     this.clearChildProviders = this.toWaitForInitFunc(clearChildProviders);
@@ -1275,7 +1279,7 @@ export class _ASRouter {
     await this._updateMessageProviders();
     await lazy.MessagingSystemAllowlists.ensureInit();
     await this.loadMessagesFromAllProviders();
-    await MessageLoaderUtils.cleanupCache(this.state.providers, storage);
+    await MessageLoaderUtils.cleanupCache(this.state.providers, routerStorage);
 
     lazy.SpecialMessageActions.blockMessageById = this.blockMessageById;
     Services.obs.addObserver(this._onLocaleChanged, TOPIC_INTL_LOCALE_CHANGED);
@@ -1725,6 +1729,10 @@ export class _ASRouter {
             action: "action_only_user_event",
             message_id: message.id,
             event: "IMPRESSION",
+            event_context: {
+              stored_impressions:
+                this.state.messageImpressions[message.id]?.length ?? 0,
+            },
           },
         });
         // Add local impression record, used for enforcing frequency caps.
@@ -1836,25 +1844,30 @@ export class _ASRouter {
     // that have providers that have frequency
     if (message.frequency || groupsWithFrequency.length) {
       const time = Date.now();
-      return this.setState(state => {
-        const messageImpressions = this._addImpressionForItem(
+      const writes = [];
+      const stateUpdated = this.setState(state => {
+        const messageResult = this._addImpressionForItem(
           state.messageImpressions,
           message,
           "messageImpressions",
           time
         );
+        const messageImpressions = messageResult.impressions;
+        writes.push(messageResult.write);
         // Initialize this with state.groupImpressions, and then assign the
         // newly-updated copy to it during each iteration so that
         // all the changes get captured and either returned or passed into the
         // _addImpressionsForItem call on the next iteration.
         let { groupImpressions } = state;
         for (const group of groupsWithFrequency) {
-          groupImpressions = this._addImpressionForItem(
+          const groupResult = this._addImpressionForItem(
             groupImpressions,
             group,
             "groupImpressions",
             time
           );
+          groupImpressions = groupResult.impressions;
+          writes.push(groupResult.write);
         }
 
         let { multiProfileMessageImpressions } = state;
@@ -1863,12 +1876,14 @@ export class _ASRouter {
           message.profileScope === PROFILE_MESSAGE_SCOPE.SINGLE &&
           lazy.ASRouterTargeting.Environment.canCreateSelectableProfiles
         ) {
-          multiProfileMessageImpressions = this._addImpressionForItem(
+          const multiProfileResult = this._addImpressionForItem(
             state.multiProfileMessageImpressions,
             message,
             "multiProfileMessageImpressions",
             time
           );
+          multiProfileMessageImpressions = multiProfileResult.impressions;
+          writes.push(multiProfileResult.write);
         }
 
         return {
@@ -1877,16 +1892,57 @@ export class _ASRouter {
           multiProfileMessageImpressions,
         };
       });
+      this._reportFailedImpressionWrites(writes.filter(Boolean), message);
+      return stateUpdated;
     }
     return Promise.resolve();
   }
 
+  /**
+   * Report an undesired event for each store whose impression write failed.
+   *
+   * @param {Array<{store: string, promise: Promise}>} writes
+   *   `promise` rejects on failure, or resolves to false for shared database
+   *   writes.
+   * @param {object} message
+   */
+  async _reportFailedImpressionWrites(writes, message) {
+    const results = await Promise.allSettled(
+      writes.map(({ promise }) => promise)
+    );
+    const failures = new Map();
+    results.forEach(({ status, value, reason }, i) => {
+      const { store } = writes[i];
+      if (failures.has(store)) {
+        return;
+      }
+      if (status === "rejected") {
+        failures.set(store, reason?.name || "Error");
+      } else if (value === false) {
+        failures.set(store, "WriteFailed");
+      }
+    });
+    for (const [store, error] of failures) {
+      this.dispatchCFRAction?.({
+        type: lazy.MESSAGE_TYPE_HASH.AS_ROUTER_TELEMETRY_USER_EVENT,
+        data: {
+          action: "asrouter_undesired_event",
+          message_id: message.id,
+          event: "IMPRESSION_SAVE_FAILED",
+          event_context: { error, store },
+        },
+      });
+    }
+  }
+
   // Helper for addImpression - calculate the updated impressions object for the given
-  //                            item, then store it and return it
+  //                            item, then store it. Returns the impressions and
+  //                            the pending storage write (null if not stored).
   _addImpressionForItem(currentImpressions, item, impressionsString, time) {
     // The destructuring here is to avoid mutating passed parameters
     // (see https://redux.js.org/recipes/structuring-reducers/prerequisite-concepts#immutable-data-management)
     const impressions = { ...currentImpressions };
+    let write = null;
     if (item.frequency) {
       impressions[item.id] = [...(impressions[item.id] ?? []), time];
 
@@ -1898,15 +1954,21 @@ export class _ASRouter {
 
       if (impressionsString === "multiProfileMessageImpressions") {
         // Update shared db impressions for a message
-        this._storage.setSharedMessageImpressions(
-          item.id,
-          impressions[item.id]
-        );
+        write = {
+          store: impressionsString,
+          promise: this._storage.setSharedMessageImpressions(
+            item.id,
+            impressions[item.id]
+          ),
+        };
       } else {
-        this._storage.set(impressionsString, impressions);
+        write = {
+          store: impressionsString,
+          promise: this._storage.setWithResult(impressionsString, impressions),
+        };
       }
     }
-    return impressions;
+    return { impressions, write };
   }
 
   /**

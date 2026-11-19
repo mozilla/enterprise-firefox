@@ -8,6 +8,7 @@
 #include "mozilla/Likely.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/dom/Comment.h"
+#include "mozilla/dom/ProcessingInstruction.h"
 #include "mozilla/dom/CustomElementRegistry.h"
 #include "mozilla/dom/DocGroup.h"
 #include "mozilla/dom/Document.h"
@@ -134,6 +135,14 @@ nsHtml5TreeOperation::~nsHtml5TreeOperation() {
     }
 
     void operator()(const opAppendCommentToDocument& aOperation) {
+      delete[] aOperation.mBuffer;
+    }
+
+    void operator()(const opAppendProcessingInstruction& aOperation) {
+      delete[] aOperation.mBuffer;
+    }
+
+    void operator()(const opAppendProcessingInstructionToDocument& aOperation) {
       delete[] aOperation.mBuffer;
     }
 
@@ -718,7 +727,8 @@ nsIContent* nsHtml5TreeOperation::CreateHTMLElement(
 
   // 7. Let definition be the result of looking up a custom element definition
   // given registry, namespace, localName, and is.
-  const bool isCustomElement = aCreator == NS_NewCustomElement || isAtom;
+  const bool isCustomElementName = !aCreator;
+  const bool isCustomElement = isCustomElementName || isAtom;
   RefPtr<CustomElementDefinition> customElementDefinition;
 
   /// customElementDefinition is only used if willExecuteScript is true,
@@ -727,8 +737,7 @@ nsIContent* nsHtml5TreeOperation::CreateHTMLElement(
   /// parsing, as it's wasted work.
   if (isCustomElement && aFromParser != FROM_PARSER_FRAGMENT) {
     RefPtr<nsAtom> tagAtom = nodeInfo->NameAtom();
-    RefPtr<nsAtom> typeAtom =
-        aCreator == NS_NewCustomElement ? tagAtom : isAtom;
+    RefPtr<nsAtom> typeAtom = isCustomElementName ? tagAtom : isAtom;
 
     MOZ_ASSERT(nodeInfo->NameAtom()->Equals(nodeInfo->LocalName()));
     // https://html.spec.whatwg.org/#create-an-element-for-the-token
@@ -1098,6 +1107,36 @@ nsIContent* nsHtml5TreeOperation::GetFosterParentForInsertBefore(
   return IsPossibleFosterParent(tableParent) ? tableParent : nullptr;
 }
 
+static MOZ_ALWAYS_INLINE nsresult InsertProcessingInstructionImpl(
+    nsIContent* aParent, const nsAString& aTarget, const nsAString& aData,
+    nsIContent* aBefore, nsHtml5DocumentBuilder* aBuilder) {
+  RefPtr<ProcessingInstruction> pi = NS_NewXMLProcessingInstruction(
+      aParent->NodeInfoManager(), aTarget, aData);
+  return InsertNodeBefore(pi, aParent, aBefore, aBuilder);
+}
+
+nsresult nsHtml5TreeOperation::AppendProcessingInstruction(
+    nsIContent* aParent, const nsAString& aTarget, const nsAString& aData,
+    nsHtml5DocumentBuilder* aBuilder) {
+  return InsertProcessingInstructionImpl(aParent, aTarget, aData, nullptr,
+                                         aBuilder);
+}
+
+nsresult nsHtml5TreeOperation::InsertProcessingInstructionBefore(
+    nsIContent* aParent, const nsAString& aTarget, const nsAString& aData,
+    nsIContent* aBefore, nsHtml5DocumentBuilder* aBuilder) {
+  return InsertProcessingInstructionImpl(aParent, aTarget, aData, aBefore,
+                                         aBuilder);
+}
+
+nsresult nsHtml5TreeOperation::AppendProcessingInstructionToDocument(
+    const nsAString& aTarget, const nsAString& aData,
+    nsHtml5DocumentBuilder* aBuilder) {
+  RefPtr<ProcessingInstruction> pi = NS_NewXMLProcessingInstruction(
+      aBuilder->GetNodeInfoManager(), aTarget, aData);
+  return AppendToDocument(pi, aBuilder);
+}
+
 nsIContent* nsHtml5TreeOperation::GetFosterParent(nsIContent* aTable,
                                                   nsIContent* aStackParent) {
   nsIContent* foster = GetFosterParentForInsertBefore(aTable);
@@ -1311,6 +1350,22 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
       char16_t* buffer = aOperation.mBuffer;
       int32_t length = aOperation.mLength;
       return AppendCommentToDocument(buffer, length, mBuilder);
+    }
+
+    nsresult operator()(const opAppendProcessingInstruction& aOperation) {
+      nsIContent* parent = *aOperation.mParent;
+      nsDependentSubstring target(aOperation.mBuffer, aOperation.mTargetLength);
+      nsDependentSubstring data(aOperation.mBuffer + aOperation.mTargetLength,
+                                aOperation.mDataLength);
+      return AppendProcessingInstruction(parent, target, data, mBuilder);
+    }
+
+    nsresult operator()(
+        const opAppendProcessingInstructionToDocument& aOperation) {
+      nsDependentSubstring target(aOperation.mBuffer, aOperation.mTargetLength);
+      nsDependentSubstring data(aOperation.mBuffer + aOperation.mTargetLength,
+                                aOperation.mDataLength);
+      return AppendProcessingInstructionToDocument(target, data, mBuilder);
     }
 
     nsresult operator()(const opAppendDoctypeToDocument& aOperation) {

@@ -37,7 +37,6 @@
 #endif
 
 #include "mozilla/Preferences.h"
-#include "mozilla/Try.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/UserActivation.h"
@@ -48,8 +47,7 @@ using namespace mozilla;
 //***    nsContentTreeOwner: Object Management
 //*****************************************************************************
 
-nsContentTreeOwner::nsContentTreeOwner(bool fPrimary)
-    : mAppWindow(nullptr), mPrimary(fPrimary) {}
+nsContentTreeOwner::nsContentTreeOwner() : mAppWindow(nullptr) {}
 
 //*****************************************************************************
 // nsContentTreeOwner::nsISupports
@@ -161,42 +159,6 @@ nsContentTreeOwner::GetPrimaryContentBrowsingContext(
   return mAppWindow->GetPrimaryContentBrowsingContext(aBc);
 }
 
-NS_IMETHODIMP
-nsContentTreeOwner::GetPrimaryContentSize(int32_t* aWidth, int32_t* aHeight) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->GetPrimaryContentSize(aWidth, aHeight);
-}
-
-NS_IMETHODIMP
-nsContentTreeOwner::SetPrimaryContentSize(int32_t aWidth, int32_t aHeight) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->SetPrimaryContentSize(aWidth, aHeight);
-}
-
-NS_IMETHODIMP
-nsContentTreeOwner::GetRootShellSize(int32_t* aWidth, int32_t* aHeight) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->GetRootShellSize(aWidth, aHeight);
-}
-
-NS_IMETHODIMP
-nsContentTreeOwner::SetRootShellSize(int32_t aWidth, int32_t aHeight) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->SetRootShellSize(aWidth, aHeight);
-}
-
-NS_IMETHODIMP nsContentTreeOwner::SizeShellTo(nsIDocShellTreeItem* aShellItem,
-                                              int32_t aCX, int32_t aCY) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->SizeShellTo(aShellItem, aCX, aCY);
-}
-
-NS_IMETHODIMP
-nsContentTreeOwner::GetHasPrimaryContent(bool* aResult) {
-  NS_ENSURE_STATE(mAppWindow);
-  return mAppWindow->GetHasPrimaryContent(aResult);
-}
-
 //*****************************************************************************
 // nsContentTreeOwner::nsIWebBrowserChrome
 //*****************************************************************************
@@ -293,25 +255,14 @@ NS_IMETHODIMP nsContentTreeOwner::GetPositionAndSize(int32_t* aX, int32_t* aY,
 NS_IMETHODIMP
 nsContentTreeOwner::SetDimensions(DimensionRequest&& aRequest) {
   NS_ENSURE_STATE(mAppWindow);
-  if (aRequest.mDimensionKind == DimensionKind::Outer) {
-    return mAppWindow->SetDimensions(std::move(aRequest));
-  }
-
-  MOZ_TRY(aRequest.SupplementFrom(this));
-  return aRequest.ApplyInnerTo(this, /* aAsRootShell */ false);
+  return mAppWindow->SetDimensions(std::move(aRequest));
 }
 
 NS_IMETHODIMP
-nsContentTreeOwner::GetDimensions(DimensionKind aDimensionKind, int32_t* aX,
-                                  int32_t* aY, int32_t* aCX, int32_t* aCY) {
+nsContentTreeOwner::GetDimensions(int32_t* aX, int32_t* aY, int32_t* aCX,
+                                  int32_t* aCY) {
   NS_ENSURE_STATE(mAppWindow);
-  if (aDimensionKind == DimensionKind::Outer) {
-    return mAppWindow->GetDimensions(aDimensionKind, aX, aY, aCX, aCY);
-  }
-  if (aY || aX) {
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
-  return GetPrimaryContentSize(aCX, aCY);
+  return mAppWindow->GetPositionAndSize(aX, aY, aCX, aCY);
 }
 
 NS_IMETHODIMP nsContentTreeOwner::GetParentWidget(nsIWidget** aParentWidget) {
@@ -356,16 +307,6 @@ NS_IMETHODIMP nsContentTreeOwner::GetMainWidget(nsIWidget** aMainWidget) {
   *aMainWidget = mAppWindow->mWindow;
   NS_IF_ADDREF(*aMainWidget);
 
-  return NS_OK;
-}
-
-NS_IMETHODIMP nsContentTreeOwner::GetTitle(nsAString& aTitle) {
-  NS_ENSURE_STATE(mAppWindow);
-
-  return mAppWindow->GetTitle(aTitle);
-}
-
-NS_IMETHODIMP nsContentTreeOwner::SetTitle(const nsAString& aTitle) {
   return NS_OK;
 }
 

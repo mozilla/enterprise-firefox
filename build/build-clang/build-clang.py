@@ -482,7 +482,10 @@ def prune_final_dir_for_clang_tidy(final_dir, target):
         name = os.path.basename(f)
         if name == "clang":
             continue
-        if is_darwin(target) and name in ["libLLVM.dylib", "libclang-cpp.dylib"]:
+        if is_darwin(target) and (
+            fnmatch.fnmatch(name, "libLLVM*.dylib")
+            or fnmatch.fnmatch(name, "libclang-cpp*.dylib")
+        ):
             continue
         if is_linux(target) and (
             fnmatch.fnmatch(name, "libLLVM*.so*")
@@ -710,6 +713,10 @@ def main():
         extra_cflags2 = []
         extra_cxxflags2 = []
         extra_asmflags = []
+        # libc++ in the macOS 27 SDK emits a #warning when the deployment target is below 11.0.
+        if not target.startswith("aarch64"):
+            extra_cxxflags = ["-Wno-cpp"]
+            extra_cxxflags2 = ["-Wno-cpp"]
         # It's unfortunately required to specify the linker used here because
         # the linker flags are used in LLVM's configure step before
         # -DLLVM_ENABLE_LLD is actually processed.

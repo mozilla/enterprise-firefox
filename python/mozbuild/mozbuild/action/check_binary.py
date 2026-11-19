@@ -325,7 +325,7 @@ def check_networking(binary):
     return retcode
 
 
-def checks(binary):
+def checks(binary, prebuilt=False):
     # The clang-plugin is built as target but is really a host binary.
     # Cheat and pretend we weren't called.
     if "clang-plugin" in binary:
@@ -337,10 +337,14 @@ def checks(binary):
     # Disabled for local builds because of readelf performance: See bug 1472496
     if not buildconfig.substs.get("DEVELOPER_OPTIONS"):
         checks.append(check_textrel)
-        checks.append(check_pt_load)
-        checks.append(check_mozglue_order)
-        checks.append(check_android_megazord_mozglue)
-        checks.append(check_android_megazord_bionic_allocations)
+        # A prebuilt binary was not linked by this build, so the checks on
+        # how our link lays out libxul, orders mozglue and builds
+        # libmegazord.so do not apply to it.
+        if not prebuilt:
+            checks.append(check_pt_load)
+            checks.append(check_mozglue_order)
+            checks.append(check_android_megazord_mozglue)
+            checks.append(check_android_megazord_bionic_allocations)
 
     retcode = 0
     basename = os.path.basename(binary)
@@ -371,6 +375,13 @@ def main(args):
     )
 
     parser.add_argument(
+        "--prebuilt",
+        action="store_true",
+        help="The binary comes from outside the build, so only check that it "
+        "works on the systems we support",
+    )
+
+    parser.add_argument(
         "binary", metavar="PATH", help="Location of the binary to check"
     )
 
@@ -378,7 +389,7 @@ def main(args):
 
     if options.networking:
         return check_networking(options.binary)
-    return checks(options.binary)
+    return checks(options.binary, options.prebuilt)
 
 
 if __name__ == "__main__":

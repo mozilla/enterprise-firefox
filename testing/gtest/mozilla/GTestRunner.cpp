@@ -17,6 +17,9 @@
 #endif
 #ifdef XP_WIN
 #  include "mozilla/ipc/WindowsMessageLoop.h"
+#  if defined(MOZ_SANDBOX)
+#    include "sandboxBroker.h"
+#  endif
 #endif
 
 using ::testing::EmptyTestEventListener;
@@ -26,6 +29,10 @@ using ::testing::TestInfo;
 using ::testing::TestPartResult;
 using ::testing::TestSuite;
 using ::testing::UnitTest;
+
+#ifdef MOZ_CODE_COVERAGE
+extern "C" void __gcov_dump();
+#endif
 
 namespace mozilla {
 
@@ -62,6 +69,11 @@ class MozillaPrinter : public EmptyTestEventListener {
 
   virtual void OnTestProgramEnd(const UnitTest& /*aUnitTest*/) override {
     MOZ_LOG_ACTION("suite_end", ",\"source\":\"gtest\"");
+
+#ifdef MOZ_CODE_COVERAGE
+    __gcov_dump();
+#endif
+
     if (mLogFile) {
       fclose(mLogFile);
       mLogFile = nullptr;
@@ -201,6 +213,10 @@ int RunGTestFunc(int* argc, char** argv) {
   PR_SetEnv("XPCOM_DEBUG_BREAK=stack-and-abort");
 
   ScopedXPCOM xpcom("GTest");
+
+#if defined(MOZ_SANDBOX) && defined(XP_WIN)
+  SandboxBroker::CacheGeckoDirs();
+#endif
 
 #ifdef XP_WIN
   mozilla::ipc::windows::InitUIThread();

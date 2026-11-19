@@ -332,8 +332,9 @@ class WindowGlobalParent final : public WindowContext,
   mozilla::ipc::IPCResult RecvAddSecurityState(uint32_t aStateFlags);
   mozilla::ipc::IPCResult RecvUpdateDocumentURI(NotNull<nsIURI*> aURI);
   mozilla::ipc::IPCResult RecvUpdateDocumentPrincipal(
-      nsIPrincipal* aNewDocumentPrincipal,
-      nsIPrincipal* aNewDocumentPartitionedPrincipal);
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aNewDocumentPrincipal,
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>&&
+          aNewDocumentPartitionedPrincipal);
   mozilla::ipc::IPCResult RecvUpdatePrincipalPartitioning(
       bool aPartitionStoragePrincipal);
   mozilla::ipc::IPCResult RecvUpdateDocumentHasLoaded(bool aDocumentHasLoaded);
@@ -364,7 +365,7 @@ class WindowGlobalParent final : public WindowContext,
       ParentProcessChannelHandle* aDocumentHandle,
       ParentProcessChannelHandle* aFailedHandle);
   mozilla::ipc::IPCResult RecvSetClientInfo(
-      const IPCClientInfo& aIPCClientInfo);
+      Tainted<IPCClientInfo>&& aIPCClientInfo);
   mozilla::ipc::IPCResult RecvDestroy();
   mozilla::ipc::IPCResult RecvRawMessage(const JSActorMessageMeta& aMeta,
                                          JSIPCValue&& aData,
@@ -467,6 +468,8 @@ class WindowGlobalParent final : public WindowContext,
   // https://wicg.github.io/nav-speculation/prefetch.html#wait-for-a-matching-prefetch-record
   void NotifyPrefetchStateChanged(dom::PrefetchRecordParent* aRec);
   void DedupePrefetchRecords(dom::PrefetchRecordParent* aJustCompleted);
+
+  static void ClearPrefetchCache(nsIPrincipal* aPartitionedPrincipal);
 
   // "Find a matching complete prefetch record": synchronous lookup of a
   // completed prefetch record for navigation.

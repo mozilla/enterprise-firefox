@@ -18,6 +18,8 @@ import org.junit.Test
 class TabGroupsStripMiddlewareTest {
     private val testDispatcher = StandardTestDispatcher()
     private val testScope = TestScope(testDispatcher)
+    private val expandedGroupIds = mutableListOf<String>()
+    private val expandGroup: (String) -> Unit = { expandedGroupIds.add(it) }
 
     @Test
     fun `GIVEN a selected tab in an open group WHEN a snapshot emits THEN the strip shows the group's tabs in order`() =
@@ -143,7 +145,16 @@ class TabGroupsStripMiddlewareTest {
                 )
             val store =
                 TabGroupsStripStore(
-                    middleware = listOf(TabGroupsStripMiddleware(coordinator, testScope, testDispatcher))
+                    middleware =
+                        listOf(
+                            TabGroupsStripMiddleware(
+                                coordinator,
+                                isHomepageAsNewTabEnabled = { true },
+                                expandGroup = {},
+                                scope = testScope,
+                                dispatcher = testDispatcher,
+                            )
+                        )
                 )
 
             testDispatcher.scheduler.advanceUntilIdle()
@@ -230,10 +241,106 @@ class TabGroupsStripMiddlewareTest {
             assertTrue(coordinator.selectedTabIds.isEmpty())
         }
 
+    @Test
+    fun `GIVEN HNT is enabled and in a group WHEN AddTabClicked is dispatched THEN a new tab is added to the group`() =
+        runTest(testDispatcher) {
+            val tab1 = createTab(id = "1", tabGroupId = "group")
+            val coordinator =
+                FakeTabDataCoordinator(
+                    TabsSnapshot(
+                        selectedTab = tab1,
+                        normalTabs = listOf(tab1),
+                        openTabGroups = listOf(createGroup("group", "Group", tabIds = listOf("1"))),
+                    )
+                )
+            val store = buildStore(coordinator, isHomepageAsNewTabEnabled = { true })
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            store.dispatch(TabGroupsStripAction.AddTabClicked)
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(expected = listOf("group"), actual = coordinator.addNewTabToGroupIds)
+        }
+
+    @Test
+    fun `GIVEN HNT is disabled WHEN AddTabClicked is dispatched THEN no tab is added to the group`() =
+        runTest(testDispatcher) {
+            val tab1 = createTab(id = "1", tabGroupId = "group")
+            val coordinator =
+                FakeTabDataCoordinator(
+                    TabsSnapshot(
+                        selectedTab = tab1,
+                        normalTabs = listOf(tab1),
+                        openTabGroups = listOf(createGroup("group", "Group", tabIds = listOf("1"))),
+                    )
+                )
+            val store = buildStore(coordinator, isHomepageAsNewTabEnabled = { false })
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            store.dispatch(TabGroupsStripAction.AddTabClicked)
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(coordinator.addNewTabToGroupIds.isEmpty())
+        }
+
+    @Test
+    fun `GIVEN not in a group WHEN AddTabClicked is dispatched THEN no tab is added to the group`() =
+        runTest(testDispatcher) {
+            val coordinator = FakeTabDataCoordinator(TabsSnapshot())
+            val store = buildStore(coordinator, isHomepageAsNewTabEnabled = { true })
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            store.dispatch(TabGroupsStripAction.AddTabClicked)
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(coordinator.addNewTabToGroupIds.isEmpty())
+        }
+
+    @Test
+    fun `WHEN ExpandGroupClicked is dispatched THEN the focused group is expanded`() {
+        val store =
+            TabGroupsStripStore(
+                initialState =
+                    TabGroupsStripState.TabGroupStripVisible(
+                        groupId = "group",
+                        groupTitle = "Group",
+                        tabs = listOf(stripTab("1", isFocused = true)),
+                    ),
+                middleware =
+                    listOf(
+                        TabGroupsStripMiddleware(
+                            FakeTabDataCoordinator(),
+                            isHomepageAsNewTabEnabled = { true },
+                            expandGroup = expandGroup,
+                            scope = testScope,
+                            dispatcher = testDispatcher,
+                        )
+                    ),
+            )
+
+        store.dispatch(TabGroupsStripAction.ExpandGroupClicked)
+
+        assertEquals(expected = listOf("group"), actual = expandedGroupIds)
+    }
+
     private fun buildStore(snapshot: TabsSnapshot?): TabGroupsStripStore = buildStore(FakeTabDataCoordinator(snapshot))
 
-    private fun buildStore(coordinator: FakeTabDataCoordinator): TabGroupsStripStore =
-        TabGroupsStripStore(middleware = listOf(TabGroupsStripMiddleware(coordinator, testScope, testDispatcher)))
+    private fun buildStore(
+        coordinator: FakeTabDataCoordinator,
+        isHomepageAsNewTabEnabled: () -> Boolean = { true },
+    ): TabGroupsStripStore =
+        TabGroupsStripStore(
+                middleware =
+                    listOf(
+                        TabGroupsStripMiddleware(
+                            coordinator,
+                            isHomepageAsNewTabEnabled,
+                            expandGroup,
+                            testScope,
+                            testDispatcher,
+                        )
+                    )
+            )
             .also { it.dispatch(TabGroupsStripAction.InitializeDataObservation) }
 
     private fun createTab(

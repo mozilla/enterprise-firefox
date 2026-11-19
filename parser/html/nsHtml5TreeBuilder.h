@@ -332,6 +332,8 @@ class nsHtml5TreeBuilder : public nsAHtml5TreeBuilderState {
   void doctype(nsAtom* name, nsHtml5String publicIdentifier,
                nsHtml5String systemIdentifier, bool forceQuirks);
   void comment(char16_t* buf, int32_t start, int32_t length);
+  void processingInstruction(nsHtml5String target, char16_t* buf, int32_t start,
+                             int32_t length);
   void characters(const char16_t* buf, int32_t start, int32_t length);
   void zeroOriginatingReplacementCharacter();
   void zeroOrReplacementCharacter();
@@ -530,6 +532,12 @@ class nsHtml5TreeBuilder : public nsAHtml5TreeBuilderState {
   void appendComment(nsIContentHandle* parent, char16_t* buf, int32_t start,
                      int32_t length);
   void appendCommentToDocument(char16_t* buf, int32_t start, int32_t length);
+  void appendProcessingInstruction(nsIContentHandle* parent,
+                                   nsHtml5String target, char16_t* buf,
+                                   int32_t start, int32_t length);
+  void appendProcessingInstructionToDocument(nsHtml5String target,
+                                             char16_t* buf, int32_t start,
+                                             int32_t length);
   void addAttributesToElement(nsIContentHandle* element,
                               nsHtml5HtmlAttributes* attributes);
   void markMalformedIfScript(nsIContentHandle* elt);
@@ -555,12 +563,22 @@ class nsHtml5TreeBuilder : public nsAHtml5TreeBuilderState {
   nsIContentHandle* currentNode();
 
  public:
-  bool isScriptingEnabled();
-  void setScriptingEnabled(bool scriptingEnabled);
-  void setForceNoQuirks(bool forceNoQuirks);
-  void setIsSrcdocDocument(bool isSrcdocDocument);
-  bool isAllowDeclarativeShadowRoots();
-  void setAllowDeclarativeShadowRoots(bool allow);
+  inline bool isScriptingEnabled() { return scriptingEnabled; }
+  inline void setScriptingEnabled(bool scriptingEnabled) {
+    this->scriptingEnabled = scriptingEnabled;
+  }
+  inline void setForceNoQuirks(bool forceNoQuirks) {
+    this->forceNoQuirks = forceNoQuirks;
+  }
+  inline void setIsSrcdocDocument(bool isSrcdocDocument) {
+    this->setForceNoQuirks(isSrcdocDocument);
+  }
+  inline bool isAllowDeclarativeShadowRoots() {
+    return allowDeclarativeShadowRoots;
+  }
+  inline void setAllowDeclarativeShadowRoots(bool allow) {
+    allowDeclarativeShadowRoots = allow;
+  }
   void flushCharacters();
 
  private:

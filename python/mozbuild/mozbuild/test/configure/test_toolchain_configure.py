@@ -341,15 +341,7 @@ class BaseToolchainTest(BaseConfigureTest):
         - `overrides` is a dict associating names of `@depends` functions to
           values they should return instead of being evaluated.
         """
-        environ = dict(environ)
-        if "PATH" not in environ:
-            environ["PATH"] = os.pathsep.join(
-                mozpath.abspath(p) for p in ("/bin", "/usr/bin")
-            )
-
-        args = args + ["--enable-release", "--disable-bootstrap"]
-
-        sandbox = self.get_sandbox(paths, {}, args, environ, logger=self.logger)
+        sandbox = self.toolchain_sandbox(paths, environ, args)
         for name, value in overrides.items():
             sandbox._dependency_overrides[sandbox._depends[sandbox[name]]] = value
 
@@ -406,6 +398,58 @@ class BaseToolchainTest(BaseConfigureTest):
                 "%s=%s" % (k, sandbox.get_config(k)),
                 "%s=%s" % (k, library_name_info[k]),
             )
+
+    def toolchain_sandbox(self, paths, environ={}, args=[]):
+        environ = dict(environ)
+        if "PATH" not in environ:
+            environ["PATH"] = os.pathsep.join(
+                mozpath.abspath(p) for p in ("/bin", "/usr/bin")
+            )
+        args = args + ["--enable-release", "--disable-bootstrap"]
+        return self.get_sandbox(paths, {}, args, environ, logger=self.logger)
+
+    def sandbox_values(self, paths, names, environ={}):
+        sandbox = self.toolchain_sandbox(paths, environ)
+        try:
+            return tuple(sandbox._value_for(sandbox[name]) for name in names)
+        except SystemExit:
+            return self.out.getvalue().strip()
+
+    def do_outoption_test(self, paths, result, environ={}):
+        self.assertEqual(
+            self.sandbox_values(paths, ("cc_outoption", "host_cc_outoption"), environ),
+            result,
+        )
+
+    def do_ar_config_test(self, paths, result, environ={}):
+        values = self.sandbox_values(paths, ("target_ar_config",), environ)
+        self.assertIsInstance(values, tuple, values)
+        self.assertEqual(values[0].flags, result)
+
+    def do_depend_cflags_test(self, paths, result):
+        sandbox = self.toolchain_sandbox(paths)
+        self.assertEqual(
+            (
+                sandbox.get_config("DEPEND_CFLAGS"),
+                sandbox.get_config("HOST_DEPEND_CFLAGS"),
+            ),
+            result,
+        )
+
+
+GCC_DEPEND_CFLAGS = ["-MD", "-MP", "-MF", "{depfile}"]
+CLANG_CL_DEPEND_CFLAGS = [
+    "-Xclang",
+    "-MP",
+    "-Xclang",
+    "-dependency-file",
+    "-Xclang",
+    "{depfile}",
+    "-Xclang",
+    "-MT",
+    "-Xclang",
+    "{target}",
+]
 
 
 def old_gcc_message(old_ver):
@@ -715,6 +759,20 @@ class LinuxToolchainTest(BaseToolchainTest):
             },
             environ={"CC": "clang", "CXX": "clang++", "HOST_CC": "gcc"},
         )
+
+    def test_outoption(self):
+        self.do_outoption_test(self.PATHS, ("-o ", "-o "))
+
+    def test_ar_config(self):
+        self.do_ar_config_test(self.PATHS, ("crs", "{target}"))
+
+    def test_ar_config_extra_flags(self):
+        self.do_ar_config_test(
+            self.PATHS, ("crs", "-D", "{target}"), environ={"AR_FLAGS": "-D"}
+        )
+
+    def test_depend_cflags(self):
+        self.do_depend_cflags_test(self.PATHS, (GCC_DEPEND_CFLAGS, GCC_DEPEND_CFLAGS))
 
 
 class LinuxSimpleCrossToolchainTest(BaseToolchainTest):
@@ -1069,6 +1127,17 @@ class WindowsToolchainTest(BaseToolchainTest):
                         "valid_windows_sdk_dir": self.WINDOWS_SDK,
                     },
                 )
+
+    def test_outoption(self):
+        self.do_outoption_test(self.PATHS, ("-Fo", "-Fo"))
+
+    def test_ar_config(self):
+        self.do_ar_config_test(self.PATHS, ("-llvmlibthin", "-out:{target}"))
+
+    def test_depend_cflags(self):
+        self.do_depend_cflags_test(
+            self.PATHS, (CLANG_CL_DEPEND_CFLAGS, CLANG_CL_DEPEND_CFLAGS)
+        )
 
 
 class Windows64ToolchainTest(WindowsToolchainTest):
@@ -1494,20 +1563,97 @@ class OSXCrossToolchainTest(BaseToolchainTest):
 
 class WindowsCrossToolchainTest(BaseToolchainTest):
     TARGET = "x86_64-pc-windows-msvc"
+    PATHS = {
+        "/usr/bin/clang-cl": CLANG_CL_19 + CLANG_CL_PLATFORM_X86_64,
+        **LinuxToolchainTest.PATHS,
+    }
     DEFAULT_CLANG_RESULT = LinuxToolchainTest.DEFAULT_CLANG_RESULT
     DEFAULT_CLANGXX_RESULT = LinuxToolchainTest.DEFAULT_CLANGXX_RESULT
 
     def test_clang_cl_cross(self):
-        paths = {"/usr/bin/clang-cl": CLANG_CL_19 + CLANG_CL_PLATFORM_X86_64}
-        paths.update(LinuxToolchainTest.PATHS)
         self.do_toolchain_test(
-            paths,
+            self.PATHS,
             {
                 "c_compiler": WindowsToolchainTest.CLANG_CL_19_RESULT,
                 "cxx_compiler": WindowsToolchainTest.CLANGXX_CL_19_RESULT,
                 "host_c_compiler": self.DEFAULT_CLANG_RESULT,
                 "host_cxx_compiler": self.DEFAULT_CLANGXX_RESULT,
             },
+        )
+
+    def test_outoption(self):
+        self.do_outoption_test(self.PATHS, ("-Fo", "-o "))
+
+    def test_depend_cflags(self):
+        self.do_depend_cflags_test(
+            self.PATHS, (CLANG_CL_DEPEND_CFLAGS, GCC_DEPEND_CFLAGS)
+        )
+
+
+class WindowsClangPluginToolchainTest(BaseToolchainTest):
+    HOST = "i686-pc-windows-msvc"
+    TARGET = "i686-pc-windows-msvc"
+
+    def test_clang_plugin_compiler(self):
+        sandbox = self.toolchain_sandbox(
+            {"/usr/bin/clang-cl.EXE": CLANG_CL_19 + CLANG_CL_PLATFORM_X86},
+            {"CC": "/usr/bin/clang-cl.EXE", "CXX": "/usr/bin/clang-cl.EXE"},
+            args=["--enable-clang-plugin"],
+        )
+        clang = mozpath.abspath("/usr/bin/clang.exe")
+        self.assertEqual(
+            (
+                sandbox.get_config("CC"),
+                sandbox.get_config("CXX"),
+                sandbox.get_config("HOST_CC"),
+            ),
+            (
+                [clang, "--driver-mode=cl"],
+                [clang, "--driver-mode=cl", "-std:c++20"],
+                [mozpath.abspath("/usr/bin/clang-cl.EXE")],
+            ),
+        )
+
+    def test_clang_plugin_compiler_wasm_cxx(self):
+        sandbox = self.toolchain_sandbox(
+            {"/usr/bin/clang-cl.EXE": CLANG_CL_19 + CLANG_CL_PLATFORM_X86},
+            {"CC": "/usr/bin/clang-cl.EXE", "CXX": "/usr/bin/clang-cl.EXE"},
+            args=["--enable-clang-plugin"],
+        )
+        wasm_cxx = sandbox["dependable"](["/usr/bin/clang++.EXE", "--target=wasm32"])
+        self.assertEqual(
+            sandbox._value_for(
+                sandbox["clang_plugin_compiler"](wasm_cxx, "clang++", "g++")
+            ),
+            ["/usr/bin/clang.exe", "--driver-mode=g++", "--target=wasm32"],
+        )
+
+
+class WindowsToWindowsCrossToolchainTest(BaseToolchainTest):
+    HOST = "i686-pc-windows-msvc"
+    TARGET = "x86_64-pc-windows-msvc"
+
+    def test_outoption(self):
+        self.do_outoption_test(
+            {
+                "/usr/bin/clang-cl": CLANG_CL_19 + CLANG_CL_PLATFORM_X86_64,
+                "/usr/bin/host-clang-cl": CLANG_CL_19 + CLANG_CL_PLATFORM_X86,
+            },
+            ("-Fo", "-Fo"),
+            environ={"HOST_CC": "host-clang-cl"},
+        )
+
+
+class WindowsGnuToMsvcCrossToolchainTest(BaseToolchainTest):
+    HOST = "i686-pc-windows-gnu"
+    TARGET = "i686-pc-windows-msvc"
+
+    def test_host_c_compiler_type(self):
+        self.assertEqual(
+            self.sandbox_values(
+                WindowsToolchainTest.PATHS, ("check_host_c_compiler_type",)
+            ),
+            "MSVC-style compilers should be used for host compilations!",
         )
 
 
@@ -2069,6 +2215,60 @@ class RustTest(BaseConfigureTest):
 # Exercises the vendor-specific *-oe-linux-* targets added in rust 1.98.
 class Rust198Test(RustTest):
     VERSION = "1.98.0"
+
+
+def gen_invoke_compiler_cache(version_output):
+    def invoke_compiler_cache(stdin, args):
+        if tuple(args) == ("--version",):
+            return 0, version_output, ""
+        raise NotImplementedError("unsupported arguments")
+
+    return invoke_compiler_cache
+
+
+class CompilerCacheDirTest(BaseConfigureTest):
+    PATHS = {
+        "/usr/bin/sccache": gen_invoke_compiler_cache("sccache 0.10.0\n"),
+        "/usr/bin/ccache": gen_invoke_compiler_cache("ccache version 4.10\n"),
+        "/usr/bin/buildcache": gen_invoke_compiler_cache("BuildCache version 0.31\n"),
+    }
+    STATE_PATH = mozpath.abspath("/state")
+    TOOLS = ("sccache", "ccache", "buildcache")
+    CACHE_DIR_VARS = ("SCCACHE_DIR", "CCACHE_DIR", "BUILDCACHE_DIR")
+
+    def get_cache_dirs(self, ccache, environ={}):
+        environ = dict(
+            environ,
+            PATH=mozpath.abspath("/usr/bin"),
+            MOZBUILD_STATE_PATH=self.STATE_PATH,
+        )
+        args = ["--disable-bootstrap"]
+        if ccache:
+            args.append(f"--with-ccache={ccache}")
+        sandbox = self.get_sandbox(self.PATHS, {}, args, environ)
+        return {var: sandbox.get_config(var) for var in self.CACHE_DIR_VARS}
+
+    def test_default_dirs(self):
+        for ccache, var in zip(self.TOOLS, self.CACHE_DIR_VARS):
+            expected = dict.fromkeys(self.CACHE_DIR_VARS)
+            expected[var] = mozpath.join(self.STATE_PATH, "cache", ccache)
+            self.assertEqual(self.get_cache_dirs(ccache), expected)
+
+    def test_no_compiler_cache(self):
+        self.assertEqual(self.get_cache_dirs(None), dict.fromkeys(self.CACHE_DIR_VARS))
+
+    def test_explicit_dir(self):
+        environ = {var: f"/custom/{var}" for var in self.CACHE_DIR_VARS}
+        for ccache, var in zip(self.TOOLS, self.CACHE_DIR_VARS):
+            expected = dict.fromkeys(self.CACHE_DIR_VARS)
+            expected[var] = f"/custom/{var}"
+            self.assertEqual(self.get_cache_dirs(ccache, environ), expected)
+
+    def test_automation(self):
+        self.assertEqual(
+            self.get_cache_dirs("sccache", {"MOZ_AUTOMATION": "1"}),
+            dict.fromkeys(self.CACHE_DIR_VARS),
+        )
 
 
 if __name__ == "__main__":

@@ -7,13 +7,13 @@ const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "console", () => {
   return console.createInstance({
     maxLogLevelPref: "browser.translations.logLevel",
-    prefix: "Translations",
+    logModule: "Translations",
   });
 });
 
 ChromeUtils.defineESModuleGetters(lazy, {
   LanguageDetector:
-    "resource://gre/modules/translations/LanguageDetector.sys.mjs",
+    "moz-src:///toolkit/components/translations/LanguageDetector.sys.mjs",
 });
 
 /**

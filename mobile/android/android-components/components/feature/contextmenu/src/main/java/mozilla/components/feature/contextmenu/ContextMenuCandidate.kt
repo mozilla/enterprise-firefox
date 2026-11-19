@@ -10,7 +10,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.view.View
-import androidx.annotation.VisibleForTesting
 import androidx.core.net.toUri
 import com.google.android.material.snackbar.Snackbar
 import mozilla.components.browser.state.state.SessionState
@@ -53,6 +52,9 @@ data class ContextMenuCandidate(
          * Returns the default list of context menu candidates.
          *
          * Use this list if you do not intend to customize the context menu items to be displayed.
+         *
+         * @param additionalTabCandidates App-defined candidates rendered immediately after the built-in "open in tab"
+         *   items, so that all tab-opening options stay grouped together in the menu.
          */
         fun defaultCandidates(
             context: Context,
@@ -61,42 +63,51 @@ data class ContextMenuCandidate(
             snackBarParentView: View,
             snackbarDelegate: SnackbarDelegate = DefaultSnackbarDelegate(),
             downloadsLocation: () -> String,
-        ): List<ContextMenuCandidate> =
-            listOf(
+            additionalTabCandidates: List<ContextMenuCandidate> = emptyList(),
+        ): List<ContextMenuCandidate> = buildList {
+            add(
                 createOpenInNewTabCandidate(
                     context,
                     tabsUseCases,
                     snackBarParentView,
                     snackbarDelegate,
-                ),
+                )
+            )
+            add(
                 createOpenInPrivateTabCandidate(
                     context,
                     tabsUseCases,
                     snackBarParentView,
                     snackbarDelegate,
-                ),
-                createCopyLinkCandidate(context, snackBarParentView, snackbarDelegate),
-                createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
-                createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
-                createShareLinkCandidate(context),
-                createShareImageCandidate(context, contextMenuUseCases),
+                )
+            )
+            addAll(additionalTabCandidates)
+            add(createCopyLinkCandidate(context, snackBarParentView, snackbarDelegate))
+            add(createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate))
+            add(createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation))
+            add(createShareLinkCandidate(context))
+            add(createShareImageCandidate(context, contextMenuUseCases))
+            add(
                 createOpenImageInNewTabCandidate(
                     context,
                     tabsUseCases,
                     snackBarParentView,
                     snackbarDelegate,
-                ),
+                )
+            )
+            add(
                 createCopyImageCandidate(
                     context,
                     contextMenuUseCases,
-                ),
-                createSaveImageCandidate(context, contextMenuUseCases, downloadsLocation),
-                createSaveVideoAudioCandidate(context, contextMenuUseCases, downloadsLocation),
-                createCopyImageLocationCandidate(context, snackBarParentView, snackbarDelegate),
-                createAddContactCandidate(context),
-                createShareEmailAddressCandidate(context),
-                createCopyEmailAddressCandidate(context, snackBarParentView, snackbarDelegate),
+                )
             )
+            add(createSaveImageCandidate(context, contextMenuUseCases, downloadsLocation))
+            add(createSaveVideoAudioCandidate(context, contextMenuUseCases, downloadsLocation))
+            add(createCopyImageLocationCandidate(context, snackBarParentView, snackbarDelegate))
+            add(createAddContactCandidate(context))
+            add(createShareEmailAddressCandidate(context))
+            add(createCopyEmailAddressCandidate(context, snackBarParentView, snackbarDelegate))
+        }
 
         /**
          * Context Menu item: "Open Link in New Tab".
@@ -740,7 +751,13 @@ private fun HitResult.isUri(): Boolean =
 private fun HitResult.hasLinkText(): Boolean =
     (!(this as? HitResult.UNKNOWN)?.linkText.isNullOrEmpty() && src.isNotEmpty())
 
-private fun HitResult.isHttpLink(): Boolean = isUri() && getLink().startsWith("http")
+/**
+ * Returns whether this hit result is a link with an HTTP(S) URL.
+ *
+ * Public so that apps declaring their own [ContextMenuCandidate]s can match the visibility rules of the built-in link
+ * candidates exactly, rather than reimplementing the check and drifting from it.
+ */
+fun HitResult.isHttpLink(): Boolean = isUri() && getLink().startsWith("http")
 
 private fun HitResult.isLinkForOtherThanWebpage(): Boolean {
     val link = getLink()
@@ -777,8 +794,20 @@ internal fun HitResult.getLink(): String =
         else -> "about:blank"
     }
 
-@VisibleForTesting
-internal fun SessionState.isUrlSchemeAllowed(url: String): Boolean {
+/** Returns a formatted url that includes the title, if available. */
+internal fun HitResult.getDisplayTitle(): String =
+    when {
+        this is HitResult.IMAGE_SRC && !title.isNullOrBlank() -> "$uri\n\n$title"
+        else -> getLink()
+    }
+
+/**
+ * Returns whether [url]'s scheme is allowed to be loaded by this session's engine.
+ *
+ * Public so that apps declaring their own [ContextMenuCandidate]s can apply the same blocked-scheme check the built-in
+ * candidates use, rather than reimplementing it against the engine session's blocked schemes.
+ */
+fun SessionState.isUrlSchemeAllowed(url: String): Boolean {
     return when (val engineSession = engineState.engineSession) {
         null -> true
         else -> {

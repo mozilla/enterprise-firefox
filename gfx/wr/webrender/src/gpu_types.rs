@@ -16,6 +16,7 @@ use crate::renderer::{GpuBufferAddress, GpuBufferBuilderF, GpuBufferHandle, GpuB
 use crate::util::ScaleOffset;
 use glyph_rasterizer::SubpixelDirection;
 use crate::util::pack_as_float;
+use crate::path_tiler::PathTileInstance;
 
 
 // Contains type that must exactly match the same structures declared in GLSL.
@@ -591,6 +592,14 @@ pub struct QuadInstance {
     pub segment_index: u8,
 }
 
+impl From<PathTileInstance> for PrimitiveInstanceData {
+    fn from(instance: PathTileInstance) -> Self {
+        PrimitiveInstanceData {
+            data: instance.data.map(|v| v as i32),
+        }
+    }
+}
+
 impl From<QuadInstance> for PrimitiveInstanceData {
     fn from(instance: QuadInstance) -> Self {
         /*
@@ -678,6 +687,27 @@ impl GpuBufferDataF for QuadSegment {
     fn write(&self, writer: &mut GpuBufferWriterF) {
         writer.push_one(self.rect);
         writer.push_render_task(self.task_id)
+    }
+}
+
+/// A rounded rectangle clip with the same circular radius in every corner,
+/// applied directly by ps_quad when the quad has `QuadFlags::ROUNDED_RECT_CLIP`.
+///
+/// Expressed in the same space as the quad's bounds, which is the device space
+/// of the target surface. Matches QuadRoundedClip in ps_quad.glsl. Its blocks
+/// come right after the QuadPrimitive blocks, before any segment.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "capture", derive(Serialize))]
+pub struct QuadRoundedClip {
+    pub rect: DeviceRect,
+    pub radius: f32,
+}
+
+impl GpuBufferDataF for QuadRoundedClip {
+    const NUM_BLOCKS: usize = 2;
+    fn write(&self, writer: &mut GpuBufferWriterF) {
+        writer.push_one(self.rect);
+        writer.push_one([self.radius, 0.0, 0.0, 0.0]);
     }
 }
 

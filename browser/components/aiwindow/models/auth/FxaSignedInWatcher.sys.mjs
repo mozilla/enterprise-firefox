@@ -11,10 +11,8 @@ const lazy = XPCOMUtils.declareLazy({
   UIState: "resource://services-sync/UIState.sys.mjs",
   log: () =>
     console.createInstance({
-      prefix: "FxaSignedInWatcher",
-      maxLogLevel: Services.prefs.getBoolPref("browser.smartwindow.log", false)
-        ? "Debug"
-        : "Warn",
+      logModule: "FxaSignedInWatcher",
+      maxLogLevelPref: "browser.smartwindow.auth.logLevel",
     }),
 });
 

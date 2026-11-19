@@ -11,6 +11,7 @@ class nsIWidget;
 
 namespace mozilla::dom {
 class Document;
+class Element;
 
 class ChromeObserver final : public nsStubMutationObserver {
  public:
@@ -23,11 +24,12 @@ class ChromeObserver final : public nsStubMutationObserver {
   NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED
 
  protected:
-  nsIWidget* GetWindowWidget();
+  already_AddRefed<nsIWidget> GetWindowWidget();
   void SetHideTitlebarSeparator(bool);
   void HideWindowChrome(bool aShouldHide);
   void SetCustomTitlebar(bool);
   void SetMica(bool);
+  void RecomputeIcon(Element&);
   ~ChromeObserver() = default;
   // A weak pointer cleared when the element will be destroyed.
   Document* MOZ_NON_OWNING_REF mDocument;

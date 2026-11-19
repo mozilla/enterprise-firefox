@@ -9,7 +9,9 @@ import { importX } from "eslint-plugin-import-x";
 import json from "@eslint/json";
 import lit from "eslint-plugin-lit";
 import mozilla from "eslint-plugin-mozilla";
+import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
+import jsxA11yX from "eslint-plugin-jsx-a11y-x";
 
 import fs from "fs";
 import globals from "globals";
@@ -449,6 +451,48 @@ let config = [
     },
   },
   {
+    name: "react",
+    files: wrapPaths({
+      paths: [
+        "browser/components/aboutwelcome/**",
+        "browser/components/asrouter/**",
+        "browser/extensions/newtab/**",
+        "devtools/**",
+      ],
+      excludedExtensions: ["json"],
+    }),
+    plugins: { react },
+    settings: {
+      react: {
+        version: "16.2.0",
+      },
+    },
+    rules: {
+      "react/jsx-boolean-value": ["error", "always"],
+      "react/jsx-key": "error",
+      "react/jsx-no-bind": [
+        "error",
+        { allowArrowFunctions: true, allowFunctions: true },
+      ],
+      "react/jsx-no-comment-textnodes": "error",
+      "react/jsx-no-duplicate-props": "error",
+      "react/jsx-no-target-blank": "error",
+      "react/jsx-no-undef": "error",
+      "react/jsx-pascal-case": "error",
+      "react/jsx-uses-react": "error",
+      "react/jsx-uses-vars": "error",
+      "react/no-access-state-in-setstate": "error",
+      "react/no-danger": "error",
+      "react/no-deprecated": "error",
+      "react/no-did-mount-set-state": "error",
+      "react/no-did-update-set-state": "error",
+      "react/no-direct-mutation-state": "error",
+      "react/no-is-mounted": "error",
+      "react/no-unknown-property": "error",
+      "react/require-render-return": "error",
+    },
+  },
+  {
     // Rules of Hooks broadly checks for camelCase "use" identifiers, so
     // enable only for paths actually using React to avoid false positives.
     name: "react-hooks",
@@ -465,6 +509,18 @@ let config = [
       // errors, so that raised issues get addressed one way or the other.
       "react-hooks/exhaustive-deps": "error",
     },
+  },
+  {
+    name: "react-jsx-a11y",
+    files: wrapPaths({
+      paths: [
+        "browser/components/aboutwelcome/**",
+        "browser/components/asrouter/**",
+        "browser/extensions/newtab/**",
+      ],
+      excludedExtensions: ["json"],
+    }),
+    ...jsxA11yX.configs.recommended,
   },
   {
     name: "disable-no-insecure-url-for-http-testing",
@@ -523,6 +579,22 @@ let config = [
             ":matches(Property[key.name='controlAttrs'], Property[key.value='controlAttrs']) > ObjectExpression > :matches(Property[key.name=/^(?:headinglevel|headingLevel)$/], Property[key.value=/^\\.?(?:headinglevel|headingLevel)$/])",
           message:
             "Set heading levels via the top-level `headingLevel` property on the setting config, not through `controlAttrs`.",
+        },
+      ],
+    },
+  },
+  {
+    name: "aiwindow-literal-fluent-ids",
+    files: ["browser/components/aiwindow/**"],
+    ignores: ["browser/components/aiwindow/**/test*/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            ':matches(TemplateLiteral[expressions.length>0][quasis.0.value.raw=/^(ai|smart)\\w*-[\\w-]*$/], BinaryExpression[operator="+"][left.value=/^(ai|smart)\\w*-[\\w-]*$/], TemplateElement[value.raw=/data-l10n-id="?(ai|smart)\\w*-[\\w-]*$/])',
+          message:
+            "Write Fluent IDs in full so they can be searched for. Passing a complete ID through a variable is fine; building one from parts is not.",
         },
       ],
     },

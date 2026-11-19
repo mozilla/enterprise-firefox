@@ -2822,7 +2822,7 @@ void LIRGenerator::visitBigIntPtrDiv(MBigIntPtrDiv* ins) {
   if (ins->rhs()->isConstant()) {
     intptr_t rhs = ins->rhs()->toConstant()->toIntPtr();
     if (std::has_single_bit(mozilla::Abs(rhs))) {
-      int32_t shift = mozilla::FloorLog2(mozilla::Abs(rhs));
+      int32_t shift = std::countr_zero(mozilla::Abs(rhs));
       auto* lir = new (alloc())
           LBigIntPtrDivPowTwo(useRegister(ins->lhs()), shift, rhs < 0);
       if (shift == 0 && rhs < 0) {
@@ -2843,7 +2843,7 @@ void LIRGenerator::visitBigIntPtrMod(MBigIntPtrMod* ins) {
   if (ins->rhs()->isConstant()) {
     intptr_t rhs = ins->rhs()->toConstant()->toIntPtr();
     if (std::has_single_bit(mozilla::Abs(rhs))) {
-      int32_t shift = mozilla::FloorLog2(mozilla::Abs(rhs));
+      int32_t shift = std::countr_zero(mozilla::Abs(rhs));
       auto* lir = new (alloc())
           LBigIntPtrModPowTwo(useRegister(ins->lhs()), temp(), shift);
       define(lir, ins);
@@ -7768,6 +7768,9 @@ void LIRGenerator::visitGeneratorResume(MGeneratorResume* ins) {
       tempFixed(CallTempReg3), tempFixed(CallTempReg4));
   defineReturn(lir, ins);
   assignSafepoint(lir, ins);
+
+  // The JIT call and the VM call share the safepoint.
+  lirGraph_.addExtraSafepointUses(1);
 }
 
 void LIRGenerator::visitCanSkipAwait(MCanSkipAwait* ins) {
@@ -8897,9 +8900,16 @@ void LIRGenerator::visitWasmLoadField(MWasmLoadField* ins) {
                                        ins->maybeTrap()),
            ins);
   }
-  if (ins->keepAlive() != ins->base()) {
-    add(new (alloc()) LKeepAliveObject(useKeepalive(ins->keepAlive())), ins);
+  if (ins->wasmObject() != ins->base()) {
+    add(new (alloc()) LKeepAliveObject(useKeepalive(ins->wasmObject())), ins);
   }
+}
+
+void LIRGenerator::visitWasmLoadInternalField(MWasmLoadInternalField* ins) {
+  LAllocation object = useRegisterAtStart(ins->object());
+  define(new (alloc()) LWasmLoadSlot(object, ins->offset(), ins->type(),
+                                     MWideningOp::None, ins->maybeTrap()),
+         ins);
 }
 
 void LIRGenerator::visitWasmLoadElement(MWasmLoadElement* ins) {
@@ -8944,8 +8954,8 @@ void LIRGenerator::visitWasmStoreField(MWasmStoreField* ins) {
                                      narrowingOp, ins->maybeTrap()),
         ins);
   }
-  if (ins->keepAlive() != ins->base()) {
-    add(new (alloc()) LKeepAliveObject(useKeepalive(ins->keepAlive())), ins);
+  if (ins->wasmObject() != ins->base()) {
+    add(new (alloc()) LKeepAliveObject(useKeepalive(ins->wasmObject())), ins);
   }
 }
 
@@ -8959,8 +8969,8 @@ void LIRGenerator::visitWasmStoreFieldRef(MWasmStoreFieldRef* ins) {
   add(new (alloc()) LWasmStoreRef(instance, base, value, temp(), offset,
                                   ins->maybeTrap(), ins->preBarrierKind()),
       ins);
-  if (ins->keepAlive() != ins->base()) {
-    add(new (alloc()) LKeepAliveObject(useKeepalive(ins->keepAlive())), ins);
+  if (ins->wasmObject() != ins->base()) {
+    add(new (alloc()) LKeepAliveObject(useKeepalive(ins->wasmObject())), ins);
   }
 }
 

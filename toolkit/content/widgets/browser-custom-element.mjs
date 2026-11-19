@@ -22,7 +22,8 @@ let lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
-  ContentAnalysisUtils: "resource://gre/modules/ContentAnalysisUtils.sys.mjs",
+  ContentAnalysisUtils:
+    "moz-src:///toolkit/components/contentanalysis/ContentAnalysisUtils.sys.mjs",
   Finder: "resource://gre/modules/Finder.sys.mjs",
   FinderParent: "resource://gre/modules/FinderParent.sys.mjs",
   PopupAndRedirectBlocker:
@@ -174,7 +175,7 @@ export class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
           event.preventDefault();
         }
 
-        // No need to handle "dragover" in e10s, since nsDocShellTreeOwner.cpp in the child process
+        // No need to handle "dragover" in e10s, since nsWebBrowser.cpp in the child process
         // handles that case using "@mozilla.org/content/dropped-link-handler;1" service.
         if (this.isRemoteBrowser) {
           return;
@@ -260,7 +261,7 @@ export class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
           }
         }
 
-        // No need to handle "drop" in e10s, since nsDocShellTreeOwner.cpp in the child process
+        // No need to handle "drop" in e10s, since nsWebBrowser.cpp in the child process
         // handles that case using "@mozilla.org/content/dropped-link-handler;1" service.
         if (
           !this.droppedLinkHandler ||

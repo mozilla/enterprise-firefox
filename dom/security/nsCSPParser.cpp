@@ -8,13 +8,13 @@
 #include <utility>
 
 #include "mozilla/Preferences.h"
-#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/TrustedTypesConstants.h"
 #include "nsCOMPtr.h"
 #include "nsCSPUtils.h"
 #include "nsContentUtils.h"
+#include "nsIPrincipal.h"
 #include "nsIScriptError.h"
 #include "nsNetUtil.h"
 #include "nsReadableUtils.h"
@@ -46,6 +46,7 @@ nsCSPParser::nsCSPParser(policyTokens& aTokens, nsIURI* aSelfURI,
     : mCurChar(nullptr),
       mEndChar(nullptr),
       mHasHashOrNonce(false),
+      mHasUrlHash(false),
       mHasAnyUnsafeEval(false),
       mStrictDynamic(false),
       mUnsafeInlineKeywordSrc(nullptr),
@@ -55,6 +56,7 @@ nsCSPParser::nsCSPParser(policyTokens& aTokens, nsIURI* aSelfURI,
       mScriptSrc(nullptr),
       mStyleSrc(nullptr),
       mParsingFrameAncestorsDir(false),
+      mOriginOnly(false),
       mTokens(aTokens.Clone()),
       mSelfURI(aSelfURI),
       mPolicy(nullptr),
@@ -90,7 +92,7 @@ bool isGroupDelim(char16_t aSymbol) {
 
 bool nsCSPParser::isValidBase64Value(const nsAString& aValue) {
   // Using grammar at
-  // https://w3c.github.io/webappsec-csp/#grammardef-nonce-source
+  // https://w3c.github.io/webappsec-csp/#grammardef-base64-value
 
   const char16_t* cur = aValue.BeginReading();
   const char16_t* end = aValue.EndReading();
@@ -206,7 +208,7 @@ bool nsCSPParser::schemeChar() {
          accept(DASH) || accept(DOT);
 }
 
-// port = ":" ( 1*DIGIT / "*" )
+// ":" port-part, where port-part = 1*DIGIT / "*"
 bool nsCSPParser::port() {
   CSPPARSERLOG(("nsCSPParser::port, mCurToken: %s, mCurValue: %s",
                 NS_ConvertUTF16toUTF8(mCurToken).get(),
@@ -350,7 +352,9 @@ bool nsCSPParser::subHost() {
   return true;
 }
 
-// host = "*" / [ "*." ] 1*host-char *( "." 1*host-char )
+// host-part = "*" / [ "*." ] 1*host-char *( "." 1*host-char ) [ "." ]
+//
+// Non-standard: A trailing "." isn't supported.
 nsCSPHostSrc* nsCSPParser::host() {
   CSPPARSERLOG(("nsCSPParser::host, mCurToken: %s, mCurValue: %s",
                 NS_ConvertUTF16toUTF8(mCurToken).get(),
@@ -403,8 +407,15 @@ nsCSPHostSrc* nsCSPParser::host() {
   return new nsCSPHostSrc(mCurValue);
 }
 
-// keyword-source = "'self'" / "'unsafe-inline'" / "'unsafe-eval'" /
-// "'wasm-unsafe-eval'"
+// keyword-source = "'self'" / "'unsafe-inline'" / "'unsafe-eval'"
+//                  / "'strict-dynamic'" / "'unsafe-hashes'"
+//                  / "'report-sample'" / "'unsafe-allow-redirects'"
+//                  / "'wasm-unsafe-eval'" / "'trusted-types-eval'"
+//                  / "'report-sha256'" / "'report-sha384'"
+//                  / "'report-sha512'" / "'unsafe-webtransport-hashes'"
+//
+// Non-standard: 'unsafe-allow-redirects', 'report-sha256', 'report-sha384',
+// 'report-sha512' and 'unsafe-webtransport-hashes' aren't supported.
 nsCSPBaseSrc* nsCSPParser::keywordSource() {
   CSPPARSERLOG(("nsCSPParser::keywordSource, mCurToken: %s, mCurValue: %s",
                 NS_ConvertUTF16toUTF8(mCurToken).get(),
@@ -468,15 +479,15 @@ nsCSPBaseSrc* nsCSPParser::keywordSource() {
     return new nsCSPKeywordSrc(CSP_UTF16KeywordToEnum(mCurToken));
   }
 
-  if (StaticPrefs::dom_security_trusted_types_enabled() &&
-      CSP_IsKeyword(mCurToken, CSP_TRUSTED_TYPES_EVAL)) {
+  if (CSP_IsKeyword(mCurToken, CSP_TRUSTED_TYPES_EVAL)) {
     return new nsCSPKeywordSrc(CSP_UTF16KeywordToEnum(mCurToken));
   }
 
   return nullptr;
 }
 
-// host-source = [ scheme "://" ] host [ port ] [ path ]
+// host-source = [ scheme-part "://" ] host-part [ ":" port-part ]
+//               [ path-part ]
 nsCSPHostSrc* nsCSPParser::hostSource() {
   CSPPARSERLOG(("nsCSPParser::hostSource, mCurToken: %s, mCurValue: %s",
                 NS_ConvertUTF16toUTF8(mCurToken).get(),
@@ -509,14 +520,19 @@ nsCSPHostSrc* nsCSPParser::hostSource() {
   if (!path(cspHost)) {
     // If the host [port] is followed by a path, it has to be a valid path,
     // otherwise we pass the nullptr, indicating an error, up the callstack.
-    // see also http://www.w3.org/TR/CSP11/#source-list
+    // see also https://w3c.github.io/webappsec-csp/#grammardef-path-part
     delete cspHost;
     return nullptr;
+  }
+  // flag only set for Permissions Policy source-expression
+  // because it matches origins instead of URLs
+  if (mOriginOnly) {
+    cspHost->clearPath();
   }
   return cspHost;
 }
 
-// scheme-source = scheme ":"
+// scheme-source = scheme-part ":"
 nsCSPSchemeSrc* nsCSPParser::schemeSource() {
   CSPPARSERLOG(("nsCSPParser::schemeSource, mCurToken: %s, mCurValue: %s",
                 NS_ConvertUTF16toUTF8(mCurToken).get(),
@@ -543,15 +559,14 @@ nsCSPSchemeSrc* nsCSPParser::schemeSource() {
   return new nsCSPSchemeSrc(scheme);
 }
 
-// nonce-source = "'nonce-" nonce-value "'"
+// nonce-source = "'nonce-" base64-value "'"
 nsCSPNonceSrc* nsCSPParser::nonceSource() {
   CSPPARSERLOG(("nsCSPParser::nonceSource, mCurToken: %s, mCurValue: %s",
                 NS_ConvertUTF16toUTF8(mCurToken).get(),
                 NS_ConvertUTF16toUTF8(mCurValue).get()));
 
   // Check if mCurToken begins with "'nonce-" and ends with "'"
-  if (!StringBeginsWith(mCurToken,
-                        nsDependentString(CSP_EnumToUTF16Keyword(CSP_NONCE)),
+  if (!StringBeginsWith(mCurToken, kCSPNonceSourcePrefix,
                         nsASCIICaseInsensitiveStringComparator) ||
       mCurToken.Last() != SINGLEQUOTE) {
     return nullptr;
@@ -570,11 +585,36 @@ nsCSPNonceSrc* nsCSPParser::nonceSource() {
 
   // cache if encountering hash or nonce to invalidate unsafe-inline
   mHasHashOrNonce = true;
-  return new nsCSPNonceSrc(
-      Substring(expr, dashIndex + 1, expr.Length() - dashIndex + 1));
+  return new nsCSPNonceSrc(Substring(expr, dashIndex + 1));
 }
 
-// hash-source = "'" hash-algo "-" base64-value "'"
+static bool ExtractAlgorithmAndHash(const nsAString& aExpr,
+                                    nsAString& aOutAlgorithm,
+                                    nsAString& aOutHash) {
+  int32_t dashIndex = aExpr.FindChar(DASH);
+  if (dashIndex < 0) {
+    return false;
+  }
+
+  const nsAString& algorithm = Substring(aExpr, 0, dashIndex);
+  const nsAString& hash = Substring(aExpr, dashIndex + 1);
+
+  if (!nsCSPParser::isValidBase64Value(hash)) {
+    return false;
+  }
+
+  for (auto hashSourceValidFn : kHashSourceValidFns) {
+    if (algorithm.LowerCaseEqualsASCII(hashSourceValidFn)) {
+      aOutAlgorithm = algorithm;
+      aOutHash = hash;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// hash-source = "'" hash-algorithm "-" base64-value "'"
 nsCSPHashSrc* nsCSPParser::hashSource() {
   CSPPARSERLOG(("nsCSPParser::hashSource, mCurToken: %s, mCurValue: %s",
                 NS_ConvertUTF16toUTF8(mCurToken).get(),
@@ -588,31 +628,68 @@ nsCSPHashSrc* nsCSPParser::hashSource() {
   // Trim surrounding single quotes
   const nsAString& expr = Substring(mCurToken, 1, mCurToken.Length() - 2);
 
-  int32_t dashIndex = expr.FindChar(DASH);
-  if (dashIndex < 0) {
+  nsAutoString algorithm;
+  nsAutoString hash;
+  if (!ExtractAlgorithmAndHash(expr, algorithm, hash)) {
     return nullptr;
   }
 
-  if (!isValidBase64Value(Substring(expr, dashIndex + 1))) {
+  // Cache if encountering hash or nonce to invalidate unsafe-inline
+  mHasHashOrNonce = true;
+
+  return new nsCSPHashSrc(algorithm, hash);
+}
+
+constexpr auto kUrlHashPrefix = u"url-"_ns;
+
+// url-hash-source = "'url-" hash-algorithm "-" base64-value "'"
+// https://github.com/w3c/webappsec-csp/pull/784
+//
+// Like the other quoted strings of the grammar, the "url-" prefix is matched
+// case-insensitively (RFC 5234, section 2.3).
+nsCSPUrlHashSrc* nsCSPParser::urlHashSource() {
+  CSPPARSERLOG(("nsCSPParser::urlHashSource, mCurToken: %s, mCurValue: %s",
+                NS_ConvertUTF16toUTF8(mCurToken).get(),
+                NS_ConvertUTF16toUTF8(mCurValue).get()));
+
+  if (!StaticPrefs::security_csp_url_hashes_enabled()) {
     return nullptr;
   }
 
-  nsAutoString algo(Substring(expr, 0, dashIndex));
-  nsAutoString hash(
-      Substring(expr, dashIndex + 1, expr.Length() - dashIndex + 1));
-
-  for (auto hashSourceValidFn : kHashSourceValidFns) {
-    if (algo.LowerCaseEqualsASCII(hashSourceValidFn)) {
-      // cache if encountering hash or nonce to invalidate unsafe-inline
-      mHasHashOrNonce = true;
-      return new nsCSPHashSrc(algo, hash);
-    }
+  // Check if mCurToken starts and ends with "'"
+  if (mCurToken.First() != SINGLEQUOTE || mCurToken.Last() != SINGLEQUOTE) {
+    return nullptr;
   }
-  return nullptr;
+
+  // Trim surrounding single quotes
+  const nsAString& expr = Substring(mCurToken, 1, mCurToken.Length() - 2);
+
+  // Check if expr starts with "url-"
+  if (!StringBeginsWith(expr, kUrlHashPrefix,
+                        nsASCIICaseInsensitiveStringComparator)) {
+    return nullptr;
+  }
+
+  // Trim the "url-" prefix
+  const nsAString& hashExpr = Substring(expr, kUrlHashPrefix.Length());
+
+  nsAutoString algorithm;
+  nsAutoString hash;
+  if (!ExtractAlgorithmAndHash(hashExpr, algorithm, hash)) {
+    return nullptr;
+  }
+
+  mHasUrlHash = true;
+
+  return new nsCSPUrlHashSrc(algorithm, hash);
 }
 
 // source-expression = scheme-source / host-source / keyword-source
-//                     / nonce-source / hash-source
+//                     / nonce-source / hash-source / url-hash-source
+//
+// Note that the source-expression production in
+// https://github.com/w3c/webappsec-csp/pull/784 doesn't list url-hash-source
+// yet, but the algorithms using it expect it to be a source expression.
 nsCSPBaseSrc* nsCSPParser::sourceExpression() {
   CSPPARSERLOG(("nsCSPParser::sourceExpression, mCurToken: %s, mCurValue: %s",
                 NS_ConvertUTF16toUTF8(mCurToken).get(),
@@ -633,6 +710,15 @@ nsCSPBaseSrc* nsCSPParser::sourceExpression() {
     return cspHash;
   }
 
+  // Check if it is a url-hash-source
+  if (nsCSPUrlHashSrc* cspUrlHash = urlHashSource()) {
+    return cspUrlHash;
+  }
+
+  return schemeOrHostSource();
+}
+
+nsCSPBaseSrc* nsCSPParser::schemeOrHostSource() {
   // We handle a single "*" as host here, to avoid any confusion when applying
   // the default scheme. However, we still would need to apply the default
   // scheme in case we would parse "*:80".
@@ -700,6 +786,29 @@ nsCSPBaseSrc* nsCSPParser::sourceExpression() {
   return nullptr;
 }
 
+/* static */
+mozilla::UniquePtr<nsCSPBaseSrc> nsCSPParser::parseSingleSourceExpression(
+    const nsAString& aSourceExpression, nsIPrincipal* aPrincipal) {
+  MOZ_ASSERT(aPrincipal);
+
+  nsCOMPtr<nsIURI> selfURI = aPrincipal->GetURI();
+  if (!selfURI) {
+    return nullptr;
+  }
+
+  if (aSourceExpression.IsEmpty() ||
+      CSP_IsInvalidDirectiveValue(aSourceExpression)) {
+    return nullptr;
+  }
+
+  policyTokens tokens;
+  nsCSPParser parser(tokens, selfURI, nullptr, false, true);
+  parser.mCurToken = aSourceExpression;
+  parser.mOriginOnly = true;
+
+  return mozilla::UniquePtr<nsCSPBaseSrc>(parser.schemeOrHostSource());
+}
+
 void nsCSPParser::logWarningForIgnoringNoneKeywordToConsole() {
   AutoTArray<nsString, 1> params;
   params.AppendElement(CSP_EnumToUTF16Keyword(CSP_NONE));
@@ -707,8 +816,14 @@ void nsCSPParser::logWarningForIgnoringNoneKeywordToConsole() {
                            params);
 }
 
-// source-list = *WSP [ source-expression *( 1*WSP source-expression ) *WSP ]
-//               / *WSP "'none'" *WSP
+// https://w3c.github.io/webappsec-csp/#framework-directive-source-list
+// serialized-source-list = ( source-expression *( required-ascii-whitespace
+//                            source-expression ) ) / "'none'"
+//
+// Unlike the grammar, this also accepts an empty source list and 'none' next
+// to other source expressions, as the spec's algorithms do, see the notes in
+// step 3 of https://w3c.github.io/webappsec-csp/#match-url-to-source-list
+// and https://github.com/w3c/webappsec-csp/issues/411.
 void nsCSPParser::sourceList(nsTArray<nsCSPBaseSrc*>& outSrcs) {
   bool isNone = false;
 
@@ -725,7 +840,8 @@ void nsCSPParser::sourceList(nsTArray<nsCSPBaseSrc*>& outSrcs) {
 
     // Special case handling for none:
     // Ignore 'none' if any other src is available.
-    // (See http://www.w3.org/TR/CSP11/#parsing)
+    // (See the note in step 3 of
+    // https://w3c.github.io/webappsec-csp/#match-url-to-source-list)
     if (CSP_IsKeyword(mCurToken, CSP_NONE)) {
       isNone = true;
       continue;
@@ -1031,11 +1147,7 @@ nsCSPDirective* nsCSPParser::directiveName() {
 
   // Check if it is a valid directive
   CSPDirective directive = CSP_StringToCSPDirective(mCurToken);
-  if (directive == nsIContentSecurityPolicy::NO_DIRECTIVE ||
-      (!StaticPrefs::dom_security_trusted_types_enabled() &&
-       (directive ==
-            nsIContentSecurityPolicy::REQUIRE_TRUSTED_TYPES_FOR_DIRECTIVE ||
-        directive == nsIContentSecurityPolicy::TRUSTED_TYPES_DIRECTIVE))) {
+  if (directive == nsIContentSecurityPolicy::NO_DIRECTIVE) {
     AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
                              "couldNotProcessUnknownDirective", params);
@@ -1232,6 +1344,7 @@ void nsCSPParser::directive() {
   // make sure to reset cache variables when trying to invalidate unsafe-inline;
   // unsafe-inline might not only appear in script-src, but also in default-src
   mHasHashOrNonce = false;
+  mHasUrlHash = false;
   mHasAnyUnsafeEval = false;
   mStrictDynamic = false;
   mUnsafeInlineKeywordSrc = nullptr;
@@ -1269,15 +1382,15 @@ void nsCSPParser::MaybeWarnAboutIgnoredSources(
     for (uint32_t i = 0; i < aSrcs.Length(); i++) {
       nsAutoString srcStr;
       aSrcs[i]->toString(srcStr);
-      // Hashes and nonces continue to apply with 'strict-dynamic', as well as
-      // 'unsafe-eval', 'wasm-unsafe-eval', 'trusted-types-eval' and
-      // 'unsafe-hashes'.
+      // Hashes, url hashes and nonces continue to apply with 'strict-dynamic',
+      // as well as 'unsafe-eval', 'wasm-unsafe-eval', 'trusted-types-eval'
+      // and 'unsafe-hashes'.
       if (!aSrcs[i]->isKeyword(CSP_STRICT_DYNAMIC) &&
           !aSrcs[i]->isKeyword(CSP_TRUSTED_TYPES_EVAL) &&
           !aSrcs[i]->isKeyword(CSP_UNSAFE_EVAL) &&
           !aSrcs[i]->isKeyword(CSP_WASM_UNSAFE_EVAL) &&
           !aSrcs[i]->isKeyword(CSP_UNSAFE_HASHES) && !aSrcs[i]->isNonce() &&
-          !aSrcs[i]->isHash()) {
+          !aSrcs[i]->isHash() && !aSrcs[i]->isUrlHash()) {
         AutoTArray<nsString, 2> params = {std::move(srcStr), mCurDir[0]};
         logWarningErrorToConsole(nsIScriptError::warningFlag,
                                  "ignoringScriptSrcForStrictDynamic", params);
@@ -1285,8 +1398,8 @@ void nsCSPParser::MaybeWarnAboutIgnoredSources(
     }
 
     // Log a warning that all scripts might be blocked because the policy
-    // contains 'strict-dynamic' but no valid nonce or hash.
-    if (!mHasHashOrNonce) {
+    // contains 'strict-dynamic' but no valid nonce, hash or url hash.
+    if (!mHasHashOrNonce && !mHasUrlHash) {
       AutoTArray<nsString, 1> params = {mCurDir[0]};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
                                "strictDynamicButNoHashOrNonce", params);

@@ -11,8 +11,6 @@ use crate::{APZScrollGeneration, HasScrollLinkedEffect, PipelineId, PropertyBind
 use crate::serde::{Serialize, Deserialize};
 use crate::color::ColorF;
 use crate::image::ImageKey;
-use crate::interning;
-use crate::path::Path;
 use crate::units::*;
 use std::hash::{Hash, Hasher};
 
@@ -173,10 +171,8 @@ pub enum DisplayItem {
 
     // These marker items indicate an array of data follows, to be used for the
     // next non-marker item.
-    SetGradientStops,
     SetFilterOps,
     SetFilterData,
-    SetPoints,
 
     // These marker items terminate a scope introduced by a previous item.
     PopStackingContext,
@@ -214,10 +210,8 @@ pub enum DebugDisplayItem {
     Iframe(IframeDisplayItem),
     PushStackingContext(PushStackingContextDisplayItem),
 
-    SetGradientStops(Vec<GradientStop>),
     SetFilterOps(Vec<FilterOp>),
     SetFilterData(FilterData),
-    SetPoints(Vec<LayoutPoint>),
 
     PopStackingContext,
 
@@ -228,22 +222,23 @@ pub enum DebugDisplayItem {
 pub struct ImageMaskClipDisplayItem {
     pub id: ClipId,
     pub spatial_id: SpatialId,
-    pub image_mask: ImageMask,
-    pub fill_rule: FillRule,
-} // IMPLICIT points: Vec<LayoutPoint>
+    /// The mask's rect; the image key and the polygon, if any, are in the
+    /// interned entry.
+    pub rect: LayoutRect,
+    pub clip: crate::interning::Handle<crate::interned_prims::ClipItemKey>,
+}
 
 /// Clips content to the interior of a path.
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
 pub struct PathClipDisplayItem {
     pub id: ClipId,
     pub spatial_id: SpatialId,
-    /// Interned by the display list builder, see `DisplayListBuilder::define_clip_path`.
-    pub path: interning::Handle<Path>,
     /// Rect the path is positioned in, in the spatial node's local space. The
     /// path's coordinates are relative to the rect's origin, and content
     /// outside of the rect is clipped out.
     pub rect: LayoutRect,
-    pub fill_rule: FillRule,
+    /// The path, fill rule and origin live in the interned entry.
+    pub clip: crate::interning::Handle<crate::interned_prims::ClipItemKey>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
@@ -256,13 +251,18 @@ pub struct RectClipDisplayItem {
     /// Used for clips defined in the same space as anti-aliased content (e.g.
     /// SVG user space).
     pub anti_aliased: bool,
+    /// Always the one rectangle-in-clip-mode entry, but carried so every clip
+    /// item names its shape the same way.
+    pub clip: crate::interning::Handle<crate::interned_prims::ClipItemKey>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
 pub struct RoundedRectClipDisplayItem {
     pub id: ClipId,
     pub spatial_id: SpatialId,
-    pub clip: ComplexClipRegion,
+    pub rect: LayoutRect,
+    /// The radii, inset and mode live in the interned entry.
+    pub clip: crate::interning::Handle<crate::interned_prims::ClipItemKey>,
     /// Layout-space outset applied when snapping this clip's rect. Non-zero
     /// only for the internal zero-blur box-shadow desugar, where the inner
     /// ClipOut edge must stay a constant distance from the snapped element
@@ -277,8 +277,8 @@ pub struct BorderClipDisplayItem {
     pub id: ClipId,
     pub spatial_id: SpatialId,
     pub clip_rect: LayoutRect,
-    pub border: NormalBorder,
-    pub widths: LayoutSideOffsets,
+    /// The border styles, radii, widths and inset live in the interned entry.
+    pub clip: crate::interning::Handle<crate::interned_prims::ClipItemKey>,
 }
 
 /// The minimum and maximum allowable offset for a sticky frame in a single dimension.
@@ -646,6 +646,17 @@ impl BorderRadius {
         self.shape_bottom_left == 1.0 &&
         self.shape_bottom_right == 1.0
     }
+
+    pub fn has_uniform_radii(&self) -> bool {
+        let r = self.top_left.width;
+        self.top_left.height == r
+            && self.top_right.width == r
+            && self.top_right.height == r
+            && self.bottom_right.width == r
+            && self.bottom_right.height == r
+            && self.bottom_left.width == r
+            && self.bottom_left.height == r
+    }
 }
 
 #[repr(C)]
@@ -736,7 +747,7 @@ pub struct Gradient {
     pub end: LayoutVector2D,
     pub extend_mode: ExtendMode,
     pub alpha_mode: AlphaMode,
-} // IMPLICIT: stops: Vec<GradientStop>
+}
 
 impl Gradient {
     pub fn is_valid(&self) -> bool {
@@ -777,7 +788,7 @@ pub struct RadialGradient {
     pub end_offset: f32,
     pub extend_mode: ExtendMode,
     pub alpha_mode: AlphaMode,
-} // IMPLICIT stops: Vec<GradientStop>
+}
 
 impl RadialGradient {
     pub fn is_valid(&self) -> bool {
@@ -797,7 +808,7 @@ pub struct ConicGradient {
     pub end_offset: f32,
     pub extend_mode: ExtendMode,
     pub alpha_mode: AlphaMode,
-} // IMPLICIT stops: Vec<GradientStop>
+}
 
 impl ConicGradient {
     pub fn is_valid(&self) -> bool {
@@ -989,8 +1000,9 @@ pub struct StackingContext {
     pub clip_chain_id: Option<ClipChainId>,
     /// Raster space already resolved against the enclosing stacking contexts by
     /// `DisplayListBuilder::push_stacking_context`, not the space its caller
-    /// requested. Resolving on the builder means one raster space stack rather
-    /// than two that have to agree.
+    /// requested. Resolving on the builder means the one raster space stack that
+    /// text interning needs is also the one the receiver reads, rather than two
+    /// that have to agree.
     pub raster_space: RasterSpace,
     pub flags: StackingContextFlags,
     /// Non-zero for a shadow emitted by the display list builder's shadow
@@ -1985,6 +1997,10 @@ impl FilterData {
 pub struct IframeDisplayItem {
     pub bounds: LayoutRect,
     pub clip_rect: LayoutRect,
+    /// The rectangle clip the scene builder defines from `clip_rect` as the
+    /// iframe pipeline's root clip. Interned by the builder like any other
+    /// clip, since the scene builder has no interner of its own to mint one.
+    pub clip: crate::interning::Handle<crate::interned_prims::ClipItemKey>,
     pub space_and_clip: SpaceAndClipInfo,
     pub pipeline_id: PipelineId,
     pub ignore_missing_pipeline: bool,
@@ -2454,10 +2470,8 @@ impl DisplayItem {
             DisplayItem::PushStackingContext(..) => "push_stacking_context",
             DisplayItem::SetFilterOps => "set_filter_ops",
             DisplayItem::SetFilterData => "set_filter_data",
-            DisplayItem::SetPoints => "set_points",
             DisplayItem::RadialGradient(..) => "radial_gradient",
             DisplayItem::Rectangle(..) => "rectangle",
-            DisplayItem::SetGradientStops => "set_gradient_stops",
             DisplayItem::Text(..) => "text",
             DisplayItem::YuvImage(..) => "yuv_image",
             DisplayItem::BackdropFilter(..) => "backdrop_filter",

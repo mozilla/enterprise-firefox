@@ -19,8 +19,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 ChromeUtils.defineLazyGetter(lazy, "console", function () {
   return console.createInstance({
-    prefix: "LLMTelemetry",
-    maxLogLevelPref: "browser.smartwindow.telemetryLogLevel",
+    logModule: "LLMTelemetry",
+    maxLogLevelPref: "browser.smartwindow.telemetry.logLevel",
   });
 });
 

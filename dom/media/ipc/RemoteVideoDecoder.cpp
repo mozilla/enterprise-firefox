@@ -179,11 +179,11 @@ void RemoteVideoDecoderParent::ActorDestroy(ActorDestroyReason aWhy) {
 
 IPCResult RemoteVideoDecoderParent::RecvConstruct(
     ConstructResolver&& aResolver) {
-  if (mDecoder || mShutdown || mVideoBridgeRequest.Exists() ||
-      mIdentifierRequest.Exists()) {
+  if (mState != State::Unconstructed) {
     aResolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
     return IPC_OK();
   }
+  mState = State::Constructing;
 
   if (!IsMediaEngineIdAllowed()) {
     aResolver(MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__));
@@ -237,7 +237,7 @@ void RemoteVideoDecoderParent::CreateDecoder(
     const Maybe<layers::TextureFactoryIdentifier>& aIdentifier,
     ConstructResolver&& aResolver) {
   MOZ_ASSERT(OnManagerThread());
-  if (mDecoder || mShutdown) {
+  if (mState != State::Constructing) {
     aResolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
     return;
   }
@@ -297,7 +297,7 @@ void RemoteVideoDecoderParent::CreateDecoder(
           return;
         }
         MOZ_ASSERT(aValue.ResolveValue());
-        if (self->mDecoder || self->mShutdown) {
+        if (self->mState != State::Constructing) {
           aValue.ResolveValue()->Shutdown();
           resolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
           return;
@@ -305,6 +305,7 @@ void RemoteVideoDecoderParent::CreateDecoder(
         self->mDecoder =
             new MediaDataDecoderProxy(aValue.ResolveValue().forget(),
                                       do_AddRef(self->mDecodeTaskQueue.get()));
+        self->mState = State::Constructed;
         resolver(NS_OK);
       });
 }
@@ -331,7 +332,7 @@ MediaResult RemoteVideoDecoderParent::ProcessDecodedData(
 
   // If the video decoder bridge has shut down, stop.
   if (mKnowsCompositor && !mKnowsCompositor->GetTextureForwarder()) {
-    aDecodedData = MakeRefPtr<ArrayOfRemoteVideoData>();
+    aDecodedData = MakeNotNull<RefPtr<ArrayOfRemoteVideoData>>();
     return NS_OK;
   }
 
@@ -457,7 +458,7 @@ MediaResult RemoteVideoDecoderParent::ProcessDecodedData(
     array.AppendElement(std::move(output));
   }
 
-  aDecodedData = MakeRefPtr<ArrayOfRemoteVideoData>(std::move(array));
+  aDecodedData = MakeNotNull<RefPtr<ArrayOfRemoteVideoData>>(std::move(array));
 
   return NS_OK;
 }

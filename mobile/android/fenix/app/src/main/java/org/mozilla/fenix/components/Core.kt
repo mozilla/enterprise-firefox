@@ -50,6 +50,8 @@ import mozilla.components.feature.logins.exceptions.LoginExceptionStorage
 import mozilla.components.feature.media.MediaSessionFeature
 import mozilla.components.feature.media.middleware.LastMediaAccessMiddleware
 import mozilla.components.feature.media.middleware.RecordingDevicesMiddleware
+import mozilla.components.feature.pictureinpicture.PictureInPictureMiddleware
+import mozilla.components.feature.pictureinpicture.PictureInPictureWindowFeature
 import mozilla.components.feature.prompts.PromptMiddleware
 import mozilla.components.feature.prompts.file.FileUploadsDirCleaner
 import mozilla.components.feature.prompts.file.FileUploadsDirCleanerMiddleware
@@ -135,6 +137,7 @@ import org.mozilla.fenix.nimbus.BaselineFpp
 import org.mozilla.fenix.nimbus.FingerprintingProtection
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.perf.StrictModeManager
+import org.mozilla.fenix.pictureinpicture.PictureInPictureActivity
 import org.mozilla.fenix.settings.advanced.getSelectedLocale
 import org.mozilla.fenix.settings.downloads.DownloadLocationManager
 import org.mozilla.fenix.share.DefaultSentFromFirefoxManager
@@ -145,7 +148,9 @@ import org.mozilla.fenix.summarization.eligibility.DefaultSummarizationEligibili
 import org.mozilla.fenix.summarization.eligibility.SummarizationEligibilityChecker
 import org.mozilla.fenix.summarization.onboarding.FenixSummarizationFeatureConfiguration
 import org.mozilla.fenix.summarization.onboarding.SummarizationFeatureDiscoveryConfiguration
+import org.mozilla.fenix.tabgroups.FenixTabGroupsFeatureDiscoveryConfiguration
 import org.mozilla.fenix.tabgroups.middleware.TabGroupMiddleware
+import org.mozilla.fenix.tabstray.repository.uistate.DefaultTabManagerUiStateRepository
 import org.mozilla.fenix.telemetry.TelemetryMiddleware
 import org.mozilla.fenix.translations.TranslationsEnabledSettings
 import org.mozilla.fenix.utils.Settings.DeleteDownloadBehavior
@@ -178,6 +183,7 @@ class Core(
                 suspendMediaWhenInactive = false,
                 forceUserScalableContent = context.components.settings.forceEnableZoom,
                 loginAutofillEnabled = context.components.settings.shouldAutofillLogins,
+                creditCardSecurityCodeEnabled = context.components.settings.isCreditCardSecurityCodeEnabled,
                 enterpriseRootsEnabled = context.components.settings.allowThirdPartyRootCerts,
                 clearColor =
                     ContextCompat.getColor(
@@ -384,8 +390,8 @@ class Core(
                     searchExtraParams = searchExtraParams,
                     searchEngineSelectorConfig = getSearchEngineSelectorConfig(),
                 ),
-                RecordingDevicesMiddleware(context, context.components.notificationsDelegate),
-                PromptMiddleware(),
+                RecordingDevicesMiddleware(context, context.components.notificationsDelegate, applicationScope),
+                PromptMiddleware(applicationScope),
                 AdsTelemetryMiddleware(adsTelemetry),
                 LastMediaAccessMiddleware(),
                 HistoryMetadataMiddleware(historyMetadataService),
@@ -411,6 +417,7 @@ class Core(
                 AboutHomeMiddleware(homepageTitle = context.getString(R.string.tab_tray_homepage_tab)),
                 BrowserVisualCompletenessMiddleware(visualCompletenessQueue),
                 TabGroupMiddleware(tabGroupRepository = tabGroupRepository, scope = applicationScope),
+                PictureInPictureMiddleware(),
             )
 
         BrowserStore(
@@ -451,6 +458,7 @@ class Core(
                 )
 
                 MediaSessionFeature(context, MediaSessionService::class.java, this).start()
+                PictureInPictureWindowFeature(context, this, PictureInPictureActivity::class.java).start()
                 CarUxRestrictionsFeature(
                         applicationContext = context,
                         store = this,
@@ -698,6 +706,18 @@ class Core(
         )
     }
 
+    val tabManagerUiStateRepository by lazy {
+        DefaultTabManagerUiStateRepository(context = context, stateFlowScope = applicationScope)
+    }
+
+    val tabGroupDiscoveryFeatureConfiguration by lazy {
+        FenixTabGroupsFeatureDiscoveryConfiguration(
+            settings = context.components.settings,
+            tabGroupUiStateRepository = tabManagerUiStateRepository,
+            scope = applicationScope,
+        )
+    }
+
     val tabGroupRepository by lazy { DefaultTabGroupRepository(context) }
 
     /** Summarization eligibility checker */
@@ -708,20 +728,19 @@ class Core(
     val longFoxFeature by lazy { LongFoxFeature() }
 
     /**
-     * Shared Preferences that encrypt/decrypt using Android KeyStore and lib-dataprotect for 23+ only on Debug builds
-     * for now, otherwise simply stored. See https://github.com/mozilla-mobile/fenix/issues/8324 Also, this needs
-     * revision. See https://github.com/mozilla-mobile/fenix/issues/19155
+     * Regular Shared Preferences. Any values previously encrypted by [SecureAbove22Preferences] are migrated on first
+     * access.
      */
-    private fun getSecureAbove22Preferences() =
+    private fun getAbove22Preferences() =
         SecureAbove22Preferences(
             context = context,
             name = KEY_STORAGE_NAME,
-            forceInsecure = !Config.channel.isDebug,
+            forceInsecure = true,
             crashReporting = crashReporter,
         )
 
     // Temporary. See https://github.com/mozilla-mobile/fenix/issues/19155
-    private val lazySecurePrefs = lazy { getSecureAbove22Preferences() }
+    private val lazySecurePrefs = lazy { getAbove22Preferences() }
     val trackingProtectionPolicyFactory =
         TrackingProtectionPolicyFactory(context.components.settings, context.resources)
 

@@ -12,8 +12,8 @@ import {
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  AutoTabGrouping:
-    "moz-src:///browser/components/aiwindow/ui/modules/AutoTabGrouping.sys.mjs",
+  AIWindowToolbarButtons:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowToolbarButtons.sys.mjs",
   MonitorPanel:
     "moz-src:///browser/components/aiwindow/ui/modules/MonitorPanel.sys.mjs",
   URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
@@ -32,7 +32,6 @@ export const AIWindowUI = {
   SPLITTER_ID: "ai-window-splitter",
   BROWSER_ID: "ai-window-browser",
   STACK_CLASS: "ai-window-browser-stack",
-  AI_WINDOW_ELEMENT_TIMEOUT: 1500,
   TAB_FADE_MS: 200,
   TAB_FADE_TIMEOUT_MS: 200 * 2 + 50,
   SIDEBAR_ANIMATION_MS: 200,
@@ -369,7 +368,7 @@ export const AIWindowUI = {
 
     if (!this.isSidebarOpen(win)) {
       this._setSidebarCollapsed(win, box, splitter, false, { animate: false });
-      this._updateAskButtonChecked(win, true);
+      lazy.AIWindowToolbarButtons.setAskButtonExpanded(win, true);
     }
 
     Glean.smartWindow.sidebarOpen.record({
@@ -394,10 +393,7 @@ export const AIWindowUI = {
       aiBrowser.removeAttribute("data-conversation-id");
     }
 
-    const aiWindowElement = await this.getAiWindowElement(win, aiBrowser);
-    if (!aiWindowElement) {
-      return;
-    }
+    const aiWindowElement = await this.getAiWindowElement(aiBrowser);
 
     // Return early if the sidebar was closed while we were waiting for the
     // content element to load, prevents opening a conversation or creating
@@ -414,24 +410,30 @@ export const AIWindowUI = {
   },
 
   /**
-   * Gets the ai-window element from the sidebar browser. Polls until the
-   * custom element is defined or the timeout is reached.
+   * Gets the ai-window element from the sidebar browser, waiting for its
+   * document to be parsed if needed.
    *
-   * @param {Window} win
    * @param {XULElement} aiBrowser
-   *
    * @returns {Promise<AIWindow>} The sidebar AIWindow component
    */
-  async getAiWindowElement(win, aiBrowser) {
-    const deadline = Date.now() + AIWindowUI.AI_WINDOW_ELEMENT_TIMEOUT;
-    while (Date.now() < deadline) {
-      const el = aiBrowser.contentDocument?.querySelector("ai-window:defined");
-      if (el) {
-        return el;
-      }
-      await new Promise(resolve => win.setTimeout(resolve, 50));
+  async getAiWindowElement(aiBrowser) {
+    const isParsed = () => {
+      const doc = aiBrowser.contentDocument;
+      return doc?.documentURI === AIWINDOW_URL && doc.readyState !== "loading";
+    };
+    if (!isParsed()) {
+      await new Promise(resolve => {
+        const onParsed = () => {
+          if (isParsed()) {
+            aiBrowser.removeEventListener("DOMContentLoaded", onParsed, true);
+            resolve();
+          }
+        };
+        aiBrowser.addEventListener("DOMContentLoaded", onParsed, true);
+      });
     }
-    return null;
+    await aiBrowser.contentWindow.customElements.whenDefined("ai-window");
+    return aiBrowser.contentDocument.querySelector("ai-window");
   },
 
   async focusSidebar(win, aiBrowser = null) {
@@ -442,8 +444,8 @@ export const AIWindowUI = {
 
     aiBrowser.focus();
 
-    const aiWindowElement = await this.getAiWindowElement(win, aiBrowser);
-    if (!aiWindowElement || !this.isSidebarOpen(win)) {
+    const aiWindowElement = await this.getAiWindowElement(aiBrowser);
+    if (!this.isSidebarOpen(win)) {
       return false;
     }
 
@@ -469,7 +471,7 @@ export const AIWindowUI = {
     this._setSidebarCollapsed(win, box, splitter, true, {
       animate: source === "toggle",
     });
-    this._updateAskButtonChecked(win, false);
+    lazy.AIWindowToolbarButtons.setAskButtonExpanded(win, false);
 
     // Dispatch event to notify tab state manager that sidebar was toggled
     win.dispatchEvent(
@@ -487,26 +489,6 @@ export const AIWindowUI = {
       chat_id: chatId,
       message_seq: messageSeq,
     });
-  },
-
-  /**
-   * Toggle the "Organize Tabs" panel anchored to its toolbar button.
-   *
-   * @param {Window} win
-   * @param {object} [options] - Passed through to AutoTabGrouping, which uses
-   *   options.source to record what asked for the panel.
-   */
-  toggleGroupTabsPanel(win, options) {
-    lazy.AutoTabGrouping.toggleGroupTabsPanel(win, options);
-  },
-
-  /**
-   * Toggle the monitor creation panel anchored to its toolbar button.
-   *
-   * @param {Window} win
-   */
-  toggleMonitorPanel(win) {
-    lazy.MonitorPanel.toggleMonitorPanel(win);
   },
 
   /**
@@ -538,7 +520,7 @@ export const AIWindowUI = {
 
     this.ensureBrowserIsAppended(chromeDoc, box);
     this._setSidebarCollapsed(win, box, splitter, false);
-    this._updateAskButtonChecked(win, true);
+    lazy.AIWindowToolbarButtons.setAskButtonExpanded(win, true);
 
     // Dispatch event to notify tab state manager that sidebar was toggled
     win.dispatchEvent(
@@ -569,20 +551,6 @@ export const AIWindowUI = {
     if (aiWindowEl) {
       aiWindowEl.syncSmartbarMemoriesStateFromConversation();
     }
-  },
-
-  /**
-   * Update the Ask Button style based on the sidebar state.
-   *
-   * @param {Window} win
-   * @param {boolean} sidebarIsOpen
-   */
-  _updateAskButtonChecked(win, sidebarIsOpen) {
-    const askBtn = win.document.querySelector("#smartwindow-ask-button-inner");
-    if (!askBtn) {
-      return;
-    }
-    askBtn.setAttribute("aria-expanded", String(sidebarIsOpen));
   },
 
   /**
@@ -753,6 +721,17 @@ export const AIWindowUI = {
       submitType,
       aitabSource,
     });
+  },
+
+  /**
+   * Opens the sidebar on a new chat and submits a message to it.
+   *
+   * @param {Window} win
+   * @param {object} message - Options for the ai-window submitChatMessage.
+   */
+  async submitToNewSidebarChat(win, message) {
+    await this.openSidebar(win);
+    this._getSidebarAiWindow(win)?.submitChatMessage(message);
   },
 
   /**

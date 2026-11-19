@@ -4,14 +4,21 @@
 
 package mozilla.components.compose.menu.ui.customize
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
@@ -23,46 +30,108 @@ import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.MenuItemsGroup
 import mozilla.components.compose.menu.data.StandardMenuItem
-import mozilla.components.compose.menu.ui.DISABLED_ALPHA
 import mozilla.components.compose.menu.ui.MenuItemIconRes
+import mozilla.components.compose.menu.ui.utils.DISABLED_ALPHA
 import mozilla.components.compose.menu.ui.utils.mainSectionMenuItemsPreviewData
 import mozilla.components.ui.icons.R as iconsR
 
+/**
+ * Show a group of the customize menu screen, with the handle to drag it by.
+ *
+ * @param group The group to show.
+ * @param modifier The [Modifier] to be applied to the group and its handle.
+ * @param state How the group is shown.
+ * @param dragState State of dragging the groups, or `null` to not drag them.
+ * @param isHighlighted Whether to highlight the group, as the one the open actions sheet acts on.
+ * @param onDragHandleLongPress Called when the user long presses the drag handle without moving.
+ */
 @Composable
 internal fun CustomizeMenuGroupContent(
     group: MenuItemsGroup,
     modifier: Modifier = Modifier,
     state: CustomizeMenuGroupState = CustomizeMenuGroupState.SHOWN,
+    dragState: CustomizeMenuDragState? = null,
+    isHighlighted: Boolean = false,
+    onDragHandleLongPress: () -> Unit = {},
 ) {
     val isHidden = state == CustomizeMenuGroupState.HIDDEN
-    val contentAlpha = if (isHidden) DISABLED_ALPHA else 1f
+    val haptic = LocalHapticFeedback.current
+    val currentOnDragHandleLongPress by rememberUpdatedState(onDragHandleLongPress)
 
-    CustomizedGroupTheme(containerColor = if (isHidden) Color.Transparent else null) {
-        Row(
-            modifier = modifier,
-            verticalAlignment = Alignment.CenterVertically,
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // The Box parent allows the drag gesture surviving a "isHidden" state change.
+        Box(
+            modifier =
+                Modifier.weight(1f)
+                    .dragGroupAfterLongPress(dragState, group.id)
+                    .then(
+                        if (isHighlighted && isHidden) {
+                            Modifier.background(
+                                MaterialTheme.colorScheme.surfaceContainerHighest,
+                                MaterialTheme.shapes.extraLarge,
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .then(
+                        if (isHighlighted) {
+                            Modifier.border(
+                                width = AcornTheme.layout.border.heavy,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                shape = MaterialTheme.shapes.extraLarge,
+                            )
+                        } else {
+                            Modifier
+                        }
+                    ),
+            propagateMinConstraints = true,
         ) {
-            val groupModifier = Modifier.weight(1f).let { if (isHidden) it.hiddenSectionBorder() else it }
-
-            when (group) {
-                is MenuItemsGroup.Grid ->
-                    CustomizeMenuGridContainer(
-                        items = group.items,
-                        modifier = groupModifier,
-                        contentAlpha = contentAlpha,
-                    )
-
-                is MenuItemsGroup.Row ->
-                    CustomizeMenuListItemGroup(
-                        items = group.items,
-                        modifier = groupModifier,
-                        showDivider = isHidden,
-                        contentAlpha = contentAlpha,
-                    )
+            CustomizedGroupTheme(
+                containerColor =
+                    when {
+                        isHidden -> Color.Transparent
+                        isHighlighted -> MaterialTheme.colorScheme.surfaceContainerHighest
+                        else -> null
+                    }
+            ) {
+                CustomizeMenuGroup(group = group, isHidden = isHidden, isHighlighted = isHighlighted)
             }
-
-            CustomizeMenuDragIndicator()
         }
+
+        CustomizeMenuDragIndicator(
+            modifier =
+                Modifier.dragGroup(dragState, group.id) {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    currentOnDragHandleLongPress()
+                }
+        )
+    }
+}
+
+@Composable
+private fun CustomizeMenuGroup(group: MenuItemsGroup, isHidden: Boolean, isHighlighted: Boolean) {
+    val contentAlpha = if (isHidden) DISABLED_ALPHA else 1f
+    val groupModifier = if (isHidden && !isHighlighted) Modifier.hiddenSectionBorder() else Modifier
+
+    when (group) {
+        is MenuItemsGroup.Grid ->
+            CustomizeMenuGridContainer(
+                items = group.items,
+                modifier = groupModifier,
+                contentAlpha = contentAlpha,
+            )
+
+        is MenuItemsGroup.Row ->
+            CustomizeMenuListItemGroup(
+                items = group.items,
+                modifier = groupModifier,
+                showDivider = isHidden,
+                contentAlpha = contentAlpha,
+            )
     }
 }
 
@@ -87,16 +156,33 @@ private fun CustomizedGroupTheme(containerColor: Color?, content: @Composable ()
     )
 }
 
-/** Dashed border shown around the sections the user removed from the menu. */
+/**
+ * Dashed border shown around the sections the user removed from the menu.
+ *
+ * @param isHighlighted Whether to highlight the border, to show that a dragged section is dropped inside.
+ */
 @Composable
-internal fun Modifier.hiddenSectionBorder(): Modifier =
+internal fun Modifier.hiddenSectionBorder(isHighlighted: Boolean = false): Modifier =
     this.dashedBorder(
-        color = MaterialTheme.colorScheme.outlineVariant,
+        color = if (isHighlighted) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outlineVariant,
         cornerRadius = AcornCorners.extraLarge,
-        dashHeight = AcornTheme.layout.border.heavy,
+        dashHeight = if (isHighlighted) AcornTheme.layout.border.heaviest else AcornTheme.layout.border.heavy,
         dashWidth = 6.dp,
         dashGap = 6.dp,
     )
+
+@PreviewLightDark
+@Composable
+private fun CustomizeMenuHighlightedGroupContentPreview() {
+    AcornTheme {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+            CustomizeMenuGroupContent(
+                group = MenuItemsGroup.Row(id = "row", items = mainSectionMenuItemsPreviewData),
+                isHighlighted = true,
+            )
+        }
+    }
+}
 
 private class CustomizeMenuGroupStateProvider : PreviewParameterProvider<CustomizeMenuGroupState> {
     override val values = CustomizeMenuGroupState.entries.asSequence()

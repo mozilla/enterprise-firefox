@@ -63,8 +63,6 @@ stage-mach: make-stage-dir
 	cp $(topsrcdir)/testing/tools/mach_test_package_initialize.py $(PKG_STAGE)/tools/mach_initialize.py
 	cp $(topsrcdir)/mach $(PKG_STAGE)
 
-stage-mochitest: make-stage-dir ;
-
 stage-jstests: make-stage-dir
 	$(MAKE) -C $(DEPTH)/js/src/tests stage-package
 
@@ -98,10 +96,6 @@ endif
 	cp $(topsrcdir)/testing/gtest/mach_test_package_commands.py $(PKG_STAGE)/gtest
 	cp $(DIST)/bin/dependentlibs.list.gtest $(PKG_STAGE)/gtest
 	cp $(DEPTH)/mozinfo.json $(PKG_STAGE)/gtest
-
-stage-android: make-stage-dir
-	$(NSINSTALL) $(topsrcdir)/mobile/android/fonts $(DEPTH)/_tests/reftest
-	$(NSINSTALL) $(topsrcdir)/mobile/android/fonts $(DEPTH)/_tests/testing/mochitest
 
 ifdef MOZ_COPY_PDBS
 CPP_UNIT_TEST_BINS=$(filter-out $(wildcard $(DIST)/cppunittests/*.pdb), $(wildcard $(DIST)/cppunittests/*))
@@ -149,9 +143,7 @@ stage-extensions: make-stage-dir
   make-stage-dir \
   stage-all \
   stage-config \
-  stage-mochitest \
   stage-jstests \
-  stage-android \
   test-packages-manifest \
   check \
   $(NULL)

@@ -153,10 +153,9 @@ export const PoliciesUtils = {
 
     const defaults = Services.prefs.getDefaultBranch("");
 
-    let type;
     switch (typeof prefValue) {
       case "boolean":
-        type = Ci.nsIPrefBranch.PREF_BOOL;
+        defaults.setBoolPref(prefName, prefValue);
         break;
 
       case "number":
@@ -174,20 +173,15 @@ export const PoliciesUtils = {
           defaults.getPrefType(prefName) == defaults.PREF_INT ||
           ![0, 1].includes(prefValue)
         ) {
-          type = Ci.nsIPrefBranch.PREF_INT;
+          defaults.setIntPref(prefName, prefValue);
         } else {
-          type = Ci.nsIPrefBranch.PREF_BOOL;
-          prefValue = !!prefValue;
+          defaults.setBoolPref(prefName, !!prefValue);
         }
         break;
 
       case "string":
-        type = Ci.nsIPrefBranch.PREF_STRING;
+        defaults.setStringPref(prefName, prefValue);
         break;
-    }
-
-    if (type !== undefined) {
-      this._writeDefaultPref(defaults, prefName, type, prefValue);
     }
 
     // Prefs can only be unlocked explicitly.
@@ -326,33 +320,6 @@ export const PoliciesUtils = {
         break;
       case Ci.nsIPrefBranch.PREF_INVALID:
         break;
-    }
-  },
-
-  /**
-   * Writes a default value, recovering from the typeless entry libpref leaves
-   * behind when a pref present in the shared pref map has been deleted: such
-   * an entry rejects default values of any type, but accepts a user value,
-   * which gives it a type again.
-   *
-   * @param {nsIPrefBranch} defaults  Default branch.
-   * @param {string} prefName
-   * @param {Ci.nsIPrefBranch.PreferenceType} type
-   * @param {number|boolean|string} value
-   */
-  _writeDefaultPref(defaults, prefName, type, value) {
-    try {
-      this._writePref(defaults, prefName, type, value);
-    } catch (e) {
-      if (
-        e.result != Cr.NS_ERROR_UNEXPECTED ||
-        Services.prefs.getPrefType(prefName) != Ci.nsIPrefBranch.PREF_INVALID
-      ) {
-        throw e;
-      }
-      this._writePref(Services.prefs, prefName, type, value);
-      this._writePref(defaults, prefName, type, value);
-      Services.prefs.clearUserPref(prefName);
     }
   },
 

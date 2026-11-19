@@ -32,16 +32,21 @@ class WaylandBuffer {
   static already_AddRefed<WaylandBuffer> CreateDMABuf(
       const LayoutDeviceIntSize& aSize, gl::GLContext* aGL,
       RefPtr<DRMFormat> aFormat);
+  // Creates a DMABuf buffer which can be mapped by Lock() for CPU rendering.
+  static already_AddRefed<WaylandBuffer> CreateMappableDMABuf(
+      const LayoutDeviceIntSize& aSize, RefPtr<DRMFormat> aFormat);
   static RefPtr<WaylandBuffer> CreateSHM(
       const LayoutDeviceIntSize& aSize,
       RefPtr<widget::DRMFormat> aFormat = nullptr);
 
   already_AddRefed<gfx::DrawTarget> Lock();
   void* GetImageData();
+  int32_t GetStride() const { return mBufferSurface->GetStride(); }
   GLuint GetTexture() { return mBufferSurface->GetTexture(); }
   void DestroyGLResources() { mBufferSurface->ReleaseTextures(); }
   gfx::SurfaceFormat GetSurfaceFormat() { return mBufferSurface->GetFormat(); }
 
+  BufferSurface* GetSurface() { return mBufferSurface; }
   DMABufSurface* GetDMABufSurface() {
     return mBufferSurface->GetAsDMABufSurface();
   }
@@ -92,16 +97,37 @@ class WaylandBuffer {
 
 class WaylandBufferHolder final {
  public:
-  bool Matches(BufferSurface* aSurface) const;
+  bool CanRecycle(const WaylandSurfaceLock& aSurfaceLock,
+                  BufferSurface* aSurface);
+  bool Matches(const WaylandSurfaceLock& aSurfaceLock,
+               WaylandBuffer* aWaylandBuffer) const;
 
   wl_buffer* GetWLBuffer() { return mWLBuffer; }
+  void SetTransaction(const WaylandSurfaceLock& aSurfaceLock,
+                      RefPtr<BufferTransaction> aTransaction) {
+    mTransaction = aTransaction;
+  }
+  bool CheckForRecycle(const WaylandSurfaceLock& aSurfaceLock);
+  void Recycle(const WaylandSurfaceLock& aSurfaceLock,
+               RefPtr<WaylandBuffer> aWaylandBuffer);
 
-  WaylandBufferHolder(BufferSurface* aSurface, wl_buffer* aWLBuffer);
+  WaylandBufferHolder(BufferSurface* aSurface, wl_buffer* aWLBuffer,
+                      RefPtr<WaylandBuffer> aWaylandBuffer);
   ~WaylandBufferHolder();
+
+  // Disable WaylandBufferHolder copy as we hold raw pointer
+  // to wl_buffer.
+  WaylandBufferHolder(const WaylandBufferHolder&) = delete;
+  WaylandBufferHolder& operator=(const WaylandBufferHolder&) = delete;
 
  private:
   // we own the wl_buffer and are responsible for its destruction
   wl_buffer* mWLBuffer = nullptr;
+  // We borrowed the wl_buffer to this transaction/buffer,
+  // we can delete the buffer only when the transaction is finished.
+  RefPtr<BufferTransaction> mTransaction;
+  RefPtr<WaylandBuffer> mWaylandBuffer;
+  // DMABufSurface ID's for buffer recycling.
   uint32_t mUID = 0;
   uint32_t mPID = 0;
 };

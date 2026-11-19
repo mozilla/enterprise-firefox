@@ -2160,12 +2160,6 @@ class Document : public nsINode,
   MOZ_CAN_RUN_SCRIPT void RunFullscreenSteps();
 
   /**
-   * When Esc key is pressed, cancel the dialog element if the document is
-   * blocked by the dialog or hide popover if popover is shown.
-   */
-  MOZ_CAN_RUN_SCRIPT void HandleEscKey();
-
-  /**
    * Process any active CloseWatchers in the document, such
    * as fullscreen elements, popovers, dialogs.
    */
@@ -2855,18 +2849,7 @@ class Document : public nsINode,
    * Returns whether this document is cookie averse. See
    * https://html.spec.whatwg.org/multipage/dom.html#cookie-averse-document-object
    */
-  bool IsCookieAverse() const {
-    // If we are a document that "has no browsing context."
-    if (!GetInnerWindow()) {
-      return true;
-    }
-
-    // If we are a document "whose URL's scheme is not a network scheme."
-    // NB: Explicitly allow file: URIs to store cookies.
-
-    return !net::SchemeIsHttpOrHttps(NodePrincipal()) &&
-           !NodePrincipal()->SchemeIs("file");
-  }
+  bool IsCookieAverse() const;
 
   bool IsLoadedAsData() const { return mLoadedAsData; }
 
@@ -3760,6 +3743,9 @@ class Document : public nsINode,
   void GetReferrer(nsACString& aReferrer) const;
   void GetLastModified(nsAString& aLastModified) const;
   void GetReadyState(nsAString& aReadyState) const;
+  Promise* GetParsed(ErrorResult& aRv);
+  Promise* GetContentLoaded(ErrorResult& aRv);
+  Promise* GetLoaded(ErrorResult& aRv);
 
   void GetTitle(nsAString& aTitle);
   void SetTitle(const nsAString& aTitle, ErrorResult& rv);
@@ -4519,15 +4505,10 @@ class Document : public nsINode,
   void OnParsingCompleted();
 
   /**
-   * This method is called when the initial translation
-   * of the document is completed.
-   *
-   * It unblocks the load event if translation was blocking it.
-   *
-   * If the `aL10nCached` is set to `true`, and the document has
-   * a prototype, it will set the `isL10nCached` flag on it.
+   * This method is called when the initial translation of the document is
+   * completed. It unblocks the load event if translation was blocking it.
    */
-  void InitialTranslationCompleted(bool aL10nCached);
+  void InitialTranslationCompleted();
 
   /**
    * Returns whether the document allows localization.
@@ -5113,6 +5094,11 @@ class Document : public nsINode,
 
   void MaybeResolveReadyForIdle();
 
+  // Returns aPromise, creating it if needed. A promise created after the
+  // point it should have been resolved is resolved right away.
+  Promise* GetReadinessPromise(RefPtr<Promise>& aPromise, bool aResolved,
+                               ErrorResult& aRv);
+
   using AutomaticStorageAccessPermissionGrantPromise =
       MozPromise<bool, bool, true>;
   [[nodiscard]] RefPtr<AutomaticStorageAccessPermissionGrantPromise>
@@ -5249,6 +5235,13 @@ class Document : public nsINode,
   DocumentState mState{DocumentState::LTR_LOCALE};
 
   RefPtr<Promise> mReadyForIdle;
+
+  // https://html.spec.whatwg.org/#current-document-readiness
+  // Created lazily by GetParsed(), GetContentLoaded() and GetLoaded(). Reset
+  // when the readyState goes back to "loading".
+  RefPtr<Promise> mParsedPromise;
+  RefPtr<Promise> mContentLoadedPromise;
+  RefPtr<Promise> mLoadedPromise;
 
   // Lazily created in PermissionsPolicy().
   mutable RefPtr<mozilla::dom::PermissionsPolicy> mPermissionsPolicy;
@@ -6229,8 +6222,10 @@ class Document : public nsINode,
 
   bool HasPendingInitialTranslation();
 
-  nsRefPtrHashtable<nsRefPtrHashKey<Element>, nsXULPrototypeElement>
-      mL10nProtoElements;
+  using ElementToProtoMap =
+      nsRefPtrHashtable<nsRefPtrHashKey<Element>, nsXULPrototypeElement>;
+  // The map from untranslated elements to their prototype.
+  ElementToProtoMap mUntranslatedL10nProtoElements;
 
   void LoadEventFired();
 

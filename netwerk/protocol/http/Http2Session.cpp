@@ -1071,10 +1071,10 @@ void Http2Session::SendHello() {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG3(("Http2Session::SendHello %p\n", this));
 
-  // sized for magic + 6 settings and a session window update and 6 priority
+  // sized for magic + 7 settings and a session window update and 6 priority
   // frames 24 magic, 33 for settings (9 header + 4 settings @6), 13 for window
   // update, 6 priority frames at 14 (9 + 5) each
-  static const uint32_t maxSettings = 6;
+  static const uint32_t maxSettings = 7;
   static const uint32_t prioritySize =
       kPriorityGroupCount * (kFrameHeaderBytes + 5);
   static const uint32_t maxDataLen =
@@ -1140,6 +1140,19 @@ void Http2Session::SendHello() {
   NetworkEndian::writeUint32(
       packet + kFrameHeaderBytes + (6 * numberOfEntries) + 2, kMaxFrameData);
   numberOfEntries++;
+
+  uint32_t maxHeaderListSize =
+      StaticPrefs::network_http_http2_max_header_list_size();
+  if (maxHeaderListSize &&
+      StaticPrefs::network_http_http2_send_max_header_list_size()) {
+    NetworkEndian::writeUint16(
+        packet + kFrameHeaderBytes + (6 * numberOfEntries),
+        SETTINGS_TYPE_MAX_HEADER_LIST);
+    NetworkEndian::writeUint32(
+        packet + kFrameHeaderBytes + (6 * numberOfEntries) + 2,
+        maxHeaderListSize);
+    numberOfEntries++;
+  }
 
   bool disableRFC7540Priorities =
       !StaticPrefs::network_http_http2_enabled_deps() ||
@@ -1297,7 +1310,6 @@ bool Http2Session::VerifyStream(Http2StreamBase* aStream,
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
 
 #ifndef MOZ_DIAGNOSTIC_ASSERT_ENABLED
-  // Only do the real verification in early beta builds
   return true;
 #else   // MOZ_DIAGNOSTIC_ASSERT_ENABLED
 
@@ -1543,6 +1555,14 @@ nsresult Http2Session::RecvHeaders(Http2Session* self) {
     self->mExpectedHeaderID = self->mInputFrameID;
   }
 
+  // END_STREAM is only set on the HEADERS frame but applies to the whole header
+  // block, so carry it over to the CONTINUATION frames.
+  if (isContinuation) {
+    self->mInputFrameFinal = self->mHeaderBlockEndStream;
+  } else {
+    self->mHeaderBlockEndStream = self->mInputFrameFinal;
+  }
+
   uint32_t priorityLen = 0;
   if (self->mInputFrameFlags & kFlag_PRIORITY) {
     priorityLen = 5;
@@ -1620,7 +1640,7 @@ nsresult Http2Session::RecvHeaders(Http2Session* self) {
 
   // make sure this is either the first headers or a trailer
   if (self->mInputFrameDataStream->AllHeadersReceived() &&
-      !(self->mInputFrameFlags & kFlag_END_STREAM)) {
+      !self->mInputFrameFinal) {
     // Any header block after the first that does *not* end the stream is
     // illegal.
     LOG3(("Http2Session::Illegal Extra HeaderBlock %p 0x%X\n", self,
@@ -1645,6 +1665,8 @@ nsresult Http2Session::RecvHeaders(Http2Session* self) {
   }
 
   if (!endHeadersFlag) {  // more are coming - don't process yet
+    // Keep the stream open until the header block is complete.
+    self->mInputFrameFinal = false;
     self->ResetDownstreamState();
     return NS_OK;
   }
@@ -1683,7 +1705,7 @@ nsresult Http2Session::ResponseHeadersComplete() {
   // so we don't have to use the nasty chunked parser for all h2, just in case).
   if (mInputFrameDataStream->AllHeadersReceived()) {
     LOG3(("Http2Session::ResponseHeadersComplete processing trailers"));
-    MOZ_ASSERT(mInputFrameFlags & kFlag_END_STREAM);
+    MOZ_ASSERT(mInputFrameFinal);
     nsresult rv = mInputFrameDataStream->ConvertResponseTrailers(
         &mDecompressor, mDecompressBuffer);
     if (NS_FAILED(rv)) {
@@ -3150,6 +3172,10 @@ nsresult Http2Session::WriteSegmentsAgain(nsAHttpSegmentWriter* writer,
       mInputFrameDataStream->DisableSpdy();
       // actually allow restart by unsticking
       mInputFrameDataStream->MakeNonSticky();
+    } else if (mDownstreamRstReason == NO_HTTP_ERROR &&
+               mInputFrameDataStream->RecvdFin()) {
+      // Server asks to stop sending after a complete response (RFC 9113 8.1).
+      streamCleanupCode = NS_OK;
     } else if (mDownstreamRstReason == CANCEL_ERROR ||
                mDownstreamRstReason == NO_HTTP_ERROR) {
       // The server cancelled or gracefully closed this stream; do not retry.

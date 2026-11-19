@@ -217,7 +217,7 @@ EnterprisePoliciesManager.prototype = {
     );
   },
 
-  async _initialize() {
+  _initialize() {
     const previouslyApplied = Services.prefs.getBoolPref(
       PREF_POLICIES_APPLIED,
       false
@@ -238,7 +238,7 @@ EnterprisePoliciesManager.prototype = {
     );
 
     try {
-      this._provider = await this._buildProvider();
+      this._provider = this._buildProvider();
 
       // Keep status evaluation and startup activation inside the try: an
       // unexpected failure here (e.g. a malformed local policy) must not
@@ -305,11 +305,11 @@ EnterprisePoliciesManager.prototype = {
    * the remote source in enterprise builds) is added to a single
    * CombinedProvider, in increasing order of precedence.
    *
-   * @returns {Promise<CombinedProvider>} the combined policies provider
+   * @returns {CombinedProvider} the combined policies provider
    * @throws {RemotePolicyProviderInitError} when the startup policies couldn't
    *                 be fetched
    */
-  async _buildProvider() {
+  _buildProvider() {
     const provider = new CombinedProvider();
 
     // The remote provider is built first so we can perform an early lookup
@@ -320,7 +320,7 @@ EnterprisePoliciesManager.prototype = {
       remoteProvider = RemotePoliciesProvider.getInstance();
       try {
         // Ingest the startup policies.
-        await remoteProvider.ingestPolicies();
+        this.spinResolve(remoteProvider.ingestPolicies());
       } catch (e) {
         lazy.log.error(
           `Failed to fetch remote policies on startup: ${describeConsoleRequestError(e)}`,
@@ -1023,12 +1023,7 @@ EnterprisePoliciesManager.prototype = {
 
     switch (aTopic) {
       case "policies-startup": {
-        // _initialize() does async work (fetching remote policies).
-        // We spin a nested event loop until the promise resolves so
-        // this observer doesn't return before initialization completes.
-        // This keeps startup behavior effectively synchronous.
-        const initializedPromise = this._initialize();
-        this.spinResolve(initializedPromise);
+        this._initialize();
         this._runPoliciesCallbacks("onBeforeAddons");
         Services.obs.notifyObservers(null, "EnterprisePolicies:Initialized");
         break;

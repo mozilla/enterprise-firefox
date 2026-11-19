@@ -45,7 +45,7 @@ class BrowserRelaunchDeadlineCountdownFocus(BrowserRelaunchDeadlineBase):
                 arguments[0]
             );
             win._relaunchTestBar = bar;
-            win._relaunchTestButton = bar.buttonContainer.querySelector("button");
+            win._relaunchTestButton = bar.buttonContainer.querySelector(".notification-button");
             win._relaunchTestButton.focus();
             """,
             script_args=(IMMINENT_ID,),

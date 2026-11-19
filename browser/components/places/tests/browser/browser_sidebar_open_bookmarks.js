@@ -3,7 +3,7 @@
 
 "use strict";
 
-const PREF_LOAD_BOOKMARKS_IN_TABS = "browser.tabs.loadBookmarksInTabs";
+const PREF_LOAD_UI_LINK_IN_TAB = "browser.tabs.loadUILinkInTab";
 
 var gBms;
 
@@ -76,7 +76,7 @@ add_task(async function test_open_bookmark_from_sidebar_keypress() {
 
 add_task(async function test_open_bookmark_in_tab_from_sidebar() {
   await SpecialPowers.pushPrefEnv({
-    set: [[PREF_LOAD_BOOKMARKS_IN_TABS, true]],
+    set: [[PREF_LOAD_UI_LINK_IN_TAB, true]],
   });
 
   await BrowserTestUtils.withNewTab({ gBrowser }, async () => {

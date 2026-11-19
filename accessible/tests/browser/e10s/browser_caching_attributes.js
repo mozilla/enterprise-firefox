@@ -340,6 +340,10 @@ addAccessibleTask(
 </div>
 <div id="foo" aria-foo="bar">foo</div>
 <div id="mutate" aria-current="true">mutate</div>
+<div id="roledesc" role="button" aria-roledescription="slide" aria-brailleroledescription="sld">roledesc</div>
+<div id="roledescEmpty" role="button" aria-roledescription="" aria-brailleroledescription="">roledescEmpty</div>
+<div id="roledescGeneric" role="region" aria-roledescription="slide" aria-brailleroledescription="sld">roledescGeneric</div>
+<div id="roledescEpub" role="doc-abstract" aria-roledescription="epub abstract" aria-brailleroledescription="epub abstract">roledescGeneric</div>
   `,
   async function (browser, docAcc) {
     const currentTrue = findAccessibleChildByID(docAcc, "currentTrue");
@@ -412,6 +416,66 @@ addAccessibleTask(
     });
     await changed;
     testAttrs(mutate, { current: "page" }, true);
+
+    const roledesc = findAccessibleChildByID(docAcc, "roledesc");
+    testAttrs(
+      roledesc,
+      { roledescription: "slide", brailleroledescription: "sld" },
+      true
+    );
+
+    const roledescEmpty = findAccessibleChildByID(docAcc, "roledescEmpty");
+    testAbsentAttrs(roledescEmpty, {
+      roledescription: "",
+      brailleroledescription: "",
+    });
+
+    // Role descriptions are not exposed on generic accessibles.
+    const roledescGeneric = findAccessibleChildByID(docAcc, "roledescGeneric");
+    testAbsentAttrs(roledescGeneric, {
+      roledescription: "",
+      brailleroledescription: "",
+    });
+
+    // If the accessible gets a name it stops being generic and exposes the attribute.
+    changed = waitForEvent(EVENT_NAME_CHANGE, roledescGeneric);
+    await invokeContentTask(browser, [], () => {
+      content.document
+        .getElementById("roledescGeneric")
+        .setAttribute("aria-label", "Welcome");
+    });
+    await changed;
+
+    info("roledesc: Setting aria-roledescription to empty string");
+    changed = waitForEvent(EVENT_OBJECT_ATTRIBUTE_CHANGED, roledesc);
+    await invokeContentTask(browser, [], () => {
+      content.document
+        .getElementById("roledesc")
+        .setAttribute("aria-roledescription", " ");
+    });
+    await changed;
+    testAbsentAttrs(roledesc, { roledescription: "" });
+    testAttrs(roledesc, { brailleroledescription: "sld" }, true);
+
+    info("roledesc: Setting aria-roledescription to non-empty string");
+    changed = waitForEvent(EVENT_OBJECT_ATTRIBUTE_CHANGED, roledesc);
+    await invokeContentTask(browser, [], () => {
+      content.document
+        .getElementById("roledesc")
+        .setAttribute("aria-roledescription", "card");
+    });
+    await changed;
+    testAttrs(roledesc, { roledescription: "card" }, true);
+
+    const roledescEpub = findAccessibleChildByID(docAcc, "roledescEpub");
+    testAttrs(
+      roledescEpub,
+      {
+        roledescription: "epub abstract",
+        brailleroledescription: "epub abstract",
+      },
+      true
+    );
   },
   { chrome: true, topLevel: true, iframe: true, remoteIframe: true }
 );
@@ -574,26 +638,6 @@ addAccessibleTask(
     testAttrs(withId, { id: "withId" }, true);
     const noId = findAccessibleChildByID(docAcc, "noIdParent").firstChild;
     testAbsentAttrs(noId, { id: "" });
-  },
-  { chrome: true, topLevel: true, iframe: true, remoteIframe: true }
-);
-
-/**
- * Test the valuetext attribute.
- */
-addAccessibleTask(
-  `
-<div id="valuenow" role="slider" aria-valuenow="1"></div>
-<div id="valuetext" role="slider" aria-valuetext="text"></div>
-<div id="noValue" role="button"></div>
-  `,
-  async function (browser, docAcc) {
-    const valuenow = findAccessibleChildByID(docAcc, "valuenow");
-    testAttrs(valuenow, { valuetext: "1" }, true);
-    const valuetext = findAccessibleChildByID(docAcc, "valuetext");
-    testAttrs(valuetext, { valuetext: "text" }, true);
-    const noValue = findAccessibleChildByID(docAcc, "noValue");
-    testAbsentAttrs(noValue, { valuetext: "valuetext" });
   },
   { chrome: true, topLevel: true, iframe: true, remoteIframe: true }
 );

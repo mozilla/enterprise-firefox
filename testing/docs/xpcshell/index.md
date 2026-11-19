@@ -36,7 +36,7 @@ run:
 
 ```bash
 ./mach addtest --suite xpcshell path/to/test/test_example.js
-hg add path/to/test/test_example.js
+git add path/to/test/test_example.js
 ```
 
 This will automatically create the test file and add it to
@@ -44,7 +44,7 @@ This will automatically create the test file and add it to
 
 The test file contains an empty test which will give you an idea of how
 to write a test. There are plenty more examples throughout
-mozilla-central.
+the Firefox repository.
 
 ## Running tests
 

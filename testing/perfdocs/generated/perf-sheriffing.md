@@ -404,7 +404,7 @@ For **improvements**, the general approach is to leave needinfos for the authors
 
 #### 2.13.2 Release Flag Changes and Version Bumps on mozilla-beta
 
-Alerts caused by modifying release flags (`EARLY_BETA_OR_EARLIER`) or bumping the Firefox version are generated on mozilla-beta and have no bugs associated with the revisions:
+Alerts caused by modifying release flags or bumping the Firefox version are generated on mozilla-beta and have no bugs associated with the revisions:
 
 1. Check the milestone version in the changeset details.
 2. Check if a bug was already created for this milestone version.
@@ -821,6 +821,16 @@ Here are some scenarios which duplication will be seen:
   : - action: reassign these to the non-pgo alert summary (if one exists), or downstream to the correct alert summary if this originally happened on another branch
 
 In Alert Manager it is good to acknowledge the alert and use the reassign or downstream actions. This helps us keep track of alerts across branches whenever we need to investigate in the future.
+
+#### Which alert summaries can be set as downstream to autoland alerts?
+
+Changes land on autoland first and are later merged to other branches, so alert summaries generated on the following branches can be set as downstream to the autoland alert summary that originally caught the regression or improvement:
+
+- mozilla-central
+- mozilla-beta
+- mozilla-release
+
+For mozilla-beta and mozilla-release alerts, the change usually reached the branch through a merge or an uplift several weeks after it landed on autoland, so search autoland for the original alert summary using the test, platform and magnitude of the alert rather than the push date.
 
 ### What are weekend spikes?
 

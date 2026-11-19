@@ -31,7 +31,7 @@ const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "console", () => {
   return console.createInstance({
     maxLogLevel: _logLevel, // we can't use maxLogLevelPref in workers.
-    prefix: "GeckoMLOpenAIPipeline",
+    logModule: "GeckoMLOpenAIPipeline",
   });
 });
 ChromeUtils.defineESModuleGetters(
@@ -162,6 +162,8 @@ export class OpenAIPipeline {
   /**
    * Because we are streaming here, we may get multiple partial tool_calls deltas and need to merge them together.
    * This helper does that by looking at the index property on each tool call fragment.
+   * Provider metadata in extra_content is preserved unchanged across deltas
+   * so it can be returned in subsequent tool-call requests.
    *
    * @param {map} acc - Accumulated tool calls map
    * @param {Array} deltas - New tool call fragments to merge
@@ -185,6 +187,8 @@ export class OpenAIPipeline {
       const nameFrag = toolCall.function?.name ?? "";
       const argsFrag = toolCall.function?.arguments ?? "";
 
+      const extraContent = toolCall.extra_content ?? existing.extra_content;
+
       // Merge fragments into previous entry
       const merged = {
         id: toolCall.id ?? existing.id,
@@ -198,6 +202,9 @@ export class OpenAIPipeline {
             : existing.function.arguments,
         },
       };
+      if (extraContent) {
+        merged.extra_content = extraContent;
+      }
       next.set(idx, merged);
     }
     return next;

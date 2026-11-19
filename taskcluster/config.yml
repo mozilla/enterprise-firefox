@@ -108,6 +108,10 @@ treeherder:
         'M': 'Mochitests'
         'M-f': 'Mochitest failures'
         'M-ioi': 'Mochitests tagged with inc-origin-init'
+        'M-rp': 'Mochitest with each test repeated'
+        'M-rp-cf': 'Mochitest with each test repeated for confirm failure'
+        'M-rp-1proc': 'Mochitest with each test repeated and e10s disabled'
+        'M-rp-1proc-cf': 'Mochitest with each test repeated and e10s disabled for confirm failure'
         'M-sa': 'Mochitest with a browser restart between every test'
         'M-sa-cf': 'Mochitest with a browser restart between every test for confirm failure'
         'M-ioi-cf': 'Mochitests tagged with inc-origin-init for confirm failure'
@@ -314,17 +318,15 @@ treeherder:
         'concept-integrity': 'concept-integrity'
         'concept-awesomebar': 'concept-awesomebar'
         'concept-base': 'concept-base'
-        'concept-bookmarks-file': 'concept-bookmarks-file'
         'compose-base': 'compose-base'
-        'concept-bookmarks-parser': 'concept-bookmarks-parser'
         'compose-cfr': 'compose-cfr'
         'compose-draggable': 'compose-draggable'
         'concept-engine': 'concept-engine'
         'concept-fetch': 'concept-fetch'
+        'concept-file-importer': 'concept-file-importer'
+        'concept-file-parser': 'concept-file-parser'
         'concept-llm': 'concept-llm'
         'concept-menu': 'concept-menu'
-        'concept-passwords-file': 'concept-passwords-file'
-        'concept-passwords-parser': 'concept-passwords-parser'
         'concept-push': 'concept-push'
         'concept-storage': 'concept-storage'
         'concept-storage-bookmarks': 'concept-storage-bookmarks'
@@ -346,12 +348,12 @@ treeherder:
         'feature-findinpage': 'feature-findinpage'
         'feature-fxsuggest': 'feature-fxsuggest'
         'feature-importer': 'feature-importer'
-        'feature-password-importer': 'feature-password-importer'
         'feature-listentopage': 'feature-listentopage'
         'feature-intent': 'feature-intent'
         'feature-ipprotection': 'feature-ipprotection'
         'feature-logins': 'feature-logins'
         'feature-media': 'feature-media'
+        'feature-pictureinpicture': 'feature-pictureinpicture'
         'feature-privatemode': 'feature-privatemode'
         'feature-prompts': 'feature-prompts'
         'feature-push': 'feature-push'
@@ -414,6 +416,7 @@ treeherder:
         'service-location': 'service-location'
         'service-mars': 'service-mars'
         'service-merino-manifest': 'service-merino-manifest'
+        'service-merino-sports': 'service-merino-sports'
         'service-merino-weather': 'service-merino-weather'
         'service-nimbus': 'service-nimbus'
         'service-pocket': 'service-pocket'
@@ -727,7 +730,12 @@ workers:
             implementation: generic-worker
             os: windows
             worker-type: '{alias}-azure'
-        b-win2022(|-xxlarge|-updatebot):
+        b-win2022(|-xxlarge):
+            provisioner: '{trust-domain}-{level}'
+            implementation: generic-worker
+            os: windows
+            worker-type: '{alias}'
+        b-win2025(|-xxlarge):
             provisioner: '{trust-domain}-{level}'
             implementation: generic-worker
             os: windows
@@ -912,7 +920,7 @@ workers:
             implementation: generic-worker
             os: linux
             worker-type: 't-linux-2404-wayland-snap'
-        t-linux-arm64-docker:
+        t-linux-arm64(|-light)-docker:
             provisioner: '{trust-domain}-t'
             implementation: docker-worker
             os: linux

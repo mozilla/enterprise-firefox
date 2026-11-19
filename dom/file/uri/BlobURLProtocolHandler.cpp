@@ -103,6 +103,9 @@ static StaticMutex gNullOriginEntryTableMutex;
 static StaticAutoPtr<NullOriginEntryTable> gNullOriginEntryTable
     MOZ_GUARDED_BY(gNullOriginEntryTableMutex);
 
+BlobURLNullOriginEntry::BlobURLNullOriginEntry(const nsACString& aSpec,
+                                               nsIPrincipal* aPrincipal)
+    : mSpec(aSpec), mPrincipal(aPrincipal) {}
 BlobURLNullOriginEntry::~BlobURLNullOriginEntry() {
   StaticMutexAutoLock lock(gNullOriginEntryTableMutex);
   if (!gNullOriginEntryTable) {
@@ -209,7 +212,7 @@ void BroadcastBlobURLRegistration(const nsACString& aURI,
 
   dom::ContentChild* cc = dom::ContentChild::GetSingleton();
   (void)NS_WARN_IF(!cc->SendStoreAndBroadcastBlobURLRegistration(
-      nsCString(aURI), ipcBlob, aPrincipal, aPartitionKey));
+      nsCString(aURI), ipcBlob, WrapNotNull(aPrincipal), aPartitionKey));
 }
 
 void BroadcastBlobURLUnregistration(
@@ -243,14 +246,14 @@ class BlobURLsReporter final : public nsIMemoryReporter {
     // Determine number of URLs per mozilla::dom::BlobImpl, to handle the case
     // where it's > 1.
     for (const auto& entry : *gDataTable) {
-      if (mozilla::dom::BlobImpl* blobImpl = entry.GetWeak()->mBlobImpl) {
+      if (mozilla::dom::BlobImpl* blobImpl = entry.GetRawPtr()->mBlobImpl) {
         refCounts.LookupOrInsert(blobImpl, 0) += 1;
       }
     }
 
     for (const auto& entry : *gDataTable) {
       nsCStringHashKey::KeyType key = entry.GetKey();
-      mozilla::dom::DataInfo* info = entry.GetWeak();
+      mozilla::dom::DataInfo* info = entry.GetRawPtr();
       mozilla::dom::BlobImpl* blobImpl = info->mBlobImpl;
       if (!blobImpl) {
         continue;
@@ -658,7 +661,7 @@ bool BlobURLProtocolHandler::ForEachBlobURL(
   }
 
   for (const auto& entry : *gDataTable) {
-    mozilla::dom::DataInfo* info = entry.GetWeak();
+    mozilla::dom::DataInfo* info = entry.GetRawPtr();
     MOZ_ASSERT(info);
 
     MOZ_ASSERT(info->mBlobImpl);
@@ -732,7 +735,7 @@ void BlobURLProtocolHandler::RemoveDataEntriesPerContentParent(
     StaticMutexAutoLock lock(sMutex);
 
     for (const auto& entry : *gDataTable) {
-      mozilla::dom::DataInfo* info = entry.GetWeak();
+      mozilla::dom::DataInfo* info = entry.GetRawPtr();
       MOZ_ASSERT(info);
 
       if (!info->mContentParentId.isSome() ||

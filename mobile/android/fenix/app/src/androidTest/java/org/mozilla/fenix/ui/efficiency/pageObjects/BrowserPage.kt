@@ -38,6 +38,7 @@ import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.helpers.ext.waitNotNull
 import org.mozilla.fenix.ui.efficiency.core.WaitPolicy
 import org.mozilla.fenix.ui.efficiency.core.driveUntil
+import org.mozilla.fenix.ui.efficiency.data.AddressDetails
 import org.mozilla.fenix.ui.efficiency.helpers.BasePage
 import org.mozilla.fenix.ui.efficiency.helpers.Selector
 import org.mozilla.fenix.ui.efficiency.helpers.SwipeDirection
@@ -471,12 +472,21 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
     // --- Text selection on web content ---
 
     /**
-     * Long-press web-content text containing [text] to raise the text-selection floating action bar. Waits for the text
-     * to render first (a PDF or a freshly loaded page may not be interactive the instant navigation reports done),
-     * mirroring the legacy longClickPageObject's waitForExists.
+     * Long-press web-content text to raise the text-selection floating action bar. Waits for the text to render first
+     * (a PDF or a freshly loaded page may not be interactive the instant navigation reports done), mirroring the legacy
+     * longClickPageObject's waitForExists.
+     *
+     * Pass [exact] = true to match the full text run exactly instead of by substring. A substring match on a bare word
+     * can also resolve to a linked image whose accessible name contains that word -- in pdfForm.pdf the painting is a
+     * Wikipedia hyperlink -- and long-pressing the image raises the link context menu instead of the selection bar.
      */
-    fun longClickWebContentText(text: String): BrowserPage {
-        val selector = BrowserPageSelectors.PAGE_CONTENT_LONG_PRESS_TARGET(text)
+    fun longClickWebContentText(text: String, exact: Boolean = false): BrowserPage {
+        val selector =
+            if (exact) {
+                BrowserPageSelectors.PAGE_CONTENT_EXACT_LONG_PRESS_TARGET(text)
+            } else {
+                BrowserPageSelectors.PAGE_CONTENT_LONG_PRESS_TARGET(text)
+            }
         mozVerify(selector, timeout = waitingTimeLong)
         mozLongClick(selector)
         return this
@@ -690,13 +700,28 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
 
     // --- Address autofill on a web form ---
 
+    // Matches addressForm.html's specific field ids; a differently-shaped address form would need its own fill method.
+    fun fillAddressForm(address: AddressDetails): BrowserPage {
+        mozClearAndEnterText(address.streetAddress, BrowserPageSelectors.ADDRESS_STREET_WEB_FIELD)
+        dismissKnownOverlaysIfPresent()
+        mozClearAndEnterText(address.city, BrowserPageSelectors.ADDRESS_CITY_WEB_FIELD)
+        mozClearAndEnterText(address.state, BrowserPageSelectors.ADDRESS_STATE_WEB_FIELD)
+        mozClearAndEnterText(address.zipCode, BrowserPageSelectors.ADDRESS_ZIP_WEB_FIELD)
+        mozClearAndEnterText(address.country, BrowserPageSelectors.ADDRESS_COUNTRY_WEB_FIELD)
+        mozClearAndEnterText(address.phoneNumber, BrowserPageSelectors.ADDRESS_TELEPHONE_WEB_FIELD)
+        mozClearAndEnterText(address.emailAddress, BrowserPageSelectors.ADDRESS_EMAIL_WEB_FIELD)
+        return this
+    }
+
     /** Focus the web address form's street-address field, which triggers the autofill prompt. */
     fun clickAddressFormStreetField(): BrowserPage {
         // Android stylus handwriting pops a "Try out your stylus" dialog when a web text field is
         // focused, covering the page and suppressing the autofill prompt. Disable it for the run so
         // the tap behaves like the legacy environment; the dismiss below is a belt-and-suspenders
         // fallback in case the setting doesn't take effect before the first focus.
-        runCatching { mDevice.executeShellCommand("settings put secure stylus_handwriting_enabled 0") }
+        try {
+            mDevice.executeShellCommand("settings put secure stylus_handwriting_enabled 0")
+        } catch (_: Throwable) {}
         mozClick(BrowserPageSelectors.ADDRESS_STREET_WEB_FIELD)
         dismissKnownOverlaysIfPresent()
         return this
@@ -747,7 +772,9 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
     fun clickCreditCardNumberField(): BrowserPage {
         // Same stylus-handwriting overlay as the address form: focusing a web text field pops a
         // "Try out your stylus" dialog that covers the page and suppresses the autofill prompt.
-        runCatching { mDevice.executeShellCommand("settings put secure stylus_handwriting_enabled 0") }
+        try {
+            mDevice.executeShellCommand("settings put secure stylus_handwriting_enabled 0")
+        } catch (_: Throwable) {}
         mozClick(BrowserPageSelectors.CREDIT_CARD_NUMBER_WEB_FIELD)
         dismissKnownOverlaysIfPresent()
         return this

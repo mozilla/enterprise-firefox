@@ -384,6 +384,14 @@ UtilityProcessManager::LaunchIndependentHWInferenceProcess(
 }
 #endif  // !ANDROID
 
+// Lets an actor that never got bound respond to the launch failing.
+template <typename Actor>
+static void NotifyLaunchFailed(Actor* aActor) {
+  if (!aActor->CanSend()) {
+    (void)aActor->BindToUtilityProcess(nullptr);
+  }
+}
+
 template <typename Actor>
 RefPtr<UtilityProcessManager::LaunchPromise<Ok>>
 UtilityProcessManager::StartUtility(RefPtr<Actor> aActor,
@@ -418,6 +426,7 @@ UtilityProcessManager::StartUtility(RefPtr<Actor> aActor,
   if (!keepAlive) {
     // LaunchProcess() failed outright and dropped the process.
     NS_WARNING("Reject StartUtility() for LaunchProcess() failure");
+    NotifyLaunchFailed(aActor.get());
     return RetPromise::CreateAndReject(
         LaunchError("UPM::StartUtility: LaunchProcess()"), __func__);
   }
@@ -446,6 +455,7 @@ UtilityProcessManager::StartUtilityOnProcess(
         RefPtr<UtilityProcessParent> utilityParent = process->mProcessParent;
         if (!utilityParent) {
           NS_WARNING("Missing parent in StartUtility");
+          NotifyLaunchFailed(aActor.get());
           return RetPromise::CreateAndReject(
               LaunchError("UPM::GetProcessParent"), __func__);
         }
@@ -461,6 +471,7 @@ UtilityProcessManager::StartUtilityOnProcess(
         if (!aActor->CanSend()) {
           if (!utilityParent->CanSend()) {
             NS_WARNING("Utility process died before IPC could be established");
+            NotifyLaunchFailed(aActor.get());
             return RetPromise::CreateAndReject(
                 LaunchError("UPM::UtilityParent died"), __func__);
           }
@@ -484,8 +495,9 @@ UtilityProcessManager::StartUtilityOnProcess(
             nsPrintfCString("SandboxingKind=%" PRIu64 " Resolve", sandbox));
         return RetPromise::CreateAndResolve(Ok{}, __func__);
       },
-      [self, sandbox, utilityStart](LaunchError const& error) {
+      [self, aActor, sandbox, utilityStart](LaunchError const& error) {
         NS_WARNING("Reject StartUtility() for LaunchProcess() rejection");
+        NotifyLaunchFailed(aActor.get());
         if (!self->IsShutdown()) {
           NS_WARNING("Reject StartUtility() when !IsShutdown()");
         }
@@ -679,11 +691,8 @@ UtilityProcessManager::CreateWinFileDialogActor() {
                 widget::filedialog::ProcessProxy(std::move(wfdp)),
                 __PRETTY_FUNCTION__);
           },
-          [self = RefPtr(this), startTime](LaunchError&& error) {
+          [startTime](LaunchError&& error) {
             LOGD("CreateWinFileDialogAsync() reject");
-            if (!self->IsShutdown()) {
-              MOZ_ASSERT_UNREACHABLE("failure when starting file-dialog actor");
-            }
             PROFILER_MARKER_TEXT(
                 "UtilityProcessManager::CreateWinFileDialogAsync", OTHER,
                 MarkerOptions(MarkerTiming::IntervalUntilNowFrom(startTime)),
@@ -714,8 +723,6 @@ UtilityProcessManager::StartPKCS11Module() {
         return RetPromise::CreateAndResolve(std::move(parent), __func__);
       },
       [](LaunchError&& aError) {
-        MOZ_ASSERT_UNREACHABLE(
-            "StartPKCS11Module: failure when starting actor");
         return RetPromise::CreateAndReject(std::move(aError), __func__);
       });
 }

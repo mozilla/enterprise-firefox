@@ -3,11 +3,17 @@ subsuite = "mozbuild"
 
 ["action/test_assemble_macos_bundle.py"]
 
+["action/test_check_binary.py"]
+
+["action/test_dumpsymbols.py"]
+
 ["action/test_fat_aar.py"]
 
 ["action/test_generate_archive_symbols.py"]
 
 ["action/test_html_fragment_preprocessor.py"]
+
+["action/test_l10n_merge.py"]
 
 ["action/test_l10n_stage.py"]
 
@@ -59,6 +65,8 @@ subsuite = "mozbuild"
 
 ["codecoverage/test_lcov_rewrite.py"]
 
+["compilation/test_util.py"]
+
 ["compilation/test_warnings.py"]
 
 ["configure/lint.py"]
@@ -87,9 +95,15 @@ subsuite = "mozbuild"
 
 ["controller/test_build_output.py"]
 
+["controller/test_build_times.py"]
+
+["controller/test_buildid.py"]
+
 ["controller/test_ccachestats.py"]
 
 ["controller/test_clobber.py"]
+
+["controller/test_source_repo.py"]
 
 ["frontend/test_context.py"]
 

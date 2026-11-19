@@ -7,7 +7,6 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   ASRouter: "resource:///modules/asrouter/ASRouter.sys.mjs",
-  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   RemoteL10n: "resource:///modules/asrouter/RemoteL10n.sys.mjs",
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
@@ -419,7 +418,7 @@ class InfoBarNotification {
    *
    * @param {Element} notificationBox - The `<notification-message>` element representing the infobar.
    * @param {object} btnDescription - An object describing the button, includes the label, the action with an optional dismiss property, primary button styling, and the optional `id` and generated `index` used to identify the button in telemetry.
-   * @param {Element} target - The <button> DOM element that was clicked.
+   * @param {Element} target - The <moz-button> DOM element that was clicked.
    * @returns {boolean} `true` to keep the infobar open, `false` to dismiss it.
    */
   buttonCallback(notificationBox, btnDescription, target) {
@@ -427,7 +426,7 @@ class InfoBarNotification {
       btnDescription.action,
       target.documentGlobal.gBrowser.selectedBrowser
     );
-    let isPrimary = target.classList.contains("primary");
+    let isPrimary = btnDescription.primary === true;
     let eventName = isPrimary
       ? "CLICK_PRIMARY_BUTTON"
       : "CLICK_SECONDARY_BUTTON";
@@ -611,15 +610,12 @@ export const InfoBar = {
 
   /**
    * Helper to check the window's state and whether it's a
-   * private browsing window, a popup, taskbar tab or mini window.
+   * popup, taskbar tab or mini window.
    *
    * @returns {boolean} `true` if the window is valid for showing an infobar.
    */
   isValidInfobarWindow(win) {
     if (!win || win.closed) {
-      return false;
-    }
-    if (lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
       return false;
     }
     if (!win.toolbar?.visible) {

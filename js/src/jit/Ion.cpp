@@ -4,6 +4,7 @@
 
 #include "jit/Ion.h"
 
+#include "mozilla/BinarySearch.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/IntegerPrintfMacros.h"
@@ -49,6 +50,7 @@
 #include "jit/ScalarReplacement.h"
 #include "jit/ScriptFromCalleeToken.h"
 #include "jit/SimpleAllocator.h"
+#include "jit/Simulator.h"
 #include "jit/Sink.h"
 #include "jit/TypeAnalysis.h"
 #include "jit/UnrollLoops.h"
@@ -57,6 +59,7 @@
 #include "jit/WarpOracle.h"
 #include "jit/WasmBCE.h"
 #include "jit/WasmRefTypeAnalysis.h"
+#include "js/friend/StackLimits.h"
 #include "js/Printf.h"
 #include "js/UniquePtr.h"
 #include "util/Denormals.h"
@@ -68,6 +71,7 @@
 #  include "vtune/VTuneWrapper.h"
 #endif
 
+#include "gc/BufferAllocator-inl.h"
 #include "gc/GC-inl.h"
 #include "gc/StableCellHasher-inl.h"
 #include "jit/InlineScriptTree-inl.h"
@@ -83,6 +87,7 @@
 #  include <sys/system_properties.h>
 #endif
 
+using mozilla::BinarySearchIf;
 using mozilla::CheckedInt;
 using mozilla::DebugOnly;
 
@@ -720,9 +725,9 @@ IonScript* IonScript::New(JSContext* cx, IonCompilationId compilationId,
                 "IonScript has wrong size for SafepointIndex");
 
   CheckedInt<Offset> allocSize = sizeof(IonScript);
-  allocSize += CheckedInt<Offset>(constants) * sizeof(HeapPtr<Value>);
+  allocSize += CheckedInt<Offset>(constants) * sizeof(GCPtr<Value>);
   allocSize += CheckedInt<Offset>(runtimeSize);
-  allocSize += CheckedInt<Offset>(nurseryObjects) * sizeof(HeapPtr<JSObject*>);
+  allocSize += CheckedInt<Offset>(nurseryObjects) * sizeof(GCPtr<JSObject*>);
   allocSize += CheckedInt<Offset>(osiIndices) * sizeof(OsiIndex);
   allocSize += CheckedInt<Offset>(safepointIndices) * sizeof(SafepointIndex);
   allocSize += CheckedInt<Offset>(icEntries) * sizeof(uint32_t);
@@ -736,29 +741,31 @@ IonScript* IonScript::New(JSContext* cx, IonCompilationId compilationId,
     return nullptr;
   }
 
-  void* raw = cx->pod_malloc<uint8_t>(allocSize.value());
-  MOZ_ASSERT(uintptr_t(raw) % alignof(IonScript) == 0);
-  if (!raw) {
+  JS::Zone* zone = cx->zone();
+  IonScript* script = NewSizedBuffer<IonScript>(
+      zone, allocSize.value(), /* nurseryOwned = */ false, compilationId,
+      localSlotsSize, argumentSlotsSize, frameSize);
+  if (!script) {
+    ReportOutOfMemory(cx);
     return nullptr;
   }
-  IonScript* script = new (raw)
-      IonScript(compilationId, localSlotsSize, argumentSlotsSize, frameSize);
+  MOZ_ASSERT(uintptr_t(script) % alignof(IonScript) == 0);
 
   Offset offsetCursor = sizeof(IonScript);
 
-  MOZ_ASSERT(offsetCursor % alignof(HeapPtr<Value>) == 0);
-  script->initElements<HeapPtr<Value>>(offsetCursor, constants);
+  MOZ_ASSERT(offsetCursor % alignof(GCPtr<Value>) == 0);
+  script->initElements<GCPtr<Value>>(offsetCursor, constants);
   script->constantTableOffset_ = offsetCursor;
-  offsetCursor += constants * sizeof(HeapPtr<Value>);
+  offsetCursor += constants * sizeof(GCPtr<Value>);
 
   MOZ_ASSERT(offsetCursor % alignof(uint64_t) == 0);
   script->runtimeDataOffset_ = offsetCursor;
   offsetCursor += runtimeSize;
 
-  MOZ_ASSERT(offsetCursor % alignof(HeapPtr<JSObject*>) == 0);
-  script->initElements<HeapPtr<JSObject*>>(offsetCursor, nurseryObjects);
+  MOZ_ASSERT(offsetCursor % alignof(GCPtr<JSObject*>) == 0);
+  script->initElements<GCPtr<JSObject*>>(offsetCursor, nurseryObjects);
   script->nurseryObjectsOffset_ = offsetCursor;
-  offsetCursor += nurseryObjects * sizeof(HeapPtr<JSObject*>);
+  offsetCursor += nurseryObjects * sizeof(GCPtr<JSObject*>);
 
   MOZ_ASSERT(offsetCursor % alignof(OsiIndex) == 0);
   script->osiIndexOffset_ = offsetCursor;
@@ -867,6 +874,14 @@ void IonScript::copySafepointIndices(const CodegenSafepointIndex* si) {
 
 void IonScript::copyOsiIndices(const OsiIndex* oi) {
   memcpy(osiIndices(), oi, numOsiIndices() * sizeof(OsiIndex));
+
+#ifdef DEBUG
+  // getOsiIndex does a binary search.
+  for (size_t i = 1; i < numOsiIndices(); i++) {
+    MOZ_ASSERT(oi[i - 1].callPointDisplacement() <
+               oi[i].callPointDisplacement());
+  }
+#endif
 }
 
 void IonScript::copyRuntimeData(const uint8_t* data) {
@@ -912,7 +927,8 @@ const SafepointIndex* IonScript::getSafepointIndex(uint32_t disp) const {
   //
   // such as:  <...      ...    ...  ...  .   ...    ...>
   if (guessDisp > disp) {
-    while (--guess >= minEntry) {
+    while (guess > minEntry) {
+      guess--;
       guessDisp = table[guess].displacement();
       MOZ_ASSERT(guessDisp >= disp);
       if (guessDisp == disp) {
@@ -933,14 +949,26 @@ const SafepointIndex* IonScript::getSafepointIndex(uint32_t disp) const {
 }
 
 const OsiIndex* IonScript::getOsiIndex(uint32_t disp) const {
-  const OsiIndex* end = osiIndices() + numOsiIndices();
-  for (const OsiIndex* it = osiIndices(); it != end; ++it) {
-    if (it->returnPointDisplacement() == disp) {
-      return it;
-    }
+  // OSI indices are recorded in code order, so they are sorted by
+  // displacement.
+  const OsiIndex* table = osiIndices();
+  size_t loc;
+  if (!BinarySearchIf(
+          table, 0, numOsiIndices(),
+          [disp](const OsiIndex& entry) {
+            uint32_t entryDisp = entry.returnPointDisplacement();
+            if (disp < entryDisp) {
+              return -1;
+            }
+            if (entryDisp < disp) {
+              return 1;
+            }
+            return 0;
+          },
+          &loc)) {
+    MOZ_CRASH("Failed to find OSI point return address");
   }
-
-  MOZ_CRASH("Failed to find OSI point return address");
+  return &table[loc];
 }
 
 const OsiIndex* IonScript::getOsiIndex(uint8_t* retAddr) const {
@@ -952,37 +980,32 @@ const OsiIndex* IonScript::getOsiIndex(uint8_t* retAddr) const {
   return getOsiIndex(disp);
 }
 
-void IonScript::Destroy(JS::GCContext* gcx, IonScript* script) {
+void IonScript::addSizeOfIncludingThis(JS::Zone* zone, size_t* data) const {
+  *data += gc::GetAllocSize(zone, this);
+}
+
+void IonScript::Destroy(JS::Zone* zone, IonScript* script) {
+  // Clear the GCPtrs to trigger barriers and ensure there are no pointers into
+  // the IonScript's nursery objects list or constants list in the store
+  // buffer. This is called when code is invalidated but not when being
+  // finalized by GC.
+
+  MOZ_ASSERT_IF(script->method(), zone == script->method()->zone());
+  MOZ_ASSERT(!CurrentThreadIsGCSweeping() && !CurrentThreadIsGCFinalizing());
+
+  for (size_t i = 0, len = script->numNurseryObjects(); i < len; i++) {
+    script->nurseryObjects()[i] = nullptr;
+  }
+  for (size_t i = 0, len = script->numConstants(); i < len; i++) {
+    script->getConstant(i) = UndefinedValue();
+  }
+
   // Trigger write barrier since we are destroying this outside GC.
   script->method_ = nullptr;
 
-  // Destroy the HeapPtrs to ensure there are no pointers into the IonScript's
-  // nursery objects list or constants list in the store buffer. Because this
-  // can be called during sweeping when discarding JIT code, we have to lock the
-  // store buffer when we find a pointer that's (still) in the nursery.
-  mozilla::Maybe<gc::AutoLockSweepingLock> lock;
-  for (size_t i = 0, len = script->numNurseryObjects(); i < len; i++) {
-    JSObject* obj = script->nurseryObjects()[i];
-    if (lock.isNothing() && IsInsideNursery(obj)) {
-      lock.emplace(gcx->runtimeFromAnyThread());
-    }
-    script->nurseryObjects()[i].~HeapPtr<JSObject*>();
-  }
-  for (size_t i = 0, len = script->numConstants(); i < len; i++) {
-    Value v = script->getConstant(i);
-    if (lock.isNothing() && v.isGCThing() && IsInsideNursery(v.toGCThing())) {
-      lock.emplace(gcx->runtimeFromAnyThread());
-    }
-    script->getConstant(i).~HeapPtr<Value>();
-  }
-
-  // This allocation is tracked by JSScript::setIonScriptImpl.
-  gcx->deleteUntracked(script);
-}
-
-void JS::DeletePolicy<js::jit::IonScript>::operator()(
-    const js::jit::IonScript* script) {
-  IonScript::Destroy(rt_->gcContext(), const_cast<IonScript*>(script));
+  // Call the destructor to run assertions in field destructors. This doesn't
+  // happen when the ion script is reclaimed by GC.
+  gc::DeleteBuffer(zone, script);
 }
 
 void IonScript::purgeICs(Zone* zone) {
@@ -2430,6 +2453,20 @@ bool jit::IonCompileScriptForBaselineOSR(JSContext* cx, BaselineFrame* frame,
              ion->hasProfilingInstrumentation());
   MOZ_ASSERT(ion->osrPc() == pc);
 
+  // The new Ion frame may be bigger than the baseline frame; ensure
+  // that it doesn't exceed the stack limit.
+  uint8_t* newsp =
+      reinterpret_cast<uint8_t*>(frame->framePrefix()) - ion->frameSize();
+#ifdef JS_SIMULATOR
+  if (Simulator::Current()->overRecursed(uintptr_t(newsp))) {
+#else
+  AutoCheckRecursionLimit recursion(cx);
+  if (!recursion.checkWithStackPointerDontReport(cx, newsp)) {
+#endif
+    ReportOverRecursed(cx);
+    return false;
+  }
+
   ion->resetOsrPcMismatchCounter();
 
   JitSpew(JitSpew_BaselineOSR, "  OSR possible!");
@@ -2709,7 +2746,7 @@ void jit::Invalidate(JSContext* cx, const IonScriptKeyVector& invalid,
                                       resetUses);
     }
 
-    ionScript->decrementInvalidationCount(gcx);
+    ionScript->decrementInvalidationCount();
     numInvalidations--;
   }
 
@@ -2786,10 +2823,16 @@ void jit::FinishInvalidation(JS::GCContext* gcx, JSScript* script) {
   // In all cases, null out jitScript->ionScript_ to avoid re-entry.
   IonScript* ion = script->jitScript()->clearIonScript(gcx, script);
 
+  if (gcx->isPreparing()) {
+    // We're discarding JIT code at the start of GC. The IonScript will be
+    // collected automatically.
+    return;
+  }
+
   // If this script has Ion code on the stack, invalidated() will return
   // true. In this case we have to wait until destroying it.
   if (!ion->invalidated()) {
-    jit::IonScript::Destroy(gcx, ion);
+    jit::IonScript::Destroy(script->zone(), ion);
   }
 }
 
@@ -2807,17 +2850,10 @@ void jit::ForbidCompilation(JSContext* cx, JSScript* script) {
   script->disableIon();
 }
 
-size_t jit::SizeOfIonData(JSScript* script,
-                          mozilla::MallocSizeOf mallocSizeOf) {
+size_t jit::SizeOfIonData(JSScript* script) {
   size_t result = 0;
-
   if (script->hasIonScript()) {
-    result += script->ionScript()->sizeOfIncludingThis(mallocSizeOf);
+    script->ionScript()->addSizeOfIncludingThis(script->zone(), &result);
   }
-
   return result;
 }
-
-// If you change these, please also change the comment in TempAllocator.
-/* static */ const size_t TempAllocator::BallastSize = 16 * 1024;
-/* static */ const size_t TempAllocator::PreferredLifoChunkSize = 32 * 1024;

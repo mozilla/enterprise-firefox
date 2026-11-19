@@ -7856,13 +7856,21 @@ var gCSSProperties = {
     domProp: "positionVisibility",
     inherited: false,
     type: CSS_TYPE_LONGHAND,
-    initial_values: ["anchors-visible"],
-    other_values: ["anchors-valid", "always", "no-overflow"],
+    initial_values: ["anchor-visible", "anchors-visible"],
+    other_values: [
+      "always",
+      "anchor-valid",
+      "anchors-valid",
+      "no-overflow",
+      "anchor-visible no-overflow",
+      "anchor-visible anchors-valid no-overflow",
+    ],
     invalid_values: [
       "none",
       "auto",
-      "always anchors-valid",
-      "anchors-visible always",
+      "always anchor-valid",
+      "anchor-visible always",
+      "anchor-valid anchors-valid",
     ],
   },
   quotes: {
@@ -8892,7 +8900,6 @@ var gCSSProperties = {
     type: CSS_TYPE_TRUE_SHORTHAND,
     subproperties: ["text-wrap-mode", "text-wrap-style"],
     applies_to_placeholder: true,
-    applies_to_cue: true,
     applies_to_marker: true,
     initial_values: ["wrap"],
     other_values: [
@@ -14409,7 +14416,6 @@ gCSSProperties["text-wrap-style"] = {
   inherited: true,
   type: CSS_TYPE_LONGHAND,
   applies_to_placeholder: true,
-  applies_to_cue: true,
   applies_to_marker: true,
   initial_values: ["auto"],
   other_values: ["stable", "balance"],
@@ -14747,6 +14753,40 @@ if (IsCSSPropertyPrefEnabled("layout.css.text-decoration-inset.enabled")) {
       "calc(10% + 10em) calc(20%)"
     );
   }
+}
+
+if (IsCSSPropertyPrefEnabled("layout.css.border-shape.enabled")) {
+  gCSSProperties["border-shape"] = {
+    domProp: "borderShape",
+    inherited: false,
+    type: CSS_TYPE_LONGHAND,
+    initial_values: ["none"],
+    other_values: [
+      "circle()",
+      "circle(closest-side at 25% 25%)",
+      "circle(closest-corner at 20px 50px)",
+      "ellipse(50px 60px)",
+      "polygon(10px 10px, 100px 10px, 10px 100px)",
+      "inset(10px round 5px)",
+      "circle() circle()",
+      "circle() polygon(10px 10px, 100px 10px, 10px 100px)",
+      "circle() border-box",
+      "circle() half-border-box",
+      "circle() margin-box circle() view-box",
+      "circle() border-box circle() content-box",
+    ],
+    invalid_values: [
+      "circle() none",
+      "none circle()",
+      "polygon(bla 10px 10px, 100px 10px, 10px 100px)",
+      "nonsense",
+      "1px",
+      "border-box",
+      "border-box circle()",
+      "circle() padding-box margin-box",
+      "circle() padding-box circle() margin-box circle()",
+    ],
+  };
 }
 
 if (IsCSSPropertyPrefEnabled("layout.css.corner-shape.enabled")) {

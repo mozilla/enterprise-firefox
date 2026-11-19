@@ -9,6 +9,7 @@ channels:
   - beta
   - nightly
   - developer
+# Keep `nimbus.manifestDependencies` in `build.gradle` in sync when changing `includes` or `import`.
 includes:
   - onboarding.fml.yaml
   - messaging-fenix.fml.yaml
@@ -19,13 +20,8 @@ import:
       pdfjs:
         - channel: developer
           value: {
-          download-button: false,
-          open-in-app-button: false
-        }
-        - channel: nightly
-          value: {
-          download-button: false,
-          open-in-app-button: false
+          download-button: true,
+          open-in-app-button: true
         }
   - path: ../../android-components/components/feature/fxsuggest/fxsuggest.fml.yaml
     channel: release
@@ -214,7 +210,7 @@ features:
           enabled: true
       - channel: beta
         value:
-          enabled: false
+          enabled: true
 
   shake-to-summarize:
     description: A feature that can summarize the content of a page when you shake the screen.
@@ -259,6 +255,14 @@ features:
       - channel: beta
         value:
           enabled: true
+
+  import-passwords:
+    description: A feature that lets users import passwords from a file exported by another browser or password manager.
+    variables:
+      enabled:
+        type: Boolean
+        description: If true, the import passwords feature will be enabled.
+        default: false
 
   installation:
     description: A feature that checks for reinstalls.
@@ -687,15 +691,6 @@ features:
         value:
           enabled: true
 
-  homepage-hide-frecent-top-sites:
-    description: Hides frecent top sites on the homepage.
-    variables:
-      enabled:
-        description: >
-          Whether or not to hide frecent top sites on the homepage.
-        type: Boolean
-        default: false
-
   homepage-opening-screen-default:
     description: Configure the default option for the homepage opening screen.
     variables:
@@ -906,7 +901,7 @@ features:
           enabled: false
       - channel: developer
         value:
-          enabled: true
+          enabled: false
 
   tab-management-enhancements:
     description: Control the visibility of the tab management enhancements.
@@ -1082,6 +1077,18 @@ features:
         type: Option<Int>
         default: 4
 
+  credit-card-security-code:
+    description: >
+      Feature to save and autofill credit card security codes (CVV). Fenix passes the value to Gecko through the
+      engine settings, so Gecko captures security codes exactly when Fenix shows them.
+    variables:
+      enabled:
+        description: >
+          If true, Gecko captures the security code from web forms, and the save credit card prompt shows the security
+          code and lets the user save it.
+        type: Boolean
+        default: false
+
   email-masks:
     description: Feature to enable Email Mask for users on Firefox on Android.
     variables:
@@ -1131,6 +1138,10 @@ features:
         description: The final date for the promotion to end. This needs to be an ISO 8601 formatted date (i.e. YYYY-MM-DD).
         type: String
         default: "2026-08-31"
+      gpi-data-limit-gigabytes:
+        description: Specifies the VPN data limit in GB to show in the onboarding prompt when using without an account (through GPI)
+        type: Int
+        default: 5
     defaults:
       - channel: developer
         value:
@@ -1306,11 +1317,11 @@ features:
       hide-collections-ui:
         description: If true, the Collections UI is hidden.
         type: Boolean
-        default: false
+        default: true
       enabled:
         description: If true, run the one-time migration that converts existing Collections into Tab Groups.
         type: Boolean
-        default: false
+        default: true
 
   oled-theme:
     description: Feature to provide the OLED theme option for users on Firefox for Android.
@@ -1319,35 +1330,50 @@ features:
         description: If true, the OLED theme option is shown.
         type: Boolean
         default: false
+    defaults:
+      - channel: developer
+        value:
+          enabled: true
+      - channel: nightly
+        value:
+          enabled: true
 
   pairing-signin-prompt:
     description: >
-      Controls the Sync sign-in card shown during initial onboarding to users who installed Firefox
+      Controls the pairing sync card shown during initial onboarding to users who installed Firefox
       through a pairing link.
     variables:
       enabled:
-        description: Whether the Sync sign-in card can be shown during initial onboarding.
+        description: Whether the pairing sync card can be shown during initial onboarding.
         type: Boolean
         default: false
       campaign-utm-content:
         description: The "utm_content" value used to identify installs from the pairing campaign.
         type: String
         default: "DTM_SYNC_PAIR_V2"
+    defaults:
+      - channel: developer
+        value:
+          enabled: true
+      - channel: nightly
+        value:
+          enabled: true
+      - channel: beta
+        value:
+          enabled: true
 
   pdf-viewer:
     description: Feature for the PDF viewer tools for users on Firefox for Android.
     variables:
-      android-ui-tools:
-        description: If true, the Android PDF UI tools are shown.
-        type: Boolean
-        default: false
-    defaults:
-      - channel: developer
-        value:
-          android-ui-tools: true
-      - channel: nightly
-        value:
-          android-ui-tools: true
+      enable-pdf-signatures:
+        description: >
+          If true, the Android PDF UI tools are shown, the PDF.js editor is enabled,
+          and the original PDF.js toolbar is hidden.
+          When no value is set, the build default is used (currently enabled on Nightly).
+        type: Option<Boolean>
+        gecko-pref:
+          pref: "pdfjs.enableAndroidEditing"
+          branch: "default"
 
   tab-reload-cover:
     description: >
@@ -1393,6 +1419,16 @@ features:
     variables:
       enabled:
         description: If true, the "Check Archived Version" button is shown on eligible error pages.
+        type: Boolean
+        default: false
+
+  picture-in-picture-window:
+    description: >
+      Feature that shows a video in picture-in-picture by cloning it.
+    variables:
+      enabled:
+        description: >
+          If true, videos requested for picture-in-picture are cloned into a picture-in-picture window.
         type: Boolean
         default: false
 

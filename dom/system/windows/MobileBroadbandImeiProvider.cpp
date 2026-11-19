@@ -11,9 +11,13 @@
 
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Logging.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/dom/Promise.h"
-#include "nsAppShell.h"
+#include "mozilla/mscom/EnsureMTA.h"
 #include "nsCOMPtr.h"
+#include "nsProxyRelease.h"
+#include "nsThreadUtils.h"
 
 namespace mozilla::dom {
 
@@ -22,7 +26,14 @@ static LazyLogModule gMobileBroadbandImeiLog("MobileBroadbandImei");
 #define MBNI_LOG(level, ...) \
   MOZ_LOG(gMobileBroadbandImeiLog, mozilla::LogLevel::level, (__VA_ARGS__))
 
-StaticRefPtr<MobileBroadbandImeiProvider> sInstance;
+static StaticRefPtr<MobileBroadbandImeiProvider> sInstance;
+
+MobileBroadbandImeiProvider::MobileBroadbandImeiProvider()
+    : mManagerFactory(CreateManager) {}
+
+MobileBroadbandImeiProvider::MobileBroadbandImeiProvider(
+    ManagerFactory aManagerFactory)
+    : mManagerFactory(std::move(aManagerFactory)) {}
 
 /* static */
 already_AddRefed<MobileBroadbandImeiProvider>
@@ -37,6 +48,77 @@ MobileBroadbandImeiProvider::GetInstance() {
 }
 
 NS_IMPL_ISUPPORTS(MobileBroadbandImeiProvider, nsIImeiProvider)
+
+/* static */
+already_AddRefed<IMbnInterfaceManager>
+MobileBroadbandImeiProvider::CreateManager() {
+  RefPtr<IMbnInterfaceManager> manager;
+  HRESULT hr =
+      CoCreateInstance(__uuidof(MbnInterfaceManager), nullptr, CLSCTX_ALL,
+                       __uuidof(IMbnInterfaceManager), getter_AddRefs(manager));
+  if (FAILED(hr)) {
+    MBNI_LOG(Error, "CoCreateInstance() failed: %08lx", hr);
+    return nullptr;
+  }
+  return manager.forget();
+}
+
+/* static */
+nsresult MobileBroadbandImeiProvider::GetImeiFromManager(
+    IMbnInterfaceManager* aManager, nsAString& aImei) {
+  SAFEARRAY* interfaces = nullptr;
+  HRESULT hr = aManager->GetInterfaces(&interfaces);
+  if (FAILED(hr)) {
+    MBNI_LOG(Error, "GetInterfaces() failed: %08lx", hr);
+    return NS_ERROR_FAILURE;
+  }
+  if (!interfaces) {
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+  auto destroyInterfaces = MakeScopeExit([&] { SafeArrayDestroy(interfaces); });
+
+  LONG lowerBound = 0;
+  LONG upperBound = -1;
+  if (FAILED(SafeArrayGetLBound(interfaces, 1, &lowerBound)) ||
+      FAILED(SafeArrayGetUBound(interfaces, 1, &upperBound))) {
+    return NS_ERROR_FAILURE;
+  }
+
+  for (LONG i = lowerBound; i <= upperBound; i++) {
+    IMbnInterface* rawInterface = nullptr;
+    hr = SafeArrayGetElement(interfaces, &i, &rawInterface);
+    RefPtr<IMbnInterface> mbnInterface = dont_AddRef(rawInterface);
+    if (FAILED(hr) || !mbnInterface) {
+      MBNI_LOG(Error, "SafeArrayGetElement(%ld) failed: %08lx", i, hr);
+      continue;
+    }
+
+    MBN_INTERFACE_CAPS caps{};
+    hr = mbnInterface->GetInterfaceCapability(&caps);
+    if (FAILED(hr)) {
+      MBNI_LOG(Error, "GetInterfaceCapability(%ld) failed: %08lx", i, hr);
+      continue;
+    }
+    auto freeCaps = MakeScopeExit([&] {
+      SysFreeString(caps.customDataClass);
+      SysFreeString(caps.customBandClass);
+      SysFreeString(caps.deviceID);
+      SysFreeString(caps.manufacturer);
+      SysFreeString(caps.model);
+      SysFreeString(caps.firmwareInfo);
+    });
+
+    UINT length = SysStringLen(caps.deviceID);
+    if (!length) {
+      continue;
+    }
+
+    aImei.Assign(caps.deviceID, length);
+    return NS_OK;
+  }
+
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
 
 NS_IMETHODIMP
 MobileBroadbandImeiProvider::GetImei(JSContext* aCx, Promise** aResult) {
@@ -64,82 +146,34 @@ MobileBroadbandImeiProvider::GetImei(JSContext* aCx, Promise** aResult) {
   nsresult rv = NS_DispatchBackgroundTask(
       NS_NewRunnableFunction(
           "MobileBroadbandImeiProvider::GetImei",
-          [promiseHolder] {
-            auto getImeiValue = [](nsAString& imeiString) {
-              IMbnInterfaceManager* pMbnInterfaceManager = nullptr;
-              HRESULT hr =
-                  CoCreateInstance(__uuidof(MbnInterfaceManager), nullptr,
-                                   CLSCTX_ALL, __uuidof(IMbnInterfaceManager),
-                                   (void**)&pMbnInterfaceManager);
-              if (FAILED(hr)) {
-                MBNI_LOG(Error, "%s CoCreateInstance() FAIL %08lx\n",
-                         __PRETTY_FUNCTION__, hr);
-                pMbnInterfaceManager->Release();
-                return NS_ERROR_FAILURE;
+          [promiseHolder, managerFactory = mManagerFactory] {
+            nsString imei;
+            nsresult rv = NS_ERROR_FAILURE;
+            mscom::EnsureMTA([&] {
+              RefPtr<IMbnInterfaceManager> manager = managerFactory();
+              if (!manager) {
+                return;
               }
-
-              SAFEARRAY* psaInterfaces = nullptr;
-              hr = pMbnInterfaceManager->GetInterfaces(&psaInterfaces);
-              if (FAILED(hr)) {
-                MBNI_LOG(Error, "%s GetInterfaces() FAIL %08lx\n",
-                         __PRETTY_FUNCTION__, hr);
-                return NS_ERROR_FAILURE;
-              }
-
-              LONG lowerBound, upperBound;
-              SafeArrayGetLBound(psaInterfaces, 1, &lowerBound);
-              SafeArrayGetUBound(psaInterfaces, 1, &upperBound);
-
-              for (LONG i = lowerBound; i <= upperBound; i++) {
-                IMbnInterface* pMbnInterface = nullptr;
-                hr = SafeArrayGetElement(psaInterfaces, &i, &pMbnInterface);
-                if (FAILED(hr)) {
-                  MBNI_LOG(Error, "%s SafeArrayGetElement[%ld] failed: %08lx\n",
-                           __PRETTY_FUNCTION__, i, hr);
-                  pMbnInterface->Release();
-                  continue;
-                }
-
-                MBN_INTERFACE_CAPS caps;
-                hr = pMbnInterface->GetInterfaceCapability(&caps);
-                if (FAILED(hr)) {
-                  MBNI_LOG(Error,
-                           "%s GetInterfaceCapability %ld failed: %08lx\n",
-                           __PRETTY_FUNCTION__, i, hr);
-                  pMbnInterface->Release();
-                  continue;
-                }
-
-                MBNI_LOG(Debug, "%s IMEI(%ld): %ls\n", __PRETTY_FUNCTION__, i,
-                         caps.deviceID);
-                imeiString.Assign(caps.deviceID);
-
-                pMbnInterface->Release();
-              }
-
-              SafeArrayDestroy(psaInterfaces);
-              pMbnInterfaceManager->Release();
-
-              return NS_OK;
-            };
-
-            nsString imeiValue;
-            nsresult rv_imei = getImeiValue(imeiValue);
+              rv = GetImeiFromManager(manager, imei);
+            });
 
             NS_DispatchToMainThread(NS_NewRunnableFunction(
-                "GetImei callback", [rv_imei, promiseHolder, imeiValue] {
+                "GetImei callback", [rv, promiseHolder, imei] {
                   Promise* promise = promiseHolder.get()->get();
-                  if (NS_SUCCEEDED(rv_imei)) {
-                    promise->MaybeResolve(imeiValue);
+                  if (NS_SUCCEEDED(rv)) {
+                    promise->MaybeResolve(imei);
                   } else {
-                    promise->MaybeReject(rv_imei);
+                    promise->MaybeReject(rv);
                   }
                 }));
           }),
       NS_DISPATCH_EVENT_MAY_BLOCK);
+  if (NS_FAILED(rv)) {
+    promise->MaybeReject(rv);
+  }
 
   promise.forget(aResult);
-  return rv;
+  return NS_OK;
 }
 
 }  // namespace mozilla::dom

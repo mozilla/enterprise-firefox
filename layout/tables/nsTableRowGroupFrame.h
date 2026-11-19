@@ -4,6 +4,7 @@
 #ifndef nsTableRowGroupFrame_h_
 #define nsTableRowGroupFrame_h_
 
+#include "mozilla/FunctionRef.h"
 #include "mozilla/WritingModes.h"
 #include "nsAtom.h"
 #include "nsContainerFrame.h"
@@ -279,6 +280,18 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
                                bool aRebuildDisplayItems = true) override;
   void InvalidateFrameForRemoval() override { InvalidateFrameSubtree(); }
 
+  /**
+   * Reflow the content of cells whose content is orthogonal to the table, if
+   * it was laid out for a different size than the cell now has (e.g. because
+   * the cell spans several rows, or the rows were stretched).
+   * @param aGetReflowInput returns this row group's ReflowInput; it is only
+   *        called if a cell actually needs to be reflowed.
+   * @return whether any cell was reflowed
+   */
+  bool ReflowOrthogonalCells(
+      nsPresContext* aPresContext,
+      mozilla::FunctionRef<const ReflowInput*()> aGetReflowInput);
+
  protected:
   explicit nsTableRowGroupFrame(ComputedStyle* aStyle,
                                 nsPresContext* aPresContext);
@@ -316,7 +329,7 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
 
   void SplitRowGroup(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
                      const ReflowInput& aReflowInput, nsTableFrame* aTableFrame,
-                     nsReflowStatus& aStatus, bool aRowForcedPageBreak);
+                     nsReflowStatus& aStatus);
 
   void SplitSpanningCells(nsPresContext* aPresContext,
                           const ReflowInput& aReflowInput,
@@ -335,8 +348,6 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
   nsTableRowFrame* CreateContinuingRowFrame(nsIFrame* aRowFrame);
 
   bool IsSimpleRowFrame(nsTableFrame* aTableFrame, nsTableRowFrame* aRowFrame);
-
-  void GetNextRowSibling(nsIFrame** aRowFrame);
 
   void UndoContinuedRow(nsPresContext* aPresContext, nsTableRowFrame* aRow);
 

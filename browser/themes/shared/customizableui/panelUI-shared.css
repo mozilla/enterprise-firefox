@@ -897,6 +897,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
   & .fxa-menu-sign-in-promo-message {
     margin: 0;
     font-size: var(--font-size-small);
+    color: var(--text-color-deemphasized);
 
     :root[uidensity="compact"] & {
       display: none;
@@ -947,6 +948,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
    the account menu. */
 #PanelUI-fxa-menu-signed-out-card,
 #appMenu-fxa-signed-out-row {
+  min-width: 0;
   gap: var(--space-medium);
   padding: var(--panel-menuitem-padding);
   margin: var(--panel-menuitem-margin);
@@ -965,7 +967,16 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
   }
 
   & .fxa-menu-signed-out-email {
+    margin-block: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-weight: var(--font-weight-semibold);
+  }
+
+  /* The fallback title is localized copy, which wraps; only an email truncates. */
+  & #appMenu-fxa-signed-out-title[data-l10n-id] {
+    white-space: normal;
   }
 
   & .fxa-menu-signed-out-message {
@@ -1227,7 +1238,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
       position: absolute;
       top: calc(var(--icon-size) - 6px);
       /* Avatar icon size minus its circle width minus half of the little circle icon size */
-      left: calc(var(--icon-size) - 1px - 6px / 2);
+      inset-inline-start: calc(var(--icon-size) - 1px - 6px / 2);
       /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
       height: 6px;
       /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
@@ -2646,7 +2657,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 
 #remote-control-panel-toggle-button {
   margin: 0;
-  justify-content: center;
+  width: 100%;
 }
 
 /* Report Broken Site panels */
@@ -2726,31 +2737,22 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
     object-position: left top;
   }
 
-  button.arrow-button {
-    font-weight: normal;
-    padding: var(--space-large) var(--space-medium);
+  moz-button.arrow-button {
+    --button-content-alignment: space-between;
+    --button-padding: var(--space-large) var(--space-medium);
+    --button-font-weight: normal;
+    --button-icon-fill: currentColor;
+
+    width: 100%;
     margin: 0 0 var(--space-large);
-    border: 0;
 
-    > hbox > label {
+    &::part(moz-button-label) {
       text-align: start;
-
-      /* allow for multi-line localizations */
-      display: block !important;
       text-wrap: balance;
-      width: 100%;
     }
 
-    background: url("chrome://global/skin/icons/arrow-right.svg") no-repeat calc(100% - var(--panel-menuitem-padding-inline)) center;
     &:dir(rtl) {
-      background: url("chrome://global/skin/icons/arrow-left.svg") no-repeat var(--panel-menuitem-padding-inline) center;
-    }
-    background-color: var(--background-color-box);
-    -moz-context-properties: fill;
-    fill: currentColor;
-
-    &:not(:hover, :active) {
-      background-color: inherit;
+      --button-icon-content: url("chrome://global/skin/icons/arrow-left.svg");
     }
   }
 
@@ -3024,11 +3026,6 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   padding-top: 0;
   width: 28em;
 
-  @media not -moz-pref("browser.nova.enabled") {
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-    width: 400px;
-  }
-
   > .panel-header {
     margin: 0;
   }
@@ -3042,12 +3039,6 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   }
 }
 
-@media not -moz-pref("browser.nova.enabled") {
-  #ipprotection-header-content {
-    color: var(--text-color);
-  }
-}
-
 #ipprotection-header-content,
 #ipprotection-experiment-badge {
   font-size: var(--font-size-large);
@@ -3056,10 +3047,6 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 #ipprotection-experiment-badge {
   display: inline-block;
   color: var(--text-color-deemphasized);
-
-  @media not -moz-pref("browser.nova.enabled") {
-    margin-inline-start: var(--space-xsmall);
-  }
 }
 
 #PanelUI-ipprotection-locations {

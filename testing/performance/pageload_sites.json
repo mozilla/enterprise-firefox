@@ -53,19 +53,6 @@
     },
     {
       "login": false,
-      "name": "cnn",
-      "test_url": "https://cnn.com",
-      "secondary_url": "https://www.cnn.com/weather",
-      "dismiss_cookie_prompt": [
-        ["click.byXpathAndWait", "//*[@id='onetrust-pc-btn-handler']"],
-        [
-          "click.byXpathAndWait",
-          "/html/body/div[14]/div[3]/div[3]/div[1]/button[2]"
-        ]
-      ]
-    },
-    {
-      "login": false,
       "name": "cnn-ampstories",
       "test_url": "https://cnn.com/ampstories/us/why-hurricane-michael-is-a-monster-unlike-any-other",
       "dismiss_cookie_prompt": [
@@ -97,11 +84,6 @@
       "test_url": "http://www.espn.com/nba/story/_/page/allstarweekend25788027/the-comparison-lebron-james-michael-jordan-their-own-words"
     },
     {
-      "login": true,
-      "name": "google",
-      "test_url": "https://www.google.com"
-    },
-    {
       "login": false,
       "name": "google-maps",
       "test_url": "https://www.google.com/maps?force=pwa"
@@ -115,16 +97,6 @@
       "login": false,
       "name": "imdb",
       "test_url": "https://m.imdb.com/"
-    },
-    {
-      "login": true,
-      "name": "instagram",
-      "test_url": "https://www.instagram.com"
-    },
-    {
-      "login": false,
-      "name": "microsoft-support",
-      "test_url": "https://support.microsoft.com/en-us"
     },
     {
       "login": false,
@@ -145,17 +117,6 @@
       "login": false,
       "name": "youtube",
       "test_url": "https://m.youtube.com",
-      "dismiss_cookie_prompt": [
-        [
-          "click.byXpathAndWait",
-          "/html/body/div[2]/ytm-consent-bump-v2-renderer/div/div[2]/div[3]/c3-material-button[2]/button/div/div"
-        ]
-      ]
-    },
-    {
-      "login": false,
-      "name": "youtube-watch",
-      "test_url": "https://www.youtube.com/watch?v=COU5T-Wafa4",
       "dismiss_cookie_prompt": [
         [
           "click.byXpathAndWait",
@@ -247,12 +208,6 @@
     },
     {
       "login": true,
-      "name": "facebook",
-      "test_url": "https://www.facebook.com",
-      "secondary_url": "https://www.facebook.com/marketplace/?ref=bookmark"
-    },
-    {
-      "login": true,
       "login-test": true,
       "name": "facebook-login",
       "test_url": "https://www.facebook.com",
@@ -288,14 +243,6 @@
       "secondary_url": "https://docs.google.com/document/d/1vUnn0ePU-ynArE1OdxyEHXR2G0sl74ja_st_4OOzlgE/preview"
     },
     {
-      "login": true,
-      "name": "google-mail",
-      "test_url": "https://mail.google.com/",
-      "dismiss_cookie_prompt": [
-        ["click.byXpathAndWait", "/html/body/div/div/span[2]/a[2]"]
-      ]
-    },
-    {
       "login": false,
       "name": "google-slides",
       "test_url": "https://docs.google.com/presentation/d/1Ici0ceWwpFvmIb3EmKeWSq_vAQdmmdFcWqaiLqUkJng/edit?usp=sharing",
@@ -306,38 +253,6 @@
       "name": "imdb",
       "test_url": "https://www.imdb.com/title/tt0084967/?ref_=nv_sr_2",
       "secondary_url": "https://www.imdb.com/title/tt0084967/episodes/?ref_=tt_ov_epl"
-    },
-    {
-      "login": false,
-      "name": "imgur",
-      "test_url": "https://imgur.com/gallery/mozilla-performance-testing-logo-sNUtC19",
-      "inject_deterministic": false,
-      "dismiss_cookie_prompt": [
-        [
-          "click.byXpathAndWait",
-          "/html/body/div[1]/div/div/div/div[2]/div/button[2]"
-        ]
-      ],
-      "secondary_url": "https://imgur.com/gallery/firefox-logo-w8fgXyY",
-      "preferences": {
-        "media.autoplay.default": 5,
-        "media.autoplay.ask-permission": true,
-        "media.autoplay.blocking_policy": 1,
-        "media.allowed-to-play.enabled": false,
-        "media.block-autoplay-until-in-foreground": true
-      }
-    },
-    {
-      "login": true,
-      "name": "instagram",
-      "test_url": "https://www.instagram.com/",
-      "secondary_url": "https://www.instagram.com/nobelprize_org/"
-    },
-    {
-      "login": true,
-      "name": "linkedin",
-      "test_url": "https://www.linkedin.com/in/thommy-harris-hk-385723106/",
-      "secondary_url": "https://www.linkedin.com/company/github?trk=affiliated-pages"
     },
     {
       "login": false,
@@ -352,34 +267,6 @@
       ]
     },
     {
-      "login": true,
-      "name": "netflix",
-      "test_url": "https://www.netflix.com/title/80117263",
-      "secondary_url": "https://www.netflix.com/title/699257"
-    },
-    {
-      "login": true,
-      "name": "office",
-      "test_url": "https://www.office.com/launch/powerpoint/",
-      "secondary_url": "https://www.office.com/"
-    },
-    {
-      "login": true,
-      "name": "outlook",
-      "test_url": "https://outlook.live.com/mail/inbox"
-    },
-    {
-      "login": true,
-      "name": "paypal",
-      "test_url": "https://www.paypal.com/myaccount/summary/"
-    },
-    {
-      "login": true,
-      "name": "pinterest",
-      "test_url": "https://pinterest.com/",
-      "secondary_url": "https://www.pinterest.com/today/best/halloween-costumes-for-your-furry-friends/75787/"
-    },
-    {
       "login": false,
       "name": "reddit",
       "test_url": "https://www.reddit.com/r/technology/comments/9sqwyh/we_posed_as_100_senators_to_run_ads_on_facebook/",
@@ -390,12 +277,6 @@
           "/html/body/div[1]/div/div[2]/div[3]/div[1]/section/div/section/section/form[1]/button"
         ]
       ]
-    },
-    {
-      "login": true,
-      "name": "tumblr",
-      "test_url": "https://www.tumblr.com/dashboard",
-      "secondary_url": "https://www.tumblr.com/tagged/funny+cats?sort=top"
     },
     {
       "login": true,
@@ -417,11 +298,6 @@
       "name": "wikipedia",
       "test_url": "https://en.wikipedia.org/wiki/Barack_Obama",
       "secondary_url": "https://en.wikipedia.org/wiki/Joe_Biden"
-    },
-    {
-      "login": true,
-      "name": "yahoo-mail",
-      "test_url": "https://mail.yahoo.com/"
     },
     {
       "login": false,

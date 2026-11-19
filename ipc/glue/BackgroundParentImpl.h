@@ -85,12 +85,14 @@ class BackgroundParentImpl : public PBackgroundParent {
       PBackgroundLSSimpleRequestParent* aActor) override;
 
   PBackgroundLocalStorageCacheParent* AllocPBackgroundLocalStorageCacheParent(
-      const PrincipalInfo& aPrincipalInfo, const nsACString& aOriginKey,
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>& aPrincipal,
+      const nsACString& aOriginKey,
       const uint32_t& aPrivateBrowsingId) override;
 
   mozilla::ipc::IPCResult RecvPBackgroundLocalStorageCacheConstructor(
       PBackgroundLocalStorageCacheParent* aActor,
-      const PrincipalInfo& aPrincipalInfo, const nsACString& aOriginKey,
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aPrincipal,
+      const nsACString& aOriginKey,
       const uint32_t& aPrivateBrowsingId) override;
 
   bool DeallocPBackgroundLocalStorageCacheParent(
@@ -123,8 +125,8 @@ class BackgroundParentImpl : public PBackgroundParent {
       CreateFileSystemManagerParentResolver&& aResolver) override;
 
   mozilla::ipc::IPCResult RecvCreateWebTransportParent(
-      const nsAString& aURL, nsIPrincipal* aPrincipal,
-      const uint64_t& aBrowsingContextID, const IPCClientInfo& aClientInfo,
+      const nsAString& aURL, Tainted<RefPtr<nsIPrincipal>>&& aPrincipal,
+      const uint64_t& aBrowsingContextID, Tainted<IPCClientInfo>&& aClientInfo,
       const bool& aDedicated, const bool& aRequireUnreliable,
       const uint32_t& aCongestionControl, nsTArray<nsString>&& aProtocols,
       nsTArray<WebTransportHeader>&& aHeaders,
@@ -138,8 +140,8 @@ class BackgroundParentImpl : public PBackgroundParent {
 
   mozilla::ipc::IPCResult RecvCreateNotificationParent(
       Endpoint<dom::notification::PNotificationParent>&& aParentEndpoint,
-      NotNull<nsIPrincipal*> aPrincipal,
-      NotNull<nsIPrincipal*> aEffectiveStoragePrincipal,
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aPrincipal,
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aEffectiveStoragePrincipal,
       const bool& aIsSecureContext, const nsAString& aScope,
       const IPCNotification& aNotification,
       CreateNotificationParentResolver&& aResolver) final;
@@ -188,11 +190,12 @@ class BackgroundParentImpl : public PBackgroundParent {
   already_AddRefed<PVsyncParent> AllocPVsyncParent() override;
 
   PBroadcastChannelParent* AllocPBroadcastChannelParent(
-      const PrincipalInfo& aPrincipalInfo, const nsACString& aOrigin,
-      const nsAString& aChannel) override;
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>& aPrincipal,
+      const nsACString& aOrigin, const nsAString& aChannel) override;
 
   mozilla::ipc::IPCResult RecvPBroadcastChannelConstructor(
-      PBroadcastChannelParent* actor, const PrincipalInfo& aPrincipalInfo,
+      PBroadcastChannelParent* actor,
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aPrincipal,
       const nsACString& origin, const nsAString& channel) override;
 
   bool DeallocPBroadcastChannelParent(PBroadcastChannelParent* aActor) override;
@@ -220,9 +223,9 @@ class BackgroundParentImpl : public PBackgroundParent {
       const PrincipalInfo& aPrincipalInfo) override;
 
   already_AddRefed<PUDPSocketParent> AllocPUDPSocketParent(
-      const Maybe<PrincipalInfo>& pInfo, const nsACString& aFilter) override;
+      nsIPrincipal* aPrincipal, const nsACString& aFilter) override;
   mozilla::ipc::IPCResult RecvPUDPSocketConstructor(
-      PUDPSocketParent*, const Maybe<PrincipalInfo>& aPrincipalInfo,
+      PUDPSocketParent*, nsIPrincipal* aPrincipal,
       const nsACString& aFilter) override;
 
   already_AddRefed<PMessagePortParent> AllocPMessagePortParent(
@@ -302,10 +305,10 @@ class BackgroundParentImpl : public PBackgroundParent {
 
   mozilla::ipc::IPCResult RecvCreateMLSTransaction(
       Endpoint<PMLSTransactionParent>&& aEndpoint,
-      NotNull<nsIPrincipal*> aPrincipal) override;
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aPrincipal) override;
 
   mozilla::ipc::IPCResult RecvStorageActivity(
-      const PrincipalInfo& aPrincipalInfo) override;
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aPrincipal) override;
 
   already_AddRefed<PServiceWorkerParent> AllocPServiceWorkerParent(
       const IPCServiceWorkerDescriptor&) final;
@@ -326,12 +329,12 @@ class BackgroundParentImpl : public PBackgroundParent {
   already_AddRefed<PServiceWorkerRegistrationParent>
   AllocPServiceWorkerRegistrationParent(
       const IPCServiceWorkerRegistrationDescriptor&,
-      const IPCClientInfo&) final;
+      Tainted<IPCClientInfo>&) final;
 
   mozilla::ipc::IPCResult RecvPServiceWorkerRegistrationConstructor(
       PServiceWorkerRegistrationParent* aActor,
       const IPCServiceWorkerRegistrationDescriptor& aDescriptor,
-      const IPCClientInfo& aForClient) override;
+      Tainted<IPCClientInfo>&& aForClient) override;
 
   mozilla::ipc::IPCResult RecvEnsureRDDProcessAndCreateBridge(
       EnsureRDDProcessAndCreateBridgeResolver&& aResolver) override;
@@ -344,12 +347,9 @@ class BackgroundParentImpl : public PBackgroundParent {
       const bool& aAllowPermissionRequest,
       RequestCameraAccessResolver&& aResolver) override;
 
-  mozilla::ipc::IPCResult RecvPLockManagerConstructor(
-      PLockManagerParent* actor, mozilla::NotNull<nsIPrincipal*> aPrincipalInfo,
-      const Maybe<nsID>& aClientId) override;
-
   already_AddRefed<PLockManagerParent> AllocPLockManagerParent(
-      NotNull<nsIPrincipal*> aPrincipal, const Maybe<nsID>& aClientId) final;
+      Tainted<NotNull<RefPtr<nsIPrincipal>>>& aPrincipal,
+      const Maybe<nsID>& aClientId) final;
 
   already_AddRefed<PFetchParent> AllocPFetchParent() override;
 };

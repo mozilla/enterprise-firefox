@@ -36,6 +36,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AIWindowUI:
     // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
+  AutoTabGrouping:
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    "moz-src:///browser/components/aiwindow/ui/modules/AutoTabGrouping.sys.mjs",
   CustomIconManager:
     // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
     "moz-src:///browser/components/shell/CustomIconManager.sys.mjs",
@@ -429,6 +432,7 @@ export const SpecialMessageActions = {
       "browser.migrate.content-modal.about-welcome-behavior",
       "browser.migrate.content-modal.import-all.enabled",
       "browser.migrate.preferences-entrypoint.enabled",
+      "browser.ml.chat.provider",
       "browser.shell.checkDefaultBrowser",
       "browser.shell.setDefaultGuidanceNotifications",
       "browser.startup.homepage",
@@ -467,6 +471,9 @@ export const SpecialMessageActions = {
       "browser.startup.couldRestoreSession.count",
     ];
 
+    // Prefs that keep the first non-default value written to them, rewrites ignored.
+    const writeOncePrefs = ["termsofuse.firstAcceptedDate"];
+
     // allowedPrefs above is the in-tree baseline. It can be extended off-train
     // via Remote Settings, but not for onImpression prefs, which stay
     // deliberately restricted to prefs reviewed in-tree, and not for the prefs
@@ -495,6 +502,12 @@ export const SpecialMessageActions = {
       !pref.name.startsWith("messaging-system-action.")
     ) {
       pref.name = `messaging-system-action.${pref.name}`;
+    }
+    if (
+      writeOncePrefs.includes(pref.name) &&
+      Services.prefs.prefHasUserValue(pref.name)
+    ) {
+      return;
     }
     // If pref has no value, reset it, otherwise set it to desired value
     switch (typeof pref.value) {
@@ -1244,7 +1257,7 @@ export const SpecialMessageActions = {
         break;
       }
       case "OPEN_ORGANIZE_TABS_PANEL":
-        lazy.AIWindowUI.toggleGroupTabsPanel(window, {
+        lazy.AutoTabGrouping.toggleGroupTabsPanel(window, {
           source: action.data?.source ?? "message",
         });
         break;

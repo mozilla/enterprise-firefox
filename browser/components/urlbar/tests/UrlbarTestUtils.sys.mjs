@@ -1213,6 +1213,13 @@ export class UrlbarInputBaseTestUtils {
       // the expected state, which the assertions below report precisely.
     });
 
+    // Wait for current query because we will inspect the results.
+    let lastQuery;
+    while (lastQuery != this.#urlbar(window).lastQueryContextPromise) {
+      lastQuery = this.#urlbar(window).lastQueryContextPromise;
+      await lastQuery;
+    }
+
     this.Assert.equal(
       !!this.#urlbar(window).searchMode,
       this.#urlbar(window).hasAttribute("searchmode"),
@@ -1226,13 +1233,13 @@ export class UrlbarInputBaseTestUtils {
     );
 
     let results = this.#urlbar(window).querySelector(".urlbarView-results");
-    await lazy.TestUtils.waitForCondition(
-      () =>
-        results.hasAttribute("actionmode") ==
-        (this.#urlbar(window).searchMode?.source ==
-          UrlbarShared.RESULT_SOURCE.ACTIONS)
+    this.Assert.equal(
+      results.hasAttribute("actionmode"),
+      this.#urlbar(window).searchMode?.source ==
+        UrlbarShared.RESULT_SOURCE.ACTIONS &&
+        !!this.getResultsContainer(window).children.length,
+      "Urlbar results have proper actionmode attribute"
     );
-    this.Assert.ok(true, "Urlbar results have proper actionmode attribute");
 
     if (!expectedSearchMode) {
       // Check the input's placeholder.
@@ -1431,6 +1438,74 @@ export class UrlbarInputBaseTestUtils {
           );
         }
       }
+    }
+  }
+
+  /**
+   * Asserts a search term is in the url bar and state values are what they
+   * should be. Can only be used if UrlbarTestUtils has been initialized with
+   * init().
+   *
+   * @param {ChromeWindow} window
+   *   The browser window.
+   * @param {string} searchString
+   *   String that should be matched in the url bar.
+   * @param {object} [options]
+   *   Options for the assertions.
+   * @param {string} [options.pageProxyState]
+   *   The pageproxystate that should be expected.
+   * @param {string} [options.userTypedValue]
+   *   The userTypedValue that should be expected.
+   * @param {boolean} [options.persistSearchTerms]
+   *   Whether the persistsearchterms attribute should be expected.
+   */
+  assertSearchStringIsInUrlbar(
+    window,
+    searchString,
+    {
+      pageProxyState = "invalid",
+      userTypedValue = searchString,
+      persistSearchTerms = true,
+    } = {}
+  ) {
+    if (this.#urlbar(window).sapName != "urlbar") {
+      throw new Error(
+        "Persisted search terms are only supported in the address bar"
+      );
+    }
+    this.Assert.equal(
+      this.#urlbar(window).value,
+      searchString,
+      `Search string should be the urlbar value.`
+    );
+    let state = this.#urlbar(window).getBrowserState(
+      window.gBrowser.selectedBrowser
+    );
+    this.Assert.equal(
+      state.persist?.searchTerms,
+      searchString,
+      `Search terms should match.`
+    );
+    this.Assert.equal(
+      window.gBrowser.userTypedValue,
+      userTypedValue,
+      "userTypedValue should match."
+    );
+    this.Assert.equal(
+      this.#urlbar(window).getAttribute("pageproxystate"),
+      pageProxyState,
+      "Pageproxystate should match."
+    );
+    if (persistSearchTerms) {
+      this.Assert.ok(
+        this.#urlbar(window).hasAttribute("persistsearchterms"),
+        "Urlbar has persistsearchterms attribute."
+      );
+    } else {
+      this.Assert.ok(
+        !this.#urlbar(window).hasAttribute("persistsearchterms"),
+        "Urlbar does not have persistsearchterms attribute."
+      );
     }
   }
 

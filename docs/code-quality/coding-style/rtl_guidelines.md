@@ -304,6 +304,27 @@ text in RTL layout.
 This shouldn't be an issue when using an actual RTL build or language pack.
 :::
 
+Setting `dir="rtl"` on the root element of a chrome document doesn't
+replace the `bidi` locale. The `:-moz-locale-dir()` pseudo-class matches
+the document's locale direction, which follows the app locale and
+`intl.l10n.pseudo` unless the root element has a `localedir="ltr"` or
+`localedir="rtl"` attribute. After a `dir` flip, `:dir(rtl)` rules match
+but `:-moz-locale-dir(rtl)` rules don't, so the page shows a mix of LTR and
+RTL styling.
+
+`:dir()` follows the `dir` attribute. Fluent sets it on the root of an HTML
+chrome document, such as `browser.xhtml`, from the app locale, but sets only
+`localedir` on a XUL root, so `:dir(rtl)` never matches in a XUL window.
+Setting `direction: rtl` in CSS makes neither pseudo-class match, so a test
+that flips direction that way doesn't reproduce what an RTL locale shows.
+
+An element with `dir="auto"`, a `<bdi>` element and text under
+`unicode-bidi: plaintext` take their direction from their own text
+rather than from the UI (see [Auto-directionality](#auto-directionality)).
+Test them with text in the opposite direction to the UI as well: RTL
+text such as Hebrew in an LTR UI, and LTR text such as English in an
+RTL UI.
+
 ### How to spot RTL-related issues
 
 - Punctuation marks should appear on the left side of a

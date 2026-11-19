@@ -26,6 +26,10 @@ support-files = [
 
 ["browser_content_classifier_memory_reporter.js"]
 
+["browser_content_classifier_nested_uri.js"]
+
+["browser_content_classifier_normalization.js"]
+
 ["browser_content_classifier_partitioned_cookies.js"]
 support-files = ["!/toolkit/components/antitracking/test/browser/cookies.sjs"]
 
@@ -36,5 +40,7 @@ support-files = ["!/toolkit/components/antitracking/test/browser/cookies.sjs"]
 ["browser_content_classifier_subdomain_rules.js"]
 
 ["browser_content_classifier_test_trackers_engines.js"]
+
+["browser_content_classifier_worker.js"]
 
 ["browser_urlclassifier_disable_for_channel_classifier.js"]

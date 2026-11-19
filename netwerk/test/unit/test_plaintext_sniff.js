@@ -2,8 +2,8 @@
 
 "use strict";
 
-const { HttpServer } = ChromeUtils.importESModule(
-  "resource://testing-common/httpd.sys.mjs"
+const { NodeHTTPServer } = ChromeUtils.importESModule(
+  "resource://testing-common/NodeServer.sys.mjs"
 );
 
 // List of Content-Type headers to test.  For each header we have an array.
@@ -37,7 +37,7 @@ var BOMList = [
   "\xFF\xFE", // UTF-16LE
   "\xEF\xBB\xBF", // UTF-8
   "\x00\x00\xFE\xFF", // UCS-4BE
-  "\x00\x00\xFF\xFE", // UCS-4LE
+  "\xFF\xFE\x00\x00", // UCS-4LE
 ];
 
 // Build up bodyList.  The things we treat as binary are ASCII codes 0-8,
@@ -56,16 +56,26 @@ for (i = 0; i <= 127; ++i) {
   bodyList.push([String.fromCharCode(i), isBinaryChar(i)]);
 }
 
+// Text chars sniff as text with or without a BOM, so only one of them is
+// needed to cover the BOM cases.
+var bomTestChars = [];
+for (i = 0; i <= 127; ++i) {
+  if (isBinaryChar(i)) {
+    bomTestChars.push(i);
+  }
+}
+bomTestChars.push("A".charCodeAt(0));
+
 // Test that having a BOM prevents plaintext sniffing
 var j;
-for (i = 0; i <= 127; ++i) {
+for (i of bomTestChars) {
   for (j = 0; j < BOMList.length; ++j) {
     bodyList.push([BOMList[j] + String.fromCharCode(i, i), false]);
   }
 }
 
 // Test that having a BOM requires at least 4 chars to kick in
-for (i = 0; i <= 127; ++i) {
+for (i of bomTestChars) {
   for (j = 0; j < BOMList.length; ++j) {
     bodyList.push([
       BOMList[j] + String.fromCharCode(i),
@@ -74,15 +84,9 @@ for (i = 0; i <= 127; ++i) {
   }
 }
 
-function makeChan(headerIdx, bodyIdx) {
+function makeChan(server, headerIdx, bodyIdx) {
   var chan = NetUtil.newChannel({
-    uri:
-      "http://localhost:" +
-      httpserv.identity.primaryPort +
-      "/" +
-      headerIdx +
-      "/" +
-      bodyIdx,
+    uri: `${server.origin()}/sniff?h=${headerIdx}&b=${bodyIdx}`,
     loadUsingSystemPrincipal: true,
   }).QueryInterface(Ci.nsIHttpChannel);
 
@@ -91,7 +95,7 @@ function makeChan(headerIdx, bodyIdx) {
   return chan;
 }
 
-function makeListener(headerIdx, bodyIdx) {
+function makeListener(headerIdx, bodyIdx, resolve) {
   var listener = {
     onStartRequest: function test_onStartR(request) {
       try {
@@ -129,83 +133,84 @@ function makeListener(headerIdx, bodyIdx) {
       } catch (e) {
         do_throw("Unexpected exception: " + e);
       }
-
-      throw Components.Exception("", Cr.NS_ERROR_ABORT);
     },
 
-    onDataAvailable: function test_ODA() {
-      do_throw("Should not get any data!");
+    // Read the whole response rather than cancelling the request, so that the
+    // connection can be reused for the next request.
+    onDataAvailable: function test_ODA(request, stream, offset, count) {
+      read_stream(stream, count);
     },
 
     onStopRequest: function test_onStopR() {
-      // Advance to next test
-      ++headerIdx;
-      if (headerIdx == contentTypeHeaderList.length) {
-        headerIdx = 0;
-        ++bodyIdx;
-      }
-
-      if (bodyIdx == bodyList.length) {
-        do_test_pending();
-        httpserv.stop(do_test_finished);
-      } else {
-        doTest(headerIdx, bodyIdx);
-      }
-
-      do_test_finished();
+      resolve();
     },
   };
 
   return listener;
 }
 
-function doTest(headerIdx, bodyIdx) {
-  var chan = makeChan(headerIdx, bodyIdx);
-
-  var listener = makeListener(headerIdx, bodyIdx);
-
-  chan.asyncOpen(listener);
-
-  do_test_pending();
-}
-
-function createResponse(headerIdx, bodyIdx, metadata, response) {
-  response.setHeader(
-    "Content-Type",
-    contentTypeHeaderList[headerIdx][0],
-    false
-  );
-  response.bodyOutputStream.write(
-    bodyList[bodyIdx][0],
-    bodyList[bodyIdx][0].length
-  );
-}
-
-function makeHandler(headerIdx, bodyIdx) {
-  var f = function handlerClosure(metadata, response) {
-    return createResponse(headerIdx, bodyIdx, metadata, response);
-  };
-  return f;
-}
-
-var httpserv;
-function run_test() {
-  // disable on Windows for now, because it seems to leak sockets and die.
-  // Silly operating system!
-  // This is a really nasty way to detect Windows.  I wish we could do better.
-  if (mozinfo.os == "win") {
-    //failing eslint no-empty test
+// The expected result only depends on whether the header and the body each
+// allow sniffing, so rather than testing every header with every body, test
+// every body with one sniffable and one non-sniffable header, and every
+// header with a few representative bodies.
+var testCases = [];
+function buildTestCases() {
+  const sniffableHeaderIdx = 0;
+  const nonSniffableHeaderIdx = 4;
+  for (let b = 0; b < bodyList.length; ++b) {
+    testCases.push([sniffableHeaderIdx, b], [nonSniffableHeaderIdx, b]);
   }
-
-  httpserv = new HttpServer();
-
-  for (i = 0; i < contentTypeHeaderList.length; ++i) {
-    for (j = 0; j < bodyList.length; ++j) {
-      httpserv.registerPathHandler("/" + i + "/" + j, makeHandler(i, j));
+  const representativeBodies = [
+    "Plaintext",
+    "\x00",
+    "A",
+    "\xFF\xFE\x00\x00",
+    "\xFF\xFE\x00",
+  ].map(body => {
+    const idx = bodyList.findIndex(([b]) => b == body);
+    Assert.notEqual(idx, -1, `${JSON.stringify(body)} should be in bodyList`);
+    return idx;
+  });
+  for (let h = 0; h < contentTypeHeaderList.length; ++h) {
+    if (h == sniffableHeaderIdx || h == nonSniffableHeaderIdx) {
+      continue;
+    }
+    for (let b of representativeBodies) {
+      testCases.push([h, b]);
     }
   }
-
-  httpserv.start(-1);
-
-  doTest(0, 0);
 }
+
+// httpd.js closes the connection after every response, so each request used to
+// leave a client port in TIME_WAIT, and running this test repeatedly ran out of
+// ports on Windows. The node server keeps connections alive instead.
+add_task(async function test_plaintext_sniff() {
+  let server = new NodeHTTPServer();
+  await server.start();
+  registerCleanupFunction(async () => {
+    await server.stop();
+  });
+
+  await server.execute(
+    `global.sniffHeaders = ${JSON.stringify(
+      contentTypeHeaderList.map(([header]) => header)
+    )};
+     global.sniffBodies = ${JSON.stringify(bodyList.map(([body]) => btoa(body)))};`
+  );
+  await server.registerPathHandler("/sniff", (req, resp) => {
+    let params = new URL(req.url, "http://localhost").searchParams;
+    let body = Buffer.from(global.sniffBodies[params.get("b")], "base64");
+    resp.writeHead(200, {
+      "Content-Type": global.sniffHeaders[params.get("h")],
+      "Content-Length": body.length,
+    });
+    resp.end(body);
+  });
+
+  buildTestCases();
+  for (let [h, b] of testCases) {
+    await new Promise(resolve => {
+      makeChan(server, h, b).asyncOpen(makeListener(h, b, resolve));
+    });
+  }
+});

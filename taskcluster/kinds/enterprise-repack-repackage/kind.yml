@@ -22,7 +22,7 @@ kind-dependencies:
 only-for-build-platforms:
     - linux64-enterprise/opt
     - linux64-aarch64-enterprise/opt
-    - macosx64-enterprise/opt
+    - macosx64-aarch64-enterprise/opt
     - win64-enterprise/opt
     - linux64-enterprise-shippable/opt
     - linux64-aarch64-enterprise-shippable/opt
@@ -37,7 +37,7 @@ tasks:
         shipping-phase: promote
         upstream-mac-kind:
             by-build-platform:
-                macosx64-enterprise:
+                macosx64-aarch64-enterprise:
                     by-release-level:
                         production: enterprise-repack-mac-notarization
                         staging: enterprise-repack-mac-signing

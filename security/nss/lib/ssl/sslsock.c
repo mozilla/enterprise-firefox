@@ -366,18 +366,10 @@ ssl_CopySocketConfig(sslSocket *dst, sslSocket *src, PRBool replaceCallbacks)
             PR_APPEND_LINK(&sc->link, &dst->serverCerts);
         }
 
-        /* Ephemeral key pairs (free old, deep-copy new). */
-        ssl_FreeEphemeralKeyPairs(dst);
-        for (cursor = PR_NEXT_LINK(&src->ephemeralKeyPairs);
-             cursor != &src->ephemeralKeyPairs;
-             cursor = PR_NEXT_LINK(cursor)) {
-            sslEphemeralKeyPair *skp = ssl_CopyEphemeralKeyPair(
-                (sslEphemeralKeyPair *)cursor);
-            if (!skp) {
-                return SECFailure;
-            }
-            PR_APPEND_LINK(&skp->link, &dst->ephemeralKeyPairs);
-        }
+        /* Ephemeral key pairs are not copied from the model. A ClientHello
+         * would offer them alongside freshly generated ones, and RFC 9846,
+         * Section 4.3.8 forbids both duplicate groups and key share reuse
+         * across connections. */
 
         /* Extension hooks (free old, deep-copy new). */
         while (!PR_CLIST_IS_EMPTY(&dst->extensionHooks)) {
@@ -3096,12 +3088,11 @@ ssl_Accept(PRFileDesc *fd, PRNetAddr *sockaddr, PRIntervalTime timeout)
     ** Don't need locks here because nobody else has a reference to ns yet.
     */
     if (ns->opt.useSecurity) {
+        ns->sec.isServer = !ns->opt.handshakeAsClient;
         if (ns->opt.handshakeAsClient) {
             ns->handshake = ssl_BeginClientHandshake;
-            ss->handshaking = sslHandshakingAsClient;
         } else {
             ns->handshake = ssl_BeginServerHandshake;
-            ss->handshaking = sslHandshakingAsServer;
         }
     }
     ns->TCPconnected = 1;
@@ -3412,7 +3403,7 @@ ssl_Poll(PRFileDesc *fd, PRInt16 how_flags, PRInt16 *p_out_flags)
     }
 
     if (ss->opt.useSecurity &&
-        ss->handshaking != sslHandshakingUndetermined &&
+        (ss->handshake || ss->handshakeBegun) &&
         !ss->firstHsDone &&
         (how_flags & PR_POLL_RW)) {
         if (!ss->TCPconnected) {
@@ -3428,7 +3419,7 @@ ssl_Poll(PRFileDesc *fd, PRInt16 how_flags, PRInt16 *p_out_flags)
                 ** not based on what the application requested.
                 */
                 new_flags &= ~PR_POLL_RW;
-                if (ss->handshaking == sslHandshakingAsClient) {
+                if (!ss->sec.isServer) {
                     new_flags |= PR_POLL_WRITE;
                 } else { /* handshaking as server */
                     new_flags |= PR_POLL_READ;
@@ -4442,6 +4433,7 @@ struct {
     EXP(GetEchRetryConfigs),
     EXP(GetExtensionSupport),
     EXP(GetResumptionTokenInfo),
+    EXP(GetResumptionTokenInfoWithFlags),
     EXP(HelloRetryRequestCallback),
     EXP(InstallExtensionHooks),
     EXP(HkdfExtract),
@@ -4719,13 +4711,24 @@ SECStatus
 SSLExp_GetResumptionTokenInfo(const PRUint8 *tokenData, unsigned int tokenLen,
                               SSLResumptionTokenInfo *tokenOut, PRUintn len)
 {
+    return SSLExp_GetResumptionTokenInfoWithFlags(tokenData, tokenLen, tokenOut,
+                                                  len, 0);
+}
+
+SECStatus
+SSLExp_GetResumptionTokenInfoWithFlags(const PRUint8 *tokenData,
+                                       unsigned int tokenLen,
+                                       SSLResumptionTokenInfo *tokenOut,
+                                       PRUintn len, PRUint32 flags)
+{
     if (!tokenData || !tokenOut || !tokenLen ||
-        len > sizeof(SSLResumptionTokenInfo)) {
+        len > sizeof(SSLResumptionTokenInfo) ||
+        (flags & ~SSL_RESUMPTION_TOKEN_INFO_NO_PEER_CERT)) {
         PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return SECFailure;
     }
     sslSessionID sid = { 0 };
-    SSLResumptionTokenInfo token;
+    SSLResumptionTokenInfo token = { 0 };
 
     /* Populate sid values */
     if (ssl_DecodeResumptionToken(NULL, &sid, tokenData, tokenLen) != SECSuccess) {
@@ -4736,8 +4739,10 @@ SSLExp_GetResumptionTokenInfo(const PRUint8 *tokenData, unsigned int tokenLen,
     }
 
     /* |sid| only holds the peer certificate as DER; SSLResumptionTokenInfo is
-     * a public struct that hands out a CERTCertificate, so make one here. */
-    if (sid.peerCertDER.data) {
+     * a public struct that hands out a CERTCertificate, so make one here
+     * unless the caller doesn't want it. */
+    if (sid.peerCertDER.data &&
+        !(flags & SSL_RESUMPTION_TOKEN_INFO_NO_PEER_CERT)) {
         token.peerCert = CERT_NewTempCertificate(NULL, /* dbHandle */
                                                  &sid.peerCertDER,
                                                  NULL, PR_FALSE, PR_TRUE);
@@ -4745,13 +4750,13 @@ SSLExp_GetResumptionTokenInfo(const PRUint8 *tokenData, unsigned int tokenLen,
             ssl_DestroySID(&sid, PR_FALSE);
             return SECFailure;
         }
-    } else {
-        token.peerCert = NULL;
     }
 
     token.alpnSelectionLen = sid.u.ssl3.alpnSelection.len;
     token.alpnSelection = PORT_ZAlloc(token.alpnSelectionLen);
     if (!token.alpnSelection) {
+        CERT_DestroyCertificate(token.peerCert);
+        ssl_DestroySID(&sid, PR_FALSE);
         return SECFailure;
     }
     if (token.alpnSelectionLen > 0) {
@@ -4767,6 +4772,9 @@ SSLExp_GetResumptionTokenInfo(const PRUint8 *tokenData, unsigned int tokenLen,
         token.maxEarlyDataSize = 0;
     }
     token.expirationTime = sid.expirationTime;
+    /* A successful decode guarantees the version and features bytes. */
+    token.plaintextSecret =
+        (tokenData[1] & SSLResumptionTokenFeatureRawMS) ? PR_TRUE : PR_FALSE;
 
     token.length = PR_MIN(sizeof(SSLResumptionTokenInfo), len);
     PORT_Memcpy(tokenOut, &token, token.length);

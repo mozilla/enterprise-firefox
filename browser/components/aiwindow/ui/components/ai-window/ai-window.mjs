@@ -68,11 +68,17 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/memories/journeys/JourneyManager.sys.mjs",
   MemoriesManager:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
+  AUTO_MODEL_CHOICE_ID:
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   getAllModelsData:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   getCurrentModelChoiceId:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   getCurrentModelName:
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  isAutoModelEnabled:
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  MODELS_DATA_CHANGED_TOPIC:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   ToolUI: "moz-src:///browser/components/aiwindow/ui/modules/ToolUI.sys.mjs",
   AgentUI: "moz-src:///browser/components/aiwindow/ui/modules/AgentUI.sys.mjs",
@@ -103,13 +109,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
   return console.createInstance({
-    prefix: "ChatStore",
-    maxLogLevelPref: "browser.smartwindow.chatStore.loglevel",
+    logModule: "AIWindow",
+    maxLogLevelPref: "browser.smartwindow.aiWindow.logLevel",
   });
 });
 
 /**
- * @import { SmartbarAction } from "chrome://browser/content/aiwindow/components/input-cta/input-cta.mjs"
+ * @import { SmartbarAction } from "chrome://browser/content/aiwindow/components/input-cta.mjs"
  * @import { TabGroupColor } from "chrome://browser/content/tabbrowser/tabgroup.mjs"
  */
 
@@ -149,21 +155,23 @@ ChromeUtils.defineLazyGetter(lazy, "log", function () {
  */
 
 /**
- * @typedef {"button" | "enter" | "follow-up" | "menu" | "resume" | "retry" | "shortcuts" | "starter" | "suggestion"} ChatSubmitType
+ * @typedef {"button" | "enter" | "follow-up" | "menu" | "resume" | "retry" | "shortcuts" | "starter" | "suggestion" | "toolbar"} ChatSubmitType
  */
 
 /**
- * Request context used to record an assistant response's first displayed character.
+ * Request context for telemetry about the first displayed response content.
  *
  * @typedef {{
- *   messageId: string,
+ *   turnIndex: number,
+ *   contextMessageCount: number,
+ *   contextLength: number,
  *   conversationId: string,
  *   requestId: string,
  *   messageSeq: number,
  *   startedAt: number,
  *   location: string,
  *   model: string
- * }} PendingFirstCharacterContext
+ * }} PendingResponseContext
  */
 
 const MODE = {
@@ -216,6 +224,9 @@ const MAX_PILL_COUNT = 6;
 const MAX_RESUME_PILLS_DISPLAYED = 3;
 // Show up to 4 cards from the generated pool.
 const MAX_RESUME_CARDS_DISPLAYED = 4;
+// Avoid flashing skeletons for fast journey lookups.
+const RESUME_CARDS_LOADING_DELAY_MS = 200;
+const RESUME_CARD_SNOOZE_DURATION_MS = 24 * 60 * 60 * 1000;
 // TEMP: English-only workaround. Remove once resume headlines support
 // localization - see Bug 2066263.
 const RESUME_HEADLINE_PREFIX_RE = /^\s*pick\s+up\b[\s:;,.—-]*/iu;
@@ -299,9 +310,16 @@ export class AIWindow extends MozLitElement {
    * Context for a response awaiting its first displayed character, allowing
    * that character to be associated with the request telemetry.
    *
-   * @type {PendingFirstCharacterContext | null}
+   * @type {PendingResponseContext | null}
    */
   #pendingFirstCharacterContext = null;
+
+  /**
+   * Request awaiting its first visible action-log entry.
+   *
+   * @type {PendingResponseContext | null}
+   */
+  #pendingFirstActionLogContext = null;
 
   #starters = [];
   #starterPromptsAbortController = null;
@@ -699,7 +717,11 @@ export class AIWindow extends MozLitElement {
     );
     Services.prefs.addObserver(
       PREF_CUSTOM_ENDPOINT,
-      this.#onCustomEndpointPrefChanged
+      this.#onAvailableModelsChanged
+    );
+    Services.obs.addObserver(
+      this.#onAvailableModelsChanged,
+      lazy.MODELS_DATA_CHANGED_TOPIC
     );
 
     // AboutNewTab populates its Top Sites store asynchronously, so on a fresh
@@ -753,6 +775,11 @@ export class AIWindow extends MozLitElement {
    */
   get conversation() {
     return this.#conversation;
+  }
+
+  /** Whether the next message sent from this chat would use memories. */
+  get memoriesEnabled() {
+    return this.#memoriesToggled ?? this.#memoriesIconShown;
   }
 
   #registerSwapDocShellsListener(win) {
@@ -918,6 +945,7 @@ export class AIWindow extends MozLitElement {
     this.#abortController?.abort();
     this.#abortController = null;
     this.#pendingFirstCharacterContext = null;
+    this.#pendingFirstActionLogContext = null;
 
     // Clean up visibility change handler
     if (this.#visibilityChangeHandler) {
@@ -951,7 +979,11 @@ export class AIWindow extends MozLitElement {
     );
     Services.prefs.removeObserver(
       PREF_CUSTOM_ENDPOINT,
-      this.#onCustomEndpointPrefChanged
+      this.#onAvailableModelsChanged
+    );
+    Services.obs.removeObserver(
+      this.#onAvailableModelsChanged,
+      lazy.MODELS_DATA_CHANGED_TOPIC
     );
 
     // Clean up Top Sites store observer
@@ -1038,16 +1070,23 @@ export class AIWindow extends MozLitElement {
    * Loads all available models.
    */
   async #loadAvailableModels() {
-    const allModels = await lazy.getAllModelsData();
+    const {
+      0: customModel,
+      [lazy.AUTO_MODEL_CHOICE_ID]: autoModel,
+      ...presetModels
+    } = await lazy.getAllModelsData();
 
-    // Only show custom model option if a custom endpoint has been configured
-    if (lazy.openAIEngine.hasCustomEndpoint()) {
-      this.availableModels = allModels;
-      return;
-    }
-    const { 0: _unusedCustom, ...presetModels } = allModels;
-    void _unusedCustom;
-    this.availableModels = presetModels;
+    this.availableModels = {
+      // Only show custom model option if a custom endpoint has been configured
+      ...(lazy.openAIEngine.hasCustomEndpoint() && { 0: customModel }),
+      // Without its Remote Settings routing record, Auto would send requests
+      // with the generic model.
+      ...(((lazy.isAutoModelEnabled() && autoModel.inferenceModel) ||
+        lazy.getCurrentModelChoiceId() === lazy.AUTO_MODEL_CHOICE_ID) && {
+        [lazy.AUTO_MODEL_CHOICE_ID]: autoModel,
+      }),
+      ...presetModels,
+    };
   }
 
   /**
@@ -1083,8 +1122,9 @@ export class AIWindow extends MozLitElement {
     });
   };
 
-  #onCustomEndpointPrefChanged = async () => {
+  #onAvailableModelsChanged = async () => {
     await this.#loadAvailableModels();
+    this.#dropUnavailableAutoOverride();
     const defaultModelChoiceId = lazy.getCurrentModelChoiceId();
     if (
       !this.#hasModelChoiceOverride &&
@@ -1095,6 +1135,23 @@ export class AIWindow extends MozLitElement {
 
     this.#updateSmartbarModels(this.#smartbar);
   };
+
+  /**
+   * Ignores a tab's Auto override while Auto isn't offered, so the tab uses
+   * the default model.
+   */
+  #dropUnavailableAutoOverride() {
+    if (
+      !this.#hasModelChoiceOverride ||
+      this.#selectedModelChoiceId !== lazy.AUTO_MODEL_CHOICE_ID ||
+      !this.availableModels ||
+      lazy.AUTO_MODEL_CHOICE_ID in this.availableModels
+    ) {
+      return;
+    }
+    this.#hasModelChoiceOverride = false;
+    this.#setModelChoice(lazy.getCurrentModelChoiceId());
+  }
 
   /**
    * Sets the selected model choice.
@@ -1119,7 +1176,9 @@ export class AIWindow extends MozLitElement {
     // next send, so pass the freshly-selected model explicitly here.
     if (this.#conversation?.messages.length) {
       await this.#conversation.loadSystemPrompt({
-        model: this.selectedModelId,
+        model:
+          this.availableModels?.[modelChoiceId]?.inferenceModel ??
+          this.selectedModelId,
       });
     }
 
@@ -1139,6 +1198,7 @@ export class AIWindow extends MozLitElement {
   restoreModelChoiceOverride(modelChoiceId) {
     this.#hasModelChoiceOverride = modelChoiceId !== null;
     this.#setModelChoice(modelChoiceId ?? lazy.getCurrentModelChoiceId());
+    this.#dropUnavailableAutoOverride();
     this.#updateSmartbarModels(this.#smartbar);
   }
 
@@ -1324,6 +1384,7 @@ export class AIWindow extends MozLitElement {
     if (
       selectedTab !== this.#getCurrentTab() ||
       !this.isConnected ||
+      this.isGenerating ||
       this.#conversation?.messageCount
     ) {
       return;
@@ -1334,6 +1395,7 @@ export class AIWindow extends MozLitElement {
     // (preventing the pending inference promise chain from keeping the
     // window alive).
     this.#starterPromptsAbortController?.abort();
+    this.resumeCardsLoading = false;
     if (this.#isSmartPageSidebar) {
       this.#conversation.transientStarters = [];
       this.#renderStarterPrompts([]);
@@ -1349,7 +1411,7 @@ export class AIWindow extends MozLitElement {
 
     let starters = [];
     // Cards render separately from the pills row, so once the pill fallback
-    // is gone (Bug 2067871), this path no longer needs to wait for resume
+    // is gone (Bug 2077652), this path no longer needs to wait for resume
     // content to merge into `starters` below - it can render as soon as
     // `starters` is ready.
     const rendersCardsIndependently =
@@ -1389,7 +1451,7 @@ export class AIWindow extends MozLitElement {
               2,
               memoriesEnabled,
               this.conversationId,
-              this.#starterPromptsAbortController.signal
+              abortController.signal
             )
             .catch(e => {
               lazy.log.error(
@@ -1402,6 +1464,7 @@ export class AIWindow extends MozLitElement {
       }
 
       let resumeStartersPromise = null;
+      let resumeCardsPromise = null;
       const shouldLoadResumeStarters =
         this.mode === MODE.FULLPAGE &&
         this.#canLoadResumeStarters &&
@@ -1414,11 +1477,16 @@ export class AIWindow extends MozLitElement {
         await this.#refreshHasMemories();
 
         if (this.#resumeActivityMemoriesEnabled) {
-          resumeStartersPromise = lazy.JourneyManager.suggestJourneysToResume();
+          const resumeActivitiesPromise =
+            lazy.JourneyManager.suggestJourneysToResume();
 
           if (this.resumeCardsPref) {
-            this.resumeCardsLoading = true;
+            resumeCardsPromise = this.#loadResumeCards(
+              resumeActivitiesPromise,
+              abortController.signal
+            );
           } else {
+            resumeStartersPromise = resumeActivitiesPromise;
             // Reveal all slots together once merged below - showing static
             // starters early would risk a pill's text swapping later.
             this.#renderStarterPrompts(
@@ -1441,7 +1509,7 @@ export class AIWindow extends MozLitElement {
         });
 
       // Cards render separately, so static starters don't need to wait.
-      // TODO Bug 2067871: remove the pill fallback and final render.
+      // TODO Bug 2077652: remove the pill fallback and final render.
       if (rendersCardsIndependently && !abortController.signal.aborted) {
         this.#conversation.transientStarters = starters;
         this.#renderStarterPrompts(starters);
@@ -1472,6 +1540,8 @@ export class AIWindow extends MozLitElement {
         if (sidebarStarters?.length) {
           starters = sidebarStarters;
         }
+      } else if (resumeCardsPromise) {
+        await resumeCardsPromise;
       } else if (resumeStartersPromise) {
         const rawResumeActivities = await resumeStartersPromise;
 
@@ -1497,10 +1567,36 @@ export class AIWindow extends MozLitElement {
       this.resumeCardsLoading = false;
     }
 
-    this.#starterPromptsAbortController = null;
+    if (this.#starterPromptsAbortController === abortController) {
+      this.#starterPromptsAbortController = null;
+    }
     if (!rendersCardsIndependently && !abortController.signal.aborted) {
       this.#conversation.transientStarters = starters;
       this.#renderStarterPrompts(starters);
+    }
+  }
+
+  async #loadResumeCards(resumeActivitiesPromise, signal) {
+    const loadingTimer = setTimeout(() => {
+      if (!signal.aborted) {
+        this.resumeCardsLoading = true;
+      }
+    }, RESUME_CARDS_LOADING_DELAY_MS);
+
+    try {
+      const resumeActivities = await resumeActivitiesPromise;
+      if (!signal.aborted) {
+        this.#applyResumeActivities(resumeActivities);
+      }
+    } catch (e) {
+      if (!signal.aborted) {
+        lazy.log.error("[Prompts] Failed to load resume cards:", e);
+      }
+    } finally {
+      clearTimeout(loadingTimer);
+      if (!signal.aborted) {
+        this.resumeCardsLoading = false;
+      }
     }
   }
 
@@ -1531,10 +1627,12 @@ export class AIWindow extends MozLitElement {
       this.resumeCardsEmptyReason = null;
     }
 
-    // TODO Bug 2067871: this is already the permanent path; drop the pill
+    // TODO Bug 2077652: this is already the permanent path; drop the pill
     // fallback in the caller once cards ship for real (see the other
-    // Bug 2067871 TODO there, on the early starters render).
-    this.resumeCards = resumeActivities.slice(0, MAX_RESUME_CARDS_DISPLAYED);
+    // Bug 2077652 TODO there, on the early starters render).
+    this.resumeCards = resumeActivities
+      .slice(0, MAX_RESUME_CARDS_DISPLAYED)
+      .map((card, rank) => ({ ...card, rank }));
     if (this.resumeCards.length) {
       lazy.ResumeActivity.clearSectionHiddenForSession();
       this.resumeSectionHidden = false;
@@ -1712,8 +1810,7 @@ export class AIWindow extends MozLitElement {
   };
 
   /**
-   * Handles a resume card's "More" menu selection. Snoozing dismisses the
-   * card for the rest of the session.
+   * Handles a resume card's "More" menu selection.
    *
    * @param {CustomEvent} event - The menu-item-selected event
    * @private
@@ -1728,28 +1825,65 @@ export class AIWindow extends MozLitElement {
         break;
 
       case "snooze":
-        this.#snoozeResumeCard(journeyId);
+        this.#snoozeResumeCard(journeyId).catch(e =>
+          lazy.log.error("[ResumeCard] Failed to snooze:", e)
+        );
         break;
     }
   };
 
   /**
-   * Handles a resume card's close button by snoozing the card.
+   * Handles a resume card's close button by permanently dismissing the card.
    *
    * @param {CustomEvent} event - The dismiss event
    * @private
    */
   #handleResumeCardDismiss = event => {
-    this.#snoozeResumeCard(event.detail.journeyId);
+    this.#dismissResumeCard(event.detail.journeyId).catch(e =>
+      lazy.log.error("[ResumeCard] Failed to dismiss:", e)
+    );
   };
 
   /**
-   * Dismisses a resume card for the rest of the session.
+   * Snoozes a resume card for 24 hours.
    *
    * @param {string} journeyId - The resume card's journey/memory id
    */
-  #snoozeResumeCard(journeyId) {
-    lazy.ResumeActivity.dismissMemory(journeyId);
+  async #snoozeResumeCard(journeyId) {
+    const card = this.resumeCards.find(({ memory }) => memory.id === journeyId);
+    if (!card) {
+      return;
+    }
+
+    const snoozed = await lazy.JourneyManager.dismissUntil(
+      card,
+      Date.now() + RESUME_CARD_SNOOZE_DURATION_MS
+    );
+    if (!snoozed) {
+      throw new Error(`No stored journey found for ${journeyId}`);
+    }
+    this.#removeResumeCard(journeyId);
+  }
+
+  /**
+   * Permanently dismisses a resume card.
+   *
+   * @param {string} journeyId - The resume card's journey/memory id
+   */
+  async #dismissResumeCard(journeyId) {
+    const card = this.resumeCards.find(({ memory }) => memory.id === journeyId);
+    if (!card) {
+      return;
+    }
+
+    const dismissed = await lazy.JourneyManager.dismiss(card);
+    if (!dismissed) {
+      throw new Error(`No stored journey found for ${journeyId}`);
+    }
+    this.#removeResumeCard(journeyId);
+  }
+
+  #removeResumeCard(journeyId) {
     this.resumeCards = this.resumeCards.filter(
       ({ memory }) => memory.id !== journeyId
     );
@@ -1934,16 +2068,12 @@ export class AIWindow extends MozLitElement {
     }
     this.#abortController.abort();
     this.isGenerating = false;
-    const lastAssistant = this.#conversation?.messages
-      ?.filter(
-        m => m.role == lazy.MESSAGE_ROLE.ASSISTANT && m?.content?.type == "text"
-      )
-      .at(-1);
+    const messageToMarkComplete = this.#conversation?.getCurrentReplyMessage();
     this.#dispatchMessageToChatContent({
       role: "assistant-message-complete",
-      content: { id: lastAssistant?.id },
+      content: { id: messageToMarkComplete?.id },
       historyResults: this.#conversation?.getHistoryResultsSnapshot() ?? [],
-      citations: lastAssistant?.citations ?? [],
+      citations: messageToMarkComplete?.citations ?? [],
     });
   };
 
@@ -2624,7 +2754,7 @@ export class AIWindow extends MozLitElement {
    */
   #createUserRoleOpts(contextMentions) {
     return new lazy.UserRoleOpts({
-      memoriesEnabled: this.#memoriesToggled ?? this.#memoriesIconShown,
+      memoriesEnabled: this.memoriesEnabled,
       memoriesFlagSource:
         this.#memoriesToggled == null
           ? lazy.MEMORIES_FLAG_SOURCE.GLOBAL
@@ -2795,15 +2925,24 @@ export class AIWindow extends MozLitElement {
 
     this.#abortController?.abort();
     this.#pendingFirstCharacterContext = null;
+    this.#pendingFirstActionLogContext = null;
     this.#abortController = new AbortController();
     const { signal } = this.#abortController;
     const stopWatchingTabClose =
       this.#watchTabCloseForAbort(browsingContext, this.#abortController) ??
       (() => {});
     this.isGenerating = true;
+    const isAutoModel =
+      this.#selectedModelChoiceId === lazy.AUTO_MODEL_CHOICE_ID;
+    this.#showLoadingIndicator({ isDecidingModel: isAutoModel });
+    const onModelAnswer = () => {
+      conversation.off("chat-conversation:message-update", onModelAnswer);
+      this.#showLoadingIndicator({ isDecidingModel: false });
+    };
 
     const requestStart = ChromeUtils.now();
     let assistantMessage;
+    let turnContext;
     let firstTokenTime = null;
     const onUpdate = (_e, message) => {
       if (message.role !== lazy.MESSAGE_ROLE.ASSISTANT) {
@@ -2870,8 +3009,12 @@ export class AIWindow extends MozLitElement {
           lazy.MESSAGE_ROLE.ASSISTANT,
           conversation
         );
+        const context = conversation.compactChatCompletions();
+
         this.#pendingFirstCharacterContext = {
-          messageId: assistantMessage.id,
+          turnIndex: assistantMessage.turnIndex,
+          contextMessageCount: context.length,
+          contextLength: JSON.stringify(context).length,
           conversationId: conversation.id,
           requestId: assistantMessage.parentMessageId,
           messageSeq: messageCount,
@@ -2879,15 +3022,40 @@ export class AIWindow extends MozLitElement {
           location: this.mode === MODE.FULLPAGE ? "home" : MODE.SIDEBAR,
           model: engine.model,
         };
+        this.#pendingFirstActionLogContext = this.#pendingFirstCharacterContext;
+        turnContext = this.#pendingFirstCharacterContext;
       }
 
-      await lazy.Chat.fetchWithHistory({
+      // The model is picked once it answers, also with a tool call the action
+      // log doesn’t show.
+      if (isAutoModel) {
+        conversation.on("chat-conversation:message-update", onModelAnswer);
+      }
+      const turnResult = await lazy.Chat.fetchWithHistory({
         conversation,
         browsingContext,
         mode: this.mode,
         signal,
         tokenPromise,
       });
+
+      if (turnResult && turnContext && !signal.aborted) {
+        Glean.smartWindow.timeToTurnComplete.record({
+          location: turnContext.location,
+          chat_id: turnContext.conversationId,
+          message_seq: turnContext.messageSeq,
+          request_id: turnContext.requestId,
+          model: turnContext.model,
+          turn_index: turnContext.turnIndex,
+          context_message_count: turnContext.contextMessageCount,
+          context_length: turnContext.contextLength,
+          duration: Math.round(ChromeUtils.now() - turnContext.startedAt),
+          tool_call_count: turnResult.toolCallCount,
+          ...(turnResult.outputTokens !== null && {
+            output_tokens: turnResult.outputTokens,
+          }),
+        });
+      }
 
       ChromeUtils.addProfilerMarker(
         "SmartWindow",
@@ -2912,6 +3080,7 @@ export class AIWindow extends MozLitElement {
       this.requestUpdate?.();
     } finally {
       stopWatchingTabClose();
+      conversation.off("chat-conversation:message-update", onModelAnswer);
       if (this.#abortController?.signal === signal) {
         this.isGenerating = false;
         this.#abortController = null;
@@ -2956,6 +3125,7 @@ export class AIWindow extends MozLitElement {
       );
     }
     if (changedProps.has("availableModels")) {
+      this.#dropUnavailableAutoOverride();
       this.#setModelChoice(this.#selectedModelChoiceId);
       if (this.#smartbar) {
         this.#updateSmartbarModels(this.#smartbar);
@@ -3025,10 +3195,14 @@ export class AIWindow extends MozLitElement {
    */
   onFirstCharacterDisplayed({ conversationId, messageId }) {
     const pending = this.#pendingFirstCharacterContext;
+    if (!pending || pending.conversationId !== conversationId) {
+      return;
+    }
+
+    const message = this.#getMessageById(messageId);
     if (
-      !pending ||
-      pending.messageId !== messageId ||
-      pending.conversationId !== conversationId
+      message?.role !== lazy.MESSAGE_ROLE.ASSISTANT ||
+      message.turnIndex !== pending.turnIndex
     ) {
       return;
     }
@@ -3040,12 +3214,45 @@ export class AIWindow extends MozLitElement {
       message_seq: pending.messageSeq,
       request_id: pending.requestId,
       model: pending.model,
+      turn_index: pending.turnIndex,
+      context_message_count: pending.contextMessageCount,
+      context_length: pending.contextLength,
+      latency: Math.round(ChromeUtils.now() - pending.startedAt),
+    });
+  }
+
+  /**
+   * Records request latency when its first action-log entry becomes visible.
+   *
+   * @param {{conversationId: string, turnIndex: number}} detail
+   * @returns {void}
+   */
+  onFirstActionLogDisplayed({ conversationId, turnIndex }) {
+    const pending = this.#pendingFirstActionLogContext;
+    if (
+      !pending ||
+      pending.conversationId !== conversationId ||
+      pending.turnIndex !== turnIndex
+    ) {
+      return;
+    }
+
+    this.#pendingFirstActionLogContext = null;
+    Glean.smartWindow.timeToFirstActionLog.record({
+      location: pending.location,
+      chat_id: pending.conversationId,
+      message_seq: pending.messageSeq,
+      request_id: pending.requestId,
+      model: pending.model,
+      turn_index: pending.turnIndex,
+      context_message_count: pending.contextMessageCount,
+      context_length: pending.contextLength,
       latency: Math.round(ChromeUtils.now() - pending.startedAt),
     });
   }
 
   get modelName() {
-    return lazy.getCurrentModelName();
+    return this.selectedModelId;
   }
 
   #getConversationLastMessageAndCount(role, conversation = this.#conversation) {
@@ -3240,10 +3447,21 @@ export class AIWindow extends MozLitElement {
           newMessage.content?.args,
           cfg.link
         ),
+        modelName: this.#getAutoModelName(newMessage),
       };
+    } else if (newMessage.role === "assistant") {
+      // Auto model replies show the picked model even without tool calls.
+      newMessage.modelName = this.#getAutoModelName(newMessage);
     }
 
     return actor.dispatchMessageToChatContent(newMessage);
+  }
+
+  // Only the auto model shows the model it picked.
+  #getAutoModelName(message) {
+    return message.params?.modelChoiceId === lazy.AUTO_MODEL_CHOICE_ID
+      ? message.params.modelDisplayName
+      : null;
   }
 
   #maybeSetMemoriesCalloutData(newMessage) {
@@ -3614,10 +3832,13 @@ export class AIWindow extends MozLitElement {
   }
 
   showSearchingIndicator(isSearching, searchQuery) {
+    this.#showLoadingIndicator({ isSearching, searchQuery });
+  }
+
+  #showLoadingIndicator(state) {
     this.#dispatchMessageToChatContent({
       role: "loading",
-      isSearching,
-      searchQuery,
+      ...state,
       convId: this.conversationId,
       content: { body: "" },
     });
@@ -3819,12 +4040,17 @@ export class AIWindow extends MozLitElement {
   }
 
   #getUserMessageForAssistantId(assistantMessageId) {
-    const assistantMsg = this.#getMessageById(assistantMessageId);
-    if (!assistantMsg?.parentMessageId) {
+    const { messages } = this.#conversation;
+    const index = messages.findIndex(m => m.id === assistantMessageId);
+    if (index === -1) {
       return null;
     }
 
-    return this.#getMessageById(assistantMsg.parentMessageId) ?? null;
+    return (
+      messages.findLast(
+        (m, i) => i < index && m.role === lazy.MESSAGE_ROLE.USER
+      ) ?? null
+    );
   }
 
   #retryAfterError() {

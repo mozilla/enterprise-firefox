@@ -48,7 +48,7 @@ import {
 const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "console", () =>
   console.createInstance({
-    prefix: "WebSearchFlow",
+    logModule: "WebSearchFlow",
     maxLogLevelPref: "browser.smartwindow.conversation.logLevel",
   })
 );
@@ -246,6 +246,9 @@ const GET_PAGE_CONTENT_TOOL = {
  *
  * @typedef {object} AnswersSearchWorkflowResult
  * @property {AsyncGenerator<object>} [directAnswerStream] - Reply to deliver.
+ * @property {boolean} [directAnswer] - True alongside `directAnswerStream`.
+ *   Unlike the stream it stays in the persisted tool body, so the action log
+ *   can say that Exa wrote the reply.
  * @property {string[]} read_urls - URLs /answers cited (code-tracked).
  * @property {boolean} requiresSearchHandoff - Whether to route to search handoff.
  * @property {string} [error] - Present when the flow could not run.
@@ -465,14 +468,20 @@ async function generateAnswer({
     // reads, so they are preserved on the next request.
     assistantMessage.content = {
       body: {
-        tool_calls: pageReadCalls.map(call => ({
-          id: call.id,
-          type: "function",
-          function: {
-            name: call.function.name,
-            arguments: call.function.arguments || "{}",
-          },
-        })),
+        tool_calls: pageReadCalls.map(call => {
+          const toolCall = {
+            id: call.id,
+            type: "function",
+            function: {
+              name: call.function.name,
+              arguments: call.function.arguments || "{}",
+            },
+          };
+          if (call.extra_content) {
+            toolCall.extra_content = call.extra_content;
+          }
+          return toolCall;
+        }),
       },
     };
 
@@ -784,6 +793,7 @@ async function runAnswersSearch(toolParams, conversation, signal) {
 
   return {
     directAnswerStream: answerAsStream(answer, signal),
+    directAnswer: true,
     read_urls: readUrls,
     requiresSearchHandoff: false,
   };

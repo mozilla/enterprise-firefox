@@ -11,8 +11,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AboutNewTab: "resource:///modules/AboutNewTab.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
-  handleBounceEventTrigger:
-    "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
+  UrlbarSession: "moz-src:///browser/components/urlbar/UrlbarSession.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "ReferrerInfo", () =>
@@ -85,6 +84,15 @@ function openInWindow(url, params, sourceWindow) {
   // restoring a persisted fullscreen sizemode and taking a Space of their own.
   const CHROMELESS_FEATURES = `resizable,minimizable,titlebar,close,suppressinitialfullscreen${chromelessDimensions}`;
   let features = `chrome,dialog=no,${chromeless ? CHROMELESS_FEATURES : "all"}`;
+  if (chromeless && params.shouldCenter) {
+    let screen = sourceWindow.screen;
+    let cssToDesktopScale =
+      sourceWindow.devicePixelRatio / sourceWindow.desktopToDeviceScale;
+    let left = Math.round(screen.availLeft * cssToDesktopScale);
+    let top = Math.round(screen.availTop * cssToDesktopScale);
+    // An explicit initial position prevents saved coordinates from overriding centering.
+    features += `,centerscreen,left=${left},top=${top}`;
+  }
   if (params.private) {
     features += ",private";
     // To prevent regular browsing data from leaking to private browsing sites,
@@ -467,6 +475,8 @@ export const URILoadingHelper = {
    * @param {boolean} [params.fromExternal]
    *                  Indicates the load was started outside of the browser,
    *                  e.g. passed on the commandline or through OS mechanisms.
+   * @param {boolean} [params.shouldCenter]
+   *                  Center a chromeless window on the source window's screen.
    * @param {boolean} [params.aswebauth]
    *                  Marks a new window as an ASWebAuthenticationSession auth
    *                  window so that it is not tracked by session restore. Only
@@ -681,7 +691,7 @@ export const URILoadingHelper = {
     // We instead check for potential URL bar initiated bounce events directly
     // in the collector's startTrackingBounceEvent().
     if (!params.initiatedByURLBar && targetBrowser) {
-      lazy.handleBounceEventTrigger(targetBrowser);
+      lazy.UrlbarSession.handleBounceEventTrigger(targetBrowser);
     }
 
     if (

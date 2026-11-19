@@ -642,7 +642,7 @@ bool nsContentSecurityUtils::IsEvalAllowed(JSContext* cx,
       "resource://testing-common/content-task.js"_ns,
 
       // Tracked by Bug 1584605
-      "resource://gre/modules/translations/cld-worker.js"_ns,
+      "moz-src:///toolkit/components/translations/cld2/cld-worker.js"_ns,
 
       // require.js implements a script loader for workers. It uses eval
       // to load the script; but injection is only possible in situations
@@ -889,7 +889,7 @@ void nsContentSecurityUtils::DetectJsHacks() {
 
   static const char* kObservedPrefs[] = {
       "xpinstall.signatures.required", "general.config.filename",
-      "autoadmin.global_config_url", "autoadmin.failover_to_cached", nullptr};
+      "autoadmin.global_config_url", "autoadmin.failover_to_cached"};
   if (MOZ_UNLIKELY(!sJSHackObserverAdded)) {
     Preferences::RegisterCallbacks(JSHackPrefObserver::PrefChanged,
                                    kObservedPrefs);
@@ -1026,16 +1026,12 @@ nsresult CheckCSPFrameAncestorPolicy(nsIChannel* aChannel,
     return rv;
   }
 
-  nsAutoCString tCspHeaderValue, tCspROHeaderValue;
+  PolicyContainer::Headers headers;
   if (httpChannel) {
-    (void)httpChannel->GetResponseHeader("content-security-policy"_ns,
-                                         tCspHeaderValue);
+    headers = PolicyContainer::Headers::FromChannel(httpChannel);
 
-    (void)httpChannel->GetResponseHeader(
-        "content-security-policy-report-only"_ns, tCspROHeaderValue);
-
-    // if there are no CSP values, then there is nothing to do here.
-    if (tCspHeaderValue.IsEmpty() && tCspROHeaderValue.IsEmpty()) {
+    // if there are no policy headers, then there is nothing to do here.
+    if (headers.IsEmpty()) {
       return NS_OK;
     }
   }
@@ -1044,22 +1040,6 @@ nsresult CheckCSPFrameAncestorPolicy(nsIChannel* aChannel,
   rv = nsContentUtils::GetSecurityManager()->GetChannelResultPrincipal(
       aChannel, getter_AddRefs(resultPrincipal));
   NS_ENSURE_SUCCESS(rv, rv);
-
-  RefPtr<extensions::WebExtensionPolicy> addonPolicy;
-  if (!httpChannel) {
-    addonPolicy = BasePrincipal::Cast(resultPrincipal)->AddonPolicy();
-    if (!addonPolicy) {
-      // Neither a HTTP channel, nor a moz-extension:-resource.
-      // CSP is not supported.
-      return NS_OK;
-    }
-  }
-
-  RefPtr<nsCSPContext> csp = new nsCSPContext();
-  // This CSPContext is only used for checking frame-ancestors, we
-  // will parse the CSP again anyway. (Unless this blocks the load, but
-  // parser warnings aren't really important in that case)
-  csp->SuppressParserLogMessages();
 
   nsCOMPtr<nsIURI> selfURI;
   nsAutoCString referrerSpec;
@@ -1075,32 +1055,15 @@ nsresult CheckCSPFrameAncestorPolicy(nsIChannel* aChannel,
     NS_GetFinalChannelURI(aChannel, getter_AddRefs(selfURI));
   }
 
-  uint64_t innerWindowID = loadInfo->GetInnerWindowID();
-
-  rv = csp->SetRequestContextWithPrincipal(resultPrincipal, selfURI,
-                                           referrerSpec, innerWindowID);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  if (addonPolicy) {
-    csp->AppendPolicy(addonPolicy->BaseCSP(), false, false);
-    csp->AppendPolicy(addonPolicy->ExtensionPageCSP(), false, false);
-  } else {
-    NS_ConvertASCIItoUTF16 cspHeaderValue(tCspHeaderValue);
-    NS_ConvertASCIItoUTF16 cspROHeaderValue(tCspROHeaderValue);
-
-    // ----- if there's a full-strength CSP header, apply it.
-    if (!cspHeaderValue.IsEmpty()) {
-      rv = CSP_AppendCSPFromHeader(csp, cspHeaderValue, false);
-      NS_ENSURE_SUCCESS(rv, rv);
-    }
-
-    // ----- if there's a report-only CSP header, apply it.
-    if (!cspROHeaderValue.IsEmpty()) {
-      rv = CSP_AppendCSPFromHeader(csp, cspROHeaderValue, true);
-      NS_ENSURE_SUCCESS(rv, rv);
-    }
+  // Without a HTTP channel this only returns a CSP for moz-extension:
+  // resources, where the CSP is stored in a WebExtensionPolicy.
+  RefPtr<PolicyContainer> policyContainer =
+      MOZ_TRY(PolicyContainer::CreateForFrameAncestorsCheck(
+          resultPrincipal, selfURI, referrerSpec, loadInfo->GetInnerWindowID(),
+          headers));
+  nsCOMPtr<nsIContentSecurityPolicy> csp = policyContainer->GetCSP();
+  if (!csp) {
+    return NS_OK;
   }
 
   // ----- Enforce frame-ancestor policy on any applied policies
@@ -1541,6 +1504,11 @@ class DisallowingVisitor : public nsCSPSrcVisitor {
   };
 
   bool visitHashSrc(const nsCSPHashSrc& src) override {
+    Assert(src);
+    return false;
+  };
+
+  bool visitUrlHashSrc(const nsCSPUrlHashSrc& src) override {
     Assert(src);
     return false;
   };

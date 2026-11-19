@@ -31,6 +31,8 @@ class MenuTelemetryMiddleware<S : State, A : Action>(private val accessPoint: Me
     ) {
         next(action)
 
+        if (accessPoint == MenuAccessPoint.Preview) return
+
         when (action) {
             MenuAction.Navigate.CustomizeHomepage ->
                 Events.browserMenuAction.record(Events.BrowserMenuActionExtra(item = "customize_homepage"))
@@ -216,19 +218,18 @@ class MenuTelemetryMiddleware<S : State, A : Action>(private val accessPoint: Me
                 Events.browserMenuAction.record(Events.BrowserMenuActionExtra(item = action.entryPoint.telemetryName))
             }
 
+            MenuAction.Navigate.NewTab ->
+                Events.browserMenuAction.record(Events.BrowserMenuActionExtra(item = "new_tab"))
+
+            MenuAction.Navigate.NewPrivateTab ->
+                Events.browserMenuAction.record(Events.BrowserMenuActionExtra(item = "new_private_tab"))
+
             MenuAction.Navigate.Summarizer,
             MenuAction.InitAction,
             is MenuAction.CustomMenuItemAction,
-            is MenuAction.UpdateBookmarkState,
-            is MenuAction.UpdateExtensionState,
-            is MenuAction.UpdatePinnedState,
-            is MenuAction.UpdateWebExtensionBrowserMenuItems,
             is MenuAction.InstallAddonFailed,
             is MenuAction.InstallAddonSuccess,
-            is MenuAction.UpdateInstallAddonInProgress,
-            is MenuAction.UpdateAvailableAddons,
             is MenuAction.OnSummarizationMenuExposed,
-            is MenuAction.InitializeSummarizationMenuState,
             is MenuAction.UpdateIPProtectionMenuState,
             is MenuAction.OnMoreMenuClicked,
             is MenuAction.OnExtensionsMenuClicked,

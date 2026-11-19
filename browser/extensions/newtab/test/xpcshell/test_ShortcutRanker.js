@@ -1,6 +1,8 @@
 "use strict";
 
 ChromeUtils.defineESModuleGetters(this, {
+  PlacesTestUtils: "resource://testing-common/PlacesTestUtils.sys.mjs",
+  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
 });
 
@@ -18,6 +20,196 @@ function attachLocalWorker(provider, WorkerMod) {
     },
   };
 }
+
+add_task(function test_shouldRerank_interval_boundaries() {
+  const { shouldRerank } = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  const acceptedOrder = { guids: ["a", "b"], lastRerank: 1000 };
+  for (const reason of ["SYSTEM_TICK", "SPONSORED_TILES_UPDATED"]) {
+    for (const [now, expected] of [
+      [1999, false],
+      [2000, true],
+      [2001, true],
+    ]) {
+      Assert.equal(
+        shouldRerank({ acceptedOrder, reason, now, interval: 1000 }),
+        expected,
+        `${reason} at ${now} respects the interval boundary`
+      );
+    }
+    Assert.ok(
+      shouldRerank({ acceptedOrder, reason, now: 1000, interval: 0 }),
+      `${reason} always reranks with a zero interval`
+    );
+  }
+});
+
+add_task(function test_shouldRerank_missing_state_and_clock_rollback() {
+  const { shouldRerank } = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  for (const reason of ["SYSTEM_TICK", "SPONSORED_TILES_UPDATED"]) {
+    for (const [acceptedOrder, description] of [
+      [undefined, "no accepted state"],
+      [{ lastRerank: 1000 }, "missing GUID order"],
+      [{ guids: "a", lastRerank: 1000 }, "invalid GUID order"],
+      [{ guids: ["a"] }, "missing timestamp"],
+      [{ guids: ["a"], lastRerank: 0 }, "zero timestamp"],
+      [{ guids: ["a"], lastRerank: 2001 }, "clock rollback"],
+    ]) {
+      Assert.ok(
+        shouldRerank({ acceptedOrder, reason, now: 2000, interval: 10000 }),
+        `${reason} reranks with ${description}`
+      );
+    }
+  }
+});
+
+add_task(function test_shouldRerank_other_reasons_bypass_interval() {
+  const { shouldRerank } = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  for (const reason of [
+    undefined,
+    "DISCOVERY_STREAM_DEV_SYSTEM_TICK",
+    "DISCOVERY_STREAM_DEV_EXPIRE_CACHE",
+    "PREF_CHANGED",
+    "PLACES_LINKS_CHANGED",
+    "PIN",
+    "UNPIN",
+    "BLOCK_URL",
+  ]) {
+    Assert.ok(
+      shouldRerank({
+        acceptedOrder: { guids: ["a"], lastRerank: 1000 },
+        reason,
+        now: 1001,
+        interval: 10000,
+      }),
+      `${reason} bypasses the interval`
+    );
+  }
+});
+
+add_task(async function test_rankTopSites_reuses_order_without_scoring() {
+  const Ranker = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  const { NewTabUtils } = ChromeUtils.importESModule(
+    "resource://gre/modules/NewTabUtils.sys.mjs"
+  );
+  await NewTabUtils.init();
+  const sandbox = sinon.createSandbox();
+  try {
+    const provider = new Ranker.RankShortcutsProvider();
+    const acceptedCache = {
+      ranked_state: { guids: ["b", "a"], lastRerank: Date.now() },
+      score_map: {
+        a: { training: 0.111111, ranking: 0.123456, frec: 0.345678 },
+        b: { training: 0.999999, ranking: 0.987654, frec: 0.765432 },
+      },
+      weights: { frec: 0.876543, hour: 0.5 },
+      norms: { frec: 42 },
+      time_last_update: 123,
+      hourly_seasonality: { pvec: [1], timestamp: 456 },
+      daily_seasonality: { pvec: [1], timestamp: 789 },
+    };
+    provider._acceptedCache = acceptedCache;
+    const originalCache = structuredClone(acceptedCache);
+    const persistedCache = { snapshot: structuredClone(acceptedCache) };
+    const originalPersistedCache = structuredClone(persistedCache);
+    sandbox.stub(provider.sc_obj, "get").resolves(persistedCache);
+    const setStub = sandbox.stub(provider.sc_obj, "set").resolves();
+    const queryStub = sandbox.stub(
+      NewTabUtils.activityStreamProvider,
+      "executePlacesQuery"
+    );
+    const interactionsStub = sandbox.stub(provider, "getLatestInteractions");
+    const hourlyStub = sandbox.stub(provider, "getHourlySeasonalityData");
+    const dailyStub = sandbox.stub(provider, "getDailySeasonalityData");
+    const refreStub = sandbox.stub(provider, "fetchRefreFeatures");
+    const workerPost = sandbox.stub().throws("Unexpected scoring work");
+    provider._rankShortcutsWorker = { post: workerPost };
+    const onRankedSnapshot = sandbox.spy();
+    const prefValues = {
+      trainhopConfig: {
+        smartShortcuts: {
+          enabled: true,
+          telem: true,
+          features: ["frec", "hour", "daily", "bmark", "open"],
+          rerank_interval_ms: 1800000,
+        },
+      },
+    };
+    for (const reason of ["SYSTEM_TICK", "SPONSORED_TILES_UPDATED"]) {
+      const input = [
+        { guid: "a", title: "fresh a", frecency: 100 },
+        { guid: "b", title: "fresh b", frecency: 50 },
+        { guid: "new", title: "new site", frecency: 25 },
+        { url: "https://without-guid.example" },
+      ];
+      const result = await provider.rankTopSites(input, prefValues, {
+        reason,
+        numItems: 2,
+        onRankedSnapshot,
+      });
+      Assert.deepEqual(
+        result.map(site => site.guid),
+        ["b", "a", "new", undefined],
+        `${reason} reuses the accepted order and keeps sites without GUIDs last`
+      );
+      Assert.strictEqual(result[0], input[1], "uses current site objects");
+      Assert.deepEqual(
+        result[0].scores,
+        {
+          training: Ranker.roundNum(acceptedCache.score_map.b.training),
+          ranking: Ranker.roundNum(acceptedCache.score_map.b.ranking),
+          frec: Ranker.roundNum(acceptedCache.score_map.b.frec),
+        },
+        "telemetry uses scores from the accepted ranking"
+      );
+      Assert.deepEqual(
+        result[0].weights,
+        {
+          frec: Ranker.roundNum(acceptedCache.weights.frec),
+          hour: Ranker.roundNum(acceptedCache.weights.hour),
+        },
+        "telemetry uses the learned weights of reporting features"
+      );
+      Assert.equal(result[2].scores, null, "new sites have no cached scores");
+      Assert.equal(
+        result[3].scores,
+        null,
+        "sites without GUIDs have no scores"
+      );
+    }
+    for (const [stub, description] of [
+      [queryStub, "Places queries"],
+      [interactionsStub, "interaction consumption"],
+      [hourlyStub, "hourly seasonality"],
+      [dailyStub, "daily seasonality"],
+      [refreStub, "frecency features"],
+      [workerPost, "worker scoring"],
+      [onRankedSnapshot, "snapshot proposals"],
+      [setStub, "persistent cache writes"],
+    ]) {
+      Assert.ok(stub.notCalled, `reused rankings skip ${description}`);
+    }
+    Assert.deepEqual(
+      acceptedCache,
+      originalCache,
+      "accepted scores, weights, priors and interaction timestamp remain unchanged"
+    );
+    Assert.deepEqual(
+      persistedCache,
+      originalPersistedCache,
+      "the persisted snapshot remains unchanged"
+    );
+  } finally {
+    sandbox.restore();
+  }
+});
 
 add_task(async function test_weightedSampleTopSites_no_guid_last() {
   // Ranker are utilities we are testing
@@ -126,8 +318,8 @@ add_task(
           return {
             norms: {},
             score_map: {
-              a: { final: 2, frec: 1, rece: 1, bias: 1 },
-              b: { final: 1, frec: 0, rece: 0, bias: 1 },
+              a: { training: 2, ranking: 2, frec: 1, rece: 1, bias: 1 },
+              b: { training: 1, ranking: 1, frec: 0, rece: 0, bias: 1 },
             },
           };
         }
@@ -149,7 +341,7 @@ add_task(
 
     Assert.deepEqual(
       weightedInput.features,
-      ["thom", "rece", "freq", "ctr"],
+      ["thom", "rece", "freq", "bmark", "ctr"],
       "built-in feature defaults are used without trainhop config"
     );
     Assert.equal(
@@ -184,6 +376,176 @@ add_task(
     );
 
     sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_rankTopSites_preserves_weights_after_rollout_removal() {
+    // Tests a user's learned weights are preserved after rollout ends and
+    // and prefs come from local files instead.
+    const { RankShortcutsProvider } = ChromeUtils.importESModule(
+      "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+    );
+    const { updateWeights } = ChromeUtils.importESModule(
+      "resource://newtab/lib/SmartShortcutsRanker/RankShortcutsWorkerClass.mjs"
+    );
+    const { NewTabUtils } = ChromeUtils.importESModule(
+      "resource://gre/modules/NewTabUtils.sys.mjs"
+    );
+    await NewTabUtils.init();
+
+    const sandbox = sinon.createSandbox();
+    try {
+      const provider = new RankShortcutsProvider();
+      const rollout = {
+        type: "smartShortcuts",
+        payload: {
+          enabled: true,
+          telem: false,
+          force_log: true,
+          eta: 10,
+          click_bonus: 20,
+          positive_prior: 1,
+          negative_prior: 1000,
+          sticky_numimps: 0,
+          min_exp_clicks: 10,
+          min_exp_impressions: 1000,
+          features: ["thom", "rece", "freq", "bmark", "ctr"],
+          frec_weight: 0,
+          thom_weight: 181,
+          hour_weight: 0,
+          daily_weight: 0,
+          bmark_weight: 0,
+          rece_weight: 466,
+          freq_weight: 200,
+          refre_weight: 0,
+          open_weight: 0,
+          unid_weight: 0,
+          ctr_weight: 954,
+          bias_weight: 0,
+        },
+      };
+      const prefs = {
+        [PREF_SYSTEM_SHORTCUTS_PERSONALIZATION]: true,
+        trainhopConfig: { [rollout.type]: rollout.payload },
+      };
+      const sites = [{ guid: "a", url: "https://a.com", frecency: 10 }];
+      const scoreMap = {
+        a: {
+          training: 0,
+          ranking: 0,
+          thom: 0.5,
+          rece: 0.5,
+          freq: 0.5,
+          bmark: 1,
+          ctr: 0.5,
+        },
+      };
+      const cache = { score_map: scoreMap };
+      let learningInput;
+      let rankingInput;
+
+      sandbox
+        .stub(NewTabUtils.activityStreamProvider, "executePlacesQuery")
+        .callsFake(async sql =>
+          sql.includes("FROM moz_bookmarks") ? [["a", 1]] : [["a", 10, 1000]]
+        );
+      const interactions = sandbox
+        .stub(provider, "getLatestInteractions")
+        .resolves({ a: { clicks: 1, impressions: 0 } });
+      sandbox.stub(provider, "fetchRefreFeatures").resolves({
+        rece: { a: 1 },
+        freq: { a: 1 },
+      });
+      sandbox
+        .stub(provider.sc_obj, "get")
+        .callsFake(async () => structuredClone(cache));
+      sandbox.stub(provider.sc_obj, "set").callsFake(async (key, value) => {
+        cache[key] = structuredClone(value);
+      });
+      provider._rankShortcutsWorker = {
+        post(method, [input]) {
+          if (method === "updateWeights") {
+            learningInput = structuredClone(input);
+            return updateWeights(structuredClone(input));
+          }
+          if (method === "weightedSampleTopSites") {
+            rankingInput = structuredClone(input);
+            return { norms: {}, score_map: scoreMap };
+          }
+          throw new Error(`unexpected worker method: ${method}`);
+        },
+      };
+
+      // Rankings only propose a snapshot; commit each one as TopSitesFeed does
+      // for an accepted refresh, so the next ranking starts from it.
+      const rankAndCommit = async () => {
+        let snapshot;
+        await provider.rankTopSites(sites, prefs, {
+          isStartup: false,
+          onRankedSnapshot: proposed => {
+            snapshot = proposed;
+          },
+        });
+        await provider.commitSnapshot(snapshot);
+      };
+
+      await rankAndCommit();
+      const learnedWeights = structuredClone(cache.snapshot.weights);
+      const initialWeights = structuredClone(cache.snapshot.init_weights);
+      for (const feature of rollout.payload.features) {
+        Assert.notEqual(
+          learnedWeights[feature],
+          initialWeights[feature],
+          `${feature} learns from the click during the rollout`
+        );
+      }
+
+      delete prefs.trainhopConfig;
+      interactions.resolves({});
+      await rankAndCommit();
+
+      Assert.deepEqual(
+        learningInput.weights,
+        learnedWeights,
+        "removing the rollout passes learned weights into learning without a reset"
+      );
+      Assert.deepEqual(
+        rankingInput.weights,
+        learnedWeights,
+        "local defaults rank with the learned weights"
+      );
+      Assert.deepEqual(
+        cache.snapshot.weights,
+        learnedWeights,
+        "learned weights remain cached"
+      );
+      Assert.deepEqual(
+        cache.snapshot.init_weights,
+        initialWeights,
+        "local initial weights match the rollout's initial weights"
+      );
+      Assert.deepEqual(rankingInput.features, rollout.payload.features);
+      Assert.equal(learningInput.eta, rollout.payload.eta / 10000);
+      Assert.equal(learningInput.click_bonus, rollout.payload.click_bonus / 10);
+
+      interactions.resolves({ a: { clicks: 1, impressions: 0 } });
+      await rankAndCommit();
+      Assert.deepEqual(
+        learningInput.weights,
+        learnedWeights,
+        "local learning continues from the previously learned weights"
+      );
+      for (const feature of rollout.payload.features) {
+        Assert.greater(
+          cache.snapshot.weights[feature],
+          learnedWeights[feature],
+          `${feature} continues learning after rollout removal`
+        );
+      }
+    } finally {
+      sandbox.restore();
+    }
   }
 );
 
@@ -233,8 +595,8 @@ add_task(
           return {
             norms: {},
             score_map: {
-              a: { final: 2, frec: 1, rece: 1, bias: 1 },
-              b: { final: 1, frec: 0, rece: 0, bias: 1 },
+              a: { training: 2, ranking: 2, frec: 1, rece: 1, bias: 1 },
+              b: { training: 1, ranking: 1, frec: 0, rece: 0, bias: 1 },
             },
           };
         }
@@ -316,8 +678,8 @@ add_task(async function test_rankTopSites_uses_trainhop_tau() {
         return {
           norms: {},
           score_map: {
-            a: { final: 2, hour: 1 },
-            b: { final: 1, hour: 0 },
+            a: { training: 2, ranking: 2, hour: 1 },
+            b: { training: 1, ranking: 1, hour: 0 },
           },
         };
       }
@@ -539,7 +901,7 @@ add_task(async function test_updateWeights_batch() {
   //  single click on guid_A updates all weights
   const initial1 = { a: 0, b: 1, bias: 0.1 };
   const scores1 = {
-    guid_A: { final: 1.1, a: 1, b: 1, bias: 1 },
+    guid_A: { training: 1.1, a: 1, b: 1, bias: 1 },
   };
 
   let updated = await Ranker.updateWeights(
@@ -562,7 +924,7 @@ add_task(async function test_updateWeights_batch() {
   // missing guid -> no-op (weights unchanged)
   const initial2 = { a: 0, b: 1000, bias: 0 };
   const scores2 = {
-    guid_A: { final: 1, a: 1, b: 1e-3, bias: 1 },
+    guid_A: { training: 1, a: 1, b: 1e-3, bias: 1 },
   };
 
   updated = await Ranker.updateWeights(
@@ -580,6 +942,96 @@ add_task(async function test_updateWeights_batch() {
   Assert.equal(updated.a, 0);
   Assert.equal(updated.b, 1000);
   Assert.equal(updated.bias, 0);
+});
+
+add_task(
+  async function test_weightedSampleTopSites_training_and_ranking_lists() {
+    const Worker = ChromeUtils.importESModule(
+      "resource://newtab/lib/SmartShortcutsRanker/RankShortcutsWorkerClass.mjs"
+    );
+    const baseInput = () => ({
+      features: ["rece", "freq", "bias"],
+      guid: ["g1", "g2"],
+      norms: { rece: null, freq: null },
+      rece_scores: { g1: 1, g2: 0 },
+      freq_scores: { g1: 0, g2: 1 },
+    });
+
+    const split = await Worker.weightedSampleTopSites({
+      ...baseInput(),
+      training_features: ["rece"],
+      ranking_features: ["rece", "freq"],
+      weights: { rece: 2, freq: 3, bias: 100 },
+      training_weights: { rece: 5, freq: 7, bias: 100 },
+    });
+    for (const g of ["g1", "g2"]) {
+      const s = split.score_map[g];
+      Assert.equal(
+        s.training,
+        5 * s.rece,
+        `${g} training uses only training features and training weights`
+      );
+      Assert.equal(
+        s.ranking,
+        2 * s.rece + 3 * s.freq,
+        `${g} ranking uses only ranking features and ranking weights`
+      );
+    }
+    Assert.notEqual(
+      split.score_map.g2.ranking,
+      split.score_map.g2.training,
+      "a ranking-only feature moves ranking but not training"
+    );
+
+    const combined = await Worker.weightedSampleTopSites({
+      ...baseInput(),
+      weights: { rece: 2, freq: 3, bias: 0.5 },
+    });
+    for (const g of ["g1", "g2"]) {
+      const s = combined.score_map[g];
+      Assert.equal(
+        s.ranking,
+        2 * s.rece + 3 * s.freq + 0.5 * s.bias,
+        `${g} ranking uses all features and the weights without lists`
+      );
+      Assert.equal(s.training, s.ranking, `${g} training equals ranking`);
+    }
+  }
+);
+
+add_task(function test_updateWeights_leaves_non_training_features() {
+  const Worker = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcutsWorkerClass.mjs"
+  );
+  const updated = Worker.updateWeights({
+    data: { g: { clicks: 1, impressions: 0 } },
+    scores: { g: { training: 0, a: 1, b: 1, c: 1 } },
+    features: ["a", "b"],
+    weights: { a: 80, b: 80, c: 5 },
+    eta: 1,
+    click_bonus: 1,
+  });
+  Assert.equal(
+    updated.c,
+    5,
+    "a non-training weight is neither learned nor clamped"
+  );
+  Assert.equal(updated.a, updated.b, "training weights move together");
+  Assert.less(
+    Math.abs(Math.hypot(updated.a, updated.b) - 100),
+    1e-9,
+    "only training weights are clamped to the max norm"
+  );
+
+  const clamped = Worker.clampWeights({ a: 0, b: 1000, c: 1000 }, 100, [
+    "a",
+    "b",
+  ]);
+  Assert.deepEqual(
+    clamped,
+    { a: 0, b: 100, c: 1000 },
+    "clampWeights only measures and scales the selected features"
+  );
 });
 
 add_task(async function test_buildFrecencyFeatures_shape_and_empty() {
@@ -885,7 +1337,7 @@ add_task(
     //   updated_norms.refre = refre_norm;
     Assert.deepEqual(result.norms.refre, expRefreNorm, "refre norms updated");
 
-    // final score equals computeLinearScore with provided weights
+    // without separate lists, both scores are computeLinearScore with the weights
     const expectedFinalG1 = Ranker.computeLinearScore(
       result.score_map.g1,
       input.weights
@@ -894,22 +1346,24 @@ add_task(
       result.score_map.g2,
       input.weights
     );
-    Assert.equal(
-      result.score_map.g1.final,
-      expectedFinalG1,
-      "final matches linear score (g1)"
-    );
-    Assert.equal(
-      result.score_map.g2.final,
-      expectedFinalG2,
-      "final matches linear score (g2)"
-    );
+    for (const key of ["training", "ranking"]) {
+      Assert.equal(
+        result.score_map.g1[key],
+        expectedFinalG1,
+        `${key} matches linear score (g1)`
+      );
+      Assert.equal(
+        result.score_map.g2[key],
+        expectedFinalG2,
+        `${key} matches linear score (g2)`
+      );
+    }
 
     // sanity: g1 should outrank g2 with strictly larger raw vectors across all features
     Assert.greaterOrEqual(
-      result.score_map.g1.final,
-      result.score_map.g2.final,
-      "g1 final ≥ g2 final as all contributing features favor g1"
+      result.score_map.g1.ranking,
+      result.score_map.g2.ranking,
+      "g1 ranking ≥ g2 ranking as all contributing features favor g1"
     );
   }
 );
@@ -1250,8 +1704,10 @@ add_task(async function test_rankTopSites_sql_pipeline_happy_path() {
   };
 
   // run
+  const onRankedSnapshot = sandbox.spy();
   const out = await provider.rankTopSites(topsites, prefValues, {
     isStartup: false,
+    onRankedSnapshot,
   });
 
   // assertions
@@ -1282,9 +1738,18 @@ add_task(async function test_rankTopSites_sql_pipeline_happy_path() {
     );
   }
 
-  // cache writes happened (norms + score_map)
-  Assert.ok(setSpy.calledWith("norms"), "norms written to cache");
-  Assert.ok(setSpy.calledWith("score_map"), "score_map written to cache");
+  Assert.ok(onRankedSnapshot.calledOnce, "proposes one ranked snapshot");
+  const [snapshot] = onRankedSnapshot.firstCall.args;
+  Assert.ok(snapshot.norms, "norms included in the proposed snapshot");
+  Assert.deepEqual(
+    Object.keys(snapshot.score_map).sort(),
+    ["g1", "g2"],
+    "scores included in the proposed snapshot"
+  );
+  Assert.ok(
+    setSpy.notCalled,
+    "ranking does not persist an unaccepted snapshot"
+  );
 
   // sanity: DB stub exercised
   Assert.greater(execStub.callCount, 0, "executePlacesQuery was called");
@@ -1336,9 +1801,9 @@ add_task(async function test_weightedSampleTopSites_open_feature_basic() {
   );
 
   // final should reflect the 'open' score since bias has weight 0
-  Assert.equal(out.score_map.g1.final, s1, "final = open (g1)");
-  Assert.equal(out.score_map.g2.final, s2, "final = open (g2)");
-  Assert.equal(out.score_map.g3.final, s3, "final = open (g3)");
+  Assert.equal(out.score_map.g1.ranking, s1, "ranking = open (g1)");
+  Assert.equal(out.score_map.g2.ranking, s2, "ranking = open (g2)");
+  Assert.equal(out.score_map.g3.ranking, s3, "ranking = open (g3)");
 });
 
 //
@@ -1370,7 +1835,7 @@ add_task(async function test_weightedSampleTopSites_open_with_existing_norms() {
   Assert.greater(out.norms.open.var, 0, "variance stays positive");
 
   // Basic ordering still holds
-  const finals = guid.map(g => out.score_map[g].final);
+  const finals = guid.map(g => out.score_map[g].ranking);
   // open (1) items should outrank closed (0) items after normalization
   const maxClosed = Math.max(finals[0], finals[2]); // A,C
   const minOpen = Math.min(finals[1], finals[3]); // B,D
@@ -1431,8 +1896,8 @@ add_task(async function test_weightedSampleTopSites_unid_feature() {
   const ua = result.score_map.a.unid;
   const ub = result.score_map.b.unid;
   Assert.greater(ua, ub, "site with more unique days visited scores higher");
-  Assert.equal(result.score_map.a.final, ua, "final equals unid score (a)");
-  Assert.equal(result.score_map.b.final, ub, "final equals unid score (b)");
+  Assert.equal(result.score_map.a.ranking, ua, "ranking equals unid score (a)");
+  Assert.equal(result.score_map.b.ranking, ub, "ranking equals unid score (b)");
 });
 
 //
@@ -1471,9 +1936,9 @@ add_task(async function test_weightedSampleTopSites_ctr_basic() {
   Assert.greater(s3, s2, "g3 (.5) > g2 (.167)");
 
   // finals reflect ctr weight only
-  Assert.equal(out.score_map.g1.final, s1, "final equals ctr (g1)");
-  Assert.equal(out.score_map.g2.final, s2, "final equals ctr (g2)");
-  Assert.equal(out.score_map.g3.final, s3, "final equals ctr (g3)");
+  Assert.equal(out.score_map.g1.ranking, s1, "ranking equals ctr (g1)");
+  Assert.equal(out.score_map.g2.ranking, s2, "ranking equals ctr (g2)");
+  Assert.equal(out.score_map.g3.ranking, s3, "ranking equals ctr (g3)");
 });
 
 //
@@ -2003,6 +2468,720 @@ add_task(function test_gateRuntimeConfigByEngagement_defaults_and_noop_cases() {
   Assert.equal(gated.weights.thom, 0, "default thresholds gate thom");
 });
 
+function reorderGuids(currentGuids, previousOrder, numItems) {
+  const { reorderFromAcceptedOrder } = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  const sites = currentGuids.map(guid => ({ guid }));
+  return reorderFromAcceptedOrder(sites, previousOrder, numItems).map(
+    site => site.guid
+  );
+}
+
+add_task(function test_reorderFromAcceptedOrder_top_site_missing() {
+  Assert.deepEqual(
+    reorderGuids(
+      ["b", "c", "d", "e", "f", "g"],
+      ["a", "b", "c", "d", "e", "f", "g"],
+      4
+    ),
+    ["e", "b", "c", "d", "f", "g"],
+    "the next best cached site fills the top slot and the rest stay put"
+  );
+});
+
+add_task(function test_reorderFromAcceptedOrder_unchanged_input() {
+  Assert.deepEqual(
+    reorderGuids(["a", "b", "c", "d", "e"], ["d", "b", "e", "a", "c"], 3),
+    ["d", "b", "e", "a", "c"],
+    "the accepted order is kept, including the tail past the visible slots"
+  );
+});
+
+add_task(function test_reorderFromAcceptedOrder_new_sites_queue_behind_cache() {
+  Assert.deepEqual(
+    reorderGuids(["new", "a", "c", "d"], ["a", "b", "c", "d"], 2),
+    ["a", "c", "d", "new"],
+    "a gap takes the cached tail before sites new since the last ranking"
+  );
+  Assert.deepEqual(
+    reorderGuids(["new1", "new2", "b"], ["a", "b", "c"], 2),
+    ["new1", "b", "new2"],
+    "new sites fill gaps in input order once the cached tail runs out"
+  );
+});
+
+add_task(function test_reorderFromAcceptedOrder_fewer_sites_than_slots() {
+  Assert.deepEqual(
+    reorderGuids(["c"], ["a", "b", "c"], 3),
+    ["c"],
+    "unfillable gaps are dropped rather than left as holes"
+  );
+});
+
+add_task(function test_reorderFromAcceptedOrder_without_numItems() {
+  Assert.deepEqual(
+    reorderGuids(["a", "c", "new"], ["c", "b", "a"]),
+    ["c", "new", "a"],
+    "without numItems the whole accepted order is frozen"
+  );
+});
+
+add_task(function test_reorderFromAcceptedOrder_uses_current_site_objects() {
+  const { reorderFromAcceptedOrder } = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  const current = [
+    { guid: "a", title: "fresh a" },
+    { guid: "b", title: "fresh b" },
+  ];
+  const [first, second] = reorderFromAcceptedOrder(current, ["b", "a"], 2);
+  Assert.strictEqual(first, current[1], "returns the current site objects");
+  Assert.strictEqual(second, current[0], "returns the current site objects");
+});
+
+add_task(async function test_rankTopSites_old_rollout_payload_keeps_weights() {
+  const Ranker = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  const { NewTabUtils } = ChromeUtils.importESModule(
+    "resource://gre/modules/NewTabUtils.sys.mjs"
+  );
+  await NewTabUtils.init();
+
+  const sandbox = sinon.createSandbox();
+  try {
+    // A rollout payload from before the feature sets were split: only the
+    // single `features` list is set.
+    const oldPayload = {
+      enabled: true,
+      telem: false,
+      force_log: true,
+      eta: 10,
+      click_bonus: 20,
+      positive_prior: 1,
+      negative_prior: 1000,
+      sticky_numimps: 0,
+      min_exp_clicks: 10,
+      min_exp_impressions: 1000,
+      features: ["thom", "rece", "freq", "bmark", "ctr"],
+      frec_weight: 0,
+      thom_weight: 181,
+      hour_weight: 0,
+      daily_weight: 0,
+      bmark_weight: 0,
+      rece_weight: 466,
+      freq_weight: 200,
+      refre_weight: 0,
+      open_weight: 0,
+      unid_weight: 0,
+      ctr_weight: 954,
+      bias_weight: 0,
+    };
+    const { features } = oldPayload;
+    // The cache as the old code wrote it: flat keys, learned weights that have
+    // moved away from the payload's initial weights, and `final` scores.
+    const initWeights = {
+      thom: 1.81,
+      rece: 4.66,
+      freq: 2,
+      bmark: 0,
+      ctr: 9.54,
+    };
+    const learnedWeights = {
+      thom: 1.5,
+      rece: 4.2,
+      freq: 2.3,
+      bmark: 0.4,
+      ctr: 9,
+    };
+    const oldCache = {
+      weights: { ...learnedWeights },
+      init_weights: { ...initWeights },
+      norms: Object.fromEntries(features.map(f => [f, null])),
+      score_map: { a: { final: 1 }, b: { final: 0 } },
+      time_last_update: Math.floor(Date.now() / 1000) - 60,
+    };
+
+    const provider = new Ranker.RankShortcutsProvider();
+    sandbox.stub(provider.sc_obj, "get").resolves(structuredClone(oldCache));
+    sandbox.stub(provider.sc_obj, "set").resolves();
+    sandbox
+      .stub(NewTabUtils.activityStreamProvider, "executePlacesQuery")
+      .resolves([]);
+    sandbox.stub(provider, "getLatestInteractions").resolves({});
+    sandbox.stub(provider, "fetchRefreFeatures").resolves({
+      rece: { a: 1, b: 0 },
+      freq: { a: 1, b: 0 },
+    });
+    let learningInput;
+    let rankingInput;
+    provider._rankShortcutsWorker = {
+      async post(method, [input]) {
+        if (method === "updateWeights") {
+          learningInput = structuredClone(input);
+          return input.weights;
+        }
+        if (method === "weightedSampleTopSites") {
+          rankingInput = structuredClone(input);
+          return {
+            norms: input.norms,
+            score_map: {
+              a: { training: 0.2, ranking: 0.2 },
+              b: { training: 0.8, ranking: 0.8 },
+            },
+          };
+        }
+        throw new Error(`unexpected worker method: ${method}`);
+      },
+    };
+
+    const onRankedSnapshot = sandbox.spy();
+    const result = await provider.rankTopSites(
+      [
+        { guid: "a", url: "https://a.com", frecency: 100 },
+        { guid: "b", url: "https://b.com", frecency: 10 },
+      ],
+      { trainhopConfig: { smartShortcuts: oldPayload } },
+      { isStartup: false, numItems: 2, onRankedSnapshot }
+    );
+
+    Assert.deepEqual(
+      result.map(site => site.guid),
+      ["b", "a"],
+      "the old payload still ranks by score"
+    );
+    Assert.deepEqual(
+      learningInput.weights,
+      learnedWeights,
+      "learning continues from the learned weights instead of re-initializing"
+    );
+    Assert.deepEqual(
+      learningInput.features,
+      features,
+      "the old features list is used for training"
+    );
+    Assert.deepEqual(
+      rankingInput.features,
+      features,
+      "the old features list is used for computing features"
+    );
+    Assert.deepEqual(
+      rankingInput.ranking_features,
+      features,
+      "the old features list is used for ranking"
+    );
+    Assert.deepEqual(
+      rankingInput.weights,
+      { ...learnedWeights, thom: 0 },
+      "ranking uses the learned weights, with thom gated as before"
+    );
+
+    Assert.ok(onRankedSnapshot.calledOnce, "a snapshot is proposed");
+    const [snapshot] = onRankedSnapshot.firstCall.args;
+    Assert.deepEqual(
+      snapshot.weights,
+      learnedWeights,
+      "learned weights are kept in the snapshot"
+    );
+    Assert.deepEqual(
+      snapshot.init_weights,
+      initWeights,
+      "initial weights are unchanged, so nothing was re-initialized"
+    );
+  } finally {
+    sandbox.restore();
+  }
+});
+
+/**
+ * Runs testFn with a provider that ranks sites "a" and "b" through the real
+ * worker functions. Site "a" is bookmarked and has rece 1, freq 0; site "b"
+ * the reverse.
+ *
+ * @param {object} options
+ * @param {object} [options.cache] Persisted shortcut cache.
+ * @param {object} [options.interactions] guid -> { clicks, impressions } since
+ *   the last weight update.
+ * @param {Function} testFn Receives { Ranker, provider, rank, workerInputs,
+ *   bookmarkQueries }. rank(smartShortcuts, options) ranks with that trainhop
+ *   config and resolves to { sites, snapshot }. workerInputs maps each worker
+ *   method to the input of its latest call.
+ */
+async function withLocalRanking({ cache = {}, interactions = {} }, testFn) {
+  const Ranker = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  const Worker = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcutsWorkerClass.mjs"
+  );
+  const { NewTabUtils } = ChromeUtils.importESModule(
+    "resource://gre/modules/NewTabUtils.sys.mjs"
+  );
+  await NewTabUtils.init();
+
+  const sandbox = sinon.createSandbox();
+  try {
+    const execStub = sandbox
+      .stub(NewTabUtils.activityStreamProvider, "executePlacesQuery")
+      .callsFake(async sql =>
+        sql.includes("moz_bookmarks") ? [["a", 1]] : []
+      );
+    const provider = new Ranker.RankShortcutsProvider();
+    sandbox.stub(provider.sc_obj, "get").resolves(structuredClone(cache));
+    sandbox.stub(provider.sc_obj, "set").resolves();
+    sandbox.stub(provider, "getLatestInteractions").resolves(interactions);
+    sandbox.stub(provider, "fetchRefreFeatures").resolves({
+      rece: { a: 1, b: 0 },
+      freq: { a: 0, b: 1 },
+      refre: null,
+      unid: null,
+    });
+    const workerInputs = {};
+    provider._rankShortcutsWorker = {
+      async post(method, [input]) {
+        workerInputs[method] = structuredClone(input);
+        return Worker[method](input);
+      },
+    };
+    const rank = async (smartShortcuts, options = {}) => {
+      let snapshot;
+      const sites = await provider.rankTopSites(
+        [
+          { guid: "a", url: "https://a.com", frecency: 10 },
+          { guid: "b", url: "https://b.com", frecency: 1 },
+        ],
+        {
+          trainhopConfig: {
+            smartShortcuts: {
+              enabled: true,
+              min_exp_clicks: 0,
+              min_exp_impressions: 0,
+              ...smartShortcuts,
+            },
+          },
+        },
+        {
+          isStartup: false,
+          numItems: 2,
+          onRankedSnapshot: proposed => {
+            snapshot = proposed;
+          },
+          ...options,
+        }
+      );
+      return { sites, snapshot };
+    };
+    const bookmarkQueries = () =>
+      execStub.getCalls().filter(call => call.args[0].includes("moz_bookmarks"))
+        .length;
+    await testFn({ Ranker, provider, rank, workerInputs, bookmarkQueries });
+  } finally {
+    sandbox.restore();
+  }
+}
+
+const sortedKeys = obj => Object.keys(obj ?? {}).sort();
+
+add_task(
+  async function test_rankTopSites_adding_feature_keeps_learned_weights() {
+    const learned = { rece: 3, freq: 1.5 };
+    const init = { rece: 466 / 100, freq: 200 / 100 };
+    const config = {
+      features: ["rece", "freq", "ctr"],
+      rece_weight: 466,
+      freq_weight: 200,
+      ctr_weight: 954,
+    };
+
+    await withLocalRanking(
+      { cache: { weights: learned, init_weights: init } },
+      async ({ rank, workerInputs }) => {
+        const { snapshot } = await rank(config);
+        Assert.deepEqual(
+          workerInputs.updateWeights.weights,
+          { ...learned, ctr: 954 / 100 },
+          "learning keeps the learned weights and starts the new feature at its initial weight"
+        );
+        Assert.deepEqual(
+          snapshot.init_weights,
+          { ...init, ctr: 954 / 100 },
+          "the new feature's initial weight is recorded"
+        );
+      }
+    );
+
+    await withLocalRanking(
+      { cache: { weights: learned, init_weights: init } },
+      async ({ rank, workerInputs }) => {
+        await rank({ ...config, rece_weight: 500 });
+        Assert.deepEqual(
+          workerInputs.updateWeights.weights,
+          { rece: 5, freq: 2, ctr: 954 / 100 },
+          "changing an existing initial weight still resets every weight"
+        );
+      }
+    );
+
+    await withLocalRanking(
+      {
+        cache: {
+          weights: { ...learned, ctr: 8 },
+          init_weights: { ...init, ctr: 954 / 100 },
+        },
+      },
+      async ({ provider, rank, workerInputs }) => {
+        const { snapshot } = await rank({
+          ...config,
+          features: ["rece", "freq"],
+        });
+        Assert.deepEqual(
+          workerInputs.updateWeights.features,
+          ["rece", "freq"],
+          "a removed feature is not trained"
+        );
+        Assert.equal(
+          snapshot.weights.ctr,
+          8,
+          "a removed feature's weight is kept"
+        );
+
+        provider._acceptedCache = snapshot;
+        await rank(config);
+        Assert.deepEqual(
+          workerInputs.updateWeights.weights,
+          { ...learned, ctr: 8 },
+          "re-adding it with the same initial weight resumes its learned weight"
+        );
+      }
+    );
+  }
+);
+
+add_task(async function test_rankTopSites_split_feature_lists() {
+  await withLocalRanking(
+    {},
+    async ({ rank, workerInputs, bookmarkQueries }) => {
+      const { sites, snapshot } = await rank({
+        telem: true,
+        training_features: ["rece"],
+        ranking_features: ["rece", "freq"],
+        reporting_features: ["rece", "freq", "bmark", "training", "ranking"],
+        rece_weight: 100,
+        freq_weight: 300,
+      });
+      const ranked = workerInputs.weightedSampleTopSites;
+      Assert.deepEqual(
+        [...ranked.features].sort(),
+        ["bmark", "freq", "rece"],
+        "features from every list are computed"
+      );
+      Assert.deepEqual(ranked.training_features, ["rece"]);
+      Assert.deepEqual(ranked.ranking_features, ["rece", "freq"]);
+      Assert.deepEqual(
+        workerInputs.updateWeights.features,
+        ["rece"],
+        "only training features are learned"
+      );
+      Assert.equal(
+        bookmarkQueries(),
+        1,
+        "a reporting-only feature is still fetched"
+      );
+      Assert.deepEqual(
+        sortedKeys(snapshot.weights),
+        ["freq", "rece"],
+        "a reporting-only feature has no weight"
+      );
+      for (const g of ["a", "b"]) {
+        const s = snapshot.score_map[g];
+        Assert.equal(s.training, s.rece, `${g} training uses rece only`);
+        Assert.equal(
+          s.ranking,
+          s.rece + 3 * s.freq,
+          `${g} ranking uses rece and freq, not the reporting-only bmark`
+        );
+      }
+      Assert.greaterOrEqual(
+        snapshot.score_map[sites[0].guid].ranking,
+        snapshot.score_map[sites[1].guid].ranking,
+        "sites are sorted by the ranking score"
+      );
+      for (const site of sites) {
+        Assert.deepEqual(
+          sortedKeys(site.scores),
+          ["bmark", "freq", "ranking", "rece", "training"],
+          `${site.guid} reports the reporting features' scores`
+        );
+        Assert.deepEqual(
+          sortedKeys(site.weights),
+          ["freq", "rece"],
+          `${site.guid} reports weights only for reported features that have one`
+        );
+      }
+    }
+  );
+});
+
+add_task(async function test_rankTopSites_reporting_score_keys() {
+  const config = {
+    telem: true,
+    features: ["rece", "freq"],
+    rece_weight: 100,
+    freq_weight: 100,
+  };
+
+  await withLocalRanking(
+    {},
+    async ({ Ranker, provider, rank, workerInputs }) => {
+      const { sites, snapshot } = await rank({
+        ...config,
+        reporting_features: ["rece", "training"],
+      });
+      Assert.deepEqual(
+        [...workerInputs.weightedSampleTopSites.features].sort(),
+        ["freq", "rece"],
+        "score keys are never computed as features"
+      );
+      for (const stored of [
+        snapshot.norms,
+        snapshot.weights,
+        snapshot.init_weights,
+      ]) {
+        Assert.deepEqual(
+          sortedKeys(stored),
+          ["freq", "rece"],
+          "score keys get no norms or weights"
+        );
+      }
+      for (const site of sites) {
+        Assert.deepEqual(
+          sortedKeys(site.scores),
+          ["rece", "training"],
+          `${site.guid} reports training but not the unlisted ranking score`
+        );
+        Assert.equal(
+          site.scores.training,
+          Ranker.roundNum(snapshot.score_map[site.guid].training),
+          `${site.guid} reports the training score it was ranked with`
+        );
+        Assert.deepEqual(
+          sortedKeys(site.weights),
+          ["rece"],
+          `${site.guid} reports no weight for a score key`
+        );
+      }
+
+      provider._acceptedCache = snapshot;
+      const reused = await rank(
+        {
+          ...config,
+          reporting_features: ["rece", "training"],
+          rerank_interval_ms: 1e9,
+        },
+        { reason: "SYSTEM_TICK" }
+      );
+      Assert.equal(reused.snapshot, undefined, "the accepted order is reused");
+      Assert.deepEqual(
+        sortedKeys(reused.sites[0].scores),
+        ["rece", "training"],
+        "a reused order reports the same score keys"
+      );
+    }
+  );
+
+  await withLocalRanking({}, async ({ rank }) => {
+    const { sites } = await rank({
+      ...config,
+      reporting_features: ["ranking"],
+    });
+    Assert.deepEqual(
+      sortedKeys(sites[0].scores),
+      ["ranking"],
+      "only the ranking score can be reported"
+    );
+    Assert.deepEqual(sites[0].weights, {}, "with no feature weights");
+  });
+});
+
+add_task(async function test_rankTopSites_proposed_state_stays_isolated() {
+  const Ranker = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  const Worker = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcutsWorkerClass.mjs"
+  );
+  const { NewTabUtils } = ChromeUtils.importESModule(
+    "resource://gre/modules/NewTabUtils.sys.mjs"
+  );
+  await NewTabUtils.init();
+
+  const sandbox = sinon.createSandbox();
+  const now = Date.now();
+  sandbox
+    .stub(NewTabUtils.activityStreamProvider, "executePlacesQuery")
+    .resolves([]);
+
+  const provider = new Ranker.RankShortcutsProvider();
+  attachLocalWorker(provider, Worker);
+  sandbox.stub(provider.sc_obj, "get").resolves({});
+  const setStub = sandbox.stub(provider.sc_obj, "set").resolves();
+
+  // Expired priors and an old interaction timestamp, so a full ranking has
+  // something to refresh in every field.
+  const seed = {
+    time_last_update: Math.floor(now / 1000) - 3600,
+    hourly_seasonality: { pvec: new Array(24).fill(1 / 24), timestamp: 0 },
+    daily_seasonality: { pvec: new Array(7).fill(1 / 7), timestamp: 0 },
+    score_map: { g1: { final: 0 }, g2: { final: 0 } },
+    ranked_state: { guids: ["g2", "g1"], lastRerank: now - 1000 },
+  };
+  const seedBefore = structuredClone(seed);
+  provider._acceptedCache = seed;
+
+  const onRankedSnapshot = sandbox.spy();
+  const before = Date.now();
+  await provider.rankTopSites(
+    [
+      { guid: "g1", url: "https://g1.com", frecency: 100 },
+      { guid: "g2", url: "https://g2.com", frecency: 10 },
+    ],
+    {
+      trainhopConfig: {
+        smartShortcuts: {
+          enabled: true,
+          features: ["thom", "frec", "hour", "daily"],
+        },
+      },
+    },
+    { isStartup: false, numItems: 2, onRankedSnapshot }
+  );
+  const after = Date.now();
+  // The module has its own Date, so timestamps are checked against the window
+  // the ranking ran in rather than a faked clock.
+  const ranDuring = (ms, msg) =>
+    Assert.ok(ms >= before && ms <= after, `${msg} (${ms})`);
+
+  Assert.deepEqual(seed, seedBefore, "the accepted cache is not mutated");
+  Assert.ok(setStub.notCalled, "nothing is persisted before acceptance");
+  Assert.ok(onRankedSnapshot.calledOnce, "a snapshot is proposed");
+
+  const [snapshot] = onRankedSnapshot.firstCall.args;
+  Assert.notStrictEqual(snapshot, seed, "the proposal is a separate object");
+  Assert.ok(
+    snapshot.time_last_update >= Math.floor(before / 1000) &&
+      snapshot.time_last_update <= Math.floor(after / 1000),
+    "the proposal consumes interactions up to now"
+  );
+  ranDuring(
+    snapshot.hourly_seasonality.timestamp,
+    "the proposal carries a fresh hourly prior"
+  );
+  ranDuring(
+    snapshot.daily_seasonality.timestamp,
+    "the proposal carries a fresh daily prior"
+  );
+  Assert.ok(snapshot.weights, "the proposal carries weights");
+  Assert.deepEqual(
+    Object.keys(snapshot.score_map).sort(),
+    ["g1", "g2"],
+    "the proposal carries fresh scores"
+  );
+  ranDuring(
+    snapshot.ranked_state.lastRerank,
+    "the proposal records the rerank time"
+  );
+
+  sandbox.restore();
+});
+
+add_task(async function test_commitSnapshot_writes_in_order() {
+  const { RankShortcutsProvider } = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  const sandbox = sinon.createSandbox();
+  const provider = new RankShortcutsProvider();
+  const writeA = Promise.withResolvers();
+  const writeB = Promise.withResolvers();
+  const setStub = sandbox.stub(provider.sc_obj, "set");
+  setStub.onFirstCall().returns(writeA.promise);
+  setStub.onSecondCall().returns(writeB.promise);
+  const flush = () => new Promise(resolve => executeSoon(resolve));
+
+  const a = { id: "a" };
+  const b = { id: "b" };
+  const committedA = provider.commitSnapshot(a);
+  await flush();
+  Assert.ok(
+    setStub.calledOnceWithExactly("snapshot", a),
+    "the first snapshot starts writing"
+  );
+
+  const committedB = provider.commitSnapshot(b);
+  Assert.strictEqual(
+    provider._acceptedCache,
+    b,
+    "the newest snapshot is accepted in memory right away"
+  );
+  await flush();
+  Assert.ok(setStub.calledOnce, "the second write waits for the first");
+
+  writeA.resolve();
+  await committedA;
+  await flush();
+  Assert.ok(setStub.calledTwice, "the second write starts after the first");
+  Assert.deepEqual(
+    setStub.secondCall.args,
+    ["snapshot", b],
+    "the newest snapshot is written last"
+  );
+
+  writeB.resolve();
+  await committedB;
+
+  sandbox.restore();
+});
+
+add_task(async function test_commitSnapshot_recovers_from_failed_write() {
+  const { RankShortcutsProvider } = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  const sandbox = sinon.createSandbox();
+  const provider = new RankShortcutsProvider();
+  const writeA = Promise.withResolvers();
+  const setStub = sandbox.stub(provider.sc_obj, "set");
+  setStub.onFirstCall().returns(writeA.promise);
+  setStub.onSecondCall().resolves();
+  const flush = () => new Promise(resolve => executeSoon(resolve));
+
+  const b = { id: "b" };
+  const committedA = provider.commitSnapshot({ id: "a" });
+  const committedB = provider.commitSnapshot(b);
+  await flush();
+
+  writeA.reject(new Error("disk full"));
+  await Assert.rejects(
+    committedA,
+    /disk full/,
+    "a failed write rejects the promise for that snapshot"
+  );
+  await committedB;
+
+  Assert.ok(setStub.calledTwice, "the next write still runs");
+  Assert.deepEqual(
+    setStub.secondCall.args,
+    ["snapshot", b],
+    "the next snapshot is persisted"
+  );
+  Assert.strictEqual(
+    provider._acceptedCache,
+    b,
+    "the newest snapshot is accepted"
+  );
+
+  sandbox.restore();
+});
+
 add_task(async function test_rankTopSites_gates_runtime_thom_weight_and_eta() {
   const Ranker = ChromeUtils.importESModule(
     "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
@@ -2049,8 +3228,8 @@ add_task(async function test_rankTopSites_gates_runtime_thom_weight_and_eta() {
         return {
           norms: {},
           score_map: {
-            a: { final: 2, thom: 1, frec: 1 },
-            b: { final: 1, thom: 0, frec: 0 },
+            a: { training: 2, ranking: 2, thom: 1, frec: 1 },
+            b: { training: 1, ranking: 1, thom: 0, frec: 0 },
           },
         };
       }
@@ -2058,6 +3237,7 @@ add_task(async function test_rankTopSites_gates_runtime_thom_weight_and_eta() {
     },
   };
 
+  const onRankedSnapshot = sandbox.spy();
   await provider.rankTopSites(
     [
       { guid: "a", url: "https://a.com", frecency: 10 },
@@ -2078,7 +3258,7 @@ add_task(async function test_rankTopSites_gates_runtime_thom_weight_and_eta() {
         },
       },
     },
-    { isStartup: true }
+    { isStartup: true, onRankedSnapshot }
   );
 
   Assert.equal(updateInput.eta, 0, "learning receives gated eta");
@@ -2089,9 +3269,13 @@ add_task(async function test_rankTopSites_gates_runtime_thom_weight_and_eta() {
     "non-thom ranking weights are preserved"
   );
   Assert.equal(
-    setStub.getCalls().find(call => call.args[0] === "weights").args[1].thom,
+    onRankedSnapshot.firstCall.args[0].weights.thom,
     learnedWeights.thom,
-    "stored weights keep the learned thom value"
+    "proposed snapshot weights keep the learned thom value"
+  );
+  Assert.ok(
+    setStub.notCalled,
+    "ranking does not persist an unaccepted snapshot"
   );
 
   sandbox.restore();
@@ -2111,4 +3295,49 @@ add_task(async function test_rankShortcutsWorker() {
     "the worker dispatches to RankShortcutsWorker"
   );
   worker.terminate();
+});
+
+add_task(async function test_fetchLast10VisitsByGuid_database() {
+  const Ranker = ChromeUtils.importESModule(
+    "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs"
+  );
+  await PlacesUtils.history.clear();
+
+  const now = Date.now();
+  const visits = (url, count) =>
+    Array.from({ length: count }, (_, i) => ({
+      url,
+      visitDate: (now - i * 60000) * 1000,
+      transition:
+        i % 2
+          ? PlacesUtils.history.TRANSITION_TYPED
+          : PlacesUtils.history.TRANSITION_LINK,
+    }));
+  const manyVisits = visits("https://many.example.com/", 12);
+  const fewVisits = visits("https://few.example.com/", 3);
+  await PlacesTestUtils.addVisits([...manyVisits, ...fewVisits]);
+
+  const many = await PlacesUtils.history.fetch("https://many.example.com/");
+  const few = await PlacesUtils.history.fetch("https://few.example.com/");
+  const out = await Ranker.fetchLast10VisitsByGuid(
+    [{ guid: many.guid }, { guid: few.guid }, { guid: "missingGuid0" }],
+    "moz_historyvisits",
+    "moz_places"
+  );
+
+  const expected = list =>
+    list.map(v => ({ visit_date_us: v.visitDate, visit_type: v.transition }));
+  Assert.deepEqual(
+    out[many.guid],
+    expected(manyVisits.slice(0, 10)),
+    "Only the 10 most recent visits, newest first"
+  );
+  Assert.deepEqual(
+    out[few.guid],
+    expected(fewVisits),
+    "All the visits of a page with less than 10"
+  );
+  Assert.deepEqual(out.missingGuid0, [], "No visits for an unknown page");
+
+  await PlacesUtils.history.clear();
 });

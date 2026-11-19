@@ -925,7 +925,11 @@ add_task(async function test_runJourneyMaintenance() {
         dismissed: memoryId === "dismissed",
       });
     }
-    await JourneyManager.runJourneyMaintenance();
+    Assert.deepEqual(
+      await JourneyManager.runJourneyMaintenance(),
+      { removed: 2, isLocaleSupported: true },
+      "Maintenance reports the journeys it removed and the locale support"
+    );
     Assert.deepEqual(
       (await JourneyStore.getAll()).map(record => record.memory_id).sort(),
       ["dismissed", "live"],
@@ -1160,6 +1164,7 @@ add_task(async function test_suggestJourneysToResume() {
       makeMemory("Older journey", { created_at: JOURNEY_TEST_TIME - 60_000 }),
       makeMemory("Newer journey", {
         created_at: JOURNEY_TEST_TIME,
+        strength: 12.5,
         pages: Array.from({ length: MAX_NUM_URLS_PER_MEMORY + 1 }, (_, i) =>
           makePage(`Newer page ${i}`, {
             lastVisitDate: JOURNEY_TEST_TIME + i * 60_000,
@@ -1240,6 +1245,16 @@ add_task(async function test_suggestJourneysToResume() {
         },
       ],
       "Suggests stored journeys only for live, unsuppressed, non-sensitive memories with resolvable URLs, newest first, with the newest preview tabs in visit order"
+    );
+    Assert.deepEqual(
+      (await JourneyManager.suggestJourneysToResume())[0].telemetryData,
+      {
+        lastVisitDate: JOURNEY_TEST_TIME + MAX_NUM_URLS_PER_MEMORY * 60_000,
+        memoryCreatedAt: JOURNEY_TEST_TIME,
+        memoryStrength: 12.5,
+        componentSummaryCount: 0,
+      },
+      "Telemetry data has the newest preview tab's visit date in ms"
     );
     const suggestedIds = async (...args) =>
       (await JourneyManager.suggestJourneysToResume(...args)).map(
@@ -1841,6 +1856,69 @@ add_task(async function has_eligible_journeys() {
     Assert.strictEqual(
       await JourneyManager.hasEligibleJourneys(),
       false,
+      "A non-English locale has no eligible journeys"
+    );
+  } finally {
+    Services.locale.requestedLocales = originalRequested;
+    Services.locale.availableLocales = originalAvailable;
+    await JourneyStore.clear();
+    await cleanupJourneyTestMemories(memories);
+  }
+});
+
+add_task(async function count_eligible_journeys() {
+  const originalAvailable = Services.locale.availableLocales;
+  const originalRequested = Services.locale.requestedLocales;
+  let memories = [];
+  try {
+    memories = await addJourneyTestMemories([
+      makeMemory("Compare hotels"),
+      makeMemory("Book flights"),
+      makeMemory("Rent a car"),
+      makeMemory("Pack for the trip"),
+      makeMemory("Deleted memory"),
+    ]);
+    const [hotels, flights, car, packing, deleted] = memories;
+
+    Assert.equal(
+      await JourneyManager.countEligibleJourneys(),
+      0,
+      "Empty store has no eligible journeys"
+    );
+
+    const now = Date.now();
+    for (const [memoryId, fields] of [
+      [hotels.id, {}], // Eligible
+      [flights.id, { dismissed: true }], // Dismissed forever
+      [car.id, { dismissed_until: now + 60_000 }], // Dismissed in the future
+      [packing.id, { dismissed_until: now - 60_000 }], // Expired dismissed, so now eligible
+      [deleted.id, {}], // Deleted
+      ["missing-memory", {}], // Bad ID
+    ]) {
+      await JourneyStore.addOrUpdateJourney({
+        memoryId,
+        headline: "Stored journey",
+        status: "In progress",
+        ...fields,
+      });
+    }
+    await MemoriesManager.softDeleteMemoryById(deleted.id);
+    Assert.equal(
+      await JourneyManager.countEligibleJourneys(),
+      2,
+      "Only unsuppressed journeys of live memories count, including an expired snooze"
+    );
+
+    Services.locale.availableLocales = ["en-US", "de"];
+    Services.locale.requestedLocales = ["de"];
+    Assert.equal(
+      Services.locale.appLocaleAsBCP47,
+      "de",
+      "The app locale should be German for this check"
+    );
+    Assert.equal(
+      await JourneyManager.countEligibleJourneys(),
+      0,
       "A non-English locale has no eligible journeys"
     );
   } finally {

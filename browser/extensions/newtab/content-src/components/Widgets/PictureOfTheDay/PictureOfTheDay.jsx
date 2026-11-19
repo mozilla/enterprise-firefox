@@ -7,33 +7,30 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { useSizeSubmenu } from "../../../lib/utils";
-import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
+import {
+  WIDGET_REGISTRY,
+  resolveWidgetSize,
+  WIDGET_USER_ACTIONS,
+  WIDGET_SOURCES,
+} from "common/WidgetsRegistry.mjs";
 import { MoveSubmenu } from "../MoveSubmenu";
 import { WidgetHideMenuItem } from "../WidgetPlacement";
 import { useWidgetTelemetry } from "../useWidgetTelemetry";
 import { WidgetMenuButton } from "../WidgetMenuButton";
 
+const USER_ACTION_TYPES = {
+  ...WIDGET_USER_ACTIONS,
+  HIDE_PHOTO: "hide_photo",
+  MANAGE_WALLPAPER: "manage_wallpaper",
+  OPEN_LICENSE: "open_license",
+  OPEN_SOURCE: "open_source",
+  SET_WALLPAPER: "set_wallpaper",
+  SHOW_PICTURE: "show_picture",
+};
+
 const PICTURE_OF_THE_DAY_ENTRY = WIDGET_REGISTRY.find(
   w => w.id === "pictureOfTheDay"
 );
-
-// Whether the "Set as wallpaper" feature is enabled. The dedicated
-// widgetPictureOfTheDay trainhop object wins, then the legacy widgets.* key, then
-// the pref (each checked with !== undefined so a trainhop `false` can turn the
-// feature off even when the pref default is `true`).
-function resolveSetAsWallpaperEnabled(prefs) {
-  const dedicated =
-    prefs.trainhopConfig?.widgetPictureOfTheDay?.setAsWallpaperEnabled;
-  if (dedicated !== undefined) {
-    return dedicated;
-  }
-  const shared =
-    prefs.trainhopConfig?.widgets?.pictureOfTheDaySetAsWallpaperEnabled;
-  if (shared !== undefined) {
-    return shared;
-  }
-  return Boolean(prefs["widgets.pictureOfTheDay.setAsWallpaper.enabled"]);
-}
 
 // How long the confirmation checkmark shows after setting the wallpaper.
 const JUST_SET_CHECKMARK_MS = 2000;
@@ -73,11 +70,9 @@ const PictureOfTheDay = ({
       : todaysPicture;
   const widgetSize = resolveWidgetSize(PICTURE_OF_THE_DAY_ENTRY, prefs);
 
-  // Only offer the "Set wallpaper" CTA when the feature is enabled and wallpapers
-  // are on and custom wallpapers are allowed, since this action sets a custom
-  // wallpaper.
+  // Only offer the "Set wallpaper" CTA when wallpapers are on and custom
+  // wallpapers are allowed, since this action sets a custom wallpaper.
   const canSetWallpaper = Boolean(
-    resolveSetAsWallpaperEnabled(prefs) &&
     prefs["newtabWallpapers.enabled"] &&
     prefs["newtabWallpapers.customWallpaper.enabled"]
   );
@@ -176,7 +171,7 @@ const PictureOfTheDay = ({
     );
     // Disabling the widget is not an interaction, so it does not flip the
     // interaction pref.
-    recordEnabled(false, { source: "context_menu" });
+    recordEnabled(false, { source: WIDGET_SOURCES.CONTEXT_MENU });
   };
 
   const handleChangeSize = useCallback(
@@ -187,8 +182,8 @@ const PictureOfTheDay = ({
           data: { name: PICTURE_OF_THE_DAY_ENTRY.sizePref, value: size },
         })
       );
-      recordUserAction("change_size", {
-        source: "context_menu",
+      recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
+        source: WIDGET_SOURCES.CONTEXT_MENU,
         value: size,
         size,
       });
@@ -209,13 +204,20 @@ const PictureOfTheDay = ({
         },
       })
     );
-    recordUserAction("learn_more", { source: "context_menu" });
+    recordUserAction(USER_ACTION_TYPES.LEARN_MORE, {
+      source: WIDGET_SOURCES.CONTEXT_MENU,
+    });
     handleInteraction();
   };
 
   const handleManageWallpaper = () => {
-    dispatch({ type: at.SHOW_PERSONALIZE });
-    recordUserAction("manage_wallpaper", { source: "context_menu" });
+    dispatch({
+      type: at.SHOW_PERSONALIZE,
+      data: { source: PICTURE_OF_THE_DAY_ENTRY.telemetryName },
+    });
+    recordUserAction(USER_ACTION_TYPES.MANAGE_WALLPAPER, {
+      source: WIDGET_SOURCES.CONTEXT_MENU,
+    });
     handleInteraction();
   };
 
@@ -229,13 +231,15 @@ const PictureOfTheDay = ({
 
   const handleHidePhoto = () => {
     setDismissedDate(pictureDate);
-    recordUserAction("hide_photo", { source: "context_menu" });
+    recordUserAction(USER_ACTION_TYPES.HIDE_PHOTO, {
+      source: WIDGET_SOURCES.CONTEXT_MENU,
+    });
     handleInteraction();
   };
 
-  const handleShow = (source = "widget") => {
+  const handleShow = (source = WIDGET_SOURCES.WIDGET) => {
     setDismissedDate("");
-    recordUserAction("show_picture", { source });
+    recordUserAction(USER_ACTION_TYPES.SHOW_PICTURE, { source });
     handleInteraction();
   };
 
@@ -255,7 +259,9 @@ const PictureOfTheDay = ({
         data: { publishedDate: pictureData.publishedDate },
       })
     );
-    recordUserAction("set_wallpaper", { source: "widget" });
+    recordUserAction(USER_ACTION_TYPES.SET_WALLPAPER, {
+      source: WIDGET_SOURCES.WIDGET,
+    });
     handleInteraction();
     setJustSet(true);
     setSuppressExpand(true);
@@ -266,7 +272,9 @@ const PictureOfTheDay = ({
   // navigation; the handler only records telemetry (mirrors the Weather widget).
   const canOpenSource = Boolean(pictureData.sourceUrl);
   const handleOpenSource = () => {
-    recordUserAction("open_source", { source: "widget" });
+    recordUserAction(USER_ACTION_TYPES.OPEN_SOURCE, {
+      source: WIDGET_SOURCES.WIDGET,
+    });
     handleInteraction();
   };
 
@@ -274,7 +282,9 @@ const PictureOfTheDay = ({
   // Commons) in the current tab, separate from the source page link above.
   const canOpenLicense = Boolean(pictureData.licenseUrl);
   const handleOpenLicense = () => {
-    recordUserAction("open_license", { source: "widget" });
+    recordUserAction(USER_ACTION_TYPES.OPEN_LICENSE, {
+      source: WIDGET_SOURCES.WIDGET,
+    });
     handleInteraction();
   };
 
@@ -421,7 +431,7 @@ const PictureOfTheDay = ({
             {dismissed ? (
               <panel-item
                 data-l10n-id="newtab-picture-menu-show-photo2"
-                onClick={() => handleShow("context_menu")}
+                onClick={() => handleShow(WIDGET_SOURCES.CONTEXT_MENU)}
               />
             ) : (
               <panel-item
@@ -509,7 +519,7 @@ const PictureOfTheDay = ({
           <button
             type="button"
             className="picture-of-the-day-show-button"
-            onClick={() => handleShow("widget")}
+            onClick={() => handleShow(WIDGET_SOURCES.WIDGET)}
             data-l10n-id="newtab-picture-show-button2"
           ></button>
           <p

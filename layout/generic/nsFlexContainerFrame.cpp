@@ -2622,7 +2622,46 @@ nscoord FlexItem::ClampMainSizeViaCrossAxisConstraints(
 }
 
 /**
- * Returns true if aFrame or any of its children have the
+ * Returns true if aChild (a child of a frame whose block-size may change
+ * definiteness) has a block-size that is a fixed length and that is used as
+ * is, so that descendants of aChild with percentage block-sizes resolve them
+ * against that length regardless of its parent's block-size.
+ *
+ * Note that if aChild itself depended on its parent's block-size (e.g. via a
+ * percentage min/max-block-size, inset or flex-basis), then its parent would
+ * have NS_FRAME_CONTAINS_RELATIVE_BSIZE set directly, so we don't need to
+ * check those here. Fixed-length min/max-block-size only clamp the used
+ * block-size, which then is still independent of the parent.
+ */
+static bool ChildHasFixedBSizeBasis(nsIFrame* aChild) {
+  // 'block-size' doesn't apply to non-replaced inlines (including ruby), and
+  // table parts size their content in special ways.
+  if (aChild->IsNonReplacedInline() || aChild->IsTablePart()) {
+    return false;
+  }
+  // A flex item whose block axis is its container's main axis can be flexed
+  // to a different size than its 'block-size'.
+  if (aChild->IsFlexItem() &&
+      !nsFlexContainerFrame::IsItemInlineAxisMainAxis(aChild)) {
+    return false;
+  }
+  const WritingMode wm = aChild->GetWritingMode();
+  // In quirks mode, percentage heights look through auto-height blocks up to
+  // the nearest one with a non-auto *physical* height (see
+  // IsQuirkContainingBlockHeight in ReflowInput.cpp).
+  if (wm.IsVertical() &&
+      aChild->PresContext()->CompatibilityMode() == eCompatibility_NavQuirks) {
+    return false;
+  }
+  const auto bSize = aChild->StylePosition()->BSize(
+      wm, AnchorPosResolutionParams::From(aChild));
+  return bSize->IsLengthPercentage() &&
+         !bSize->AsLengthPercentage().HasPercent();
+}
+
+/**
+ * Returns true if aFrame or any of its children (that don't have a fixed
+ * block-size basis, see ChildHasFixedBSizeBasis) have the
  * NS_FRAME_CONTAINS_RELATIVE_BSIZE flag set -- i.e. if any of these frames (or
  * their descendants) might have a relative-BSize dependency on aFrame (or its
  * ancestors).
@@ -2633,7 +2672,8 @@ static bool FrameHasRelativeBSizeDependency(nsIFrame* aFrame) {
   }
   for (const auto& childList : aFrame->ChildLists()) {
     for (nsIFrame* childFrame : childList.mList) {
-      if (childFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE)) {
+      if (childFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE) &&
+          !ChildHasFixedBSizeBasis(childFrame)) {
         return true;
       }
     }
@@ -4858,9 +4898,9 @@ void nsFlexContainerFrame::Reflow(nsPresContext* aPresContext,
 
     // mCumulativeBEndEdgeShift was updated in ReflowChildren(), and our
     // children's block-size may grow in fragmented context. If our block-size
-    // and max-block-size are unconstrained, then we allow the flex container to
-    // grow to accommodate any children whose sizes grew as a result of
-    // fragmentation.
+    // is unconstrained, then we allow the flex container to grow to accommodate
+    // any children whose sizes grew as a result of fragmentation, subject to
+    // our min/max constraints.
     if (aReflowInput.ComputedBSize() == NS_UNCONSTRAINEDSIZE) {
       contentBoxSize.BSize(wm) = aReflowInput.ApplyMinMaxBSize(
           contentBoxSize.BSize(wm) + fragmentData.mCumulativeBEndEdgeShift);
@@ -4887,10 +4927,9 @@ void nsFlexContainerFrame::Reflow(nsPresContext* aPresContext,
         if (aReflowInput.ComputedMaxBSize() == NS_UNCONSTRAINEDSIZE) {
           mayNeedNextInFlow = true;
         } else {
-          // The definite max-block-size can be the upper bound of our
-          // content-box block-size. We should check whether we need a
-          // next-in-flow.
-          mayNeedNextInFlow = contentBoxSize.BSize(wm) - consumedBSize >
+          // Our content-box block-size may grow further in later fragments.
+          // Only consider our own box complete once we reach max-block-size.
+          mayNeedNextInFlow = aReflowInput.ComputedMaxBSize() - consumedBSize >
                               availableSizeForItems.BSize(wm);
         }
       }

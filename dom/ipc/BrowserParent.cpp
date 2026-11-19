@@ -1153,9 +1153,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvSetDimensions(
   // Nothing further down keeps the size near the size of the screen that the
   // window is on, so do it here. We allow twice the screen size because the
   // size we get for a screen is not always accurate, on Wayland in particular,
-  // and all we need is to keep the size in a range the window can be given. For
-  // a request that carries inner dimensions this is a looser bound than it
-  // looks, since the outer size is larger.
+  // and all we need is to keep the size in a range the window can be given.
   nsCOMPtr<nsIWidget> mainWidget;
   treeOwnerAsWin->GetMainWidget(getter_AddRefs(mainWidget));
   if (mainWidget) {
@@ -1171,10 +1169,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvSetDimensions(
     }
   }
 
-  // treeOwner is the chrome tree owner, but we wan't the content tree owner.
-  nsCOMPtr<nsIWebBrowserChrome> webBrowserChrome = do_GetInterface(treeOwner);
-  NS_ENSURE_TRUE(webBrowserChrome, IPC_OK());
-  webBrowserChrome->SetDimensions(std::move(aRequest));
+  treeOwnerAsWin->SetDimensions(std::move(aRequest));
   return IPC_OK();
 }
 
@@ -1444,6 +1439,11 @@ void BrowserParent::MouseEnterIntoWidget() {
   mIsMouseEnterIntoWidgetEventSuppressed = true;
 }
 
+struct BrowserParent::SentMouseEventData {
+  nsID mUUID;
+  WidgetMouseEventCommand mCommand;
+};
+
 void BrowserParent::SendRealMouseEvent(WidgetMouseEvent& aMouseOrPointerEvent) {
   if (mIsDestroyed) {
     return;
@@ -1600,17 +1600,31 @@ void BrowserParent::SendRealMouseEvent(WidgetMouseEvent& aMouseOrPointerEvent) {
     return;
   }
 
+  nsID uuid = {};
+  if (aMouseOrPointerEvent.mCommand &&
+      StaticPrefs::dom_event_mouse_xbuttons_enabled()) {
+    MOZ_ASSERT(aMouseOrPointerEvent.mMessage == eMouseUp,
+               "mCommand should only be set for eMouseUp.");
+    MOZ_ASSERT(aMouseOrPointerEvent.mButton == MouseButton::eX1 ||
+                   aMouseOrPointerEvent.mButton == MouseButton::eX2,
+               "mCommand should only be set for X1/X2 button presses.");
+    uuid = nsID::GenerateUUID();
+    SentMouseEventData data{uuid, aMouseOrPointerEvent.mCommand};
+    mWaitingReplyMouseEvents.AppendElement(data);
+  }
+
   DebugOnly<bool> ret =
       isInputPriorityEventEnabled
           ? aMouseOrPointerEvent.mClass == ePointerEventClass
                 ? SendRealPointerButtonEvent(
                       *aMouseOrPointerEvent.AsPointerEvent(), guid, blockId)
-                : SendRealMouseButtonEvent(aMouseOrPointerEvent, guid, blockId)
+                : SendRealMouseButtonEvent(aMouseOrPointerEvent, guid, blockId,
+                                           uuid)
       : aMouseOrPointerEvent.mClass == ePointerEventClass
           ? SendNormalPriorityRealPointerButtonEvent(
                 *aMouseOrPointerEvent.AsPointerEvent(), guid, blockId)
           : SendNormalPriorityRealMouseButtonEvent(aMouseOrPointerEvent, guid,
-                                                   blockId);
+                                                   blockId, uuid);
   NS_WARNING_ASSERTION(ret, "SendRealMouseButtonEvent() failed");
   MOZ_ASSERT(!ret || aMouseOrPointerEvent.HasBeenPostedToRemoteProcess());
 }
@@ -2888,6 +2902,35 @@ mozilla::ipc::IPCResult BrowserParent::RecvReplyKeyEvent(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult BrowserParent::RecvReplyMouseEvent(bool aPreventDefault,
+                                                           const nsID& aUUID) {
+  MOZ_ASSERT(aUUID != nsID{}, "This should not be sent with zeroed UUID.");
+  // First, check that we are expecting a reply with the UUID
+  // and find the command we should execute as the default action.
+  WidgetMouseEventCommand command;
+  for (const size_t i : IntegerRange(mWaitingReplyMouseEvents.Length())) {
+    const SentMouseEventData& data = mWaitingReplyMouseEvents[i];
+    if (data.mUUID.Equals(aUUID)) {
+      command = data.mCommand;
+      mWaitingReplyMouseEvents.RemoveElementAt(i);
+      break;
+    }
+  }
+  if (NS_WARN_IF(!command)) {
+    return IPC_FAIL(this, "Didn't find mouse event.");
+  }
+  if (aPreventDefault) {
+    // Don't perform default action.
+    return IPC_OK();
+  }
+  RefPtr<nsIWidget> widget = GetWidget();
+  if (NS_WARN_IF(!widget)) {
+    return IPC_OK();
+  }
+  command.Run(widget);
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult BrowserParent::RecvAccessKeyNotHandled(
     const WidgetKeyboardEvent& aEvent) {
   NS_ENSURE_TRUE(mFrameElement, IPC_OK());
@@ -3688,7 +3731,7 @@ void BrowserParent::SetRenderLayers(bool aEnabled) {
 }
 
 void BrowserParent::SetRenderLayersInternal(bool aEnabled) {
-  (void)SendRenderLayers(aEnabled);
+  (void)SendRenderLayers(aEnabled, NextRenderLayersEpoch());
 
   // Ask the child to repaint/unload layers using the PHangMonitor
   // channel/thread (which may be less congested).
@@ -3945,7 +3988,8 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     nsTArray<IPCTransferableData>&& aTransferables, const uint32_t& aAction,
     Maybe<BigBuffer>&& aVisualDnDData, const uint32_t& aStride,
     const gfx::SurfaceFormat& aFormat, const LayoutDeviceIntRect& aDragRect,
-    nsIPrincipal* aPrincipal, nsIPolicyContainer* aPolicyContainer,
+    Tainted<RefPtr<nsIPrincipal>>&& aPrincipal,
+    nsIPolicyContainer* aPolicyContainer,
     const CookieJarSettingsArgs& aCookieJarSettingsArgs,
     const MaybeDiscarded<WindowContext>& aSourceWindowContext,
     const MaybeDiscarded<WindowContext>& aSourceTopWindowContext) {
@@ -3980,7 +4024,8 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     return IPC_OK();
   }
 
-  if (!Manager()->ValidatePrincipal(aPrincipal, {})) {
+  auto principal = Manager()->ValidatePrincipal(aPrincipal);
+  if (!principal) {
     return ContentParent::PrincipalValidationIpcFail(aPrincipal, this,
                                                      __func__);
   }
@@ -3990,7 +4035,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
                                       getter_AddRefs(cookieJarSettings));
 
   RefPtr<RemoteDragStartData> dragStartData = new RemoteDragStartData(
-      this, std::move(aTransferables), aDragRect, aPrincipal, aPolicyContainer,
+      this, std::move(aTransferables), aDragRect, *principal, aPolicyContainer,
       cookieJarSettings, aSourceWindowContext.GetMaybeDiscarded(),
       aSourceTopWindowContext.GetMaybeDiscarded());
 

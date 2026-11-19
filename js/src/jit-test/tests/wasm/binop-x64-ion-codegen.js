@@ -195,10 +195,27 @@ let uint32max64 = `(module
 codegenTestX64_adhoc(
     uint32max64,
     'f',
-    `mov \\$-0x01, %r11d
-     imul %r11, %rax`, {no_prefix:true})
+    `mov \\$-0x01, %ebx
+     imul %rbx, %rax`, {no_prefix:true})
 assertEq(wasmEvalText(uint32max64).exports.f(-37000000000n), BigInt.asIntN(64, -37000000000n*0xffffffffn))
 assertEq(wasmEvalText(uint32max64).exports.f(42000000000n), BigInt.asIntN(64, 42000000000n*0xffffffffn))
+
+// Test that multiplication by a power of two that doesn't fit in an int32
+// yields a shift.
+
+for (let [shift, hex] of [[31, "1F"], [40, "28"], [62, "3E"]]) {
+    let pow2_64 = `(module
+       (func (export "f") (param i64) (result i64)
+         (i64.mul (local.get 0) (i64.const ${1n << BigInt(shift)}))))`
+    codegenTestX64_adhoc(
+        pow2_64,
+        'f',
+        `shl \\$0x${hex}, %rax`, {no_prefix:true})
+    for (let x of [-37000000000n, 42000000000n]) {
+        assertEq(wasmEvalText(pow2_64).exports.f(x),
+                 BigInt.asIntN(64, x << BigInt(shift)))
+    }
+}
 
 // Test that 0-n yields negation.
 
@@ -262,12 +279,12 @@ for ( [imm, expect1, expect2] of
          ''],
         // in unsigned-32 range => imm in reg via movl
         ['0x87654321',
-         'mov \\$-0x789ABCDF, %r11d',
-         'test %r11, %r..'], // rdi or rcx
+         'mov \\$-0x789ABCDF, %ebx',
+         'test %rbx, %r..'], // rdi or rcx
         // not in either range => imm in reg via mov(absq)
         ['0x187654321',
-         'mov \\$0x187654321, %r11',
-         'test %r11, %r..']] // rdi or rcx
+         'mov \\$0x187654321, %rbx',
+         'test %rbx, %r..']] // rdi or rcx
       ) {
    codegenTestX64_adhoc(
     `(module
@@ -308,21 +325,21 @@ function cmpSel32vs64(cmpTy, cmpOp, selTy) {
 }
 if (getBuildConfiguration("windows")) {
     for ( [cmpTy, cmpOp, selTy, insn1, insn2, insn3] of
-          [ ['i32', 'le_s', 'i32',  'mov %ebx, %eax',
+          [ ['i32', 'le_s', 'i32',  'mov %esi, %eax',
                                     'cmp %edx, %ecx',
                                     'cmovnle %r9d, %eax'],
-            ['i32', 'lt_u', 'i64',  'mov %rbx, %rax',
+            ['i32', 'lt_u', 'i64',  'mov %rsi, %rax',
                                     'cmp %edx, %ecx',
                                     'cmovnb %r9, %rax'],
-            ['i64', 'le_s', 'i32',  'mov %ebx, %eax',
+            ['i64', 'le_s', 'i32',  'mov %esi, %eax',
                                     'cmp %rdx, %rcx',
                                     'cmovnle %r9d, %eax'],
-            ['i64', 'lt_u', 'i64',  'mov %rbx, %rax',
+            ['i64', 'lt_u', 'i64',  'mov %rsi, %rax',
                                     'cmp %rdx, %rcx',
                                     'cmovnb %r9, %rax']
           ] ) {
         codegenTestX64_adhoc(cmpSel32vs64(cmpTy, cmpOp, selTy), 'f',
-          `mov %r8.*, %.bx
+          `mov %r8.*, %.si
            ${insn1}
            ${insn2}
            ${insn3}`
@@ -382,8 +399,6 @@ for ( [pAnyCmp, pAnySel, cmpArgL, cmovArgL ] of
        )
     )`,
     'f',
-    // On Linux we have an extra move
-    (getBuildConfiguration("windows") ? '' : 'mov %r.+, %r.+\n') +
     // 'q*' because the disassembler shows 'q' only for the memory cases
     `mov %r.+, %r.+
      cmpq*    ${cmpArgL}, %r.+

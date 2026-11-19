@@ -97,6 +97,12 @@ class HostMixin:
         defines = self._context["HOST_DEFINES"]
         return HostDefines(self._context, defines) if defines else None
 
+    def _host_pdb_link_flags(self, debug):
+        if self.config.substs.get("HOST_OS_ARCH") != "WINNT":
+            return []
+        pdb = f"-PDB:{mozpath.splitext(self.name)[0]}.pdb"
+        return ["-DEBUG", pdb] if debug else [pdb]
+
 
 class DirectoryTraversal(ContextDerived):
     """Describes how directory traversal for building should work.
@@ -167,9 +173,11 @@ class ComputedFlags(ContextDerived):
         # setting a value here.
         dict.__setitem__(self.flags, key, value)
 
-    def get_flags(self):
+    def get_flags(self, exclude=()):
         flags = defaultdict(list)
         for key, _, dest_vars in self.flags.flag_variables:
+            if key in exclude:
+                continue
             value = self.flags.get(key)
             if value:
                 for dest_var in dest_vars:
@@ -400,6 +408,27 @@ class Linkable(ContextDerived):
         else:
             return ObjDirPath(self._context, "!" + self.name)
 
+    @property
+    def dump_syms(self):
+        """Whether the crash reporter symbols are dumped for this binary.
+
+        Only a binary whose final target is under `dist/bin` is worth
+        symbolicating, whether or not it is installed there, and a binary with
+        an output category is not part of a default build.
+        """
+        if self.KIND != "target" or getattr(self, "output_category", None):
+            return False
+        return bool(mozpath.basedir(self.install_target, ("dist/bin",)))
+
+    @property
+    def lto_object_path_flags(self):
+        # On macOS, dsymutil reads debug info from the object files, which LTO
+        # does not keep. Keep them in a directory per binary, since the linker
+        # numbers them sequentially and parallel links would collide.
+        if self.KIND != "target" or not self.config.substs.get("MOZ_LTO_OBJECT_PATH"):
+            return []
+        return [f"-Wl,-object_path_lto,{self.name}.lto.o/"]
+
     def link_library(self, obj):
         assert isinstance(obj, BaseLibrary)
         if obj.KIND != self.KIND:
@@ -497,12 +526,29 @@ class BaseProgram(Linkable):
     def name(self):
         return self.program
 
+    def _pdb_link_flags(self, linked_dir):
+        substs = self.config.substs
+        if substs.get("OS_ARCH") != "WINNT":
+            return []
+        # clang-cl writes the pdb to the build directory, or next to the
+        # executable under MOZ_COPY_PDBS. MinGW always writes it next to the
+        # executable.
+        pdb = f"{mozpath.splitext(self.program)[0]}.pdb"
+        beside = mozpath.relpath(mozpath.join(linked_dir, pdb), self.objdir)
+        if substs.get("CC_TYPE") == "clang-cl":
+            return [f"-PDB:{beside if substs.get('MOZ_COPY_PDBS') else pdb}"]
+        return [f"-Wl,-pdb,{beside}"]
+
 
 class Program(BaseProgram):
     """Context derived container object for PROGRAM"""
 
     SUFFIX_VAR = "BIN_SUFFIX"
     KIND = "target"
+
+    @property
+    def pdb_link_flags(self):
+        return self._pdb_link_flags(mozpath.dirname(self.output_path.full_path))
 
 
 class HostProgram(HostMixin, BaseProgram):
@@ -515,12 +561,22 @@ class HostProgram(HostMixin, BaseProgram):
     def install_target(self):
         return "dist/host/bin"
 
+    @property
+    def pdb_link_flags(self):
+        return self._host_pdb_link_flags(
+            self.config.substs.get("HOST_CC_TYPE") != "clang-cl"
+        )
+
 
 class SimpleProgram(BaseProgram):
     """Context derived container object for each program in SIMPLE_PROGRAMS"""
 
     SUFFIX_VAR = "BIN_SUFFIX"
     KIND = "target"
+
+    @property
+    def pdb_link_flags(self):
+        return self._pdb_link_flags(self.objdir)
 
     def source_files(self):
         for srcs in self.sources.values():
@@ -539,6 +595,8 @@ class HostSimpleProgram(HostMixin, BaseProgram):
 
     SUFFIX_VAR = "HOST_BIN_SUFFIX"
     KIND = "host"
+
+    pdb_link_flags = HostProgram.pdb_link_flags
 
     def source_files(self):
         for srcs in self.sources.values():
@@ -936,6 +994,33 @@ class SharedLibrary(Library):
         assert self.import_name == self.name
         return self.output_path
 
+    @property
+    def dso_link_flags(self):
+        substs = self.config.substs
+        if substs.get("OS_ARCH") == "Darwin":
+            return [
+                "-dynamiclib",
+                "-install_name",
+                f"@rpath/{self.lib_name}",
+                "-compatibility_version",
+                "1",
+                "-current_version",
+                "1",
+            ]
+        if substs.get("OS_ARCH") == "WINNT":
+            pdb = f"{mozpath.splitext(self.lib_name)[0]}.pdb"
+            if substs.get("CC_TYPE") == "clang-cl":
+                if substs.get("MOZ_COPY_PDBS"):
+                    pdb = mozpath.relpath(
+                        mozpath.join(mozpath.dirname(self.output_path.full_path), pdb),
+                        self.objdir,
+                    )
+                return [f"-PDB:{pdb}", f"-IMPLIB:{self.import_name}"]
+            return [f"-Wl,-pdb,{pdb}", "-Wl,--out-implib", f"-Wl,{self.import_name}"]
+        if substs.get("OS_TARGET") == "NetBSD":
+            return [f"-Wl,-soname,{self.soname}"]
+        return [f"-Wl,-h,{self.soname}"]
+
 
 class HostSharedLibrary(HostMixin, Library):
     """Context derived container object for a host shared library.
@@ -953,6 +1038,11 @@ class HostSharedLibrary(HostMixin, Library):
             self.basename,
             context.config.host_dll_suffix,
         )
+        self.compiler_plugin = bool(context.get("IS_COMPILER_PLUGIN"))
+
+    @property
+    def pdb_link_flags(self):
+        return self._host_pdb_link_flags(True)
 
 
 class ExternalLibrary:
@@ -1104,14 +1194,15 @@ class PerSourceFlag(ContextDerived):
     """Describes compiler flags and dependencies specified for individual source
     files."""
 
-    __slots__ = ("path", "file_name", "flags", "object_deps")
+    __slots__ = ("path", "file_name", "flags", "no_pgo", "object_deps")
 
-    def __init__(self, context, path, flags, object_deps=()):
+    def __init__(self, context, path, flags, no_pgo=False, object_deps=()):
         ContextDerived.__init__(self, context)
 
         self.path = path
         self.file_name = path.full_path
         self.flags = flags
+        self.no_pgo = no_pgo
         self.object_deps = object_deps
 
 
@@ -1564,6 +1655,7 @@ class GeneratedFile(ContextDerived):
 
         suffixes = [
             ".h",
+            ".inc",
             ".py",
             ".rs",
             # We need to compile Java to generate JNI wrappers for native code
@@ -1571,6 +1663,10 @@ class GeneratedFile(ContextDerived):
             "android_apks",
             ".profdata",
             ".webidl",
+            # .air and .metallib are compiled Metal shader outputs used to
+            # generate a header consumed by native compilation.
+            ".air",
+            ".metallib",
         ]
 
         try:
@@ -1599,14 +1695,12 @@ class GeneratedFile(ContextDerived):
                 ".c",
                 ".cpp",
                 ".dat",  # ICU data, read by icu_data.S via .incbin
-                ".inc",
                 ".m",
                 ".mm",
                 ".def",
                 ".plist",
                 ".s",
                 ".S",
-                "symverscript",
             ))
         ]
         if self.required_during_compile and self.required_before_compile:

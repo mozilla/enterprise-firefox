@@ -14,7 +14,6 @@
 #include "builtin/MapObject.h"
 #include "builtin/ModuleObject.h"
 #include "builtin/TestingFunctions.h"
-#include "frontend/FrontendContext.h"  // FrontendContext
 #include "gc/PublicIterators.h"
 #include "gc/WeakMap.h"
 #include "js/ColumnNumber.h"  // JS::LimitedColumnNumberOneOrigin
@@ -361,11 +360,6 @@ JS_PUBLIC_API bool js::IsObjectInContextCompartment(JSObject* obj,
 JS_PUBLIC_API JS::StackKind
 js::AutoCheckRecursionLimit::stackKindForCurrentPrincipal(JSContext* cx) const {
   return cx->stackKindForCurrentPrincipal();
-}
-
-JS::NativeStackLimit AutoCheckRecursionLimit::getStackLimit(
-    FrontendContext* fc) const {
-  return fc->stackLimit();
 }
 
 JS_PUBLIC_API JSFunction* js::DefineFunctionWithReserved(
@@ -791,4 +785,13 @@ bool JS::AddMozDisplayNamesConstructor(JSContext* cx, JS::HandleObject intl) {
 
 JS_PUBLIC_API JS::Zone* js::GetObjectZoneFromAnyThread(const JSObject* obj) {
   return MaybeForwarded(obj)->zoneFromAnyThread();
+}
+
+js::AutoAllowScriptInInterrupt::AutoAllowScriptInInterrupt(JSContext* cx)
+    : realm_(cx->realm()), wasHandling_(realm_->handlingInterrupt()) {
+  realm_->setHandlingInterrupt(false);
+}
+
+js::AutoAllowScriptInInterrupt::~AutoAllowScriptInInterrupt() {
+  realm_->setHandlingInterrupt(wasHandling_);
 }

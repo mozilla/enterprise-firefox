@@ -236,6 +236,8 @@ public class GeckoResult<T> {
 
   /** Exception thrown when an uncaught exception occurs in a GeckoResult chain. */
   public static final class UncaughtException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
     /**
      * Construct an UncaughtException.
      *
@@ -297,7 +299,7 @@ public class GeckoResult<T> {
     if (ThreadUtils.isOnUiThread()) {
       mDispatcher = new HandlerDispatcher(ThreadUtils.getUiHandler());
     } else if (Looper.myLooper() != null) {
-      mDispatcher = new HandlerDispatcher(new Handler());
+      mDispatcher = new HandlerDispatcher(new Handler(Looper.myLooper()));
     } else if (XPCOMEventTarget.launcherThread().isOnCurrentThread()) {
       mDispatcher = new XPCOMEventTargetDispatcher(XPCOMEventTarget.launcherThread());
     } else {
@@ -321,6 +323,7 @@ public class GeckoResult<T> {
    *
    * @param from The {@link GeckoResult} to copy.
    */
+  @SuppressWarnings("this-escape")
   public GeckoResult(final GeckoResult<T> from) {
     this();
     completeFrom(from);

@@ -96,6 +96,7 @@ class AndroidImageWrapper {
                                mozilla::UniqueFileHandle&& aWriteFenceFd);
 
   mozilla::UniqueFileHandle CloneWriteFenceFd();
+  bool WaitForWriteFence(gl::GLContext* aGL);
 
   void SetReadFenceFd(UniqueFileHandle&& aFenceFd);
 
@@ -130,6 +131,11 @@ class AndroidImageReader final
   static already_AddRefed<AndroidImageReader> Create();
 
   explicit AndroidImageReader();
+
+  // Stop acquiring images and drop the cached image when the decoder shuts
+  // down. Images retained by consumers keep this reader alive until they are
+  // released.
+  void Shutdown();
 
   bool UpdateTexImage(AndroidMediaCodecFrameId aFrameId, gl::GLContext* aGL,
                       GLuint aTexture, AndroidImageWrapper** aImage);
@@ -178,9 +184,10 @@ class AndroidImageReader final
 
   Monitor mMonitor;
 
+  bool mRegistered = false;
   bool mInited MOZ_GUARDED_BY(mMonitor) = false;
-  AImageReader* mAImageReader MOZ_GUARDED_BY(mMonitor);
-  ANativeWindow* mNativeWindow MOZ_GUARDED_BY(mMonitor);
+  AImageReader* mAImageReader MOZ_GUARDED_BY(mMonitor) = nullptr;
+  ANativeWindow* mNativeWindow MOZ_GUARDED_BY(mMonitor) = nullptr;
   AndroidMediaCodecFrameId mCurrentFrameId MOZ_GUARDED_BY(mMonitor);
   RefPtr<AndroidImageWrapper> mCurrentImage MOZ_GUARDED_BY(mMonitor);
   // A rendered codec buffer remains outstanding across notification timeouts.
@@ -188,6 +195,7 @@ class AndroidImageReader final
   Maybe<AndroidMediaCodecFrameId> mPendingFrameId MOZ_GUARDED_BY(mMonitor);
   bool mWaitingFrameAvailable MOZ_GUARDED_BY(mMonitor) = false;
   bool mIsPendingNextImage MOZ_GUARDED_BY(mMonitor) = false;
+  bool mShuttingDown MOZ_GUARDED_BY(mMonitor) = false;
 
   mozilla::Atomic<int32_t> mAcquiredImageCount{0};
 

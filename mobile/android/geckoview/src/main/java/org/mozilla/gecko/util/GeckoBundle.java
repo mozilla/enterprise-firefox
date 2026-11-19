@@ -220,6 +220,7 @@ public final class GeckoBundle implements Parcelable {
    * exist.
    *
    * @param key Key to look for.
+   * @param defaultValue Value to return if mapping does not exist.
    * @return Double value
    */
   public Double getDoubleObject(final String key, final Double defaultValue) {
@@ -1018,6 +1019,7 @@ public final class GeckoBundle implements Parcelable {
     int i = 0;
 
     for (final String key : bundle.keySet()) {
+      @SuppressWarnings("deprecation")
       final Object value = bundle.get(key);
       keys[i] = key;
 

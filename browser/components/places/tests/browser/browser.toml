@@ -114,13 +114,13 @@ support-files = ["pageopeningwindow.html"]
 ["browser_bookmarks_toolbar_drag_with_chevron.js"]
 
 ["browser_bookmarks_toolbar_telemetry.js"]
-skip-if = [
-  "verify-standalone",
-]
 
 ["browser_bug427633_no_newfolder_if_noip.js"]
 
 ["browser_bug485100-change-case-loses-tag.js"]
+skip-if = [
+  "macos_vm", # Bug 2088997 - fails only on the macOS tart VMs
+]
 
 ["browser_bug631374_tags_selector_scroll.js"]
 support-files = ["favicon-normal16.png"]
@@ -191,11 +191,11 @@ https_first_disabled = true
 
 ["browser_library_openFlatContainer.js"]
 
+["browser_library_open.js"]
+
 ["browser_library_open_all.js"]
 
 ["browser_library_open_all_with_separator.js"]
-
-["browser_library_open_bookmark.js"]
 
 ["browser_library_open_leak.js"]
 
@@ -216,6 +216,8 @@ https_first_disabled = true
 ["browser_library_warnOnOpen.js"]
 
 ["browser_markPageAsFollowedLink.js"]
+
+["browser_menu_domnodes_cleanup.js"]
 
 ["browser_mobile_root_on_bookmark_menus.js"]
 

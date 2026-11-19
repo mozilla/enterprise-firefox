@@ -13,7 +13,7 @@ import mozpack.path as mozpath
 
 from mozbuild.backend.base import BuildBackend
 from mozbuild.dirutils import mkdir
-from mozbuild.frontend.context import ObjDirPath
+from mozbuild.frontend.context import ObjDirPath, Path
 from mozbuild.frontend.data import (
     BaseProgram,
     BaseRustLibrary,
@@ -28,6 +28,7 @@ from mozbuild.frontend.data import (
     HostSources,
     IPDLCollection,
     JsShellArchive,
+    MacOSBundle,
     RustTests,
     SandboxedWasmLibrary,
     SharedLibrary,
@@ -46,7 +47,12 @@ from mozbuild.frontend.l10n_manifest import (
 )
 from mozbuild.frontend.reader import SandboxValidationError
 from mozbuild.licenses import LicenseCollection, LicenseError
-from mozbuild.rust_commands import CARGO_SPEC_FILES, CargoCommand, cargo_spec
+from mozbuild.rust_commands import (
+    CARGO_SPEC_FILES,
+    RUST_EXCLUDED_FLAG_CATEGORIES,
+    CargoCommand,
+    cargo_spec,
+)
 
 
 def configured_defines(environment):
@@ -152,6 +158,52 @@ def chrome_manifest_contents(entries):
         yield target, "".join(f"{line}\n" for line in sorted(lines))
 
 
+def macos_bundle_spec(obj, topobjdir):
+    context = obj._context
+    spec = obj.bundle
+
+    resolved = {
+        "bundle": Path(context, spec["bundle"]).full_path,
+        "lproj": spec["lproj"],
+        "binaries": [],
+        "extra_files": [],
+        "moves": [list(m) for m in spec["moves"]],
+        "pkginfo": spec["pkginfo"],
+        "copies": [Path(context, c).full_path for c in spec["copies"]],
+    }
+    inputs = []
+    if spec["skeleton"]:
+        resolved["skeleton"] = Path(context, spec["skeleton"]).full_path
+    for key in ("info_plist", "strings"):
+        if value := spec[key]:
+            path = Path(context, value)
+            resolved[key] = path.full_path
+            inputs.append(path)
+    for key in ("binaries", "extra_files"):
+        for source, dest in spec[key]:
+            path = Path(context, source)
+            resolved[key].append([path.full_path, dest])
+            inputs.append(path)
+    if spec["stage"]:
+        resolved["stage"] = Path(context, spec["stage"]).full_path
+        macos_files = Path(context, spec["macos_files"])
+        macos_copy_files = Path(context, spec["macos_copy_files"])
+        resolved["macos_files"] = macos_files.full_path
+        resolved["macos_copy_files"] = macos_copy_files.full_path
+        inputs.append(macos_files)
+        inputs.append(macos_copy_files)
+
+    # Bundles in one directory can share a basename (the same `.app` built
+    # into different locations), so key the spec on the objdir-relative path.
+    spec_id = (
+        mozpath
+        .relpath(resolved["bundle"], topobjdir)
+        .replace("/", "_")
+        .replace(" ", "")
+    )
+    return resolved, inputs, f"{spec_id}.bundle.json"
+
+
 class XPIDLManager:
     """Helps manage XPCOM IDLs in the context of the build system."""
 
@@ -222,23 +274,29 @@ class CommonBackend(BuildBackend):
         self._rust_libraries_for_spec = []
         self._rust_programs_for_spec = defaultdict(list)
         self._rust_tests_for_spec = []
+        self._macos_bundles = []
+        self._macos_bundle_specs = {}
 
-    def _computed_flag_list(self, relobjdir, var):
-        """Return all values for a computed flag in one directory."""
+    def _computed_flag_list(self, relobjdir, var, exclude=()):
+        """Return all values for a computed flag in one directory, without the
+        categories in `exclude`."""
         out = []
         for cf in self._computed_flags.get(relobjdir, ()):
-            out.extend(dict(cf.get_flags()).get(var, []))
+            out.extend(dict(cf.get_flags(exclude)).get(var, []))
         return out
 
     def _rust_computed_flags(self, relobjdir):
+        def flags(var):
+            return self._computed_flag_list(
+                relobjdir, var, exclude=RUST_EXCLUDED_FLAG_CATEGORIES
+            )
+
         return {
-            "computed_cflags": self._computed_flag_list(relobjdir, "CFLAGS"),
-            "computed_cxxflags": self._computed_flag_list(relobjdir, "CXXFLAGS"),
-            "computed_host_cflags": self._computed_flag_list(relobjdir, "HOST_CFLAGS"),
-            "computed_host_cxxflags": self._computed_flag_list(
-                relobjdir, "HOST_CXXFLAGS"
-            ),
-            "link_flags": self._computed_flag_list(relobjdir, "LDFLAGS"),
+            "computed_cflags": flags("CFLAGS"),
+            "computed_cxxflags": flags("CXXFLAGS"),
+            "computed_host_cflags": flags("HOST_CFLAGS"),
+            "computed_host_cxxflags": flags("HOST_CXXFLAGS"),
+            "link_flags": flags("LDFLAGS"),
         }
 
     def _rust_library_command(self, lib, profile_suffix):
@@ -263,6 +321,7 @@ class CommonBackend(BuildBackend):
         first = programs[0]
         objdir = mozpath.normsep(first.objdir)
         rustc_flags = ()
+        inputs = ()
         # Windows programs link a version resource generated in the object
         # directory.
         if (
@@ -270,11 +329,13 @@ class CommonBackend(BuildBackend):
             and self.environment.substs.get("MOZ_WIDGET_TOOLKIT") == "windows"
         ):
             rustc_flags = ("-C", f"link-arg={objdir}/module.res")
+            inputs = (mozpath.join(first.relobjdir, "module.res"),)
         return CargoCommand(
             kind=kind,
             manifest_path=mozpath.normsep(first.cargo_file),
             names=tuple(program.name for program in programs),
             outputs=tuple(mozpath.normsep(program.location) for program in programs),
+            inputs=inputs,
             features=first.features or (),
             cargo_profile_suffix=profile_suffix,
             working_directory=objdir,
@@ -286,9 +347,9 @@ class CommonBackend(BuildBackend):
         """Build a Cargo test command using the directory's Cargo profile."""
         rustflags = ()
         substs = self.environment.substs
-        # Test executables load shared libraries from dist/bin. Other platforms
-        # use an rpath, while Windows stages the libraries next to the test
-        # binaries.
+        # Test executables load shared libraries from dist/bin. Outside Windows
+        # they use an rpath, and on Linux and Windows `compose_env` also adds
+        # dist/bin to the library search path.
         if substs.get("OS_TARGET") != "WINNT":
             dist_bin = mozpath.join(self.environment.topobjdir, "dist", "bin")
             rustflags = ("-C", f"link-arg=-Wl,-rpath,{dist_bin}")
@@ -421,6 +482,20 @@ class CommonBackend(BuildBackend):
             self._rust_tests_for_spec.append(obj)
             return False
 
+        elif isinstance(obj, MacOSBundle):
+            self._macos_bundle_specs[obj] = macos_bundle_spec(
+                obj, self.environment.topobjdir
+            )
+            spec, _, spec_name = self._macos_bundle_specs[obj]
+            spec_path = mozpath.normsep(mozpath.join(obj.objdir, spec_name))
+            with self._write_file(spec_path) as fh:
+                json.dump(spec, fh, sort_keys=True, indent=2)
+            self._macos_bundles.append({
+                "spec": spec_path,
+                "stage": bool(obj.bundle["stage"]),
+            })
+            return False
+
         elif isinstance(obj, BaseProgram):
             self._binaries.programs.append(obj)
             return False
@@ -548,6 +623,14 @@ class CommonBackend(BuildBackend):
 
         with self._write_file(mozpath.join(topobjdir, "rust-tests.json")) as fh:
             json.dump({"crates": sorted(test_crates)}, fh, sort_keys=True, indent=2)
+
+        with self._write_file(mozpath.join(topobjdir, "macos-bundles.json")) as fh:
+            json.dump(
+                {"bundles": sorted(self._macos_bundles, key=itemgetter("spec"))},
+                fh,
+                sort_keys=True,
+                indent=2,
+            )
 
     def _expand_libs(self, input_bin):
         os_libs = []

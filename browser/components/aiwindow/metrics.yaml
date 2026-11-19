@@ -19,9 +19,11 @@ smart_window:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2015626
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2084445
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2090056
     data_reviews:
       - https://phabricator.services.mozilla.com/D282873
       - https://phabricator.services.mozilla.com/D338147
+      - https://phabricator.services.mozilla.com/D340378
     data_sensitivity:
       - interaction
     notification_emails: &emails
@@ -35,7 +37,9 @@ smart_window:
       detected_intent: &detected_intent
         type: string
         description: >
-          What was the detected intent for the request: navigate, search, chat, or action
+          What was the detected intent for the request: navigate, search, chat, or action.
+          When the smartWindow feature's smartbarIntent variable pins search or chat,
+          non-navigate requests report the pinned value rather than the classifier's.
       length: &length
         type: quantity
         unit: characters
@@ -63,8 +67,8 @@ smart_window:
         type: string
         description: >
           How the request was submitted: button, enter, follow-up, fxms,
-          menu, resume, retry, shortcuts, starter, or suggestion. Messaging
-          surfaces may supply their own value instead of fxms
+          menu, resume, retry, shortcuts, starter, suggestion, or toolbar.
+          Messaging surfaces may supply their own value instead of fxms
       tabs:
         type: quantity
         unit: count
@@ -712,11 +716,97 @@ smart_window:
       message_seq: *message_seq
       request_id: *request_id
       model: *model
+      turn_index: &turn_index
+        type: quantity
+        unit: count
+        description: >
+          Zero-based user turn index within the conversation; zero is the first turn.
+      context_message_count: &context_message_count
+        type: quantity
+        unit: count
+        description: >
+          Number of messages in the compacted chat-completions snapshot after prompt
+          preparation and before this turn's first model call.
+      context_length: &context_length
+        type: quantity
+        unit: count
+        description: >
+          UTF-16 code units in the JSON-serialized compacted messages at turn start,
+          including the system prompt and history but excluding tool schemas.
+          This is a context-size proxy, not a token count.
       latency:
         type: quantity
         unit: ms
         description: >
           Time from response request start to the first rendered assistant character
+
+  time_to_first_action_log:
+    type: event
+    description: |
+      Recorded when the first action-log entry is rendered after a chat request is submitted.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2073260
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2073260
+    data_sensitivity:
+      - interaction
+    notification_emails: *emails
+    expires: never
+    extra_keys:
+      location: *location
+      chat_id: *chat_id
+      message_seq: *message_seq
+      request_id: *request_id
+      model: *model
+      turn_index: *turn_index
+      context_message_count: *context_message_count
+      context_length: *context_length
+      latency:
+        type: quantity
+        unit: ms
+        description: >
+          Time from response request start to the first rendered action-log entry
+
+  time_to_turn_complete:
+    type: event
+    description: |
+      Recorded when a chat turn successfully completes, including tool execution.
+      Cancelled and failed attempts and retries are excluded.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2073261
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2073261
+    data_sensitivity:
+      - interaction
+    notification_emails: *emails
+    expires: never
+    extra_keys:
+      location: *location
+      chat_id: *chat_id
+      message_seq: *message_seq
+      request_id: *request_id
+      model: *model
+      turn_index: *turn_index
+      context_message_count: *context_message_count
+      context_length: *context_length
+      duration:
+        type: quantity
+        unit: ms
+        description: >
+          The time from the original response request start to turn completion,
+          including engine and prompt preparation.
+      output_tokens:
+        type: quantity
+        unit: count
+        description: >
+          The sum of backend completion tokens across chat model responses in the
+          turn, including tool follow-up responses but excluding direct tool
+          answer streams. Omitted if any chat model response lacks completion-token usage.
+      tool_call_count:
+        type: quantity
+        unit: count
+        description: >
+          The number of model-requested tool executions attempted during the chat turn.
 
   client_error:
     type: event
@@ -913,6 +1003,490 @@ smart_window:
       - technical
     notification_emails: *emails
     expires: never
+
+  memories_generation_run:
+    type: event
+    description: |
+      Recorded once per memories scheduler check that runs after the
+      cooldown has elapsed. Not recorded when the check is skipped by
+      the cooldown or a back-off. If there is no new browsing or chat
+      activity, only generation_triggered (false) is set. Otherwise the
+      event summarizes the generation run: reading recent browsing history
+      and chat messages, grouping them into sessions, generating candidate
+      memories from those sessions, filtering them for quality and
+      sensitivity, saving them, and merging. Journey generation in the same
+      run is not included. Only counts are recorded, never history, chat or
+      memory content.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2078322
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D341100
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - cdipersio@mozilla.com
+      - firefox-ai-and-ml@mozilla.com
+    expires: 175
+    extra_keys:
+      generation_triggered:
+        type: boolean
+        description: >
+          True when the scheduler found enough new evidence to generate
+          memories. False when it found none; every other extra is then
+          absent.
+      memories_before:
+        type: quantity
+        unit: count
+        description: >
+          Number of stored memories when generation started.
+      is_first_run:
+        type: boolean
+        description: >
+          True the first time memories are generated for a user.
+      history_rows_pulled:
+        type: quantity
+        unit: count
+        description: >
+          Number of browsing history rows (page visits and searches) read since
+          the last activity an earlier run processed. Absent when generating
+          memories from history is turned off.
+      history_rows_kept:
+        type: quantity
+        unit: count
+        description: >
+          Number of those history rows left after removing blocked or sensitive
+          pages. Absent when generating memories from history is turned off.
+      chat_messages_pulled:
+        type: quantity
+        unit: count
+        description: >
+          Number of the user's chat messages read since the last activity an
+          earlier run processed. Absent when generating memories from chats
+          is turned off.
+      chat_messages_kept:
+        type: quantity
+        unit: count
+        description: >
+          Number of those chat messages left after removing blocked or
+          sensitive messages. Absent when generating memories from chats is
+          turned off.
+      sessions_built:
+        type: quantity
+        unit: count
+        description: >
+          Number of sessions the kept history rows and chat messages were
+          grouped into. Absent when the run failed before grouping.
+      sessions_skipped:
+        type: quantity
+        unit: count
+        description: >
+          Number of those sessions dropped as too trivial to generate memories
+          from. Absent when the run failed before grouping.
+      sessions_processed:
+        type: quantity
+        unit: count
+        description: >
+          Number of sessions eligible for memory generation: those not skipped.
+          Absent when the run failed before grouping.
+      sessions_processed_events:
+        type: quantity
+        unit: count
+        description: >
+          Total number of page visits, searches and chat messages across the
+          processed sessions. Absent when no session was processed.
+      sessions_processed_events_min:
+        type: quantity
+        unit: count
+        description: >
+          Number of page visits, searches and chat messages in the smallest
+          processed session. Absent when no session was processed.
+      sessions_processed_events_max:
+        type: quantity
+        unit: count
+        description: >
+          Number of page visits, searches and chat messages in the largest
+          processed session. Absent when no session was processed.
+      generation_batches:
+        type: quantity
+        unit: count
+        description: >
+          Number of batches of processed sessions that were attempted, each
+          one model request plus any retries. Lower than the number of batches
+          planned when the run stopped early on an error. Absent when no
+          session was processed.
+      generation_batches_skipped:
+        type: quantity
+        unit: count
+        description: >
+          Number of batches skipped because their request failed in a way that
+          retrying will not fix. The run continues with the remaining batches.
+          Absent when no session was processed.
+      generation_candidates:
+        type: quantity
+        unit: memories
+        description: >
+          Number of initial candidate memories generated before filtering.
+          Absent when generation did not finish.
+      filter_dropped:
+        type: quantity
+        unit: memories
+        description: >
+          Number of candidate memories dropped by the quality and sensitivity
+          filter. Absent when the filter did not run or did not finish.
+      save_new:
+        type: quantity
+        unit: memories
+        description: >
+          Number of candidate memories that passed the filter and were saved as
+          new memories, increasing the number of stored memories. Candidates
+          saved as an update to a stored memory are counted in save_updated
+          instead. Absent when saving did not run or did not finish.
+      save_updated:
+        type: quantity
+        unit: memories
+        description: >
+          Number of candidate memories that passed the filter but matched the
+          summary, and so same ID, of a stored memory and were saved as an
+          update to it instead of a new memory. Absent when saving did not run
+          or did not finish.
+      merge_status:
+        type: string
+        description: >
+          Whether the merge step ran. One of: not_reached (the run ended on an
+          error before merging), not_run (no memories were saved, so there was
+          nothing new to merge), below_threshold (too few memories to merge),
+          or ran (merging was attempted; when it failed, error_stage is merge).
+      merge_groups_proposed:
+        type: quantity
+        unit: groups
+        description: >
+          Number of groups of stored memories the model proposed combining
+          before invalid groups were dropped. Absent unless merge_status is
+          ran or when merging failed before the model responded.
+      merge_groups_saved:
+        type: quantity
+        unit: count
+        description: >
+          Number of proposed groups that were valid and saved, each as one
+          merged memory. Absent unless merge_status is ran or when merging
+          failed before saving finished.
+      merge_components_removed:
+        type: quantity
+        unit: memories
+        description: >
+          Number of stored memories deleted because they were combined into a
+          merged memory. A memory in more than one group is counted once.
+          Absent unless merge_status is ran or when merging failed before
+          deleting finished.
+      memories_after:
+        type: quantity
+        unit: count
+        description: >
+          Number of stored memories when the run ended.
+      outcome:
+        type: string
+        description: >
+          How the run ended: success (memories were saved), no_sessions (no
+          session was left to process, either because there was no usable
+          activity or because all of it was filtered, so no model request
+          was made), no_candidates (generation returned no memories), all_filtered
+          (the filter dropped every candidate), or error. A failure to read
+          browsing history is recorded as error even though the run continues
+          with chats.
+      error_stage:
+        type: string
+        description: >
+          The step that failed when outcome is error: sources (reading history
+          or chats), generation, filter, save, merge, or other (anything else
+          in the run, such as grouping sessions or saving run bookkeeping).
+          Absent otherwise.
+      error_type:
+        type: string
+        description: >
+          The kind of failure when outcome is error: rate_limited (the model
+          service returned HTTP 429), transient (a retryable failure such as a
+          timeout, a network error, or an HTTP 5xx), server_rejected (the model
+          service returned an HTTP status that retrying will not fix, such as
+          400 or 401), or firefox_internal (an exception in Firefox that did
+          not come from the model service). Absent otherwise.
+
+  journeys_generation_run:
+    type: event
+    description: |
+      Recorded once per memories scheduler check that reaches journey
+      generation: after the memory generation and merging recorded by
+      memories_generation_run finish without an error, when at least one
+      memory is stored. Not recorded when the app locale does not support
+      journeys. The event summarizes the journey generation run (the "pick up
+      where you left off" headline and status for a memory): picking the most
+      recent memories that can have a journey and do not have one yet,
+      reading the browsing history pages and chats linked to them, generating
+      journeys from them in batches, and saving them. Only counts are
+      recorded, never memory, history, chat or journey content.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091519
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D341594
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - cdipersio@mozilla.com
+      - firefox-ai-and-ml@mozilla.com
+    expires: 175
+    extra_keys:
+      memories_eligible:
+        type: quantity
+        unit: count
+        description: >
+          Number of stored memories that can have a journey and do not have
+          one yet: memories that are not sensitive and are linked to browsing
+          history. Counted before the limit on how many memories one run
+          processes. Absent when the run failed before selecting memories.
+      journey_memory_candidates:
+        type: quantity
+        unit: count
+        description: >
+          Number of those memories sent for journey generation: the most
+          recent eligible memories, up to the per-run limit, that still have
+          at least one linked browsing history page. When the run stopped
+          early on an error, only the batches reached are counted. Absent when
+          the run failed before selecting memories.
+      generation_batches:
+        type: quantity
+        unit: count
+        description: >
+          Number of batches of processed memories that were attempted, each
+          one model request plus any retries. Lower than the number of batches
+          planned when the run stopped early on an error. Absent when no
+          memory was processed.
+      generation_batches_skipped:
+        type: quantity
+        unit: count
+        description: >
+          Number of batches skipped because their request failed in a way that
+          retrying will not fix. The run continues with the remaining batches.
+          Absent when no memory was processed.
+      journeys_generated:
+        type: quantity
+        unit: journeys
+        description: >
+          Number of valid journeys the model returned for the processed
+          memories. A response that could not be read counts as none. Absent
+          when generation did not finish.
+      save_new:
+        type: quantity
+        unit: journeys
+        description: >
+          Number of those journeys saved. Every saved journey is new, since
+          memories that already have a journey are not processed. When the
+          run stopped early on an error, only the batches reached are
+          counted. Absent when no journey was generated to save.
+      journeys_eligible_after:
+        type: quantity
+        unit: count
+        description: >
+          Number of stored journeys that can be suggested when the run ended:
+          not dismissed or snoozed, and their memory still exists. Recorded
+          on errors too. Absent when counting them failed.
+      outcome:
+        type: string
+        description: >
+          How the run ended. One of: success (journeys were saved), no_memories
+          (no memory was left to process, either because none was eligible or
+          because none still had a linked browsing history page, so no model
+          request was made), no_candidates (generation returned no journeys),
+          or error.
+      error_stage:
+        type: string
+        description: >
+          The step that failed when outcome is error: sources (reading the
+          browsing history pages or chats linked to memories), generation
+          (including every batch being skipped), save (including every
+          generated journey being rejected), or other (anything else in the
+          run, such as reading stored journeys). Absent otherwise.
+      error_type:
+        type: string
+        description: >
+          The kind of failure when outcome is error. One of: rate_limited (the model
+          service returned HTTP 429), transient (a retryable failure such as a
+          timeout, a network error, or an HTTP 5xx), server_rejected (the model
+          service returned an HTTP status that retrying will not fix, such as
+          400 or 401), or firefox_internal (an exception in Firefox that did
+          not come from the model service). Absent otherwise.
+
+  memories_maintenance_run:
+    type: event
+    description: |
+      Recorded once per memories scheduler check that runs memories
+      maintenance. Not recorded when the check is skipped by the
+      maintenance interval or a back-off. Maintenance runs whether or not
+      memories are generated in the same check, and memory generation and
+      journey maintenance are not included. The event summarizes the
+      maintenance run: permanently deleting memories the user deleted
+      via natural language command, ageing the usage counts of the remaining
+      memories at most once a day, updating their strength and type from those
+      counts, and deleting memories whose strength has decayed too far.
+      Only counts are recorded, never memory content.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2092619
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D342699
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - cdipersio@mozilla.com
+      - firefox-ai-and-ml@mozilla.com
+    expires: 175
+    extra_keys:
+      memories_before:
+        type: quantity
+        unit: count
+        description: >
+          Number of stored memories when maintenance started, including
+          memories the user deleted via natural language command. Absent
+          when counting them failed.
+      soft_deleted_removed:
+        type: quantity
+        unit: memories
+        description: >
+          Number of stored memories permanently deleted because the user had
+          deleted them via natural language command. Absent when the run
+          failed before deleting finished.
+      memories_skipped:
+        type: quantity
+        unit: memories
+        description: >
+          Number of remaining stored memories not aged because they were aged
+          less than a day ago. When the run stopped early on an error, only
+          the memories reached are counted. Absent when the run failed before
+          ageing.
+      memories_aged:
+        type: quantity
+        unit: memories
+        description: >
+          Number of remaining stored memories whose usage counts were aged and
+          whose strength and type were updated, including those then deleted
+          by decay. When the run stopped early on an error, only the memories
+          reached are counted. Absent when the run failed before ageing.
+      promoted_to_long_term:
+        type: quantity
+        unit: memories
+        description: >
+          Number of aged memories whose type changed from short term to long
+          term. Memories deleted by decay in the same run are not counted.
+          Absent when the run failed before ageing finished.
+      promoted_to_durable:
+        type: quantity
+        unit: memories
+        description: >
+          Number of aged memories whose type changed from short term or long
+          term to durable. Memories deleted by decay in the same run are not
+          counted. Absent when the run failed before ageing finished.
+      demoted_to_long_term:
+        type: quantity
+        unit: memories
+        description: >
+          Number of aged memories whose type changed from durable to long term.
+          Memories deleted by decay in the same run are not counted. Absent
+          when the run failed before ageing finished.
+      demoted_to_short_term:
+        type: quantity
+        unit: memories
+        description: >
+          Number of aged memories whose type changed from durable or long term
+          to short term. Memories deleted by decay in the same run are not
+          counted. Absent when the run failed before ageing finished.
+      memories_decayed:
+        type: quantity
+        unit: memories
+        description: >
+          Number of aged memories permanently deleted because their strength
+          decayed below the retention threshold. Absent when the run failed
+          before ageing finished.
+      memories_after:
+        type: quantity
+        unit: count
+        description: >
+          Number of stored memories when the run ended, counted the same way
+          as memories_before. Recorded on errors too. Absent when counting
+          them failed.
+      outcome:
+        type: string
+        description: >
+          How the run ended. One of: success (maintenance finished) or error.
+          On an error, the absent counts show the step that failed:
+          memories_before when reading memories, soft_deleted_removed when
+          permanently deleting memories the user deleted, and the type change
+          counts and memories_decayed when ageing.
+      error_type:
+        type: string
+        description: >
+          The kind of failure when outcome is error. One of: firefox_internal
+          (an exception in Firefox; maintenance makes no request to the model
+          service). Absent otherwise.
+
+  journeys_maintenance_run:
+    type: event
+    description: |
+      Recorded once per memories scheduler check that runs journey
+      maintenance, right after the memories maintenance recorded by
+      memories_maintenance_run. Not recorded when the check is skipped by the
+      maintenance interval or a back-off, or when the app locale does not
+      support journeys and the run succeeds. The event summarizes the
+      maintenance run: deleting stored journeys whose memory no longer exists
+      or was deleted by the user. Only counts are recorded, never memory or
+      journey content.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2092619
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D342699
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - cdipersio@mozilla.com
+      - firefox-ai-and-ml@mozilla.com
+    expires: 175
+    extra_keys:
+      journeys_before:
+        type: quantity
+        unit: count
+        description: >
+          Number of stored journeys when maintenance started, including
+          dismissed or snoozed journeys. Absent when counting them failed.
+      journeys_removed:
+        type: quantity
+        unit: journeys
+        description: >
+          Number of stored journeys deleted because their memory no longer
+          exists or was deleted by the user. Absent when the run failed before
+          deleting finished.
+      journeys_after:
+        type: quantity
+        unit: count
+        description: >
+          Number of stored journeys when the run ended, counted the same way
+          as journeys_before. Recorded on errors too. Absent when counting
+          them failed.
+      journeys_eligible_after:
+        type: quantity
+        unit: count
+        description: >
+          Number of stored journeys that can be suggested when the run ended:
+          not dismissed or snoozed, and their memory still exists. Recorded
+          on errors too. Absent when counting them failed.
+      outcome:
+        type: string
+        description: >
+          How the run ended. One of: success (maintenance finished) or error.
+          On an error, the absent counts show the step that failed:
+          journeys_before when reading memories or journeys, and
+          journeys_removed when deleting journeys.
+      error_type:
+        type: string
+        description: >
+          The kind of failure when outcome is error. One of: firefox_internal
+          (an exception in Firefox; maintenance makes no request to the model
+          service). Absent otherwise.
 
   onboarding_screen_impression:
     type: event
@@ -1895,10 +2469,12 @@ smart_window:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2037203
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2061465
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2078565
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091776
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2037203
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2061465
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2078565
+      - https://phabricator.services.mozilla.com/D341858
     data_sensitivity:
       - interaction
     notification_emails: *emails
@@ -1913,6 +2489,12 @@ smart_window:
       prompt_type:
         type: string
         description: Type of prompt shown - disambiguation, batch_preview, or safety_confirmation
+      entrypoint: &browser_action_entrypoint
+        type: string
+        description: >
+          Where the prompt came from, one of: browser_action (a chat request
+          handled by the manage_tabs tool) or resume (a resume card, or a
+          "Pick up where you left off" pill when resume cards are disabled)
       reason:
         type: string
         description: Why the prompt was shown - multiple_matches, low_confidence, batch_action, pinned_tab, grouped_tab, active_tab, last_tab, user_action
@@ -1932,9 +2514,11 @@ smart_window:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2037203
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2061465
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091776
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2037203
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2061465
+      - https://phabricator.services.mozilla.com/D341858
     data_sensitivity:
       - interaction
     notification_emails: *emails
@@ -1948,6 +2532,7 @@ smart_window:
         type: string
         description: >
           Type of prompt shown: disambiguation, batch_preview, or safety_confirmation
+      entrypoint: *browser_action_entrypoint
       response:
         type: string
         description: >
@@ -1968,8 +2553,10 @@ smart_window:
       User clicks "Select all" or "Deselect all" on a tab confirmation card.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2072041
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091776
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2072041
+      - https://phabricator.services.mozilla.com/D341858
     data_sensitivity:
       - interaction
     notification_emails: *emails
@@ -1983,11 +2570,7 @@ smart_window:
         type: string
         description: >
           Type of prompt shown: disambiguation, batch_preview, or safety_confirmation
-      entrypoint:
-        type: string
-        description: >
-          Where the card came from: browser_action (a chat request handled by
-          the manage_tabs tool) or resume (a "Pick up where you left off" pill)
+      entrypoint: *browser_action_entrypoint
       toggle:
         type: string
         description: >
@@ -2213,8 +2796,10 @@ smart_window:
       Recorded when the user interacts with a resume card.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2067873
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091776
     data_reviews:
       - https://phabricator.services.mozilla.com/D332941
+      - https://phabricator.services.mozilla.com/D341858
     data_sensitivity:
       - interaction
     notification_emails: *emails
@@ -2232,6 +2817,64 @@ smart_window:
         type: quantity
         description: >
           The position (0-index) of the card acted on.
+      rank: &resume_card_rank
+        type: quantity
+        description: >
+          The card's position (0-index) when the section loaded. Unlike
+          position, it does not shift when other cards are removed.
+      memory_strength: &resume_card_memory_strength
+        type: string
+        description: >
+          The strength of the card's underlying memory when suggested,
+          recorded as a decimal string to preserve fractional values.
+      memory_age: &resume_card_memory_age
+        type: quantity
+        unit: ms
+        description: >
+          Milliseconds since the oldest memory merged into the card's
+          underlying memory was created, or since the underlying memory was
+          created if it was never merged.
+      last_visit_age: &resume_card_last_visit_age
+        type: quantity
+        unit: ms
+        description: >
+          Milliseconds since the most recent visit to any of the card's preview
+          tabs.
+      component_summaries: &resume_card_component_summaries
+        type: quantity
+        unit: count
+        description: >
+          The number of distinct memories, by summary text, merged into the
+          card's underlying memory, including memories from earlier merges.
+
+  resume_card_impression:
+    type: event
+    description: >
+      Recorded once per card per resume-section instance, the first time the
+      card is visible: at load, after "Show more", or when it moves into view
+      after another card is removed. A new section, such as after a restart,
+      records its cards again.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091776
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D341858
+    data_sensitivity:
+      - interaction
+    notification_emails: *emails
+    expires: 175
+    extra_keys:
+      chat_id: *chat_id
+      location: *location
+      message_seq: *message_seq
+      position:
+        type: quantity
+        description: >
+          The position (0-index) of the card when it became visible.
+      rank: *resume_card_rank
+      memory_strength: *resume_card_memory_strength
+      memory_age: *resume_card_memory_age
+      last_visit_age: *resume_card_last_visit_age
+      component_summaries: *resume_card_component_summaries
 
   resume_section_action:
     type: event

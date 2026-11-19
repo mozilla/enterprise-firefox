@@ -1154,6 +1154,15 @@ already_AddRefed<AccAttributes> LocalAccessible::Attributes() {
       // aria-placeholder.
       continue;
     }
+
+    if ((attribIter.AttrName() == nsGkAtoms::aria_roledescription ||
+         attribIter.AttrName() == nsGkAtoms::aria_brailleroledescription) &&
+        IsGeneric()) {
+      // We only expose these attributes in accessibles with non generic roles.
+      // https://www.w3.org/TR/wai-aria-1.2/#aria-roledescription
+      continue;
+    }
+
     attribIter.ExposeAttr(attributes);
   }
 
@@ -1198,16 +1207,6 @@ already_AddRefed<AccAttributes> LocalAccessible::Attributes() {
 
 already_AddRefed<AccAttributes> LocalAccessible::NativeAttributes() {
   auto attributes = MakeRefPtr<AccAttributes>();
-
-  // We support values, so expose the string value as well, via the valuetext
-  // object attribute. We test for the value interface because we don't want
-  // to expose traditional Value() information such as URL's on links and
-  // documents, or text in an input.
-  if (HasNumericValue()) {
-    nsString valuetext;
-    Value(valuetext);
-    attributes->SetAttribute(nsGkAtoms::aria_valuetext, std::move(valuetext));
-  }
 
   // Expose checkable object attribute if the accessible has checkable state
   if (State() & states::CHECKABLE) {
@@ -3683,6 +3682,8 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
       cacheValueText = true;
     } else if (auto* input = dom::HTMLInputElement::FromNodeOrNull(mContent)) {
       cacheValueText = input->IsInputColor();
+    } else if (IsHTMLCombobox()) {
+      cacheValueText = true;
     }
 
     if (cacheValueText) {

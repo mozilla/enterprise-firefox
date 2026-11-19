@@ -34,6 +34,10 @@
         app:popUpToInclusive="false" />
 
     <action
+        android:id="@+id/action_global_tabGroupFlowFragment"
+        app:destination="@id/tabGroupFlowFragment" />
+
+    <action
         android:id="@+id/action_global_onboarding"
         app:destination="@id/onboardingFragment"
         app:popUpTo="@id/startupFragment"
@@ -185,9 +189,6 @@
         android:id="@+id/action_global_tabSettingsFragment"
         app:destination="@id/tabsSettingsFragment" />
     <action
-        android:id="@+id/action_global_menuDialogFragment"
-        app:destination="@id/menu_dialog_graph" />
-    <action
         android:id="@+id/action_global_trustPanelFragment"
         app:destination="@id/trust_panel_graph" />
     <action
@@ -233,6 +234,11 @@
             android:name="accessPoint"
             android:defaultValue="None"
             app:argType="org.mozilla.fenix.tabstray.ui.AccessPoint" />
+        <argument
+            android:name="groupId"
+            android:defaultValue="@null"
+            app:argType="string"
+            app:nullable="true" />
         <action
             android:id="@+id/action_tabManagementFragment_to_global_protections_dashboard"
             app:destination="@id/global_protections_dashboard" />
@@ -381,6 +387,10 @@
         <argument
             android:name="surface"
             app:argType="org.mozilla.fenix.ipprotection.store.Surface"
+            app:nullable="false" />
+        <argument
+            android:name="promptDetails"
+            app:argType="org.mozilla.fenix.ipprotection.store.IPProtectionPromptState$PromptDetails"
             app:nullable="false" />
     </dialog>
 
@@ -1141,7 +1151,7 @@
             app:popExitAnim="@anim/slide_out_right" />
         <action
             android:id="@+id/action_customizationFragment_to_customizeMenuFragment"
-            app:destination="@id/customizeMenuFragment"
+            app:destination="@id/customize_menu_graph"
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
@@ -1802,72 +1812,6 @@
         </dialog>
     </navigation>
 
-    <navigation
-        android:id="@+id/menu_dialog_graph"
-        app:startDestination="@id/menuDialogFragment">
-        <argument
-            android:name="accesspoint"
-            app:argType="org.mozilla.fenix.components.menu.MenuAccessPoint" />
-        <argument
-            android:name="customTabSessionId"
-            android:defaultValue="@null"
-            app:nullable="true"
-            app:argType="string" />
-        <argument
-            android:name="isSandboxCustomTab"
-            android:defaultValue="false"
-            app:argType="boolean" />
-        <dialog
-            android:id="@+id/menuDialogFragment"
-            android:name="org.mozilla.fenix.components.menu.MenuDialogFragment">
-            <argument
-                android:name="accesspoint"
-                app:argType="org.mozilla.fenix.components.menu.MenuAccessPoint" />
-            <argument
-                android:name="customTabSessionId"
-                android:defaultValue="@null"
-                app:nullable="true"
-                app:argType="string" />
-            <argument
-                android:name="isSandboxCustomTab"
-                android:defaultValue="false"
-                app:argType="boolean" />
-            <action
-               android:id="@+id/action_menuDialogFragment_to_storiesFragment"
-                app:destination="@id/storiesFragment"
-                app:popUpTo="@id/storiesFragment"
-                app:popUpToInclusive="false"
-                app:launchSingleTop="true" />
-            <action
-                android:id="@+id/action_menuDialogFragment_to_translationsDialogFragment"
-                app:destination="@id/translationsDialogFragment" />
-            <action
-                android:id="@+id/action_menuDialogFragment_to_summarizationFragment"
-                app:destination="@id/summarizationFragment" />
-            <action
-                android:id="@+id/action_menuDialogFragment_to_createShortcutFragment"
-                app:destination="@id/createShortcutFragment" />
-            <action
-                android:id="@+id/action_menuDialogFragmen_to_addonDetailsFragment"
-                app:destination="@id/addonDetailsFragment" />
-            <action
-                android:id="@+id/action_menuDialogFragment_to_loginsListFragment"
-                app:destination="@id/savedLogins" />
-            <action
-                android:id="@+id/action_menuDialogFragment_to_webCompatReporterFragment"
-                app:destination="@id/webCompatReporterFragment" />
-            <action
-                android:id="@+id/action_menuDialogFragment_to_installedAddonDetailsFragment"
-                app:destination="@id/installedAddonDetailsFragment" />
-            <action
-                android:id="@+id/action_menuDialogFragment_to_ipProtectionFragment"
-                app:destination="@id/ipProtectionFragment" />
-            <action
-                android:id="@+id/action_menuDialogFragment_to_tabGroupFlowFragment"
-                app:destination="@id/tabGroupFlowFragment" />
-        </dialog>
-    </navigation>
-
   <navigation
     android:id="@+id/menu_graph"
     app:startDestination="@id/menuFragment">
@@ -1921,6 +1865,10 @@
         app:destination="@id/savedLogins" />
 
       <action
+        android:id ="@+id/action_menuFragment_to_tabGroupFlowFragment"
+        app:destination="@id/tabGroupFlowFragment"/>
+
+      <action
         android:id="@+id/action_menuFragment_to_storiesFragment"
         app:destination="@id/storiesFragment"
         app:popUpTo="@id/storiesFragment"
@@ -1929,14 +1877,30 @@
 
       <action
         android:id="@+id/action_menuFragment_to_customizeMenuFragment"
-        app:destination="@id/customizeMenuFragment" />
+        app:destination="@id/customize_menu_graph" />
     </dialog>
   </navigation>
 
-    <fragment
-      android:id="@+id/customizeMenuFragment"
-      android:name="org.mozilla.fenix.components.menu.compose.customize.CustomizeMenuFragment"
-      android:label="@string/customize_menu" />
+    <navigation
+        android:id="@+id/customize_menu_graph"
+        app:startDestination="@id/customizeMenuFragment">
+
+        <fragment
+            android:id="@+id/customizeMenuFragment"
+            android:name="org.mozilla.fenix.components.menu.compose.customize.CustomizeMenuFragment"
+            android:label="@string/customize_menu">
+            <action
+                android:id="@+id/action_customizeMenuFragment_to_menuFragment"
+                app:destination="@id/menu_graph" />
+            <action
+                android:id="@+id/action_customizeMenuFragment_to_resetToDefaultDialogFragment"
+                app:destination="@id/resetToDefaultDialogFragment" />
+        </fragment>
+
+        <dialog
+            android:id="@+id/resetToDefaultDialogFragment"
+            android:name="org.mozilla.fenix.components.menu.compose.customize.ResetToDefaultDialogFragment" />
+    </navigation>
 
     <navigation
         android:id="@+id/trust_panel_graph"

@@ -13,6 +13,42 @@ exclude: true
 
 ⚠️  breaking change and deprecation notices
 
+## v162
+- [`setKeepActive`][162.1] now returns whether a `GeckoView` skipped deactivating the session while it was kept active. ([bug 2075323]({{bugzilla}}2075323))
+- Added experimental [`GeckoRuntimeSettings.Builder.creditCardSecurityCodeEnabled`][162.2],
+    [`GeckoRuntimeSettings.setCreditCardSecurityCodeEnabled`][162.3] and
+    [`GeckoRuntimeSettings.getCreditCardSecurityCodeEnabled`][162.4] to control whether credit card
+    security codes (CVV) are captured from web forms.
+    ([bug 2089899]({{bugzilla}}2089899))
+- Added experimental [`IPProtectionController.AuthProvider#onTokenRejected`][162.5] so embedders can
+    drop an authentication token that was rejected and mint a fresh one for the next request.
+- Added [`SessionPdfFileSaver.save(boolean)`][162.6] to save the current PDF with its annotations,
+    such as signatures, drawn into the page content. Form fields are flattened too, so they can no
+    longer be filled in. ([bug 2075337]({{bugzilla}}2075337))
+
+[162.1]: {{javadoc_uri}}/PictureInPictureController.SessionPictureInPicture.html#setKeepActive(boolean)
+[162.2]: {{javadoc_uri}}/GeckoRuntimeSettings.Builder.html#creditCardSecurityCodeEnabled(boolean)
+[162.3]: {{javadoc_uri}}/GeckoRuntimeSettings.html#setCreditCardSecurityCodeEnabled(boolean)
+[162.4]: {{javadoc_uri}}/GeckoRuntimeSettings.html#getCreditCardSecurityCodeEnabled()
+[162.5]: {{javadoc_uri}}/IPProtectionController.AuthProvider.html#onTokenRejected(java.lang.String)
+[162.6]: {{javadoc_uri}}/SessionPdfFileSaver.html#save(boolean)
+
+## v161
+- Added [`Autocomplete.CreditCard.securityCode`][161.1] and
+    [`Autocomplete.CreditCard.Builder.securityCode`][161.2] so the credit card security code (CVV)
+    can be passed to and from the [`Autocomplete.StorageDelegate`][161.3].
+    ([bug 2085419]({{bugzilla}}2085419))
+- Added [`GeckoRuntimeSettings.Builder.proguardUuid`][161.4] and
+    [`GeckoRuntimeSettings.getProguardUuid`][161.5] to set the UUID of the embedding app's
+    R8/ProGuard mapping file. It is recorded as `meta.proguardUuid` in Gecko profiles.
+    ([bug 2064150]({{bugzilla}}2064150))
+
+[161.1]: {{javadoc_uri}}/Autocomplete.CreditCard.html#securityCode
+[161.2]: {{javadoc_uri}}/Autocomplete.CreditCard.Builder.html#securityCode(java.lang.String)
+[161.3]: {{javadoc_uri}}/Autocomplete.StorageDelegate.html
+[161.4]: {{javadoc_uri}}/GeckoRuntimeSettings.Builder.html#proguardUuid(java.lang.String)
+[161.5]: {{javadoc_uri}}/GeckoRuntimeSettings.html#getProguardUuid()
+
 ## v160
 - The `content-disposition` header of the [`WebResponse`][65.15] passed to
     [`ContentDelegate.onExternalResponse`][160.1] now contains a filename validated with the same
@@ -2108,4 +2144,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport(android.content.Context,android.os.Bundle,java.lang.String)
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: a2a30400e084298e8b1eb6a7570971d3f03979fc
+[api-version]: ff90a3b6c849b34f6068a5fffecda17b62be894f

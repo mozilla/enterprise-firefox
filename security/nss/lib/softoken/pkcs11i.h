@@ -567,15 +567,27 @@ struct SFTKItemTemplateStr {
 #define sftkqueue_is_queued(element, id, head, hash_size) \
     (((element)->next) || ((element)->prev) ||            \
      ((head)[sftk_hash(id, hash_size)] == (element)))
-#define sftkqueue_delete(element, id, head, hash_size)        \
-    if ((element)->next)                                      \
-        (element)->next->prev = (element)->prev;              \
-    if ((element)->prev)                                      \
-        (element)->prev->next = (element)->next;              \
-    else                                                      \
-        (head)[sftk_hash(id, hash_size)] = ((element)->next); \
-    (element)->next = NULL;                                   \
-    (element)->prev = NULL;
+#define sftkqueue_check_links(element, bucket_head)                 \
+    do {                                                            \
+        PORT_ReleaseAssert(!(element)->next ||                      \
+                           (element)->next->prev == (element));     \
+        PORT_ReleaseAssert((element)->prev                          \
+                               ? (element)->prev->next == (element) \
+                               : (bucket_head) == (element));       \
+    } while (0)
+#define sftkqueue_delete(element, id, head, hash_size)       \
+    do {                                                     \
+        PRUint32 sftkq_index = sftk_hash(id, hash_size);     \
+        sftkqueue_check_links(element, (head)[sftkq_index]); \
+        if ((element)->next)                                 \
+            (element)->next->prev = (element)->prev;         \
+        if ((element)->prev)                                 \
+            (element)->prev->next = (element)->next;         \
+        else                                                 \
+            (head)[sftkq_index] = ((element)->next);         \
+        (element)->next = NULL;                              \
+        (element)->prev = NULL;                              \
+    } while (0)
 
 #define sftkqueue_init_element(element) \
     (element)->prev = NULL;
@@ -597,13 +609,16 @@ struct SFTKItemTemplateStr {
         }                                         \
     }
 
-#define sftkqueue_delete2(element, id, index, head) \
-    if ((element)->next)                            \
-        (element)->next->prev = (element)->prev;    \
-    if ((element)->prev)                            \
-        (element)->prev->next = (element)->next;    \
-    else                                            \
-        (head)[index] = ((element)->next);
+#define sftkqueue_delete2(element, id, index, head)    \
+    do {                                               \
+        sftkqueue_check_links(element, (head)[index]); \
+        if ((element)->next)                           \
+            (element)->next->prev = (element)->prev;   \
+        if ((element)->prev)                           \
+            (element)->prev->next = (element)->next;   \
+        else                                           \
+            (head)[index] = ((element)->next);         \
+    } while (0)
 
 #define sftkqueue_clear_deleted_element(element) \
     (element)->next = NULL;                      \
@@ -783,6 +798,7 @@ extern CK_RV sftk_ConstrainAttribute(SFTKObject *object,
                                      CK_ATTRIBUTE_TYPE type, int minLength,
                                      int maxLength, int minMultiple);
 extern PRBool sftk_hasAttribute(SFTKObject *object, CK_ATTRIBUTE_TYPE type);
+extern SECOidTag sftk_quickGetECCCurveOid(SFTKObject *source);
 extern PRBool sftk_isTrue(SFTKObject *object, CK_ATTRIBUTE_TYPE type);
 extern void sftk_DeleteAttributeType(SFTKObject *object,
                                      CK_ATTRIBUTE_TYPE type);

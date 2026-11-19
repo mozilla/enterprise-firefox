@@ -97,17 +97,9 @@ after pulling firefox-main or switching branches). watchman can rebuild the
 taskgraph cache in the background so `mach try` stays fast. Since watchman is
 already watching this checkout, enable it with:
 
-    watchman -j < {watchman_json}
-{powershell}
+    {command}
+
 See https://firefox-source-docs.mozilla.org/tools/try/tasks.html for details.
-"""
-
-WATCHMAN_HINT_POWERSHELL = """\
-
-PowerShell on Windows does not support the `<` redirection operator. Run it
-through cmd instead:
-
-    cmd /d /c "watchman -j < {watchman_json}"
 """
 
 
@@ -142,11 +134,13 @@ def suggest_watchman_setup():
     if proc.returncode != 0 or WATCHMAN_TRIGGER_NAME in proc.stdout:
         return
 
-    watchman_json = mozpath.normsep(os.path.join(here, "watchman.json"))
-    powershell = ""
-    if sys.platform == "win32":
-        powershell = WATCHMAN_HINT_POWERSHELL.format(watchman_json=watchman_json)
-    print(WATCHMAN_HINT.format(watchman_json=watchman_json, powershell=powershell))
+    watchman_json = os.path.join(here, "watchman.json")
+    # cmd and PowerShell do not set SHELL.
+    if sys.platform == "win32" and "SHELL" not in os.environ:
+        command = f'more "{watchman_json}" | watchman -j'
+    else:
+        command = f'watchman -j < "{mozpath.normsep(watchman_json)}"'
+    print(WATCHMAN_HINT.format(command=command))
 
 
 def write_profile(monitor):
@@ -391,3 +385,17 @@ def resolve_tests_by_suite(paths):
             remaining_paths_by_suite[key].remove(found_path)
 
     return suite_to_tests
+
+
+def unverifiable_test_paths(paths):
+    """Return the paths without a test manifest in them or in one of their
+    direct subdirectories."""
+    resolver = TestResolver.from_environment(cwd=here, loader_cls=TestManifestLoader)
+    _, tests = resolver.resolve_metadata(paths)
+    manifest_dirs = {
+        mozpath.dirname(mozpath.normpath(t["manifest_relpath"]))
+        for t in tests
+        if "manifest_relpath" in t
+    }
+    accepted = manifest_dirs | {mozpath.dirname(d) for d in manifest_dirs}
+    return sorted(p for p in paths if mozpath.normpath(p) not in accepted)

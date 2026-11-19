@@ -19,7 +19,7 @@ use crate::internal_types::{FastHashMap, FrameAllocator, FrameMemory, FrameVec, 
 use crate::prim_store::PrimitiveKind;
 use crate::prim_store::PrimitiveInstance;
 use crate::prim_store::{ClipMaskKind, ClipTaskIndex};
-use crate::path_tiler::PathTileInstance;
+use crate::path_tiler::{PathInfo, PathPrimInfo, PathPrimitive, PathTiler, PathTilerOutput, PathTransform};
 use crate::quad;
 use crate::render_target::RenderTargetContext;
 use crate::render_task_graph::{RenderTaskId, RenderTaskGraph};
@@ -46,6 +46,8 @@ pub enum BatchKind {
     SplitComposite,
     TextRun(GlyphFormat),
     Quad(PatternKind),
+    /// Path tiles filled with a solid color by `ps_path_tile`.
+    Path,
 }
 
 /// Input textures for a primitive, without consideration of clip mask
@@ -422,6 +424,18 @@ impl AlphaBatchList {
 
         batch
     }
+
+    /// Remove the current batch if it is empty, which happens when it was
+    /// created by `set_params_and_get_batch` and nothing was pushed into it.
+    fn remove_current_batch_if_empty(&mut self) {
+        if self.current_batch_index == self.batches.len() - 1
+            && self.batches[self.current_batch_index].instances.is_empty() {
+            self.batches.pop();
+            self.batch_rects.pop();
+            self.current_batch_index = usize::MAX;
+            self.current_z_id = ZBufferId::invalid();
+        }
+    }
 }
 
 pub struct OpaqueBatchList {
@@ -500,6 +514,16 @@ impl OpaqueBatchList {
         batch.key.textures.merge(&key.textures);
 
         batch
+    }
+
+    /// Remove the current batch if it is empty, which happens when it was
+    /// created by `set_params_and_get_batch` and nothing was pushed into it.
+    fn remove_current_batch_if_empty(&mut self) {
+        if self.current_batch_index == self.batches.len() - 1
+            && self.batches[self.current_batch_index].instances.is_empty() {
+            self.batches.pop();
+            self.current_batch_index = usize::MAX;
+        }
     }
 
     fn finalize(&mut self) {
@@ -748,13 +772,26 @@ pub struct BatchBuilder {
     glyph_fetch_buffer: Vec<GlyphFetchResult>,
 
     batcher: AlphaBatchBuilder,
+
+    /// The part of the target's render task that can be visible, in
+    /// task-local device pixels. Must be inside the task's bounds.
+    task_visible_rect: DeviceIntRect,
+    /// The point of the raster space's device pixels that maps to the origin
+    /// of the target's render task.
+    task_content_origin: DevicePoint,
 }
 
 impl BatchBuilder {
-    pub fn new(batcher: AlphaBatchBuilder) -> Self {
+    pub fn new(
+        batcher: AlphaBatchBuilder,
+        task_visible_rect: DeviceIntRect,
+        task_content_origin: DevicePoint,
+    ) -> Self {
         BatchBuilder {
             glyph_fetch_buffer: Vec::new(),
             batcher,
+            task_visible_rect,
+            task_content_origin,
         }
     }
 
@@ -787,6 +824,88 @@ impl BatchBuilder {
         );
     }
 
+    fn add_path_to_batch(
+        &mut self,
+        prim: &PathPrimitive,
+        device_rect: &DeviceRect,
+        z_generator: &mut ZBufferIdGenerator,
+        gpu_buffer_builder: &mut GpuBufferBuilder,
+        path_tiler: &mut PathTiler,
+    ) {
+        // Tiling is done in a coordinate space relative to the origin
+        // of the render task, hence the translation by -content_origin.
+        let content_origin = self.task_content_origin;
+
+        let scissor = prim.scissor
+            .to_f32()
+            .translate(-content_origin.to_vector())
+            .round()
+            .to_i32()
+            .intersection_unchecked(&self.task_visible_rect);
+        if scissor.is_empty() {
+            return;
+        }
+
+        let transform = PathTransform::new(
+            &prim.transform.then_translate(euclid::vec3(-content_origin.x, -content_origin.y, 0.0))
+        );
+
+        let z_id = z_generator.next();
+        let path_address = PathPrimInfo {
+            path: PathInfo {
+                render_task_address: self.batcher.render_task_address.0 as u32,
+                fill_rule: prim.fill_rule,
+                inverted: false,
+                opacity: 1.0,
+            },
+            z_id: z_id.0,
+            color: prim.color,
+            scissor,
+        }.write_gpu_blocks(&mut gpu_buffer_builder.i32);
+
+        let is_opaque = prim.color.a >= 1.0 && prim.blend_mode == BlendMode::PremultipliedAlpha;
+        let bounding_rect = device_rect.intersection_unchecked(
+            &scissor.to_f32().translate(content_origin.to_vector())
+        );
+
+        // Whether each batch receives tiles is only known after tiling, so the
+        // batches are selected first and removed afterwards if they are empty.
+        let alpha_batch = self.batcher.alpha_batch_list.set_params_and_get_batch(
+            BatchKey::new(BatchKind::Path, prim.blend_mode, BatchTextures::empty()),
+            BatchFeatures::empty(),
+            &bounding_rect,
+            z_id,
+        );
+        let opaque_batch = if is_opaque {
+            Some(&mut self.batcher.opaque_batch_list.set_params_and_get_batch(
+                BatchKey::new(BatchKind::Path, BlendMode::None, BatchTextures::empty()),
+                BatchFeatures::empty(),
+                &bounding_rect,
+            ).instances)
+        } else {
+            None
+        };
+
+        path_tiler.set_scissor_rect(scissor);
+        path_tiler.fill_path(
+            &prim.path,
+            &transform,
+            prim.fill_rule,
+            false,
+            path_address.as_u32(),
+            &mut PathTilerOutput {
+                edges: &mut gpu_buffer_builder.edges,
+                tiles: &mut alpha_batch.instances,
+                solid_tiles: opaque_batch,
+            },
+        );
+
+        self.batcher.alpha_batch_list.remove_current_batch_if_empty();
+        if is_opaque {
+            self.batcher.opaque_batch_list.remove_current_batch_if_empty();
+        }
+    }
+
     /// Clear all current batchers. This is typically used when a primitive
     /// is encountered that occludes all previous content in this batch list.
     fn clear_batches(&mut self) {
@@ -811,9 +930,20 @@ impl BatchBuilder {
         z_generator: &mut ZBufferIdGenerator,
         prim_instances: &[PrimitiveInstance],
         gpu_buffer_builder: &mut GpuBufferBuilder,
+        path_tiler: &mut PathTiler,
         segments: &[QuadSegment],
     ) {
         let (draw_index, bounding_rect) = match cmd {
+            PrimitiveCommand::Path { path_index, device_rect } => {
+                self.add_path_to_batch(
+                    &ctx.scratch.frame.path_prims[*path_index as usize],
+                    device_rect,
+                    z_generator,
+                    gpu_buffer_builder,
+                    path_tiler,
+                );
+                return;
+            }
             PrimitiveCommand::Simple { draw_index, device_rect } => {
                 (draw_index, device_rect)
             }
@@ -1288,7 +1418,8 @@ pub struct ClipMaskInstanceList {
 
     /// Drawn with the premultiplied dest-out blend mode. Positioned relative
     /// to their render task by the shader, so they never need a scissor rect.
-    pub path_tiles: FrameVec<PathTileInstance>,
+    /// Encoded `PathTileInstance`s.
+    pub path_tiles: FrameVec<PrimitiveInstanceData>,
 }
 
 impl ClipMaskInstanceList {

@@ -291,6 +291,11 @@ class nsCocoaWindow final : public nsIWidget {
   nsresult SynthesizeNativeTouchpadDoubleTap(LayoutDeviceIntPoint aPoint,
                                              uint32_t aModifierFlags) override;
 
+  nsresult SynthesizeNativeTouchpadPan(
+      TouchpadGesturePhase aEventPhase, LayoutDeviceIntPoint aPoint,
+      double aDeltaX, double aDeltaY, int32_t aModifierFlags,
+      nsISynthesizedEventCallback* aCallback) override;
+
   static bool DoHasPendingInputEvent();
   static uint32_t GetCurrentInputEventCount();
   static void UpdateCurrentInputEventCount();
@@ -469,6 +474,7 @@ class nsCocoaWindow final : public nsIWidget {
   void SetColorScheme(const mozilla::Maybe<mozilla::ColorScheme>&) override;
   bool GetSupportsNativeFullscreen();
   void SetSupportsNativeFullscreen(bool aShow) override;
+  void SetPreventAppSwitching(bool aShouldPreventAppSwitching) override;
   void SetWindowAnimationType(WindowAnimationType aType) override;
   void SetHideTitlebarSeparator(bool) override;
   bool IsMacTitlebarDirectionRTL() override;
@@ -685,6 +691,11 @@ class nsCocoaWindow final : public nsIWidget {
   bool mInResize = false;           // true if in a call to DoResize().
   bool mWindowTransformIsIdentity = true;
   bool mAlwaysOnTop = false;
+  // Whether hiding the OS chrome for this window should also keep the user
+  // from switching to another application. Set from the window's attributes
+  // before it can go fullscreen, so a hide and its matching unhide always
+  // agree.
+  bool mShouldPreventAppSwitching = false;
   bool mAspectRatioLocked = false;
   bool mIsAlert = false;  // True if this is an non-native alert window.
   // True if this window should not auto-enter native fullscreen on its initial

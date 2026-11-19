@@ -20,12 +20,14 @@ use selectors::parser::PseudoElement as PseudoElementTrait;
 use selectors::{Element, OpaqueElement};
 use servo_arc::{Arc, ArcBorrow};
 use smallvec::SmallVec;
+use std::cell::UnsafeCell;
 use std::collections::{BTreeSet, HashSet};
 use std::fmt::Write;
 use std::iter;
 use std::os::raw::c_void;
 use std::ptr;
 use std::sync::LazyLock;
+use std::sync::atomic::Ordering;
 use style::color::mix::ColorInterpolationMethod;
 use style::color::{AbsoluteColor, ColorComponents, ColorSpace};
 use style::computed_value_flags::ComputedValueFlags;
@@ -229,6 +231,7 @@ pub unsafe extern "C" fn Servo_Initialize(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn Servo_Shutdown() {
+    drop_deferred_data();
     unsafe {
         DUMMY_URL_DATA = ptr::null_mut();
         DUMMY_CHROME_URL_DATA = ptr::null_mut();
@@ -355,9 +358,6 @@ pub extern "C" fn Servo_TraverseSubtree(
         }
     }
 
-    let needs_animation_only_restyle =
-        element.has_animation_only_dirty_descendants() || element.has_animation_restyle_hints();
-
     let per_doc_data = raw_data.borrow();
     debug_assert!(!per_doc_data.stylist.stylesheets_have_changed());
 
@@ -365,21 +365,6 @@ pub extern "C" fn Servo_TraverseSubtree(
     let guard = global_style_data.shared_lock.read();
 
     let was_initial_style = !element.has_data();
-
-    if needs_animation_only_restyle {
-        debug!(
-            "Servo_TraverseSubtree doing animation-only restyle (aodd={})",
-            element.has_animation_only_dirty_descendants()
-        );
-        traverse_subtree(
-            element,
-            &global_style_data,
-            &per_doc_data,
-            &guard,
-            traversal_flags | TraversalFlags::AnimationOnly,
-            unsafe { &*snapshots },
-        );
-    }
 
     traverse_subtree(
         element,
@@ -391,9 +376,8 @@ pub extern "C" fn Servo_TraverseSubtree(
     );
 
     debug!(
-        "Servo_TraverseSubtree complete (dd={}, aodd={}, lfcd={}, lfc={}, data={:?})",
+        "Servo_TraverseSubtree complete (dd={}, lfcd={}, lfc={}, data={:?})",
         element.has_dirty_descendants(),
-        element.has_animation_only_dirty_descendants(),
         element.descendants_need_frames(),
         element.needs_frame(),
         element.borrow_data().unwrap()
@@ -412,8 +396,11 @@ pub extern "C" fn Servo_TraverseSubtree(
 /// if so, frees them.
 #[unsafe(no_mangle)]
 pub extern "C" fn Servo_MaybeGCRuleTree(raw_data: &PerDocumentStyleData) {
+    debug_assert!(is_main_thread());
     let per_doc_data = raw_data.borrow_mut();
-    per_doc_data.stylist.rule_tree().maybe_gc();
+    unsafe {
+        per_doc_data.stylist.rule_tree().root().maybe_gc();
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -1134,10 +1121,10 @@ pub extern "C" fn Servo_StyleSet_GetBaseComputedValuesForElement(
     };
 
     let doc_data = raw_style_set.borrow();
-    let without_animations_rules = doc_data.stylist.rule_tree().remove_animation_rules(rules);
-    if without_animations_rules == *rules {
+    let Some(without_animations_rules) = doc_data.stylist.rule_tree().remove_animation_rules(rules)
+    else {
         return computed_values.clone_arc().into();
-    }
+    };
 
     let element = GeckoElement(element);
 
@@ -1178,12 +1165,6 @@ fn is_transitionable(prop: PropertyDeclarationId, behavior: computed::Transition
     if !prop.is_animatable() {
         return false;
     }
-    // TODO(bug 1885995): Return `false` in is_discrete_animatable for interpolatable custom
-    // property types.
-    if matches!(prop, PropertyDeclarationId::Custom(..)) {
-        return true;
-    }
-
     match behavior {
         computed::TransitionBehavior::Normal => !prop.is_discrete_animatable(),
         // If transition-behavior is allow-discrete, transitionable is the same as animatable.
@@ -1478,9 +1459,65 @@ pub extern "C" fn Servo_Property_IsDiscreteAnimatable(property: NonCustomCSSProp
     }
 }
 
+static mut DEFERRED_ELEMENT_DATA: UnsafeCell<Vec<Box<data::ElementDataWrapper>>> =
+    UnsafeCell::new(Vec::new());
+
+/// Upper bound on the amount of element data waiting to be dropped. Past it,
+/// element data is dropped synchronously.
+const MAX_DEFERRED_ELEMENT_DATA: usize = 20000;
+
+#[inline]
+fn schedule_deferred_data_drop() -> bool {
+    unsafe {
+        bindings::Gecko_ScheduleIdle(Some(drop_deferred_data), 1000 /* ms */)
+    }
+}
+
+/// Clears the element's style data, potentially deferred until drop_deferred_data() runs.
 #[unsafe(no_mangle)]
 pub extern "C" fn Servo_Element_ClearData(element: &RawGeckoElement) {
-    unsafe { GeckoElement(element).clear_data() };
+    debug_assert!(is_main_thread());
+    let Some(data) = (unsafe { GeckoElement(element).take_data() }) else {
+        return;
+    };
+
+    // As narrow of a static borrow as a it can get.
+    // Ideally we'd use something like [1] but that's not stable yet.
+    //
+    // [1]: https://doc.rust-lang.org/edition-guide/rust-2024/static-mut-references.html#unsafecell-with-sync
+    #[allow(static_mut_refs)]
+    {
+        let deferred = unsafe { DEFERRED_ELEMENT_DATA.get_mut() };
+        if deferred.is_empty() && !schedule_deferred_data_drop() {
+            return;
+        }
+        if deferred.len() < MAX_DEFERRED_ELEMENT_DATA {
+            deferred.push(data);
+            return;
+        }
+    }
+
+    drop_deferred_data();
+}
+
+/// Drops the element data detached by Servo_Element_ClearData.
+extern "C" fn drop_deferred_data() {
+    debug_assert!(is_main_thread());
+    // Similarly, as narrow of a borrow as it can get.
+    #[allow(static_mut_refs)]
+    let old = unsafe { std::mem::take(DEFERRED_ELEMENT_DATA.get_mut()) };
+
+    let mut roots_to_gc = HashSet::new();
+    for data in old {
+        let root = data.borrow().styles.primary().rules().root();
+        roots_to_gc.insert(root);
+        drop(data);
+    }
+    for root in roots_to_gc {
+        unsafe {
+            root.maybe_gc();
+        }
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -2673,7 +2710,6 @@ pub extern "C" fn Servo_NestedDeclarationsRule_SetStyle(
 pub extern "C" fn Servo_DeclarationBlock_IsImmutable(
     declarations: &LockedDeclarationBlock,
 ) -> bool {
-    use std::sync::atomic::Ordering;
     // SAFETY: See StyleSource::mark_in_rule_tree. This boolean is conceptually not part of the
     // locked data, and it's a relaxed atomic, so it's sound to read.
     unsafe {
@@ -4856,9 +4892,7 @@ pub unsafe extern "C" fn Servo_ComputedValues_Inherit(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn Servo_ComputedValues_NeedsAnimationTraversal(
-    values: &ComputedValues,
-) -> bool {
+pub extern "C" fn Servo_ComputedValues_NeedsAnimationTraversal(values: &ComputedValues) -> bool {
     let ui = values.get_ui();
     ui.specifies_animations()
         || ui.specifies_transitions()
@@ -7040,6 +7074,7 @@ pub unsafe extern "C" fn Servo_DeclarationBlock_SetBackgroundImage(
     declarations: &LockedDeclarationBlock,
     value: &nsACString,
     raw_extra_data: *mut URLExtraData,
+    initiator: url::UrlInitiator,
 ) {
     use style::properties::PropertyDeclaration;
     use style::properties::longhands::background_image::SpecifiedValue as BackgroundImage;
@@ -7060,7 +7095,8 @@ pub unsafe extern "C" fn Servo_DeclarationBlock_SetBackgroundImage(
         None,
         /* attr_taint */ Default::default(),
     );
-    let url = SpecifiedUrl::new_from_untainted_string(string.into(), &context, CorsMode::None);
+    let url =
+        SpecifiedUrl::new_from_untainted_string(string.into(), &context, CorsMode::None, initiator);
     let decl = PropertyDeclaration::BackgroundImage(BackgroundImage(vec![Image::Url(url)].into()));
     write_locked_arc(declarations, |decls: &mut PropertyDeclarationBlock| {
         decls.push(decl, Importance::Normal);
@@ -7369,22 +7405,22 @@ pub extern "C" fn Servo_ResolveStyleLazily(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn Servo_ReparentStyle(
-    style_to_reparent: &ComputedValues,
+    base_style: &ComputedValues,
     parent_style: &ComputedValues,
     layout_parent_style: &ComputedValues,
     element: Option<&RawGeckoElement>,
     raw_data: &PerDocumentStyleData,
 ) -> Strong<ComputedValues> {
-    use style::properties::FirstLineReparenting;
+    use style::properties::CascadeReparenting;
 
     let global_style_data = &*GLOBAL_STYLE_DATA;
     let guard = global_style_data.shared_lock.read();
     let doc_data = raw_data.borrow();
-    let inputs = CascadeInputs::new_from_style(style_to_reparent);
+    let inputs = CascadeInputs::new_from_style(base_style);
     let element = element.map(GeckoElement);
     // We need the pseudo-type to reparent stuff like anonymous boxes, but we don't store pseudo
     // identifiers in the style itself, so if there's no pseudo try the element as well.
-    let pseudo = style_to_reparent
+    let pseudo = base_style
         .pseudo()
         .or_else(|| element.and_then(|e| e.implemented_pseudo_element()));
 
@@ -7397,7 +7433,7 @@ pub extern "C" fn Servo_ReparentStyle(
             &StylesheetGuards::same(&guard),
             Some(parent_style),
             Some(layout_parent_style),
-            FirstLineReparenting::Yes { style_to_reparent },
+            CascadeReparenting::FirstLine { base_style },
             /* try_tactic = */ &Default::default(),
             /* rule_cache = */ None,
             &mut RuleCacheConditions::default(),
@@ -7792,13 +7828,7 @@ pub extern "C" fn Servo_AssertTreeIsClean(root: &RawGeckoElement) {
     debug!("{:?}", ShowSubtreeData(root.as_node()));
 
     fn assert_subtree_is_clean<'le>(el: GeckoElement<'le>) {
-        debug_assert!(
-            !el.has_dirty_descendants() && !el.has_animation_only_dirty_descendants(),
-            "{:?} has still dirty bit {:?} or animation-only dirty bit {:?}",
-            el,
-            el.has_dirty_descendants(),
-            el.has_animation_only_dirty_descendants()
-        );
+        debug_assert!(!el.has_dirty_descendants(), "{:?} has still dirty bit", el);
         for child in el.traversal_children() {
             if let Some(child) = child.as_element() {
                 assert_subtree_is_clean(child);
@@ -11540,7 +11570,7 @@ fn compute_arbritrary_substitution_functions(
         return None;
     };
 
-    if !parser.seen_arbitrary_substitution_functions() {
+    if !parser.seen_arbitrary_substitution_functions() || !variable_value.has_references() {
         return None;
     }
 
@@ -11565,6 +11595,7 @@ fn compute_arbritrary_substitution_functions(
                 stylist,
                 context,
                 &mut attribute_tracker,
+                parser_context.url_data,
             );
             let arg = attr.replace_arg(&variable_value, &mut replacement_context);
             let arg = arg.value.filter(|arg| arg.has_type())?;
@@ -11691,10 +11722,13 @@ pub unsafe extern "C" fn Servo_GetComputationStepsSupportedCSSFunctions(
     out: &mut nsTArray<nsCString>,
 ) {
     use style::properties::ARBITRARY_SUBSTITUTION_FUNCTIONS;
+    use style::substitution::SubstitutionFunctionKind;
     use style::values::specified::calc::MathFunction;
 
     for func in ARBITRARY_SUBSTITUTION_FUNCTIONS {
-        out.push(nsCString::from(*func));
+        if SubstitutionFunctionKind::from_ident(func).is_ok() {
+            out.push(nsCString::from(*func));
+        }
     }
     for func in MathFunction::variants() {
         out.push(nsCString::from(func.as_ref()));
@@ -11719,7 +11753,7 @@ pub unsafe extern "C" fn Servo_GetComputationSteps(
 
     let property = unsafe { property.as_str_unchecked() };
     let string = unsafe { string.as_str_unchecked() };
-    let parser_context = dummy_author_style_rule_context();
+    let mut parser_context = dummy_author_style_rule_context();
     let property_id = PropertyId::parse(&property, &parser_context).ok();
     let mut substituted = None;
     let element = GeckoElement(raw_element);

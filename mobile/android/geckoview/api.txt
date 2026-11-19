@@ -264,6 +264,7 @@ package org.mozilla.geckoview {
     field @Nullable public final String guid;
     field @NonNull public final String name;
     field @NonNull public final String number;
+    field @NonNull public final String securityCode;
   }
 
   public static class Autocomplete.CreditCard.Builder {
@@ -274,6 +275,7 @@ package org.mozilla.geckoview {
     method @AnyThread @NonNull public Autocomplete.CreditCard.Builder guid(@Nullable String);
     method @AnyThread @NonNull public Autocomplete.CreditCard.Builder name(@Nullable String);
     method @AnyThread @NonNull public Autocomplete.CreditCard.Builder number(@Nullable String);
+    method @AnyThread @NonNull public Autocomplete.CreditCard.Builder securityCode(@Nullable String);
   }
 
   public static class Autocomplete.CreditCardSaveOption extends Autocomplete.SaveOption<Autocomplete.CreditCard> {
@@ -1073,6 +1075,7 @@ package org.mozilla.geckoview {
     method public boolean getCookieBehaviorOptInPartitioning();
     method public boolean getCookieBehaviorOptInPartitioningPBM();
     method @Nullable public Class<? extends android.app.Service> getCrashHandler();
+    method public @org.mozilla.geckoview.ExperimentalGeckoViewApi boolean getCreditCardSecurityCodeEnabled();
     method @NonNull public String getCrliteChannel();
     method @Nullable public String getDefaultRecursiveResolverUri();
     method @Nullable public Float getDisplayDensityOverride();
@@ -1115,6 +1118,7 @@ package org.mozilla.geckoview {
     method public boolean getPauseForDebuggerEnabled();
     method @NonNull public boolean getPostQuantumKeyExchangeEnabled();
     method public int getPreferredColorScheme();
+    method @Nullable public String getProguardUuid();
     method public boolean getRemoteDebuggingEnabled();
     method @Nullable public GeckoRuntime getRuntime();
     method @NonNull public boolean getSameDocumentNavigationOverridesLoadType();
@@ -1139,6 +1143,7 @@ package org.mozilla.geckoview {
     method @NonNull public GeckoRuntimeSettings setConsoleOutputEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings setCookieBehaviorOptInPartitioning(boolean);
     method @NonNull public GeckoRuntimeSettings setCookieBehaviorOptInPartitioningPBM(boolean);
+    method @NonNull public GeckoRuntimeSettings setCreditCardSecurityCodeEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings setCrliteChannel(@NonNull String);
     method @NonNull public GeckoRuntimeSettings setDefaultRecursiveResolverUri(@NonNull String);
     method @NonNull public GeckoRuntimeSettings setDohAutoselectEnabled(boolean);
@@ -1218,6 +1223,7 @@ package org.mozilla.geckoview {
     method @NonNull public GeckoRuntimeSettings.Builder contentBlocking(@NonNull ContentBlocking.Settings);
     method @NonNull public GeckoRuntimeSettings.Builder crashHandler(@Nullable Class<? extends android.app.Service>);
     method @NonNull public GeckoRuntimeSettings.Builder crashPullNeverShowAgain(boolean);
+    method @NonNull public GeckoRuntimeSettings.Builder creditCardSecurityCodeEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder debugLogging(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder defaultRecursiveResolverUri(@NonNull String);
     method @NonNull public GeckoRuntimeSettings.Builder displayDensityOverride(float);
@@ -1245,6 +1251,7 @@ package org.mozilla.geckoview {
     method @NonNull public GeckoRuntimeSettings.Builder lowMemoryDetection(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder pauseForDebugger(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder preferredColorScheme(int);
+    method @NonNull public GeckoRuntimeSettings.Builder proguardUuid(@Nullable String);
     method @NonNull public GeckoRuntimeSettings.Builder remoteDebuggingEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder screenSizeOverride(int, int);
     method @NonNull public GeckoRuntimeSettings.Builder setLnaBlockTrackers(@NonNull Boolean);
@@ -2301,6 +2308,7 @@ package org.mozilla.geckoview {
   }
 
   public static interface IPProtectionController.AuthProvider {
+    method @NonNull @UiThread default public GeckoResult<Void> onTokenRejected(@NonNull String);
     method @NonNull @UiThread default public GeckoResult<String> onTokenRequest();
   }
 
@@ -2596,7 +2604,7 @@ package org.mozilla.geckoview {
   public static class PictureInPictureController.SessionPictureInPicture {
     method @NonNull @UiThread public GeckoResult<Void> exit();
     method @HandlerThread @NonNull public GeckoResult<Void> request();
-    method @UiThread public void setKeepActive(boolean);
+    method @UiThread public boolean setKeepActive(boolean);
   }
 
   public static interface PictureInPictureController.SessionPictureInPicture.Delegate {
@@ -2666,6 +2674,7 @@ package org.mozilla.geckoview {
   @AnyThread public final class SessionPdfFileSaver {
     method @Nullable public static GeckoResult<WebResponse> createResponse(@NonNull GeckoSession, @NonNull String, @NonNull String, @NonNull String, boolean, boolean);
     method @NonNull public GeckoResult<WebResponse> save();
+    method @NonNull public GeckoResult<WebResponse> save(boolean);
   }
 
   public final class SessionTextInput {

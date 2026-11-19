@@ -107,6 +107,9 @@ class AsyncImagePipelineManager final {
     auto* holder = mPipelineTexturesHolders.Get(wr::AsUint64(aPipelineId));
     return holder && holder->mDestroyedEpoch.isNothing();
   }
+  bool HasPipeline(const wr::PipelineId& aPipelineId) const {
+    return mPipelineTexturesHolders.Contains(wr::AsUint64(aPipelineId));
+  }
   void RemoveAsyncImagePipeline(const wr::PipelineId& aPipelineId,
                                 AsyncImagePipelineOps* aPendingOps,
                                 wr::TransactionBuilder& aTxn);
@@ -118,6 +121,12 @@ class AsyncImagePipelineManager final {
                                 const wr::MixBlendMode& aMixBlendMode);
   void ApplyAsyncImagesOfImageBridge(wr::TransactionBuilder& aSceneBuilderTxn,
                                      wr::TransactionBuilder& aFastTxn);
+
+  // Waits for the remote textures that async image pipelines are waiting on to
+  // become ready, so that they are used by the next composite. Returns true if
+  // any were.
+  bool WaitForPendingRemoteTextures();
+
   void ApplyAsyncImageForPipeline(
       const wr::PipelineId& aPipelineId, wr::TransactionBuilder& aTxn,
       wr::TransactionBuilder& aTxnForImageBridge,

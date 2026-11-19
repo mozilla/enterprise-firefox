@@ -7,10 +7,14 @@
 
 pub mod attr;
 pub mod env;
+pub mod ident;
+pub mod inherit;
+pub mod random_item;
 pub mod var;
 
+use crate::Atom;
 use crate::custom_properties::{
-    ComputedSubstitutionFunctions, ComputedValue, Name, VariableValue, compute_value,
+    ComputedSubstitutionFunctions, ComputedValue, Name, VariableValue, compute_value, parse_name,
 };
 use crate::derives::*;
 use crate::dom::AttributeTracker;
@@ -30,15 +34,18 @@ use servo_arc::Arc;
 use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::num;
-use strum::VariantNames;
+use strum_macros::VariantNames;
 use style_traits::{ParseError, ParsingMode, StyleParseErrorKind};
 
 pub use self::attr::AttrFunction;
 pub use self::env::EnvFunction;
+pub use self::ident::IdentFunction;
+pub use self::inherit::InheritFunction;
+pub use self::random_item::RandomItemFunction;
 pub use self::var::VarFunction;
 
 /// Substitution function name.
-#[derive(Copy, Clone, Debug, MallocSizeOf, Hash, Eq, PartialEq, ToShmem, Parse, VariantNames)]
+#[derive(Copy, Clone, Debug, MallocSizeOf, Hash, Eq, PartialEq, ToShmem, VariantNames)]
 #[strum(serialize_all = "kebab-case")]
 pub enum SubstitutionFunctionKind {
     /// CSS variable / custom property
@@ -47,12 +54,41 @@ pub enum SubstitutionFunctionKind {
     Env,
     /// DOM attribute
     Attr,
+    /// The ident() substitution function
+    Ident,
+    /// The inherit() substitution function
+    Inherit,
+    /// random-item()
+    RandomItem,
+}
+
+impl SubstitutionFunctionKind {
+    /// Parse the substitution function kind from its name.
+    #[inline]
+    pub fn from_ident(ident: &str) -> Result<Self, ()> {
+        Ok(cssparser::match_ignore_ascii_case! {
+            ident,
+            "var" => Self::Var,
+            "env" => Self::Env,
+            "attr" => Self::Attr,
+            "ident" if static_prefs::pref!("layout.css.ident-function.enabled") => {
+                Self::Ident
+            },
+            "inherit" if static_prefs::pref!("layout.css.inherit-function.enabled") => {
+                Self::Inherit
+            },
+            "random-item" if static_prefs::pref!("layout.css.random-item.enabled") => {
+                Self::RandomItem
+            },
+            _ => return Err(()),
+        })
+    }
 }
 
 /// Context for parsing an arbitrary substitution function.
 pub struct SubstitutionParserContext<'a> {
-    /// Original parser context.
-    pub parser_context: &'a ParserContext<'a>,
+    /// Parser context for early substitution, derived from the original parser context.
+    pub early_parser_context: ParserContext<'a>,
     /// The start of the value being parsed. Positions are recorded relative to this.
     pub input_start: SourcePosition,
     /// Closing characters implied by EOF, to be appended to the value's serialization.
@@ -63,7 +99,7 @@ impl<'a> SubstitutionParserContext<'a> {
     /// Creates a parser context for a value starting at `input_start`.
     pub fn new(parser_context: &'a ParserContext<'a>, input_start: SourcePosition) -> Self {
         Self {
-            parser_context,
+            early_parser_context: parser_context.for_early_substitution(),
             input_start,
             missing_closing_characters: String::new(),
         }
@@ -360,15 +396,19 @@ pub enum SubstitutionArgument<T> {
     Invalid,
 }
 
-impl<T: Parse> SubstitutionArgument<T> {
+impl<T> SubstitutionArgument<T> {
     /// Parses the argument as a `<declaration-value>`. If it has no nested substitution
-    /// functions, it is also parsed right away, giving `Parsed` or `Invalid`; otherwise
-    /// it is kept as `Unparsed`, to be parsed at substitution time.
-    pub fn try_parse(
+    /// functions, it is also parsed right away via `parse`, giving `Parsed` or `Invalid`;
+    /// otherwise it is kept as `Unparsed`, to be parsed at substitution time.
+    pub fn try_parse_with<F>(
         input: &mut Parser,
         context: &mut SubstitutionParserContext,
         delimiters: Delimiters,
-    ) -> Result<Self, ParseError> {
+        parse: F,
+    ) -> Result<Self, ParseError>
+    where
+        F: Fn(&ParserContext, &mut Parser) -> Result<T, ParseError>,
+    {
         let (value, css) = ArbitraryDeclarationValue::parse_free_form(
             input, context, delimiters, /* is_non_strict */ false,
         )?;
@@ -376,9 +416,9 @@ impl<T: Parse> SubstitutionArgument<T> {
             return Err(ParseError::custom(StyleParseErrorKind::UnspecifiedError));
         }
         if !value.references.has_references() {
-            let parser_context = context.parser_context;
+            let parser_context = &context.early_parser_context;
             if let Ok(result) =
-                Parser::new(css).parse_entirely(|input| T::parse(parser_context, input))
+                Parser::new(css).parse_entirely(|input| parse(parser_context, input))
             {
                 return Ok(Self::Parsed(result));
             }
@@ -386,16 +426,19 @@ impl<T: Parse> SubstitutionArgument<T> {
         }
         Ok(Self::Unparsed(value))
     }
-}
 
-impl<T: Clone + Parse> SubstitutionArgument<T> {
     /// Returns the argument, first substituting its nested references and
     /// parsing it into `T` via `parse` if it is `Unparsed`.
-    pub fn substitute_and_parse<'a>(
+    pub fn substitute_and_parse_with<'a, F>(
         &'a self,
         source: &'a VariableValue,
         context: &mut SubstitutionReplacementContext<'a, '_, '_, '_>,
-    ) -> ParsedArgument<'a, T> {
+        parse: F,
+    ) -> ParsedArgument<'a, T>
+    where
+        T: Clone,
+        F: Fn(&ParserContext, &mut Parser) -> Result<T, ParseError>,
+    {
         let arg = match self {
             Self::Unparsed(arg) => arg,
             Self::Parsed(value) => {
@@ -417,14 +460,38 @@ impl<T: Clone + Parse> SubstitutionArgument<T> {
                 attr_tainted: false,
             };
         };
-        let parser_context = context.parser_context(&source.url_data);
         ParsedArgument {
-            value: Parser::new(&substitution.css)
-                .parse_entirely(|input| T::parse(&parser_context, input))
-                .ok()
+            value: context
+                .parse_early(&source.url_data, |parser_context| {
+                    Parser::new(&substitution.css)
+                        .parse_entirely(|input| parse(parser_context, input))
+                        .ok()
+                })
                 .map(Cow::Owned),
             attr_tainted: substitution.attr_tainted,
         }
+    }
+}
+
+impl<T: Parse> SubstitutionArgument<T> {
+    /// Like `try_parse_with` using `T::parse`.
+    pub fn try_parse(
+        input: &mut Parser,
+        context: &mut SubstitutionParserContext,
+        delimiters: Delimiters,
+    ) -> Result<Self, ParseError> {
+        Self::try_parse_with(input, context, delimiters, T::parse)
+    }
+}
+
+impl<T: Clone + Parse> SubstitutionArgument<T> {
+    /// Like `substitute_and_parse_with` using `T::parse`.
+    pub fn substitute_and_parse<'a>(
+        &'a self,
+        source: &'a VariableValue,
+        context: &mut SubstitutionReplacementContext<'a, '_, '_, '_>,
+    ) -> ParsedArgument<'a, T> {
+        self.substitute_and_parse_with(source, context, T::parse)
     }
 }
 
@@ -445,6 +512,12 @@ pub enum SubstitutionFunction {
     Env(EnvFunction),
     /// An `attr()` reference.
     Attr(AttrFunction),
+    /// An `ident()` reference.
+    Ident(IdentFunction),
+    /// An `inherit()` reference.
+    Inherit(InheritFunction),
+    /// A `random-item()` reference.
+    RandomItem(RandomItemFunction),
 }
 
 impl SubstitutionFunction {
@@ -459,6 +532,13 @@ impl SubstitutionFunction {
             SubstitutionFunctionKind::Var => Self::Var(VarFunction::parse(input, context)?),
             SubstitutionFunctionKind::Env => Self::Env(EnvFunction::parse(input, context)?),
             SubstitutionFunctionKind::Attr => Self::Attr(AttrFunction::parse(input, context)?),
+            SubstitutionFunctionKind::Ident => Self::Ident(IdentFunction::parse(input, context)?),
+            SubstitutionFunctionKind::Inherit => {
+                Self::Inherit(InheritFunction::parse(input, context)?)
+            },
+            SubstitutionFunctionKind::RandomItem => {
+                Self::RandomItem(RandomItemFunction::parse(input, context)?)
+            },
         })
     }
 
@@ -469,6 +549,7 @@ impl SubstitutionFunction {
             Self::Var(..) => ReferenceFlags::VAR,
             Self::Env(..) => ReferenceFlags::ENV,
             Self::Attr(..) => ReferenceFlags::ATTR,
+            Self::Ident(..) | Self::Inherit(..) | Self::RandomItem(..) => ReferenceFlags::empty(),
         }
     }
 
@@ -481,6 +562,9 @@ impl SubstitutionFunction {
             Self::Var(function) => function.replace(source, context),
             Self::Env(function) => function.replace(source, context),
             Self::Attr(function) => function.replace(source, context),
+            Self::Ident(function) => function.replace(source, context),
+            Self::Inherit(function) => function.replace(source, context),
+            Self::RandomItem(function) => function.replace(source, context),
         }
     }
 
@@ -494,6 +578,9 @@ impl SubstitutionFunction {
             Self::Var(function) => function.for_each_unparsed_value(f),
             Self::Env(function) => function.for_each_unparsed_value(f),
             Self::Attr(function) => function.for_each_unparsed_value(f),
+            Self::Ident(function) => function.for_each_unparsed_value(f),
+            Self::Inherit(function) => function.for_each_unparsed_value(f),
+            Self::RandomItem(function) => function.for_each_unparsed_value(f),
         }
     }
 }
@@ -683,6 +770,16 @@ impl<'a> Substitution<'a> {
         }
     }
 
+    /// Creates a substitution borrowing the CSS of a variable value.
+    pub fn from_borrowed_value(v: &'a VariableValue, attr_tainted: bool) -> Self {
+        Substitution {
+            css: Cow::Borrowed(&v.css),
+            first_token_type: v.first_token_type,
+            last_token_type: v.last_token_type,
+            attr_tainted,
+        }
+    }
+
     /// Computes the substitution against the registration of a custom property.
     pub fn into_value(
         self,
@@ -740,8 +837,6 @@ impl<'a> Substitution<'a> {
 
 /// Context for replacing an arbitrary substitution function with its value.
 pub struct SubstitutionReplacementContext<'a, 'b, 'c, 't> {
-    /// The property the value is being substituted for, if any.
-    pub property_id: Option<PropertyIdRef<'b>>,
     /// The custom properties and attributes to substitute from.
     pub substitution_functions: &'a ComputedSubstitutionFunctions,
     /// The stylist.
@@ -752,6 +847,8 @@ pub struct SubstitutionReplacementContext<'a, 'b, 'c, 't> {
     pub attribute_tracker: &'b mut AttributeTracker<'t>,
     /// The custom properties currently being resolved, for cycle detection.
     pub seen: SmallVec<[Name; 8]>,
+    /// Context for parsing values during substitution.
+    early_parser_context: ParserContext<'a>,
 }
 
 impl<'a, 'b, 'c, 't> SubstitutionReplacementContext<'a, 'b, 'c, 't> {
@@ -762,14 +859,26 @@ impl<'a, 'b, 'c, 't> SubstitutionReplacementContext<'a, 'b, 'c, 't> {
         stylist: &'b Stylist,
         computed_context: &'b computed::Context<'c>,
         attribute_tracker: &'b mut AttributeTracker<'t>,
+        url_data: &'a UrlExtraData,
     ) -> Self {
         Self {
-            property_id,
             substitution_functions,
             stylist,
             computed_context,
             attribute_tracker,
             seen: SmallVec::new(),
+            early_parser_context: ParserContext::new_with_property_id(
+                Origin::Author,
+                url_data,
+                None,
+                ParsingMode::EARLY_SUBSTITUTION,
+                computed_context.quirks_mode,
+                /* namespaces = */ Default::default(),
+                None,
+                None,
+                AttrTaint::default(),
+                property_id,
+            ),
         }
     }
 
@@ -882,20 +991,14 @@ impl<'a, 'b, 'c, 't> SubstitutionReplacementContext<'a, 'b, 'c, 't> {
         Ok(Substitution::from_value(substituted, attr_tainted))
     }
 
-    /// Build the context to use when parsing values during substitution.
-    pub fn parser_context(&self, url_data: &'b UrlExtraData) -> ParserContext<'b> {
-        ParserContext::new_with_property_id(
-            Origin::Author,
-            url_data,
-            None,
-            ParsingMode::DEFAULT,
-            self.computed_context.quirks_mode,
-            /* namespaces = */ Default::default(),
-            None,
-            None,
-            AttrTaint::default(),
-            self.property_id,
-        )
+    /// Calls `cb` with the context to use when parsing values during substitution. The
+    /// count of parsed random() functions carries over between calls.
+    pub fn parse_early<R>(
+        &mut self,
+        url_data: &'a UrlExtraData,
+        cb: impl FnOnce(&mut ParserContext<'a>) -> R,
+    ) -> R {
+        self.early_parser_context.with_url_data(url_data, cb)
     }
 }
 
@@ -925,10 +1028,24 @@ pub fn substitute<'a>(
         stylist,
         computed_context,
         attribute_tracker,
+        &variable_value.url_data,
     )
     .substitute_variable_value(variable_value, Some(&mut attr_taint))?;
     Ok(SubstitutionResult {
         css: v.css,
         attr_taint,
     })
+}
+
+/// A custom property name, without the leading `--`.
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, ToShmem)]
+pub struct CustomPropertyName(pub Name);
+
+impl Parse for CustomPropertyName {
+    fn parse(_: &ParserContext, input: &mut Parser) -> Result<Self, ParseError> {
+        parse_name(input.expect_ident()?.as_ref())
+            .map(Atom::from)
+            .map(CustomPropertyName)
+            .map_err(|_| ParseError::custom(StyleParseErrorKind::UnexpectedIdent))
+    }
 }

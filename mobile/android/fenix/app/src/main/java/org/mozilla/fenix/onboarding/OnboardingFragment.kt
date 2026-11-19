@@ -14,15 +14,20 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import kotlinx.coroutines.launch
 import mozilla.components.browser.state.action.WebExtensionAction
 import mozilla.components.browser.state.state.extension.WebExtensionPromptRequest
 import mozilla.components.concept.engine.webextension.InstallationMethod
+import mozilla.components.service.fxa.FxaService
+import mozilla.components.service.fxa.manager.SCOPE_PROFILE
+import mozilla.components.service.fxa.manager.SCOPE_SYNC
 import mozilla.components.service.nimbus.evalJexlSafe
 import mozilla.components.service.nimbus.messaging.use
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
@@ -60,7 +65,7 @@ class OnboardingFragment : Fragment() {
     private val logger = Logger("OnboardingFragment")
 
     private val addMarketingFeature = ViewBoundFeatureWrapper<OnboardingPageAdditionSupport>()
-    private val addPairingSyncSignInFeature = ViewBoundFeatureWrapper<OnboardingPageAdditionSupport>()
+    private val addPairingSyncFeature = ViewBoundFeatureWrapper<OnboardingPageAdditionSupport>()
 
     private val rtamoAttributionHandler by lazy {
         RtamoAttributionHandler(
@@ -90,14 +95,14 @@ class OnboardingFragment : Fragment() {
     }
 
     /**
-     * The Sync sign-in page available for pairing campaigns.
+     * The pairing sync page available for pairing campaigns.
      *
-     * Null if the page is absent or the prompt is disabled via Nimbus, preventing [addPairingSyncSignInFeature] from
-     * adding it when attribution resolves later.
+     * Null if the page is absent or the prompt is disabled via Nimbus, preventing [addPairingSyncFeature] from adding
+     * it when attribution resolves later.
      */
-    private val pairingSyncSignInPage by lazy {
+    private val pairingSyncPage by lazy {
         allOnboardingPages
-            .find { it.type == OnboardingPageUiData.Type.SYNC_SIGN_IN }
+            .find { it.type == OnboardingPageUiData.Type.SYNC_PAIRING }
             ?.takeIf { requireComponents.settings.isPairingSignInPromptEnabled }
     }
 
@@ -108,8 +113,8 @@ class OnboardingFragment : Fragment() {
             .filter { page ->
                 when (page.type) {
                     OnboardingPageUiData.Type.MARKETING_DATA -> settings.shouldShowMarketingOnboarding
-                    OnboardingPageUiData.Type.SYNC_SIGN_IN ->
-                        pairingSyncSignInPage != null && settings.isUserPairingCampaignAttributed
+                    OnboardingPageUiData.Type.SYNC_PAIRING ->
+                        pairingSyncPage != null && settings.isUserPairingCampaignAttributed
 
                     else -> true
                 }
@@ -147,6 +152,8 @@ class OnboardingFragment : Fragment() {
             },
         )
     }
+
+    private val navBackStackEntry by lazy { findNavController().getBackStackEntry(R.id.onboardingFragment) }
 
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -192,13 +199,13 @@ class OnboardingFragment : Fragment() {
             owner = this,
             view = view,
         )
-        addPairingSyncSignInFeature.set(
+        addPairingSyncFeature.set(
             feature =
                 OnboardingPageAdditionSupport(
                     prefKey = requireContext().getString(R.string.pref_key_is_user_pairing_campaign_attributed),
                     pagesToDisplay = pagesToDisplay,
                     settings = requireComponents.settings,
-                    page = pairingSyncSignInPage,
+                    page = pairingSyncPage,
                     lifecycleOwner = viewLifecycleOwner,
                 ),
             owner = this,
@@ -232,9 +239,13 @@ class OnboardingFragment : Fragment() {
     @Composable
     @Suppress("LongMethod")
     private fun ScreenContent() {
+        val isSyncFlowCompleted by OnboardingSyncFlowResult.isCompleted(navBackStackEntry).collectAsStateWithLifecycle()
+
         OnboardingScreen(
             pagesToDisplay = pagesToDisplay,
             initialPageIndex = requireComponents.settings.onboardingCurrentPageIndex,
+            isSyncFlowCompleted = isSyncFlowCompleted,
+            onSyncFlowCompletedHandled = { OnboardingSyncFlowResult.consume(navBackStackEntry) },
             onMakeFirefoxDefaultClick = {
                 promptToSetAsDefaultBrowser()
             },
@@ -262,6 +273,38 @@ class OnboardingFragment : Fragment() {
                 telemetryRecorder.onSkipSignInClick(
                     pagesToDisplay.telemetrySequenceId(),
                     pagesToDisplay.sequencePosition(OnboardingPageUiData.Type.SYNC_SIGN_IN),
+                )
+            },
+            onSyncPairingScanClick = {
+                telemetryRecorder.onSyncPairingScanClick(
+                    pagesToDisplay.telemetrySequenceId(),
+                    pagesToDisplay.sequencePosition(OnboardingPageUiData.Type.SYNC_PAIRING),
+                )
+                findNavController()
+                    .nav(
+                        id = R.id.onboardingFragment,
+                        directions =
+                            OnboardingFragmentDirections.actionGlobalPairFragment(
+                                entrypoint = FenixFxAEntryPoint.OnboardingPairing
+                            ),
+                    )
+            },
+            onSyncPairingEmailClick = {
+                telemetryRecorder.onSyncPairingEmailClick(
+                    pagesToDisplay.telemetrySequenceId(),
+                    pagesToDisplay.sequencePosition(OnboardingPageUiData.Type.SYNC_PAIRING),
+                )
+                requireComponents.services.accountsAuthFeature.beginAuthentication(
+                    context = requireContext(),
+                    entrypoint = FenixFxAEntryPoint.OnboardingPairing,
+                    service = FxaService.Sync.identifier,
+                    scopes = setOf(SCOPE_PROFILE, SCOPE_SYNC),
+                )
+            },
+            onSyncPairingSkipClick = {
+                telemetryRecorder.onSyncPairingSkipClick(
+                    pagesToDisplay.telemetrySequenceId(),
+                    pagesToDisplay.sequencePosition(OnboardingPageUiData.Type.SYNC_PAIRING),
                 )
             },
             onFinish = {
@@ -338,6 +381,8 @@ class OnboardingFragment : Fragment() {
     }
 
     private fun onFinish(onboardingPageUiData: OnboardingPageUiData?) {
+        if (findNavController().currentDestination?.id != R.id.onboardingFragment) return
+
         // onboarding page UI data can be null if there was no pages to display
         if (onboardingPageUiData != null) {
             val sequenceId = pagesToDisplay.telemetrySequenceId()

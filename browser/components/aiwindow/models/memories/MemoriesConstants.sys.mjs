@@ -55,6 +55,12 @@ export const MEMORY_TYPE_TIERS = Object.freeze([
   }),
 ]);
 
+// Memory types list, strongest first
+export const MEMORY_TYPE_LADDER = Object.freeze([
+  ...MEMORY_TYPE_TIERS.map(tier => tier.type),
+  MEMORY_TYPE_SHORT_TERM_MEMORY,
+]);
+
 /**
  * Memory merge constants
  */
@@ -65,6 +71,134 @@ export const MEMORY_MERGE_MIN_MEMORY_COUNT = 5;
  */
 export const MAX_SESSIONS_FIRST_RUN = 50;
 export const MAX_SESSIONS_DELTA_RUN = 30;
+
+/**
+ * Memories generation run telemetry
+ */
+export const GENERATION_RUN_OUTCOME = Object.freeze({
+  SUCCESS: "success",
+  NO_SESSIONS: "no_sessions",
+  NO_CANDIDATES: "no_candidates",
+  ALL_FILTERED: "all_filtered",
+  ERROR: "error",
+});
+export const GENERATION_RUN_ERROR_STAGE = Object.freeze({
+  SOURCES: "sources",
+  GENERATION: "generation",
+  FILTER: "filter",
+  SAVE: "save",
+  MERGE: "merge",
+  OTHER: "other",
+});
+export const GENERATION_RUN_ERROR_TYPE = Object.freeze({
+  RATE_LIMITED: "rate_limited",
+  TRANSIENT: "transient",
+  SERVER_REJECTED: "server_rejected",
+  FIREFOX_INTERNAL: "firefox_internal",
+});
+export const GENERATION_RUN_MERGE_STATUS = Object.freeze({
+  NOT_REACHED: "not_reached",
+  NOT_RUN: "not_run",
+  BELOW_THRESHOLD: "below_threshold",
+  RAN: "ran",
+});
+
+/**
+ * Schema for memories generation telemetry statistics sent through a Glean event.
+ *
+ * @typedef {object} MemoriesGenerationRunStats
+ * @property {boolean} [generation_triggered] The scheduler decided to generate memories
+ * @property {number} [memories_before] Stored memories when generation started
+ * @property {boolean} [is_first_run] No earlier run had processed any activity
+ * @property {number} [history_rows_pulled] History rows read
+ * @property {number} [history_rows_kept] History rows left after filtering
+ * @property {number} [chat_messages_pulled] Chat messages read
+ * @property {number} [chat_messages_kept] Chat messages left after filtering
+ * @property {number} [sessions_built] Sessions built from the kept rows and messages
+ * @property {number} [sessions_skipped] Sessions dropped by the heuristic gate
+ * @property {number} [sessions_processed] Sessions sent for generation after the gate and cap
+ * @property {number} [sessions_processed_events] Count of visits, searches and chat messages across processed sessions
+ * @property {number} [sessions_processed_events_min] Count of events in the smallest processed session
+ * @property {number} [sessions_processed_events_max] Count of events in the largest processed session
+ * @property {number} [generation_batches] Generation batches attempted
+ * @property {number} [generation_batches_skipped] Batches skipped after a non-retryable error
+ * @property {number} [generation_candidates] Candidate memories generated
+ * @property {number} [filter_dropped] Candidates dropped by the quality and sensitivity filter
+ * @property {number} [save_new] Candidates saved as new memories
+ * @property {number} [save_updated] Candidates saved as updates to stored memories
+ * @property {string} [merge_status] One of {@link GENERATION_RUN_MERGE_STATUS}
+ * @property {number} [merge_groups_proposed] Merge groups the model proposed
+ * @property {number} [merge_groups_saved] Valid merge groups saved as merged memories
+ * @property {number} [merge_components_removed] Memories deleted because they were merged
+ * @property {number} [memories_after] Stored memories when the run ended
+ * @property {string} [outcome] One of {@link GENERATION_RUN_OUTCOME}
+ * @property {string} [error_stage] One of {@link GENERATION_RUN_ERROR_STAGE}
+ * @property {string} [error_type] One of {@link GENERATION_RUN_ERROR_TYPE}
+ */
+
+/**
+ * Journeys generation run telemetry
+ */
+export const JOURNEYS_GENERATION_RUN_OUTCOME = Object.freeze({
+  SUCCESS: GENERATION_RUN_OUTCOME.SUCCESS,
+  NO_MEMORIES: "no_memories",
+  NO_CANDIDATES: GENERATION_RUN_OUTCOME.NO_CANDIDATES,
+  ERROR: GENERATION_RUN_OUTCOME.ERROR,
+});
+
+/**
+ * Schema for journeys generation telemetry statistics sent through a Glean event.
+ *
+ * @typedef {object} JourneysGenerationRunStats
+ * @property {number} [memories_eligible] Memories that can have a journey and have none yet, before the cap
+ * @property {number} [journey_memory_candidates] Eligible memories sent for generation after the cap and URL resolution
+ * @property {number} [generation_batches] Generation batches attempted
+ * @property {number} [generation_batches_skipped] Batches skipped after a non-retryable error
+ * @property {number} [journeys_generated] Valid journeys the model returned
+ * @property {number} [save_new] Journeys saved
+ * @property {number} [journeys_eligible_after] Stored journeys that can be suggested when the run ended
+ * @property {string} [outcome] One of {@link JOURNEYS_GENERATION_RUN_OUTCOME}
+ * @property {string} [error_stage] One of {@link GENERATION_RUN_ERROR_STAGE}
+ * @property {string} [error_type] One of {@link GENERATION_RUN_ERROR_TYPE}
+ */
+
+/**
+ * Memories maintenance run telemetry
+ */
+export const MAINTENANCE_RUN_OUTCOME = Object.freeze({
+  SUCCESS: GENERATION_RUN_OUTCOME.SUCCESS,
+  ERROR: GENERATION_RUN_OUTCOME.ERROR,
+});
+
+/**
+ * Schema for memories maintenance telemetry statistics sent through a Glean event.
+ *
+ * @typedef {object} MemoriesMaintenanceRunStats
+ * @property {number} [memories_before] Stored memories when maintenance started, soft-deleted included
+ * @property {number} [soft_deleted_removed] Soft-deleted memories hard-deleted
+ * @property {number} [memories_skipped] Live memories not aged because they were aged less than a day ago
+ * @property {number} [memories_aged] Live memories aged, including those then deleted by decay
+ * @property {number} [promoted_to_long_term] Aged memories changed from short term to long term
+ * @property {number} [promoted_to_durable] Aged memories changed from short or long term to durable
+ * @property {number} [demoted_to_long_term] Aged memories changed from durable to long term
+ * @property {number} [demoted_to_short_term] Aged memories changed from durable or long term to short term
+ * @property {number} [memories_decayed] Aged memories hard-deleted by decay
+ * @property {number} [memories_after] Stored memories when the run ended, soft-deleted included
+ * @property {string} [outcome] One of {@link MAINTENANCE_RUN_OUTCOME}
+ * @property {string} [error_type] One of {@link GENERATION_RUN_ERROR_TYPE}
+ */
+
+/**
+ * Schema for journeys maintenance telemetry statistics sent through a Glean event.
+ *
+ * @typedef {object} JourneysMaintenanceRunStats
+ * @property {number} [journeys_before] Stored journeys when maintenance started, dismissed and snoozed included
+ * @property {number} [journeys_removed] Journeys deleted because their memory is gone
+ * @property {number} [journeys_after] Stored journeys when the run ended, dismissed and snoozed included
+ * @property {number} [journeys_eligible_after] Stored journeys that can be suggested when the run ended
+ * @property {string} [outcome] One of {@link MAINTENANCE_RUN_OUTCOME}
+ * @property {string} [error_type] One of {@link GENERATION_RUN_ERROR_TYPE}
+ */
 
 /**
  * Memory frecency constants

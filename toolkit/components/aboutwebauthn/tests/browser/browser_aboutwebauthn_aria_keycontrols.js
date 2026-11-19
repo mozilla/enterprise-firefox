@@ -28,11 +28,11 @@ registerCleanupFunction(async function () {
 });
 
 add_task(async function moving_up_and_down() {
-  doc.getElementById("info-tab-button").focus();
   [
     ["UP", "DOWN"],
     ["LEFT", "RIGHT"],
   ].forEach(dirs => {
+    doc.getElementById("info-tab-button").focus();
     let up = dirs[0];
     let down = dirs[1];
     EventUtils.sendKey(down);
@@ -86,17 +86,17 @@ add_task(async function moving_up_and_down() {
       doc.getElementById("info-tab-button"),
       "Wrong element active"
     );
+    EventUtils.sendKey(up);
+    is(
+      doc.activeElement,
+      doc.getElementById("logging-tab-button"),
+      "Wrong element active"
+    );
     // Trying to go up further should do nothing
     EventUtils.sendKey(up);
     is(
       doc.activeElement,
-      doc.getElementById("info-tab-button"),
-      "Wrong element active"
-    );
-    EventUtils.sendKey(up);
-    is(
-      doc.activeElement,
-      doc.getElementById("info-tab-button"),
+      doc.getElementById("logging-tab-button"),
       "Wrong element active"
     );
   });
@@ -109,9 +109,8 @@ add_task(async function switching_sections() {
   EventUtils.sendKey("RETURN");
 
   let credentials_section = doc.getElementById("credential-management-section");
-  isnot(
-    credentials_section.style.display,
-    "none",
+  ok(
+    BrowserTestUtils.isVisible(credentials_section),
     "credentials section not visible"
   );
 
@@ -119,14 +118,13 @@ add_task(async function switching_sections() {
   EventUtils.sendKey("RETURN");
 
   let pin_section = doc.getElementById("set-change-pin-section");
-  isnot(pin_section.style.display, "none", "pin section not visible");
+  ok(BrowserTestUtils.isVisible(pin_section), "pin section not visible");
 
   EventUtils.sendKey("DOWN"); // Credentials section
   EventUtils.sendChar(" "); // Try using Space instead of Return
 
-  isnot(
-    credentials_section.style.display,
-    "none",
+  ok(
+    BrowserTestUtils.isVisible(credentials_section),
     "credentials section not visible"
   );
 });
@@ -144,7 +142,7 @@ add_task(async function jumping_sections() {
   EventUtils.sendKey("HOME");
   is(
     doc.activeElement,
-    doc.getElementById("info-tab-button"),
+    doc.getElementById("logging-tab-button"),
     "Wrong element active"
   );
 
@@ -152,7 +150,7 @@ add_task(async function jumping_sections() {
   EventUtils.sendKey("HOME");
   is(
     doc.activeElement,
-    doc.getElementById("info-tab-button"),
+    doc.getElementById("logging-tab-button"),
     "Wrong element active"
   );
 
@@ -166,10 +164,11 @@ add_task(async function jumping_sections() {
   EventUtils.sendKey("HOME");
   is(
     doc.activeElement,
-    doc.getElementById("info-tab-button"),
+    doc.getElementById("logging-tab-button"),
     "Wrong element active"
   );
 
+  EventUtils.sendKey("DOWN"); // Info section
   EventUtils.sendKey("DOWN"); // Pin section
   EventUtils.sendKey("DOWN"); // Credentials section
   is(

@@ -1873,6 +1873,9 @@ nsresult nsHttpConnectionMgr::TryDispatchExtendedCONNECTransaction(
 
     // WebTransport doesn’t allow to fall back to HTTP/1.1.
     if (aTrans->IsForWebTransport()) {
+      // Callers from the pending queue expect a failed transaction to be
+      // closed.
+      aTrans->Close(NS_ERROR_CONNECTION_REFUSED);
       return NS_ERROR_CONNECTION_REFUSED;
     }
 
@@ -3590,7 +3593,7 @@ void nsHttpConnectionMgr::ResumeReadOf(
       // These have never been throttled (never stopped reading)
       continue;
     }
-    ResumeReadOf(entry.GetWeak());
+    ResumeReadOf(entry.GetRawPtr());
   }
 }
 

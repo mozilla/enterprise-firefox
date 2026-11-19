@@ -4,13 +4,16 @@
 
 #include "PolicyContainer.h"
 
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/dom/ConnectionAllowlists.h"
 #include "mozilla/dom/IntegrityPolicy.h"
 #include "mozilla/dom/IntegrityPolicyWAICT.h"
 #include "mozilla/dom/nsCSPContext.h"
+#include "mozilla/extensions/WebExtensionPolicy.h"
 #include "mozilla/ipc/PBackgroundSharedTypes.h"
 #include "nsCSPUtils.h"
 #include "nsIClassInfoImpl.h"
+#include "nsIHttpChannel.h"
 #include "nsIObjectInputStream.h"
 #include "nsIObjectOutputStream.h"
 
@@ -93,27 +96,63 @@ PolicyContainer::Write(nsIObjectOutputStream* aStream) {
 }
 
 // static
+PolicyContainer::Headers PolicyContainer::Headers::FromChannel(
+    nsIHttpChannel* aChannel) {
+  Headers headers;
+  (void)aChannel->GetResponseHeader("content-security-policy"_ns,
+                                    headers.mContentSecurityPolicy);
+  (void)aChannel->GetResponseHeader("content-security-policy-report-only"_ns,
+                                    headers.mContentSecurityPolicyReportOnly);
+  (void)aChannel->GetResponseHeader("connection-allowlist"_ns,
+                                    headers.mConnectionAllowlist);
+  (void)aChannel->GetResponseHeader("connection-allowlist-report-only"_ns,
+                                    headers.mConnectionAllowlistReportOnly);
+  return headers;
+}
+
+bool PolicyContainer::Headers::IsEmpty() const {
+  return mContentSecurityPolicy.IsEmpty() &&
+         mContentSecurityPolicyReportOnly.IsEmpty() &&
+         mConnectionAllowlist.IsEmpty() &&
+         mConnectionAllowlistReportOnly.IsEmpty();
+}
+
+// static
 Result<already_AddRefed<PolicyContainer>, nsresult>
-PolicyContainer::CreateForNonDocument(nsIPrincipal* aPrincipal,
-                                      nsIURI* aSelfURI,
-                                      const Headers& aHeaders) {
+PolicyContainer::CreateFromHeaders(nsIPrincipal* aPrincipal, nsIURI* aSelfURI,
+                                   const Headers& aHeaders,
+                                   const Options& aOptions) {
   RefPtr<PolicyContainer> policyContainer = new PolicyContainer();
 
+  RefPtr<extensions::WebExtensionPolicy> addonPolicy;
+  if (auto* basePrin = BasePrincipal::Cast(aPrincipal)) {
+    addonPolicy = basePrin->AddonPolicy();
+  }
+
   if (!aHeaders.mContentSecurityPolicy.IsEmpty() ||
-      !aHeaders.mContentSecurityPolicyReportOnly.IsEmpty()) {
+      !aHeaders.mContentSecurityPolicyReportOnly.IsEmpty() || addonPolicy) {
     RefPtr<nsCSPContext> csp = new nsCSPContext();
-    MOZ_TRY(csp->SetRequestContextWithPrincipal(aPrincipal, aSelfURI,
-                                                /* aReferrer */ ""_ns,
-                                                /* aInnerWindowId */ 0));
+    if (aOptions.mSuppressParserLogMessages) {
+      csp->SuppressParserLogMessages();
+    }
+    MOZ_TRY(csp->SetRequestContextWithPrincipal(
+        aPrincipal, aSelfURI, aOptions.mReferrer, aOptions.mInnerWindowID));
     if (!aHeaders.mContentSecurityPolicy.IsEmpty()) {
       MOZ_TRY(CSP_AppendCSPFromHeader(
-          csp, NS_ConvertUTF8toUTF16(aHeaders.mContentSecurityPolicy),
+          csp, NS_ConvertASCIItoUTF16(aHeaders.mContentSecurityPolicy),
           false /* aReportOnly */));
     }
     if (!aHeaders.mContentSecurityPolicyReportOnly.IsEmpty()) {
       MOZ_TRY(CSP_AppendCSPFromHeader(
-          csp, NS_ConvertUTF8toUTF16(aHeaders.mContentSecurityPolicyReportOnly),
+          csp,
+          NS_ConvertASCIItoUTF16(aHeaders.mContentSecurityPolicyReportOnly),
           true /* aReportOnly */));
+    }
+    // For extensions there aren't any CSP header values, instead the
+    // Extension CSP is inherited.
+    if (addonPolicy) {
+      csp->AppendPolicy(addonPolicy->BaseCSP(), false, false);
+      csp->AppendPolicy(addonPolicy->ExtensionPageCSP(), false, false);
     }
     policyContainer->SetCSP(csp);
   }
@@ -131,6 +170,27 @@ PolicyContainer::CreateForNonDocument(nsIPrincipal* aPrincipal,
   }
 
   return policyContainer.forget();
+}
+
+// static
+Result<already_AddRefed<PolicyContainer>, nsresult>
+PolicyContainer::CreateForNonDocument(nsIPrincipal* aPrincipal,
+                                      nsIURI* aSelfURI,
+                                      const Headers& aHeaders) {
+  return CreateFromHeaders(aPrincipal, aSelfURI, aHeaders, {});
+}
+
+// static
+Result<already_AddRefed<PolicyContainer>, nsresult>
+PolicyContainer::CreateForFrameAncestorsCheck(nsIPrincipal* aPrincipal,
+                                              nsIURI* aSelfURI,
+                                              const nsACString& aReferrer,
+                                              uint64_t aInnerWindowID,
+                                              const Headers& aHeaders) {
+  return CreateFromHeaders(aPrincipal, aSelfURI, aHeaders,
+                           {.mReferrer = nsCString(aReferrer),
+                            .mInnerWindowID = aInnerWindowID,
+                            .mSuppressParserLogMessages = true});
 }
 
 void PolicyContainer::ToArgs(const PolicyContainer* aPolicy,

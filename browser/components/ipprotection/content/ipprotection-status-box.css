@@ -4,16 +4,7 @@
 
 @import "chrome://global/skin/global.css";
 
-.disconnected,
-.generic-error,
-.paused,
-.connecting {
-  background-color: var(--background-color-box-info);
-}
-
 .connected {
-  background-color: var(--background-color-success);
-
   ::slotted([slot="image"]) {
     -moz-context-properties: fill;
     fill: var(--icon-color-success);
@@ -21,8 +12,6 @@
 }
 
 .excluded {
-  background-color: var(--background-color-success);
-
   ::slotted([slot="image"]) {
     -moz-context-properties: fill, stroke;
     fill: transparent;
@@ -45,8 +34,6 @@
 }
 
 .network-error {
-  background-color: var(--background-color-information);
-
   ::slotted([slot="image"]) {
     -moz-context-properties: fill;
     fill: var(--icon-color-information);
@@ -54,8 +41,6 @@
 }
 
 .catastrophic-error {
-  background-color: var(--background-color-critical);
-
   ::slotted([slot="image"]) {
     -moz-context-properties: fill;
     fill: var(--icon-color-critical);
@@ -65,16 +50,12 @@
 #content-container {
   display: flex;
   flex-direction: column;
-  border: var(--border-width) solid var(--card-border-color);
   border-radius: var(--border-radius-medium);
   padding: var(--space-medium);
-
-  @media -moz-pref("browser.nova.enabled") {
-    /* Use one neutral panel background for every state with Nova enabled. */
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/no-base-design-tokens, stylelint-plugin-mozilla/use-design-tokens */
-    background-color: light-dark(var(--color-gray-0), var(--color-black-alpha-50));
-    border: var(--border-width) solid var(--border-color-deemphasized);
-  }
+  /* Use one neutral panel background for every state */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/no-base-design-tokens, stylelint-plugin-mozilla/use-design-tokens */
+  background-color: light-dark(var(--color-gray-0), var(--color-black-alpha-50));
+  border: var(--border-width) solid var(--border-color-deemphasized);
 
   @media (prefers-contrast) {
     background-color: var(--background-color-box);
@@ -105,23 +86,9 @@
   flex-direction: column;
 }
 
-#bandwidth {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xsmall);
-  margin-top: var(--space-xsmall);
-}
-
 ::slotted([slot="content"]) {
   border-top: var(--border-width) solid var(--border-color-deemphasized);
   margin-top: var(--space-large);
-}
-
-::slotted([slot="content"].location-message) {
-  border: none;
-  margin-top: var(--space-small);
-  color: var(--text-color-deemphasized);
-  text-align: center;
 }
 
 ::slotted([slot="image"]) {
@@ -130,20 +97,8 @@
   width: var(--size-image-xsmall);
 }
 
-::slotted([slot="bandwidth"]) {
-  color: var(--text-color-deemphasized);
-  /* Increased font size used for bandwidth usage messaging to make usage state prominent when bandwidth is limited*/
-  font-size: var(--font-size-large);
-}
-
 ::slotted([slot="action"]) {
   margin-block-start: var(--space-xxlarge);
   --button-padding: var(--space-medium);
   width: 100%;
-}
-
-::slotted([slot="location-action"]) {
-  margin-block-start: var(--space-small);
-  width: 100%;
-  --button-padding: var(--space-medium);
 }

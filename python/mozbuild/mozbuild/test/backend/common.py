@@ -66,10 +66,27 @@ CONFIGS = defaultdict(
                 "OS_COMPILE_CMMFLAGS": ["-fobjc-call-cxx-cdtors"],
             },
         },
+        "database-c": {
+            "defines": {},
+            "substs": {
+                "CC": ["clang"],
+                "CXX": ["clang++"],
+                "COMPILE_ENVIRONMENT": "1",
+                "LIB_PREFIX": "lib",
+                "LIB_SUFFIX": "a",
+            },
+        },
         "objdir-local-includes": {
             "defines": {},
             "substs": {
                 "COMPILE_ENVIRONMENT": "1",
+                "LIB_PREFIX": "lib",
+                "LIB_SUFFIX": "a",
+            },
+        },
+        "no-pgo-source": {
+            "defines": {},
+            "substs": {
                 "LIB_PREFIX": "lib",
                 "LIB_SUFFIX": "a",
             },
@@ -323,6 +340,13 @@ CONFIGS = defaultdict(
                 "BIN_SUFFIX": "",
             },
         },
+        "cpp-unit-tests": {
+            "defines": {},
+            "substs": {
+                "COMPILE_ENVIRONMENT": "1",
+                "BIN_SUFFIX": "",
+            },
+        },
         "gn-processor": {
             "defines": {},
             "substs": {
@@ -353,6 +377,17 @@ CONFIGS = defaultdict(
                 "BIN_SUFFIX": ".prog",
             },
         },
+        "lto-object-path": {
+            "defines": {},
+            "substs": {
+                "COMPILE_ENVIRONMENT": "1",
+                "BIN_SUFFIX": ".prog",
+                "DLL_PREFIX": "lib",
+                "DLL_SUFFIX": ".so",
+                "LIB_SUFFIX": "a",
+                "MOZ_LTO_OBJECT_PATH": "1",
+            },
+        },
         "extra-link-deps": {
             "defines": {},
             "substs": {
@@ -361,6 +396,8 @@ CONFIGS = defaultdict(
                 "LIB_SUFFIX": "a",
                 "DLL_PREFIX": "lib",
                 "DLL_SUFFIX": ".so",
+                "GCC_USE_GNU_LD": "1",
+                "OS_TARGET": "Linux",
             },
         },
         "shared-lib-paths": {
@@ -425,6 +462,20 @@ CONFIGS = defaultdict(
             "defines": {},
             "substs": {
                 "OS_TARGET": "WINNT",
+            },
+        },
+        "clang-plugin": {
+            "defines": {},
+            "substs": {
+                "COMPILE_ENVIRONMENT": "1",
+                "LIB_PREFIX": "lib",
+                "LIB_SUFFIX": "a",
+                "HOST_DLL_PREFIX": "lib",
+                "HOST_DLL_SUFFIX": ".so",
+                "COMPILER_PLUGIN_FLAGS": ["-Xclang", "-load"],
+                "WASM_CC": "clang",
+                "WASM_CXX": "clang++",
+                "WASM_OBJ_SUFFIX": "wasm",
             },
         },
     },

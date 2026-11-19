@@ -1516,6 +1516,11 @@ class AutofillRecords {
           `"${key}" contains invalid data type: ${typeof record[key]}`
         );
       }
+      // The Rust store would replace a lone surrogate with U+FFFD, so refuse
+      // it in both stores rather than store something the page didn't submit.
+      if (typeof record[key] == "string" && !record[key].isWellFormed()) {
+        throw new Error(`"${key}" contains lone surrogates`);
+      }
       if (!preserveEmptyFields && record[key] === "") {
         delete record[key];
       }
@@ -1891,6 +1896,29 @@ export class CreditCardsBase extends AutofillRecords {
     return lazy.OSKeyStore.decrypt(ciphertext, trigger, reauth);
   }
 
+  /**
+   * The cleartext of several fields of a stored record.
+   *
+   * A field this store does not keep encrypted, such as cc-csc, which it does
+   * not support, is always null.
+   *
+   * @param {object} record A record this store handed out.
+   * @param {Array<string>} fields The fields to read, from
+   *   CreditCardRecord.SECRET_FIELDS.
+   * @param {object} [options] As for decryptField.
+   * @returns {Promise<object>} Each field's cleartext, or null if the record
+   *   holds none.
+   */
+  async decryptFields(record, fields, options) {
+    const cleartext = {};
+    for (const field of fields) {
+      cleartext[field] = lazy.CreditCardRecord.hasCiphertextField(field)
+        ? await this.decryptField(record, field, options)
+        : null;
+    }
+    return cleartext;
+  }
+
   async _stripComputedFields(creditCard) {
     if (creditCard["cc-number-encrypted"]) {
       try {
@@ -2016,11 +2044,21 @@ export class CreditCardsBase extends AutofillRecords {
         continue;
       }
 
-      const decrypted = await lazy.OSKeyStore.decrypt(
-        recordInStorage["cc-number-encrypted"],
-        "formautofill_cc",
-        false
-      );
+      let decrypted;
+      try {
+        decrypted = await lazy.OSKeyStore.decrypt(
+          recordInStorage["cc-number-encrypted"],
+          "formautofill_cc",
+          false
+        );
+      } catch (ex) {
+        if (ex.result == Cr.NS_ERROR_ABORT) {
+          throw ex;
+        }
+        // A card whose number cannot be decrypted is no duplicate of anything,
+        // and must not stop the search for the others.
+        continue;
+      }
 
       if (decrypted == record["cc-number"]) {
         const clonedRecord = this._cloneAndCleanUp(recordInStorage);

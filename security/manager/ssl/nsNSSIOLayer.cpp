@@ -22,6 +22,7 @@
 #include "mozilla/BaseProfiler.h"
 #include "mozilla/Logging.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerThreadSleep.h"
 #include "mozilla/RandomNum.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
@@ -1915,6 +1916,10 @@ auto LockRemoteCryptokiState(SearchingFor searchingFor) {
 }
 
 void CacheRemoteCryptokiObjects(SearchingFor searchingFor) {
+  if (!PKCS11ModuleDB::UtilityProcessEnabled()) {
+    return;
+  }
+
   MOZ_ASSERT(!NS_IsMainThread());
   if (NS_IsMainThread()) {
     return;

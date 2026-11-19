@@ -885,6 +885,17 @@ var cleanupPages = async function (db, pages) {
     return;
   }
 
+  // Collect the icons that may become orphans, before removing the pages they're
+  // related to.
+  let iconIds = [];
+  await db.executeCached(
+    `SELECT DISTINCT icon_id FROM moz_icons_to_pages
+     JOIN moz_pages_w_icons ON id = page_id
+     WHERE page_url_hash IN carray(:hashes)`,
+    { hashes: pagesToRemove.map(p => p.hash) },
+    row => iconIds.push(row.getResultByIndex(0))
+  );
+
   // Note, we are already in a transaction, since callers create it.
   // Check relations regardless, to avoid creating orphans in case of
   // async race conditions.
@@ -913,30 +924,76 @@ var cleanupPages = async function (db, pages) {
     { ids: pagesToRemove.map(p => p.id) }
   );
   // Hosts accumulated during the places delete are updated through a trigger
-  // (see nsPlacesTriggers.h).
+  // (see nsPlacesTriggers.h). Their root icons may become orphans.
+  let hosts = [];
+  await db.executeCached(
+    `SELECT DISTINCT fixup_url(host) FROM moz_updateoriginsdelete_temp`,
+    null,
+    row => hosts.push(row.getResultByIndex(0))
+  );
   await db.executeCached(`DELETE FROM moz_updateoriginsdelete_temp`);
 
-  await removeOrphanIcons(db);
+  await removeOrphanIconsByIds(db, iconIds);
+  await removeOrphanRootIconsByHosts(db, hosts);
 };
 
 /**
- * Remove icons whose origin is not in moz_origins, unless referenced.
+ * Remove the given icons if they're orphans, see moz_orphan_icons.
+ *
+ * @param {OpenedConnection} db
+ *   The database.
+ * @param {number[]} iconIds
+ *   Ids of icons that were related to removed pages.
+ */
+async function removeOrphanIconsByIds(db, iconIds) {
+  if (!iconIds.length) {
+    return;
+  }
+  await db.executeCached(
+    `DELETE FROM moz_icons WHERE id IN (
+       SELECT id FROM moz_orphan_icons WHERE id IN carray(:iconIds)
+     )`,
+    { iconIds }
+  );
+}
+
+/**
+ * Remove the root icons of the given hosts if they're orphans, see
+ * moz_orphan_icons.
+ *
+ * @param {OpenedConnection} db
+ *   The database.
+ * @param {string[]} hosts
+ *   Hosts of removed origins, as returned by fixup_url().
+ */
+async function removeOrphanRootIconsByHosts(db, hosts) {
+  if (!hosts.length) {
+    return;
+  }
+  await db.executeCached(
+    `DELETE FROM moz_icons WHERE id IN (
+       SELECT id FROM moz_orphan_icons WHERE id IN (
+         SELECT i.id FROM carray(:hosts) h
+         JOIN moz_icons i
+           ON i.fixed_icon_url_hash = hash(h.value || '/favicon.ico')
+          AND fixup_url(i.icon_url) = h.value || '/favicon.ico'
+         WHERE i.root = 1
+       )
+     )`,
+    { hosts }
+  );
+}
+
+/**
+ * Remove all the orphan icons, see moz_orphan_icons.
  *
  * @param {OpenedConnection} db
  *   The database.
  */
 function removeOrphanIcons(db) {
-  return db.executeCached(`
-    DELETE FROM moz_icons WHERE id IN (
-      SELECT id FROM moz_icons WHERE root = 0
-      UNION ALL
-      SELECT id FROM moz_icons
-      WHERE root = 1
-        AND get_host_and_port(icon_url) NOT IN (SELECT host FROM moz_origins)
-        AND fixup_url(get_host_and_port(icon_url)) NOT IN (SELECT host FROM moz_origins)
-      EXCEPT
-      SELECT icon_id FROM moz_icons_to_pages
-    )`);
+  return db.executeCached(
+    `DELETE FROM moz_icons WHERE id IN (SELECT id FROM moz_orphan_icons)`
+  );
 }
 
 /**
@@ -1304,6 +1361,32 @@ var removeVisitsByFilter = async function (db, filter, onResult = null) {
   return !!visitsToRemove.length;
 };
 
+/**
+ * Removes all the visits to the given pages, and the pages that are not
+ * bookmarked, then cleans up their relations. The pages are removed before
+ * their visits, so the visits delete trigger doesn't have to update them.
+ *
+ * @param {OpenedConnection} db
+ *   The database.
+ * @param {object[]} pages
+ *   The pages to remove, as expected by cleanupPages.
+ */
+async function removePagesWithVisits(db, pages) {
+  let removableIds = pages.filter(p => !p.hasForeign).map(p => p.id);
+  if (removableIds.length) {
+    await db.executeCached(
+      `DELETE FROM moz_places
+       WHERE id IN carray(:ids) AND foreign_count = 0`,
+      { ids: removableIds }
+    );
+  }
+  await db.executeCached(
+    `DELETE FROM moz_historyvisits WHERE place_id IN carray(:ids)`,
+    { ids: pages.map(p => p.id) }
+  );
+  await cleanupPages(db, pages);
+}
+
 // Inner implementation of History.removeByFilter
 var removeByFilter = async function (db, filter, onResult = null) {
   // 1. Create fragment for date filtration
@@ -1388,15 +1471,8 @@ var removeByFilter = async function (db, filter, onResult = null) {
   }
 
   await db.executeTransaction(async function () {
-    // 4. Actually remove visits
-    let pageIds = pages.map(p => p.id);
-    await db.executeCached(
-      `DELETE FROM moz_historyvisits
-         WHERE place_id IN carray(:pageIds)`,
-      { pageIds }
-    );
-    // 5. Clean up and notify
-    await cleanupPages(db, pages);
+    // 4. Actually remove the pages and their visits.
+    await removePagesWithVisits(db, pages);
   });
 
   notifyCleanup(db, pages);
@@ -1463,15 +1539,8 @@ var remove = async function (db, { guids, urls }, onResult = null) {
   }
 
   await db.executeTransaction(async function () {
-    // 2. Remove all visits to these pages.
-    await db.execute(
-      `DELETE FROM moz_historyvisits
-       WHERE place_id IN carray(:ids)`,
-      { ids: pages.map(p => p.id) }
-    );
-
-    // 3. Clean up and notify
-    await cleanupPages(db, pages);
+    // 2. Remove the pages and all their visits.
+    await removePagesWithVisits(db, pages);
   });
 
   notifyCleanup(db, pages);

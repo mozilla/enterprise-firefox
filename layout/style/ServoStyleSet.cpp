@@ -64,6 +64,7 @@
 #include "nsIAnonymousContentCreator.h"
 #include "nsLayoutUtils.h"
 #include "nsPrintfCString.h"
+#include "nsThreadUtils.h"
 #include "nsWindowSizes.h"
 
 namespace mozilla {
@@ -878,6 +879,9 @@ bool ServoStyleSet::StyleDocument(ServoTraversalFlags aFlags) {
   // values once at the begin of a tick. As a result, even if the previous
   // traversal caused, for example, the font-size to change, the SMIL style
   // won't be updated until the next tick anyway.
+  //
+  // CSS rule changes have been handled by the first traversal already.
+  aFlags &= ~ServoTraversalFlags::ForCSSRuleChanges;
   if (GetPresContext()->EffectCompositor()->PreTraverse(aFlags)) {
     DocumentStyleRootIterator iter(mDocument->GetServoRestyleRoot());
     while (Element* root = iter.GetNextStyleRoot()) {
@@ -917,10 +921,8 @@ void ServoStyleSet::StyleNewSubtree(Element* aRoot) {
   // update the styles and clear the animation bits.
   if (GetPresContext()->EffectCompositor()->PreTraverseInSubtree(flags,
                                                                  aRoot)) {
-    postTraversalRequired =
-        Servo_TraverseSubtree(aRoot, mRawData.get(), &snapshots,
-                              ServoTraversalFlags::AnimationOnly |
-                                  ServoTraversalFlags::FinalAnimationTraversal);
+    postTraversalRequired = Servo_TraverseSubtree(
+        aRoot, mRawData.get(), &snapshots, ServoTraversalFlags::Forgetful);
     MOZ_ASSERT(!postTraversalRequired);
   }
 }

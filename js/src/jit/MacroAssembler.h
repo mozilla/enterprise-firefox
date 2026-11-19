@@ -651,6 +651,23 @@ class MacroAssembler : public MacroAssemblerSpecific {
   void reserveVMFunctionOutParamSpace(const VMFunctionData& f);
   void loadVMFunctionOutParam(const VMFunctionData& f, const Address& addr);
 
+  // ===============================================================
+  // Tail jumps.
+
+  // Jump to a call target, i.e. code that is otherwise entered by a call.
+  // Unlike a call, this leaves the existing return address in place (on the
+  // stack or in the link register), so the target returns to it, like a tail
+  // call.
+  //
+  // These must be used instead of jump() for such transfers to support
+  // forward-edge CFI since call landing pads may restrict how they can be
+  // reached. For example, on ARM64 with BTI, an indirect jump to a call
+  // landing pad must go through x16 or x17.
+  void tailJump(Register reg) PER_SHARED_ARCH;
+  void tailJump(const Address& addr) PER_SHARED_ARCH;
+  void tailJump(TrampolinePtr code) PER_SHARED_ARCH;
+  void tailJump(JitCode* code) PER_SHARED_ARCH;
+
  public:
   // ===============================================================
   // Patchable near/far jumps.
@@ -670,6 +687,11 @@ class MacroAssembler : public MacroAssemblerSpecific {
   static void patchNopToCall(uint8_t* callsite,
                              uint8_t* target) PER_SHARED_ARCH;
   static void patchCallToNop(uint8_t* callsite) PER_SHARED_ARCH;
+
+  // Emit nops until at least PatchWrite_NearCallSize() bytes follow |offset|,
+  // so that a near call patched in at |offset| doesn't overwrite the code
+  // emitted next.
+  void ensureNearCallPatchSpace(uint32_t offset);
 
   // These methods are like movWithPatch/PatchDataWithValueCheck but allow
   // using pc-relative addressing on certain platforms (RIP-relative LEA on x64,
@@ -1067,7 +1089,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
   // ===============================================================
   // Copy instructions
 
-  inline void copy64(const Address& src, const Address& dest, Register scratch);
+  template <typename T>
+  inline void copy64(const T& src, const T& dest, Register scratch);
 
  public:
   // ===============================================================
@@ -2354,9 +2377,12 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
   // ========================================================================
   // Canonicalization primitives.
+#ifndef JS_CODEGEN_RISCV64
+  // On riscv64, these are defined in MacroAssemblerRiscv64Compat.
   inline void canonicalizeDoubleNaN(FloatRegister reg);
 
   inline void canonicalizeFloatNaN(FloatRegister reg);
+#endif
 
   // If denormal support is disabled, there are 2^53 ways to represent zero.
   // This function canonicalizes the representation to either -0.0 or +0.0,
@@ -5718,9 +5744,9 @@ class MacroAssembler : public MacroAssemblerSpecific {
   void computeHash1MFBT(Register hashTable, Register hashCode, Register hash1,
                         Register scratch);
   template <typename Table>
-  void computeHash2MFBT(Register hashTable, Register hashCode, Register hash2,
-                        Register sizeMask, Register scratch);
-  void applyDoubleHashMFBT(Register hash1, Register hash2, Register sizeMask);
+  void initProbeSequenceMFBT(Register hashTable, Register stride,
+                             Register sizeMask);
+  void nextProbeMFBT(Register hashIndex, Register stride, Register sizeMask);
   template <typename Table>
   void checkForMatchMFBT(Register hashTable, Register hashIndex,
                          Register hashCode, Register scratch, Register scratch2,

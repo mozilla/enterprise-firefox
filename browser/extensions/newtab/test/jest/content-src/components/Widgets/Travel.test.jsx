@@ -2,11 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { INITIAL_STATE } from "common/Reducers.sys.mjs";
 import { actionTypes as at } from "common/Actions.mjs";
 import { Travel } from "content-src/components/Widgets/Travel/Travel";
 import { WrapWithProvider } from "test/jest/test-utils";
+import { FRAMED_WIDGET_LOAD_TIMEOUT_MS } from "content-src/components/Widgets/useFramedWidgetMessages";
 
 const mockState = {
   ...INITIAL_STATE,
@@ -45,6 +46,259 @@ const renderWidget = (dispatch = jest.fn(), props = {}, state = mockState) => {
 };
 
 describe("Travel widget", () => {
+  // jsdom does not honor `source` from the MessageEvent init dict, so it is
+  // forced onto the instance.
+  function postFrameMessage(container, data) {
+    const frame = container.querySelector("iframe.travel-frame");
+    const event = new MessageEvent("message", {
+      data: { channel: "travel_widget", sentAt: "", ...data },
+      origin: new URL(mockState.FramedWidgets.travel.url).origin,
+    });
+    Object.defineProperty(event, "source", { value: frame.contentWindow });
+    act(() => {
+      window.dispatchEvent(event);
+    });
+  }
+
+  const postChangeSize = (container, size) =>
+    postFrameMessage(container, {
+      type: "action",
+      message: "change_size",
+      payload: { size },
+    });
+
+  it("shows the frame only after widget_ready", () => {
+    const { container } = renderWidget();
+    const article = container.querySelector("article.travel");
+    expect(article.hasAttribute("data-ready")).toBe(false);
+    postFrameMessage(container, {
+      type: "widget_ready",
+      payload: { protocol: 1 },
+    });
+    expect(article.hasAttribute("data-ready")).toBe(true);
+  });
+
+  it("records load_timeout and hides itself without widget_ready", () => {
+    jest.useFakeTimers();
+    try {
+      const { dispatch } = renderWidget();
+      act(() => jest.advanceTimersByTime(FRAMED_WIDGET_LOAD_TIMEOUT_MS));
+      const actions = dispatch.mock.calls.map(([a]) => a);
+      expect(
+        actions.find(a => a.type === at.WIDGETS_ERROR)?.data.error_type
+      ).toBe("load_timeout");
+      expect(actions).toContainEqual({
+        type: at.FRAMED_WIDGET_UNAVAILABLE,
+        data: { id: "travel" },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("grows to the size the frame asks for and counts it as an interaction", () => {
+    const { container, handleUserInteraction } = renderWidget();
+    postChangeSize(container, "large");
+    expect(container.querySelector("article.travel").className).toContain(
+      "large-widget"
+    );
+    expect(handleUserInteraction).toHaveBeenCalledWith("travel");
+  });
+
+  it("lets the user's Change size choice win over the frame's request", () => {
+    const { container } = renderWidget();
+    postChangeSize(container, "large");
+    expect(
+      container
+        .querySelector("#travel-size-submenu panel-item[data-size='large']")
+        .hasAttribute("checked")
+    ).toBe(true);
+    fireEvent.click(
+      container.querySelector(
+        "#travel-size-submenu panel-item[data-size='medium']"
+      )
+    );
+    expect(container.querySelector("article.travel").className).toContain(
+      "medium-widget"
+    );
+  });
+
+  it("reports the size the frame asked for in telemetry", () => {
+    const { container, dispatch } = renderWidget();
+    postChangeSize(container, "large");
+    fireEvent.click(
+      container.querySelector(
+        "panel-item[data-l10n-id='newtab-travel-menu-learn-more']"
+      )
+    );
+    const userEvent = dispatch.mock.calls.find(
+      ([action]) =>
+        action?.type === at.WIDGETS_USER_EVENT &&
+        action.data?.user_action === "learn_more"
+    );
+    expect(userEvent[0].data.widget_size).toBe("large");
+  });
+
+  describe("interaction_state", () => {
+    const { origin } = new URL(mockState.FramedWidgets.travel.url);
+    const withInteraction = interacted => ({
+      ...mockState,
+      Prefs: {
+        ...mockState.Prefs,
+        values: {
+          ...mockState.Prefs.values,
+          "widgets.travel.interaction": interacted,
+        },
+      },
+    });
+    const renderTravel = (state, handleUserInteraction = jest.fn()) => (
+      <WrapWithProvider state={state}>
+        <Travel
+          dispatch={jest.fn()}
+          handleUserInteraction={handleUserInteraction}
+          widgetsMayBeMaximized={true}
+          widgetEnabledMap={{}}
+        />
+      </WrapWithProvider>
+    );
+    const sent = postMessage =>
+      postMessage.mock.calls
+        .filter(([data]) => data.message === "interaction_state")
+        .map(([data, targetOrigin]) => {
+          expect(data).toMatchObject({
+            channel: "travel_widget",
+            type: "action",
+          });
+          expect(targetOrigin).toBe(origin);
+          return data.payload.interacted;
+        });
+    const setup = handleUserInteraction => {
+      const rendered = render(
+        renderTravel(withInteraction(false), handleUserInteraction)
+      );
+      const frame = rendered.container.querySelector("iframe.travel-frame");
+      const postMessage = jest
+        .spyOn(frame.contentWindow, "postMessage")
+        .mockImplementation(() => {});
+      return { ...rendered, postMessage };
+    };
+    const ready = container =>
+      postFrameMessage(container, {
+        type: "widget_ready",
+        payload: { protocol: 1 },
+      });
+
+    it("waits for widget_ready, then sends it once", () => {
+      const { container, postMessage } = setup();
+      expect(sent(postMessage)).toEqual([]);
+      ready(container);
+      expect(sent(postMessage)).toEqual([false]);
+    });
+
+    it("sends it again when the frame reloads", () => {
+      const { container, postMessage } = setup();
+      ready(container);
+      ready(container);
+      expect(sent(postMessage)).toEqual([false, false]);
+    });
+
+    it("sends the new value when the interaction pref changes", () => {
+      const { container, postMessage, rerender } = setup();
+      ready(container);
+      rerender(renderTravel(withInteraction(true)));
+      expect(sent(postMessage)).toEqual([false, true]);
+    });
+
+    it("sends interacted: true after Explore travel's change_size", () => {
+      let rendered;
+      const handleUserInteraction = () =>
+        rendered.rerender(renderTravel(withInteraction(true)));
+      rendered = setup(handleUserInteraction);
+      ready(rendered.container);
+      postChangeSize(rendered.container, "large");
+      expect(sent(rendered.postMessage)).toEqual([false, true]);
+    });
+  });
+
+  describe("frame user events", () => {
+    const postUserEvent = (container, payload) =>
+      postFrameMessage(container, {
+        type: "telemetry",
+        message: "user_event",
+        payload,
+      });
+    const userEvents = dispatch =>
+      dispatch.mock.calls
+        .map(([action]) => action)
+        .filter(action => action?.type === at.WIDGETS_USER_EVENT)
+        .map(action => action.data);
+    const renderReady = () => {
+      const rendered = renderWidget();
+      postFrameMessage(rendered.container, {
+        type: "widget_ready",
+        payload: { protocol: 1 },
+      });
+      return rendered;
+    };
+
+    it("records allowlisted events and counts them as an interaction", () => {
+      const { container, dispatch, handleUserInteraction } = renderReady();
+      postUserEvent(container, {
+        user_action: "search_open",
+        action_value: "beach",
+      });
+      postUserEvent(container, { user_action: "route_swap" });
+      expect(userEvents(dispatch)).toEqual([
+        {
+          widget_name: "travel",
+          widget_size: "medium",
+          widget_source: "iframe",
+          user_action: "search_open",
+          action_value: "beach",
+        },
+        {
+          widget_name: "travel",
+          widget_size: "medium",
+          widget_source: "iframe",
+          user_action: "route_swap",
+        },
+      ]);
+      expect(handleUserInteraction).toHaveBeenCalledWith("travel");
+    });
+
+    it("drops actions and values outside the allowlist but still counts the interaction", () => {
+      const { container, dispatch, handleUserInteraction } = renderReady();
+      postUserEvent(container, { user_action: "something_new" });
+      postUserEvent(container, {
+        user_action: "search_submit",
+        action_value: "london",
+      });
+      postUserEvent(container, {
+        user_action: "route_swap",
+        action_value: "flights",
+      });
+      expect(userEvents(dispatch)).toEqual([]);
+      expect(handleUserInteraction).toHaveBeenCalledWith("travel");
+    });
+
+    it("ignores events before widget_ready", () => {
+      const { container, dispatch, handleUserInteraction } = renderWidget();
+      postUserEvent(container, { user_action: "route_swap" });
+      expect(userEvents(dispatch)).toEqual([]);
+      expect(handleUserInteraction).not.toHaveBeenCalled();
+    });
+  });
+
+  it("keeps its size when the layout can't host a larger widget", () => {
+    const { container } = renderWidget(jest.fn(), {
+      widgetsMayBeMaximized: false,
+    });
+    postChangeSize(container, "large");
+    expect(container.querySelector("article.travel").className).toContain(
+      "medium-widget"
+    );
+  });
+
   it("loads the manifest url in a sandboxed iframe labelled by the title", () => {
     const { container } = renderWidget();
     const frame = container.querySelector("iframe.travel-frame");
@@ -52,8 +306,34 @@ describe("Travel widget", () => {
     expect(frame).toHaveAttribute("aria-labelledby", "travel-widget-label");
     expect(frame).toHaveAttribute(
       "sandbox",
-      "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+      "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
     );
+  });
+
+  describe("region fragment", () => {
+    const renderWithRegion = url => {
+      const state = {
+        ...mockState,
+        Prefs: {
+          ...mockState.Prefs,
+          values: { ...mockState.Prefs.values, region: "IE" },
+        },
+        FramedWidgets: { travel: { url } },
+      };
+      const { container } = renderWidget(jest.fn(), {}, state);
+      return container.querySelector("iframe.travel-frame").getAttribute("src");
+    };
+    const { url } = mockState.FramedWidgets.travel;
+
+    it("passes the home region to the frame in its URL fragment", () => {
+      expect(renderWithRegion(url)).toBe(`${url}#region=IE`);
+    });
+
+    it("keeps a fragment the manifest URL already has", () => {
+      expect(renderWithRegion(`${url}#debug=1`)).toBe(
+        `${url}#debug=1&region=IE`
+      );
+    });
   });
 
   it("renders nothing without a manifest entry", () => {
@@ -254,12 +534,17 @@ describe("Travel widget", () => {
       global.IntersectionObserver = originalIntersectionObserver;
     });
 
-    it("dispatches WIDGETS_IMPRESSION once, keyed on the telemetry name", () => {
+    it("waits for widget_ready, then dispatches WIDGETS_IMPRESSION once with the variant", () => {
       const dispatch = jest.fn();
-      renderWidget(dispatch);
+      const { container } = renderWidget(dispatch);
       const [observer] = observerInstances;
-      const [target] = observer.observed;
+      expect(observer.observed).toEqual([]);
 
+      postFrameMessage(container, {
+        type: "widget_ready",
+        payload: { protocol: 1, variant: "lagoon" },
+      });
+      const [target] = observer.observed;
       observer.callback([{ isIntersecting: true, target }], observer);
       observer.callback([{ isIntersecting: true, target }], observer);
 
@@ -270,6 +555,7 @@ describe("Travel widget", () => {
       expect(impressions[0][0].data).toMatchObject({
         widget_name: "travel",
         widget_size: "medium",
+        widget_variant: "lagoon",
       });
     });
   });

@@ -1595,6 +1595,7 @@ class PromptFeatureTest {
                     expiryMonth = "5",
                     expiryYear = "2030",
                     cardType = "amex",
+                    cardCvv = null,
                 )
             var onDismissCalled = false
             var onConfirmCalled = false
@@ -2359,6 +2360,7 @@ class PromptFeatureTest {
                     expiryMonth = "5",
                     expiryYear = "2030",
                     cardType = "",
+                    cardCvv = null,
                 )
             val selectCreditCardRequest = PromptRequest.SelectCreditCard(listOf(creditCard), onConfirm, onDismiss)
 
@@ -2632,6 +2634,7 @@ class PromptFeatureTest {
                     expiryMonth = "5",
                     expiryYear = "2030",
                     cardType = "",
+                    cardCvv = null,
                 )
             val promptRequest =
                 spy(
@@ -2674,6 +2677,7 @@ class PromptFeatureTest {
                     expiryMonth = "5",
                     expiryYear = "2030",
                     cardType = "",
+                    cardCvv = null,
                 )
             val promptRequest =
                 spy(
@@ -2718,6 +2722,7 @@ class PromptFeatureTest {
                     expiryMonth = invalidMonth,
                     expiryYear = invalidYear,
                     cardType = "",
+                    cardCvv = null,
                 )
             val promptRequest =
                 spy(
@@ -3361,6 +3366,7 @@ class PromptFeatureTest {
                     expiryMonth = "5",
                     expiryYear = "2030",
                     cardType = "",
+                    cardCvv = null,
                 )
 
             val request =
@@ -3397,6 +3403,7 @@ class PromptFeatureTest {
                     expiryMonth = "5",
                     expiryYear = "2030",
                     cardType = "",
+                    cardCvv = null,
                 )
             var onDismissCalled = false
             var onConfirmCalled = false
@@ -3452,6 +3459,7 @@ class PromptFeatureTest {
                     expiryMonth = "5",
                     expiryYear = "2030",
                     cardType = "",
+                    cardCvv = null,
                 )
             val request =
                 PromptRequest.SaveCreditCard(
@@ -3490,6 +3498,7 @@ class PromptFeatureTest {
                     expiryMonth = "5",
                     expiryYear = "2030",
                     cardType = "",
+                    cardCvv = null,
                 )
             val promptRequest =
                 PromptRequest.SaveCreditCard(
@@ -3530,6 +3539,30 @@ class PromptFeatureTest {
         }
 
     @Test
+    fun `WHEN the always save security code toggle is reported THEN the credit card delegate is notified`() {
+        var reportedValue: Boolean? = null
+        val feature =
+            PromptFeature(
+                activity = mock(),
+                store = store,
+                fragmentManager = fragmentManager,
+                tabsUseCases = mock(),
+                fileUploadsDirCleaner = mock(),
+                isEmailMaskFeatureEnabled = { false },
+                isSuggestEmailMaskEnabled = { false },
+                onNeedToRequestPermissions = {},
+                creditCardDelegate =
+                    object : CreditCardDelegate {
+                        override val onSaveSecurityCodeChanged = { enabled: Boolean -> reportedValue = enabled }
+                    },
+            )
+
+        feature.onSaveSecurityCodeChanged(false)
+
+        assertEquals(false, reportedValue)
+    }
+
+    @Test
     fun `WHEN SaveCreditCard is handled THEN the credit card save prompt shown fact is emitted`() =
         runTest(testDispatcher) {
             val feature =
@@ -3553,6 +3586,7 @@ class PromptFeatureTest {
                     expiryMonth = "5",
                     expiryYear = "2030",
                     cardType = "",
+                    cardCvv = null,
                 )
             val request =
                 PromptRequest.SaveCreditCard(

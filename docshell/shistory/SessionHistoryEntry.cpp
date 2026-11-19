@@ -1434,9 +1434,23 @@ void SessionHistoryEntry::SetInfo(SessionHistoryInfo* aInfo) {
   mInfo = std::make_unique<SessionHistoryInfo>(*aInfo);
 }
 
-already_AddRefed<nsIURI> SessionHistoryInfo::GetURIOrInheritedForAboutBlank()
-    const {
-  if (mURI && NS_IsAboutBlankAllowQueryAndFragment(mURI)) {
+void SessionHistoryEntry::ReplaceInfo(SessionHistoryInfo* aInfo) {
+  const RefPtr<SHEntrySharedParentState> oldState = SharedInfo();
+  SetInfo(aInfo);
+  SHEntrySharedParentState* newState = SharedInfo();
+  if (newState == oldState) {
+    return;
+  }
+  newState->mDocShellID = oldState->mDocShellID;
+  newState->mSHistory = oldState->mSHistory;
+  newState->mIsFrameNavigation = oldState->mIsFrameNavigation;
+  newState->mDynamicallyCreated = oldState->mDynamicallyCreated;
+  mChildren.Clear();
+}
+
+already_AddRefed<nsIURI>
+SessionHistoryInfo::GetURIOrInheritedForAboutBlankOrSrcdoc() const {
+  if (mURI && NS_IsAboutBlankOrSrcdoc(mURI)) {
     auto* principal = GetPrincipalToInherit();
     if (principal) {
       return principal->GetURI();
@@ -1445,9 +1459,9 @@ already_AddRefed<nsIURI> SessionHistoryInfo::GetURIOrInheritedForAboutBlank()
   return do_AddRef(mURI);
 }
 
-already_AddRefed<nsIURI> SessionHistoryEntry::GetURIOrInheritedForAboutBlank()
-    const {
-  return mInfo->GetURIOrInheritedForAboutBlank();
+already_AddRefed<nsIURI>
+SessionHistoryEntry::GetURIOrInheritedForAboutBlankOrSrcdoc() const {
+  return mInfo->GetURIOrInheritedForAboutBlankOrSrcdoc();
 }
 
 already_AddRefed<nsSHistory> SessionHistoryEntry::GetSessionHistory() {
@@ -1485,8 +1499,8 @@ PreviousSessionHistoryInfo::CreateValidatedPreviousEntry(
   // navigation's relevant realm, whose session history entry is
   // previousEntryForActivation.
   nsCOMPtr previousURI =
-      aPreviousEntryForActivation->GetURIOrInheritedForAboutBlank();
-  nsCOMPtr currentURI = aCurrentEntry.GetURIOrInheritedForAboutBlank();
+      aPreviousEntryForActivation->GetURIOrInheritedForAboutBlankOrSrcdoc();
+  nsCOMPtr currentURI = aCurrentEntry.GetURIOrInheritedForAboutBlankOrSrcdoc();
   if (NS_FAILED(nsContentUtils::GetSecurityManager()->CheckSameOriginURI(
           currentURI, previousURI, false, false))) {
     return Some(PreviousSessionHistoryInfo{});

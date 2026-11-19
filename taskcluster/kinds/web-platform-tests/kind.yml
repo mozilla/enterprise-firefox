@@ -121,6 +121,7 @@ tasks:
             by-variant:
                 no-fission:
                     by-test-platform:
+                        android.*: 2
                         linux.*: 2
                         default: default
                 geckoview-isolated-process: 2
@@ -153,11 +154,12 @@ tasks:
             - privatebrowsing
             - inc-origin-init
             - privatebrowsing-inc-origin-init
+            - csp-next
         run-on-projects:
             by-variant:
                 no-fission:
                     by-test-platform:
-                        android.*: built-projects
+                        android.*: ['mozilla-central']
                         linux2404-64/debug: ['mozilla-central']
                         linux2404-64(-shippable)?/opt: ['mozilla-central']
                         linux2404-64-asan/opt: ['mozilla-central']
@@ -173,9 +175,14 @@ tasks:
                         default: built-projects
                 inc-origin-init: []
                 privatebrowsing-inc-origin-init: []
+                csp-next:
+                    by-test-platform:
+                        linux2404-64/debug: built-projects
+                        linux2404-64(-shippable)?/opt: built-projects
+                        linux2404-64-asan/opt: built-projects
+                        default: []
                 default:
                     by-test-platform:
-                        android.*: []
                         .*-wayland.*: []
                         default: built-projects
         mozharness:

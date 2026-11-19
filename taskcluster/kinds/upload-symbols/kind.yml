@@ -24,10 +24,6 @@ not-for-build-platforms:
     - win64-geckodriver/opt
     - win64-aarch64-geckodriver/opt
 
-task-defaults:
-    # Scopes aren't setup for enterprise yet
-    run-on-projects: []
-
 tasks:
     upload-symbols:
         description: Upload Symbols
@@ -45,7 +41,6 @@ tasks:
                 UPLOAD_SYMBOLS: /builds/worker/fetches/upload-symbols-cli/upload-symbols
                 MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE: system
         run:
-            clone-with: hg
             using: mach
             mach: {artifact-reference: "python toolkit/crashreporter/tools/upload_symbols.py <build/public/cidata/target.crashreporter-symbols-full.tar.zst>"}
             sparse-profile: upload-symbols

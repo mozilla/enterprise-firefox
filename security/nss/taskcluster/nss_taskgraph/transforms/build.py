@@ -35,6 +35,7 @@ def set_build_attributes(config, jobs):
 EXTRA_COMPILERS = {
     "clang": {"CC": "clang", "CCC": "clang++"},
     "clang-10": {"CC": "clang-10", "CCC": "clang++-10"},
+    "clang-23": {"CC": "clang-23", "CCC": "clang++-23"},
     # gcc-8 is the RHEL 8 system compiler (our floor); gcc-11 is RHEL 9.
     "gcc-8": {"CC": "gcc-8", "CCC": "g++-8"},
     "gcc-11": {"CC": "gcc-11", "CCC": "g++-11"},
@@ -51,7 +52,7 @@ def add_variants(config, jobs):
 
         # nspr. Skipped on cross builds: the variant runs NSPR's test suite,
         # and the build host can't execute target binaries.
-        if not any(attributes.get(attr) for attr in ("make", "asan", "fuzz", "tsan", "cross")):
+        if not any(attributes.get(attr) for attr in ("make", "asan", "fuzz", "tsan", "target_os", "cross")):
             nspr_job = deepcopy(job)
             nspr_job["name"] = f"{attributes['build_platform']}-nspr/{attributes['build_type']}"
             nspr_job["description"]+= " (NSPR only)"
@@ -75,9 +76,9 @@ def add_variants(config, jobs):
 
         # Windows gyp builds use clang-cl, as Firefox does (see
         # uses_clang_cl). MSVC is kept as a build-only extra, like the extra
-        # Linux compilers below.
+        # Linux compilers below. Sanitizer builds are clang-only.
         if (attributes["build_platform"].startswith("win")
-                and not attributes.get("make") and not attributes.get("static")):
+                and not any(attributes.get(attr) for attr in ("make", "static", "asan"))):
             msvc_job = deepcopy(job)
             msvc_job["name"] += "-msvc"
             msvc_job["description"] += " w/ MSVC"
@@ -135,7 +136,7 @@ def uses_clang_cl(attributes):
 def set_attributes_defaults(config, jobs):
     for job in jobs:
         attributes = job["attributes"]
-        for attr in ("make", "asan", "make-fips", "fuzz", "certs", "nspr", "cc", "dbm", "modular", "tlsfuzz", "tsan", "cross"):
+        for attr in ("make", "asan", "make-fips", "fuzz", "certs", "nspr", "cc", "dbm", "modular", "tlsfuzz", "tsan", "target_os", "cross"):
             attributes.setdefault(attr, False)
         yield job
 
@@ -157,6 +158,27 @@ def set_make_command(config, jobs):
         yield job
 
 
+#: build.sh -t value for the architecture a cross-compiled platform ends with.
+CROSS_ARCHS = {"aarch64": "arm64", "arm": "arm", "x64": "x64", "x86": "ia32"}
+
+#: Android API level to build for. The oldest one current NDKs support, so that
+#: NSS doesn't come to use libc functions that consumers' minimum API lacks.
+#: Set explicitly so that an NDK update can't raise it.
+ANDROID_API = 21
+
+
+def cross_compile_args(target_os, platform):
+    """build.sh arguments for a build of target_os, e.g. android-aarch64 or
+    ios-sim-x64. The toolchain is found by build.sh itself: the NDK from
+    ANDROID_NDK_ROOT, which the android docker image sets, or Xcode."""
+    args = f" --target-os={target_os} -t {CROSS_ARCHS[platform.rsplit('-', 1)[1]]}"
+    if target_os == "android":
+        args += f" --android-api={ANDROID_API}"
+    if target_os == "ios" and "-sim-" in platform:
+        args += " --ios-sdk=iphonesimulator"
+    return args
+
+
 @transforms.add
 def set_gyp_command(config, jobs):
     for job in jobs:
@@ -170,7 +192,9 @@ def set_gyp_command(config, jobs):
         else:
             script = "${VCS_PATH}/nss/automation/taskcluster/scripts/build_gyp.sh"
         command = script + " --python=python3"
-        if "64" not in platform:
+        if attributes.get("target_os"):
+            command += cross_compile_args(attributes["target_os"], platform)
+        elif "64" not in platform:
             command += " -t ia32"
         elif platform.startswith("win") and "aarch64" in platform:
             # Cross-compiled on the x64 Windows builder; native aarch64 Linux
@@ -282,6 +306,10 @@ def add_gecko_toolchain_fetches(config, jobs):
 def set_docker_image(config, jobs):
     for job in jobs:
         platform = job["attributes"]["build_platform"]
+        if job["attributes"].get("target_os") == "android":
+            job["worker"]["docker-image"] = {"in-tree": "android"}
+            yield job
+            continue
         if "linux" not in platform:
             yield job
             continue
@@ -303,6 +331,9 @@ def set_docker_image(config, jobs):
 
 
 def get_job_symbol(job):
+    # Cross-compiled builds are extra builds: on try they need `-e all`.
+    if job["attributes"].get("target_os"):
+        return "Builds(B)"
     if job["attributes"].get("nspr"):
         return "NSPR"
     if job["attributes"].get("cc"):

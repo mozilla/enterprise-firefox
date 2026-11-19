@@ -65,7 +65,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TimerFeed: "resource://newtab/lib/Widgets/TimerFeed.sys.mjs",
   TravelFeed: "resource://newtab/lib/Widgets/TravelFeed.sys.mjs",
   TopSitesFeed: "resource://newtab/lib/TopSitesFeed.sys.mjs",
-  TopStoriesFeed: "resource://newtab/lib/TopStoriesFeed.sys.mjs",
   WallpaperFeed: "resource://newtab/lib/Wallpapers/WallpaperFeed.sys.mjs",
   WeatherFeed: "resource://newtab/lib/WeatherFeed.sys.mjs",
   WebNotificationsFeed: "resource://newtab/lib/WebNotificationsFeed.sys.mjs",
@@ -98,8 +97,6 @@ const LOCALE_SOV_CONFIG =
 
 const REGION_WEATHER_CONFIG =
   "browser.newtabpage.activity-stream.discoverystream.region-weather-config";
-const LOCALE_WEATHER_CONFIG =
-  "browser.newtabpage.activity-stream.discoverystream.locale-weather-config";
 
 const REGION_TOPICS_CONFIG =
   "browser.newtabpage.activity-stream.discoverystream.topicSelection.region-topics-config";
@@ -368,11 +365,8 @@ function showSpocs({ geo }) {
   return spocsGeo.includes(geo);
 }
 
-function showWeather({ geo, locale }) {
-  return (
-    csvPrefHasValue(REGION_WEATHER_CONFIG, geo) &&
-    csvPrefHasValue(LOCALE_WEATHER_CONFIG, locale)
-  );
+function showWeather({ geo }) {
+  return csvPrefHasValue(REGION_WEATHER_CONFIG, geo);
 }
 
 /**
@@ -734,6 +728,34 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "feeds.system.topstories",
+    {
+      title:
+        "System pref that fetches content recommendations from a configurable content provider",
+      // Dynamically determine if stories should be shown for a geo / locale
+      getValue: ({ geo, locale }) => {
+        // If we don't have geo, we don't want to flash the screen with stories while geo loads.
+        // Best to display nothing until geo is ready.
+        if (!geo) {
+          return false;
+        }
+        const blockedRegions =
+          lazy.NimbusFeatures.pocketNewtab.getVariable("regionStoriesBlock") ||
+          "";
+        if (csvHasValue(blockedRegions, geo)) {
+          return false;
+        }
+        if (!locale) {
+          return false;
+        }
+        return (
+          storiesRegionLocaleMatches(geo, locale) ||
+          matchesLegacyRegionStoriesConfig(geo, locale)
+        );
+      },
+    },
+  ],
+  [
     "mobileDownloadModal.enabled",
     {
       title: "Boolean flag to show download Firefox for mobile QR code modal",
@@ -922,14 +944,6 @@ export const PREFS_CONFIG = new Map([
       title:
         "Published date of the Picture of the day set as the active wallpaper",
       value: "",
-    },
-  ],
-  [
-    "widgets.pictureOfTheDay.setAsWallpaper.enabled",
-    {
-      title:
-        "Whether the Picture of the day 'Set as wallpaper' feature/CTA is enabled",
-      value: true,
     },
   ],
   [
@@ -1182,6 +1196,22 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "newtabWallpapers.categoryOrder",
+    {
+      title:
+        "Comma-separated wallpaper category order. Unlisted categories follow the listed ones. Overridden by trainhopConfig.wallpapers.categoryOrder",
+      value: "",
+    },
+  ],
+  [
+    "newtabWallpapers.maxCategories",
+    {
+      title:
+        "Maximum number of wallpaper category tiles in the Nova layout, including Your images. Overridden by trainhopConfig.wallpapers.maxCategories",
+      value: 6,
+    },
+  ],
+  [
     "newtabAdSize.leaderboard",
     {
       title: "Boolean flag to turn the leaderboard ad size on and off",
@@ -1200,7 +1230,7 @@ export const PREFS_CONFIG = new Map([
     "newtabAdSize.billboard",
     {
       title: "Boolean flag to turn the billboard ad size on and off",
-      value: false,
+      value: true,
     },
   ],
   [
@@ -1208,7 +1238,7 @@ export const PREFS_CONFIG = new Map([
     {
       title:
         "position for billboard spoc - should correlate to a row in DS grid",
-      value: "3",
+      value: "1",
     },
   ],
   [
@@ -1222,7 +1252,7 @@ export const PREFS_CONFIG = new Map([
     "discoverystream.promoCard.enabled",
     {
       title: "Boolean flag to turn the promo card on and off",
-      value: false,
+      value: true,
     },
   ],
   [
@@ -1368,6 +1398,13 @@ export const PREFS_CONFIG = new Map([
     "discoverystream.reportAds.enabled",
     {
       title: "Boolean flag to enable reporting ads from the context menu",
+      value: false,
+    },
+  ],
+  [
+    "discoverystream.reportAds.newReasons.enabled",
+    {
+      title: "Boolean flag to enable updated reporting reasons for ads",
       value: false,
     },
   ],
@@ -2678,34 +2715,6 @@ const FEEDS_DATA = [
     factory: () => new lazy.HighlightsFeed(),
     title: "Fetches content recommendations from places db",
     value: false,
-  },
-  {
-    name: "system.topstories",
-    factory: () =>
-      new lazy.TopStoriesFeed(PREFS_CONFIG.get("discoverystream.config")),
-    title:
-      "System pref that fetches content recommendations from a configurable content provider",
-    // Dynamically determine if stories should be shown for a geo / locale
-    getValue: ({ geo, locale }) => {
-      // If we don't have geo, we don't want to flash the screen with stories while geo loads.
-      // Best to display nothing until geo is ready.
-      if (!geo) {
-        return false;
-      }
-      const blockedRegions =
-        lazy.NimbusFeatures.pocketNewtab.getVariable("regionStoriesBlock") ||
-        "";
-      if (csvHasValue(blockedRegions, geo)) {
-        return false;
-      }
-      if (!locale) {
-        return false;
-      }
-      return (
-        storiesRegionLocaleMatches(geo, locale) ||
-        matchesLegacyRegionStoriesConfig(geo, locale)
-      );
-    },
   },
   {
     name: "systemtick",

@@ -365,7 +365,7 @@ def setup_browsertime(config, tasks):
                 "windows.*aarch64.*": [
                     "browsertime",
                     "win32-geckodriver",
-                    "win32-node",
+                    "win64-aarch64-node",
                 ],
                 "windows.*-64.*": ["browsertime", "win64-geckodriver", "win64-node"],
             },
@@ -727,8 +727,8 @@ def handle_tier(config, tasks):
                 "macosx1500-aarch64/debug",
                 "macosx1500-aarch64-shippable/opt",
                 "macosx1500-aarch64-devedition/opt",
-                "macosx1500-64-enterprise/opt",
-                "macosx1500-64-enterprise/debug",
+                "macosx1500-aarch64-enterprise/opt",
+                "macosx1500-aarch64-enterprise/debug",
                 "macosx1500-64-enterprise-shippable/opt",
                 "android-em-14-x86_64-shippable/opt",
                 "android-em-14-x86_64/opt",
@@ -1334,4 +1334,24 @@ def set_perfherder_extra_options(config, tasks):
             options.append(variant)
         env = task.setdefault("worker", {}).setdefault("env", {})
         env.setdefault("PERFHERDER_EXTRA_OPTIONS", " ".join(options))
+        yield task
+
+
+@transforms.add
+def set_repeat_tests(config, tasks):
+    repeat = config.params["try_task_config"].get("repeat-tests")
+    supported_suites = [
+        "mochitest",
+        "crashtest",
+        "reftest",
+        "web-platform-tests",
+        "xpcshell",
+    ]
+    for task in tasks:
+        if repeat and any(
+            task["suite"].startswith(suite) for suite in supported_suites
+        ):
+            extra = task["mozharness"].setdefault("extra-options", [])
+            if not any(a.startswith("--repeat") for a in extra):
+                extra.append(f"--repeat={repeat - 1}")
         yield task

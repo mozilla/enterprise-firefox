@@ -1875,7 +1875,9 @@ already_AddRefed<AccAttributes> RemoteAccessible::DefaultTextAttributes() {
 
     if (const AccAttributes* parentAttrs = parent->GetCachedTextAttributes()) {
       // Update our text attributes with any parent entries we don't have.
-      parentAttrs->CopyTo(result, true);
+      parentAttrs->CopyTo(result, [&result](nsAtom* attrName) {
+        return !result->HasAttribute(attrName);
+      });
     }
   }
 
@@ -2066,7 +2068,17 @@ already_AddRefed<AccAttributes> RemoteAccessible::Attributes() {
     }
 
     if (auto ariaAttrs = GetCachedARIAAttributes()) {
-      ariaAttrs->CopyTo(attributes);
+      ariaAttrs->CopyTo(attributes, [&](nsAtom* attrName) {
+        if ((attrName == nsGkAtoms::aria_roledescription ||
+             attrName == nsGkAtoms::aria_brailleroledescription) &&
+            IsGeneric()) {
+          // We only expose these attributes in accessibles with non generic
+          // roles. https://www.w3.org/TR/wai-aria-1.2/#aria-roledescription
+          return false;
+        }
+
+        return true;
+      });
     }
 
     nsAccUtils::SetLiveContainerAttributes(attributes, this);
@@ -2140,18 +2152,6 @@ already_AddRefed<AccAttributes> RemoteAccessible::Attributes() {
   nsAutoString name;
   if (Name(name) != eNameFromSubtree && !name.IsVoid()) {
     attributes->SetAttribute(nsGkAtoms::explicit_name, true);
-  }
-
-  // Expose the string value via the valuetext attribute. We test for the value
-  // interface because we don't want to expose traditional Value() information
-  // such as URLs on links and documents, or text in an input.
-  // XXX This is only needed for ATK, since other APIs have native ways to
-  // retrieve value text. We should probably move this into ATK specific code.
-  // For now, we do this because LocalAccessible does it.
-  if (HasNumericValue()) {
-    nsString valuetext;
-    Value(valuetext);
-    attributes->SetAttribute(nsGkAtoms::aria_valuetext, std::move(valuetext));
   }
 
   return attributes.forget();

@@ -926,14 +926,10 @@ void nsAccessibilityService::ComboboxOptionMaybeChanged(
 
   for (nsIContent* cur = aMutatingNode; cur; cur = cur->GetParent()) {
     if (cur->IsHTMLElement(nsGkAtoms::option)) {
-      if (LocalAccessible* accessible = document->GetAccessible(cur)) {
-        document->FireDelayedEvent(nsIAccessibleEvent::EVENT_NAME_CHANGE,
-                                   accessible);
-        break;
-      }
-      if (cur->IsHTMLElement(nsGkAtoms::select)) {
-        break;
-      }
+      HTMLComboboxAccessible::SelectedOptionLabelMaybeChanged(document, cur);
+    }
+    if (cur->IsHTMLElement(nsGkAtoms::select)) {
+      break;
     }
   }
 }
@@ -1348,11 +1344,6 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
       newAcc = MakeRefPtr<HyperTextAccessible>(content, document);
     }
 
-    if (content->IsElement() && content->AsElement()->GetPseudoElementType() ==
-                                    PseudoStyleType::Picker) {
-      newAcc = MakeRefPtr<HTMLComboboxListAccessible>(content, document);
-    }
-
     // If there's still no Accessible but we do have an entry in the markup
     // map for this non-presentational element, create a generic
     // HyperTextAccessible.
@@ -1519,8 +1510,13 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
     // expose their native roles.
     if (!roleMapEntry && newAcc && aContext->HasStrongARIARole()) {
       if (frame->AccessibleType() == eHTMLTableRowType) {
-        const nsRoleMapEntry* contextRoleMap = aContext->ARIARoleMap();
-        if (!contextRoleMap->IsOfType(eTable)) {
+        LocalAccessible* table = aContext;
+        if (!aContext->IsTable() &&
+            aContext->ARIARoleMap()->role == roles::ROWGROUP) {
+          table = aContext->LocalParent();
+        }
+        if (table->HasStrongARIARole() &&
+            !table->ARIARoleMap()->IsOfType(eTable)) {
           roleMapEntry = &aria::gEmptyRoleMap;
         }
 
@@ -2105,8 +2101,8 @@ void nsAccessibilityService::NotifyOfConsumersChange() {
 
   nsAutoString consumers;
   GetConsumers(consumers);
-  observerService->NotifyObservers(nullptr, "a11y-consumers-changed",
-                                   consumers.get());
+  observerService->NotifyWhenScriptSafe(nullptr, "a11y-consumers-changed",
+                                        consumers.get());
 }
 
 const mozilla::a11y::MarkupMapInfo* nsAccessibilityService::GetMarkupMapInfoFor(

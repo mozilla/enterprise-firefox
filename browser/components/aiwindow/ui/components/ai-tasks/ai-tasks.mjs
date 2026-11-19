@@ -527,6 +527,7 @@ export class AITasks extends MozLitElement {
           ? html`<agent-monitor-item
               mode="create"
               .maxWatchUrls=${this._constants.TOTAL_NUM_URLS_IN_MONITOR}
+              .canSuggest=${false}
             ></agent-monitor-item>`
           : nothing}
       </dialog>
@@ -574,6 +575,7 @@ export class AITasks extends MozLitElement {
                 .scheduleTypes=${this._constants.SCHEDULE_TYPES}
                 .weekdays=${WEEKDAYS}
                 .canResume=${!this.isMaxMonitorsReached}
+                .activeLimit=${this._constants.TOTAL_NUM_MONITORS}
               ></monitors-display>
             </div>
           </div>`}

@@ -231,6 +231,8 @@ class PdfCreationTest : BaseSessionTest() {
     @NullDelegate(Autofill.Delegate::class)
     @Test
     fun testIfPdfIsNotScaledInDesktopMode() {
+        sessionRule.setPrefsUntilTestEnd(mapOf("pdfjs.enableAndroidEditing" to false))
+
         activityRule.scenario.onActivity {
             mainSession.settings.userAgentMode = GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
             mainSession.settings.viewportMode = GeckoSessionSettings.VIEWPORT_MODE_DESKTOP

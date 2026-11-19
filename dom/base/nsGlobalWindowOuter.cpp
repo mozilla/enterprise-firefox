@@ -162,8 +162,6 @@
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/ServiceWorkerRegistration.h"
 #include "mozilla/dom/VRDisplay.h"
-#include "mozilla/dom/VRDisplayEvent.h"
-#include "mozilla/dom/VRDisplayEventBinding.h"
 #include "mozilla/dom/VREventObserver.h"
 #include "mozilla/dom/WebIDLGlobalNameHash.h"
 #include "mozilla/dom/WindowBinding.h"
@@ -5531,7 +5529,8 @@ void nsGlobalWindowOuter::SizeToContentOuter(
   }
 
   nsCOMPtr<nsIDocShellTreeOwner> treeOwner = GetTreeOwner();
-  if (!treeOwner) {
+  nsCOMPtr<nsIAppWindow> appWin = do_GetInterface(treeOwner);
+  if (!appWin) {
     return aError.Throw(NS_ERROR_FAILURE);
   }
 
@@ -5549,9 +5548,7 @@ void nsGlobalWindowOuter::SizeToContentOuter(
       presContext->CSSPixelsToDevPixels(cssSize.width),
       presContext->CSSPixelsToDevPixels(cssSize.height));
 
-  nsCOMPtr<nsIDocShell> docShell = mDocShell;
-  aError =
-      treeOwner->SizeShellTo(docShell, newDevSize.width, newDevSize.height);
+  aError = appWin->SetRootShellSize(newDevSize.width, newDevSize.height);
 }
 
 already_AddRefed<nsPIWindowRoot> nsGlobalWindowOuter::GetTopWindowRoot() {

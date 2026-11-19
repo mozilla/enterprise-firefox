@@ -260,12 +260,31 @@
 // to paint above its neighbours. No fade either: what the user is dragging is
 // the live widget, not a native drag source.
 .nova-enabled .widget-draggable {
+  cursor: grab;
+  // Grows the wrapper into the grid gap without moving the card, so the gap
+  // edge is also a place to grab the widget.
+  margin: calc(-1 * var(--space-xxsmall));
+  padding: var(--space-xxsmall);
+
   &[data-dragging] {
     position: relative;
     z-index: 1;
     cursor: grabbing;
+    scale: 1.02;
     will-change: transform;
   }
+}
+
+:where(.nova-enabled .widget-draggable:not([data-dragging])) > * > * {
+  cursor: auto;
+}
+
+:where(.nova-enabled .widget-draggable:not([data-dragging])) > * > :is(:has(.newtab-widget-title, [class*='context-menu-button'], .lists-panel-button), moz-widget-header) {
+  cursor: grab;
+}
+
+:where(.nova-enabled .widget-draggable:not([data-dragging])) :where(button, moz-button, moz-checkbox, moz-toggle, moz-radio, moz-select, panel-list, dialog, [role='button'], [role='checkbox'], [role='switch']) {
+  cursor: default;
 }
 
 // Backs up pointer capture: `pointer-events: none` keeps a widget's iframe from
@@ -406,25 +425,25 @@
     // row 1 avoids edge cases with mixed-height widgets (e.g. a large widget
     // occupying multiple medium row-slots in one column).
     @include at-content-cols(8) {
-      &:has(> :nth-child(2)):not(:has(> :nth-child(3))) > .widgets-add-button {
+      &:has(> :nth-child(2)):not(:has(> :nth-child(3))) .widgets-add-button {
         display: flex;
       }
     }
 
     @include at-content-cols(12) {
-      &:has(> :nth-child(3)):not(:has(> :nth-child(4))) > .widgets-add-button {
+      &:has(> :nth-child(3)):not(:has(> :nth-child(4))) .widgets-add-button {
         display: flex;
       }
     }
 
     @include at-content-cols(16) {
-      &:has(> :nth-child(4)):not(:has(> :nth-child(5))) > .widgets-add-button {
+      &:has(> :nth-child(4)):not(:has(> :nth-child(5))) .widgets-add-button {
         display: flex;
       }
     }
 
     @include at-content-cols(20) {
-      &:has(> :nth-child(5)):not(:has(> :nth-child(6))) > .widgets-add-button {
+      &:has(> :nth-child(5)):not(:has(> :nth-child(6))) .widgets-add-button {
         display: flex;
       }
     }
@@ -535,4 +554,53 @@
     }
   }
 
+}
+
+.nova-enabled {
+  // The global box-sizing reset does not cross the shadow boundary.
+  .widget-error {
+    block-size: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-small);
+
+    .sr-only {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  .widget-error-message {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-small);
+    color: var(--text-color-deemphasized);
+
+    .icon-info-warning {
+      flex-shrink: 0;
+      inline-size: var(--icon-size);
+      block-size: var(--icon-size);
+    }
+
+    .widget-error-text {
+      margin: 0;
+      font-size: var(--font-size-small);
+    }
+  }
+
+  .large-widget .widget-error-message {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .widget-error-titled {
+    padding: var(--space-medium);
+  }
 }

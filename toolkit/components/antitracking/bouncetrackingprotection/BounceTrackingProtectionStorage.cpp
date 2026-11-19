@@ -5,7 +5,6 @@
 #include "BounceTrackingProtectionStorage.h"
 #include <cstdint>
 
-#include "BounceTrackingState.h"
 #include "BounceTrackingStateGlobal.h"
 #include "ErrorList.h"
 #include "MainThreadUtils.h"
@@ -50,10 +49,8 @@ BounceTrackingProtectionStorage::GetStateGlobal(nsIPrincipal* aPrincipal) {
 RefPtr<BounceTrackingStateGlobal>
 BounceTrackingProtectionStorage::GetStateGlobal(
     const OriginAttributes& aOriginAttributes) {
-  OriginAttributes oa = aOriginAttributes;
-  oa.mFirstPartyDomain.Truncate();
-
-  return mStateGlobal.Get(oa);
+  return mStateGlobal.Get(
+      BounceTrackingSite::NormalizeOriginAttributes(aOriginAttributes));
 }
 
 RefPtr<BounceTrackingStateGlobal>
@@ -65,17 +62,9 @@ BounceTrackingProtectionStorage::GetOrCreateStateGlobal(
 
 RefPtr<BounceTrackingStateGlobal>
 BounceTrackingProtectionStorage::GetOrCreateStateGlobal(
-    BounceTrackingState* aBounceTrackingState) {
-  MOZ_ASSERT(aBounceTrackingState);
-  return GetOrCreateStateGlobal(aBounceTrackingState->OriginAttributesRef());
-}
-
-RefPtr<BounceTrackingStateGlobal>
-BounceTrackingProtectionStorage::GetOrCreateStateGlobal(
     const OriginAttributes& aOriginAttributes) {
-  OriginAttributes oa = aOriginAttributes;
-  oa.mFirstPartyDomain.Truncate();
-
+  OriginAttributes oa =
+      BounceTrackingSite::NormalizeOriginAttributes(aOriginAttributes);
   return mStateGlobal.GetOrInsertNew(oa, this, oa);
 }
 
@@ -93,16 +82,44 @@ nsresult BounceTrackingProtectionStorage::ClearByType(
   return DeleteDBEntriesByType(nullptr, aType);
 }
 
+// The bounce chain records the state globals keep with their candidates and
+// purge log entries name every site of the chain, which can span containers.
+// Clearing data has to drop the records naming cleared sites in every state
+// global, not only in the cleared ones.
+static void DropChainRecordsInAllStateGlobals(
+    const BounceTrackingProtectionStorage::StateGlobalMap& aStateGlobals,
+    BounceTrackingStateGlobal::ChainRecordPredicate aPredicate) {
+  for (const RefPtr<BounceTrackingStateGlobal>& stateGlobal :
+       aStateGlobals.Values()) {
+    stateGlobal->DropChainRecordsIf(aPredicate);
+  }
+}
+
 nsresult BounceTrackingProtectionStorage::ClearBySiteHost(
     const nsACString& aSiteHost, OriginAttributes* aOriginAttributes) {
   NS_ENSURE_TRUE(!aSiteHost.IsEmpty(), NS_ERROR_INVALID_ARG);
 
-  // If OriginAttributes are passed only clear the matching state global.
+  Maybe<OriginAttributes> originAttributes;
   if (aOriginAttributes) {
+    originAttributes.emplace(
+        BounceTrackingSite::NormalizeOriginAttributes(*aOriginAttributes));
+  }
+
+  DropChainRecordsInAllStateGlobals(
+      mStateGlobal, [&](const BounceTrackingRecord& aRecord) {
+        return aRecord.HasSiteHost(
+            aSiteHost, [&](const OriginAttributes& aCandidate) {
+              return !originAttributes || *originAttributes == aCandidate;
+            });
+      });
+
+  // If OriginAttributes are passed only clear the matching state global.
+  if (originAttributes) {
     RefPtr<BounceTrackingStateGlobal> stateGlobal =
-        mStateGlobal.Get(*aOriginAttributes);
+        mStateGlobal.Get(*originAttributes);
     if (stateGlobal) {
-      nsresult rv = stateGlobal->ClearSiteHost(aSiteHost, true);
+      nsresult rv =
+          stateGlobal->ClearSite(stateGlobal->SiteFor(aSiteHost), true);
       NS_ENSURE_SUCCESS(rv, rv);
     }
   } else {
@@ -111,17 +128,18 @@ nsresult BounceTrackingProtectionStorage::ClearBySiteHost(
       BounceTrackingStateGlobal* stateGlobal = iter.Data();
       MOZ_ASSERT(stateGlobal);
       // Update in memory state. Skip storage so we can batch the writes later.
-      nsresult rv = stateGlobal->ClearSiteHost(aSiteHost, true);
+      nsresult rv =
+          stateGlobal->ClearSite(stateGlobal->SiteFor(aSiteHost), true);
       NS_ENSURE_SUCCESS(rv, rv);
     }
   }
 
   // Update the database.
   // Private browsing data is not written to disk.
-  if (aOriginAttributes && aOriginAttributes->IsPrivateBrowsing()) {
+  if (originAttributes && originAttributes->IsPrivateBrowsing()) {
     return NS_OK;
   }
-  return DeleteDBEntries(aOriginAttributes, aSiteHost);
+  return DeleteDBEntries(originAttributes.ptrOr(nullptr), aSiteHost);
 }
 
 nsresult BounceTrackingProtectionStorage::ClearByTimeRange(PRTime aFrom,
@@ -142,6 +160,16 @@ nsresult BounceTrackingProtectionStorage::ClearByTimeRange(PRTime aFrom,
 nsresult BounceTrackingProtectionStorage::ClearByOriginAttributesPattern(
     const OriginAttributesPattern& aOriginAttributesPattern,
     const Maybe<nsCString>& aSiteHost) {
+  auto patternMatches = [&](const OriginAttributes& aOriginAttributes) {
+    return aOriginAttributesPattern.Matches(aOriginAttributes);
+  };
+
+  DropChainRecordsInAllStateGlobals(
+      mStateGlobal, [&](const BounceTrackingRecord& aRecord) {
+        return aSiteHost ? aRecord.HasSiteHost(*aSiteHost, patternMatches)
+                         : aRecord.HasOriginAttributesMatching(patternMatches);
+      });
+
   // Clear in memory state.
   for (auto iter = mStateGlobal.Iter(); !iter.Done(); iter.Next()) {
     BounceTrackingStateGlobal* stateGlobal = iter.Data();
@@ -159,7 +187,8 @@ nsresult BounceTrackingProtectionStorage::ClearByOriginAttributesPattern(
 
     // Otherwise we need to clear just the entries that match the site host.
     // Update in memory state. Skip storage so we can batch the writes later.
-    nsresult rv = stateGlobal->ClearSiteHost(aSiteHost.ref(), true);
+    nsresult rv =
+        stateGlobal->ClearSite(stateGlobal->SiteFor(aSiteHost.ref()), true);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -175,31 +204,25 @@ nsresult BounceTrackingProtectionStorage::ClearByOriginAttributesPattern(
 }
 
 nsresult BounceTrackingProtectionStorage::UpdateDBEntry(
-    const OriginAttributes& aOriginAttributes, const nsACString& aSiteHost,
-    EntryType aEntryType, PRTime aTimeStamp) {
+    const BounceTrackingSite& aSite, EntryType aEntryType, PRTime aTimeStamp) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(!aSiteHost.IsEmpty());
+  MOZ_ASSERT(!aSite.IsNull());
   MOZ_ASSERT(aTimeStamp);
-  MOZ_ASSERT(aOriginAttributes.mPrivateBrowsingId ==
+  const OriginAttributes& originAttributes = aSite.OriginAttributesRef();
+  MOZ_ASSERT(originAttributes.mPrivateBrowsingId ==
                  nsIScriptSecurityManager::DEFAULT_PRIVATE_BROWSING_ID,
              "Must not write private browsing data to disk.");
 
   nsresult rv = CheckDBAvailable();
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (MOZ_LOG_TEST(gBounceTrackingProtectionLog, LogLevel::Debug)) {
-    nsAutoCString originAttributeSuffix;
-    aOriginAttributes.CreateSuffix(originAttributeSuffix);
-    MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
-                "{}: originAttributes: {}, siteHost={}, entryType={}, "
-                "timeStamp={}",
-                __FUNCTION__, originAttributeSuffix, aSiteHost, aEntryType,
-                aTimeStamp);
-  }
+  MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
+              "{}: site: {}, entryType={}, timeStamp={}", __FUNCTION__, aSite,
+              aEntryType, aTimeStamp);
 
-  NoteSiteWrittenBeforeLoad(aOriginAttributes, aSiteHost);
+  NoteSiteWrittenBeforeLoad(originAttributes, aSite.SiteHost());
   mPendingUpdates.AppendElement(PendingUpdate{
-      aOriginAttributes, nsCString(aSiteHost), aEntryType, aTimeStamp});
+      originAttributes, aSite.SiteHost(), aEntryType, aTimeStamp});
 
   return MaybeFlushPendingUpdates();
 }
@@ -910,14 +933,14 @@ nsresult BounceTrackingProtectionStorage::LoadMemoryStateFromDisk() {
               self->GetOrCreateStateGlobal(entry.mOriginAttributes);
           MOZ_ASSERT(stateGlobal);
 
+          BounceTrackingSite site = stateGlobal->SiteFor(entry.mSiteHost);
           nsresult rv;
           if (entry.mEntryType ==
               BounceTrackingProtectionStorage::EntryType::BounceTracker) {
-            rv = stateGlobal->RecordBounceTracker(entry.mSiteHost,
-                                                  entry.mTimeStamp, true);
+            rv = stateGlobal->RecordBounceTracker(site, entry.mTimeStamp, true);
           } else {
-            rv = stateGlobal->RecordUserActivation(entry.mSiteHost,
-                                                   entry.mTimeStamp, true);
+            rv =
+                stateGlobal->RecordUserActivation(site, entry.mTimeStamp, true);
           }
           if (NS_WARN_IF(NS_FAILED(rv)) &&
               MOZ_LOG_TEST(gBounceTrackingProtectionLog, LogLevel::Debug)) {
@@ -933,7 +956,7 @@ nsresult BounceTrackingProtectionStorage::LoadMemoryStateFromDisk() {
           }
 
           if (self->IsSiteWrittenBeforeLoad(entry)) {
-            rv = self->PersistMemoryState(stateGlobal, entry.mSiteHost);
+            rv = self->PersistMemoryState(stateGlobal, site);
             NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                                  "LoadMemoryStateFromDisk: PersistMemoryState "
                                  "failed");
@@ -946,19 +969,18 @@ nsresult BounceTrackingProtectionStorage::LoadMemoryStateFromDisk() {
 }
 
 nsresult BounceTrackingProtectionStorage::PersistMemoryState(
-    BounceTrackingStateGlobal* aStateGlobal, const nsACString& aSiteHost) {
+    BounceTrackingStateGlobal* aStateGlobal, const BounceTrackingSite& aSite) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aStateGlobal);
 
   if (Maybe<PRTime> activationTime =
-          aStateGlobal->UserActivationMapRef().MaybeGet(aSiteHost)) {
-    return UpdateDBEntry(aStateGlobal->OriginAttributesRef(), aSiteHost,
-                         EntryType::UserActivation, *activationTime);
+          aStateGlobal->UserActivationMapRef().MaybeGet(aSite.SiteHost())) {
+    return UpdateDBEntry(aSite, EntryType::UserActivation, *activationTime);
   }
   if (Maybe<BounceTrackerCandidate> candidate =
-          aStateGlobal->BounceTrackersMapRef().MaybeGet(aSiteHost)) {
-    return UpdateDBEntry(aStateGlobal->OriginAttributesRef(), aSiteHost,
-                         EntryType::BounceTracker, candidate->mBounceTime);
+          aStateGlobal->BounceTrackersMapRef().MaybeGet(aSite.SiteHost())) {
+    return UpdateDBEntry(aSite, EntryType::BounceTracker,
+                         candidate->mBounceTime);
   }
   return NS_OK;
 }

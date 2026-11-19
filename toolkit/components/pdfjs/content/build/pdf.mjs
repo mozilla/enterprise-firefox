@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.447
- * pdfjsBuild = c7ca8a32e
+ * pdfjsVersion = 7.0.182
+ * pdfjsBuild = fc0822a07
  */
 
 ;// ./src/shared/util.js
@@ -796,6 +796,12 @@ function _isValidExplicitDest(validRef, validName, dest) {
   }
   return true;
 }
+function noopFn() {}
+function createPromiseCapability() {
+  const pc = Promise.withResolvers();
+  pc.promise.catch(noopFn);
+  return pc;
+}
 const makeArr = () => [];
 const makeMap = () => new Map();
 const makeObj = () => Object.create(null);
@@ -896,7 +902,7 @@ class OutputScale {
     if (maxPixels > 0) {
       maxAreaScale = Math.sqrt(maxPixels / (width * height));
     }
-    if (maxDim !== -1) {
+    if (maxDim > 0) {
       maxWidthScale = maxDim / width;
       maxHeightScale = maxDim / height;
     }
@@ -1373,7 +1379,7 @@ class XfaLayer {
           }
       }
     }
-    if (isHTMLAnchorElement) {
+    if (isHTMLAnchorElement && attributes.href) {
       linkService?.addLinkAttributes(html, attributes.href, attributes.newWindow);
     }
     if (storage && attributes.dataId) {
@@ -2052,7 +2058,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "ba7bc200-d8f4-4157-9972-b20498608fe7";
+const INTERNAL_EVT = "52701818-7260-4765-9637-e6d452533ca0";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -2236,16 +2242,22 @@ class ImageManager {
     }
     return this.getFromUrl(data.url);
   }
-  getFromCanvas(id, canvas) {
+  getFromCanvas(id, canvas, rotation = 0) {
     this.#cache ||= new Map();
     let data = this.#cache.get(id);
     if (data?.bitmap) {
       data.refCounter += 1;
       return data;
     }
-    const offscreen = new OffscreenCanvas(canvas.width, canvas.height);
+    const {
+      width,
+      height
+    } = canvas;
+    const offscreen = rotation % 180 === 0 ? new OffscreenCanvas(width, height) : new OffscreenCanvas(height, width);
     const ctx = offscreen.getContext("2d");
-    ctx.drawImage(canvas, 0, 0);
+    ctx.translate(offscreen.width / 2, offscreen.height / 2);
+    ctx.rotate(rotation * Math.PI / 180);
+    ctx.drawImage(canvas, -width / 2, -height / 2);
     data = {
       bitmap: offscreen.transferToImageBitmap(),
       id: `image_${this.#baseId}_${this.#id++}`,
@@ -2637,7 +2649,7 @@ class AnnotationEditorUIManager {
       checker: arrowChecker
     }]]));
   }
-  constructor(container, viewer, viewerAlert, altTextManager, commentManager, signatureManager, eventBus, pdfDocument, pageColors, highlightColors, enableHighlightFloatingButton, enableUpdatedAddImage, enableNewAltTextWhenAddingImage, mlManager, editorUndoBar, supportsPinchToZoom, keepToolbarInPage) {
+  constructor(container, viewer, viewerAlert, altTextManager, commentManager, signatureManager, eventBus, pdfDocument, pageColors, highlightColors, enableHighlightFloatingButton, enableUpdatedAddImage, enableNewAltTextWhenAddingImage, mlManager, editorUndoBar, supportsPinchToZoom, keepToolbarInPage, useButtonRoleForUnselectedSignatures) {
     const signal = this._signal = this.#abortController.signal;
     this.#container = container;
     this.#viewer = viewer;
@@ -2692,6 +2704,7 @@ class AnnotationEditorUIManager {
     this._editorUndoBar = editorUndoBar || null;
     this._supportsPinchToZoom = supportsPinchToZoom !== false;
     this._keepToolbarInPage = keepToolbarInPage === true;
+    this._useButtonRoleForUnselectedSignatures = useButtonRoleForUnselectedSignatures === true;
     commentManager?.setSidebarUiManager(this);
   }
   destroy() {
@@ -2854,7 +2867,7 @@ class AnnotationEditorUIManager {
     const {
       resolve,
       promise
-    } = Promise.withResolvers();
+    } = createPromiseCapability();
     const onEditorsRendered = evt => {
       if (evt.pageNumber === pageNumber) {
         this._eventBus.off("editorsrendered", onEditorsRendered);
@@ -3543,7 +3556,7 @@ class AnnotationEditorUIManager {
         return;
       }
     }
-    this.#updateModeCapability = Promise.withResolvers();
+    this.#updateModeCapability = createPromiseCapability();
     this.#currentDrawingSession?.commitOrRemove();
     if (this.#mode === AnnotationEditorType.POPUP) {
       this.#commentManager?.hideSidebar();
@@ -5563,6 +5576,8 @@ class AnnotationEditor {
       this.#resizersDiv.append(div);
       div.classList.add("resizer", name);
       div.setAttribute("data-resizer-name", name);
+      div.setAttribute("role", "spinbutton");
+      div.setAttribute("data-l10n-id", AnnotationEditor._l10nResizer[name]);
       div.addEventListener("pointerdown", this.#resizerPointerdown.bind(this, name), {
         signal
       });
@@ -6464,7 +6479,6 @@ class AnnotationEditor {
       const signal = this._uiManager._signal;
       for (const div of this.#allResizerDivs) {
         const name = div.getAttribute("data-resizer-name");
-        div.setAttribute("role", "spinbutton");
         div.addEventListener("keydown", boundResizerKeydown, {
           signal
         });
@@ -6474,7 +6488,6 @@ class AnnotationEditor {
         div.addEventListener("focus", this.#resizerFocus.bind(this, name), {
           signal
         });
-        div.setAttribute("data-l10n-id", AnnotationEditor._l10nResizer[name]);
       }
     }
     const first = this.#allResizerDivs[0];
@@ -7434,7 +7447,6 @@ const StreamKind = {
   PULL_COMPLETE: 7,
   START_COMPLETE: 8
 };
-function onFn() {}
 function wrapReason(ex) {
   if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
     return ex;
@@ -7554,7 +7566,7 @@ class MessageHandler {
   }
   sendWithPromise(actionName, data, transfers) {
     const callbackId = this.#callbackId++,
-      capability = Promise.withResolvers();
+      capability = createPromiseCapability();
     this.#callbackCapabilities.set(callbackId, capability);
     try {
       this.#comObj.postMessage({
@@ -7576,7 +7588,7 @@ class MessageHandler {
       comObj = this.#comObj;
     return new ReadableStream({
       start: controller => {
-        const startCapability = Promise.withResolvers();
+        const startCapability = createPromiseCapability();
         this.#streamControllers.set(streamId, {
           controller,
           startCall: startCapability,
@@ -7595,7 +7607,7 @@ class MessageHandler {
         return startCapability.promise;
       },
       pull: controller => {
-        const pullCapability = Promise.withResolvers();
+        const pullCapability = createPromiseCapability();
         this.#streamControllers.get(streamId).pullCall = pullCapability;
         comObj.postMessage({
           sourceName,
@@ -7608,7 +7620,7 @@ class MessageHandler {
       },
       cancel: reason => {
         assert(reason instanceof Error, "cancel must have a valid reason");
-        const cancelCapability = Promise.withResolvers();
+        const cancelCapability = createPromiseCapability();
         this.#streamControllers.get(streamId).cancelCall = cancelCapability;
         this.#streamControllers.get(streamId).isClosed = true;
         comObj.postMessage({
@@ -7637,7 +7649,7 @@ class MessageHandler {
         const lastDesiredSize = this.desiredSize;
         this.desiredSize -= size;
         if (lastDesiredSize > 0 && this.desiredSize <= 0) {
-          this.sinkCapability = Promise.withResolvers();
+          this.sinkCapability = createPromiseCapability();
           this.ready = this.sinkCapability.promise;
         }
         comObj.postMessage({
@@ -7674,7 +7686,7 @@ class MessageHandler {
           reason: wrapReason(reason)
         });
       },
-      sinkCapability: Promise.withResolvers(),
+      sinkCapability: createPromiseCapability(),
       onPull: null,
       onCancel: null,
       isCancelled: false,
@@ -7739,7 +7751,7 @@ class MessageHandler {
           streamSink.sinkCapability.resolve();
         }
         streamSink.desiredSize = data.desiredSize;
-        Promise.try(streamSink.onPull || onFn).then(() => {
+        Promise.try(streamSink.onPull || noopFn).then(() => {
           comObj.postMessage({
             sourceName,
             targetName,
@@ -7791,7 +7803,7 @@ class MessageHandler {
           break;
         }
         const dataReason = wrapReason(data.reason);
-        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
+        Promise.try(streamSink.onCancel || noopFn, dataReason).then(() => {
           comObj.postMessage({
             sourceName,
             targetName,
@@ -9438,6 +9450,7 @@ class CanvasExtraState {
   strokeAlpha = 1;
   lineWidth = 1;
   activeSMask = null;
+  blendMode = "source-over";
   transferMaps = "none";
   transferMapsFallback = null;
   minMax = F32_BBOX_INIT.slice();
@@ -10102,16 +10115,16 @@ class CanvasGraphics {
           break;
         case "BM":
           this.dependencyTracker?.recordSimpleData("globalCompositeOperation", opIdx);
-          this.ctx.globalCompositeOperation = value;
+          this.current.blendMode = value;
+          if (!this.inSMaskMode) {
+            this.ctx.globalCompositeOperation = value;
+          }
           break;
         case "SMask":
           this.dependencyTracker?.recordSimpleData("SMask", opIdx);
           this.current.activeSMask = value ? this.tempSMask : null;
-          if (this.current.activeSMask) {
-            this.current.activeSMask.blendMode = this.ctx.globalCompositeOperation;
-          }
           this.tempSMask = null;
-          this.checkSMaskState(opIdx);
+          this.checkSMaskState();
           break;
         case "TR":
           {
@@ -10158,14 +10171,18 @@ class CanvasGraphics {
     this._clearPreparedSMask();
     this._prepareSMaskCanvas(smask);
   }
-  checkSMaskState(opIdx) {
-    const inSMaskMode = this.inSMaskMode;
-    if (this.current.activeSMask && !inSMaskMode) {
-      this.beginSMaskMode(opIdx);
-    } else if (!this.current.activeSMask && inSMaskMode) {
-      this.endSMaskMode();
-    } else if (this.current.activeSMask && inSMaskMode) {
-      this._ensurePreparedSMask(this.current.activeSMask);
+  checkSMaskState() {
+    const {
+      activeSMask
+    } = this.current;
+    if (!activeSMask) {
+      if (this.inSMaskMode) {
+        this.endSMaskMode();
+      }
+    } else if (this.inSMaskMode) {
+      this._ensurePreparedSMask(activeSMask);
+    } else {
+      this.beginSMaskMode();
     }
   }
   _prepareSMaskCanvas(smask) {
@@ -10264,7 +10281,7 @@ class CanvasGraphics {
     this.canvasFactory.destroy(srcEntry);
     return preparedEntry;
   }
-  beginSMaskMode(opIdx) {
+  beginSMaskMode() {
     if (this.inSMaskMode) {
       throw new Error("beginSMaskMode called while already in smask mode");
     }
@@ -10280,7 +10297,7 @@ class CanvasGraphics {
     copyCtxState(this.suspendedCtx, ctx);
     mirrorContextOperations(ctx, this.suspendedCtx);
     this._ensurePreparedSMask(this.current.activeSMask);
-    this.setGState(opIdx, [["BM", "source-over"]]);
+    ctx.globalCompositeOperation = "source-over";
   }
   endSMaskMode() {
     if (!this.inSMaskMode) {
@@ -10289,6 +10306,7 @@ class CanvasGraphics {
     this.ctx._removeMirroring();
     copyCtxState(this.ctx, this.suspendedCtx);
     this.ctx = this.suspendedCtx;
+    this.ctx.globalCompositeOperation = this.current.blendMode;
     this.suspendedCtx = null;
     this.canvasFactory.destroy(this.smaskScratchCanvas);
     this.smaskScratchCanvas = null;
@@ -10540,7 +10558,7 @@ class CanvasGraphics {
     }
     ctx.save();
     ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = smask.blendMode || "source-over";
+    ctx.globalCompositeOperation = this.current.blendMode;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(layerCtx.canvas, layerOffsetX, layerOffsetY, layerWidth, layerHeight, layerOffsetX, layerOffsetY, layerWidth, layerHeight);
     ctx.restore();
@@ -10602,19 +10620,22 @@ class CanvasGraphics {
     this.ctx.restore();
     if (this.inSMaskMode) {
       copyCtxState(this.suspendedCtx, this.ctx);
+      this.ctx.globalCompositeOperation = "source-over";
       this.ctx.setTransform(this.suspendedCtx.getTransform());
     }
-    this.checkSMaskState(opIdx);
+    this.checkSMaskState();
     this.pendingClip = null;
     this._cachedScaleForStroking[0] = -1;
   }
   resetGraphicsState() {
     const {
+      blendMode,
       clipBox,
       transferMaps,
       transferMapsFallback
     } = this.current;
     const current = this.current = new CanvasExtraState(0, 0);
+    current.blendMode = blendMode;
     current.clipBox = clipBox;
     current.transferMaps = transferMaps;
     current.transferMapsFallback = transferMapsFallback;
@@ -11356,9 +11377,6 @@ class CanvasGraphics {
     unreachable("Should not call beginImageData");
   }
   paintFormXObjectBegin(opIdx, matrix, bbox) {
-    if (!this.contentVisible) {
-      return;
-    }
     this.save(opIdx);
     this.baseTransformStack.push(this.baseTransform);
     if (matrix) {
@@ -11376,9 +11394,6 @@ class CanvasGraphics {
     }
   }
   paintFormXObjectEnd(opIdx) {
-    if (!this.contentVisible) {
-      return;
-    }
     this.restore(opIdx);
     this.baseTransform = this.baseTransformStack.pop();
   }
@@ -11449,9 +11464,8 @@ class CanvasGraphics {
     }
     groupCtx.translate(-offsetX, -offsetY);
     groupCtx.transform(...currentTransform);
-    const needsBackdropCopy = !group.isolated && !group.smask && group.needsIsolation;
-    const replaceBackdrop = needsBackdropCopy && !inSMaskMode && savedKnockoutLevel === 0 && !group.knockout && !group.isGray && group.hasSoftMask && currentCtx.globalAlpha === 1 && currentCtx.globalCompositeOperation === "source-over" && this.current.transferMaps === "none" && !this.current.transferMapsFallback;
-    if (needsBackdropCopy && (inSMaskMode || replaceBackdrop)) {
+    const copyBackdrop = !group.isolated && !group.smask && group.needsIsolation && (inSMaskMode || savedKnockoutLevel === 0 && !group.knockout && !group.isGray && currentCtx.globalCompositeOperation === "source-over" && this.current.transferMaps === "none" && !this.current.transferMapsFallback);
+    if (copyBackdrop) {
       groupCtx.save();
       groupCtx.setTransform(1, 0, 0, 1, 0, 0);
       groupCtx.drawImage(currentCtx.canvas, -offsetX, -offsetY);
@@ -11495,7 +11509,7 @@ class CanvasGraphics {
       offsetX,
       offsetY,
       hasInnerBackdrop,
-      replaceBackdrop,
+      replaceBackdrop: copyBackdrop && !inSMaskMode,
       knockoutMaskEntry,
       knockoutTempEntry: null,
       knockoutBackdropEntry: null
@@ -11589,10 +11603,21 @@ class CanvasGraphics {
         }
       } else {
         if (groupMeta.replaceBackdrop) {
+          const {
+            width,
+            height
+          } = groupCtx.canvas;
           const clip = new Path2D();
-          clip.rect(0, 0, groupCtx.canvas.width, groupCtx.canvas.height);
+          clip.rect(0, 0, width, height);
           this.ctx.clip(clip);
-          this.ctx.globalCompositeOperation = "copy";
+          if (this.ctx.globalAlpha === 1) {
+            this.ctx.globalCompositeOperation = "copy";
+          } else {
+            this.ctx.globalCompositeOperation = "destination-out";
+            this.ctx.fillStyle = "#000";
+            this.ctx.fillRect(0, 0, width, height);
+            this.ctx.globalCompositeOperation = "lighter";
+          }
         }
         this.ctx.drawImage(groupCtx.canvas, 0, 0);
       }
@@ -12726,27 +12751,37 @@ class FontLoader {
     }
     unreachable("Not implemented: loadSystemFont without the Font Loading API.");
   }
+  async #loadFontFace(font) {
+    if (!this.isFontLoadingAPISupported) {
+      return;
+    }
+    const fontFace = font.createNativeFontFace();
+    if (!fontFace) {
+      return;
+    }
+    this.addNativeFontFace(fontFace);
+    try {
+      await fontFace.loaded;
+    } catch (ex) {
+      warn(`Failed to load font '${fontFace.family}': '${ex}'.`);
+      this.removeNativeFontFace(fontFace);
+      if (!font.missingFile) {
+        font.disableFontFace = true;
+        throw ex;
+      }
+    }
+  }
   async bind(font) {
-    if (font.attached || font.missingFile && !font.systemFontInfo) {
+    if (font.attached || font.missingFile && !font.systemFontInfo && !font.generatedFontName) {
       return;
     }
     font.attached = true;
     if (font.systemFontInfo) {
-      await this.loadSystemFont(font);
+      await Promise.all([this.loadSystemFont(font), this.#loadFontFace(font)]);
       return;
     }
     if (this.isFontLoadingAPISupported) {
-      const nativeFontFace = font.createNativeFontFace();
-      if (nativeFontFace) {
-        this.addNativeFontFace(nativeFontFace);
-        try {
-          await nativeFontFace.loaded;
-        } catch (ex) {
-          warn(`Failed to load font '${nativeFontFace.family}': '${ex}'.`);
-          font.disableFontFace = true;
-          throw ex;
-        }
-      }
+      await this.#loadFontFace(font);
       return;
     }
     const rule = font.createFontFaceRule();
@@ -12781,6 +12816,32 @@ class FontFaceObject {
       Object.assign(this, extra);
     }
   }
+  #getFontFaceProperties() {
+    const {
+      generatedFontName
+    } = this;
+    let family = generatedFontName || this.loadedName;
+    const css = Object.create(null);
+    if (generatedFontName) {
+      css.style = this.italic ? "italic" : "normal";
+      css.weight = "normal";
+      if (this.black) {
+        css.weight = "900";
+      } else if (this.bold) {
+        css.weight = "bold";
+      }
+    } else if (this.cssFontInfo) {
+      family = serializeFontFamily(this.cssFontInfo.fontFamily);
+      css.weight = this.cssFontInfo.fontWeight;
+      if (this.cssFontInfo.italicAngle) {
+        css.style = `oblique ${this.cssFontInfo.italicAngle}deg`;
+      }
+    }
+    return {
+      family,
+      css
+    };
+  }
   createNativeFontFace() {
     const {
       data
@@ -12788,19 +12849,14 @@ class FontFaceObject {
     if (!data || this.disableFontFace) {
       return null;
     }
-    let nativeFontFace;
-    if (!this.cssFontInfo) {
-      nativeFontFace = new FontFace(this.loadedName, data, {});
-    } else {
-      const css = {
-        weight: this.cssFontInfo.fontWeight
-      };
-      if (this.cssFontInfo.italicAngle) {
-        css.style = `oblique ${this.cssFontInfo.italicAngle}deg`;
-      }
-      nativeFontFace = new FontFace(serializeFontFamily(this.cssFontInfo.fontFamily), data, css);
+    const {
+      family,
+      css
+    } = this.#getFontFaceProperties();
+    const nativeFontFace = new FontFace(family, data, css);
+    if (!this.generatedFontName) {
+      this._inspectFont?.(this);
     }
-    this._inspectFont?.(this);
     return nativeFontFace;
   }
   createFontFaceRule() {
@@ -12811,18 +12867,18 @@ class FontFaceObject {
       return null;
     }
     const url = `url(data:${this.mimetype};base64,${data.toBase64()});`;
-    let rule;
-    if (!this.cssFontInfo) {
-      rule = `@font-face {font-family:"${this.loadedName}";src:${url}}`;
-    } else {
-      let css = `font-weight: ${this.cssFontInfo.fontWeight};`;
-      if (this.cssFontInfo.italicAngle) {
-        css += `font-style: oblique ${this.cssFontInfo.italicAngle}deg;`;
-      }
-      const fontFamily = serializeFontFamily(this.cssFontInfo.fontFamily);
-      rule = `@font-face {font-family:${fontFamily};${css}src:${url}}`;
+    const {
+      family,
+      css
+    } = this.#getFontFaceProperties();
+    let rule = `@font-face {font-family:${serializeFontFamily(family)};`;
+    for (const [property, value] of Object.entries(css)) {
+      rule += `font-${property}: ${value};`;
     }
-    this._inspectFont?.(this, url);
+    rule += `src:${url}}`;
+    if (!this.generatedFontName) {
+      this._inspectFont?.(this, url);
+    }
     return rule;
   }
   getPathGenerator(objs, character) {
@@ -12885,6 +12941,9 @@ class FontFaceObject {
   }
   get fallbackName() {
     return this.#fontData.fallbackName;
+  }
+  get generatedFontName() {
+    return this.#fontData.generatedFontName;
   }
   get loadedName() {
     return this.#fontData.loadedName;
@@ -12982,7 +13041,7 @@ class SYSTEM_FONT_INFO {
 }
 class FONT_INFO {
   static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
-  static strings = ["fallbackName", "loadedName"];
+  static strings = ["fallbackName", "generatedFontName", "loadedName"];
   static OFFSET_BBOX = Math.ceil(this.bools.length * 2 / 8);
   static OFFSET_FONT_MATRIX = this.OFFSET_BBOX + 1 + 2 * 4;
   static OFFSET_STRINGS = this.OFFSET_FONT_MATRIX + 1 + 8 * 6;
@@ -13144,8 +13203,11 @@ class FontInfo {
   get fallbackName() {
     return shadow(this, "fallbackName", this.#readString(0));
   }
+  get generatedFontName() {
+    return shadow(this, "generatedFontName", this.#readString(1));
+  }
   get loadedName() {
-    return shadow(this, "loadedName", this.#readString(1));
+    return shadow(this, "loadedName", this.#readString(2));
   }
   #getBufferOffset(index) {
     let offset = FONT_INFO.OFFSET_STRINGS;
@@ -13273,9 +13335,10 @@ class FontPathInfo {
 }
 
 ;// ./src/display/pdf_objects.js
+
 const INITIAL_DATA = Symbol("INITIAL_DATA");
 const dataObj = () => ({
-  ...Promise.withResolvers(),
+  ...createPromiseCapability(),
   data: INITIAL_DATA
 });
 class PDFObjects {
@@ -13317,7 +13380,6 @@ class PDFObjects {
     if (obj.data !== INITIAL_DATA) {
       return;
     }
-    obj.promise.catch(() => {});
     obj.reject(reason);
   }
   clear() {
@@ -14020,7 +14082,7 @@ class BasePDFStreamReader {
   onProgress = null;
   _contentLength = 0;
   _filename = null;
-  _headersCapability = Promise.withResolvers();
+  _headersCapability = createPromiseCapability();
   _isRangeSupported = false;
   _isStreamingSupported = false;
   _loaded = 0;
@@ -14213,7 +14275,7 @@ class PDFDataTransportStreamReader extends BasePDFStreamReader {
         done: true
       };
     }
-    const capability = Promise.withResolvers();
+    const capability = createPromiseCapability();
     this._requests.push(capability);
     return capability.promise;
   }
@@ -14271,7 +14333,7 @@ class PDFDataTransportStreamRangeReader extends BasePDFStreamRangeReader {
         done: true
       };
     }
-    const capability = Promise.withResolvers();
+    const capability = createPromiseCapability();
     this._requests.push(capability);
     return capability.promise;
   }
@@ -14475,7 +14537,7 @@ class WorkerRenderTask {
   }
 }
 class RendererWorker {
-  #capability = Promise.withResolvers();
+  #capability = createPromiseCapability();
   #enableHWA;
   #enableWebGPU;
   #messageHandler = null;
@@ -14618,7 +14680,7 @@ class RendererWorker {
         terminateEarly("TypedArray transfer test failed.");
         return;
       }
-      const apiVersion = "6.5.447";
+      const apiVersion = "7.0.182";
       if (apiVersion !== data.workerVersion) {
         terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
         return;
@@ -14700,7 +14762,7 @@ class RendererWorker {
       promise,
       resolve,
       reject
-    } = Promise.withResolvers();
+    } = createPromiseCapability();
     this.#pendingRequests.add(reject);
     handler.sendWithPromise(action, data).then(resolve, reject);
     return promise.finally(() => {
@@ -14802,7 +14864,7 @@ class RendererWorker {
 const MAX_TEXT_DIVS_TO_RENDER = 100000;
 const DEFAULT_FONT_SIZE = 30;
 class TextLayer {
-  #capability = Promise.withResolvers();
+  #capability = createPromiseCapability();
   #container = null;
   #disableProcessItems = false;
   #fontInspectorEnabled = !!globalThis.FontInspector?.enabled;
@@ -14862,7 +14924,7 @@ class TextLayer {
       TextLayer.#pendingTextLayers.delete(this);
       this.#layoutTextParams = null;
       this.#styleCache = null;
-    }).catch(() => {});
+    }).catch(noopFn);
   }
   static get fontFamilyMap() {
     const {
@@ -14913,7 +14975,7 @@ class TextLayer {
   }
   cancel() {
     const abortEx = new AbortException("TextLayer task cancelled.");
-    this.#reader?.cancel(abortEx).catch(() => {});
+    this.#reader?.cancel(abortEx).catch(noopFn);
     this.#reader = null;
     this.#capability.reject(abortEx);
   }
@@ -14986,8 +15048,8 @@ class TextLayer {
       top = tx[5] - fontAscent * Math.cos(angle);
     }
     const divStyle = textDiv.style;
-    divStyle.left = `${(100 * left / this.#pageWidth).toFixed(2)}%`;
-    divStyle.top = `${(100 * top / this.#pageHeight).toFixed(2)}%`;
+    divStyle.left = `${(100 * left / this.#pageWidth).toFixed(3)}%`;
+    divStyle.top = `${(100 * top / this.#pageHeight).toFixed(3)}%`;
     const roundedFontHeight = Math.round(fontHeight * 100) / 100;
     divStyle.setProperty("--font-height", `${roundedFontHeight}px`);
     divStyle.fontFamily = fontFamily;
@@ -15182,7 +15244,7 @@ function getDocument(src = {}) {
   const withCredentials = src.withCredentials === true;
   const password = src.password ?? null;
   const rangeTransport = src.range instanceof PDFDataRangeTransport ? src.range : null;
-  const rangeChunkSize = Number.isInteger(src.rangeChunkSize) && src.rangeChunkSize > 0 ? src.rangeChunkSize : 2 ** 16;
+  const rangeChunkSize = 2 ** 16;
   let worker = src.worker instanceof PDFWorker ? src.worker : null;
   const verbosity = src.verbosity;
   const docBaseUrl = typeof src.docBaseUrl === "string" && !isDataScheme(src.docBaseUrl) ? src.docBaseUrl : null;
@@ -15192,7 +15254,6 @@ function getDocument(src = {}) {
   const standardFontDataUrl = getFactoryUrlProp(src.standardFontDataUrl);
   const wasmUrl = getFactoryUrlProp(src.wasmUrl);
   const ignoreErrors = src.stopAtErrors !== true;
-  const maxImageSize = Number.isInteger(src.maxImageSize) && src.maxImageSize > -1 ? src.maxImageSize : -1;
   const isOffscreenCanvasSupported = typeof src.isOffscreenCanvasSupported === "boolean" ? src.isOffscreenCanvasSupported : !(/* inlined export .isNodeJS */false);
   const isImageDecoderSupported = typeof src.isImageDecoderSupported === "boolean" ? src.isImageDecoderSupported : !(/* inlined export .isNodeJS */false);
   const canvasMaxAreaInBytes = Number.isInteger(src.canvasMaxAreaInBytes) ? src.canvasMaxAreaInBytes : -1;
@@ -15207,8 +15268,8 @@ function getDocument(src = {}) {
   const CanvasFactory = src.CanvasFactory || DOMCanvasFactory;
   const FilterFactory = src.FilterFactory || DOMFilterFactory;
   const BinaryDataFactory = src.BinaryDataFactory || (/* inlined export .DOMBinaryDataFactory */null);
-  const enableHWA = src.enableHWA === true;
-  const enableWebGPU = src.enableWebGPU === true;
+  const enableHWA = src.enableHWA !== false;
+  const enableWebGPU = src.enableWebGPU !== false;
   if (enableWebGPU) {
     initGPU();
   }
@@ -15216,7 +15277,7 @@ function getDocument(src = {}) {
   const pagesMapper = src.pagesMapper || new PagesMapper();
   const styleElement = null;
   const useSystemFonts = typeof src.useSystemFonts === "boolean" ? src.useSystemFonts : !(/* inlined export .isNodeJS */false) && !disableFontFace;
-  const useWorkerFetch = typeof src.useWorkerFetch === "boolean" ? src.useWorkerFetch : true;
+  const useWorkerFetch = true;
   const disableWorkerRendering = src.disableWorkerRendering === true || !isOffscreenCanvasSupported || ownerDocument !== globalThis.document || !!styleElement || !RendererWorker.isAvailable;
   setVerbosityLevel(verbosity);
   const transportFactory = {
@@ -15254,7 +15315,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.5.447",
+    apiVersion: "7.0.182",
     data,
     password,
     disableAutoFetch,
@@ -15262,7 +15323,6 @@ function getDocument(src = {}) {
     docBaseUrl,
     enableXfa,
     evaluatorOptions: {
-      maxImageSize,
       disableFontFace,
       ignoreErrors,
       isOffscreenCanvasSupported,
@@ -15324,8 +15384,8 @@ function getDocument(src = {}) {
 }
 class PDFDocumentLoadingTask {
   static #docId = 0;
-  _capability = Promise.withResolvers();
-  _setupCapability = Promise.withResolvers();
+  _capability = createPromiseCapability();
+  _setupCapability = createPromiseCapability();
   _transport = null;
   _worker = null;
   _rendererWorker = null;
@@ -15338,7 +15398,6 @@ class PDFDocumentLoadingTask {
   }
   async destroy() {
     this.destroyed = true;
-    this._capability.promise.catch(() => {});
     try {
       if (this._worker?.port) {
         this._worker._pendingDestroy = true;
@@ -15363,7 +15422,7 @@ class PDFDocumentLoadingTask {
   }
 }
 class PDFDataRangeTransport {
-  #capability = Promise.withResolvers();
+  #capability = createPromiseCapability();
   #listener = null;
   constructor(length, initialData, progressiveDone = false, contentDispositionFilename = null) {
     this.length = length;
@@ -15493,11 +15552,11 @@ class PDFDocumentProxy {
   getData() {
     return this._transport.getData();
   }
-  saveDocument(printToPDF) {
-    return this._transport.saveDocument(printToPDF);
+  saveDocument(params) {
+    return this._transport.saveDocument(params);
   }
-  extractPages(pageInfos, copyLevels = null) {
-    return this._transport.extractPages(pageInfos, copyLevels);
+  extractPages(pageInfos, copyLevels = null, options = {}) {
+    return this._transport.extractPages(pageInfos, copyLevels, options);
   }
   getDownloadInfo() {
     return this._transport.downloadInfoCapability.promise;
@@ -15644,7 +15703,7 @@ class PDFPageProxy {
     }
     const intentPrint = !!(renderingIntent & RenderingIntentFlag.PRINT);
     if (!intentState.displayReadyCapability) {
-      intentState.displayReadyCapability = Promise.withResolvers();
+      intentState.displayReadyCapability = createPromiseCapability();
       intentState.operatorList = {
         fnArray: [],
         argsArray: [],
@@ -15953,7 +16012,7 @@ class PDFPageProxy {
         return;
       }
     }
-    intentState.streamReader.cancel(new AbortException(reason.message)).catch(() => {});
+    intentState.streamReader.cancel(new AbortException(reason.message)).catch(noopFn);
     intentState.streamReader = null;
     if (this._transport.destroyed) {
       return;
@@ -15971,7 +16030,7 @@ class PDFPageProxy {
   }
 }
 class PDFWorker {
-  #capability = Promise.withResolvers();
+  #capability = createPromiseCapability();
   #messageHandler = null;
   #port = null;
   #webWorker = null;
@@ -16014,7 +16073,7 @@ class PDFWorker {
   #initializeFromPort(port) {
     this.#port = port;
     this.#messageHandler = new MessageHandler("main", "worker", port);
-    this.#messageHandler.on("ready", () => {});
+    this.#messageHandler.on("ready", noopFn);
     this.#resolve();
   }
   #initialize() {
@@ -16132,7 +16191,7 @@ class PDFWorker {
   }
 }
 class WorkerTransport {
-  downloadInfoCapability = Promise.withResolvers();
+  downloadInfoCapability = createPromiseCapability();
   #fullReader = null;
   #hasMeshPattern = false;
   #methodPromises = new Map();
@@ -16180,6 +16239,12 @@ class WorkerTransport {
   }
   get annotationStorage() {
     return shadow(this, "annotationStorage", new AnnotationStorage());
+  }
+  #getFlattenIntent(intent) {
+    if (intent !== "display" && intent !== "print") {
+      warn(`Invalid flattening intent: ${intent}, using "print".`);
+    }
+    return intent === "display" ? RenderingIntentFlag.DISPLAY : RenderingIntentFlag.PRINT;
   }
   getRenderingIntent(intent, annotationMode = AnnotationMode.ENABLE, printAnnotationStorage = null, isEditing = false, isOpList = false) {
     let renderingIntent = RenderingIntentFlag.DISPLAY;
@@ -16236,7 +16301,7 @@ class WorkerTransport {
       return this.destroyCapability.promise;
     }
     this.destroyed = true;
-    this.destroyCapability = Promise.withResolvers();
+    this.destroyCapability = createPromiseCapability();
     this.#passwordCapability?.reject(new Error("Worker was destroyed during onPassword callback"));
     const waitOn = [];
     for (const page of this.#pageCache.values()) {
@@ -16359,7 +16424,7 @@ class WorkerTransport {
       loadingTask._capability.reject(wrapReason(ex));
     });
     messageHandler.on("PasswordRequest", ex => {
-      this.#passwordCapability = Promise.withResolvers();
+      this.#passwordCapability = createPromiseCapability();
       try {
         if (!loadingTask.onPassword) {
           throw wrapReason(ex);
@@ -16402,7 +16467,7 @@ class WorkerTransport {
     });
     this.rendererWorker?.promise.then(() => {
       this.rendererWorker?.messageHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
-    }, () => {});
+    }, noopFn);
     messageHandler.on("commonobj", ([id, type, exportedData]) => {
       if (this.destroyed) {
         return null;
@@ -16441,8 +16506,12 @@ class WorkerTransport {
   getData() {
     return this.messageHandler.sendWithPromise("GetData", null);
   }
-  saveDocument(printToPDF = null) {
-    if (this.annotationStorage.size <= 0) {
+  saveDocument({
+    printToPDF = null,
+    flatten = false,
+    intent = "print"
+  } = {}) {
+    if (this.annotationStorage.size <= 0 && !flatten) {
       warn("saveDocument called while `annotationStorage` is empty, " + "please use the getData-method instead.");
     }
     const {
@@ -16455,15 +16524,22 @@ class WorkerTransport {
       numPages: this._numPages,
       annotationStorage: map,
       supportsPrintToPDF: this.#printToPDF !== null,
-      filename: this.#fullReader?.filename ?? null
+      filename: this.#fullReader?.filename ?? null,
+      flatten,
+      intent: this.#getFlattenIntent(intent)
     }, transfer).finally(() => {
       this.#printToPDF = null;
       this.annotationStorage.resetModified();
     });
   }
-  extractPages(pageInfos, copyLevels = null) {
+  extractPages(pageInfos, copyLevels = null, {
+    flatten = false,
+    intent = "print"
+  } = {}) {
     const params = {
-      pageInfos
+      pageInfos,
+      flatten,
+      intent: this.#getFlattenIntent(intent)
     };
     let transfer;
     const ImageBitmapCtor = globalThis.ImageBitmap;
@@ -16733,6 +16809,7 @@ class InternalRenderTask {
   #rAF = null;
   #rendererTask = null;
   #waitForGPU = null;
+  capability = createPromiseCapability();
   static #canvasInUse = new WeakSet();
   constructor({
     callback,
@@ -16769,7 +16846,6 @@ class InternalRenderTask {
     this.graphicsReady = false;
     this._useRequestAnimationFrame = useRequestAnimationFrame === true && typeof window !== "undefined";
     this.cancelled = false;
-    this.capability = Promise.withResolvers();
     this.task = new RenderTask(this);
     this._cancelBound = this.cancel.bind(this);
     this._continueBound = this._continue.bind(this);
@@ -16791,7 +16867,7 @@ class InternalRenderTask {
     }) ?? null;
   }
   get completed() {
-    return this.capability.promise.catch(() => {});
+    return this.capability.promise.catch(noopFn);
   }
   get isWorkerRendering() {
     return !!this.#rendererTask;
@@ -16954,8 +17030,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.5.447";
-const build = "c7ca8a32e";
+const version = "7.0.182";
+const build = "fc0822a07";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -17385,6 +17461,17 @@ class DOMSVGFactory extends BaseSVGFactory {
 const annotation_layer_DEFAULT_FONT_SIZE = 9;
 const GetElementsByNameSet = new WeakSet();
 const TIMEZONE_OFFSET = new Date().getTimezoneOffset() * 60 * 1000;
+const STATIC_SANDBOX_PROPERTIES = new Set(["bgColor", "borderColor", "charLimit", "clear", "editable", "fgColor", "fillColor", "formattedValue", "indices", "insert", "items", "multipleSelection", "print", "readonly", "remove", "required", "selRange", "strokeColor", "textColor", "userName", "value"]);
+const SAFE_NAMED_ACTIONS = new Set(["FirstPage", "Find", "GoBack", "GoForward", "GoToPage", "LastPage", "NextPage", "PrevPage"]);
+let isScriptFocusing = false;
+let scriptFocusedElement = null;
+function getUserEventInfo(event) {
+  return {
+    originalEvent: event,
+    scripted: isScriptFocusing,
+    scriptFocused: event.target === scriptFocusedElement
+  };
+}
 class AnnotationElementFactory {
   static create(parameters) {
     const subtype = parameters.data.annotationType;
@@ -17817,9 +17904,30 @@ class AnnotationElement {
         });
       },
       focus: event => {
-        setTimeout(() => event.target.focus({
-          preventScroll: false
-        }), 0);
+        setTimeout(() => {
+          const {
+            target
+          } = event;
+          isScriptFocusing = true;
+          try {
+            target.focus({
+              preventScroll: false
+            });
+          } finally {
+            isScriptFocusing = false;
+          }
+          this._notifyLayoutChange();
+          if (target.ownerDocument.activeElement === target && scriptFocusedElement !== target) {
+            scriptFocusedElement = target;
+            target.addEventListener("blur", () => {
+              if (scriptFocusedElement === target) {
+                scriptFocusedElement = null;
+              }
+            }, {
+              once: true
+            });
+          }
+        }, 0);
       },
       userName: event => {
         event.target.title = event.detail.userName;
@@ -17857,11 +17965,43 @@ class AnnotationElement {
       }
     });
   }
+  _dispatchDOMEventInSandbox(detail, event) {
+    this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
+      source: this,
+      detail,
+      ...getUserEventInfo(event)
+    });
+  }
+  _isUserActivation(event) {
+    const {
+      eventBus
+    } = this.linkService;
+    if (!this.enableScripting || !eventBus) {
+      return true;
+    }
+    const request = {
+      source: this,
+      ...getUserEventInfo(event),
+      allowed: false
+    };
+    eventBus.dispatch("useractivationrequest", request);
+    return request.allowed;
+  }
+  _notifyLayoutChange() {
+    this.linkService.eventBus?.dispatch("sandboxlayoutchange", {
+      source: this
+    });
+  }
   _dispatchEventFromSandbox(actions, jsEvent) {
     const commonActions = this._commonActions;
     for (const name of Object.keys(jsEvent.detail)) {
       const action = actions[name] || commonActions[name];
-      action?.(jsEvent);
+      if (action) {
+        action(jsEvent);
+        if (!STATIC_SANDBOX_PROPERTIES.has(name)) {
+          this._notifyLayoutChange();
+        }
+      }
     }
   }
   _setDefaultPropertiesFromJS(element) {
@@ -17874,15 +18014,13 @@ class AnnotationElement {
     }
     const commonActions = this._commonActions;
     for (const [actionName, detail] of Object.entries(storedData)) {
-      const action = commonActions[actionName];
-      if (action) {
-        const eventProxy = {
+      if (commonActions[actionName]) {
+        this._dispatchEventFromSandbox(commonActions, {
           detail: {
             [actionName]: detail
           },
           target: element
-        };
-        action(eventProxy);
+        });
         delete storedData[actionName];
       }
     }
@@ -18170,6 +18308,13 @@ class LinkAnnotationElement extends AnnotationElement {
     let isBound = false;
     if (data.url) {
       linkService.addLinkAttributes(link, data.url, data.newWindow);
+      for (const type of ["click", "auxclick"]) {
+        link.addEventListener(type, event => {
+          if (!this._isUserActivation(event)) {
+            event.preventDefault();
+          }
+        });
+      }
       isBound = true;
     } else if (data.action) {
       this._bindNamedAction(link, data.action, data.overlaidText);
@@ -18223,8 +18368,10 @@ class LinkAnnotationElement extends AnnotationElement {
   }
   _bindNamedAction(link, action, overlaidText = "") {
     link.href = this.linkService.getAnchorUrl("");
-    link.onclick = () => {
-      this.linkService.executeNamedAction(action);
+    link.onclick = event => {
+      if (SAFE_NAMED_ACTIONS.has(action) || this._isUserActivation(event)) {
+        this.linkService.executeNamedAction(action);
+      }
       return false;
     };
     if (overlaidText) {
@@ -18245,8 +18392,10 @@ class LinkAnnotationElement extends AnnotationElement {
         this.downloadManager?.openOrDownloadData(content, attachment.filename, dest);
       }
     };
-    link.onclick = () => {
-      openAttachment();
+    link.onclick = event => {
+      if (this._isUserActivation(event)) {
+        openAttachment();
+      }
       return false;
     };
     this.#setInternalLink();
@@ -18274,14 +18423,11 @@ class LinkAnnotationElement extends AnnotationElement {
       if (!jsName) {
         continue;
       }
-      link[jsName] = () => {
-        this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-          source: this,
-          detail: {
-            id,
-            name
-          }
-        });
+      link[jsName] = event => {
+        this._dispatchDOMEventInSandbox({
+          id,
+          name
+        }, event);
         return false;
       };
     }
@@ -18304,8 +18450,8 @@ class LinkAnnotationElement extends AnnotationElement {
       }
       return;
     }
-    link.onclick = () => {
-      otherClickAction?.();
+    link.onclick = event => {
+      otherClickAction?.(event);
       const {
         fields: resetFormFields,
         refs: resetFormRefs,
@@ -18442,16 +18588,13 @@ class WidgetAnnotationElement extends AnnotationElement {
   _setEventListener(element, elementData, baseName, eventName, valueGetter) {
     if (baseName.includes("mouse")) {
       element.addEventListener(baseName, event => {
-        this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-          source: this,
-          detail: {
-            id: this.data.id,
-            name: eventName,
-            value: valueGetter(event),
-            shift: event.shiftKey,
-            modifier: this._getKeyModifier(event)
-          }
-        });
+        this._dispatchDOMEventInSandbox({
+          id: this.data.id,
+          name: eventName,
+          value: valueGetter(event),
+          shift: event.shiftKey,
+          modifier: this._getKeyModifier(event)
+        }, event);
       });
     } else {
       element.addEventListener(baseName, event => {
@@ -18469,14 +18612,11 @@ class WidgetAnnotationElement extends AnnotationElement {
         if (!valueGetter) {
           return;
         }
-        this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-          source: this,
-          detail: {
-            id: this.data.id,
-            name: eventName,
-            value: valueGetter(event)
-          }
-        });
+        this._dispatchDOMEventInSandbox({
+          id: this.data.id,
+          name: eventName,
+          value: valueGetter(event)
+        }, event);
       });
     }
   }
@@ -18762,18 +18902,15 @@ class TextWidgetAnnotationElement extends WidgetAnnotationElement {
           }
           elementData.lastCommittedValue = value;
           elementData.userValue = value;
-          this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-            source: this,
-            detail: {
-              id,
-              name: "Keystroke",
-              value,
-              willCommit: true,
-              commitKey,
-              selStart: event.target.selectionStart,
-              selEnd: event.target.selectionEnd
-            }
-          });
+          this._dispatchDOMEventInSandbox({
+            id,
+            name: "Keystroke",
+            value,
+            willCommit: true,
+            commitKey,
+            selStart: event.target.selectionStart,
+            selEnd: event.target.selectionEnd
+          }, event);
         });
         const _blurListener = blurListener;
         blurListener = null;
@@ -18805,18 +18942,15 @@ class TextWidgetAnnotationElement extends WidgetAnnotationElement {
           }
           elementData.userValue = value;
           if (elementData.lastCommittedValue !== value) {
-            this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-              source: this,
-              detail: {
-                id,
-                name: "Keystroke",
-                value,
-                willCommit: true,
-                commitKey: elementData.commitKey,
-                selStart: event.target.selectionStart,
-                selEnd: event.target.selectionEnd
-              }
-            });
+            this._dispatchDOMEventInSandbox({
+              id,
+              name: "Keystroke",
+              value,
+              willCommit: true,
+              commitKey: elementData.commitKey,
+              selStart: event.target.selectionStart,
+              selEnd: event.target.selectionEnd
+            }, event);
           }
           _blurListener(event);
         });
@@ -18866,18 +19000,15 @@ class TextWidgetAnnotationElement extends WidgetAnnotationElement {
                 break;
             }
             event.preventDefault();
-            this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-              source: this,
-              detail: {
-                id,
-                name: "Keystroke",
-                value,
-                change: data || "",
-                willCommit: false,
-                selStart,
-                selEnd
-              }
-            });
+            this._dispatchDOMEventInSandbox({
+              id,
+              name: "Keystroke",
+              value,
+              change: data || "",
+              willCommit: false,
+              selStart,
+              selEnd
+            }, event);
           });
         }
         this._setEventListeners(element, elementData, [["focus", "Focus"], ["blur", "Blur"], ["mousedown", "Mouse Down"], ["mouseenter", "Mouse Enter"], ["mouseleave", "Mouse Exit"], ["mouseup", "Mouse Up"]], event => event.target.value);
@@ -19297,19 +19428,16 @@ class ChoiceWidgetAnnotationElement extends WidgetAnnotationElement {
           value: exportValue
         });
         event.preventDefault();
-        this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-          source: this,
-          detail: {
-            id,
-            name: "Keystroke",
-            value: selectedValues,
-            change,
-            changeEx: exportValue,
-            willCommit: false,
-            commitKey: 1,
-            keyDown: false
-          }
-        });
+        this._dispatchDOMEventInSandbox({
+          id,
+          name: "Keystroke",
+          value: selectedValues,
+          change,
+          changeEx: exportValue,
+          willCommit: false,
+          commitKey: 1,
+          keyDown: false
+        }, event);
       });
       this._setEventListeners(selectElement, null, [["focus", "Focus"], ["blur", "Blur"], ["mousedown", "Mouse Down"], ["mouseenter", "Mouse Enter"], ["mouseleave", "Mouse Exit"], ["mouseup", "Mouse Up"], ["input", "Action"], ["input", "Validate"]], event => event.target.value);
     } else {
@@ -20464,7 +20592,7 @@ class FileAttachmentAnnotationElement extends AnnotationElement {
     } = FeatureTest.platform;
     container.addEventListener("keydown", evt => {
       if (evt.key === "Enter" && (isMac ? evt.metaKey : evt.ctrlKey)) {
-        this.#download();
+        this.#download(evt);
       }
     });
     if (!data.popupRef && this.hasPopupData) {
@@ -20482,7 +20610,10 @@ class FileAttachmentAnnotationElement extends AnnotationElement {
   addHighlightArea() {
     this.container.classList.add("highlightArea");
   }
-  async #download() {
+  async #download(event) {
+    if (!this._isUserActivation(event)) {
+      return;
+    }
     const {
       fileId,
       filename,
@@ -20593,7 +20724,7 @@ class MediaAnnotationElement extends AnnotationElement {
       signal
     });
     button.replaceWith(media);
-    media.play().catch(() => {});
+    media.play().catch(noopFn);
   }
   #revokeContentUrl(url = this.#contentUrl) {
     if (url && url === this.#contentUrl) {
@@ -25499,7 +25630,7 @@ class SignatureExtractor {
       writer.write(bytes).then(async () => {
         await writer.ready;
         await writer.close();
-      }).catch(() => {});
+      }).catch(noopFn);
       let data = null;
       let offset = 0;
       for await (const chunk of readable) {
@@ -25612,7 +25743,7 @@ class SignatureEditor extends DrawingEditor {
     this._willKeepAspectRatio = true;
     this.#signatureData = params.signatureData || null;
     this.#description = null;
-    this.defaultL10nId = "pdfjs-editor-signature-editor1";
+    this.defaultL10nId = "pdfjs-editor-signature-editor2";
   }
   static initialize(l10n, uiManager) {
     AnnotationEditor.initialize(l10n, uiManager);
@@ -25673,6 +25804,7 @@ class SignatureEditor extends DrawingEditor {
       baseY = this.y;
     }
     super.render();
+    this.#updateRoleForSelection();
     if (this._drawId === null) {
       if (this.#signatureData) {
         const {
@@ -25717,6 +25849,19 @@ class SignatureEditor extends DrawingEditor {
       this._moveAfterPaste(baseX, baseY);
     }
     return this.div;
+  }
+  select() {
+    super.select();
+    this.#updateRoleForSelection();
+  }
+  unselect() {
+    super.unselect();
+    this.#updateRoleForSelection();
+  }
+  #updateRoleForSelection() {
+    if (this._uiManager._useButtonRoleForUnselectedSignatures) {
+      this.div?.setAttribute("role", this.isSelected ? "application" : "button");
+    }
   }
   setUuid(uuid) {
     this.#signatureUUID = uuid;
@@ -26210,7 +26355,7 @@ class StampEditor extends AnnotationEditor {
     const {
       id: bitmapId,
       bitmap
-    } = this._uiManager.imageManager.getFromCanvas(annotationElementId, canvas);
+    } = this._uiManager.imageManager.getFromCanvas(annotationElementId, canvas, this._initialData?.rotation);
     canvas.remove();
     if (bitmapId && this._uiManager.imageManager.isValidId(bitmapId)) {
       this.#bitmapId = bitmapId;
@@ -26470,7 +26615,7 @@ class StampEditor extends AnnotationEditor {
         ({
           id: bitmapId,
           bitmap
-        } = uiManager.imageManager.getFromCanvas(container.id, canvas));
+        } = uiManager.imageManager.getFromCanvas(container.id, canvas, rotation));
         canvas.remove();
       } else {
         missingCanvas = true;
@@ -26502,7 +26647,6 @@ class StampEditor extends AnnotationEditor {
     }
     const editor = await super.deserialize(data, parent, uiManager);
     const {
-      rect,
       bitmap,
       bitmapUrl,
       bitmapId,
@@ -26521,9 +26665,6 @@ class StampEditor extends AnnotationEditor {
       editor.#bitmapUrl = bitmapUrl;
     }
     editor.#isSvg = isSvg;
-    const [parentWidth, parentHeight] = editor.pageDimensions;
-    editor.width = (rect[2] - rect[0]) / parentWidth;
-    editor.height = (rect[3] - rect[1]) / parentHeight;
     if (accessibilityData) {
       editor.altTextData = accessibilityData;
     }
@@ -28078,6 +28219,7 @@ globalThis.pdfjsLib = {
   applyOpacity: applyOpacity,
   build: build,
   ColorPicker: ColorPicker,
+  createPromiseCapability: createPromiseCapability,
   createValidAbsoluteUrl: createValidAbsoluteUrl,
   CSSConstants: CSSConstants,
   DOMSVGFactory: DOMSVGFactory,
@@ -28103,6 +28245,7 @@ globalThis.pdfjsLib = {
   makeSet: makeSet,
   MathClamp: MathClamp,
   noContextMenu: noContextMenu,
+  noopFn: noopFn,
   normalizeUnicode: normalizeUnicode,
   OPS: OPS,
   OutputScale: OutputScale,
@@ -28131,4 +28274,4 @@ globalThis.pdfjsLib = {
   XfaLayer: XfaLayer
 };
 
-export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, version };
+export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createPromiseCapability, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, noopFn, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, version };

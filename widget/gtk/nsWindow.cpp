@@ -70,6 +70,10 @@
 #include "mozilla/layers/IAPZCTreeManager.h"
 #include "mozilla/layers/KnowsCompositor.h"
 #include "mozilla/layers/LayersTypes.h"
+#ifdef MOZ_WAYLAND
+#  include "mozilla/layers/NativeLayerRootRemoteWaylandParent.h"
+#  include "mozilla/layers/NativeLayerWayland.h"
+#endif
 #include "mozilla/layers/WebRenderBridgeChild.h"
 #include "mozilla/layers/WebRenderLayerManager.h"
 #include "mozilla/widget/WindowOcclusionState.h"
@@ -241,9 +245,6 @@ static void drag_data_received_event_cb(
     GtkWidget* aWidget, GdkDragContext* aDragContext, gint aX, gint aY,
     GtkSelectionData* aSelectionData, guint aInfo, guint aTime, gpointer aData);
 
-/* initialization static functions */
-static nsresult initialize_prefs(void);
-
 static guint32 sLastUserInputTime = GDK_CURRENT_TIME;
 
 static SystemTimeConverter<guint32>& TimeConverter() {
@@ -341,7 +342,6 @@ static nsIWidget::Raise gFocusRequestWindowRaise = nsIWidget::Raise::No;
 static bool gBlockActivateEvent = false;
 static bool gGlobalsInitialized = false;
 static bool gUseAspectRatio = true;
-bool gUseStableRounding = true;
 static uint32_t gLastTouchID = 0;
 // See Bug 1777269 for details. We don't know if the suspected leave notify
 // event is a correct one when we get it.
@@ -427,26 +427,25 @@ nsWindow::nsWindow()
       mNeedsToRetryCapturingMouse(false),
       mX11HiddenPopupPositioned(false),
       mPopupTemporaryHidden(false),
-      mWaitingToSessionRestore(false) {
+      mWaitingToSessionRestore(false),
+      mWaitingToFocusRestore(false) {
   SetSafeWindowSize(mSizeConstraints.mMaxSize);
 
   if (!gGlobalsInitialized) {
     gGlobalsInitialized = true;
-
-    // It's OK if either of these fail, but it may not be one day.
-    initialize_prefs();
-
+    if (Preferences::HasUserValue("widget.use-aspect-ratio")) {
+      gUseAspectRatio = Preferences::GetBool("widget.use-aspect-ratio", true);
+    } else {
+      gUseAspectRatio =
+          IsGnomeDesktopEnvironment() || IsKdeDesktopEnvironment();
+    }
 #ifdef MOZ_WAYLAND
-    // Wayland provides clipboard data to application on focus-in event
-    // so we need to init our clipboard hooks before we create window
-    // and get focus.
     if (GdkIsWaylandDisplay()) {
-      nsCOMPtr<nsIClipboard> clipboard =
-          do_GetService("@mozilla.org/widget/clipboard;1");
-      NS_ASSERTION(clipboard, "Failed to init clipboard!");
+      nsWindowWayland::InitPrefs();
     }
 #endif
   }
+
   // Dummy call to mozgtk to prevent the linker from removing
   // the dependency with --as-needed.
   // see toolkit/library/moz.build for details.
@@ -494,12 +493,9 @@ void nsWindow::DispatchResized() {
     return;
   }
 
-  // Wayland popups are painted at 0,0 but we use mClientArea.x/y as popup
-  // position so we can't use it for rounding of size coordinates.
-  auto clientSize = gUseStableRounding && !IsWaylandPopup()
-                        ? GetClientSize()
-                        : LayoutDeviceIntSize::Round(mClientArea.Size() *
-                                                     GetDesktopToDeviceScale());
+  // Upscale painted window size according windowing system rounding
+  // to ensure 1:1 buffer/screen rendering.
+  auto clientSize = GetRoundedClientSize();
 
   LOG("nsWindow::DispatchResized() client scaled size [%d, %d]",
       (int)clientSize.width, (int)clientSize.height);
@@ -593,6 +589,8 @@ void nsWindow::Destroy() {
   MOZ_ASSERT(!gtk_widget_get_mapped(mShell));
   MOZ_ASSERT(!gtk_widget_get_mapped(GTK_WIDGET(mContainer)));
 
+  DeleteVSyncSource();
+
   DestroyLayerManager();
 
   // mSurfaceProvider holds reference to this nsWindow so we need to explicitly
@@ -666,10 +664,19 @@ bool nsWindow::WidgetTypeSupportsAcceleration() {
 }
 
 bool nsWindow::WidgetTypeSupportsNativeCompositing() {
+#ifdef MOZ_WAYLAND
+  // The GPU process can't draw into widget surfaces, so every widget has to
+  // present through remote native layers.
+  auto* pm = mozilla::gfx::GPUProcessManager::Get();
+  if (GdkIsWaylandDisplay() && pm &&
+      pm->GPUEndpointProcInfo() != mozilla::ipc::EndpointProcInfo::Invalid()) {
+    return true;
+  }
+#endif
   if (IsDragPopup()) {
     return false;
   }
-  return WidgetTypeSupportsAcceleration();
+  return mIsAccelerated;
 }
 
 static bool IsPenEvent(GdkEvent* aEvent, bool* isEraser) {
@@ -1290,6 +1297,11 @@ void nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType) {
     if (StaticPrefs::mozilla_widget_raise_on_setfocus_AtStartup() &&
         toplevelWindow->mIsShown && toplevelWindow->mShell &&
         !gtk_window_is_active(GTK_WINDOW(toplevelWindow->mShell))) {
+      if (toplevelWindow->mWaitingToFocusRestore) {
+        LOG("  toplevel waits to focus restore, not activated [%p]",
+            toplevelWindow.get());
+        return;
+      }
       LOG("  toplevel is visible but not active, requesting activation [%p]",
           toplevelWindow.get());
 
@@ -1388,6 +1400,12 @@ LayoutDeviceIntRect nsWindow::GetBounds() {
 
 LayoutDeviceIntSize nsWindow::GetClientSize() {
   return ToLayoutDevicePixels(mClientArea).Size();
+}
+
+// This is default rounding for X11
+LayoutDeviceIntSize nsWindow::GetRoundedClientSize() {
+  return LayoutDeviceIntSize::Round(mClientArea.Size() *
+                                    GetDesktopToDeviceScale());
 }
 
 LayoutDeviceIntRect nsWindow::GetClientBounds() {
@@ -3050,15 +3068,23 @@ void nsWindow::OnButtonPressEvent(GdkEventButton* aEvent) {
       if (!Preferences::GetBool("mousebutton.4th.enabled", true)) {
         return;
       }
-      DispatchCommandEvent(nsGkAtoms::Back);
-      return;
+      if (!StaticPrefs::dom_event_mouse_xbuttons_enabled()) {
+        DispatchCommandEvent(nsGkAtoms::Back);
+        return;
+      }
+      domButton = MouseButton::eX1;
+      break;
     case 9:
     case 10:
       if (!Preferences::GetBool("mousebutton.5th.enabled", true)) {
         return;
       }
-      DispatchCommandEvent(nsGkAtoms::Forward);
-      return;
+      if (!StaticPrefs::dom_event_mouse_xbuttons_enabled()) {
+        DispatchCommandEvent(nsGkAtoms::Forward);
+        return;
+      }
+      domButton = MouseButton::eX2;
+      break;
     default:
       return;
   }
@@ -3114,6 +3140,7 @@ void nsWindow::OnButtonReleaseEvent(GdkEventButton* aEvent) {
   bool isPenEvent = IsPenEvent((GdkEvent*)aEvent, &isEraser);
 
   uint16_t domButton;
+  nsStaticAtom* command = nullptr;
   switch (aEvent->button) {
     case 1:
       if (isEraser) {
@@ -3127,6 +3154,24 @@ void nsWindow::OnButtonReleaseEvent(GdkEventButton* aEvent) {
       break;
     case 3:
       domButton = MouseButton::eSecondary;
+      break;
+    // Buttons 8-9(10) are X1 and X2
+    case 8:
+      if (!StaticPrefs::dom_event_mouse_xbuttons_enabled() ||
+          !Preferences::GetBool("mousebutton.4th.enabled", true)) {
+        return;
+      }
+      domButton = MouseButton::eX1;
+      command = nsGkAtoms::Back;
+      break;
+    case 9:
+    case 10:
+      if (!StaticPrefs::dom_event_mouse_xbuttons_enabled() ||
+          !Preferences::GetBool("mousebutton.5th.enabled", true)) {
+        return;
+      }
+      domButton = MouseButton::eX2;
+      command = nsGkAtoms::Forward;
       break;
     default:
       return;
@@ -3142,6 +3187,7 @@ void nsWindow::OnButtonReleaseEvent(GdkEventButton* aEvent) {
   gdouble pressure = 0;
   gdk_event_get_axis((GdkEvent*)aEvent, GDK_AXIS_PRESSURE, &pressure);
   event.mPressure = pressure ? (float)pressure : (float)mLastMotionPressure;
+  event.mCommand = command;
 
   // The mRefPoint is manipulated in DispatchInputEvent, we're saving it
   // to use it for the doubleclick position check.
@@ -4294,7 +4340,9 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
   }
 
   bool isGLVisualSet = false;
-  mIsAccelerated = ComputeShouldAccelerate();
+  mIsAccelerated =
+      WidgetTypeSupportsAcceleration() && ComputeShouldAccelerate();
+  LOG("  accelerated [%d]", mIsAccelerated);
 #ifdef MOZ_X11
   isGLVisualSet = mIsAccelerated && AsX11() && AsX11()->ConfigureX11GLVisual();
 #endif
@@ -4425,8 +4473,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
     // set it early.
     if (parentnsWindow) {
       WaylandSurfaceLock lock(mSurface);
-      mSurface->SetParentLocked(
-          lock, MOZ_WL_SURFACE(parentnsWindow->GetMozContainer()));
+      mSurface->SetParentLocked(lock, parentnsWindow->GetWaylandSurface());
     }
   }
   container = moz_container_new(this, mSurface);
@@ -4488,6 +4535,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
 
   CreateNative();
   ConfigureToplevelWindow();
+  CreateVSyncSource();
 
   // make sure this is the focus widget in the container
   if (shouldFocus) {
@@ -6460,18 +6508,6 @@ void nsWindow::InitDragEvent(WidgetDragEvent& aEvent) {
   KeymapWrapper::InitInputEvent(aEvent, modifierState);
 }
 
-static nsresult initialize_prefs(void) {
-  if (Preferences::HasUserValue("widget.use-aspect-ratio")) {
-    gUseAspectRatio = Preferences::GetBool("widget.use-aspect-ratio", true);
-  } else {
-    gUseAspectRatio = IsGnomeDesktopEnvironment() || IsKdeDesktopEnvironment();
-  }
-  // 'Stable' Wayland subsurface rounding algorithm is used by all compositors
-  // except KDE.
-  gUseStableRounding = !IsKdeDesktopEnvironment() || GdkIsX11Display();
-  return NS_OK;
-}
-
 #ifdef ACCESSIBILITY
 void nsWindow::CreateRootAccessible() {
   if (!mRootAccessible) {
@@ -6662,6 +6698,54 @@ void nsWindow::DidGetNonBlankPaint() {
   GetWindowRenderer()->AsWebRender()->WrBridge()->SendSetDefaultClearColor(
       NS_TRANSPARENT);
 }
+
+void nsWindow::CreateCompositor(int aWidth, int aHeight) {
+  // Ensure we are on the parent process.
+  MOZ_ASSERT(XRE_IsParentProcess());
+
+  // It's possible we might reach this before the GPU process has even
+  // been started. Make sure the gfxPlatform is initialized, which is
+  // necessary to create the GPUProcessManager.
+  (void)gfxPlatform::GetPlatform();
+  MOZ_ASSERT(
+      mozilla::gfx::GPUProcessManager::Get(),
+      "Getting the gfxPlatform should have created the GPUProcessManager.");
+
+  // Do the rest of the compositor setup.
+  nsIWidget::CreateCompositor(aWidth, aHeight);
+}
+
+void nsWindow::DestroyCompositor() {
+#ifdef MOZ_WAYLAND
+  CloseNativeLayerRootRemoteWaylandParent();
+#endif
+  nsIWidget::DestroyCompositor();
+}
+
+#ifdef MOZ_WAYLAND
+void nsWindow::CloseNativeLayerRootRemoteWaylandParent() {
+  // The call to Bind was done on the compositor thread, so we need to close
+  // the actor on that thread. The real NativeLayerRoot is shut down on the
+  // main thread afterwards, so no command can reach it after shutdown.
+  RefPtr<NativeLayerRootRemoteWaylandParent> actor =
+      std::move(mNativeLayerRootRemoteWaylandParent);
+  RefPtr<NativeLayerRootWayland> root =
+      std::move(mNativeLayerRootForRemoteWaylandParent);
+  if (!actor) {
+    MOZ_ASSERT(!root);
+    return;
+  }
+  MOZ_ASSERT(CompositorThread());
+  CompositorThread()->Dispatch(NS_NewRunnableFunction(
+      "NativeLayerRootRemoteWaylandParent::Close",
+      [actor = std::move(actor), root = std::move(root)]() mutable {
+        actor->Close();
+        NS_DispatchToMainThread(NS_NewRunnableFunction(
+            "NativeLayerRootWayland::Shutdown",
+            [root = std::move(root)]() { root->Shutdown(); }));
+      }));
+}
+#endif
 
 /* nsWindow::SetCompositorWidgetDelegate() sets remote GtkCompositorWidget
  * to render into with compositor.
@@ -7014,11 +7098,9 @@ void nsWindow::CreateAndPutGdkScrollEvent(mozilla::LayoutDeviceIntPoint aPoint,
   event.scroll.x = DevicePixelsToGdkCoordRoundDown(pointInWindow.x);
   event.scroll.y = DevicePixelsToGdkCoordRoundDown(pointInWindow.y);
 
-  // The delta values are backwards on Linux compared to Windows and Cocoa,
-  // hence the negation.
   event.scroll.direction = GDK_SCROLL_SMOOTH;
-  event.scroll.delta_x = -aDeltaX;
-  event.scroll.delta_y = -aDeltaY;
+  event.scroll.delta_x = aDeltaX;
+  event.scroll.delta_y = aDeltaY;
 
   gdk_event_put(&event);
 }
@@ -7034,7 +7116,9 @@ nsresult nsWindow::SynthesizeNativeMouseScrollEvent(
     return NS_OK;
   }
 
-  CreateAndPutGdkScrollEvent(aPoint, aDeltaX, aDeltaY);
+  // GDK deltas are positive when scrolling down / to the right, the opposite
+  // of the convention used by this function, hence the negation.
+  CreateAndPutGdkScrollEvent(aPoint, -aDeltaX, -aDeltaY);
 
   return NS_OK;
 }
@@ -7264,6 +7348,58 @@ nsWindow::GtkWindowDecoration nsWindow::GetSystemGtkWindowDecoration() {
   return sGtkWindowDecoration;
 }
 
+#ifdef MOZ_WAYLAND
+// Creates a NativeLayerRootRemoteWaylandParent which presents layers from the
+// GPU process to aRoot, binds it on the compositor thread, and returns the
+// child endpoint to send to the GPU process in aChildEndpoint.
+static RefPtr<NativeLayerRootRemoteWaylandParent>
+BindNativeLayerRootRemoteWaylandParent(
+    NativeLayerRootWayland* aRoot,
+    const mozilla::ipc::EndpointProcInfo& aGPUProcessInfo,
+    mozilla::ipc::Endpoint<PNativeLayerRemoteChild>* aChildEndpoint) {
+  // The "parent" endpoint connects to this process and the "child" endpoint
+  // connects to the GPU process.
+  mozilla::ipc::Endpoint<PNativeLayerRemoteParent> parentEndpoint;
+  auto rv = PNativeLayerRemote::CreateEndpoints(
+      mozilla::ipc::EndpointProcInfo::Current(), aGPUProcessInfo,
+      &parentEndpoint, aChildEndpoint);
+  MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
+  MOZ_RELEASE_ASSERT(parentEndpoint.IsValid());
+  MOZ_RELEASE_ASSERT(aChildEndpoint->IsValid());
+
+  auto nativeLayerRemoteParent =
+      MakeRefPtr<NativeLayerRootRemoteWaylandParent>(aRoot);
+
+  // Bind the parent endpoint compositor thread.
+  MOZ_ASSERT(CompositorThread());
+
+  Monitor monitor("nsWindow::GetCompositorWidgetInitData");
+  bool didBindParentEndpoint = false;
+
+  CompositorThread()->Dispatch(NS_NewRunnableFunction(
+      "nsWindow::GetCompositorWidgetInitData bind endpoint", [&] {
+        // Bind the endpoint. This has to happen before the child endpoint is
+        // sent to the GPU process.
+        MOZ_ALWAYS_TRUE(parentEndpoint.Bind(nativeLayerRemoteParent));
+        MonitorAutoLock lock(monitor);
+        didBindParentEndpoint = true;
+        lock.Notify();
+      }));
+
+  // Block until the parent endpoint is bound, so that the childEndpoint we
+  // return in our CompositorWidgetInitData is ready to be sent to the GPU
+  // process.
+  {
+    MonitorAutoLock lock(monitor);
+    while (!didBindParentEndpoint) {
+      lock.Wait();
+    }
+  }
+
+  return nativeLayerRemoteParent;
+}
+#endif
+
 void nsWindow::GetCompositorWidgetInitData(
     mozilla::widget::CompositorWidgetInitData* aInitData) {
   MOZ_DIAGNOSTIC_ASSERT(!mIsDestroyed);
@@ -7281,15 +7417,38 @@ void nsWindow::GetCompositorWidgetInitData(
   }
 #endif
 
-  // Wayland popups are painted at 0,0 but we use mClientArea.x/y as popup
-  // position so we can't use it for rounding of size coordinates.
-  auto clientSize = gUseStableRounding && !IsWaylandPopup()
-                        ? GetClientSize()
-                        : LayoutDeviceIntSize::Round(mClientArea.Size() *
-                                                     GetDesktopToDeviceScale());
+  mozilla::ipc::Endpoint<PNativeLayerRemoteChild> childEndpoint;
+#ifdef MOZ_WAYLAND
+  // If we already have an mNativeLayerRootRemoteWaylandParent, close it first.
+  // This happens when we retry after the previous compositor session failed
+  // to be created, or when we fall back to compositing in this process.
+  CloseNativeLayerRootRemoteWaylandParent();
+
+  // Layers are only remoted when compositing happens in the GPU process. When
+  // compositing happens in this process, GtkCompositorWidget creates its own
+  // NativeLayerRootWayland and the child endpoint stays empty.
+  auto* pm = mozilla::gfx::GPUProcessManager::Get();
+  mozilla::ipc::EndpointProcInfo gpuProcessInfo =
+      pm ? pm->GPUEndpointProcInfo()
+         : mozilla::ipc::EndpointProcInfo::Invalid();
+  if (GdkIsWaylandDisplay() &&
+      gpuProcessInfo != mozilla::ipc::EndpointProcInfo::Invalid()) {
+    MOZ_DIAGNOSTIC_ASSERT(GetWaylandSurface());
+    RefPtr surface = GetWaylandSurface();
+    surface->MarkAsRootSurface();
+    RefPtr<NativeLayerRootWayland> root =
+        NativeLayerRootWayland::Create(surface);
+    root->Init();
+    mNativeLayerRootRemoteWaylandParent =
+        BindNativeLayerRootRemoteWaylandParent(root, gpuProcessInfo,
+                                               &childEndpoint);
+    mNativeLayerRootForRemoteWaylandParent = std::move(root);
+  }
+#endif
 
   *aInitData = mozilla::widget::GtkCompositorWidgetInitData(
-      GetX11Window(), displayName, GdkIsX11Display(), clientSize);
+      GetX11Window(), displayName, GdkIsX11Display(), GetRoundedClientSize(),
+      std::move(childEndpoint));
 }
 
 nsresult nsWindow::SetSystemFont(const nsCString& aFontName) {
@@ -7443,12 +7602,6 @@ void nsWindow::OnMap() {
 void nsWindow::OnUnmap() {
   LOG("nsWindow::OnUnmap");
 
-#ifdef MOZ_WAYLAND
-  if (auto* toplevel = AsWaylandToplevel()) {
-    toplevel->ClearPipResources();
-  }
-#endif
-
   {
     mIsMapped = false;
     mHasReceivedSizeAllocate = false;
@@ -7476,6 +7629,8 @@ void nsWindow::OnUnmap() {
   if (mWindowType == WindowType::Popup && !mPopupTemporaryHidden) {
     DestroyLayerManager();
   }
+
+  OnUnmapNative();
 }
 
 void nsWindow::NotifyOcclusionState(OcclusionState aState) {
@@ -7510,7 +7665,7 @@ UniquePtr<WaylandSurfaceLock> nsWindow::LockSurface() {
   if (mIsDestroyed || !mSurface) {
     return nullptr;
   }
-  return std::make_unique<WaylandSurfaceLock>(MOZ_WL_SURFACE(mContainer));
+  return std::make_unique<WaylandSurfaceLock>(mSurface);
 #else
   return nullptr;
 #endif
@@ -7735,17 +7890,46 @@ uint32_t nsWindow::GetMaxTouchPoints() const {
 void nsWindow::SessionRestoreFinished() {
   LOGW("nsWindow::SessionRestoreFinished() set focus to [%p]",
        gFocusRequestWindow.get());
-  if (!gFocusRequestWindow) {
-    return;
+
+  // A window is shown by MoveToWorkspace() when it is restored, but a window
+  // without a saved workspace ID, or one which is not restored at all, never
+  // receives that call. Show every window which still waits for it. Showing a
+  // window may run GTK callbacks, so the windows are collected first.
+  nsTArray<RefPtr<nsWindow>> waitingWindows;
+  GList* toplevels = gtk_window_list_toplevels();
+  for (GList* item = toplevels; item; item = item->next) {
+    nsWindow* window = FromGtkWidget(GTK_WIDGET(item->data));
+    if (!window) {
+      continue;
+    }
+    window->mWaitingToFocusRestore = false;
+    if (window->mWaitingToSessionRestore) {
+      waitingWindows.AppendElement(window);
+    }
   }
-  if (gFocusRequestWindow->mWaitingToSessionRestore) {
-    NS_WARNING(
-        "Session restore finished before nsWindow::MoveToWorkspace() calls!");
-    gFocusRequestWindow->mWaitingToSessionRestore = false;
+  g_list_free(toplevels);
+  for (const RefPtr<nsWindow>& window : waitingWindows) {
+    if (window->IsDestroyed() || !window->mWaitingToSessionRestore) {
+      continue;
+    }
+    LOGW("  [%p] was not restored, show it", window.get());
+    window->mWaitingToSessionRestore = false;
+    if (window->mNeedsShow) {
+      window->NativeShow(/* show */ true);
+    }
   }
-  gFocusRequestWindow->SetFocus(gFocusRequestWindowRaise,
-                                mozilla::dom::CallerType::System);
-  gFocusRequestWindow = nullptr;
+
+  if (gFocusRequestWindow) {
+    gFocusRequestWindow->SetFocus(gFocusRequestWindowRaise,
+                                  mozilla::dom::CallerType::System);
+    gFocusRequestWindow = nullptr;
+  }
+
+  // A launch activation token which no window used, because every window was
+  // restored, must not activate a window opened later.
+  if (nsGTKToolkit* toolkit = nsGTKToolkit::GetToolkit()) {
+    toolkit->SetActivationToken(""_ns);
+  }
 }
 
 // If aForce = true we create a new session if there isn't any one.

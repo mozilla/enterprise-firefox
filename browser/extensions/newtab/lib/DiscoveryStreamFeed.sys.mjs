@@ -35,6 +35,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const { setTimeout, clearTimeout } = ChromeUtils.importESModule(
   "resource://gre/modules/Timer.sys.mjs"
 );
+// eslint-disable-next-line mozilla/use-static-import
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 import {
   actionTypes as at,
   actionCreators as ac,
@@ -60,6 +64,32 @@ const DEFAULT_RECS_IMPRESSION_EXPIRE_TIME = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MAX_LIFETIME_CAP = 500; // Guard against misconfiguration on the server
 const SPOCS_CAP_DURATION = 24 * 60 * 60; // 1 day in seconds.
 const FETCH_TIMEOUT = 45 * 1000;
+const FETCH_ERROR = Object.freeze({
+  TIMEOUT: "timeout",
+  HTTP_4XX: "http_4xx",
+  HTTP_5XX: "http_5xx",
+  NETWORK: "network",
+  OHTTP_CONFIG: "ohttp_config",
+  ENDPOINT_DISALLOWED: "endpoint_disallowed",
+  BAD_RESPONSE: "bad_response",
+});
+
+const STORIES_FEED_STATE = Object.freeze({
+  STORIES: "stories",
+  CACHE: "cache",
+  PLACEHOLDER: "placeholder",
+  OFF: "off",
+});
+
+function getHttpErrorCategory(status) {
+  if (status >= 400 && status < 500) {
+    return FETCH_ERROR.HTTP_4XX;
+  }
+  if (status >= 500 && status < 600) {
+    return FETCH_ERROR.HTTP_5XX;
+  }
+  return FETCH_ERROR.NETWORK;
+}
 const TOPIC_LOADING_TIMEOUT = 1 * 1000;
 const TOPIC_SELECTION_DISPLAY_COUNT =
   "discoverystream.topicSelection.onboarding.displayCount";
@@ -85,7 +115,6 @@ const PREF_SPOC_COUNTS = "discoverystream.placements.spocs.counts";
 const PREF_SPOC_POSITIONS = "discoverystream.spoc-positions";
 const PREF_MERINO_FEED_EXPERIMENT =
   "browser.newtabpage.activity-stream.discoverystream.merino-feed-experiment";
-const PREF_ENABLED = "discoverystream.enabled";
 const PREF_HARDCODED_BASIC_LAYOUT = "discoverystream.hardcoded-basic-layout";
 const PREF_SPOCS_ENDPOINT = "discoverystream.spocs-endpoint";
 const PREF_SPOCS_ENDPOINT_QUERY = "discoverystream.spocs-endpoint-query";
@@ -144,6 +173,7 @@ const PREF_SECTIONS_ORDERING = "discoverystream.sections.ordering";
 // Comma-separated section ranks that may carry an ad; "" uses the hard-coded set.
 const PREF_SECTIONS_AD_ALLOWED_RANKS =
   "discoverystream.sections.adAllowedRanks";
+const DISCOVERY_STREAM_ENABLED = true;
 
 let getHardcodedLayout;
 
@@ -205,9 +235,7 @@ export class DiscoveryStreamFeed {
         e
       );
     }
-    this._prefCache.config.enabled =
-      this._prefCache.config.enabled &&
-      this.store.getState().Prefs.values[PREF_ENABLED];
+    this._prefCache.config.enabled = DISCOVERY_STREAM_ENABLED;
 
     return this._prefCache.config;
   }
@@ -542,10 +570,26 @@ export class DiscoveryStreamFeed {
     this._prefCache = {};
   }
 
-  async fetchFromEndpoint(endpoint, options = {}, useOhttp = false) {
+  /**
+   * Fetches and parses JSON from an allowed endpoint. Resolves to null on any
+   * failure.
+   *
+   * @param {string} endpoint
+   * @param {object} [options] Options passed on to fetch or ohttpRequest.
+   * @param {boolean} [useOhttp] Send the request over OHTTP if configured.
+   * @param {Function} [onError] Called with a FETCH_ERROR category on failure.
+   * @returns {Promise<object|null>}
+   */
+  async fetchFromEndpoint(
+    endpoint,
+    options = {},
+    useOhttp = false,
+    onError = null
+  ) {
     let fetchPromise;
     if (!endpoint) {
       console.error("Tried to fetch endpoint but none was configured.");
+      onError?.(FETCH_ERROR.ENDPOINT_DISALLOWED);
       return null;
     }
 
@@ -558,6 +602,9 @@ export class DiscoveryStreamFeed {
       ""
     );
 
+    const controller = new AbortController();
+    let signal;
+    let errorCategory;
     try {
       // Make sure the requested endpoint is allowed
       const allowed =
@@ -567,11 +614,11 @@ export class DiscoveryStreamFeed {
           .map(item => item.trim())
           .filter(item => item) || [];
       if (!allowed.some(prefix => endpoint.startsWith(prefix))) {
+        errorCategory = FETCH_ERROR.ENDPOINT_DISALLOWED;
         throw new Error(`Not one of allowed prefixes (${allowed})`);
       }
 
-      const controller = new AbortController();
-      const { signal } = controller;
+      signal = controller.signal;
 
       if (useOhttp && ohttpConfigURL && ohttpRelayURL) {
         let config = await lazy.ObliviousHTTP.getOHTTPConfig(ohttpConfigURL);
@@ -582,6 +629,7 @@ export class DiscoveryStreamFeed {
               `OHTTP was configured for ${endpoint} but we couldn't fetch a valid config`
             )
           );
+          onError?.(FETCH_ERROR.OHTTP_CONFIG);
           return null;
         }
 
@@ -621,13 +669,25 @@ export class DiscoveryStreamFeed {
       const response = await fetchPromise;
 
       if (!response.ok) {
+        errorCategory = getHttpErrorCategory(response.status);
         throw new Error(`Unexpected status (${response.status})`);
       }
       clearTimeout(timeoutId);
 
-      return response.json();
+      try {
+        return await response.json();
+      } catch (error) {
+        errorCategory = FETCH_ERROR.BAD_RESPONSE;
+        throw error;
+      }
     } catch (error) {
       console.error(`Failed to fetch ${endpoint}:`, error.message);
+      // OHTTP requests don't reject with an AbortError when aborted, so check
+      // the signal instead of the error.
+      if (signal?.aborted) {
+        errorCategory = FETCH_ERROR.TIMEOUT;
+      }
+      onError?.(errorCategory ?? FETCH_ERROR.NETWORK);
     }
     return null;
   }
@@ -662,40 +722,63 @@ export class DiscoveryStreamFeed {
       );
     }
 
-    const spocs = await this.adsClient.requestSpocAds(requests, options);
+    /**
+     * @backward-compat { version 161 }
+     * `requestSpocOrImageAds` can return images and spocs (with similar structures) unlike `requestSpocAds`
+     * which invalidly drops would-be images returned from MARS. This requires a vendor of A-S
+     * for the function to exist, and another for it to behave correctly (using the latter).
+     */
+    const adsClientUpdated =
+      Services.vc.compare(AppConstants.MOZ_APP_VERSION, "161.0a1") >= 0;
+    let spocs;
+    if (adsClientUpdated) {
+      spocs = await this.adsClient.requestSpocOrImageAds(requests, options);
+    } else {
+      spocs = await this.adsClient.requestSpocAds(requests, options);
+    }
 
     // The ads-client omits placements it has no ads for; MARS returns them as
     // empty arrays, and loadSpocs concats by placement, so a missing key folds
     // an undefined into the spocs list.
+    // `requestSpocOrImageAds` returns wrapped spocs (under field 'v0').
     return {
       ...Object.fromEntries(placements.map(p => [p.placement, []])),
       ...Object.fromEntries(
         spocs.entries().map(([placementId, placementSpocs]) => [
           placementId,
-          placementSpocs.map(spoc => ({
-            format: spoc.format,
-            url: spoc.url,
-            callbacks: spoc.callbacks,
-            image_url: spoc.imageUrl,
-            title: spoc.title,
-            domain: spoc.domain,
-            excerpt: spoc.excerpt,
-            sponsor: spoc.sponsor,
-            sponsored_by_override: spoc.sponsoredByOverride,
-            block_key: spoc.blockKey,
-            caps: spoc.caps
-              ? { cap_key: spoc.caps.capKey, day: spoc.caps.day }
-              : undefined,
-            ranking: spoc.ranking
-              ? {
-                  item_score: spoc.ranking.itemScore,
-                  personalization_models: Object.fromEntries(
-                    spoc.ranking.personalizationModels ?? []
-                  ),
-                  priority: spoc.ranking.priority,
-                }
-              : undefined,
-          })),
+          placementSpocs
+            .map(spocWrapped => {
+              if (adsClientUpdated) {
+                return spocWrapped.v0;
+              }
+              return spocWrapped;
+            })
+            .filter(Boolean)
+            .map(spoc => ({
+              alt_text: spoc.altText,
+              format: spoc.format,
+              url: spoc.url,
+              callbacks: spoc.callbacks,
+              image_url: spoc.imageUrl,
+              title: spoc.title,
+              domain: spoc.domain,
+              excerpt: spoc.excerpt,
+              sponsor: spoc.sponsor,
+              sponsored_by_override: spoc.sponsoredByOverride,
+              block_key: spoc.blockKey,
+              caps: spoc.caps
+                ? { cap_key: spoc.caps.capKey, day: spoc.caps.day }
+                : undefined,
+              ranking: spoc.ranking
+                ? {
+                    item_score: spoc.ranking.itemScore,
+                    personalization_models: Object.fromEntries(
+                      spoc.ranking.personalizationModels ?? []
+                    ),
+                    priority: spoc.ranking.priority,
+                  }
+                : undefined,
+            })),
         ])
       ),
     };
@@ -1298,7 +1381,7 @@ export class DiscoveryStreamFeed {
 
     const spocPlacements = placementSpocsArray.map((placement, index) => ({
       placement,
-      count: countsSpocsArray[index],
+      count: countsSpocsArray[index] || 1,
       ...(iabPlacements[index] ? { content: iabPlacements[index] } : {}),
     }));
 
@@ -1337,7 +1420,7 @@ export class DiscoveryStreamFeed {
 
     return placementsArray.map((placement, index) => ({
       placement,
-      count: countsArray[index],
+      count: countsArray[index] || 1,
     }));
   }
 
@@ -1884,6 +1967,29 @@ export class DiscoveryStreamFeed {
     };
   }
 
+  /**
+   * Counts one stories feed request in the private newtab-content ping.
+   *
+   * @param {string} label A stories_feed_result label.
+   */
+  recordStoriesFeedResult(label) {
+    if (this.store.getState().Prefs.values[PREF_PRIVATE_PING_ENABLED]) {
+      Glean.newtabContent.storiesFeedResult?.[label]?.add(1);
+    }
+  }
+
+  /**
+   * Records what the stories section currently shows, in the private
+   * newtab-content ping.
+   *
+   * @param {string} state A STORIES_FEED_STATE value.
+   */
+  recordStoriesFeedState(state) {
+    if (this.store.getState().Prefs.values[PREF_PRIVATE_PING_ENABLED]) {
+      Glean.newtabContent.storiesFeedState?.set(state);
+    }
+  }
+
   // eslint-disable-next-line max-statements
   async getComponentFeed(feedUrl, isStartup) {
     const cachedData = (await this.cache.get()) || {};
@@ -1895,22 +2001,45 @@ export class DiscoveryStreamFeed {
     const { feeds } = cachedData;
 
     let feed = feeds ? feeds[feedUrl] : null;
+    let showingExpiredCache = false;
     if (this.isExpired({ cachedData, key: "feed", url: feedUrl, isStartup })) {
       // Read before the awaits below, alongside the request body, so the
       // surfaceId is checked against what Merino was sent even if the region
       // changes while the fetch is in flight.
       const { locale, region } = this;
-      const options = this.formatComponentFeedRequest(
+      const repairSectionKey = this.getUntitledBlockToRepair(
         cachedData.sectionPersonalization
       );
-
-      const feedResponse = await this.fetchFromEndpoint(
-        feedUrl,
-        options,
-        merinoOhttpEnabled
+      const options = this.formatComponentFeedRequest(
+        cachedData.sectionPersonalization,
+        repairSectionKey
       );
 
+      let fetchError;
+      let feedResponse = await this.fetchFromEndpoint(
+        feedUrl,
+        options,
+        merinoOhttpEnabled,
+        category => {
+          fetchError = category;
+        }
+      );
+      if (
+        feedResponse &&
+        (!Array.isArray(feedResponse.data) ||
+          (sectionsEnabled && !feedResponse.feeds))
+      ) {
+        console.error("Unexpected feed response shape");
+        feedResponse = null;
+      }
+
       if (feedResponse) {
+        this.recordStoriesFeedResult("success");
+        this.recordStoriesFeedState(
+          feed?.data?.status === "success"
+            ? STORIES_FEED_STATE.CACHE
+            : STORIES_FEED_STATE.PLACEHOLDER
+        );
         const { settings = {} } = feedResponse;
         let { recommendations } = feedResponse;
 
@@ -1932,10 +2061,24 @@ export class DiscoveryStreamFeed {
         }));
 
         if (sectionsEnabled) {
+          const { sectionPersonalization = {} } =
+            this.store.getState().DiscoveryStream;
+          let repairedPersonalization = null;
           for (const [sectionKey, sectionData] of Object.entries(
             feedResponse.feeds
           )) {
             if (sectionData) {
+              // Sections blocked before bug 2019975 did not store a title, so
+              // repair the block now that its section has been returned.
+              const entry = sectionPersonalization[sectionKey];
+              if (entry?.isBlocked && !entry.title && sectionData.title) {
+                repairedPersonalization ??= { ...sectionPersonalization };
+                repairedPersonalization[sectionKey] = {
+                  ...entry,
+                  title: sectionData.title,
+                };
+              }
+
               for (const item of sectionData.recommendations) {
                 recommendations.push({
                   id:
@@ -1978,6 +2121,21 @@ export class DiscoveryStreamFeed {
           }
 
           this._applySectionLayouts(sections);
+
+          if (repairedPersonalization) {
+            this.store.dispatch({
+              type: at.SECTION_PERSONALIZATION_SET,
+              data: repairedPersonalization,
+            });
+          }
+        }
+
+        // The block being repaired was left out of the request, so Merino did
+        // not filter its stories. Filter them here instead.
+        if (repairSectionKey) {
+          recommendations = recommendations.filter(
+            ({ topic }) => topic !== repairSectionKey
+          );
         }
 
         const { data: scoredItems, personalized } =
@@ -2034,7 +2192,6 @@ export class DiscoveryStreamFeed {
         let { surfaceId = "" } = feedResponse;
         if (surfaceId && !isPlausibleSurfaceId(surfaceId, locale, region)) {
           console.warn(`Ignoring implausible surfaceId: ${surfaceId}`);
-          // @ts-expect-error tools/@types/generated/lib.gecko.glean.d.ts predates this metric.
           Glean.newtabContent.surfaceIdRejected.record();
           surfaceId = "";
         }
@@ -2053,7 +2210,17 @@ export class DiscoveryStreamFeed {
         };
       } else {
         console.error("No response for feed");
+        showingExpiredCache = feed?.data?.status === "success";
+        this.recordStoriesFeedResult(fetchError ?? FETCH_ERROR.BAD_RESPONSE);
       }
+    }
+
+    if (feed?.data?.status !== "success") {
+      this.recordStoriesFeedState(STORIES_FEED_STATE.PLACEHOLDER);
+    } else if (showingExpiredCache) {
+      this.recordStoriesFeedState(STORIES_FEED_STATE.CACHE);
+    } else {
+      this.recordStoriesFeedState(STORIES_FEED_STATE.STORIES);
     }
 
     // if surfaceID is availible either through the cache or the response set value in Glean
@@ -2080,7 +2247,39 @@ export class DiscoveryStreamFeed {
     );
   }
 
-  formatComponentFeedRequest(sectionPersonalization = {}) {
+  /**
+   * Sections blocked before bug 2019975 did not store a title. Picks one of
+   * them to leave out of the feed request so its section is returned and can
+   * be repaired. The pick rotates every feed update, so a section that is
+   * never returned does not hold up the others.
+   *
+   * @param {object} [sectionPersonalization]
+   * @returns {string|null} The section key to leave out, if any.
+   */
+  getUntitledBlockToRepair(sectionPersonalization = {}) {
+    const untitledKeys = Object.keys(sectionPersonalization)
+      .filter(
+        key =>
+          sectionPersonalization[key]?.isBlocked &&
+          !sectionPersonalization[key].title
+      )
+      .sort();
+    if (!untitledKeys.length) {
+      return null;
+    }
+    const rotation = Math.floor(Date.now() / COMPONENT_FEEDS_UPDATE_TIME);
+    return untitledKeys[rotation % untitledKeys.length];
+  }
+
+  /**
+   * @param {object} [sectionPersonalization]
+   * @param {string|null} [repairSectionKey] Untitled block to leave out of the
+   *   request, see getUntitledBlockToRepair.
+   */
+  formatComponentFeedRequest(
+    sectionPersonalization = {},
+    repairSectionKey = null
+  ) {
     const prefs = this.store.getState().Prefs.values;
     const inferredPersonalization =
       prefs[PREF_USER_INFERRED_PERSONALIZATION] &&
@@ -2102,14 +2301,14 @@ export class DiscoveryStreamFeed {
     );
 
     // convert section to array to match what merino is expecting
-    const sections = Object.entries(sectionPersonalization).map(
-      ([sectionId, data]) => ({
+    const sections = Object.entries(sectionPersonalization)
+      .filter(([sectionId]) => sectionId !== repairSectionKey)
+      .map(([sectionId, data]) => ({
         sectionId,
         isFollowed: data.isFollowed,
         isBlocked: data.isBlocked,
         ...(data.followedAt && { followedAt: data.followedAt }),
-      })
-    );
+      }));
 
     // To display the inline interest picker pass `enableInterestPicker` into the request
     const interestPickerEnabled = prefs[PREF_INTEREST_PICKER_ENABLED];
@@ -2273,6 +2472,8 @@ export class DiscoveryStreamFeed {
         // and we want this to update in the background sooner.
         await this._maybeUpdateCachedData();
       }
+    } else {
+      this.recordStoriesFeedState(STORIES_FEED_STATE.OFF);
     }
   }
 
@@ -2627,7 +2828,6 @@ export class DiscoveryStreamFeed {
   async onPrefChangedAction(action) {
     switch (action.data.name) {
       case PREF_CONFIG:
-      case PREF_ENABLED:
       case PREF_HARDCODED_BASIC_LAYOUT:
       case PREF_SPOCS_ENDPOINT:
       case PREF_SPOCS_ENDPOINT_QUERY:
@@ -2685,6 +2885,7 @@ export class DiscoveryStreamFeed {
         if (!this.showStories) {
           // Ensure we delete any remote data potentially related to spocs.
           this.clearSpocs();
+          this.recordStoriesFeedState(STORIES_FEED_STATE.OFF);
         }
         if (action.data.value) {
           this.enableStories();

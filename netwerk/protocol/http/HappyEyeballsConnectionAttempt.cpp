@@ -199,6 +199,8 @@ nsresult HappyEyeballsConnectionAttempt::CreateHappyEyeballs(
       happy_eyeballs::IpPreference::DualStackPreferV6;
   if (mConnInfo->GetIPv6Disabled()) {
     ipPref = happy_eyeballs::IpPreference::Ipv4Only;
+  } else if (mConnInfo->GetIPv4Disabled()) {
+    ipPref = happy_eyeballs::IpPreference::Ipv6Only;
   } else if (ent->PreferenceKnown() && ent->mPreferIPv4) {
     ipPref = happy_eyeballs::IpPreference::DualStackPreferV4;
   } else if (!ent->PreferenceKnown() &&
@@ -652,7 +654,7 @@ nsresult HappyEyeballsConnectionAttempt::ProcessHappyEyeballsOutput() {
       }
 
       case happy_eyeballs::Output::Tag::Timer: {
-        SetupTimer(event.timer.duration_ms);
+        SetupTimer(event.timer.duration_us);
         return NS_OK;
       }
 
@@ -714,7 +716,7 @@ nsresult HappyEyeballsConnectionAttempt::ProcessHappyEyeballsOutput() {
           }
         }
 
-        EstablishTCPConnection(AsVariant(ByNameTarget{dnsHostname}),
+        EstablishTCPConnection(AsVariant(ByNameTarget{std::move(dnsHostname)}),
                                event.attempt_connection_by_name.port,
                                std::move(echConfig),
                                event.attempt_connection_by_name.id,
@@ -2542,22 +2544,23 @@ HappyEyeballsConnectionAttempt::GetName(nsACString& aName) {
   return NS_OK;
 }
 
-void HappyEyeballsConnectionAttempt::SetupTimer(uint64_t aTimeout) {
-  if (!aTimeout) {
-    MOZ_ASSERT(false, "aTimeout should not be 0");
+void HappyEyeballsConnectionAttempt::SetupTimer(uint64_t aTimeoutUs) {
+  if (!aTimeoutUs) {
+    MOZ_ASSERT(false, "aTimeoutUs should not be 0");
     return;
   }
 
-  LOG(("HappyEyeballsConnectionAttempt::SetupTimer to %" PRIu64 "ms [this=%p].",
-       aTimeout, this));
+  LOG(("HappyEyeballsConnectionAttempt::SetupTimer to %" PRIu64 "us [this=%p].",
+       aTimeoutUs, this));
 
   if (!mTimer) {
     // This can only fail on OOM and we'd crash.
     mTimer = NS_NewTimer();
   }
 
-  DebugOnly<nsresult> rv =
-      mTimer->InitWithCallback(this, aTimeout, nsITimer::TYPE_ONE_SHOT);
+  DebugOnly<nsresult> rv = mTimer->InitHighResolutionWithCallback(
+      this, TimeDuration::FromMicroseconds(static_cast<double>(aTimeoutUs)),
+      nsITimer::TYPE_ONE_SHOT);
   // There is no meaningful error handling we can do here. But an error here
   // should only be possible if the timer thread did already shut down.
   MOZ_ASSERT(NS_SUCCEEDED(rv));

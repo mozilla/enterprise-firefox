@@ -834,5 +834,104 @@ def test_perfherder_extra_options(run_transform, make_test_task):
     assert task["worker"]["env"]["PERFHERDER_EXTRA_OPTIONS"] == "xpcshell"
 
 
+@pytest.fixture
+def verify_path_task(monkeypatch):
+    chunk._resolve_tests_under.cache_clear()
+
+    def resolve_tests(paths):
+        def tests(flavor, prefix, count, manifest, **extra):
+            return [
+                {
+                    "srcdir_relpath": f"{paths[0]}/{prefix}_{i}.js",
+                    "manifest_relpath": f"{paths[0]}/{manifest}",
+                    "flavor": flavor,
+                    **extra,
+                }
+                for i in range(count)
+            ]
+
+        return (
+            tests("browser-chrome", "browser", 25, "browser/browser.toml")
+            + tests("xpcshell", "test", 50, "xpcshell.toml")
+            # Tests that test-verify-path doesn't verify.
+            + tests("chrome", "test_chrome", 10, "chrome.toml")
+            + tests("mochitest", "test_gpu", 10, "mochitest.toml", subsuite="gpu")
+            + tests(
+                "browser-chrome", "browser_off", 10, "browser/browser.toml", disabled=""
+            )
+        )
+
+    monkeypatch.setattr(chunk.resolver, "resolve_tests", resolve_tests)
+    return {
+        "suite": "test-verify-path",
+        "test-name": "test-verify-path",
+        "test-platform": "linux2404-64/opt",
+    }
+
+
+@pytest.mark.parametrize(
+    "test_platform,expected",
+    [
+        ("linux2404-64/opt", [4]),
+        ("linux2404-64/debug", [8]),
+        ("linux2404-64-tsan/opt", [12]),
+    ],
+)
+def test_test_verify_path_is_sized_from_the_requested_paths(
+    run_transform, verify_path_task, test_platform, expected
+):
+    params = _make_test_paths_params(["dir"])
+    params["try_mode"] = "try_task_config"
+    verify_path_task["test-platform"] = test_platform
+
+    tasks = list(
+        run_transform(
+            chunk.set_test_verify_path_chunks, verify_path_task, params=params
+        )
+    )
+    assert [t["chunks"] for t in tasks] == expected
+
+
+@pytest.mark.parametrize(
+    "try_mode,expected", [("try_select", [1]), ("try_task_config", []), (None, [])]
+)
+def test_test_verify_path_without_paths(
+    run_transform, verify_path_task, try_mode, expected
+):
+    params = FakeParameters({"try_task_config": {}, "try_mode": try_mode})
+
+    tasks = list(
+        run_transform(
+            chunk.set_test_verify_path_chunks, verify_path_task, params=params
+        )
+    )
+    assert [t["chunks"] for t in tasks] == expected
+
+
+@pytest.mark.parametrize(
+    "suite,extra_options,expected",
+    (
+        pytest.param("web-platform-tests-reftest", [], ["--repeat=2"], id="wpt"),
+        pytest.param("mochitest-browser-chrome", [], ["--repeat=2"], id="mochitest"),
+        pytest.param("reftest", [], ["--repeat=2"], id="reftest"),
+        pytest.param("crashtest", [], ["--repeat=2"], id="crashtest"),
+        pytest.param("xpcshell", [], ["--repeat=2"], id="xpcshell"),
+        pytest.param("marionette", [], [], id="unsupported"),
+        pytest.param(
+            "web-platform-tests", ["--repeat=5"], ["--repeat=5"], id="existing_repeat"
+        ),
+    ),
+)
+def test_set_repeat_tests(
+    run_transform, make_test_task, suite, extra_options, expected
+):
+    task = make_test_task(
+        suite=suite, mozharness={"extra-options": list(extra_options)}
+    )
+    params = FakeParameters({"try_task_config": {"repeat-tests": 3}})
+    task = list(run_transform(other.set_repeat_tests, task, params=params))[0]
+    assert task["mozharness"]["extra-options"] == expected
+
+
 if __name__ == "__main__":
     mozunit.main()

@@ -441,8 +441,7 @@ static int32_t PerformWait(Instance* instance, uint32_t memoryIndex,
 
   mozilla::Maybe<mozilla::TimeDuration> timeout;
   if (timeout_ns >= 0) {
-    timeout = mozilla::Some(
-        mozilla::TimeDuration::FromMicroseconds(double(timeout_ns) / 1000));
+    timeout = mozilla::Some(mozilla::TimeDuration::FromNanoseconds(timeout_ns));
   }
 
   MOZ_ASSERT(byteOffset <= SIZE_MAX, "Bounds check is broken");
@@ -3191,6 +3190,20 @@ void Instance::submitCallRefHints(uint32_t funcIndex) {
            (unsigned long)(uintptr_t(&codeMeta()) & 0xFFFFFFL), countsStr.get(),
            metrics.countOther, targetStr.get());
 #endif
+  }
+}
+
+void Instance::resetPretenuredAllocSites() {
+  if (!allocSites_) {
+    return;
+  }
+
+  uint32_t allocSitesCount = codeTailMeta().numAllocSites;
+  for (uint32_t i = 0; i < allocSitesCount; i++) {
+    gc::AllocSite* site = &allocSites_[i];
+    if (site->initialHeap() == gc::Heap::Tenured) {
+      site->maybeResetState();
+    }
   }
 }
 

@@ -748,29 +748,24 @@ bool SetArrayLength(JSContext* cx, HandleObject obj, HandleValue value,
                     bool strict) {
   Handle<ArrayObject*> array = obj.as<ArrayObject>();
 
-  RootedId id(cx, NameToId(cx->names().length));
   ObjectOpResult result;
 
   // SetArrayLength is called by IC stubs for SetProp and SetElem on arrays'
   // "length" property.
   //
-  // ArraySetLength below coerces |value| before checking for length being
-  // writable, and in the case of illegal values, will throw RangeError even
-  // when "length" is not writable. This is incorrect observable behavior,
-  // as a regular [[Set]] operation will check for "length" being
-  // writable before attempting any assignment.
-  //
-  // So, perform ArraySetLength if and only if "length" is writable.
+  // ArrayLengthSetter must only be called if "length" is writable. This check
+  // must also happen before |value| is coerced: a regular [[Set]] on a
+  // non-writable "length" fails without throwing a RangeError for invalid
+  // length values.
   if (array->lengthIsWritable()) {
-    Rooted<PropertyDescriptor> desc(
-        cx, PropertyDescriptor::Data(value, JS::PropertyAttribute::Writable));
-    if (!ArraySetLength(cx, array, id, desc, result)) {
+    if (!ArrayLengthSetter(cx, array, value, result)) {
       return false;
     }
   } else {
     MOZ_ALWAYS_TRUE(result.fail(JSMSG_READ_ONLY));
   }
 
+  RootedId id(cx, NameToId(cx->names().length));
   return result.checkStrictModeError(cx, obj, id, strict);
 }
 
@@ -1213,6 +1208,15 @@ JSObject* CreateGenerator(JSContext* cx, HandleFunction callee,
       cx, args ? &args->as<ArgumentsObject>() : nullptr);
   return AbstractGeneratorObject::create(cx, callee, script, environmentChain,
                                          argsObj);
+}
+
+bool ResumeGeneratorFromJit(JSContext* cx, HandleObject obj, HandleValue value,
+                            int32_t resumeKind, MutableHandleValue rval) {
+  Rooted<AbstractGeneratorObject*> genObj(cx,
+                                          &obj->as<AbstractGeneratorObject>());
+  AutoRealm ar(cx, genObj);
+  return js::ResumeGenerator(cx, genObj, value, IntToResumeKind(resumeKind),
+                             rval);
 }
 
 bool NormalSuspend(JSContext* cx, HandleObject obj, BaselineFrame* frame,
@@ -1845,42 +1849,53 @@ static MOZ_ALWAYS_INLINE bool MaybeGetNativePropertyAndWriteToCache(
   }
 }
 
+// Handles a get from a valid cache entry that isn't a MissingOwnProperty entry.
+// Returns false for accessor properties, which can't be called here.
+static MOZ_ALWAYS_INLINE bool GetNativeDataPropertyFromCacheEntry(
+    NativeObject* nobj, const MegamorphicCacheEntry& entry, Value* vp) {
+  MOZ_ASSERT(!entry.isMissingOwnProperty());
+  if (entry.isDataProperty()) {
+    for (size_t i = 0, numHops = entry.numHops(); i < numHops; i++) {
+      nobj = &nobj->staticPrototype()->as<NativeObject>();
+    }
+    uint32_t offset = entry.slotOffset().offset();
+    if (entry.slotOffset().isFixedSlot()) {
+      size_t index = NativeObject::getFixedSlotIndexFromOffset(offset);
+      *vp = nobj->getFixedSlot(index);
+    } else {
+      size_t index = NativeObject::getDynamicSlotIndexFromOffset(offset);
+      *vp = nobj->getDynamicSlot(index);
+    }
+    return true;
+  }
+  if (entry.isMissingProperty()) {
+    vp->setUndefined();
+    return true;
+  }
+  MOZ_ASSERT(entry.isAccessorProperty());
+  return false;
+}
+
+// Like GetNativeDataPropertyPure, but for callers that haven't looked up the
+// megamorphic cache entry themselves: IC stubs on x86, which don't have enough
+// registers to do it, and the portable baseline interpreter. Uses the entry if
+// it's valid, and otherwise does the full lookup and caches the result where it
+// can.
 bool GetNativeDataPropertyPureWithCacheLookup(JSContext* cx, JSObject* obj,
                                               PropertyKey key,
                                               MegamorphicCacheEntry* entry,
                                               Value* vp) {
   AutoUnsafeCallWithABI unsafe;
 
-  // If we're on x86, we didn't have enough registers to populate this
-  // directly in Baseline JITted code, so we do the lookup here.
   Shape* receiverShape = obj->shape();
   MegamorphicCache& cache = cx->caches().megamorphicCache;
 
   if (cache.lookup(receiverShape, key, &entry)) {
     NativeObject* nobj = &obj->as<NativeObject>();
     VerifyCacheEntry(cx, nobj, key, *entry);
-    if (entry->isDataProperty()) {
-      for (size_t i = 0, numHops = entry->numHops(); i < numHops; i++) {
-        nobj = &nobj->staticPrototype()->as<NativeObject>();
-      }
-      uint32_t offset = entry->slotOffset().offset();
-      if (entry->slotOffset().isFixedSlot()) {
-        size_t index = NativeObject::getFixedSlotIndexFromOffset(offset);
-        *vp = nobj->getFixedSlot(index);
-      } else {
-        size_t index = NativeObject::getDynamicSlotIndexFromOffset(offset);
-        *vp = nobj->getDynamicSlot(index);
-      }
-      return true;
+    if (!entry->isMissingOwnProperty()) {
+      return GetNativeDataPropertyFromCacheEntry(nobj, *entry, vp);
     }
-    if (entry->isMissingProperty()) {
-      vp->setUndefined();
-      return true;
-    }
-    if (entry->isAccessorProperty()) {
-      return false;
-    }
-    MOZ_ASSERT(entry->isMissingOwnProperty());
   }
 
   return MaybeGetNativePropertyAndWriteToCache<NoGC>(cx, obj, key, entry, vp);
@@ -1988,11 +2003,18 @@ bool GetNativeDataPropertyByValuePure(JSContext* cx, JSObject* obj,
 
   Shape* receiverShape = obj->shape();
   MegamorphicCache& cache = cx->caches().megamorphicCache;
+  Value* res = vp + 1;
   if (!entry) {
-    cache.lookup(receiverShape, key, &entry);
+    // The JIT couldn't atomize the key inline, so it didn't probe the cache.
+    if (cache.lookup(receiverShape, key, &entry)) {
+      NativeObject* nobj = &obj->as<NativeObject>();
+      VerifyCacheEntry(cx, nobj, key, *entry);
+      if (!entry->isMissingOwnProperty()) {
+        return GetNativeDataPropertyFromCacheEntry(nobj, *entry, res);
+      }
+    }
   }
 
-  Value* res = vp + 1;
   return MaybeGetNativePropertyAndWriteToCache<NoGC>(cx, obj, key, entry, res);
 }
 
@@ -2657,22 +2679,23 @@ void AllocateAndInitTypedArrayBuffer(JSContext* cx,
   // template object. If the slot isn't overwritten below, this value is used as
   // a signal to our JIT caller that the allocation failed.
   MOZ_RELEASE_ASSERT(
-      obj->getFixedSlot(TypedArrayObject::DATA_SLOT).isUndefined(),
+      obj->getFixedSlotTyped(TypedArrayObject::DATA_SLOT).isUndefined(),
       "DATA_SLOT initialized to UndefinedValue in JIT code");
 
   // The buffer and byte-offset slots are initialized to their default values.
-  MOZ_ASSERT(obj->getFixedSlot(TypedArrayObject::BUFFER_SLOT).isFalse(),
+  MOZ_ASSERT(obj->getFixedSlotTyped(TypedArrayObject::BUFFER_SLOT).isFalse(),
              "BUFFER_SLOT initialized to FalseValue in JIT code");
-  MOZ_ASSERT(obj->getFixedSlot(TypedArrayObject::BYTEOFFSET_SLOT) ==
+  MOZ_ASSERT(obj->getFixedSlotTyped(TypedArrayObject::BYTEOFFSET_SLOT) ==
                  PrivateValue(size_t(0)),
-             "BUFFER_SLOT initialized to PrivateValue(0) in JIT code");
+             "BYTEOFFSET_SLOT initialized to PrivateValue(0) in JIT code");
 
   // Negative numbers will bail out to the slow path, which in turn will raise
   // an invalid argument exception.
   constexpr size_t byteLengthLimit = TypedArrayObject::ByteLengthLimit;
   size_t bytesPerElement = obj->bytesPerElement();
   if (count < 0 || size_t(count) > byteLengthLimit / bytesPerElement) {
-    obj->setFixedSlot(TypedArrayObject::LENGTH_SLOT, PrivateValue(size_t(0)));
+    obj->setFixedSlotTyped(TypedArrayObject::LENGTH_SLOT,
+                           PrivateValue(size_t(0)));
     return;
   }
 
@@ -2680,7 +2703,7 @@ void AllocateAndInitTypedArrayBuffer(JSContext* cx,
   MOZ_ASSERT(nbytes <= byteLengthLimit);
 
   // Overwrite the slot with the length of the newly allocated typed array.
-  obj->setFixedSlot(TypedArrayObject::LENGTH_SLOT, PrivateValue(count));
+  obj->setFixedSlotTyped(TypedArrayObject::LENGTH_SLOT, PrivateValue(count));
 
   // If possible try to use the available inline space allocated through the
   // template object's alloc-kind.
@@ -2695,7 +2718,7 @@ void AllocateAndInitTypedArrayBuffer(JSContext* cx,
     }
 #endif
 
-    obj->initFixedSlot(TypedArrayObject::DATA_SLOT, PrivateValue(data));
+    obj->initFixedSlotTyped(TypedArrayObject::DATA_SLOT, PrivateValue(data));
     return;
   }
 
@@ -2713,7 +2736,7 @@ void AllocateAndInitTypedArrayBuffer(JSContext* cx,
   void* buf = cx->nursery().allocateZeroedBuffer(obj, nbytes,
                                                  js::ArrayBufferContentsArena);
   if (buf) {
-    InitReservedSlot(obj, TypedArrayObject::DATA_SLOT, buf, nbytes,
+    InitReservedSlot(obj, TypedArrayObject::DATA_SLOT.index(), buf, nbytes,
                      MemoryUse::TypedArrayElements);
   }
 }

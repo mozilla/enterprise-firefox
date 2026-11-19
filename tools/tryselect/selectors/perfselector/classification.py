@@ -269,7 +269,7 @@ class ClassificationProvider:
             Platforms.WINDOWS.value: {
                 "query": {
                     Suites.PERFTEST.value: "'windows",
-                    "default": "!-32 !10-64 'windows 'shippable",
+                    "default": "!-32 !10-64 ^test-windows 'shippable",
                 },
                 "platform": Platforms.DESKTOP.value,
             },
@@ -283,14 +283,14 @@ class ClassificationProvider:
             Platforms.MACOSX.value: {
                 "query": {
                     Suites.PERFTEST.value: "'macosx",
-                    "default": "!1470 'osx 'shippable",
+                    "default": "'osx 'shippable",
                 },
                 "platform": Platforms.DESKTOP.value,
             },
             Platforms.DESKTOP.value: {
                 "query": {
                     Suites.PERFTEST.value: "!android",
-                    "default": "!android 'shippable !-32 !clang !1470",
+                    "default": "!android 'shippable !-32 !clang",
                 },
                 "platform": Platforms.DESKTOP.value,
             },

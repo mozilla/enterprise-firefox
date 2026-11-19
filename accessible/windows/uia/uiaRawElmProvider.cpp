@@ -829,6 +829,17 @@ uiaRawElmProvider::GetPropertyValue(PROPERTYID aPropertyId,
       aPropertyValue->lVal = GetLiveSetting();
       return S_OK;
 
+    case UIA_LocalizedControlTypePropertyId: {
+      nsAutoString localized;
+      GetLocalizedControlType(localized);
+      if (!localized.IsEmpty()) {
+        aPropertyValue->vt = VT_BSTR;
+        aPropertyValue->bstrVal = ::SysAllocString(localized.get());
+        return S_OK;
+      }
+      break;
+    }
+
     case UIA_LocalizedLandmarkTypePropertyId: {
       nsAutoString landmark;
       GetLocalizedLandmarkType(landmark);
@@ -874,6 +885,26 @@ uiaRawElmProvider::GetPropertyValue(PROPERTYID aPropertyId,
         aPropertyValue->vt = VT_BOOL;
         aPropertyValue->boolVal =
             IsWebContentRoot() ? VARIANT_TRUE : VARIANT_FALSE;
+        return S_OK;
+      }
+      if (aPropertyId == registrations.mMathML) {
+        if (acc->TagName() != nsGkAtoms::math) {
+          break;
+        }
+        nsAutoString innerHTML;
+        static_cast<MsaaAccessible*>(this)->GetInnerHTML(innerHTML);
+        if (innerHTML.IsEmpty()) {
+          break;
+        }
+        // We only cache innerHTML, so wrap it in a bare <math> element.
+        // Chromium does the same.
+        nsAutoString mathML;
+        mathML.AppendLiteral("<math>");
+        mathML.Append(innerHTML);
+        mathML.AppendLiteral("</math>");
+        aPropertyValue->vt = VT_BSTR;
+        aPropertyValue->bstrVal =
+            ::SysAllocStringLen(mathML.get(), mathML.Length());
         return S_OK;
       }
     }
@@ -1621,6 +1652,19 @@ long uiaRawElmProvider::GetLandmarkType() const {
   return UIA_CustomLandmarkTypeId;
 }
 
+void uiaRawElmProvider::GetLocalizedControlType(nsAString& aLocalized) const {
+  Accessible* acc = Acc();
+  MOZ_ASSERT(acc);
+  // The system computes this from ControlType and role, but it doesn't
+  // know about some newer roles.
+  const role accRole = acc->Role();
+  if (accRole == roles::SECTION_FOOTER) {
+    Accessible::TranslateString(u"sectionfooter"_ns, aLocalized);
+  } else if (accRole == roles::SECTION_HEADER) {
+    Accessible::TranslateString(u"sectionheader"_ns, aLocalized);
+  }
+}
+
 void uiaRawElmProvider::GetLocalizedLandmarkType(nsAString& aLocalized) const {
   Accessible* acc = Acc();
   MOZ_ASSERT(acc);
@@ -1717,6 +1761,16 @@ const UiaRegistrations& a11y::GetUiaRegistrations() {
       UIAutomationType_Bool};
   registrar->RegisterProperty(&isWebContentRootInfo,
                               &sRegistrations.mIsWebContentRoot);
+  UIAutomationPropertyInfo mathMLInfo = {
+      // https://learn.microsoft.com/en-us/office/uia/word/wordcustomproperties
+      // {FA170AB3-3229-4E7C-827F-DD05EE0481D9}
+      {0xFA170AB3,
+       0x3229,
+       0x4E7C,
+       {0x82, 0x7F, 0xDD, 0x05, 0xEE, 0x04, 0x81, 0xD9}},
+      L"MathML",
+      UIAutomationType_String};
+  registrar->RegisterProperty(&mathMLInfo, &sRegistrations.mMathML);
   sRegistered = true;
   return sRegistrations;
 }

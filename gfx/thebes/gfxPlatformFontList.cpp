@@ -161,7 +161,7 @@ static const char* kObservedPrefs[] = {
     "intl.accept_languages",  // hmmmm...
     "browser.display.use_document_fonts.icon_font_allowlist",
     "gfx.font_rendering.fontations.enabled",
-    nullptr};
+};
 
 static const char kFontSystemWhitelistPref[] = "font.system.whitelist";
 
@@ -941,7 +941,7 @@ bool gfxPlatformFontList::InitOtherFamilyNames(
 
   if (SharedFontList() && !XRE_IsParentProcess()) {
     if (NS_IsMainThread()) {
-      bool initialized;
+      bool initialized = false;
       dom::ContentChild::GetSingleton()->SendInitOtherFamilyNames(
           GetGeneration(), aDeferOtherFamilyNamesLoading, &initialized);
       mOtherFamilyNamesInitialized.compareExchange(false, initialized);

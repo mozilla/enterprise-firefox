@@ -222,6 +222,12 @@ action-log-searching-web-with-exa = Searching the web with <a data-l10n-name="ex
 # should not be translated. The <a> wraps "Exa" as a link to a support
 # article explaining the third-party web search integration.
 action-log-searched-web-with-exa = Searched the web with <a data-l10n-name="exa-link">Exa</a>
+# Shown instead of action-log-searched-web-with-exa when Exa both searched the
+# web and wrote the reply shown to the user, rather than the assistant answering
+# from the search results. Exa is the name of a third-party web search API and a
+# brand name that should not be translated. The <a> wraps "Exa" as a link to a
+# support article explaining the third-party web search integration.
+action-log-searched-and-answered-with-exa = Searched and answered with <a data-l10n-name="exa-link">Exa</a>
 action-log-checking-memories = Checking memories
 action-log-checked-memories = Checked memories
 action-log-searching-settings = Searching settings
@@ -233,6 +239,12 @@ action-log-completed-steps =
         [one] Completed 1 step
        *[other] Completed { $count } steps
     }
+# A step in the assistant action log, which lists the model used for the response.
+# Variables
+#   $model (String) - name of the model that answered
+action-log-picked-model = Picked model for task: { $model }
+# Header of the assistant action log while the assistant picks the model for the response.
+action-log-deciding-model = Deciding best model
 
 ## Assistant Loader
 

@@ -10,6 +10,7 @@
 #include "mozilla/net/ChannelClassifierUtils.h"
 #include "mozilla/net/UrlClassifierCommon.h"
 #include "nsIEffectiveTLDService.h"
+#include "nsIURIMutator.h"
 #include "nsNetUtil.h"
 #include "nsContentUtils.h"
 #include "mozilla/Components.h"
@@ -23,6 +24,31 @@ bool IsNonRecommendedAddonFromLoadInfo(nsILoadInfo* aLoadInfo) {
   extensions::WebExtensionPolicy* policy =
       ContentClassifierFeatureUtils::GetAddonPolicyFromLoadInfo(aLoadInfo);
   return policy && !policy->HasRecommendedState();
+}
+
+// Normalizes a hostname for rule matching by removing its trailing dots.
+void NormalizeHostname(nsACString& aHost) {
+  while (StringEndsWith(aHost, "."_ns)) {
+    aHost.Truncate(aHost.Length() - 1);
+  }
+}
+
+// Gets aURI's normalized host, and aURI's spec rewritten to carry that host.
+nsresult GetNormalizedHostAndSpec(nsIURI* aURI, nsACString& aHost,
+                                  nsACString& aSpec) {
+  nsresult rv = aURI->GetHost(aHost);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  uint32_t length = aHost.Length();
+  NormalizeHostname(aHost);
+  if (aHost.Length() == length) {
+    return aURI->GetSpec(aSpec);
+  }
+
+  nsCOMPtr<nsIURI> uri;
+  rv = NS_MutateURI(aURI).SetHost(aHost).Finalize(uri);
+  NS_ENSURE_SUCCESS(rv, rv);
+  return uri->GetSpec(aSpec);
 }
 
 }  // namespace
@@ -80,9 +106,6 @@ ContentClassifierRequest::ContentClassifierRequest(nsIChannel* aChannel)
   nsresult rv = aChannel->GetURI(getter_AddRefs(uri));
   if (NS_FAILED(rv) || !uri) return;
 
-  rv = uri->GetSpec(mUrl);
-  if (NS_FAILED(rv)) return;
-
   nsCOMPtr<nsILoadInfo> loadInfo;
   rv = aChannel->GetLoadInfo(getter_AddRefs(loadInfo));
   if (NS_FAILED(rv)) return;
@@ -139,15 +162,14 @@ ContentClassifierRequest::ContentClassifierRequest(nsIChannel* aChannel)
   mIsNonRecommendedAddon = IsNonRecommendedAddonFromLoadInfo(loadInfo);
   mAddonMayLoad = net::UrlClassifierCommon::AddonMayLoad(aChannel, uri);
 
-  // Unwrap nested URI schemes (jar:, view-source:, ...) before looking
-  // at the host, mirroring AsyncUrlChannelClassifier::FeatureData::
-  // InitializeList which calls NS_GetInnermostURI on the channel URI
-  // and then GetHost on that.
+  // Unwrap nested URI schemes (jar:, view-source:, ...) and match on the
+  // innermost URI, mirroring AsyncUrlChannelClassifier, which builds its
+  // lookup key from the innermost URI.
   nsCOMPtr<nsIURI> innermostURI = NS_GetInnermostURI(uri);
   if (!innermostURI) return;
 
   nsCString host;
-  rv = innermostURI->GetHost(host);
+  rv = GetNormalizedHostAndSpec(innermostURI, host, mUrl);
   if (NS_FAILED(rv)) return;
   // The filtering rules expect brackets of an IPv6 literal. We ensure the
   // brackets when getting the host.
@@ -176,13 +198,14 @@ ContentClassifierRequest::ContentClassifierRequest(nsIChannel* aChannel)
   // Top-window schemeless site is the outermost page's site, used by
   // features whose mUseTopWindowAsSource flag is set.
   nsCOMPtr<nsIURI> topWindowURI;
-  if (NS_SUCCEEDED(net::UrlClassifierCommon::GetTopWindowURI(
-          aChannel, getter_AddRefs(topWindowURI))) &&
-      topWindowURI) {
+  net::UrlClassifierCommon::GetTopWindowURIWithFallback(
+      aChannel, getter_AddRefs(topWindowURI));
+  if (topWindowURI) {
     nsCOMPtr<nsIURI> innermostTopURI = NS_GetInnermostURI(topWindowURI);
     if (innermostTopURI) {
       nsCString topHost;
       if (NS_SUCCEEDED(innermostTopURI->GetHost(topHost))) {
+        NormalizeHostname(topHost);
         mTopWindowHostname = topHost;
         nsContentUtils::MaybeFixIPv6Host(mTopWindowHostname);
         rv = eTLDService->GetSchemelessSiteFromHost(topHost,
@@ -211,8 +234,13 @@ ContentClassifierRequest::ContentClassifierRequest(nsIChannel* aChannel)
       rv = nsContentUtils::GetHostOrIPv6WithBrackets(loadingPrincipal,
                                                      mSourceHostname);
       if (NS_FAILED(rv)) return;
+      uint32_t sourceHostLength = mSourceHostname.Length();
+      NormalizeHostname(mSourceHostname);
 
-      rv = loadingPrincipal->GetBaseDomain(mSourceSchemelessSite);
+      rv = mSourceHostname.Length() == sourceHostLength
+               ? loadingPrincipal->GetBaseDomain(mSourceSchemelessSite)
+               : eTLDService->GetSchemelessSiteFromHost(mSourceHostname,
+                                                        mSourceSchemelessSite);
       if (NS_FAILED(rv)) return;
     }
   }
@@ -263,11 +291,11 @@ ContentClassifierRequest::ContentClassifierRequest(
   nsresult rv = NS_NewURI(getter_AddRefs(uri), aUrl);
   if (NS_FAILED(rv)) return;
 
-  rv = uri->GetSpec(mUrl);
-  if (NS_FAILED(rv)) return;
+  nsCOMPtr<nsIURI> innermostURI = NS_GetInnermostURI(uri);
+  if (!innermostURI) return;
 
   nsCString host;
-  rv = uri->GetHost(host);
+  rv = GetNormalizedHostAndSpec(innermostURI, host, mUrl);
   if (NS_FAILED(rv)) return;
   mHostname = host;
   nsContentUtils::MaybeFixIPv6Host(mHostname);
@@ -287,6 +315,7 @@ ContentClassifierRequest::ContentClassifierRequest(
     nsCString sourceHost;
     rv = sourceUri->GetHost(sourceHost);
     if (NS_FAILED(rv)) return;
+    NormalizeHostname(sourceHost);
     mSourceHostname = sourceHost;
     nsContentUtils::MaybeFixIPv6Host(mSourceHostname);
 
@@ -305,6 +334,7 @@ ContentClassifierRequest::ContentClassifierRequest(
     nsCString topHost;
     rv = topUri->GetHost(topHost);
     if (NS_FAILED(rv)) return;
+    NormalizeHostname(topHost);
     mTopWindowHostname = topHost;
     nsContentUtils::MaybeFixIPv6Host(mTopWindowHostname);
 

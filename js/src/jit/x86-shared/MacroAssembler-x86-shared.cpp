@@ -379,9 +379,15 @@ static void EmitDivMod32(MacroAssembler& masm, Register lhs, Register rhs,
     return;
   }
 
-  // Choose a register that is not edx or eax to hold the rhs;
-  // ebx is chosen arbitrarily, and will be preserved if necessary.
-  Register regForRhs = (rhs == eax || rhs == edx) ? ebx : rhs;
+  // Choose a register that is not edx or eax to hold the rhs; ebx (r11 on x64,
+  // where rbx is ScratchReg) is chosen arbitrarily, and will be preserved if
+  // necessary.
+#ifdef JS_CODEGEN_X64
+  Register rhsTemp = r11;
+#else
+  Register rhsTemp = ebx;
+#endif
+  Register regForRhs = (rhs == eax || rhs == edx) ? rhsTemp : rhs;
 
   // Add registers we will be clobbering as live, but
   // also remove the set we do not restore.
@@ -727,6 +733,17 @@ void MacroAssembler::patchCall(uint32_t callerOffset, uint32_t calleeOffset) {
 void MacroAssembler::callAndPushReturnAddress(Register reg) { call(reg); }
 
 void MacroAssembler::callAndPushReturnAddress(Label* label) { call(label); }
+
+// ===============================================================
+// Tail jumps.
+
+void MacroAssembler::tailJump(Register reg) { jump(reg); }
+
+void MacroAssembler::tailJump(const Address& addr) { jump(addr); }
+
+void MacroAssembler::tailJump(TrampolinePtr code) { jump(code); }
+
+void MacroAssembler::tailJump(JitCode* code) { jump(code); }
 
 // ===============================================================
 // Patchable near/far jumps.

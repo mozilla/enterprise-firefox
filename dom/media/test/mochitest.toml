@@ -705,6 +705,7 @@ support-files = [
   "very-short.mp3",
   "video-overhang.ogg",
   "video-overhang.ogg^headers^",
+  "vp8_alpha_decode.webm",
   "vp9-superframes.webm",
   "vp9-superframes.webm^headers^",
   "vp9.webm",
@@ -804,9 +805,6 @@ tags = "cloneelementvisually"
 tags = "cloneelementvisually"
 
 ["test_cloneElementVisually_resource_change.html"]
-skip-if = [
-  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1909908
-]
 tags = "cloneelementvisually os_integration"
 
 ["test_clone_media_element.html"]
@@ -827,6 +825,9 @@ tags = "media-gpu os_integration"
 run-if = [
   # The graphics sanity test only exists on Windows.
   "os == 'win' && mda_gpu",
+]
+skip-if = [
+  "os == 'win' && arch == 'x86_64' && opt && mda_gpu", # Bug 2071042 - 272 failures
 ]
 
 ["test_hls_player_independency.html"]
@@ -1018,6 +1019,11 @@ skip-if = [
 ["test_video_to_canvas.html"]
 skip-if = [
   "os == 'android'", # android(bug 1232305), bugs 1320418,1347953,1347954,1348140,1348386
+]
+
+["test_vp8_alpha_decode.html"]
+skip-if = [
+  "os == 'android'", # drawImage(video) can yield black frames (see test_seamless_looping_video.html).
 ]
 
 ["test_vp9_buffer_overread.html"]

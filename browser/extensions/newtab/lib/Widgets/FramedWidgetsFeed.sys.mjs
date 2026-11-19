@@ -6,9 +6,8 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  NewTabMerinoWrapper: "resource://newtab/lib/NewTabMerinoWrapper.sys.mjs",
   PersistentCache: "resource://newtab/lib/PersistentCache.sys.mjs",
-  TemporaryMerinoClientShim:
-    "resource://newtab/lib/TemporaryMerinoClientShim.sys.mjs",
 });
 
 import {
@@ -48,6 +47,7 @@ export class FramedWidgetsFeed {
     this.loaded = false;
     this.merino = null;
     this.manifest = null;
+    this.lastBroadcast = null;
     this.cache = this.PersistentCache(CACHE_KEY, true);
   }
 
@@ -144,12 +144,18 @@ export class FramedWidgetsFeed {
     this.loaded = true;
   }
 
+  // Skips data identical to the last broadcast: replacing the state also
+  // clears the unavailable markers tabs set when a widget fails to load, so
+  // they last until the manifest really changes.
   update() {
+    const data = this.normalize(this.manifest);
+    const serialized = JSON.stringify(data);
+    if (serialized === this.lastBroadcast) {
+      return;
+    }
+    this.lastBroadcast = serialized;
     this.store.dispatch(
-      ac.BroadcastToContent({
-        type: at.FRAMED_WIDGETS_UPDATE,
-        data: this.normalize(this.manifest),
-      })
+      ac.BroadcastToContent({ type: at.FRAMED_WIDGETS_UPDATE, data })
     );
   }
 
@@ -182,7 +188,7 @@ export class FramedWidgetsFeed {
  * Thin wrappers around external tools so tests can stub them.
  */
 FramedWidgetsFeed.prototype.MerinoClient = name => {
-  return new lazy.TemporaryMerinoClientShim(name);
+  return new lazy.NewTabMerinoWrapper(name);
 };
 FramedWidgetsFeed.prototype.PersistentCache = (...args) => {
   return new lazy.PersistentCache(...args);

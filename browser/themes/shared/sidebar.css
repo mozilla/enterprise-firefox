@@ -33,6 +33,10 @@
   &[sidebarcommand="viewCPMSidebar"] {
     min-width: 260px;
   }
+
+  #sidebar-container[hidden] ~ & {
+    padding-inline-start: var(--space-small);
+  }
 }
 
 #sidebar-container,
@@ -641,6 +645,17 @@ menuseparator + #sidebar-extensions-separator {
     position: relative;
     inset: 0;
     inset-inline-end: unset;
+    --sidebar-launcher-border: 0.01px solid var(--sidebar-border-color);
+
+    /* Match the border on the content area's edge, which the expanded launcher
+     * covers. */
+    @media -moz-pref("browser.nova.enabled") {
+      --sidebar-launcher-border: var(--border-width) solid var(--chrome-content-separator-color);
+
+      :root[lwtheme] & {
+        --sidebar-launcher-border: var(--border-width) solid var(--sidebar-border-color);
+      }
+    }
 
     &[sidebar-positionend] {
       inset-inline-start: unset;
@@ -672,11 +687,11 @@ menuseparator + #sidebar-extensions-separator {
       }
 
       &:not([sidebar-positionend]) {
-        border-inline-end: 0.01px solid var(--sidebar-border-color);
+        border-inline-end: var(--sidebar-launcher-border);
       }
 
       &[sidebar-positionend] {
-        border-inline-start: 0.01px solid var(--sidebar-border-color);
+        border-inline-start: var(--sidebar-launcher-border);
       }
     }
 
@@ -824,11 +839,13 @@ menuseparator + #sidebar-extensions-separator {
     /* Only the edge facing the content area survives once the launcher is
      * gone: the other one then meets the window. Fullscreen collapses the
      * launcher along with the rest of the chrome, so it counts as gone there
-     * too. */
+     * too. No padding on that edge either, so the panel's scroller reaches
+     * the window edge and still takes the wheel there. */
     #sidebar-container[hidden] ~ &:not([sidebar-positionend]),
     :root[fullscreenNavToolboxHidden] &:not([sidebar-positionend]) {
       --sidebar-box-start-start-radius: 0;
       border-inline-start: none;
+      padding-inline-start: 0;
     }
 
     #sidebar-container[hidden] ~ &[sidebar-positionend],

@@ -454,7 +454,7 @@ static uint32_t AvailableFeatures() {
 #endif
 
 #if !defined(GP_OS_windows)
-  ProfilerFeature::ClearNoTimerResolutionChange(features);
+  ProfilerFeature::ClearWinSystemTickSampling(features);
 #endif
 #if !defined(HAVE_CPU_FREQ_SUPPORT)
   ProfilerFeature::ClearCPUFrequency(features);
@@ -3610,6 +3610,12 @@ static void StreamMetaJSCustomObject(
   jni::String::LocalRef deviceInformation =
       java::GeckoJavaSampler::GetDeviceInformation();
   aWriter.StringProperty("device", deviceInformation->ToCString());
+
+  jni::String::LocalRef proguardUuid =
+      java::GeckoJavaSampler::GetProguardUuid();
+  if (proguardUuid) {
+    aWriter.StringProperty("proguardUuid", proguardUuid->ToCString());
+  }
 #endif
 
   aWriter.StartObjectProperty("sampleUnits");
@@ -3771,16 +3777,23 @@ static void CollectJavaThreadProfileData(
     int frameId = 0;
     while (true) {
       jni::String::LocalRef frameName =
-          java::GeckoJavaSampler::GetFrameName(sampleId, frameId++);
+          java::GeckoJavaSampler::GetFrameName(sampleId, frameId);
       if (!frameName) {
         break;
       }
       nsCString frameNameString = frameName->ToCString();
 
+      int32_t lineNumber =
+          java::GeckoJavaSampler::GetFrameLineNumber(sampleId, frameId);
+      Maybe<uint32_t> maybeLineNumber =
+          lineNumber >= 0 ? Some(static_cast<uint32_t>(lineNumber)) : Nothing();
+
       auto categoryPair = InferJavaCategory(frameNameString);
       aProfileBuffer.CollectCodeLocation("", frameNameString.get(), 0, 0, 0,
-                                         Nothing(), Nothing(),
+                                         maybeLineNumber, Nothing(),
                                          Some(categoryPair));
+
+      frameId++;
     }
     sampleId++;
   }
@@ -4622,7 +4635,7 @@ class SamplerThread {
   UniquePtr<PostSamplingCallbackListItem> mPostSamplingCallbackList;
 
 #if defined(GP_OS_windows)
-  bool mNoTimerResolutionChange = true;
+  bool mWinSystemTickSampling = true;
   HANDLE mHiResTimer = nullptr;
 #endif
 

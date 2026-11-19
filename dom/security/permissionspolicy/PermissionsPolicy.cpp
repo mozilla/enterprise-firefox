@@ -204,6 +204,7 @@ void PermissionsPolicy::AppendToDeclaredAllowInAncestorChain(
       for (nsIPrincipal* principal : list) {
         featureInChain.AppendToAllowList(principal);
       }
+      featureInChain.AppendSourceExpressionsFromFeature(aFeature);
       continue;
     }
   }
@@ -245,8 +246,6 @@ void PermissionsPolicy::SetDeclaredAttributePolicy(
 void PermissionsPolicy::SetDeclaredHeaderPolicy(Document* aDocument,
                                                 const nsAString& aPolicyString,
                                                 nsIPrincipal* aSelfOrigin) {
-  ResetDeclaredPolicy();
-
   mDeclaredString = aPolicyString;
   mSelfOrigin = aSelfOrigin;
 
@@ -391,6 +390,8 @@ void PermissionsPolicy::GetAllowlistForFeature(
 
         aList.AppendElement(NS_ConvertUTF8toUTF16(originNoSuffix));
       }
+
+      feature.GetSourceExpressions(aList);
       return;
     }
   }

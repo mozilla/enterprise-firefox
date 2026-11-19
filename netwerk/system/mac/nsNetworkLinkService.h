@@ -9,12 +9,17 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <netinet/in.h>
 
+#include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/SHA1.h"
 #include "nsINetworkLinkService.h"
 #include "nsIObserver.h"
 #include "nsITimer.h"
 #include "nsString.h"
+
+#ifdef MOZ_ENTERPRISE
+#  include "nsNetworkInterface.h"
+#endif
 
 using prefix_and_netmask = std::pair<in6_addr, in6_addr>;
 
@@ -64,6 +69,9 @@ class nsNetworkLinkService : public nsINetworkLinkService,
                                    CFArrayRef changedKeys, void* info);
   void calculateNetworkIdWithDelay(uint32_t aDelay);
   void calculateNetworkIdInternal(void);
+#ifdef MOZ_ENTERPRISE
+  void UpdateNetworkInterfaces();
+#endif
   void DNSConfigChanged(uint32_t aDelayMs);
   void GetDnsSuffixListInternal();
   bool RoutingFromKernel(nsTArray<nsCString>& aHash);
@@ -74,7 +82,14 @@ class nsNetworkLinkService : public nsINetworkLinkService,
 
   mozilla::Mutex mMutex;
   nsCString mNetworkId MOZ_GUARDED_BY(mMutex);
+  // Hash state of the inputs of mNetworkId before SeedNetworkId() was
+  // applied, for MatchNetworkID().
+  mozilla::Maybe<mozilla::SHA1Sum> mUnseededNetworkId MOZ_GUARDED_BY(mMutex);
   nsTArray<nsCString> mDNSSuffixList MOZ_GUARDED_BY(mMutex);
+#ifdef MOZ_ENTERPRISE
+  nsTArray<mozilla::net::NetworkInterface> mNetworkInterfaces
+      MOZ_GUARDED_BY(mMutex);
+#endif
 
   // The timer used to delay the calculation of network id since it takes some
   // time to discover the gateway's MAC address.

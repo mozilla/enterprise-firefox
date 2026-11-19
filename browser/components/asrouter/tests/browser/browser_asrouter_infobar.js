@@ -18,6 +18,9 @@ const { SpecialMessageActions } = ChromeUtils.importESModule(
 const { RemoteL10n } = ChromeUtils.importESModule(
   "resource:///modules/asrouter/RemoteL10n.sys.mjs"
 );
+const { OnboardingMessageProvider } = ChromeUtils.importESModule(
+  "resource:///modules/asrouter/OnboardingMessageProvider.sys.mjs"
+);
 
 // Helper to record impressions in ASRouter state when dispatching an IMPRESSION
 // action
@@ -84,7 +87,7 @@ add_task(async function show_and_send_telemetry() {
   );
 
   let primaryBtn = infobar.notification.buttonContainer.querySelector(
-    ".notification-button.primary"
+    ".notification-button[type='primary']"
   );
 
   Assert.ok(primaryBtn, "Has a primary button");
@@ -277,7 +280,7 @@ add_task(
     );
 
     let cancelButton = infobar.notification.querySelector(
-      ".footer-button:not(.primary)"
+      ".notification-button:not([type='primary'])"
     );
 
     Assert.ok(cancelButton, "Non-primary footer button exists");
@@ -410,29 +413,32 @@ add_task(async function test_specialMessageAction_onLinkClick() {
   handleStub.restore();
 });
 
-add_task(async function test_showInfoBarMessage_skipsPrivateWindow() {
-  const { PrivateBrowsingUtils } = ChromeUtils.importESModule(
-    "resource://gre/modules/PrivateBrowsingUtils.sys.mjs"
+add_task(async function test_showInfoBarMessage_privateWindow() {
+  let message = (await PanelTestProvider.getMessages()).find(
+    m => m.id === "INFOBAR_ACTION_86"
   );
-  sinon.stub(PrivateBrowsingUtils, "isWindowPrivate").returns(true);
+  Assert.ok(message.id, "Found the message");
 
-  let browser = BrowserWindowTracker.getTopWindow().gBrowser.selectedBrowser;
-  let dispatch = sinon.stub();
+  let privateWin = await BrowserTestUtils.openNewBrowserWindow({
+    private: true,
+  });
+  let dispatchStub = sinon.stub();
 
-  let result = await InfoBar.showInfoBarMessage(
-    browser,
-    {
-      id: "Private Win Test",
-      content: { type: "global", buttons: [], text: "t", dismissable: true },
-    },
-    dispatch
+  let infobar = await InfoBar.showInfoBarMessage(
+    privateWin.gBrowser.selectedBrowser,
+    message,
+    dispatchStub
   );
 
-  Assert.equal(result, null);
-  Assert.equal(dispatch.callCount, 0);
+  Assert.ok(infobar?.notification, "Infobar is shown in a private window");
+  Assert.equal(dispatchStub.firstCall.args[0].type, "IMPRESSION");
+  Assert.equal(dispatchStub.firstCall.args[0].data.id, message.id);
 
-  // Cleanup
-  sinon.restore();
+  await BrowserTestUtils.closeWindow(privateWin);
+  await TestUtils.waitForCondition(
+    () => !InfoBar._activeInfobar,
+    "InfoBar._activeInfobar should be cleared when the window unloads"
+  );
 });
 
 add_task(async function test_non_dismissable_button_action() {
@@ -2060,9 +2066,6 @@ add_task(async function test_inline_icons_falls_back_to_ltr_url_in_rtl() {
 });
 
 add_task(async function test_restore_session_startup_infobar_renders() {
-  const { OnboardingMessageProvider } = ChromeUtils.importESModule(
-    "resource:///modules/asrouter/OnboardingMessageProvider.sys.mjs"
-  );
   const message = (await OnboardingMessageProvider.getMessages()).find(
     m => m.id === "RESTORE_SESSION_STARTUP_INFOBAR"
   );
@@ -2096,6 +2099,113 @@ add_task(async function test_restore_session_startup_infobar_renders() {
     "Inline icon resolves to the application menu icon"
   );
 
+  infobar.notification.closeButton.click();
+  await TestUtils.waitForCondition(() => !InfoBar._activeInfobar);
+});
+
+add_task(async function test_PN_infobar_keeps_first_accepted_date() {
+  const message = {
+    id: "updated-privacy-notice-notification-infobar",
+    groups: ["cfr"],
+    template: "infobar",
+    content: {
+      impression_action: {
+        type: "MULTI_ACTION",
+        orderedExecution: true,
+        data: {
+          actions: [
+            {
+              type: "SET_PREF",
+              data: {
+                pref: {
+                  name: "termsofuse.firstAcceptedDate",
+                  value: {
+                    copyFromPref: "termsofuse.acceptedDate",
+                  },
+                },
+              },
+            },
+            {
+              type: "SET_PREF",
+              data: {
+                pref: {
+                  name: "termsofuse.acceptedDate",
+                  value: {
+                    timestamp: true,
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      text: {
+        string_id: "existing-user-privacy-notice-update-message",
+        args: { where: "tabshifted" },
+      },
+      linkUrls: {
+        "privacy-notice-link": "https://www.mozilla.org/privacy/firefox/next/",
+      },
+      type: "tab",
+      buttons: [
+        {
+          label: {
+            string_id: "existing-user-tou-learn-more",
+          },
+          action: {
+            type: "OPEN_URL",
+            data: {
+              where: "tabshifted",
+              args: "https://www.mozilla.org/privacy/firefox/update/",
+            },
+            dismiss: false,
+          },
+          accessKey: "L",
+        },
+      ],
+    },
+    trigger: {
+      id: "defaultBrowserCheck",
+    },
+    frequency: {
+      lifetime: 1,
+    },
+    priority: 2,
+    targeting:
+      "('termsofuse.acceptedDate'|preferenceValue != '0') && (('termsofuse.acceptedDate'|preferenceValue * 1) < 1765972800000)",
+  };
+
+  const FIRST_ACCEPTED_PREF = "termsofuse.firstAcceptedDate";
+  const firstAcceptedDate = "1748736000000";
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [FIRST_ACCEPTED_PREF, firstAcceptedDate],
+      ["termsofuse.acceptedDate", "1756684800000"],
+    ],
+  });
+
+  const browser = BrowserWindowTracker.getTopWindow().gBrowser.selectedBrowser;
+  let infobar = await InfoBar.showInfoBarMessage(
+    browser,
+    message,
+    sinon.stub()
+  );
+  Assert.equal(
+    Services.prefs.getStringPref(FIRST_ACCEPTED_PREF),
+    firstAcceptedDate,
+    "Existing firstAcceptedDate was not overwritten"
+  );
+  infobar.notification.closeButton.click();
+  await TestUtils.waitForCondition(() => !InfoBar._activeInfobar);
+
+  Services.prefs.clearUserPref(FIRST_ACCEPTED_PREF);
+  const acceptedDate = Services.prefs.getStringPref("termsofuse.acceptedDate");
+  infobar = await InfoBar.showInfoBarMessage(browser, message, sinon.stub());
+  Assert.equal(
+    Services.prefs.getStringPref(FIRST_ACCEPTED_PREF),
+    acceptedDate,
+    "Default firstAcceptedDate was copied from acceptedDate"
+  );
   infobar.notification.closeButton.click();
   await TestUtils.waitForCondition(() => !InfoBar._activeInfobar);
 });

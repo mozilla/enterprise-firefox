@@ -6,6 +6,7 @@
 
 package org.mozilla.fenix.components.toolbar
 
+import android.app.Application
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDirections
@@ -21,6 +22,7 @@ import io.mockk.verify
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import mozilla.components.ExperimentalAndroidComponentsApi
@@ -42,6 +44,8 @@ import mozilla.components.browser.state.search.RegionState
 import mozilla.components.browser.state.search.SearchEngine
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.ContentState
+import mozilla.components.browser.state.state.PictureInPictureSession
+import mozilla.components.browser.state.state.PictureInPictureWindowState
 import mozilla.components.browser.state.state.SearchState
 import mozilla.components.browser.state.state.SecurityInfo
 import mozilla.components.browser.state.state.TabSessionState
@@ -93,6 +97,7 @@ import mozilla.components.feature.ipprotection.store.state.IPProtectionState
 import mozilla.components.feature.ipprotection.store.state.ProxyActivation
 import mozilla.components.feature.listentopage.settings.ListenEnabledState
 import mozilla.components.feature.listentopage.settings.ListenSettings
+import mozilla.components.feature.pictureinpicture.PictureInPictureUseCases
 import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.feature.session.TrackingProtectionUseCases
 import mozilla.components.feature.summarize.R as summariesR
@@ -147,7 +152,11 @@ import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.appstate.OrientationMode.Landscape
 import org.mozilla.fenix.components.appstate.OrientationMode.Portrait
 import org.mozilla.fenix.components.appstate.SupportedMenuNotifications
+import org.mozilla.fenix.components.menu.CustomizedMenuInfo
 import org.mozilla.fenix.components.menu.MenuAccessPoint
+import org.mozilla.fenix.components.menu.MenuCustomizationRepository
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.LIBRARY_GROUP_ID
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.TOOLS_GROUP_ID
 import org.mozilla.fenix.components.search.BOOKMARKS_SEARCH_ENGINE_ID
 import org.mozilla.fenix.components.search.HISTORY_SEARCH_ENGINE_ID
 import org.mozilla.fenix.components.search.TABS_SEARCH_ENGINE_ID
@@ -174,6 +183,7 @@ import org.mozilla.fenix.components.toolbar.DisplayActions.ShortcutLongClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.StopRefreshClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.SummarizeClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.TranslateClicked
+import org.mozilla.fenix.components.toolbar.PageEndActionsInteractions.PictureInPictureClicked
 import org.mozilla.fenix.components.toolbar.PageEndActionsInteractions.ReaderModeClicked
 import org.mozilla.fenix.components.toolbar.PageOriginInteractions.OriginClicked
 import org.mozilla.fenix.components.toolbar.TabCounterInteractions.AddNewPrivateTab
@@ -194,6 +204,7 @@ import org.mozilla.fenix.translations.TranslationsEnabledSettings
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.Stories.markAsOpenedFromHomeScreen
 import org.mozilla.fenix.utils.Stories.markAsOpenedFromStoriesScreen
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
@@ -3195,6 +3206,43 @@ class BrowserToolbarMiddlewareTest {
     }
 
     @Test
+    fun `WHEN clicking the picture-in-picture button THEN the video of the selected tab is requested`() =
+        runTest(testDispatcher) {
+            val currentTab = createTab("test.com")
+            val browserStore = BrowserStore(BrowserState(tabs = listOf(currentTab), selectedTabId = currentTab.id))
+            val toolbarStore = buildStore(buildMiddleware(browserStore = browserStore))
+
+            toolbarStore.dispatch(PictureInPictureClicked(isActive = false))
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(currentTab.id, browserStore.state.pictureInPictureWindow.requestedTabId)
+            assertNull(shadowOf(testContext as Application).nextStartedActivity)
+        }
+
+    @Test
+    fun `GIVEN the video of the selected tab is in picture-in-picture WHEN clicking the picture-in-picture button THEN the window is closed`() =
+        runTest(testDispatcher) {
+            val currentTab = createTab("test.com")
+            val browserStore =
+                BrowserStore(
+                    BrowserState(
+                        tabs = listOf(currentTab),
+                        selectedTabId = currentTab.id,
+                        pictureInPictureWindow =
+                            PictureInPictureWindowState(
+                                session = PictureInPictureSession(currentTab.id, mockk<EngineSession>(relaxed = true))
+                            ),
+                    )
+                )
+            val toolbarStore = buildStore(buildMiddleware(browserStore = browserStore))
+
+            toolbarStore.dispatch(PictureInPictureClicked(isActive = true))
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(browserStore.state.pictureInPictureWindow.session)
+        }
+
+    @Test
     fun `GIVEN translation not done WHEN building Translate action THEN returns DEFAULT Translate ActionButton`() {
         val pageTranslationStatus: PageTranslationStatus =
             mockk(relaxed = true) {
@@ -3494,6 +3542,80 @@ class BrowserToolbarMiddlewareTest {
             testDispatcher.scheduler.advanceUntilIdle()
             val updatedMenuButton = toolbarStore.state.displayState.browserActionsEnd[2] as ActionButtonRes
             assertEquals(expectedMenuButton(true), updatedMenuButton)
+        }
+
+    @Test
+    fun `GIVEN menu section for downloads is hidden WHEN download notification is added THEN menu button is not highlighted`() =
+        runTest(testDispatcher) {
+            val appStore = AppStore()
+            val customizedMenuInfoFlow =
+                MutableStateFlow(
+                    CustomizedMenuInfo(
+                        visibleSectionIds = listOf(TOOLS_GROUP_ID),
+                        hiddenSectionIds = listOf(LIBRARY_GROUP_ID),
+                    )
+                )
+            val menuCustomizationRepository: MenuCustomizationRepository = mockk()
+            every { menuCustomizationRepository.customizedMenuInfo } returns customizedMenuInfoFlow
+
+            val middleware =
+                buildMiddleware(
+                    appStore = appStore,
+                    menuCustomizationRepository = menuCustomizationRepository,
+                )
+            val toolbarStore = buildStore(middleware)
+
+            appStore.dispatch(AppAction.MenuNotification.AddMenuNotification(SupportedMenuNotifications.Downloads))
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            val updatedMenuButton = toolbarStore.state.displayState.browserActionsEnd[2] as ActionButtonRes
+            assertFalse(updatedMenuButton.highlighted)
+        }
+
+    @Test
+    fun `GIVEN a default browser notification WHEN a downloads notification is added THEN the menu button is highlighted`() =
+        runTest(testDispatcher) {
+            val appStore =
+                AppStore(
+                    initialState =
+                        AppState(supportedMenuNotifications = setOf(SupportedMenuNotifications.NotDefaultBrowser))
+                )
+            val middleware = buildMiddleware(appStore = appStore)
+            val toolbarStore = buildStore(middleware)
+
+            val initialMenuButton = toolbarStore.state.displayState.browserActionsEnd[2] as ActionButtonRes
+            assertEquals(expectedMenuButton(), initialMenuButton)
+
+            appStore.dispatch(AppAction.MenuNotification.AddMenuNotification(SupportedMenuNotifications.Downloads))
+            testDispatcher.scheduler.advanceUntilIdle()
+            val updatedMenuButton = toolbarStore.state.displayState.browserActionsEnd[2] as ActionButtonRes
+            assertEquals(expectedMenuButton(true), updatedMenuButton)
+        }
+
+    @Test
+    fun `GIVEN default browser and downloads notifications WHEN the downloads notification is removed THEN the menu button is not highlighted`() =
+        runTest(testDispatcher) {
+            val appStore =
+                AppStore(
+                    initialState =
+                        AppState(
+                            supportedMenuNotifications =
+                                setOf(
+                                    SupportedMenuNotifications.NotDefaultBrowser,
+                                    SupportedMenuNotifications.Downloads,
+                                )
+                        )
+                )
+            val middleware = buildMiddleware(appStore = appStore)
+            val toolbarStore = buildStore(middleware)
+
+            val initialMenuButton = toolbarStore.state.displayState.browserActionsEnd[2] as ActionButtonRes
+            assertEquals(expectedMenuButton(true), initialMenuButton)
+
+            appStore.dispatch(AppAction.MenuNotification.RemoveMenuNotification(SupportedMenuNotifications.Downloads))
+            testDispatcher.scheduler.advanceUntilIdle()
+            val updatedMenuButton = toolbarStore.state.displayState.browserActionsEnd[2] as ActionButtonRes
+            assertEquals(expectedMenuButton(), updatedMenuButton)
         }
 
     @Test
@@ -4441,34 +4563,21 @@ class BrowserToolbarMiddlewareTest {
                                 onClick = CloseCurrentTab,
                             ),
                         )
-                        .apply {
-                            if (shouldUseBottomToolbar) {
-                                asReversed()
-                            }
-                        }
+                        .let { if (shouldUseBottomToolbar) it.asReversed() else it }
                 },
         )
 
     fun expectedBottomTabCounterButton(
         tabCount: Int = 0,
         isPrivate: Boolean = false,
-        shouldUseBottomToolbar: Boolean = false,
         source: Source = Source.AddressBar.BrowserEnd,
     ) =
         expectedTabCounterButton(
-                tabCount = tabCount,
-                isPrivate = isPrivate,
-                shouldUseBottomToolbar = shouldUseBottomToolbar,
-                source = source,
-            )
-            .run {
-                copy(
-                    onLongClick =
-                        (onLongClick as CombinedEventAndMenu).copy(
-                            menu = BrowserToolbarMenu { (onLongClick as CombinedEventAndMenu).menu.items().reversed() }
-                        )
-                )
-            }
+            tabCount = tabCount,
+            isPrivate = isPrivate,
+            shouldUseBottomToolbar = true,
+            source = source,
+        )
 
     private fun expectedNewTabButton(source: Source = Source.AddressBar.BrowserEnd) =
         ActionButtonRes(
@@ -4538,6 +4647,7 @@ class BrowserToolbarMiddlewareTest {
         bookmarksStorage: BookmarksStorage = this.bookmarksStorage,
         useCases: UseCases = this.useCases,
         sessionUseCases: SessionUseCases = SessionUseCases(browserStore),
+        pictureInPictureUseCases: PictureInPictureUseCases = PictureInPictureUseCases(browserStore),
         shareUseCases: ShareUseCases = this.shareUseCases,
         nimbusComponents: NimbusComponents = this.nimbusComponents,
         clipboard: ClipboardHandler = this.clipboard,
@@ -4546,6 +4656,7 @@ class BrowserToolbarMiddlewareTest {
         summarizationSettingsCache: SummarizationFeatureDiscoveryConfiguration = this.summarizationFeatureSettings,
         translationsFeatureSettings: TranslationsEnabledSettings = this.translationsFeatureSettings,
         listenSettings: ListenSettings = ListenSettings.inMemory(available = false),
+        menuCustomizationRepository: MenuCustomizationRepository? = null,
         navController: NavController = this.navController,
         summarizationNavigator: SummarizationNavigator = this.summarizationNavigator,
         browsingModeManager: BrowsingModeManager = this.browsingModeManager,
@@ -4566,6 +4677,7 @@ class BrowserToolbarMiddlewareTest {
             trackingProtectionUseCases = trackingProtectionUseCases,
             useCases = useCases,
             sessionUseCases = sessionUseCases,
+            pictureInPictureUseCases = pictureInPictureUseCases,
             shareUseCases = shareUseCases,
             nimbusComponents = nimbusComponents,
             clipboard = clipboard,
@@ -4574,6 +4686,7 @@ class BrowserToolbarMiddlewareTest {
             summarizationFeatureSettings = summarizationSettingsCache,
             translationsFeatureSettings = translationsFeatureSettings,
             listenSettings = listenSettings,
+            menuCustomizationRepository = menuCustomizationRepository,
             navController = navController,
             summarizationNavigator = summarizationNavigator,
             browsingModeManager = browsingModeManager,

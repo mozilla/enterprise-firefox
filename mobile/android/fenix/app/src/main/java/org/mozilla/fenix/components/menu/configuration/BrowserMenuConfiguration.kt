@@ -5,6 +5,8 @@
 package org.mozilla.fenix.components.menu.configuration
 
 import androidx.annotation.VisibleForTesting
+import org.mozilla.fenix.R
+import org.mozilla.fenix.components.appstate.SupportedMenuNotifications
 import org.mozilla.fenix.components.menu.CustomizedMenuInfo
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.AddToHomeScreen
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Back
@@ -21,6 +23,8 @@ import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.IPProtectio
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.More
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.MoveToNormalTabs
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.MozillaAccount
+import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.NewPrivateTab
+import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.NewTab
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.OpenInApp
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Passwords
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Print
@@ -33,25 +37,27 @@ import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Settings
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Share
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Shortcut
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.SummarizePage
+import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.TabGroup
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Translate
 import org.mozilla.fenix.components.menu.configuration.MenuPresentationMode.Grid
 import org.mozilla.fenix.components.menu.configuration.MenuPresentationMode.Row
 
 /** The sections of the menu shown while browsing. */
 object BrowserMenuConfiguration {
-    @VisibleForTesting internal val NAVIGATION_ID = "browser_navigation"
-    @VisibleForTesting internal val GROUP_1_ID = "browser_group_1"
-    @VisibleForTesting internal val GROUP_2_ID = "browser_group_2"
-    @VisibleForTesting internal val GROUP_3_ID = "browser_group_3"
-    @VisibleForTesting internal val GROUP_4_ID = "browser_group_4"
-    @VisibleForTesting internal val GROUP_5_ID = "browser_group_5"
-    @VisibleForTesting internal val GROUP_6_ID = "browser_group_6"
+    @VisibleForTesting internal const val PAGE_CONTROLS_GROUP_ID = "page_controls"
+    @VisibleForTesting internal const val READER_VIEW_GROUP_ID = "reader_view"
+    @VisibleForTesting internal const val VPN_GROUP_ID = "vpn"
+    @VisibleForTesting internal const val TOOLS_GROUP_ID = "tools"
+    @VisibleForTesting internal const val LIBRARY_GROUP_ID = "library"
+    @VisibleForTesting internal const val ACCOUNTS_AND_SETTINGS_GROUP_ID = "accounts_and_settings"
+    @VisibleForTesting internal const val QUIT_GROUP_ID = "quit"
+    @VisibleForTesting internal const val TABS_CONTROLS_GROUP_ID = "tabs_controls"
 
     /** Ids of the sections of the browser menu which the user cannot remove. */
-    val REQUIRED_SECTION_IDS = setOf(GROUP_5_ID)
+    val REQUIRED_SECTION_IDS = setOf(ACCOUNTS_AND_SETTINGS_GROUP_ID)
 
     /** Ids of browser menu sections that start as initially hidden. */
-    val HIDDEN_BY_DEFAULT_SECTION_IDS = emptySet<String>()
+    val HIDDEN_BY_DEFAULT_SECTION_IDS = setOf(TABS_CONTROLS_GROUP_ID)
 
     /**
      * The menu shown while browsing.
@@ -74,9 +80,37 @@ object BrowserMenuConfiguration {
         }
 
         val defaultSectionsIds = defaultSections.associateBy { it.id }
-        return customizationInfo.visibleSectionIds
-            .updateNavigationItemsPosition(shouldShowNavigationItemsAtTheTop)
-            .mapNotNull { defaultSectionsIds[it] }
+        val visibleSectionIds =
+            if (customizationInfo.isNavigationSectionMoved) {
+                customizationInfo.visibleSectionIds
+            } else {
+                customizationInfo.visibleSectionIds.withNavigationSectionOnToolbarSide(
+                    shouldShowNavigationItemsAtTheTop
+                )
+            }
+        return visibleSectionIds.mapNotNull { defaultSectionsIds[it] }
+    }
+
+    /**
+     * Whether the navigation section is shown away from the toolbar's side of the menu, indicating the user moved it
+     * there.
+     *
+     * @param visibleSectionIds Ids of the sections to show, in the order they should be shown in.
+     * @param isToolbarAtBottom Whether the toolbar is shown at the bottom of the screen.
+     * @param isExpandedToolbarEnabled Whether the expanded toolbar is used.
+     */
+    fun isNavigationSectionMoved(
+        visibleSectionIds: List<String>,
+        isToolbarAtBottom: Boolean,
+        isExpandedToolbarEnabled: Boolean,
+    ): Boolean {
+        val index = visibleSectionIds.indexOf(PAGE_CONTROLS_GROUP_ID)
+        val toolbarSideIndex =
+            when (shouldShowNavigationItemsAtTheTop(isToolbarAtBottom, isExpandedToolbarEnabled)) {
+                true -> 0
+                else -> visibleSectionIds.lastIndex
+            }
+        return index != -1 && index != toolbarSideIndex
     }
 
     /** The sections of the browser menu the user removed, in their stored order. */
@@ -109,25 +143,26 @@ object BrowserMenuConfiguration {
     private fun allSections(shouldShowNavigationItemsAtTheTop: Boolean): List<MenuSectionConfiguration> {
         val navSection =
             MenuSectionConfiguration(
-                id = NAVIGATION_ID,
+                id = PAGE_CONTROLS_GROUP_ID,
                 presentationMode = Grid,
                 items = listOf(Back, Forward, Share, Refresh),
                 isSticky = true,
+                name = R.string.browser_menu_section_page_controls,
             )
         val rest =
             listOf(
                 MenuSectionConfiguration(
-                    id = GROUP_1_ID,
+                    id = READER_VIEW_GROUP_ID,
                     presentationMode = Row,
                     items = listOf(CustomizeReaderView),
                 ),
                 MenuSectionConfiguration(
-                    id = GROUP_2_ID,
+                    id = VPN_GROUP_ID,
                     presentationMode = Row,
                     items = listOf(IPProtection),
                 ),
                 MenuSectionConfiguration(
-                    id = GROUP_3_ID,
+                    id = TOOLS_GROUP_ID,
                     presentationMode = Row,
                     items =
                         listOf(
@@ -143,6 +178,7 @@ object BrowserMenuConfiguration {
                                     ReportBrokenSite,
                                     Shortcut,
                                     AddToHomeScreen,
+                                    TabGroup,
                                     SaveToCollection,
                                     OpenInApp,
                                     SaveAsPdf,
@@ -150,35 +186,78 @@ object BrowserMenuConfiguration {
                                 )
                             ),
                         ),
+                    name = R.string.browser_menu_section_tools,
                 ),
                 MenuSectionConfiguration(
-                    id = GROUP_4_ID,
+                    id = LIBRARY_GROUP_ID,
                     presentationMode = Grid,
                     items = listOf(History, Bookmarks, Downloads, Passwords),
+                    name = R.string.browser_menu_section_library,
                 ),
                 MenuSectionConfiguration(
-                    id = GROUP_5_ID,
+                    id = ACCOUNTS_AND_SETTINGS_GROUP_ID,
                     presentationMode = Row,
                     items = listOf(MozillaAccount, Settings),
+                    name = R.string.browser_menu_section_accounts_and_settings,
                 ),
                 MenuSectionConfiguration(
-                    id = GROUP_6_ID,
+                    id = QUIT_GROUP_ID,
                     presentationMode = Row,
                     items = listOf(Quit),
+                ),
+                MenuSectionConfiguration(
+                    id = TABS_CONTROLS_GROUP_ID,
+                    presentationMode = Row,
+                    items = listOf(NewTab, NewPrivateTab),
+                    name = R.string.browser_menu_section_new_tab,
                 ),
             )
         return if (shouldShowNavigationItemsAtTheTop) listOf(navSection) + rest else rest + navSection
     }
 
-    /** Move the navigation section to the toolbar's side of the menu only if the user left it first or last. */
-    private fun List<String>.updateNavigationItemsPosition(shouldShowNavigationItemsAtTheTop: Boolean): List<String> {
-        val index = indexOf(NAVIGATION_ID)
-        if (index == -1 || (index != 0 && index != lastIndex)) return this
+    /** Move the navigation section, if shown, to the toolbar's side of the menu. */
+    private fun List<String>.withNavigationSectionOnToolbarSide(
+        shouldShowNavigationItemsAtTheTop: Boolean
+    ): List<String> {
+        if (PAGE_CONTROLS_GROUP_ID !in this) return this
 
-        val rest = this - NAVIGATION_ID
+        val rest = this - PAGE_CONTROLS_GROUP_ID
         return when (shouldShowNavigationItemsAtTheTop) {
-            true -> listOf(NAVIGATION_ID) + rest
-            else -> rest + NAVIGATION_ID
+            true -> listOf(PAGE_CONTROLS_GROUP_ID) + rest
+            else -> rest + PAGE_CONTROLS_GROUP_ID
         }
+    }
+
+    /**
+     * Whether any of [notifications] needs the user's attention on an item shown in the browser menu, so the menu
+     * button should be highlighted.
+     */
+    fun hasNotificationToShow(
+        notifications: Collection<SupportedMenuNotifications>,
+        customizationInfo: CustomizedMenuInfo?,
+    ): Boolean = notifications.any { isShown(it, customizationInfo) }
+
+    private fun isShown(notification: SupportedMenuNotifications, customizationInfo: CustomizedMenuInfo?): Boolean {
+        val item = notification.menuItem ?: return false
+        val section = allSections().find { it.containsItem(item) } ?: return false
+        return when (customizationInfo) {
+            null -> section.id !in HIDDEN_BY_DEFAULT_SECTION_IDS
+            else -> section.id in customizationInfo.visibleSectionIds
+        }
+    }
+
+    private val SupportedMenuNotifications.menuItem: FenixMenuItem?
+        get() =
+            when (this) {
+                is SupportedMenuNotifications.Downloads -> Downloads
+                is SupportedMenuNotifications.OpenInApp -> OpenInApp
+                is SupportedMenuNotifications.Summarize -> SummarizePage
+                is SupportedMenuNotifications.ExtensionUpdate -> Extensions
+                is SupportedMenuNotifications.NotDefaultBrowser,
+                is SupportedMenuNotifications.TabGroups -> null
+            }
+
+    private fun MenuSectionConfiguration.containsItem(targetItem: FenixMenuItem): Boolean = items.any { item ->
+        item == targetItem || (item is FenixExpandableMenuItem && targetItem in item.subMenuItems)
     }
 }

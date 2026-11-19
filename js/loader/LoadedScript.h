@@ -64,6 +64,10 @@ class ScriptFetchInfo : public nsISupports {
   bool IsForModulePreload() const { return mIsForModulePreload; }
   void SetForModulePreload(bool aValue) { mIsForModulePreload = aValue; }
 
+  bool HasPreloadedResolvedSet() const { return bool(mPreloadedResolvedSet); }
+  JS::loader::ResolvedModuleSet* GetPreloadedResolvedSet();
+  void ReleasePreloadedResolvedSet() { mPreloadedResolvedSet = nullptr; }
+
   bool IsForModuleScript() const { return mKind == ScriptKind::eModule; }
   bool IsForEvent() const { return mKind == ScriptKind::eEvent; }
 
@@ -118,6 +122,10 @@ class ScriptFetchInfo : public nsISupports {
   //
   // This field can be overwritten based on the response.
   nsCOMPtr<nsIURI> mBaseURL;
+
+  // The module specifiers resolved during preloading. This set is merged into
+  // the global resolved module set when the preload request is reused.
+  mozilla::UniquePtr<JS::loader::ResolvedModuleSet> mPreloadedResolvedSet;
 };
 
 // A LoadedScript is a place where the Script is stored once it is loaded. It is
@@ -796,13 +804,11 @@ class ModuleScript final : public nsISupports {
   Heap<Value> mParseError;
   Heap<Value> mErrorToRethrow;
 
-  // A copy of ScriptLoadRequest::mFetchInfo, to read and update the
-  // ScriptFetchInfo::mIsForModulePreload field.
-  RefPtr<ScriptFetchInfo> mFetchInfoForAccessingPreloadFlag;
+  // A copy of ScriptLoadRequest::mFetchInfo, also used to access its
+  // ScriptFetchInfo::mIsForModulePreload and preloaded resolved set fields.
+  RefPtr<ScriptFetchInfo> mFetchInfo;
 
   bool mHadImportMap = false;
-
-  mozilla::UniquePtr<JS::loader::ResolvedModuleSet> mPreloadedResolvedSet;
 
   ~ModuleScript();
 
@@ -815,7 +821,6 @@ class ModuleScript final : public nsISupports {
   void SetModuleRecord(Handle<JSObject*> aModuleRecord);
   void SetParseError(const Value& aError);
   void SetErrorToRethrow(const Value& aError);
-  void SetForPreload(bool aValue);
   void SetHadImportMap(bool aValue);
 
   JSObject* ModuleRecord() const { return mModuleRecord; }
@@ -824,21 +829,17 @@ class ModuleScript final : public nsISupports {
   Value ErrorToRethrow() const { return mErrorToRethrow; }
   bool HasParseError() const { return !mParseError.isUndefined(); }
   bool HasErrorToRethrow() const { return !mErrorToRethrow.isUndefined(); }
-  bool ForPreload() const {
-    return mFetchInfoForAccessingPreloadFlag->IsForModulePreload();
-  }
+  bool ForPreload() const { return mFetchInfo->IsForModulePreload(); }
   bool HadImportMap() const { return mHadImportMap; }
 
-  // This is used to reset the module graph information which happened during
-  // preload.
-  void ResetPreload();
+  ScriptFetchInfo* FetchInfo() const { return mFetchInfo; }
+
+  // Clear the parse error and the error to rethrow recorded while loading a
+  // preloaded module graph, so that a later load can retry.
+  void ResetPreloadErrors();
   void Shutdown();
 
   friend void CheckModuleScriptPrivate(LoadedScript*, const Value&);
-
-  bool HasPreloadedResolvedSet() { return !!mPreloadedResolvedSet; }
-  ResolvedModuleSet* GetPreloadedResolvedSet();
-  void ReleasePreloadedResolvedSet() { mPreloadedResolvedSet = nullptr; }
 };
 
 }  // namespace JS::loader

@@ -302,7 +302,7 @@ export const ContentTiles = props => {
             {title && (
               <Localized text={title}>
                 {/* H1 content is provided by Localized */}
-                {/* eslint-disable-next-line jsx-a11y/heading-has-content */}
+                {/* eslint-disable-next-line jsx-a11y-x/heading-has-content */}
                 <h1 className="tile-title" id={`content-tile-title-${index}`} />
               </Localized>
             )}
@@ -397,6 +397,7 @@ export const ContentTiles = props => {
                 handleAction={props.handleAction}
                 content={{ tiles: tile }}
                 skipButton={props.content.skip_button}
+                layout={content.position}
               />
             )}
             {tile.type === "fx_backup_file_path" && (

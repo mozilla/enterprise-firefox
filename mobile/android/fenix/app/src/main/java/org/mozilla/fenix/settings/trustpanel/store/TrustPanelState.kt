@@ -10,6 +10,8 @@ import mozilla.components.browser.state.state.SessionState
 import mozilla.components.concept.engine.permission.SitePermissions
 import mozilla.components.concept.engine.permission.SitePermissions.AutoplayStatus
 import mozilla.components.lib.state.State
+import mozilla.components.support.utils.CertificateDetails
+import mozilla.components.support.utils.toCertificateDetails
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.menu.store.IPProtectionMenuState
 import org.mozilla.fenix.settings.PhoneFeature
@@ -62,7 +64,27 @@ data class WebsiteInfoState(
     val websiteTitle: String = "",
     val certificate: X509Certificate? = null,
     val qwac: X509Certificate? = null,
-)
+) {
+    /**
+     * The subject and issuer fields of [qwac], or of [certificate] if there is no QWAC, or null if there is neither.
+     * The QWAC, which the EU trust mark refers to, can differ from the TLS certificate, such as with a 2-QWAC.
+     */
+    val certificateDetails: CertificateDetails? by lazy { (qwac ?: certificate)?.toCertificateDetails() }
+
+    /**
+     * Whether the current web page is known to present a QWAC. This is false whenever the QWAC status is not yet
+     * determined, is still being requested, or could not be determined.
+     */
+    val isQwac: Boolean
+        get() = qwac != null
+
+    /**
+     * Whether the certificate details can be opened. Until the behaviour for pages without a certificate is decided,
+     * this is only the case for secure pages with a certificate.
+     */
+    val canOpenCertificateDetails: Boolean
+        get() = isSecured && certificate != null
+}
 
 /**
  * Wrapper over a website permission encompassing all its needed state to be rendered on the screen.

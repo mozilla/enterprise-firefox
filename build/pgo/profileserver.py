@@ -4,11 +4,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import atexit
 import glob
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
+import time
+from urllib.parse import parse_qs
 
 import mozcrash
 from mozbuild.base import BinaryNotFoundException, MozbuildObject
@@ -17,6 +22,7 @@ from mozhttpd import MozHttpd
 from mozprofile import FirefoxProfile, Preferences
 from mozprofile.permissions import ServerLocations
 from mozrunner import CLI, FirefoxRunner
+from pgo_metrics import record_marker, report_perfherder, stage, suite
 
 PORT = 8888
 
@@ -27,6 +33,123 @@ PATH_MAPPINGS = {
     # refer to scripts located in `../..`.
     "/talos": "testing/talos/talos",
 }
+
+
+# Training items, reported to Perfherder at the end and recorded as markers in
+# the task's resource usage profile.
+ITEMS = []
+
+
+def item_handler(request):
+    """Record an item of the training corpus, reported by index.html when it
+    is done."""
+    end = time.monotonic()
+    query = parse_qs(request.query)
+    url = query.get("url", ["?"])[0]
+    duration = int(query.get("ms", ["0"])[0]) / 1000
+    outcome = query.get("outcome", ["?"])[0]
+    ITEMS.append((url, duration, outcome))
+    record_marker("PGOItem", end - duration, end, f"{url} ({outcome})")
+    return (200, {"Content-Type": "text/plain"}, "")
+
+
+def item_suites():
+    return [
+        suite(
+            "pgo training items",
+            sum(duration for _, duration, _ in ITEMS),
+            # Perfherder names are limited to 80 characters.
+            [(url.partition("?")[0], duration) for url, duration, _ in ITEMS],
+            unit="s",
+        ),
+        suite(
+            "pgo training items timed out",
+            sum(1 for *_, outcome in ITEMS if outcome == "timeout"),
+        ),
+    ]
+
+
+# Images in the tree that image_decoding.html decodes, chosen to be a mix of the
+# kinds of images that are common on the web. They are copied into a temporary
+# directory served at /images so that profile generation fails if one of them
+# is moved or removed. "large" images are decoded once instead of every
+# iteration, and "animated" images are left on screen while the page runs.
+IMAGES = {
+    "still": [
+        # Baseline 4:2:0 JPEG photo
+        "layout/reftests/svg/big-image.jpeg",
+        # Progressive 4:2:0 JPEG photo
+        "testing/web-platform/tests/html/semantics/embedded-content/the-img-element/resources/cat.jpg",
+        # Baseline 4:4:4 JPEG photo
+        "third_party/webkit/PerformanceTests/MotionMark/tests/bouncing-particles/resources/image5.jpg",
+        # Progressive 4:4:4 JPEG photo
+        "testing/web-platform/tests/html/semantics/embedded-content/the-img-element/3.jpg",
+        # RGBA PNG
+        "testing/web-platform/tests/jpegxl/resources/conformance_sunset_logo.png",
+        # Palette PNG logo with transparency
+        "testing/talos/talos/tests/v8_7/v8-logo.png",
+        # RGB PNG screenshot
+        "dom/media/test/reftest/uneven_frame_durations_3.8s_frame.png",
+        # Palette PNG diagram
+        "testing/web-platform/tests/css/compositing/test-plan/test_template.png",
+        # Static GIF
+        "dom/xml/test/old/books/kerouac.gif",
+        # Lossy WebP photo, big enough to use libwebp's scaled decoding when shown small
+        "image/test/gtest/large.webp",
+        # Lossless WebP photo
+        "image/test/gtest/large-jxl-reference.webp",
+        # 4:4:4 AVIF photo
+        "image/test/gtest/large.avif",
+        # Lossy JPEG XL photo
+        "testing/web-platform/tests/jpegxl/resources/green_queen_vardct_e3.jxl",
+        # JPEG XL recompressed from a JPEG
+        "image/test/gtest/large.jxl",
+        # Lossless JPEG XL photo
+        "testing/web-platform/tests/jpegxl/resources/issue648_palette0.jxl",
+        # Lossy JPEG XL with alpha
+        "testing/web-platform/tests/jpegxl/resources/conformance_patches.jxl",
+    ],
+    "large": [
+        # 4:2:0 AVIF photo
+        "image/test/gtest/stackcheck.avif",
+    ],
+    "animated": [
+        # Animated GIF
+        "image/test/browser/animated.gif",
+        # Animated lossless WebP with alpha
+        "image/test/mochitest/infinite.webp",
+        # Animated AVIF with alpha
+        "image/test/gtest/blend.avif",
+        # Animated lossless JPEG XL with alpha
+        "image/test/gtest/long-animated.jxl",
+    ],
+}
+
+
+def copy_images(topsrcdir, dest):
+    """Copy IMAGES into dest and write dest/list.json with their names."""
+    names = {}
+    seen = set()
+    for kind, paths in IMAGES.items():
+        names[kind] = []
+        for path in paths:
+            src = os.path.join(topsrcdir, path)
+            if not os.path.isfile(src):
+                print(
+                    f"TEST-UNEXPECTED-FAIL | profileserver.py | PGO training image "
+                    f"{path} does not exist. If it was moved or removed, update "
+                    "IMAGES in build/pgo/profileserver.py and "
+                    "build/sparse-profiles/profile-generate."
+                )
+                sys.exit(1)
+            name = os.path.basename(path)
+            if name in seen:
+                raise Exception(f"Duplicate PGO training image name {name}")
+            seen.add(name)
+            shutil.copyfile(src, os.path.join(dest, name))
+            names[kind].append(name)
+    with open(os.path.join(dest, "list.json"), "w") as fh:
+        json.dump(names, fh)
 
 
 BENCHMARK_DONE = (
@@ -147,6 +270,10 @@ if __name__ == "__main__":
     path_mappings = {
         k: os.path.join(build.topsrcdir, v) for k, v in PATH_MAPPINGS.items()
     }
+    images_dir = tempfile.mkdtemp()
+    atexit.register(shutil.rmtree, images_dir, ignore_errors=True)
+    copy_images(build.topsrcdir, images_dir)
+    path_mappings["/images"] = images_dir
     webkit_dir = os.path.join(
         build.topsrcdir, "third_party", "webkit", "PerformanceTests"
     )
@@ -165,6 +292,7 @@ if __name__ == "__main__":
                 os.path.join(webkit_dir, "webaudio", "webaudio-bench.js"),
                 after_anchor("window.postMessage(_data, '*');"),
             ),
+            {"method": "GET", "path": "/pgo-item$", "function": item_handler},
         ],
     )
     httpd.start(block=False)
@@ -276,8 +404,9 @@ if __name__ == "__main__":
             env=env,
             process_args=process_args,
         )
-        runner.start()
-        ret = runner.wait()
+        with stage("profile initialization"):
+            runner.start()
+            ret = runner.wait()
         if ret:
             print("Firefox exited with code %d during profile initialization" % ret)
             logfile = process_args.get("logfile")
@@ -314,8 +443,9 @@ if __name__ == "__main__":
             env=env,
             process_args=process_args,
         )
-        runner.start(debug_args=debug_args, interactive=interactive)
-        ret = runner.wait()
+        with stage("training run"):
+            runner.start(debug_args=debug_args, interactive=interactive)
+            ret = runner.wait()
         sp3_httpd.stop()
         if has_extended_corpus:
             js3_httpd.stop()
@@ -369,7 +499,8 @@ if __name__ == "__main__":
                 "-o",
                 merged_profdata,
             ] + profraw_files
-            rc = subprocess.call(merge_cmd)
+            with stage("llvm-profdata merge"):
+                rc = subprocess.call(merge_cmd)
             if rc != 0:
                 print("INFRA-ERROR: Failed to merge profile data. Corrupt profile?")
                 # exit with TBPL_RETRY
@@ -383,3 +514,12 @@ if __name__ == "__main__":
             if os.path.getsize(merged_profdata) == 0:
                 print(merged_profdata, "was created but it is empty", file=sys.stderr)
                 sys.exit(1)
+
+            if "UPLOAD_PATH" in env:
+                report_perfherder(
+                    llvm_profdata,
+                    profraw_files,
+                    merged_profdata,
+                    env["UPLOAD_PATH"],
+                    item_suites(),
+                )

@@ -73,6 +73,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TelemetryReportingPolicy:
     "resource://gre/modules/TelemetryReportingPolicy.sys.mjs",
   TRRRacer: "resource:///modules/TRRPerformance.sys.mjs",
+  WeaveService: "moz-src:///services/sync/Weave.sys.mjs",
   WebChannel: "resource://gre/modules/WebChannel.sys.mjs",
   WebProtocolHandlerRegistrar:
     "moz-src:///browser/components/protocolhandler/WebProtocolHandlerRegistrar.sys.mjs",
@@ -119,12 +120,6 @@ if (AppConstants.ENABLE_WEBDRIVER) {
 }
 
 const PREF_PDFJS_ISDEFAULT_CACHE_STATE = "pdfjs.enabledCache.state";
-
-ChromeUtils.defineLazyGetter(
-  lazy,
-  "WeaveService",
-  () => Cc["@mozilla.org/weave/service;1"].getService().wrappedJSObject
-);
 
 if (AppConstants.MOZ_CRASHREPORTER) {
   ChromeUtils.defineESModuleGetters(lazy, {
@@ -192,12 +187,37 @@ BrowserGlue.prototype = {
   _isNewProfile: undefined,
   _defaultCookieBehaviorAtStartup: null,
 
-  _setPrefToSaveSession: function BG__setPrefToSaveSession(aForce) {
+  /**
+   * Make the next startup resume the current session.
+   *
+   * @param {boolean} aForce
+   *        Set the pref even if no "restart" quit was requested.
+   * @param {boolean} aOSInitiated
+   *        The OS session manager asked us to save (XSMP SaveYourself on
+   *        Linux). The next startup should then only resume if the session
+   *        manager restarts us too, not if the user starts Firefox manually.
+   */
+  _setPrefToSaveSession(aForce, aOSInitiated) {
     if (!this._saveSession && !aForce) {
       return;
     }
 
     if (!lazy.PrivateBrowsingUtils.permanentPrivateBrowsing) {
+      if (
+        aOSInitiated &&
+        !Services.prefs.getBoolPref("browser.sessionstore.resume_session_once")
+      ) {
+        // Same logic as SessionStore's "os-restart" quit handling. If
+        // resume_session_once is already set, something else asked to resume
+        // unconditionally (an in-app restart, for example), so leave that
+        // request alone. Otherwise mark the resume as OS initiated;
+        // SessionStartup clears resume_session_once again on a start that
+        // Services.appinfo.restartedByOS does not report.
+        Services.prefs.setBoolPref(
+          "browser.sessionstore.resuming_after_os_restart",
+          true
+        );
+      }
       Services.prefs.setBoolPref(
         "browser.sessionstore.resume_session_once",
         true
@@ -253,7 +273,7 @@ BrowserGlue.prototype = {
         }
         break;
       case "session-save":
-        this._setPrefToSaveSession(true);
+        this._setPrefToSaveSession(true, true);
         subject.QueryInterface(Ci.nsISupportsPRBool);
         subject.data = true;
         break;
@@ -271,20 +291,20 @@ BrowserGlue.prototype = {
       case "handle-xul-text-link": {
         let linkHandled = subject.QueryInterface(Ci.nsISupportsPRBool);
         if (!linkHandled.data) {
+          // The caller reads linkHandled.data as soon as notifyObservers
+          // returns, so claim the link before waiting for a new window.
+          linkHandled.data = true;
           let win =
             lazy.BrowserWindowTracker.getTopWindow() ??
             (await lazy.BrowserWindowTracker.promiseOpenWindow());
-          if (win) {
-            data = JSON.parse(data);
-            let where = lazy.BrowserUtils.whereToOpenLink(data);
-            // Preserve legacy behavior of non-modifier left-clicks
-            // opening in a new selected tab.
-            if (where == "current") {
-              where = "tab";
-            }
-            win.openTrustedLinkIn(data.href, where);
-            linkHandled.data = true;
+          data = JSON.parse(data);
+          let where = lazy.BrowserUtils.whereToOpenLink(data);
+          // Preserve legacy behavior of non-modifier left-clicks
+          // opening in a new selected tab.
+          if (where == "current") {
+            where = "tab";
           }
+          win.openTrustedLinkIn(data.href, where);
         }
         break;
       }
@@ -612,7 +632,8 @@ BrowserGlue.prototype = {
         cmdLine.findFlag("width", false) != -1 ||
         cmdLine.findFlag("height", false) != -1 ||
         cmdLine.findFlag("left", false) != -1 ||
-        cmdLine.findFlag("top", false) != -1
+        cmdLine.findFlag("top", false) != -1 ||
+        cmdLine.findFlag("start-maximized", false) != -1
       ) {
         return false;
       }
@@ -1571,7 +1592,7 @@ BrowserGlue.prototype = {
     // Use an increasing number to keep track of the current state of the user's
     // profile, so we can move data around as needed as the browser evolves.
     // Completely unrelated to the current Firefox release number.
-    const APP_DATA_VERSION = 184;
+    const APP_DATA_VERSION = 185;
     const PREF = "browser.migration.version";
 
     let profileDataVersion = Services.prefs.getIntPref(PREF, -1);
@@ -1706,9 +1727,10 @@ BrowserGlue.prototype = {
       return;
     }
 
-    const willPrompt = await lazy.DefaultBrowserCheck.willCheckDefaultBrowser(
+    let willPrompt = await lazy.DefaultBrowserCheck.willCheckDefaultBrowser(
       /* isStartupCheck */ true
     );
+    let defaultPromptSuppressed = false;
     if (willPrompt) {
       let win = lazy.BrowserWindowTracker.getTopWindow({
         allowFromInactiveWorkspace: true,
@@ -1720,10 +1742,13 @@ BrowserGlue.prototype = {
       await setToDefaultFeature.ready();
       await setToDefaultFeature.recordExposureEvent();
 
-      const { showSpotlightPrompt, message } =
+      const { showSpotlightPrompt, message, disablePrompt } =
         setToDefaultFeature.getAllVariables();
 
-      if (showSpotlightPrompt && message) {
+      if (disablePrompt) {
+        defaultPromptSuppressed = true;
+        willPrompt = false;
+      } else if (showSpotlightPrompt && message) {
         // Show experimental spotlight in place of the default browser prompt.
         //
         // Note: Spotlight.showSpotlightDialog guards on gDialogBox.isOpen and
@@ -1739,10 +1764,10 @@ BrowserGlue.prototype = {
           win.gBrowser.selectedBrowser
         );
         return;
+      } else {
+        // Intentionally don't await the returned user's response promise.
+        lazy.DefaultBrowserCheck.prompt(win);
       }
-
-      // Intentionally don't await the returned user's response promise.
-      lazy.DefaultBrowserCheck.prompt(win);
     }
 
     await lazy.ASRouter.waitForInitialized;
@@ -1752,7 +1777,11 @@ BrowserGlue.prototype = {
       })?.gBrowser.selectedBrowser,
       // triggerId and triggerContext
       id: "defaultBrowserCheck",
-      context: { willShowDefaultPrompt: willPrompt, source: "startup" },
+      context: {
+        willShowDefaultPrompt: willPrompt,
+        defaultPromptSuppressed,
+        source: "startup",
+      },
     });
   },
 

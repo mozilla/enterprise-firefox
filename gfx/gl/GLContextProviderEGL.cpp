@@ -909,6 +909,16 @@ bool CreateConfig(EglDisplay& aEgl, EGLConfig* aConfig, int32_t aDepth,
       return false;
   }
 
+#ifdef MOZ_WIDGET_GTK
+  // Without a GDK display, e.g. in the GPU process on Wayland, the EGL display
+  // uses the device or surfaceless platform, which has no window surfaces. We
+  // render into framebuffers there, so any surface type will do.
+  if (!gdk_display_get_default()) {
+    MOZ_ASSERT(attribs[0] == LOCAL_EGL_SURFACE_TYPE);
+    attribs[1] = -1;  // EGL_DONT_CARE
+  }
+#endif
+
   if (aUseGles) {
     attribs.push_back(LOCAL_EGL_RENDERABLE_TYPE);
     attribs.push_back(LOCAL_EGL_OPENGL_ES2_BIT);
@@ -1133,23 +1143,34 @@ static EGLConfig ChooseConfig(EglDisplay& egl, const GLContextCreateDesc& desc,
 #ifdef MOZ_X11
 /* static */
 bool GLContextEGL::FindVisual(int* const out_visualId) {
-  nsCString discardFailureId;
-  const auto egl = DefaultEglDisplay(&discardFailureId);
-  if (!egl) {
-    gfxCriticalNote
-        << "GLContextEGL::FindVisual(): Failed to load EGL library!";
-    return false;
-  }
+  // The default display is only held for the duration of the query, so
+  // without caching every new window would initialize and terminate EGL.
+  static const Maybe<int> sVisualId = []() -> Maybe<int> {
+    nsCString discardFailureId;
+    const auto egl = DefaultEglDisplay(&discardFailureId);
+    if (!egl) {
+      gfxCriticalNote
+          << "GLContextEGL::FindVisual(): Failed to load EGL library!";
+      return Nothing();
+    }
 
-  EGLConfig config;
-  const int bpp = 32;
-  if (!CreateConfig(*egl, &config, bpp, /* aEnableDepthBuffer */ false,
-                    /* aUseGles */ false, /* aAllowFallback */ false)) {
-    // We are on a buggy driver. Do not return a visual so a fallback path can
-    // be used. See https://gitlab.freedesktop.org/mesa/mesa/-/issues/149
-    return false;
-  }
-  if (egl->fGetConfigAttrib(config, LOCAL_EGL_NATIVE_VISUAL_ID, out_visualId)) {
+    EGLConfig config;
+    const int bpp = 32;
+    if (!CreateConfig(*egl, &config, bpp, /* aEnableDepthBuffer */ false,
+                      /* aUseGles */ false, /* aAllowFallback */ false)) {
+      // We are on a buggy driver. Do not return a visual so a fallback path
+      // can be used. See https://gitlab.freedesktop.org/mesa/mesa/-/issues/149
+      return Nothing();
+    }
+    int visualId = 0;
+    if (egl->fGetConfigAttrib(config, LOCAL_EGL_NATIVE_VISUAL_ID, &visualId)) {
+      return Some(visualId);
+    }
+    return Nothing();
+  }();
+
+  if (sVisualId) {
+    *out_visualId = *sVisualId;
     return true;
   }
   return false;

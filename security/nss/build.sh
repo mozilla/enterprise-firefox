@@ -34,6 +34,7 @@ argsfile="$dist_dir/build_args"
 source "$cwd/coreconf/nspr.sh"
 source "$cwd/coreconf/sanitizers.sh"
 GYP=${GYP:-gyp}
+gyp_format=ninja
 
 # Usage info
 show_help()
@@ -114,6 +115,11 @@ while [ $# -gt 0 ]; do
         -t|--target) target_arch="$2"; shift ;;
         --target=*) target_arch="${1#*=}" ;;
         --build-tools-cc=*) build_tools_cc="${1#*=}" ;;
+        --target-os=*) target_os="${1#*=}" ;;
+        --android-ndk=*) android_ndk="${1#*=}" ;;
+        --android-api=*) android_api="${1#*=}" ;;
+        --ios-sdk=*) ios_sdk="${1#*=}" ;;
+        --ios-version-min=*) ios_version_min="${1#*=}" ;;
         --clang) export CC=clang; export CCC=clang++; export CXX=clang++; msvc=0 ;;
         --gcc) export CC=gcc; export CCC=g++; export CXX=g++; msvc=0 ;;
         --msvc) msvc=1 ;;
@@ -178,6 +184,18 @@ if [ -n "$python" ]; then
     gyp_params+=(-Dpython="$python")
 fi
 
+# Cross-compiling for another OS sets up the toolchain, and picks a default
+# target architecture for that OS.
+case "$target_os" in
+    "") ;;
+    android) source "$cwd/coreconf/android.sh" ;;
+    ios) source "$cwd/coreconf/ios.sh" ;;
+    *)
+        echo "Unknown --target-os: $target_os; use android or ios." 1>&2
+        exit 2
+        ;;
+esac
+
 if [ -z "$target_arch" ]; then
     # Assume that the target architecture is the same as the host by default.
     host_arch=$(${python:-python3} "$cwd/coreconf/detect_host_arch.py")
@@ -203,10 +221,6 @@ gyp_params+=(-Denable_sslkeylogfile="$sslkeylogfile")
 if [ "$fuzz" = 1 ]; then
     source "$cwd/coreconf/fuzz.sh"
 fi
-nspr_set_flags $sanitizer_flags
-if [ ! -z "$sanitizer_flags" ]; then
-    gyp_params+=(-Dsanitizer_flags="$sanitizer_flags")
-fi
 
 if [ "$msvc" = 1 ]; then
     source "$cwd/coreconf/msvc.sh"
@@ -229,6 +243,14 @@ if [ "$clang_cl" = 1 ]; then
         *) CC=clang-cl ;;
     esac
     export CC CCC="$CC" CXX="$CC"
+    if [ -n "$sanitizer_flags" ]; then
+        clang_cl_sanitizers
+    fi
+fi
+
+nspr_set_flags $sanitizer_flags
+if [ ! -z "$sanitizer_flags" ]; then
+    gyp_params+=(-Dsanitizer_flags="$sanitizer_flags")
 fi
 
 # -c = clean first
@@ -244,7 +266,7 @@ if [ "$clean" = 1 -o "$clean_only" = 1 ]; then
 fi
 
 # Setup build paths.
-target_dir="$cwd/out/$target"
+target_dir="$cwd/out/$target$out_dir_suffix"
 mkdir -p "$target_dir"
 dist_dir=$(mkdir -p "$dist_dir"; cd "$dist_dir"; pwd -P)
 gyp_params+=(-Dnss_dist_dir="$dist_dir")
@@ -285,17 +307,24 @@ if check_config "$nspr_config" \
                  nspr_cflags="$(Q "$nspr_cflags")" \
                  nspr_cxxflags="$(Q "$nspr_cxxflags")" \
                  nspr_ldflags="$(Q "$nspr_ldflags")" \
+                 nspr_dllflags="$(Q "$nspr_dllflags")" \
                  nspr_opt="$(Q "$nspr_opt")"; then
     rebuild_nspr=1
 fi
 
-if check_config "$gyp_config" "$(Q "${gyp_params[@]}")"; then
+if check_config "$gyp_config" "$(Q "${gyp_params[@]}")" gyp_format="$gyp_format"; then
     rebuild_gyp=1
 fi
 
 # Save the chosen target.
 echo "$target" > "$dist_dir/latest"
 for i in "${all_args[@]}"; do echo "$i"; done > "$argsfile"
+
+# Install the asan runtime next to the executables for easier discovery.
+if [ -n "$asan_runtime_dll" ]; then
+    mkdir -p "$dist_dir/$target/bin"
+    cp -f "$asan_runtime_dll" "$dist_dir/$target/bin/"
+fi
 
 # Build.
 # NSPR.
@@ -322,7 +351,7 @@ if [ "$rebuild_gyp" = 1 ]; then
         set_nspr_path "$obj_dir/include/nspr:$obj_dir/lib"
     fi
 
-    run_verbose run_scanbuild ${GYP} -f ninja "${gyp_params[@]}" "$cwd/nss.gyp"
+    run_verbose run_scanbuild ${GYP} -f "$gyp_format" "${gyp_params[@]}" "$cwd/nss.gyp"
 
     mv -f "$gyp_config.new" "$gyp_config"
 fi

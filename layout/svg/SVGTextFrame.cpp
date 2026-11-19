@@ -5136,6 +5136,15 @@ void SVGTextFrame::DoGlyphPositioning() {
     return;
   }
 
+  if (kid && HasAnyStateBits(NS_STATE_SVG_TEXT_CORRESPONDENCE_DIRTY) &&
+      kid->HasAnyStateBits(NS_BLOCK_NEEDS_BIDI_RESOLUTION) &&
+      PresContext()->BidiEnabled()) {
+    // Resolving bidi creates continuation frames that haven't been reflowed,
+    // so wait for the next reflow to do that.
+    AddStateBits(NS_STATE_SVG_POSITIONING_DIRTY);
+    return;
+  }
+
   // Since we can be called directly via GetBBoxContribution, our correspondence
   // may not be up to date.
   TextNodeCorrespondenceRecorder::RecordCorrespondence(this);
@@ -5359,6 +5368,14 @@ void SVGTextFrame::UpdateGlyphPositioning() {
     return;
   }
 
+  if (HasAnyStateBits(NS_STATE_SVG_TEXT_IN_REFLOW)) {
+    // The anonymous block's frames are being modified (see
+    // MaybeResolveBidiForAnonymousBlockChild), so positions can't be computed
+    // now. Leave no stale positions behind for callers to iterate over.
+    mPositions.Clear();
+    return;
+  }
+
   if (HasAnyStateBits(NS_STATE_SVG_POSITIONING_DIRTY)) {
     DoGlyphPositioning();
   }
@@ -5371,7 +5388,15 @@ void SVGTextFrame::MaybeResolveBidiForAnonymousBlockChild() {
       PresContext()->BidiEnabled()) {
     MOZ_ASSERT(static_cast<nsBlockFrame*>(do_QueryFrame(kid)),
                "Expect anonymous child to be an nsBlockFrame");
+    // Inserting continuations can synchronously notify rendering observers,
+    // which may re-enter this frame (e.g. via a bbox query) or reflow its
+    // block and invalidate the line state that bidi resolution is holding.
+    const bool wasInReflow = HasAnyStateBits(NS_STATE_SVG_TEXT_IN_REFLOW);
+    AddStateBits(NS_STATE_SVG_TEXT_IN_REFLOW);
     nsBidiPresUtils::Resolve(static_cast<nsBlockFrame*>(kid));
+    if (!wasInReflow) {
+      RemoveStateBits(NS_STATE_SVG_TEXT_IN_REFLOW);
+    }
   }
 }
 

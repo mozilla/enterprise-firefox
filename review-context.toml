@@ -47,6 +47,33 @@ load = [
   { type = "file", path = ".claude/skills/recomp-frontend-review/references/runsheet.md" },
 ]
 
+# Desktop theme: theme stylesheets and design-token files, excluding test-only
+# changes. On design-system files it fires alongside the design-system rule.
+[[rules]]
+name = "Desktop theme colors, layout and design tokens"
+description = "Color, high-contrast, dark-mode, layout and design-token checks for theme stylesheets and token files."
+when = { any_file = { include = [
+  "browser/themes/**",
+  "toolkit/themes/**",
+  "**/*.tokens.json",
+  "**/*.tokens.css",
+], exclude = [
+  "**/test/**",
+  "**/tests/**",
+  "toolkit/themes/shared/design-system/package.json",
+  "toolkit/themes/shared/design-system/package-lock.json",
+  "browser/themes/triage.json",
+], ext = [
+  ".css",
+  ".json",
+] } }
+load = [
+  { type = "file", path = ".claude/skills/desktop-theme/SKILL.md" },
+  { type = "file", path = ".claude/skills/desktop-theme-colors/SKILL.md" },
+  { type = "file", path = ".claude/skills/desktop-theme-layout/SKILL.md" },
+  { type = "file", path = ".claude/skills/desktop-theme-tokens/SKILL.md" },
+]
+
 # Web-standard implementation: native code behind WebIDL interfaces. Triggered
 # when a patch touches both a .webidl file and at least one native (.h/.cpp) file.
 [[rules]]
@@ -112,4 +139,49 @@ when = { any_file = { include = [
 ] } }
 load = [
   { type = "file", path = ".claude/skills/necko-review/SKILL.md" },
+]
+
+[[rules]]
+name = "Android"
+description = "Android conventions and principles"
+when = { any_file = { include = [
+  "mobile/android/**",
+], ext = [
+  ".kt",
+  ".java",
+  ".xml",
+  ".yaml",
+] } }
+load = [
+  { type = "file", path = ".agents/skills/android/SKILL.md" },
+]
+
+# Media: Triggered when a patch touches dom/media source code.
+[[rules]]
+name = "dom/media"
+description = "dom/media review checklists: threading, async lifecycle, IPC, memory safety and spec correctness"
+when = { any_file = { include = [
+  "dom/media/**",
+], exclude = [
+  "dom/media/gmp/rlz/**",
+  "dom/media/gmp/widevine-adapter/content_decryption_module*",
+  "dom/media/platforms/ffmpeg/ffmpeg[0-9]*/**",
+  "dom/media/platforms/ffmpeg/libav[0-9]*/**",
+  "dom/media/webrtc/transport/third_party/**",
+], ext = [
+  ".c",
+  ".cc",
+  ".cpp",
+  ".h",
+  ".ipdl",
+  ".ipdlh",
+  ".mm",
+  ".rs",
+] } }
+load = [
+  { type = "file", path = "dom/media/docs/review/threading.md" },
+  { type = "file", path = "dom/media/docs/review/async-lifecycle.md" },
+  { type = "file", path = "dom/media/docs/review/ipc.md" },
+  { type = "file", path = "dom/media/docs/review/memory-safety.md" },
+  { type = "file", path = "dom/media/docs/review/spec-correctness.md" },
 ]

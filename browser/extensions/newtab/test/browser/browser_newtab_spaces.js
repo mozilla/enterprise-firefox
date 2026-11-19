@@ -166,33 +166,6 @@ test_newtab({
 
 test_newtab({
   async before({ pushPrefs }) {
-    // Everything spaces needs except Nova, whose stylesheet it depends on.
-    await pushPrefs(...spacesPrefs("spaces-buttons-bottom"), [
-      "browser.newtabpage.activity-stream.nova.enabled",
-      false,
-    ]);
-  },
-
-  test: async function test_spaces_does_nothing_without_nova() {
-    // .content-full-width is Nova-only, so wait on the wrapper both layouts have.
-    await ContentTaskUtils.waitForCondition(
-      () => content.document.querySelector(".outer-wrapper"),
-      "Wait for the page to render"
-    );
-
-    ok(
-      !content.document.querySelector(".spaces-container"),
-      "No spaces container without Nova"
-    );
-    ok(
-      !content.document.querySelector('[role="tablist"]'),
-      "No unstyled tablist is left on the page"
-    );
-  },
-});
-
-test_newtab({
-  async before({ pushPrefs }) {
     // Everything spaces needs except the variant, which stays at its default.
     await pushPrefs(...spacesPrefs("nova-full-width"));
   },
@@ -276,12 +249,8 @@ test_newtab({
       "Wait for the spaces container to render"
     );
 
-    const labels = Array.from(
-      container.querySelectorAll('[role="tab"]'),
-      tab => tab.textContent
-    );
     ok(
-      labels.some(label => label.includes("Stories")),
+      container.querySelector("#spaces-tab-stories"),
       "The Stories space comes back for a user who had stories off"
     );
 
@@ -323,12 +292,8 @@ test_newtab({
       "Wait for the spaces container to render"
     );
 
-    const labels = Array.from(
-      container.querySelectorAll('[role="tab"]'),
-      tab => tab.textContent
-    );
     ok(
-      !labels.some(label => label.includes("Stories")),
+      !container.querySelector("#spaces-tab-stories"),
       "A profile that had stories on at enrollment keeps its later opt-out"
     );
   },

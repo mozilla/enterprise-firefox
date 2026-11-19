@@ -14,14 +14,14 @@ function getThemePickerScreen() {
 }
 
 add_task(async function test_aboutwelcome_theme_picker_screen_displays() {
-  // AW_THEME_PICKER is targeted on browser.nova.enabled.
   await pushPrefs(
-    ["browser.nova.enabled", true],
     ["ui.systemUsesDarkTheme", -1],
     ["browser.theme.native-theme", false]
   );
   await setAboutWelcomeMultiStage(JSON.stringify([getThemePickerScreen()]));
 
+  // Earlier tests can leave unflushed theme picker events in content processes.
+  await Services.fog.testFlushAllChildren();
   Services.fog.testResetFOG();
 
   let { cleanup, browser } = await openMRAboutWelcome();

@@ -5,7 +5,6 @@
 
 import itertools
 import json
-import math
 import os
 import posixpath
 import sys
@@ -40,6 +39,19 @@ class SingleTestMixin:
         if suite and (suite == "gpu" or suite.startswith("webgl")):
             return True
         return False
+
+    @staticmethod
+    def _tests_under(tests_by_path, paths):
+        prefixes = []
+        for path in paths:
+            path = path.replace(posixpath.sep, os.sep).rstrip(os.sep)
+            prefixes.append((path, path + os.sep))
+
+        return [
+            test
+            for test in tests_by_path
+            if any(test == path or test.startswith(prefix) for path, prefix in prefixes)
+        ]
 
     def _find_misc_tests(self, dirs, changed_files, mozinfo, gpu=False):
         manifests = [
@@ -165,6 +177,15 @@ class SingleTestMixin:
                 % (path, len(man.files))
             )
 
+        if self.config.get("verify_paths"):
+            requested_paths = changed_files
+            changed_files = self._tests_under(tests_by_path, requested_paths)
+            if not changed_files:
+                self.warning(
+                    "Per-test run found no test under the requested paths: "
+                    + ", ".join(sorted(requested_paths))
+                )
+
         # for each changed file, determine if it is a test file, and what suite it is in
         for file in changed_files:
             # manifest paths use os.sep (like backslash on Windows) but
@@ -278,6 +299,9 @@ class SingleTestMixin:
         import manifest as wptmanifest
 
         tests_root = os.path.join(dirs["abs_wpttest_dir"], "tests")
+        test_types = {"testharness", "reftest", "wdspec", "crashtest"}
+        if mozinfo.info.get("buildapp") != "mobile/android":
+            test_types.add("print-reftest")
 
         for extra in ("", "mozilla"):
             base_path = os.path.join(dirs["abs_wpttest_dir"], extra)
@@ -288,13 +312,7 @@ class SingleTestMixin:
             repo_tests_path = os.path.join("testing", "web-platform", extra, "tests")
             tests_path = os.path.join("tests", "web-platform", extra, "tests")
             for type, path, test in man:
-                if type not in [
-                    "testharness",
-                    "reftest",
-                    "wdspec",
-                    "crashtest",
-                    "print-reftest",
-                ]:
+                if type not in test_types:
                     continue
                 repo_path = os.path.join(repo_tests_path, path)
                 # manifest paths use os.sep (like backslash on Windows) but
@@ -428,11 +446,11 @@ class SingleTestMixin:
                     if changed.startswith(specified):
                         changed_and_specified.add(changed)
                         break
-            if changed_and_specified:
+            if changed_and_specified and not self.config.get("verify_paths"):
                 changed_files = changed_and_specified
             else:
-                # if specified paths do not match changed files, assume the
-                # specified paths are explicitly requested tests
+                # verify the specified paths themselves when asked to or when
+                # they do not match changed files
                 changed_files = set()
                 changed_files.update(specified_paths)
             self.info("Per-test run found explicit request in MOZHARNESS_TEST_PATHS:")
@@ -467,25 +485,21 @@ class SingleTestMixin:
     def _chunk_suites(self, total_chunks, this_chunk):
         """Return the share of self.suites that this chunk should run.
 
-        The suites are sorted because they are built by iterating a set of
-        paths, whose order varies between processes: every chunk has to slice
-        the same list for the chunks to together cover each test once.
+        Each chunk takes every total_chunks-th test, so that all chunks get the
+        same mix of suites, as the decision task sizes them from the time each
+        suite takes. The suites are sorted because they are built by iterating
+        a set of paths, whose order varies between processes: every chunk has
+        to stride through the same list for the chunks to together cover each
+        test once.
         """
-        total_tests = sum(len(tests) for tests in self.suites.values())
-        files_per_chunk = int(math.ceil(total_tests / float(total_chunks)))
-
+        tests = [
+            (suite, test)
+            for suite in sorted(self.suites)
+            for test in sorted(self.suites[suite])
+        ]
         suites = {}
-        start = (this_chunk - 1) * files_per_chunk
-        end = this_chunk * files_per_chunk
-        current = -1
-        for suite in sorted(self.suites):
-            for test in sorted(self.suites[suite]):
-                current += 1
-                if current >= start and current < end:
-                    suites.setdefault(suite, []).append(test)
-            if current >= end:
-                break
-
+        for suite, test in tests[this_chunk - 1 :: total_chunks]:
+            suites.setdefault(suite, []).append(test)
         return suites
 
     def query_args(self, suite):

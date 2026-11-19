@@ -61,6 +61,7 @@ struct JSStructuredCloneWriter;
 #define WEBCRYPTO_KEY_FORMAT_JWK "jwk"
 #define WEBCRYPTO_KEY_FORMAT_RAW_PUBLIC "raw-public"
 #define WEBCRYPTO_KEY_FORMAT_RAW_SEED "raw-seed"
+#define WEBCRYPTO_KEY_FORMAT_RAW_SECRET "raw-secret"
 
 // WebCrypto key types
 #define WEBCRYPTO_KEY_TYPE_PUBLIC "public"
@@ -93,6 +94,7 @@ struct JSStructuredCloneWriter;
 #define JWK_TYPE_RSA "RSA"
 #define JWK_TYPE_EC "EC"
 #define JWK_TYPE_OKP "OKP"
+#define JWK_TYPE_AKP "AKP"
 
 // JWK algorithms
 #define JWK_ALG_A128CBC "A128CBC"  // CBC

@@ -164,25 +164,23 @@ let checkContextMenu = async (cbfunc, optionItems, doc = document) => {
   });
 
   // Open and check the context menu twice, once with
-  // `browser.tabs.loadBookmarksInTabs` set to true and again with it set to
+  // `browser.tabs.loadUILinkInTab` set to true and again with it set to
   // false.
-  for (let loadBookmarksInNewTab of [true, false]) {
-    info(
-      `Running checkContextMenu: ` + JSON.stringify({ loadBookmarksInNewTab })
-    );
+  for (let loadUILinkInTab of [true, false]) {
+    info(`Running checkContextMenu: ` + JSON.stringify({ loadUILinkInTab }));
 
     await SpecialPowers.pushPrefEnv({
-      set: [["browser.tabs.loadBookmarksInTabs", loadBookmarksInNewTab]],
+      set: [["browser.tabs.loadUILinkInTab", loadUILinkInTab]],
     });
 
-    // When `loadBookmarksInTabs` is true, the usual placesContext_open:newtab
+    // When `loadUILinkInTab` is true, the usual placesContext_open:newtab
     // item is hidden and placesContext_open is shown. The tasks in this test
-    // assume that `loadBookmarksInTabs` is false, so when a caller expects
+    // assume that `loadUILinkInTab` is false, so when a caller expects
     // placesContext_open:newtab to appear but not placesContext_open, add it to
     // the list of expected items when the pref is set.
     let expectedOptionItems = [...optionItems];
     if (
-      loadBookmarksInNewTab &&
+      loadUILinkInTab &&
       optionItems.includes("placesContext_open:newtab") &&
       !optionItems.includes("placesContext_open")
     ) {
@@ -203,15 +201,15 @@ let checkContextMenu = async (cbfunc, optionItems, doc = document) => {
     if (expectedOptionItems.includes("placesContext_open")) {
       Assert.equal(
         doc.getElementById("placesContext_open").getAttribute("default"),
-        loadBookmarksInNewTab ? null : "true",
-        `placesContext_open has the correct "default" attribute when loadBookmarksInTabs = ${loadBookmarksInNewTab}`
+        loadUILinkInTab ? null : "true",
+        `placesContext_open has the correct "default" attribute when loadUILinkInTab = ${loadUILinkInTab}`
       );
     }
     if (expectedOptionItems.includes("placesContext_open:newtab")) {
       Assert.equal(
         doc.getElementById("placesContext_open:newtab").getAttribute("default"),
-        loadBookmarksInNewTab ? "true" : null,
-        `placesContext_open:newtab has the correct "default" attribute when loadBookmarksInTabs = ${loadBookmarksInNewTab}`
+        loadUILinkInTab ? "true" : null,
+        `placesContext_open:newtab has the correct "default" attribute when loadUILinkInTab = ${loadUILinkInTab}`
       );
     }
 

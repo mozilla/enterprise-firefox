@@ -38,6 +38,8 @@ public class DebugConfig {
   protected List<String> args;
 
   public static class ConfigException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
     public ConfigException(final String message) {
       super(message);
     }
@@ -48,9 +50,9 @@ public class DebugConfig {
     final LoaderOptions options = new LoaderOptions();
     final Constructor constructor = new Constructor(DebugConfig.class, options);
     final TypeDescription description = new TypeDescription(DebugConfig.class);
-    description.putMapPropertyType("prefs", String.class, Object.class);
-    description.putMapPropertyType("env", String.class, String.class);
-    description.putListPropertyType("args", String.class);
+    description.addPropertyParameters("prefs", String.class, Object.class);
+    description.addPropertyParameters("env", String.class, String.class);
+    description.addPropertyParameters("args", String.class);
 
     final Yaml yaml = new Yaml(constructor);
     yaml.addTypeDescription(description);

@@ -100,6 +100,10 @@ nsMenuItemX::nsMenuItemX(nsMenuX* aParent, const nsString& aLabel,
     mNativeMenuItem = [[GeckoNSMenuItem alloc] initWithTitle:newCocoaLabelString
                                                       action:nil
                                                keyEquivalent:@""];
+    if (@available(macOS 27.0, *)) {
+      mNativeMenuItem.preferredImageVisibility =
+          NSMenuItemImageVisibilityVisible;
+    }
 
     SetEnabled();
     SetChecked();
@@ -192,6 +196,7 @@ nsMenuItemX::~nsMenuItemX() {
   // autorelease the native menu item so that anything else happening to this
   // object happens before the native menu item actually dies
   [mNativeMenuItem autorelease];
+  [mBuiltInKeyEquivalent release];
 
   DetachFromGroupOwner();
 
@@ -376,6 +381,10 @@ void nsMenuItemX::SetKeyEquiv() {
     }
   }
 
+  [mBuiltInKeyEquivalent release];
+  mBuiltInKeyEquivalent = [keyEquivalent copy];
+  mBuiltInKeyEquivalentModifierMask = macModifiers;
+
   // Setting these posts NSMenuDidChangeItemNotification, so only touch what
   // changed.
   if (mNativeMenuItem.keyEquivalentModifierMask != macModifiers) {
@@ -417,6 +426,24 @@ void nsMenuItemX::SetTitle() {
   CopyUserKeyEquivalentToKeyElement();
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
+bool nsMenuItemX::HasInternalShortcut() {
+  if (!mKeyElement) {
+    return false;
+  }
+  dom::Element* handlerElement = mKeyElement;
+  nsAutoString command;
+  mKeyElement->GetAttr(nsGkAtoms::command, command);
+  if (!command.IsEmpty()) {
+    dom::Document* document = mKeyElement->GetUncomposedDoc();
+    handlerElement = document ? document->GetElementById(command) : nullptr;
+    if (!handlerElement) {
+      return false;
+    }
+  }
+  return handlerElement->AttrValueIs(kNameSpaceID_None, nsGkAtoms::internal,
+                                     nsGkAtoms::_true, eCaseMatters);
 }
 
 void nsMenuItemX::CopyUserKeyEquivalentToKeyElement() {

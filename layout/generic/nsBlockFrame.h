@@ -605,10 +605,12 @@ class nsBlockFrame : public nsContainerFrame {
     bool mNeedFloatManager;
     // [out] Whether reflowing resulted in use of an overflow-wrap break.
     bool mUsedOverflowWrap = false;
+    // [out] Whether line-clamp was applied during this trial.
+    bool mDidApplyLineClamp = false;
     // Settings for the current trial.
     bool mBalancing = false;
-    // Set when we are auto line clamping, driven by
-    // ReflowInput::mFlags::mDimensionsReadyForLineClampAuto
+    // Set when we are line clamping, driven by
+    // ReflowInput::mFlags::mDimensionsReadyForLineClamp
     bool mLineClamping = false;
     bool mShouldTrimInheritedBEndMargins = false;
     nscoord mInset = 0;
@@ -633,6 +635,7 @@ class nsBlockFrame : public nsContainerFrame {
       mBlockEndEdgeOfChildren = 0;
       mContainerWidth = 0;
       mUsedOverflowWrap = false;
+      mDidApplyLineClamp = false;
     }
 
     // Adjust the inset amount, and reset state for a new trial.
@@ -774,7 +777,7 @@ class nsBlockFrame : public nsContainerFrame {
   Maybe<LineClampTarget> FindLineClampAutoTarget(
       const ReflowInput& aReflowInput, nsBlockFrame* aLineClampRoot);
   Maybe<LineClampTarget> FindLineClampNumberedTarget(
-      nscoord aCollapsingBEndMargin, nsBlockFrame* aLineClampRoot) const;
+      nsBlockFrame* aLineClampRoot) const;
   void ApplyLineClamp(LineClampTarget aLineClampTarget,
                       nsBlockFrame* aLineClampRoot);
   // Helper for calling ApplyLineClamp with automatic and line-based sizing.
@@ -782,6 +785,14 @@ class nsBlockFrame : public nsContainerFrame {
       Maybe<nsBlockFrame::LineClampTarget> aLineClampAutoTarget,
       Maybe<nsBlockFrame::LineClampTarget> aLineClampNumberedTarget,
       nsBlockFrame* aLineClampRoot);
+
+  // Resolved descendant maximum block size, including border and padding.
+  NS_DECLARE_FRAME_PROPERTY_SMALL_VALUE(LineClampDescendantMaxBSize, nscoord);
+  Maybe<nscoord> GetLineClampDescendantMaxBSize() const {
+    bool found = false;
+    const nscoord maxBSize = GetProperty(LineClampDescendantMaxBSize(), &found);
+    return found ? mozilla::Some(maxBSize) : Nothing();
+  }
 
   struct LineClampAutoInfo {
     Maybe<nscoord> lineClampRootMaxHeight = Nothing();
@@ -1240,6 +1251,7 @@ class nsBlockFrame : public nsContainerFrame {
   nsLineList mLines;
 
   friend class mozilla::BlockReflowState;
+  friend class LineClampLineIterator;
   friend class nsBlockInFlowLineIterator;
 
 #ifdef DEBUG

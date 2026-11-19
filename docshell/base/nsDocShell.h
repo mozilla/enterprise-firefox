@@ -173,6 +173,10 @@ class nsDocShell final : public nsDocLoader,
 
   using nsIBaseWindow::GetMainWidget;
 
+  // Called when the title of our document changes.
+  void SetTitle(const nsAString& aTitle);
+  void GetTitle(nsAString& aTitle) const { aTitle = mTitle; }
+
   // Create a new nsDocShell object.
   static already_AddRefed<nsDocShell> Create(
       mozilla::dom::BrowsingContext* aBrowsingContext,
@@ -617,7 +621,7 @@ class nsDocShell final : public nsDocLoader,
       nsDocShell* aDocShell, mozilla::dom::Document* aDocument,
       uint32_t aLoadType, mozilla::dom::BrowsingContext* aBrowsingContext,
       nsIURI* aCurrentURI, nsIReferrerInfo* aReferrerInfo,
-      bool aNotifiedBeforeUnloadListeners = false);
+      uint32_t aInternalLoadFlags, bool aNotifiedBeforeUnloadListeners = false);
 
  public:
   bool ShouldDoInitialAboutBlankSyncLoad(nsIURI* aURI,

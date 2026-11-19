@@ -374,6 +374,7 @@ pub struct WrImageDescriptor {
     pub opacity: OpacityType,
     // TODO(gw): Remove this flag (use prim flags instead).
     pub prefer_compositor_surface: bool,
+    pub is_drm_source: bool,
 }
 
 impl<'a> From<&'a WrImageDescriptor> for ImageDescriptor {
@@ -382,6 +383,10 @@ impl<'a> From<&'a WrImageDescriptor> for ImageDescriptor {
 
         if desc.opacity == OpacityType::Opaque {
             flags |= ImageDescriptorFlags::IS_OPAQUE;
+        }
+
+        if desc.is_drm_source {
+            flags |= ImageDescriptorFlags::IS_DRM_SOURCE;
         }
 
         ImageDescriptor {
@@ -1723,11 +1728,7 @@ impl Compositor for WrCompositor {
         let mut uses_os_layers = false;
         let mut max_partial_present_rects = 0;
         unsafe {
-            wr_compositor_get_swapchain_mode(
-                self.0,
-                &mut uses_os_layers,
-                &mut max_partial_present_rects,
-            );
+            wr_compositor_get_swapchain_mode(self.0, &mut uses_os_layers, &mut max_partial_present_rects);
         }
         if uses_os_layers {
             SwapchainMode::OsLayers {
@@ -2473,7 +2474,7 @@ pub extern "C" fn wr_resource_updates_add_blob_image(
         descriptor.into(),
         Arc::new(bytes.flush_into_vec()),
         visible_rect,
-        if descriptor.format == ImageFormat::BGRA8 || adjusted > tile_size {
+        if descriptor.format == ImageFormat::BGRA8 || adjusted > tile_size || tile_size > DEFAULT_TILE_SIZE {
             Some(adjusted)
         } else {
             None
@@ -2761,9 +2762,10 @@ fn read_font_descriptor(bytes: &mut WrVecU8, index: u32) -> NativeFontHandle {
     // portion of the descriptor (= starting offset of the path).
     // Here, we split the descriptor into its two components for further use.
     let chars = bytes.flush_into_vec();
+    let offset = chars.len().min(index as usize);
     NativeFontHandle {
-        name: String::from_utf8(chars[..index as usize].to_vec()).unwrap_or("".to_string()),
-        path: String::from_utf8(chars[index as usize..].to_vec()).unwrap_or("".to_string()),
+        name: String::from_utf8(chars[..offset].to_vec()).unwrap_or("".to_string()),
+        path: String::from_utf8(chars[offset..].to_vec()).unwrap_or("".to_string()),
     }
 }
 

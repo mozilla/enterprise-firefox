@@ -253,6 +253,7 @@ let JSWINDOWACTORS = {
         "AIChatContent:HistoryGridRender": { wantUntrusted: true },
         "AIChatContent:HistoryGridItemClick": { wantUntrusted: true },
         "AIChatContent:FirstCharacterDisplayed": { wantUntrusted: true },
+        "AIChatContent:FirstActionLogDisplayed": { wantUntrusted: true },
         "AIChatContent:ClientError": { wantUntrusted: true },
       },
     },
@@ -309,6 +310,7 @@ let JSWINDOWACTORS = {
         "moz-src:///browser/components/aiwindow/ui/actors/AgentMonitorItemChild.sys.mjs",
       events: {
         "agent-monitor-item:resolve-titles": { wantUntrusted: true },
+        "agent-monitor-item:request-suggestion": { wantUntrusted: true },
       },
     },
     allFrames: true,

@@ -180,6 +180,12 @@ support-files = ["res_hello_h1.sjs"]
 
 ["browser_essential_domain_fallbacks.js"]
 
+["browser_eventsource_worker_close.js"]
+support-files = [
+  "eventsource_worker_close.sjs",
+  "eventsource_worker_close_worker.js",
+]
+
 ["browser_fetch_after_suspending_request.js"]
 
 ["browser_fetch_lnk.js"]
@@ -206,9 +212,6 @@ skip-if = [
 ["browser_necko_l10n.js"]
 
 ["browser_nsIFormPOSTActionChannel.js"]
-skip-if = [
-  "true", # protocol handler and channel does not work in content process
-]
 
 ["browser_post_auth.js"]
 
@@ -233,9 +236,6 @@ support-files = [
   "damonbowling.jpg",
   "damonbowling.jpg^headers^",
   "file_favicon.html",
-]
-skip-if = [
-  "verify-standalone",
 ]
 
 ["browser_test_file_channel_observer.js"]

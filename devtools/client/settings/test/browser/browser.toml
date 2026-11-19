@@ -6,6 +6,8 @@ support-files = [
   "!/devtools/client/shared/test/shared-head.js",
 ]
 
+["browser_settings_additional_tools.js"]
+
 ["browser_settings_anti_tracking_hidden.js"]
 
 ["browser_settings_debugger_stylesheets.js"]
@@ -20,10 +22,14 @@ support-files = [
 
 ["browser_settings_inspector_reload.js"]
 
+["browser_settings_netmonitor_body_limit.js"]
+
 ["browser_settings_preference_bindings.js"]
 
 ["browser_settings_rulers.js"]
 
 ["browser_settings_split_console.js"]
+
+["browser_settings_themes.js"]
 
 ["browser_settings_toolbox_buttons_support.js"]

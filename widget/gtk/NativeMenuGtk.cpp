@@ -40,10 +40,6 @@ using GtkMenuPopupAtRect = void (*)(GtkMenu* menu, GdkWindow* rect_window,
                                     GdkGravity menu_anchor,
                                     const GdkEvent* trigger_event);
 
-static bool IsDisabled(const dom::Element& aElement) {
-  return aElement.GetBoolAttr(nsGkAtoms::disabled) ||
-         aElement.GetBoolAttr(nsGkAtoms::hidden);
-}
 static bool NodeIsRelevant(const nsINode& aNode) {
   return aNode.IsAnyOfXULElements(nsGkAtoms::menu, nsGkAtoms::menuseparator,
                                   nsGkAtoms::menuitem, nsGkAtoms::menugroup,
@@ -153,6 +149,8 @@ nsPrintfCString Actions::Register(const dom::Element& aMenuItem,
   } else {
     g_signal_connect(action, "activate", G_CALLBACK(ActivateSignal),
                      gpointer(&aMenuItem));
+    g_simple_action_set_enabled(action,
+                                !aMenuItem.GetBoolAttr(nsGkAtoms::disabled));
   }
   g_action_map_add_action(G_ACTION_MAP(mGroup.get()), G_ACTION(action.get()));
   return actionName;
@@ -191,8 +189,8 @@ class MenuModel : public nsStubMutationObserver {
 
   bool IsShowing() { return mShowing; }
   void WillShow() {
-    mShowing = true;
     RecomputeModelIfNeeded();
+    mShowing = true;
   }
   void DidHide() { mShowing = false; }
 
@@ -214,10 +212,13 @@ class MenuModel : public nsStubMutationObserver {
 
 class MenuModelGMenu final : public MenuModel {
  public:
-  explicit MenuModelGMenu(dom::Element* aElement) : MenuModel(aElement) {
+  MenuModelGMenu(dom::Element* aElement, NativeMenuGtk* aOwner)
+      : MenuModel(aElement), mOwner(aOwner) {
     mGMenu = dont_AddRef(g_menu_new());
     mActions.mGroup = dont_AddRef(g_simple_action_group_new());
   }
+
+  void DetachFromOwner() { mOwner = nullptr; }
 
   GMenuModel* GetModel() { return G_MENU_MODEL(mGMenu.get()); }
   GActionGroup* GetActionGroup() {
@@ -229,6 +230,8 @@ class MenuModelGMenu final : public MenuModel {
   static void RecomputeModelFor(GMenu* aMenu, Actions& aActions,
                                 const dom::Element& aElement);
 
+  // Weak, NativeMenuGtk owns us.
+  NativeMenuGtk* mOwner;
   RefPtr<GMenu> mGMenu;
   Actions mActions;
 };
@@ -238,8 +241,11 @@ NS_IMPL_ISUPPORTS(MenuModel, nsIMutationObserver)
 void MenuModel::ContentWillBeRemoved(nsIContent* aChild,
                                      const ContentRemoveInfo&) {
   if (NodeIsRelevant(*aChild)) {
-    nsContentUtils::AddScriptRunner(NewRunnableMethod(
-        "MenuModel::ContentWillBeRemoved", this, &MenuModel::DirtyModel));
+    // Keep the child alive until the model is recomputed, so that no item
+    // outlives the element it was created for.
+    nsContentUtils::AddScriptRunner(NS_NewRunnableFunction(
+        "MenuModel::ContentWillBeRemoved",
+        [self = RefPtr{this}, child = RefPtr{aChild}] { self->DirtyModel(); }));
   }
 }
 
@@ -287,8 +293,11 @@ void MenuModelGMenu::RecomputeModelFor(GMenu* aMenu, Actions& aActions,
 
   for (const nsIContent* child = aElement.GetFirstChild(); child;
        child = child->GetNextSibling()) {
-    if (child->IsXULElement(nsGkAtoms::menuitem) &&
-        !IsDisabled(*child->AsElement())) {
+    if (!child->IsElement() ||
+        child->AsElement()->GetBoolAttr(nsGkAtoms::hidden)) {
+      continue;
+    }
+    if (child->IsXULElement(nsGkAtoms::menuitem)) {
       nsAutoString label;
       child->AsElement()->GetAttr(nsGkAtoms::label, label);
       if (label.IsEmpty()) {
@@ -314,8 +323,9 @@ void MenuModelGMenu::RecomputeModelFor(GMenu* aMenu, Actions& aActions,
       FlushSectionMenu();
       continue;
     }
-    if (child->IsXULElement(nsGkAtoms::menu) &&
-        !IsDisabled(*child->AsElement())) {
+    if (child->IsXULElement(nsGkAtoms::menu)) {
+      // TODO: Support disabled submenus if needed. GTK only uses the regular
+      // action (not the submenu-action) for sensitivity.
       if (const auto* popup = GetMenuPopupChild(*child->AsElement())) {
         RefPtr<GMenu> submenu = dont_AddRef(g_menu_new());
         RecomputeModelFor(submenu, aActions, *popup);
@@ -341,6 +351,9 @@ void MenuModelGMenu::RecomputeModel() {
   mActions.Clear();
   g_menu_remove_all(mGMenu.get());
   RecomputeModelFor(mGMenu.get(), mActions, *mElement);
+  if (mShowing && mOwner) {
+    mOwner->QueueResizeToContent();
+  }
 }
 
 static GtkMenuPopupAtRect GetPopupAtRectFn() {
@@ -370,7 +383,7 @@ METHOD_SIGNAL(Unmap);
 #undef METHOD_SIGNAL
 
 NativeMenuGtk::NativeMenuGtk(dom::Element* aElement)
-    : mMenuModel(MakeRefPtr<MenuModelGMenu>(aElement)) {
+    : mMenuModel(MakeRefPtr<MenuModelGMenu>(aElement, this)) {
   // Floating, so no need to dont_AddRef.
   mNativeMenu = gtk_menu_new_from_model(mMenuModel->GetModel());
   gtk_widget_insert_action_group(mNativeMenu.get(), "menu",
@@ -379,7 +392,38 @@ NativeMenuGtk::NativeMenuGtk(dom::Element* aElement)
 }
 
 NativeMenuGtk::~NativeMenuGtk() {
+  mMenuModel->DetachFromOwner();
   g_signal_handlers_disconnect_by_data(mNativeMenu, this);
+}
+
+void NativeMenuGtk::QueueResizeToContent() {
+  if (mResizePending) {
+    return;
+  }
+  mResizePending = true;
+  NS_DispatchToCurrentThread(NewRunnableMethod(
+      "NativeMenuGtk::ResizeToContent", this, &NativeMenuGtk::ResizeToContent));
+}
+
+// GtkMenu pins the size of its toplevel once it has been placed, so content
+// changes while the menu is open don't resize it unless done manually.
+void NativeMenuGtk::ResizeToContent() {
+  mResizePending = false;
+  if (mClosePending || !mMenuModel->IsShowing() ||
+      !gtk_widget_get_mapped(mNativeMenu)) {
+    return;
+  }
+  GtkWidget* toplevel = gtk_widget_get_toplevel(mNativeMenu);
+  if (NS_WARN_IF(!GTK_IS_WINDOW(toplevel))) {
+    return;
+  }
+  GtkRequisition natural;
+  gtk_widget_get_preferred_size(toplevel, nullptr, &natural);
+  gtk_window_set_resizable(GTK_WINDOW(toplevel), TRUE);
+  gtk_window_resize(GTK_WINDOW(toplevel), natural.width, natural.height);
+  // re-constrain to the screen.
+  gtk_menu_reposition(GTK_MENU(mNativeMenu.get()));
+  gtk_window_set_resizable(GTK_WINDOW(toplevel), FALSE);
 }
 
 RefPtr<dom::Element> NativeMenuGtk::Element() { return mMenuModel->Element(); }
@@ -485,27 +529,21 @@ class MenubarModelDBus final : public MenuModel {
 
  protected:
   void RecomputeModel() override;
-  static void AppendMenuItem(DbusmenuMenuitem* aParent,
-                             const dom::Element* aElement);
-  static void AppendSeparator(DbusmenuMenuitem* aParent);
-  static void AppendSubmenu(DbusmenuMenuitem* aParent,
-                            const dom::Element* aMenu,
-                            const dom::Element* aPopup);
-  static uint RecomputeModelFor(DbusmenuMenuitem* aParent,
-                                const dom::Element& aElement);
+
+  // Brings the children of aParent in line with the children of aElement.
+  // The dbusmenu protocol identifies items by id, and a new DbusmenuMenuitem
+  // gets a new id. We try to reuse existing items for elements that are still
+  // around to prevent the menu from closing unexpectedly when the tree changes,
+  // and to make submenus work better in general (some clients don't re-fetch
+  // submenus on layout changes properly).
+  static void SyncChildren(DbusmenuMenuitem* aParent,
+                           const dom::Element& aElement);
 
   RefPtr<DbusmenuMenuitem> mRoot;
 };
 
 void MenubarModelDBus::RecomputeModel() {
-  while (GList* children = dbusmenu_menuitem_get_children(mRoot.get())) {
-    auto* first = static_cast<DbusmenuMenuitem*>(children->data);
-    if (!first) {
-      break;
-    }
-    dbusmenu_menuitem_child_delete(mRoot.get(), first);
-  }
-  RecomputeModelFor(mRoot, *Element());
+  SyncChildren(mRoot.get(), *Element());
 }
 
 static const dom::Element* RelevantElementForKeys(
@@ -599,6 +637,8 @@ static void UpdateAccel(DbusmenuMenuitem* aItem, const nsIContent* aContent) {
     dbusmenu_menuitem_property_set_shortcut(
         aItem, key,
         static_cast<GdkModifierType>(ModifiersFrom(aContent->AsElement())));
+  } else {
+    dbusmenu_menuitem_property_remove(aItem, DBUSMENU_MENUITEM_PROP_SHORTCUT);
   }
 }
 
@@ -610,6 +650,10 @@ static void UpdateRadioOrCheck(DbusmenuMenuitem* aItem,
                                            attrs, eCaseMatters);
 
   if (type < 0 || type >= 2) {
+    dbusmenu_menuitem_property_remove(aItem,
+                                      DBUSMENU_MENUITEM_PROP_TOGGLE_TYPE);
+    dbusmenu_menuitem_property_remove(aItem,
+                                      DBUSMENU_MENUITEM_PROP_TOGGLE_STATE);
     return;
   }
 
@@ -634,27 +678,55 @@ static void UpdateEnabled(DbusmenuMenuitem* aItem, const nsIContent* aContent) {
                                       !disabled);
 }
 
-// we rebuild the dbus model when elements are removed from the DOM,
-// so this isn't going to trigger for asynchronous
-static MOZ_CAN_RUN_SCRIPT void DBusActivationCallback(
-    DbusmenuMenuitem* aMenuitem, guint aTimestamp, gpointer aUserData) {
-  RefPtr element = static_cast<dom::Element*>(aUserData);
-  ActivateItem(*element);
+enum class DBusItemKind : uint8_t {
+  MenuItem = 1,
+  Separator,
+  Submenu,
+};
+
+// Helpers to manage DbusmenuMenuitem properties.
+namespace Props {
+#  define PROP(type_, ident_, name_, cast_)                                    \
+    [[maybe_unused]] static type_ ident_(DbusmenuMenuitem* aItem) {            \
+      return cast_<type_>(reinterpret_cast<uintptr_t>(                         \
+          g_object_get_data(G_OBJECT(aItem), name_)));                         \
+    }                                                                          \
+    static void Set##ident_(DbusmenuMenuitem* aItem, const type_ aValue) {     \
+      g_object_set_data(G_OBJECT(aItem), name_,                                \
+                        reinterpret_cast<gpointer>(cast_<uintptr_t>(aValue))); \
+    }
+
+PROP(dom::Element*, Element, "moz-menu-item-element", reinterpret_cast);
+PROP(DBusItemKind, Kind, "moz-menu-item-kind", static_cast);
+
+#  undef PROP
+
+static void ForgetElements(DbusmenuMenuitem* aItem) {
+  SetElement(aItem, nullptr);
+  for (GList* l = dbusmenu_menuitem_get_children(aItem); l; l = l->next) {
+    ForgetElements(static_cast<DbusmenuMenuitem*>(l->data));
+  }
 }
 
-static void ConnectActivated(DbusmenuMenuitem* aItem,
-                             const dom::Element* aContent) {
-  g_signal_connect(G_OBJECT(aItem), DBUSMENU_MENUITEM_SIGNAL_ITEM_ACTIVATED,
-                   G_CALLBACK(DBusActivationCallback),
-                   const_cast<dom::Element*>(aContent));
+}  // namespace Props
+
+static MOZ_CAN_RUN_SCRIPT void DBusActivationCallback(
+    DbusmenuMenuitem* aMenuitem, guint aTimestamp, gpointer) {
+  RefPtr element = Props::Element(aMenuitem);
+  if (NS_WARN_IF(!element)) {
+    return;
+  }
+  ActivateItem(*element);
 }
 
 static MOZ_CAN_RUN_SCRIPT bool DBusEventCallback(DbusmenuMenuitem* aMenuItem,
                                                  const gchar* name,
                                                  GVariant* variant,
-                                                 guint timestamp,
-                                                 gpointer aUserData) {
-  RefPtr element = static_cast<dom::Element*>(aUserData);
+                                                 guint timestamp, gpointer) {
+  RefPtr element = Props::Element(aMenuItem);
+  if (NS_WARN_IF(!element)) {
+    return false;
+  }
   if (strcmp(name, "opened") == 0) {
     FireEvent(element, eXULPopupShowing);
     FireEvent(element, eXULPopupShown);
@@ -665,79 +737,126 @@ static MOZ_CAN_RUN_SCRIPT bool DBusEventCallback(DbusmenuMenuitem* aMenuItem,
   return false;
 }
 
-static void ConnectEvent(DbusmenuMenuitem* aItem,
-                         const dom::Element* aContent) {
-  g_signal_connect(G_OBJECT(aItem), DBUSMENU_MENUITEM_SIGNAL_EVENT,
-                   G_CALLBACK(DBusEventCallback),
-                   const_cast<dom::Element*>(aContent));
-}
+// Returns the child of aParent at aPosition for aElement, reusing a matching
+// child from aChildren[aPosition..], or creating a new one.
+static DbusmenuMenuitem* GetOrCreateChild(
+    DbusmenuMenuitem* aParent, nsTArray<RefPtr<DbusmenuMenuitem>>& aChildren,
+    size_t aPosition, DBusItemKind aKind, const dom::Element* aElement) {
+  auto ReuseItem = [&](size_t aIndex) -> DbusmenuMenuitem* {
+    DbusmenuMenuitem* item = aChildren[aIndex];
+    dbusmenu_menuitem_property_remove(item, DBUSMENU_MENUITEM_PROP_VISIBLE);
+    if (aIndex != aPosition) {
+      dbusmenu_menuitem_child_reorder(aParent, item, aPosition);
+      RefPtr<DbusmenuMenuitem> moved = std::move(aChildren[aIndex]);
+      aChildren.RemoveElementAt(aIndex);
+      aChildren.InsertElementAt(aPosition, std::move(moved));
+    }
+    return item;
+  };
 
-void MenubarModelDBus::AppendMenuItem(DbusmenuMenuitem* aParent,
-                                      const dom::Element* aChild) {
-  nsAutoString label;
-  aChild->GetAttr(nsGkAtoms::label, label);
-  if (label.IsEmpty()) {
-    aChild->GetAttr(nsGkAtoms::aria_label, label);
+  // First try to reuse the item for our actual DOM element. If that's not
+  // around, then try to reuse a hidden or disconnected item.
+  Maybe<size_t> reusablePosition;
+  for (size_t i = aPosition; i < aChildren.Length(); ++i) {
+    DbusmenuMenuitem* item = aChildren[i];
+    const dom::Element* oldElement = Props::Element(item);
+    if (oldElement == aElement) {
+      return ReuseItem(i);
+    }
+    if (Props::Kind(item) != aKind) {
+      continue;
+    }
+    if (!reusablePosition && (!oldElement || !oldElement->IsInComposedDoc())) {
+      reusablePosition.emplace(i);
+    }
   }
-  RefPtr<DbusmenuMenuitem> child = dont_AddRef(dbusmenu_menuitem_new());
-  dbusmenu_menuitem_property_set(child, DBUSMENU_MENUITEM_PROP_LABEL,
-                                 NS_ConvertUTF16toUTF8(label).get());
-  dbusmenu_menuitem_child_append(aParent, child);
-  UpdateAccel(child, aChild);
-  UpdateRadioOrCheck(child, aChild);
-  UpdateEnabled(child, aChild);
-  ConnectActivated(child, aChild);
-  // TODO: icons
-}
-
-void MenubarModelDBus::AppendSeparator(DbusmenuMenuitem* aParent) {
-  RefPtr<DbusmenuMenuitem> child = dont_AddRef(dbusmenu_menuitem_new());
-  dbusmenu_menuitem_property_set(child, DBUSMENU_MENUITEM_PROP_TYPE,
-                                 "separator");
-  dbusmenu_menuitem_child_append(aParent, child);
-}
-
-void MenubarModelDBus::AppendSubmenu(DbusmenuMenuitem* aParent,
-                                     const dom::Element* aMenu,
-                                     const dom::Element* aPopup) {
-  RefPtr<DbusmenuMenuitem> submenu = dont_AddRef(dbusmenu_menuitem_new());
-  if (RecomputeModelFor(submenu, *aPopup) == 0) {
-    RefPtr<DbusmenuMenuitem> placeholder = dont_AddRef(dbusmenu_menuitem_new());
-    dbusmenu_menuitem_child_append(submenu, placeholder);
+  if (reusablePosition) {
+    Props::SetElement(aChildren[*reusablePosition], aElement);
+    return ReuseItem(*reusablePosition);
   }
-  nsAutoString label;
-  aMenu->GetAttr(nsGkAtoms::label, label);
-  ConnectEvent(submenu, aPopup);
-  dbusmenu_menuitem_property_set(submenu, DBUSMENU_MENUITEM_PROP_LABEL,
-                                 NS_ConvertUTF16toUTF8(label).get());
-  dbusmenu_menuitem_child_append(aParent, submenu);
+  RefPtr<DbusmenuMenuitem> item = dont_AddRef(dbusmenu_menuitem_new());
+  Props::SetElement(item, aElement);
+  Props::SetKind(item, aKind);
+  switch (aKind) {
+    case DBusItemKind::MenuItem:
+      g_signal_connect(G_OBJECT(item.get()),
+                       DBUSMENU_MENUITEM_SIGNAL_ITEM_ACTIVATED,
+                       G_CALLBACK(DBusActivationCallback), nullptr);
+      break;
+    case DBusItemKind::Separator:
+      dbusmenu_menuitem_property_set(item, DBUSMENU_MENUITEM_PROP_TYPE,
+                                     "separator");
+      break;
+    case DBusItemKind::Submenu:
+      g_signal_connect(G_OBJECT(item.get()), DBUSMENU_MENUITEM_SIGNAL_EVENT,
+                       G_CALLBACK(DBusEventCallback), nullptr);
+      break;
+  }
+  dbusmenu_menuitem_child_add_position(aParent, item, aPosition);
+  return aChildren.InsertElementAt(aPosition, std::move(item))->get();
 }
 
-uint MenubarModelDBus::RecomputeModelFor(DbusmenuMenuitem* aParent,
-                                         const dom::Element& aElement) {
-  uint childCount = 0;
+void MenubarModelDBus::SyncChildren(DbusmenuMenuitem* aParent,
+                                    const dom::Element& aElement) {
+  AutoTArray<RefPtr<DbusmenuMenuitem>, 32> children;
+  for (GList* l = dbusmenu_menuitem_get_children(aParent); l; l = l->next) {
+    children.AppendElement(static_cast<DbusmenuMenuitem*>(l->data));
+  }
+
+  size_t position = 0;
+  auto GetOrCreate = [&](DBusItemKind aKind, const dom::Element* aChild) {
+    return GetOrCreateChild(aParent, children, position++, aKind, aChild);
+  };
+
   for (const nsIContent* child = aElement.GetFirstChild(); child;
        child = child->GetNextSibling()) {
-    if (child->IsXULElement(nsGkAtoms::menuitem) &&
-        !IsDisabled(*child->AsElement())) {
-      AppendMenuItem(aParent, child->AsElement());
-      childCount++;
+    if (!child->IsElement() ||
+        child->AsElement()->GetBoolAttr(nsGkAtoms::hidden)) {
+      continue;
+    }
+    if (child->IsXULElement(nsGkAtoms::menuitem)) {
+      const dom::Element* element = child->AsElement();
+      DbusmenuMenuitem* item = GetOrCreate(DBusItemKind::MenuItem, element);
+      nsAutoString label;
+      element->GetAttr(nsGkAtoms::label, label);
+      if (label.IsEmpty()) {
+        element->GetAttr(nsGkAtoms::aria_label, label);
+      }
+      dbusmenu_menuitem_property_set(item, DBUSMENU_MENUITEM_PROP_LABEL,
+                                     NS_ConvertUTF16toUTF8(label).get());
+      UpdateAccel(item, element);
+      UpdateRadioOrCheck(item, element);
+      UpdateEnabled(item, element);
+      // TODO: icons
       continue;
     }
     if (child->IsXULElement(nsGkAtoms::menuseparator)) {
-      AppendSeparator(aParent);
-      childCount++;
+      GetOrCreate(DBusItemKind::Separator, child->AsElement());
       continue;
     }
-    if (child->IsXULElement(nsGkAtoms::menu) &&
-        !IsDisabled(*child->AsElement())) {
+    if (child->IsXULElement(nsGkAtoms::menu)) {
       if (const auto* popup = GetMenuPopupChild(*child->AsElement())) {
-        childCount++;
-        AppendSubmenu(aParent, child->AsElement(), popup);
+        DbusmenuMenuitem* submenu = GetOrCreate(DBusItemKind::Submenu, popup);
+        nsAutoString label;
+        child->AsElement()->GetAttr(nsGkAtoms::label, label);
+        dbusmenu_menuitem_property_set(submenu, DBUSMENU_MENUITEM_PROP_LABEL,
+                                       NS_ConvertUTF16toUTF8(label).get());
+        UpdateEnabled(submenu, child);
+        dbusmenu_menuitem_property_set(submenu,
+                                       DBUSMENU_MENUITEM_PROP_CHILD_DISPLAY,
+                                       DBUSMENU_MENUITEM_CHILD_DISPLAY_SUBMENU);
+        SyncChildren(submenu, *popup);
       }
     }
   }
-  return childCount;
+
+  // Any remaining children are unused. Hide them so that they can be reused
+  // later if needed.
+  for (DbusmenuMenuitem* child : Span(children).From(position)) {
+    Props::ForgetElements(child);
+    dbusmenu_menuitem_property_set_bool(child, DBUSMENU_MENUITEM_PROP_VISIBLE,
+                                        false);
+  }
 }
 
 void DBusMenuBar::NameOwnerChangedCallback(GObject*, GParamSpec*,

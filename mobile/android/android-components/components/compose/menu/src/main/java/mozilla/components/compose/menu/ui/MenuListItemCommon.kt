@@ -5,6 +5,7 @@
 package mozilla.components.compose.menu.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
@@ -36,7 +37,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import mozilla.components.compose.base.badge.BADGE_SIZE_SMALL
 import mozilla.components.compose.base.badge.BadgedIcon
 import mozilla.components.compose.base.badge.StatusBadge
-import mozilla.components.compose.base.modifier.debouncedClickable
 import mozilla.components.compose.base.text.value
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.compose.base.theme.information
@@ -194,7 +194,7 @@ internal fun Modifier.menuItemClickableBehavior(
             role = role,
         )
     } else if (onClickEvent != null && state != DISABLED) {
-        this.debouncedClickable(
+        this.clickable(
             onClick = { onInteraction(onClickEvent) },
             role = role,
         )

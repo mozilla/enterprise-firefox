@@ -51,6 +51,10 @@ git apply /setup/arcanist_log_invalid_json.patch
 # Send Conduit requests uncompressed: Phabricator's PHP parses a gzipped form
 # body before decompressing it, and large ones fail on max_input_vars.
 git apply /setup/arcanist_no_gzip.patch
+# arc diff asks whether to mark files that aren't valid UTF-8 as binary, and fails
+# because there is no TTY to answer on; take its default and mark them binary.
+# Also stop marking an added file as binary from failing on PHP 8.
+git apply /setup/arcanist_non_utf8_binary.patch
 ln -s /builds/worker/.mozbuild/arcanist/bin/arc /usr/local/bin/arc
 popd
 
@@ -85,6 +89,11 @@ npm ci --legacy-peer-deps
 # be much faster than a new clone each time.
 cd /builds/worker/
 git clone https://github.com/v8/v8.git
+
+# Updatebot's clones of these repositories borrow objects from them (see
+# pre-existing-repos.json), so git must never prune objects from them.
+git -C /builds/worker/pdf.js config gc.auto 0
+git -C /builds/worker/v8 config gc.auto 0
 
 # Check out source code
 cd /builds/worker/

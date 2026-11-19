@@ -70,6 +70,13 @@ For code that's also used in other Gecko-based products
 For Firefox-Desktop-only instrumentation use `firefox_desktop_metrics`.
 For other products use their respective lists.
 
+Metrics and pings that must only be built into Firefox Enterprise
+(e.g. those sent in the `enterprise` ping to the enterprise console)
+go in a separate `enterprise_metrics.yaml` or `enterprise_pings.yaml` file
+listed in `firefox_enterprise_metrics` or `firefox_enterprise_pings`.
+These are only built when `MOZ_ENTERPRISE` is set
+and are not reported to the data pipeline.
+
 Changes to `metrics_index.py` are automatically reflected in the data pipeline once a day
 using the [fog-updater automation in probe-scraper](https://github.com/mozilla/probe-scraper/tree/main/fog-updater).
 Data will not show up in datasets and tools until this happens.

@@ -47,7 +47,6 @@ class gfxConfigManager {
         mScaledResolution(false),
         mDisableHwCompositingNoWr(false),
         mIsNightly(false),
-        mIsEarlyBetaOrEarlier(false),
         mSafeMode(false) {}
 
   void Init();
@@ -110,7 +109,6 @@ class gfxConfigManager {
   bool mScaledResolution;
   bool mDisableHwCompositingNoWr;
   bool mIsNightly;
-  bool mIsEarlyBetaOrEarlier;
   bool mSafeMode;
 };
 

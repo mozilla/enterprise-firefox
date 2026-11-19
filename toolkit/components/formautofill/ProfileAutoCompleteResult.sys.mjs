@@ -9,6 +9,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AutofillDataTypes: "resource://gre/modules/shared/AutofillDataTypes.sys.mjs",
   CreditCard: "resource://gre/modules/CreditCard.sys.mjs",
+  CreditCardRecord: "resource://gre/modules/shared/CreditCardRecord.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(
@@ -124,17 +125,17 @@ export class ProfileAutoCompleteResult {
   }
 
   /**
-   * The item groups in display order: the profile rows, then the entries
-   * contributed by other providers, then the footer.
+   * The item groups in display order: the entries contributed by other
+   * providers, then the profile rows, then the footer. On an insecure form
+   * the warning row stays first.
    *
    * @returns {Array<Array<object>>} The groups, in display order.
    */
   _orderedGroups() {
-    return [
-      this._popupLabels,
-      this.externalEntries,
-      this._footerLabel ? [this._footerLabel] : [],
-    ];
+    const groups = this._isSecure
+      ? [this.externalEntries, this._popupLabels]
+      : [this._popupLabels, this.externalEntries];
+    return [...groups, this._footerLabel ? [this._footerLabel] : []];
   }
 
   _footerIndex() {
@@ -595,7 +596,11 @@ export class CreditCardResult extends ProfileAutoCompleteResult {
     // Skip results without a primary label.
     let labels = profiles
       .filter(profile => {
-        return !!profile[focusedFieldName];
+        return (
+          !!profile[focusedFieldName] ||
+          (focusedFieldName == "cc-csc" &&
+            lazy.CreditCardRecord.hasSecurityCode(profile))
+        );
       })
       .map(profile => {
         let primary = profile[focusedFieldName];

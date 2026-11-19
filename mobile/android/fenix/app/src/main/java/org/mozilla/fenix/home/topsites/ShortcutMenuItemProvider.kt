@@ -60,6 +60,8 @@ class ShortcutMenuItemProvider(
             listOfNotNull(
                 if (target == MenuTarget.CustomizeMenu) {
                     DEFAULT_MENU_ITEM
+                } else if (target == MenuTarget.Preview) {
+                    DEFAULT_MENU_ITEM.copy(onClickEvent = MenuAction.AddShortcut)
                 } else {
                     DEFAULT_MENU_ITEM.copy(onClickEvent = MenuAction.AddShortcut).takeIf {
                         areShortcutsEnabled && target.browserSessionFrom(browserStore.state) != null
@@ -71,19 +73,20 @@ class ShortcutMenuItemProvider(
     override val itemsFlow: StateFlow<List<MenuItem>> = mutableItems.asStateFlow()
 
     init {
-        if (target != MenuTarget.CustomizeMenu && mutableItems.value.isNotEmpty()) {
+        if (target != MenuTarget.CustomizeMenu && target != MenuTarget.Preview && mutableItems.value.isNotEmpty()) {
             scope.launch { resolveShortcut() }
         }
     }
 
     private suspend fun resolveShortcut() {
         val url = target.browserSessionFrom(browserStore.state)?.getTabUrl() ?: return
-        pinnedSiteStorage.getPinnedSites().firstOrNull { it.url == url } ?: return
+        if (pinnedSiteStorage.getPinnedSites().none { it.url == url }) return
 
         mutableItems.value = listOf(REMOVE_SHORTCUT_ITEM)
     }
 
-    override fun handles(event: MenuEvent) = event == MenuAction.AddShortcut || event == MenuAction.RemoveShortcut
+    override fun handles(event: MenuEvent) =
+        target != MenuTarget.Preview && (event == MenuAction.AddShortcut || event == MenuAction.RemoveShortcut)
 
     override fun onEvent(event: MenuEvent, menu: MenuHost) {
         when (event) {

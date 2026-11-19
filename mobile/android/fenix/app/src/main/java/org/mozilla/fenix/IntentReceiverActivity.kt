@@ -34,6 +34,7 @@ import org.mozilla.fenix.ext.isIntentInternal
 import org.mozilla.fenix.perf.MarkersActivityLifecycleCallbacks
 import org.mozilla.fenix.perf.StartupTimeline
 import org.mozilla.fenix.settings.SupportUtils
+import org.mozilla.fenix.settings.account.AuthCustomTabActivity
 import org.mozilla.fenix.shortcut.NewTabShortcutIntentProcessor
 import org.mozilla.fenix.shortcut.UninstallShortcutIntentProcessor
 
@@ -80,12 +81,7 @@ class IntentReceiverActivity : Activity() {
     fun processIntent(intent: Intent) {
         val data = intent.toSafeIntent().data
         if (intent.action == Intent.ACTION_VIEW && data != null && isFxaPairingLink(data, fxaServerUrl())) {
-            SyncAuth.pairingLinkOpened.record(
-                SyncAuth.PairingLinkOpenedExtra(
-                    campaignAttributed = components.settings.isUserPairingCampaignAttributed
-                )
-            )
-            launchAuthCustomTab(data)
+            processPairingLink(data)
             return
         }
 
@@ -123,6 +119,32 @@ class IntentReceiverActivity : Activity() {
         launch(intent, intentProcessorType)
     }
 
+    /**
+     * Opens a Firefox Accounts pairing link in the pairing flow if onboarding is complete. Otherwise, the link is
+     * dropped and onboarding is shown instead.
+     */
+    private fun processPairingLink(data: Uri) {
+        if (hasCompletedOnboarding()) {
+            SyncAuth.pairingLinkOpened.record(
+                SyncAuth.PairingLinkOpenedExtra(
+                    campaignAttributed = components.settings.isUserPairingCampaignAttributed
+                )
+            )
+            launchAuthCustomTab(data)
+        } else {
+            launchHome()
+        }
+    }
+
+    /** Opens [HomeActivity] without forwarding the incoming intent. */
+    private fun launchHome() {
+        startActivityAndFinish(Intent(this, HomeActivity::class.java))
+    }
+
+    /** Returns whether onboarding is complete. If onboarding is disabled, it is treated as onboarded. */
+    private fun hasCompletedOnboarding(): Boolean =
+        components.fenixOnboarding.userHasBeenOnboarded() || !components.settings.onboardingFeatureEnabled
+
     /** Returns the configured Firefox Accounts server URL. */
     private fun fxaServerUrl(): String = FxaServer.config(this).server.contentUrl()
 
@@ -145,24 +167,28 @@ class IntentReceiverActivity : Activity() {
                 intentProcessorType.shouldOpenToBrowser(intent),
             )
         }
-        // StrictMode violation on certain devices such as Samsung
-        components.strictMode.allowViolation(StrictMode::allowThreadDiskReads) {
-            startActivity(intent)
-        }
-        finish() // must finish() after starting the other activity
+        startActivityAndFinish(intent)
     }
 
-    /** Opens a scanned Firefox Accounts pairing link in [org.mozilla.fenix.settings.account.AuthCustomTabActivity]. */
+    /** Opens a scanned Firefox Accounts pairing link in [AuthCustomTabActivity]. */
     @VisibleForTesting
     internal fun launchAuthCustomTab(pairingUrl: Uri) {
         // Neither the receiver's transparent theme nor the application context defines colorSurface, which the custom
         // tab intent reads, so resolve it against the app theme explicitly.
         val themedContext = ContextThemeWrapper(this, R.style.NormalTheme)
-        val intent = SupportUtils.createAuthCustomTabIntent(themedContext, pairingUrl.toString())
+        val intent =
+            SupportUtils.createAuthCustomTabIntent(themedContext, pairingUrl.toString())
+                .putExtra(AuthCustomTabActivity.EXTRA_OPEN_HOME_ON_AUTHENTICATED, true)
+        startActivityAndFinish(intent)
+    }
+
+    private fun startActivityAndFinish(intent: Intent) {
         // StrictMode violation on certain devices such as Samsung
         components.strictMode.allowViolation(StrictMode::allowThreadDiskReads) {
             startActivity(intent)
         }
+        // Finish after starting the next activity, or intents from other apps won't reuse the existing activity
+        // (https://github.com/mozilla-mobile/fenix/issues/8544).
         finish()
     }
 

@@ -88,6 +88,18 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
     }
 
     /**
+     * Set the UUID of the R8/ProGuard mapping file of the embedding app's build, if it is minified.
+     * It is recorded in Gecko profiles so that Java frames can be matched with the mapping.
+     *
+     * @param proguardUuid The mapping UUID, or <code>null</code> if not available.
+     * @return This Builder instance.
+     */
+    public @NonNull Builder proguardUuid(final @Nullable String proguardUuid) {
+      getSettings().mProguardUuid = proguardUuid;
+      return this;
+    }
+
+    /**
      * Set whether Extensions Process support should be enabled.
      *
      * @param flag A flag determining whether Extensions Process support should be enabled. Default
@@ -186,11 +198,10 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
     }
 
     /**
-     * Set whether the to report the full bit depth of the device.
+     * Set whether to report the full bit depth of the device.
      *
-     * <p>By default, 24 bits are reported for high memory devices and 16 bits for low memory
-     * devices. If set to true, the device's maximum bit depth is reported. On most modern devices
-     * this will be 32 bit screen depth.
+     * <p>By default, 24 bits are reported, covering only the color channels. If set to true, 32
+     * bits are reported, which also includes the alpha channel.
      *
      * @param enable A flag determining whether maximum screen depth should be used.
      * @return This Builder.
@@ -341,6 +352,19 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
      */
     public @NonNull Builder loginAutofillEnabled(final boolean enabled) {
       getSettings().setLoginAutofillEnabled(enabled);
+      return this;
+    }
+
+    /**
+     * Set whether credit card security codes (CVV) can be captured from web forms and passed to
+     * {@link Autocomplete.StorageDelegate#onCreditCardSave onCreditCardSave}.
+     *
+     * @param enabled A flag determining whether credit card security codes should be captured.
+     * @return The builder instance.
+     */
+    @ExperimentalGeckoViewApi
+    public @NonNull Builder creditCardSecurityCodeEnabled(final boolean enabled) {
+      getSettings().setCreditCardSecurityCodeEnabled(enabled);
       return this;
     }
 
@@ -721,6 +745,7 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
   /* package */ String[] mArgs;
   /* package */ Bundle mExtras;
   /* package */ String mConfigFilePath;
+  /* package */ String mProguardUuid;
 
   /* package */ ContentBlocking.Settings mContentBlocking;
 
@@ -767,6 +792,8 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
       new Pref<Boolean>("signon.autofillForms", true);
   /* package */ final PrefWithoutDefault<String> mFirefoxRelay =
       new PrefWithoutDefault<>("signon.firefoxRelay.feature");
+  /* package */ final Pref<String> mCreditCardSecurityCodeSupported =
+      new Pref<>("extensions.formautofill.creditCards.cvv.supported", "off");
   /* package */ final PrefWithoutDefault<String> mIpProtectionAuthProvider =
       new PrefWithoutDefault<>("toolkit.ipProtection.android.authProvider");
   /* package */ final Pref<Boolean> mAutomaticallyOfferPopup =
@@ -915,6 +942,7 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
     mCrashHandler = settings.mCrashHandler;
     mRequestedLocales = settings.mRequestedLocales;
     mConfigFilePath = settings.mConfigFilePath;
+    mProguardUuid = settings.mProguardUuid;
     mExperimentDelegate = settings.mExperimentDelegate;
   }
 
@@ -951,6 +979,15 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
    */
   public @Nullable String getConfigFilePath() {
     return mConfigFilePath;
+  }
+
+  /**
+   * Get the UUID of the R8/ProGuard mapping file of the embedding app's build.
+   *
+   * @return The mapping UUID, or <code>null</code> if not set.
+   */
+  public @Nullable String getProguardUuid() {
+    return mProguardUuid;
   }
 
   /**
@@ -2018,6 +2055,29 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
     return this;
   }
 
+  /**
+   * Get whether credit card security codes (CVV) can be captured from web forms.
+   *
+   * @return True if credit card security codes can be captured.
+   */
+  @ExperimentalGeckoViewApi
+  public boolean getCreditCardSecurityCodeEnabled() {
+    return "on".equals(mCreditCardSecurityCodeSupported.get());
+  }
+
+  /**
+   * Set whether credit card security codes (CVV) can be captured from web forms and passed to
+   * {@link Autocomplete.StorageDelegate#onCreditCardSave onCreditCardSave}.
+   *
+   * @param enabled A flag determining whether credit card security codes should be captured.
+   * @return This GeckoRuntimeSettings instance.
+   */
+  @ExperimentalGeckoViewApi
+  public @NonNull GeckoRuntimeSettings setCreditCardSecurityCodeEnabled(final boolean enabled) {
+    mCreditCardSecurityCodeSupported.commit(enabled ? "on" : "off");
+    return this;
+  }
+
   /** Firefox Relay state definitions. */
   @Retention(RetentionPolicy.SOURCE)
   @StringDef(
@@ -2578,6 +2638,7 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
     out.writeString(mCrashHandler != null ? mCrashHandler.getName() : null);
     out.writeStringArray(mRequestedLocales);
     out.writeString(mConfigFilePath);
+    out.writeString(mProguardUuid);
   }
 
   // AIDL code may call readFromParcel even though it's not part of Parcelable.
@@ -2600,17 +2661,14 @@ public final class GeckoRuntimeSettings extends RuntimeSettings {
     final String crashHandlerName = source.readString();
     if (crashHandlerName != null) {
       try {
-        @SuppressWarnings("unchecked")
-        final Class<? extends Service> handler =
-            (Class<? extends Service>) Class.forName(crashHandlerName);
-
-        mCrashHandler = handler;
-      } catch (final ClassNotFoundException e) {
+        mCrashHandler = Class.forName(crashHandlerName).asSubclass(Service.class);
+      } catch (final ClassNotFoundException | ClassCastException e) {
       }
     }
 
     mRequestedLocales = source.createStringArray();
     mConfigFilePath = source.readString();
+    mProguardUuid = source.readString();
   }
 
   /** Parcelable creator for GeckoRuntimeSettings instances. */

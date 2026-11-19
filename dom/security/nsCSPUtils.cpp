@@ -626,11 +626,10 @@ bool nsCSPBaseSrc::permits(nsIURI* aUri, bool aWasRedirected, bool aReportOnly,
 // ::allows is only called for inlined loads, therefore:
 // nsCSPSchemeSrc, nsCSPHostSrc fall back
 // to this base class implementation which will never allow the load.
-bool nsCSPBaseSrc::allows(enum CSPKeyword aKeyword,
-                          const nsAString& aHashOrNonce) const {
-  CSPUTILSLOG(("nsCSPBaseSrc::allows, aKeyWord: %s, a HashOrNonce: %s",
-               aKeyword == CSP_HASH ? "hash" : CSP_EnumToUTF8Keyword(aKeyword),
-               NS_ConvertUTF16toUTF8(aHashOrNonce).get()));
+bool nsCSPBaseSrc::allows(enum CSPKeyword aKeyword) const {
+  CSPUTILSLOG(
+      ("nsCSPBaseSrc::allows, aKeyWord: %s",
+       aKeyword == CSP_HASH ? "hash" : CSP_EnumToUTF8Keyword(aKeyword)));
   return false;
 }
 
@@ -939,11 +938,9 @@ nsCSPKeywordSrc::nsCSPKeywordSrc(enum CSPKeyword aKeyword)
 
 nsCSPKeywordSrc::~nsCSPKeywordSrc() = default;
 
-bool nsCSPKeywordSrc::allows(enum CSPKeyword aKeyword,
-                             const nsAString& aHashOrNonce) const {
-  CSPUTILSLOG(("nsCSPKeywordSrc::allows, aKeyWord: %s, aHashOrNonce: %s",
-               CSP_EnumToUTF8Keyword(aKeyword),
-               NS_ConvertUTF16toUTF8(aHashOrNonce).get()));
+bool nsCSPKeywordSrc::allows(enum CSPKeyword aKeyword) const {
+  CSPUTILSLOG(("nsCSPKeywordSrc::allows, aKeyWord: %s",
+               CSP_EnumToUTF8Keyword(aKeyword)));
   return mKeyword == aKeyword;
 }
 
@@ -961,33 +958,21 @@ nsCSPNonceSrc::nsCSPNonceSrc(const nsAString& aNonce) : mNonce(aNonce) {}
 
 nsCSPNonceSrc::~nsCSPNonceSrc() = default;
 
-bool nsCSPNonceSrc::allows(enum CSPKeyword aKeyword,
-                           const nsAString& aHashOrNonce) const {
-  CSPUTILSLOG(("nsCSPNonceSrc::allows, aKeyWord: %s, a HashOrNonce: %s",
-               CSP_EnumToUTF8Keyword(aKeyword),
-               NS_ConvertUTF16toUTF8(aHashOrNonce).get()));
-
-  if (aKeyword != CSP_NONCE) {
-    return false;
-  }
-  // nonces can not be invalidated by strict-dynamic
-  return mNonce.Equals(aHashOrNonce);
-}
-
 bool nsCSPNonceSrc::visit(nsCSPSrcVisitor* aVisitor) const {
   return aVisitor->visitNonceSrc(*this);
 }
 
 void nsCSPNonceSrc::toString(nsAString& outStr) const {
-  outStr.Append(CSP_EnumToUTF16Keyword(CSP_NONCE));
+  outStr.Append(kCSPNonceSourcePrefix);
   outStr.Append(mNonce);
   outStr.AppendLiteral("'");
 }
 
-/* ===== nsCSPHashSrc ===================== */
+/* ===== nsCSPHashSrcBase ===================== */
 
-nsCSPHashSrc::nsCSPHashSrc(const nsAString& aAlgo, const nsAString& aHash)
-    : mAlgorithm(aAlgo), mHash(aHash) {
+nsCSPHashSrcBase::nsCSPHashSrcBase(const nsAString& aAlgorithm,
+                                   const nsAString& aHash)
+    : mAlgorithm(aAlgorithm), mHash(aHash) {
   // Only the algo should be rewritten to lowercase, the hash must remain the
   // same.
   ToLowerCase(mAlgorithm);
@@ -1005,48 +990,68 @@ nsCSPHashSrc::nsCSPHashSrc(const nsAString& aAlgo, const nsAString& aHash)
   }
 }
 
-nsCSPHashSrc::~nsCSPHashSrc() = default;
+nsCSPHashSrcBase::~nsCSPHashSrcBase() = default;
 
-bool nsCSPHashSrc::allows(enum CSPKeyword aKeyword,
-                          const nsAString& aHashOrNonce) const {
-  CSPUTILSLOG(("nsCSPHashSrc::allows, aKeyWord: %s, a HashOrNonce: %s",
-               CSP_EnumToUTF8Keyword(aKeyword),
-               NS_ConvertUTF16toUTF8(aHashOrNonce).get()));
+void nsCSPHashSrcBase::toString(nsAString& outStr) const {
+  outStr.AppendLiteral("'");
+  if (isUrlHash()) {
+    outStr.AppendLiteral("url-");
+  }
+  outStr.Append(mAlgorithm);
+  outStr.AppendLiteral("-");
+  outStr.Append(mHash);
+  outStr.AppendLiteral("'");
+}
 
-  if (aKeyword != CSP_HASH) {
-    return false;
+// The constructor lowercased the algorithm and converted base64url characters
+// in the hash to base64, as the digest is encoded.
+bool nsCSPHashSrcBase::matchesDigestOf(CSPHashDigestsCache& aCache) const {
+  Maybe<const nsCString&> digest = aCache.GetOrComputeDigest(mAlgorithm);
+  return digest && mHash.EqualsASCII(digest->get(), digest->Length());
+}
+
+/* ===== CSPHashDigestsCache ===================== */
+
+Maybe<const nsCString&> CSPHashDigestsCache::GetOrComputeDigest(
+    const nsAString& aAlgorithm) {
+  for (size_t i = 0; i < std::size(kAlgorithms); i++) {
+    if (!aAlgorithm.EqualsASCII(kAlgorithms[i])) {
+      continue;
+    }
+
+    if (mDigests[i].isNothing()) {
+      nsCOMPtr<nsICryptoHash> hasher;
+      nsresult rv = NS_NewCryptoHash(nsDependentCString(kAlgorithms[i]),
+                                     getter_AddRefs(hasher));
+      NS_ENSURE_SUCCESS(rv, Nothing());
+
+      rv = hasher->Update(
+          reinterpret_cast<const uint8_t*>(mValue.BeginReading()),
+          mValue.Length());
+      NS_ENSURE_SUCCESS(rv, Nothing());
+
+      nsAutoCString digest;
+      rv = hasher->Finish(true, digest);
+      NS_ENSURE_SUCCESS(rv, Nothing());
+
+      mDigests[i].emplace(digest);
+    }
+    return SomeRef<const nsCString>(mDigests[i].ref());
   }
 
-  // hashes can not be invalidated by strict-dynamic
-
-  // Convert aHashOrNonce to UTF-8
-  NS_ConvertUTF16toUTF8 utf8_hash(aHashOrNonce);
-
-  nsCOMPtr<nsICryptoHash> hasher;
-  nsresult rv = NS_NewCryptoHash(NS_ConvertUTF16toUTF8(mAlgorithm),
-                                 getter_AddRefs(hasher));
-  NS_ENSURE_SUCCESS(rv, false);
-
-  rv = hasher->Update((uint8_t*)utf8_hash.get(), utf8_hash.Length());
-  NS_ENSURE_SUCCESS(rv, false);
-
-  nsAutoCString hash;
-  rv = hasher->Finish(true, hash);
-  NS_ENSURE_SUCCESS(rv, false);
-
-  return NS_ConvertUTF16toUTF8(mHash).Equals(hash);
+  return Nothing();
 }
+
+/* ===== nsCSPHashSrc ===================== */
 
 bool nsCSPHashSrc::visit(nsCSPSrcVisitor* aVisitor) const {
   return aVisitor->visitHashSrc(*this);
 }
 
-void nsCSPHashSrc::toString(nsAString& outStr) const {
-  outStr.AppendLiteral("'");
-  outStr.Append(mAlgorithm);
-  outStr.AppendLiteral("-");
-  outStr.Append(mHash);
-  outStr.AppendLiteral("'");
+/* ===== nsCSPUrlHashSrc ===================== */
+
+bool nsCSPUrlHashSrc::visit(nsCSPSrcVisitor* aVisitor) const {
+  return aVisitor->visitUrlHashSrc(*this);
 }
 
 /* ===== nsCSPReportURI ===================== */
@@ -1174,12 +1179,8 @@ static bool DoesNonceMatchSourceList(nsILoadInfo* aLoadInfo,
   for (nsCSPBaseSrc* src : aSrcs) {
     // Step 3.1. If expression matches the nonce-source grammar, and nonce is
     // identical to expression’s base64-value part, return "Matches".
-    if (src->isNonce()) {
-      nsAutoString srcNonce;
-      static_cast<nsCSPNonceSrc*>(src)->getNonce(srcNonce);
-      if (srcNonce == nonce) {
-        return true;
-      }
+    if (src->isNonce() && static_cast<nsCSPNonceSrc*>(src)->nonce() == nonce) {
+      return true;
     }
   }
 
@@ -1225,6 +1226,74 @@ static nsTArray<SRIMetadata> ParseSRIMetadata(const nsAString& aMetadata) {
   return result;
 }
 
+// https://w3c.github.io/webappsec-csp/#match-integrity-metadata-to-source-list
+//
+// Steps 1 and 2 are done by the caller, which collects the integrity
+// expressions together with other information it needs from the source list.
+static bool DoesIntegrityMetadataMatchSourceList(
+    nsILoadInfo* aLoadInfo,
+    const nsTArray<nsCSPHashSrc*>& aIntegrityExpressions) {
+  // Step 3. If integrity expressions is empty, return "Does Not Match".
+  if (aIntegrityExpressions.IsEmpty()) {
+    return false;
+  }
+
+  // Step 4. Let integrity sources be the result of parsing metadata given
+  // integrity metadata.
+  //
+  // Note: For code-reuse we get request’s integrity metadata here instead of
+  // the caller.
+  nsAutoString integrityMetadata;
+  aLoadInfo->GetIntegrityMetadata(integrityMetadata);
+
+  nsTArray<SRIMetadata> integritySources = ParseSRIMetadata(integrityMetadata);
+
+  // Step 5. If integrity sources is "no metadata" or an empty set, return
+  // "Does Not Match".
+  if (integritySources.IsEmpty()) {
+    return false;
+  }
+
+  nsAutoCString sourceAlgorithmUTF8;
+  nsAutoCString sourceHashUTF8;
+  nsAutoString sourceAlgorithm;
+  nsAutoString sourceHash;
+  nsAutoString algorithm;
+  nsAutoString hash;
+
+  // Step 6. For each source of integrity sources:
+  for (const SRIMetadata& source : integritySources) {
+    source.GetAlgorithm(&sourceAlgorithmUTF8);
+    sourceAlgorithm = NS_ConvertUTF8toUTF16(sourceAlgorithmUTF8);
+    source.GetHash(0, &sourceHashUTF8);
+    sourceHash = NS_ConvertUTF8toUTF16(sourceHashUTF8);
+
+    // Step 6.1. If integrity expressions does not contain a source expression
+    // whose hash-algorithm is an ASCII case-insensitive match for source’s
+    // hash-algorithm, and whose base64-value is identical to source’s
+    // base64-value, return "Does Not Match".
+    bool found = false;
+    for (const nsCSPHashSrc* hashSrc : aIntegrityExpressions) {
+      hashSrc->getAlgorithm(algorithm);
+      hashSrc->getHash(hash);
+
+      // The nsCSPHashSrc constructor lowercases algorithm, so this is
+      // case-insensitive.
+      if (sourceAlgorithm == algorithm && sourceHash == hash) {
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      return false;
+    }
+  }
+
+  // Step 7. Return "Matches".
+  return true;
+}
+
 bool nsCSPDirective::permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo,
                              nsIURI* aUri, bool aWasRedirected,
                              bool aReportOnly, bool aUpgradeInsecure) const {
@@ -1260,86 +1329,28 @@ bool nsCSPDirective::permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo,
         return true;
       }
 
-      // Step 1.2. Let integrity expressions be the set of source expressions in
-      // directive’s value that match the hash-source grammar.
+      // Collect what the steps below need in one pass over the source list,
+      // including the integrity expressions of §6.7.2.4 step 2.
       nsTArray<nsCSPHashSrc*> integrityExpressions;
-      bool hasStrictDynamicKeyword =
-          false;  // Optimization to reduce number of iterations.
-      for (uint32_t i = 0; i < mSrcs.Length(); i++) {
-        if (mSrcs[i]->isHash()) {
-          integrityExpressions.AppendElement(
-              static_cast<nsCSPHashSrc*>(mSrcs[i]));
-        } else if (mSrcs[i]->isKeyword(CSP_STRICT_DYNAMIC)) {
+      bool hasStrictDynamicKeyword = false;
+      for (nsCSPBaseSrc* src : mSrcs) {
+        if (src->isHash()) {
+          integrityExpressions.AppendElement(static_cast<nsCSPHashSrc*>(src));
+        } else if (src->isKeyword(CSP_STRICT_DYNAMIC)) {
           hasStrictDynamicKeyword = true;
         }
       }
 
-      // Step 1.3. If integrity expressions is not empty:
-      if (!integrityExpressions.IsEmpty()) {
-        // Step 1.3.1. Let integrity sources be the result of executing the
-        // algorithm defined in [SRI 3.3.3 Parse metadata] on request’s
-        // integrity metadata.
-        nsAutoString integrityMetadata;
-        aLoadInfo->GetIntegrityMetadata(integrityMetadata);
-
-        nsTArray<SRIMetadata> integritySources =
-            ParseSRIMetadata(integrityMetadata);
-
-        // Step 1.3.2. If integrity sources is "no metadata" or an empty set,
-        // skip the remaining substeps.
-        if (!integritySources.IsEmpty()) {
-          // Step 1.3.3. Let bypass due to integrity match be true.
-          bool bypass = true;
-
-          nsAutoCString sourceAlgorithmUTF8;
-          nsAutoCString sourceHashUTF8;
-          nsAutoString sourceAlgorithm;
-          nsAutoString sourceHash;
-          nsAutoString algorithm;
-          nsAutoString hash;
-
-          // Step 1.3.4. For each source of integrity sources:
-          for (const SRIMetadata& source : integritySources) {
-            source.GetAlgorithm(&sourceAlgorithmUTF8);
-            sourceAlgorithm = NS_ConvertUTF8toUTF16(sourceAlgorithmUTF8);
-            source.GetHash(0, &sourceHashUTF8);
-            sourceHash = NS_ConvertUTF8toUTF16(sourceHashUTF8);
-
-            // Step 1.3.4.1 If directive’s value does not contain a source
-            // expression whose hash-algorithm is an ASCII case-insensitive
-            // match for source’s hash-algorithm, and whose base64-value is
-            // identical to source’s base64-value, then set bypass due to
-            // integrity match to false.
-            bool found = false;
-            for (const nsCSPHashSrc* hashSrc : integrityExpressions) {
-              hashSrc->getAlgorithm(algorithm);
-              hashSrc->getHash(hash);
-
-              // The nsCSPHashSrc constructor lowercases algorithm, so this
-              // is case-insensitive.
-              if (sourceAlgorithm == algorithm && sourceHash == hash) {
-                found = true;
-                break;
-              }
-            }
-
-            if (!found) {
-              bypass = false;
-              break;
-            }
-          }
-
-          // Step 1.3.5. If bypass due to integrity match is true, return
-          // "Allowed".
-          if (bypass) {
-            CSPUTILSLOG(
-                ("  Allowed by matching integrity metadata (script-like)"));
-            return true;
-          }
-        }
+      // Step 1.2. If the result of executing §6.7.2.4 Does integrity metadata
+      // match source list? on request’s integrity metadata and this
+      // directive’s value is "Matches", return "Allowed".
+      if (DoesIntegrityMetadataMatchSourceList(aLoadInfo,
+                                               integrityExpressions)) {
+        CSPUTILSLOG(("  Allowed by matching integrity metadata (script-like)"));
+        return true;
       }
 
-      // Step 1.4. If directive’s value contains a source expression that is an
+      // Step 1.3. If directive’s value contains a source expression that is an
       // ASCII case-insensitive match for the "'strict-dynamic'" keyword-source:
       if (hasStrictDynamicKeyword) {
         // GetParserCreatedScript() isn't set for XSLT.
@@ -1349,7 +1360,7 @@ bool nsCSPDirective::permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo,
           return false;
         }
 
-        // Step 1.4.1  If the request’s parser metadata is "parser-inserted",
+        // Step 1.3.1. If the request’s parser metadata is "parser-inserted",
         // return "Blocked". Otherwise, return "Allowed".
         if (aLoadInfo->GetParserCreatedScript()) {
           CSPUTILSLOG(
@@ -1373,14 +1384,62 @@ bool nsCSPDirective::permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo,
   return false;
 }
 
-bool nsCSPDirective::allows(enum CSPKeyword aKeyword,
-                            const nsAString& aHashOrNonce) const {
-  CSPUTILSLOG(("nsCSPDirective::allows, aKeyWord: %s, aHashOrNonce: %s",
-               CSP_EnumToUTF8Keyword(aKeyword),
-               NS_ConvertUTF16toUTF8(aHashOrNonce).get()));
+bool nsCSPDirective::allows(enum CSPKeyword aKeyword) const {
+  CSPUTILSLOG(("nsCSPDirective::allows, aKeyWord: %s",
+               CSP_EnumToUTF8Keyword(aKeyword)));
 
   for (uint32_t i = 0; i < mSrcs.Length(); i++) {
-    if (mSrcs[i]->allows(aKeyword, aHashOrNonce)) {
+    if (mSrcs[i]->allows(aKeyword)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// https://w3c.github.io/webappsec-csp/#match-element-to-source-list
+// Step 2.1. For each expression of list: If expression matches the
+// nonce-source grammar, and element has a nonce attribute whose value is
+// expression's base64-value part, return "Matches".
+bool nsCSPDirective::allowsByNonce(const nsAString& aNonce) const {
+  for (const nsCSPBaseSrc* src : mSrcs) {
+    if (src->isNonce() &&
+        static_cast<const nsCSPNonceSrc*>(src)->nonce() == aNonce) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// https://w3c.github.io/webappsec-csp/#match-element-to-source-list
+// Steps 5.1 and 5.2 for hash-source expressions: UTF-8 encode the content, and
+// return "Matches" if the base64 encoding of its hash with an expression's
+// algorithm is that expression's base64-value. 'strict-dynamic' (step 5.2.1)
+// is handled separately by the caller.
+bool nsCSPDirective::allowsByHash(const nsAString& aContent) const {
+  // Only hash-source expressions are considered, so don't convert the content
+  // to UTF-8 if there are none.
+  //
+  // TODO: Whether the directive has hash-source expressions, and their
+  // algorithms, could be computed once when its sources are added, rather
+  // than on each check.
+  bool hasHashSource = false;
+  for (const nsCSPBaseSrc* src : mSrcs) {
+    if (src->isHash()) {
+      hasHashSource = true;
+      break;
+    }
+  }
+  if (!hasHashSource) {
+    return false;
+  }
+
+  // The expressions share the digests, so that the content is hashed once per
+  // algorithm, rather than once per expression.
+  NS_ConvertUTF16toUTF8 content(aContent);
+  CSPHashDigestsCache cache(content);
+  for (const nsCSPBaseSrc* src : mSrcs) {
+    if (src->isHash() &&
+        static_cast<const nsCSPHashSrc*>(src)->matchesDigestOf(cache)) {
       return true;
     }
   }
@@ -1429,7 +1488,7 @@ bool nsCSPDirective::ShouldCreateViolationForNewTrustedTypesPolicy(
   MOZ_ASSERT(mDirective == nsIContentSecurityPolicy::TRUSTED_TYPES_DIRECTIVE);
 
   if (mDirective == nsIContentSecurityPolicy::TRUSTED_TYPES_DIRECTIVE) {
-    if (allows(CSP_NONE, EmptyString())) {
+    if (allows(CSP_NONE)) {
       // Step 2.4: if directive’s value only contains a tt-keyword which is a
       // match for a value 'none', set createViolation to true.
       // `nsCSPParser` ignores the 'none' keyword if other keywords or policy
@@ -1438,7 +1497,7 @@ bool nsCSPDirective::ShouldCreateViolationForNewTrustedTypesPolicy(
     }
 
     if (aCreatedPolicyNames.Contains(aPolicyName) &&
-        !allows(CSP_ALLOW_DUPLICATES, EmptyString())) {
+        !allows(CSP_ALLOW_DUPLICATES)) {
       // Step 2.5: if createdPolicyNames contains policyName and directive’s
       // value does not contain a tt-keyword which is a match for a value
       // 'allow-duplicates', set createViolation to true.
@@ -1854,14 +1913,13 @@ bool nsCSPPolicy::permits(CSPDirective aDir, nsILoadInfo* aLoadInfo,
   return true;
 }
 
-bool nsCSPPolicy::allows(CSPDirective aDirective, enum CSPKeyword aKeyword,
-                         const nsAString& aHashOrNonce) const {
-  CSPUTILSLOG(("nsCSPPolicy::allows, aKeyWord: %s, a HashOrNonce: %s",
-               CSP_EnumToUTF8Keyword(aKeyword),
-               NS_ConvertUTF16toUTF8(aHashOrNonce).get()));
+bool nsCSPPolicy::allows(CSPDirective aDirective,
+                         enum CSPKeyword aKeyword) const {
+  CSPUTILSLOG(
+      ("nsCSPPolicy::allows, aKeyWord: %s", CSP_EnumToUTF8Keyword(aKeyword)));
 
   if (nsCSPDirective* directive = matchingOrDefaultDirective(aDirective)) {
-    return directive->allows(aKeyword, aHashOrNonce);
+    return directive->allows(aKeyword);
   }
 
   // No matching directive or default directive as fallback found, thus
@@ -1873,18 +1931,40 @@ bool nsCSPPolicy::allows(CSPDirective aDirective, enum CSPKeyword aKeyword,
   return true;
 }
 
+bool nsCSPPolicy::allowsByNonce(CSPDirective aDirective,
+                                const nsAString& aNonce) const {
+  if (nsCSPDirective* directive = matchingOrDefaultDirective(aDirective)) {
+    return directive->allowsByNonce(aNonce);
+  }
+
+  // No matching directive or default directive as fallback found, thus
+  // allowing the load, like allows().
+  return true;
+}
+
+bool nsCSPPolicy::allowsByHash(CSPDirective aDirective,
+                               const nsAString& aContent) const {
+  if (nsCSPDirective* directive = matchingOrDefaultDirective(aDirective)) {
+    return directive->allowsByHash(aContent);
+  }
+
+  // No matching directive or default directive as fallback found, thus
+  // allowing the load, like allows().
+  return true;
+}
+
 // Bug 2072122: Trusted Types readiness experiment only, to be removed.
 bool nsCSPPolicy::isStrict() const {
   nsCSPDirective* scriptDir = matchingOrDefaultDirective(
       nsIContentSecurityPolicy::SCRIPT_SRC_ELEM_DIRECTIVE);
-  if (!scriptDir || !scriptDir->allows(CSP_STRICT_DYNAMIC, u""_ns)) {
+  if (!scriptDir || !scriptDir->allows(CSP_STRICT_DYNAMIC)) {
     return false;
   }
   for (nsCSPDirective* directive : mDirectives) {
     if (directive->equals(nsIContentSecurityPolicy::BASE_URI_DIRECTIVE)) {
       // This works because 'none' is only included by the parser when no
       // other source except 'report-sample' is used.
-      return directive->allows(CSP_NONE, u""_ns);
+      return directive->allows(CSP_NONE);
     }
   }
   return false;

@@ -20,6 +20,7 @@ import org.mozilla.fenix.components.appstate.search.SearchStateReducer
 import org.mozilla.fenix.components.appstate.setup.checklist.SetupChecklistReducer
 import org.mozilla.fenix.components.appstate.snackbar.SnackbarState
 import org.mozilla.fenix.components.appstate.snackbar.SnackbarStateReducer
+import org.mozilla.fenix.components.appstate.sports.SportsWidgetReducer
 import org.mozilla.fenix.components.appstate.webcompat.WebCompatReducer
 import org.mozilla.fenix.ext.filterOutTab
 import org.mozilla.fenix.home.recentsyncedtabs.RecentSyncedTabState
@@ -180,6 +181,18 @@ internal object AppStoreReducer {
             is AppAction.CurrentTabClosed ->
                 state.copy(snackbarState = SnackbarState.CurrentTabClosed(action.isPrivate))
 
+            is AppAction.TabAddedToGroup ->
+                state.copy(
+                    snackbarState =
+                        SnackbarState.TabAddedToGroup(groupTitle = action.groupTitle, groupId = action.groupId)
+                )
+
+            is AppAction.TabMovedToGroup ->
+                state.copy(
+                    snackbarState =
+                        SnackbarState.TabMovedToGroup(groupTitle = action.groupTitle, groupId = action.groupId)
+                )
+
             is AppAction.URLCopiedToClipboard -> state.copy(snackbarState = SnackbarState.URLCopiedToClipboard)
 
             is AppAction.OpenInFirefoxStarted -> {
@@ -265,6 +278,8 @@ internal object AppStoreReducer {
                 state.copy(supportedMenuNotifications = state.supportedMenuNotifications - action.notification)
 
             is AppAction.BlockedTrackersAction -> BlockedTrackersStateReducer.reduce(state, action)
+
+            is AppAction.SportsWidgetAction -> SportsWidgetReducer.reduce(state, action)
 
             is AppAction.UpdateTabsTrayVisibility -> state.copy(isTabsTrayVisible = action.visible)
         }

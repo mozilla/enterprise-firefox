@@ -54,7 +54,9 @@ CARGO_CONFIG_KEYS = {
     "CARGO": _as_str,
     "CARGOFLAGS": _as_args,
     "CARGO_INCREMENTAL": _as_str,
+    "CARGO_PROFILE_DEV_BUILD_OVERRIDE_TRIM_PATHS": _as_str,
     "CARGO_PROFILE_DEV_OPT_LEVEL": _as_str,
+    "CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_TRIM_PATHS": _as_str,
     "CARGO_PROFILE_RELEASE_OPT_LEVEL": _as_str,
     "CC_KNOWN_WRAPPER_CUSTOM": _as_str,
     "DLL_PREFIX": _as_str,
@@ -146,6 +148,11 @@ CARGO_SPEC_FILES = {
     "test": ".cargo-tests-spec.json",
 }
 
+# The Cargo environment adds its own LTO and PGO flags around the computed
+# flags, and Cargo host builds never received `NSPR_CFLAGS`, so these categories
+# are left out of the flags passed to Cargo.
+RUST_EXCLUDED_FLAG_CATEGORIES = ("LTO", "NSPR", "PGO", "PGO_DEFINES")
+
 
 @dataclass
 class CargoCommand:
@@ -157,7 +164,8 @@ class CargoCommand:
     ``RUSTFLAGS`` and to the flags after ``--``. ``lto`` is whether a library
     uses link time optimization in a build that enables it for Rust libraries.
     ``outputs`` are the library or program files Cargo leaves in its target
-    directory, relative to the object directory.
+    directory, relative to the object directory. ``inputs`` are built files the
+    edge reads, relative to the object directory.
     """
 
     kind: str
@@ -165,6 +173,7 @@ class CargoCommand:
     working_directory: str
     names: tuple = ()
     outputs: tuple = ()
+    inputs: tuple = ()
     features: tuple = ()
     cargo_profile_suffix: str = ""
     cargo_crate_type: str = ""
@@ -582,6 +591,10 @@ def compose_env(
         "CARGO_PROFILE_RELEASE_OPT_LEVEL"
     )
     env["CARGO_PROFILE_DEV_OPT_LEVEL"] = substs.get("CARGO_PROFILE_DEV_OPT_LEVEL")
+    for profile in ("RELEASE", "DEV"):
+        key = f"CARGO_PROFILE_{profile}_BUILD_OVERRIDE_TRIM_PATHS"
+        if trim_paths := substs.get(key):
+            env[key] = trim_paths
     env["BINDGEN_EXTRA_CLANG_ARGS"] = " ".join(substs.get("BINDGEN_EXTRA_CLANG_ARGS"))
 
     if coreaudio_sdk := substs.get("MOZ_RUST_COREAUDIO_SDK_PATH"):

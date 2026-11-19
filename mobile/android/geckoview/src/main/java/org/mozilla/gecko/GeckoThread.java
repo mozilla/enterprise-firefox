@@ -317,16 +317,19 @@ public class GeckoThread extends Thread {
   }
 
   @SuppressLint("AppBundleLocaleChanges")
+  @SuppressWarnings("deprecation")
+  private static void useTraditionalChineseLocale(final Resources res) {
+    final Locale mappedLocale = Locale.TRADITIONAL_CHINESE;
+    Locale.setDefault(mappedLocale);
+    final Configuration config = res.getConfiguration();
+    config.locale = mappedLocale;
+    res.updateConfiguration(config, null);
+  }
+
   private static void initGeckoEnvironment() {
     final Context context = GeckoAppShell.getApplicationContext();
-    final Locale locale = Locale.getDefault();
-    final Resources res = context.getResources();
-    if (locale.toString().equalsIgnoreCase("zh_hk")) {
-      final Locale mappedLocale = Locale.TRADITIONAL_CHINESE;
-      Locale.setDefault(mappedLocale);
-      final Configuration config = res.getConfiguration();
-      config.locale = mappedLocale;
-      res.updateConfiguration(config, null);
+    if (Locale.getDefault().toString().equalsIgnoreCase("zh_hk")) {
+      useTraditionalChineseLocale(context.getResources());
     }
 
     if (!isChildProcess()) {
@@ -392,6 +395,9 @@ public class GeckoThread extends Thread {
   /**
    * Extract environment variable from extras. The environment variables are stored in the extras as
    * "env0", "env1", etc.
+   *
+   * @param extras the bundle to read, may be null
+   * @return the environment variables, as "NAME=value" strings
    */
   public static ArrayList<String> getEnvFromExtras(final Bundle extras) {
     if (extras == null) {
@@ -431,7 +437,7 @@ public class GeckoThread extends Thread {
     Looper.prepare();
     GeckoThread.msgQueue = Looper.myQueue();
     ThreadUtils.sGeckoThread = this;
-    ThreadUtils.sGeckoHandler = new Handler();
+    ThreadUtils.sGeckoHandler = new Handler(Looper.myLooper());
 
     // Preparation for pumpMessageLoop()
     final MessageQueue.IdleHandler idleHandler =
@@ -848,25 +854,51 @@ public class GeckoThread extends Thread {
     scheduleAndroidUiThreadCallback(delay);
   }
 
-  /** Queue a call to the given static method until Gecko is in the RUNNING state. */
+  /**
+   * Queue a call to the given static method until Gecko is in the RUNNING state.
+   *
+   * @param cls the class declaring the method
+   * @param methodName the method name
+   * @param args the method arguments
+   */
   public static void queueNativeCall(
       final Class<?> cls, final String methodName, final Object... args) {
     sNativeQueue.queueUntilReady(cls, methodName, args);
   }
 
-  /** Queue a call to the given instance method until Gecko is in the RUNNING state. */
+  /**
+   * Queue a call to the given instance method until Gecko is in the RUNNING state.
+   *
+   * @param obj the object to call the method on
+   * @param methodName the method name
+   * @param args the method arguments
+   */
   public static void queueNativeCall(
       final Object obj, final String methodName, final Object... args) {
     sNativeQueue.queueUntilReady(obj, methodName, args);
   }
 
-  /** Queue a call to the given instance method until Gecko is in the RUNNING state. */
+  /**
+   * Queue a call to the given instance method until Gecko reaches the given state.
+   *
+   * @param state the state to wait for
+   * @param obj the object to call the method on
+   * @param methodName the method name
+   * @param args the method arguments
+   */
   public static void queueNativeCallUntil(
       final State state, final Object obj, final String methodName, final Object... args) {
     sNativeQueue.queueUntil(state, obj, methodName, args);
   }
 
-  /** Queue a call to the given static method until Gecko is in the RUNNING state. */
+  /**
+   * Queue a call to the given static method until Gecko reaches the given state.
+   *
+   * @param state the state to wait for
+   * @param cls the class declaring the method
+   * @param methodName the method name
+   * @param args the method arguments
+   */
   public static void queueNativeCallUntil(
       final State state, final Class<?> cls, final String methodName, final Object... args) {
     sNativeQueue.queueUntil(state, cls, methodName, args);

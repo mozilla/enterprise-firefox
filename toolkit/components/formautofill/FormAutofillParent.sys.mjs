@@ -37,6 +37,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddressComponent: "resource://gre/modules/shared/AddressComponent.sys.mjs",
+  CreditCardRecord: "resource://gre/modules/shared/CreditCardRecord.sys.mjs",
   AutocompleteRemoveRecord:
     "resource://gre/modules/AutocompleteRemoveRecord.sys.mjs",
   FormAutofillML: "resource://gre/modules/shared/FormAutofillML.sys.mjs",
@@ -128,7 +129,6 @@ export let FormAutofillStatus = {
     this._initialized = true;
 
     Services.obs.addObserver(this, "passwordsAutofill-pane-loaded");
-    Services.obs.addObserver(this, "privacy-pane-loaded");
 
     // Observing the pref and storage changes
     Services.prefs.addObserver(ENABLED_AUTOFILL_ADDRESSES_PREF, this);
@@ -155,7 +155,6 @@ export let FormAutofillStatus = {
 
     this._active = null;
 
-    Services.obs.removeObserver(this, "privacy-pane-loaded");
     Services.obs.removeObserver(this, "passwordsAutofill-pane-loaded");
     Services.prefs.removeObserver(ENABLED_AUTOFILL_ADDRESSES_PREF, this);
     Services.obs.removeObserver(this, "formautofill-storage-changed");
@@ -276,20 +275,6 @@ export let FormAutofillStatus = {
     }
 
     switch (topic) {
-      case "privacy-pane-loaded": {
-        if (
-          !Services.prefs.getBoolPref(
-            "browser.settings-redesign.enabled",
-            false
-          )
-        ) {
-          let formAutofillPreferences = new lazy.FormAutofillPreferences();
-          let document = subject.document;
-          formAutofillPreferences.init(document);
-        }
-        break;
-      }
-
       case "passwordsAutofill-pane-loaded": {
         let formAutofillPreferences = new lazy.FormAutofillPreferences();
         formAutofillPreferences.init(subject.document);
@@ -931,10 +916,15 @@ export class FormAutofillParent extends JSWindowActorParent {
       return records;
     }
 
-    // We don't filter "cc-number"
+    // We don't filter "cc-number" or "cc-csc".
     if (collectionName == CREDITCARDS_COLLECTION_NAME) {
       if (fieldName == "cc-number") {
         return records.filter(record => !!record["cc-number"]);
+      }
+      if (fieldName == "cc-csc") {
+        return records.filter(record =>
+          lazy.CreditCardRecord.hasSecurityCode(record)
+        );
       }
     }
 
@@ -1293,11 +1283,7 @@ export class FormAutofillParent extends JSWindowActorParent {
     await lazy.gFormAutofillStorage.addresses.remove(guid);
   }
 
-  async #confirmCreditCardRemoval(guid, flowId) {
-    // Read before awaiting: the prompts below take focus and the actor may be
-    // destroyed by the time they resolve.
-    const chromeWindow = this.manager.browsingContext.topChromeWindow;
-
+  async #verifyCreditCardRemoval() {
     const promptMessage = FormAutofillUtils.reauthOSPromptMessage(
       "autofill-delete-payment-method-os-prompt-macos",
       "autofill-delete-payment-method-os-prompt-windows",
@@ -1328,8 +1314,23 @@ export class FormAutofillParent extends JSWindowActorParent {
         result,
       });
     }
+    return verified;
+  }
 
-    if (!verified || !chromeWindow) {
+  async #confirmCreditCardRemoval(guid, flowId) {
+    // Read before awaiting: the prompts below take focus and the actor may be
+    // destroyed by the time they resolve.
+    const chromeWindow = this.manager.browsingContext.topChromeWindow;
+    const browser = this.manager.browsingContext.top.embedderElement;
+
+    if (
+      !lazy.AutocompleteRemoveRecord.authExpirationTime("payment", browser) &&
+      !(await this.#verifyCreditCardRemoval())
+    ) {
+      return;
+    }
+    lazy.AutocompleteRemoveRecord.noteAuthorized("payment", browser);
+    if (!chromeWindow) {
       return;
     }
 

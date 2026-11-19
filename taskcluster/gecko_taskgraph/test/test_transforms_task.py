@@ -6,11 +6,19 @@ import pytest
 from mozunit import main
 from taskgraph.config import GraphConfig
 
-from gecko_taskgraph.test.conftest import FakeParameters, FakeTransformConfig
+from gecko_taskgraph.test.conftest import (
+    FakeParameters,
+    FakeTransformConfig,
+    fake_load_graph_config,
+)
 from gecko_taskgraph.transforms import job  # noqa: F401
 from gecko_taskgraph.transforms.task import (
     MAX_ROUTE_LENGTH,
     TREEHERDER_ROOT_URL,
+    _run_task_suffix,
+    build_docker_worker_payload,
+    build_generic_worker_payload,
+    check_run_task_caches,
     get_default_priority,
     get_treeherder_link,
     get_treeherder_project,
@@ -250,6 +258,61 @@ def test_try_task_config_env_no_env_config(run_transform):
     params = FakeParameters({"try_task_config": {}})
     result = list(run_transform(try_task_config_env, task, params=params))[0]
     assert result["worker"]["env"] == {"EXISTING": "value"}
+
+
+@pytest.mark.parametrize(
+    "build_payload,worker",
+    [
+        pytest.param(
+            build_docker_worker_payload,
+            {
+                "implementation": "docker-worker",
+                "docker-image": "example/image:latest",
+                "command": ["/builds/worker/bin/run-task", "--", "true"],
+                "env": {"EXISTING": "value"},
+                "max-run-time": 3600,
+                "volumes": [],
+                "caches": [],
+                "artifacts": [],
+                "retry-exit-status": [],
+                "purge-caches-exit-status": [],
+            },
+            id="docker-worker",
+        ),
+        pytest.param(
+            build_generic_worker_payload,
+            {
+                "implementation": "generic-worker",
+                "os": "linux",
+                "command": [["chmod", "+x", "run-task"], ["./run-task", "--", "true"]],
+                "env": {"EXISTING": "value"},
+                "max-run-time": 3600,
+                "os-groups": [],
+                "artifacts": [],
+                "mounts": [],
+                "retry-exit-status": [],
+            },
+            id="generic-worker",
+        ),
+    ],
+)
+def test_max_run_time_passed_to_task_env(build_payload, worker):
+    """run-task is told the maxRunTime of the task through its environment."""
+    config = FakeTransformConfig(
+        graph_config=fake_load_graph_config("/root"),
+        params=FakeParameters({
+            "level": "1",
+            "project": "example",
+            "repository_type": "hg",
+        }),
+    )
+    task = {"attributes": {}, "worker": worker, "worker-type": "t-linux"}
+    task_def = {"scopes": []}
+    build_payload(config, task, task_def)
+    payload = task_def["payload"]
+    assert payload["maxRunTime"] == 3600
+    assert payload["env"]["TASKCLUSTER_MAX_RUN_TIME"] == "3600"
+    assert payload["env"]["EXISTING"] == "value"
 
 
 def _test_paths_task(**attributes):
@@ -503,6 +566,76 @@ def test_get_default_priority(project, head_ref, shared_worker, shipping, expect
 def test_is_shared_worker(provisioner_id, worker_type, expected):
     graph_config = GraphConfig({"trust-domain": "enterprise"}, root_dir=".")
     assert is_shared_worker(graph_config, provisioner_id, worker_type) is expected
+
+
+def _checkout_task(clone_with, cache, *run_task_args):
+    return {
+        "label": "fake-task-label",
+        "attributes": {"clone_with": clone_with},
+        "task": {
+            "payload": {
+                "command": [
+                    f"/builds/worker/bin/run-task-{clone_with}",
+                    "--gecko-checkout=/builds/worker/checkouts/gecko",
+                    *run_task_args,
+                    "--",
+                    "true",
+                ],
+                "cache": {
+                    f"test-domain-level-1-{cache}-v3-{_run_task_suffix(clone_with)}": (
+                        "/builds/worker/checkouts"
+                    ),
+                },
+            },
+        },
+    }
+
+
+def _check_run_task_caches(run_transform, task):
+    params = FakeParameters({"level": "1", "repository_type": "hg"})
+    return list(run_transform(check_run_task_caches, task, params=params))
+
+
+def test_check_run_task_caches_git_sparse_shallow(run_transform):
+    task = _checkout_task(
+        "git",
+        "checkouts-git-shallow",
+        "--gecko-shallow-clone",
+        "--gecko-sparse-profile=build/sparse-profiles/mach",
+    )
+    assert _check_run_task_caches(run_transform, task) == [task]
+
+
+def test_check_run_task_caches_git_missing_sparse_profile(run_transform):
+    task = _checkout_task(
+        "git",
+        "checkouts-git-shallow",
+        "--gecko-shallow-clone",
+        "--gecko-sparse-profile=build/sparse-profiles/does-not-exist",
+    )
+    with pytest.raises(Exception, match="is using non-existant sparse profile"):
+        _check_run_task_caches(run_transform, task)
+
+
+def test_check_run_task_caches_git_sparse_then_shallow(run_transform):
+    task = _checkout_task(
+        "git",
+        "checkouts-git",
+        "--gecko-sparse-profile=build/sparse-profiles/mach",
+        "--gecko-shallow-clone",
+    )
+    with pytest.raises(Exception, match="not using a shallow checkout cache"):
+        _check_run_task_caches(run_transform, task)
+
+
+def test_check_run_task_caches_hg_sparse_git_cache(run_transform):
+    task = _checkout_task(
+        "hg",
+        "checkouts-git",
+        "--gecko-sparse-profile=build/sparse-profiles/mach",
+    )
+    with pytest.raises(Exception, match="not using a sparse checkout cache"):
+        _check_run_task_caches(run_transform, task)
 
 
 if __name__ == "__main__":

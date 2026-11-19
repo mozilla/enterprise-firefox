@@ -30,7 +30,8 @@ const SWIPE_END_MS = 200;
 
 // What a space falls back to previewing when it has no medium story card: its
 // first widget, else its first Recent activity card.
-const PREVIEW_FALLBACK_SELECTOR = ".widgets-container > *, .card-outer";
+const PREVIEW_FALLBACK_SELECTOR =
+  ".widgets-container .widget-wrapper, .card-outer";
 
 /**
  * The item a space previews: its first organic story card that is medium at
@@ -400,7 +401,7 @@ export function Spaces({
     return (
       side && (
         // Keyboard users switch with the tablist; this is a pointer shortcut.
-        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        // eslint-disable-next-line jsx-a11y-x/click-events-have-key-events, jsx-a11y-x/no-static-element-interactions
         <div
           key={side}
           className={`spaces-peek-box ${side}`}

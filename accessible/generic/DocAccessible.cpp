@@ -10,6 +10,7 @@
 #include "DocAccessible-inl.h"
 #include "EventTree.h"
 #include "HTMLImageMapAccessible.h"
+#include "HTMLSelectAccessible.h"
 #include "LocalAccessible-inl.h"
 #include "Relation.h"
 #include "TreeWalker.h"
@@ -34,7 +35,6 @@
 #include "mozilla/dom/HTMLSelectElement.h"
 #include "mozilla/dom/UserActivation.h"
 #include "mozilla/dom/WindowGlobalChild.h"
-#include "mozilla/ipc/ProtocolUtils.h"
 #include "nsAccUtils.h"
 #include "nsAccessibilityService.h"
 #include "nsEventShell.h"
@@ -545,12 +545,20 @@ void DocAccessible::Init() {
   // that one down now so we don't end up with two DocAccessibles alive for the
   // same WindowGlobal.
   if (dom::WindowGlobalChild* wgc = mDocumentNode->GetWindowGlobalChild()) {
-    if (auto* actor =
-            LoneManagedOrNullAsserts(wgc->ManagedPDocAccessibleChild())) {
-      if (DocAccessible* prevDocAcc =
+    DocAccessible* prevDocAcc = nullptr;
+    for (auto* actor : wgc->ManagedPDocAccessibleChild()) {
+      // DocAccessibleChild::GetDocAccessible returns null if the child actor
+      // has been shut down but the parent process hasn't deleted it yet. We
+      // just ignore those, even if there are several.
+      if (DocAccessible* docAcc =
               static_cast<DocAccessibleChild*>(actor)->GetDocAccessible()) {
-        prevDocAcc->Shutdown();
+        MOZ_ASSERT(!prevDocAcc,
+                   "More than one live PDocAccessible for a WindowGlobal");
+        prevDocAcc = docAcc;
       }
+    }
+    if (prevDocAcc) {
+      prevDocAcc->Shutdown();
     }
   }
 
@@ -982,6 +990,11 @@ void DocAccessible::AttributeChanged(dom::Element* aElement,
       ContentInserted(aElement, aElement->GetNextSibling());
       return;
     }
+
+    if (aAttribute == nsGkAtoms::label) {
+      HTMLComboboxAccessible::SelectedOptionLabelMaybeChanged(this, aElement);
+    }
+
     // The element doesn't have an Accessible, so ignore the attribute
     // change.
     return;
@@ -1232,6 +1245,12 @@ void DocAccessible::ElementStateChanged(dom::Document* /*aDocument*/,
     FireDelayedEvent(event);
     // This likely changes focusability as well.
     event = MakeRefPtr<AccStateChangeEvent>(accessible, states::FOCUSABLE);
+    FireDelayedEvent(event);
+  }
+
+  if (aStateMask.HasState(dom::ElementState::OPEN) &&
+      accessible->IsHTMLCombobox()) {
+    auto event = MakeRefPtr<AccStateChangeEvent>(accessible, states::EXPANDED);
     FireDelayedEvent(event);
   }
 

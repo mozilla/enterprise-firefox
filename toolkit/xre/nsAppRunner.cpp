@@ -5159,7 +5159,7 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
 #ifdef XP_MACOSX
   mozilla::MacAutoreleasePool pool;
 
-  DisableAppNap();
+  RegisterEarlyUserDefaults();
 #endif
 
 #ifdef MOZ_BACKGROUNDTASKS
@@ -5603,11 +5603,9 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   if (CheckArg("foreground")) {
     // The original process communicates that it was in the foreground by
     // adding this argument.  This new process, which is taking over for
-    // the old one, should make itself the active application.
-    ProcessSerialNumber psn;
-    if (::GetCurrentProcess(&psn) == noErr) {
-      ::SetFrontProcess(&psn);
-    }
+    // the old one, should make itself the active application once AppKit has
+    // finished launching.
+    ActivateMacAppAfterLaunch();
   }
 #endif
 
@@ -5618,6 +5616,14 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   if (CheckArg("os-restarted", nullptr, CheckArgFlag::RemoveArg) == ARG_FOUND) {
     gRestartedByOS = true;
   }
+
+#ifdef MOZ_X11
+  // An XSMP session manager restarting us passes --sm-client-id. The argument
+  // is consumed by nsNativeAppSupportUnix::Start later on.
+  if (CheckArgExists("sm-client-id") == ARG_FOUND) {
+    gRestartedByOS = true;
+  }
+#endif
 
   gRestartArgc = gArgc;
   gRestartArgv =
@@ -6050,11 +6056,9 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
     if (const char* currentDesktop = PR_GetEnv("XDG_CURRENT_DESKTOP")) {
       useXI2 |= (nsDependentCString(currentDesktop) == "gamescope"_ns);
     }
-#    ifdef EARLY_BETA_OR_EARLIER
     // We tried 3.24.0+ but had problems, let's retry with newer versions. See
     // bug 1660212.
     useXI2 |= !gtk_check_version(3, 24, 49);
-#    endif
   }
   if (!useXI2) {
     gdk_disable_multidevice();
@@ -7090,6 +7094,13 @@ nsresult XREMain::XRE_mainRun() {
       }
     }
 
+#if defined(MOZ_SANDBOX) && defined(XP_WIN)
+    // Now that the profile has been set, we can cache the directories needed
+    // for sandbox policy rules. Doing this before profile migration means that
+    // any sandboxed processes it launches also get these rules.
+    mozilla::SandboxBroker::CacheGeckoDirs();
+#endif
+
     // We'd like to initialize the JSContext *after* reading the user prefs.
     // Unfortunately that's not possible if we have to do profile migration
     // because that requires us to execute JS before reading user prefs.
@@ -7304,16 +7315,6 @@ nsresult XREMain::XRE_mainRun() {
       }
     }
 
-#if defined(MOZ_SANDBOX) && defined(XP_WIN)
-    // Now that we have preferences and the directory provider, we can
-    // finish initializing SandboxBroker. This must happen before the GFX
-    // platform is initialized (which will launch the GPU process), which
-    // occurs when the "app-startup" category is started up below
-    //
-    // After this completes, we are ready to launch sandboxed processes
-    mozilla::SandboxBroker::GeckoDependentInitialize();
-#endif
-
     nsCOMPtr<nsIFile> workingDir;
     rv = NS_GetSpecialDirectory(NS_OS_CURRENT_WORKING_DIR,
                                 getter_AddRefs(workingDir));
@@ -7439,6 +7440,9 @@ nsresult XREMain::XRE_mainRun() {
 #endif
 
 #if defined(MOZ_WIDGET_GTK)
+      nsAppShell::InitLaunchActivationToken(mXDGActivationToken.IsEmpty()
+                                                ? mDesktopStartupID
+                                                : mXDGActivationToken);
       // Clear the environment variables so they won't be inherited by child
       // processes and confuse things.
       for (const auto& name : kStartupTokenNames) {

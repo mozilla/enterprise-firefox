@@ -1485,11 +1485,26 @@ void EraseLayerState(LayersId aId) {
         auto* state =
             CompositorBridgeParent::GetLayerTreeStateUnderLock(aId, aProof);
         if (state) {
+          wrBridge = state->mWrBridge;
+        }
+      });
+
+  // Destroy the bridge before erasing its layer tree state: it finds its root
+  // compositor's OMTASampler through that state, and needs it to remove its
+  // compositor animations, which would otherwise be sampled forever.
+  if (wrBridge) {
+    wrBridge->Destroy();
+  }
+
+  CompositorBridgeParent::WithIndirectLayerTreesLock(
+      [&](const StaticMonitorAutoLock& aProof) {
+        auto* state =
+            CompositorBridgeParent::GetLayerTreeStateUnderLock(aId, aProof);
+        if (state) {
           CompositorBridgeParent* parent = state->mParent;
           if (parent) {
             apz = parent->GetAPZUpdater();
           }
-          wrBridge = state->mWrBridge;
           LAYERTREE_LOG("Erasing layer tree {:x}", aId);
           CompositorBridgeParent::EraseLayerTreeStateUnderLock(aId, aProof);
         }
@@ -1497,10 +1512,6 @@ void EraseLayerState(LayersId aId) {
 
   if (apz) {
     apz->NotifyLayerTreeRemoved(aId);
-  }
-
-  if (wrBridge) {
-    wrBridge->Destroy();
   }
 }
 
@@ -1632,7 +1643,7 @@ CompositorBridgeParent::AllocPCompositorWidgetParent(
 #endif
 }
 
-#ifdef XP_MACOSX
+#if defined(XP_MACOSX) || defined(MOZ_WAYLAND)
 mozilla::ipc::IPCResult
 CompositorBridgeParent::RecvPCompositorWidgetConstructor(
     PCompositorWidgetParent* actor, CompositorWidgetInitData&& aInitData) {
@@ -1640,11 +1651,10 @@ CompositorBridgeParent::RecvPCompositorWidgetConstructor(
       CompositorWidgetInitData::THeadlessCompositorWidgetInitData) {
     return IPC_OK();
   }
-  // macOS CocoaCompositorWidget (a superclass of the platform-specific
-  // CompositorWidgetParent) requires an extra step to pass aInitData
+  // macOS and Wayland compositors require an extra step to pass aInitData
   // with move semantics, because IPDL can't generate move semantics
-  // in the constructor. The macOS-specific aInitData contains an
-  // Endpoint, so it *must* use move semantics.
+  // in the constructor. These platform-specific aInitData contain an
+  // Endpoint, so they *must* use move semantics.
   auto* widget = static_cast<widget::CompositorWidgetParent*>(actor);
   widget->Init(std::move(aInitData));
   return IPC_OK();

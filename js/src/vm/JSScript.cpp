@@ -3505,6 +3505,12 @@ void JSScript::updateJitCodeRaw(JSRuntime* rt) {
             setJitCodeRaw(ptr->value()->raw());
             usingEntryTrampoline = true;
           }
+          // We're running with emitInterpreterEntryTrampoline on, and the map
+          // exists: Assert that this script has a trampoline.
+          // Dying scripts may already have been removed from the map.
+          MOZ_ASSERT_IF(!JS::RuntimeHeapIsBusy() &&
+                            !gc::IsAboutToBeFinalizedUnbarriered(this),
+                        usingEntryTrampoline);
         }
       }
     }
@@ -4005,10 +4011,10 @@ JS::ubi::Base::Size JS::ubi::Concrete<BaseScript>::size(
     size += allocSitesSize;
 
     size_t baselineSize = 0;
-    jit::AddSizeOfBaselineData(script, mallocSizeOf, &baselineSize);
+    jit::AddSizeOfBaselineData(script, &baselineSize);
     size += baselineSize;
 
-    size += jit::SizeOfIonData(script, mallocSizeOf);
+    size += jit::SizeOfIonData(script);
   }
 
   MOZ_ASSERT(size > 0);

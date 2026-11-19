@@ -241,8 +241,7 @@ class DestinationNodeEngine final : public AudioNodeEngine {
     // Keep processing to track track time, which is used for all timelines
     // associated with the same AudioContext.  If there are no other engines
     // for the AudioContext, then this could return false to suspend the
-    // track, but the track is blocked anyway through
-    // AudioDestinationNode::SetIsOnlyNodeForContext().
+    // track.
     return true;
   }
 
@@ -462,7 +461,12 @@ AudioDestinationNode::AudioDestinationNode(AudioContext* aContext,
     : AudioNode(aContext, aNumberOfChannels, ChannelCountMode::Explicit,
                 ChannelInterpretation::Speakers),
       mFramesToProduce(aLength),
-      mIsOffline(aIsOffline) {
+      mIsOffline(aIsOffline),
+      mWatchManager(this, AbstractThread::MainThread()),
+      mTrackEnded(AbstractThread::MainThread(), false,
+                  "AudioDestinationNode::mTrackEnded"),
+      mTrackCurrentTime(AbstractThread::MainThread(), 0,
+                        "AudioDestinationNode::mTrackCurrentTime") {
   if (aIsOffline) {
     // The track is created on demand to avoid creating a graph thread that
     // may not be used.
@@ -485,7 +489,7 @@ AudioDestinationNode::AudioDestinationNode(AudioContext* aContext,
   AudioNodeEngine* engine = new DestinationNodeEngine(this);
 
   mTrack = AudioNodeTrack::Create(aContext, engine, kTrackFlags, graph);
-  mTrack->AddMainThreadListener(this);
+  mTrackCurrentTime.Connect(&mTrack->CanonicalCurrentTime());
   // null key is fine: only one output per mTrack
   mTrack->AddAudioOutput(nullptr, nullptr);
 }
@@ -574,7 +578,9 @@ AudioNodeTrack* AudioDestinationNode::Track() {
   AudioNodeEngine* engine = new OfflineDestinationNodeEngine(this);
 
   mTrack = AudioNodeTrack::Create(context, engine, kTrackFlags, graph);
-  mTrack->AddMainThreadListener(this);
+  mTrackCurrentTime.Connect(&mTrack->CanonicalCurrentTime());
+  mTrackEnded.Connect(&mTrack->CanonicalEnded());
+  mWatchManager.Watch(mTrackEnded, &AudioDestinationNode::OnTrackEnded);
 
   return mTrack;
 }
@@ -597,19 +603,19 @@ void AudioDestinationNode::DestroyMediaTrack() {
 
   Context()->ShutdownWorklet();
 
-  mTrack->RemoveMainThreadListener(this);
+  mWatchManager.Shutdown();
+  mTrackEnded.DisconnectIfConnected();
+  mTrackCurrentTime.DisconnectIfConnected();
   AudioNode::DestroyMediaTrack();
 }
 
-void AudioDestinationNode::NotifyMainThreadTrackEnded() {
+void AudioDestinationNode::OnTrackEnded() {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(mTrack->IsEnded());
-
-  if (mIsOffline) {
-    AbstractThread::MainThread()->Dispatch(NewRunnableMethod(
-        "dom::AudioDestinationNode::FireOfflineCompletionEvent", this,
-        &AudioDestinationNode::FireOfflineCompletionEvent));
-  }
+  MOZ_ASSERT(mIsOffline);
+  MOZ_ASSERT(mTrackEnded);
+  AbstractThread::MainThread()->Dispatch(NewRunnableMethod(
+      "dom::AudioDestinationNode::FireOfflineCompletionEvent", this,
+      &AudioDestinationNode::FireOfflineCompletionEvent));
 }
 
 void AudioDestinationNode::FireOfflineCompletionEvent() {

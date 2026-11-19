@@ -4,11 +4,28 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AGENT_UI_TYPES:
+    "moz-src:///browser/components/aiwindow/ui/modules/AgentUI.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  CHAT_ROLE_LABELS:
+    "moz-src:///browser/components/aiwindow/models/agents/MonitorSetup.sys.mjs",
+  isAllowedWatchUrl:
+    "moz-src:///browser/components/aiwindow/models/agents/Monitor.sys.mjs",
+  isBareAgentCommand:
+    "chrome://browser/content/aiwindow/modules/AgentCommands.mjs",
+  MAX_CHAT_HISTORY_LENGTH:
+    "moz-src:///browser/components/aiwindow/models/agents/MonitorSetup.sys.mjs",
+  MESSAGE_ROLE:
+    "moz-src:///browser/components/aiwindow/models/Conversation.sys.mjs",
   MonitorAgent:
     "moz-src:///browser/components/aiwindow/models/agents/MonitorAgent.sys.mjs",
+  MonitorSetup:
+    "moz-src:///browser/components/aiwindow/models/agents/MonitorSetup.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
+  TOTAL_NUM_URLS_IN_MONITOR:
+    "moz-src:///browser/components/aiwindow/models/agents/Monitor.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
+  RegionLocaleMap: "moz-src:///toolkit/modules/RegionLocaleMap.sys.mjs",
   SCHEDULE_TYPES:
     "moz-src:///browser/components/aiwindow/models/agents/Schedule.sys.mjs",
   URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
@@ -25,11 +42,24 @@ const localization = new Localization(
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
+const SUPPORTED_REGIONS_DEFAULT = [
+  ["US", ["*"]],
+  ["CA", ["en-*"]],
+  ["GB", ["en-*"]],
+];
+
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "monitorSupportedRegions",
   "browser.smartwindow.agent.supportedRegions",
-  ""
+  JSON.stringify(SUPPORTED_REGIONS_DEFAULT),
+  null,
+  json =>
+    lazy.RegionLocaleMap.fromJSON(json, {
+      fallback: SUPPORTED_REGIONS_DEFAULT,
+      onInvalid: value =>
+        console.warn("Invalid JSON in supportedRegions pref:", value),
+    })
 );
 
 /**
@@ -111,6 +141,76 @@ function describeScheduleForModel(schedule) {
     default:
       return "unknown";
   }
+}
+
+// How much of the chat a monitor setup suggestion is told about
+const CHAT_HISTORY_MAX_MESSAGES = 10;
+const CHAT_HISTORY_MAX_MESSAGE_LENGTH = 2000;
+
+/**
+ * Whether a message is something the user or the assistant said. Text the
+ * app put in the conversation is told apart by how the message is marked,
+ * never by what it says.
+ *
+ * @param {ChatMessage} message
+ * @returns {boolean}
+ */
+function isRealChatMessage({ role, content, isActiveBranch, toolUIData }) {
+  if (
+    isActiveBranch === false ||
+    content?.type !== "text" ||
+    typeof content.body !== "string" ||
+    !content.body.trim()
+  ) {
+    return false;
+  }
+  if (role === lazy.MESSAGE_ROLE.USER) {
+    return !lazy.isBareAgentCommand(content.body);
+  }
+  return (
+    role === lazy.MESSAGE_ROLE.ASSISTANT &&
+    !content.l10nId &&
+    !content.monitorLog &&
+    !content.watchTask &&
+    toolUIData?.uiType !== lazy.AGENT_UI_TYPES.MONITOR_ITEM
+  );
+}
+
+/**
+ * The recent chat as context for a monitor setup suggestion: the last few
+ * things the user and the assistant said, oldest first, one "User: ..." or
+ * "Assistant: ..." line each. When they don't all fit, the oldest are left
+ * out.
+ *
+ * @param {?ChatConversation} conversation
+ * @returns {string} "" when the conversation has nothing to tell
+ */
+export function formatChatHistoryForSuggestion(conversation) {
+  const labels = new Map([
+    [lazy.MESSAGE_ROLE.USER, lazy.CHAT_ROLE_LABELS.user],
+    [lazy.MESSAGE_ROLE.ASSISTANT, lazy.CHAT_ROLE_LABELS.assistant],
+  ]);
+  const lines = (conversation?.messages ?? [])
+    .filter(isRealChatMessage)
+    .slice(-CHAT_HISTORY_MAX_MESSAGES)
+    .map(
+      ({ role, content }) =>
+        `${labels.get(role)}: ${content.body
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, CHAT_HISTORY_MAX_MESSAGE_LENGTH)}`
+    );
+
+  const kept = [];
+  let length = 0;
+  for (const line of lines.reverse()) {
+    length += line.length + (kept.length ? 1 : 0);
+    if (length > lazy.MAX_CHAT_HISTORY_LENGTH) {
+      break;
+    }
+    kept.unshift(line);
+  }
+  return kept.join("\n");
 }
 
 /**
@@ -220,6 +320,7 @@ export const MonitorUIUtils = {
       condition: monitor.monitorPrompt || "",
       enabled: !!monitor.enabled,
       status: monitorStatus,
+      checkLimit: monitor.checkLimit ?? null,
       history: (monitor.history || []).slice().reverse(),
       // Pass the schedule data directly - agent-monitor-item will format it using FTL strings
       schedule: monitor.schedule
@@ -394,20 +495,84 @@ export const MonitorUIUtils = {
   },
 
   /**
-   * Check whether the user's home region is allowed to use monitors.
-   * The allowed regions are read from the
-   * `browser.smartwindow.agent.supportedRegions` pref as a comma-separated
-   * list of region codes.
+   * Suggests a name and a condition for a monitor being created, grounded in
+   * the pages, their titles, the recent chat and the user's other monitors.
    *
-   * @returns {boolean} True if the home region is in the supported list
+   * @param {object} request
+   * @param {string[]} request.watchUrls - Pages in the create form
+   * @param {string} [request.chatHistory] - The recent chat, from
+   *   formatChatHistoryForSuggestion. Only chat hosts have one.
+   * @param {Array<{title: string, condition: string}>} [request.previousDrafts]
+   *   - What the card was already given for this form
+   * @param {boolean} [request.useMemories] - Whether chat would use memories
+   *   for its next message. Only chat hosts have a switch to follow.
+   * @returns {Promise<?{title: string, condition: string}>} null when there is
+   *   nothing to suggest
+   */
+  async suggestMonitorSetup({
+    watchUrls,
+    chatHistory = "",
+    previousDrafts = [],
+    useMemories = true,
+  }) {
+    const urls = (Array.isArray(watchUrls) ? watchUrls : [])
+      .filter(url => typeof url === "string" && lazy.isAllowedWatchUrl(url))
+      .slice(0, lazy.TOTAL_NUM_URLS_IN_MONITOR);
+    const [pageTitles, monitors] = await Promise.all([
+      this.resolveWatchUrlTitles(urls),
+      lazy.MonitorAgent.listMonitors().catch(() => []),
+    ]);
+    return lazy.MonitorSetup.suggest({
+      watchUrls: urls,
+      pageTitles,
+      chatHistory: typeof chatHistory === "string" ? chatHistory : "",
+      existingTitles: monitors.map(monitor => monitor.title),
+      previousDrafts,
+      useMemories,
+    });
+  },
+
+  /**
+   * Answers an agent-monitor-item:request-suggestion from a card hosted in
+   * chrome. The card waits for the answer, so one is always sent, with empty
+   * fields when there is nothing to suggest.
+   *
+   * @param {CustomEvent} event - The request, still being dispatched
+   */
+  async answerSuggestionRequest(event) {
+    const card = event.composedPath()[0];
+    const { requestId, watchUrls, previousDrafts } = event.detail ?? {};
+    let suggestion = null;
+    try {
+      suggestion = await this.suggestMonitorSetup({
+        watchUrls,
+        previousDrafts,
+      });
+    } catch (error) {
+      console.warn("Could not answer monitor suggestion request", error);
+    }
+    card?.dispatchEvent(
+      new card.documentGlobal.CustomEvent("agent-monitor-item:suggestion", {
+        detail: {
+          requestId,
+          title: suggestion?.title ?? "",
+          condition: suggestion?.condition ?? "",
+        },
+      })
+    );
+  },
+
+  /**
+   * Check whether the user's region is allowed to use monitors. The
+   * 'browser.smartwindow.agent.supportedRegions' pref pairs each region with
+   * the app locales it covers, so a supported region on its own is not enough.
+   *
+   * @returns {boolean} True if the home region and app locale are supported
    */
   isMonitorRegionSupported() {
-    const supportedRegions = lazy.monitorSupportedRegions
-      .split(",")
-      .map(region => region.trim().toUpperCase())
-      .filter(Boolean);
-
-    const homeRegion = lazy.Region.home?.toUpperCase();
-    return Boolean(homeRegion && supportedRegions.includes(homeRegion));
+    return lazy.monitorSupportedRegions.matches(
+      lazy.Region.home,
+      Services.locale.appLocaleAsBCP47
+    );
   },
 };

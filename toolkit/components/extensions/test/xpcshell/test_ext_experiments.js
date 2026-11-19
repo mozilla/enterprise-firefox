@@ -143,6 +143,16 @@ let fooExperimentFiles = {
 };
 
 async function testFooExperiment() {
+  // Regression test for bug 2092510: A load for an experiment_apis script with
+  // scope addon_child should not trigger a nested event loop to avoid issues:
+  // https://bugzilla.mozilla.org/show_bug.cgi?id=2092510#c3
+  let microtaskRan = false;
+  queueMicrotask(() => {
+    microtaskRan = true;
+  });
+
+  // NOTE: No "await" until the next check for the microtaskRan flag.
+
   browser.test.assertEq(
     "object",
     typeof browser.experiments,
@@ -173,11 +183,20 @@ async function testFooExperiment() {
     "foo.child()"
   );
 
+  // If this assert fails, we entered a nested event loop above. We do not
+  // expect a nested event loop because the execution of the background script
+  // implies that the underlying JAR channel (for the xpi file) has already
+  // been read (and cached) in the extension process, hence any further reads
+  // from the same extension can hit the cache.
+  browser.test.assertFalse(microtaskRan, "Microtask should not have run yet");
+
   browser.test.assertEq(
     "parent",
     await browser.experiments.foo.parent(),
     "await foo.parent()"
   );
+
+  browser.test.assertTrue(microtaskRan, "Microtask has run after await");
 }
 
 async function testFooFailExperiment() {
@@ -272,8 +291,16 @@ add_task(async function test_bundled_experiments() {
 });
 
 add_task(async function test_unbundled_experiments() {
-  async function background() {
+  async function background(useRemoteWebExtensions) {
     await testFooExperiment();
+
+    // See comment in testFooExperiment, and comment before assertion below.
+    let microtaskRan = false;
+    queueMicrotask(() => {
+      microtaskRan = true;
+    });
+
+    // NOTE: No "await" until the next check for the microtaskRan flag.
 
     browser.test.assertEq(
       "object",
@@ -299,6 +326,21 @@ add_task(async function test_unbundled_experiments() {
       "crunk.child()"
     );
 
+    // Nested event loops cause bugs (e.g. bug 2092510), so we try to avoid
+    // them. We do so for cached jar, but with unbundled experiments, the above
+    // access is the first attempt to read the JAR, so the implementation spins
+    // a nested event loop while waiting for the content to load.
+    if (useRemoteWebExtensions) {
+      // This assertion shows the current behavior that is not ideal. If we
+      // ever fix this issue, change assertTrue to assertFalse.
+      browser.test.assertTrue(microtaskRan, "Spun event loop ran microtask");
+    } else {
+      // When the extension runs in the parent process, the file is read
+      // synchronously (via ExtensionProtocolHandler::SubstituteChannel),
+      // without the need to spin the event loop.
+      browser.test.assertFalse(microtaskRan, "Event loop not spun in parent");
+    }
+
     browser.test.assertEq(
       "crunk-parent",
       await browser.experiments.crunk.parent(),
@@ -319,7 +361,7 @@ add_task(async function test_unbundled_experiments() {
 
     background: `
       ${testFooExperiment}
-      (${background})();
+      (${background})(${WebExtensionPolicy.useRemoteWebExtensions});
     `,
 
     files: fooExperimentFiles,
@@ -447,6 +489,90 @@ add_task(async function test_eventpage_with_experiments_resetOnIdleAssert() {
   await extension.startup();
 
   await extension.awaitMessage("eventpage:ready");
+
+  await extension.unload();
+});
+
+add_task(async function test_experiment_module_not_loaded_after_shutdown() {
+  let extension = ExtensionTestUtils.loadExtension({
+    isPrivileged: true,
+    manifest: { experiment_apis: fooExperimentAPIs },
+    files: fooExperimentFiles,
+  });
+  await extension.startup();
+
+  let { experimentAPIManager } = extension.extension;
+
+  // The module must not have been loaded before shutdown, otherwise the
+  // cached result would be returned without checking whether it may load.
+  let module = experimentAPIManager.getModule("foo");
+  ok(
+    !module.loaded && !module.asyncLoaded,
+    "Module was not loaded before shutdown"
+  );
+
+  await extension.unload();
+
+  Assert.throws(
+    () => experimentAPIManager.loadModule("foo"),
+    /Cannot load module 'foo' because new scripts are disabled/,
+    "Module cannot be loaded synchronously after shutdown"
+  );
+  Assert.throws(
+    () => experimentAPIManager.asyncLoadModule("foo"),
+    /Cannot load module 'foo' because new scripts are disabled/,
+    "Module cannot be loaded asynchronously after shutdown"
+  );
+});
+
+add_task(async function test_experiment_module_not_executed_after_shutdown() {
+  let extension = ExtensionTestUtils.loadExtension({
+    isPrivileged: true,
+    manifest: { experiment_apis: fooExperimentAPIs },
+    files: fooExperimentFiles,
+  });
+  await extension.startup();
+
+  let { experimentAPIManager } = extension.extension;
+
+  // "shutdown" listeners are called synchronously before shutdown disables
+  // new scripts, so this load starts compiling before they are disabled and
+  // finishes after.
+  let promiseLoaded;
+  extension.extension.once("shutdown", () => {
+    promiseLoaded = experimentAPIManager.asyncLoadModule("foo");
+  });
+
+  await extension.unload();
+
+  await Assert.rejects(
+    promiseLoaded,
+    /Cannot load module 'foo' because new scripts are disabled/,
+    "Module compiled during shutdown is not executed"
+  );
+});
+
+add_task(async function test_experiment_module_urls() {
+  let extension = ExtensionTestUtils.loadExtension({
+    isPrivileged: true,
+    manifest: { experiment_apis: fooExperimentAPIs },
+    files: fooExperimentFiles,
+  });
+  await extension.startup();
+
+  let { modules } = extension.extension;
+  let getModuleURL = scope =>
+    modules[scope].deserialize({}, true).modules.get("foo").url;
+  equal(
+    getModuleURL("parent"),
+    `moz-extension://${extension.uuid}/parent.js`,
+    "Parent module is loaded from a moz-extension: URL"
+  );
+  equal(
+    getModuleURL("child"),
+    `moz-extension://${extension.uuid}/child.js`,
+    "Child module is loaded from a moz-extension: URL"
+  );
 
   await extension.unload();
 });

@@ -559,7 +559,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
     },
     {
       id: "AW_IMPORT_SETTINGS_EMBEDDED",
-      targeting: "useEmbeddedMigrationWizard",
+      targeting: "useEmbeddedMigrationWizard && !os.isLinux",
       content: {
         fullscreen: true,
         tiles: { type: "migration-wizard" },
@@ -820,7 +820,8 @@ async function getAddonFromRepository(data) {
     addonId: addonInfo.id,
     name: addonInfo.name,
     url: addonInfo.sourceURI.spec,
-    iconURL: addonInfo.icons["64"] || addonInfo.icons["32"],
+    iconURL:
+      addonInfo.icons["128"] || addonInfo.icons["64"] || addonInfo.icons["32"],
     type: addonInfo.type,
     screenshots: addonInfo.screenshots,
   };

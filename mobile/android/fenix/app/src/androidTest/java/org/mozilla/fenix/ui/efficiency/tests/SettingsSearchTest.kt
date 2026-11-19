@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.ui.efficiency.tests
 
+import androidx.test.filters.SdkSuppress
 import org.junit.Test
 import org.mozilla.fenix.customannotations.Critical
 import org.mozilla.fenix.customannotations.SmokeTest
@@ -51,7 +52,6 @@ class SettingsSearchTest : BaseTest() {
             .mozVerifyOptionSwitchIsChecked(SettingsSearchSelectors.GOOGLE_LENS_OPTION)
             .mozSwipeTo(SettingsSearchSelectors.HOME_SCREEN_WIDGET_OPTION, direction = SwipeDirection.UP)
             .mozVerify(SettingsSearchSelectors.HOME_SCREEN_WIDGET_OPTION)
-            .mozVerifyOptionSwitchIsNotChecked(SettingsSearchSelectors.HOME_SCREEN_WIDGET_OPTION)
             // Suggestions from search engines section: search + trending + recent on by default,
             // private-session suggestions off by default
             .mozSwipeTo(SettingsSearchSelectors.SEARCH_SUGGESTIONS_SECTION_HEADER, direction = SwipeDirection.UP)
@@ -189,5 +189,25 @@ class SettingsSearchTest : BaseTest() {
             .mozClick(SearchBarSelectors.SEARCH_SELECTOR_MENU_ENGINE(engineName = "DuckDuckGo"))
             .mozClearAndEnterText("mozilla", SearchBarSelectors.TOOLBAR_IN_EDIT_MODE)
             .mozVerifyNoneContainText(SearchBarSelectors.AWESOMEBAR_SUGGESTION, text = "mozilla")
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/888673
+    @SdkSuppress(minSdkVersion = 34)
+    @Critical
+    @Test
+    fun verifyShowVoiceSearchToggleTest() {
+        on.searchBar.navigateToPage().mozVerify(SearchBarSelectors.VOICE_SEARCH_BUTTON)
+        // forceNavigation: the empty search bar keeps homepage.view composed behind it, so a plain
+        // navigateToPage(Home) would see mozIsOnPageNow() == true and no-op without dismissing the search bar.
+        on.home.navigateToPage(forceNavigation = true)
+        on.settingsSearch
+            .navigateToPage()
+            .mozSwipeTo(SettingsSearchSelectors.VOICE_SEARCH_OPTION, direction = SwipeDirection.UP)
+            .mozClick(SettingsSearchSelectors.VOICE_SEARCH_OPTION)
+            // Scroll the top row back into view: leaving the page re-checks its READY_CONTENT anchor
+            // (DEFAULT_SEARCH_ENGINE_SETTING_OPTION), which was scrolled off-screen to reach the toggle.
+            .mozSwipeTo(SettingsSearchSelectors.DEFAULT_SEARCH_ENGINE_SETTING_OPTION, direction = SwipeDirection.DOWN)
+        on.home.navigateToPage()
+        on.searchBar.navigateToPage().mozVerifyElementAbsent(SearchBarSelectors.VOICE_SEARCH_BUTTON)
     }
 }

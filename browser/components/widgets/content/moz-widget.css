@@ -5,7 +5,7 @@
 :host {
   display: flex;
   flex-direction: column;
-  contain: strict;
+  contain: size paint style;
   background: var(--card-background-color);
   border: var(--card-border);
   border-radius: var(--card-border-radius);
@@ -52,9 +52,21 @@
 .widget-content {
   flex: 1 1 auto;
   min-block-size: 0;
+  position: relative;
+  contain: strict;
 }
 
-iframe,
+.content {
+  block-size: 100%;
+}
+
+.error-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--card-background-color);
+}
+
+::slotted(iframe),
 ::slotted(browser) {
   display: block;
   inline-size: 100%;
@@ -72,7 +84,7 @@ iframe,
     --widget-header-padding: 0;
   }
 
-  iframe,
+  ::slotted(iframe),
   ::slotted(browser) {
     border-radius: var(--border-radius-medium);
   }

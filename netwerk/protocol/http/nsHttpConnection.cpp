@@ -27,6 +27,7 @@
 #include "nsHttpResponseHead.h"
 #include "nsIClassOfService.h"
 #include "nsIOService.h"
+#include "nsISocketProvider.h"
 #include "nsISocketTransport.h"
 #include "nsISupportsPriority.h"
 #include "nsITLSSocketControl.h"
@@ -871,10 +872,14 @@ void nsHttpConnection::Close(nsresult reason, bool aIsShutdown) {
     if (mIdleMonitoring) EndIdleMonitoring();
 
     // The connection and security errors clear out alt-svc mappings
-    // in case any previously validated ones are now invalid
+    // in case any previously validated ones are now invalid.
+    // Not for a connection running inside a tunnel: its errors can come from
+    // the tunnel being torn down rather than from the origin, so they say
+    // nothing about whether the origin's alternatives are still valid.
     if (((reason == NS_ERROR_NET_RESET) ||
          (NS_ERROR_GET_MODULE(reason) == NS_ERROR_MODULE_SECURITY)) &&
-        mConnInfo && !(mTransactionCaps & NS_HTTP_ERROR_SOFTLY)) {
+        mConnInfo && !mInSpdyTunnel &&
+        !(mTransactionCaps & NS_HTTP_ERROR_SOFTLY)) {
       gHttpHandler->ClearHostMapping(mConnInfo);
     }
     if (mTlsHandshaker->EarlyDataWasAvailable() &&
@@ -1999,7 +2004,6 @@ nsresult nsHttpConnection::OnSocketReadable() {
   mLastReadTime = now;
 
   nsresult rv = NS_OK;
-  uint32_t n;
   bool again = true;
 
   do {
@@ -2022,6 +2026,7 @@ nsresult nsHttpConnection::OnSocketReadable() {
     }
 
     mSocketInCondition = NS_OK;
+    uint32_t n = 0;
     if (!mTransaction) {
       rv = NS_ERROR_FAILURE;
       LOG(("  No Transaction In OnSocketWritable\n"));
@@ -2075,9 +2080,34 @@ void nsHttpConnection::SetupSecondaryTLS() {
   }
   MOZ_ASSERT(ci);
 
+  uint32_t controlFlags = 0;
+  if (mTransactionCaps & NS_HTTP_LOAD_ANONYMOUS) {
+    controlFlags |= nsISocketProvider::ANONYMOUS_CONNECT;
+  }
+  if ((mTransactionCaps & NS_HTTP_LOAD_ANONYMOUS_CONNECT_ALLOW_CLIENT_CERT) ||
+      ci->GetAnonymousAllowClientCert()) {
+    controlFlags |= nsISocketProvider::ANONYMOUS_CONNECT_ALLOW_CLIENT_CERT;
+  }
+  if (ci->GetPrivate()) {
+    controlFlags |= nsISocketProvider::NO_PERMANENT_STORAGE;
+  }
+  if (mTransactionCaps & NS_HTTP_DISALLOW_ECH) {
+    controlFlags |= nsISocketProvider::DONT_TRY_ECH;
+  }
+  if (mTransactionCaps & NS_HTTP_IS_RETRY) {
+    controlFlags |= nsISocketProvider::IS_RETRY;
+  }
+  if (((mTransactionCaps & NS_HTTP_BE_CONSERVATIVE) ||
+       ci->GetBeConservative()) &&
+      gHttpHandler->ConnMgr()->BeConservativeIfProxied(ci->ProxyInfo())) {
+    controlFlags |= nsISocketProvider::BE_CONSERVATIVE;
+  }
+
   RefPtr<TLSTransportLayer> transportLayer =
       new TLSTransportLayer(mSocketTransport, mSocketIn, mSocketOut, this);
-  if (transportLayer->Init(ci->Origin(), ci->OriginPort())) {
+  if (transportLayer->Init(ci->Origin(), ci->OriginPort(),
+                           ci->GetOriginAttributes(), controlFlags,
+                           ci->GetTlsFlags())) {
     mSocketIn = transportLayer->GetInputStreamWrapper();
     mSocketOut = transportLayer->GetOutputStreamWrapper();
     mSocketTransport = transportLayer;

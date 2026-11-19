@@ -59,6 +59,7 @@
     <string name="pref_key_about" translatable="false">pref_key_about</string>
     <string name="pref_key_account" translatable="false">pref_key_account</string>
     <string name="pref_key_sign_in" translatable="false">pref_key_sign_in</string>
+    <string name="pref_key_sign_in_promo" translatable="false">pref_key_sign_in_promo</string>
     <string name="pref_key_account_auth_error" translatable="false">pref_key_account_auth_error</string>
     <string name="pref_key_sync_debug" translatable="false">pref_key_sync_debug</string>
     <string name="pref_key_override_fxa_server" translatable="false">pref_key_override_fxa_server</string>
@@ -326,6 +327,10 @@
     <string name="pref_key_credit_cards" translatable="false">pref_key_credit_cards</string>
     <!-- Key for the "Save and autofill cards" preference in the "Autofill" fragment -->
     <string name="pref_key_credit_cards_save_and_autofill_cards" translatable="false">pref_key_credit_cards_save_and_autofill_cards</string>
+    <!-- Key for the feature flag that controls whether the save credit card prompt can save the security code -->
+    <string name="pref_key_credit_cards_enable_security_code" translatable="false">pref_key_credit_cards_enable_security_code</string>
+    <!-- Key for the user preference from the "Save security codes" toggle in the save credit card prompt -->
+    <string name="pref_key_credit_cards_save_security_code" translatable="false">pref_key_credit_cards_save_security_code</string>
     <!-- Key for the "Sync cards across devices" preference in the "Autofill" fragment -->
     <string name="pref_key_credit_cards_sync_cards_across_devices" translatable="false">pref_key_credit_cards_sync_cards_across_devices</string>
     <!-- Key for the "Manage cards" preference in the "Autofill" fragment -->
@@ -385,6 +390,7 @@
     <string name="pref_key_is_user_skyflag_attributed" translatable="false">pref_key_is_user_skyflag_attributed</string>
     <string name="pref_key_is_user_quora_attributed" translatable="false">pref_key_is_user_quora_attributed</string>
     <string name="pref_key_is_user_pairing_campaign_attributed" translatable="false">pref_key_is_user_pairing_campaign_attributed</string>
+    <string name="pref_key_last_auth_flow_entrypoint" translatable="false">pref_key_last_auth_flow_entrypoint</string>
     <string name="pref_key_referral_ping_submitted" translatable="false">pref_key_referral_ping_submitted</string>
     <string name="pref_key_referral_code" translatable="false">pref_key_referral_code</string>
 
@@ -404,8 +410,6 @@
     <string name="pref_key_wallpapers_onboarding" translatable="false">pref_key_wallpapers_onboarding</string>
     <string name="pref_key_should_migrate_wallpaper" translatable="false">pref_key_should_migrate_wallpaper</string>
     <string name="pref_key_should_migrate_wallpaper_card_colors" translatable="false">pref_key_should_migrate_wallpaper_card_colors</string>
-
-    <string name="pref_key_encryption_key_generated" translatable="false">pref_key_encryption_key_generated</string>
 
     <!-- Top Sites -->
     <string name="default_top_sites_added" translatable="false">pref_key_pocket_top_site_added</string>
@@ -505,6 +509,7 @@
     <string name="pref_key_enable_homepage_as_new_tab" translatable="false">pref_key_enable_homepage_as_new_tab</string>
     <string name="pref_key_enable_ads_client_for_stories" translatable="false">pref_key_enable_ads_client_for_stories</string>
     <string name="pref_key_show_more_shortcuts" translatable="false">pref_key_show_more_shortcuts</string>
+    <string name="pref_key_enable_picture_in_picture_window" translatable="false">pref_key_enable_picture_in_picture_window</string>
     <string name="pref_key_enable_homepage_weather_widget" translatable="false">pref_key_enable_homepage_weather_widget</string>
     <string name="pref_key_show_homepage_weather_widget" translatable="false">pref_key_show_homepage_weather_widget</string>
     <string name="pref_key_enable_homepage_wrexham_widget" translatable="false">pref_key_enable_homepage_wrexham_widget</string>
@@ -524,7 +529,6 @@
     <string name="pref_key_enable_homepage_customization" translatable="false">pref_key_enable_homepage_customization</string>
     <string name="pref_key_enable_homepage_trending_recent_search" translatable="false">pref_key_enable_homepage_trending_recent_search</string>
     <string name="pref_key_enable_oled_theme" translatable="false">pref_key_enable_oled_theme</string>
-    <string name="pref_key_enable_pdf_tools" translatable="false">pref_key_enable_pdf_tools</string>
     <string name="pref_key_enable_menu_customization_screen" translatable="false">pref_key_enable_menu_customization_screen</string>
     <string name="pref_key_enable_account_settings_new_ui" translatable="false">pref_key_enable_account_settings_new_ui</string>
     <string name="pref_key_enable_sync_decoupling" translatable="false">pref_key_enable_sync_decoupling</string>

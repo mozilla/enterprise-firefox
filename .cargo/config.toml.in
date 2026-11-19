@@ -20,9 +20,9 @@ git = "https://github.com/franziskuskiefer/cose-rust"
 rev = "43c22248d136c8b38fe42ea709d08da6355cf04b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=6b6eded1f08e91eab2b53ef3efe3b0c4fe00b255"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=4fe54b0207a2ec7e0d65af900b1218b3c1529699"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "6b6eded1f08e91eab2b53ef3efe3b0c4fe00b255"
+rev = "4fe54b0207a2ec7e0d65af900b1218b3c1529699"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/allocator-api2?rev=ad5f3d56a5a4519eff52af4ff85293431466ef5c"]
@@ -115,9 +115,9 @@ git = "https://github.com/mozilla/mp4parse-rust"
 rev = "f0c80783227a1fb46f34cb04e10607045eac4297"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/neqo?tag=v0.34.0"]
+[source."git+https://github.com/mozilla/neqo?tag=v0.36.0"]
 git = "https://github.com/mozilla/neqo"
-tag = "v0.34.0"
+tag = "v0.36.0"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/nss-rs"]
@@ -129,14 +129,14 @@ git = "https://github.com/mozilla/postcard"
 rev = "728ed1af0e844733f827e0699bc9c15a621d297c"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/rust-minidump/minidump-writer.git?rev=3ab1604f91db05ec3f3a84d779a2871df7d9afd7"]
+[source."git+https://github.com/rust-minidump/minidump-writer.git?rev=d5ec275ce1276947f09f205a581fe2b3cf90178f"]
 git = "https://github.com/rust-minidump/minidump-writer.git"
-rev = "3ab1604f91db05ec3f3a84d779a2871df7d9afd7"
+rev = "d5ec275ce1276947f09f205a581fe2b3cf90178f"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/servo/rust-cssparser?rev=9f3ceddf398f5ce4ab76fdad1b42ccb6c578a926"]
+[source."git+https://github.com/servo/rust-cssparser?rev=2436e4330d8fa0c5208c12c6d2306f5e2a43c71f"]
 git = "https://github.com/servo/rust-cssparser"
-rev = "9f3ceddf398f5ce4ab76fdad1b42ccb6c578a926"
+rev = "2436e4330d8fa0c5208c12c6d2306f5e2a43c71f"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/servo/unicode-bidi?rev=ca612daf1c08c53abe07327cb3e6ef6e0a760f0c"]

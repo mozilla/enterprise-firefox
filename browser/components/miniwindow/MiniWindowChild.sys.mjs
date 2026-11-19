@@ -12,7 +12,6 @@ export class MiniWindowChild extends JSWindowActorChild {
   #lastScrollY = 0;
   #lastReportUp = null;
   #lastReportTime = 0;
-
   /**
    * Start reporting the user's scrolling to show and hide the toolbar.
    */
@@ -24,9 +23,24 @@ export class MiniWindowChild extends JSWindowActorChild {
     });
   }
 
+  #disableScrollReveal() {
+    this.contentWindow?.removeEventListener("mozvisualscroll", this, {
+      mozSystemGroup: true,
+      wantUntrusted: false,
+    });
+  }
+
   handleEvent(event) {
-    if (event.type === "mozvisualscroll") {
-      this.#onScroll(event);
+    switch (event.type) {
+      case "mozvisualscroll":
+        this.#onScroll(event);
+        break;
+      case "pagehide":
+        // The parent's ResetApzFrame lands on the incoming document once a
+        // navigation commits, so unframe this one before session history saves
+        // its zoom for going back.
+        this.#resetApzFrame();
+        break;
     }
   }
 
@@ -76,6 +90,9 @@ export class MiniWindowChild extends JSWindowActorChild {
       case "ResetApzFrame":
         this.#resetApzFrame();
         break;
+      case "DisableScrollReveal":
+        this.#disableScrollReveal();
+        break;
     }
     return undefined;
   }
@@ -99,6 +116,10 @@ export class MiniWindowChild extends JSWindowActorChild {
       layoutWidth,
       layoutHeight
     );
+    win.addEventListener("pagehide", this, {
+      mozSystemGroup: true,
+      once: true,
+    });
 
     let current = utils.getResolution();
     utils.setResolutionAndScaleTo(
@@ -121,6 +142,8 @@ export class MiniWindowChild extends JSWindowActorChild {
    * goes back to its origin window unframed.
    */
   #resetApzFrame() {
-    this.contentWindow?.document.clearViewportSizeOverrideForMiniWindow();
+    let win = this.contentWindow;
+    win?.removeEventListener("pagehide", this, { mozSystemGroup: true });
+    win?.document.clearViewportSizeOverrideForMiniWindow();
   }
 }

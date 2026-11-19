@@ -75,12 +75,30 @@ var StarUI = {
     element.addEventListener("input", this);
     element.addEventListener("popuphidden", this);
     element.addEventListener("popupshown", this);
+
+    this._element("editBookmarkPanelDoneButton").addEventListener(
+      "click",
+      this
+    );
+    this._element("editBookmarkPanelRemoveButton").addEventListener(
+      "click",
+      this
+    );
     return (this.panel = element);
   },
 
   // nsIDOMEventListener
   handleEvent(aEvent) {
     switch (aEvent.type) {
+      case "click":
+        if (aEvent.currentTarget.id === "editBookmarkPanelDoneButton") {
+          this.panel.hidePopup();
+        } else if (
+          aEvent.currentTarget.id === "editBookmarkPanelRemoveButton"
+        ) {
+          this.removeBookmarkButtonCommand();
+        }
+        break;
       case "mousemove":
         clearTimeout(this._autoCloseTimer);
         // The autoclose timer is not disabled on generic mouseout
@@ -767,14 +785,7 @@ class HistoryMenu extends PlacesMenu {
     aEvent = BrowserUtils.getRootEvent(aEvent);
     let placesNode = aEvent.target._placesNode;
     if (placesNode) {
-      if (!PrivateBrowsingUtils.isWindowPrivate(window)) {
-        PlacesUIUtils.markPageAsTyped(placesNode.uri);
-      }
-      openUILink(placesNode.uri, aEvent, {
-        ignoreAlt: true,
-        triggeringPrincipal:
-          Services.scriptSecurityManager.getSystemPrincipal(),
-      });
+      PlacesUIUtils.openNodeWithEvent(placesNode, aEvent);
     }
   }
 }

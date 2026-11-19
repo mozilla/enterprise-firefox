@@ -122,16 +122,15 @@ public class GeckoServiceChildProcess extends Service {
             public void run() {
               if (crashHandlerService != null) {
                 try {
-                  @SuppressWarnings("unchecked")
                   final Class<? extends Service> crashHandler =
-                      (Class<? extends Service>) Class.forName(crashHandlerService);
+                      Class.forName(crashHandlerService).asSubclass(Service.class);
 
                   // Native crashes are reported through pipes, so we don't have to
                   // do anything special for that.
                   GeckoAppShell.setCrashHandlerService(crashHandler);
                   GeckoAppShell.ensureCrashHandling(crashHandler);
-                } catch (final ClassNotFoundException e) {
-                  Log.w(LOGTAG, "Couldn't find crash handler service " + crashHandlerService);
+                } catch (final ClassNotFoundException | ClassCastException e) {
+                  Log.w(LOGTAG, "Couldn't find crash handler service " + crashHandlerService, e);
                 }
               }
 
@@ -211,6 +210,10 @@ public class GeckoServiceChildProcess extends Service {
   /**
    * Returns the surface allocator interface that should be used by this process to allocate
    * Surfaces, for consumption in either the GPU process or parent process.
+   *
+   * @param client the binder of this process
+   * @return the surface allocator
+   * @throws RemoteException if the call to the parent process fails
    */
   public static ISurfaceAllocator getSurfaceAllocator(final IBinder client) throws RemoteException {
     return sProcessManager.getSurfaceAllocator(client);

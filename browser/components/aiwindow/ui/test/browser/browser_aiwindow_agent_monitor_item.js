@@ -3,8 +3,11 @@
 
 "use strict";
 
-const TEST_PAGE =
-  "chrome://mochitests/content/browser/browser/components/aiwindow/ui/test/browser/test_agent_monitor_item_page.html";
+/* import-globals-from head_agent_monitor_item.js */
+Services.scriptloader.loadSubScript(
+  getRootDirectory(gTestPath) + "head_agent_monitor_item.js",
+  this
+);
 
 const AGENT = {
   id: "agent-1",
@@ -15,23 +18,6 @@ const AGENT = {
   status: { label: "Active", kind: "watching" },
   cadence: "Auto · on-device",
 };
-
-async function openTestPage() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_PAGE);
-  await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
-    await content.customElements.whenDefined("agent-monitor-item");
-  });
-  return { tab, browser: tab.linkedBrowser };
-}
-
-async function withTestPage(fn) {
-  const { tab, browser } = await openTestPage();
-  try {
-    await fn(browser);
-  } finally {
-    BrowserTestUtils.removeTab(tab);
-  }
-}
 
 async function setProps(browser, props) {
   await SpecialPowers.spawn(browser, [props], async properties => {
@@ -1721,6 +1707,139 @@ add_task(async function test_resume_disabled_without_room() {
         "An active monitor offers Pause"
       );
       Assert.ok(!button().disabled, "Pause stays available at the limit");
+    });
+  });
+});
+
+/**
+ * While the service is refusing checks there is nothing a manual check can do,
+ * so the button goes inert and says which refusal it is waiting out. The wait
+ * is a deadline rather than a flag: nothing tells the card when it elapses, so
+ * the card has to come back on its own.
+ */
+add_task(async function test_check_now_button_while_checks_unavailable() {
+  const cases = [
+    ["budget", "budget_exceeded", "ai-tasks-alert-history-error-budget"],
+    ["throttle", "rate_limit", "ai-tasks-alert-history-error-rate-limit"],
+    [
+      "throttle",
+      "fastly_rate_limit",
+      "ai-tasks-alert-history-error-connection-blocked",
+    ],
+    [
+      "throttle",
+      "global_budget_exceeded",
+      "ai-tasks-alert-history-error-service-budget",
+    ],
+  ];
+  for (const [reason, errorCode, l10nId] of cases) {
+    await withTestPage(async browser => {
+      await setProps(browser, {
+        agent: {
+          ...AGENT,
+          checkLimit: { until: Date.now() + 60000, reason, errorCode },
+        },
+        mode: "display",
+        expanded: true,
+      });
+
+      await SpecialPowers.spawn(browser, [l10nId], async expectedId => {
+        const el = content.document.getElementById("test-agent-monitor-item");
+        const button = el.shadowRoot.querySelector("#check-now-button");
+        Assert.ok(button.disabled, "The button is disabled");
+        Assert.ok(
+          button.shadowRoot.querySelector("#main-button").disabled,
+          "And so is the inner button, which is what assistive tech sees"
+        );
+        Assert.equal(
+          el.shadowRoot.querySelector("#check-limit-reason")?.dataset.l10nId,
+          expectedId,
+          "The reason for the refusal is shown as text"
+        );
+
+        let asked = false;
+        el.addEventListener("agent-monitor-item:check-now", () => {
+          asked = true;
+        });
+        button.click();
+        await el.updateComplete;
+        Assert.ok(!asked, "Clicking it does not ask for a check");
+      });
+    });
+  }
+});
+
+/**
+ * A wait that has already elapsed, or none at all, leaves the button alone.
+ */
+add_task(async function test_check_now_button_when_checks_available() {
+  const cases = [
+    null,
+    { until: Date.now() - 1000, reason: "throttle", errorCode: "rate_limit" },
+  ];
+  for (const checkLimit of cases) {
+    await withTestPage(async browser => {
+      await setProps(browser, {
+        agent: { ...AGENT, checkLimit },
+        mode: "display",
+        expanded: true,
+      });
+
+      await SpecialPowers.spawn(browser, [], async () => {
+        const el = content.document.getElementById("test-agent-monitor-item");
+        const button = el.shadowRoot.querySelector("#check-now-button");
+        Assert.ok(!button.disabled, "The button is available");
+        Assert.equal(
+          el.shadowRoot.querySelector("#check-limit-reason"),
+          null,
+          "No refusal is explained"
+        );
+
+        const asked = new Promise(resolve =>
+          el.addEventListener("agent-monitor-item:check-now", e =>
+            resolve(e.detail.id)
+          )
+        );
+        button.click();
+        Assert.equal(await asked, "agent-1", "Clicking it asks for a check");
+      });
+    });
+  }
+});
+
+/**
+ * The button comes back by itself when the wait elapses, without the host
+ * pushing the task again.
+ */
+add_task(async function test_check_now_button_re_enables_itself() {
+  await withTestPage(async browser => {
+    await setProps(browser, {
+      agent: {
+        ...AGENT,
+        checkLimit: {
+          until: Date.now() + 300,
+          reason: "throttle",
+          errorCode: "rate_limit",
+        },
+      },
+      mode: "display",
+      expanded: true,
+    });
+
+    await SpecialPowers.spawn(browser, [], async () => {
+      const el = content.document.getElementById("test-agent-monitor-item");
+      const button = () => el.shadowRoot.querySelector("#check-now-button");
+      Assert.ok(button().disabled, "The button starts out unavailable");
+
+      await ContentTaskUtils.waitForCondition(
+        () => !button().disabled,
+        "The button re-enables once the wait elapses"
+      );
+      Assert.equal(
+        el.shadowRoot.querySelector("#check-limit-reason"),
+        null,
+        "And stops explaining a refusal that has passed"
+      );
     });
   });
 });

@@ -116,7 +116,7 @@ ChromeUtils.defineLazyGetter(lazy, "gSiteOverrides", () => {
 
 ChromeUtils.defineLazyGetter(lazy, "logConsole", () => {
   return console.createInstance({
-    prefix: "PictureInPictureChild",
+    logModule: "PictureInPictureChild",
     maxLogLevel: Services.prefs.getBoolPref(
       "media.videocontrols.picture-in-picture.log",
       false
@@ -1715,7 +1715,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
     headStyleElement.setAttribute("rel", "stylesheet");
     headStyleElement.setAttribute(
       "href",
-      "chrome://global/skin/pictureinpicture/texttracks.css"
+      "resource://content-accessible/texttracks.css"
     );
     headStyleElement.setAttribute("type", "text/css");
     return headStyleElement;

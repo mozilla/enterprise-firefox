@@ -7,6 +7,7 @@
 #include "mozilla/Casting.h"
 #include "mozilla/FloatingPoint.h"
 
+#include "gc/Allocator.h"
 #include "gc/GC.h"
 #include "jit/BaselineCompileQueue.h"
 #include "jit/BaselineCompileTask.h"
@@ -209,21 +210,7 @@ void BaselineCompilerCodeGen::ensureDebugModeOSRPointSpace() {
 
   // Ensure that the previous DebugModeOSR point has sufficient space before
   // emitting the next eligible call or finishing code generation.
-  if (masm.currentOffset() - *lastOffset <
-      Assembler::PatchWrite_NearCallSize()) {
-    int32_t paddingSize = Assembler::PatchWrite_NearCallSize();
-    paddingSize -= masm.currentOffset() - *lastOffset;
-#if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
-    masm.nop(paddingSize);
-#else
-    for (int32_t i = 0; i < paddingSize; i += Assembler::NopSize()) {
-      masm.nop();
-    }
-#endif
-  }
-
-  MOZ_ASSERT_IF(!masm.oom(), masm.currentOffset() - *lastOffset >=
-                                 Assembler::PatchWrite_NearCallSize());
+  masm.ensureNearCallPatchSpace(*lastOffset);
 }
 
 template <>
@@ -378,17 +365,13 @@ bool BaselineCompiler::compileImpl() {
 
 bool BaselineCompiler::finishCompile(JSContext* cx) {
   Rooted<JSScript*> script(cx, handler.script());
-  bool isRealmIndependentJitCodeShared = IsRealmIndependentBaselineCode(script);
 
-  UniquePtr<BaselineScript> baselineScript(
-      nullptr, JS::DeletePolicy<BaselineScript>(cx->runtime()));
+  bool isRealmIndependentJitCodeShared = IsRealmIndependentBaselineCode(script);
+  MOZ_ASSERT_IF(isRealmIndependentJitCodeShared, !cx->zone());
+
+  BaselineScript* baselineScript = nullptr;
   JitCode* code = nullptr;
   {
-    mozilla::Maybe<AutoAllocInAtomsZone> ar;
-    if (isRealmIndependentJitCodeShared) {
-      ar.emplace(cx);
-    }
-
     AutoCreatedBy acb2(masm, "exception_tail");
     Linker linker(masm);
     if (masm.oom()) {
@@ -396,18 +379,32 @@ bool BaselineCompiler::finishCompile(JSContext* cx) {
       return false;
     }
 
-    code = linker.newCode(cx, CodeKind::Baseline);
-    if (!code) {
-      return false;
+    {
+      // Allocate the JitCode of cached self-hosted scripts in the atoms zone so
+      // that it can be shared.
+      mozilla::Maybe<AutoAllocInAtomsZone> enterAtomsZone;
+      if (isRealmIndependentJitCodeShared) {
+        enterAtomsZone.emplace(cx);
+      }
+
+      code = linker.newCode(cx, CodeKind::Baseline);
+      if (!code) {
+        return false;
+      }
     }
 
-    baselineScript.reset(BaselineScript::New(
+    // The BaselineScript is always allocated in the zone of the owning
+    // script. To cache self-hosted scripts we will make a copy in the atoms
+    // zone.
+    AutoRealm ar(cx, script);
+
+    baselineScript = BaselineScript::New(
         cx, warmUpCheckPrologueOffset_.offset(),
         profilerEnterFrameToggleOffset_.offset(),
         profilerExitFrameToggleOffset_.offset(),
         debugModeOSREpilogueOffset_.offset(), handler.retAddrEntries().length(),
         handler.osrEntries().length(), debugTrapEntries_.length(),
-        script->resumeOffsets().size()));
+        script->resumeOffsets().size());
     if (!baselineScript) {
       return false;
     }
@@ -416,15 +413,17 @@ bool BaselineCompiler::finishCompile(JSContext* cx) {
 
     JitSpew(JitSpew_BaselineScripts,
             "Created BaselineScript %p (raw %p) for %s:%u:%u",
-            (void*)baselineScript.get(), (void*)code->raw(), script->filename(),
+            (void*)baselineScript, (void*)code->raw(), script->filename(),
             script->lineno(), script->column().oneOriginValue());
 
     // If profiler instrumentation is enabled, toggle instrumentation on.
+    // This must happen in the scope of |linker| for code to be writable.
     if (cx->runtime()->jitRuntime()->isProfilerInstrumentationEnabled(
             cx->runtime())) {
       baselineScript->toggleProfilerInstrumentation(true);
     }
   }
+
   baselineScript->copyRetAddrEntries(handler.retAddrEntries().begin());
   baselineScript->copyOSREntries(handler.osrEntries().begin());
   baselineScript->copyDebugTrapEntries(debugTrapEntries_.begin());
@@ -454,7 +453,7 @@ bool BaselineCompiler::finishCompile(JSContext* cx) {
             "Added JitcodeGlobalEntry for baseline %sscript %s:%u:%u (%p)",
             isRealmIndependentJitCodeShared ? "shared realm-independent " : "",
             script->filename(), script->lineno(),
-            script->column().oneOriginValue(), baselineScript.get());
+            script->column().oneOriginValue(), baselineScript);
 
     if (!AddBaselineJitcodeGlobalEntry(cx, script, code,
                                        perfSpewer_.extractSourceInfo())) {
@@ -464,7 +463,7 @@ bool BaselineCompiler::finishCompile(JSContext* cx) {
 
   script->jitScript()->setIonThreshold(handler.baseWarmUpThreshold());
 
-  script->jitScript()->setBaselineScript(script, baselineScript.release());
+  script->jitScript()->setBaselineScript(script, baselineScript);
 
   perfSpewer_.saveProfile(cx, script, code);
 
@@ -1759,16 +1758,14 @@ bool BaselineCompilerCodeGen::emitWarmUpCounterIncrement() {
   Address depthAddr(scriptReg, ICScript::offsetOfDepth());
   masm.branch32(Assembler::NotEqual, depthAddr, Imm32(0), &done);
 
-  // Load the IonScript* in scriptReg. We can load this from the ICScript*
-  // because it must be an outer ICScript embedded in the JitScript.
-  constexpr int32_t offset = -int32_t(JitScript::offsetOfICScript()) +
-                             int32_t(JitScript::offsetOfIonScript());
-  masm.loadPtr(Address(scriptReg, offset), scriptReg);
-
+  // Check the IonScript state. We can load this via the ICScript* because it
+  // must be an outer ICScript embedded in a JitScript.
+  constexpr int32_t ionStateOffset = -int32_t(JitScript::offsetOfICScript()) +
+                                     int32_t(JitScript::offsetOfIonState());
   // Do nothing if Ion is already compiling this script off-thread or if Ion has
   // been disabled for this script.
-  masm.branchTestPtr(Assembler::NonZero, scriptReg, Imm32(SpecialScriptBit),
-                     &done);
+  masm.branch8(Assembler::AboveOrEqual, Address(scriptReg, ionStateOffset),
+               Imm32(JitScript::firstSpecialScriptState()), &done);
 
   // Try to compile and/or finish a compilation.
   if (JSOp(*pc) == JSOp::LoopHead) {
@@ -1916,20 +1913,20 @@ bool BaselineInterpreterCodeGen::emitWarmUpCounterIncrement() {
     masm.branch32(Assembler::BelowOrEqual, countReg,
                   Imm32(JitOptions.baselineJitWarmUpThreshold), &done);
 
-    // Decide what to do based on the state of the baseline script field.
-    Label notSpecial;
     masm.loadPtr(baselineScriptAddr, scratch);
-    masm.branchTestPtr(Assembler::Zero, scratch, Imm32(SpecialScriptBit),
-                       &notSpecial);
 
-    // The baseline script is a special tagged value: disabled, queued, or
-    // compiling. If it's queued and the warmup count is high enough,
-    // trigger a batch compilation with whatever is currently queued.
-    // Otherwise, we're done.
+    // Decide what to do based on the baseline state field.
+    Label notSpecial;
+    Address baselineStateAddr(scriptReg, JitScript::offsetOfBaselineState());
+    masm.branch8(Assembler::Below, baselineStateAddr,
+                 Imm32(JitScript::firstSpecialScriptState()), &notSpecial);
+
+    // The baseline script is disabled, queued, or compiling. If it's queued and
+    // the warmup count is high enough, trigger a batch compilation with
+    // whatever is currently queued. Otherwise, we're done.
     uint32_t eagerWarmUpThreshold = JitOptions.baselineJitWarmUpThreshold * 2;
-    masm.branchPtr(Assembler::NotEqual, scratch,
-                   ImmPtr(BaselineQueuedScriptPtr), &done);
-
+    masm.branch8(Assembler::NotEqual, baselineStateAddr,
+                 Imm32(JitScript::queuedScriptState()), &done);
     masm.branch32(Assembler::Below, countReg, Imm32(eagerWarmUpThreshold),
                   &done);
 
@@ -1939,8 +1936,7 @@ bool BaselineInterpreterCodeGen::emitWarmUpCounterIncrement() {
 
     // If we already have a valid BaselineScript, tier up now.
     Label notCompiled;
-    masm.branchPtr(Assembler::BelowOrEqual, scratch,
-                   ImmPtr(BaselineCompilingScriptPtr), &notCompiled);
+    masm.branchPtr(Assembler::Equal, scratch, ImmPtr(nullptr), &notCompiled);
 
     // We just need to update our frame, find the OSR address, and jump to it.
     saveInterpreterPCReg();
@@ -1965,7 +1961,7 @@ bool BaselineInterpreterCodeGen::emitWarmUpCounterIncrement() {
 
     // Otherwise, add this script to the queue.
     // First, mark the jitscript as queued.
-    masm.storePtr(ImmPtr(BaselineQueuedScriptPtr), baselineScriptAddr);
+    masm.store8(Imm32(JitScript::queuedScriptState()), baselineStateAddr);
 
     Register queueReg = scratch;
     masm.loadBaselineCompileQueue(queueReg);
@@ -2019,9 +2015,9 @@ bool BaselineInterpreterCodeGen::emitWarmUpCounterIncrement() {
   masm.branch32(Assembler::BelowOrEqual, countReg,
                 Imm32(JitOptions.baselineJitWarmUpThreshold), &done);
 
-  masm.branchTestPtr(Assembler::NonZero,
-                     Address(scriptReg, JitScript::offsetOfBaselineScript()),
-                     Imm32(SpecialScriptBit), &done);
+  masm.branch8(Assembler::AboveOrEqual,
+               Address(scriptReg, JitScript::offsetOfBaselineState()),
+               Imm32(JitScript::firstSpecialScriptState()), &done);
   {
     prepareVMCall();
 
@@ -6687,6 +6683,11 @@ bool BaselineCodeGen<Handler>::emit_Resume() {
   Register scratch1 = regs.takeAny();
   masm.loadFunctionArgCount(callee, scratch1);
 
+  // Resume in the VM if there are too many formals to push here.
+  Label vmResume, done;
+  masm.branch32(Assembler::Above, scratch1, Imm32(JIT_ARGS_LENGTH_MAX),
+                &vmResume);
+
   static_assert(sizeof(Value) == 8);
 #ifndef JS_CODEGEN_NONE
   static_assert(JitStackAlignment == 16 || JitStackAlignment == 8);
@@ -6792,6 +6793,27 @@ bool BaselineCodeGen<Handler>::emit_Resume() {
     masm.switchToBaselineFrameRealm(R2.scratchReg());
   }
   restoreInterpreterPCReg();
+  masm.jump(&done);
+
+  masm.bind(&vmResume);
+  {
+    masm.unboxInt32(frame.addressOfStackValue(-1), R2.scratchReg());
+    masm.loadValue(frame.addressOfStackValue(-2), R1);
+    masm.unboxObject(frame.addressOfStackValue(-3), R0.scratchReg());
+
+    prepareVMCall();
+    pushArg(R2.scratchReg());
+    pushArg(R1);
+    pushArg(R0.scratchReg());
+
+    using Fn = bool (*)(JSContext*, HandleObject, HandleValue, int32_t,
+                        MutableHandleValue);
+    if (!callVM<Fn, jit::ResumeGeneratorFromJit>()) {
+      return false;
+    }
+  }
+
+  masm.bind(&done);
   frame.popn(3);
   frame.push(R0);
   return true;
@@ -7387,7 +7409,7 @@ bool BaselineInterpreterGenerator::emitInterpreterLoop() {
     JitCode* handlerCode = runtime->jitRuntime()->debugTrapHandler(
         DebugTrapHandlerKind::Interpreter);
     debugTrapHandlerOffset_ = masm.currentOffset();
-    masm.jump(handlerCode);
+    masm.tailJump(handlerCode);
   }
 
   // Emit the table.

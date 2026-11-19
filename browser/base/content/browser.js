@@ -129,6 +129,16 @@ ChromeUtils.defineESModuleGetters(this, {
   ZoomUI: "resource:///modules/ZoomUI.sys.mjs",
 });
 
+ChromeUtils.defineESModuleGetters(
+  this,
+  {
+    StatusPanel: "chrome://browser/content/tabbrowser/status-panel.mjs",
+    TabBarVisibility:
+      "chrome://browser/content/tabbrowser/tab-bar-visibility.mjs",
+  },
+  { global: "current" }
+);
+
 ChromeUtils.defineLazyGetter(this, "fxAccounts", () => {
   return ChromeUtils.importESModule(
     "resource://gre/modules/FxAccounts.sys.mjs"
@@ -1250,21 +1260,12 @@ var gKeywordURIFixup = {
         }
 
         let displayHostName = "http://" + hostName + "/";
-        let message = gNavigatorBundle.getFormattedString(
-          "keywordURIFixup.message",
-          [displayHostName]
-        );
-        let yesMessage = gNavigatorBundle.getFormattedString(
-          "keywordURIFixup.goTo",
-          [displayHostName]
-        );
+        let l10nArgs = { hostName: displayHostName };
 
         let buttons = [
           {
-            label: yesMessage,
-            accessKey: gNavigatorBundle.getString(
-              "keywordURIFixup.goTo.accesskey"
-            ),
+            "l10n-id": "keyword-uri-fixup-go-to-button",
+            "l10n-args": l10nArgs,
             callback() {
               // Do not set this preference while in private browsing.
               if (!PrivateBrowsingUtils.isWindowPrivate(window)) {
@@ -1286,7 +1287,10 @@ var gKeywordURIFixup = {
         let notification = await notificationBox.appendNotification(
           "keyword-uri-fixup",
           {
-            label: message,
+            label: {
+              "l10n-id": "keyword-uri-fixup-message",
+              "l10n-args": l10nArgs,
+            },
             priority: notificationBox.PRIORITY_INFO_HIGH,
           },
           buttons
@@ -4122,7 +4126,7 @@ function warnAboutClosingWindow() {
 var MailIntegration = {
   sendLinkForBrowser(aBrowser) {
     this.sendMessage(
-      gURLBar.makeURIReadable(aBrowser.currentURI).displaySpec,
+      BrowserUtils.getExposableURI(aBrowser.currentURI).displaySpec,
       aBrowser.contentTitle
     );
   },
@@ -5009,6 +5013,8 @@ if (window.location.href != AppConstants.BROWSER_CHROME_URL) {
 
 var ConfirmationHint = {
   _timerID: null,
+  _duration: 0,
+  _pendingShow: null,
 
   /**
    * Shows a transient, non-interactive confirmation hint anchored to an
@@ -5031,7 +5037,19 @@ var ConfirmationHint = {
    *         - l10nArgs (object): l10n arguments for the messageId.
    *         - hideCheckmark: Whether to hide the animated checkmark
    */
-  show(
+  show(anchor, messageId, options = {}) {
+    if (this._panel.state == "hiding") {
+      // openPopup does nothing while the panel is hiding.
+      this._pendingShow = [anchor, messageId, options];
+      return;
+    }
+    this._show(anchor, messageId, options);
+  },
+
+  /**
+   * Does the work of show(). Called internally to handle queued hints not counting twice.
+   */
+  _show(
     anchor,
     messageId,
     {
@@ -5077,38 +5095,48 @@ var ConfirmationHint = {
     // The timeout value used here allows the panel to stay open for
     // 3s after the text transition (duration=120ms) has finished.
     // If there is a description, we show for 6s after the text transition.
-    const DURATION = showDescription ? 6000 : 3000;
-    let startAutoHideTimer = () => {
-      this._animationBox.setAttribute("animate", "true");
-      this._timerID = setTimeout(() => {
-        this._panel.hidePopup(true);
-      }, DURATION + 120);
-    };
+    this._duration = showDescription ? 6000 : 3000;
 
     if (this._panel.state == "open") {
       // A hint is already showing: openPopup below would be a no-op and no
       // popupshown event would fire to restart the timer _reset just cleared.
-      startAutoHideTimer();
+      this._startAutoHideTimer();
       return;
     }
-
-    this._panel.addEventListener("popupshown", startAutoHideTimer, {
-      once: true,
-    });
-
-    this._panel.addEventListener(
-      "popuphidden",
-      () => {
-        // reset the timerId in case our timeout wasn't the cause of the popup being hidden
-        this._reset();
-      },
-      { once: true }
-    );
 
     this._panel.openPopup(anchor, {
       position: position ?? "bottomleft topleft",
       triggerEvent: event,
     });
+  },
+
+  handleEvent(event) {
+    switch (event.type) {
+      case "popupshown":
+        this._startAutoHideTimer();
+        break;
+      case "popuphidden": {
+        // reset the timerId in case our timeout wasn't the cause of the popup being hidden
+        this._reset();
+        let pending = this._pendingShow;
+        this._pendingShow = null;
+        if (pending) {
+          this._show(...pending);
+        }
+        break;
+      }
+    }
+  },
+
+  /**
+   * Shows the hint's message and hides the hint after `_duration` ms, plus
+   * the length of the message's text transition.
+   */
+  _startAutoHideTimer() {
+    this._animationBox.setAttribute("animate", "true");
+    this._timerID = setTimeout(() => {
+      this._panel.hidePopup(true);
+    }, this._duration + 120);
   },
 
   _reset() {
@@ -5157,6 +5185,8 @@ var ConfirmationHint = {
       let wrapper = document.getElementById("confirmation-hint-wrapper");
       wrapper.replaceWith(wrapper.content);
       this.__panel = document.getElementById("confirmation-hint");
+      this.__panel.addEventListener("popupshown", this);
+      this.__panel.addEventListener("popuphidden", this);
     }
   },
 };

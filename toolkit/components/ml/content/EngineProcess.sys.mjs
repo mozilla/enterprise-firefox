@@ -49,7 +49,7 @@ export const WASM_BACKENDS = [BACKENDS.onnx];
 
 /**
  * @constant
- * @type {string}
+ * @type {RegExp}
  * @description Matches filenames with subdirectories, starting with alphanumeric or underscore,
                 and optionally ending with a dot followed by a 2-9 letter extension.
 
@@ -249,6 +249,11 @@ export const FEATURES = {
   //agents
   "agent-monitor": {
     engineId: "agent-monitor-engine",
+  },
+  // Its own engine id, so a suggestion never replaces a running check's.
+  // see browser/components/aiwindow/models/agents/MonitorSetup.sys.mjs
+  "agent-monitor-setup": {
+    engineId: "agent-monitor-setup-engine",
   },
   // see browser/components/aiwindow/models/search/SearchAgent.sys.mjs
   "search-answer-generation": {

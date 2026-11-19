@@ -2960,7 +2960,9 @@ with only_when(requires_wasm_sandboxing & compile_environment):
     def wasm_cxx_with_flags(wasm_cxx, wasi_sysroot_flags):
         return wasm_compiler_with_flags(wasm_cxx, wasi_sysroot_flags)
 
-    set_config("WASM_CXX", wasm_cxx_with_flags)
+    set_config("WASM_CXX", clang_plugin_compiler(wasm_cxx_with_flags, "clang++", "g++"))
+    # We do need to keep clang++ when building $(WASM_ARCHIVE).
+    set_config("WASM_CXX_LINK", wasm_cxx_with_flags)
 
     wasm_compile_flags = dependable(["-fno-exceptions", "-fno-strict-aliasing"])
     option(env="WASM_CFLAGS", nargs=1, help="Options to pass to WASM_CC")
@@ -3911,14 +3913,12 @@ option(
     "MOZ_TEST_PACKAGE_ARCHIVES_SKIP",
     compile_environment,
     gtest_in_build,
-    build_project,
 )
 def test_package_configuration(
     available_archives,
     skipped_archives,
     compile_environment,
     gtest_in_build,
-    build_project,
 ):
     archives = set(available_archives) - set(skipped_archives)
 
@@ -3926,7 +3926,6 @@ def test_package_configuration(
         "stage-config",
         "stage-mach",
         "stage-extensions",
-        "stage-mochitest",
     ]
 
     # jittest is packaged directly from topsrcdir. Only jsreftest
@@ -3940,9 +3939,6 @@ def test_package_configuration(
     if gtest_in_build:
         archives.add("gtest")
         stage_targets.append("stage-gtest")
-
-    if build_project == "mobile/android":
-        stage_targets.append("stage-android")
 
     stage_targets.append("test-packages-manifest")
 

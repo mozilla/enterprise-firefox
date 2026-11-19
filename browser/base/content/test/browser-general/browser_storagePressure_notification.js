@@ -130,20 +130,18 @@ add_task(async function () {
   );
   await new Promise(r => setTimeout(r, 1000));
 
-  let prefBtn = notification.buttonContainer.getElementsByTagName("button")[0];
+  let prefBtn =
+    notification.buttonContainer.getElementsByTagName("moz-button")[0];
   ok(prefBtn, "Should have an open preferences button");
   let aboutPrefPromise = openAboutPrefPromise(win);
   EventUtils.synthesizeMouseAtCenter(prefBtn, {}, win);
   await aboutPrefPromise;
   let aboutPrefTab = win.gBrowser.selectedTab;
   let prefDoc = win.gBrowser.selectedBrowser.contentDocument;
-  // Match either the legacy "cookiesAndSiteData" XUL group or the redesigned
-  // "cookiesAndSiteData2" setting-group, and only the live (not [hidden])
-  // version so the visibility assertion targets the rendered one.
   let siteDataGroup;
   await TestUtils.waitForCondition(() => {
     siteDataGroup = prefDoc.querySelector(
-      'setting-group:is([groupid="cookiesAndSiteData"], [groupid="cookiesAndSiteData2"]):not([hidden])'
+      'setting-group[groupid="cookiesAndSiteData"]'
     );
     return siteDataGroup && BrowserTestUtils.isVisible(siteDataGroup);
   }, "siteDataGroup should be visible on the privacy pane");

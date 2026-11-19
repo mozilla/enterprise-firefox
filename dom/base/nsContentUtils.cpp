@@ -98,6 +98,7 @@
 #include "mozilla/ManualNAC.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MediaFeatureChange.h"
+#include "mozilla/MiscEvents.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/NullPrincipal.h"
 #include "mozilla/OriginAttributes.h"
@@ -542,20 +543,23 @@ uint32_t nsContentUtils::sInnerOrOuterWindowSerialCounter = 0;
 
 INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS(Maybe<int32_t>,
                                                  nsContentUtils::ComparePoints,
-                                                 TreeKind::DOM,
-                                                 NodeIndexCache*);
+                                                 TreeKind::DOM, NodeIndexCache*,
+                                                 const nsINode*);
 INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS(Maybe<int32_t>,
                                                  nsContentUtils::ComparePoints,
                                                  TreeKind::ShadowIncludingDOM,
-                                                 NodeIndexCache*);
+                                                 NodeIndexCache*,
+                                                 const nsINode*);
 INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS(Maybe<int32_t>,
                                                  nsContentUtils::ComparePoints,
                                                  TreeKind::Flat,
-                                                 NodeIndexCache*);
+                                                 NodeIndexCache*,
+                                                 const nsINode*);
 INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS(Maybe<int32_t>,
                                                  nsContentUtils::ComparePoints,
                                                  TreeKind::FlatForSelection,
-                                                 NodeIndexCache*);
+                                                 NodeIndexCache*,
+                                                 const nsINode*);
 
 #undef INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS
 #undef INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM
@@ -956,6 +960,18 @@ constexpr TreeKind TreeKindToCompareChildren() {
   }
 }
 
+template <TreeKind aKind>
+static inline bool IsInclusiveDescendantForComparison(
+    const nsINode& aNode, const nsINode& aAncestor) {
+  for (const nsINode* node = &aNode; node;
+       node = GetParentNodeForComparison<aKind>::Get(node)) {
+    if (node == &aAncestor) {
+      return true;
+    }
+  }
+  return false;
+}
+
 template <class GetParentStruct>
 class MOZ_STACK_CLASS CommonAncestors final {
  public:
@@ -969,15 +985,24 @@ class MOZ_STACK_CLASS CommonAncestors final {
    * CanComputeIndex() returns false, ComputeChildIndex() nor GetChildCount() is
    * never used.
    */
-  CommonAncestors(const NodeType& aNode1, const NodeType& aNode2) {
+  CommonAncestors(const NodeType& aNode1, const NodeType& aNode2,
+                  const NodeType* aAncestorLimiter = nullptr) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
     mAssertNoGC.emplace();
 #endif  // #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
 
     AppendInclusiveAncestors(const_cast<NodeType*>(&aNode1),
-                             mInclusiveAncestors1);
+                             mInclusiveAncestors1, aAncestorLimiter);
+    if (aAncestorLimiter &&
+        mInclusiveAncestors1.LastElement() != aAncestorLimiter) {
+      return;
+    }
     AppendInclusiveAncestors(const_cast<NodeType*>(&aNode2),
-                             mInclusiveAncestors2);
+                             mInclusiveAncestors2, aAncestorLimiter);
+    if (aAncestorLimiter &&
+        mInclusiveAncestors2.LastElement() != aAncestorLimiter) {
+      return;
+    }
 
     // Find where the parent chain differs
     size_t depth1 = mInclusiveAncestors1.Length();
@@ -1031,10 +1056,14 @@ class MOZ_STACK_CLASS CommonAncestors final {
 
  private:
   static void AppendInclusiveAncestors(NodeType* aNode,
-                                       nsTArray<NodeType*>& aArrayOfParents) {
+                                       nsTArray<NodeType*>& aArrayOfParents,
+                                       const NodeType* aAncestorLimiter) {
     NodeType* node = aNode;
     while (node) {
       aArrayOfParents.AppendElement(node);
+      if (node == aAncestorLimiter) {
+        break;
+      }
       node = GetParentStruct::Get(node);
     }
   }
@@ -4124,16 +4153,19 @@ Maybe<int32_t> nsContentUtils::CompareChildNodeAndChildOffset(
 template <TreeKind aKind>
 Maybe<int32_t> nsContentUtils::ComparePointsWithIndices(
     const nsINode* aParent1, uint32_t aOffset1, const nsINode* aParent2,
-    uint32_t aOffset2, NodeIndexCache* aIndexCache) {
+    uint32_t aOffset2, NodeIndexCache* aIndexCache,
+    const nsINode* aAncestorLimiter) {
   MOZ_ASSERT(aParent1);
   MOZ_ASSERT(aParent2);
 
   if (aParent1 == aParent2) {
+    MOZ_ASSERT_IF(aAncestorLimiter, IsInclusiveDescendantForComparison<aKind>(
+                                        *aParent1, *aAncestorLimiter));
     return Some(aOffset1 < aOffset2 ? -1 : (aOffset1 > aOffset2 ? 1 : 0));
   }
 
   const CommonAncestors<GetParentNodeForComparison<aKind>> commonAncestors(
-      *aParent1, *aParent2);
+      *aParent1, *aParent2, aAncestorLimiter);
   const nsINode* const closestCommonAncestor =
       commonAncestors.GetClosestCommonAncestor();
   if (MOZ_UNLIKELY(!closestCommonAncestor)) {
@@ -4331,7 +4363,8 @@ template <TreeKind aKind, typename PT1, typename RT1, typename PT2,
 Maybe<int32_t> nsContentUtils::ComparePoints(
     const RangeBoundaryBase<PT1, RT1>& aBoundary1,
     const RangeBoundaryBase<PT2, RT2>& aBoundary2,
-    NodeIndexCache* aIndexCache /* = nullptr */) {
+    NodeIndexCache* aIndexCache /* = nullptr */,
+    const nsINode* aAncestorLimiter /* = nullptr */) {
   if (!aBoundary1.IsSet() || !aBoundary2.IsSet()) {
     return Nothing{};
   }
@@ -4349,7 +4382,7 @@ Maybe<int32_t> nsContentUtils::ComparePoints(
     return ComparePointsWithIndices<aKind>(
         aBoundary1.GetContainer(), *aBoundary1.Offset(kValidOrInvalidOffsets1),
         aBoundary2.GetContainer(), *aBoundary2.Offset(kValidOrInvalidOffsets2),
-        aIndexCache);
+        aIndexCache, aAncestorLimiter);
   }
 
   // Otherwise, i.e., at least one RangeBoundaryBase stores the child node.
@@ -4362,6 +4395,10 @@ Maybe<int32_t> nsContentUtils::ComparePoints(
   // If we're comparing children in the same container, we don't need to compute
   // common ancestors.  So, we can skip it and just compare the children.
   if (aBoundary1.GetContainer() == aBoundary2.GetContainer()) {
+    MOZ_ASSERT_IF(aAncestorLimiter,
+                  IsInclusiveDescendantForComparison<aKind>(
+                      *aBoundary1.GetContainer(), *aAncestorLimiter));
+
     const nsIContent* const child1 = aBoundary1.GetChildAtOffset();
     MOZ_ASSERT_IF(child1, !child1->IsShadowRoot());
     const nsIContent* const child2 = aBoundary2.GetChildAtOffset();
@@ -4385,7 +4422,7 @@ Maybe<int32_t> nsContentUtils::ComparePoints(
   // don't have offset, so, we cannot use offset when we compare the boundaries
   // whose one is a descendant of the other.
   const CommonAncestors<GetParentNodeForComparison<aKind>> commonAncestors(
-      *aBoundary1.GetContainer(), *aBoundary2.GetContainer());
+      *aBoundary1.GetContainer(), *aBoundary2.GetContainer(), aAncestorLimiter);
 
   const nsINode* const closestCommonAncestor =
       commonAncestors.GetClosestCommonAncestor();
@@ -6863,17 +6900,23 @@ void nsContentUtils::DropFragmentParsers() {
 /* static */
 void nsContentUtils::XPCOMShutdown() { nsContentUtils::DropFragmentParsers(); }
 
-// https://wicg.github.io/sanitizer-api/#set-and-filter-html
+// https://html.spec.whatwg.org/#set-and-filter-html
+//
+// aSanitizerOptions is null for setHTMLUnsafe() without a sanitizer, the
+// spec's default of an empty SanitizerConfig with permissive defaults. That
+// sanitizer removes nothing, so the fragment is parsed straight into
+// aTarget's document instead of an inert one, unless privileged default
+// sanitization applies.
 static void SetAndFilterHTML(
     FragmentOrElement* aTarget, Element* aContext, const nsAString& aHTML,
-    const OwningSanitizerOrSanitizerConfigOrSanitizerPresets& aSanitizerOptions,
+    const OwningSanitizerOrSanitizerConfigOrSanitizerPresets* aSanitizerOptions,
     nsContentUtils::SanitizerMode aSanitizerMode, ErrorResult& aError) {
   const bool safe = aSanitizerMode == nsContentUtils::SanitizerMode::Safe;
+  MOZ_ASSERT_IF(safe, aSanitizerOptions);
   const RefPtr<Document> doc = aTarget->OwnerDoc();
 
-  // Step 1. If safe and contextElement’s local name is "script" and
-  // contextElement’s namespace is the HTML namespace or the SVG namespace, then
-  // return.
+  // Step 3. If safe and context's local name is "script" and context's
+  // namespace is the HTML namespace or the SVG namespace, then return.
   if (safe && (aContext->IsHTMLElement(nsGkAtoms::script) ||
                aContext->IsSVGElement(nsGkAtoms::script))) {
     nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns, doc,
@@ -6882,18 +6925,21 @@ static void SetAndFilterHTML(
     return;
   }
 
-  // Step 2. Let sanitizer be the result of calling get a sanitizer instance
-  // from options with options and safe.
-  nsCOMPtr<nsPIDOMWindowInner> window =
-      do_QueryInterface(aTarget->GetRelevantGlobal());
-  if (!window) {
-    aError.ThrowInvalidStateError("Missing owner global.");
-    return;
-  }
-  RefPtr<Sanitizer> sanitizer =
-      Sanitizer::GetInstance(window, aSanitizerOptions, safe, aError);
-  if (aError.Failed()) {
-    return;
+  // Step 4. Let sanitizer be the result of calling getting a sanitizer from
+  // options given safe.
+  RefPtr<Sanitizer> sanitizer;
+  if (aSanitizerOptions) {
+    nsCOMPtr<nsPIDOMWindowInner> window =
+        do_QueryInterface(aTarget->GetRelevantGlobal());
+    if (!window) {
+      aError.ThrowInvalidStateError("Missing owner global.");
+      return;
+    }
+    sanitizer =
+        Sanitizer::GetInstance(window, *aSanitizerOptions, safe, aError);
+    if (aError.Failed()) {
+      return;
+    }
   }
 
   aTarget->NotifyDevToolsOfRemovalsOfChildren();
@@ -6908,23 +6954,21 @@ static void SetAndFilterHTML(
 
   nsAutoScriptLoaderDisabler sld(doc);
 
-  // Step 3. Let newChildren be the result of the HTML fragment parsing
-  // algorithm steps given contextElement, html, and true.
-  // Step 4. Let fragment be a new DocumentFragment whose node document is
-  // contextElement’s node document.
-  // Step 5. For each node in newChildren, append node to fragment.
+  // Step 7. Let fragment be the result of invoking the HTML fragment parsing
+  // algorithm given target, html, true, and scriptingMode.
 
-  // We MUST NOT cause any requests during parsing, so we'll
-  // create an inert Document and parse into a new DocumentFragment.
-
-  RefPtr<Document> inertDoc = nsContentUtils::CreateInertHTMLDocument(doc);
-  if (!inertDoc) {
-    aError = NS_ERROR_FAILURE;
-    return;
+  // Parse into an inert document, so that no requests are made; as nothing the
+  // sanitizer removes can be allowed to make a request.
+  RefPtr<Document> parseDoc = doc;
+  if (sanitizer) {
+    parseDoc = nsContentUtils::CreateInertHTMLDocument(doc);
+    if (!parseDoc) {
+      aError = NS_ERROR_FAILURE;
+      return;
+    }
   }
-
-  RefPtr<DocumentFragment> fragment = new (inertDoc->NodeInfoManager())
-      DocumentFragment(inertDoc->NodeInfoManager());
+  RefPtr<DocumentFragment> fragment = new (parseDoc->NodeInfoManager())
+      DocumentFragment(parseDoc->NodeInfoManager());
 
   nsAtom* contextLocalName = aContext->NodeInfo()->NameAtom();
   int32_t contextNameSpaceID = aContext->GetNameSpaceID();
@@ -6932,14 +6976,30 @@ static void SetAndFilterHTML(
       safe ? nsContentUtils::kParseFragmentNoSanitization
            : nsContentUtils::kParseFragmentPrivilegedDefaultSanitization;
 
+  // https://html.spec.whatwg.org/#html-fragment-parsing-algorithm
+  // 11. Let root be the result of creating an element given document, 'html',
+  //     the HTML namespace, null, null, false, and context's custom element
+  //     registry.
+  //
+  // Not with a sanitizer: a registry would enqueue upgrade reactions for
+  // elements the sanitizer then drops, running their constructors. The inert
+  // document has no registry, so kept elements upgrade when inserted instead.
+  Maybe<RefPtr<CustomElementRegistry>> customElementRegistry;
+  if (!sanitizer &&
+      StaticPrefs::dom_scoped_custom_element_registries_enabled()) {
+    customElementRegistry.emplace(aContext->GetCustomElementRegistry());
+  }
+
   const bool sanitizeWhileParsing =
-      StaticPrefs::dom_security_sanitizer_while_parsing();
+      sanitizer && StaticPrefs::dom_security_sanitizer_while_parsing();
 
   aError = nsContentUtils::ParseFragmentHTML(
       aHTML, fragment, contextLocalName, contextNameSpaceID,
-      /* aQuirks */ false, /* aPreventScriptExecution */ true, flags,
-      mozilla::Nothing(), sanitizeWhileParsing ? sanitizer.get() : nullptr,
-      aSanitizerMode);
+      doc->GetCompatibilityMode() == eCompatibility_NavQuirks,
+      /* aPreventScriptExecution */ true, flags,
+      std::move(customElementRegistry),
+      sanitizeWhileParsing ? sanitizer.get() : nullptr, aSanitizerMode,
+      nsContentUtils::DeclarativeShadowRoots::Allow);
   if (aError.Failed()) {
     return;
   }
@@ -6949,15 +7009,15 @@ static void SetAndFilterHTML(
   // mutation listeners on the fragment that comes from the parser.
   nsAutoScriptBlockerSuppressNodeRemoved scriptBlocker;
 
-  if (!sanitizeWhileParsing) {
-    // Step 6. Run sanitize on fragment using sanitizer and safe.
+  if (sanitizer && !sanitizeWhileParsing) {
+    // Step 8. Sanitize fragment given sanitizer and safe.
     sanitizer->Sanitize(fragment, safe, aError);
     if (aError.Failed()) {
       return;
     }
   }
 
-  // Step 7. Replace all with fragment within target.
+  // Step 9. Replace all with fragment within target.
   aTarget->AppendChild(*fragment, aError);
   if (aError.Failed()) {
     return;
@@ -6971,11 +7031,10 @@ void nsContentUtils::SetHTML(FragmentOrElement* aTarget, Element* aContext,
                              const nsAString& aHTML,
                              const SetHTMLOptions& aOptions,
                              ErrorResult& aError) {
-  SetAndFilterHTML(aTarget, aContext, aHTML, aOptions.mSanitizer,
+  SetAndFilterHTML(aTarget, aContext, aHTML, &aOptions.mSanitizer,
                    SanitizerMode::Safe, aError);
 }
 
-/* https://html.spec.whatwg.org/#unsafely-set-html */
 /* https://html.spec.whatwg.org/#dom-shadowroot-sethtmlunsafe */
 /* https://html.spec.whatwg.org/#dom-element-sethtmlunsafe */
 /* static */
@@ -7001,53 +7060,12 @@ void nsContentUtils::SetHTMLUnsafe(
     return;
   }
 
-  // Fallback to the more optimized code below without a sanitizer.
-  if (aOptions.mSanitizer.WasPassed()) {
-    return SetAndFilterHTML(aTarget, aContext, *compliantString,
-                            aOptions.mSanitizer.Value(), SanitizerMode::Unsafe,
-                            aError);
-  }
-
-  RefPtr<DocumentFragment> fragment;
-  {
-    MOZ_ASSERT(!sFragmentParsingActive,
-               "Re-entrant fragment parsing attempted.");
-    mozilla::AutoRestore<bool> guard(sFragmentParsingActive);
-    sFragmentParsingActive = true;
-    if (!sHTMLFragmentParser) {
-      NS_ADDREF(sHTMLFragmentParser = new nsHtml5StringParser());
-      // Now sHTMLFragmentParser owns the object
-    }
-
-    nsAtom* contextLocalName = aContext->NodeInfo()->NameAtom();
-    int32_t contextNameSpaceID = aContext->GetNameSpaceID();
-
-    // https://html.spec.whatwg.org/#html-fragment-parsing-algorithm
-    // 11. Let root be the result of creating an element given document,
-    //     'html', the HTML namespace, null, null, false, and context's
-    //     custom element registry.
-    Maybe<RefPtr<CustomElementRegistry>> customElementRegistry;
-    if (StaticPrefs::dom_scoped_custom_element_registries_enabled()) {
-      customElementRegistry.emplace(aContext->GetCustomElementRegistry());
-    }
-
-    RefPtr<Document> doc = aTarget->OwnerDoc();
-    fragment = doc->CreateDocumentFragment();
-
-    // XXX: Steps 1-3 are performed together by ParseFragment, which parses
-    // directly into the DocumentFragment.
-    nsresult rv = sHTMLFragmentParser->ParseFragment(
-        *compliantString, fragment, contextLocalName, contextNameSpaceID,
-        fragment->OwnerDoc()->GetCompatibilityMode() ==
-            eCompatibility_NavQuirks,
-        true, true, std::move(customElementRegistry));
-    if (NS_FAILED(rv)) {
-      NS_WARNING("Failed to parse fragment for SetHTMLUnsafe");
-    }
-  }
-
-  // Step 4. "Replace all with fragment within target."
-  aTarget->ReplaceChildren(fragment, IgnoreErrors());
+  // Step 3. Set and filter HTML given target, compliantHTML, options, and
+  // false.
+  SetAndFilterHTML(
+      aTarget, aContext, *compliantString,
+      aOptions.mSanitizer.WasPassed() ? &aOptions.mSanitizer.Value() : nullptr,
+      SanitizerMode::Unsafe, aError);
 }
 
 // We sanitize if the fragment occurs in a system privileged
@@ -7055,7 +7073,9 @@ void nsContentUtils::SetHTMLUnsafe(
 // Please note that about:blank and about:srcdoc inherit the security
 // context from the embedding context and hence are not loaded using
 // an about: scheme principal.
-bool ShouldSanitize(nsIPrincipal* aPrincipal, int32_t aFlags) {
+// static
+bool nsContentUtils::ShouldSanitizeFragment(nsIPrincipal* aPrincipal,
+                                            int32_t aFlags) {
   // We don't need to sanitize for setHTML(), which uses
   // kParseFragmentNoSanitization.
   if (aFlags == nsContentUtils::kParseFragmentNoSanitization) {
@@ -7115,7 +7135,8 @@ nsresult nsContentUtils::ParseFragmentHTML(
     bool aPreventScriptExecution, int32_t aFlags,
     mozilla::Maybe<RefPtr<mozilla::dom::CustomElementRegistry>>
         aCustomElementRegistry,
-    Sanitizer* aSanitizer, SanitizerMode aSanitizerMode) {
+    Sanitizer* aSanitizer, SanitizerMode aSanitizerMode,
+    DeclarativeShadowRoots aDeclarativeShadowRoots) {
   MOZ_ASSERT(!aSanitizer ||
              StaticPrefs::dom_security_sanitizer_while_parsing());
   if (nsContentUtils::sFragmentParsingActive) {
@@ -7150,7 +7171,7 @@ nsresult nsContentUtils::ParseFragmentHTML(
   RefPtr<Document> doc = aTargetNode->OwnerDoc();
   RefPtr<DocumentFragment> fragment;
 
-  if (ShouldSanitize(nodePrincipal, aFlags)) {
+  if (ShouldSanitizeFragment(nodePrincipal, aFlags)) {
     if (!doc->IsLoadedAsData()) {
       doc = nsContentUtils::CreateInertHTMLDocument(doc);
       if (!doc) {
@@ -7164,8 +7185,9 @@ nsresult nsContentUtils::ParseFragmentHTML(
 
   nsresult rv = sHTMLFragmentParser->ParseFragment(
       aSourceBuffer, target, aContextLocalName, aContextNamespace, aQuirks,
-      aPreventScriptExecution, false, std::move(aCustomElementRegistry),
-      aSanitizer, aSanitizerMode);
+      aPreventScriptExecution,
+      aDeclarativeShadowRoots == DeclarativeShadowRoots::Allow,
+      std::move(aCustomElementRegistry), aSanitizer, aSanitizerMode);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (fragment) {
@@ -7247,7 +7269,7 @@ nsresult nsContentUtils::ParseFragmentXML(const nsAString& aSourceBuffer,
   }
 #endif
 
-  bool shouldSanitize = ShouldSanitize(nodePrincipal, aFlags);
+  bool shouldSanitize = ShouldSanitizeFragment(nodePrincipal, aFlags);
   if (shouldSanitize && !aDocument->IsLoadedAsData()) {
     doc = nsContentUtils::CreateInertXMLDocument(aDocument);
   } else {
@@ -7749,6 +7771,9 @@ void nsContentUtils::RemoveScriptBlocker() {
   uint32_t blockersCount = lastBlocker - firstBlocker;
   sRunnersCountAtFirstBlocker = 0;
   NS_ASSERTION(firstBlocker <= lastBlocker, "bad sRunnersCountAtFirstBlocker");
+  if (!blockersCount) {
+    return;
+  }
 
   while (firstBlocker < lastBlocker) {
     nsCOMPtr<nsIRunnable> runnable;
@@ -7770,7 +7795,9 @@ void nsContentUtils::RemoveScriptBlocker() {
   AutoRestore<bool> removingScriptBlockers(sRemovingScriptBlockers);
   sRemovingScriptBlockers = true;
 #endif
-  sBlockedScriptRunners->RemoveElementsAt(originalFirstBlocker, blockersCount);
+  MOZ_DIAGNOSTIC_ASSERT(!sScriptBlockerCount &&
+                        sBlockedScriptRunners->Length() == lastBlocker);
+  sBlockedScriptRunners->TruncateLength(originalFirstBlocker);
 }
 
 nsAutoMicroTaskForDocument::nsAutoMicroTaskForDocument(
@@ -10403,6 +10430,37 @@ NS_IMPL_ISUPPORTS(SynthesizedEventCallback, nsISynthesizedEventCallback)
 
 }  // namespace
 
+EventMessage nsContentUtils::ContentCommandFromString(const nsAString& aType) {
+  if (aType.EqualsLiteral("cut")) {
+    return eContentCommandCut;
+  }
+  if (aType.EqualsLiteral("copy")) {
+    return eContentCommandCopy;
+  }
+  if (aType.EqualsLiteral("paste")) {
+    return eContentCommandPaste;
+  }
+  if (aType.EqualsLiteral("delete")) {
+    return eContentCommandDelete;
+  }
+  if (aType.EqualsLiteral("undo")) {
+    return eContentCommandUndo;
+  }
+  if (aType.EqualsLiteral("redo")) {
+    return eContentCommandRedo;
+  }
+  if (aType.EqualsLiteral("insertText")) {
+    return eContentCommandInsertText;
+  }
+  if (aType.EqualsLiteral("replaceText")) {
+    return eContentCommandReplaceText;
+  }
+  if (aType.EqualsLiteral("pasteTransferable")) {
+    return eContentCommandPasteTransferable;
+  }
+  return eVoidEvent;
+}
+
 Result<bool, nsresult> nsContentUtils::SynthesizeMouseEvent(
     mozilla::PresShell* aPresShell, nsIWidget* aWidget, const nsAString& aType,
     LayoutDeviceIntPoint& aRefPoint,
@@ -10528,6 +10586,20 @@ Result<bool, nsresult> nsContentUtils::SynthesizeMouseEvent(
       aOptions.mIsDOMEventSynthesized;
   mouseOrPointerEvent.mExitFrom = std::move(exitFrom);
   mouseOrPointerEvent.mCallbackId = notifier.SaveCallback();
+  if (!aMouseEventData.mCommand.IsEmpty()) {
+    MOZ_ASSERT(XRE_IsParentProcess(),
+               "Command can only be specified from parent process.");
+    if (EventMessage contentCommand =
+            ContentCommandFromString(aMouseEventData.mCommand)) {
+      mouseOrPointerEvent.mCommand = contentCommand;
+    } else if (nsStaticAtom* atom =
+                   NS_GetStaticAtom(aMouseEventData.mCommand)) {
+      mouseOrPointerEvent.mCommand = atom;
+    } else {
+      MOZ_ASSERT_UNREACHABLE(
+          "Command should be a static atom or a valid content command.");
+    }
+  }
 
   nsPresContext* presContext = aPresShell->GetPresContext();
   if (!presContext) {
@@ -11651,8 +11723,7 @@ static bool StartSerializingShadowDOM(
 
   // 6. If shadow's slot assignment is "manual", then append "
   // shadowrootslotassignment="manual"".
-  if (StaticPrefs::dom_shadowdom_shadowRootSlotAssignment_enabled() &&
-      shadow->SlotAssignment() == SlotAssignmentMode::Manual) {
+  if (shadow->SlotAssignment() == SlotAssignmentMode::Manual) {
     aBuilder.Append(u" shadowrootslotassignment=\"manual\"");
   }
 
@@ -11796,7 +11867,7 @@ static void SerializeNodeToMarkupInternal(
         aBuilder.Append(u" ");
         aBuilder.Append(
             static_cast<nsIContent*>(current)->GetCharacterDataBuffer());
-        aBuilder.Append(u">");
+        aBuilder.Append(u"?>");
         break;
       }
     }

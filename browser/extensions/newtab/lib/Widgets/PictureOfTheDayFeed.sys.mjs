@@ -9,7 +9,7 @@
  *
  * Fetch / render:
  *   Once per day this feed fetches the picture from Merino (via
- *   TemporaryMerinoClientShim), stores it in PersistentCache, maps the payload
+ *   NewTabMerinoWrapper), stores it in PersistentCache, maps the payload
  *   onto our internal shape with normalize(), and broadcasts it into the Redux
  *   store, where PictureOfTheDay.jsx renders it. The Merino backend refreshes the
  *   picture on a daily cron (around midnight PST); when a fresh image is not
@@ -19,13 +19,11 @@
  *   on, the widget addable / trainhop-enabled, and the user's enabled pref).
  *
  * Set as wallpaper:
- *   The "Set wallpaper" CTA - shown only when the feature gate pref
- *   (widgets.pictureOfTheDay.setAsWallpaper.enabled, or its trainhopConfig
- *   override) is on AND newtabWallpapers.enabled + customWallpaper.enabled are on
- *   - dispatches WIDGETS_PICTURE_SET_WALLPAPER. setWallpaper() then fetches the
- *   image, derives a theme, applies it as the custom wallpaper (newtabWallpapers.*),
- *   and records the picture's published date in
- *   widgets.pictureOfTheDay.wallpaperActive.
+ *   The "Set wallpaper" CTA - shown only when newtabWallpapers.enabled +
+ *   customWallpaper.enabled are on - dispatches WIDGETS_PICTURE_SET_WALLPAPER.
+ *   setWallpaper() then fetches the image, derives a theme, applies it as the
+ *   custom wallpaper (newtabWallpapers.*), and records the picture's published
+ *   date in widgets.pictureOfTheDay.wallpaperActive.
  *
  * State reset:
  *   The JSX shows the "already set" checkmark only while wallpaperActive equals the
@@ -40,16 +38,14 @@
  *   Merino also sends yesterday's picture as `previous`. While today's is the
  *   wallpaper the widget shows that one instead, and setWallpaper() takes its date.
  *
- * Two distinct prefs: setAsWallpaper.enabled is the config gate (does the CTA
- * exist); wallpaperActive stores the published date of the picture that is the
- * active wallpaper ("" = none).
+ * wallpaperActive stores the published date of the picture that is the active
+ * wallpaper ("" = none).
  */
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  NewTabMerinoWrapper: "resource://newtab/lib/NewTabMerinoWrapper.sys.mjs",
   PersistentCache: "resource://newtab/lib/PersistentCache.sys.mjs",
-  TemporaryMerinoClientShim:
-    "resource://newtab/lib/TemporaryMerinoClientShim.sys.mjs",
   calculateTheme: "resource://newtab/lib/Wallpapers/WallpaperThemeUtils.mjs",
 });
 
@@ -431,7 +427,7 @@ export class PictureOfTheDayFeed {
  * Thin wrappers around external tools so tests can stub them.
  */
 PictureOfTheDayFeed.prototype.MerinoClient = name => {
-  return new lazy.TemporaryMerinoClientShim(name);
+  return new lazy.NewTabMerinoWrapper(name);
 };
 PictureOfTheDayFeed.prototype.PersistentCache = (...args) => {
   return new lazy.PersistentCache(...args);

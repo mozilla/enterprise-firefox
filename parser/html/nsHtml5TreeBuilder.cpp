@@ -264,6 +264,34 @@ void nsHtml5TreeBuilder::comment(char16_t* buf, int32_t start, int32_t length) {
   return;
 }
 
+void nsHtml5TreeBuilder::processingInstruction(nsHtml5String target,
+                                               char16_t* buf, int32_t start,
+                                               int32_t length) {
+  needToDropLF = false;
+  if (!isInForeign()) {
+    switch (mode) {
+      case INITIAL:
+      case BEFORE_HTML:
+      case AFTER_AFTER_BODY:
+      case AFTER_AFTER_FRAMESET: {
+        appendProcessingInstructionToDocument(target, buf, start, length);
+        return;
+      }
+      case AFTER_BODY: {
+        flushCharacters();
+        appendProcessingInstruction(stack[0]->node, target, buf, start, length);
+        return;
+      }
+      default: {
+        break;
+      }
+    }
+  }
+  flushCharacters();
+  appendProcessingInstruction(stack[currentPtr]->node, target, buf, start,
+                              length);
+}
+
 void nsHtml5TreeBuilder::characters(const char16_t* buf, int32_t start,
                                     int32_t length) {
   if (tokenizer->isViewingXmlSource()) {
@@ -4429,28 +4457,6 @@ void nsHtml5TreeBuilder::setFragmentContext(nsAtom* context, int32_t ns,
 
 nsIContentHandle* nsHtml5TreeBuilder::currentNode() {
   return stack[currentPtr]->node;
-}
-
-bool nsHtml5TreeBuilder::isScriptingEnabled() { return scriptingEnabled; }
-
-void nsHtml5TreeBuilder::setScriptingEnabled(bool scriptingEnabled) {
-  this->scriptingEnabled = scriptingEnabled;
-}
-
-void nsHtml5TreeBuilder::setForceNoQuirks(bool forceNoQuirks) {
-  this->forceNoQuirks = forceNoQuirks;
-}
-
-void nsHtml5TreeBuilder::setIsSrcdocDocument(bool isSrcdocDocument) {
-  this->setForceNoQuirks(isSrcdocDocument);
-}
-
-bool nsHtml5TreeBuilder::isAllowDeclarativeShadowRoots() {
-  return allowDeclarativeShadowRoots;
-}
-
-void nsHtml5TreeBuilder::setAllowDeclarativeShadowRoots(bool allow) {
-  allowDeclarativeShadowRoots = allow;
 }
 
 void nsHtml5TreeBuilder::flushCharacters() {

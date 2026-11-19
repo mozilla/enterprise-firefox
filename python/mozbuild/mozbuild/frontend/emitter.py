@@ -992,6 +992,10 @@ class TreeMetadataEmitter(LoggingMixin):
                 linkables.append(lib)
                 if not lib.installed:
                     generated_files.add(lib.lib_name)
+                if lib.symbols_file:
+                    lib.extra_link_deps.append(
+                        ObjDirPath(context, "!" + lib.symbols_file)
+                    )
                 if symbols_file and isinstance(symbols_file, SourcePath):
                     script = mozpath.join(
                         mozpath.dirname(mozpath.dirname(__file__)),
@@ -1086,6 +1090,15 @@ class TreeMetadataEmitter(LoggingMixin):
                     )
                 seen[basename] = (src, symbol)
 
+        if context.get("IS_COMPILER_PLUGIN") and not any(
+            isinstance(l, HostSharedLibrary) for l in host_linkables
+        ):
+            raise SandboxValidationError(
+                "IS_COMPILER_PLUGIN is set but no host shared library is defined "
+                "in this directory.",
+                context,
+            )
+
         extra_link_deps = context.get("EXTRA_LINK_DEPS")
         if extra_link_deps:
             link_targets = [
@@ -1106,9 +1119,8 @@ class TreeMetadataEmitter(LoggingMixin):
                         f"(resolved to {dep.full_path})",
                         context,
                     )
-            deps = list(extra_link_deps)
             for linkable in link_targets:
-                linkable.extra_link_deps = deps
+                linkable.extra_link_deps += extra_link_deps
         # Only emit sources if we have linkables defined in the same context.
         # Note the linkables are not emitted in this function, but much later,
         # after aggregation (because of e.g. USE_LIBS processing).
@@ -1187,15 +1199,11 @@ class TreeMetadataEmitter(LoggingMixin):
 
         no_pgo = context.get("NO_PGO")
         no_pgo_sources = [f for f, (_, flags) in all_flags.items() if flags.no_pgo]
-        if no_pgo:
-            if no_pgo_sources:
-                raise SandboxValidationError(
-                    "NO_PGO and SOURCES[...].no_pgo cannot be set at the same time",
-                    context,
-                )
-            passthru.variables["NO_PROFILE_GUIDED_OPTIMIZE"] = no_pgo
-        if no_pgo_sources:
-            passthru.variables["NO_PROFILE_GUIDED_OPTIMIZE"] = no_pgo_sources
+        if no_pgo and no_pgo_sources:
+            raise SandboxValidationError(
+                "NO_PGO and SOURCES[...].no_pgo cannot be set at the same time",
+                context,
+            )
 
         # A map from "canonical suffixes" for a particular source file
         # language to the range of suffixes associated with that language.
@@ -1294,7 +1302,7 @@ class TreeMetadataEmitter(LoggingMixin):
                     wasm_linkable.sources[suffix] += srcs
 
         for f, (path, flags) in sorted(all_flags.items()):
-            if flags.flags or flags.object_deps:
+            if flags.flags or flags.no_pgo or flags.object_deps:
                 ext = mozpath.splitext(f)[1]
                 deps = []
                 for d in flags.object_deps:
@@ -1306,7 +1314,7 @@ class TreeMetadataEmitter(LoggingMixin):
                             context,
                         )
                     deps.append(p)
-                yield PerSourceFlag(context, path, flags.flags, deps)
+                yield PerSourceFlag(context, path, flags.flags, flags.no_pgo, deps)
 
         # If there are any C++ sources, set all the linkables defined here
         # to require the C++ linker.
@@ -1353,6 +1361,23 @@ class TreeMetadataEmitter(LoggingMixin):
         computed_as_flags = ComputedFlags(context, context["ASM_FLAGS"])
         computed_wasm_flags = ComputedFlags(context, context["WASM_FLAGS"])
 
+        # Set compiler and link flags according to whether we want a console.
+        if context.config.substs.get("TARGET_OS") == "WINNT":
+            if context.get("WINCONSOLE", True):
+                extra_win32_exe_ldflags = context.config.substs.get(
+                    "WIN32_CONSOLE_EXE_LDFLAGS", []
+                )
+                # TODO: Bug 2069767 - Keep MOZ_WINCONSOLE undefined by default:
+                # Output() in nsAppRunner.cpp only shows startup errors in a
+                # message box when it is undefined.
+                if "WINCONSOLE" in context:
+                    context["DEFINES"]["MOZ_WINCONSOLE"] = True
+            else:
+                extra_win32_exe_ldflags = context.config.substs.get(
+                    "WIN32_GUI_EXE_LDFLAGS", []
+                )
+            context["WIN32_EXE_LDFLAGS"] += extra_win32_exe_ldflags
+
         # Proxy some variables as-is until we have richer classes to represent
         # them. We should aim to keep this set small because it violates the
         # desired abstraction of the build definition away from makefiles.
@@ -1391,6 +1416,17 @@ class TreeMetadataEmitter(LoggingMixin):
             if v in context and context[v]:
                 computed_flags.resolve_flags("MOZBUILD_%s" % v, context[v])
 
+        # A directory can opt out with `NO_PGO`. Simple programs don't need a
+        # profile and there is no logic to re-link them in the second pass,
+        # and there is no sense in profiling unit tests.
+        if (
+            context.get("NO_PGO")
+            or context.get("SIMPLE_PROGRAMS")
+            or context.get("CPP_UNIT_TESTS")
+        ):
+            computed_flags.resolve_flags("PGO", [])
+            computed_flags.resolve_flags("PGO_DEFINES", [])
+
         for v in ["WASM_CFLAGS", "WASM_CXXFLAGS"]:
             if v in context and context[v]:
                 computed_wasm_flags.resolve_flags("MOZBUILD_%s" % v, context[v])
@@ -1404,19 +1440,6 @@ class TreeMetadataEmitter(LoggingMixin):
 
         if "HOST_LDFLAGS" in context and context["HOST_LDFLAGS"]:
             computed_host_link_flags.resolve_flags("MOZBUILD", context["HOST_LDFLAGS"])
-
-        # Set compiler and link flags according to whether we want a console.
-        if context.config.substs.get("TARGET_OS") == "WINNT":
-            if context.get("WINCONSOLE", True):
-                context["WIN32_EXE_LDFLAGS"] += context.config.substs.get(
-                    "WIN32_CONSOLE_EXE_LDFLAGS", []
-                )
-                if "WINCONSOLE" in context:
-                    context["DEFINES"]["MOZ_WINCONSOLE"] = True
-            else:
-                context["WIN32_EXE_LDFLAGS"] += context.config.substs.get(
-                    "WIN32_GUI_EXE_LDFLAGS", []
-                )
 
         deffile = context.get("DEFFILE")
         if deffile and context.config.substs.get("OS_TARGET") == "WINNT":
@@ -1872,12 +1895,15 @@ class TreeMetadataEmitter(LoggingMixin):
             raise SandboxValidationError(str(error), context)
 
     def _process_generated_files(self, context):
-        # The link reads whatever EXTRA_LINK_DEPS names, so a generated file
-        # among them has to be written before the link rather than alongside
-        # the other generated files.
+        # The link reads whatever EXTRA_LINK_DEPS and SYMBOLS_FILE name, so a
+        # generated file among them has to be written before the link rather
+        # than alongside the other generated files.
         link_deps = {
             mozpath.normpath(dep.full_path)
-            for dep in context.get("EXTRA_LINK_DEPS") or ()
+            for dep in [
+                *context.get("EXTRA_LINK_DEPS", []),
+                context.get("SYMBOLS_FILE"),
+            ]
             if isinstance(dep, ObjDirPath)
         }
 

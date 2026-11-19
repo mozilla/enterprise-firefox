@@ -514,6 +514,74 @@ add_task(async function test_handleUpdate_toggle_all_telemetry() {
 });
 
 /**
+ * Test that the prompt and prompt-response events record where the card came
+ * from
+ */
+add_task(async function test_prompt_and_response_entrypoint_telemetry() {
+  const originalPrompt = ToolUITelemetry.recordBrowserActionPrompt;
+  const originalResponse = ToolUITelemetry.recordBrowserActionPromptResponse;
+  let prompts = [];
+  let responses = [];
+  ToolUITelemetry.recordBrowserActionPrompt = data => prompts.push(data);
+  ToolUITelemetry.recordBrowserActionPromptResponse = data =>
+    responses.push(data);
+
+  const showAndCancel = async toolUIData => {
+    const conversation = new ChatConversation({});
+    const message = conversation.addAssistantMessage("text", "Confirm?");
+    message.toolUIData = { toolCallId: "entrypoint", ...toolUIData };
+    ToolUI.handleUIDisplayTelemetry(message.toolUIData, {
+      location: "fullpage",
+      chat_id: conversation.id,
+      message_seq: conversation.messageCount,
+    });
+    await ToolUI.handleUpdate(
+      {
+        messageId: message.id,
+        toolCallId: "entrypoint",
+        updateType: "cancel-tab-selection",
+        updateData: { actionType: toolUIData.properties.actionType },
+      },
+      conversation,
+      null,
+      "fullpage"
+    );
+  };
+
+  try {
+    await showAndCancel({
+      uiType: "tab-group-confirmation",
+      isResumeActivity: true,
+      properties: { actionType: "open_tabs", tabs: [{}, {}] },
+    });
+    await showAndCancel({
+      uiType: "website-confirmation",
+      properties: { actionType: "close_tabs", tabs: [{}] },
+    });
+
+    Assert.deepEqual(
+      prompts.map(({ action, entrypoint }) => ({ action, entrypoint })),
+      [
+        { action: "open_tabs", entrypoint: "resume" },
+        { action: "close_tabs", entrypoint: "browser_action" },
+      ],
+      "The prompt records the card's entrypoint"
+    );
+    Assert.deepEqual(
+      responses.map(({ action, entrypoint }) => ({ action, entrypoint })),
+      [
+        { action: "open_tabs", entrypoint: "resume" },
+        { action: "close_tabs", entrypoint: "browser_action" },
+      ],
+      "The response records the card's entrypoint"
+    );
+  } finally {
+    ToolUITelemetry.recordBrowserActionPrompt = originalPrompt;
+    ToolUITelemetry.recordBrowserActionPromptResponse = originalResponse;
+  }
+});
+
+/**
  * Test that ToolUI.handleUpdate fails confirmation without valid window
  */
 add_task(async function test_handleUpdate_confirmation_no_window() {
@@ -1709,6 +1777,31 @@ add_task(async function test_findOriginalUserPrompt_is_public() {
     "Public findOriginalUserPrompt should return the user prompt"
   );
 });
+
+add_task(
+  async function test_findOriginalUserPrompt_after_several_tool_rounds() {
+    const conversation = new ChatConversation({});
+    const message = "Close my duplicate tabs";
+    conversation.addUserMessage(message, {});
+    conversation.addAssistantMessage("text", "");
+    for (const id of ["call_1", "call_2"]) {
+      conversation.addAssistantMessage("function", {
+        tool_calls: [
+          { id, type: "function", function: { name: "get_open_tabs" } },
+        ],
+      });
+      conversation.addToolCallMessage({ tool_call_id: id, body: [] });
+      conversation.addAssistantMessage("text", "");
+    }
+    const reply = conversation.messages.at(-1);
+
+    Assert.equal(
+      ToolUI.findOriginalUserPrompt(conversation.messages, reply),
+      message,
+      "Finds the prompt from a reply after multiple tool calls"
+    );
+  }
+);
 
 /**
  * Test that originalUserPrompt is added to website confirmations

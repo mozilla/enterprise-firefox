@@ -457,15 +457,71 @@ void nsTableRowGroupFrame::ReflowChildren(
 
   if (aReflowInput.mReflowInput.mFlags.mSpecialBSizeReflow) {
     DidResizeRows(aDesiredSize);
+    if (ReflowOrthogonalCells(aPresContext,
+                              [&]() { return &aReflowInput.mReflowInput; })) {
+      DidResizeRows(aDesiredSize);
+    }
     if (isPaginated) {
       CacheRowBSizesForPrinting(GetFirstRow(), wm);
     }
   } else if (needToCalcRowBSizes) {
     CalculateRowBSizes(aPresContext, aDesiredSize, aReflowInput.mReflowInput);
+    if (ReflowOrthogonalCells(aPresContext,
+                              [&]() { return &aReflowInput.mReflowInput; })) {
+      DidResizeRows(aDesiredSize);
+    }
     if (!reflowAllKids) {
       InvalidateFrame();
     }
   }
+}
+
+bool nsTableRowGroupFrame::ReflowOrthogonalCells(
+    nsPresContext* aPresContext,
+    FunctionRef<const ReflowInput*()> aGetReflowInput) {
+  nsTableFrame* tableFrame = GetTableFrame();
+  const WritingMode wm = GetWritingMode();
+  const bool borderCollapse = tableFrame->IsBorderCollapse();
+  bool didReflow = false;
+
+  for (nsTableRowFrame* row = GetFirstRow(); row; row = row->GetNextRow()) {
+    Maybe<ReflowInput> rowReflowInput;
+    for (nsTableCellFrame* cell = row->GetFirstCell(); cell;
+         cell = cell->GetNextCell()) {
+      nsIFrame* inner = cell->Inner();
+      if (!inner->GetWritingMode().IsOrthogonalTo(wm)) {
+        continue;
+      }
+      // After its final reflow the content fills the cell's block-size, so if
+      // it still does, it is already laid out for the cell's current size.
+      if (inner->BSize(wm) ==
+          cell->BSize(wm) - cell->GetBorderWidth(wm).BStartEnd(wm)) {
+        continue;
+      }
+      if (!rowReflowInput) {
+        const ReflowInput& rgReflowInput = *aGetReflowInput();
+        const LogicalSize rowAvailSize(wm, rgReflowInput.AvailableISize(),
+                                       NS_UNCONSTRAINEDSIZE);
+        rowReflowInput.emplace(aPresContext, rgReflowInput, row, rowAvailSize,
+                               Nothing(),
+                               ReflowInput::InitFlag::CallerWillInit);
+        InitChildReflowInput(aPresContext, borderCollapse, *rowReflowInput);
+      }
+
+      // The cell's desired size is what CalculateRowBSizes uses to size the
+      // rows it spans, so it must keep reflecting the size its content needs
+      // rather than the size we give it here.
+      ReflowOutput desiredSize(wm);
+      desiredSize.SetSize(wm, cell->GetDesiredSize());
+
+      row->ReflowOrthogonalCellContent(aPresContext, *rowReflowInput, cell,
+                                       cell->GetLogicalSize(wm),
+                                       row->GetSize());
+      cell->SetDesiredSize(desiredSize);
+      didReflow = true;
+    }
+  }
+  return didReflow;
 }
 
 nsTableRowFrame* nsTableRowGroupFrame::GetFirstRow() const {
@@ -1041,8 +1097,7 @@ void nsTableRowGroupFrame::SplitRowGroup(nsPresContext* aPresContext,
                                          ReflowOutput& aDesiredSize,
                                          const ReflowInput& aReflowInput,
                                          nsTableFrame* aTableFrame,
-                                         nsReflowStatus& aStatus,
-                                         bool aRowForcedPageBreak) {
+                                         nsReflowStatus& aStatus) {
   MOZ_ASSERT(aPresContext->IsPaginated(),
              "SplitRowGroup currently supports only paged media");
 
@@ -1120,7 +1175,7 @@ void nsTableRowGroupFrame::SplitRowGroup(nsPresContext* aPresContext,
                           ReflowChildFlags::NoMoveFrame);
         rowFrame->DidResize(ForceAlignTopForTableCell::Yes);
 
-        if (!aRowForcedPageBreak && !aStatus.IsFullyComplete() &&
+        if (!aStatus.IsFullyComplete() &&
             ShouldAvoidBreakInside(aReflowInput)) {
           aStatus.SetInlineLineBreakBeforeAndReset();
           break;
@@ -1158,7 +1213,7 @@ void nsTableRowGroupFrame::SplitRowGroup(nsPresContext* aPresContext,
           // with a constrained block-size yet (we will find out when
           // SplitSpanningCells is called below)
           if (rowMetrics.BSize(wm) > availSize.BSize(wm) ||
-              (aStatus.IsInlineBreakBefore() && !aRowForcedPageBreak)) {
+              aStatus.IsInlineBreakBefore()) {
             // cases (1) and (2)
             if (isTopOfPage) {
               // We're on top of the page, so keep the row on this page. There
@@ -1193,8 +1248,7 @@ void nsTableRowGroupFrame::SplitRowGroup(nsPresContext* aPresContext,
         NS_ASSERTION(!contRow,
                      "We should not have created a continuation if none of "
                      "this row fits");
-        if (!prevRowFrame ||
-            (!aRowForcedPageBreak && ShouldAvoidBreakInside(aReflowInput))) {
+        if (!prevRowFrame || ShouldAvoidBreakInside(aReflowInput)) {
           aStatus.SetInlineLineBreakBeforeAndReset();
           break;
         }
@@ -1357,8 +1411,8 @@ void nsTableRowGroupFrame::Reflow(nsPresContext* aPresContext,
     const bool savedSpecialBSizeReflow = mutableRIFlags.mSpecialBSizeReflow;
     mutableRIFlags.mSpecialBSizeReflow = false;
 
-    SplitRowGroup(aPresContext, aDesiredSize, aReflowInput, tableFrame, aStatus,
-                  splitDueToPageBreak);
+    SplitRowGroup(aPresContext, aDesiredSize, aReflowInput, tableFrame,
+                  aStatus);
 
     mutableRIFlags.mSpecialBSizeReflow = savedSpecialBSizeReflow;
   }

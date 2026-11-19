@@ -23,7 +23,9 @@ import mozilla.components.lib.state.State
  * @property accountState The state of the authenticator being used.
  * @property lastError The last error received from the IPProtection service.
  * @property proxyActivation Tracks recent activation or deactivation state changes. See [ProxyActivation].
- * @property pendingActivationRequest The activation state - handles activation and deactivation of the proxy.
+ * @property proxyRequest The proxy request
+ *   [mozilla.components.feature.ipprotection.store.middleware.IPProtectionEngineMiddleware] is running, or null when it
+ *   runs none.
  * @property locationState The location selection state.
  */
 data class IPProtectionState(
@@ -34,24 +36,13 @@ data class IPProtectionState(
     val accountState: AccountState = AccountState(),
     val lastError: String? = null,
     val proxyActivation: ProxyActivation = ProxyActivation.Idle,
-    val pendingActivationRequest: PendingActivationRequest? = null,
+    val proxyRequest: ProxyRequest? = null,
     val locationState: LocationState = LocationState(),
 ) : State
 
 /** Convenience function for eligibility. */
 val IPProtectionState.isEligible
     get() = eligibilityStatus == EligibilityStatus.Eligible
-
-/**
- * Whether we are waiting on the VPN to connect, either because it is being turned on or because the country is being
- * changed.
- *
- * This is true from the moment we queue the request, which is earlier than [proxyStatus] becoming
- * [Authorized.Activating] - that only happens once the engine replies. We cannot change where the VPN is connecting
- * during that time, so anything that lets the user try should be disabled while this is true.
- */
-val IPProtectionState.isActivationInFlight
-    get() = proxyStatus == Authorized.Activating || pendingActivationRequest is PendingActivationRequest.Activate
 
 /**
  * The combined state of an FxA account pertinent to IP Protection.
@@ -65,14 +56,11 @@ data class AccountState(val status: AccountStatus = AccountStatus.Uninitialized)
  *
  * @property selectedLocation The location to use when connecting to VPN.
  * @property locations The list of locations for user to choose from.
- * @property previousLocation Cached previous selection. Intended to be used as a rollback value in case switching to a
- *   new locations fails.
  * @property updateState the state of the location list update.
  */
 data class LocationState(
     val selectedLocation: Location = Recommended,
     val locations: List<Location> = listOf(Recommended),
-    val previousLocation: Location? = null,
     val updateState: LocationListUpdateState = LocationListUpdateState.NotRequested,
 )
 
@@ -125,22 +113,26 @@ sealed class LocationListUpdateState {
     data object Failed : LocationListUpdateState()
 }
 
-/** Represents a pending proxy activation request. */
-sealed class PendingActivationRequest {
+/** A proxy request run by [mozilla.components.feature.ipprotection.store.middleware.IPProtectionEngineMiddleware]. */
+sealed class ProxyRequest {
     /**
-     * Requesting proxy activation.
+     * Turning the proxy on.
      *
-     * @property selectedLocationCode ISO 3166-1 alpha-2 country code for the desired proxy location, or null to use the
-     *   recommended default.
-     * @property isLocationSwitch Whether the proxy was already running, meaning a failure rolls the selection back.
+     * @property countryCode ISO 3166-1 alpha-2 country code for the proxy location, or null to use the recommended
+     *   default.
      */
-    data class Activate(
-        val selectedLocationCode: String?,
-        val isLocationSwitch: Boolean = false,
-    ) : PendingActivationRequest()
+    data class Activate(val countryCode: String?) : ProxyRequest()
 
-    /** Requesting proxy deactivation. */
-    object Deactivate : PendingActivationRequest()
+    /** Turning the proxy off. */
+    data object Deactivate : ProxyRequest()
+
+    /**
+     * Moving the running proxy to another location.
+     *
+     * @property countryCode ISO 3166-1 alpha-2 country code for the proxy location, or null to use the recommended
+     *   default.
+     */
+    data class SwitchLocation(val countryCode: String?) : ProxyRequest()
 }
 
 /**
@@ -149,7 +141,7 @@ sealed class PendingActivationRequest {
  * We have a separation of authentication and authorization so that we can decide which scopes or services to use. With
  * FxA today, a device will have the VPN scope included in the authorization flow, where-as in current Android code, we
  * do not have Sync decoupled from FxA, so we need to authenticate with the VPN and Sync scopes. For this reason, we
- * have divergant flows.
+ * have divergent flows.
  *
  * To avoid re-requesting an auth flow, we have the intermediary (UI) states `Needs*`, `Requesting*`, and `Awaiting*`:
  *
@@ -157,63 +149,64 @@ sealed class PendingActivationRequest {
  * [mozilla.components.feature.ipprotection.store.IPProtectionStore] deduces that our engine requires a valid auth token
  * to proceed.
  *
- * An observers use the [RequestingAuthorization] and [RequestingAuthentication] states to know we need to initiated an
+ * An observers use the [RequestingAuthorization] and [RequestingAuthentication] states to know we need to initiate an
  * auth flow. The observers are typically some form of UI driver that needs to trigger the flow.
  *
  * A user can leave an incomplete flow at any time in the UI, in which case we need to return to the top of the previous
- * branch. The [AwaitingAuthorization] and [AwaitingAuthorization] let us do this.
+ * branch. The [AwaitingAuthentication] and [AwaitingAuthorization] let us do this.
  *
  * Whether the flow is successful or not, we try to end with [AwaitingEnrollment]. If we received this event with a
- * result from the account manager, then we can move forward with [AuthFailed] or [Ready], otherwise, we go back into
- * the `Needs*` state for each branch.
+ * result from the account manager, then we can move forward to [EnrolledAndEntitled] on success, otherwise we go back
+ * into the [NeedsAuthorization] state so the user can retry enrollment.
  *
- * The optional [TryAgain] is typically used to re-notify the engine that we have an account in a valid auth state and
+ * There are two "ready-ish" states. [Authenticated] means the user is signed in to FxA and the VPN scope has been
+ * granted, but we have not yet confirmed they are entitled to use the service. [EnrolledAndEntitled] means the service
+ * is ready and the user can turn protection on at any time. Entitlement is normally sourced from the engine (an
+ * `EngineStateChanged` reporting `ServiceState.Ready`); the [AwaitingEnrollment] -> [EnrolledAndEntitled] path is only
+ * used for the very first enrollment.
+ *
+ * The optional [TryAgain] is typically used to re-notify the engine that we have an account in a valid auth state, and
  * it's safe to re-request an access token, if needed.
  *
- * State transitions:
+ * Happy-path state transitions (rollback, [AuthFailed], and [TryAgain] edges are omitted for clarity):
  * ```
- *                    +---------------+
- *                    | Uninitialized |
- *                    +-------+-------+
- *                            |
- *                            v
- *                    +---------------+
- *                    |   WarmingUp   |
- *                    +---+-------+---+
- *                        |       |
- *              +---------+       +---------+
- *              v                           v
- *  +---------------------+      +----------------------+
- *  | NeedsAuthentication |      |  NeedsAuthorization  |
- *  +----------+----------+      +-----------+----------+
- *             |                             |
- *             v                             v
- *  +--------------------------+  +---------------------------+
- *  | RequestingAuthentication |  | RequestingAuthorization   |
- *  +-------------+------------+  +-------------+-------------+
- *                |                             |
- *                v                             v
- *  +--------------------------+  +---------------------------+
- *  |  AwaitingAuthentication  |  |   AwaitingAuthorization   |
- *  +-------------+------------+  +-------------+-------------+
- *                |                             |
- *                +--------------+--------------+
- *                               v
- *                     +-------------------+
- *                     | AwaitingEnrollment |
- *                     +---+-----------+---+
- *                         |           |
- *              +----------+           +----------+
- *              v                                 v
- *         +------------+                    +---------+
- *         | AuthFailed |                    |  Ready  |
- *         +------+-----+                    +----+----+
- *                |                               |
- *                +---------------+---------------+
- *                                v
- *                         +------------+
- *                         |  TryAgain  |
- *                         +------------+
+ *
+ *                      +---------------+
+ *                      | Uninitialized |
+ *                      +-------+-------+
+ *                              |
+ *                              v
+ *                      +---------------+
+ *                      |   WarmingUp   |----------------------+
+ *                      +--+--------+---+                      |
+ *                         |        |                          |
+ *               +---------+        +---------+                |
+ *               v                            v                |
+ *   +---------------------+      +----------------------+     |
+ *   | NeedsAuthentication |      |  NeedsAuthorization  |     |
+ *   +----------+----------+      +-----------+----------+     |
+ *              |                             |                |
+ *              v                             v                |
+ *   +--------------------------+  +-------------------------+ |
+ *   | RequestingAuthentication |  | RequestingAuthorization | |
+ *   +-------------+------------+  +-------------+-----------+ |
+ *                 |                             |             |
+ *                 v                             v             |
+ *   +--------------------------+  +-------------------------+ |
+ *   |  AwaitingAuthentication  |  |   AwaitingAuthorization | |
+ *   +-------------+------------+  +-------------+-----------+ |
+ *                 |                             |             |
+ *                 +--------------+--------------+             |
+ *                                v                            v
+ *                     +--------------------+      +---------------+
+ *                     | AwaitingEnrollment |      | Authenticated |
+ *                     +---------+----------+      +-------+-------+
+ *                               |                         |
+ *                               +------------+------------+
+ *                                            v
+ *                                +---------------------+
+ *                                | EnrolledAndEntitled |
+ *                                +---------------------+
  * ```
  */
 enum class AccountStatus {
@@ -226,7 +219,7 @@ enum class AccountStatus {
     /** The user is not signed in. */
     NoAccount,
 
-    /** Account is in a bad state. */
+    /** Account is in an incomplete state. */
     NeedsAuthentication,
 
     /** Start Authenticating. */

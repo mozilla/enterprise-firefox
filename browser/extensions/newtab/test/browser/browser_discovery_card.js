@@ -12,6 +12,7 @@ test_newtab({
         "https://example.com/browser/browser/extensions/newtab/test/browser/topstories.json"
       );
     await pushPrefs(
+      ["browser.newtabpage.activity-stream.feeds.discoverystreamfeed", true],
       [
         "browser.newtabpage.activity-stream.discoverystream.config",
         JSON.stringify({
@@ -64,6 +65,8 @@ test_newtab({
       .returns(
         "https://example.com/browser/browser/extensions/newtab/test/browser/topstories.json"
       );
+    // These prefs reload the open page; wait for it before picking a card.
+    const reloads = sinon.spy(DiscoveryStreamFeed.prototype, "onPrefChange");
     await pushPrefs(
       [
         "browser.newtabpage.activity-stream.discoverystream.config",
@@ -79,6 +82,7 @@ test_newtab({
       ],
       ["browser.newtabpage.activity-stream.widgets.enabled", false]
     );
+    await Promise.all(reloads.returnValues);
   },
   test: async function test_card_menu_item_is_clickable() {
     await ContentTaskUtils.waitForCondition(

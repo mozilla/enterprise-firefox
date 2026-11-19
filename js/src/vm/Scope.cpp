@@ -112,6 +112,8 @@ static bool AddToEnvironmentMap(JSContext* cx, const JSClass* clasp,
     case BindingKind::Const:
     case BindingKind::Using:
     case BindingKind::NamedLambdaCallee:
+    case BindingKind::Synthetic:
+    case BindingKind::PrivateMethod:
       // Non-writable.
       break;
     default:
@@ -128,6 +130,9 @@ SharedShape* js::CreateEnvironmentShape(JSContext* cx, BindingIter& bi,
                                         ObjectFlags objectFlags) {
   Rooted<SharedPropMap*> map(cx);
   uint32_t mapLength = 0;
+#ifdef DEBUG
+  bool sawNonWritable = false;
+#endif
 
   RootedId id(cx);
   for (; bi; bi++) {
@@ -140,6 +145,15 @@ SharedShape* js::CreateEnvironmentShape(JSContext* cx, BindingIter& bi,
                                &mapLength, &objectFlags)) {
         return nullptr;
       }
+#ifdef DEBUG
+      // Immutable bindings must be stored after all mutable bindings. We rely
+      // on this in WarpOracle::isImmutableEnvironmentSlot.
+      bool writable = map->getPropertyInfo(mapLength - 1).writable();
+      MOZ_ASSERT_IF(sawNonWritable, !writable);
+      if (!writable) {
+        sawNonWritable = true;
+      }
+#endif
     }
   }
 
@@ -167,12 +181,6 @@ static SharedShape* CreateEnvironmentShapeForModuleExports(
         cx, cls, &map, &mapLength, id, propFlags, slotIndex, &objectFlags);
   };
 
-  // Add internal *namespace* property.
-  if (!addProperty(cx->names().star_namespace_star_)) {
-    return nullptr;
-  }
-  slotIndex++;
-
   for (JSAtom* exportName : exportNames) {
     if (!addProperty(exportName)) {
       return nullptr;
@@ -196,8 +204,6 @@ SharedShape* js::CreateEnvironmentShapeForSyntheticModule(
 SharedShape* js::CreateEnvironmentShapeForWasmModule(
     JSContext* cx, const JSClass* cls, uint32_t numSlots,
     Handle<ExportNameVector> exportNames) {
-  // TODO(Bug 2079881): *namespace* is a valid wasm export name that will
-  // be shadowed by us using *namespace* to represent ~NAMESPACE~.
   return CreateEnvironmentShapeForModuleExports(cx, cls, numSlots, exportNames);
 }
 

@@ -33,11 +33,22 @@ class AndroidHardwareBuffer
  public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(AndroidHardwareBuffer)
 
+  // Borrow the input FDs. On failure, the caller still owns both fences.
+  static UniqueFileHandle TryMergeFences(const UniqueFileHandle& aFence1,
+                                         const UniqueFileHandle& aFence2);
+
   static UniqueFileHandle MergeFences(UniqueFileHandle&& aFence1,
                                       UniqueFileHandle&& aFence2);
 
+  static constexpr uint64_t kDefaultUsage =
+      AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN |
+      AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN |
+      AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+      AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+
   static already_AddRefed<AndroidHardwareBuffer> Create(
-      gfx::IntSize aSize, gfx::SurfaceFormat aFormat);
+      gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+      uint64_t aUsage = kDefaultUsage);
 
   virtual ~AndroidHardwareBuffer();
 

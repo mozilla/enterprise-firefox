@@ -501,9 +501,9 @@ export var UITour = {
       }
 
       case "showFirefoxAccountsForAIWindow": {
-        if (AppConstants.IS_ESR) {
+        if (AppConstants.IS_ESR || AppConstants.MOZ_ENTERPRISE) {
           lazy.log.warn(
-            "showFirefoxAccountsForAIWindow: Smart Window is not available on ESR"
+            "showFirefoxAccountsForAIWindow: Smart Window is not available on ESR or Enterprise"
           );
           break;
         }
@@ -517,7 +517,11 @@ export var UITour = {
           );
         }
 
-        lazy.AIWindow.launchWindow(browser, false, "bedrock").then(success => {
+        lazy.AIWindow.launchWindow(
+          browser,
+          false,
+          data.entrypoint ? `bedrock-${data.entrypoint}` : "bedrock"
+        ).then(success => {
           if (!success) {
             lazy.log.warn(
               "showFirefoxAccountsForAIWindow: Failed to launch Smart Window"
@@ -1707,6 +1711,10 @@ export var UITour = {
           ),
           speechRecognition: Services.prefs.getStringPref(
             "browser.ai.control.speechRecognition",
+            "default"
+          ),
+          generatedWidgets: Services.prefs.getStringPref(
+            "browser.ai.control.generatedWidgets",
             "default"
           ),
         });

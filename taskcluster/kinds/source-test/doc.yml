@@ -49,7 +49,6 @@ generate:
             ln -s ../tools/lint/eslint/eslint-plugin-mozilla node_modules &&
             ln -s ../tools/lint/eslint/eslint-plugin-spidermonkey-js node_modules &&
             ./mach doc --outdir docs-out --no-open --no-serve --archive --dump-trees=/builds/worker/artifacts/trees.json
-        sparse-profile: sphinx-docs
     optimization:
         docs: null
     fetches:
@@ -69,7 +68,10 @@ upload:
         kind: test
         tier: 2
     run-on-projects: [mozilla-central-only]
-    worker-type: b-linux-medium
+    # Review bot waits for this task, and it is in the long tail that often
+    # finishes last. The docs build reads the sources in parallel, so a 30 core
+    # worker shortens the end to end time.
+    worker-type: b-linux-docker-large-amd
     worker:
         docker-image: {in-tree: "lint"}
         max-run-time: 2400
@@ -107,7 +109,6 @@ upload:
             ln -s ../tools/lint/eslint/eslint-plugin-mozilla node_modules &&
             ln -s ../tools/lint/eslint/eslint-plugin-spidermonkey-js node_modules &&
             ./mach doc --upload --no-open --no-serve --write-url /builds/worker/firefox-source-docs-url.txt --dump-trees=/builds/worker/artifacts/trees.json --errors-file=/builds/worker/issues.json
-        sparse-profile: sphinx-docs
     scopes:
         - secrets:get:project/releng/gecko/build/level-{level}/gecko-docs-upload
     optimization:

@@ -1,0 +1,58 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Adding a new metric? We have docs for that!
+# https://firefox-source-docs.mozilla.org/toolkit/components/glean/user/new_definitions_file.html
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+$tags:
+  - 'Toolkit :: Printing'
+
+printing:
+  page_printed:
+    type: event
+    data_sensitivity:
+      - highly_sensitive
+    description: >
+      Recorded when a page is printed in enterprise builds.
+      Contains security-relevant metadata for monitoring and analysis.
+      Only collected when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    expires: never
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      source_url:
+        description: >
+          The printed page source URL.
+        type: string
+      content_title:
+        description: >
+          The title of the printed content.
+        type: string
+      top_level_source_url:
+        description: >
+          The printed page top level source URL. May differ from
+          source_url when printing a selection.
+        type: string
+      top_level_content_title:
+        description: >
+          The top level title of the printed content of the printed page.
+          May differ from content_title when printing a selection.
+        type: string
+      printer_name:
+        description: >
+          The name of the printer that the user prints to.
+        type: string
+      pdf_file_name:
+        description: >
+          The destination PDF file name used if printing to PDF.
+        type: string

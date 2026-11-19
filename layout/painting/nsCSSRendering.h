@@ -177,6 +177,42 @@ struct nsCSSRendering {
       const nsStyleBorder& aBorderStyle, mozilla::ComputedStyle* aStyle,
       mozilla::PaintBorderFlags aFlags, Sides aSkipSides = Sides());
 
+  /**
+   * Paint the border described by border-shape. A single shape is stroked
+   * with the border width along its path; two shapes fill the area between
+   * the outer and the inner shape.
+   */
+  static ImgDrawResult PaintBorderShape(nsPresContext* aPresContext,
+                                        gfxContext& aRenderingContext,
+                                        nsIFrame* aForFrame,
+                                        const nsRect& aBorderArea,
+                                        const nsStyleBorder& aBorderStyle,
+                                        mozilla::ComputedStyle* aStyle);
+
+  /**
+   * Returns the path of the outermost border-shape edge, which clips the
+   * element's background, or nullptr if border-shape is none.
+   */
+  static already_AddRefed<mozilla::gfx::Path> BorderShapeOuterPath(
+      nsIFrame* aForFrame, const nsRect& aBorderArea,
+      mozilla::gfx::DrawTarget* aDrawTarget);
+
+  /**
+   * The "relevant side for border shape" (css-borders-4): the first side in
+   * the order block-start, inline-start, block-end, inline-end whose border
+   * style is not none, or block-start if they all are. It determines the
+   * stroke width and color of a border-shape border.
+   */
+  static mozilla::Side BorderShapeRelevantSide(
+      nsIFrame* aForFrame, const nsStyleBorder& aStyleBorder);
+
+  /**
+   * How far outside aForFrame's border box its border-shape may paint: into
+   * the margin area for a margin-box geometry, plus the relevant side's
+   * border width for a lone component's centered stroke.
+   */
+  static nsMargin BorderShapePaintOverflow(nsIFrame* aForFrame);
+
   static mozilla::Maybe<nsCSSBorderRenderer> CreateBorderRenderer(
       nsPresContext* aPresContext, DrawTarget* aDrawTarget, nsIFrame* aForFrame,
       const nsRect& aDirtyRect, const nsRect& aBorderArea,
@@ -213,6 +249,10 @@ struct nsCSSRendering {
       mozilla::layers::RenderRootStateManager* aManager,
       mozilla::nsDisplayListBuilder* aDisplayListBuilder);
 
+  static bool GenerateAndPushBorderAreaMask(nsIFrame* aFrame,
+                                            gfxContext* aContext,
+                                            const nsRect& aBackgroundRect);
+
   static void CreateWebRenderCommandsForNullBorder(
       mozilla::nsDisplayItem* aItem, nsIFrame* aForFrame,
       const nsRect& aBorderArea, mozilla::wr::DisplayListBuilder& aBuilder,
@@ -248,24 +288,6 @@ struct nsCSSRendering {
   static nsCSSBorderRenderer GetBorderRendererForFocus(nsIFrame*, DrawTarget*,
                                                        const nsRect& aFocusRect,
                                                        nscolor aColor);
-
-  /**
-   * Render a gradient for an element.
-   * aDest is the rect for a single tile of the gradient on the destination.
-   * aFill is the rect on the destination to be covered by repeated tiling of
-   * the gradient.
-   * aSrc is the part of the gradient to be rendered into a tile (aDest), if
-   * aSrc and aDest are different sizes, the image will be scaled to map aSrc
-   * onto aDest.
-   * aIntrinsicSize is the size of the source gradient.
-   */
-  static void PaintGradient(nsPresContext* aPresContext, gfxContext& aContext,
-                            const mozilla::StyleGradient& aGradient,
-                            const nsRect& aDirtyRect, const nsRect& aDest,
-                            const nsRect& aFill, const nsSize& aRepeatSize,
-                            const mozilla::CSSIntRect& aSrc,
-                            const nsSize& aIntrinsiceSize,
-                            float aOpacity = 1.0);
 
   /**
    * Find the frame whose background style should be used to draw the
@@ -498,15 +520,15 @@ struct nsCSSRendering {
       mozilla::wr::IpcResourceUpdateQueue& aResources,
       const mozilla::layers::StackingContextHelper& aSc,
       mozilla::layers::RenderRootStateManager* aManager,
-      mozilla::nsDisplayItem* aItem);
+      const mozilla::WebRenderImageItemInfo& aItem);
 
   static ImgDrawResult BuildWebRenderDisplayItemsForStyleImageLayerWithSC(
       const PaintBGParams& aParams, mozilla::wr::DisplayListBuilder& aBuilder,
       mozilla::wr::IpcResourceUpdateQueue& aResources,
       const mozilla::layers::StackingContextHelper& aSc,
       mozilla::layers::RenderRootStateManager* aManager,
-      mozilla::nsDisplayItem* aItem, mozilla::ComputedStyle* mBackgroundSC,
-      const nsStyleBorder& aBorder);
+      const mozilla::WebRenderImageItemInfo& aItem,
+      mozilla::ComputedStyle* mBackgroundSC, const nsStyleBorder& aBorder);
 
   /**
    * Returns the rectangle covered by the given background layer image, taking

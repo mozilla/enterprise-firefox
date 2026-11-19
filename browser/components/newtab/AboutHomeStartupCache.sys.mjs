@@ -130,7 +130,7 @@ export var AboutHomeStartupCache = {
     }
 
     this.log = console.createInstance({
-      prefix: this.LOG_NAME,
+      logModule: this.LOG_NAME,
       maxLogLevelPref: this.LOG_LEVEL_PREF,
     });
 
@@ -169,9 +169,9 @@ export var AboutHomeStartupCache = {
     });
 
     let lci = Services.loadContextInfo.default;
-    let storage = Services.cache2.diskCacheStorage(lci);
+    let cacheStorage = Services.cache2.diskCacheStorage(lci);
     try {
-      storage.asyncOpenURI(
+      cacheStorage.asyncOpenURI(
         this.aboutHomeURI,
         "",
         Ci.nsICacheStorage.OPEN_PRIORITY,

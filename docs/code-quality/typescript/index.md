@@ -4,25 +4,11 @@ In firefox-main, we are introducing the use of [TypeScript](https://www.typescri
 to help provide type autocompletion, static analysis and type checking of our
 JavaScript code.
 
-:::{note}
-At the moment we are in the bootstrap/experimentation phase, there are various
-parts of infrastructure that have not yet been created, and incomplete type
-definitions which may cause issues for projects. Hence TypeScript is not
-recommended for all projects for the time being.
-
-We are currently prioritising enabling type autocompletion across the code base,
-before we proceed to more work on type checking.
-
-You can work towards enabling TypeScript by ensuring your code passes the
-[ESLint jsdoc rules](https://searchfox.org/firefox-main/search?q=jsdoc%2F&path=eslint-plugin-mozilla%2Flib%2Fconfigs&case=false&regexp=false).
-
-If you are interested, please ask in the Lint and Formatting channel (#lint:mozilla.org)
-on Matrix.
-:::
-
 ## Where TypeScript is Currently Enabled
 
 TypeScript is currently only enabled on a [limited set of directories](https://searchfox.org/firefox-main/source/tools/lint/typescript.yml).
+To enable it for another directory, see
+[Enabling TypeScript for a Component](enabling.md).
 
 ## Editor Support
 
@@ -40,11 +26,9 @@ The TypeScript linter may be run on the directories where it is enabled using:
 
 ## Updating Gecko Type Definitions
 
-Updating types currently happens manually, although [we are in the process of
-automating it](https://bugzilla.mozilla.org/show_bug.cgi?id=1975513).
-
-In the meantime, developers using TypeScript must update the type definitions
-[manually using some scripts](updatingTypes.md).
+* The type definitions live in [tools/@types](https://searchfox.org/firefox-main/source/tools/@types).
+* The generation scripts live in [tools/ts](https://searchfox.org/firefox-main/source/tools/ts).
+* To update them, run `./mach ts update`. It generates the types from the source directory and does not need a build.
 
 ## Best Practices
 
@@ -58,15 +42,12 @@ which will help to get the type definitions set up correctly.
   * Additionally, the way that TypeScript works means that it will run across
     the whole project regardless, so we report all the issues that it reports.
 * Will my patches get backed out due to TypeScript failures?
-  * Currently no. Whilst we have a [TypeScript Linter on CI](../lint/linters/typescript.md)
-    it is currently tier-3 which is hidden from the sheriffs view.
+  * Currently no. The [TypeScript Linter on CI](../lint/linters/typescript.md)
+    is [tier 2][job visibility tiers], so sheriffs will file bugs but won't
+    back out patches for them.
   * Failures will however, be reported on reviews on Phabricator.
-  * We will promote the linter to tier-2 and tier-1 once we have more automation
+  * We will promote the linter to tier 1 once we have more automation
     in place for type generation.
-* Why isn't this being encouraged for everyone?
-  * As discussed in the note at the top of the page, we are still in the set-up
-    and experimentation phase. There is a lot of infrastructure that is required
-    to make TypeScript usable on a day to day basis.
 * Are we planning to allow using TypeScript files and compiling directly from
   TypeScript?
   * No. In the past we've worked to avoid processing or compilation steps,
@@ -96,6 +77,8 @@ The Lint & Formatting channel (#lint:mozilla.org) on Matrix is the best place
 :hidden:
 :maxdepth: 1
 
+enabling
 bestPractices
-updatingTypes
 ```
+
+[job visibility tiers]: https://wiki.mozilla.org/Sheriffing/Job_Visibility_Policy#Overview_of_the_Job_Visibility_Tiers

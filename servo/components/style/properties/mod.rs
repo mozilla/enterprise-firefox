@@ -592,6 +592,15 @@ impl<'a> From<&'a PropertyId> for PropertyIdRef<'a> {
     }
 }
 
+impl<'a> From<PropertyIdRef<'a>> for PropertyId {
+    fn from(value: PropertyIdRef<'a>) -> Self {
+        match value {
+            PropertyIdRef::NonCustom(id) => Self::NonCustom(id),
+            PropertyIdRef::Custom(name) => Self::Custom(name.clone()),
+        }
+    }
+}
+
 impl<'a> From<&'a custom_properties::Name> for PropertyIdRef<'a> {
     fn from(value: &'a custom_properties::Name) -> Self {
         Self::Custom(value)
@@ -786,7 +795,8 @@ impl ShorthandId {
     }
 }
 
-/// The arbitrary substitution functions we support.
+/// The arbitrary substitution functions we support. Note that this may
+/// include functions that are behind a disabled pref.
 pub const ARBITRARY_SUBSTITUTION_FUNCTIONS: &[&str] = SubstitutionFunctionKind::VARIANTS;
 
 fn parse_non_custom_property_declaration_value_into(
@@ -858,6 +868,11 @@ fn parse_non_custom_property_declaration_value_into(
     }
     input.reset(start);
     let value = custom_properties::VariableValue::parse(context, input)?;
+    // If the parser says it saw arbitrary substitution functions, but the parsed value
+    // itself has no references, then the seen functions must be disabled by a pref.
+    if !value.has_references() {
+        return Err(err);
+    }
     parsed_custom(declarations, value);
     Ok(())
 }
@@ -1216,8 +1231,7 @@ impl<'a> PropertyDeclarationId<'a> {
     pub fn is_discrete_animatable(&self) -> bool {
         match self {
             Self::Longhand(longhand) => longhand.is_discrete_animatable(),
-            // TODO(bug 1885995): Refine this.
-            Self::Custom(_) => true,
+            Self::Custom(_) => false,
         }
     }
 
@@ -1532,10 +1546,7 @@ pub struct SourcePropertyDeclaration {
 
 // This is huge, but we allocate it on the stack and then never move it,
 // we only pass `&mut SourcePropertyDeclaration` references around.
-#[cfg(feature = "gecko")]
 size_of_test!(SourcePropertyDeclaration, 632);
-#[cfg(feature = "servo")]
-size_of_test!(SourcePropertyDeclaration, 568);
 
 impl SourcePropertyDeclaration {
     /// Create one with a single PropertyDeclaration.

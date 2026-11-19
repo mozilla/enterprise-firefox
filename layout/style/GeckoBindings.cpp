@@ -260,11 +260,6 @@ void Gecko_NoteDirtySubtreeForInvalidation(const Element* aElement) {
   const_cast<Element*>(aElement)->NoteDirtySubtreeForServo();
 }
 
-void Gecko_NoteAnimationOnlyDirtyElement(const Element* aElement) {
-  MOZ_ASSERT(NS_IsMainThread());
-  const_cast<Element*>(aElement)->NoteAnimationOnlyDirtyForServo();
-}
-
 bool Gecko_AnimationNameMayBeReferencedFromStyle(
     const nsPresContext* aPresContext, nsAtom* aName) {
   MOZ_ASSERT(aPresContext);
@@ -410,16 +405,6 @@ const StyleLockedDeclarationBlock* Gecko_GetExtraContentStyleDeclarations(
   return nullptr;
 }
 
-const StyleLockedDeclarationBlock* Gecko_GetUnvisitedLinkAttrDeclarationBlock(
-    const Element* aElement) {
-  AttributeStyles* attrStyles = aElement->OwnerDoc()->GetAttributeStyles();
-  if (!attrStyles) {
-    return nullptr;
-  }
-
-  return attrStyles->GetServoUnvisitedLinkDecl();
-}
-
 StyleSheet* Gecko_StyleSheet_Clone(const StyleSheet* aSheet) {
   MOZ_ASSERT(aSheet);
   MOZ_ASSERT(aSheet->GetParentSheet(), "Should only be used for @import");
@@ -465,24 +450,6 @@ GeckoImplicitScopeRoot Gecko_StyleSheet_ImplicitScopeRoot(
   // defined at the edge of the shadow root.
   return GeckoImplicitScopeRoot{
       .mHost = host, .mRoot = host, .mConstructed = false};
-}
-
-const StyleLockedDeclarationBlock* Gecko_GetVisitedLinkAttrDeclarationBlock(
-    const Element* aElement) {
-  AttributeStyles* attrStyles = aElement->OwnerDoc()->GetAttributeStyles();
-  if (!attrStyles) {
-    return nullptr;
-  }
-  return attrStyles->GetServoVisitedLinkDecl();
-}
-
-const StyleLockedDeclarationBlock* Gecko_GetActiveLinkAttrDeclarationBlock(
-    const Element* aElement) {
-  AttributeStyles* attrStyles = aElement->OwnerDoc()->GetAttributeStyles();
-  if (!attrStyles) {
-    return nullptr;
-  }
-  return attrStyles->GetServoActiveLinkDecl();
 }
 
 bool Gecko_GetAnimationRule(const Element* aElement,
@@ -667,7 +634,7 @@ static CSSTransition* GetCurrentTransitionAt(const Element* aElement,
                                              size_t aIndex) {
   const auto [element, pseudo] = AnimationUtils::GetElementPseudoPair(aElement);
   auto* collection =
-      nsTransitionManager::CSSTransitionCollection ::Get(element, pseudo);
+      nsTransitionManager::CSSTransitionCollection::Get(element, pseudo);
   if (!collection) {
     return nullptr;
   }
@@ -742,10 +709,25 @@ nscolor Gecko_ComputeSystemColor(StyleSystemColor aColor, const Document* aDoc,
     case StyleSystemColor::Canvas:
       return colors.mDefaultBackground;
     case StyleSystemColor::Linktext:
+      if (auto* styles = aDoc->GetAttributeStyles()) {
+        if (const auto& lc = styles->GetLinkColor()) {
+          return *lc;
+        }
+      }
       return colors.mLink;
     case StyleSystemColor::Activetext:
+      if (auto* styles = aDoc->GetAttributeStyles()) {
+        if (const auto& lc = styles->GetActiveLinkColor()) {
+          return *lc;
+        }
+      }
       return colors.mActiveLink;
     case StyleSystemColor::Visitedtext:
+      if (auto* styles = aDoc->GetAttributeStyles()) {
+        if (const auto& lc = styles->GetVisitedLinkColor()) {
+          return *lc;
+        }
+      }
       return colors.mVisitedLink;
     default:
       break;
@@ -2062,4 +2044,10 @@ bool Gecko_GetAnchorPosSize(const AnchorPosResolutionParams* aParams,
   }();
   *aOut = Length::FromPixels(CSSPixel::FromAppUnits(l));
   return true;
+}
+
+bool Gecko_ScheduleIdle(void (*aFunction)(), uint32_t aTimeout) {
+  return NS_SUCCEEDED(NS_DispatchToCurrentThreadQueue(
+      NS_NewRunnableFunction("Gecko_ScheduleIdle", aFunction), aTimeout,
+      EventQueuePriority::Idle));
 }

@@ -9,18 +9,21 @@ import mozilla.components.feature.tabdata.coordinator.TabDataCoordinator
 import mozilla.components.feature.tabdata.coordinator.data.TabsSnapshot
 
 /**
- * A simple fake [TabDataCoordinator] for unit tests. Its [tabsSnapshot] can be set directly, and every other function
- * is stubbed to do nothing.
+ * A simple fake [TabDataCoordinator] for unit tests. Its [tabsSnapshot] can be set directly, [openTabGroup] opens the
+ * group in it, and every other function is stubbed to do nothing.
  *
  * @param initialTabsSnapshot The [TabsSnapshot] emitted by [tabsSnapshot]. Null by default, mirroring a coordinator
  *   which is not yet fully initialized.
  * @property selectedTabIds The IDs passed to [selectTab], in call order.
+ * @property addNewTabToGroupIds The group IDs passed to [addNewTabToTabGroup], in call order.
  */
 class FakeTabDataCoordinator(initialTabsSnapshot: TabsSnapshot? = null) : TabDataCoordinator {
 
     override val tabsSnapshot: MutableStateFlow<TabsSnapshot?> = MutableStateFlow(initialTabsSnapshot)
 
     val selectedTabIds = mutableListOf<String>()
+
+    val addNewTabToGroupIds = mutableListOf<String>()
 
     override fun initialize() = Unit
 
@@ -39,6 +42,10 @@ class FakeTabDataCoordinator(initialTabsSnapshot: TabsSnapshot? = null) : TabDat
 
     override suspend fun addTabsToTabGroup(tabGroupId: String, tabIds: List<String>) = Unit
 
+    override suspend fun addNewTabToTabGroup(tabGroupId: String) {
+        addNewTabToGroupIds.add(tabGroupId)
+    }
+
     override suspend fun mergeTabGroupIntoTab(tabGroupId: String, tabId: String) = Unit
 
     override suspend fun mergeTabGroups(sourceTabGroupId: String, destinationTabGroupId: String) = Unit
@@ -49,7 +56,11 @@ class FakeTabDataCoordinator(initialTabsSnapshot: TabsSnapshot? = null) : TabDat
 
     override suspend fun ungroupTabGroup(tabGroupId: String) = Unit
 
-    override suspend fun openTabGroup(tabGroupId: String) = Unit
+    override suspend fun openTabGroup(tabGroupId: String) {
+        val snapshot = tabsSnapshot.value ?: return
+        val tabGroups = snapshot.tabGroups.map { if (it.id == tabGroupId) it.copy(closed = false) else it }
+        tabsSnapshot.value = snapshot.copy(tabGroups = tabGroups, openTabGroups = tabGroups.filterNot { it.closed })
+    }
 
     override suspend fun closeTabGroup(tabGroupId: String) = Unit
 

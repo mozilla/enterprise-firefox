@@ -219,6 +219,9 @@ subsuite = "gpu"
 ["test_canvas.html"]
 subsuite = "gpu"
 
+["test_canvas_drawImage_accelerated_small.html"]
+subsuite = "gpu"
+
 ["test_canvas_focusring.html"]
 
 ["test_canvas_font_setter.html"]
@@ -259,6 +262,9 @@ support-files = [
 ]
 
 ["test_filter.html"]
+
+["test_filter_blur_translucent_stroke.html"]
+subsuite = "gpu"
 
 ["test_filter_opacity_a8.html"]
 

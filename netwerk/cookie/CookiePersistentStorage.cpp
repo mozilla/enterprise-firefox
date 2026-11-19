@@ -2412,17 +2412,7 @@ void CookiePersistentStorage::CollectCookieJarSizeData() {
 
   uint32_t sumPartitioned = 0;
   uint32_t sumUnpartitioned = 0;
-  bool hasFileCookie = false;
   for (const auto& cookieEntry : mHostTable) {
-    if (!hasFileCookie) {
-      for (const auto& cookie : cookieEntry.GetCookies()) {
-        if (cookie->SchemeMap() & nsICookie::SCHEME_FILE) {
-          hasFileCookie = true;
-          break;
-        }
-      }
-    }
-
     if (cookieEntry.IsPartitioned()) {
       uint16_t cePartitioned = cookieEntry.GetCookies().Length();
       sumPartitioned += cePartitioned;
@@ -2442,7 +2432,6 @@ void CookiePersistentStorage::CollectCookieJarSizeData() {
       sumPartitioned);
   mozilla::glean::networking::cookie_count_unpartitioned.AccumulateSingleSample(
       sumUnpartitioned);
-  mozilla::glean::networking::cookie_file_present.Set(hasFileCookie);
 }
 
 // NOTE: if you modify this function and want it to run again on next startup
@@ -2528,13 +2517,13 @@ void CookiePersistentStorage::RecordValidationTelemetry() {
     AddCookie(nullptr, data.mBaseDomain, data.mOriginAttributes, data.mCookie,
               data.mCookie->CreationTimeInUSec(), nullptr, VoidCString(), true,
               !data.mOriginAttributes.mPartitionKey.IsEmpty(), nullptr,
-              nullptr);
+              Nothing());
   }
 
   for (CookieToAddOrRemove& data : listToRemove) {
     RemoveCookie(data.mBaseDomain, data.mOriginAttributes, data.mCookie->Host(),
                  data.mCookie->Name(), data.mCookie->Path(),
-                 /* is http: */ true, nullptr);
+                 /* is http: */ true, Nothing());
   }
 
   // Only mark this epoch as complete if no fixes were needed. If we did fix

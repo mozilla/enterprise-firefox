@@ -48,6 +48,7 @@
 #include "nsIDOMWindowUtils.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsILocalFileMac.h"
+#include "nsIObserverService.h"
 #include "nsIRollupListener.h"
 #include "nsIScreenManager.h"
 #include "nsISupportsPrimitives.h"
@@ -82,6 +83,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_general.h"
@@ -623,6 +625,33 @@ nsresult nsCocoaWindow::SynthesizeNativeTouchpadDoubleTap(
   return NS_OK;
 
   NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
+}
+
+nsresult nsCocoaWindow::SynthesizeNativeTouchpadPan(
+    TouchpadGesturePhase aEventPhase, mozilla::LayoutDeviceIntPoint aPoint,
+    double aDeltaX, double aDeltaY, int32_t aModifierFlags,
+    nsISynthesizedEventCallback* aCallback) {
+  CGScrollPhase phase;
+  switch (aEventPhase) {
+    case PHASE_BEGIN:
+      phase = kCGScrollPhaseBegan;
+      break;
+    case PHASE_UPDATE:
+      phase = kCGScrollPhaseChanged;
+      break;
+    case PHASE_END:
+      phase = kCGScrollPhaseEnded;
+      break;
+    default: {
+      AutoSynthesizedEventCallbackNotifier notifier(aCallback);
+      return NS_ERROR_INVALID_ARG;
+    }
+  }
+
+  // Cocoa scroll deltas are positive when scrolling up / to the left.
+  return SynthesizeNativeMouseScrollEvent(
+      aPoint, phase, -aDeltaX, -aDeltaY, 0,
+      nsIWidget::NativeModifiers::NO_MODIFIERS, 0, aCallback);
 }
 
 bool nsCocoaWindow::SendEventToNativeMenuSystem(NSEvent* aEvent) {
@@ -2550,7 +2579,10 @@ NSEvent* gLastDragMouseDownEvent = nil;  // [strong]
   // window state when the second click's mouseUp is handled here. Snapshot
   // the zoomed state on the first mouseUp and skip our own toggle if it
   // already changed when checked in the second mouseUp.
-  if (nsCocoaFeatures::OnGoldenGateOrLater() && [theEvent clickCount] == 1) {
+  // This no longer reproduces on macOS 27.2.1.
+  bool needsNativeZoomCheck = nsCocoaFeatures::OnGoldenGateOrLater() &&
+                              !nsCocoaFeatures::IsAtLeastVersion(27, 2, 1);
+  if (needsNativeZoomCheck && [theEvent clickCount] == 1) {
     mZoomStateAtLastSingleClick = [[self window] isZoomed];
   }
 
@@ -2559,7 +2591,7 @@ NSEvent* gLastDragMouseDownEvent = nil;  // [strong]
       !mGeckoChild->GetNonDraggableRegion().Contains(pos.x, pos.y)) {
     // Did the window state already change?
     bool zoomStateAlreadyChanged =
-        nsCocoaFeatures::OnGoldenGateOrLater() &&
+        needsNativeZoomCheck &&
         ([[self window] isZoomed] != mZoomStateAtLastSingleClick);
 
     if (!zoomStateAlreadyChanged) {
@@ -2748,7 +2780,8 @@ static bool ShouldDispatchBackForwardCommandForMouseButton(int16_t aButton) {
   }
 
   int16_t button = nsCocoaUtils::ButtonForEvent(theEvent);
-  if (ShouldDispatchBackForwardCommandForMouseButton(button)) {
+  if (ShouldDispatchBackForwardCommandForMouseButton(button) &&
+      !StaticPrefs::dom_event_mouse_xbuttons_enabled()) {
     WidgetCommandEvent appCommandEvent(
         true,
         (button == MouseButton::eX2) ? nsGkAtoms::Forward : nsGkAtoms::Back,
@@ -2777,7 +2810,10 @@ static bool ShouldDispatchBackForwardCommandForMouseButton(int16_t aButton) {
   }
 
   int16_t button = nsCocoaUtils::ButtonForEvent(theEvent);
-  if (ShouldDispatchBackForwardCommandForMouseButton(button)) {
+  const bool shouldDispatchBackForward =
+      ShouldDispatchBackForwardCommandForMouseButton(button);
+  if (!StaticPrefs::dom_event_mouse_xbuttons_enabled() &&
+      shouldDispatchBackForward) {
     return;
   }
 
@@ -2785,6 +2821,10 @@ static bool ShouldDispatchBackForwardCommandForMouseButton(int16_t aButton) {
                               WidgetMouseEvent::eReal);
   [self convertCocoaMouseEvent:theEvent toGeckoEvent:&geckoEvent];
   geckoEvent.mButton = button;
+  if (shouldDispatchBackForward) {
+    geckoEvent.mCommand =
+        button == MouseButton::eX2 ? nsGkAtoms::Forward : nsGkAtoms::Back;
+  }
 
   nsAutoRetainCocoaObject kungFuDeathGrip(self);
   mGeckoChild->DispatchInputEvent(&geckoEvent);
@@ -5483,7 +5523,7 @@ void nsCocoaWindow::Destroy() {
 
   if (mInFullScreenMode && !mInNativeFullScreenMode) {
     // Keep these calls balanced for emulated fullscreen.
-    nsCocoaUtils::HideOSChromeOnScreen(false);
+    nsCocoaUtils::HideOSChromeOnScreen(false, mShouldPreventAppSwitching);
   }
 
   // Destroy the native window here (and not wait for that to happen in our
@@ -6487,6 +6527,7 @@ void nsCocoaWindow::CocoaWindowWillEnterFullscreen(bool aFullscreen) {
 }
 
 void nsCocoaWindow::CocoaWindowDidEnterFullscreen(bool aFullscreen) {
+  RefPtr<nsCocoaWindow> kungFuDeathGrip(this);
   EndOurNativeTransition();
   mHasStartedNativeFullscreen = false;
   // AppKit can finish the transition before removing its occluding overlay.
@@ -6564,6 +6605,18 @@ void nsCocoaWindow::CocoaWindowDidEnterFullscreen(bool aFullscreen) {
   if (!receivedExpectedFullscreen && mSizeMode == sizeModeBefore &&
       mWidgetListener) {
     mWidgetListener->FullscreenChangeFailed(aFullscreen);
+  }
+
+  // The fullscreen and sizemode events fire when the native transition starts,
+  // so tell observers, tests in particular, when it is over and another window
+  // can start one.
+  if (mWidgetListener) {
+    if (nsCOMPtr<nsIAppWindow> appWindow = mWidgetListener->GetAppWindow()) {
+      if (nsCOMPtr<nsIObserverService> obs = services::GetObserverService()) {
+        obs->NotifyObservers(appWindow,
+                             "macos-native-fullscreen-transition-end", nullptr);
+      }
+    }
   }
 }
 
@@ -6730,7 +6783,7 @@ void nsCocoaWindow::ProcessTransitions() {
           // The order here matters. When we exit full screen mode, we need to
           // show the Dock first, otherwise the newly-created window won't have
           // its minimize button enabled. See bug 526282.
-          nsCocoaUtils::HideOSChromeOnScreen(true);
+          nsCocoaUtils::HideOSChromeOnScreen(true, mShouldPreventAppSwitching);
           nsIWidget::InfallibleMakeFullScreen(true);
           mSuppressSizeModeEvents = false;
           UpdateFullscreenState(true, false);
@@ -6766,7 +6819,8 @@ void nsCocoaWindow::ProcessTransitions() {
             // The order here matters. When we exit full screen mode, we need to
             // show the Dock first, otherwise the newly-created window won't
             // have its minimize button enabled. See bug 526282.
-            nsCocoaUtils::HideOSChromeOnScreen(false);
+            nsCocoaUtils::HideOSChromeOnScreen(false,
+                                               mShouldPreventAppSwitching);
             nsIWidget::InfallibleMakeFullScreen(false);
             mSuppressSizeModeEvents = false;
             UpdateFullscreenState(false, false);
@@ -7665,6 +7719,10 @@ void nsCocoaWindow::SetSupportsNativeFullscreen(
   }
 
   NS_OBJC_END_TRY_IGNORE_BLOCK;
+}
+
+void nsCocoaWindow::SetPreventAppSwitching(bool aShouldPreventAppSwitching) {
+  mShouldPreventAppSwitching = aShouldPreventAppSwitching;
 }
 
 void nsCocoaWindow::SetWindowAnimationType(

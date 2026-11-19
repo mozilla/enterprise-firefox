@@ -110,7 +110,7 @@ static PrincipalHandle GetPrincipalHandle(nsPIDOMWindowInner* aWindow,
   } else if (aPrivacy == PrincipalPrivacy::Private) {
     principal = NullPrincipal::CreateWithInheritedAttributes(principal);
   }
-  return MakePrincipalHandle(principal);
+  return PrincipalHandle(principal);
 }
 
 #define INIT_CANONICAL(name, val)         \
@@ -144,16 +144,19 @@ RTCRtpReceiver::RTCRtpReceiver(
   PrincipalHandle principalHandle = GetPrincipalHandle(aWindow, aPrivacy);
   const bool isAudio = aConduit->type() == MediaSessionConduit::AUDIO;
 
+  // The remote track is not rendered until it is attached to a sink, so the
+  // graph does not need to start with an AudioCallbackDriver. CheckDriver()
+  // creates one when it is needed.
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      isAudio ? MediaTrackGraph::AUDIO_THREAD_DRIVER
-              : MediaTrackGraph::SYSTEM_THREAD_DRIVER,
-      aWindow, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::SYSTEM_THREAD_DRIVER, aWindow,
+      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
 
   if (isAudio) {
     auto* source = graph->CreateSourceTrack(MediaSegment::AUDIO);
     mTrackSource = MakeAndAddRef<RemoteTrackSource>(
-        source, this, principalHandle, u"remote audio"_ns, aTrackingId);
+        source, this, GetPrincipalFromHandle(principalHandle),
+        u"remote audio"_ns, aTrackingId);
     mTrack = MakeAndAddRef<AudioStreamTrack>(aWindow, source, mTrackSource);
     mPipeline = MakeAndAddRef<MediaPipelineReceiveAudio>(
         mPc->GetHandle(), aTransportHandler, aCallThread, mStsThread.get(),
@@ -162,7 +165,8 @@ RTCRtpReceiver::RTCRtpReceiver(
   } else {
     auto* source = graph->CreateSourceTrack(MediaSegment::VIDEO);
     mTrackSource = MakeAndAddRef<RemoteTrackSource>(
-        source, this, principalHandle, u"remote video"_ns, aTrackingId);
+        source, this, GetPrincipalFromHandle(principalHandle),
+        u"remote video"_ns, aTrackingId);
     mTrack = MakeAndAddRef<VideoStreamTrack>(aWindow, source, mTrackSource);
     mPipeline = MakeAndAddRef<MediaPipelineReceiveVideo>(
         mPc->GetHandle(), aTransportHandler, aCallThread, mStsThread.get(),

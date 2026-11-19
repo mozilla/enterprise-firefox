@@ -169,20 +169,6 @@
 #define IS_NOT_MOZILLA_OFFICIAL true
 #endif
 
-#ifdef EARLY_BETA_OR_EARLIER
-#define IS_EARLY_BETA_OR_EARLIER true
-#define IS_NOT_EARLY_BETA_OR_EARLIER false
-#else
-#define IS_EARLY_BETA_OR_EARLIER false
-#define IS_NOT_EARLY_BETA_OR_EARLIER true
-#endif
-
-#if defined(MOZ_DEV_EDITION) || defined(EARLY_BETA_OR_EARLIER)
-#define IS_DEV_EDITION_OR_EARLY_BETA_OR_EARLIER true
-#else
-#define IS_DEV_EDITION_OR_EARLY_BETA_OR_EARLIER false
-#endif
-
 #ifdef ANDROID
 #define IS_ANDROID true
 #define IS_NOT_ANDROID false
@@ -1326,6 +1312,19 @@
   type: String
   value: ""
   mirror: never
+
+# The largest request or content, in bytes, that the built-in DLP backend
+# analyzes; anything larger gets the result for an analysis error, i.e.
+# browser.contentanalysis.default_result. Pasted text is part of the request.
+# The DLP wasm module matches content in place, but holds a paste twice (the
+# request and the decoded text) in its 4 GiB of 32-bit memory, and Rust caps
+# any single allocation at isize::MAX bytes (2^31 - 1 on wasm32, 2,147,483,640
+# after the module's 8-byte alignment). 1984 MiB keeps both pastes and files
+# under those limits with headroom.
+- name: browser.contentanalysis.wasm_backend_max_content_bytes
+  type: uint32_t
+  value: 2080374784
+  mirror: always
 
 # On Windows, whether to bring the foreground window to the front when printing
 # to avoid a DLP agent stealing focus and cancelling the print (bug 1980225)
@@ -2765,6 +2764,12 @@
   value: true
   mirror: always
 
+# Expose CycleCollectorUnlinkTester, for testing use-after-unlink issues.
+- name: dom.cc.unlink_test
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Master gate for the web custom format support in the Async Clipboard API.
 - name: dom.clipboard.customFormatSupport.enabled
   type: RelaxedAtomicBool
@@ -2782,18 +2787,6 @@
 - name: dom.cookie.testing.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# https://whatpr.org/html/10168/interaction.html#closewatcher
-- name: dom.closewatcher.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# https://github.com/whatwg/html/pull/10737
-- name: dom.dialog.light-dismiss.enabled
-  type: bool
-  value: true
   mirror: always
 
 # Allow control characters appear in composition string.
@@ -2885,6 +2878,13 @@
   value: false
   mirror: always
 
+# Enables document.parsed, document.contentLoaded and document.loaded.
+# See https://github.com/whatwg/html/pull/1936
+- name: dom.document.load_promises.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Preferences for document-language metadata extraction.
 #
 # How long a metadata request waits for the document load event before
@@ -2934,13 +2934,6 @@
   value: false
   mirror: always
 
-# HTMLDialogElement.prototype.requestClose
-# See https://html.spec.whatwg.org/#dom-dialog-requestclose
-- name: dom.element.dialog.request_close.enabled
-  type: bool
-  value: true
-  mirror: always
-
 - name: dom.element.transform-getters.enabled
   type: bool
   value: false
@@ -2950,7 +2943,7 @@
 # see https://html.spec.whatwg.org/#blocking-attributes
 - name: dom.element.blocking.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # The implementation-defined timeout of
@@ -2974,12 +2967,6 @@
 - name: dom.element.commandfor.on_details.enabled
   type: bool
   value: false
-  mirror: always
-
-# Eanbles the popover=hint attribute
-- name: dom.element.popoverhint.enabled
-  type: bool
-  value: true
   mirror: always
 
 - name: dom.mouse_capture.enabled
@@ -3116,6 +3103,12 @@
 - name: dom.event.mouse.fractional_coordinates.untrusted.enabled
   type: bool
   value: false
+  mirror: always
+
+# Whether to fire mousedown/mouseup/auxclick for X1/X2 mouse buttons.
+- name: dom.event.mouse.xbuttons.enabled
+  type: bool
+  value: true
   mirror: always
 
 # Whether pointer boundary events should be dispatched after the element is
@@ -3280,13 +3273,6 @@
 
 - name: dom.fetch.streaming_upload
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
-  mirror: always
-
-# Whether to validate that a fetch request's principal is compatible with the
-# remote type of the process it originates from.
-- name: dom.fetch.validatePrincipalForRemoteType
-  type: RelaxedAtomicBool
   value: true
   mirror: always
 
@@ -3428,8 +3414,20 @@
   value: true
   mirror: always
 
-# Is Gamepad Extension API enabled?
-- name: dom.gamepad.extensions.enabled
+# Is Gamepad.hand enabled?
+- name: dom.gamepad.hand.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Is Gamepad.pose enabled?
+- name: dom.gamepad.pose.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Is Gamepad.hapticActuators enabled?
+- name: dom.gamepad.haptic_actuators.enabled
   type: bool
   value: true
   mirror: always
@@ -3471,6 +3469,21 @@
 #else
   value: false
 #endif
+  mirror: always
+
+# Whether innerHTML parses markup in a small subset of HTML without the full
+# HTML parser.
+- name: dom.html_fragment_fast_path.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# The dom.fragment_parsing metrics time one in 2 to the power of this many
+# innerHTML or DOMParser calls, since timing every call costs more than the
+# fast path saves on small fragments.
+- name: dom.html_fragment_fast_path.telemetry_sample_shift
+  type: uint32_t
+  value: 6
   mirror: always
 
 # <img loading=lazy sizes=auto>
@@ -3653,11 +3666,6 @@
 
 - name: dom.interactive_widget_default_resizes_visual
   type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: dom.intersection_observer.scroll_margin.enabled
-  type: bool
   value: true
   mirror: always
 
@@ -3936,6 +3944,14 @@
   value: false
   mirror: always
 
+# Support for the `eyedropper` attribute on <input type=color>, letting the
+# picker sample a color from the page. Experimental, no spec yet.
+# See https://github.com/mozilla/explainers/blob/main/eyedropper-input.md.
+- name: dom.input.color_eyedropper.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # How long a content process can take before closing its IPC channel
 # after shutdown is initiated.  If the process exceeds the timeout,
 # we fear the worst and kill it.
@@ -3970,6 +3986,21 @@
 #else
   value: 0
 #endif
+  mirror: always
+
+# How long a utility process launch can take, from spawning the process to the
+# child reporting that its init completed. If the launch exceeds the timeout,
+# we abandon it. A value of 0 disables the timeout entirely.
+- name: dom.ipc.utilityProcess.startup_timeout_ms
+  type: uint32_t
+  value: 10000
+  mirror: always
+
+# Testing only: utility processes never report that their init completed, so
+# their launch never completes.
+- name: dom.ipc.utilityProcess.testing.skipInitCompleted
+  type: bool
+  value: false
   mirror: always
 
 # If this is true, keypress events for non-printable keys are dispatched only
@@ -4119,7 +4150,7 @@
 # Enable mutiple import maps.
 - name: dom.multiple_import_maps.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Limit of navigations initiated by content in a time span per
@@ -4155,6 +4186,12 @@
 - name: dom.navigation.api.strict.enabled
   type: bool
   value: false
+  mirror: always
+
+# Use the new Navigation API history behaviour and load path for iframes.
+- name: dom.navigation.new_frame_load_behavior.enabled
+  type: bool
+  value: true
   mirror: always
 
 # Network Information API
@@ -4382,7 +4419,7 @@
 # https://w3c.github.io/push-api/#declarative-push-message
 - name: dom.push.declarative.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Indicate the deprecated aesgcm support in PushManager.supportedContentEncodings.
@@ -4398,7 +4435,7 @@
 # https://w3c.github.io/push-api/#extensions-to-the-serviceworkerregistration-interface
 - name: dom.push.window_pushmanager.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Whether QuotaExceededError is a DOMException derived interface carrying
@@ -5057,10 +5094,11 @@
   value: false
   mirror: always
 
-# When true, cross-origin prefetch URLs are rejected at StartPrefetch.
-# Keeps M1 same-origin only; set false in tests to exercise cross-origin
+# When true, cross-site prefetch URLs are rejected at StartPrefetch.
+# Same-site (including same-site cross-origin) prefetches share the document's
+# network partition and are allowed; set false in tests to exercise cross-site
 # code paths without requiring Private Prefetch Proxy (PPP) support.
-- name: dom.speculation_rules.same_origin_only
+- name: dom.speculation_rules.same_site_only
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -5137,13 +5175,6 @@
 - name: dom.security.skip_remote_script_assertion_in_system_priv_context
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# If and only if true, support for Trusted Types
-# (https://w3c.github.io/trusted-types/dist/spec/) is enabled.
-- name: dom.security.trusted_types.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # If true, record the security.trusted_types_readiness Glean metric when a
@@ -5574,6 +5605,7 @@
 # Whether OPFS is enabled in Private Browsing Mode.
 # TODO: Before enabling, please handle crash safety in
 # EncryptedRandomAccessStream::SetEOF, see bug 2072949 for details.
+# Also, please fix bug 2087589.
 - name: dom.fs.privateBrowsing.enabled
   type: RelaxedAtomicBool
   value: false
@@ -5699,7 +5731,7 @@
 
 - name: dom.headingoffset.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -5879,7 +5911,7 @@
 
 - name: dom.viewTransitions.cross-document.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -6211,13 +6243,6 @@
   value: false
   mirror: always
 
-# If true, when user selects a range, `Selection` will split the range to
-# exclude unselectable content from the range.
-- name: dom.selection.exclude_non_selectable_nodes
-  type: bool
-  value: false
-  mirror: always
-
 # Mimic Chrome's window.getSelection().toString() behaviour
 - name: dom.selection.mimic_chrome_tostring.enabled
   type: bool
@@ -6245,11 +6270,6 @@
 - name: dom.shadowdom.referenceTarget.enabled
   type: bool
   value: false
-  mirror: always
-
-- name: dom.shadowdom.shadowRootSlotAssignment.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # NOTE: This preference is used in unit tests. If it is removed or its default
@@ -6285,7 +6305,7 @@
 #if defined(XP_WIN) || defined(XP_MACOSX) && defined(MOZ_AARCH64)
   value: true
 #else
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NIGHTLY_BUILD@
 #endif
   mirror: always
 
@@ -6306,7 +6326,7 @@
 #if defined(XP_WIN) || defined(XP_MACOSX) && defined(MOZ_AARCH64)
   value: true
 #else
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NIGHTLY_BUILD@
 #endif
   mirror: always
 
@@ -6810,6 +6830,14 @@
   type: bool
   value: false
   mirror: once
+
+# Threshold on all pending spellcheck operations (including dictionary updates
+# and async word checks) before DOM mutations share one dirty range. Zero or
+# negative values coalesce from the first mutation.
+- name: extensions.spellcheck.inline.dom-mutation-coalescing-threshold
+  type: int32_t
+  value: 32
+  mirror: always
 
 # Maximum number of misspelled words in a text.
 - name: extensions.spellcheck.inline.max-misspellings
@@ -8039,6 +8067,16 @@
   mirror: once
 #endif
 
+# [Windows] Whether the set of installed font file paths is built in the parent
+# process. When it is, the sandbox uses it to allow child processes to read
+# installed font files, rather than adding individual rules for each font.
+#if defined(XP_WIN)
+- name: gfx.font-path-set.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: once
+#endif
+
 # Whether to load fonts (e.g. Twemoji Mozilla) bundled with the application:
 #  -1 - Auto behavior based on OS version (currently, disables loading on
 #       "low-memory" Android devices)
@@ -8069,15 +8107,6 @@
   # Note that this is only checked at startup; toggling it requires a restart
   # to take effect.
 -   name: gfx.font_rendering.fontations.enabled
-    type: RelaxedAtomicBool
-    value: false
-    mirror: always
-#endif
-
-#if defined(XP_DARWIN)
-  # Set to true to revert from HarfBuzz AAT shaping to the old Core Text
-  # backend.
--   name: gfx.font_rendering.coretext.enabled
     type: RelaxedAtomicBool
     value: false
     mirror: always
@@ -8519,7 +8548,7 @@
 # WebRender image's color multiplier instead of being rasterized in a blob.
 - name: gfx.webrender.svg-images.opacity
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: gfx.webrender.svg-shapes
@@ -8546,21 +8575,21 @@
 # skew).
 - name: gfx.webrender.svg-shapes.gradients
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Shapes and images with mix-blend-mode can be drawn with WebRender; the blend
 # is performed by the enclosing nsDisplayBlendMode stacking context.
 - name: gfx.webrender.svg-shapes.blend
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # SVG <text> with a plain opaque fill and no stroke is drawn with WebRender
 # text primitives instead of being rasterized in a blob image.
 - name: gfx.webrender.svg-text
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # SVG <text> with fill-opacity below 1 is drawn with WebRender text
@@ -8576,7 +8605,7 @@
 # instead of a rasterized mask image.
 - name: gfx.webrender.svg-simple-clips
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Inside an <svg>, a clip-path that WebRender expresses natively lets its
@@ -9195,9 +9224,9 @@
   value: false
   mirror: always
 
-- name: gfx.remote-texture.recycle.disabled
+- name: gfx.remote-texture.recycle.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: gfx.remote-texture.wait-owner-at-image-host
@@ -9726,7 +9755,7 @@
   # hack the result forcibly.
 -   name: intl.tsf.hack.allow_to_stop_hacking_on_build_17643_or_later
     type: bool
-    value: @IS_EARLY_BETA_OR_EARLIER@
+    value: true
     mirror: always
 
   # If true, automatically extend selection to cluster boundaries when
@@ -9956,6 +9985,13 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+# Whether Warp optimizes environment objects that are known at compile time.
+- name: javascript.options.ion.environment_specialization
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
 # No-op pref for testing the SpiderMonkey pref system.
 - name: javascript.options.tests.uint32-pref
   type: uint32_t
@@ -10144,13 +10180,6 @@
   mirror: always
   set_spidermonkey_pref: always
 
-  # Experimental support for RegExp Buffer Boundaries in JavaScript.
-- name: javascript.options.experimental.regexp_buffer_boundaries
-  type: bool
-  value: false
-  mirror: always
-  set_spidermonkey_pref: startup
-
   # Experimental support for deferred import evaluation in JavaScript.
 - name: javascript.options.experimental.defer_import_eval
   type: bool
@@ -10159,6 +10188,13 @@
   set_spidermonkey_pref: startup
   fuzzing_safe: false
 #endif  // NIGHTLY_BUILD
+
+  # Experimental support for RegExp Buffer Boundaries in JavaScript.
+- name: javascript.options.experimental.regexp_buffer_boundaries
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
 
   # Capture stack traces for OOM
 - name: javascript.options.experimental.capture_oom_stack_trace
@@ -11270,12 +11306,9 @@
   mirror: always
 
 # Is support for CSS background-clip: border-area enabled?
-#
-# NOTE(emilio): Before enabling on content, we need to add support for dotted /
-# dashed / double borders to the codepath, see bug 2046372.
 - name: layout.css.background-clip.border-area.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -11295,6 +11328,13 @@
 - name: layout.css.basic-shape-shape.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is support for CSS Borders 4 border-shape enabled?
+- name: layout.css.border-shape.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 
@@ -11410,6 +11450,22 @@
 # Enable the new css-grid-3 specification of grid-lanes.
 # https://drafts.csswg.org/css-grid-3/
 - name: layout.css.display-grid-lanes.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for the ident() arbitrary substitution function enabled?
+# https://drafts.csswg.org/css-values-5/#ident
+- name: layout.css.ident-function.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for the inherit() arbitrary substitution function enabled?
+# https://drafts.csswg.org/css-values-5/#funcdef-inherit
+- name: layout.css.inherit-function.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
@@ -11575,6 +11631,14 @@
 - name: layout.css.random.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is support for the random-item() function enabled?
+# https://drafts.csswg.org/css-values-5/#random-item
+- name: layout.css.random-item.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -12757,6 +12821,12 @@
   value: false
   mirror: always
 
+# Whether MediaSource supports the audio/mpeg byte stream format.
+- name: media.mediasource.mp3.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # true for talos tests so that VideoSink passes on the most recently decoded
 # frame to exercise the compositor even when the frame is out of date because
 # the decoder is stressed.
@@ -12832,6 +12902,13 @@
   value: @IS_ANDROID@
   mirror: always
 
+# For tests, the server to send MediaDrm provisioning requests to instead of
+# the one the plugin gives.
+- name: media.eme.mediadrm.provisioning.url-override
+  type: String
+  value: ""
+  mirror: never
+
 - name: media.eme.max-throughput-ms
   type: RelaxedAtomicUint32
   value: 500
@@ -12862,7 +12939,11 @@
 # Does the GMPlugin process use native event processing
 - name: media.gmp.use-native-event-processing
   type: RelaxedAtomicBool
-  value: @IS_NOT_XP_MACOSX@
+#if defined(XP_WIN) || defined(XP_MACOSX)
+  value: false
+#else
+  value: true
+#endif
   mirror: always
 
 #ifdef MOZ_WIDGET_ANDROID
@@ -12937,7 +13018,11 @@
 # for platform implemented codecs in the RDD or GPU process.
 - name: media.use-remote-encoder.video.platform
   type: RelaxedAtomicBool
+#if defined(ANDROID)
+  value: true
+#else
   value: @IS_NIGHTLY_BUILD@
+#endif
   mirror: always
 
 # Specifies whether the PEMFactory can create PEMs for remote video encoding
@@ -12952,7 +13037,7 @@
 #if defined(XP_WIN)
   value: true
 #elif defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false
 #endif
@@ -12960,8 +13045,10 @@
 
 - name: media.gpu-process-encoder
   type: RelaxedAtomicBool
-#if defined(XP_WIN) || defined(ANDROID)
+#if defined(XP_WIN)
   value: @IS_NIGHTLY_BUILD@
+#elif defined(ANDROID)
+  value: true
 #else
   value: false
 #endif
@@ -12974,7 +13061,7 @@
 #elif defined(XP_WIN)
   value: @IS_NIGHTLY_BUILD@
 #elif defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false
 #endif
@@ -13003,7 +13090,7 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #elif defined(XP_LINUX)
   value: true
 #elif defined(XP_FREEBSD)
@@ -13049,7 +13136,7 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #elif defined(XP_LINUX)
   value: true
 #elif defined(XP_FREEBSD)
@@ -13084,7 +13171,7 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #elif defined(XP_LINUX)
   value: true
 #elif defined(XP_FREEBSD)
@@ -13105,7 +13192,7 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #elif defined(XP_LINUX)
   value: true
 #elif defined(XP_FREEBSD)
@@ -13126,7 +13213,7 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #elif defined(XP_LINUX)
   value: true
 #elif defined(XP_FREEBSD)
@@ -13147,7 +13234,7 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #elif defined(XP_LINUX)
   value: true
 #elif defined(XP_FREEBSD)
@@ -13200,7 +13287,7 @@
   # Enable the MediaCodec PlatformDecoderModule by default.
 -   name: media.android-media-codec.enabled
     type: RelaxedAtomicBool
-    value: @IS_NOT_NIGHTLY_BUILD@
+    value: false
     mirror: always
 
   # Bug 1771196
@@ -13212,7 +13299,7 @@
 
 -   name: media.android-media-codec.preferred
     type: RelaxedAtomicBool
-    value: @IS_NOT_NIGHTLY_BUILD@
+    value: false
     mirror: always
 #endif  # ANDROID
 
@@ -13255,11 +13342,7 @@
 # Allow using ffmpeg encoder
 -   name: media.ffmpeg.encoder.enabled
     type: RelaxedAtomicBool
-#if !defined(MOZ_WIDGET_ANDROID)
     value: true
-#else
-    value: @IS_NIGHTLY_BUILD@
-#endif
     mirror: always
 
 # A high quantizer value allows the encoder to use higher compression, but
@@ -13350,11 +13433,9 @@
     value: false
     mirror: once
 
-# Change to true when shipping HDR video on Windows
-# https://bugzilla.mozilla.org/show_bug.cgi?id=2012848
 -   name: media.wmf.force.allow-p010-format
     type: RelaxedAtomicBool
-    value: @IS_EARLY_BETA_OR_EARLIER@
+    value: false
     mirror: always
 
 -   name: media.wmf.use-sync-texture
@@ -15049,6 +15130,14 @@
   value: false
   mirror: always
 
+# Whether to block cookies for file:// URLs. Cookies already stored for
+# file:// documents are kept in storage but are no longer exposed; they become
+# visible again if this pref is turned off.
+- name: network.cookie.blockFileScheme
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Whether to support CHIPS(Cookies Having Independent Partitioned State).
 - name: network.cookie.CHIPS.enabled
   type: RelaxedAtomicBool
@@ -15444,6 +15533,16 @@
   type: bool
   value: true
   mirror: never
+
+# Only send the device credential from Windows SSO or Microsoft Entra SSO,
+# not the signed-in user's credentials. One pref covers both platforms.
+# To override this for a container, add a pref like
+# `network.http.microsoft-entra-sso.device-only.${containerId}`. It only has an
+# effect if SSO is already enabled for that container.
+- name: network.http.microsoft-entra-sso.device-only
+  type: bool
+  value: false
+  mirror: always
 
 # To specify the list of trusted Microsoft Single Sign-On (SSO) authority URLs
 # This is needed for macOS unlike Windows where we send every URL to SSO
@@ -16076,11 +16175,7 @@
 # Lifetime (in seconds) of a negative DNS cache entry.
 - name: network.dnsNegativeCacheExpiration
   type: RelaxedAtomicUint32
-#if defined(NIGHTLY_BUILD)
-  value: 300
-#else
   value: 60
-#endif
   mirror: always
 
 # Grace period (in seconds) for a negative DNS cache entry. During the grace
@@ -17012,6 +17107,32 @@
   value: 0x7800000
   mirror: always
 
+# When true, an HTTP/2 header block that repeats a pseudo-header field is
+# treated as malformed, as required by RFC 9113 Section 8.3.
+- name: network.http.http2.reject_duplicate_pseudo_headers
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Max decoded size, in bytes, of an HTTP/2 response header block, counted as
+# in RFC 9113 Section 6.5.2 (name + value + 32 per field). Larger blocks reset
+# the stream. 0 means no limit.
+- name: network.http.http2.max_header_list_size
+  type: RelaxedAtomicUint32
+#ifdef NIGHTLY_BUILD
+  value: 262144 # 256K
+#else
+  value: 0
+#endif
+  mirror: always
+
+# When true and network.http.http2.max_header_list_size is non-zero, advertise
+# that limit to the server with SETTINGS_MAX_HEADER_LIST_SIZE.
+- name: network.http.http2.send_max_header_list_size
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 - name: network.http.move_to_pending_list_after_network_change
   type: RelaxedAtomicBool
   value: true
@@ -17644,6 +17765,12 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# When true, HTTP upgrade requests (e.g. WebSocket) use HTTPS RR.
+- name: network.http.upgrade_use_https_rr
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # When true, Happy Eyeballs is also used for requests carrying an HTTP
 # upgrade (e.g. WebSocket). Gated separately so the upgrade path can be
 # rolled out independently of the main Happy Eyeballs pref.
@@ -17741,6 +17868,13 @@
 
 # WebTransport Redirect support
 - name: network.webtransport.redirect.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# WebTransport over HTTP/2. Not fully implemented yet, so a WebTransport session
+# is only accepted over HTTP/3 unless this is enabled.
+- name: network.webtransport.http2.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -18312,10 +18446,10 @@
   mirror: always
 
 # Retarget a top-level navigation to a site bound to a container into a new tab
-# in that container. Disabled by default.
+# in that container.
 - name: privacy.containers.switchDuringNavigation.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # First Party Isolation (double keying), disabled by default.
@@ -19032,13 +19166,6 @@
 # Prefs starting with "security."
 #---------------------------------------------------------------------------
 
-# Mochitests that need to load resource:// URIs not declared content-accessible
-# in manifests should set this pref.
-- name: security.all_resource_uri_content_accessible
-  type: bool
-  value: false
-  mirror: always
-
 - name: security.bad_cert_domain_error.url_fix_enabled
   type: bool
   value: true
@@ -19072,6 +19199,18 @@
 - name: security.csp.reporting.enabled
   type: bool
   value: true
+  mirror: always
+
+# Enable support for the CSP 'strict-dynamic-url' keyword.
+- name: security.csp.strict-dynamic-url.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Enable support for CSP url hashes (url-hash-source, e.g. 'url-sha256-...').
+- name: security.csp.url-hashes.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 #ifdef DEBUG
@@ -19291,13 +19430,6 @@
 -   name: security.sandbox.cig.prespawn.enabled
     type: RelaxedAtomicBool
     value: @IS_NIGHTLY_BUILD@
-    mirror: always
-
-  # Whether \Device\KsecDD is closed in content process. We are closing this
-  # using a pref to give users a work-around if they have issues.
--   name: security.sandbox.content.close-ksecdd-handle
-    type: RelaxedAtomicBool
-    value: true
     mirror: always
 #endif
 
@@ -19732,9 +19864,10 @@
   mirror: always
   rust: true
 
+# Whether to enable ML-DSA in TLS and in certificate verification.
 - name: security.tls.enable_mldsa
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: security.tls.enable_certificate_compression_zlib
@@ -20687,11 +20820,7 @@
 # When true, right-clicking selects the word/link under the cursor.
 - name: ui.mouse.right_click.select_under_cursor
   type: bool
-#ifdef XP_MACOSX
-  value: @IS_NIGHTLY_BUILD@
-#else
-  value: false
-#endif
+  value: @IS_XP_MACOSX@
   mirror: always
 
 # When true, right-clicking selects the word under the cursor in editable
@@ -20823,13 +20952,13 @@
   mirror: always
 
 - name: webgl.disable-angle
-  type: RelaxedAtomicBool
+  type: bool
 #if defined(XP_WIN) || defined(XP_MACOSX)
   value: false
 #else
   value: true
 #endif
-  mirror: always
+  mirror: once
 
 - name: webgl.disable-wgl
   type: RelaxedAtomicBool
@@ -20865,11 +20994,7 @@
 
 - name: webgl.disable-DOM-blit-uploads
   type: RelaxedAtomicBool
-#if defined(MOZ_AARCH64) && defined(XP_MACOSX)
-  value: true
-#else
   value: false
-#endif
   mirror: always
 
 - name: webgl.disabled
@@ -21045,7 +21170,7 @@
 #if defined(MOZ_WIDGET_ANDROID)
 - name: webgl.out-of-process.enable-ahardwarebuffer
   type: bool
-  value: false
+  value: true
   mirror: once
 #endif
 

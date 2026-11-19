@@ -9,6 +9,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/Range.h"
 #include "mozilla/Span.h"
+#include "mozilla/Vector.h"
 
 #include "jstypes.h"
 
@@ -234,8 +235,15 @@ class BigInt final : public js::gc::CellWithLengthAndFlags {
   static BigInt* createFromIntPtr(JSContext* cx, intptr_t n);
   static BigInt* createFromDigit(JSContext* cx, Digit d, bool isNegative,
                                  js::gc::Heap heap = js::gc::Heap::Default);
+  static BigInt* createFromPowerOfTwo(
+      JSContext* cx, size_t n, bool isNegative,
+      js::gc::Heap heap = js::gc::Heap::Default);
   static BigInt* createFromNonZeroRawUint64(JSContext* cx, uint64_t n,
                                             bool isNegative);
+  template <size_t N, class AllocPolicy>
+  static BigInt* createFromDigitVector(
+      JSContext* cx, const mozilla::Vector<Digit, N, AllocPolicy>& digits,
+      bool isNegative);
   // FIXME: Cache these values.
   static BigInt* zero(JSContext* cx, js::gc::Heap heap = js::gc::Heap::Default);
   static BigInt* one(JSContext* cx);
@@ -409,39 +417,80 @@ class BigInt final : public js::gc::CellWithLengthAndFlags {
                                                            size_t charCount,
                                                            size_t* result);
 
-  static bool absoluteDivWithDigitDivisor(
-      JSContext* cx, Handle<BigInt*> x, Digit divisor,
-      const mozilla::Maybe<MutableHandle<BigInt*>>& quotient, Digit* remainder,
-      bool quotientNegative);
+  static bool absoluteDivWithDigitDivisor(JSContext* cx, Handle<BigInt*> x,
+                                          Digit divisor,
+                                          MutableHandle<BigInt*> quotient,
+                                          Digit* remainder,
+                                          bool quotientNegative);
   static void internalMultiplyAdd(const BigInt* source, Digit factor,
                                   Digit summand, unsigned, BigInt* result);
-  static void multiplyAccumulate(const BigInt* multiplicand, Digit multiplier,
-                                 BigInt* accumulator,
-                                 unsigned accumulatorIndex);
   static bool absoluteDivWithBigIntDivisor(
       JSContext* cx, Handle<BigInt*> dividend, Handle<BigInt*> divisor,
-      const mozilla::Maybe<MutableHandle<BigInt*>>& quotient,
+      MutableHandle<BigInt*> quotient,
       const mozilla::Maybe<MutableHandle<BigInt*>>& remainder,
       bool quotientNegative);
 
-  // Store `multiplicand * multiplier` into `product`, which must have one more
-  // digit than `multiplicand`.
-  static void multiplyDigits(ConstDigits multiplicand, Digit multiplier,
-                             Digits product);
+  // Store `src * multiplier` into the low `src.size()` digits of `dest`,
+  // returning the carry.
+  static Digit multiplyDigits(ConstDigits src, Digit multiplier, Digits dest);
+  // Add `src * multiplier` to the low `src.size()` digits of `acc`, returning
+  // the carry.  `acc` is an in-out parameter.
+  static Digit multiplyAccumulateDigits(ConstDigits src, Digit multiplier,
+                                        Digits acc);
+  // Store `a * b` into `result`, which must have `a.size() + b.size()` digits.
+  static void schoolbookMultiplyDigits(ConstDigits a, ConstDigits b,
+                                       Digits result);
   // Subtract `y` from the low `y.size()` digits of `x`, returning the borrow.
   static Digit inplaceSubDigits(Digits x, ConstDigits y);
   // Add `y` to the low `y.size()` digits of `x`, returning the carry.
   static Digit inplaceAddDigits(Digits x, ConstDigits y);
+  // Add one to `x`, returning the carry.
+  static Digit inplaceIncrementDigits(Digits x);
+  // Subtract one from `x`, returning the borrow.
+  static Digit inplaceDecrementDigits(Digits x);
+  // Store `x + y` into `r`, returning the carry.  |r| >= |x| >= |y|.
+  static Digit addDigits(ConstDigits x, ConstDigits y, Digits r);
+  // Store `x - y` into `r`, returning the borrow.  |r| >= |x| >= |y|.
+  static Digit subDigits(ConstDigits x, ConstDigits y, Digits r);
+  // Copy `src` into `dest`, which has the same number of digits.
+  static void copyDigits(ConstDigits src, Digits dest);
+  // Set all digits of `dest` to zero.
+  static void zeroDigits(Digits dest);
+  // Store `src << shift` into `dest`, which may be `src`. Return the bits
+  // shifted out of the top.
+  static Digit leftShiftDigits(ConstDigits src, unsigned shift, Digits dest);
+  // Store `src >> shift` into `dest`, which may be `src`. Shift the low bits of
+  // `high` into the top. Return the low bits of `src` that are shifted out.
+  static Digit rightShiftDigits(ConstDigits src, unsigned shift, Digit high,
+                                Digits dest);
   // Knuth's Algorithm D (schoolbook division): compute `<q,u> = <u/v,u%v>`,
   // using `qhatv` for scratch space. `q` may be empty, if the caller only needs
   // the remainder. See the definition for full preconditions.
   static void divideDigitsInPlace(Digits u, ConstDigits v, Digits q,
                                   Digits qhatv);
+  // When computing modulo by `m`, there is a short-cut if `|m|` is of the form
+  // `2^k - c`, where `c` is a single digit.  If we should use the "Crandall
+  // reduction" short-cut, store `k` and `c` and return true.
+  static bool shouldModuloByCrandallReduction(ConstDigits m, uint32_t* k,
+                                              Digit* c);
+  // Reduce `r` modulo `2^k - c` in place.
+  static void modDigitsInPlaceByCrandallReduction(Digits r, uint32_t k,
+                                                  Digit c);
+  // Reduce `u` modulo `m` in place, leaving the remainder in the low `m.size()`
+  // digits. `u` must have more digits than `m`, and its top digit must be zero,
+  // for normalization. Return false on OOM, without reporting it.
+  [[nodiscard]] static bool modDigitsInPlace(Digits u, ConstDigits m);
+  // Return `u % m`.  The large version has better throughput because it divides
+  // by multiplication against an inverse, but computing the inverse only pays
+  // off once `u` is long enough.
+  static Digit modDigitsByDigit(ConstDigits u, Digit m);
+  static Digit modSmallDigitsByDigit(ConstDigits u, Digit m);
+  static Digit modLargeDigitsByDigit(ConstDigits u, Digit m);
+  // Store `u / m` in `q`, which may be `u`, and return `u % m`.
+  static Digit divDigitsByDigit(ConstDigits u, Digit m, Digits q);
+  static Digit divSmallDigitsByDigit(ConstDigits u, Digit m, Digits q);
+  static Digit divLargeDigitsByDigit(ConstDigits u, Digit m, Digits q);
 
-  enum class LeftShiftMode { SameSizeResult, AlwaysAddOneDigit };
-
-  static BigInt* absoluteLeftShiftAlwaysCopy(JSContext* cx, Handle<BigInt*> x,
-                                             unsigned shift, LeftShiftMode);
   static bool productGreaterThan(Digit factor1, Digit factor2, Digit high,
                                  Digit low);
   static BigInt* lshByAbsolute(JSContext* cx, HandleBigInt x, HandleBigInt y);
@@ -451,36 +500,7 @@ class BigInt final : public js::gc::CellWithLengthAndFlags {
                                               uint64_t bits,
                                               bool resultNegative);
 
-  void inplaceRightShiftLowZeroBits(unsigned shift);
   void inplaceMultiplyAdd(Digit multiplier, Digit part);
-
-  // The result of an SymmetricTrim bitwise op has as many digits as the
-  // smaller operand.  A SymmetricFill bitwise op result has as many digits as
-  // the larger operand, with high digits (if any) copied from the larger
-  // operand.  AsymmetricFill is like SymmetricFill, except the result has as
-  // many digits as the first operand; this kind is used for the and-not
-  // operation.
-  enum class BitwiseOpKind { SymmetricTrim, SymmetricFill, AsymmetricFill };
-
-  template <BitwiseOpKind kind, typename BitwiseOp>
-  static BigInt* absoluteBitwiseOp(JSContext* cx, Handle<BigInt*> x,
-                                   Handle<BigInt*> y, BitwiseOp&& op);
-
-  // Return `|x| & |y|`.
-  static BigInt* absoluteAnd(JSContext* cx, Handle<BigInt*> x,
-                             Handle<BigInt*> y);
-
-  // Return `|x| | |y|`.
-  static BigInt* absoluteOr(JSContext* cx, Handle<BigInt*> x,
-                            Handle<BigInt*> y);
-
-  // Return `|x| & ~|y|`.
-  static BigInt* absoluteAndNot(JSContext* cx, Handle<BigInt*> x,
-                                Handle<BigInt*> y);
-
-  // Return `|x| ^ |y|`.
-  static BigInt* absoluteXor(JSContext* cx, Handle<BigInt*> x,
-                             Handle<BigInt*> y);
 
   // Return `(|x| + 1) * (resultNegative ? -1 : +1)`.
   static BigInt* absoluteAddOne(JSContext* cx, Handle<BigInt*> x,

@@ -22,6 +22,10 @@ var CaptivePortalWatcher = {
   // This flag exists so that tests can appropriately simulate a recheck.
   _waitingForRecheck: false,
 
+  // The "captive-portal-check-complete" observer added while we wait for the
+  // recheck, removed when the window closes so that it doesn't leak it.
+  _recheckObserver: null,
+
   // This holds a weak reference to the captive portal tab so we can close the tab
   // after successful login if we're redirected to the canonicalURL.
   _previousCaptivePortalTab: null,
@@ -37,13 +41,6 @@ var CaptivePortalWatcher = {
 
   get canonicalURL() {
     return Services.prefs.getCharPref("captivedetect.canonicalURL");
-  },
-
-  get _browserBundle() {
-    delete this._browserBundle;
-    return (this._browserBundle = Services.strings.createBundle(
-      "chrome://browser/locale/browser.properties"
-    ));
   },
 
   init() {
@@ -86,6 +83,7 @@ var CaptivePortalWatcher = {
     Services.obs.removeObserver(this, "captive-portal-login-success");
 
     this._cancelDelayedCaptivePortal();
+    this._removeRecheckObserver();
   },
 
   delayedStartup() {
@@ -214,16 +212,17 @@ var CaptivePortalWatcher = {
 
     Services.obs.notifyObservers(null, "delayed-captive-portal-handled");
 
+    this._removeRecheckObserver();
+
     // Trigger a portal recheck. The user may have logged into the portal via
     // another client, or changed networks.
     this._cps.recheckCaptivePortal();
     this._waitingForRecheck = true;
     let requestTime = Date.now();
 
-    let observer = () => {
+    this._recheckObserver = () => {
       let time = Date.now() - requestTime;
-      Services.obs.removeObserver(observer, "captive-portal-check-complete");
-      this._waitingForRecheck = false;
+      this._removeRecheckObserver();
       if (this._cps.state != this._cps.LOCKED_PORTAL) {
         // We're free of the portal!
         return;
@@ -236,7 +235,22 @@ var CaptivePortalWatcher = {
         this.ensureCaptivePortalTab();
       }
     };
-    Services.obs.addObserver(observer, "captive-portal-check-complete");
+    Services.obs.addObserver(
+      this._recheckObserver,
+      "captive-portal-check-complete"
+    );
+  },
+
+  _removeRecheckObserver() {
+    if (!this._recheckObserver) {
+      return;
+    }
+    Services.obs.removeObserver(
+      this._recheckObserver,
+      "captive-portal-check-complete"
+    );
+    this._recheckObserver = null;
+    this._waitingForRecheck = false;
   },
 
   _captivePortalGone(aSuccess) {
@@ -303,9 +317,7 @@ var CaptivePortalWatcher = {
         }
 
         let doc = tab.ownerDocument;
-        let button = n.buttonContainer.querySelector(
-          "button.notification-button"
-        );
+        let button = n.buttonContainer.querySelector(".notification-button");
         if (doc.defaultView.gBrowser.selectedTab == tab) {
           button.style.visibility = "hidden";
         } else {
@@ -326,9 +338,7 @@ var CaptivePortalWatcher = {
 
     let buttons = [
       {
-        label: this._browserBundle.GetStringFromName(
-          "captivePortal.showLoginPage2"
-        ),
+        "l10n-id": "captive-portal-show-login-page-button",
         callback: () => {
           this.ensureCaptivePortalTab();
 
@@ -337,10 +347,6 @@ var CaptivePortalWatcher = {
         },
       },
     ];
-
-    let message = this._browserBundle.GetStringFromName(
-      "captivePortal.infoMessage3"
-    );
 
     let closeHandler = aEventName => {
       if (aEventName == "dismissed") {
@@ -362,7 +368,7 @@ var CaptivePortalWatcher = {
     this._notificationPromise = gNotificationBox.appendNotification(
       this.PORTAL_NOTIFICATION_VALUE,
       {
-        label: message,
+        label: { "l10n-id": "captive-portal-info-message" },
         priority: gNotificationBox.PRIORITY_INFO_MEDIUM,
         eventCallback: closeHandler,
       },

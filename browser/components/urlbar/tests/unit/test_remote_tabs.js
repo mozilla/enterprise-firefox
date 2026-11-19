@@ -3,6 +3,9 @@
 const { Weave } = ChromeUtils.importESModule(
   "resource://services-sync/main.sys.mjs"
 );
+const { WeaveService } = ChromeUtils.importESModule(
+  "moz-src:///services/sync/Weave.sys.mjs"
+);
 
 // A mock "Tabs" engine which autocomplete will use instead of the real
 // engine. We pass a constructor that Sync creates.
@@ -49,11 +52,8 @@ add_setup(async function () {
   // Tell Sync about the mocks.
   Weave.Service.engineManager.register(MockTabsEngine);
 
-  // Tell the Sync XPCOM service it is initialized.
-  let weaveXPCService = Cc["@mozilla.org/weave/service;1"].getService(
-    Ci.nsISupports
-  ).wrappedJSObject;
-  weaveXPCService.ready = true;
+  // Tell the Sync service it is initialized.
+  WeaveService.ready = true;
 
   registerCleanupFunction(async () => {
     Services.prefs.clearUserPref("services.sync.username");
@@ -228,6 +228,60 @@ add_task(async function test_matches_title() {
         title: "An Example",
       }),
     ],
+  });
+});
+
+add_task(async function test_matches_each_token() {
+  configureEngine([
+    {
+      id: "mobile",
+      tabs: [
+        {
+          urlHistory: ["https://xkcd.com/3166/"],
+          title: "xkcd: Big and little spoons",
+        },
+      ],
+    },
+  ]);
+
+  async function checkQuery(query, shouldMatch, properties = {}) {
+    info(`Searching for "${query}"`);
+    let context = createContext(query, {
+      isPrivate: false,
+      providers: ["UrlbarProviderRemoteTabs"],
+      ...properties,
+    });
+    await check_results({
+      context,
+      matches: shouldMatch
+        ? [
+            makeRemoteTabResult(context, {
+              uri: "https://xkcd.com/3166/",
+              device: "My Phone",
+              title: "xkcd: Big and little spoons",
+            }),
+          ]
+        : [],
+    });
+  }
+
+  let { OPENPAGE } = UrlbarShared.RESTRICT_TOKENS;
+  for (let query of [
+    "big spoon",
+    "little big",
+    "xkcd spoons",
+    "3166 big",
+    "XKCD BIG",
+    `${OPENPAGE} big spoon`,
+    `big spoon ${OPENPAGE}`,
+  ]) {
+    await checkQuery(query, true);
+  }
+  await checkQuery("big forks", false);
+
+  await checkQuery("big spoon", true, {
+    searchMode: { source: UrlbarShared.RESULT_SOURCE.TABS },
+    sources: [UrlbarShared.RESULT_SOURCE.TABS],
   });
 });
 

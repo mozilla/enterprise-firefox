@@ -10,10 +10,12 @@ prefs = [
 ]
 support-files = [
   "head.js",
+  "head_agent_monitor_item.js",
   "head_aitab.js",
   "head_aiwindow_group_tabs_button.js",
   "head_smartformfill_autocomplete.js",
   "head_history_thumbnails.js",
+  "head_monitor_suggest.js",
   "head_smartformfill_form_review.js",
   "head_smartformfill_telemetry.js",
   "test_agent_monitor_item_page.html",
@@ -63,6 +65,7 @@ support-files = [
   "test_context_url_injection_page.html"
 ]
 skip-if = [
+  "enterprise", # Smart Window is disabled in enterprise builds
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan", # Bug 2057552
 ]
 
@@ -94,8 +97,6 @@ skip-if = [
 
 ["browser_aitab_blocks.js"]
 
-["browser_aitab_menu_triggers.js"]
-
 ["browser_aitab_page.js"]
 
 ["browser_aitab_store_integration.js"]
@@ -109,6 +110,8 @@ skip-if = [
 ["browser_aiwindow_agent_monitor_chat.js"]
 
 ["browser_aiwindow_agent_monitor_item.js"]
+
+["browser_aiwindow_agent_monitor_item_suggest.js"]
 
 ["browser_aiwindow_agentui_command.js"]
 
@@ -179,6 +182,12 @@ skip-if = [
 ["browser_aiwindow_monitor_button_panel.js"]
 
 ["browser_aiwindow_monitor_create.js"]
+
+["browser_aiwindow_monitor_suggest_chat.js"]
+
+["browser_aiwindow_monitor_suggest_chat_context.js"]
+
+["browser_aiwindow_monitor_suggest_panel.js"]
 
 ["browser_aiwindow_new_chat_button.js"]
 

@@ -32,6 +32,8 @@ const lazy = XPCOMUtils.declareLazy({
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   getModelDisplayOrder:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  isAutoModelEnabled:
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
 });
 
 let previousAssistantModel = "No model";
@@ -43,6 +45,10 @@ Preferences.addAll([
   { id: "browser.smartwindow.enabled", type: "bool" },
   { id: "browser.smartwindow.endpoint", type: "string" },
   { id: "browser.smartwindow.firstrun.modelChoice", type: "string" },
+  {
+    id: "browser.smartwindow.firstrun.singlePageWithAutoModel",
+    type: "bool",
+  },
   { id: "browser.smartwindow.memories.generateFromConversation", type: "bool" },
   { id: "browser.smartwindow.memories.generateFromHistory", type: "bool" },
   { id: "browser.smartwindow.model", type: "string" },
@@ -85,6 +91,12 @@ Preferences.addSetting({
 });
 Preferences.addSetting({ id: "aiStatesDescription" });
 Preferences.addSetting({ id: "sidebarChatbotFieldset" });
+Preferences.addSetting({
+  id: "customWidgetsFieldset",
+  deps: ["aiControlGeneratedWidgetsSelect"],
+  visible: deps => deps.aiControlGeneratedWidgetsSelect.visible,
+});
+Preferences.addSetting({ id: "customWidgetsItem" });
 Preferences.addSetting({
   id: "aiBlockedMessage",
   deps: ["aiControlDefaultToggle"],
@@ -171,6 +183,7 @@ class BlockAiConfirmationDialog extends MozLitElement {
     this.isGlobal = !!all;
     this.headingL10nId = headingL10nId;
     this.descriptionL10nId = descriptionL10nId;
+    this.requestUpdate();
     this.updateComplete.then(() => this.dialog.showModal());
     return this.#resolvers.promise;
   }
@@ -216,6 +229,13 @@ class BlockAiConfirmationDialog extends MozLitElement {
         <li
           data-l10n-id="preferences-ai-controls-block-confirmation-sidebar-chatbot"
         ></li>
+        ${OnDeviceModelManager.isAllowed(
+          OnDeviceModelManager.features.GeneratedWidgets
+        )
+          ? html`<li
+              data-l10n-id="preferences-ai-controls-block-confirmation-custom-widgets"
+            ></li>`
+          : nothing}
       </ul>
       <p
         data-l10n-id="preferences-ai-controls-block-confirmation-features-after"
@@ -309,7 +329,7 @@ const AI_CONTROL_OPTIONS = [
 ];
 
 /**
- * @param {string} key - Model choice ID (e.g., "1", "2", "3")
+ * @param {string} key - Model choice ID (e.g., "1", "2", "3", "4")
  */
 const modelL10nArgs = key => ({
   shortName: lazy.getCachedModelsData()[key].shortName,
@@ -335,16 +355,40 @@ const MODEL_CHOICE_STRINGS = {
 };
 
 /**
- * Builds the preset (non-custom) model radio options. Ordering comes from
- * getModelDisplayOrder(); string IDs come from MODEL_CHOICE_STRINGS; l10n args
+ * Used in place of MODEL_CHOICE_STRINGS when the Auto model is enabled.
+ */
+/** @type {Record<string, {l10nId: string}>} */
+const AUTO_MODEL_CHOICE_STRINGS = {
+  1: {
+    l10nId: "smart-window-model-gemini",
+  },
+  2: {
+    l10nId: "smart-window-model-qwen",
+  },
+  3: {
+    l10nId: "smart-window-model-mistral",
+  },
+  4: {
+    l10nId: "smart-window-model-auto",
+  },
+};
+
+/**
+ * Builds the non-custom model radio options. Ordering comes from
+ * getModelDisplayOrder(); string IDs come from MODEL_CHOICE_STRINGS, or
+ * AUTO_MODEL_CHOICE_STRINGS when the Auto model is enabled; l10n args
  * (display values) come from the cached model data.
  *
  * @returns {object[]}
  */
-const buildPresetModelOptions = () => {
+const buildModelOptions = () => {
+  const strings = lazy.isAutoModelEnabled()
+    ? AUTO_MODEL_CHOICE_STRINGS
+    : MODEL_CHOICE_STRINGS;
   return lazy.getModelDisplayOrder().map(choiceId => {
-    const { l10nId } = MODEL_CHOICE_STRINGS[choiceId];
+    const { l10nId } = strings[choiceId];
     const option = /** @type {Record<string, any>} */ ({
+      key: choiceId,
       value: choiceId,
       l10nId,
       get l10nArgs() {
@@ -581,6 +625,15 @@ makeAiControlSetting({
   pref: "browser.ai.control.speechRecognition",
   feature: OnDeviceModelManager.features.SpeechRecognition,
 });
+makeAiControlSetting({
+  id: "aiControlGeneratedWidgetsSelect",
+  pref: "browser.ai.control.generatedWidgets",
+  feature: OnDeviceModelManager.features.GeneratedWidgets,
+  visible: () =>
+    OnDeviceModelManager.isAllowed(
+      OnDeviceModelManager.features.GeneratedWidgets
+    ),
+});
 
 // sidebar chatbot
 Preferences.addSetting({ id: "chatbotProviderItem" });
@@ -814,6 +867,11 @@ Preferences.addSetting({
   pref: "browser.smartwindow.firstrun.modelChoice",
 });
 
+Preferences.addSetting({
+  id: "smartWindowAutoModelEnabled",
+  pref: "browser.smartwindow.firstrun.singlePageWithAutoModel",
+});
+
 {
   // Track when the custom radio is selected but not yet saved
   // Defer writing modelChoice = "0" until Save button is clicked
@@ -824,12 +882,13 @@ Preferences.addSetting({
       "smartWindowModel",
       "smartWindowFirstRunModelChoice",
       "smartWindowCustomEndpoint",
+      "smartWindowAutoModelEnabled",
     ],
     getControlConfig(config) {
       const customOption = config.options.find(option => option.value === "0");
       return {
         ...config,
-        options: [...buildPresetModelOptions(), customOption],
+        options: [...buildModelOptions(), customOption],
       };
     },
     get(_, deps) {
@@ -1561,6 +1620,33 @@ SettingGroupManager.registerGroups({
           },
         ],
       },
+      {
+        id: "customWidgetsFieldset",
+        control: "moz-fieldset",
+        l10nId: "preferences-ai-controls-custom-widgets-group",
+        supportPage: "firefox-ai-controls",
+        headingLevel: 2,
+        controlAttrs: {
+          iconsrc: "chrome://browser/skin/topsites.svg",
+        },
+        items: [
+          {
+            id: "customWidgetsItem",
+            control: "moz-box-item",
+            items: [
+              {
+                id: "aiControlGeneratedWidgetsSelect",
+                l10nId: "preferences-ai-controls-custom-widgets-control",
+                control: "moz-select",
+                controlAttrs: {
+                  inputlayout: "inline-end",
+                },
+                options: [...AI_CONTROL_OPTIONS],
+              },
+            ],
+          },
+        ],
+      },
     ],
   },
   assistantDefaultGroup: {
@@ -1584,8 +1670,64 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  memoriesGroup: {
+    l10nId: lazy.isAutoModelEnabled()
+      ? "ai-window-memories-section-v2"
+      : "ai-window-memories-section",
+    headingLevel: 2,
+    supportPage: "smart-window-memories",
+    items: [
+      {
+        id: "memories",
+        control: "moz-box-group",
+        items: [
+          {
+            id: "learnFromChatActivityWrapper",
+            control: "moz-box-item",
+            items: [
+              {
+                id: "learnFromChatActivity",
+                l10nId: "ai-window-learn-from-chat-activity",
+                control: "moz-checkbox",
+              },
+            ],
+          },
+          {
+            id: "learnFromBrowsingActivityWrapper",
+            control: "moz-box-item",
+            items: [
+              {
+                id: "learnFromBrowsingActivity",
+                l10nId: "ai-window-learn-from-browsing-activity",
+                control: "moz-checkbox",
+              },
+            ],
+          },
+          {
+            id: "manageMemoriesButton",
+            loadPane: "manageMemories",
+            l10nId: "ai-window-manage-memories-button",
+            control: "moz-box-button",
+          },
+        ],
+      },
+    ],
+  },
+  manageMemories: {
+    items: [
+      {
+        id: "memoriesList",
+        control: "moz-box-group",
+        controlAttrs: {
+          type: "list",
+        },
+      },
+    ],
+  },
   assistantModelGroup: {
-    l10nId: "smart-window-model-section",
+    l10nId: lazy.isAutoModelEnabled()
+      ? "smart-window-model-section-v2"
+      : "smart-window-model-section",
     headingLevel: 2,
     supportPage: "smart-window-models",
     items: [
@@ -1594,8 +1736,9 @@ SettingGroupManager.registerGroups({
         control: "moz-radio-group",
         l10nId: "smart-window-model-radio-group",
         options: [
-          ...buildPresetModelOptions(),
+          ...buildModelOptions(),
           {
+            key: "0",
             value: "0",
             l10nId: "smart-window-model-custom",
             items: [
@@ -1676,58 +1819,6 @@ SettingGroupManager.registerGroups({
             ],
           },
         ],
-      },
-    ],
-  },
-  memoriesGroup: {
-    l10nId: "ai-window-memories-section",
-    headingLevel: 2,
-    supportPage: "smart-window-memories",
-    items: [
-      {
-        id: "memories",
-        control: "moz-box-group",
-        items: [
-          {
-            id: "learnFromChatActivityWrapper",
-            control: "moz-box-item",
-            items: [
-              {
-                id: "learnFromChatActivity",
-                l10nId: "ai-window-learn-from-chat-activity",
-                control: "moz-checkbox",
-              },
-            ],
-          },
-          {
-            id: "learnFromBrowsingActivityWrapper",
-            control: "moz-box-item",
-            items: [
-              {
-                id: "learnFromBrowsingActivity",
-                l10nId: "ai-window-learn-from-browsing-activity",
-                control: "moz-checkbox",
-              },
-            ],
-          },
-          {
-            id: "manageMemoriesButton",
-            loadPane: "manageMemories",
-            l10nId: "ai-window-manage-memories-button",
-            control: "moz-box-button",
-          },
-        ],
-      },
-    ],
-  },
-  manageMemories: {
-    items: [
-      {
-        id: "memoriesList",
-        control: "moz-box-group",
-        controlAttrs: {
-          type: "list",
-        },
       },
     ],
   },

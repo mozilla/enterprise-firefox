@@ -1,0 +1,26 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#smart-actions-toolbar {
+  --button-font-weight: var(--font-weight);
+
+  align-items: center;
+  overflow: hidden;
+  padding-inline: var(--space-small);
+
+  > .smart-actions-loading {
+    color: var(--text-color-deemphasized);
+    line-height: var(--button-min-height-small);
+  }
+
+  > moz-button {
+    min-width: 0;
+
+    &::part(moz-button-label) {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}

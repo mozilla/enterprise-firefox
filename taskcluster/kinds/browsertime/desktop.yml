@@ -23,7 +23,7 @@ task-defaults:
     limit-platforms:
         by-app:
             chrome:
-                - (?!macosx1470|macosx1500).*64.*shippable.*
+                - (?!macosx1500).*64.*shippable.*
             safari:
                 - macosx2700.*shippable.*
             safari-tp:
@@ -109,16 +109,13 @@ browsertime-tp6:
         limit-platforms:
             by-app:
                 chrome:
-                    - (?!macosx1470|macosx1500).*shippable.*
+                    - (?!macosx1500).*shippable.*
                 custom-car:
                     - macosx1500.*shippable.*
                     - linux.*shippable.*
                     - windows.*-64.*shippable.*
                 default: []
-        max-run-time:
-            by-subtest:
-                imgur: 4800
-                default: 4000
+        max-run-time: 4000
         mozharness:
             extra-options:
                 by-test-platform:
@@ -132,24 +129,12 @@ browsertime-tp6:
                         - --conditioned-profile=settled
                         - --extra-profiler-run
         run-on-projects:
-            by-subtest:
-                netflix:
-                    by-app:
-                        firefox:
-                            by-test-platform:
-                                linux.*shippable.*: [trunk]
-                                windows.*-64.*shippable.*: [trunk]
-                                macosx1470.*shippable.*: [trunk]
-                                macosx1500.*shippable.*: [trunk]
-                                default: []
+            by-app:
+                firefox:
+                    by-test-platform:
+                        .*64(?!.*nightlyasrelease).*shippable.*: [autoland]
                         default: []
-                default:
-                    by-app:
-                        firefox:
-                            by-test-platform:
-                                .*64(?!.*nightlyasrelease).*shippable.*: [trunk]
-                                default: []
-                        default: []
+                default: []
         treeherder-symbol: Btime(tp6)
     raptor:
         apps: [firefox]
@@ -160,21 +145,11 @@ browsertime-tp6:
             - ebay
             - espn
             - expedia
-            - [facebook, fb]
             - [google-docs, gdocs]
-            - [google-mail, gmail]
             - [google-search, gsearch]
             - imdb
-            - imgur
-            - linkedin
             - microsoft
-            - netflix
-            - office
-            - outlook
-            - paypal
-            - pinterest
             - reddit
-            - tumblr
             - wikia
             - youtube
     tier:
@@ -212,7 +187,7 @@ browsertime-responsiveness:
         by-app:
             firefox:
                 by-test-platform:
-                    .*64(?!.*nightlyasrelease).*shippable.*: [trunk]
+                    .*64(?!.*nightlyasrelease).*shippable.*: [autoland]
                     default: []
             default: []
 
@@ -242,15 +217,13 @@ browsertime-tp6-essential:
                 - cnn
                 - fandom
                 - [google-slides, gslides]
-                - instagram
                 - twitter
                 - wikipedia
-                - yahoo-mail
         run-on-projects:
             by-app:
                 firefox:
                     by-test-platform:
-                        (?!macosx1470).*64(?!.*nightlyasrelease).*shippable.*: [trunk]
+                        .*64(?!.*nightlyasrelease).*shippable.*: [autoland]
                         default: []
                 default: []
         tier:
@@ -274,15 +247,13 @@ browsertime-tp6-bytecode:
             - cnn
             - fandom
             - [google-slides, gslides]
-            - instagram
             - twitter
             - wikipedia
-            - yahoo-mail
     run-on-projects:
         by-app:
             firefox:
                 by-test-platform:
-                    .*64(?!.*nightlyasrelease).*shippable.*: [trunk]
+                    .*64(?!.*nightlyasrelease).*shippable.*: [autoland]
                     default: []
             default: []
     mozharness:
@@ -309,7 +280,7 @@ browsertime-tp7:
         limit-platforms:
             by-app:
                 chrome:
-                    - (?!macosx1470|macosx1500).*shippable.*
+                    - (?!macosx1500).*shippable.*
                 safari:
                     - macosx2700.*shippable.*
                 custom-car:
@@ -317,10 +288,7 @@ browsertime-tp7:
                     - linux.*shippable.*
                     - windows.*-64.*shippable.*
                 default: []
-        max-run-time:
-            by-subtest:
-                imgur: 4800
-                default: 4000
+        max-run-time: 4000
         mozharness:
             extra-options:
                 by-test-platform:
@@ -362,9 +330,9 @@ browsertime-benchmark:
                     media-capabilities:
                         - .*64.*shippable.*
                     (assorted-dom|matrix-react-bench|stylebench|unity-webgl|webaudio):
-                        - (?!macosx1470|macosx1500).*64.*shippable.*
+                        - (?!macosx1500).*64.*shippable.*
                     default:
-                        - (?!macosx1470).*64.*shippable.*
+                        - .*64.*shippable.*
             firefox:
                 by-subtest:
                     # Bug 2087634 - Hangs on macosx1500 in any browser; chrome is excluded above
@@ -587,6 +555,8 @@ browsertime-benchmark:
             by-subtest:
                 jetstream3:
                     by-test-platform:
+                        linux.*shippable.*: [--power-profile=performance]
+                        linux.*nightlyasrelease.*: [--power-profile=performance]
                         macosx1500.*shippable.*:
                             - --page-timeout=900000
                         default: []
@@ -702,7 +672,6 @@ browsertime-youtube-playback:
     limit-platforms:
         by-subtest:
             youtube-playback-av1-sfr:
-                - macosx1470-64-shippable/opt
                 - macosx1500-aarch64-shippable/opt
             default: []
     max-run-time:
@@ -762,27 +731,15 @@ browsertime-tp6-live:
             - amazon
             - [bing-search, bing]
             - ebay
-            - [facebook, fb]
             - fandom
             - [google-docs, gdocs]
-            - [google-mail, gmail]
             - [google-search, gsearch]
             - [google-slides, gslides]
             - imdb
-            - imgur
-            - instagram
-            - linkedin
             - microsoft
-            - netflix
-            # - office (site loads blank page if not signed in)
-            - outlook
-            - paypal
-            - pinterest
             - reddit
-            - tumblr
             - twitter
             - wikipedia
-            - yahoo-mail
             - youtube
     run-on-projects: []
     treeherder-symbol: Btime-live(tp6)
@@ -835,7 +792,6 @@ browsertime-tp6-profiling:
         by-test-platform:
             linux.*shippable.*: [mozilla-central]
             windows.*shippable.*: [mozilla-central]
-            macosx1470.*shippable.*: [mozilla-central]
             macosx1500.*shippable.*: [mozilla-central]
             default: []
     tier:
@@ -903,7 +859,6 @@ browsertime-media-seek:
         by-app:
             chrome:
                 - linux.*shippable.*
-                - macosx1470.*shippable.*
                 - macosx1500.*shippable.*
             default: []
     max-run-time: 2700
@@ -1077,8 +1032,6 @@ browsertime-nav-bench:
         subtests: [nav-bench]
         run-visual-metrics: true
     description: Raptor (browsertime) navigation benchmark across 9 sites
-    limit-platforms:
-        - (?!macosx1470).*
     max-run-time: 3600
     run-on-projects:
         by-app:
@@ -1101,6 +1054,12 @@ browsertime-nav-bench:
                 windows.*:
                     - --browsertime-no-ffwindowrecorder
                     - --conditioned-profile=settled
+                linux.*shippable.*:
+                    - --conditioned-profile=settled
+                    - --power-profile=performance
+                linux.*nightlyasrelease.*:
+                    - --conditioned-profile=settled
+                    - --power-profile=performance
                 default:
                     - --conditioned-profile=settled
 
@@ -1143,7 +1102,6 @@ browsertime-video-playback-latency:
         by-app:
             firefox:
                 by-test-platform:
-                    macosx1470.*shippable.*: [autoland, mozilla-central]
                     macosx1500.*shippable.*: [autoland, mozilla-central]
                     linux.*shippable.*: [autoland, mozilla-central]
                     default: []
@@ -1311,7 +1269,6 @@ browsertime-webcodecs:
                 by-test-platform:
                     linux.*shippable.*: [autoland, mozilla-central]
                     windows.*shippable.*: [autoland, mozilla-central]
-                    macosx1470.*shippable.*: [autoland, mozilla-central]
                     macosx1500.*shippable.*: [autoland, mozilla-central]
                     default: []
             default: []
@@ -1407,7 +1364,7 @@ browsertime-tp6-webextensions:
             firefox:
                 by-test-platform:
                     macosx1100.*shippable.*: [mozilla-central]
-                    .*64(?!.*nightlyasrelease).*shippable.*: [trunk-only]
+                    .*64(?!.*nightlyasrelease).*shippable.*: [autoland]
                     default: []
             default: []
     mozharness:
@@ -1433,7 +1390,7 @@ browsertime-indexeddb:
     limit-platforms:
         by-app:
             chrome:
-                - (?!macosx1470|macosx1500).*shippable.*
+                - (?!macosx1500).*shippable.*
             custom-car:
                 - macosx1500.*shippable.*
                 - linux.*shippable.*
@@ -1559,14 +1516,12 @@ browsertime-hev3-connection:
             firefox:
                 by-test-platform:
                     linux2404-64-shippable/opt: [mozilla-central]
-                    macosx1470-64-shippable/opt: [mozilla-central]
                     macosx1500-aarch64-shippable/opt: [mozilla-central]
                     windows11-64-24h2-shippable/opt: [mozilla-central]
                     default: []
             chrome:
                 by-test-platform:
                     linux2404-64-shippable/opt: [mozilla-central]
-                    macosx1470-64-shippable/opt: [mozilla-central]
                     windows11-64-24h2-shippable/opt: [mozilla-central]
                     default: []
             default: []

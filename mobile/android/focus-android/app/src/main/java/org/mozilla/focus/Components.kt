@@ -122,7 +122,7 @@ class Components(
     val appStore: AppStore by lazy {
         AppStore(
             AppState(
-                screen = if (context.settings.isFirstRun) Screen.FirstRun else Screen.Home,
+                screen = if (context.settings.isFirstRun) Screen.FirstRun else Screen.Home(),
                 topSites = emptyList(),
                 isPinningSupported = null,
             )
@@ -234,10 +234,10 @@ class Components(
                             searchEngineSelectorConfig = getSearchEngineSelectorConfig(context),
                         ),
                         SearchFilterMiddleware(),
-                        PromptMiddleware(),
+                        PromptMiddleware(applicationScope),
                         AdsTelemetryMiddleware(adsTelemetry),
                         BlockedTrackersMiddleware(context),
-                        RecordingDevicesMiddleware(context, notificationsDelegate),
+                        RecordingDevicesMiddleware(context, notificationsDelegate, applicationScope),
                         CfrMiddleware(appStore, settings),
                         FileUploadsDirCleanerMiddleware(fileUploadsDirCleaner),
                     ) +

@@ -61,7 +61,8 @@ const lazy = XPCOMUtils.declareLazy({
   getSitePermsPermissionsPromptStringIds:
     "resource://gre/modules/addons/siteperms-addon-utils.sys.mjs",
   Schemas: "resource://gre/modules/Schemas.sys.mjs",
-  ServiceWorkerCleanUp: "resource://gre/modules/ServiceWorkerCleanUp.sys.mjs",
+  ServiceWorkerCleanUp:
+    "moz-src:///toolkit/components/cleardata/ServiceWorkerCleanUp.sys.mjs",
   extensionStorageSync: "resource://gre/modules/ExtensionStorageSync.sys.mjs",
   PERMISSION_L10N: "resource://gre/modules/ExtensionPermissionMessages.sys.mjs",
   permissionToL10nId:
@@ -2118,7 +2119,7 @@ export class ExtensionData {
       }
 
       let moduleData = data => ({
-        url: this.rootURI.resolve(data.script),
+        url: this.getURL(data.script),
         events: data.events,
         paths: data.paths,
         scopes: data.scopes,
@@ -2408,7 +2409,7 @@ export class ExtensionData {
   }
 
   getAPIManager() {
-    /** @type {(InstanceType<typeof ExtensionCommon.LazyAPIManager>)[]} */
+    /** @type {InstanceType<typeof ExtensionCommon.SchemaAPIManager>[]} */
     let apiManagers = [Management];
 
     for (let id of this.dependencies) {
@@ -4303,6 +4304,7 @@ export class Extension extends ExtensionData {
       if (this.policy) {
         this.policy.active = false;
       }
+      this.experimentAPIManager?.disableNewScripts();
 
       this.cleanupGeneratedFile();
 
@@ -4565,6 +4567,7 @@ export class Extension extends ExtensionData {
 
     Management.emit("shutdown", this);
     this.emit("shutdown", isAppShutdown);
+    this.experimentAPIManager?.disableNewScripts();
 
     const TIMED_OUT = Symbol();
 

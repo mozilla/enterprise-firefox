@@ -335,7 +335,6 @@ static const char* gCallbackPrefs[] = {
     DOM_SECURITY_PREFIX,
     "image.http.accept",
     "image.jxl.enabled",
-    nullptr,
 };
 
 nsresult nsHttpHandler::Init() {
@@ -2356,9 +2355,6 @@ nsHttpHandler::Observe(nsISupports* subject, const char* topic,
 #endif
   } else if (!strcmp(topic, "last-pb-context-exited")) {
     mPrivateAuthCache->ClearAll();
-    if (mAltSvcCache) {
-      mAltSvcCache->ClearAltServiceMappings();
-    }
     nsCORSListenerProxy::ClearPrivateBrowsingCache();
   } else if (!strcmp(topic, "browser:purge-session-history")) {
     if (mConnMgr) {

@@ -566,7 +566,7 @@
       testElm("footer", obj);
 
       obj = {
-        role: ROLE_SECTION,
+        role: ROLE_SECTION_FOOTER,
         absentAttributes: { "xml-roles": "contentinfo" },
         interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
       };
@@ -643,7 +643,7 @@
       testElm("header", obj);
 
       obj = {
-        role: ROLE_SECTION,
+        role: ROLE_SECTION_HEADER,
         absentAttributes: { "xml-roles": "banner" },
         interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
       };
@@ -1245,16 +1245,7 @@
       obj = { // HTML:select
         role: ROLE_COMBOBOX,
         states: STATE_FOCUSABLE,
-        children: [
-          {
-            role: ROLE_COMBOBOX_LIST,
-            children: [
-              { role: ROLE_COMBOBOX_OPTION },
-              { role: ROLE_COMBOBOX_OPTION },
-              { role: ROLE_COMBOBOX_OPTION },
-            ],
-          },
-        ],
+        children: [],
       };
       testElm("select_combobox", obj);
 

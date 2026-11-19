@@ -832,8 +832,9 @@ void HandleException(ResumeFromException* rfe) {
 
       // Invalidation state will be the same for all inlined scripts in the
       // frame.
-      IonScript* ionScript = nullptr;
-      bool invalidated = frame.checkInvalidation(&ionScript);
+      IonScript* rawIonScript = nullptr;
+      bool invalidated = frame.checkInvalidation(&rawIonScript);
+      RootedBuffer<IonScript> ionScript(cx, rawIonScript);
 
       // If we hit OOM or overrecursion while bailing out, we don't
       // attempt to bail out a second time for this Ion frame. Just unwind
@@ -845,7 +846,7 @@ void HandleException(ResumeFromException* rfe) {
         if (rfe->kind == ExceptionResumeKind::Bailout ||
             rfe->kind == ExceptionResumeKind::ForcedReturnIon) {
           if (invalidated) {
-            ionScript->decrementInvalidationCount(cx->gcContext());
+            ionScript->decrementInvalidationCount();
           }
           return;
         }
@@ -872,7 +873,7 @@ void HandleException(ResumeFromException* rfe) {
       // If invalidated, decrement the number of frames remaining on the
       // stack for the given IonScript.
       if (invalidated) {
-        ionScript->decrementInvalidationCount(cx->gcContext());
+        ionScript->decrementInvalidationCount();
       }
 
     } else if (frame.isBaselineJS()) {
@@ -1090,7 +1091,7 @@ static void TraceIonJSFrame(JSTracer* trc, const JSJitFrameIter& frame) {
     // This frame has been invalidated, meaning that its IonScript is no
     // longer reachable through the callee token (JSFunction/JSScript->ion
     // is now nullptr or recompiled). Manually trace it here.
-    ionScript->trace(trc);
+    TraceEdgeAndBuffer(trc, &ionScript, "ion-frame-ionscript");
   } else {
     ionScript = frame.ionScriptFromCalleeToken();
   }
@@ -1786,6 +1787,15 @@ SnapshotIterator::SnapshotIterator()
       ionScript_(nullptr),
       instructionResults_(nullptr) {}
 
+void SnapshotIterator::trace(JSTracer* trc) {
+  void* prior = ionScript_;
+  TraceBufferEdge(trc, &ionScript_, "SnapshotIterator::ionScript_");
+
+  // Interior pointers in snapshot_ and recover_ need to be updated if buffers
+  // can move.
+  MOZ_RELEASE_ASSERT(ionScript_ == prior);
+}
+
 uintptr_t SnapshotIterator::fromStack(int32_t offset) const {
   return ReadFrameSlot(fp_, offset);
 }
@@ -2469,17 +2479,22 @@ Value SnapshotIterator::maybeReadAllocByIndex(size_t index) {
 
 InlineFrameIterator::InlineFrameIterator(JSContext* cx,
                                          const JSJitFrameIter* iter)
-    : calleeTemplate_(cx), script_(cx), pc_(nullptr), numActualArgs_(0) {
+    : CustomAutoRooter(cx),
+      calleeTemplate_(nullptr),
+      script_(nullptr),
+      pc_(nullptr),
+      numActualArgs_(0) {
   resetOn(iter);
 }
 
 InlineFrameIterator::InlineFrameIterator(JSContext* cx,
                                          const InlineFrameIterator* iter)
-    : frame_(iter ? iter->frame_ : nullptr),
+    : CustomAutoRooter(cx),
+      frame_(iter ? iter->frame_ : nullptr),
       framesRead_(0),
       frameCount_(iter ? iter->frameCount_ : UINT32_MAX),
-      calleeTemplate_(cx),
-      script_(cx),
+      calleeTemplate_(nullptr),
+      script_(nullptr),
       pc_(nullptr),
       numActualArgs_(0) {
   if (frame_) {
@@ -2491,6 +2506,13 @@ InlineFrameIterator::InlineFrameIterator(JSContext* cx,
     framesRead_ = iter->framesRead_ - 1;
     findNextFrame();
   }
+}
+
+void InlineFrameIterator::trace(JSTracer* trc) {
+  start_.trace(trc);
+  si_.trace(trc);
+  TraceRoot(trc, &calleeTemplate_, "InlineFrameIterator::calleeTemplate_");
+  TraceRoot(trc, &script_, "InlineFrameIterator::script_");
 }
 
 void InlineFrameIterator::resetOn(const JSJitFrameIter* iter) {

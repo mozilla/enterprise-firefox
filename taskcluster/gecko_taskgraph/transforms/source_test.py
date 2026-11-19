@@ -8,10 +8,11 @@ treeherder configuration and attributes for that platform.
 """
 
 import copy
-import functools
+import logging
 import os
 from typing import Optional, Union
 
+from mozpack.path import match as mozpackmatch
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.attributes import keymatch
 from taskgraph.util.schema import Schema, optionally_keyed_by, resolve_keyed_by
@@ -21,7 +22,11 @@ from taskgraph.util.yaml import load_yaml
 from gecko_taskgraph import GECKO
 from gecko_taskgraph.transforms.job import JobDescriptionSchema
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
-from gecko_taskgraph.util.hash import get_file_finder
+
+logger = logging.getLogger(__name__)
+
+# Linux rejects a single environment string over 128 KiB.
+MAX_ARG_STRLEN = 128 * 1024
 
 
 class SourceTestDescriptionSchema(Schema, forbid_unknown_fields=False, kw_only=True):
@@ -68,6 +73,10 @@ class SourceTestDescriptionSchema(Schema, forbid_unknown_fields=False, kw_only=T
             use_msgspec=True,
         )
     ] = None
+    # Name of an environment variable to set, on git only, to the space
+    # separated changed files that match `when.files-changed`. The variable
+    # is empty when the list exceeds the environment size limit.
+    changed_files_env: Optional[str] = None
     # A list of artifacts to install from 'fetch' tasks.
     fetches: Optional[  # type: ignore
         dict[
@@ -348,6 +357,34 @@ def handle_code_review(config, jobs):
 
 
 @transforms.add
+def set_changed_files_env(config, jobs):
+    """
+    Pass the changed files that match `when.files-changed` to the task in the
+    environment variable named by `changed-files-env`. Git checkouts are
+    shallow, so the task cannot list the changed files on its own.
+    """
+    for job in jobs:
+        name = job.pop("changed-files-env", None)
+        if name and config.params["repository_type"] == "git":
+            patterns = (job.get("when") or {}).get("files-changed", [])
+            files = " ".join(
+                sorted(
+                    path
+                    for path in config.params["files_changed"]
+                    if any(mozpackmatch(path, pattern) for pattern in patterns)
+                )
+            )
+            if (size := len(f"{name}={files}".encode()) + 1) > MAX_ARG_STRLEN:
+                logger.warning(
+                    f"{job['name']}: {size} bytes of changed files exceed "
+                    f"the {MAX_ARG_STRLEN} byte environment limit, passing none"
+                )
+                files = ""
+            job["worker"].setdefault("env", {})[name] = files
+        yield job
+
+
+@transforms.add
 def remove_optimization_on_central(config, jobs):
     """
     For pushes to mozilla-central run all source-test tasks that are enabled for
@@ -369,28 +406,4 @@ def remove_optimization_on_central(config, jobs):
             del job["when"]
         if "optimization" in job and "skip-unless-mozlint" in job["optimization"]:
             del job["optimization"]
-        yield job
-
-
-@functools.cache
-def root_json_files():
-    """Tracked JSON files at the root of the tree, minus try_task_config.json."""
-    finder = get_file_finder(GECKO)
-    return sorted(
-        path for path, _ in finder.find("*.json") if path != "try_task_config.json"
-    )
-
-
-@transforms.add
-def ignore_try_task_config(config, jobs):
-    """
-    ``**/*.json`` also matches the try_task_config.json that ``mach try`` commits
-    on top of every try push. Globs don't support negation, so narrow it to
-    JSON files in subdirectories plus the ones tracked at the root.
-    """
-    for job in jobs:
-        patterns = (job.get("when") or {}).get("files-changed") or []
-        if "**/*.json" in patterns:
-            i = patterns.index("**/*.json")
-            patterns[i : i + 1] = ["*/**/*.json", *root_json_files()]
         yield job

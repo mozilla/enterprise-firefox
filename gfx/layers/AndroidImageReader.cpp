@@ -216,16 +216,69 @@ AndroidImageWrapper::~AndroidImageWrapper() {
 
 mozilla::UniqueFileHandle AndroidImageWrapper::CloneWriteFenceFd() {
   MutexAutoLock lock(mMutex);
+  return ipc::FileDescriptor(mWriteFenceFd.get()).TakePlatformHandle();
+}
 
-  auto writeFenceFd = ipc::FileDescriptor(mWriteFenceFd.get());
-  return writeFenceFd.TakePlatformHandle();
+bool AndroidImageWrapper::WaitForWriteFence(gl::GLContext* aGL) {
+  UniqueFileHandle writeFenceFd;
+  {
+    MutexAutoLock lock(mMutex);
+    if (!mWriteFenceFd) {
+      return true;
+    }
+    writeFenceFd =
+        ipc::FileDescriptor(mWriteFenceFd.get()).TakePlatformHandle();
+  }
+
+  const auto& egl = gl::GLContextEGL::Cast(aGL)->mEgl;
+  if (!writeFenceFd ||
+      !egl->IsExtensionSupported(gl::EGLExtension::ANDROID_native_fence_sync) ||
+      !egl->IsExtensionSupported(gl::EGLExtension::KHR_fence_sync)) {
+    gfxCriticalNoteOnce << "Cannot import AndroidImageReader acquire fence";
+    return false;
+  }
+
+  // EGL takes ownership of the duplicated fence FD.
+  const EGLint attrs[] = {LOCAL_EGL_SYNC_NATIVE_FENCE_FD_ANDROID,
+                          writeFenceFd.release(), LOCAL_EGL_NONE};
+  EGLSync sync =
+      egl->fCreateSyncKHR(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, attrs);
+  if (!sync) {
+    gfxCriticalNoteOnce << "Failed to create AndroidImageReader acquire sync";
+    return false;
+  }
+
+  const bool waited = egl->IsExtensionSupported(gl::EGLExtension::KHR_wait_sync)
+                          ? egl->fWaitSync(sync, 0) == LOCAL_EGL_TRUE
+                          : egl->fClientWaitSync(sync, 0, LOCAL_EGL_FOREVER) ==
+                                LOCAL_EGL_CONDITION_SATISFIED;
+  egl->fDestroySync(sync);
+  if (!waited) {
+    gfxCriticalNoteOnce
+        << "Failed to wait for AndroidImageReader acquire fence";
+  }
+  return waited;
 }
 
 void AndroidImageWrapper::SetReadFenceFd(UniqueFileHandle&& aFenceFd) {
-  MutexAutoLock lock(mMutex);
+  if (!aFenceFd) {
+    return;
+  }
 
-  mReadFenceFd = AndroidHardwareBuffer::MergeFences(std::move(mReadFenceFd),
-                                                    std::move(aFenceFd));
+  UniqueFileHandle fence = std::move(aFenceFd);
+  MutexAutoLock lock(mMutex);
+  if (!mReadFenceFd) {
+    mReadFenceFd = std::move(fence);
+    return;
+  }
+
+  auto merged = AndroidHardwareBuffer::TryMergeFences(mReadFenceFd, fence);
+  if (!merged) {
+    // Keep the registered fence and close the incoming FD without waiting.
+    gfxCriticalNoteOnce << "Failed to merge AndroidImageReader read fences";
+    return;
+  }
+  mReadFenceFd = std::move(merged);
 }
 
 /* static */
@@ -247,6 +300,7 @@ already_AddRefed<AndroidImageReader> AndroidImageReader::Create() {
   }
 
   imageReaderMap->Register(imageReader);
+  imageReader->mRegistered = true;
 
   return imageReader.forget();
 }
@@ -257,10 +311,25 @@ AndroidImageReader::AndroidImageReader()
 
 AndroidImageReader::~AndroidImageReader() {
   auto* imageReaderMap = layers::GpuProcessAndroidImageReaderMap::Get();
-  if (imageReaderMap) {
+  if (imageReaderMap && mRegistered) {
     imageReaderMap->Unregister(mImageReaderId);
   }
   ReleaseResources();
+}
+
+void AndroidImageReader::Shutdown() {
+  RefPtr<AndroidImageWrapper> image;
+  {
+    MonitorAutoLock lock(mMonitor);
+    mShuttingDown = true;
+    // AndroidImageWrapper holds a strong reference to this reader. Break the
+    // cycle while the decoder still owns the reader; consumers may retain
+    // images.
+    image.swap(mCurrentImage);
+    mMonitor.NotifyAll();
+  }
+  // Release the cached image outside the monitor, since its destructor may
+  // call AImage_delete() or AImage_deleteAsync().
 }
 
 bool AndroidImageReader::Init() {
@@ -317,22 +386,22 @@ bool AndroidImageReader::Init() {
 }
 
 void AndroidImageReader::ReleaseResources() {
-  MonitorAutoLock lock(mMonitor);
-
-  if (!mAImageReader) {
+  AImageReader* reader = nullptr;
+  {
+    MonitorAutoLock lock(mMonitor);
+    reader = mAImageReader;
+    mAImageReader = nullptr;
+    // The native window is owned by AImageReader.
+    mNativeWindow = nullptr;
+  }
+  if (!reader) {
     return;
   }
 
-  AImageReader_setImageListener(mAImageReader, nullptr);
-
-  // Delete all images before closing the associated image reader.
-
-  // Delete the image reader.
-  AImageReader_delete(mAImageReader);
-  mAImageReader = nullptr;
-  // mNativeWindow is not owned by AndroidImageReader.
-  // It is owned by AImageReader.
-  mNativeWindow = nullptr;
+  // Deletion stops the callback thread. Do not hold the monitor that an
+  // in-flight OnFrameAvailable callback needs to finish.
+  AImageReader_setImageListener(reader, nullptr);
+  AImageReader_delete(reader);
 }
 
 /* static */
@@ -365,7 +434,8 @@ bool AndroidImageReader::UpdateTexImage(const AndroidMediaCodecFrameId aFrameId,
 
   MOZ_ASSERT(mCurrentImage);
 
-  // XXX add fence handling
+  // The caller must wait on the acquire fence in the GL context that
+  // will sample this image.
 
   const auto& gle = gl::GLContextEGL::Cast(aGL);
   const auto& egl = gle->mEgl;
@@ -425,6 +495,10 @@ bool AndroidImageReader::UpdateTexImageWithReadback(
   const auto& gle = gl::GLContextEGL::Cast(aGL);
   const auto& egl = gle->mEgl;
 
+  if (!mCurrentImage->WaitForWriteFence(aGL)) {
+    return false;
+  }
+
   const EGLint attrs[] = {
       LOCAL_EGL_IMAGE_PRESERVED,
       LOCAL_EGL_TRUE,
@@ -479,18 +553,21 @@ bool AndroidImageReader::DoUpdateTexImage(const MonitorAutoLock& aProofOfLock,
                                           AndroidMediaCodecFrameId aFrameId) {
   MOZ_ASSERT(static_cast<int32_t>(mAcquiredImageCount) <= mMaxImageCount);
 
-  if (mCurrentFrameId == aFrameId) {
+  if (mShuttingDown || mCurrentFrameId == aFrameId) {
     return false;
   }
 
   // Limit as only one thread could do DoUpdateTexImage()
   const TimeDuration pendingTimeout = TimeDuration::FromMilliseconds(20);
-  while (mIsPendingNextImage) {
+  while (mIsPendingNextImage && !mShuttingDown) {
     CVStatus status = mMonitor.Wait(pendingTimeout);
     if (status == CVStatus::Timeout) {
       gfxCriticalNoteOnce << "Pending next image wait timeout";
       return false;
     }
+  }
+  if (mShuttingDown) {
+    return false;
   }
   MOZ_ASSERT(!mIsPendingNextImage);
 
@@ -520,7 +597,7 @@ bool AndroidImageReader::DoUpdateTexImage(const MonitorAutoLock& aProofOfLock,
       }
     }
 
-    while (mWaitingFrameAvailable) {
+    while (mWaitingFrameAvailable && !mShuttingDown) {
       const TimeDuration remaining = deadline - TimeStamp::Now();
       if (remaining <= TimeDuration()) {
         gfxCriticalNoteOnce << "UpdateTexImage wait timeout";
@@ -529,6 +606,10 @@ bool AndroidImageReader::DoUpdateTexImage(const MonitorAutoLock& aProofOfLock,
         break;
       }
       mMonitor.Wait(remaining);
+    }
+
+    if (mShuttingDown) {
+      return false;
     }
 
     // OnFrameAvailable does not carry a frame ID. Consume the outstanding
@@ -589,7 +670,7 @@ bool AndroidImageReader::AcquirePendingImage() {
     gfxCriticalNoteOnce << "AImage_getHardwareBuffer failed"
                         << static_cast<int32_t>(result);
     if (fence) {
-      AImage_deleteAsync(image, fence.get());
+      AImage_deleteAsync(image, fence.release());
     } else {
       AImage_delete(image);
     }

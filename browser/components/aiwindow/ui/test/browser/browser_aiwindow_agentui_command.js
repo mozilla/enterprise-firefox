@@ -22,6 +22,7 @@ const { Region } = ChromeUtils.importESModule(
 const PREF_AGENT_ENABLED = "browser.smartwindow.agent.enabled";
 const SUPPORTED_REGIONS_PREF = "browser.smartwindow.agent.supportedRegions";
 const TEST_REGION = "US";
+const TEST_MARKETS = JSON.stringify([[TEST_REGION, ["en-*"]]]);
 
 const WATCH_COMMAND = `/${AGENT_COMMANDS.WATCH}`;
 
@@ -31,7 +32,7 @@ add_setup(async function () {
   const originalRegion = Region.home;
   Region._setHomeRegion(TEST_REGION, false);
   await SpecialPowers.pushPrefEnv({
-    set: [[SUPPORTED_REGIONS_PREF, TEST_REGION]],
+    set: [[SUPPORTED_REGIONS_PREF, TEST_MARKETS]],
   });
   registerCleanupFunction(() => {
     Region._setHomeRegion(originalRegion, false);
@@ -239,6 +240,54 @@ add_task(async function test_create_monitor_localizes_schedule_summary() {
       "The schedule arg is fully resolved"
     );
   } finally {
+    await MonitorAgent._resetForTesting();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function test_created_card_carries_an_active_check_limit() {
+  await SpecialPowers.pushPrefEnv({ set: [[PREF_AGENT_ENABLED, true]] });
+  await MonitorAgent._resetForTesting();
+
+  const checkLimit = { until: Date.now() + 60000, reason: "throttle" };
+  const originalCheckLimit = MonitorAgent.checkLimit;
+  MonitorAgent.checkLimit = () => checkLimit;
+
+  const message = {
+    id: "monitor-msg-limit",
+    content: { body: "" },
+    toolUIData: { toolCallId: "monitor-limit", properties: { agent: {} } },
+  };
+  const conversation = {
+    messages: [message],
+    emit: () => {},
+    updateToolUI: () => {},
+    resolvePendingToolConfirmation: () => false,
+  };
+
+  try {
+    const handled = await AgentUI.handleUpdate(
+      {
+        messageId: message.id,
+        toolCallId: "monitor-limit",
+        updateType: "create-watch",
+        updateData: {
+          condition: "the price drops",
+          watchUrls: ["https://example.com/product"],
+        },
+      },
+      conversation
+    );
+    Assert.ok(handled, "The create update is handled");
+
+    const { agent } = message.toolUIData.properties;
+    Assert.deepEqual(
+      agent.checkLimit,
+      checkLimit,
+      "A card created while checks are refused starts out holding the wait"
+    );
+  } finally {
+    MonitorAgent.checkLimit = originalCheckLimit;
     await MonitorAgent._resetForTesting();
     await SpecialPowers.popPrefEnv();
   }
@@ -569,7 +618,13 @@ add_task(async function test_watch_command_handled_in_secondary_region() {
   await SpecialPowers.pushPrefEnv({
     set: [
       [PREF_AGENT_ENABLED, true],
-      [SUPPORTED_REGIONS_PREF, "US,CA"],
+      [
+        SUPPORTED_REGIONS_PREF,
+        JSON.stringify([
+          ["US", ["en-*"]],
+          ["CA", ["en-*"]],
+        ]),
+      ],
     ],
   });
   await MonitorAgent._resetForTesting();
@@ -605,7 +660,7 @@ add_task(async function test_watch_command_ignored_when_agent_disabled() {
   await SpecialPowers.pushPrefEnv({
     set: [
       [PREF_AGENT_ENABLED, false],
-      [SUPPORTED_REGIONS_PREF, TEST_REGION],
+      [SUPPORTED_REGIONS_PREF, TEST_MARKETS],
     ],
   });
   await MonitorAgent._resetForTesting();

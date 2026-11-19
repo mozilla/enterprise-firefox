@@ -274,7 +274,6 @@ pref("media.videocontrols.keyboard-tab-to-all-controls", true);
     pref("media.peerconnection.sdp.strict_success", false);
   #endif
 
-  pref("media.peerconnection.sctp.use_dcsctp", true);
   pref("media.peerconnection.sdp.disable_stereo_fmtp", false);
   pref("media.webrtc.debug.log_file", "");
 
@@ -3099,6 +3098,11 @@ pref("network.tcp.keepalive.idle_time", 600); // seconds; 10 mins
   pref("geo.provider.network.timeout", 60000);
 #endif
 
+// Maximum age, in days, of a response the NetworkGeolocationProvider request
+// cache (which is persisted across browser sessions) may reuse. Clamped to
+// the range 1 to 30.
+pref("geo.provider.network.requestCache.maxAgeDays", 30);
+
 #ifdef XP_MACOSX
   pref("geo.provider.use_corelocation", true);
 #endif
@@ -3662,6 +3666,7 @@ pref("browser.ai.control.linkPreviewKeyPoints", "default");
 pref("browser.ai.control.sidebarChatbot", "default");
 pref("browser.ai.control.smartWindow", "default");
 pref("browser.ai.control.speechRecognition", "default");
+pref("browser.ai.control.generatedWidgets", "default");
 
 // Enable the experimental machine learning inference engine.
 pref("browser.ml.enable", true);
@@ -3693,6 +3698,14 @@ pref("browser.pageextractor.youtube.enabled", true);
 // How long, in milliseconds, to wait for the YouTube transcript panel to render
 // after it is opened before giving up and returning metadata alone.
 pref("browser.pageextractor.youtube.timeoutMs", 3000);
+
+// Read Google Docs documents through their plain HTML view during page
+// extraction.
+pref("browser.pageextractor.googledocs.enabled", true);
+
+// How long, in milliseconds, to wait for a Google Docs plain HTML view before
+// keeping the generic page extraction.
+pref("browser.pageextractor.googledocs.timeoutMs", 5000);
 
 // When a user cancels this number of authentication dialogs coming from
 // a single web page in a row, all following authentication dialogs will
@@ -4210,6 +4223,17 @@ pref("extensions.formautofill.creditCards.storage.rust.migrationTestAttempts", 0
 // Firefox, which gives up after a budget: the enabled pref above is then
 // treated as false while this stays at the budget.
 pref("extensions.formautofill.creditCards.storage.rust.migrationAttempts", 0);
+// How many of those attempts in a row failed with a card whose number would not
+// decrypt. Managed by Firefox.
+pref("extensions.formautofill.creditCards.storage.rust.migrationUndecryptableAttempts", 0);
+// Whether the migration may leave out cards whose number would not decrypt,
+// rather than failing on them. Set through the Nimbus feature
+// autofill-credit-cards-drop-undecryptable.
+pref("extensions.formautofill.creditCards.storage.rust.dropUndecryptable", false);
+// Once that many attempts have failed, the last of them failing to decrypt a
+// card too, cards whose number would not decrypt are left out of the migration
+// rather than failing it.
+pref("extensions.formautofill.creditCards.storage.rust.dropUndecryptableAfterAttempts", 3);
 pref("extensions.formautofill.creditCards.supported", "on");
 pref("extensions.formautofill.creditCards.enabled", true);
 pref("extensions.formautofill.creditCards.ignoreAutocompleteOff", true);
@@ -4218,6 +4242,9 @@ pref("extensions.formautofill.creditCards.ignoreAutocompleteOff", true);
 // "on"/"off" values as the other supported prefs above. Nothing about the CVV
 // (cc-csc) field is offered while this is "off", including the setting that
 // lets the user turn capture on or off.
+// Given that Android also relies on this flag to determine cvv enablement, 
+// do not flip this value for all platforms and instead use platform specific 
+// checks to enable and disable this in a controlled per platform capacity.
 pref("extensions.formautofill.creditCards.cvv.supported", "off");
 // The user's own choice, exposed as a setting once the feature is supported.
 // CVVs are only captured and stored when both prefs are true; see

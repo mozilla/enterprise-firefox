@@ -291,13 +291,20 @@ void gfxDWriteFont::UpdateClearTypeVars() {
 
 gfxFont* gfxDWriteFont::CopyWithAntialiasOption(
     AntialiasOption anAAOption) const {
+  if (!Valid()) {
+    return nullptr;
+  }
   auto entry = static_cast<gfxDWriteFontEntry*>(mFontEntry.get());
   RefPtr<UnscaledFontDWrite> unscaledFont =
       static_cast<UnscaledFontDWrite*>(mUnscaledFont.get());
   gfxFont* newFont =
       new gfxDWriteFont(unscaledFont, entry, &mStyle, mFontFace, anAAOption);
   newFont->InitMetrics();
-  return newFont->Valid() ? newFont : nullptr;
+  if (!newFont->Valid()) {
+    newFont->Destroy();
+    return nullptr;
+  }
+  return newFont;
 }
 
 bool gfxDWriteFont::GetFakeMetricsForArialBlack(
@@ -660,7 +667,21 @@ gfxDWriteFont::GetMeasuringMode() const {
   return DWriteSettings::Get(GetForceGDIClassic()).MeasuringMode();
 }
 
+void gfxDWriteFont::HandleFontFaceException(const char* aOperation) {
+  // Exception (e.g. disk i/o error) occurred when DirectWrite tried to use
+  // the font resource; possibly a failing drive or similar hardware issue.
+  // Mark the font entry as unusable, which also invalidates this font and its
+  // other instances, so that font selection will skip it; we'll use a fallback
+  // font instead.
+  GetFontEntry()->MarkUnusable();
+  gfxCriticalError() << "Exception occurred " << aOperation << " for "
+                     << GetFontEntry()->Name().get();
+}
+
 gfxFloat gfxDWriteFont::MeasureGlyphWidth(uint16_t aGlyph) {
+  if (GetFontEntry()->IsUnusable()) {
+    return 0.0;
+  }
   MOZ_SEH_TRY {
     HRESULT hr;
     if (mFontFace1) {
@@ -698,21 +719,16 @@ gfxFloat gfxDWriteFont::MeasureGlyphWidth(uint16_t aGlyph) {
     }
   }
   MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
-    // Exception (e.g. disk i/o error) occurred when DirectWrite tried to use
-    // the font resource; possibly a failing drive or similar hardware issue.
-    // Mark the font as invalid, and wipe the fontEntry's charmap so that font
-    // selection will skip it; we'll use a fallback font instead.
-    mIsValid = false;
-    GetFontEntry()->mCharacterMap = new gfxCharacterMap(0);
-    GetFontEntry()->mShmemCharacterMap = nullptr;
-    gfxCriticalError() << "Exception occurred measuring glyph width for "
-                       << GetFontEntry()->Name().get();
+    HandleFontFaceException("measuring glyph width");
   }
   return 0.0;
 }
 
 bool gfxDWriteFont::GetGlyphBounds(uint16_t aGID, gfxRect* aBounds,
                                    bool aTight) {
+  if (GetFontEntry()->IsUnusable()) {
+    return false;
+  }
   MOZ_SEH_TRY {
     DWRITE_GLYPH_METRICS m;
     HRESULT hr = mFontFace->GetDesignGlyphMetrics(&aGID, 1, &m, FALSE);
@@ -723,24 +739,11 @@ bool gfxDWriteFont::GetGlyphBounds(uint16_t aGID, gfxRect* aBounds,
                    m.advanceWidth - m.leftSideBearing - m.rightSideBearing,
                    m.advanceHeight - m.topSideBearing - m.bottomSideBearing);
     bounds.Scale(mFUnitsConvFactor);
-    // GetDesignGlyphMetrics returns 'ideal' glyph metrics, we need to pad to
-    // account for antialiasing.
-    if (!aTight && !aBounds->IsEmpty()) {
-      bounds.Inflate(1.0, 0.0);
-    }
     *aBounds = bounds;
     return true;
   }
   MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
-    // Exception (e.g. disk i/o error) occurred when DirectWrite tried to use
-    // the font resource; possibly a failing drive or similar hardware issue.
-    // Mark the font as invalid, and wipe the fontEntry's charmap so that font
-    // selection will skip it; we'll use a fallback font instead.
-    mIsValid = false;
-    GetFontEntry()->mCharacterMap = new gfxCharacterMap(0);
-    GetFontEntry()->mShmemCharacterMap = nullptr;
-    gfxCriticalError() << "Exception occurred measuring glyph bounds for "
-                       << GetFontEntry()->Name().get();
+    HandleFontFaceException("measuring glyph bounds");
   }
   return false;
 }

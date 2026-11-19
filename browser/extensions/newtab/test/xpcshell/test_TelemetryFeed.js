@@ -539,12 +539,40 @@ add_task(async function test_customize_panel_open_event() {
 
   instance.handleUserEvent({
     meta: { fromTarget: PORT_ID },
-    data: { event: "SHOW_PERSONALIZE" },
+    data: {
+      event: "SHOW_PERSONALIZE",
+      source: "settings",
+      subpanel: "widgets_management",
+    },
   });
 
   let events = Glean.newtab.customizePanelOpen.testGetValue();
   Assert.equal(events.length, 1, "One customize_panel_open event");
-  Assert.deepEqual(events[0].extra, { newtab_visit_id: session.session_id });
+  Assert.deepEqual(events[0].extra, {
+    newtab_visit_id: session.session_id,
+    source: "settings",
+    subpanel: "widgets_management",
+  });
+});
+
+add_task(async function test_customize_panel_open_event_without_subpanel() {
+  info("handleUserEvent leaves subpanel out when the action has none");
+  Services.fog.testResetFOG();
+  const PORT_ID = "port123";
+  let instance = new TelemetryFeed();
+  let session = instance.addSession(PORT_ID);
+
+  instance.handleUserEvent({
+    meta: { fromTarget: PORT_ID },
+    data: { event: "SHOW_PERSONALIZE", source: "customize_button" },
+  });
+
+  let events = Glean.newtab.customizePanelOpen.testGetValue();
+  Assert.equal(events.length, 1, "One customize_panel_open event");
+  Assert.deepEqual(events[0].extra, {
+    newtab_visit_id: session.session_id,
+    source: "customize_button",
+  });
 });
 
 add_task(async function test_customize_panel_subpanel_open_event() {
@@ -4423,7 +4451,7 @@ add_task(async function test_recordHomeWidgets() {
 
 add_task(async function test_widget_events_carry_widget_location() {
   info(
-    "widgets_impression and widgets_user_event should pass widget_location through only when it is set"
+    "widgets_impression, widgets_user_event and widgets_ready should pass widget_location through only when it is set"
   );
   Services.fog.testResetFOG();
 
@@ -4452,6 +4480,14 @@ add_task(async function test_widget_events_carry_widget_location() {
     data: { widget_name: "clocks", widget_size: "medium" },
     meta,
   });
+  instance.handleUnifiedWidgetReady({
+    data: {
+      widget_name: "lists",
+      widget_size: "medium",
+      widget_location: "home_space",
+    },
+    meta,
+  });
 
   const impressions = Glean.newtab.widgetsImpression.testGetValue();
   Assert.deepEqual(
@@ -4476,6 +4512,11 @@ add_task(async function test_widget_events_carry_widget_location() {
     "sidebar",
     "widgets_user_event carries widget_location"
   );
+  Assert.equal(
+    Glean.newtab.widgetsReady.testGetValue()[0].extra.widget_location,
+    "home_space",
+    "widgets_ready carries widget_location"
+  );
 });
 
 add_task(async function test_handleSpacesUserEvent_no_session() {
@@ -4497,7 +4538,7 @@ add_task(async function test_handleSpacesUserEvent_no_session() {
 });
 
 add_task(async function test_handleUnifiedWidget_widget_variant() {
-  info("The four unified widget handlers should pass widget_variant through");
+  info("The unified widget handlers should pass widget_variant through");
   Services.fog.testResetFOG();
 
   let instance = new TelemetryFeed();
@@ -4519,6 +4560,7 @@ add_task(async function test_handleUnifiedWidget_widget_variant() {
     data: { ...withVariant, error_type: "load_error" },
     meta,
   });
+  instance.handleUnifiedWidgetReady({ data: withVariant, meta });
   instance.handleUnifiedWidgetImpression({
     data: { widget_name: "lists", widget_size: "large" },
     meta,
@@ -4529,6 +4571,7 @@ add_task(async function test_handleUnifiedWidget_widget_variant() {
     "widgetsUserEvent",
     "widgetsEnabled",
     "widgetsError",
+    "widgetsReady",
   ]) {
     const [event] = Glean.newtab[metric].testGetValue();
     Assert.equal(

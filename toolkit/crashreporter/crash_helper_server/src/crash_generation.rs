@@ -3,7 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    breakpad_crash_generator::{BreakpadCrashGenerator, BreakpadProcessId},
+    breakpad_crash_generator::{BreakpadCrashGenerator, BreakpadProcessId, OpaqueCrashGenerator},
     phc::{self, StackTrace},
 };
 
@@ -26,18 +26,18 @@ use windows::{create_platform_specific_annotations, process_uptime};
 
 use anyhow::{Context, Result};
 use crash_helper_common::{
+    crash_annotations::{
+        should_include_annotation, type_of_annotation, CrashAnnotation, CrashAnnotationType,
+    },
     ApplicationInfo, AsRawProcessHandle, AsRawThreadHandle, BreakpadChar, BreakpadString,
     ExtraCrashData, GeckoChildId, Pid, ProcessHandle, RawProcessHandle, ThreadHandle,
-    crash_annotations::{
-        CrashAnnotation, CrashAnnotationType, should_include_annotation, type_of_annotation,
-    },
 };
-use mozannotation_server::{AnnotationData, CAnnotation, errors::AnnotationsRetrievalError};
+use mozannotation_server::{errors::AnnotationsRetrievalError, AnnotationData, CAnnotation};
 use num_traits::FromPrimitive;
 use std::{
     collections::HashMap,
     convert::TryInto,
-    ffi::{CString, OsStr, OsString, c_void},
+    ffi::{CString, OsStr, OsString},
     fs::File,
     io::{Seek, SeekFrom, Write},
     mem::size_of,
@@ -142,12 +142,15 @@ impl CrashGenerator {
         );
 
         if let Some(path) = path {
-            let error = self.finalize_crash_report(
-                AsRawProcessHandle::as_raw_handle(target_process),
-                /* extra_data */ None,
-                &path,
-                if id == 0 { ProcessType::Parent } else { ProcessType::Child },
-            );
+            let process_type = if id == 0 {
+                ProcessType::Parent
+            } else {
+                ProcessType::Child
+            };
+            let process = AsRawProcessHandle::as_raw_handle(target_process);
+            let annotations = retrieve_annotations(process, process_type);
+            let error =
+                self.finalize_crash_report(process, annotations, /* extra_data */ None, &path);
             Some(CrashReport::new(path.as_os_str(), &error))
         } else {
             None
@@ -162,21 +165,21 @@ impl CrashGenerator {
     fn finalize_crash_report(
         &self,
         process: RawProcessHandle,
+        child_annotations: Result<Vec<CAnnotation>>,
         extra_data: Option<&ExtraCrashData>,
         minidump_path: &Path,
-        process_type: ProcessType,
     ) -> Option<CString> {
         let (error, extra_annotations) = extra_data
             .map(|d| (d.error.clone(), d.annotations.clone()))
             .unwrap_or_default();
+        let crash_time_annotations = self.crash_time_annotations(process);
         let global_annotations = self.retrieve_main_process_annotations();
-        let annotations = retrieve_annotations(process, process_type);
         let annotations = [
-            STATIC_ANNOTATIONS.get().cloned().context("MissingStaticAnnotations"),
-            Ok(self.crash_time_annotations(process)),
+            Ok(crash_time_annotations),
             global_annotations.context("MissingMainProcessAnnotations"),
-            annotations.context("MissingChildProcessAnnotations"),
+            child_annotations.context("MissingChildProcessAnnotations"),
             Ok(extra_annotations),
+            get_static_annotations().context("MissingStaticAnnotations"),
         ]
         .into_iter()
         .fold(HashMap::new(), fold_annotations);
@@ -220,9 +223,9 @@ impl CrashGenerator {
         let uptime_ts = process_uptime_ts(process);
 
         vec![
-            make_annotation(CrashAnnotation::CrashEventID, &crash_event_id),
-            make_annotation(CrashAnnotation::CrashTime, &crash_time),
-            make_annotation(CrashAnnotation::UptimeTS, &uptime_ts),
+            make_annotation_str(CrashAnnotation::CrashEventID, &crash_event_id),
+            make_annotation_str(CrashAnnotation::CrashTime, &crash_time),
+            make_annotation_str(CrashAnnotation::UptimeTS, &uptime_ts),
         ]
     }
 }
@@ -254,15 +257,22 @@ fn process_uptime_ts(process: RawProcessHandle) -> String {
  * Crash annotations                                                          *
  ******************************************************************************/
 
-fn make_annotation(id: CrashAnnotation, data: &str) -> CAnnotation {
+fn make_annotation_str(id: CrashAnnotation, data: &str) -> CAnnotation {
     CAnnotation {
         id: id as u32,
         data: AnnotationData::String(CString::new(data).expect("Should be a valid C string")),
     }
 }
 
+fn make_annotation_u64(id: CrashAnnotation, data: u64) -> CAnnotation {
+    CAnnotation {
+        id: id as u32,
+        data: AnnotationData::ByteBuffer(data.to_ne_bytes().to_vec()),
+    }
+}
+
 fn make_error_annotation(error: impl std::fmt::Display) -> CAnnotation {
-    make_annotation(CrashAnnotation::DumperError, &format!("{}", error))
+    make_annotation_str(CrashAnnotation::DumperError, &format!("{}", error))
 }
 
 static STATIC_ANNOTATIONS: OnceLock<Vec<CAnnotation>> = OnceLock::new();
@@ -281,24 +291,26 @@ pub(crate) fn initialize_static_annotations(app_info: &ApplicationInfo) {
     });
 }
 
-fn required_annotations(app_info: &ApplicationInfo) -> Vec<CAnnotation> {
-    let install_time = app_info.get_install_time().to_string();
+fn get_static_annotations() -> Option<Vec<CAnnotation>> {
+    STATIC_ANNOTATIONS.get().cloned()
+}
 
+fn required_annotations(app_info: &ApplicationInfo) -> Vec<CAnnotation> {
     vec![
-        make_annotation(CrashAnnotation::BuildID, app_info.get_buildid()),
-        make_annotation(CrashAnnotation::InstallTime, &install_time),
-        make_annotation(CrashAnnotation::ProductID, app_info.get_app_id()),
-        make_annotation(CrashAnnotation::ProductName, app_info.get_app_name()),
-        make_annotation(
+        make_annotation_str(CrashAnnotation::BuildID, app_info.get_buildid()),
+        make_annotation_u64(CrashAnnotation::InstallTime, app_info.get_install_time()),
+        make_annotation_str(CrashAnnotation::ProductID, app_info.get_app_id()),
+        make_annotation_str(CrashAnnotation::ProductName, app_info.get_app_name()),
+        make_annotation_str(
             CrashAnnotation::ReleaseChannel,
             app_info.get_release_channel(),
         ),
-        make_annotation(
+        make_annotation_str(
             CrashAnnotation::ServerURL,
             app_info.get_server_url().as_ref(),
         ),
-        make_annotation(CrashAnnotation::Vendor, app_info.get_vendor()),
-        make_annotation(CrashAnnotation::Version, app_info.get_version()),
+        make_annotation_str(CrashAnnotation::Vendor, app_info.get_vendor()),
+        make_annotation_str(CrashAnnotation::Version, app_info.get_version()),
     ]
 }
 
@@ -376,7 +388,7 @@ fn serialize_phc_stack(stack_trace: &StackTrace) -> String {
 /// point to valid objects or are null. The ownership remains to the caller for
 /// those two objects.
 pub(crate) unsafe extern "C" fn finalize_breakpad_minidump(
-    generator: *const c_void,
+    generator: *const OpaqueCrashGenerator,
     process_id: BreakpadProcessId,
     extra_data: Option<&ExtraCrashData>,
     minidump_path_ptr: *const BreakpadChar,
@@ -384,12 +396,21 @@ pub(crate) unsafe extern "C" fn finalize_breakpad_minidump(
     let generator = generator as *const Mutex<CrashGenerator>;
     let minidump_path = PathBuf::from(<OsString as BreakpadString>::from_ptr(minidump_path_ptr));
 
+    #[cfg(any(target_os = "android", target_os = "linux"))]
+    let annotations = if process_id.remote_executor_fd >= 0 {
+        linux::retrieve_annotations_remote(process_id.remote_executor_fd)
+    } else {
+        retrieve_annotations(process_id.get_native(), ProcessType::Child)
+    };
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    let annotations = retrieve_annotations(process_id.get_native(), ProcessType::Child);
+
     let mut generator = generator.as_ref().unwrap().lock().unwrap();
     let error = generator.finalize_crash_report(
         process_id.get_native(),
+        annotations,
         extra_data,
         &minidump_path,
-        ProcessType::Child,
     );
     generator.insert_crash_report(&process_id, &minidump_path, error);
 }
@@ -402,7 +423,10 @@ fn retrieve_annotations(
         return Ok(vec![]);
     }
 
-    Ok(mozannotation_server::retrieve_annotations(process, CrashAnnotation::Count as usize)?)
+    Ok(mozannotation_server::retrieve_annotations(
+        process,
+        CrashAnnotation::Count as usize,
+    )?)
 }
 
 /// Helper function to merge a vector of annotations retrieved from a process memory into
@@ -415,8 +439,17 @@ fn fold_annotations(
     mut merged: HashMap<u32, AnnotationData>,
     to_merge: Result<Vec<CAnnotation>>,
 ) -> HashMap<u32, AnnotationData> {
-
     let mut merge_annotation = |annotation: CAnnotation| {
+        if annotation.id == CrashAnnotation::DumperError as u32 {
+            if let (Some(AnnotationData::String(prev)), AnnotationData::String(new)) =
+                (merged.get(&annotation.id), &annotation.data)
+            {
+                let combined = [prev.as_bytes(), b"; ", new.as_bytes()].concat();
+                let combined = CString::new(combined).expect("Should be a valid C string");
+                let _ = merged.insert(annotation.id, AnnotationData::String(combined));
+                return;
+            }
+        }
         let _ = merged.insert(annotation.id, annotation.data);
     };
 
@@ -530,8 +563,8 @@ mod tests {
     #[test]
     fn fold_annotations_trivial() {
         let annotations = vec![
-            make_annotation(CrashAnnotation::ProductName, "Firefox"),
-            make_annotation(CrashAnnotation::Vendor, "Mozilla"),
+            make_annotation_str(CrashAnnotation::ProductName, "Firefox"),
+            make_annotation_str(CrashAnnotation::Vendor, "Mozilla"),
         ];
 
         let merged = fold_annotations(HashMap::new(), Ok(annotations));
@@ -549,13 +582,37 @@ mod tests {
 
     #[test]
     fn fold_annotations_error() {
-        let merged = fold_annotations(HashMap::new(), None.context("MissingMainProcessAnnotations"));
+        let merged = fold_annotations(
+            HashMap::new(),
+            None.context("MissingMainProcessAnnotations"),
+        );
 
         assert_eq!(merged.len(), 1);
         assert_eq!(
             merged.get(&(CrashAnnotation::DumperError as u32)),
             Some(&AnnotationData::String(
                 CString::new("MissingMainProcessAnnotations").unwrap()
+            ))
+        );
+    }
+
+    #[test]
+    fn fold_annotations_multiple_errors() {
+        let merged = [
+            None.context("MissingMainProcessAnnotations"),
+            Ok(vec![make_error_annotation("PlatformError")]),
+            None.context("MissingChildProcessAnnotations"),
+        ]
+        .into_iter()
+        .fold(HashMap::new(), fold_annotations);
+
+        assert_eq!(
+            merged.get(&(CrashAnnotation::DumperError as u32)),
+            Some(&AnnotationData::String(
+                CString::new(
+                    "MissingMainProcessAnnotations; PlatformError; MissingChildProcessAnnotations"
+                )
+                .unwrap()
             ))
         );
     }

@@ -9,6 +9,8 @@ const PREF_MONITOR_ANNOUNCEMENT =
   "browser.smartwindow.agent.monitorAnnouncement";
 const SUPPORTED_REGIONS_PREF = "browser.smartwindow.agent.supportedRegions";
 const TEST_REGION = "US";
+const TEST_MARKETS = JSON.stringify([[TEST_REGION, ["en-*"]]]);
+const UNSUPPORTED_MARKETS = JSON.stringify([["DE", ["de"]]]);
 
 function clearAttentionPrefs() {
   Services.prefs.clearUserPref(PREF_MONITOR_ATTENTION);
@@ -39,6 +41,9 @@ const { MONITOR_CONDITION_MET_TOPIC, MONITOR_RUN_FAILED_TOPIC } =
 const { MonitorAttention } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/ui/modules/MonitorAttention.sys.mjs"
 );
+const { MonitorPanel } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/ui/modules/MonitorPanel.sys.mjs"
+);
 
 add_setup(async function setup() {
   await SpecialPowers.pushPrefEnv({
@@ -50,7 +55,7 @@ add_setup(async function setup() {
       ["browser.smartwindow.enabled", true],
       ["browser.smartwindow.agent.enabled", true],
       ["browser.smartwindow.agent.toolbar.enabled", true],
-      ["browser.smartwindow.agent.supportedRegions", TEST_REGION],
+      ["browser.smartwindow.agent.supportedRegions", TEST_MARKETS],
     ],
   });
 
@@ -59,7 +64,7 @@ add_setup(async function setup() {
   const originalRegion = Region.home;
   Region._setHomeRegion(TEST_REGION, false);
 
-  AIWindow._updateMonitorWidgetRegistration();
+  AIWindowToolbarButtons.updateMonitorRegistration();
 
   registerCleanupFunction(() => {
     Region._setHomeRegion(originalRegion, false);
@@ -76,11 +81,11 @@ function getMonitorButton(win) {
 
 /**
  * The monitor button is visible in a Smart Window and routes activation to
- * AIWindowUI.toggleMonitorPanel, by mouse and by keyboard.
+ * MonitorPanel.toggleMonitorPanel, by mouse and by keyboard.
  */
 add_task(async function test_monitor_button() {
   const sb = this.sinon.createSandbox();
-  const toggleMonitorPanel = sb.stub(AIWindowUI, "toggleMonitorPanel");
+  const toggleMonitorPanel = sb.stub(MonitorPanel, "toggleMonitorPanel");
   let win;
   try {
     win = await openAIWindow();
@@ -205,7 +210,7 @@ add_task(async function test_monitor_button_attention_dot_on_run_failure() {
       "A failed check puts the dot on the button"
     );
     Assert.deepEqual(
-      AIWindow.monitorAttentionIds,
+      AIWindowToolbarButtons.monitorAttentionIds,
       [],
       "The failed monitor is not offered to the panel as a new match"
     );
@@ -248,7 +253,7 @@ add_task(async function test_monitor_button_attention_dot_expires() {
       "A match older than the dot lifetime does not show the dot"
     );
     Assert.deepEqual(
-      AIWindow.monitorAttentionIds,
+      AIWindowToolbarButtons.monitorAttentionIds,
       [],
       "An expired match is not offered to the panel either"
     );
@@ -269,7 +274,7 @@ add_task(async function test_monitor_attention_ids() {
     notifyMatch("monitor-1");
     notifyMatch("monitor-2");
     Assert.deepEqual(
-      AIWindow.monitorAttentionIds,
+      AIWindowToolbarButtons.monitorAttentionIds,
       ["monitor-2", "monitor-1"],
       "Matched monitors are reported newest first"
     );
@@ -277,23 +282,23 @@ add_task(async function test_monitor_attention_ids() {
     // The same monitor matching twice is still one monitor, now the newest.
     notifyMatch("monitor-1");
     Assert.deepEqual(
-      AIWindow.monitorAttentionIds,
+      AIWindowToolbarButtons.monitorAttentionIds,
       ["monitor-1", "monitor-2"],
       "Matching again moves the monitor to the front rather than duplicating it"
     );
 
-    const taken = AIWindow.takeMonitorAttentionIds();
+    const taken = AIWindowToolbarButtons.takeMonitorAttentionIds();
     Assert.deepEqual(
       taken,
       ["monitor-1", "monitor-2"],
       "Taking the ids returns what the panel should highlight, in order"
     );
     Assert.ok(
-      !AIWindow.hasMonitorAttention,
+      !AIWindowToolbarButtons.hasMonitorAttention,
       "Taking the ids clears the dot in the same step"
     );
     Assert.deepEqual(
-      AIWindow.monitorAttentionIds,
+      AIWindowToolbarButtons.monitorAttentionIds,
       [],
       "A second open has nothing left to highlight"
     );
@@ -314,12 +319,12 @@ add_task(async function test_monitor_attention_ignores_bad_pref() {
     try {
       Services.prefs.setStringPref(PREF_MONITOR_ATTENTION, value);
       Assert.deepEqual(
-        AIWindow.monitorAttentionIds,
+        AIWindowToolbarButtons.monitorAttentionIds,
         [],
         `${label} state reads as no matches`
       );
       Assert.ok(
-        !AIWindow.hasMonitorAttention,
+        !AIWindowToolbarButtons.hasMonitorAttention,
         `${label} state does not light the dot`
       );
     } finally {
@@ -332,7 +337,7 @@ add_task(async function test_monitor_attention_ignores_bad_pref() {
     Services.prefs.setStringPref(PREF_MONITOR_ATTENTION, "not json");
     notifyMatch("monitor-1");
     Assert.deepEqual(
-      AIWindow.monitorAttentionIds,
+      AIWindowToolbarButtons.monitorAttentionIds,
       ["monitor-1"],
       "The next match replaces state that could not be read"
     );
@@ -347,7 +352,7 @@ add_task(async function test_monitor_attention_ignores_bad_pref() {
       JSON.stringify([{ id: "monitor-1", at: Date.now() }, null, { at: 5 }])
     );
     Assert.deepEqual(
-      AIWindow.monitorAttentionIds,
+      AIWindowToolbarButtons.monitorAttentionIds,
       ["monitor-1"],
       "Malformed entries are skipped, valid ones survive"
     );
@@ -371,7 +376,7 @@ add_task(async function test_monitor_announcement_dot() {
       "Announcing the feature shows the dot"
     );
     Assert.ok(
-      AIWindow.hasMonitorAnnouncement,
+      AIWindowToolbarButtons.hasMonitorAnnouncement,
       "The dot is attributed to the announcement"
     );
     Assert.ok(
@@ -379,11 +384,11 @@ add_task(async function test_monitor_announcement_dot() {
       "No monitor matched or failed, so the announcement is the only reason"
     );
     Assert.deepEqual(
-      AIWindow.monitorAttentionIds,
+      AIWindowToolbarButtons.monitorAttentionIds,
       [],
       "The announcement is not a monitor, so there is nothing to highlight"
     );
-    AIWindow.clearMonitorAttention();
+    AIWindowToolbarButtons.clearMonitorAttention();
     Assert.ok(
       !getMonitorButton(win).hasAttribute("monitor-attention"),
       "Opening the panel answers the announcement too"
@@ -393,7 +398,7 @@ add_task(async function test_monitor_announcement_dot() {
     // is on the user branch, which outranks the default branch it writes.
     setAnnouncementRollout(true);
     Assert.ok(
-      !AIWindow.hasMonitorAnnouncement,
+      !AIWindowToolbarButtons.hasMonitorAnnouncement,
       "A dismissed announcement stays dismissed when the rollout re-applies"
     );
   } finally {
@@ -411,12 +416,12 @@ add_task(async function test_monitor_announcement_dot() {
 add_task(async function test_monitor_dismissal_does_not_mask_later_rollout() {
   try {
     Assert.ok(
-      !AIWindow.hasMonitorAnnouncement,
+      !AIWindowToolbarButtons.hasMonitorAnnouncement,
       "Nothing is being announced yet"
     );
 
     // The user opens the panel for their own reasons, well before any rollout.
-    AIWindow.clearMonitorAttention();
+    AIWindowToolbarButtons.clearMonitorAttention();
     Assert.ok(
       !Services.prefs.prefHasUserValue(PREF_MONITOR_ANNOUNCEMENT),
       "Opening the panel with nothing to announce dismisses nothing"
@@ -424,14 +429,14 @@ add_task(async function test_monitor_dismissal_does_not_mask_later_rollout() {
 
     setAnnouncementRollout(true);
     Assert.ok(
-      AIWindow.hasMonitorAnnouncement,
+      AIWindowToolbarButtons.hasMonitorAnnouncement,
       "A rollout that starts later still reaches the user"
     );
 
     // And dismissing it now does stick.
-    AIWindow.clearMonitorAttention();
+    AIWindowToolbarButtons.clearMonitorAttention();
     Assert.ok(
-      !AIWindow.hasMonitorAnnouncement,
+      !AIWindowToolbarButtons.hasMonitorAnnouncement,
       "Dismissing a running announcement still works"
     );
   } finally {
@@ -448,19 +453,22 @@ add_task(async function test_monitor_announcement_ends_with_rollout() {
   try {
     setAnnouncementRollout(true);
     notifyMatch("monitor-1");
-    Assert.ok(AIWindow.hasMonitorAnnouncement, "The rollout is announcing");
+    Assert.ok(
+      AIWindowToolbarButtons.hasMonitorAnnouncement,
+      "The rollout is announcing"
+    );
 
     setAnnouncementRollout(false);
     Assert.ok(
-      !AIWindow.hasMonitorAnnouncement,
+      !AIWindowToolbarButtons.hasMonitorAnnouncement,
       "Unenrolling ends the announcement"
     );
     Assert.ok(
-      AIWindow.hasMonitorAttention,
+      AIWindowToolbarButtons.hasMonitorAttention,
       "The match still shows the dot on its own"
     );
     Assert.deepEqual(
-      AIWindow.monitorAttentionIds,
+      AIWindowToolbarButtons.monitorAttentionIds,
       ["monitor-1"],
       "Ending the rollout does not disturb what the panel highlights"
     );
@@ -600,22 +608,64 @@ add_task(async function test_monitor_button_pref_gates() {
 });
 
 /**
+ * The gate pairs the home region with the app locale, so switching Firefox to
+ * a language the market does not cover has to take the button away again
+ * rather than leaving a button that cannot create a monitor.
+ */
+add_task(async function test_monitor_button_locale_gate() {
+  const originalAvailable = Services.locale.availableLocales;
+  const originalRequested = Services.locale.requestedLocales;
+  Services.locale.availableLocales = ["en-US", "fr"];
+
+  await SpecialPowers.pushPrefEnv({
+    set: [[SUPPORTED_REGIONS_PREF, TEST_MARKETS]],
+  });
+
+  AIWindowToolbarButtons.updateMonitorRegistration();
+  const win = await openAIWindow();
+  try {
+    Assert.ok(
+      getMonitorButton(win),
+      "Monitor button is present in a supported region and locale"
+    );
+
+    Services.locale.requestedLocales = ["fr"];
+    await TestUtils.waitForCondition(
+      () => !getMonitorButton(win),
+      "Monitor button goes away once the app locale leaves the market"
+    );
+
+    Services.locale.requestedLocales = ["en-US"];
+    await TestUtils.waitForCondition(
+      () => getMonitorButton(win),
+      "Monitor button comes back when the app locale returns to the market"
+    );
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+    await SpecialPowers.popPrefEnv();
+    Services.locale.requestedLocales = originalRequested;
+    Services.locale.availableLocales = originalAvailable;
+    AIWindowToolbarButtons.updateMonitorRegistration();
+  }
+});
+
+/**
  * The button is the toolbar surface of a feature that cannot create a monitor
  * outside its supported regions, so it follows the same region gate as the
  * /watch command and the tasks page rather than offering a dead button.
  */
 add_task(async function test_monitor_button_region_gate() {
   await SpecialPowers.pushPrefEnv({
-    set: [[SUPPORTED_REGIONS_PREF, "CA"]],
+    set: [[SUPPORTED_REGIONS_PREF, UNSUPPORTED_MARKETS]],
   });
 
-  AIWindow._updateMonitorWidgetRegistration();
+  AIWindowToolbarButtons.updateMonitorRegistration();
   const win = await openAIWindow();
   try {
     Assert.equal(
       getMonitorButton(win),
       null,
-      "Monitor button is absent when the home region is unsupported"
+      "Monitor button is absent when no market covers the home region"
     );
     Assert.ok(
       !CustomizableUI.getUnusedWidgets(win.gNavToolbox.palette).some(
@@ -636,7 +686,7 @@ add_task(async function test_monitor_button_region_gate() {
 add_task(async function test_monitor_button_appears_when_region_arrives() {
   const originalRegion = Region.home;
   Region._setHomeRegion("", false);
-  AIWindow._updateMonitorWidgetRegistration();
+  AIWindowToolbarButtons.updateMonitorRegistration();
   const win = await openAIWindow();
   try {
     Assert.equal(
@@ -645,7 +695,7 @@ add_task(async function test_monitor_button_appears_when_region_arrives() {
       "No button while the home region is still unknown"
     );
 
-    // _setHomeRegion notifies browser-region-updated, which AIWindow observes.
+    // _setHomeRegion notifies browser-region-updated, which AIWindowToolbarButtons observes.
     Region._setHomeRegion(TEST_REGION);
     Assert.ok(
       getMonitorButton(win),
@@ -653,7 +703,7 @@ add_task(async function test_monitor_button_appears_when_region_arrives() {
     );
   } finally {
     Region._setHomeRegion(originalRegion, false);
-    AIWindow._updateMonitorWidgetRegistration();
+    AIWindowToolbarButtons.updateMonitorRegistration();
     await BrowserTestUtils.closeWindow(win);
   }
 });
@@ -671,8 +721,14 @@ add_task(async function test_monitor_button_visible_when_created_late() {
 
     // Rebuild the widget while the Smart Window is open, so onCreated is the
     // only thing deciding whether this node is hidden.
-    AIWindow._destroyMonitorWidget();
-    AIWindow._createMonitorWidget();
+    await SpecialPowers.pushPrefEnv({
+      set: [["browser.smartwindow.agent.toolbar.enabled", false]],
+    });
+    Assert.ok(
+      !getMonitorButton(win),
+      "Turning the gate off removes the button"
+    );
+    await SpecialPowers.popPrefEnv();
 
     Assert.ok(
       !getMonitorButton(win).hidden,

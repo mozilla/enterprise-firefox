@@ -35,6 +35,8 @@ import org.mozilla.fenix.home.recentsyncedtabs.RecentSyncedTab
 import org.mozilla.fenix.home.recentsyncedtabs.RecentSyncedTabState
 import org.mozilla.fenix.home.recenttabs.RecentTab
 import org.mozilla.fenix.home.recentvisits.RecentlyVisitedItem
+import org.mozilla.fenix.home.sports.MatchCard
+import org.mozilla.fenix.home.sports.SportCardErrorState
 import org.mozilla.fenix.home.topsites.AddShortcutEntryPoint
 import org.mozilla.fenix.home.topsites.AddShortcutSource
 import org.mozilla.fenix.ipprotection.ui.IPProtectionSnackbarBinding
@@ -151,6 +153,22 @@ sealed class AppAction : Action {
 
     /** Action dispatched when open in firefox action is completed. */
     data object OpenInFirefoxFinished : AppAction()
+
+    /**
+     * Action dispatched when the user adds the page they are viewing to a group.
+     *
+     * @property groupTitle The group's title, displayed to the user.
+     * @property groupId The group's id, used to navigate the user to TabsTray with the group open.
+     */
+    data class TabAddedToGroup(val groupTitle: String, val groupId: String) : AppAction()
+
+    /**
+     * Action dispatched when the user moves the page they are viewing from one group to another.
+     *
+     * @property groupTitle The group's title, displayed to the user.
+     * @property groupId The group's id, used to navigate the user to TabsTray with the group open.
+     */
+    data class TabMovedToGroup(val groupTitle: String, val groupId: String) : AppAction()
 
     /**
      * Updates whether Firefox is the default browser.
@@ -754,6 +772,44 @@ sealed class AppAction : Action {
          *   May be `null` if this information is not available.
          */
         data class UpdateEarliestTrackingDate(val date: Long?) : BlockedTrackersAction()
+    }
+
+    /** [AppAction]s related to the Wrexham widget on the homepage. */
+    sealed class SportsWidgetAction : AppAction() {
+        /**
+         * Dispatched when the Homepage Wrexham Widget feature is enabled or disabled.
+         *
+         * @property isEnabled Whether the feature is enabled.
+         */
+        data class FeatureEnabledChanged(val isEnabled: Boolean) : SportsWidgetAction()
+
+        /**
+         * Dispatched when the user shows or hides the widget on the homepage.
+         *
+         * @property isVisible Whether the widget should be shown.
+         */
+        data class VisibilityChanged(val isVisible: Boolean) : SportsWidgetAction()
+
+        /**
+         * Dispatched when new match data is available. Clears any active error.
+         *
+         * @property matchCards The new [MatchCard]s to display or empty if there is no match to show.
+         */
+        data class MatchCardsUpdated(val matchCards: List<MatchCard>) : SportsWidgetAction()
+
+        /**
+         * Dispatched when the widget error state changes.
+         *
+         * @property errorState The [SportCardErrorState] to display or null to clear it.
+         */
+        data class ErrorStateChanged(val errorState: SportCardErrorState?) : SportsWidgetAction()
+
+        /**
+         * Dispatched when the widget debug tool is shown or hidden.
+         *
+         * @property isVisible Whether the debug tool should be displayed.
+         */
+        data class DebugToolVisibilityChanged(val isVisible: Boolean) : SportsWidgetAction()
     }
 
     /**

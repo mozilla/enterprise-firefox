@@ -184,6 +184,16 @@ class Assembler : public AssemblerShared,
     }
   }
 
+  // "auipc" instructions, each followed by an I-type instruction, whose
+  // pc-relative offset to |target| is written by executableCopy once the
+  // final code address is known.
+  js::Vector<RelativePatch, 8, SystemAllocPolicy> pcRelativePatches_;
+
+  void addPcRelativePatch(BufferOffset src, void* target) {
+    enoughMemory_ &= pcRelativePatches_.append(
+        RelativePatch(src, target, RelocationKind::HARDCODED));
+  }
+
   void addLongJump(BufferOffset src, BufferOffset dst) {
     CodeLabel cl;
     cl.patchAt()->bind(src.getOffset());
@@ -511,9 +521,13 @@ class Assembler : public AssemblerShared,
   // so that it can be modified later.
   BufferOffset li_constant(Register rd, int64_t imm);
 
-  // Loads an immediate, always using 6 instructions, regardless of the value,
-  // so that it can be modified later.
+  // Loads a sign-extended 48-bit immediate, such as a pointer, always using 6
+  // instructions, regardless of the value, so that it can be modified later.
   BufferOffset li_ptr(Register rd, int64_t imm);
+
+  static constexpr bool IsLiPtrImmediate(int64_t imm) {
+    return imm == (imm << 16) >> 16;
+  }
 
   void SignExtendByte(Register rd, Register rs) {
     if (HasZbbExtension()) {

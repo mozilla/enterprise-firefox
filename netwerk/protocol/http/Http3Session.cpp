@@ -178,6 +178,9 @@ nsresult Http3Session::Init(nsHttpConnectionInfo* aConnInfo,
                          ? StaticPrefs::network_trr_fast_pto_for_http3_conn()
                          : 0;
 
+  // The outer connection of a connect-udp tunnel already paces its traffic.
+  bool pacingEnabled = !aIsTunnel;
+
   nsresult rv;
   if (mUseNSPRForIO) {
     rv = NeqoHttp3Conn::InitUseNSPRForIO(
@@ -188,7 +191,7 @@ nsresult Http3Session::Init(nsHttpConnectionInfo* aConnInfo,
         StaticPrefs::network_http_http3_max_stream_data(),
         StaticPrefs::network_http_http3_version_negotiation_enabled(),
         mConnInfo->GetWebTransport(), gHttpHandler->Http3QlogDir(), idleTimeout,
-        fastPto, getter_AddRefs(mHttp3Connection));
+        fastPto, pacingEnabled, getter_AddRefs(mHttp3Connection));
   } else {
     rv = NeqoHttp3Conn::Init(
         mSocketControl->GetHostName(), alpn, selfAddr, peerAddr,
@@ -341,6 +344,12 @@ nsresult Http3Session::SendPriorityUpdateFrame(uint64_t aStreamId,
                                           aPriorityIncremental);
 }
 
+static void ForgetStreamQueueMembership(Http3StreamBase* aStream) {
+  aStream->SetInTxQueue(false);
+  aStream->SetQueued(false);
+  aStream->SetInRxQueue(false);
+}
+
 // Shutdown the http3session and close all transactions.
 void Http3Session::Shutdown() {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
@@ -438,7 +447,7 @@ void Http3Session::Shutdown() {
       // on a new connection.
       stream->Close(NS_ERROR_NET_UNCLEAN_SHUTDOWN);
     }
-    RemoveStreamFromQueues(stream);
+    ForgetStreamQueueMembership(stream);
     if (stream->HasStreamId()) {
       mStreamIdHash.Remove(stream->StreamId());
     }
@@ -447,29 +456,42 @@ void Http3Session::Shutdown() {
 
   for (const auto& stream : mWebTransportSessions) {
     stream->Close(NS_ERROR_ABORT);
-    RemoveStreamFromQueues(stream);
+    ForgetStreamQueueMembership(stream);
     mStreamIdHash.Remove(stream->StreamId());
   }
   mWebTransportSessions.Clear();
 
   for (const auto& stream : mTunnelStreams) {
     stream->Close(NS_ERROR_ABORT);
-    RemoveStreamFromQueues(stream);
+    ForgetStreamQueueMembership(stream);
     mStreamIdHash.Remove(stream->StreamId());
   }
   mTunnelStreams.Clear();
 
   for (const auto& stream : mWebTransportStreams) {
     stream->Close(NS_ERROR_ABORT);
-    RemoveStreamFromQueues(stream);
+    ForgetStreamQueueMembership(stream);
     mStreamIdHash.Remove(stream->StreamId());
   }
 
+  // Streams that were closed above had their queue membership flags cleared
+  // instead of being removed from the queues one by one, which would be
+  // O(n^2). Only streams that are still flagged as queued were not owned by
+  // any of the lists above and still need to be closed.
   RefPtr<Http3StreamBase> stream;
   while ((stream = mQueuedStreams.PopFront())) {
+    if (!stream->Queued()) {
+      continue;
+    }
     LOG(("Close remaining stream in queue:%p", stream.get()));
     stream->SetQueued(false);
     stream->Close(NS_ERROR_ABORT);
+  }
+  while ((stream = mReadyForWrite.PopFront())) {
+    stream->SetInTxQueue(false);
+  }
+  while ((stream = mSlowConsumersReadyForRead.PopFront())) {
+    stream->SetInRxQueue(false);
   }
   mWebTransportStreams.Clear();
 }
@@ -1593,7 +1615,7 @@ void Http3Session::FinishNegotiation(ExtendedConnectKind aKind, bool aSuccess) {
 
   for (size_t i = 0; i < st.mWaiters.Length(); ++i) {
     if (st.mWaiters[i]) {
-      mReadyForWrite.Push(st.mWaiters[i]);
+      AddStreamToReadyForWrite(st.mWaiters[i]);
     }
   }
   st.mWaiters.Clear();
@@ -1626,7 +1648,7 @@ void Http3Session::ProcessPending() {
           stream.get()));
     MOZ_ASSERT(stream->Queued());
     stream->SetQueued(false);
-    mReadyForWrite.Push(stream);
+    AddStreamToReadyForWrite(stream);
   }
   MaybeResumeSend();
 }
@@ -1642,10 +1664,29 @@ static void RemoveStreamFromQueue(Http3StreamBase* aStream,
   }
 }
 
+void Http3Session::AddStreamToReadyForWrite(Http3StreamBase* aStream) {
+  // A stream is in mReadyForWrite at most once. IsInTxQueue() tracks the
+  // membership, which lets RemoveStreamFromQueues skip the linear scan for
+  // streams that are not in the queue.
+  if (aStream->IsInTxQueue()) {
+    return;
+  }
+  mReadyForWrite.Push(aStream);
+  aStream->SetInTxQueue(true);
+}
+
 void Http3Session::RemoveStreamFromQueues(Http3StreamBase* aStream) {
-  RemoveStreamFromQueue(aStream, mReadyForWrite);
-  RemoveStreamFromQueue(aStream, mQueuedStreams);
-  mSlowConsumersReadyForRead.RemoveElement(aStream);
+  // The queues are only scanned when the stream is actually in them.
+  if (aStream->IsInTxQueue()) {
+    RemoveStreamFromQueue(aStream, mReadyForWrite);
+  }
+  if (aStream->Queued()) {
+    RemoveStreamFromQueue(aStream, mQueuedStreams);
+  }
+  if (aStream->IsInRxQueue()) {
+    RemoveStreamFromQueue(aStream, mSlowConsumersReadyForRead);
+  }
+  ForgetStreamQueueMembership(aStream);
 }
 
 // This is called by Http3Stream::OnReadSegment.
@@ -2141,8 +2182,7 @@ nsresult Http3Session::SendData(nsIUDPSocket* socket) {
 
   // Put the blocked streams back to the queue, since they are ready to write.
   for (const auto& stream : blockedStreams) {
-    mReadyForWrite.Push(stream);
-    stream->SetInTxQueue(true);
+    AddStreamToReadyForWrite(stream);
   }
 
   rv = ProcessEvents();
@@ -2164,8 +2204,7 @@ void Http3Session::StreamReadyToWrite(Http3StreamBase* aStream) {
     return;
   }
 
-  mReadyForWrite.Push(aStream);
-  aStream->SetInTxQueue(true);
+  AddStreamToReadyForWrite(aStream);
   if (CanSendData() && mConnection) {
     (void)mConnection->ResumeSend();
   }
@@ -2178,13 +2217,12 @@ void Http3Session::MaybeResumeSend() {
 }
 
 nsresult Http3Session::ProcessSlowConsumers() {
-  if (mSlowConsumersReadyForRead.IsEmpty()) {
+  RefPtr<Http3StreamBase> slowConsumer = mSlowConsumersReadyForRead.PopFront();
+  if (!slowConsumer) {
     return NS_OK;
   }
-
-  RefPtr<Http3StreamBase> slowConsumer =
-      mSlowConsumersReadyForRead.ElementAt(0);
-  mSlowConsumersReadyForRead.RemoveElementAt(0);
+  MOZ_ASSERT(slowConsumer->IsInRxQueue());
+  slowConsumer->SetInRxQueue(false);
 
   nsresult rv = ProcessTransactionRead(slowConsumer);
 
@@ -2680,7 +2718,10 @@ void Http3Session::TransactionHasDataToRecv(nsAHttpTransaction* caller) {
 void Http3Session::ConnectSlowConsumer(Http3StreamBase* stream) {
   LOG3(("Http3Session::ConnectSlowConsumer %p 0x%" PRIx64 "\n", this,
         stream->StreamId()));
-  mSlowConsumersReadyForRead.AppendElement(stream);
+  if (!stream->IsInRxQueue()) {
+    mSlowConsumersReadyForRead.Push(stream);
+    stream->SetInRxQueue(true);
+  }
   (void)ForceRecv();
 }
 
@@ -3044,9 +3085,6 @@ void Http3Session::CloseConnectionTelemetry(CloseError& aError, bool aClosing) {
   mHttp3Connection->GetStats(&stats);
 
   if (stats.packets_tx > 0) {
-    unsigned long loss = (stats.lost * 10000) / stats.packets_tx;
-    glean::http3::loss_ratio.AccumulateSingleSample(loss);
-
     glean::http3::late_ack.EnumGet(glean::http3::LateAckLabel::eAck)
         .AccumulateSingleSample(stats.late_ack);
     glean::http3::late_ack.EnumGet(glean::http3::LateAckLabel::ePto)
@@ -3111,14 +3149,14 @@ void Http3Session::Finish0Rtt(bool aRestart) {
       }
       RemoveStreamFromQueues(stream);
       // The stream is ready to write again.
-      mReadyForWrite.Push(stream);
+      AddStreamToReadyForWrite(stream);
     }
     stream->Finish0RTT(aRestart);
   }
 
   for (size_t i = 0; i < mCannotDo0RTTStreams.Length(); ++i) {
     if (mCannotDo0RTTStreams[i]) {
-      mReadyForWrite.Push(mCannotDo0RTTStreams[i]);
+      AddStreamToReadyForWrite(mCannotDo0RTTStreams[i]);
     }
   }
   mCannotDo0RTTStreams.Clear();
@@ -3402,6 +3440,9 @@ already_AddRefed<HttpConnectionUDP> Http3Session::CreateTunnelStream(
 
   RefPtr<HttpConnectionUDP> conn =
       stream->GetHttp3ConnectUDPStream()->CreateUDPConnection(aCallbacks);
+  if (conn) {
+    conn->SetTunnelOverHttp3();
+  }
   return conn.forget();
 }
 

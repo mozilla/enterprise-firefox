@@ -876,6 +876,10 @@ nsresult HTMLInputElement::InitColorPicker() {
   // GeckoView to handle MozOpenColorPicker and let it keep using its current
   // picker, but for now this is ok.
 #ifndef ANDROID
+  if (EyeDropper()) {
+    OpenEyeDropper();
+    return NS_OK;
+  }
   if (StaticPrefs::dom_forms_html_color_picker_enabled()) {
     OpenColorPicker();
     return NS_OK;
@@ -1629,6 +1633,13 @@ bool HTMLInputElement::Alpha() const {
     return false;
   }
   return HasAttr(nsGkAtoms::alpha);
+}
+
+bool HTMLInputElement::EyeDropper() const {
+  if (!StaticPrefs::dom_input_color_eyedropper_enabled()) {
+    return false;
+  }
+  return HasAttr(nsGkAtoms::eyedropper);
 }
 
 void HTMLInputElement::GetAutocomplete(nsAString& aValue) {
@@ -2509,6 +2520,15 @@ void HTMLInputElement::OpenColorPicker() {
     return;
   }
   nsContentUtils::DispatchChromeEvent(this, u"MozOpenColorPicker"_ns,
+                                      CanBubble::eYes, Cancelable::eYes);
+}
+
+void HTMLInputElement::OpenEyeDropper() {
+  if (NS_WARN_IF(mType != FormControlType::InputColor)) {
+    return;
+  }
+  MOZ_ASSERT(StaticPrefs::dom_input_color_eyedropper_enabled());
+  nsContentUtils::DispatchChromeEvent(this, u"MozOpenEyeDropper"_ns,
                                       CanBubble::eYes, Cancelable::eYes);
 }
 
@@ -3890,13 +3910,20 @@ nsresult HTMLInputElement::PostHandleEvent(EventChainPostVisitor& aVisitor) {
 
   bool preventDefault =
       aVisitor.mEventStatus == nsEventStatus_eConsumeNoDefault;
-  if (IsDisabled() && oldType != FormControlType::InputCheckbox &&
-      oldType != FormControlType::InputRadio) {
-    // Behave as if defaultPrevented when the element becomes disabled by event
-    // listeners. Checkboxes and radio buttons should still process clicks for
-    // web compat. See:
-    // https://html.spec.whatwg.org/multipage/input.html#the-input-element:activation-behaviour
-    preventDefault = true;
+  if (IsDisabled()) {
+    if (oldType != FormControlType::InputCheckbox &&
+        oldType != FormControlType::InputRadio) {
+      // Behave as if defaultPrevented when the element becomes disabled by
+      // event listeners. Checkboxes and radio buttons should still process
+      // clicks for web compat. See:
+      // https://html.spec.whatwg.org/multipage/input.html#the-input-element:activation-behaviour
+      preventDefault = true;
+    }
+    if (StaticPrefs::dom_forms_retain_focus_on_disabled_enabled() &&
+        aVisitor.mEvent->AsKeyboardEvent()) {
+      UnsetFlags(HTML_ELEMENT_ACTIVE_FOR_KEYBOARD);
+      preventDefault = true;
+    }
   }
 
   if (NS_SUCCEEDED(rv)) {

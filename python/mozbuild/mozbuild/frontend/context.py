@@ -390,6 +390,11 @@ class HostCompileFlags(BaseCompileFlags):
                 context.config.substs.get("WARNINGS_HOST_CXXFLAGS"),
                 ("HOST_CXXFLAGS",),
             ),
+            (
+                "NSPR",
+                context.config.substs.get("NSPR_CFLAGS"),
+                ("HOST_CFLAGS", "HOST_CXXFLAGS"),
+            ),
         )
         BaseCompileFlags.__init__(self, context)
 
@@ -449,6 +454,7 @@ class LinkFlags(BaseCompileFlags):
         self._context = context
 
         self.flag_variables = (
+            ("LTO", context.config.substs.get("MOZ_LTO_LDFLAGS"), ("LDFLAGS",)),
             ("OS", self._os_ldflags(), ("LDFLAGS",)),
             (
                 "MOZ_HARDENING_LDFLAGS",
@@ -480,6 +486,7 @@ class LinkFlags(BaseCompileFlags):
                 ),
                 ("LDFLAGS",),
             ),
+            ("PGO", self._pgo_ldflags(), ("LDFLAGS",)),
             (
                 "WIN32_EXE_DEFAULT",
                 context.config.substs.get("WIN32_EXE_DEFAULT_LDFLAGS"),
@@ -502,6 +509,14 @@ class LinkFlags(BaseCompileFlags):
             ),
         )
         BaseCompileFlags.__init__(self, context)
+
+    def _pgo_ldflags(self):
+        substs = self._context.config.substs
+        if substs.get("MOZ_PROFILE_GENERATE"):
+            return substs.get("PROFILE_GEN_LDFLAGS") or []
+        if substs.get("MOZ_PROFILE_USE"):
+            return substs.get("PROFILE_USE_LDFLAGS") or []
+        return []
 
     def _os_ldflags(self):
         flags = self._context.config.substs.get("OS_LDFLAGS", [])[:]
@@ -577,6 +592,11 @@ class CompileFlags(TargetCompileFlags):
         self._context = context
 
         self.flag_variables = (
+            (
+                "LTO",
+                context.config.substs.get("MOZ_LTO_CFLAGS"),
+                ("CXXFLAGS", "CFLAGS", "CMFLAGS", "CMMFLAGS"),
+            ),
             ("STL", context.config.substs.get("STL_FLAGS"), ("CXXFLAGS",)),
             (
                 "STL_HARDENING",
@@ -668,8 +688,8 @@ class CompileFlags(TargetCompileFlags):
                 ("CFLAGS", "CXXFLAGS", "CXX_LDFLAGS", "C_LDFLAGS"),
             ),
             (
-                "CLANG_PLUGIN",
-                context.config.substs.get("CLANG_PLUGIN_FLAGS"),
+                "COMPILER_PLUGIN",
+                context.config.substs.get("COMPILER_PLUGIN_FLAGS"),
                 ("CFLAGS", "CXXFLAGS", "CXX_LDFLAGS", "C_LDFLAGS"),
             ),
             (
@@ -733,9 +753,24 @@ class CompileFlags(TargetCompileFlags):
                 + ["-ffp-contract=off"],
                 ("CXXFLAGS", "CFLAGS"),
             ),
+            ("PGO_DEFINES", self._pgo_defines(), ("CXXFLAGS", "CFLAGS")),
+            ("PGO", self._pgo_flags(), ("PGO_CFLAGS",)),
         )
 
         TargetCompileFlags.__init__(self, context)
+
+    def _pgo_defines(self):
+        if self._context.config.substs.get("MOZ_PROFILE_GENERATE"):
+            return ["-DNS_FREE_PERMANENT_DATA=1"]
+        return []
+
+    def _pgo_flags(self):
+        substs = self._context.config.substs
+        if substs.get("MOZ_PROFILE_GENERATE"):
+            return substs.get("PROFILE_GEN_CFLAGS") or []
+        if substs.get("MOZ_PROFILE_USE"):
+            return substs.get("PROFILE_USE_CFLAGS") or []
+        return []
 
 
 class WasmFlags(TargetCompileFlags):
@@ -758,8 +793,8 @@ class WasmFlags(TargetCompileFlags):
             ),
             ("DEBUG", self._debug_flags(), ("WASM_CFLAGS", "WASM_CXXFLAGS")),
             (
-                "CLANG_PLUGIN",
-                context.config.substs.get("CLANG_PLUGIN_FLAGS"),
+                "COMPILER_PLUGIN",
+                context.config.substs.get("COMPILER_PLUGIN_FLAGS"),
                 ("WASM_CFLAGS", "WASM_CXXFLAGS"),
             ),
             ("OPTIMIZE", self._optimize_flags(), ("WASM_CFLAGS", "WASM_CXXFLAGS")),
@@ -790,6 +825,7 @@ class WasmFlags(TargetCompileFlags):
                 ("WASM_CFLAGS", "WASM_CXXFLAGS"),
             ),
             ("STL", context.config.substs.get("STL_FLAGS"), ("WASM_CXXFLAGS",)),
+            ("LINK", self._link_flags(), ("WASM_LDFLAGS",)),
         )
 
         TargetCompileFlags.__init__(self, context)
@@ -799,6 +835,17 @@ class WasmFlags(TargetCompileFlags):
         if substs.get("MOZ_DEBUG") or substs.get("MOZ_DEBUG_SYMBOLS"):
             return ["-g"]
         return []
+
+    def _link_flags(self):
+        optimize = self._context.config.substs.get("MOZ_OPTIMIZE")
+        return [
+            "-Wl,--export-all",
+            "-Wl,--stack-first",
+            f"-Wl,-z,stack-size={262144 if optimize else 1048576}",
+            "-Wl,--no-entry",
+            "-Wl,--import-memory",
+            "-Wl,--import-table",
+        ]
 
     def _optimize_flags(self):
         if not self._context.config.substs.get("MOZ_OPTIMIZE"):
@@ -2938,6 +2985,16 @@ VARIABLES = {
            at link time (sectcreate inputs, response files, version
            scripts) so backends can declare them as prerequisites of the
            link target.
+        """,
+    ),
+    "IS_COMPILER_PLUGIN": (
+        bool,
+        bool,
+        """Whether the host shared library of this directory is a compiler
+           plugin.
+
+           Compiles with flags in the ``COMPILER_PLUGIN`` category of
+           ``COMPILE_FLAGS`` or ``WASM_FLAGS`` are ordered after the library.
         """,
     ),
     "EXTRA_DSO_LDOPTS": (

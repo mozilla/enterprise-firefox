@@ -3424,7 +3424,8 @@ bool HttpBaseChannel::ShouldFilterOpaqueResponse(
   }
 
   auto contentPolicy = mLoadInfo->InternalContentPolicyType();
-  if (contentPolicy == nsIContentPolicy::TYPE_PING) {
+  if (contentPolicy == nsIContentPolicy::TYPE_PING ||
+      contentPolicy == nsIContentPolicy::TYPE_BEACON) {
     return true;
   }
 
@@ -3607,7 +3608,7 @@ HttpBaseChannel::PerformOpaqueResponseSafelistCheckBeforeSniff() {
     return OpaqueResponse::Allow;
   }
 
-  // Filter opaque ping responses in the parent regardless of prefs, and opaque
+  // Filter opaque ping and beacon responses regardless of prefs, and opaque
   // fetch responses when 'browser.opaqueResponseBlocking.filterFetchResponse'
   // is `OpaqueResponseFilterFetch::All`, so their bodies don't reach content
   // processes. See
@@ -5508,7 +5509,7 @@ nsresult HttpBaseChannel::SetupReplacementChannel(nsIURI* newURI,
   nsCOMPtr<nsIWritablePropertyBag> bag(do_QueryInterface(newChannel));
   if (bag) {
     for (const auto& entry : mPropertyHash) {
-      bag->SetProperty(entry.GetKey(), entry.GetWeak());
+      bag->SetProperty(entry.GetKey(), entry.GetRawPtr());
     }
   }
 
@@ -6893,12 +6894,15 @@ void HttpBaseChannel::SetConnectionInfo(nsHttpConnectionInfo* aCI) {
 
 NS_IMETHODIMP
 HttpBaseChannel::GetIsProxyUsed(bool* aIsProxyUsed) {
-  if (mProxyInfo) {
-    if (!static_cast<nsProxyInfo*>(mProxyInfo.get())->IsDirect()) {
-      StoreIsProxyUsed(true);
-    }
-  }
-  *aIsProxyUsed = LoadIsProxyUsed();
+  nsIHttpChannelInternal::ProxyType type;
+  (void)GetProxyType(&type);
+  *aIsProxyUsed = type != nsIHttpChannelInternal::PROXY_TYPE_DIRECT;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+HttpBaseChannel::GetProxyType(nsIHttpChannelInternal::ProxyType* aProxyType) {
+  *aProxyType = mProxyType.valueOr(nsIHttpChannelInternal::PROXY_TYPE_DIRECT);
   return NS_OK;
 }
 

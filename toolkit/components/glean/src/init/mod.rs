@@ -157,7 +157,11 @@ fn build_configuration(
     let application_id = if app_id_override.is_empty() {
         let app_id_guard = super::APP_ID.read().unwrap();
         if app_id_guard.is_empty() {
-            "firefox.desktop".to_string()
+            if mozbuild::config::MOZ_ENTERPRISE {
+                "firefox.enterprise.desktop".to_string()
+            } else {
+                "firefox.desktop".to_string()
+            }
         } else {
             app_id_guard.clone()
         }
@@ -190,7 +194,7 @@ fn build_configuration(
     let acceleration_factor = if static_prefs::pref!("telemetry.fog.test.decelerate_early_events") {
         0
     } else {
-        5
+        7 // (bug 2064404): Temporarily elevated until bug 2087139.
     };
 
     let builder = ConfigurationBuilder::new(false, data_path, application_id)

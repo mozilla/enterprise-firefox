@@ -16,10 +16,8 @@ const lazy = XPCOMUtils.declareLazy({
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
   log: () =>
     console.createInstance({
-      prefix: "FxaAuthProviderImpl",
-      maxLogLevel: Services.prefs.getBoolPref("browser.smartwindow.log", false)
-        ? "Debug"
-        : "Warn",
+      logModule: "FxaAuthProviderImpl",
+      maxLogLevelPref: "browser.smartwindow.auth.logLevel",
     }),
 });
 

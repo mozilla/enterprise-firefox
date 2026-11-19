@@ -24,7 +24,6 @@
 )]
 
 
-pub extern crate crossbeam_channel;
 pub extern crate euclid;
 
 extern crate app_units;
@@ -88,6 +87,8 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::os::raw::c_void;
 use peek_poke::PeekPoke;
+
+pub(crate) type FastHashMap<K, V> = rustc_hash::FxHashMap<K, V>;
 
 /// Defined here for cbindgen
 pub const MAX_RENDER_TASK_SIZE: i32 = 16384;
@@ -843,6 +844,10 @@ bitflags! {
         /// incorrect after the flag is cleared until they are invalidated.
         /// Useful to benchmark frame building on its own.
         const SKIP_RENDERING = (1 as u64) << 38;
+        /// Don't fill solid color primitives clipped by a path directly in
+        /// their destination target. They go through an intermediate target
+        /// and a path clip mask instead.
+        const DISABLE_DIRECT_PATH_FILL = (1 as u64) << 39;
     }
 }
 

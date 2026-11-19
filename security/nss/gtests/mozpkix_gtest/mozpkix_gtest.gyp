@@ -12,6 +12,7 @@
       'type': 'executable',
       'sources': [
         '<(DEPTH)/gtests/common/gtests.cc',
+        '<(DEPTH)/gtests/common/json_reader.cc',
         'pkixbuild_tests.cpp',
         'pkixc_tests.cpp',
         'pkixcert_extension_tests.cpp',
@@ -27,6 +28,7 @@
         'pkixder_pki_types_tests.cpp',
         'pkixder_universal_types_tests.cpp',
         'pkixgtest.cpp',
+        'pkixmldsa_tests.cpp',
         'pkixnames_tests.cpp',
         'pkixnss_tests.cpp',
         'pkixocsp_CreateEncodedOCSPRequest_tests.cpp',
@@ -36,7 +38,6 @@
         '<(DEPTH)/exports.gyp:nss_exports',
         '<(DEPTH)/gtests/google_test/google_test.gyp:gtest',
         '<(DEPTH)/lib/util/util.gyp:nssutil',
-        '<(DEPTH)/lib/ssl/ssl.gyp:ssl',
         '<(DEPTH)/lib/nss/nss.gyp:nss_static',
         '<(DEPTH)/lib/pk11wrap/pk11wrap.gyp:pk11wrap_static',
         '<(DEPTH)/lib/cryptohi/cryptohi.gyp:cryptohi',
@@ -59,6 +60,12 @@
         [ 'OS=="win"', {
           'libraries': [
             'advapi32.lib',
+          ],
+        }, {
+          # mozpkix is built without RTTI, so UBSan's vptr check can't find
+          # typeinfo for its classes, such as TrustDomain::IssuerChecker.
+          'cflags_cc': [
+            '-fno-sanitize=vptr',
           ],
         }],
       ],

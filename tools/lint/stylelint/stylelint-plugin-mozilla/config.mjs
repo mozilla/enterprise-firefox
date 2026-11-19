@@ -323,6 +323,7 @@ const BorderStyle = {
     "none",
     "hidden",
   ],
+  allowedTokens: ["--default-focusring"],
 };
 
 /** @type {PropertyTypeConfig} */
@@ -421,8 +422,12 @@ const Size = {
   allowFunctions: ["max"],
   tokenTypes: ["size", "icon-size"],
   allowUnits: true,
+  allowedTokens: [
+    "--downloads-item-height",
+    "--menu-panel-width-wide",
+    "--panel-and-palette-icon-size",
+  ],
   allowedUnits: ["%", "ch", "em", "vh", "vw"],
-  allowedTokens: ["--downloads-item-height"],
   customFixes: {
     ...createRawValuesObject(["size", "icon-size"]),
     "0.75rem": "var(--size-item-xsmall)",
@@ -459,6 +464,36 @@ const Stroke = {
     "outline",
   ],
   customFixes: customColorFixes,
+};
+
+/**
+ * Every property type, keyed by the name the generated docs page uses for it.
+ *
+ * @type {Record<string, PropertyTypeConfig>}
+ */
+export const propertyTypes = {
+  BackgroundColor,
+  BackgroundAttachment,
+  BackgroundImage,
+  BackgroundPosition,
+  BackgroundSize,
+  BackgroundRepeat,
+  BackgroundClip,
+  BoxShadow,
+  Fill,
+  FontSize,
+  FontWeight,
+  BorderColor,
+  BorderStyle,
+  BorderWidth,
+  BorderRadius,
+  FlexBasis,
+  FlexShorthand,
+  Opacity,
+  TextColor,
+  Space,
+  Size,
+  Stroke,
 };
 
 /**

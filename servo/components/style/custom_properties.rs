@@ -737,6 +737,7 @@ pub fn handle_invalid_at_computed_value_time(
 pub fn substitute_references_if_needed_and_apply(
     name: &Name,
     kind: SubstitutionFunctionKind,
+    property_id: PropertyIdRef,
     value: &Arc<VariableValue>,
     stylist: &Stylist,
     context: &mut computed::Context,
@@ -757,11 +758,12 @@ pub fn substitute_references_if_needed_and_apply(
 
     let url_data = &value.url_data;
     let substitution = SubstitutionReplacementContext::new(
-        Some(PropertyIdRef::from(name)),
+        Some(property_id),
         &context.builder.substitution_functions,
         stylist,
         context,
         attribute_tracker,
+        url_data,
     )
     .substitute_variable_value(value, None);
 
@@ -832,18 +834,14 @@ pub fn substitute_references_if_needed_and_apply(
 
     match kind {
         SubstitutionFunctionKind::Var => {
-            let value = match substitution.into_value(
-                url_data,
-                registration,
-                context,
-                Some(PropertyIdRef::from(name)),
-            ) {
-                Ok(v) => v,
-                Err(()) => {
-                    handle_invalid_at_computed_value_time(name, registration, context);
-                    return;
-                },
-            };
+            let value =
+                match substitution.into_value(url_data, registration, context, Some(property_id)) {
+                    Ok(v) => v,
+                    Err(()) => {
+                        handle_invalid_at_computed_value_time(name, registration, context);
+                        return;
+                    },
+                };
             context
                 .builder
                 .substitution_functions
@@ -862,7 +860,12 @@ pub fn substitute_references_if_needed_and_apply(
                 .substitution_functions
                 .insert_attr(name, value);
         },
-        SubstitutionFunctionKind::Env => unreachable!("Kind cannot be env."),
+        SubstitutionFunctionKind::Env
+        | SubstitutionFunctionKind::Ident
+        | SubstitutionFunctionKind::Inherit
+        | SubstitutionFunctionKind::RandomItem => {
+            unreachable!("Kind must be `var` or `attr`.")
+        },
     }
 }
 

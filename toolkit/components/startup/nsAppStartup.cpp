@@ -898,6 +898,17 @@ nsAppStartup::GetAutomaticSafeModeNecessary(bool* _retval) {
 #endif
   }
 
+#if defined(MOZ_ENTERPRISE)
+  // Felt passes the console-managed DisableSafeMode policy in the environment,
+  // see IsSafeModeRequested. If set, it always prevents safe mode, even with
+  // kPrefAlwaysUseSafeMode.
+  const char* enterprisePolicyDisableSafeMode =
+      PR_GetEnv("MOZ_ENTERPRISE_DISABLE_SAFE_MODE");
+  if (enterprisePolicyDisableSafeMode && *enterprisePolicyDisableSafeMode) {
+    mIsSafeModeNecessary = false;
+  }
+#endif
+
   *_retval = mIsSafeModeNecessary;
   return NS_OK;
 }

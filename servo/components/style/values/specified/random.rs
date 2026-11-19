@@ -20,6 +20,16 @@ use style_traits::values::SequenceWriter;
 use style_traits::values::specified::AllowedNumericType;
 use style_traits::{CssWriter, ParseError, StyleParseErrorKind, ToCss};
 
+/// The type of random function, used to track function indexes independently.
+/// See: https://github.com/w3c/csswg-drafts/issues/14330
+#[derive(Copy, Clone, Debug)]
+pub enum RandomFunctionKind {
+    /// A `random()` function.
+    Random,
+    /// A `random-item()` function.
+    RandomItem,
+}
+
 /// The <random-ua-ident> part of a <random-cache-key>. This is a <custom-ident>
 /// starting with `ua-` that is typically automatically constructed by the user agent.
 ///
@@ -29,8 +39,8 @@ use style_traits::{CssWriter, ParseError, StyleParseErrorKind, ToCss};
 pub struct RandomUaIdent(CustomIdent);
 
 impl RandomUaIdent {
-    fn ua_prefixed(property_id: PropertyIdRef) -> String {
-        let mut ua_ident = "ua-".to_string();
+    fn ua_prefixed(property_id: PropertyIdRef, is_early: bool) -> String {
+        let mut ua_ident = (if is_early { "ua-early-" } else { "ua-" }).to_string();
         match property_id {
             PropertyIdRef::NonCustom(non_custom) => {
                 ua_ident += non_custom.name();
@@ -51,15 +61,16 @@ impl RandomUaIdent {
     }
 
     /// Builds the `ua-PROPERTY` ident used to replace `property-scoped`.
-    pub fn from_property(property_id: PropertyIdRef) -> Self {
-        Self(CustomIdent(Atom::from(Self::ua_prefixed(property_id))))
+    pub fn from_property(property_id: PropertyIdRef, is_early: bool) -> Self {
+        let ua_ident = Self::ua_prefixed(property_id, is_early);
+        Self(CustomIdent(Atom::from(ua_ident)))
     }
 
     /// Builds the `ua-PROPERTY-INDEX` ident used to replace `property-index-scoped`,
     /// where `index` is the 1-based index of this random function among all of the
     /// random functions in the declaration.
-    pub fn from_property_and_index(property_id: PropertyIdRef, index: i32) -> Self {
-        let mut ua_ident = Self::ua_prefixed(property_id);
+    pub fn from_property_and_index(property_id: PropertyIdRef, index: i32, is_early: bool) -> Self {
+        let mut ua_ident = Self::ua_prefixed(property_id, is_early);
         write!(ua_ident, "-{index}").unwrap();
         Self(CustomIdent(Atom::from(ua_ident)))
     }
@@ -73,25 +84,34 @@ impl RandomUaIdent {
     pub fn is_empty(&self) -> bool {
         self.0.0 == atom!("")
     }
-}
 
-impl Parse for RandomUaIdent {
-    fn parse(context: &ParserContext, input: &mut Parser) -> Result<Self, ParseError> {
+    /// Parses a <random-ua-ident> for a random function at `index` in the declaration.
+    pub fn parse(
+        context: &ParserContext,
+        input: &mut Parser,
+        index: i32,
+    ) -> Result<Self, ParseError> {
         let ident = input.expect_ident()?;
 
         if ident.eq_ignore_ascii_case("property-scoped") {
             let Some(property_id) = context.property_declaration_context.property_id() else {
                 return Err(ParseError::custom(StyleParseErrorKind::UnspecifiedError));
             };
-            return Ok(RandomUaIdent::from_property(property_id));
+            return Ok(RandomUaIdent::from_property(
+                property_id,
+                context.parsing_mode.is_early_substitution(),
+            ));
         }
 
         if ident.eq_ignore_ascii_case("property-index-scoped") {
             let Some(property_id) = context.property_declaration_context.property_id() else {
                 return Err(ParseError::custom(StyleParseErrorKind::UnspecifiedError));
             };
-            let index = context.property_declaration_context.current_random_index();
-            return Ok(RandomUaIdent::from_property_and_index(property_id, index));
+            return Ok(RandomUaIdent::from_property_and_index(
+                property_id,
+                index,
+                context.parsing_mode.is_early_substitution(),
+            ));
         }
 
         if !ident.starts_with("ua-") {
@@ -116,8 +136,13 @@ pub struct RandomCacheKey {
     pub is_element_scoped: bool,
 }
 
-impl Parse for RandomCacheKey {
-    fn parse(context: &ParserContext, input: &mut Parser) -> Result<Self, ParseError> {
+impl RandomCacheKey {
+    /// Parses a <random-cache-key> for a random function at `index` in the declaration.
+    pub fn parse(
+        context: &ParserContext,
+        input: &mut Parser,
+        index: i32,
+    ) -> Result<Self, ParseError> {
         let mut key = RandomCacheKey {
             name: DashedIdent::empty(),
             ua_ident: RandomUaIdent::empty(),
@@ -146,7 +171,8 @@ impl Parse for RandomCacheKey {
             }
 
             if key.ua_ident.is_empty()
-                && let Ok(ua_ident) = input.try_parse(|input| RandomUaIdent::parse(context, input))
+                && let Ok(ua_ident) =
+                    input.try_parse(|input| RandomUaIdent::parse(context, input, index))
             {
                 key.ua_ident = ua_ident;
                 continue;
@@ -202,7 +228,7 @@ pub enum RandomKey {
 impl RandomKey {
     /// The result of the `auto` value (the default value of an omitted `<random-key>`),
     /// which is equivalent to specifying `element-scoped property-index-scoped`.
-    pub fn auto(context: &ParserContext) -> Result<Self, ParseError> {
+    fn auto(context: &ParserContext, index: i32) -> Result<Self, ParseError> {
         if !context.has_element_context() {
             return Err(ParseError::custom(StyleParseErrorKind::UnspecifiedError));
         }
@@ -210,25 +236,46 @@ impl RandomKey {
         let Some(property_id) = context.property_declaration_context.property_id() else {
             return Err(ParseError::custom(StyleParseErrorKind::UnspecifiedError));
         };
-        let index = context.property_declaration_context.current_random_index();
 
         Ok(Self::CacheKey(RandomCacheKey {
             name: DashedIdent::empty(),
-            ua_ident: RandomUaIdent::from_property_and_index(property_id, index),
+            ua_ident: RandomUaIdent::from_property_and_index(
+                property_id,
+                index,
+                context.parsing_mode.is_early_substitution(),
+            ),
             is_element_scoped: true,
         }))
     }
-}
 
-impl Parse for RandomKey {
-    fn parse(context: &ParserContext, input: &mut Parser) -> Result<Self, ParseError> {
-        if let Ok(key) = input.try_parse(|input| RandomCacheKey::parse(context, input)) {
+    /// Parses an optional <random-key> for the random function at `index` in the declaration,
+    /// falling back to `auto` if it is omitted.
+    pub fn parse_optional(
+        context: &ParserContext,
+        input: &mut Parser,
+        index: i32,
+    ) -> Result<Self, ParseError> {
+        let explicit = input.try_parse(|input| -> Result<Self, ParseError> {
+            let key = Self::parse(context, input, index)?;
+            input.expect_comma()?;
+            Ok(key)
+        });
+        explicit.or_else(|_| Self::auto(context, index))
+    }
+
+    /// Parses a <random-key> for the random function at `index` in the declaration.
+    pub fn parse(
+        context: &ParserContext,
+        input: &mut Parser,
+        index: i32,
+    ) -> Result<Self, ParseError> {
+        if let Ok(key) = input.try_parse(|input| RandomCacheKey::parse(context, input, index)) {
             return Ok(Self::CacheKey(key));
         }
 
         let ident = input.expect_ident()?;
         match_ignore_ascii_case! { &ident,
-            "auto" => Self::auto(context),
+            "auto" => Self::auto(context, index),
             "fixed" => {
                 let fixed = parse_number_with_clamping_mode(
                     context,

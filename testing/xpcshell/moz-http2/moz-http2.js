@@ -201,15 +201,6 @@ moreData.prototype = {
   },
 };
 
-var resetLater = function () {};
-resetLater.prototype = {
-  resp: null,
-
-  onTimeout: function onTimeout() {
-    this.resp.stream.reset("HTTP_1_1_REQUIRED");
-  },
-};
-
 function executeRunLater(arg) {
   arg.onTimeout();
 }
@@ -404,17 +395,6 @@ function handleRequestImpl(req, res) {
       return;
     }
     res.setHeader("X-H11Required-Stream-Ok", h11required_header);
-  } else if (u.pathname === "/h11required_with_content") {
-    if (req.httpVersionMajor === 2) {
-      res.setHeader("Content-Type", "text/plain");
-      res.setHeader("Content-Length", "ok".length);
-      res.writeHead(200);
-      res.write("ok");
-      let resetFunc = new resetLater();
-      resetFunc.resp = res;
-      setTimeout(executeRunLater, 1, resetFunc);
-      return;
-    }
   } else if (u.pathname === "/rstonce") {
     if (!didRst && req.httpVersionMajor === 2) {
       didRst = true;
@@ -519,11 +499,6 @@ function handleRequestImpl(req, res) {
     }
   }
 
-  // for use with test_altsvc.js
-  else if (u.pathname === "/altsvc-test") {
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Alt-Svc", "h2=" + req.headers["x-altsvc"]);
-  }
   // for use with test_http3.js
   else if (u.pathname === "/http3-test") {
     res.setHeader("Cache-Control", "no-cache");

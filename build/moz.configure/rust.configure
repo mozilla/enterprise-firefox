@@ -693,6 +693,20 @@ set_config("CARGO_PROFILE_RELEASE_OPT_LEVEL", rustc_opt_level)
 set_config("CARGO_PROFILE_DEV_OPT_LEVEL", rustc_opt_level)
 
 
+@depends_if(cargo_info)
+def cargo_build_override_trim_paths(cargo_info):
+    if cargo_info.version >= "1.102":
+        return "all"
+
+
+set_config(
+    "CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_TRIM_PATHS", cargo_build_override_trim_paths
+)
+set_config(
+    "CARGO_PROFILE_DEV_BUILD_OVERRIDE_TRIM_PATHS", cargo_build_override_trim_paths
+)
+
+
 @depends(
     rustc_opt_level,
     debug_rust,
@@ -1083,7 +1097,7 @@ def rustflags_target_common(
     # but we're not using a thumbv7neon target, where it's already the default.
     # (CPUs with neon have 32 FPU registers available)
     if fpu == "neon" and not rust_target.startswith("thumbv7neon-"):
-        flags += ["-C", "target_feature=+neon,-d16"]
+        flags += ["-C", "target_feature=+neon,+d32"]
     if tsan:
         flags.append("-Zsanitizer=thread")
     # We need -Cembed-bitcode=yes for all crates when using -Clto.
@@ -1246,30 +1260,8 @@ def cargo_compiler(compiler):
     return depends_if(compiler)(lambda c: list(c.wrapper) + [c.compiler])
 
 
-# Replace "clang-cl.exe" by "clang.exe --driver-mode=cl" to avoid loading the
-# module clang.exe again when loading the plugin dll, which links to the import
-# library of clang.exe.
-@template
-def cargo_target_compiler(compiler):
-    @depends(cargo_compiler(compiler), target, "--enable-clang-plugin")
-    @imports("re")
-    def cargo_target_compiler(command, target, clang_plugin):
-        if not command or not clang_plugin or target.kernel != "WINNT":
-            return command
-        result = []
-        for arg in command:
-            arg = re.sub(r"\.EXE$", ".exe", arg)
-            if arg.endswith("clang-cl.exe"):
-                result += [arg.replace("clang-cl.exe", "clang.exe"), "--driver-mode=cl"]
-            else:
-                result.append(arg)
-        return result
-
-    return cargo_target_compiler
-
-
-set_config("MOZ_CARGO_CC", cargo_target_compiler(c_compiler))
-set_config("MOZ_CARGO_CXX", cargo_target_compiler(cxx_compiler))
+set_config("MOZ_CARGO_CC", clang_plugin_compiler(cargo_compiler(c_compiler)))
+set_config("MOZ_CARGO_CXX", clang_plugin_compiler(cargo_compiler(cxx_compiler)))
 set_config("MOZ_CARGO_HOST_CC", cargo_compiler(host_c_compiler))
 set_config("MOZ_CARGO_HOST_CXX", cargo_compiler(host_cxx_compiler))
 

@@ -9,9 +9,11 @@
 #include "gfxPlatform.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_layers.h"
+#include "mozilla/StaticPrefs_webgl.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/gfx/GPUChild.h"
 #include "mozilla/gfx/Logging.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/ipc/ProcessUtils.h"
 #include "mozilla/layers/SynchronousTask.h"
 #ifdef MOZ_WIDGET_ANDROID
@@ -78,6 +80,16 @@ bool GPUProcessHost::Launch(geckoargs::ChildProcessArgs aExtraOpts) {
     return false;
   }
 
+  WhenProcessHandleReady()->Then(
+      GetMainThreadSerialEventTarget(), __func__,
+      [self = RefPtr{this}](
+          const ProcessHandlePromise::ResolveOrRejectValue& aResult) {
+        if (!self->mShutdownRequested &&
+            self->mLaunchPhase == LaunchPhase::Waiting) {
+          self->InitAfterConnect(aResult.IsResolve());
+        }
+      });
+
   return true;
 }
 
@@ -103,7 +115,7 @@ bool GPUProcessHost::WaitForLaunch() {
     // so we immediately set up the IPDL actor and fire callbacks. The IO thread
     // will still dispatch a notification to the main thread - we'll just ignore
     // it.
-    bool result = GeckoChildProcessHost::WaitUntilConnected(timeoutMs);
+    bool result = GeckoChildProcessHost::WaitForProcessHandle(timeoutMs);
     InitAfterConnect(result);
     if (!result) {
       return false;
@@ -147,20 +159,6 @@ void GPUProcessHost::OnProcessLaunchError(const base::LaunchError aError) {
   mProcessState = PROCESS_ERROR;
   mLaunchOomError = oom;
   lock.Notify();
-}
-
-void GPUProcessHost::OnChannelConnected(base::ProcessId peer_pid) {
-  MOZ_ASSERT(!NS_IsMainThread());
-
-  GeckoChildProcessHost::OnChannelConnected(peer_pid);
-
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      "GPUProcessHost::OnChannelConnected", [self = RefPtr{this}]() {
-        if (!self->mShutdownRequested &&
-            self->mLaunchPhase == LaunchPhase::Waiting) {
-          self->InitAfterConnect(true);
-        }
-      }));
 }
 
 static uint64_t sProcessTokenCounter = 0;
@@ -334,6 +332,12 @@ bool GPUProcessHost::FillMacSandboxInfo(MacSandboxInfo& aInfo) {
   if (!aInfo.shouldLog && PR_GetEnv("MOZ_SANDBOX_GPU_LOGGING")) {
     aInfo.shouldLog = true;
   }
+  // CGL needs windowserver access on x86_64. WebRender and WebGL each use CGL
+  // when they can't use Metal ANGLE.
+  aInfo.hasWindowServer =
+      ProcessIsX86_64() &&
+      (!gfxVars::UseWebRenderANGLE() || !gfxVars::AllowMetalAngleWebGL() ||
+       StaticPrefs::webgl_disable_angle_AtStartup());
   aInfo.type = MacSandboxType::MacSandboxType_GPU;
   return true;
 }

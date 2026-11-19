@@ -5,6 +5,8 @@
 package org.mozilla.fenix.onboarding.view
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OnboardingScreenTest {
@@ -42,5 +44,75 @@ class OnboardingScreenTest {
     @Test
     fun `GIVEN no pages to display WHEN resumedPageIndex is called THEN it returns the first page index`() {
         assertEquals(0, resumedPageIndex(pageIndex = 3, pageCount = 0))
+    }
+
+    @Test
+    fun `GIVEN signed in on the sign in sync page WHEN scrollToNextCardFromSignIn is called THEN it returns true`() {
+        val pages = listOf(termsOfServicePageUiData, syncPageUiData)
+
+        assertTrue(scrollToNextCardFromSignIn(pages, currentPageIndex = 1, isSignedIn = true))
+    }
+
+    @Test
+    fun `GIVEN signed in on the pairing sync page WHEN scrollToNextCardFromSignIn is called THEN it returns true`() {
+        val pages = listOf(termsOfServicePageUiData, syncPairingPageUiData)
+
+        assertTrue(scrollToNextCardFromSignIn(pages, currentPageIndex = 1, isSignedIn = true))
+    }
+
+    @Test
+    fun `GIVEN not signed in on the sign in sync page WHEN scrollToNextCardFromSignIn is called THEN it returns false`() {
+        val pages = listOf(termsOfServicePageUiData, syncPageUiData)
+
+        assertFalse(scrollToNextCardFromSignIn(pages, currentPageIndex = 1, isSignedIn = false))
+    }
+
+    @Test
+    fun `GIVEN not signed in on the pairing sync page WHEN scrollToNextCardFromSignIn is called THEN it returns false`() {
+        val pages = listOf(termsOfServicePageUiData, syncPairingPageUiData)
+
+        assertFalse(scrollToNextCardFromSignIn(pages, currentPageIndex = 1, isSignedIn = false))
+    }
+
+    @Test
+    fun `GIVEN signed in on a page that is not a sync page WHEN scrollToNextCardFromSignIn is called THEN it returns false`() {
+        val pages = listOf(termsOfServicePageUiData, syncPairingPageUiData)
+
+        assertFalse(scrollToNextCardFromSignIn(pages, currentPageIndex = 0, isSignedIn = true))
+    }
+
+    @Test
+    fun `GIVEN signed in on the second sync page WHEN scrollToNextCardFromSignIn is called THEN it returns true`() {
+        val pages = listOf(syncPageUiData, syncPairingPageUiData)
+
+        assertTrue(scrollToNextCardFromSignIn(pages, currentPageIndex = 1, isSignedIn = true))
+    }
+
+    @Test
+    fun `GIVEN the current page is the sync sign in page WHEN isSyncPage is called THEN it returns true`() {
+        val pages = listOf(termsOfServicePageUiData, syncPageUiData)
+
+        assertTrue(isSyncPage(pagesToDisplay = pages, currentPageIndex = 1))
+    }
+
+    @Test
+    fun `GIVEN the current page is the pairing sync page WHEN isSyncPage is called THEN it returns true`() {
+        val pages = listOf(termsOfServicePageUiData, syncPairingPageUiData)
+
+        assertTrue(isSyncPage(pagesToDisplay = pages, currentPageIndex = 1))
+    }
+
+    @Test
+    fun `GIVEN the current page is not a sync page WHEN isSyncPage is called THEN it returns false`() {
+        val pages = listOf(termsOfServicePageUiData, syncPairingPageUiData)
+
+        assertFalse(isSyncPage(pagesToDisplay = pages, currentPageIndex = 0))
+    }
+
+    @Test
+    fun `GIVEN an index past the last page WHEN isSyncPage is called THEN it returns false`() {
+        val pages = listOf(termsOfServicePageUiData, syncPairingPageUiData)
+
+        assertFalse(isSyncPage(pagesToDisplay = pages, currentPageIndex = 2))
     }
 }

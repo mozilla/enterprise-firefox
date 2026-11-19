@@ -36,6 +36,7 @@ import org.mozilla.fenix.BuildConfig
 import org.mozilla.fenix.Config
 import org.mozilla.fenix.FeatureFlags
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.debugsettings.data.DefaultDebugSettingsRepository
 import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.components
@@ -183,6 +184,18 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_credit_cards_enable_security_code).apply {
+            isVisible = Config.channel.isNightlyOrDebug
+            isChecked = settings.isCreditCardSecurityCodeEnabled
+            onPreferenceChangeListener =
+                object : SharedPreferenceUpdater() {
+                    override fun onPreferenceChange(preference: Preference, newValue: Any?): Boolean {
+                        context.components.core.engine.settings.creditCardSecurityCodeEnabled = newValue as Boolean
+                        return super.onPreferenceChange(preference, newValue)
+                    }
+                }
+        }
+
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_hide_collections).apply {
             isChecked = settings.hideCollectionsUi
             onPreferenceChangeListener = SharedPreferenceUpdater()
@@ -205,6 +218,11 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_picture_in_picture_window).apply {
+            isChecked = settings.enablePictureInPictureWindow
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_homepage_weather_widget).apply {
             isChecked = settings.enableHomepageWeatherWidget
             onPreferenceChangeListener = SharedPreferenceUpdater()
@@ -212,7 +230,18 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_homepage_wrexham_widget).apply {
             isChecked = settings.enableHomepageWrexhamWidget
-            onPreferenceChangeListener = SharedPreferenceUpdater()
+            onPreferenceChangeListener =
+                object : SharedPreferenceUpdater() {
+                    override fun onPreferenceChange(preference: Preference, newValue: Any?): Boolean {
+                        val handled = super.onPreferenceChange(preference, newValue)
+                        if (handled) {
+                            preference.context.components.appStore.dispatch(
+                                AppAction.SportsWidgetAction.FeatureEnabledChanged(isEnabled = newValue as Boolean)
+                            )
+                        }
+                        return handled
+                    }
+                }
         }
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_ads_client_for_stories).apply {
@@ -370,7 +399,7 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_ip_protection).apply {
             isVisible = Config.channel.isNightlyOrDebug
-            isChecked = settings.isIPProtectionEnabled
+            isChecked = settings.overrideIPProtectionEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
@@ -382,7 +411,7 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_import_passwords).apply {
             isVisible = Config.channel.isNightlyOrDebug
-            isChecked = settings.importPasswordsFeatureFlagEnabled
+            isChecked = settings.overrideImportPasswordsEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
@@ -400,11 +429,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_oled_theme).apply {
             isChecked = settings.enableOledTheme
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_pdf_tools).apply {
-            isChecked = settings.enablePdfTools
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
@@ -570,7 +594,7 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         }
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_show_tab_groups_in_menu).apply {
-            isVisible = Config.channel.isDebug
+            isVisible = Config.channel.isNightlyOrDebug
             isChecked = settings.showTabGroupsInMenu
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
@@ -617,7 +641,7 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         }
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_menu_customization_screen).apply {
-            isVisible = Config.channel.isDebug
+            isVisible = Config.channel.isNightlyOrDebug
             isChecked = context.components.settings.isMenuCustomizationScreenEnabled
             onPreferenceChangeListener =
                 object : SharedPreferenceUpdater() {

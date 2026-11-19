@@ -267,6 +267,22 @@ This is more content. {testToReplace2}
   );
 });
 
+add_task(function test_renderPrompt_values_not_rescanned() {
+  Assert.equal(
+    renderPrompt("Tab: {title}\nDate: {date}", {
+      title: "Notes for {date} {missing} $&",
+      date: "2026-11-10",
+    }),
+    "Tab: Notes for {date} {missing} $&\nDate: 2026-11-10",
+    "Placeholders inside a value stay literal"
+  );
+  Assert.equal(
+    renderPrompt("{a} {unknown} {b}", { a: 0, b: "{a}" }),
+    "0 {unknown} {a}",
+    "Unknown placeholders are kept and later values are not rescanned"
+  );
+});
+
 add_task(function test_renderPrompt_optional_sections() {
   const prompt = "URL: {url}\n{#slug}Slug: {slug}{/slug}\nTitle: {title}";
 
@@ -444,4 +460,39 @@ add_task(function test_isRetryableError() {
     false,
     "Plain non-network error is not retryable"
   );
+});
+
+add_task(async function test_runWithGenerator_ends_on_abort_while_waiting() {
+  const sb = sinon.createSandbox();
+  try {
+    const fakeEngine = {
+      async *runWithGenerator() {
+        yield { text: "first" };
+        await new Promise(() => {});
+      },
+    };
+    sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+    const engine = await openAIEngine.build({
+      model: MODEL,
+      serviceType: SERVICE_TYPES.AI,
+      purpose: PURPOSES.CHAT,
+      flowId: null,
+      feature: MODEL_FEATURES.CHAT,
+    });
+
+    const controller = new AbortController();
+    const stream = engine.runWithGenerator({ signal: controller.signal });
+    const first = await stream.next();
+    Assert.equal(first.value.text, "first", "Should yield the first chunk");
+
+    const pending = stream.next();
+    controller.abort();
+    const result = await pending;
+    Assert.ok(
+      result.done,
+      "Aborting while waiting for a chunk should end the stream"
+    );
+  } finally {
+    sb.restore();
+  }
 });

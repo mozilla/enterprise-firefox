@@ -476,10 +476,6 @@ add_task(async function () {
         Assert.equal(entry.name, "page_load");
         Assert.greater(parseInt(entry.extra.load_time), 0);
         Assert.ok(
-          entry.extra.using_webdriver,
-          "Webdriver field should be set to true."
-        );
-        Assert.ok(
           "is_active_client" in entry.extra,
           "Active client field should be recorded."
         );
@@ -497,4 +493,31 @@ add_task(async function () {
     // timeout.
     1000
   );
+});
+
+// Mochitest reaches its test hosts through an HTTP proxy. A response from the
+// cache doesn't use a connection, so load a URL that isn't in the cache.
+add_task(async function test_proxy_type() {
+  if (Services.prefs.getBoolPref("telemetry.fog.artifact_build", false)) {
+    Assert.ok(true, "Test skipped in artifact builds. See bug 1836686.");
+    return;
+  }
+
+  let first = PAGELOAD_BASE + "empty.html?proxy_type";
+  let second = PAGELOAD_BASE + "dummy.html";
+  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, first);
+  let browser = tab.linkedBrowser;
+
+  await resetPageloadTelemetry();
+  BrowserTestUtils.startLoadingURIString(browser, second);
+  await BrowserTestUtils.browserLoaded(browser, false, second);
+
+  let events = await waitForPageloadEvents(1);
+  Assert.equal(
+    events[0].extra.proxy_type,
+    String(Ci.nsIHttpChannelInternal.PROXY_TYPE_HTTP),
+    "The proxy the document was loaded through is reported."
+  );
+
+  BrowserTestUtils.removeTab(tab);
 });

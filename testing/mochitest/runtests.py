@@ -80,6 +80,7 @@ from mochitest_options import (
     get_default_valgrind_suppression_files,
 )
 from mozlog import commandline, get_proxy_logger
+from mozprocess.termination import handle_termination
 from mozprofile import Profile
 from mozprofile.cli import KeyValueParseError, parse_key_value, parse_preferences
 from mozprofile.permissions import ServerLocations
@@ -362,7 +363,7 @@ class MessageLogger:
         """Transform a failure message so it doesn't fail the job."""
         if message.get("action") == "test_status" and "expected" in message:
             message["expected"] = message.get("status")
-            message.setdefault("extra", {})["will_retry"] = True
+            message["will_retry"] = True
         elif message.get("action") == "log":
             if message.get("message", "").startswith("TEST-UNEXPECTED"):
                 message["message"] = message["message"].replace(
@@ -1037,6 +1038,10 @@ class MochitestDesktop:
     DEFAULT_TIMEOUT = 60.0
     mediaDevices = None
     mozinfo_variables_shown = False
+    # Whether api.js enters chaos mode once the harness has started, rather
+    # than Firefox at startup through MOZ_CHAOSMODE. Remote harnesses don't run
+    # start_desktop.js, which has api.js start the tests.
+    deferChaosMode = True
 
     patternFiles = {}
 
@@ -1109,7 +1114,7 @@ class MochitestDesktop:
         self.counttodo = 0
         self.countretry = 0
         self.failedTests = set()
-        self.tests_started = 0
+        self.tests_started = set()
 
         self.expectedError = {}
         self.result = {}
@@ -1501,7 +1506,7 @@ class MochitestDesktop:
         """
         tests = self.getActiveTests(options)
         for test in tests:
-            if "parakeet-asr" in test.get("tags", ""):
+            if "parakeet-asr" in test.get("tags", "") and "disabled" not in test:
                 return True
         return False
 
@@ -2421,16 +2426,6 @@ toolbar#nav-bar {
             # desktop seems to use the old
             certdbPath = options.profilePath
 
-        # certutil.exe depends on some DLLs in the app directory
-        # When running tests against an MSIX-installed Firefox, these DLLs
-        # cannot be used out of the install directory, they must be copied
-        # elsewhere first.
-        if "WindowsApps" in options.app:
-            install_dir = os.path.dirname(options.app)
-            for f in os.listdir(install_dir):
-                if f.endswith(".dll"):
-                    shutil.copy(os.path.join(install_dir, f), options.utilityPath)
-
         status = call(
             [certutil, "-N", "-d", certdbPath, "-f", pwfilePath], env=toolsEnv
         )
@@ -2706,11 +2701,14 @@ toolbar#nav-bar {
         elif options.flavor in ("a11y", "chrome"):
             test_timeout = 45
 
-        if "MOZ_CHAOSMODE=0xfb" in options.environment and test_timeout:
+        chaos_mode_features = getattr(options, "chaosModeFeatures", None)
+        if chaos_mode_features and test_timeout:
             test_timeout *= 2
             self.log.info(
-                f"Increasing default timeout to {test_timeout} seconds (MOZ_CHAOSMODE)"
+                f"Increasing default timeout to {test_timeout} seconds (chaos mode)"
             )
+        if chaos_mode_features and self.deferChaosMode:
+            prefs["mochitest.chaosModeFeatures"] = chaos_mode_features
 
         if test_timeout:
             prefs["testing.browserTestHarness.timeout"] = test_timeout
@@ -2803,7 +2801,10 @@ toolbar#nav-bar {
 
         if hasattr(self, "virtualAudioNodeIdList"):
             for id in self.virtualAudioNodeIdList:
-                subprocess.check_output(["pw-cli", "destroy", str(id)])
+                try:
+                    subprocess.check_output(["pw-cli", "destroy", str(id)])
+                except (OSError, subprocess.CalledProcessError):
+                    self.log.error(f"Could not destroy pipewire node with id {id}")
             self.virtualAudioNodeIdList = []
 
     def dumpScreen(self, utilityPath):
@@ -3060,6 +3061,7 @@ toolbar#nav-bar {
 
             assertionFailures = AssertionFailureParser(self.log)
             ubsanErrors = UBSanErrorParser(self.log)
+            asanErrors = mozleak.ASanErrorParser(self.log)
 
             # create an instance to process the output
             outputHandler = self.OutputHandler(
@@ -3073,6 +3075,8 @@ toolbar#nav-bar {
                 tsanErrors=tsanErrors,
                 assertionFailures=assertionFailures,
                 ubsanErrors=ubsanErrors,
+                asanErrors=asanErrors,
+                crashAsPass=crashAsPass,
                 bisectChunk=bisectChunk,
                 restartAfterFailure=restartAfterFailure,
             )
@@ -3547,6 +3551,11 @@ toolbar#nav-bar {
                 norm_paths.append(p)
         return norm_paths
 
+    def notStartedTests(self, tests):
+        """Returns the tests that didn't start, or [] if none of the tests started."""
+        remaining = [t for t in tests if t not in self.tests_started]
+        return remaining if len(remaining) < len(tests) else []
+
     def runMochitests(self, options, testsToRun, manifestToFilter=None):
         "This is a base method for calling other methods in this class for --bisect-chunk."
         # Making an instance of bisect class for --bisect-chunk option.
@@ -3557,13 +3566,16 @@ toolbar#nav-bar {
 
         # Retry-on-failure relies on counters populated by the desktop
         # OutputHandler pipeline, which remote harness subclasses bypass.
+        # Verification looks for intermittent failures, which a retry hides.
         retry = (
             type(self) is MochitestDesktop
             and os.environ.get("MOZ_AUTOMATION") is not None
+            and not (options.verify or options.verify_fission)
         )
         if retry:
             self.message_logger.retry_mode = True
             self.failedTests = set()
+            allTests = list(testsToRun)
 
         while not finished:
             if options.bisectChunk:
@@ -3578,12 +3590,14 @@ toolbar#nav-bar {
                     )
                     bisection_log = 1
 
-            self.tests_started = 0
+            self.tests_started = set()
             if options.restartBetweenTests:
                 result = self.doTests(options, testsToRun[:1], manifestToFilter)
             else:
                 result = self.doTests(options, testsToRun, manifestToFilter)
             if result == TBPL_RETRY:  # terminate task
+                return result
+            if result == -1:  # interrupted
                 return result
 
             if options.bisectChunk:
@@ -3605,10 +3619,10 @@ toolbar#nav-bar {
                 testsToRun = testsToRun[1:]
                 if not testsToRun:
                     status = -1
-            elif retry and 0 < self.tests_started < len(testsToRun):
+            elif retry and (remaining := self.notStartedTests(testsToRun)):
                 # A test timed out and the browser exited. Continue
                 # with the tests that didn't get to start.
-                testsToRun = testsToRun[self.tests_started :]
+                testsToRun = remaining
             else:
                 status = -1
 
@@ -3635,7 +3649,15 @@ toolbar#nav-bar {
                             return testRes
                         res = res or testRes
                 else:
-                    res = self.doTests(options, self.failedTests, manifestToFilter)
+                    res = 0
+                    retryTests = [t for t in allTests if t in self.failedTests]
+                    while retryTests:
+                        self.tests_started = set()
+                        testRes = self.doTests(options, retryTests, manifestToFilter)
+                        if testRes == TBPL_RETRY:
+                            return testRes
+                        res = res or testRes
+                        retryTests = self.notStartedTests(retryTests)
                 self.log.group_end(name="retry")
                 if res == TBPL_RETRY:
                     return res
@@ -3675,6 +3697,10 @@ toolbar#nav-bar {
         # Number of times to repeat test(s) when running test in
         VERIFY_REPEAT_SINGLE_BROWSER = 5
 
+        # Every chaos mode feature except TimerScheduling (bug 1390884).
+        CHAOS_MODE_FEATURES = 0xFB
+        chaos_env = [] if self.deferChaosMode else ["MOZ_CHAOSMODE=0xfb"]
+
         def step1():
             options.repeat = VERIFY_REPEAT
             options.keep_open = False
@@ -3702,10 +3728,13 @@ toolbar#nav-bar {
             options.repeat = VERIFY_REPEAT
             options.keep_open = False
             options.runUntilFailure = True
-            options.environment.append("MOZ_CHAOSMODE=0xfb")
+            options.environment.extend(chaos_env)
+            options.chaosModeFeatures = CHAOS_MODE_FEATURES
             options.profilePath = None
             result = self.runTests(options)
-            options.environment.remove("MOZ_CHAOSMODE=0xfb")
+            for var in chaos_env:
+                options.environment.remove(var)
+            options.chaosModeFeatures = None
             result = result or (-2 if self.countfail > 0 else 0)
             self.message_logger.finish()
             return result
@@ -3714,7 +3743,8 @@ toolbar#nav-bar {
             options.repeat = 0
             options.keep_open = False
             options.runUntilFailure = False
-            options.environment.append("MOZ_CHAOSMODE=0xfb")
+            options.environment.extend(chaos_env)
+            options.chaosModeFeatures = CHAOS_MODE_FEATURES
             for i in range(VERIFY_REPEAT_SINGLE_BROWSER):
                 options.profilePath = None
                 result = self.runTests(options)
@@ -3722,7 +3752,9 @@ toolbar#nav-bar {
                 self.message_logger.finish()
                 if result != 0:
                     break
-            options.environment.remove("MOZ_CHAOSMODE=0xfb")
+            for var in chaos_env:
+                options.environment.remove(var)
+            options.chaosModeFeatures = None
             return result
 
         def fission_step(fission_pref):
@@ -3819,6 +3851,7 @@ toolbar#nav-bar {
             "http3": options.useHttp3Server,
             "http2": options.useHttp2Server,
             "inc_origin_init": os.environ.get("MOZ_ENABLE_INC_ORIGIN_INIT") == "1",
+            "repeat": options.repeat > 0 and not options.verify,
             "sessionHistoryInParent": True,
             "standalone": options.restartBetweenTests,
             "swgl": self.extraPrefs.get("gfx.webrender.software", False),
@@ -4161,7 +4194,7 @@ toolbar#nav-bar {
                 # See bug 479518 and bug 1414063.
                 timeout = 370.0
 
-            if "MOZ_CHAOSMODE=0xfb" in options.environment and timeout:
+            if getattr(options, "chaosModeFeatures", None) and timeout:
                 timeout *= 2
 
             # Detect shutdown leaks for m-bc runs
@@ -4450,6 +4483,8 @@ toolbar#nav-bar {
             tsanErrors=None,
             assertionFailures=None,
             ubsanErrors=None,
+            asanErrors=None,
+            crashAsPass=False,
             bisectChunk=None,
             restartAfterFailure=None,
         ):
@@ -4467,6 +4502,8 @@ toolbar#nav-bar {
             self.tsanErrors = tsanErrors
             self.assertionFailures = assertionFailures
             self.ubsanErrors = ubsanErrors
+            self.asanErrors = asanErrors
+            self.crashAsPass = crashAsPass
             self.bisectChunk = bisectChunk
             self.restartAfterFailure = restartAfterFailure
             self.browserProcessId = None
@@ -4504,6 +4541,7 @@ toolbar#nav-bar {
                 self.trackLSANLeaks,
                 self.trackTSanErrors,
                 self.trackAssertionFailures,
+                self.trackASanErrors,
                 self.trackUBSanErrors,
                 self.count_structured,
             ]
@@ -4555,6 +4593,9 @@ toolbar#nav-bar {
             if self.ubsanErrors:
                 self.ubsanErrors.flush()
 
+            if self.asanErrors:
+                self.asanErrors.flush()
+
         # output message handlers:
         # these take a message and return a message
 
@@ -4586,7 +4627,7 @@ toolbar#nav-bar {
 
         def count_structured(self, message):
             if message["action"] == "test_start":
-                self.harness.tests_started += 1
+                self.harness.tests_started.add(message["test"])
                 self.current_test = message["test"]
             elif message["action"] == "test_status":
                 if "expected" in message:
@@ -4611,6 +4652,7 @@ toolbar#nav-bar {
                 ):
                     message["message"] = "Test had failures, will retry"
                     message["expected"] = message.get("status", "PASS")
+                    message["will_retry"] = True
             return message
 
         def fix_stack(self, message):
@@ -4665,6 +4707,18 @@ toolbar#nav-bar {
                     self.lsanLeaks.log(line, self.harness.lastTestSeen)
             return message
 
+        def currentScopeAndTest(self):
+            """The manifest or test a sanitizer report belongs to, and the
+            test that was running when it was printed."""
+            if self.harness.lastTestFinished:
+                scope = self.harness.lastManifest
+            else:
+                scope = self.harness.lastTestSeen
+            test = self.harness.lastTestSeen
+            if test.endswith(" (finished)"):
+                test = test[: -len(" (finished)")]
+            return scope, test
+
         def trackTSanErrors(self, message):
             if self.tsanErrors and message["action"] in ("log", "process_output"):
                 line = (
@@ -4673,18 +4727,13 @@ toolbar#nav-bar {
                     else message["data"]
                 )
                 pid = message.get("process")
-                if self.harness.lastTestFinished:
-                    scope = self.harness.lastManifest
-                else:
-                    scope = self.harness.lastTestSeen
+                scope, _ = self.currentScopeAndTest()
                 self.tsanErrors.log(line, pid=pid, scope=scope)
             return message
 
         def trackAssertionFailures(self, message):
             if self.assertionFailures and message["action"] == "process_output":
-                test = self.harness.lastTestSeen
-                if test.endswith(" (finished)"):
-                    test = test[: -len(" (finished)")]
+                _, test = self.currentScopeAndTest()
                 self.assertionFailures.log(
                     message["data"], pid=message.get("process"), test=test
                 )
@@ -4692,18 +4741,24 @@ toolbar#nav-bar {
 
         def trackUBSanErrors(self, message):
             if self.ubsanErrors and message["action"] == "process_output":
-                if self.harness.lastTestFinished:
-                    scope = self.harness.lastManifest
-                else:
-                    scope = self.harness.lastTestSeen
-                test = self.harness.lastTestSeen
-                if test.endswith(" (finished)"):
-                    test = test[: -len(" (finished)")]
+                scope, test = self.currentScopeAndTest()
                 self.ubsanErrors.log(
                     message["data"],
                     pid=message.get("process"),
                     scope=scope,
                     test=test,
+                )
+            return message
+
+        def trackASanErrors(self, message):
+            if self.asanErrors and message["action"] == "process_output":
+                scope, test = self.currentScopeAndTest()
+                self.asanErrors.log(
+                    message["data"],
+                    pid=message.get("process"),
+                    scope=scope,
+                    test=test,
+                    quiet=self.crashAsPass,
                 )
             return message
 
@@ -4752,6 +4807,18 @@ def view_gecko_profile_from_mochitest(profile_path, options, profiler_logger):
 def run_test_harness(parser, options):
     parser.validate(options)
 
+    # certutil.exe depends on some DLLs in the app directory
+    # When running tests against an MSIX-installed Firefox, these DLLs
+    # cannot be used out of the install directory, they must be copied
+    # elsewhere first. This is done once here rather than before every
+    # certutil call because overwriting the copies intermittently fails
+    # when the previous copies are still locked.
+    if "WindowsApps" in options.app:
+        install_dir = os.path.dirname(options.app)
+        for f in os.listdir(install_dir):
+            if f.endswith(".dll"):
+                shutil.copy(os.path.join(install_dir, f), options.utilityPath)
+
     logger_options = {
         key: value
         for key, value in vars(options).items()
@@ -4771,13 +4838,25 @@ def run_test_harness(parser, options):
     if options.restartAfterFailure:
         options.runUntilFailure = True
 
-    if options.verify or options.verify_fission:
-        result = runner.verifyTests(options)
-    else:
-        result = runner.runTests(options)
-
-    runner.archiveMozLogs()
-    runner.message_logger.finish()
+    # Shortly before a task exceeds its maxRunTime, run-task sends SIGTERM to
+    # the task's processes, so that they can shut down before the worker kills
+    # them.
+    result = 1
+    try:
+        with handle_termination(
+            runner.log,
+            "Received SIGTERM, aborting the test run (the task is probably "
+            "about to exceed its maxRunTime)",
+        ):
+            if options.verify or options.verify_fission:
+                result = runner.verifyTests(options)
+            else:
+                result = runner.runTests(options)
+    finally:
+        # The task's other processes get SIGTERM too, so the harness's own
+        # cleanup may fail: end the suite whatever happens.
+        runner.archiveMozLogs()
+        runner.message_logger.finish()
     return result
 
 

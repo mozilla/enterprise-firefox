@@ -217,10 +217,21 @@ class ReftestResolver:
         """
         rv = []
         default_manifest = self.defaultManifest(suite)
-        relative_path = None
         if not os.path.isabs(test_file):
-            relative_path = test_file
-            test_file = self.absManifestPath(test_file)
+            if suite == "jstestbrowser" and build_obj:
+                # We must use the pre-processed manifests, so resolve
+                # the path relative to staging directory where these
+                # were created.
+                test_file = os.path.join(
+                    build_obj.topobjdir,
+                    "dist",
+                    "test-stage",
+                    "jsreftest",
+                    "tests",
+                    test_file,
+                )
+            else:
+                test_file = self.absManifestPath(test_file)
 
         if os.path.isdir(test_file):
             for dirpath, dirnames, filenames in os.walk(test_file):
@@ -229,19 +240,6 @@ class ReftestResolver:
                     # We keep recursing into subdirectories which means that in the case
                     # of include directives we get the same manifest multiple times.
                     # However reftest.js will only read each manifest once
-
-            if (
-                len(rv) == 0
-                and relative_path
-                and suite == "jstestbrowser"
-                and build_obj
-            ):
-                # The relative path can be from staging area.
-                staged_js_dir = os.path.join(
-                    build_obj.topobjdir, "dist", "test-stage", "jsreftest"
-                )
-                staged_file = os.path.join(staged_js_dir, "tests", relative_path)
-                return self.findManifest(suite, staged_file, subdirs)
         elif test_file.endswith(".list"):
             if os.path.exists(test_file):
                 rv = [(test_file, None)]
@@ -372,15 +370,17 @@ class RefTest:
         locations.add_host(server, scheme="http", port=port)
         locations.add_host(server, scheme="https", port=port)
 
-        sandbox_allowlist_paths = options.sandboxReadWhitelist
+        sandbox_allowlist_paths = [
+            os.path.normpath(p) for p in options.sandboxReadWhitelist
+        ]
         if platform.system() == "Linux" or platform.system() in (
             "Windows",
             "Microsoft",
         ):
             # Trailing slashes are needed to indicate directories on Linux and Windows
-            sandbox_allowlist_paths = map(
-                lambda p: os.path.join(p, ""), sandbox_allowlist_paths
-            )
+            sandbox_allowlist_paths = [
+                os.path.join(p, "") for p in sandbox_allowlist_paths
+            ]
 
         addons = []
         if not self.use_marionette:
@@ -843,6 +843,8 @@ class RefTest:
         valgrindPath=None,
         valgrindArgs=None,
         valgrindSuppFiles=None,
+        checkLeaks=False,
+        leakScope=None,
         **profileArgs,
     ):
         if cmdargs is None:
@@ -868,7 +870,8 @@ class RefTest:
             debug_args = [debuggerInfo.path] + debuggerInfo.args
 
         def record_last_test(message):
-            """Records the last test seen by this harness for the benefit of crash logging."""
+            """Records the last test seen by this harness for crash logging and
+            sanitizer reports."""
 
             def testid(test):
                 if " " in test:
@@ -882,6 +885,7 @@ class RefTest:
                     self.lastTestSeen = self.currentManifest
                 else:
                     self.lastTestSeen = "{} (finished)".format(testid(message["test"]))
+            self.outputHandler.lastTestSeen = self.lastTestSeen
 
         self.log.add_handler(record_last_test)
 
@@ -961,6 +965,7 @@ class RefTest:
         status = runner.wait()
         runner.process_handler = None
         self.outputHandler.proc_name = None
+        self.outputHandler.finish()
 
         crashed = mozcrash.log_crashes(
             self.log,
@@ -1000,6 +1005,18 @@ class RefTest:
         if status and not crashed:
             msg = "application terminated with exit code %s" % (status)
             self.log.shutdown_failure(group=self.lastTestSeen, message=msg)
+
+        # The leak logs live in the profile, so process them before removing it.
+        # Do not process them when we crash/assert.
+        if checkLeaks and status == 0:
+            mozleak.process_leak_log(
+                self.leakLogFile,
+                leak_thresholds=options.leakThresholds,
+                stack_fixer=get_stack_fixer_function(
+                    options.utilityPath, options.symbolsPath
+                ),
+                scope=leakScope or options.suite,
+            )
 
         runner.cleanup()
         self.cleanup(profile.profile)
@@ -1076,18 +1093,9 @@ class RefTest:
                 timeout=options.timeout + 70.0,
                 debuggerInfo=debuggerInfo,
                 symbolsPath=options.symbolsPath,
+                checkLeaks=True,
                 **kwargs,
             )
-
-            # do not process leak log when we crash/assert
-            if status == 0:
-                mozleak.process_leak_log(
-                    self.leakLogFile,
-                    leak_thresholds=options.leakThresholds,
-                    stack_fixer=get_stack_fixer_function(
-                        options.utilityPath, options.symbolsPath
-                    ),
-                )
             return status
 
         if not self.run_by_manifest:
@@ -1121,7 +1129,9 @@ class RefTest:
             self.currentManifest = manifest
             self.currentManifestID = manifest_id
             self.lastTestSeen = manifest
-            status = run(tests=tests)
+            self.outputHandler.lastTestSeen = self.lastTestSeen
+            self.outputHandler.scope = manifest_id
+            status = run(tests=tests, leakScope=manifest_id)
             overall = overall or status
             self.log.group_end(name=manifest_id)
         if status == -1:

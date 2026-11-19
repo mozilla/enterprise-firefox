@@ -83,6 +83,36 @@ committed yet, since that would name the initiating tab again; such a navigation
 adds no candidate. A frame initiated top level navigation is therefore credited
 to the page hosting the frame, which is the site actually being left.
 
+#### Extended navigations across containers
+
+The spec keeps one bounce tracking record per top level traversable, and state is
+keyed by the traversable's storage partition. With per-site container association
+(`privacy.containers.switchDuringNavigation.enabled`), a top level navigation, or
+one of its redirects, to a site bound to a container switches the load into that
+container and retargets it into a new tab. Later hops which are bound to nothing
+stay in that container. A single extended navigation can therefore run in two
+tabs and two containers, which the spec has no notion of.
+
+Gecko handles this as follows:
+
+- The record follows the load. When the retargeted load is about to commit in
+  the new tab, `BounceTrackingState::OnLoadRetargeted` moves the record from
+  the tab the load started in to the new tab, and restarts its pending client
+  bounce timer there. The destination becomes the final host as usual. The tab
+  left behind holds no record, so closing it, as happens for a blank tab which
+  only existed for the load, classifies nothing. The move is skipped if that tab
+  has started another navigation meanwhile.
+- Every site of the record is a `BounceTrackingSite`: the site together with
+  the `OriginAttributes` it ran in. For a server side hop those are the ones of
+  its redirect, for a client side hop the ones of the tab being left. A bounce
+  is classified, exempted by user activation and purged in that container only.
+- The initial and final host are exempt only in the container their document
+  ran in. Having been on a site in one container does not exempt that site's
+  bounces in another, which would otherwise let a tracker collect state in a
+  container the user never visited it in.
+- User activation recorded during the navigation does not move with the record,
+  so it cannot feed the storage access heuristic of another container.
+
 #### Comparison with Chromium
 
 Chromium's implementation starts a redirect chain the same way. In
@@ -132,7 +162,8 @@ classDiagram
 
     class BounceTrackingStateGlobal {
         - mUserActivation: nsTHashMap&lt;nsCStringHashKey, PRTime&gt;
-        - mBounceTrackers: nsTHashMap&lt;nsCStringHashKey, PRTime&gt;
+        - mBounceTrackers: nsTHashMap&lt;nsCStringHashKey, BounceTrackerCandidate&gt;
+        - mRecentPurges: nsTHashMap&lt;nsCStringHashKey, nsTArray&lt;RefPtr&lt;BounceTrackingPurgeEntry&gt;&gt;&gt;
         - mOriginAttributes: OriginAttributes
     }
 
@@ -145,14 +176,30 @@ classDiagram
     }
 
 
+    class BounceTrackingPurgeEntry {
+        - mSite: BounceTrackingSite
+        - mChainRecord: BounceTrackingRecord
+    }
+
+    note for BounceTrackingPurgeEntry "Purge log entry, keeps the bounce chain
+                                       which got the site classified."
+
     class BounceTrackingRecord {
-        - mInitialHost: nsAutoCString
-        - mBounceHosts: nsTHashSet&lt;nsCStringHashKey&gt;
-        - mFinalHost: nsAutoCString
+        - mInitialSite: BounceTrackingSite
+        - mBounceSites: nsTHashSet&lt;BounceTrackingSiteHashKey&gt;
+        - mFinalSite: BounceTrackingSite
     }
 
     note for BounceTrackingRecord "Encapsulates the per-tab navigation state
                                    during an extended navigation."
+
+    class BounceTrackingSite {
+        - mSiteHost: nsCString
+        - mOriginAttributes: OriginAttributes
+    }
+
+    note for BounceTrackingSite "A site together with the storage partition it
+                                 ran in, or the null site for untracked documents."
 
     class BounceTrackingState {
         - mBounceTrackingProtection: BounceTrackingProtection
@@ -178,6 +225,9 @@ classDiagram
     BounceTrackingState --o BounceTrackingProtection
     BounceTrackingState --> BounceTrackingProtection : RecordStatefulBounces() on extended nav end
     BounceTrackingState *-- BounceTrackingRecord
+    BounceTrackingRecord *-- BounceTrackingSite
+    BounceTrackingPurgeEntry *-- BounceTrackingSite
+    BounceTrackingStateGlobal *-- BounceTrackingPurgeEntry
     BrowsingContextWebProgress *-- BounceTrackingState
     BounceTrackingStateGlobal --* BounceTrackingProtectionStorage
     BounceTrackingStateGlobal --> BounceTrackingProtectionStorage : Persists state changes in storage.
@@ -187,7 +237,7 @@ classDiagram
     BounceTrackingAllowList --* BounceTrackingProtection
     BounceTrackingAllowList --> BounceTrackingProtection :  Site host purge exceptions from PermissionManager.
     BrowsingContextWebProgress --> BounceTrackingState : Navigation signals
-    DocumentLoadListener --> BounceTrackingState : Navigation signals
+    DocumentLoadListener --> BounceTrackingState : Navigation signals, OnLoadRetargeted()
 ```
 
 ## Preferences

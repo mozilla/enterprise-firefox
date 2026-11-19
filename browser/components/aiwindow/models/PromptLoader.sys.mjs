@@ -25,6 +25,7 @@ import {
 import { openAIEngine } from "moz-src:///browser/components/aiwindow/models/openAIEngine.sys.mjs";
 import { Conversation } from "moz-src:///browser/components/aiwindow/models/Conversation.sys.mjs";
 import { SmartWindowLocation } from "moz-src:///browser/components/aiwindow/models/SmartWindowLocation.sys.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 /**
  * @typedef {import("moz-src:///browser/components/aiwindow/models/Utils.sys.mjs").InferenceParams} InferenceParams
@@ -34,7 +35,19 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   getSmartPageName:
     "chrome://browser/content/aiwindow/modules/TrustedInternalURLs.mjs",
+  MonitorUIUtils:
+    "moz-src:///browser/components/aiwindow/ui/modules/MonitorUIUtils.sys.mjs",
 });
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "aitabEnabled",
+  "browser.smartwindow.aitab.enabled"
+);
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "agentEnabled",
+  "browser.smartwindow.agent.enabled"
+);
 
 const CUSTOM_PROMPTS_PREF = "browser.smartwindow.customPrompts";
 const MODEL_CHOICE_PREF = "browser.smartwindow.firstrun.modelChoice";
@@ -43,12 +56,19 @@ const MODEL_CHOICE_PREF = "browser.smartwindow.firstrun.modelChoice";
 // buildChatSystemPrompt throws rather than serve a partial prompt. Others are
 // optional (e.g. model-details is model-specific and has no generic record).
 const REQUIRED_CHAT_MODULES = new Set(["identity", "response-rules"]);
-// Chat modules that describe a feature behind a pref. They are assembled only
-// while the pref is on, so the model is never taught about a tool that
-// filterFeatureGatedTools (Chat.sys.mjs) will not give it. Same pref string as
-// AITAB_PREF in Tools.sys.mjs, kept local to avoid an import cycle.
+// Chat modules that describe a gated feature, each with the check that says
+// whether the feature is available. They are assembled only while it is, so
+// the model is never taught about something the user cannot use: a tool that
+// filterFeatureGatedTools (Chat.sys.mjs) will not give it, or a monitor
+// follow-up that would do nothing when clicked. The pages gate is the same
+// pref as AITAB_PREF in Tools.sys.mjs, kept local to avoid an import cycle.
+// The monitor gate matches AgentUI.tryHandleCommand.
 const GATED_CHAT_MODULES = new Map([
-  ["pages", "browser.smartwindow.aitab.enabled"],
+  ["pages", () => lazy.aitabEnabled],
+  [
+    "monitor",
+    () => lazy.agentEnabled && lazy.MonitorUIUtils.isMonitorRegionSupported(),
+  ],
 ]);
 // Browser-context fragments predate its params manifest. Without one at this
 // build's major, read the legacy 1.x "tab" fragment, which builds that do not
@@ -73,6 +93,7 @@ export const FEATURE_PURPOSES = Object.freeze({
   [MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM]:
     PURPOSES.MEMORY_GENERATION,
   [MODEL_FEATURES.AGENT_MONITOR]: PURPOSES.MONITOR,
+  [MODEL_FEATURES.AGENT_MONITOR_SETUP]: PURPOSES.MONITOR,
   [MODEL_FEATURES.SEARCH_ANSWER_GENERATION]: PURPOSES.CHAT,
   [MODEL_FEATURES.AITAB]: PURPOSES.AITAB,
 });
@@ -82,6 +103,8 @@ function getDefaultServiceType(feature) {
     return SERVICE_TYPES.MEMORIES;
   } else if (feature.startsWith("agent")) {
     return SERVICE_TYPES.AGENT;
+  } else if (feature.startsWith("conversation-suggestions")) {
+    return SERVICE_TYPES.CONVERSATION_STARTERS;
   }
   return SERVICE_TYPES.AI;
 }
@@ -249,8 +272,8 @@ export async function buildChatSystemPrompt(model) {
   // the params record. Modules are selected by the major version it names.
   const sections = [];
   for (const entry of params.modules) {
-    const gatePref = GATED_CHAT_MODULES.get(entry.name);
-    if (gatePref && !Services.prefs.getBoolPref(gatePref, false)) {
+    const isAvailable = GATED_CHAT_MODULES.get(entry.name);
+    if (isAvailable && !isAvailable()) {
       continue;
     }
     const record = findModule(records, {
@@ -496,6 +519,38 @@ async function selectFeatureConfig(feature, opts = {}) {
   return mainConfig;
 }
 
+// Features whose generic record means "use the model of this other feature".
+const MODEL_SOURCE_FEATURES = new Map([
+  [MODEL_FEATURES.AGENT_MONITOR, MODEL_FEATURES.CHAT],
+  [MODEL_FEATURES.AGENT_MONITOR_SETUP, MODEL_FEATURES.AGENT_MONITOR],
+  [MODEL_FEATURES.AITAB, MODEL_FEATURES.CHAT],
+  [MODEL_FEATURES.RESUME_ACTIVITY_CONVERSATION, MODEL_FEATURES.CHAT],
+  [MODEL_FEATURES.RESUME_ACTIVITY_CONVERSATION_STARTER, MODEL_FEATURES.CHAT],
+]);
+
+/**
+ * Resolve the model a feature runs inference on. A generic record for a
+ * feature in MODEL_SOURCE_FEATURES takes the model its source feature resolves
+ * to.
+ *
+ * @param {string} feature
+ * @param {object} config - The feature's selected config record.
+ * @param {object} [opts]
+ * @param {string} [opts.modelChoiceIdOverride]
+ * @returns {Promise<string>}
+ */
+async function resolveInferenceModel(feature, config, opts = {}) {
+  const model = config.inference_model || config.model;
+  const sourceFeature = MODEL_SOURCE_FEATURES.get(feature);
+  if (model !== GENERIC_MODEL_NAME || !sourceFeature) {
+    return model;
+  }
+  const sourceConfig = await selectFeatureConfig(sourceFeature, {
+    modelChoiceIdOverride: opts.modelChoiceIdOverride,
+  });
+  return resolveInferenceModel(sourceFeature, sourceConfig, opts);
+}
+
 /**
  * Resolve the RS record for a feature and build a fresh openAIEngine +
  * inference parameters.
@@ -525,26 +580,11 @@ export async function buildEngineForFeature(feature, opts = {}) {
     Services.prefs.getStringPref(MODEL_CHOICE_PREF, "");
   const { baseURL, apiKey } = openAIEngine.resolveEndpointConfig(modelChoiceId);
 
-  // resolve the model to use for inference, this allows specific features to default to chat model
-  let model = mainConfig.inference_model || mainConfig.model;
-  const CHAT_MODEL_FALLBACK_FEATURES = new Set([
-    MODEL_FEATURES.AGENT_MONITOR,
-    MODEL_FEATURES.AITAB,
-    MODEL_FEATURES.RESUME_ACTIVITY_CONVERSATION,
-    MODEL_FEATURES.RESUME_ACTIVITY_CONVERSATION_STARTER,
-  ]);
-  if (
-    model === GENERIC_MODEL_NAME &&
-    CHAT_MODEL_FALLBACK_FEATURES.has(feature)
-  ) {
-    const chatConfig = await selectFeatureConfig(MODEL_FEATURES.CHAT, {
-      modelChoiceIdOverride: opts.modelChoiceIdOverride,
-    });
-    model = chatConfig.inference_model || chatConfig.model;
-  }
+  const model = await resolveInferenceModel(feature, mainConfig, opts);
 
   const engine = await openAIEngine.build({
     model,
+    modelChoiceId,
     serviceType,
     purpose,
     flowId: opts.flowId ?? null,

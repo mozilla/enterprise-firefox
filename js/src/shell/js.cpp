@@ -492,7 +492,7 @@ static bool SetMozLog(JSContext* cx, unsigned argc, Value* vp) {
  * Limit the timeout to 30 minutes to prevent an overflow on platfoms
  * that represent the time internally in microseconds using 32-bit int.
  */
-static const double MAX_TIMEOUT_SECONDS = 1800.0;
+static const int32_t MAX_TIMEOUT_SECONDS = 1800;
 
 // Not necessarily in sync with the browser
 #ifdef ENABLE_SHARED_MEMORY
@@ -1221,6 +1221,10 @@ static bool ShellInterruptCallback(JSContext* cx) {
     JS::AutoSaveExceptionState savedExc(cx);
 
     if (sc->interruptFunc.isObject()) {
+      // We need to allow running the callback, which may be in the interrupted
+      // realm.
+      js::AutoAllowScriptInInterrupt allowScript(cx);
+
       JSAutoRealm ar(cx, &sc->interruptFunc.toObject());
 
       // Report any exceptions thrown by the JS interrupt callback, but do
@@ -4864,7 +4868,7 @@ static bool Sleep_fn(JSContext* cx, unsigned argc, Value* vp) {
   ShellContext* sc = GetShellContext(cx);
   CallArgs args = CallArgsFromVp(argc, vp);
 
-  TimeDuration duration = TimeDuration::FromSeconds(0.0);
+  TimeDuration duration = TimeDuration::Zero();
   if (args.length() > 0) {
     double t_secs;
     if (!ToNumber(cx, args[0], &t_secs)) {
@@ -4959,7 +4963,7 @@ static void WatchdogMain(JSContext* cx) {
         }
 
         TimeDuration sleepDuration = sc->watchdogTimeout
-                                         ? TimeDuration::FromSeconds(0.1)
+                                         ? TimeDuration::FromMilliseconds(100)
                                          : TimeDuration::Forever();
         sc->watchdogWakeup.wait_for(guard, sleepDuration);
       }
@@ -5806,6 +5810,57 @@ static bool ParseModule(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+static bool CreateSyntheticModule(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+  if (!args.requireAtLeast(cx, "createSyntheticModule", 1)) {
+    return false;
+  }
+
+  if (!args[0].isObject()) {
+    const char* typeName = InformalValueTypeName(args[0]);
+    JS_ReportErrorASCII(cx, "expected object of exports, got %s", typeName);
+    return false;
+  }
+
+  RootedObject exports(cx, &args[0].toObject());
+  JS::RootedIdVector ids(cx);
+  if (!GetPropertyKeys(cx, exports, JSITER_OWNONLY, &ids)) {
+    return false;
+  }
+
+  Rooted<ExportNameVector> exportNames(cx);
+  JS::RootedVector<Value> exportValues(cx);
+  RootedValue idValue(cx);
+  RootedValue value(cx);
+  Rooted<JSAtom*> name(cx);
+  for (size_t i = 0; i < ids.length(); i++) {
+    idValue = IdToValue(ids[i]);
+    name = ToAtom<CanGC>(cx, idValue);
+    if (!name || !JS_GetPropertyById(cx, exports, ids[i], &value)) {
+      return false;
+    }
+    if (!exportNames.append(name) || !exportValues.append(value)) {
+      ReportOutOfMemory(cx);
+      return false;
+    }
+  }
+
+  Rooted<ModuleObject*> module(cx,
+                               ModuleObject::createSynthetic(cx, &exportNames));
+  if (!module ||
+      !ModuleObject::createSyntheticEnvironment(cx, module, exportValues)) {
+    return false;
+  }
+
+  Rooted<ShellModuleObjectWrapper*> wrapper(
+      cx, ShellModuleObjectWrapper::create(cx, module));
+  if (!wrapper) {
+    return false;
+  }
+  args.rval().setObject(*wrapper);
+  return true;
+}
+
 // A JSObject that holds XDRBuffer.
 class XDRBufferObject : public NativeObject {
   static const size_t VECTOR_SLOT = 0;
@@ -6288,11 +6343,6 @@ static bool GetModuleEnvironmentNames(JSContext* cx, unsigned argc, Value* vp) {
   if (!JS_Enumerate(cx, env, &ids)) {
     return false;
   }
-
-  // The "*namespace*" and "*deferred-namespace*" bindings are implementation
-  // details, hide them to give stable results in tests.
-  ids.eraseIfEqual(NameToId(cx->names().star_namespace_star_));
-  ids.eraseIfEqual(NameToId(cx->names().star_deferred_namespace_star_));
 
   uint32_t length = ids.length();
   Rooted<ArrayObject*> array(cx, NewDenseFullyAllocatedArray(cx, length));
@@ -10346,6 +10396,12 @@ static const JSFunctionSpecWithHelp shell_functions[] = {
 "  a JSON module ('json'), a bytes module ('bytes'), or a text module ('text'),\n"
 "  and returns a ModuleObject wrapper object."),
 
+    JS_FN_HELP("createSyntheticModule", CreateSyntheticModule, 1, 0,
+"createSyntheticModule(exports)",
+"  Creates a synthetic module whose exports are the own properties of the\n"
+"  object |exports|, and returns a ModuleObject wrapper object. Export names\n"
+"  can be arbitrary strings."),
+
     JS_FN_HELP("instantiateModuleStencil", InstantiateModuleStencil, 1, 0,
 "instantiateModuleStencil(stencil, [options])",
 "  Instantiates the given stencil as module, and return the module object."),
@@ -13338,9 +13394,10 @@ bool InitOptionParser(OptionParser& op) {
                         "Turn off bailout loop check") ||
       !op.addStringOption(
           '\0', "canonicalize-nan-at-uses", "on/off",
-          "Canonicalize NaN values at uses (default: off, on to enable") ||
-      !op.addBoolOption('\0', "enable-ic-frame-pointers",
-                        "Use frame pointers in all IC stubs") ||
+          "Canonicalize NaN values at uses (default: on, off to disable)") ||
+      !op.addBoolOption('\0', "enable-stub-frame-pointers",
+                        "Use frame pointers in baseline IC stubs and other "
+                        "trampolines. No-op on x86.") ||
       !op.addBoolOption('\0', "scalar-replace-arguments",
                         "Use scalar replacement to optimize ArgumentsObject") ||
       !op.addStringOption(
@@ -13558,14 +13615,16 @@ bool InitOptionParser(OptionParser& op) {
                        "NUMBER of instructions.",
                        -1) ||
 #endif
-#ifdef JS_CODEGEN_RISCV64
-      !op.addBoolOption('\0', "riscv-debug",
-                        "Print riscv debugging messages.") ||
+      // Like arm-hwcap, accepted by every shell so that jit-test variants can
+      // pass it; only riscv64 builds read it.
       !op.addStringOption(
           '\0', "riscv-ext", "[features]",
           "Specify RISCV code generation features. Starts with ISA (\"rv64g\") "
           "or profile (\"rva20u64\", \"rva22u64\", \"rva23u64\"), followed by "
           "extensions separated with '_'.") ||
+#ifdef JS_CODEGEN_RISCV64
+      !op.addBoolOption('\0', "riscv-debug",
+                        "Print riscv debugging messages.") ||
 #endif
 #ifdef JS_SIMULATOR_RISCV64
       !op.addBoolOption('\0', "riscv-sim-trace",
@@ -13760,6 +13819,9 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
   if (op.getBoolOption("enable-iterator-chunking")) {
     JS::Prefs::setAtStartup_experimental_iterator_chunking(true);
   }
+  if (op.getBoolOption("enable-regexp-buffer-boundaries")) {
+    JS::Prefs::setAtStartup_experimental_regexp_buffer_boundaries(true);
+  }
 #ifdef NIGHTLY_BUILD
   if (op.getBoolOption("enable-async-iterator-helpers")) {
     JS::Prefs::setAtStartup_experimental_async_iterator_helpers(true);
@@ -13787,9 +13849,6 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
   }
   if (op.getBoolOption("enable-wasm-esm-integration")) {
     JS::Prefs::set_experimental_wasm_esm_integration(true);
-  }
-  if (op.getBoolOption("enable-regexp-buffer-boundaries")) {
-    JS::Prefs::setAtStartup_experimental_regexp_buffer_boundaries(true);
   }
   if (op.getBoolOption("enable-defer-import-eval")) {
     JS::Prefs::setAtStartup_experimental_defer_import_eval(true);
@@ -14611,8 +14670,10 @@ bool SetContextJITOptions(JSContext* cx, const OptionParser& op) {
     jit::JitOptions.onlyInlineSelfHosted = true;
   }
 
-  if (op.getBoolOption("enable-ic-frame-pointers")) {
-    jit::JitOptions.enableICFramePointers = true;
+  if (op.getBoolOption("enable-stub-frame-pointers")) {
+#ifndef JS_CODEGEN_X86
+    jit::JitOptions.enableStubFramePointers = true;
+#endif
   }
 
   if (const char* str = op.getStringOption("ion-iterator-indices")) {
@@ -14855,8 +14916,10 @@ bool ApplyBenchmarkMode(JSContext* cx, const OptionParser& op) {
     issue("--emit-interpreter-entry adds overhead.");
   }
 
-  if (op.getBoolOption("enable-ic-frame-pointers")) {
-    issue("--enable-ic-frame-pointers adds overhead to IC stubs.");
+  if (op.getBoolOption("enable-stub-frame-pointers")) {
+    issue(
+        "--enable-stub-frame-pointers adds overhead to IC stubs and various "
+        "trampolines.");
   }
 
   if (op.getBoolOption("no-ion")) {

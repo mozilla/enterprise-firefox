@@ -62,9 +62,13 @@ const SIMPLETEST_OVERRIDES = [
 ];
 
 // An uncaught error with one of these names, from any process, fails the
-// running test. Currently this is only the accesskey check by menupopup and
-// panel-list code.
-const FAILING_UNCAUGHT_ERROR_NAMES = ["AccessKeyConflictError"];
+// running test: the accesskey check by menupopup and panel-list code, and
+// session store's schema check when browser.sessionstore.debug.validate_state
+// is set.
+const FAILING_UNCAUGHT_ERROR_NAMES = [
+  "AccessKeyConflictError",
+  "SessionStateValidationError",
+];
 
 setTimeout(testInit, 0);
 
@@ -575,10 +579,6 @@ Tester.prototype = {
       this.a11y_checks = gConfig.a11y_checks;
     }
 
-    if (gConfig.repeat) {
-      this.repeat = gConfig.repeat;
-    }
-
     if (gConfig.debugger || gConfig.debuggerInteractive || gConfig.jsdebugger) {
       gTimeoutSeconds = 24 * 60 * 60 * 1000; // 24 hours
     }
@@ -957,6 +957,8 @@ Tester.prototype = {
   },
 
   finish: function Tester_finish() {
+    this.PerTestCoverageUtils.afterSuiteSync();
+
     var passCount = this.tests.reduce((a, f) => a + f.passCount, 0);
     var failCount = this.tests.reduce((a, f) => a + f.failCount, 0);
     var todoCount = this.tests.reduce((a, f) => a + f.todoCount, 0);
@@ -1681,6 +1683,9 @@ Tester.prototype = {
     // test_end is logged, otherwise the new windows created by addTab will be
     // tracked by ShutdownLeaks as belonging to the test and cause false leak reports.
     if (window.gBrowser) {
+      // Tests start with the selected browser focused. Restore that before
+      // replacing the tab, as focus left on a tab would move to the new one.
+      gBrowser.selectedBrowser.focus();
       gBrowser.addTab("about:blank", {
         skipAnimation: true,
         triggeringPrincipal:
@@ -1693,6 +1698,7 @@ Tester.prototype = {
     // Make sure the window is raised before starting the next test.
     this.SimpleTest.waitForFocus(() => {
       if (this.done) {
+        Services.obs.notifyObservers(null, "mochitest-leave-chaos-mode");
         if (!this._shouldCheckForLeaks) {
           this.finish();
           return;
@@ -1744,9 +1750,6 @@ Tester.prototype = {
 
       if (this.repeat > 0) {
         --this.repeat;
-        if (this.currentTestIndex < 0) {
-          this.currentTestIndex = 0;
-        }
         this.execTest();
       } else {
         this.currentTestIndex++;
@@ -2124,6 +2127,7 @@ Tester.prototype = {
               // here: waiting on TabDestroyObserver can hang a session that
               // has already timed out.
               self.ClickChecks.forgetMouseDownState();
+              Services.obs.notifyObservers(null, "mochitest-leave-chaos-mode");
               if (self._shouldCheckForLeaks) {
                 self._releaseResourcesKeptAliveUntilShutdown();
                 await self._collectAndCheckForLeakedWindows(true);

@@ -6,6 +6,7 @@
 #define nsCSPParser_h_
 
 #include "PolicyTokenizer.h"
+#include "mozilla/UniquePtr.h"
 #include "nsCSPContext.h"
 #include "nsCSPUtils.h"
 #include "nsIURI.h"
@@ -55,6 +56,14 @@ class nsCSPParser {
                                                  bool aSuppressLogMessages);
 
   /**
+   * Parses a single source expression outside of a CSP policy.
+   * We currently parse PermissionsPolicy source-expression
+   * using the same parser as CSP, that's why we need this
+   */
+  static mozilla::UniquePtr<nsCSPBaseSrc> parseSingleSourceExpression(
+      const nsAString& aSourceExpression, nsIPrincipal* aPrincipal);
+
+  /**
    * Check if given string is valid base64 as per CSP spec.
    * https://w3c.github.io/webappsec-csp/#grammardef-base64-value
    */
@@ -81,11 +90,13 @@ class nsCSPParser {
   void handleTrustedTypesDirective(nsCSPDirective* aDir);
   void sourceList(nsTArray<nsCSPBaseSrc*>& outSrcs);
   nsCSPBaseSrc* sourceExpression();
+  nsCSPBaseSrc* schemeOrHostSource();
   nsCSPSchemeSrc* schemeSource();
   nsCSPHostSrc* hostSource();
   nsCSPBaseSrc* keywordSource();
   nsCSPNonceSrc* nonceSource();
   nsCSPHashSrc* hashSource();
+  nsCSPUrlHashSrc* urlHashSource();
   nsCSPHostSrc* host();
   bool hostChar();
   bool schemeChar();
@@ -198,6 +209,7 @@ class nsCSPParser {
   // helpers to allow invalidation of srcs within script-src and style-src
   // if either 'strict-dynamic' or at least a hash or nonce is present.
   bool mHasHashOrNonce;    // false, if no hash or nonce is defined
+  bool mHasUrlHash;        // false, if no url-hash-source is defined
   bool mHasAnyUnsafeEval;  // false, if no (wasm-)unsafe-eval keyword is used.
   bool mStrictDynamic;     // false, if 'strict-dynamic' is not defined
   nsCSPKeywordSrc* mUnsafeInlineKeywordSrc;  // null, otherwise invlidate()
@@ -218,6 +230,10 @@ class nsCSPParser {
   // cache variable to let nsCSPHostSrc know that it's within
   // the frame-ancestors directive.
   bool mParsingFrameAncestorsDir;
+
+  // Permissions Policy ignores URL paths, unlike CSP.
+  // This flag should not be set for CSP.
+  bool mOriginOnly;
 
   policyTokens mTokens;
   nsIURI* mSelfURI;

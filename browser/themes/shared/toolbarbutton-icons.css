@@ -636,16 +636,16 @@ toolbar .toolbarbutton-1 {
   display: none;
 
   &[soundplaying] {
-    list-style-image: url("chrome://global/skin/media/audio.svg");
+    list-style-image: url("resource://content-accessible/media/audio.svg");
   }
 
   &[muted] {
-    list-style-image: url("chrome://global/skin/media/audio-muted.svg");
+    list-style-image: url("resource://content-accessible/media/audio-muted.svg");
   }
 }
 
 #mini-window-restore-button {
-  list-style-image: url("chrome://global/skin/icons/open-in-new.svg");
+  list-style-image: url("chrome://browser/content/miniwindow/assets/put-tab-back-16.svg");
 }
 
 #mini-window-close-button {
@@ -654,11 +654,11 @@ toolbar .toolbarbutton-1 {
 
 #mini-window-audio-button {
   &[soundplaying] {
-    list-style-image: url("chrome://global/skin/media/audio.svg");
+    list-style-image: url("resource://content-accessible/media/audio.svg");
   }
 
   &[muted] {
-    list-style-image: url("chrome://global/skin/media/audio-muted.svg");
+    list-style-image: url("resource://content-accessible/media/audio-muted.svg");
   }
 }
 

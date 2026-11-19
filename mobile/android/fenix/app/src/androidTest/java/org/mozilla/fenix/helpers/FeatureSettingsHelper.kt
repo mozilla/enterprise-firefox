@@ -98,6 +98,12 @@ interface FeatureSettingsHelper {
     /** Whether trending and recent searches are shown on the Homepage search. */
     var isHomepageTrendingRecentSearchEnabled: Boolean
 
+    /** Whether the Collections to Tab Groups migration runs. */
+    var isCollectionsToTabGroupsMigrationEnabled: Boolean
+
+    /** Whether the Collections UI is hidden. */
+    var isCollectionsUiHidden: Boolean
+
     /** Whether Google Lens feature is enabled. */
     var isGoogleLensIntegrationEnabled: Boolean
 
@@ -106,9 +112,6 @@ interface FeatureSettingsHelper {
 
     /** Whether FxSuggest feature is enabled. */
     var isFxSuggestEnabled: Boolean
-
-    /** Whether the Android PDF tools are shown in the PDF viewer. */
-    var isPdfToolsEnabled: Boolean
 
     /** Whether the current URL is shown separate from the addressbar when tapped. */
     var showAddressBarInFocusMode: Boolean

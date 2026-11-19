@@ -440,12 +440,18 @@ tab-split-view-wrapper[dragtarget] {
 .tab-icon-image:not([fadein]),
 .tab-close-button:not([fadein]),
 .tab-background:not([fadein]) {
-  visibility: hidden;
+  #tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab &,
+  #tabbrowser-tabs[orient="vertical"] .tabbrowser-tab:not([fadein], [height-animating]) & {
+    visibility: hidden;
+  }
 }
 
 .tab-label:not([fadein]),
 .tab-throbber:not([fadein]) {
-  display: none;
+  #tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab &,
+  #tabbrowser-tabs[orient="vertical"] .tabbrowser-tab:not([fadein], [height-animating]) & {
+    display: none;
+  }
 }
 
 /* Width/height & margins apply on tab icon stack children */
@@ -654,6 +660,10 @@ tab-split-view-wrapper[dragtarget] {
 
   &[sharing="screen"] {
     list-style-image: url("chrome://browser/skin/notification-icons/screen.svg");
+  }
+
+  &[sharing="serial"] {
+    list-style-image: url("chrome://browser/skin/notification-icons/serial.svg");
   }
 
   &[sharing]:not([selected]) {
@@ -2246,6 +2256,14 @@ tab-group {
     text-overflow: ellipsis;
     white-space: nowrap;
     line-height: calc(var(--tab-group-counter-size) - 2 * var(--space-xsmall));
+
+    #tabbrowser-tabs[orient="vertical"] & {
+      width: fit-content;
+    }
+
+    #tabbrowser-tabs[orient="vertical"]:not([expanded]) & {
+      padding-inline: 0;
+    }
   }
 }
 
@@ -2490,54 +2508,41 @@ tab-group {
   }
 
   .tab-group-editor-swatches {
-    display: flex;
-    flex-flow: row nowrap;
-    justify-content: space-between;
+    display: block;
     margin: var(--panel-menuitem-margin);
     padding-block: var(--panel-menuitem-padding-block);
 
     @media -moz-pref("browser.nova.enabled") {
       padding-block: 0 var(--space-large);
     }
-  }
-
-  input[name="tab-group-color"] {
-    width: 0;
-    height: 0;
-    opacity: 0;
-    margin: 0;
-    position: absolute;
-    pointer-events: none;
-    top: -100px;
+    &::part(inputs) {
+      flex-flow: row nowrap;
+      justify-content: space-between;
+      gap: 0;
+    }
+    moz-visual-picker-item {
+      --visual-picker-item-border-color: transparent;
+      --visual-picker-item-border-width-checked: var(--focus-outline-width);
+      @media -moz-pref("browser.nova.enabled") {
+        --visual-picker-item-border-radius: var(--border-radius-circle);
+      }
+    }
   }
 
   .tab-group-editor-swatch {
+    display: block;
     font-size: 0;
-    width: 16px;
-    height: 16px;
-    padding: var(--focus-outline-offset);
-    border: var(--focus-outline-width) solid transparent;
-    border-radius: var(--border-radius-medium);
-    background-clip: content-box;
+    inline-size: 16px;
+    block-size: 16px;
+    margin: var(--focus-outline-offset);
     background-color: var(--tabgroup-swatch-color);
     @media -moz-pref("browser.nova.enabled") {
-      width: 20px;
-      height: 20px;
-      background-color: var(--tabgroup-swatch-color);
-      border-radius: var(--border-radius-circle);
+      inline-size: 20px;
+      block-size: 20px;
     }
 
-    input:checked + & {
-      border-color: var(--focus-outline-color);
-    }
-
-    input:disabled + & {
+    .tab-group-editor-swatches[disabled] & {
       opacity: 0.5;
-    }
-
-    input:focus-visible + & {
-      outline: 1px solid var(--focus-outline-color);
-      outline-offset: 1px;
     }
   }
 }
@@ -3047,9 +3052,37 @@ tab-group {
     padding-inline: 0;
     padding-block: var(--tab-padding-block-start) var(--tab-padding-block-end);
 
+    &:not(tab-split-view-wrapper > .tabbrowser-tab) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 1fr;
+
+      > .tab-stack {
+        min-block-size: 0;
+      }
+    }
+
     /* prevent the shadow of the close button from being cutoff by the toolbar on the first tab */
     &:nth-child(1 of :not([hidden], [pinned])) {
-      padding-block-start: max(var(--space-xsmall), var(--tab-close-button-overhang));
+      --tab-padding-block-start: max(var(--space-xsmall), var(--tab-close-button-overhang));
+    }
+
+    &:not(tab-split-view-wrapper > .tabbrowser-tab)[height-animating] {
+      min-height: 0;
+      overflow-clip-margin: 0;
+      transition-property: grid-template-rows, padding-block-start, padding-block-end;
+      transition-duration: var(--sidebar-motion-duration-enter);
+      transition-timing-function: var(--sidebar-motion-easing);
+
+      &:not([fadein]) {
+        grid-template-rows: 0fr;
+        padding-block: 0;
+        transition-duration: var(--sidebar-motion-duration-exit);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
     }
   }
 
@@ -3220,6 +3253,10 @@ tab-group {
   appearance: none;
   opacity: 0.65;
   -moz-window-shadow: none;
+  /* This panel is the drag image on Linux. Gecko hit-tests it at the
+     position where it opened, not where it follows the pointer, so it must
+     let drag events through to whatever is underneath. */
+  pointer-events: none;
 }
 
 /* Firefox View button and menu item */
@@ -3426,11 +3463,11 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
 }
 
 .all-tabs-mute-button[soundplaying] {
-  list-style-image: url(chrome://global/skin/media/audio.svg);
+  list-style-image: url(resource://content-accessible/media/audio.svg);
 }
 
 .all-tabs-mute-button[muted] {
-  list-style-image: url(chrome://global/skin/media/audio-muted.svg);
+  list-style-image: url(resource://content-accessible/media/audio-muted.svg);
 }
 
 .all-tabs-close-button {

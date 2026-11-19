@@ -212,12 +212,18 @@ ipprotection-button-turn-vpn-on-1 = Turn on
 # Button while VPN is connecting
 ipprotection-button-connecting = Turning on…
 
+## Unlimited bandwidth disclaimer shown during a promotion or if the user has a Mozilla VPN subscription
+
+# Variables
+#   $endDate (date) - The date the promotion ends, formatted as month and day (e.g. "January 31")
+ipprotection-unlimited-bandwidth-promo = Unlimited bandwidth until { DATETIME($endDate, month: "long", day: "numeric") }
+ipprotection-unlimited-bandwidth-upgraded = Unlimited bandwidth
+
 ## Location controls
 
 # The button displays the selected VPN location.
 # This shows the default selection, "Recommended" which is the recommended location as determined by Firefox.
 ipprotection-recommended-location-button = Location: Recommended
-ipprotection-recommended-location-description = { -brand-product-name } finds the fastest location
 
 # Variables
 #   $country (string) - The country selected for the VPN server location
@@ -240,6 +246,17 @@ ipprotection-locations-subview-promo =
   .heading = Take protection further with { -mozilla-vpn-brand-name }
   .message = Choose from 300+ locations and protect all your apps on up to 5 devices.
 ipprotection-locations-subview-promo-button = Get { -mozilla-vpn-brand-name }
+
+# Variables:
+#   $count (number) - The number of additional VPN locations available after setting Firefox as the default browser
+ipprotection-locations-subview-set-default-promo =
+  .heading = More locations. More protection.
+  .message =
+    { $count ->
+        [one] Make { -brand-short-name } your default and get { $count } more location. Your links open here, where VPN is built in.
+       *[other] Make { -brand-short-name } your default and get { $count } more locations. Your links open here, where VPN is built in.
+    }
+ipprotection-locations-subview-set-default-promo-button = Open links with { -brand-short-name }
 
 ## VPN paused state
 
@@ -281,6 +298,15 @@ ipprotection-message-bandwidth-warning =
 ipprotection-message-bandwidth-warning-mb =
   .heading = Getting close to your VPN limit
   .message = You have { $usageLeft } MB of { $maxUsage } GB left this month.
+
+# Variables
+#   $additionalLocationsCount (number) - The number of additional VPN locations now available
+ipprotection-message-default-browser-confirmation =
+   .heading = { $additionalLocationsCount ->
+      [one] You’ve got { $additionalLocationsCount } more VPN location
+     *[other] You’ve got { $additionalLocationsCount } more VPN locations
+  }
+  .message = Thanks for making { -brand-short-name } your default. We’ve added more locations you can browse.
 
 ipprotection-message-continuous-onboarding-intro = Turn on VPN to hide your location and add extra encryption to your browsing.
 ipprotection-message-continuous-onboarding-autostart = <a data-l10n-name="setting-link">Set VPN to turn on</a> every time you open { -brand-short-name } for an extra layer of protection.

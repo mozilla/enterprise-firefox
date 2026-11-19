@@ -3,16 +3,26 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import React, { useEffect, useRef, useState } from "react";
-import { batch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
-import { getChosenOption } from "common/WidgetsRegistry.mjs";
+import { getChosenOption, WIDGET_SOURCES } from "common/WidgetsRegistry.mjs";
 import { MozWidgetCard } from "./MozWidgetCard";
 import { useWidgetTelemetry } from "./useWidgetTelemetry";
+import { usePageShown } from "./usePageVisible";
 import { useSizeSubmenu } from "../../lib/utils";
+
+const ERROR_MESSAGE = "widget_error";
+const READY_MESSAGE = "widget_ready";
+// The framed-widgets protocol's reason token rule.
+const REASON_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 
 // The host actions a WidgetMenuItem of type "action" can run.
 const MENU_ACTIONS = {
-  "show-customize": dispatch => dispatch({ type: at.SHOW_PERSONALIZE }),
+  "show-customize": (dispatch, entry) =>
+    dispatch({
+      type: at.SHOW_PERSONALIZE,
+      data: { source: entry.telemetryName },
+    }),
 };
 
 const withoutFragment = url => url.split("#")[0];
@@ -52,6 +62,14 @@ function ChoiceSubmenu({ submenuId, item, checkedValue, onChoose }) {
  * it passes the entry's choices to the document as parameters in its URL
  * fragment, without adding session history entries when they change.
  *
+ * A web page reports its state to this card with
+ * `window.parent.postMessage({ channel: "<telemetryName>_widget", type, payload }, "*")`,
+ * where `type` is "widget_error" or "widget_ready". The payload of an error is
+ * `{ reason, terminal }`, and only a terminal error covers the frame. The card
+ * accepts only messages from the window of its frame and the origin of its
+ * document. The protocol is in docs/host-integration.md of
+ * mozilla/framed-widgets.
+ *
  * @param {object} props - the props of MozWidgetCard
  */
 export function FramedWidgetCard(props) {
@@ -68,10 +86,16 @@ export function FramedWidgetCard(props) {
 
   // The frame keeps the URL it first loaded. A change to only its fragment is
   // passed with location.replace() instead, since changing the frame's URL
-  // would add a session history entry to the tab.
+  // would add a session history entry to the tab. MozWidgetCard loads nothing
+  // until the page is shown, so until then the whole URL can change.
   const cardRef = useRef(null);
+  const pageShown = usePageShown();
   const [loadedSrc, setLoadedSrc] = useState(frameSrc);
-  if (withoutFragment(loadedSrc) !== withoutFragment(frameSrc)) {
+  if (
+    pageShown
+      ? withoutFragment(loadedSrc) !== withoutFragment(frameSrc)
+      : loadedSrc !== frameSrc
+  ) {
     setLoadedSrc(frameSrc);
   }
   const shownSrcRef = useRef(frameSrc);
@@ -86,6 +110,55 @@ export function FramedWidgetCard(props) {
     }
   }, [frameSrc]);
 
+  let widgetOrigin = null;
+  try {
+    widgetOrigin = new URL(loadedSrc).origin;
+  } catch {}
+  // An opaque origin serialises as "null", which cannot identify the sender.
+  if (widgetOrigin === "null") {
+    widgetOrigin = null;
+  }
+  /**
+   * @backward-compat { version 161 }
+   * moz-widget gained reportError() and reportReady() in 161. On 160 they are
+   * missing, so the optional calls do nothing. Drop the `?.` once 161 reaches
+   * Release.
+   */
+  useEffect(() => {
+    if (!widgetOrigin) {
+      return undefined;
+    }
+    const channel = `${entry.telemetryName}_widget`;
+    function handleMessage(event) {
+      const frameWindow = cardRef.current?.frame?.contentWindow;
+      if (
+        event.origin !== widgetOrigin ||
+        !frameWindow ||
+        event.source !== frameWindow ||
+        event.data?.channel !== channel
+      ) {
+        return;
+      }
+      // A widget sends widget_ready when its page loads, even after an earlier
+      // terminal error, so a ready must not clear that error.
+      if (event.data.type === ERROR_MESSAGE) {
+        const { payload } = event.data;
+        const reason = payload?.reason;
+        if (
+          payload?.terminal === true &&
+          typeof reason === "string" &&
+          REASON_PATTERN.test(reason)
+        ) {
+          cardRef.current.reportError?.(reason);
+        }
+      } else if (event.data.type === READY_MESSAGE && !cardRef.current.error) {
+        cardRef.current.reportReady?.();
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [widgetOrigin, entry.telemetryName]);
+
   const { recordUserAction } = useWidgetTelemetry({
     dispatch,
     widget: entry,
@@ -96,18 +169,16 @@ export function FramedWidgetCard(props) {
     dispatch(ac.OnlyToMain({ type: at.SET_PREF, data: { name: pref, value } }));
 
   const handleChoose = (item, value) => {
-    batch(() => {
-      setPref(item.pref, value);
-      recordUserAction(`change_${item.id}`, {
-        source: "context_menu",
-        value,
-      });
+    setPref(item.pref, value);
+    recordUserAction(`change_${item.id}`, {
+      source: WIDGET_SOURCES.CONTEXT_MENU,
+      value,
     });
   };
 
   const handleAction = item => {
-    MENU_ACTIONS[item.action]?.(dispatch);
-    recordUserAction(item.id, { source: "context_menu" });
+    MENU_ACTIONS[item.action]?.(dispatch, entry);
+    recordUserAction(item.id, { source: WIDGET_SOURCES.CONTEXT_MENU });
   };
 
   // A choice whose option needs more room than the new size switches to the
@@ -149,6 +220,7 @@ export function FramedWidgetCard(props) {
     <MozWidgetCard
       {...props}
       src={loadedSrc}
+      readyOnLoad={false}
       menuItems={menuItems}
       onChangeSize={handleChangeSize}
       cardRef={cardRef}

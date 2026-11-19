@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.mozilla.gecko.annotation.WrapForJNI;
 import org.mozilla.gecko.mozglue.JNIObject;
+import org.mozilla.gecko.util.ThreadUtils;
 import org.mozilla.geckoview.GeckoResult;
 
 /**
@@ -139,7 +140,8 @@ public class GeckoJavaSampler {
 
       for (int i = 0; i < aStack.length; i++) {
         mFrames[aStack.length - 1 - i] =
-            new Frame(aStack[i].getMethodName(), aStack[i].getClassName());
+            new Frame(
+                aStack[i].getMethodName(), aStack[i].getClassName(), aStack[i].getLineNumber());
       }
     }
   }
@@ -151,10 +153,12 @@ public class GeckoJavaSampler {
   private static class Frame {
     public final String methodName;
     public final String className;
+    public final int lineNumber;
 
-    private Frame(final String methodName, final String className) {
+    private Frame(final String methodName, final String className, final int lineNumber) {
       this.methodName = methodName;
       this.className = className;
+      this.lineNumber = lineNumber;
     }
   }
 
@@ -320,8 +324,11 @@ public class GeckoJavaSampler {
    * Public method to add a new marker to Gecko profiler. This can be used to add a marker *inside*
    * the geckoview code, but ideally ProfilerController methods should be used instead.
    *
-   * @see Marker#Marker(long, String, Double, Double, String) for information about the parameter
-   *     options.
+   * @param aMarkerName Identifier of the marker as a string.
+   * @param aStartTime Start time as Double. It can be null if you want to mark a point of time.
+   * @param aEndTime End time as Double. If it's null, this function implicitly gets the end time.
+   * @param aText An optional string field for more information about the marker.
+   * @see Marker#Marker(long, String, Double, Double, String)
    */
   public static void addMarker(
       @NonNull final String aMarkerName,
@@ -336,7 +343,7 @@ public class GeckoJavaSampler {
    * to its mutable state.
    */
   private static class SamplingRunnable implements Runnable {
-    private final long mMainThreadId = Looper.getMainLooper().getThread().getId();
+    private final long mMainThreadId = ThreadUtils.getThreadId(Looper.getMainLooper().getThread());
 
     // Sampling interval that is used by start and unpause
     public final int mInterval;
@@ -384,7 +391,7 @@ public class GeckoJavaSampler {
             continue;
           }
 
-          mSamples[mSamplePos] = new Sample(thread.getId(), stackTrace);
+          mSamples[mSamplePos] = new Sample(ThreadUtils.getThreadId(thread), stackTrace);
           mSamplePos += 1;
           if (mSamplePos == mSampleCount) {
             // Sample array is full now, go back to start of
@@ -447,13 +454,13 @@ public class GeckoJavaSampler {
 
     // See REPLACEMENT_MAIN_THREAD_NAME for why we do this.
     String adjustedThreadName =
-        thread.getId() == sSamplingRunnable.mMainThreadId
+        ThreadUtils.getThreadId(thread) == sSamplingRunnable.mMainThreadId
             ? REPLACEMENT_MAIN_THREAD_NAME
             : thread.getName();
 
     // To distinguish JVM threads from native threads, we append a JVM-specific suffix.
     adjustedThreadName += " (JVM)";
-    return new ThreadInfo(getAdjustedThreadId(thread.getId()), adjustedThreadName);
+    return new ThreadInfo(getAdjustedThreadId(ThreadUtils.getThreadId(thread)), adjustedThreadName);
   }
 
   @WrapForJNI
@@ -493,6 +500,25 @@ public class GeckoJavaSampler {
   }
 
   /**
+   * Returns the source line number of a frame, or a negative value if unknown.
+   *
+   * @param aSampleId the index of the sample
+   * @param aFrameId the index of the frame within the sample
+   * @return the line number
+   */
+  @WrapForJNI
+  public static synchronized int getFrameLineNumber(final int aSampleId, final int aFrameId) {
+    final Sample sample = getSample(aSampleId);
+    if (sample != null && aFrameId < sample.mFrames.length) {
+      final Frame frame = sample.mFrames[aFrameId];
+      if (frame != null) {
+        return frame.lineNumber;
+      }
+    }
+    return -1;
+  }
+
+  /**
    * A start/stop-aware container for storing profiler markers.
    *
    * <p>This class is thread safe: see {@link #mMarkers} and other member variables for the
@@ -526,7 +552,7 @@ public class GeckoJavaSampler {
 
       final Set<Long> profiledThreadIds = new HashSet<>(aProfiledThreads.size());
       for (final Thread thread : aProfiledThreads) {
-        profiledThreadIds.add(thread.getId());
+        profiledThreadIds.add(ThreadUtils.getThreadId(thread));
       }
 
       // We use a temporary collection, rather than mutating the collection within the member
@@ -555,7 +581,7 @@ public class GeckoJavaSampler {
         return;
       }
 
-      final long threadId = Thread.currentThread().getId();
+      final long threadId = ThreadUtils.getThreadId(Thread.currentThread());
       if (!mProfiledThreadIds.contains(threadId)) {
         return;
       }
@@ -839,5 +865,22 @@ public class GeckoJavaSampler {
     sb.append(" ");
     sb.append(Build.MODEL);
     return sb.toString();
+  }
+
+  private static volatile String sProguardUuid;
+
+  /**
+   * Sets the UUID of the embedding app's R8/ProGuard mapping file, recorded in profiles.
+   *
+   * @param proguardUuid the mapping file UUID
+   */
+  public static void setProguardUuid(final String proguardUuid) {
+    sProguardUuid = proguardUuid;
+  }
+
+  /** Returns the UUID of the embedding app's R8/ProGuard mapping file, or null if unknown. */
+  @WrapForJNI
+  public static String getProguardUuid() {
+    return sProguardUuid;
   }
 }

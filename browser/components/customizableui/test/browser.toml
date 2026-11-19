@@ -94,7 +94,6 @@ tags = "overflowable-toolbar"
 tags = "overflowable-toolbar"
 skip-if = [
   "devedition",
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'",
 ]
 
 ["browser_918049_skipintoolbarset_dnd.js"]
@@ -357,9 +356,6 @@ tags = "fullscreen"
 ["browser_proton_toolbar_hide_toolbarbuttons.js"]
 
 ["browser_registerArea.js"]
-skip-if = [
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && opt && a11y_checks && swgl && verify-standalone",
-]
 
 ["browser_reload_tab.js"]
 
@@ -379,8 +375,6 @@ skip-if = [
 ["browser_reset_dom_events.js"]
 
 ["browser_screenshot_button_disabled.js"]
-
-["browser_searchbar_removal.js"]
 
 ["browser_share_tab_button_linux.js"]
 run-if = [

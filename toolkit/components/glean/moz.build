@@ -94,6 +94,9 @@ include("metrics_index.py")
 # Provides the function to convert a metrics.yaml path to the name of a header.
 include("build_scripts/glean_parser_ext/metrics_header_names.py")
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    metrics_yamls = sorted(metrics_yamls + firefox_enterprise_metrics)
+    pings_yamls = sorted(pings_yamls + firefox_enterprise_pings)
 
 # Allow defining metrics/pings/tags elsewhere (like for Thunderbird).
 # See https://source-docs.thunderbird.net/en/latest/telemetry/index.html
@@ -170,14 +173,6 @@ GeneratedFile(
     script="build_scripts/glean_parser_ext/run_glean_parser.py",
     flags=glean_parser_flags,
     inputs=["!metrics_yamls.cached"],
-)
-
-GeneratedFile(
-    "/dist/@types/lib.gecko.glean.d.ts",
-    entry_point="ts_metrics_pings",
-    script="build_scripts/glean_parser_ext/run_glean_parser.py",
-    inputs=["!metrics_yamls.cached", "!pings_yamls.cached"],
-    flags=glean_parser_flags,
 )
 
 GeneratedFile(

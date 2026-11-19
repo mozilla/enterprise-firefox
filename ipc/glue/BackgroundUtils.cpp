@@ -368,76 +368,39 @@ bool IsPrincipalInfoPrivate(const PrincipalInfo& aPrincipalInfo) {
 
 already_AddRefed<nsIRedirectHistoryEntry> RHEntryInfoToRHEntry(
     const RedirectHistoryEntryInfo& aRHEntryInfo) {
-  auto principalOrErr = PrincipalInfoToPrincipal(aRHEntryInfo.principalInfo());
-  if (NS_WARN_IF(principalOrErr.isErr())) {
-    return nullptr;
-  }
-
-  nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
-  nsCOMPtr<nsIURI> referrerUri = DeserializeURI(aRHEntryInfo.referrerUri());
-
   nsCOMPtr<nsIRedirectHistoryEntry> entry = new nsRedirectHistoryEntry(
-      principal, referrerUri, aRHEntryInfo.remoteAddress());
+      aRHEntryInfo.principal(), aRHEntryInfo.referrerUri(),
+      aRHEntryInfo.remoteAddress());
 
   return entry.forget();
 }
 
-nsresult RHEntryToRHEntryInfo(nsIRedirectHistoryEntry* aRHEntry,
-                              RedirectHistoryEntryInfo* aRHEntryInfo) {
+Result<RedirectHistoryEntryInfo, nsresult> RHEntryToRHEntryInfo(
+    nsIRedirectHistoryEntry* aRHEntry) {
   MOZ_ASSERT(aRHEntry);
-  MOZ_ASSERT(aRHEntryInfo);
 
-  nsresult rv;
-  aRHEntry->GetRemoteAddress(aRHEntryInfo->remoteAddress());
+  nsAutoCString remoteAddress;
+  MOZ_TRY(aRHEntry->GetRemoteAddress(remoteAddress));
 
   nsCOMPtr<nsIURI> referrerUri;
-  rv = aRHEntry->GetReferrerURI(getter_AddRefs(referrerUri));
-  NS_ENSURE_SUCCESS(rv, rv);
-  SerializeURI(referrerUri, aRHEntryInfo->referrerUri());
+  MOZ_TRY(aRHEntry->GetReferrerURI(getter_AddRefs(referrerUri)));
 
   nsCOMPtr<nsIPrincipal> principal;
-  rv = aRHEntry->GetPrincipal(getter_AddRefs(principal));
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(aRHEntry->GetPrincipal(getter_AddRefs(principal)));
+  if (NS_WARN_IF(!principal)) {
+    return Err(NS_ERROR_UNEXPECTED);
+  }
 
-  return PrincipalToPrincipalInfo(principal, &aRHEntryInfo->principalInfo());
+  return RedirectHistoryEntryInfo(WrapNotNull(principal), referrerUri,
+                                  remoteAddress);
 }
 
 nsresult LoadInfoToLoadInfoArgs(nsILoadInfo* aLoadInfo,
                                 LoadInfoArgs* outLoadInfoArgs) {
   nsresult rv = NS_OK;
-  Maybe<PrincipalInfo> loadingPrincipalInfo;
-  if (nsIPrincipal* loadingPrin = aLoadInfo->GetLoadingPrincipal()) {
-    loadingPrincipalInfo.emplace();
-    rv = PrincipalToPrincipalInfo(loadingPrin, loadingPrincipalInfo.ptr());
-    NS_ENSURE_SUCCESS(rv, rv);
-  }
 
-  PrincipalInfo triggeringPrincipalInfo;
-  rv = PrincipalToPrincipalInfo(aLoadInfo->TriggeringPrincipal(),
-                                &triggeringPrincipalInfo);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  Maybe<PrincipalInfo> principalToInheritInfo;
-  if (nsIPrincipal* principalToInherit = aLoadInfo->PrincipalToInherit()) {
-    principalToInheritInfo.emplace();
-    rv = PrincipalToPrincipalInfo(principalToInherit,
-                                  principalToInheritInfo.ptr());
-    NS_ENSURE_SUCCESS(rv, rv);
-  }
-
-  Maybe<PrincipalInfo> topLevelPrincipalInfo;
-  if (nsIPrincipal* topLevenPrin = aLoadInfo->GetTopLevelPrincipal()) {
-    topLevelPrincipalInfo.emplace();
-    rv = PrincipalToPrincipalInfo(topLevenPrin, topLevelPrincipalInfo.ptr());
-    NS_ENSURE_SUCCESS(rv, rv);
-  }
-
-  Maybe<URIParams> optionalResultPrincipalURI;
   nsCOMPtr<nsIURI> resultPrincipalURI;
   (void)aLoadInfo->GetResultPrincipalURI(getter_AddRefs(resultPrincipalURI));
-  if (resultPrincipalURI) {
-    SerializeURI(resultPrincipalURI, optionalResultPrincipalURI);
-  }
 
   RemoteType triggeringRemoteType;
   rv = aLoadInfo->GetTriggeringRemoteType(triggeringRemoteType);
@@ -446,18 +409,14 @@ nsresult LoadInfoToLoadInfoArgs(nsILoadInfo* aLoadInfo,
   nsTArray<RedirectHistoryEntryInfo> redirectChainIncludingInternalRedirects;
   for (const nsCOMPtr<nsIRedirectHistoryEntry>& redirectEntry :
        aLoadInfo->RedirectChainIncludingInternalRedirects()) {
-    RedirectHistoryEntryInfo* entry =
-        redirectChainIncludingInternalRedirects.AppendElement();
-    rv = RHEntryToRHEntryInfo(redirectEntry, entry);
-    NS_ENSURE_SUCCESS(rv, rv);
+    redirectChainIncludingInternalRedirects.AppendElement(
+        MOZ_TRY(RHEntryToRHEntryInfo(redirectEntry)));
   }
 
   nsTArray<RedirectHistoryEntryInfo> redirectChain;
   for (const nsCOMPtr<nsIRedirectHistoryEntry>& redirectEntry :
        aLoadInfo->RedirectChain()) {
-    RedirectHistoryEntryInfo* entry = redirectChain.AppendElement();
-    rv = RHEntryToRHEntryInfo(redirectEntry, entry);
-    NS_ENSURE_SUCCESS(rv, rv);
+    redirectChain.AppendElement(MOZ_TRY(RHEntryToRHEntryInfo(redirectEntry)));
   }
 
   Maybe<IPCClientInfo> ipcClientInfo;
@@ -514,23 +473,19 @@ nsresult LoadInfoToLoadInfoArgs(nsILoadInfo* aLoadInfo,
   Maybe<InterceptionInfoArg> interceptionInfoArg;
   nsIInterceptionInfo* interceptionInfo = aLoadInfo->InterceptionInfo();
   if (interceptionInfo) {
-    Maybe<PrincipalInfo> triggeringPrincipalInfo;
-    if (interceptionInfo->TriggeringPrincipal()) {
-      triggeringPrincipalInfo.emplace();
-      rv = PrincipalToPrincipalInfo(interceptionInfo->TriggeringPrincipal(),
-                                    triggeringPrincipalInfo.ptr());
+    nsIPrincipal* triggeringPrincipal = interceptionInfo->TriggeringPrincipal();
+    if (NS_WARN_IF(!triggeringPrincipal)) {
+      return NS_ERROR_UNEXPECTED;
     }
 
     nsTArray<RedirectHistoryEntryInfo> redirectChain;
     for (const nsCOMPtr<nsIRedirectHistoryEntry>& redirectEntry :
          interceptionInfo->RedirectChain()) {
-      RedirectHistoryEntryInfo* entry = redirectChain.AppendElement();
-      rv = RHEntryToRHEntryInfo(redirectEntry, entry);
-      NS_ENSURE_SUCCESS(rv, rv);
+      redirectChain.AppendElement(MOZ_TRY(RHEntryToRHEntryInfo(redirectEntry)));
     }
 
     interceptionInfoArg = Some(InterceptionInfoArg(
-        triggeringPrincipalInfo, interceptionInfo->ContentPolicyType(),
+        WrapNotNull(triggeringPrincipal), interceptionInfo->ContentPolicyType(),
         redirectChain, interceptionInfo->FromThirdParty()));
   }
 
@@ -557,8 +512,9 @@ nsresult LoadInfoToLoadInfoArgs(nsILoadInfo* aLoadInfo,
   }
 
   *outLoadInfoArgs = LoadInfoArgs(
-      loadingPrincipalInfo, triggeringPrincipalInfo, principalToInheritInfo,
-      topLevelPrincipalInfo, optionalResultPrincipalURI, triggeringRemoteType,
+      aLoadInfo->GetLoadingPrincipal(), aLoadInfo->TriggeringPrincipal(),
+      aLoadInfo->PrincipalToInherit(), aLoadInfo->GetTopLevelPrincipal(),
+      resultPrincipalURI, triggeringRemoteType,
       aLoadInfo->GetSandboxedNullPrincipalID(), aLoadInfo->GetSecurityFlags(),
       aLoadInfo->GetSandboxFlags(), aLoadInfo->GetTriggeringSandboxFlags(),
       aLoadInfo->GetTriggeringWindowId(),
@@ -647,34 +603,17 @@ nsresult LoadInfoArgsToLoadInfo(const LoadInfoArgs& loadInfoArgs,
                                 const RemoteType& aOriginRemoteType,
                                 nsINode* aCspToInheritLoadingContext,
                                 LoadInfo** outLoadInfo) {
-  nsCOMPtr<nsIPrincipal> loadingPrincipal;
-  if (loadInfoArgs.requestingPrincipalInfo().isSome()) {
-    auto loadingPrincipalOrErr =
-        PrincipalInfoToPrincipal(loadInfoArgs.requestingPrincipalInfo().ref());
-    if (NS_WARN_IF(loadingPrincipalOrErr.isErr())) {
-      return loadingPrincipalOrErr.unwrapErr();
-    }
-    loadingPrincipal = loadingPrincipalOrErr.unwrap();
-  }
+  nsCOMPtr<nsIPrincipal> loadingPrincipal = loadInfoArgs.requestingPrincipal();
 
-  auto triggeringPrincipalOrErr =
-      PrincipalInfoToPrincipal(loadInfoArgs.triggeringPrincipalInfo());
-  if (NS_WARN_IF(triggeringPrincipalOrErr.isErr())) {
-    return triggeringPrincipalOrErr.unwrapErr();
-  }
   nsCOMPtr<nsIPrincipal> triggeringPrincipal =
-      triggeringPrincipalOrErr.unwrap();
+      loadInfoArgs.triggeringPrincipal();
+  if (NS_WARN_IF(!triggeringPrincipal)) {
+    return NS_ERROR_UNEXPECTED;
+  }
 
   nsCOMPtr<nsIPrincipal> principalToInherit;
-  nsCOMPtr<nsIPrincipal> flattenedPrincipalToInherit;
-  if (loadInfoArgs.principalToInheritInfo().isSome()) {
-    auto principalToInheritOrErr =
-        PrincipalInfoToPrincipal(loadInfoArgs.principalToInheritInfo().ref());
-    if (NS_WARN_IF(principalToInheritOrErr.isErr())) {
-      return principalToInheritOrErr.unwrapErr();
-    }
-    flattenedPrincipalToInherit = principalToInheritOrErr.unwrap();
-  }
+  nsCOMPtr<nsIPrincipal> flattenedPrincipalToInherit =
+      loadInfoArgs.principalToInherit();
 
   if (XRE_IsContentProcess()) {
     auto targetBrowsingContextId = loadInfoArgs.frameBrowsingContextID()
@@ -697,25 +636,13 @@ nsresult LoadInfoArgsToLoadInfo(const LoadInfoArgs& loadInfoArgs,
       }
     }
   }
-  if (!principalToInherit && loadInfoArgs.principalToInheritInfo().isSome()) {
+  if (!principalToInherit) {
     principalToInherit = flattenedPrincipalToInherit;
   }
 
-  nsCOMPtr<nsIPrincipal> topLevelPrincipal;
-  if (loadInfoArgs.topLevelPrincipalInfo().isSome()) {
-    auto topLevelPrincipalOrErr =
-        PrincipalInfoToPrincipal(loadInfoArgs.topLevelPrincipalInfo().ref());
-    if (NS_WARN_IF(topLevelPrincipalOrErr.isErr())) {
-      return topLevelPrincipalOrErr.unwrapErr();
-    }
-    topLevelPrincipal = topLevelPrincipalOrErr.unwrap();
-  }
+  nsCOMPtr<nsIPrincipal> topLevelPrincipal = loadInfoArgs.topLevelPrincipal();
 
-  nsCOMPtr<nsIURI> resultPrincipalURI;
-  if (loadInfoArgs.resultPrincipalURI().isSome()) {
-    resultPrincipalURI = DeserializeURI(loadInfoArgs.resultPrincipalURI());
-    NS_ENSURE_TRUE(resultPrincipalURI, NS_ERROR_UNEXPECTED);
-  }
+  nsCOMPtr<nsIURI> resultPrincipalURI(loadInfoArgs.resultPrincipalURI());
 
   // If we received this message from a content process, reset
   // triggeringRemoteType to the process which sent us the message. If the
@@ -766,14 +693,8 @@ nsresult LoadInfoArgsToLoadInfo(const LoadInfoArgs& loadInfoArgs,
   } else {
     // Fill out (possibly redacted) ancestor principals for
     // Location.ancestorOrigins
-    for (const auto& principalInfo : loadInfoArgs.ancestorOrigins()) {
-      if (principalInfo.isNothing()) {
-        ancestorPrincipals.AppendElement(nullptr);
-      } else {
-        auto principal = PrincipalInfoToPrincipal(principalInfo.value());
-        // If this operation fail, we censor the origin.
-        ancestorPrincipals.AppendElement(principal.unwrapOr(nullptr));
-      }
+    for (const auto& principal : loadInfoArgs.ancestorOrigins()) {
+      ancestorPrincipals.AppendElement(principal);
     }
   }
 
@@ -837,16 +758,6 @@ nsresult LoadInfoArgsToLoadInfo(const LoadInfoArgs& loadInfoArgs,
   if (loadInfoArgs.interceptionInfo().isSome()) {
     const InterceptionInfoArg& interceptionInfoArg =
         loadInfoArgs.interceptionInfo().ref();
-    nsCOMPtr<nsIPrincipal> triggeringPrincipal;
-    if (interceptionInfoArg.triggeringPrincipalInfo().isSome()) {
-      auto triggeringPrincipalOrErr = PrincipalInfoToPrincipal(
-          interceptionInfoArg.triggeringPrincipalInfo().ref());
-      if (NS_WARN_IF(triggeringPrincipalOrErr.isErr())) {
-        return triggeringPrincipalOrErr.unwrapErr();
-      }
-      triggeringPrincipal = triggeringPrincipalOrErr.unwrap();
-    }
-
     RedirectHistoryArray redirectChain;
     for (const RedirectHistoryEntryInfo& entryInfo :
          interceptionInfoArg.redirectChain()) {
@@ -857,8 +768,9 @@ nsresult LoadInfoArgsToLoadInfo(const LoadInfoArgs& loadInfoArgs,
     }
 
     interceptionInfo = new InterceptionInfo(
-        triggeringPrincipal, interceptionInfoArg.contentPolicyType(),
-        redirectChain, interceptionInfoArg.fromThirdParty());
+        interceptionInfoArg.triggeringPrincipal(),
+        interceptionInfoArg.contentPolicyType(), redirectChain,
+        interceptionInfoArg.fromThirdParty());
   }
 
   RefPtr<PolicyContainer> policyContainerToInherit;

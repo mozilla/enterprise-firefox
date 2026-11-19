@@ -14,8 +14,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mozilla.components.browser.state.action.ContentAction
@@ -23,6 +27,7 @@ import mozilla.components.browser.state.action.EngineAction
 import mozilla.components.browser.state.search.SearchEngine
 import mozilla.components.browser.state.selector.getNormalOrPrivateTabs
 import mozilla.components.browser.state.selector.selectedTab
+import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.SecurityInfo
 import mozilla.components.browser.state.state.selectedOrDefaultSearchEngine
 import mozilla.components.browser.state.store.BrowserStore
@@ -73,6 +78,7 @@ import mozilla.components.feature.ipprotection.store.state.Authorized
 import mozilla.components.feature.ipprotection.store.state.ProxyActivation
 import mozilla.components.feature.listentopage.settings.ListenSettings
 import mozilla.components.feature.listentopage.settings.shouldShow
+import mozilla.components.feature.pictureinpicture.PictureInPictureUseCases
 import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.feature.session.TrackingProtectionUseCases
 import mozilla.components.feature.summarize.R as summariesR
@@ -114,9 +120,10 @@ import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchEnded
 import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchStarted
 import org.mozilla.fenix.components.appstate.AppAction.SnackbarAction.SnackbarDismissed
 import org.mozilla.fenix.components.appstate.AppAction.URLCopiedToClipboard
-import org.mozilla.fenix.components.appstate.SupportedMenuNotifications.NotDefaultBrowser
 import org.mozilla.fenix.components.appstate.snackbar.SnackbarState
 import org.mozilla.fenix.components.menu.MenuAccessPoint
+import org.mozilla.fenix.components.menu.MenuCustomizationRepository
+import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration
 import org.mozilla.fenix.components.metrics.MetricsUtils
 import org.mozilla.fenix.components.metrics.toSearchAccessPoint
 import org.mozilla.fenix.components.share.ShareSource
@@ -140,6 +147,7 @@ import org.mozilla.fenix.components.toolbar.DisplayActions.ShortcutLongClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.StopRefreshClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.SummarizeClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.TranslateClicked
+import org.mozilla.fenix.components.toolbar.PageEndActionsInteractions.PictureInPictureClicked
 import org.mozilla.fenix.components.toolbar.PageEndActionsInteractions.ReaderModeClicked
 import org.mozilla.fenix.components.toolbar.PageOriginInteractions.OriginClicked
 import org.mozilla.fenix.components.toolbar.TabCounterInteractions.AddNewPrivateTab
@@ -223,6 +231,8 @@ internal sealed class PageOriginInteractions : BrowserToolbarEvent {
 @VisibleForTesting
 internal sealed class PageEndActionsInteractions(override val source: Source) : BrowserToolbarEvent {
     data class ReaderModeClicked(val isActive: Boolean) : PageEndActionsInteractions(Source.AddressBar.PageEnd)
+
+    data class PictureInPictureClicked(val isActive: Boolean) : PageEndActionsInteractions(Source.AddressBar.PageEnd)
 }
 
 internal object BrowserToolbarTestTags {
@@ -247,6 +257,7 @@ internal object BrowserToolbarTestTags {
  *   current tab.
  * @param useCases [UseCases] helping this integrate with other features of the applications.
  * @param sessionUseCases [SessionUseCases] for interacting with the current session.
+ * @param pictureInPictureUseCases [PictureInPictureUseCases] for opening and closing the picture-in-picture window.
  * @param shareUseCases [ShareUseCases] for sharing content via the system share sheet or the in-app [ShareFragment].
  * @param nimbusComponents [NimbusComponents] used for accessing Nimbus events to use in telemetry.
  * @param clipboard [ClipboardHandler] to use for reading from device's clipboard.
@@ -255,6 +266,7 @@ internal object BrowserToolbarTestTags {
  * @param summarizationFeatureSettings Web content summarization settings.
  * @param translationsFeatureSettings Web content translations availability status.
  * @param listenSettings Listen to Page availability status.
+ * @param menuCustomizationRepository [MenuCustomizationRepository] persisting the user's browser menu customization.
  * @param navController [NavController] to use for navigating to other in-app destinations.
  * @param summarizationNavigator [SummarizationNavigator] used to navigate to the summarization screen.
  * @param browsingModeManager [BrowsingModeManager] for querying the current browsing mode.
@@ -277,6 +289,7 @@ class BrowserToolbarMiddleware(
     private val trackingProtectionUseCases: TrackingProtectionUseCases,
     private val useCases: UseCases,
     private val sessionUseCases: SessionUseCases = SessionUseCases(browserStore),
+    private val pictureInPictureUseCases: PictureInPictureUseCases,
     private val shareUseCases: ShareUseCases,
     private val nimbusComponents: NimbusComponents,
     private val clipboard: ClipboardHandler,
@@ -285,6 +298,7 @@ class BrowserToolbarMiddleware(
     private val summarizationFeatureSettings: SummarizationFeatureDiscoveryConfiguration,
     private val translationsFeatureSettings: TranslationsEnabledSettings,
     private val listenSettings: ListenSettings,
+    private val menuCustomizationRepository: MenuCustomizationRepository? = null,
     private val navController: NavController,
     private val summarizationNavigator: SummarizationNavigator,
     private val browsingModeManager: BrowsingModeManager,
@@ -326,6 +340,7 @@ class BrowserToolbarMiddleware(
                 observePageOriginUpdates(store)
                 observeSelectedTabBookmarkedUpdates(store)
                 observeReaderModeUpdates(store)
+                observeMediaSessionUpdates(store)
                 observePageTranslationsUpdates(store)
                 observeTranslationsFeatureAvailabilityUpdates(store)
                 observePageRefreshUpdates(store)
@@ -350,16 +365,9 @@ class BrowserToolbarMiddleware(
             is MenuClicked -> {
                 navController.nav(
                     R.id.browserFragment,
-                    when (settings.isMenuCustomizationEnabled) {
-                        true ->
-                            BrowserFragmentDirections.actionBrowserFragmentToMenuFragment(
-                                accessPoint = MenuAccessPoint.Browser
-                            )
-                        else ->
-                            BrowserFragmentDirections.actionGlobalMenuDialogFragment(
-                                accesspoint = MenuAccessPoint.Browser
-                            )
-                    },
+                    BrowserFragmentDirections.actionBrowserFragmentToMenuFragment(
+                        accessPoint = MenuAccessPoint.Browser
+                    ),
                 )
 
                 next(action)
@@ -568,6 +576,15 @@ class BrowserToolbarMiddleware(
                     }
                 }
 
+                next(action)
+            }
+
+            is PictureInPictureClicked -> {
+                if (action.isActive) {
+                    pictureInPictureUseCases.closeWindow()
+                } else {
+                    pictureInPictureUseCases.request()
+                }
                 next(action)
             }
 
@@ -818,6 +835,11 @@ class BrowserToolbarMiddleware(
                 ToolbarActionConfig(ToolbarAction.ReaderMode) {
                     browserScreenStore.state.readerModeStatus.isAvailable
                 },
+                ToolbarActionConfig(ToolbarAction.PictureInPicture) {
+                    settings.isPictureInPictureWindowAvailable &&
+                        !browserScreenStore.state.readerModeStatus.isAvailable &&
+                        browserStore.state.selectedTab?.mediaSessionState != null
+                },
                 ToolbarActionConfig(ToolbarAction.Translate) {
                     browserScreenStore.state.pageTranslationStatus.isTranslationPossible &&
                         isWideScreen &&
@@ -990,8 +1012,15 @@ class BrowserToolbarMiddleware(
     }
 
     private fun observeMenuHighlightChanges(store: Store<BrowserToolbarState, BrowserToolbarAction>) {
-        appStore.observeWhileActive {
-            distinctUntilChangedBy { it.supportedMenuNotifications.isNotEmpty() }
+        val customizationFlow = menuCustomizationRepository?.customizedMenuInfo ?: flowOf(null)
+        scope.launch {
+            combine(
+                    appStore.flow().map { it.supportedMenuNotifications }.distinctUntilChanged(),
+                    customizationFlow,
+                ) { notifications, customizationInfo ->
+                    BrowserMenuConfiguration.hasNotificationToShow(notifications, customizationInfo)
+                }
+                .distinctUntilChanged()
                 .collect {
                     updateEndBrowserActions(store)
                     updateNavigationActions(store)
@@ -1117,6 +1146,20 @@ class BrowserToolbarMiddleware(
         }
     }
 
+    private fun observeMediaSessionUpdates(store: Store<BrowserToolbarState, BrowserToolbarAction>) {
+        browserStore.observeWhileActive {
+            distinctUntilChangedBy {
+                (it.selectedTab?.mediaSessionState != null) to it.isSelectedTabInPictureInPicture()
+            }
+                .collect {
+                    updateEndPageActions(store)
+                }
+        }
+    }
+
+    private fun BrowserState.isSelectedTabInPictureInPicture() =
+        selectedTabId != null && pictureInPictureWindow.session?.tabId == selectedTabId
+
     private fun observeTabReloadCoverUpdates(store: Store<BrowserToolbarState, BrowserToolbarAction>) {
         browserScreenStore.observeWhileActive {
             distinctUntilChangedBy { it.isShowingTabReloadCover }
@@ -1212,6 +1255,7 @@ class BrowserToolbarMiddleware(
         RefreshOrStop,
         Menu,
         ReaderMode,
+        PictureInPicture,
         Translate,
         TabCounter,
         SiteInfo,
@@ -1307,7 +1351,10 @@ class BrowserToolbarMiddleware(
                     drawableResId = iconsR.drawable.mozac_ic_more_vertical_round_24,
                     contentDescription = R.string.content_description_menu,
                     highlighted =
-                        appStore.state.supportedMenuNotifications.filterNot { it == NotDefaultBrowser }.isNotEmpty(),
+                        BrowserMenuConfiguration.hasNotificationToShow(
+                            appStore.state.supportedMenuNotifications,
+                            menuCustomizationRepository?.customizedMenuInfo?.value,
+                        ),
                     onClick = MenuClicked(source),
                 )
 
@@ -1345,6 +1392,25 @@ class BrowserToolbarMiddleware(
                         },
                     onClick = ReaderModeClicked(browserScreenStore.state.readerModeStatus.isActive),
                 )
+
+            ToolbarAction.PictureInPicture -> {
+                val isActive = browserStore.state.isSelectedTabInPictureInPicture()
+                ActionButtonRes(
+                    drawableResId =
+                        if (isActive) {
+                            iconsR.drawable.mozac_ic_picture_in_picture_close_24
+                        } else {
+                            iconsR.drawable.mozac_ic_picture_in_picture_24
+                        },
+                    contentDescription =
+                        if (isActive) {
+                            R.string.browser_toolbar_picture_in_picture_close
+                        } else {
+                            R.string.browser_toolbar_picture_in_picture
+                        },
+                    onClick = PictureInPictureClicked(isActive),
+                )
+            }
 
             ToolbarAction.Translate ->
                 ActionButtonRes(

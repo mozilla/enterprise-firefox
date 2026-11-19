@@ -10,7 +10,7 @@
 #include <gio/gio.h>
 #include <glib.h>
 
-#include "mozilla/RefPtr.h"
+#include "mozilla/GRefPtr.h"
 #include "nsCOMPtr.h"
 #include "nsIImeiProvider.h"
 #include "nsString.h"
@@ -27,18 +27,13 @@ class ModemManagerImeiProvider final : public nsIImeiProvider {
   static already_AddRefed<ModemManagerImeiProvider> GetInstance();
 
  private:
-  ~ModemManagerImeiProvider() {
-    if (mCancellable) {
-      g_cancellable_cancel(mCancellable);
-    }
-  }
+  ~ModemManagerImeiProvider() = default;
 
   RefPtr<GCancellable> mCancellable;
-  nsCString mRealModemPath{};
 
   void CollectImei(RefPtr<Promise>);
   void OnIntrospectFinish(RefPtr<Promise>, RefPtr<GVariant>);
-  void QueryModemImei(RefPtr<Promise>);
+  void QueryModemImei(RefPtr<Promise>, const nsCString&);
 };
 
 }  // namespace mozilla::dom

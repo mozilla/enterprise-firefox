@@ -12,6 +12,7 @@ async function setupPrefs() {
   await setDefaultTopSites();
   await SpecialPowers.pushPrefEnv({
     set: [
+      ["browser.newtabpage.activity-stream.feeds.discoverystreamfeed", true],
       [
         "browser.newtabpage.activity-stream.discoverystream.config",
         JSON.stringify({
@@ -38,28 +39,20 @@ async function resetPrefs() {
 
 let initialHeight;
 let initialWidth;
-// Sizes the content area rather than the outer window: the window decoration
+// Sizes the inner rather than the outer window: the window decoration
 // in between varies by OS and pixel density, so a fixed outer size gives a
-// different viewport per platform. setPrimaryContentSize takes device pixels.
+// different viewport per platform.
 async function setSize(width, height) {
-  const dpr = window.devicePixelRatio;
-  const contentRect = gBrowser.selectedBrowser.getBoundingClientRect();
-  initialWidth ??= contentRect.width;
-  initialHeight ??= contentRect.height;
-  const deviceWidth = Math.round(width * dpr);
-  const deviceHeight = Math.round(height * dpr);
-  // Asking for the size the content area already has changes nothing, so no
-  // resize event comes and waiting for one would hang until the test times out.
-  if (
-    Math.round(contentRect.width * dpr) === deviceWidth &&
-    Math.round(contentRect.height * dpr) === deviceHeight
-  ) {
+  initialWidth ??= window.innerWidth;
+  initialHeight ??= window.innerHeight;
+  if (window.innerWidth === width && window.innerHeight === height) {
     return;
   }
   let resizePromise = BrowserTestUtils.waitForEvent(window, "resize", false);
-  window.docShell.treeOwner
-    .QueryInterface(Ci.nsIDocShellTreeOwner)
-    .setPrimaryContentSize(deviceWidth, deviceHeight);
+  window.resizeTo(
+    width + window.outerWidth - window.innerWidth,
+    height + window.outerHeight - window.innerHeight
+  );
   await resizePromise;
 }
 
@@ -93,17 +86,11 @@ add_task(async function test_newtab_last_LinkMenu() {
     "Should render activity stream content"
   );
 
-  // @nova-cleanup(remove-conditional): Remove novaEnabled; use 900 and 740
-  // unconditionally.
-  const novaEnabled = Services.prefs.getBoolPref(
-    "browser.newtabpage.activity-stream.nova.enabled",
-    false
-  );
   // Top sites and stories sit at different places in the layout, so each needs
   // its own width to put its menu at the edge. Top sites must also clear
   // $break-point-large (866px) for open-left to match the rendered columns.
-  const topSitesWidth = novaEnabled ? 900 : 600;
-  const storiesWidth = novaEnabled ? 740 : 600;
+  const topSitesWidth = 900;
+  const storiesWidth = 740;
 
   await setSize(topSitesWidth, 450);
 

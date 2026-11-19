@@ -705,6 +705,9 @@ def build_docker_worker_payload(config, task, task_def):
 
     if "max-run-time" in worker:
         payload["maxRunTime"] = worker["max-run-time"]
+        # Let run-task know how long the task may run, so that it can abort
+        # the task's processes shortly before the worker kills them.
+        payload["env"]["TASKCLUSTER_MAX_RUN_TIME"] = str(worker["max-run-time"])
 
     run_task = is_run_task(payload.get("command", [""])[0])
 
@@ -895,6 +898,9 @@ def build_generic_worker_payload(config, task, task_def):
             task_def["payload"]["onExitStatus"]["retry"].extend([4])
 
     env = worker.get("env", {})
+    # Let run-task know how long the task may run, so that it can abort the
+    # task's processes shortly before the worker kills them.
+    env["TASKCLUSTER_MAX_RUN_TIME"] = str(worker["max-run-time"])
 
     # Never enable sccache on the toolchains repo, as there is no benefit from it
     # because each push uses a different compiler.
@@ -2863,6 +2869,7 @@ def check_run_task_caches(config, tasks):
 
     re_checkout_cache = re.compile("^checkouts")
     re_sparse_checkout_cache = re.compile("^checkouts-sparse")
+    re_git_checkout_cache = re.compile("^checkouts-git")
     re_shallow_checkout_cache = re.compile("^checkouts-git-shallow")
 
     cache_prefix = "{trust_domain}-level-{level}-".format(
@@ -2907,11 +2914,9 @@ def check_run_task_caches(config, tasks):
                             )
                         )
                     require_sparse_cache = True
-                    break
 
                 if arg == "--gecko-shallow-clone":
                     require_shallow_cache = True
-                    break
 
         caches = list(payload.get("cache", {})) + [
             mount["cacheName"] for mount in mounts if "cacheName" in mount
@@ -2930,7 +2935,9 @@ def check_run_task_caches(config, tasks):
             if re_checkout_cache.match(cache):
                 have_checkout_cache = True
 
-            if re_sparse_checkout_cache.match(cache):
+            if re_sparse_checkout_cache.match(cache) or (
+                repo_type == "git" and re_git_checkout_cache.match(cache)
+            ):
                 have_sparse_cache = True
 
             if re_shallow_checkout_cache.match(cache):

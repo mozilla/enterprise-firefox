@@ -19,17 +19,30 @@ const FRAME_SLOT = "frame";
  * If `src` is set, the widget content is loaded in a `<browser>` child in chrome documents and an `<iframe>` in content documents.
  * Otherwise the default slot is used.
  *
+ * In its error state it draws the error slot over the content and fires
+ * `widget-error`. A ready widget fires `widget-ready`, whether it recovered or
+ * has just loaded. A host should always slot error content, or
+ * a failing widget leaves an empty card. An `<iframe>` that fails to load is an
+ * error, and one that loads is ready if `readyOnLoad` is set. Otherwise its
+ * host calls `reportError()` and `reportReady()` when appropriate.
+ * A `<browser>` widget cannot report for itself, because it
+ * is a top-level browsing context, so a chrome host calls both.
+ * `reportError(reason)` passes the reason on as `widget-error`'s `detail.reason`.
+ *
  * @property {string} widgetId - The widget's registered ID.
  * @property {string} title - The widget's accessible name, taken off the host element.
  * @property {string} size - `small`, `medium`, or `large`. Defaults to `large`.
  * @property {boolean} padded - Insets the header and content.
  * @property {string} menuLabel - The accessible name of the menu button drawn without a header. Defaults to "More options".
  * @property {string} src - A widget document URL.
+ * @property {boolean} readyOnLoad - Whether an iframe load reports ready. Defaults to false; attribute `ready-on-load`.
  * @property {string} remoteType - The remote type a `<browser>` frame loads in.
  * @property {number} browsingContextGroupId - The browsing context group a `<browser>` frame's initial load joins.
+ * @property {boolean} error - Whether the widget failed. Covers the content with the error content.
  * @slot header - A `moz-widget-header` shown above the content.
  * @slot menu - A `panel-list`, opened by the header's menu button, or by a menu button over the content without a header.
  * @slot default - Widget content used when `src` is not set.
+ * @slot error - Error content shown over the widget content while `error` is set.
  */
 export class MozWidget extends MozLitElement {
   static properties = {
@@ -41,12 +54,20 @@ export class MozWidget extends MozLitElement {
     padded: { type: Boolean, reflect: true },
     menuLabel: { type: String, attribute: "menu-label", fluent: true },
     src: { reflect: true },
+    readyOnLoad: { type: Boolean, attribute: "ready-on-load" },
+    error: { type: Boolean, reflect: true },
     _menuId: { state: true },
     _hasHeader: { state: true },
   };
 
   /** @type {MozBrowser|null} The `<browser>` frame if used. */
   #browser = null;
+  /** @type {HTMLIFrameElement|null} The `<iframe>` if used. */
+  #iframe = null;
+
+  #errorReason;
+
+  #readyReported = false;
 
   constructor() {
     super();
@@ -56,11 +77,52 @@ export class MozWidget extends MozLitElement {
     this.padded = false;
     this.menuLabel = null;
     this.src = null;
+    this.readyOnLoad = false;
+    this.error = false;
     this.remoteType = null;
     this.browsingContextGroupId = null;
     this._menuId = null;
     this._hasHeader = false;
   }
+
+  /**
+   * Puts the widget into its error state, so the host's error content covers
+   * the widget content. A host that detects the failure itself calls this, and a
+   * `<browser>` host has to.
+   *
+   * @param {string} [reason]
+   */
+  reportError(reason) {
+    if (!this.error) {
+      this.#errorReason = reason;
+    }
+    this.error = true;
+  }
+
+  /**
+   * Takes the widget out of its error state and fires `widget-ready` on every
+   * call. A host that hears the widget report ready calls this.
+   */
+  reportReady() {
+    this.#errorReason = undefined;
+    this.#readyReported = true;
+    this.error = false;
+    this.dispatchEvent(new CustomEvent("widget-ready"));
+  }
+
+  #onFrameLoad = () => {
+    if (this.readyOnLoad) {
+      this.reportReady();
+    }
+  };
+
+  /**
+   * Gecko fires `error` only where the load never starts. A load that starts
+   * and then fails shows an error page and fires `load` instead.
+   */
+  #onFrameError = () => {
+    this.reportError();
+  };
 
   /**
    * The current frame.
@@ -74,7 +136,7 @@ export class MozWidget extends MozLitElement {
     if (this.#browser) {
       return this.#browser;
     }
-    return this.renderRoot?.querySelector("iframe");
+    return this.#iframe;
   }
 
   /**
@@ -94,12 +156,45 @@ export class MozWidget extends MozLitElement {
     if (!this.hasUpdated || changes.has("_menuId")) {
       this.#updateHeader();
     }
+    // A different document gets a fresh go.
+    if (changes.has("src") && this.hasUpdated) {
+      this.error = false;
+    }
+
+    this.#setupIframe();
+
     if (!this.src) {
       this.#setBrowser(null);
       return;
     }
     if (this.supportsXULElements) {
       this.#updateBrowser(changes);
+    }
+  }
+
+  updated(changes) {
+    super.updated(changes);
+    // Setting `error` directly fires an event too. An undefined previous
+    // value means the first render rather than a change.
+    if (changes.has("error")) {
+      const reason = this.#errorReason;
+      const readyReported = this.#readyReported;
+      this.#errorReason = undefined;
+      this.#readyReported = false;
+      // A ready report followed by an error in the same tick leaves `error`
+      // unchanged, but the host has heard ready, so it needs the error too.
+      if (
+        changes.get("error") !== undefined &&
+        (changes.get("error") !== this.error || (this.error && readyReported))
+      ) {
+        if (this.error) {
+          this.dispatchEvent(
+            new CustomEvent("widget-error", { detail: { reason } })
+          );
+        } else if (!readyReported && !changes.has("src")) {
+          this.dispatchEvent(new CustomEvent("widget-ready"));
+        }
+      }
     }
   }
 
@@ -120,6 +215,33 @@ export class MozWidget extends MozLitElement {
       header.menuId = this._menuId;
     }
     this._hasHeader = !!header;
+  }
+
+  #setupIframe() {
+    if (this.supportsXULElements || !this.src) {
+      this.#iframe?.remove();
+      this.#iframe = null;
+      return;
+    }
+    // A new iframe for each src gives each document its own window, so a
+    // message from the one before it no longer matches.
+    if (this.#iframe?.getAttribute("src") != this.src) {
+      this.#iframe?.remove();
+      this.#iframe = this.ownerDocument.createElement("iframe");
+      this.#iframe.setAttribute("sandbox", WIDGET_SANDBOX);
+      this.#iframe.setAttribute("slot", FRAME_SLOT);
+      this.#iframe.addEventListener("load", this.#onFrameLoad);
+      this.#iframe.addEventListener("error", this.#onFrameError);
+      this.#iframe.src = this.src;
+      // A light DOM child, because moveBefore on the widget or one of its
+      // ancestors reloads an iframe that is inside a shadow root.
+      this.append(this.#iframe);
+    }
+    if (this.title) {
+      this.#iframe.setAttribute("title", this.title);
+    } else {
+      this.#iframe.removeAttribute("title");
+    }
   }
 
   #updateBrowser(changes) {
@@ -170,17 +292,21 @@ export class MozWidget extends MozLitElement {
   }
 
   #renderContent() {
+    // inert is an HTML attribute and the frame can be a XUL browser, so the
+    // wrapper carries it.
+    return html`
+      <div class="content" ?inert=${this.error}>${this.#renderFrame()}</div>
+      ${this.error
+        ? html`<div class="error-overlay"><slot name="error"></slot></div>`
+        : nothing}
+    `;
+  }
+
+  #renderFrame() {
     if (!this.src) {
       return html`<slot></slot>`;
     }
-    if (this.#browser) {
-      return html`<slot name=${FRAME_SLOT}></slot>`;
-    }
-    return html`<iframe
-      src=${this.src}
-      sandbox=${WIDGET_SANDBOX}
-      title=${this.title ?? nothing}
-    ></iframe>`;
+    return html`<slot name=${FRAME_SLOT}></slot>`;
   }
 
   #renderMenuButton() {

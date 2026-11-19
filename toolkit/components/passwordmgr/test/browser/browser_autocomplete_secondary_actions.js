@@ -145,6 +145,46 @@ function assertOneFlow() {
   return flowId;
 }
 
+// Waits until only the Manage Passwords footer remains.
+function waitForFooterOnly(popup) {
+  return TestUtils.waitForCondition(
+    () =>
+      popup.view.matchCount === 1 &&
+      popup.view.getStyleAt(0) === "loginsFooter",
+    "Wait for only the footer to remain"
+  );
+}
+
+function waitForPopupHidden(popup) {
+  return BrowserTestUtils.waitForEvent(
+    popup,
+    "popuphidden",
+    false,
+    event => event.target === popup
+  );
+}
+
+async function closeWithEscape(popup) {
+  const hidden = waitForPopupHidden(popup);
+  await EventUtils.synthesizeKey("KEY_Escape");
+  await hidden;
+}
+
+function assertClosedAs(closeReason, message) {
+  const closedEvents = Glean.autocomplete.dropdownClosed.testGetValue();
+  Assert.equal(
+    closedEvents?.length,
+    1,
+    "One dropdown closed event is recorded"
+  );
+  Assert.equal(
+    closedEvents[0].extra.record_type,
+    "password",
+    "The event names the password record type"
+  );
+  Assert.equal(closedEvents[0].extra.close_reason, closeReason, message);
+}
+
 async function activateDelete(popup) {
   const { item, button } = getSecondaryAction(popup, 0);
   await selectRow(item, 0);
@@ -344,6 +384,103 @@ add_task(async function test_selecting_a_login_records_dropdown_closed() {
   );
 });
 
+add_task(async function test_typing_past_logins_records_typed_through() {
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: TEST_URL_PATH },
+    async function (browser) {
+      const popup = document.getElementById("PopupAutoComplete");
+      await openACPopup(popup, browser, "#form-basic-username");
+
+      Services.fog.testResetFOG();
+      for (const ch of ["z", "z", "z"]) {
+        await BrowserTestUtils.synthesizeKey(ch, {}, browser);
+      }
+      await waitForFooterOnly(popup);
+      Assert.equal(popup.state, "open", "The footer keeps the dropdown open");
+
+      await closeWithEscape(popup);
+      assertClosedAs(
+        "typed_through",
+        "Closing once only the footer remains records typed_through"
+      );
+    }
+  );
+});
+
+add_task(async function test_backspace_back_to_logins_records_dismissed() {
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: TEST_URL_PATH },
+    async function (browser) {
+      const popup = document.getElementById("PopupAutoComplete");
+      await openACPopup(popup, browser, "#form-basic-username");
+
+      Services.fog.testResetFOG();
+      await BrowserTestUtils.synthesizeKey("u", {}, browser);
+      await BrowserTestUtils.synthesizeKey("z", {}, browser);
+      await waitForFooterOnly(popup);
+
+      await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+      await TestUtils.waitForCondition(
+        () => popup.view.getStyleAt(0) === "loginWithOrigin",
+        "Wait for the logins to come back"
+      );
+
+      await closeWithEscape(popup);
+      assertClosedAs(
+        "dismissed",
+        "Closing once the logins are back records dismissed"
+      );
+    }
+  );
+});
+
+add_task(async function test_typing_in_password_field_records_typed_through() {
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: TEST_URL_PATH },
+    async function (browser) {
+      const popup = document.getElementById("PopupAutoComplete");
+      await openACPopup(popup, browser, "#form-basic-password");
+
+      Services.fog.testResetFOG();
+      const hidden = waitForPopupHidden(popup);
+      await BrowserTestUtils.synthesizeKey("z", {}, browser);
+      await hidden;
+      assertClosedAs(
+        "typed_through",
+        "Typing in the password field closes with typed_through"
+      );
+    }
+  );
+});
+
+add_task(
+  async function test_footer_after_typing_past_logins_records_selected() {
+    await BrowserTestUtils.withNewTab(
+      { gBrowser, url: TEST_URL_PATH },
+      async function (browser) {
+        const popup = document.getElementById("PopupAutoComplete");
+        await openACPopup(popup, browser, "#form-basic-username");
+
+        await BrowserTestUtils.synthesizeKey("z", {}, browser);
+        await waitForFooterOnly(popup);
+
+        Services.fog.testResetFOG();
+        const hidden = waitForPopupHidden(popup);
+        const passwordManager = await openPasswordManager(async () => {
+          await EventUtils.synthesizeKey("KEY_ArrowDown");
+          await EventUtils.synthesizeKey("KEY_Enter");
+        }, false);
+        await hidden;
+        assertClosedAs(
+          "selected",
+          "Picking the footer records a selected close"
+        );
+        passwordManager.close();
+      }
+    );
+  }
+);
+
 add_task(async function test_flyout_opens_via_keyboard() {
   await SpecialPowers.pushPrefEnv({ set: [[PREF, true]] });
   await BrowserTestUtils.withNewTab(
@@ -459,15 +596,15 @@ add_task(async function test_flyout_actions_dispatch_by_index() {
         actions[0].action();
         Assert.deepEqual(
           calls.at(-1),
-          [true, 0],
-          "First flyout item dispatches secondary action index 0"
+          [true, 0, 0],
+          "First flyout item dispatches action index 0 for row 0"
         );
 
         actions[1].action();
         Assert.deepEqual(
           calls.at(-1),
-          [true, 1],
-          "Second flyout item dispatches secondary action index 1"
+          [true, 1, 0],
+          "Second flyout item dispatches action index 1 for row 0"
         );
       } finally {
         AutoCompleteParent.prototype.selectAutoCompleteEntry = original;
@@ -1326,6 +1463,86 @@ add_task(async function test_reopening_after_removal_starts_a_new_flow() {
       await closePopup(popup);
     }
   );
+  gReauthAuthorized = false;
+  await SpecialPowers.popPrefEnv();
+});
+
+// Like about:logins, a reauthentication is reused for 5 minutes in the same
+// tab, until the user switches tabs.
+add_task(async function test_recent_reauth_is_reused_until_tab_switch() {
+  await SpecialPowers.pushPrefEnv({ set: [[PREF, true]] });
+  const { AutocompleteRemoveRecord } = ChromeUtils.importESModule(
+    "resource://gre/modules/AutocompleteRemoveRecord.sys.mjs"
+  );
+  AutocompleteRemoveRecord.resetAuthForTesting();
+  gReauthCalls = [];
+  const popup = document.getElementById("PopupAutoComplete");
+  const tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    TEST_URL_PATH
+  );
+  const browser = tab.linkedBrowser;
+  const waitForReopen = () =>
+    TestUtils.waitForCondition(
+      () => popup.state == "open",
+      "Wait for the dropdown to come back after the removal"
+    );
+  const deleteAndCancel = async () => {
+    const dialogClosed = BrowserTestUtils.promiseAlertDialog("cancel");
+    await activateDelete(popup);
+    await dialogClosed;
+    await waitForReopen();
+  };
+  const reopenAfterBlur = async () => {
+    await SpecialPowers.spawn(browser, [], () =>
+      content.document.querySelector("#form-basic-username").blur()
+    );
+    await openACPopup(popup, browser, "#form-basic-username");
+  };
+
+  await openACPopup(popup, browser, "#form-basic-username");
+  gReauthAuthorized = false;
+  await activateDelete(popup);
+  await TestUtils.waitForCondition(
+    () => gReauthCalls.length == 1,
+    "Wait for the declined reauthentication"
+  );
+  await waitForReopen();
+
+  gReauthAuthorized = true;
+  await deleteAndCancel();
+  Assert.equal(
+    gReauthCalls[1][1],
+    null,
+    "A declined reauthentication is not reused"
+  );
+
+  await deleteAndCancel();
+  Assert.greater(
+    gReauthCalls[2][1],
+    Date.now(),
+    "A recent reauthentication in the same tab is reused"
+  );
+  await closePopup(popup);
+
+  const otherTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "about:blank"
+  );
+  await BrowserTestUtils.switchTab(gBrowser, tab);
+  BrowserTestUtils.removeTab(otherTab);
+  await reopenAfterBlur();
+  await deleteAndCancel();
+  Assert.equal(
+    gReauthCalls[3][1],
+    null,
+    "Switching tabs drops the recent reauthentication"
+  );
+  Assert.equal(gReauthCalls.length, 4, "Every delete asked for reauth");
+  await closePopup(popup);
+
+  BrowserTestUtils.removeTab(tab);
+  AutocompleteRemoveRecord.resetAuthForTesting();
   gReauthAuthorized = false;
   await SpecialPowers.popPrefEnv();
 });

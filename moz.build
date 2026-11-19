@@ -305,7 +305,9 @@ if not CONFIG["JS_STANDALONE"] or not CONFIG["MOZ_BUILD_APP"]:
     ]
 
     GENERATED_FILES["buildid.h"].script = "build/variables.py:buildid_header"
+    GENERATED_FILES["buildid.h"].inputs = ["!/buildid.txt"]
     GENERATED_FILES["source-repo.h"].script = "build/variables.py:source_repo_header"
+    GENERATED_FILES["source-repo.h"].inputs = ["!/source-repo.txt"]
 
 if CONFIG["MOZ_BUILD_APP"]:
     # Bring in the configuration for the configured application.
@@ -350,6 +352,8 @@ SPHINX_TREES["nspr"] = "docs/nspr"
 SPHINX_TREES["mots"] = "docs/mots"
 
 SPHINX_TREES["update-infrastructure"] = "docs/update-infrastructure"
+
+SPHINX_TREES["release-mgmt"] = "docs/release-mgmt"
 
 SPHINX_TREES["content-security"] = "docs/content-security"
 

@@ -2047,8 +2047,7 @@ static ExceptionHandler::FilterResult ChildFilter(
 
 static MINIDUMP_TYPE GetMinidumpType() {
   MINIDUMP_TYPE minidump_type = static_cast<MINIDUMP_TYPE>(
-      MiniDumpWithFullMemoryInfo | MiniDumpWithUnloadedModules |
-      MiniDumpWithHandleData);
+      MiniDumpWithFullMemoryInfo | MiniDumpWithUnloadedModules);
 
 #  ifdef NIGHTLY_BUILD
   minidump_type = static_cast<MINIDUMP_TYPE>(
@@ -2245,14 +2244,6 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   // Pre-load psapi.dll to prevent it from being loaded during exception
   // handling.
   ::LoadLibraryW(L"psapi.dll");
-
-  // Pre-load verifier.dll for the same reason: when MiniDumpWithHandleData is
-  // set, dbgcore loads it mid-dump (Win32LiveSystemProvider) to enumerate
-  // handle operations. Because MiniDumpWriteDump has already suspended every
-  // other thread, that LoadLibrary deadlocks in LdrpDrainWorkQueue waiting on
-  // the loader worker threads it just suspended, wedging the crashing process
-  // (bug 1760099). Loading it now turns the mid-dump load into a refcount bump.
-  ::LoadLibraryW(L"verifier.dll");
 #endif  // XP_WIN
 
 #ifdef MOZ_WIDGET_ANDROID
@@ -3691,6 +3682,19 @@ bool SetRemoteExceptionHandler(int& aArgc, char** aArgv) {
   return gExceptionHandler->IsOutOfProcess();
 }  // namespace CrashReporter
 
+static void AppendDumperError(AnnotationTable& aAnnotations,
+                              const nsACString& aError) {
+  if (aError.IsEmpty()) {
+    return;
+  }
+
+  nsCString& dumperError = aAnnotations[Annotation::DumperError];
+  if (!dumperError.IsEmpty()) {
+    dumperError.AppendLiteral("; ");
+  }
+  dumperError.Append(aError);
+}
+
 bool TakeMinidumpForChild(GeckoChildID aChildId, nsIFile** dump,
                           AnnotationTable& aAnnotations) {
   if (!GetEnabled()) {
@@ -3740,9 +3744,7 @@ bool TakeMinidumpForChild(GeckoChildID aChildId, nsIFile** dump,
     return false;
   }
 
-  if (error.Length() > 0) {
-    aAnnotations[Annotation::DumperError] = std::move(error);
-  }
+  AppendDumperError(aAnnotations, error);
 
   return true;
 }
@@ -3906,9 +3908,7 @@ bool CreateMinidumpsAndPair(GeckoChildID aId, ThreadId aTargetBlamedThread,
     return false;
   }
 
-  if (error.Length() > 0) {
-    aTargetAnnotations[Annotation::DumperError] = std::move(error);
-  }
+  AppendDumperError(aTargetAnnotations, error);
 
   targetMinidump.forget(aMainDumpOut);
 

@@ -39,7 +39,6 @@
 #include "nsIObserverService.h"
 #include "nsXPCOM.h"
 #include "nsIURI.h"
-#include "nsIWebBrowser.h"
 #include "nsIWebBrowserChrome.h"
 #include "nsIWebNavigation.h"
 #include "nsIWindowCreator.h"
@@ -1749,7 +1748,7 @@ nsresult nsWindowWatcher::RemoveWindow(nsWatcherWindowEntry* aInfo) {
     nsCOMPtr<mozIDOMWindowProxy> window = do_QueryReferent(aInfo->mWindow);
     if (window) {
       nsCOMPtr<nsISupports> domwin(do_QueryInterface(window));
-      os->NotifyObservers(domwin, "domwindowclosed", nullptr);
+      os->NotifyWhenScriptSafe(domwin, "domwindowclosed", nullptr);
     }
   }
 
@@ -2268,6 +2267,7 @@ static void SizeOpenedWindow(nsIDocShellTreeOwner* aTreeOwner,
   if (!treeOwnerAsWin) {  // we'll need this to actually size the docshell
     return;
   }
+  nsCOMPtr<nsIAppWindow> appWin = do_GetInterface(aTreeOwner);
 
   // The current position and size will be unchanged if not specified
   // (and they fit entirely onscreen). Also, calculate the difference
@@ -2299,13 +2299,10 @@ static void SizeOpenedWindow(nsIDocShellTreeOwner* aTreeOwner,
     top = (LayoutDeviceCoord(devPxRect.y) / devToDesktopScale).Rounded();
 
     LayoutDeviceIntSize contentSize;
-    bool hasPrimaryContent = false;
-    aTreeOwner->GetHasPrimaryContent(&hasPrimaryContent);
-    if (hasPrimaryContent) {
-      aTreeOwner->GetPrimaryContentSize(&contentSize.width,
-                                        &contentSize.height);
-    } else {
-      aTreeOwner->GetRootShellSize(&contentSize.width, &contentSize.height);
+    if (appWin && appWin->GetHasPrimaryContent()) {
+      appWin->GetPrimaryContentSize(&contentSize.width, &contentSize.height);
+    } else if (appWin) {
+      appWin->GetRootShellSize(&contentSize.width, &contentSize.height);
     }
 
     CSSIntSize contentSizeCSS = RoundedToInt(contentSize / cssToDevScale);
@@ -2471,12 +2468,10 @@ static void SizeOpenedWindow(nsIDocShellTreeOwner* aTreeOwner,
           (CSSCoord(width) * scale).Rounded();
       const LayoutDeviceIntCoord heightDevPx =
           (CSSCoord(height) * scale).Rounded();
-      bool hasPrimaryContent = false;
-      aTreeOwner->GetHasPrimaryContent(&hasPrimaryContent);
-      if (hasPrimaryContent) {
-        aTreeOwner->SetPrimaryContentSize(widthDevPx, heightDevPx);
-      } else {
-        aTreeOwner->SetRootShellSize(widthDevPx, heightDevPx);
+      if (appWin && appWin->GetHasPrimaryContent()) {
+        appWin->SetPrimaryContentSize(widthDevPx, heightDevPx);
+      } else if (appWin) {
+        appWin->SetRootShellSize(widthDevPx, heightDevPx);
       }
     } else {
       const LayoutDeviceIntCoord widthDevPx =
@@ -2487,11 +2482,8 @@ static void SizeOpenedWindow(nsIDocShellTreeOwner* aTreeOwner,
     }
   }
 
-  if (aIsCallerChrome) {
-    nsCOMPtr<nsIAppWindow> appWin = do_GetInterface(treeOwnerAsWin);
-    if (appWin && aSizeSpec.mLockAspectRatio) {
-      appWin->LockAspectRatio(true);
-    }
+  if (appWin && aIsCallerChrome && aSizeSpec.mLockAspectRatio) {
+    appWin->LockAspectRatio(true);
   }
 
   treeOwnerAsWin->SetVisibility(true);

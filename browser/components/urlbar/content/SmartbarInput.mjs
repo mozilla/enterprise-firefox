@@ -65,11 +65,10 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 
 const lazy = XPCOMUtils.declareLazy({
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ExtensionSearchHandler:
     "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
   ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
-  handleBounceEventTrigger:
-    "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
@@ -78,6 +77,7 @@ const lazy = XPCOMUtils.declareLazy({
   UrlbarQueryContext: "chrome://browser/content/urlbar/UrlbarQueryContext.mjs",
   UrlbarProviderHeuristicFallback:
     "moz-src:///browser/components/urlbar/UrlbarProviderHeuristicFallback.sys.mjs",
+  UrlbarSession: "moz-src:///browser/components/urlbar/UrlbarSession.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   UrlbarValueFormatter:
     "moz-src:///browser/components/urlbar/UrlbarValueFormatter.sys.mjs",
@@ -218,7 +218,7 @@ ${
         <html:div id="urlbar-results"
                   class="urlbarView-results"
                   role="listbox"/>
-        <html:panel-list class="urlbarView-result-menu" accesskey-conflicts-bug="2073892"></html:panel-list>
+        <html:panel-list class="urlbarView-result-menu"></html:panel-list>
         <html:moz-urlbar-slot name="search-one-offs" />
       </html:div>
       <html:div class="smartbar-button-container">
@@ -1384,11 +1384,13 @@ ${
     // the cross domain resource, although the page is not loaded yet.
     // This url will be set/unset by PromptParent. See bug 791594 for reference.
     if (value === null || (!value && dueToTabSwitch)) {
+      let pendingLoadURI = this.#isOpenedPageInBlankTargetLoading;
       uri =
         this.browserWindow.gBrowser.selectedBrowser.currentAuthPromptURI ||
         uri ||
-        this.#isOpenedPageInBlankTargetLoading ||
+        pendingLoadURI ||
         this.browserWindow.gBrowser.currentURI;
+      let showingPendingLoad = uri == pendingLoadURI;
       // Strip off usernames and passwords for the location bar
       try {
         uri = Services.io.createExposableURI(uri);
@@ -1416,11 +1418,14 @@ ${
           value = "about:blank";
         }
       }
-      // If we update the URI while restoring a session, set the proxyState to
-      // invalid, because we don't have a valid security state to show via site
-      // identity yet. See Bug 1746383.
       valid =
+        // If we update the URI while restoring a session, set the proxyState to
+        // invalid, because we don't have a valid security state to show via site
+        // identity yet. See Bug 1746383.
         !dueToSessionRestore &&
+        // If we are showing the URI of a pending load, set proxystate to
+        // invalid because the site identity refers to the currently loaded site.
+        !showingPendingLoad &&
         (!this.browserWindow.isBlankPageURL(uri.spec) ||
           lazy.ExtensionUtils.isExtensionUrl(uri) ||
           isInitialPageControlledByWebContent);
@@ -1526,32 +1531,6 @@ ${
   }
 
   /**
-   * Converts an internal URI (e.g. a URI with a username or password) into one
-   * which we can expose to the user.
-   *
-   * @param {nsIURI} uri
-   *   The URI to be converted
-   * @returns {nsIURI}
-   *   The converted, exposable URI
-   */
-  makeURIReadable(uri) {
-    // Avoid copying 'about:reader?url=', and always provide the original URI:
-    // Reader mode ensures we call createExposableURI itself.
-    let readerStrippedURI = lazy.ReaderMode.getOriginalUrlObjectForDisplay(
-      uri.displaySpec
-    );
-    if (readerStrippedURI) {
-      return readerStrippedURI;
-    }
-
-    try {
-      return Services.io.createExposableURI(uri);
-    } catch (ex) {}
-
-    return uri;
-  }
-
-  /**
    * Function for tabs progress listener.
    *
    * @param {nsIBrowser} browser
@@ -1586,7 +1565,7 @@ ${
     // Using browser navigation buttons should potentially trigger a bounce
     // telemetry event.
     if (webProgress.loadType & Ci.nsIDocShell.LOAD_CMD_HISTORY) {
-      lazy.handleBounceEventTrigger(browser);
+      lazy.UrlbarSession.handleBounceEventTrigger(browser);
     }
   }
 
@@ -1812,7 +1791,7 @@ ${
     if (!this.focused) {
       // The CTA can be clicked when the input is not focused:
       // Start an engagement session if none is currently open.
-      this.controller.engagementEvent.start(event, null, this.value);
+      this.controller.session.start(event, null, this.value);
     }
     this.handleNavigation({ event });
   }
@@ -1911,7 +1890,7 @@ ${
     if (!engine) {
       return;
     }
-    this.controller.engagementEvent.record(event, {
+    this.controller.session.record(event, {
       location: this.sapLocation,
       searchString: value,
       searchSource: this.getSearchSource(event),
@@ -1948,7 +1927,7 @@ ${
       flags |= Ci.nsIURIFixup.FIXUP_FLAG_PRIVATE_CONTEXT;
     }
     const fixupInfo = Services.uriFixup.getFixupURIInfo(value, flags);
-    this.controller.engagementEvent.record(event, {
+    this.controller.session.record(event, {
       location: this.sapLocation,
       searchString: value,
       searchSource: this.getSearchSource(event),
@@ -2074,7 +2053,7 @@ ${
     openParams,
     { event, element, selType, typedValue, result }
   ) {
-    this.controller.engagementEvent.record(event, {
+    this.controller.session.record(event, {
       element,
       location: this.sapLocation,
       selType,
@@ -2299,7 +2278,7 @@ ${
     url = this._maybeCanonizeURL(event, url) || url.trim();
 
     let selectedResult = result || this.view.selectedResult;
-    this.controller.engagementEvent.record(event, {
+    this.controller.session.record(event, {
       element,
       location: this.sapLocation,
       selType,
@@ -2535,7 +2514,7 @@ ${
     ) {
       // The user clicked the "Got it" button inside the dismissal
       // acknowledgment tip. Dismiss the tip.
-      this.controller.engagementEvent.record(event, {
+      this.controller.session.record(event, {
         result,
         element,
         location: this.sapLocation,
@@ -2579,7 +2558,7 @@ ${
     }
 
     if (isCanonized) {
-      this.controller.engagementEvent.record(event, {
+      this.controller.session.record(event, {
         result,
         element,
         location: this.sapLocation,
@@ -2666,7 +2645,7 @@ ${
 
         // We cache the search string because switching tab may clear it.
         let searchString = this._lastSearchString;
-        this.controller.engagementEvent.record(event, {
+        this.controller.session.record(event, {
           result,
           element,
           location: this.sapLocation,
@@ -2689,7 +2668,7 @@ ${
       }
       case UrlbarShared.RESULT_TYPE.SEARCH: {
         if (result.payload.providesSearchMode) {
-          this.controller.engagementEvent.record(event, {
+          this.controller.session.record(event, {
             result,
             element,
             location: this.sapLocation,
@@ -2758,7 +2737,7 @@ ${
           break;
         }
         this.handleRevert();
-        this.controller.engagementEvent.record(event, {
+        this.controller.session.record(event, {
           result,
           element,
           location: this.sapLocation,
@@ -2777,7 +2756,7 @@ ${
           // reverting, copy the search mode since it's nulled on revert.
           const { searchMode } = this;
           this.handleRevert();
-          this.controller.engagementEvent.record(event, {
+          this.controller.session.record(event, {
             result,
             element,
             location: this.sapLocation,
@@ -2792,7 +2771,7 @@ ${
         break;
       }
       case UrlbarShared.RESULT_TYPE.OMNIBOX: {
-        this.controller.engagementEvent.record(event, {
+        this.controller.session.record(event, {
           result,
           element,
           location: this.sapLocation,
@@ -2820,7 +2799,7 @@ ${
       }
       case UrlbarShared.RESULT_TYPE.RESTRICT: {
         this.handleRevert();
-        this.controller.engagementEvent.record(event, {
+        this.controller.session.record(event, {
           result,
           element,
           location: this.sapLocation,
@@ -2837,7 +2816,7 @@ ${
         return;
       }
       case UrlbarShared.RESULT_TYPE.AI_CHAT: {
-        this.controller.engagementEvent.record(event, {
+        this.controller.session.record(event, {
           result,
           element,
           location: this.sapLocation,
@@ -2876,7 +2855,7 @@ ${
     // events (navigation, tab close), so it only runs in a browser window. TBD
     // if and how this should work for a moz-urlbar living in a content process.
     if (this.browserWindow.gBrowser) {
-      this.controller.engagementEvent
+      this.controller.session
         .startTrackingBounceEvent(
           this.browserWindow.gBrowser.selectedBrowser.browserId,
           event,
@@ -2893,7 +2872,7 @@ ${
         .catch(e => logger().error(e));
     }
 
-    this.controller.engagementEvent.record(event, {
+    this.controller.session.record(event, {
       result,
       element,
       location: this.sapLocation,
@@ -3326,7 +3305,7 @@ ${
     });
 
     if (event) {
-      this.controller.engagementEvent.start(event, queryContext, searchString);
+      this.controller.session.start(event, queryContext, searchString);
     }
 
     if (this._suppressStartQuery) {
@@ -3718,6 +3697,7 @@ ${
         // when switching back to the current tab and across sessions.
         this.userTypedValue = this.untrimmedValue;
         this.valueIsTyped = true;
+        this._autofillPlaceholder = null;
         if (!newSearchMode.isPreview && !areSearchModesSame) {
           this.parentController.recordSearchMode(newSearchMode);
         }
@@ -4358,7 +4338,7 @@ ${
     // unfocused to a focused urlbar, there should be no search session ongoing,
     // so this will be a no-op.
     if (this.focused) {
-      this.controller.engagementEvent.record(event, {
+      this.controller.session.record(event, {
         location: this.sapLocation,
         searchString: this._lastSearchString,
         searchSource: this.getSearchSource(event),
@@ -4800,10 +4780,7 @@ ${
 
     let uri;
     if (this.getAttribute("pageproxystate") == "valid") {
-      uri = this.#isOpenedPageInBlankTargetLoading
-        ? this.browserWindow.gBrowser.selectedBrowser.browsingContext
-            .nonWebControlledLoadingURI
-        : this.browserWindow.gBrowser.currentURI;
+      uri = this.browserWindow.gBrowser.currentURI;
     } else {
       // The value could be:
       // 1. a trimmed url, set by selecting a result
@@ -4825,7 +4802,7 @@ ${
         return selectedVal;
       }
     }
-    uri = this.makeURIReadable(uri);
+    uri = lazy.BrowserUtils.getExposableURI(uri);
     let displaySpec = uri.displaySpec;
 
     // If the entire URL is selected, just use the actual loaded URI,
@@ -5094,7 +5071,7 @@ ${
    * @param {HTMLElement} element the picked view element, if available.
    */
   #pickMenuResult(result, event, element) {
-    this.controller.engagementEvent.record(event, {
+    this.controller.session.record(event, {
       result,
       element,
       location: this.sapLocation,
@@ -5282,30 +5259,18 @@ ${
   /**
    * Strips known tracking query parameters/ link decorators.
    *
-   * @returns {nsIURI}
-   *   The stripped URI or original URI, if nothing can be
-   *   stripped
+   * @returns {nsIURI|null}
+   *   The exposable, stripped URI, or null if nothing is selected.
    */
   #stripURI() {
     let copyString = this._getSelectedValueForClipboard();
     if (!copyString) {
       return null;
     }
-    let strippedURI = null;
 
     // Error check occurs during isClipboardURIValid
     let uri = Services.io.newURI(copyString);
-    try {
-      strippedURI = lazy.QueryStringStripper.stripForCopyOrShare(uri);
-    } catch (e) {
-      console.warn(`stripForCopyOrShare: ${e.message}`);
-      return uri;
-    }
-
-    if (strippedURI) {
-      return this.makeURIReadable(strippedURI);
-    }
-    return uri;
+    return lazy.BrowserUtils.getExposableURI(uri, { stripTracking: true });
   }
 
   /**
@@ -5543,23 +5508,6 @@ ${
         // selection. This has to happen before the menu opens: ending
         // breakout-extend once it's open keeps it from showing (bug 2037468).
         this.view.close();
-
-        // The edit context menu is shared with other inputs in chrome, and
-        // only the items we add here conflict, so mark it for this opening
-        // alone, removing the marker again when closed.
-        let popup = this.#editContextMenu.popup;
-        popup.setAttribute("accesskey-conflicts-bug", "2073891");
-        popup.addEventListener(
-          "popuphidden",
-          () => {
-            // An opening that got superseded before it finished still fires
-            // popuphidden while the menu is open.
-            if (popup.state == "closed") {
-              popup.removeAttribute("accesskey-conflicts-bug");
-            }
-          },
-          { once: true }
-        );
 
         let enabled = this.#pasteAndGoEnabled();
         pasteAndGo.toggleAttribute("disabled", !enabled);
@@ -6177,7 +6125,7 @@ ${
       (!event.target.classList.contains("searchbar-engine-one-off-item") ||
         this.searchMode?.entry != "oneoff")
     ) {
-      this.controller.engagementEvent.discard();
+      this.controller.session.discard();
     }
   }
 
@@ -6193,7 +6141,7 @@ ${
     // the oneoff settings button.
     // For now we detect that case by discarding the event on command, but we
     // may want to figure out a more robust way to detect abandonment.
-    this.controller.engagementEvent.record(event, {
+    this.controller.session.record(event, {
       location: this.sapLocation,
       searchString: this._lastSearchString,
       searchSource: this.getSearchSource(event),
@@ -6465,7 +6413,7 @@ ${
             let blurEvent = new FocusEvent("blur", {
               relatedTarget: this.inputField,
             });
-            this.controller.engagementEvent.record(blurEvent, {
+            this.controller.session.record(blurEvent, {
               location: this.sapLocation,
               searchString: this._lastSearchString,
               searchSource: this.getSearchSource(blurEvent),
@@ -6900,7 +6848,7 @@ ${
   }
 
   _on_TabClose(event) {
-    lazy.handleBounceEventTrigger(event.target.linkedBrowser);
+    lazy.UrlbarSession.handleBounceEventTrigger(event.target.linkedBrowser);
 
     if (this.view.isOpen) {
       // Refresh results when a tab is closed while the results view is open.
@@ -7195,7 +7143,9 @@ ${
       return;
     }
 
-    let uri = this.makeURIReadable(this.browserWindow.gBrowser.currentURI);
+    let uri = lazy.BrowserUtils.getExposableURI(
+      this.browserWindow.gBrowser.currentURI
+    );
     let href = uri.displaySpec;
     let title = this.browserWindow.gBrowser.contentTitle || href;
 
@@ -7242,7 +7192,7 @@ ${
       // telemetry, to replace the missing input event.
       let queryContext = this.#makeQueryContext({ searchString: droppedURL });
       this.parentController.setLastQueryContextCache(queryContext);
-      this.controller.engagementEvent.start(event, queryContext);
+      this.controller.session.start(event, queryContext);
       this.handleNavigation({ triggeringPrincipal: principal });
       if (this.#isAddressbar) {
         // For safety reasons, in the drop case we don't want to immediately show
@@ -7949,6 +7899,7 @@ class AddSearchEngineHelper {
     elt.setAttribute("anonid", `add-engine-${index}`);
     elt.classList.add("menuitem-iconic");
     elt.classList.add("context-menu-add-engine");
+    elt.setAttribute("auto-accesskey", "digit");
     doc.l10n.setAttributes(elt, "search-one-offs-add-engine", {
       engineName: engine.title,
     });
@@ -7968,7 +7919,7 @@ class AddSearchEngineHelper {
     elt.setAttribute("anonid", "add-engine-menu");
     elt.classList.add("menu-iconic");
     elt.classList.add("context-menu-add-engine");
-    doc.l10n.setAttributes(elt, "search-one-offs-add-engine-menu");
+    doc.l10n.setAttributes(elt, "search-one-offs-add-engine-menu2");
     if (engine.icon) {
       elt.setAttribute("image", ChromeUtils.encodeURIForSrcset(engine.icon));
     }

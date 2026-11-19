@@ -21,6 +21,7 @@
 #include "secitem.h"
 #include "secoid.h"
 #include "pk11_import.h"
+#include "pk11_signature_test.h"
 
 namespace nss_test {
 
@@ -332,12 +333,10 @@ TEST_F(Pkcs11MlDsaLifetimeTest, DestroyKeyDuringSignOperation) {
 }
 
 TEST_F(Pkcs11MlDsaLifetimeTest, AbandonedSignOperationDoesNotLeak) {
-  PK11Context* ctx = StartSigning();
+  ScopedPK11Context ctx(StartSigning());
   ASSERT_TRUE(ctx);
 
-  ASSERT_EQ(SECSuccess, PK11_DigestOp(ctx, kMsg, sizeof(kMsg)));
-
-  PK11_DestroyContext(ctx, PR_TRUE);
+  ASSERT_EQ(SECSuccess, PK11_DigestOp(ctx.get(), kMsg, sizeof(kMsg)));
 }
 
 // The mechanism and key type tables. These are one-line mappings, but every
@@ -351,6 +350,24 @@ TEST(Pkcs11MlDsaMechanismTest, KeyTypeAndMechanismMappings) {
             PK11_GetKeyType(CKM_ML_DSA_KEY_PAIR_GEN, 0));
   EXPECT_EQ(static_cast<CK_MECHANISM_TYPE>(CKM_ML_DSA),
             PK11_MapSignKeyType(mldsaKey));
+}
+
+TEST(Pkcs11MlDsaVerifyTest, EmptySignature) {
+  ScopedPK11SlotInfo slot(PK11_GetInternalSlot());
+  ASSERT_TRUE(slot);
+  for (CK_ML_DSA_PARAMETER_SET_TYPE paramSet :
+       {CKP_ML_DSA_44, CKP_ML_DSA_65, CKP_ML_DSA_87}) {
+    SCOPED_TRACE(paramSet);
+    SECKEYPublicKey* pub = nullptr;
+    ScopedSECKEYPrivateKey priv(
+        PK11_GenerateKeyPair(slot.get(), CKM_ML_DSA_KEY_PAIR_GEN, &paramSet,
+                             &pub, PR_FALSE, PK11_IsFIPS(), nullptr));
+    ScopedSECKEYPublicKey pub_key(pub);
+    ASSERT_TRUE(priv);
+    ASSERT_TRUE(pub_key);
+
+    VerifyEmptySignatureFails(pub_key.get(), CKM_ML_DSA);
+  }
 }
 
 // Getting an ML-DSA key into and out of storage: softoken's PKCS#8 packaging

@@ -518,6 +518,7 @@ nsStyleBorder::nsStyleBorder()
 nsStyleBorder::nsStyleBorder(const nsStyleBorder& aSrc)
     : mBorderRadius(aSrc.mBorderRadius),
       mCornerShape(aSrc.mCornerShape),
+      mBorderShape(aSrc.mBorderShape),
       mBorderImageSource(aSrc.mBorderImageSource),
       mBorderImageWidth(aSrc.mBorderImageWidth),
       mBorderImageOutset(aSrc.mBorderImageOutset),
@@ -593,6 +594,10 @@ nsChangeHint nsStyleBorder::CalcDifference(
   }
 
   if (mCornerShape != aNewData.mCornerShape) {
+    return nsChangeHint_RepaintFrame;
+  }
+
+  if (mBorderShape != aNewData.mBorderShape) {
     return nsChangeHint_RepaintFrame;
   }
 
@@ -1111,7 +1116,7 @@ nsStylePosition::nsStylePosition()
       mMinHeight(StyleSize::Auto()),
       mMaxHeight(StyleMaxSize::None()),
       mPositionAnchor(StylePositionAnchorKeyword::Normal()),
-      mPositionVisibility(StylePositionVisibility::ANCHORS_VISIBLE),
+      mPositionVisibility(StylePositionVisibility::ANCHOR_VISIBLE),
       mPositionTryFallbacks(StylePositionTryFallbacks()),
       mPositionTryOrder(StylePositionTryOrder::Normal),
       mFlexBasis(StyleFlexBasis::Size(StyleSize::Auto())),

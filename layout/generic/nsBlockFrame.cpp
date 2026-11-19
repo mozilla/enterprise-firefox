@@ -1215,20 +1215,61 @@ static bool LineClampIsAuto(const StyleLineClamp& aLineClamp) {
   return aLineClamp.max_lines.kw == StyleMaxLinesKeyword::Auto;
 }
 
+static bool HasNonAutoBSizeForLineClamp(const nsBlockFrame* aFrame,
+                                        WritingMode aWM) {
+  return !aFrame->StylePosition()
+              ->BSize(aWM, AnchorPosResolutionParams::From(aFrame))
+              ->IsAuto();
+}
+
+static bool IsBEndMarginRoot(const nsBlockFrame* frame) {
+  bool unused, isMarginRoot;
+  frame->IsMarginRoot(&unused, &isMarginRoot);
+  return isMarginRoot ||
+         frame->GetLogicalUsedBorderAndPadding(frame->GetWritingMode())
+             .BEnd(frame->GetWritingMode());
+}
+
 /**
  * Iterator over all descendant inline line boxes, except for those that are
  * under an independent formatting context.
  */
 class MOZ_RAII LineClampLineIterator {
  public:
+  struct Boundary {
+    Boundary() : Boundary(nullptr, nullptr, 0) {}
+    Boundary(nsBlockFrame* aFrame, nsLineBox* aLine, nscoord aBEnd)
+        : mFrame(aFrame), mLine(aLine), mBEnd(aBEnd) {}
+
+    nsBlockFrame* mFrame;
+    nsLineBox* mLine;
+    // The block end of mFrame, relative to the block start of the starting
+    // frame's border-box, including border and and padding of frames between
+    // this boundary and mLastFrameToExit. This will be NS_UNCONSTRAINEDSIZE
+    // when this Boundary not a descendant of mLastFrameToExit.
+    nscoord mBEnd;
+  };
+
+  // A maximum enables automatic clamping's constrained-block traversal.
   LineClampLineIterator(nsBlockFrame* aFrame,
-                        const nsBlockFrame* aLastFrameToExit)
+                        const nsBlockFrame* aLastFrameToExit,
+                        Maybe<nscoord> aRootMaxBSize = Nothing())
       : mEnd(aFrame->LinesEnd()),
         mLastFrameToExit(aLastFrameToExit),
         mWm(aLastFrameToExit->GetWritingMode()),
         mEnteredLastFrameToExit(aFrame == aLastFrameToExit),
-        mCurrentFrameOffset{aFrame->LinesBegin() == mEnd ? nullptr : aFrame,
-                            aFrame->LinesBegin(), 0, 0, CollapsingMargin()} {
+        mRootMaxBSize(aRootMaxBSize),
+        mBPUntilLastFrame(
+            aFrame->GetLogicalUsedBorderAndPadding(aFrame->GetWritingMode())
+                .BEnd(aFrame->GetWritingMode())),
+        mCurrentFrameOffset{
+            aFrame->LinesBegin() == mEnd ? nullptr : aFrame,
+            aFrame->LinesBegin(), 0,
+            // BEnd border and padding is needed so we never include root's BP
+            // in GetDescendantBEndBP()
+            aFrame->GetLogicalUsedBorderAndPadding(aFrame->GetWritingMode())
+                .BEnd(aFrame->GetWritingMode()),
+            0, CollapsingMargin()} {
     if (mCurrentFrameOffset.mCurrentLine != mEnd &&
         !mCurrentFrameOffset.mCurrentLine->IsInline()) {
       Advance();
@@ -1236,20 +1277,61 @@ class MOZ_RAII LineClampLineIterator {
   }
 
   nsLineBox* GetCurrentLine() {
+    MOZ_ASSERT(!mCurrentFrameOffset.mFrame ||
+               mCurrentFrameOffset.mCurrentLine->IsInline());
     return mCurrentFrameOffset.mFrame ? mCurrentFrameOffset.mCurrentLine.get()
                                       : nullptr;
   }
   nsBlockFrame* GetCurrentFrame() { return mCurrentFrameOffset.mFrame; }
-  nscoord GetCurrentFrameBOffset() {
-    return mCurrentFrameOffset.mConsumedBSize;
+  // Returns all values taking up BSize starting from mFrame to the current
+  // frame, meaning current frame's block start, block end border and padding,
+  // and block end margins. Block start border, padding, and margins are
+  // included in the current line's block end, so are not included here.
+  nscoord GetUsedBSize() const {
+    return mCurrentFrameOffset.mCurrentBlockBStart +
+           mCurrentFrameOffset.mAccumulatedBEndBP + GetBEndMargins();
   }
-  nscoord GetBEndMargins() {
+  nscoord GetCurrentFrameBStart() const {
+    return mCurrentFrameOffset.mCurrentBlockBStart;
+  }
+  nscoord GetAccumulatedBEndBP() const {
+    return mCurrentFrameOffset.mAccumulatedBEndBP;
+  }
+  nscoord GetDescendantBEndBP() const {
+    MOZ_ASSERT(mEnteredLastFrameToExit,
+               "Tried getting descendants' block end border and padding before "
+               "entering a descendant.");
+    return mCurrentFrameOffset.mAccumulatedBEndBP - mBPUntilLastFrame;
+  }
+  nscoord GetBEndMargins() const {
     return mCurrentFrameOffset.mCollapsedMargins +
            mCurrentFrameOffset.mCurrentCollapsingMargin.Get();
   }
-  nscoord GetDescendantBEndMargins() {
+  nscoord GetDescendantBEndMargins() const {
+    MOZ_ASSERT(mEnteredLastFrameToExit,
+               "Tried getting descendants' block end margins before entering a "
+               "descendant.");
     return GetBEndMargins() - mMarginsUntilLastFrame;
   }
+
+  Boundary GetPreviousBoundary() const {
+    Boundary boundary = mPreviousBoundary;
+    if (mLastPassedBlock) {
+      MOZ_ASSERT(boundary.mLine);
+      // Find the skipped block's last line only when a clamp is needed.
+      LineClampLineIterator inner(mLastPassedBlock, mLastPassedBlock);
+      while (inner.GetCurrentLine()) {
+        inner.Next();
+      }
+      if (const auto& last = inner.mPreviousBoundary; last.mLine) {
+        boundary.mFrame = last.mFrame;
+        boundary.mLine = last.mLine;
+      }
+    }
+    return boundary;
+  }
+
+  bool HasNonFittingBlock() const { return mHasNonFittingBlock; }
 
   // Advances the iterator to the next line line.
   //
@@ -1259,6 +1341,12 @@ class MOZ_RAII LineClampLineIterator {
     MOZ_ASSERT(
         mCurrentFrameOffset.mCurrentLine != mEnd && mCurrentFrameOffset.mFrame,
         "Don't call Next() when the iterator is at the end");
+    nsLineBox* line = GetCurrentLine();
+    if (!mRootMaxBSize || !line->IsEmpty() || line->BSize() != 0) {
+      mPreviousBoundary =
+          CalculateCorrectBoundary(GetCurrentFrame(), line, line->BEnd());
+      mLastPassedBlock = nullptr;
+    }
     ++mCurrentFrameOffset.mCurrentLine;
     Advance();
   }
@@ -1266,13 +1354,90 @@ class MOZ_RAII LineClampLineIterator {
   bool IsLastFrameOrDescendant() { return mEnteredLastFrameToExit; }
 
  private:
-  static bool IsBEndMarginRoot(nsBlockFrame* frame) {
-    bool unused, isMarginRoot;
-    frame->IsMarginRoot(&unused, &isMarginRoot);
-    return isMarginRoot ||
-           frame->GetLogicalUsedBorderAndPadding(frame->GetWritingMode())
-               .BEnd(frame->GetWritingMode());
+  // Creates a Boundary whose mBEnd is relative to the mFrame's
+  // border-box start and includes the border and padding of descendants of
+  // mLastFrameToExit that are between mFrame and the returned Boundary. If this
+  // is called before mLastFrameToExit is entered, then the border cannot be
+  // used to clamp and the resulting bEnd of the returned Boundary will be
+  // NS_UNCONSTRAINED
+  Boundary CalculateCorrectBoundary(nsBlockFrame* aFrame, nsLineBox* aLine,
+                                    nscoord aBEnd) const {
+    if (!mEnteredLastFrameToExit) {
+      return Boundary{aFrame, aLine, NS_UNCONSTRAINEDSIZE};
+    }
+    return Boundary{aFrame, aLine,
+                    aBEnd + mCurrentFrameOffset.mCurrentBlockBStart +
+                        GetDescendantBEndBP() + GetDescendantBEndMargins()};
   }
+
+  enum class BlockAction {
+    // Visit the block's contents.
+    Descend,
+    // Advance past the block without visiting its contents.
+    Skip,
+    // End iteration.
+    Stop,
+  };
+
+  // Return Descend without a size limit, or for non-empty auto-sized blocks
+  // with no fitting maximum. Otherwise return Stop for an ancestor of
+  // mLastFrameToExit or a non-fitting fixed-size/empty block, and Skip for a
+  // fitting block. Only a non-fitting Stop sets mHasNonFittingBlock.
+  BlockAction HandleBlock(nsBlockFrame* aFrame, nsBlockFrame* aParent,
+                          nsLineBox* aLine) {
+    const bool isEmpty = aFrame->LinesAreEmpty();
+    // Advance() has added aFrame's BStart and end border/padding to the offset,
+    // but no line BEnd or frame BSize. Remove its own end border/padding before
+    // adding its border-box BSize or maximum, which already includes it.
+    // Ancestors' end border/padding remains included for the root's fit check.
+    // Collapsed margins are added separately.
+    const nscoord frameBEndBP =
+        aFrame->GetLogicalUsedBorderAndPadding(mWm).BEnd(mWm);
+    const nscoord bOffsetWithoutFrameBEndBP =
+        mCurrentFrameOffset.mCurrentBlockBStart +
+        mCurrentFrameOffset.mAccumulatedBEndBP - frameBEndBP;
+    const nscoord frameBEnd =
+        NSCoordSaturatingAdd(bOffsetWithoutFrameBEndBP, aFrame->BSize());
+    // Offset of the frame's block end from its own block start, without its
+    // end border and padding (which is accounted for in the accumulated value).
+    const nscoord frameBSizeWithoutBEndBP = aFrame->BSize() - frameBEndBP;
+    if (!mRootMaxBSize) {
+      if (isEmpty) {
+        mPreviousBoundary =
+            CalculateCorrectBoundary(aParent, aLine, frameBSizeWithoutBEndBP);
+        mLastPassedBlock = nullptr;
+      }
+      return BlockAction::Descend;
+    }
+
+    const bool bSizeIsDefinite = HasNonAutoBSizeForLineClamp(aFrame, mWm);
+    const Maybe<nscoord> maxBSize = aFrame->GetLineClampDescendantMaxBSize();
+    const bool maxBSizeFits =
+        maxBSize &&
+        NSCoordSaturatingAdd(
+            NSCoordSaturatingAdd(bOffsetWithoutFrameBEndBP, *maxBSize),
+            GetBEndMargins()) <= *mRootMaxBSize;
+    if (!bSizeIsDefinite && !maxBSizeFits && !isEmpty) {
+      return BlockAction::Descend;
+    }
+    // Before reaching mLastFrameToExit, aFrame can be an earlier sibling or
+    // its descendant, so finding no matching ancestor is valid.
+    if (!IsLastFrameOrDescendant() &&
+        nsLayoutUtils::IsProperAncestorFrame(aFrame, mLastFrameToExit)) {
+      return BlockAction::Stop;
+    }
+    if ((bSizeIsDefinite || isEmpty) &&
+        NSCoordSaturatingAdd(frameBEnd, GetBEndMargins()) > *mRootMaxBSize) {
+      mHasNonFittingBlock = true;
+      return BlockAction::Stop;
+    }
+
+    mPreviousBoundary =
+        CalculateCorrectBoundary(aParent, aLine, frameBSizeWithoutBEndBP);
+    mLastPassedBlock = aFrame;
+    return BlockAction::Skip;
+  }
+
   struct FrameOffsetData {
     // The current block. If it is null, the iterator is at its end.
     nsBlockFrame* mFrame;
@@ -1280,12 +1445,12 @@ class MOZ_RAII LineClampLineIterator {
     // The current line within the current block.
     nsBlockFrame::LineIterator mCurrentLine;
 
-    // The used block size (in addition to mCurrentLine.BEnd) from the first
-    // frame until the end of the current line. This includes starting edge of
-    // this block w.r.t to the starting block + BEnd border and padding of this
-    // block and ancestors. Separate from margins since those require special
-    // handling.
-    nscoord mConsumedBSize;
+    // Block Start of the current frame, relative to the starting block
+    nscoord mCurrentBlockBStart;
+
+    // Current sum of all border and padding of lastFrameToExit and its
+    // ancestors.
+    nscoord mAccumulatedBEndBP;
 
     // All margins from root to the last margin root. Margins after the last
     // margin root are still being collapsed with the current frame's margins.
@@ -1319,6 +1484,10 @@ class MOZ_RAII LineClampLineIterator {
       } else if (mCurrentFrameOffset.mCurrentLine->IsBlock()) {
         if (nsBlockFrame* child = GetAsLineClampDescendant(
                 mCurrentFrameOffset.mCurrentLine->mFirstChild)) {
+          nsBlockFrame* parent = mCurrentFrameOffset.mFrame;
+          // Preserve the parent's block line before entering the child, as the
+          // fallback clamp boundary if the child has no inline line to target.
+          nsLineBox* blockLine = mCurrentFrameOffset.mCurrentLine.get();
           bool justEnteredLastFrame = false;
           if (child == mLastFrameToExit) {
             justEnteredLastFrame = true;
@@ -1332,8 +1501,9 @@ class MOZ_RAII LineClampLineIterator {
 
           // Both BStart, and BEnd border and padding contribute to this block's
           // BSize. BStart border and padding are included in a line's BEnd.
-          mCurrentFrameOffset.mConsumedBSize +=
-              child->BStart(mCurrentFrameOffset.mFrame->GetSize()) +
+          mCurrentFrameOffset.mCurrentBlockBStart +=
+              child->BStart(mCurrentFrameOffset.mFrame->GetSize());
+          mCurrentFrameOffset.mAccumulatedBEndBP +=
               child->GetLogicalUsedBorderAndPadding(mWm).BEnd(mWm);
 
           mCurrentFrameOffset.mCurrentCollapsingMargin.Include(
@@ -1348,11 +1518,23 @@ class MOZ_RAII LineClampLineIterator {
             mMarginsUntilLastFrame =
                 mCurrentFrameOffset.mCollapsedMargins +
                 mCurrentFrameOffset.mCurrentCollapsingMargin.Get();
+            mBPUntilLastFrame = mCurrentFrameOffset.mAccumulatedBEndBP;
           }
 
           mCurrentFrameOffset.mCurrentLine = child->LinesBegin();
           mEnd = child->LinesEnd();
           mCurrentFrameOffset.mFrame = child;
+          const BlockAction action = HandleBlock(child, parent, blockLine);
+          if (action == BlockAction::Stop ||
+              (action == BlockAction::Skip && child == mLastFrameToExit)) {
+            mStack.Clear();
+            mCurrentFrameOffset.mFrame = nullptr;
+            break;
+          }
+          if (action == BlockAction::Skip) {
+            mCurrentFrameOffset = mStack.PopLastElement();
+            mEnd = mCurrentFrameOffset.mFrame->LinesEnd();
+          }
         } else {
           // Some kind of frame we shouldn't descend into.
           ++mCurrentFrameOffset.mCurrentLine;
@@ -1376,10 +1558,17 @@ class MOZ_RAII LineClampLineIterator {
 
   // Used to check if we are in the last frame or one of its descendants.
   bool mEnteredLastFrameToExit;
+  bool mHasNonFittingBlock = false;
+  const Maybe<nscoord> mRootMaxBSize;
+  Boundary mPreviousBoundary;
+  nsBlockFrame* mLastPassedBlock = nullptr;
 
   // Used to distinguish between margins of ancestors and the last frame, which
   // shouldn't be included in the size, and margins of ancestors which should.
   nscoord mMarginsUntilLastFrame = 0;
+
+  // Same as above but for block end border and padding.
+  nscoord mBPUntilLastFrame;
 
   // Collection of values that are used to determine where we are in the frame
   // tree, and calculate BSize.
@@ -1881,11 +2070,11 @@ void nsBlockFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
     reflowStatus =
         TrialReflow(aPresContext, aMetrics, aReflowInput, trialState);
 
-    if (LineClampIsAuto(StyleDisplay()->mWebkitLineClamp) &&
-        !trialState.mLineClamping) {
-      // `line-clamp: auto` containers need a second reflow, since that relies
+    if (IsLineClampRoot(this) && !trialState.mLineClamping &&
+        !trialState.mDidApplyLineClamp) {
+      // `line-clamp` containers may need a second reflow, since that relies
       // on BStart and margins being valid. As a result, we are enabling the
-      // flag that allows `line-clamp: auto` to happen, and reflowing again.
+      // flag that allows `line-clamp` to happen, and reflowing again.
       trialState.mLineClamping = true;
       aReflowInput.mFloatManager->PopState(&floatManagerState);
       MarkAllDescendantLinesDirty(this);
@@ -2234,6 +2423,22 @@ nsReflowStatus nsBlockFrame::TrialReflow(nsPresContext* aPresContext,
   // overflow line lists being cleared out between reflow passes.
   DrainOverflowLines();
 
+  // Preserve reflow's resolved maximum for later line-clamp traversal.
+  const nscoord maxBSize = aReflowInput.ComputedMaxBSize();
+  const nsBlockFrame* lineClampRoot =
+      maxBSize != NS_UNCONSTRAINEDSIZE ? GetLineClampRoot() : nullptr;
+  if (lineClampRoot && lineClampRoot != this &&
+      LineClampIsAuto(lineClampRoot->StyleDisplay()->mWebkitLineClamp)) {
+    const WritingMode wm = aReflowInput.GetWritingMode();
+    SetProperty(
+        LineClampDescendantMaxBSize(),
+        NSCoordSaturatingAdd(
+            maxBSize,
+            aReflowInput.ComputedLogicalBorderPadding(wm).BStartEnd(wm)));
+  } else {
+    RemoveProperty(LineClampDescendantMaxBSize());
+  }
+
   // Clear any existing -webkit-line-clamp ellipsis if we're reflowing the
   // line-clamp root. We are also setting our max-height to be referenced by
   // descendants when applying line-clamp.
@@ -2258,11 +2463,11 @@ nsReflowStatus nsBlockFrame::TrialReflow(nsPresContext* aPresContext,
       aTrialState.mShouldTrimInheritedBEndMargins;
 
   // mLineClamping is set for root, and mDimensionsReadyForLineClampAuto is used
-  // to pass the flag down to descendants. We should apply automatic line-clamp
+  // to pass the flag down to descendants. We should apply line-clamp
   // in either case.
-  state.mFlags.mShouldApplyLineClampAuto =
+  state.mFlags.mDoApplyLineClamp =
       aTrialState.mLineClamping ||
-      aReflowInput.mFlags.mDimensionsReadyForLineClampAuto;
+      aReflowInput.mFlags.mDimensionsReadyForLineClamp;
 
   // Handle paginated overflow (see nsContainerFrame.h)
   nsReflowStatus ocStatus;
@@ -2417,6 +2622,7 @@ nsReflowStatus nsBlockFrame::TrialReflow(nsPresContext* aPresContext,
   aTrialState.mBlockEndEdgeOfChildren =
       ComputeFinalSize(aReflowInput, state, aMetrics);
   aTrialState.mContainerWidth = state.ContainerSize().width;
+  aTrialState.mDidApplyLineClamp = state.mFlags.mDoApplyLineClamp;
 
   // Align content
   AlignContent(state, aMetrics, aTrialState.mBlockEndEdgeOfChildren);
@@ -2450,139 +2656,72 @@ Maybe<nsBlockFrame::LineClampTarget> nsBlockFrame::FindLineClampAutoTarget(
   const WritingMode wm = aLineClampRoot->GetWritingMode();
 
   MOZ_ASSERT(aLineClampRoot->GetLineClampRootMaxHeight());
-  nscoord rootMaxBSize =
-      aLineClampRoot->GetLineClampRootMaxHeight().value() -
-      aLineClampRoot->GetLogicalUsedBorderAndPadding(wm).BEnd(wm);
-
+  nscoord rootMaxBSize = aLineClampRoot->GetLineClampRootMaxHeight().value();
   nscoord thisMinBSize = aReflowInput.ComputedMinBSize();
 
-  nscoord bOffsetToRoot = 0;
-  for (nsBlockFrame* f = this; f != aLineClampRoot;
-       f = do_QueryFrame(f->GetParent())) {
-    bOffsetToRoot += f->BStart(f->GetParent()->GetSize()) +
-                     f->GetLogicalUsedBorderAndPadding(wm).BEnd(wm);
-  }
+  // This is currently not ready for BlockDir::RL, since that requires us to
+  // check the right side offset (which may change in this reflow)
+  nscoord bOffsetToRoot = wm.GetBlockDir() == WritingMode::BlockDir::TB
+                              ? GetOffsetTo(aLineClampRoot).Y()
+                              : GetOffsetTo(aLineClampRoot).X();
 
-  nscoord prevDescendantBEndMargins = 0;
-  nsLineBox* prevLine = nullptr;
   nsBlockFrame* prevFrame = nullptr;
-  nscoord prevBEdge = 0;
-  for (LineClampLineIterator iter(aLineClampRoot, this);
-       nsLineBox* line = iter.GetCurrentLine(); iter.Next()) {
+  LineClampLineIterator iter(aLineClampRoot, this, Some(rootMaxBSize));
+
+  auto previousTarget = [&]() -> Maybe<LineClampTarget> {
+    const auto boundary = iter.GetPreviousBoundary();
+    if (boundary.mBEnd == NS_UNCONSTRAINEDSIZE) {
+      // The clamp point is in a parent, so this frame shouldn't clamp.
+      return Nothing();
+    }
+    if (!boundary.mFrame) {
+      // When the first line doesn't fit, clamp out the whole container.
+      return Some(LineClampTarget{nullptr, nullptr, 0});
+    }
+    const nscoord clampedBSize = boundary.mBEnd - bOffsetToRoot;
+    return Some(LineClampTarget{boundary.mFrame, boundary.mLine, clampedBSize});
+  };
+
+  for (; nsLineBox* line = iter.GetCurrentLine(); iter.Next()) {
     nsBlockFrame* frame = iter.GetCurrentFrame();
-
     const bool isNewFrame = frame != prevFrame && line == frame->LinesBegin();
-
-    // - If this frame has an ancestor that we know doesn't fit (due to
-    // min-height or height), this frame has no clamp point.
-    // - If this frame has a definite height that we know fits, we do not have a
-    // clamp point.
-    // - If this frame has a min-height that is satsfied, but does not have a
-    // definite height, we may have a clamp point, and should continue iterating
-    // as usual.
     const bool bSizeIsConstrained =
         !frame->StylePosition()
              ->MinBSize(wm, AnchorPosResolutionParams::From(frame))
              ->IsAuto();
-
-    nscoord frameBStart = frame->BStart(frame->GetParent()->GetSize());
-
     if (isNewFrame && bSizeIsConstrained) {
-      const nscoord sizeToCheck = frame == this ? thisMinBSize : frame->BSize();
-      if (sizeToCheck + frameBStart + iter.GetBEndMargins() > rootMaxBSize) {
+      const nscoord frameBStart = iter.GetCurrentFrameBStart();
+      const nscoord sizeToCheck =
+          frame == this
+              ? thisMinBSize + GetLogicalUsedBorderAndPadding(wm).BStartEnd(wm)
+              : frame->BSize();
+      // Frame's BEndBP is counted in both BSize and AccumulatedBEndBP, so
+      // subtract it to avoid double-counting.
+      if (sizeToCheck + frameBStart + iter.GetAccumulatedBEndBP() -
+              frame->GetLogicalUsedBorderAndPadding(wm).BEnd(wm) +
+              iter.GetBEndMargins() >
+          rootMaxBSize) {
         // The current frame does not fit due to its min-height.
-        if (iter.IsLastFrameOrDescendant() && frame != this) {
-          // The current frame is in this frame's subtree and affects clamping.
-          return Some(nsBlockFrame::LineClampTarget{
-              prevFrame, prevLine,
-              prevBEdge - bOffsetToRoot + prevDescendantBEndMargins});
-        }
-        // The current frame is a this frame, or a constrained size parent of
-        // this frame, so this frame does not need a clamp point.
-        return Nothing();
+        return previousTarget();
       }
     }
-
-    const bool bSizeIsDefinite =
-        !frame->StylePosition()
-             ->BSize(wm, AnchorPosResolutionParams::From(frame))
-             ->IsAuto();
-    // We are stepping into a new frame of a constrained size that isn't a
-    // placeholder.
-    if (bSizeIsDefinite && isNewFrame && frame != aLineClampRoot &&
-        !frame->IsPlaceholderFrame()) {
-      // frame is a child of a fixed size container and does not affect BSize.
-      if (!iter.IsLastFrameOrDescendant()) {
-        return Nothing();
-      }
-
-      // If the next frame has a fixed size and doesn't fit, clamp before it
-      if (frame->BSize() + frameBStart + iter.GetBEndMargins() > rootMaxBSize) {
-        return Some(nsBlockFrame::LineClampTarget{
-            prevFrame, prevLine,
-            prevBEdge - bOffsetToRoot + prevDescendantBEndMargins});
-      }
-
-      // Get the last line in the fixed size child frame if it exists, otherwise
-      // return a nullptr for the LineBox output. This should be updated to
-      // return the LineBox of the empty definite size frame - see bug 2066915
-      nsBlockFrame* nextFrame = frame;
-      nsLineBox* nextLine = nullptr;
-      for (LineClampLineIterator iterInner(frame, frame);
-           nsLineBox* lineInner = iterInner.GetCurrentLine();
-           iterInner.Next()) {
-        nextFrame = iterInner.GetCurrentFrame();
-        nextLine = lineInner;
-      }
-      if (!nextLine) {
-        continue;
-      }
-
-      for (nsLineBox* lineCatchup = nullptr; lineCatchup != nextLine;
-           lineCatchup = iter.GetCurrentLine()) {
-        iter.Next();
-        if (!iter.GetCurrentLine()) {
-          // If we run out of iterator, then the clamp point is in a
-          // constrained-size parent of this frame.
-          return Nothing();
-        }
-      }
-
-      prevLine = nextLine;
-      prevFrame = nextFrame;
-      prevBEdge = frame->BSize() + prevBEdge;
-      prevDescendantBEndMargins = iter.GetDescendantBEndMargins();
-      continue;
-    }
-
     if (line->IsEmpty() && line->BSize() == 0) {
       continue;
     }
 
     // Find bottom edge of the current line.
-    nscoord edge = line->BEnd() + iter.GetCurrentFrameBOffset();
-
-    // We are past the max height, clamp at the previous line
-    if (edge + iter.GetBEndMargins() > rootMaxBSize) {
-      // Make sure returned line is in this frame
-      return prevBEdge - bOffsetToRoot + prevDescendantBEndMargins >= 0
-                 ? Some(nsBlockFrame::LineClampTarget{
-                       prevFrame, prevLine,
-                       prevBEdge - bOffsetToRoot + prevDescendantBEndMargins})
-                 : Nothing();
+    const nscoord edge = line->BEnd() + iter.GetUsedBSize();
+    if (edge > rootMaxBSize) {
+      return previousTarget();
     }
 
-    prevLine = line;
     prevFrame = frame;
-    prevBEdge = edge;
-    prevDescendantBEndMargins = iter.GetDescendantBEndMargins();
   }
 
-  // If we are here, there's nothing to clamp.
-  return Nothing();
+  return iter.HasNonFittingBlock() ? previousTarget() : Nothing();
 }
 Maybe<nsBlockFrame::LineClampTarget> nsBlockFrame::FindLineClampNumberedTarget(
-    nscoord aCollapsingBEndMargin, nsBlockFrame* aLineClampRoot) const {
+    nsBlockFrame* aLineClampRoot) const {
   if (!aLineClampRoot) {
     return Nothing();
   }
@@ -2597,6 +2736,7 @@ Maybe<nsBlockFrame::LineClampTarget> nsBlockFrame::FindLineClampNumberedTarget(
   nsLineBox* targetLine = nullptr;
   nsBlockFrame* targetFrame = nullptr;
   bool foundLineAfterClampTarget = false;
+  nscoord targetBEnd = 0;
 
   for (LineClampLineIterator iter(aLineClampRoot, this);
        nsLineBox* line = iter.GetCurrentLine(); iter.Next()) {
@@ -2611,8 +2751,35 @@ Maybe<nsBlockFrame::LineClampTarget> nsBlockFrame::FindLineClampNumberedTarget(
 
     numLines--;
     if (numLines == 0) {
+      if (!iter.IsLastFrameOrDescendant()) {
+        // Clamp point is in a parent, return nothing to avoid giving wrong
+        // size.
+        return Nothing();
+      }
       targetLine = line;
       targetFrame = iter.GetCurrentFrame();
+      if (targetFrame == this) {
+        targetBEnd = line->BEnd();
+      } else {
+        // The target line is in a descendant, and since it has reflowed and
+        // line-clamped already, we can use its size to avoid having to account
+        // for specified or restricted size. We also need to account for border,
+        // padding and margins between the target frame and this frame, and
+        // calculate its offset to this frame by using its offset to root and
+        // this frame's offset to root.
+        const WritingMode wm = targetFrame->GetWritingMode();
+        // This is currently not ready for BlockDir::RL, since that requires us
+        // to check the right side offset (which may change in this reflow)
+        const nscoord offsetToRoot =
+            wm.GetBlockDir() == WritingMode::BlockDir::TB
+                ? GetOffsetTo(aLineClampRoot).Y()
+                : GetOffsetTo(aLineClampRoot).X();
+        targetBEnd = targetFrame->BSize(targetFrame->GetWritingMode()) +
+                     iter.GetCurrentFrameBStart() - offsetToRoot +
+                     iter.GetDescendantBEndMargins() +
+                     iter.GetDescendantBEndBP() -
+                     targetFrame->GetLogicalUsedBorderAndPadding(wm).BEnd(wm);
+      }
     }
   }
 
@@ -2624,25 +2791,8 @@ Maybe<nsBlockFrame::LineClampTarget> nsBlockFrame::FindLineClampNumberedTarget(
     return Nothing();
   }
 
-  // Find bottom edge of the target line.
-  nscoord edge = targetLine->BEnd();
-  for (nsIFrame* f = targetFrame; f; f = f->GetParent()) {
-    MOZ_ASSERT(f->IsBlockFrameOrSubclass(),
-               "GetAsLineClampDescendant guarantees this");
-    if (f == this) {
-      break;
-    }
-    if (f == aLineClampRoot) {
-      // The clamped line is not in our subtree.
-      return Nothing();
-    }
-    const auto wm = f->GetWritingMode();
-    const nsSize parentSize = f->GetParent()->GetSize();
-    edge = f->GetLogicalRect(parentSize).BEnd(wm);
-  }
-
-  return Some(nsBlockFrame::LineClampTarget{targetFrame, targetLine,
-                                            edge + aCollapsingBEndMargin});
+  return Some(
+      nsBlockFrame::LineClampTarget{targetFrame, targetLine, targetBEnd});
 }
 
 void nsBlockFrame::ApplyLineClamp(
@@ -2709,6 +2859,26 @@ Maybe<nscoord> nsBlockFrame::ApplySmallestLineClamp(
 
   ApplyLineClamp(picked, aLineClampRoot);
   return Some(picked.clampedBSize);
+}
+
+static bool HasBlockChildren(const nsBlockFrame* aFrame) {
+  for (auto& line : aFrame->Lines()) {
+    if (line.IsBlock()) {
+      // This check is somewhat conservative. There could be descendants that do
+      // not block clamping on first reflow (such as blocks which establish
+      // IFCs)
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool ShouldClamp(bool aShouldClamp, const nsBlockFrame* aThisFrame,
+                        const nsBlockFrame* aLineClampRoot) {
+  // We can safely apply line-clamp on the first reflow if this block has no
+  // descendants whose margins must be computed.
+  return aShouldClamp ||
+         (aThisFrame == aLineClampRoot && !HasBlockChildren(aThisFrame));
 }
 
 nscoord nsBlockFrame::ComputeFinalSize(const ReflowInput& aReflowInput,
@@ -2801,11 +2971,11 @@ nscoord nsBlockFrame::ComputeFinalSize(const ReflowInput& aReflowInput,
     // If `line-clamp: auto` is involved, we wait until the second reflow to
     // apply line-clamp
     nsBlockFrame* lineClampRoot = GetLineClampRoot();
-    if (lineClampRoot &&
-        (!LineClampIsAuto(lineClampRoot->StyleDisplay()->mWebkitLineClamp) ||
-         aState.mFlags.mShouldApplyLineClampAuto)) {
+    aState.mFlags.mDoApplyLineClamp =
+        ShouldClamp(aState.mFlags.mDoApplyLineClamp, this, lineClampRoot);
+    if (aState.mFlags.mDoApplyLineClamp) {
       const auto numberedLineClampTarget =
-          FindLineClampNumberedTarget(0, lineClampRoot);
+          FindLineClampNumberedTarget(lineClampRoot);
 
       const auto autoLineClampTarget =
           FindLineClampAutoTarget(aReflowInput, lineClampRoot);
@@ -2863,11 +3033,11 @@ nscoord nsBlockFrame::ComputeFinalSize(const ReflowInput& aReflowInput,
     nscoord autoBSize =
         aReflowInput.ApplyMinMaxBSize(contentBSize, aState.mConsumedBSize);
     nsBlockFrame* lineClampRoot = GetLineClampRoot();
-    if (lineClampRoot &&
-        (!LineClampIsAuto(lineClampRoot->StyleDisplay()->mWebkitLineClamp) ||
-         aState.mFlags.mShouldApplyLineClampAuto)) {
-      const auto numberedLineClampTarget = FindLineClampNumberedTarget(
-          aState.mPrevBEndMargin.Get(), lineClampRoot);
+    aState.mFlags.mDoApplyLineClamp =
+        ShouldClamp(aState.mFlags.mDoApplyLineClamp, this, lineClampRoot);
+    if (aState.mFlags.mDoApplyLineClamp) {
+      const auto numberedLineClampTarget =
+          FindLineClampNumberedTarget(lineClampRoot);
 
       const auto autoLineClampTarget =
           FindLineClampAutoTarget(aReflowInput, lineClampRoot);
@@ -5090,11 +5260,13 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowState& aState,
           aState.mReflowInput.mParentReflowInput->mCBReflowInput;
       MOZ_ASSERT(cbReflowInput->mFrame->StyleColumn()->IsColumnContainerStyle(),
                  "Get unexpected reflow input of multicol containing block!");
+      nscoord multicolBSizeAsPercentBasis =
+          cbReflowInput->ComputedBSizeAsPercentageBasis();
 
       // Use column-width as the containing block's inline-size, i.e. the column
       // content's computed inline-size.
       cbSize.emplace(LogicalSize(wm, aState.mReflowInput.ComputedISize(),
-                                 cbReflowInput->ComputedBSize())
+                                 multicolBSizeAsPercentBasis)
                          .ConvertTo(frame->GetWritingMode(), wm));
 
       // If a ColumnSetWrapper is in a balancing column content, it may be
@@ -5183,8 +5355,8 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowState& aState,
       childReflowInput->mFlags.mMovedBlockFragments = true;
     }
 
-    childReflowInput->mFlags.mDimensionsReadyForLineClampAuto =
-        aState.mFlags.mShouldApplyLineClampAuto;
+    childReflowInput->mFlags.mDimensionsReadyForLineClamp =
+        aState.mFlags.mDoApplyLineClamp;
 
     nsFloatManager::SavedState floatManagerState;
     nsReflowStatus frameReflowStatus;

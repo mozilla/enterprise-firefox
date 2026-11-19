@@ -101,14 +101,6 @@ struct _GdkEventTouchpadPinch;
 typedef struct _GdkEventTouchpadPinch GdkEventTouchpadPinch;
 #endif
 
-// 'Stable' Wayland subsurface rounding algorithm is used by all compositors
-// except KDE.
-// See
-// https://gitlab.freedesktop.org/wayland/wayland-protocols/-/merge_requests/143#note_1343171
-// for details.
-// We want to replace it by wp-fractional-scale-v2 when it's available.
-extern bool gUseStableRounding;
-
 #if !GTK_CHECK_VERSION(3, 22, 0)
 typedef enum {
   GDK_ANCHOR_FLIP_X = 1 << 0,
@@ -142,6 +134,11 @@ class TimeStamp;
 #ifdef MOZ_X11
 class CurrentX11TimeGetter;
 #endif
+
+namespace layers {
+class NativeLayerRootRemoteWaylandParent;
+class NativeLayerRootWayland;
+}  // namespace layers
 
 namespace widget {
 class DBusMenuBar;
@@ -222,6 +219,10 @@ class nsWindow : public nsIWidget {
   nsresult GetRestoredBounds(LayoutDeviceIntRect&) override;
   bool PersistClientBounds() const override { return true; }
   LayoutDeviceIntMargin NormalSizeModeClientToWindowMargin() override;
+
+  // Get rounded client size based on actual window position and rounding
+  // method, see nsWindowWayland::sUseStableRounding.
+  virtual LayoutDeviceIntSize GetRoundedClientSize();
 
   bool WorkspaceManagementDisabled();
   bool ConstrainSizeWithScale(int* aWidth, int* aHeight, double aScale);
@@ -376,7 +377,6 @@ class nsWindow : public nsIWidget {
 
   static guint32 sLastButtonPressTime;
 
-  MozContainer* GetMozContainer() { return mContainer; }
   GdkWindow* GetGdkWindow() const { return mGdkWindow; }
   void SetGdkWindow(GdkWindow* aGdkWindow);
   GdkWindow* GetToplevelGdkWindow() const;
@@ -557,6 +557,10 @@ class nsWindow : public nsIWidget {
 
   // Native implementation of OnMap() event for X11/Wayland.
   virtual void OnMapNative() {}
+  virtual void OnUnmapNative() {}
+
+  virtual void CreateVSyncSource() {}
+  virtual void DeleteVSyncSource() {}
 
   virtual void EnableVSyncSource() {}
   virtual void DisableVSyncSource() {}
@@ -637,6 +641,12 @@ class nsWindow : public nsIWidget {
   void* mEGLWindow = nullptr;
 #ifdef MOZ_WAYLAND
   RefPtr<mozilla::widget::WaylandSurface> mSurface;
+  RefPtr<mozilla::layers::NativeLayerRootRemoteWaylandParent>
+      mNativeLayerRootRemoteWaylandParent;
+  // The "real" NativeLayerRoot that receives surfaces from the layers
+  // managed by mNativeLayerRootRemoteWaylandParent.
+  RefPtr<mozilla::layers::NativeLayerRootWayland>
+      mNativeLayerRootForRemoteWaylandParent;
 #endif
   RefPtr<gfxImageSurface> mDragPopupSurface;
   LayoutDeviceIntRegion mDragPopupSurfaceRegion;
@@ -785,6 +795,11 @@ class nsWindow : public nsIWidget {
   // size/focus etc.
   bool mWaitingToSessionRestore : 1;
 
+  // Set together with mWaitingToSessionRestore and kept until session restore
+  // finishes, so that a window shown while it runs, which is a restored one,
+  // neither uses the launch activation token nor requests activation.
+  bool mWaitingToFocusRestore : 1;
+
   // all of our DND stuff
   void InitDragEvent(mozilla::WidgetDragEvent& aEvent);
 
@@ -803,6 +818,11 @@ class nsWindow : public nsIWidget {
   WindowRenderer* GetWindowRenderer() override;
   void DidGetNonBlankPaint() override;
 
+  void CreateCompositor(int aWidth, int aHeight) override;
+  void DestroyCompositor() override;
+#ifdef MOZ_WAYLAND
+  void CloseNativeLayerRootRemoteWaylandParent();
+#endif
   void SetCompositorWidgetDelegate(CompositorWidgetDelegate* delegate) override;
 
   void UpdateMozWindowActive();

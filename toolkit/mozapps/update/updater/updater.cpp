@@ -3675,16 +3675,6 @@ bool ShouldRunSilently(int argc, NS_tchar** argv) {
 int NS_main(int argc, NS_tchar** argv) {
   LogToOS(NS_T("Updater started"));
 
-  // We may need to tweak our argument list when we launch the Second Updater
-  // Invocation (SUI), so we are going to make a copy of our arguments to
-  // modify.
-  int suiArgc = argc;
-  mozilla::UniquePtr<const NS_tchar*[]> suiArgv =
-      std::make_unique<const NS_tchar*[]>(suiArgc);
-  for (int argIndex = 0; argIndex < suiArgc; argIndex++) {
-    suiArgv.get()[argIndex] = argv[argIndex];
-  }
-
   sElevationType = getElevationType(argc, argv);
   if (sElevationType == ElevationType::Error ||
       sElevationType == ElevationType::Unknown) {
@@ -3756,6 +3746,17 @@ int NS_main(int argc, NS_tchar** argv) {
     }
   }
 #endif
+
+  // We may need to tweak our argument list when we launch the Second Updater
+  // Invocation (SUI), so we are going to make a copy of our arguments to
+  // modify. On macOS the elevated updater only gets its arguments from
+  // ObtainUpdaterArguments above, so the copy has to come after it.
+  int suiArgc = argc;
+  mozilla::UniquePtr<const NS_tchar*[]> suiArgv =
+      std::make_unique<const NS_tchar*[]>(suiArgc);
+  for (int argIndex = 0; argIndex < suiArgc; argIndex++) {
+    suiArgv.get()[argIndex] = argv[argIndex];
+  }
 
   if (!isDMGInstall) {
     // Skip update-related code path for DMG installs.
@@ -5668,6 +5669,10 @@ int DoUpdate() {
   options.logDestructorMarker = EnvHasValue("MOZ_TEST_ZUCCHINI_DTOR_MARKER");
   options.triggerBadAlloc = EnvHasValue("MOZ_TEST_ZUCCHINI_BAD_ALLOC");
   options.triggerCheckFailure = EnvHasValue("MOZ_TEST_ZUCCHINI_CHECK_FAILURE");
+  options.triggerReadPageError =
+      EnvHasValue("MOZ_TEST_ZUCCHINI_READ_PAGE_ERROR");
+  options.triggerWritePageError =
+      EnvHasValue("MOZ_TEST_ZUCCHINI_WRITE_PAGE_ERROR");
   zucchini::mozilla::SetTestOptions(options);
 #  endif  // TEST_UPDATER
 
@@ -5696,6 +5701,11 @@ int DoUpdate() {
       // generation scripts enforce the presence of the type declaration.
       if (NS_tstrcmp(token, NS_T("type")) == 0) {
         const NS_tchar* type = mstrtok(kQuote, &line);
+        if (!type) {
+          LOG(("DoUpdate: type value not found in manifest"));
+          free(buf);
+          return PARSE_ERROR;
+        }
         LOG(("UPDATE TYPE " LOG_S, type));
         if (NS_tstrcmp(type, NS_T("complete")) == 0) {
           rv = AddPreCompleteActions(&list);

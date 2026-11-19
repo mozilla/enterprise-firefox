@@ -8,7 +8,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   getFrecentRecentCombinedUrls:
-    "resource://gre/modules/contentrelevancy/private/InputUtils.sys.mjs",
+    "moz-src:///toolkit/components/contentrelevancy/private/InputUtils.sys.mjs",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   Interest:
@@ -58,7 +58,7 @@ const NIMBUS_VARIABLE_INGEST_ENABLED = "ingestEnabled";
 function setupLogging() {
   ChromeUtils.defineLazyGetter(lazy, "log", () => {
     return console.createInstance({
-      prefix: "ContentRelevancyManager",
+      logModule: "ContentRelevancyManager",
       maxLogLevel: Services.prefs.getBoolPref(PREF_LOG_ENABLED, false)
         ? "Debug"
         : "Error",
@@ -562,7 +562,7 @@ export var ContentRelevancyManager = new RelevancyManager();
  *  - Enable the `toolkit.contentRelevancy.log` pref
  *  - Enable the `devtools.chrome.enabled` pref if it wasn't already
  *  - Open the browser console and enter:
- *    `ChromeUtils.importESModule("resource://gre/modules/ContentRelevancyManager.sys.mjs").classifyOnce()`
+ *    `ChromeUtils.importESModule("moz-src:///toolkit/components/contentrelevancy/ContentRelevancyManager.sys.mjs").classifyOnce()`
  */
 export function classifyOnce() {
   ContentRelevancyManager._test_doClassification();

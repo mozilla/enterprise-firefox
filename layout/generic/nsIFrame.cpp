@@ -34,6 +34,7 @@
 #include "mozilla/ReflowInput.h"
 #include "mozilla/RestyleManager.h"
 #include "mozilla/ResultExtensions.h"
+#include "mozilla/SVGClipPathFrame.h"
 #include "mozilla/SVGIntegrationUtils.h"
 #include "mozilla/SVGMaskFrame.h"
 #include "mozilla/SVGObserverUtils.h"
@@ -176,7 +177,12 @@ nsIFrame* nsILineIterator::LineInfo::GetLastFrameOnLine() const {
 }
 
 #ifdef HAVE_64BIT_BUILD
+#  ifdef DEBUG
+// The DEBUG-only bitfield spills into a third byte, growing the frame by 8.
 static_assert(sizeof(nsIFrame) == 120, "nsIFrame should remain small");
+#  else
+static_assert(sizeof(nsIFrame) == 112, "nsIFrame should remain small");
+#  endif
 #else
 static_assert(sizeof(void*) == 4, "Odd build config?");
 // FIXME(emilio): Investigate why win32 and android-arm32 have bigger sizes (80)
@@ -617,6 +623,14 @@ bool nsIFrame::IsAtomicInline() const {
          (IsReplaced() || !StyleDisplay()->IsInlineInsideStyle());
 }
 
+bool nsIFrame::IsNonReplacedInline() const {
+  // Note that width/height don't apply to ruby boxes either, see
+  // https://drafts.csswg.org/css-ruby/#box-style
+  return StyleDisplay()->IsInlineInsideStyle() && !IsReplaced() &&
+         !IsFieldSetFrame() && !IsBlockFrame() && !IsScrollContainerFrame() &&
+         !IsColumnSetWrapperFrame();
+}
+
 bool nsIFrame::ShouldPropagateRepaintsToRoot() const {
   if (!IsPrimaryFrame()) {
     // special case for table frames because style images are associated to the
@@ -664,11 +678,9 @@ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
                   NS_FRAME_CAN_HAVE_ABSPOS_CHILDREN |
                   NS_FRAME_PART_OF_IBSPLIT |
                   NS_FRAME_MAY_BE_TRANSFORMED |
+                  NS_FRAME_HAS_COLUMN_SPAN_SIBLINGS |
                   NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR));
     // clang-format on
-
-    // Copy other bits in nsIFrame from prev-in-flow.
-    mHasColumnSpanSiblings = aPrevInFlow->HasColumnSpanSiblings();
 
     // If our prev-in-flow is an absolute containing block, we must be one, too.
     if (aPrevInFlow->IsAbsoluteContainer()) {
@@ -1226,6 +1238,21 @@ void nsIFrame::RemoveDisplayItemDataForDeletion() {
     delete userDataTable;
   }
 
+  // A frame only has an entry in the retained display list data while it is
+  // modified or has an override dirty region, so without those and without
+  // display items there is nothing to remove.
+  if (!IsFrameModified() && !HasOverrideDirtyRegion() &&
+      DisplayItems().IsEmpty()) {
+#ifdef DEBUG
+    if (auto* builder = nsLayoutUtils::GetRetainedDisplayListBuilder(this)) {
+      MOZ_ASSERT(builder->Data()->GetFlags(this).isEmpty(),
+                 "Frame has retained display list data without being modified "
+                 "or having an override dirty region");
+    }
+#endif
+    return;
+  }
+
   auto* builder = nsLayoutUtils::GetRetainedDisplayListBuilder(this);
   if (!builder) {
     MOZ_ASSERT(DisplayItems().IsEmpty());
@@ -1746,7 +1773,7 @@ WritingMode nsIFrame::WritingModeForLine(WritingMode aSelfWM,
 
   if (StyleTextReset()->mUnicodeBidi == StyleUnicodeBidi::Plaintext) {
     mozilla::intl::BidiEmbeddingLevel frameLevel =
-        nsBidiPresUtils::GetFrameBaseLevel(aSubFrame);
+        nsBidiPresUtils::GetLineBaseLevel(aSubFrame);
     writingMode.SetDirectionFromBidiLevel(frameLevel);
   }
 
@@ -1987,6 +2014,12 @@ bool nsIFrame::GetBorderRadii(const nsSize& aFrameSize,
     // In an ideal world, we might have a way for the them to tell us an
     // border radius, but since we don't, we're better off assuming
     // zero.
+    return false;
+  }
+
+  // https://drafts.csswg.org/css-borders-4/#border-shape: border-shape
+  // replaces the border-radius geometry.
+  if (!StyleBorder()->mBorderShape.IsNone()) {
     return false;
   }
 
@@ -3137,14 +3170,25 @@ static Maybe<nsRect> ComputeClipForMaskItem(
       combinedClip = Some(ThebesRect(*result));
     }
   } else if (aMaskUsage.ShouldApplyClipPath()) {
-    gfxRect result = SVGUtils::GetBBox(
-        aMaskedFrame,
-        {SVGBBoxFlag::IncludeClipped, SVGBBoxFlag::IncludeFillGeometry,
-         SVGBBoxFlag::IncludeMarkers, SVGBBoxFlag::IncludeStroke,
-         SVGBBoxFlag::DoNotClipToBBoxOfContentInsideClipPath});
+    nsIFrame* firstFrame =
+        nsLayoutUtils::FirstContinuationOrIBSplitSibling(aMaskedFrame);
+    SVGClipPathFrame* clipPathFrame = nullptr;
+    SVGObserverUtils::GetAndObserveClipPath(firstFrame, &clipPathFrame);
+    MOZ_ASSERT(clipPathFrame, "ShouldApplyClipPath needs a clip path");
+    gfxRect result = clipPathFrame
+                         ->GetBBoxForClipPathFrame(
+                             clipPathFrame->GetClipPathTransform(aMaskedFrame))
+                         .ToThebesRect();
     combinedClip = Some(
         ThebesRect((CSSRect::FromUnknownRect(ToRect(result)) * cssToDevScale)
                        .ToUnknownRect()));
+    // The clip path is in the user space of the first continuation, which is
+    // where SVGIntegrationUtils paints it too.
+    if (firstFrame != aMaskedFrame) {
+      devPixelOffsetToUserSpace = nsLayoutUtils::PointToGfxPoint(
+          nsLayoutUtils::ComputeOffsetToUserSpace(aBuilder, firstFrame),
+          devPixelRatio);
+    }
   } else {
     // The code for this case is adapted from ComputeMaskGeometry().
 
@@ -3910,7 +3954,8 @@ void nsIFrame::BuildDisplayListForStackingContext(
   // like a separator between the VTCapture the outside, if it is transformed.
   if (capturedByViewTransition) {
     resultList.AppendNewToTop<nsDisplayViewTransitionCapture>(
-        aBuilder, this, &resultList, nullptr, false);
+        aBuilder, this, &resultList, nullptr,
+        nsDisplayViewTransitionCapture::Kind::Element);
     createdContainer = true;
     MarkAsIsolated();
     // We don't want the capture to be clipped, so we do this _after_ building
@@ -5033,6 +5078,16 @@ Maybe<mozilla::StyleUserSelect> nsIFrame::UsedUserSelectRecurse(
     return Some(StyleUserSelect::None);
   }
 
+  // nsTableColFrame is inserted after nsTableRowGroupFrame and its content is
+  // the corresponding <col> if one exists, or <colgroup> or <table> otherwise.
+  // That means the frame tree order is different from the DOM tree order of
+  // HTML table so that the caret navigation may return start of the <table>
+  // after end of the last cell. Fortunately, it's invisible from user's
+  // selection point of view. So, we should be able to treat it as unselectable.
+  if (aFrame->IsTableColFrame()) {
+    return Some(StyleUserSelect::None);
+  }
+
   // Per https://drafts.csswg.org/css-ui-4/#content-selection:
   //
   // The used value is the same as the computed value, except:
@@ -5606,6 +5661,28 @@ nsresult nsIFrame::SelectWordOrLinkAtPoint(
       CaretAssociationHint::After);
 }
 
+nsIFrame::ContentOffsets nsIFrame::GetContentOffsetsFromPointForSelection(
+    const nsPoint& aPoint) {
+  // A text control's own frames use its independent selection, where its
+  // editor's anonymous content belongs.
+  const nsFrameSelection* const frameSelection = GetConstFrameSelection();
+  const Element* const independentSelectionRoot =
+      frameSelection ? frameSelection->GetIndependentSelectionRootElement()
+                     : nullptr;
+  ContentOffsets offsets = GetContentOffsetsFromPoint(
+      aPoint, independentSelectionRoot
+                  ? SKIP_HIDDEN
+                  : SKIP_HIDDEN | IGNORE_NATIVE_ANONYMOUS_SUBTREE);
+  if (offsets.content && independentSelectionRoot &&
+      !independentSelectionRoot->Contains(offsets.content)) {
+    // The text control's independent selection cannot use offsets outside
+    // its editor, e.g. if a press on its padding resolves to an ancestor
+    // with `user-select: all`.
+    return ContentOffsets();
+  }
+  return offsets;
+}
+
 nsresult nsIFrame::SelectByTypeAtPoint(const nsPoint& aPoint,
                                        nsSelectionAmount aBeginAmountType,
                                        nsSelectionAmount aEndAmountType,
@@ -5615,8 +5692,7 @@ nsresult nsIFrame::SelectByTypeAtPoint(const nsPoint& aPoint,
     return NS_OK;
   }
 
-  ContentOffsets offsets = GetContentOffsetsFromPoint(
-      aPoint, SKIP_HIDDEN | IGNORE_NATIVE_ANONYMOUS_SUBTREE);
+  ContentOffsets offsets = GetContentOffsetsFromPointForSelection(aPoint);
   if (!offsets.content) {
     return NS_ERROR_FAILURE;
   }
@@ -8793,6 +8869,14 @@ static nsRect ComputeEffectsRect(nsIFrame* aFrame, const nsRect& aOverflowRect,
     r.UnionRect(r, outsetRect);
   }
 
+  // A border-shape with margin-box geometry paints into the margin area, and
+  // a single shape is stroked centered on the path.
+  if (!styleBorder->mBorderShape.IsNone()) {
+    nsRect shapeRect(nsPoint(0, 0), aNewSize);
+    shapeRect.Inflate(nsCSSRendering::BorderShapePaintOverflow(aFrame));
+    r.UnionRect(r, shapeRect);
+  }
+
   // Note that we don't remove the outlineInnerRect if a frame loses outline
   // style. That would require an extra property lookup for every frame,
   // or a new frame state bit to track whether a property had been stored,
@@ -9758,6 +9842,13 @@ static nsresult GetNextPrevLineFromBlockFrame(PeekOffsetStruct* aPos,
   const bool forceInEditableRegion =
       aPos->mOptions.contains(PeekOffsetOption::ForceEditableRegion);
   while (!found) {
+    // GetContentOffsetsFromPoint below can resolve bidi lazily (e.g. in SVG
+    // text), which destroys the block's cached line iterator.
+    it = aBlockFrame->GetLineIterator();
+    if (!it) {
+      return NS_ERROR_FAILURE;
+    }
+    countLines = it->GetNumLines();
     if (aPos->mDirection == eDirPrevious) {
       searchingLine--;
     } else {
@@ -9878,9 +9969,17 @@ static nsresult GetNextPrevLineFromBlockFrame(PeekOffsetStruct* aPos,
         nsPoint offset = resultFrame->GetOffsetToRootFrame();
         if (resultFrame->GetWritingMode().IsVertical()) {
           point.y = aPos->mDesiredCaretPos.y;
-          point.x = tempRect.width + offset.x;
+          point.x = offset.x;
+          // If we're going backwards, look at the end of the
+          // frame, otherwise look at the start of the frame.
+          if (aPos->mDirection == eDirPrevious) {
+            point.x += tempRect.width;
+          }
         } else {
-          point.y = tempRect.height + offset.y;
+          point.y = offset.y;
+          if (aPos->mDirection == eDirPrevious) {
+            point.y += tempRect.height;
+          }
           point.x = aPos->mDesiredCaretPos.x;
         }
 
@@ -12259,7 +12358,7 @@ void nsIFrame::SetParent(nsContainerFrame* aParent) {
 
   // Note that the current mParent may already be destroyed at this point.
   mParent = aParent;
-  MOZ_ASSERT(!mParent || PresShell() == mParent->PresShell());
+  MOZ_RELEASE_ASSERT(!mParent || PresContext() == mParent->PresContext());
 
   nsFrameState flagsToPropagateSameDoc =
       GetStateBits() & (NS_FRAME_CONTAINS_RELATIVE_BSIZE |

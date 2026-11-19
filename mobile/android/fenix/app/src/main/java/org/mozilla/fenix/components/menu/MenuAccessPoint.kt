@@ -16,18 +16,16 @@ enum class MenuAccessPoint {
 
     /** Menu was accessed from the home screen. */
     Home,
-}
 
-/** Menu navigation destination. */
-enum class Route {
-    MainMenu,
-    CustomTabMenu,
+    /** Menu was accessed in preview mode. */
+    Preview,
 }
 
 /** Returns the [FenixFxAEntryPoint] equivalent from the given [MenuAccessPoint]. */
 internal fun MenuAccessPoint.toFenixFxAEntryPoint(): FenixFxAEntryPoint {
     return when (this) {
-        MenuAccessPoint.Browser -> FenixFxAEntryPoint.BrowserToolbar
+        MenuAccessPoint.Browser,
+        MenuAccessPoint.Preview -> FenixFxAEntryPoint.BrowserToolbar
         MenuAccessPoint.External -> FenixFxAEntryPoint.ExternalView
         MenuAccessPoint.Home -> FenixFxAEntryPoint.HomeMenu
     }

@@ -502,6 +502,16 @@ nsBrowserContentHandler.prototype = {
       gKiosk = true;
       Glean.browserStartup.kioskMode.set(true);
     }
+    if (cmdLine.handleFlag("start-maximized", false)) {
+      // Persisting this before the first window opens is what makes the window
+      // come up maximized rather than being resized after it is shown.
+      Services.xulStore.setValue(
+        AppConstants.BROWSER_CHROME_URL,
+        "main-window",
+        "sizemode",
+        "maximized"
+      );
+    }
     if (cmdLine.handleFlag("disable-pinch", false)) {
       let defaults = Services.prefs.getDefaultBranch(null);
       defaults.setBoolPref("apz.allow_zooming", false);
@@ -795,6 +805,8 @@ nsBrowserContentHandler.prototype = {
     info += "  --kiosk            Start the browser in kiosk mode.\n";
     info +=
       "  --kiosk-monitor <num> Place kiosk browser window on given monitor.\n";
+    info +=
+      "  --start-maximized  Start the browser with the window maximized.\n";
     info +=
       "  --disable-pinch    Disable touch-screen and touch-pad pinch gestures.\n";
     return info;
@@ -1453,35 +1465,6 @@ function maybeRecordToHandleTelemetry(uri, isLaunch) {
 }
 
 /**
- * Records a count for Bing navigations that match the Windows Search pattern,
- * using the Bing base domain and `/search` path as heuristic signals. It also
- * records telemetry for example.com to allow the testing of the filepath.
- *
- * @param {nsIURI} uri
- *        The URI being loaded.
- * @param {bool} isLaunch
- *        Indicates whether the browser is starting (true) or already running.
- */
-function maybeRecordSearchActivationTelemetry(uri, isLaunch) {
-  if (AppConstants.platform != "win") {
-    return;
-  }
-
-  try {
-    if (
-      Services.eTLD.getBaseDomain(uri) == "bing.com" &&
-      uri.filePath == "/search"
-    ) {
-      Glean.browserEngagement.windowsStartSearchActivationCount[
-        isLaunch ? "startup" : "new_tab"
-      ].add(1);
-    }
-  } catch (_) {
-    // Ignore URIs for which no registrable domain can be determined.
-  }
-}
-
-/**
  * Records a click on a web notification that no running nsIAlertCallbacks was
  * tracking, either because Firefox wasn't running or because the notification
  * is from an earlier session.
@@ -1823,7 +1806,6 @@ nsDefaultCommandLineHandler.prototype = {
             let isLaunch =
               cmdLine.state == Ci.nsICommandLine.STATE_INITIAL_LAUNCH;
 
-            maybeRecordSearchActivationTelemetry(uri, isLaunch);
             maybeRecordToHandleTelemetry(uri, isLaunch);
           }
         }

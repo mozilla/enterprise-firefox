@@ -620,7 +620,7 @@ static bool ParseTimeDuration(const CharRange& text,
   const char* str = text.begin().get();
   char* end;
   long millis = strtol(str, &end, 10);
-  *durationOut = TimeDuration::FromMilliseconds(double(millis));
+  *durationOut = TimeDuration::FromMilliseconds(millis);
   return str != end && end == text.end().get();
 }
 
@@ -3022,13 +3022,18 @@ void GCRuntime::maybeDiscardJitCodeForGC() {
     // we find object lifetimes have changed.
     PretenuringZone& pz = zone->pretenuring;
     bool resetNurserySites = pz.shouldResetNurseryAllocSites();
-    bool resetPretenuredSites = pz.shouldResetPretenuredAllocSites();
+    bool resetPretenuredSites =
+        pz.shouldResetPretenuredAllocSites(JS::TraceKind::Object);
 
     Zone::JitDiscardOptions options;
     options.discardJitScripts = true;
     options.resetNurseryAllocSites = resetNurserySites;
     options.resetPretenuredAllocSites = resetPretenuredSites;
     zone->discardJitCode(rt->gcContext(), options);
+
+    if (resetPretenuredSites) {
+      zone->resetPretenuredWasmAllocSites();
+    }
 
     if (resetNurserySites) {
       nurserySiteResetCount++;
@@ -3229,6 +3234,8 @@ void BackgroundUnmarkTask::unmark() {
 
 void GCRuntime::endPreparePhase() {
   MOZ_ASSERT(unmarkTask.isIdle());
+
+  AutoSetThreadIsPreparing threadIsPreparing;
 
   for (CompartmentsIter c(rt); !c.done(); c.next()) {
     c->gcState.scheduledForDestruction = false;
@@ -3955,22 +3962,29 @@ void GCRuntime::maybeStopPretenuring() {
   size_t zonesWhereBigIntsEnabled = 0;
 
   for (GCZonesIter zone(this); !zone.done(); zone.next()) {
-    if (zone->nurseryStringsDisabled || zone->nurseryBigIntsDisabled) {
-      // We may need to reset allocation sites and discard JIT code to recover
-      // if we find object lifetimes have changed.
-      if (zone->pretenuring.shouldResetPretenuredAllocSites()) {
+    // We may need to reset allocation sites and discard JIT code to recover if
+    // we find object lifetimes have changed.
+    bool allocReenabled = false;
+    if (zone->pretenuring.shouldResetPretenuredAllocSites(
+            JS::TraceKind::String)) {
+      if (zone->nurseryStringsDisabled) {
         zone->unknownAllocSite(JS::TraceKind::String)->maybeResetState();
-        zone->unknownAllocSite(JS::TraceKind::BigInt)->maybeResetState();
-        if (zone->nurseryStringsDisabled) {
-          zone->nurseryStringsDisabled = false;
-          zonesWhereStringsEnabled++;
-        }
-        if (zone->nurseryBigIntsDisabled) {
-          zone->nurseryBigIntsDisabled = false;
-          zonesWhereBigIntsEnabled++;
-        }
-        nursery().updateAllocFlagsForZone(zone);
+        zone->nurseryStringsDisabled = false;
+        zonesWhereStringsEnabled++;
+        allocReenabled = true;
       }
+    }
+    if (zone->pretenuring.shouldResetPretenuredAllocSites(
+            JS::TraceKind::BigInt)) {
+      if (zone->nurseryBigIntsDisabled) {
+        zone->unknownAllocSite(JS::TraceKind::BigInt)->maybeResetState();
+        zone->nurseryBigIntsDisabled = false;
+        zonesWhereBigIntsEnabled++;
+        allocReenabled = true;
+      }
+    }
+    if (allocReenabled) {
+      nursery().updateAllocFlagsForZone(zone);
     }
   }
 

@@ -5,6 +5,10 @@ description: Workflow guide when working with Android builds or the mobile/ dire
 
 # Android
 
+## Tech principles
+
+To inform decision-making when writing and reviewing code use the principles documented in: `mobile/android/fenix/docs/Tech-Principles.md`
+
 ## Workflow
 - Instead of `gradlew`, use `./mach gradle` as the wrapper. Use `-p` argument of gradle if you need to run in a subdirectory
 
@@ -20,3 +24,6 @@ When working in `mobile/android/fenix`, `mobile/android/focus-android` or `mobil
     - `./mach test <file-name>` to run all tests in the file
     - `./mach test <directory-name>` to run all tests in the directory
     - `./mach test {fenix,focus,ac,android-components,geckoview}` to run all tests in the specific project
+- When adding the first Robolectric test (`@RunWith(AndroidJUnit4::class)`) to an android-components module:
+    - Add `testImplementation libs.robolectric` to its `build.gradle`
+    - Add `src/test/resources/robolectric.properties` with `sdk=37`. CI fetches the Robolectric jars only for modules with this file, so don't add it to modules without Robolectric tests.

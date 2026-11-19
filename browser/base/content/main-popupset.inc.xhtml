@@ -411,12 +411,14 @@
               class="panel-footer"
               data-l10n-id="bookmark-panel"
               data-l10n-attrs="style">
-          <button id="editBookmarkPanelDoneButton"
-                  class="footer-button"
-                  data-l10n-id="bookmark-panel-save-button2"
-                  default="true"/>
-          <button id="editBookmarkPanelRemoveButton"
-                  class="footer-button"/>
+          <html:moz-button
+            type="primary"
+            id="editBookmarkPanelDoneButton"
+            data-l10n-id="bookmark-panel-save-button2"
+          ></html:moz-button>
+          <html:moz-button
+            id="editBookmarkPanelRemoveButton"
+          ></html:moz-button>
         </html:moz-button-group>
       </vbox>
     </panel>
@@ -568,11 +570,17 @@
               id="sidebar-history-context-bookmark-page"/>
     <menuitem data-l10n-id="places-open-all-in-tabs"
               id="sidebar-history-context-open-all-in-tabs"
-              class="sidebar-history-multiselect-command"/>
-    <menuseparator class="sidebar-history-multiselect-command"/>
+              class="sidebar-history-multiselect-command sidebar-history-card-command"/>
+    <menuseparator class="sidebar-history-multiselect-command sidebar-history-card-command"/>
     <menuitem data-l10n-id="sidebar-history-context-menu-delete-pages"
               id="sidebar-history-context-delete-pages"
               class="sidebar-history-multiselect-command"/>
+    <menuitem data-l10n-id="sidebar-history-context-menu-delete"
+              id="sidebar-history-context-delete-card"
+              class="sidebar-history-card-command"/>
+    <menuitem data-l10n-id="sidebar-context-menu-forget-site"
+              id="sidebar-history-context-forget-card-site"
+              class="sidebar-history-card-command"/>
   </menupopup>
 
   <menupopup id="sidebar-synced-tabs-context-menu" accesskey-conflicts-bug="2073894">
@@ -793,8 +801,7 @@
 
   <menupopup id="contentAreaContextMenu"
 # read by macOS cocoa code to enable the "services" menu here:
-             showservicesmenu="true"
-             accesskey-conflicts-bug="2073889">
+             showservicesmenu="true">
 #include browser-context.inc.xhtml
   </menupopup>
 

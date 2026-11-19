@@ -241,11 +241,6 @@ public final class GeckoLoader {
     sNSSLibsLoaded = true;
   }
 
-  @SuppressWarnings("deprecation")
-  private static String getCPUABI() {
-    return android.os.Build.CPU_ABI;
-  }
-
   /**
    * Copy a library out of our APK.
    *
@@ -354,7 +349,9 @@ public final class GeckoLoader {
   /**
    * The first two attempts at loading a library: directly, and then using the app library path.
    *
-   * <p>Returns null or the cause exception.
+   * @param context the application context
+   * @param lib the library name, without the "lib" prefix or ".so" suffix
+   * @return null; a failed load throws a RuntimeException instead
    */
   public static Throwable doLoadLibrary(final Context context, final String lib) {
     try {
@@ -391,8 +388,9 @@ public final class GeckoLoader {
     loadGeckoLibsNative();
   }
 
-  @SuppressWarnings("serial")
   public static class AbortException extends Exception {
+    private static final long serialVersionUID = 1L;
+
     public AbortException(final String msg) {
       super(msg);
     }

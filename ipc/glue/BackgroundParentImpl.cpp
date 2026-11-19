@@ -378,32 +378,31 @@ bool BackgroundParentImpl::DeallocPBackgroundLSSimpleRequestParent(
 
 BackgroundParentImpl::PBackgroundLocalStorageCacheParent*
 BackgroundParentImpl::AllocPBackgroundLocalStorageCacheParent(
-    const PrincipalInfo& aPrincipalInfo, const nsACString& aOriginKey,
-    const uint32_t& aPrivateBrowsingId) {
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>& aPrincipal,
+    const nsACString& aOriginKey, const uint32_t& aPrivateBrowsingId) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
+  auto principal = BackgroundParent::ValidatePrincipal(this, aPrincipal);
+  if (!principal) {
+    return nullptr;
+  }
+
   return mozilla::dom::AllocPBackgroundLocalStorageCacheParent(
-      aPrincipalInfo, aOriginKey, aPrivateBrowsingId);
+      *principal, aOriginKey, aPrivateBrowsingId);
 }
 
 mozilla::ipc::IPCResult
 BackgroundParentImpl::RecvPBackgroundLocalStorageCacheConstructor(
     PBackgroundLocalStorageCacheParent* aActor,
-    const PrincipalInfo& aPrincipalInfo, const nsACString& aOriginKey,
-    const uint32_t& aPrivateBrowsingId) {
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>&& /* aPrincipal */,
+    const nsACString& aOriginKey, const uint32_t& aPrivateBrowsingId) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aActor);
 
-  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo)) {
-    return IPC_FAIL(
-        this,
-        "Invalid aPrincipalInfo in PBackgroundLocalStorageCacheConstructor");
-  }
-
   return mozilla::dom::RecvPBackgroundLocalStorageCacheConstructor(
-      this, aActor, aPrincipalInfo, aOriginKey, aPrivateBrowsingId);
+      this, aActor, aOriginKey, aPrivateBrowsingId);
 }
 
 bool BackgroundParentImpl::DeallocPBackgroundLocalStorageCacheParent(
@@ -500,8 +499,8 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateFileSystemManagerParent(
 }
 
 mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
-    const nsAString& aURL, nsIPrincipal* aPrincipal,
-    const uint64_t& aBrowsingContextID, const IPCClientInfo& aClientInfo,
+    const nsAString& aURL, Tainted<RefPtr<nsIPrincipal>>&& aPrincipal,
+    const uint64_t& aBrowsingContextID, Tainted<IPCClientInfo>&& aClientInfo,
     const bool& aDedicated, const bool& aRequireUnreliable,
     const uint32_t& aCongestionControl, nsTArray<nsString>&& aProtocols,
     nsTArray<WebTransportHeader>&& aHeaders,
@@ -515,13 +514,14 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
-  if (!BackgroundParent::ValidatePrincipal(this, aPrincipal, {})) {
+  auto principal = BackgroundParent::ValidatePrincipal(this, aPrincipal);
+  if (!principal) {
     return IPC_FAIL(this, "CreateWebTransport aPrincipal is invalid");
   }
 
-  if (!dom::ClientIsValidPrincipalInfo(
-          aClientInfo.principalInfo(),
-          BackgroundParent::GetLoadedOrigins(this))) {
+  Maybe<IPCClientInfo&> clientInfo = dom::ValidateClientInfo(
+      aClientInfo, BackgroundParent::GetLoadedOrigins(this));
+  if (!clientInfo) {
     return IPC_FAIL(
         this,
         "CreateWebTransport ClientInfo principal not valid for remote type");
@@ -529,7 +529,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
 
   RefPtr<mozilla::dom::WebTransportParent> webt =
       new mozilla::dom::WebTransportParent();
-  webt->Create(aURL, aPrincipal, aBrowsingContextID, aClientInfo, aDedicated,
+  webt->Create(aURL, *principal, aBrowsingContextID, *clientInfo, aDedicated,
                aRequireUnreliable, aCongestionControl, std::move(aProtocols),
                std::move(aHeaders), std::move(aServerCertHashes),
                aAnticipatedConcurrentIncomingUnidirectionalStreams,
@@ -540,40 +540,40 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
 
 mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateNotificationParent(
     Endpoint<dom::notification::PNotificationParent>&& aParentEndpoint,
-    NotNull<nsIPrincipal*> aPrincipal,
-    NotNull<nsIPrincipal*> aEffectiveStoragePrincipal,
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aPrincipal,
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aEffectiveStoragePrincipal,
     const bool& aIsSecureContext, const nsAString& aScope,
     const IPCNotification& aNotification,
     CreateNotificationParentResolver&& aResolver) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
-  if (!BackgroundParent::ValidatePrincipal(this, aPrincipal, {})) {
-    ContentParent::LogAndAssertFailedPrincipalValidationInfo(aPrincipal,
-                                                             __func__);
-    return IPC_FAIL(this, "Invalid aPrincipal for CreateNotificationParent");
+  auto principal = BackgroundParent::ValidatePrincipal(this, aPrincipal);
+  if (!principal) {
+    return ContentParent::PrincipalValidationIpcFail(
+        aPrincipal, this, "CreateNotificationParent aPrincipal");
   }
-  if (!BackgroundParent::ValidatePrincipal(this, aEffectiveStoragePrincipal,
-                                           {})) {
-    ContentParent::LogAndAssertFailedPrincipalValidationInfo(
-        aEffectiveStoragePrincipal, __func__);
-    return IPC_FAIL(
-        this,
-        "Invalid aEffectiveStoragePrincipal for CreateNotificationParent");
+  auto effectiveStoragePrincipal =
+      BackgroundParent::ValidatePrincipal(this, aEffectiveStoragePrincipal);
+  if (!effectiveStoragePrincipal) {
+    return ContentParent::PrincipalValidationIpcFail(
+        aEffectiveStoragePrincipal, this,
+        "CreateNotificationParent aEffectiveStoragePrincipal");
   }
   if (!aScope.IsEmpty()) {
     nsCOMPtr<nsIURI> scopeURI;
     NS_ENSURE_SUCCESS(NS_NewURI(getter_AddRefs(scopeURI), aScope),
                       IPC_FAIL(this, "Malformed scope parameter"));
     IgnoredErrorResult rv;
-    dom::ServiceWorkerScopeIsValid(aPrincipal, scopeURI, rv);
+    dom::ServiceWorkerScopeIsValid(*principal, scopeURI, rv);
     if (rv.Failed()) {
       return IPC_FAIL(this, "Invalid scope parameter");
     }
   }
 
   dom::notification::NotificationParentArgs args{
-      aPrincipal, aEffectiveStoragePrincipal, aIsSecureContext,
+      NotNull<nsIPrincipal*>(*principal),
+      NotNull<nsIPrincipal*>(*effectiveStoragePrincipal), aIsSecureContext,
       nsString(aScope), aNotification};
   nsresult rv = dom::notification::NotificationParent::CreateOnMainThread(
       std::move(args), std::move(aParentEndpoint), std::move(aResolver));
@@ -760,14 +760,14 @@ bool BackgroundParentImpl::DeallocPCamerasParent(
   return true;
 }
 
-auto BackgroundParentImpl::AllocPUDPSocketParent(
-    const Maybe<PrincipalInfo>& /* unused */, const nsACString& /* unused */)
+auto BackgroundParentImpl::AllocPUDPSocketParent(nsIPrincipal* /* unused */,
+                                                 const nsACString& /* unused */)
     -> already_AddRefed<PUDPSocketParent> {
   return do_AddRef(new UDPSocketParent(this));
 }
 
 mozilla::ipc::IPCResult BackgroundParentImpl::RecvPUDPSocketConstructor(
-    PUDPSocketParent* aActor, const Maybe<PrincipalInfo>& aOptionalPrincipal,
+    PUDPSocketParent* aActor, nsIPrincipal* aPrincipal,
     const nsACString& aFilter) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
@@ -776,7 +776,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvPUDPSocketConstructor(
     return IPC_FAIL(this, "udp socket not enabled");
   }
 
-  if (aOptionalPrincipal.isSome()) {
+  if (aPrincipal) {
     // Support for checking principals (for non-mtransport use) will be handled
     // in bug 1167039
     return IPC_FAIL_NO_REASON(this);
@@ -802,8 +802,8 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvPUDPSocketConstructor(
 
 mozilla::dom::PBroadcastChannelParent*
 BackgroundParentImpl::AllocPBroadcastChannelParent(
-    const PrincipalInfo& /*aPrincipalInfo*/, const nsACString& aOrigin,
-    const nsAString& aChannel) {
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>& /*aPrincipal*/,
+    const nsACString& aOrigin, const nsAString& aChannel) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
@@ -822,23 +822,20 @@ BackgroundParentImpl::AllocPBroadcastChannelParent(
 }
 
 mozilla::ipc::IPCResult BackgroundParentImpl::RecvPBroadcastChannelConstructor(
-    PBroadcastChannelParent* /*actor*/, const PrincipalInfo& aPrincipalInfo,
+    PBroadcastChannelParent* /*actor*/,
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aPrincipal,
     const nsACString& aOrigin, const nsAString& /*aChannel*/) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
-  auto principalOrErr = PrincipalInfoToPrincipal(aPrincipalInfo);
-  if (NS_WARN_IF(principalOrErr.isErr())) {
-    return IPC_FAIL(this, "PrincipalInfoToPrincipal failed");
-  }
-  nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
-
-  if (!BackgroundParent::ValidatePrincipal(this, principal)) {
-    return IPC_FAIL(this, "Invalid principal for BroadcastChannel");
+  auto principal = BackgroundParent::ValidatePrincipal(this, aPrincipal);
+  if (!principal) {
+    return ContentParent::PrincipalValidationIpcFail(aPrincipal, this,
+                                                     "PBroadcastChannel");
   }
 
   nsAutoCString origin;
-  if (NS_FAILED(principal->GetOrigin(origin))) {
+  if (NS_FAILED((*principal)->GetOrigin(origin))) {
     return IPC_FAIL(this, "principal::GetOrigin failed");
   }
 
@@ -1237,7 +1234,7 @@ NS_IMPL_ISUPPORTS(MLSTaskQueueShutdownTask, nsITargetShutdownTask)
 
 mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateMLSTransaction(
     Endpoint<PMLSTransactionParent>&& aEndpoint,
-    NotNull<nsIPrincipal*> aPrincipal) {
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aPrincipal) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
@@ -1245,12 +1242,10 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateMLSTransaction(
     return IPC_FAIL(this, "invalid endpoint for MLSTransaction");
   }
 
-  RefPtr<ThreadsafeContentParentHandle> parent =
-      BackgroundParent::GetContentParentHandle(this);
-  if (parent && !parent->ValidatePrincipal(aPrincipal)) {
-    dom::ContentParent::LogAndAssertFailedPrincipalValidationInfo(aPrincipal,
-                                                                  __func__);
-    return IPC_FAIL(this, "Principal validation failed");
+  auto principal = BackgroundParent::ValidatePrincipal(this, aPrincipal);
+  if (!principal) {
+    return dom::ContentParent::PrincipalValidationIpcFail(aPrincipal, this,
+                                                          __func__);
   }
 
   if (!sMLSTaskQueue) {
@@ -1277,9 +1272,8 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateMLSTransaction(
 
   // Dispatch the task to the MLS task queue
   sMLSTaskQueue->Dispatch(NS_NewRunnableFunction(
-      "CreateMLSTransactionRunnable",
-      [endpoint = std::move(aEndpoint), file,
-       principal = RefPtr{aPrincipal.get()}]() mutable {
+      "CreateMLSTransactionRunnable", [endpoint = std::move(aEndpoint), file,
+                                       principal = *principal]() mutable {
         // Create the mls directory if it doesn't exist
         nsresult rv =
             mozilla::dom::MLSTransactionParent::CreateDirectoryIfNotExists(
@@ -1316,12 +1310,14 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvPClientManagerConstructor(
 }
 
 IPCResult BackgroundParentImpl::RecvStorageActivity(
-    const PrincipalInfo& aPrincipalInfo) {
-  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo)) {
-    return IPC_FAIL(this, "Invalid principalInfo for StorageActivity");
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aPrincipal) {
+  auto principal = BackgroundParent::ValidatePrincipal(this, aPrincipal);
+  if (!principal) {
+    return ContentParent::PrincipalValidationIpcFail(aPrincipal, this,
+                                                     "StorageActivity");
   }
 
-  dom::StorageActivityService::SendActivity(aPrincipalInfo);
+  dom::StorageActivityService::SendActivity(*principal);
   return IPC_OK();
 }
 
@@ -1366,7 +1362,7 @@ BackgroundParentImpl::RecvPServiceWorkerContainerConstructor(
 
 already_AddRefed<PServiceWorkerRegistrationParent>
 BackgroundParentImpl::AllocPServiceWorkerRegistrationParent(
-    const IPCServiceWorkerRegistrationDescriptor&, const IPCClientInfo&) {
+    const IPCServiceWorkerRegistrationDescriptor&, Tainted<IPCClientInfo>&) {
   return MakeAndAddRef<mozilla::dom::ServiceWorkerRegistrationParent>();
 }
 
@@ -1374,19 +1370,19 @@ mozilla::ipc::IPCResult
 BackgroundParentImpl::RecvPServiceWorkerRegistrationConstructor(
     PServiceWorkerRegistrationParent* aActor,
     const IPCServiceWorkerRegistrationDescriptor& aDescriptor,
-    const IPCClientInfo& aForClient) {
+    Tainted<IPCClientInfo>&& aForClient) {
   if (!BackgroundParent::ValidatePrincipalInfo(this,
                                                aDescriptor.principalInfo())) {
     return IPC_FAIL(this, "Invalid principal for PServiceWorkerRegistration");
   }
 
-  if (!dom::ClientIsValidPrincipalInfo(
-          aForClient.principalInfo(),
-          BackgroundParent::GetLoadedOrigins(this))) {
+  Maybe<IPCClientInfo&> forClient = dom::ValidateClientInfo(
+      aForClient, BackgroundParent::GetLoadedOrigins(this));
+  if (!forClient) {
     return IPC_FAIL(this, "Invalid ClientInfo for PServiceWorkerRegistration");
   }
 
-  dom::InitServiceWorkerRegistrationParent(aActor, aDescriptor, aForClient);
+  dom::InitServiceWorkerRegistrationParent(aActor, aDescriptor, *forClient);
   return IPC_OK();
 }
 
@@ -1502,32 +1498,18 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvRequestCameraAccess(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult BackgroundParentImpl::RecvPLockManagerConstructor(
-    PLockManagerParent* aActor, mozilla::NotNull<nsIPrincipal*> aPrincipalInfo,
-    const Maybe<nsID>& /*aClientId*/) {
+already_AddRefed<dom::locks::PLockManagerParent>
+BackgroundParentImpl::AllocPLockManagerParent(
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>& aPrincipal,
+    const Maybe<nsID>& aClientId) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aActor);
 
-  // If the IsOtherProcessActor is true, then we're dealing with some kind of
-  // content process, and we do not expect the system principal to send this
-  // kind of constructor message.
-  if (aPrincipalInfo->IsSystemPrincipal() &&
-      BackgroundParent::IsOtherProcessActor(this)) {
-    return IPC_FAIL_NO_REASON(this);
+  auto principal = BackgroundParent::ValidatePrincipal(this, aPrincipal);
+  if (!principal) {
+    return nullptr;
   }
-
-  if (!BackgroundParent::ValidatePrincipal(this, aPrincipalInfo)) {
-    return IPC_FAIL(this, "Invalid principal for PLockManager");
-  }
-
-  return IPC_OK();
-}
-
-already_AddRefed<dom::locks::PLockManagerParent>
-BackgroundParentImpl::AllocPLockManagerParent(NotNull<nsIPrincipal*> aPrincipal,
-                                              const Maybe<nsID>& aClientId) {
-  return MakeAndAddRef<dom::locks::LockManagerParent>(aPrincipal, aClientId);
+  return MakeAndAddRef<dom::locks::LockManagerParent>(*principal, aClientId);
 }
 
 already_AddRefed<dom::PFetchParent> BackgroundParentImpl::AllocPFetchParent() {

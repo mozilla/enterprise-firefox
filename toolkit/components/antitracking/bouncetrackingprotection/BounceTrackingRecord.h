@@ -5,7 +5,9 @@
 #ifndef mozilla_BounceTrackingRecord_h
 #define mozilla_BounceTrackingRecord_h
 
+#include "BounceTrackingSite.h"
 #include "nsIBounceTrackingRecord.h"
+#include "mozilla/FunctionRef.h"
 #include "mozilla/RefPtr.h"
 #include "nsStringFwd.h"
 #include "nsTHashSet.h"
@@ -26,38 +28,61 @@ class BounceTrackingRecord final : public nsIBounceTrackingRecord {
 
   BounceTrackingRecord() = default;
 
-  void SetInitialHost(const nsACString& aHost);
+  void SetInitialSite(const BounceTrackingSite& aSite);
 
-  const nsACString& GetInitialHost() const;
+  const BounceTrackingSite& InitialSite() const;
 
-  void SetFinalHost(const nsACString& aHost);
+  void SetFinalSite(const BounceTrackingSite& aSite);
 
-  const nsACString& GetFinalHost() const;
+  const BounceTrackingSite& FinalSite() const;
 
-  void AddBounceHost(const nsACString& aHost);
+  using BounceSiteSet = nsTHashSet<BounceTrackingSiteHashKey>;
 
-  void AddUserActivationHost(const nsACString& aHost);
+  void AddBounceSite(const BounceTrackingSite& aSite);
 
-  const nsTHashSet<nsCStringHashKey>& GetBounceHosts() const;
+  const BounceSiteSet& BounceSites() const;
+
+  // Removes the bounces which ran in the storage partition aOriginAttributes.
+  void RemoveBounceSites(const OriginAttributes& aOriginAttributes);
+
+  // Whether aSiteHost bounced in any storage partition.
+  bool HasBounceSiteHost(const nsACString& aSiteHost) const;
+
+  void AddUserActivationSite(const BounceTrackingSite& aSite);
+
+  using OriginAttributesPredicate = FunctionRef<bool(const OriginAttributes&)>;
+
+  // Whether any site of this record, the initial and final site included, ran
+  // in a storage partition aPredicate matches. Null sites don't count.
+  bool HasOriginAttributesMatching(OriginAttributesPredicate aPredicate) const;
+
+  // Whether aSiteHost is a site of this record, the initial and final site
+  // included, in a storage partition aPredicate matches.
+  bool HasSiteHost(const nsACString& aSiteHost,
+                   OriginAttributesPredicate aPredicate) const;
+
+  void ClearUserActivationHosts();
 
   const nsTHashSet<nsCStringHashKey>& GetUserActivationHosts() const;
 
  private:
   ~BounceTrackingRecord() = default;
 
-  // A site's host. The site this context was on when the current extended
-  // navigation started, deliberately not the navigation's initiator: this host
-  // is exempt from classification, so a frame must not be able to nominate
-  // itself.
-  nsAutoCString mInitialHost;
+  // The site this context was on when the current extended navigation started,
+  // deliberately not the navigation's initiator: this site is exempt from
+  // classification, so a frame must not be able to nominate itself. The
+  // exemption is per partition: the user visiting a site in one container does
+  // not exempt its bounces in another.
+  BounceTrackingSite mInitialSite;
 
-  // A site's host or null. The destination of the current extended navigation.
-  // Updated after every document load.
-  nsAutoCString mFinalHost;
+  // The destination of the current extended navigation. Updated after every
+  // document load. Exempt from classification like the initial site.
+  BounceTrackingSite mFinalSite;
 
-  // A set of sites' hosts. All server-side and client-side redirects hit during
-  // this extended navigation.
-  nsTHashSet<nsCStringHashKey> mBounceHosts;
+  // All server-side and client-side redirects hit during this extended
+  // navigation. A load retargeted into another container runs its hops in
+  // more than one partition, so each is kept with the partition it ran in.
+  BounceSiteSet mBounceSites;
 
   // A set of sites' hosts. All sites which received user activation during
   // this extended navigation.
@@ -79,13 +104,16 @@ struct fmt::formatter<mozilla::BounceTrackingRecord>
     : fmt::formatter<std::string_view> {
   auto format(const mozilla::BounceTrackingRecord& aRec,
               fmt::format_context& aCtx) const {
-    auto out = aCtx.out();
-    return fmt::format_to(
-        out,
-        "{{mInitialHost:{}, mFinalHost:{}, mBounceHosts:[{}], "
-        "mUserActivationHosts:[{}]}}",
-        aRec.mInitialHost, aRec.mFinalHost, aRec.mBounceHosts,
-        aRec.mUserActivationHosts);
+    auto out = fmt::format_to(
+        aCtx.out(), "{{mInitialSite:{}, mFinalSite:{}, mBounceSites:[",
+        aRec.mInitialSite, aRec.mFinalSite);
+    bool first = true;
+    for (const mozilla::BounceTrackingSite& site : aRec.mBounceSites) {
+      out = fmt::format_to(out, "{}{}", first ? "" : ",", site);
+      first = false;
+    }
+    return fmt::format_to(out, "], mUserActivationHosts:[{}]}}",
+                          aRec.mUserActivationHosts);
   }
 };
 

@@ -17,6 +17,32 @@ class Harness(SingleTestMixin):
         self.per_test_coverage = per_test_coverage
 
 
+class TestTestsUnder(unittest.TestCase):
+    TESTS = {
+        os.path.join("a", "b", "test_one.js"): None,
+        os.path.join("a", "b", "test_two.js"): None,
+        os.path.join("a", "bb", "test_three.js"): None,
+        os.path.join("c", "test_four.js"): None,
+    }
+
+    def under(self, *paths):
+        return SingleTestMixin._tests_under(self.TESTS, paths)
+
+    def test_directory_expands_to_the_tests_below_it(self):
+        self.assertEqual(
+            self.under("a/b"),
+            [
+                os.path.join("a", "b", "test_one.js"),
+                os.path.join("a", "b", "test_two.js"),
+            ],
+        )
+
+    def test_a_test_file_matches_itself(self):
+        self.assertEqual(
+            self.under("c/test_four.js"), [os.path.join("c", "test_four.js")]
+        )
+
+
 class TestChunkSuites(unittest.TestCase):
     def chunk(self, suites, total_chunks, this_chunk):
         harness = Harness()
@@ -43,13 +69,29 @@ class TestChunkSuites(unittest.TestCase):
             self.chunk({"xpcshell": list(reversed(tests))}, 3, 2),
         )
 
-    def test_tests_are_split_across_suites(self):
-        suites = {"mochitest-plain": ["b.js", "a.js"], "xpcshell": ["d.js", "c.js"]}
+    def test_every_chunk_gets_the_same_mix_of_suites(self):
+        suites = {
+            "mochitest-plain": ["m%d.js" % i for i in range(4)],
+            "xpcshell": ["x%d.js" % i for i in range(6)],
+        }
 
         self.assertEqual(
-            self.chunk(dict(suites), 2, 1), {"mochitest-plain": ["a.js", "b.js"]}
+            self.chunk(dict(suites), 2, 1),
+            {
+                "mochitest-plain": ["m0.js", "m2.js"],
+                "xpcshell": ["x0.js", "x2.js", "x4.js"],
+            },
         )
-        self.assertEqual(self.chunk(dict(suites), 2, 2), {"xpcshell": ["c.js", "d.js"]})
+        self.assertEqual(
+            self.chunk(dict(suites), 2, 2),
+            {
+                "mochitest-plain": ["m1.js", "m3.js"],
+                "xpcshell": ["x1.js", "x3.js", "x5.js"],
+            },
+        )
+
+    def test_chunks_beyond_the_tests_are_empty(self):
+        self.assertEqual(self.chunk({"xpcshell": ["a.js"]}, 3, 3), {})
 
     def test_a_single_chunk_runs_everything(self):
         suites = {"xpcshell": ["b.js", "a.js"]}

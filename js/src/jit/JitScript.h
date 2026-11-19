@@ -53,29 +53,6 @@ class IonScript;
 class JitScript;
 class JitZone;
 
-// Magic values indicating compilation has been disabled or the script
-// is already scheduled for background compilation.
-static constexpr uintptr_t DisabledScript = 0x1;
-static constexpr uintptr_t QueuedScript = 0x3;
-static constexpr uintptr_t CompilingScript = 0x5;
-
-static constexpr uint32_t SpecialScriptBit = 0x1;
-static_assert((DisabledScript & SpecialScriptBit) != 0);
-static_assert((QueuedScript & SpecialScriptBit) != 0);
-static_assert((CompilingScript & SpecialScriptBit) != 0);
-
-static BaselineScript* const BaselineDisabledScriptPtr =
-    reinterpret_cast<BaselineScript*>(DisabledScript);
-static BaselineScript* const BaselineQueuedScriptPtr =
-    reinterpret_cast<BaselineScript*>(QueuedScript);
-static BaselineScript* const BaselineCompilingScriptPtr =
-    reinterpret_cast<BaselineScript*>(CompilingScript);
-
-static IonScript* const IonDisabledScriptPtr =
-    reinterpret_cast<IonScript*>(DisabledScript);
-static IonScript* const IonCompilingScriptPtr =
-    reinterpret_cast<IonScript*>(CompilingScript);
-
 /* [SMDOC] ICScript Lifetimes
  *
  * An ICScript owns an array of ICEntries, each of which owns a linked
@@ -241,7 +218,8 @@ class alignas(uintptr_t) ICScript final : public TrailingArray<ICScript> {
   // ICScripts that have been inlined into this ICScript.
   js::UniquePtr<Vector<CallSite>> inlinedChildren_;
 
-  // List of allocation sites referred to by ICs in this script.
+  // List of allocation sites referred to by ICs in this script, sorted by
+  // pcOffset.
   static constexpr size_t AllocSiteChunkSize = 256;
   LifoAlloc allocSitesSpace_{AllocSiteChunkSize, js::BackgroundMallocArena};
   Vector<gc::AllocSite*, 0, SystemAllocPolicy> allocSites_;
@@ -348,15 +326,6 @@ class alignas(uintptr_t) JitScript final
 
   GCPtr<JSScript*> owningScript_;
 
-  // Baseline code for the script. Either nullptr, BaselineDisabledScriptPtr,
-  // BaselineQueuedScriptPtr, BaselineCompilingScriptPtr,
-  // or a valid BaselineScript*.
-  GCStructPtr<BaselineScript*> baselineScript_;
-
-  // Ion code for this script. Either nullptr, IonDisabledScriptPtr,
-  // IonCompilingScriptPtr or a valid IonScript*.
-  GCStructPtr<IonScript*> ionScript_;
-
   // For functions that need a CallObject and/or NamedLambdaObject, the template
   // objects used by the Baseline JIT and Ion. If the function needs both a
   // named lambda object and a call object, the named lambda object template is
@@ -365,12 +334,29 @@ class alignas(uintptr_t) JitScript final
   // |initializedTemplateEnv| records whether this has happened.
   GCPtr<EnvironmentObject*> templateEnv_;
 
+  // Baseline code for the script or nullptr.
+  GCBuffer<BaselineScript*> baselineScript_;
+
+  // Ion code for this script or nullptr.
+  GCBuffer<IonScript*> ionScript_;
+
   // The size of this allocation.
   Offset endOffset_ = 0;
 
   // Analysis data computed lazily the first time this script is compiled or
   // inlined by WarpBuilder.
-  mozilla::Maybe<bool> usesEnvironmentChain_;
+  enum class UsesEnvironmentChain : uint8_t { Unknown = 0, Yes, No };
+  UsesEnvironmentChain usesEnvironmentChain_ = UsesEnvironmentChain::Unknown;
+
+  enum class ScriptState : uint8_t {
+    None = 0,
+    HasScript,
+    Queued,  // Only used for BaselineScript.
+    Compiling,
+    Disabled,
+  };
+  ScriptState baselineState_ = ScriptState::None;
+  ScriptState ionState_ = ScriptState::None;
 
   struct Flags {
     // True if this script entered Ion via OSR at a loop header.
@@ -442,14 +428,30 @@ class alignas(uintptr_t) JitScript final
   static constexpr size_t offsetOfBaselineScript() {
     return offsetof(JitScript, baselineScript_);
   }
+  static constexpr size_t offsetOfBaselineState() {
+    return offsetof(JitScript, baselineState_);
+  }
   static constexpr size_t offsetOfIonScript() {
     return offsetof(JitScript, ionScript_);
+  }
+  static constexpr size_t offsetOfIonState() {
+    return offsetof(JitScript, ionState_);
   }
   static constexpr size_t offsetOfICScript() {
     return offsetof(JitScript, icScript_);
   }
   static constexpr size_t offsetOfWarmUpCount() {
     return offsetOfICScript() + ICScript::offsetOfWarmUpCount();
+  }
+
+  static constexpr uint32_t firstSpecialScriptState() {
+    static_assert(ScriptState::HasScript < ScriptState::Queued);
+    static_assert(ScriptState::Compiling > ScriptState::Queued);
+    static_assert(ScriptState::Disabled > ScriptState::Queued);
+    return uint32_t(ScriptState::Queued);
+  }
+  static constexpr uint32_t queuedScriptState() {
+    return uint32_t(ScriptState::Queued);
   }
 
   uint32_t warmUpCount() const { return icScript_.warmUpCount_; }
@@ -496,7 +498,10 @@ class alignas(uintptr_t) JitScript final
   std::pair<CallObject*, NamedLambdaObject*> functionEnvironmentTemplates(
       JSFunction* fun) const;
 
-  bool usesEnvironmentChain() const { return *usesEnvironmentChain_; }
+  bool usesEnvironmentChain() const {
+    MOZ_RELEASE_ASSERT(usesEnvironmentChain_ != UsesEnvironmentChain::Unknown);
+    return usesEnvironmentChain_ == UsesEnvironmentChain::Yes;
+  }
 
   bool resetAllocSites(bool resetNurserySites, bool resetPretenuredSites);
   bool hasPretenuredAllocSites();
@@ -507,72 +512,88 @@ class alignas(uintptr_t) JitScript final
   bool hasEnvAllocSite() const { return icScript_.envAllocSite_; }
 
  private:
-  // Methods to set baselineScript_ to a BaselineScript*, nullptr, or
-  // BaselineDisabledScriptPtr.
-  void setBaselineScriptImpl(JSScript* script, BaselineScript* baselineScript);
-  void setBaselineScriptImpl(JS::GCContext* gcx, JSScript* script,
-                             BaselineScript* baselineScript);
+  void checkBaselineState() const {
+    MOZ_ASSERT((baselineState_ == ScriptState::HasScript) ==
+               bool(baselineScript_));
+  }
+  // Methods to set baselineScript_ and state flags.
+  void setBaselineScriptImpl(JSScript* script, BaselineScript* baselineScript,
+                             ScriptState baselineState);
   void maybeRemoveFromCompileQueue(JSScript* script) {
     if (isBaselineQueued()) {
       script->realm()->jitRealm().removeFromCompileQueue(script);
     }
   }
 
-  static bool IsBaselineScript(BaselineScript* baselineScript) {
-    return baselineScript && baselineScript != BaselineDisabledScriptPtr &&
-           baselineScript != BaselineQueuedScriptPtr &&
-           baselineScript != BaselineCompilingScriptPtr;
-  }
-
  public:
   // Methods for getting/setting/clearing a BaselineScript*.
   bool hasBaselineScript() const {
-    bool res = IsBaselineScript(baselineScript_);
-    MOZ_ASSERT_IF(!res, !hasIonScript());
-    return res;
+    checkBaselineState();
+    MOZ_ASSERT_IF(!baselineScript_, !hasIonScript());
+    return baselineScript_;
   }
   BaselineScript* baselineScript() const {
     MOZ_ASSERT(hasBaselineScript());
     return baselineScript_;
   }
+  BaselineScript* maybeBaselineScriptForProfiler() const {
+    // May be called by a profiler thread.
+    return baselineScript_;
+  }
   void setBaselineScript(JSScript* script, BaselineScript* baselineScript) {
+    MOZ_ASSERT(baselineScript);
     MOZ_ASSERT(!hasBaselineScript());
+
     maybeRemoveFromCompileQueue(script);
-    setBaselineScriptImpl(script, baselineScript);
+    setBaselineScriptImpl(script, baselineScript, ScriptState::HasScript);
     MOZ_ASSERT(hasBaselineScript());
   }
   [[nodiscard]] BaselineScript* clearBaselineScript(JS::GCContext* gcx,
-                                                    JSScript* script) {
-    BaselineScript* baseline = baselineScript();
-    setBaselineScriptImpl(gcx, script, nullptr);
-    return baseline;
+                                                    JSScript* script);
+  void clearBaselineScriptOnFinalize(JS::GCContext* gcx);
+  bool isBaselineDisabled() const {
+    checkBaselineState();
+    return baselineState_ == ScriptState::Disabled;
+  }
+  void setIsBaselineDisabled() {
+    checkBaselineState();
+    MOZ_ASSERT(baselineScript_ == nullptr);
+    baselineState_ = ScriptState::Disabled;
   }
   bool isBaselineQueued() const {
-    return baselineScript_ == BaselineQueuedScriptPtr;
+    checkBaselineState();
+    return baselineState_ == ScriptState::Queued;
   }
   void clearIsBaselineQueued(JSScript* script) {
     MOZ_ASSERT(isBaselineQueued());
-    setBaselineScriptImpl(script, nullptr);
+    setBaselineScriptImpl(script, nullptr, ScriptState::None);
   }
   bool isBaselineCompiling() const {
-    return baselineScript_ == BaselineCompilingScriptPtr;
+    checkBaselineState();
+    return baselineState_ == ScriptState::Compiling;
   }
   void setIsBaselineCompiling(JSScript* script) {
     MOZ_ASSERT(baselineScript_ == nullptr);
+    MOZ_ASSERT(baselineState_ == ScriptState::None);
     maybeRemoveFromCompileQueue(script);
-    setBaselineScriptImpl(script, BaselineCompilingScriptPtr);
+    baselineState_ = ScriptState::Compiling;
   }
   void clearIsBaselineCompiling(JSScript* script) {
     MOZ_ASSERT(isBaselineCompiling());
-    setBaselineScriptImpl(script, nullptr);
+    baselineState_ = ScriptState::None;
   }
 
  private:
-  // Methods to set ionScript_ to an IonScript*, nullptr, or one of the special
-  // Ion{Disabled,Compiling}ScriptPtr values.
+  void checkIonState() const {
+    MOZ_ASSERT(ionState_ != ScriptState::Queued);
+    MOZ_ASSERT((ionState_ == ScriptState::HasScript) == bool(ionScript_));
+  }
+
+  // Methods to set ionScript_ and state flags.
   void setIonScriptImpl(JS::GCContext* gcx, JSScript* script,
-                        IonScript* ionScript);
-  void setIonScriptImpl(JSScript* script, IonScript* ionScript);
+                        IonScript* ionScript, ScriptState ionState);
+  void setIonScriptImpl(JSScript* script, IonScript* ionScript,
+                        ScriptState ionState);
 
   // Helper that calls the passed function for the outer ICScript and for each
   // inlined ICScript.
@@ -581,45 +602,53 @@ class alignas(uintptr_t) JitScript final
   template <typename F>
   void forEachICScript(const F& f) const;
 
-  static bool IsIonScript(IonScript* ionScript) {
-    return ionScript && ionScript != IonDisabledScriptPtr &&
-           ionScript != IonCompilingScriptPtr;
-  }
-
  public:
   // Methods for getting/setting/clearing an IonScript*.
   bool hasIonScript() const {
-    bool res = IsIonScript(ionScript_);
-    MOZ_ASSERT_IF(res, baselineScript_);
-    return res;
+    checkIonState();
+    MOZ_ASSERT_IF(ionScript_, baselineScript_);
+    return ionScript_;
   }
   IonScript* ionScript() const {
     MOZ_ASSERT(hasIonScript());
     return ionScript_;
   }
+  IonScript* maybeIonScriptForProfiler() const {
+    // May be called by a profiler thread.
+    return ionScript_;
+  }
   void setIonScript(JSScript* script, IonScript* ionScript) {
+    MOZ_ASSERT(ionScript);
     MOZ_ASSERT(!hasIonScript());
-    setIonScriptImpl(script, ionScript);
+    setIonScriptImpl(script, ionScript, ScriptState::HasScript);
     MOZ_ASSERT(hasIonScript());
   }
-  [[nodiscard]] IonScript* clearIonScript(JS::GCContext* gcx,
-                                          JSScript* script) {
-    IonScript* ion = ionScript();
-    setIonScriptImpl(gcx, script, nullptr);
-    return ion;
+  [[nodiscard]] IonScript* clearIonScript(JS::GCContext* gcx, JSScript* script);
+  void clearIonScriptOnFinalize(JS::GCContext* gcx);
+
+  bool isIonDisabled() const {
+    checkIonState();
+    return ionState_ == ScriptState::Disabled;
+  }
+  void setIsIonDisabled() {
+    checkIonState();
+    MOZ_ASSERT(ionScript_ == nullptr);
+    ionState_ = ScriptState::Disabled;
   }
 
   // Methods for off-thread compilation.
   bool isIonCompilingOffThread() const {
-    return ionScript_ == IonCompilingScriptPtr;
+    checkIonState();
+    return ionState_ == ScriptState::Compiling;
   }
   void setIsIonCompilingOffThread(JSScript* script) {
     MOZ_ASSERT(ionScript_ == nullptr);
-    setIonScriptImpl(script, IonCompilingScriptPtr);
+    MOZ_ASSERT(ionState_ == ScriptState::None);
+    setIonScriptImpl(script, nullptr, ScriptState::Compiling);
   }
   void clearIsIonCompilingOffThread(JSScript* script) {
     MOZ_ASSERT(isIonCompilingOffThread());
-    setIonScriptImpl(script, nullptr);
+    setIonScriptImpl(script, nullptr, ScriptState::None);
   }
   ICScript* icScript() { return &icScript_; }
 

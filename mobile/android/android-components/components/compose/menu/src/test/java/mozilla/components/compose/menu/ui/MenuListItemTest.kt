@@ -44,6 +44,15 @@ class MenuListItemTest {
     }
 
     @Test
+    fun `GIVEN an item with a click event WHEN clicking it twice in quick succession THEN dispatch that event twice`() {
+        setItem(onClickEvent = Clicked)
+
+        repeat(2) { composeTestRule.onNodeWithText(TITLE).performClick() }
+
+        assertEquals(listOf<MenuEvent>(Clicked, Clicked), events)
+    }
+
+    @Test
     fun `GIVEN an item with a click event THEN announce it as a button`() {
         setItem(onClickEvent = Clicked)
 

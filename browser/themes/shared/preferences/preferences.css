@@ -130,13 +130,6 @@ setting-group[data-category] {
   margin: 0 0 var(--space-xlarge);
 }
 
-/* Bug 2002963 - payments and addresses are in a groupbox together, but they probably shouldn't be */
-#formAutofillGroupBox {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
 html|h1 {
   margin: 0 0 var(--space-large);
 }
@@ -176,11 +169,6 @@ label {
 
 label {
   margin: var(--space-xxsmall) 0;
-
-  &.tail-with-learn-more + a {
-    margin-block: var(--space-xxsmall);
-    margin-inline: var(--space-small) 0;
-  }
 }
 
 #urlLabel {
@@ -196,11 +184,6 @@ label {
   margin: 0;
 }
 
-.tip-caption {
-  font-size: 0.9em;
-  color: var(--text-color-deemphasized);
-}
-
 menulist::part(label),
 menuitem > label,
 button > hbox > label {
@@ -214,23 +197,6 @@ button > hbox > label {
 checkbox,
 radio {
   margin: var(--space-small) 0;
-
-  &.tail-with-learn-more + a {
-    margin-block: var(--space-small);
-    margin-inline: var(--space-small) 0;
-  }
-}
-
-/* Add a bit of space to the end of descriptions to
- * leave margin with e.g. additional buttons on the side. */
-.description-with-side-element {
-  margin-inline-end: 10px !important;
-}
-
-.learnMore {
-  margin-inline-start: 0;
-  font-weight: normal;
-  white-space: nowrap;
 }
 
 .accessory-button {
@@ -289,15 +255,6 @@ radio {
     padding-block-start: var(--space-xxlarge);
     border-block-start: 1px solid var(--border-color);
   }
-}
-
-/* All panes */
-
-.info-icon,
-.androidIcon,
-.iOSIcon {
-  -moz-context-properties: fill;
-  fill: currentColor;
 }
 
 /* General Pane */
@@ -361,11 +318,6 @@ radio {
   padding: 0.3em;
 }
 
-#filter {
-  flex: 1;
-  margin: 4px 0 8px;
-}
-
 /** SRD applications section START **/
 #applicationsHandlersView {
   --box-group-max-height: 500px;
@@ -386,133 +338,18 @@ radio {
 }
 /** SRD applications section END **/
 
-/* Override overflow-wrap: anywhere from moz-card
- TODO: Eventually we should update to make this
- section more responsive to screen width */
-moz-fieldset#applicationsGroup {
-  overflow-wrap: normal;
+/** SRD Search Pane START **/
+
+#defaultEngineNormal,
+#defaultPrivateEngine {
+  max-width: var(--search-engine-name-max-width);
 }
 
-#handlersView {
-  height: 25em;
-  margin-inline-end: 0;
+#engineList {
+  --box-group-max-height: 500px;
 }
 
-#handlersView > richlistitem {
-  min-height: 30px;
-}
-
-#handlersView .actionsMenu {
-  margin: 0;
-  min-height: 0;
-  padding: 0;
-  border: none;
-  padding-inline-end: 8px;
-}
-
-#handlersView .actionsMenu::part(label) {
-  margin: 0;
-}
-
-.typeIcon,
-.actionIcon,
-.actionsMenu::part(icon) {
-  height: 16px;
-  width: 16px;
-}
-
-.typeIcon {
-  margin-inline: 10px 9px !important;
-  &:not([srcset]) {
-    visibility: hidden;
-  }
-}
-
-#handlersView .actionsMenu::part(icon),
-.actionIcon {
-  margin-inline: 11px 8px !important;
-}
-
-.actionsMenu > menupopup > menuitem {
-  padding-inline-start: 10px !important;
-}
-
-.actionsMenu > menupopup > menuitem > .menu-icon {
-  margin-inline-end: 8px !important;
-}
-
-/* Increase the specificity to override common.inc.css */
-richlistitem[selected] .actionsMenu:focus-visible {
-  outline-offset: -3px;
-}
-
-/* Search Pane */
-
-#engineList > treechildren::-moz-tree-image(engineShown, checked),
-#blocklistsTree > treechildren::-moz-tree-image(selectionCol, checked) {
-  list-style-image: url("chrome://global/skin/icons/check.svg");
-  -moz-context-properties: fill, stroke;
-  fill: var(--color-accent-primary);
-}
-
-#engineList > treechildren::-moz-tree-image(engineShown, checked, selected),
-#blocklistsTree > treechildren::-moz-tree-image(selectionCol, checked, selected) {
-  fill: var(--text-color-accent-primary-selected);
-  stroke: var(--color-accent-primary-selected);
-}
-
-@media (forced-colors) {
-  #engineList > treechildren::-moz-tree-image(hover),
-  #blocklistsTree > treechildren::-moz-tree-image(hover) {
-    fill: var(--text-color-list-item-hover);
-    /* fill allows icon and text colors, but we have no such rules for stroke */
-    stroke: var(--background-color-list-item-hover);
-  }
-}
-
-#engineList > treechildren::-moz-tree-row,
-#blocklistsTree > treechildren::-moz-tree-row {
-  min-height: 36px;
-}
-
-#selectionCol {
-  min-width: 26px;
-}
-
-#addEnginesBox {
-  margin: 4px 0 0;
-}
-
-/* Privacy Pane */
-
-#allowSmartSize {
-  margin-block: 0 4px;
-}
-
-#historyPane {
-  margin-block-start: 4px;
-}
-
-#historyButtons {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-#blockCookies,
-#keepRow {
-  margin-block-start: 1.5em;
-}
-
-/* Collapse the non-active vboxes in decks to use only the height the
-   active vbox needs */
-#historyPane:not([selectedIndex="1"]) > #historyDontRememberPane,
-#historyPane:not([selectedIndex="2"]) > #historyCustomPane,
-#weavePrefsDeck:not([selectedIndex="1"]) > #hasFxaAccount,
-#fxaLoginStatus:not([selectedIndex="1"]) > #fxaLoginUnverified,
-#fxaLoginStatus:not([selectedIndex="2"]) > #fxaLoginRejected {
-  visibility: collapse;
-}
+/** SRD Search Pane END **/
 
 #tabsElement {
   margin-inline-end: 4px; /* add the 4px end-margin of other elements */
@@ -639,66 +476,10 @@ html|dialog,
   min-width: 30ch;
 }
 
-/**
- * Sync
- */
-
-.fxaProfileImage {
-  width: 80px;
-  height: 80px;
-  border-radius: var(--border-radius-circle);
-  border: 1px solid transparent;
-  list-style-image: url(chrome://browser/skin/fxa/avatar-color.svg);
-  margin-inline-end: var(--space-xlarge);
-  -moz-user-focus: normal;
-}
-
-.fxaProfileImage.actionable {
-  cursor: pointer;
-}
-
-.fxaProfileImage.actionable:hover {
-  border-color: #0095dd;
-}
-
-.fxaProfileImage.actionable:hover:active {
-  border-color: #ff9500;
-}
-
-#useFirefoxSync {
-  font-size: 90%;
-  margin-inline-end: 8px !important;
-}
-
-#fxaNoLoginStatus {
-  margin-block: 46px 64px;
-}
-
-#fxaSyncComputerName {
-  flex: 1;
-  margin-block: 4px;
-  margin-inline-start: 0;
-}
-
-#fxaChangeDeviceName {
-  margin-block: 4px;
-  margin-inline-end: 0;
-}
+/** SRD Sync Pane START **/
 
 #fxaAccountDisabled {
   margin-block-end: calc(-1 * var(--space-large));
-}
-
-#noFxaAccount > label:first-child {
-  margin-block-end: 0.6em;
-}
-
-#noFxaCaption {
-  margin-block: 0 4px;
-}
-
-button#noFxaSignIn {
-  margin-inline-start: 8px;
 }
 
 #syncConfigured {
@@ -719,39 +500,6 @@ button#noFxaSignIn {
   min-width: 150px;
 }
 
-.fxaSyncIllustration {
-  list-style-image: url(chrome://browser/skin/fxa/sync-devices.svg);
-  width: 312px;
-  height: 136px;
-}
-
-#noFxaDescription {
-  padding-inline-end: 52px;
-}
-
-.separator {
-  border-block-end: 1px solid var(--border-color);
-}
-
-#fxaGroup {
-  margin-block-end: 32px;
-}
-
-.openLink {
-  cursor: pointer;
-}
-
-#fxaDisplayName {
-  margin-inline-end: 10px !important;
-}
-
-.fxaLoginRejectedWarning {
-  list-style-image: url(chrome://global/skin/icons/warning.svg);
-  -moz-context-properties: fill;
-  fill: #ffbf00;
-  margin-inline: 4px 8px;
-}
-
 #fxaLoginVerified {
   --box-icon-size: calc(var(--icon-size-xlarge) * 2);
   --box-icon-border-radius: var(--border-radius-circle);
@@ -762,41 +510,11 @@ button#noFxaSignIn {
   }
 }
 
-#syncStatusContainer {
-  margin-block-start: 32px;
-}
+/** SRD Sync Pane END **/
 
-#syncChangeOptions {
-  margin-inline-start: 0;
-}
+/** SRD Choose What To Sync dialog START **/
 
-.sync-group {
-  margin-block: var(--space-large);
-  border: 1px solid var(--border-color);
-}
-
-.sync-configured {
-  display: block;
-}
-
-.sync-info-box {
-  border-radius: var(--border-radius-medium);
-  padding: var(--space-large);
-}
-
-.sync-engines-list > div,
-.sync-engines-list + hbox {
-  margin-block-start: 0;
-  padding-block-start: var(--space-large);
-}
-
-dialog > .sync-engines-list > div,
-dialog > .sync-engines-list + hbox {
-  padding-block-start: 0;
-}
-
-.sync-engines-list checkbox .checkbox-icon,
-.sync-engine-image {
+.sync-engines-list checkbox .checkbox-icon {
   display: flex;
   margin-inline: 2px 8px;
   width: 16px;
@@ -826,87 +544,39 @@ dialog > .sync-engines-list + hbox {
   break-inside: avoid;
 }
 
-.sync-engine-bookmarks .checkbox-icon,
-.sync-engine-bookmarks.sync-engine-image {
+.sync-engine-bookmarks .checkbox-icon {
   list-style-image: url("chrome://browser/skin/bookmark.svg");
 }
 
-.sync-engine-history .checkbox-icon,
-.sync-engine-history.sync-engine-image {
+.sync-engine-history .checkbox-icon {
   list-style-image: url("chrome://browser/skin/history.svg");
 }
 
-.sync-engine-tabs .checkbox-icon,
-.sync-engine-tabs.sync-engine-image {
+.sync-engine-tabs .checkbox-icon {
   list-style-image: url("chrome://browser/skin/synced-tabs.svg");
 }
 
-.sync-engine-passwords .checkbox-icon,
-.sync-engine-passwords.sync-engine-image {
+.sync-engine-passwords .checkbox-icon {
   list-style-image: url("chrome://browser/skin/login.svg");
 }
 
-.sync-engine-addons .checkbox-icon,
-.sync-engine-addons.sync-engine-image {
+.sync-engine-addons .checkbox-icon {
   list-style-image: url("chrome://mozapps/skin/extensions/extension.svg");
 }
 
-.sync-engine-prefs .checkbox-icon,
-.sync-engine-prefs.sync-engine-image {
+.sync-engine-prefs .checkbox-icon {
   list-style-image: url("chrome://global/skin/icons/settings.svg");
 }
 
-.sync-engine-addresses .checkbox-icon,
-.sync-engine-addresses.sync-engine-image {
+.sync-engine-addresses .checkbox-icon {
   list-style-image: url("chrome://formautofill/content/formfill-anchor.svg");
 }
 
-.sync-engine-creditcards .checkbox-icon,
-.sync-engine-creditcards.sync-engine-image {
+.sync-engine-creditcards .checkbox-icon {
   list-style-image: url("chrome://formautofill/content/icon-credit-card-generic.svg");
 }
 
-.fxaMobilePromo {
-  margin-block-start: 2px !important;
-  margin-block-end: var(--space-xxlarge);
-}
-
-.androidIcon,
-.iOSIcon {
-  margin-inline: 2px 4px;
-  width: var(--icon-size-medium);
-  height: var(--icon-size-medium);
-  vertical-align: text-bottom;
-}
-
-.info-box-container {
-  background-color: var(--background-color-box-info);
-  padding: 9px;
-  border: 1px solid transparent;
-  border-radius: var(--border-radius-small);
-}
-
-.info-box-container.smaller-font-size {
-  font-size: 85%;
-}
-
-.info-icon-container {
-  display: flex;
-}
-
-.info-icon {
-  content: url("chrome://global/skin/icons/info.svg");
-  width: 16px;
-  height: 16px;
-  margin-inline-end: 6px;
-  align-self: start;
-  margin-block-start: 0.4em;
-  flex-shrink: 0;
-}
-
-.info-box-container.smaller-font-size .info-icon {
-  margin-block-start: 0.3em;
-}
+/** SRD Choose What To Sync dialog END **/
 
 #search-results-back-button {
   margin-block: var(--space-small) var(--space-xxsmall);
@@ -1074,15 +744,13 @@ richlistitem .text-link:hover {
   color: inherit;
 }
 
-#proxy-grid,
-#dnsOverHttps-grid {
+#proxy-grid {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
 }
 
-.proxy-grid-row,
-.dnsOverHttps-grid-row {
+.proxy-grid-row {
   display: contents;
 }
 
@@ -1118,160 +786,6 @@ richlistitem .text-link:hover {
 
 .checkbox-row a {
   margin-inline-start: 6px;
-}
-
-/* This is an HTML div (not XUL hbox), so it needs explicit display:flex for
-   horizontal icon+title layout. */
-#moreFromMozillaCategory-header {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-#moreFromMozillaCategory-header .subtitle {
-  flex-basis: 100%;
-  margin-block-start: var(--space-xsmall);
-  margin-block-end: var(--space-xlarge);
-}
-
-#moreFromMozillaCategory {
-  display: flex;
-  flex-direction: column;
-}
-
-#moreFromMozillaCategory .mozilla-product-item {
-  margin-block-start: 30px;
-}
-
-#moreFromMozillaCategory .product-title {
-  margin: 4px 0 3px;
-  background-repeat: no-repeat;
-  background-size: contain;
-  padding-inline-start: 30px;
-  -moz-context-properties: fill;
-  fill: currentColor;
-}
-
-#moreFromMozillaCategory .product-title:-moz-locale-dir(rtl) {
-  background-position-x: right;
-}
-
-#moreFromMozillaCategory .product-description-box {
-  padding-inline-start: 30px;
-  margin: 2px 0;
-}
-
-#moreFromMozillaCategory .description {
-  display: inline;
-}
-
-#moreFromMozillaCategory .small-button {
-  margin-block: 14px 2px;
-  margin-inline: 30px 0;
-}
-
-/* Product icon backgrounds for the legacy (non-SRD) More from Mozilla page.
- * Scoped to #moreFromMozillaCategory so they don't apply to the config-based
- * moz-card elements that reuse the same product IDs. */
-#moreFromMozillaCategory {
-  #firefox-mobile {
-    background-image: url("chrome://browser/skin/device-phone.svg");
-  }
-
-  #mozilla-vpn {
-    background-image: url("chrome://browser/skin/preferences/vpn-logo.svg");
-  }
-
-  #mozilla-monitor {
-    background-image: url("chrome://browser/skin/preferences/monitor-logo.svg");
-  }
-
-  #firefox-relay {
-    background-image: url("chrome://browser/skin/preferences/relay-logo.svg");
-  }
-
-  #mdn {
-    background-image: url("chrome://browser/skin/preferences/mdn-logo.svg");
-  }
-}
-
-.qr-code-box {
-  max-width: 320px; /* a unit better than px for this & next? */
-  min-height: 204px;
-  margin-block: 10px 0;
-  margin-inline-start: 30px;
-  background-color: var(--background-color-box-info);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-evenly;
-  border-radius: var(--border-radius-small);
-
-  @media (forced-colors) {
-    border: 1px solid currentColor;
-  }
-}
-
-.qr-code-box-image-wrapper {
-  position: relative;
-  display: grid;
-  align-items: center;
-  justify-items: center;
-}
-
-.qr-code-box-image {
-  border-radius: var(--border-radius-small);
-  padding: 2px;
-  width: 80px;
-  flex: 0 0 auto;
-  -moz-context-properties: fill;
-  fill: currentColor;
-}
-
-.qr-code-box-logo {
-  height: 18px;
-  position: absolute;
-}
-
-.qr-code-title-label {
-  flex: 1 1 auto;
-}
-
-.qr-code-box-title {
-  font-size: 0.87em;
-  font-weight: normal;
-
-  text-align: center;
-
-  margin-block: 20px 0;
-  margin-inline: 40px;
-}
-
-.simple .qr-code-box-title {
-  margin-block: 0;
-  width: 296px;
-}
-
-.simple .qr-code-box {
-  padding-inline: var(--space-xlarge);
-  padding-block: 20px;
-}
-
-.simple .qr-code-box-image {
-  padding: 10px;
-}
-
-#moreFromMozillaCategory .qr-code-link {
-  font-size: 0.87em;
-}
-
-@media (prefers-color-scheme: dark) {
-  .qr-code-box {
-    background-color: rgba(91, 91, 102, 0.45);
-  }
-
-  .qr-code-box-title {
-    color: #fbfbfe;
-  }
 }
 
 #webAppearanceGroup .description-deemphasized {
@@ -1336,13 +850,20 @@ setting-group[groupid="home"] {
 }
 /** SRD rows control for New Tab END **/
 
-/** SRD History first item is label-less START **/
-/* bug 2001196: Workaround for using legend as label for the select. */
-setting-group[groupid="history"] > moz-fieldset::part(inputs),
-setting-group[groupid="history"] > moz-card > moz-fieldset::part(inputs) {
-  margin-block-start: 0;
+/** SRD Primary Password START **/
+#statusPrimaryPassword .primary-pw-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-small);
 }
-/** SRD History first item is label-less END **/
+
+#statusPrimaryPassword .primary-pw-status-icon {
+  width: var(--size-item-small);
+  height: var(--size-item-small);
+  -moz-context-properties: fill;
+  fill: var(--icon-color-success);
+}
+/** SRD Primary Password END **/
 
 setting-group[groupid="aiFeatures"] {
   --select-max-width: fit-content;
@@ -1541,14 +1062,17 @@ setting-pane[onsearchpane] {
   margin-block-start: var(--space-large);
 }
 
+/** SRD DNS over HTTPS START **/
 #dohProviderSelect {
   --select-max-width: 235px;
 }
+/** SRD DNS over HTTPS END **/
 
 #browserContainersbox moz-message-bar {
   margin-block-start: 0;
 }
 
+/** SRD Enhanced Tracking Protection START **/
 #etpBannerEl {
   border-radius: var(--border-radius-large);
   background-clip: content-box;
@@ -1574,6 +1098,7 @@ setting-pane[onsearchpane] {
   display: flex;
   gap: var(--space-small);
 }
+/** SRD Enhanced Tracking Protection END **/
 
 #addresses-list-header,
 #payments-list-header,

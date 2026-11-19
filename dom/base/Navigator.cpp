@@ -26,6 +26,7 @@
 #include "nsIContentPolicy.h"
 #include "nsIHttpProtocolHandler.h"
 #include "nsISupportsPriority.h"
+#include "nsITimedChannel.h"
 #include "nsIWebProtocolHandlerRegistrar.h"
 #include "nsIXULAppInfo.h"
 #include "nsMimeTypeArray.h"
@@ -65,7 +66,6 @@
 #include "mozilla/dom/URLSearchParams.h"
 #include "mozilla/dom/UserActivation.h"
 #include "mozilla/dom/VRDisplay.h"
-#include "mozilla/dom/VRDisplayEvent.h"
 #include "mozilla/dom/VRServiceTest.h"
 #include "mozilla/dom/WakeLockJS.h"
 #include "mozilla/dom/WindowContext.h"
@@ -1377,6 +1377,10 @@ bool Navigator::SendBeaconInternal(const nsAString& aUrl,
     cos->AddClassFlags(nsIClassOfService::Background);
   }
 
+  if (nsCOMPtr<nsITimedChannel> timedChannel = do_QueryInterface(channel)) {
+    timedChannel->SetInitiatorType(u"beacon"_ns);
+  }
+
   // The channel needs to have a loadgroup associated with it, so that we can
   // cancel the channel and any redirected channels it may create.
   nsCOMPtr<nsILoadGroup> loadGroup = do_CreateInstance(NS_LOADGROUP_CONTRACTID);
@@ -1922,12 +1926,6 @@ bool Navigator::IsWebVRContentDetected() const {
 bool Navigator::IsWebVRContentPresenting() const {
   nsGlobalWindowInner* win = nsGlobalWindowInner::Cast(mWindow);
   return win->IsVRContentPresenting();
-}
-
-void Navigator::RequestVRPresentation(VRDisplay& aDisplay) {
-  nsGlobalWindowInner* win = nsGlobalWindowInner::Cast(mWindow);
-  win->DispatchVRDisplayActivate(aDisplay.DisplayId(),
-                                 VRDisplayEventReason::Requested);
 }
 
 already_AddRefed<Promise> Navigator::RequestMIDIAccess(

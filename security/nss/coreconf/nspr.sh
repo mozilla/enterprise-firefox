@@ -8,6 +8,7 @@
 nspr_cflags=
 nspr_cxxflags=
 nspr_ldflags=
+nspr_dllflags=
 nspr_opt=
 
 # Try to avoid bmake on OS X and BSD systems
@@ -87,7 +88,16 @@ nspr_build()
     fi
     extra_params+=($nspr_opt)
 
-    if [[ -n "$CC" && -n "$build_tools_cc" && "$CC" != "$build_tools_cc" ]]; then
+    if [ -n "$nspr_target" ]; then
+        # Set by coreconf/android.sh and coreconf/ios.sh. NSPR builds tools
+        # such as nsinstall with HOST_CC and runs them during the build, so
+        # that has to be a compiler for this machine. config.guess also runs
+        # CC_FOR_BUILD to identify this machine: with CC, which is the target
+        # compiler, x86_64 Android looks native and NSPR doesn't cross-compile.
+        HOST_CC="${build_tools_cc:-cc}"
+        export CC_FOR_BUILD="$HOST_CC"
+        extra_params+=(--target="$nspr_target")
+    elif [[ -n "$CC" && -n "$build_tools_cc" && "$CC" != "$build_tools_cc" ]]; then
         # If build_tools_cc is specified, we expect CC to include a target
         # triple e.g. "CC=powerpc-linux-gnu-gcc". NSPR, confusingly, uses
         # "HOST_CC" to build tools like nsinstall that are called during the
@@ -101,7 +111,8 @@ nspr_build()
     pushd "$nspr_dir" >/dev/null
 
     CFLAGS="$nspr_cflags" CXXFLAGS="$nspr_cxxflags" \
-          LDFLAGS="$nspr_ldflags" HOST_CC="$HOST_CC" CC="$CC" CXX="$CCC" \
+          LDFLAGS="$nspr_ldflags" DLLFLAGS="$nspr_dllflags" \
+          HOST_CC="$HOST_CC" CC="$CC" CXX="$CCC" \
           run_verbose "$nspr_configure" "${extra_params[@]}" "$@"
     popd >/dev/null
     echo "NSPR [2/5] make ..."

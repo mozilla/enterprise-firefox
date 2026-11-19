@@ -10,174 +10,6 @@
     "description": "A list of known accessibility clients that inject into Firefox process space (see https://searchfox.org/firefox-main/source/accessible/windows/msaa/Compatibility.h).",
     "alert_emails": ["accessibility@mozilla.com", "jteh@mozilla.com"]
   },
-  "DEVICE_RESET_REASON": {
-    "record_in_processes": ["main", "content", "gpu"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "rhunt@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 10,
-    "bug_numbers": [1135408, 1529352],
-    "releaseChannelCollection": "opt-out",
-    "description": "GPU Device Reset Reason (ok, hung, removed, reset, internal error, invalid call, out of memory)"
-  },
-  "FORCED_DEVICE_RESET_REASON": {
-    "record_in_processes": ["main", "content", "gpu"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "rhunt@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 50,
-    "bug_numbers": [1235407],
-    "releaseChannelCollection": "opt-out",
-    "description": "GPU Forced Device Reset Reason (OpenSharedHandle)"
-  },
-  "GPU_PROCESS_LAUNCH_TIME_MS_2": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": [
-      "gfx-telemetry-alerts@mozilla.com",
-      "rhunt@mozilla.com",
-      "dbolter@mozilla.com"
-    ],
-    "expires_in_version": "never",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1297790, 1317796, 1489524],
-    "kind": "exponential",
-    "high": 64000,
-    "n_buckets": 100,
-    "description": "GPU process launch time in milliseconds"
-  },
-  "GPU_PROCESS_INITIALIZATION_TIME_MS": {
-    "record_in_processes": ["main", "content", "gpu"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": [
-      "gfx-telemetry-alerts@mozilla.com",
-      "rhunt@mozilla.com",
-      "dbolter@mozilla.com"
-    ],
-    "expires_in_version": "never",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1324095, 1489524],
-    "kind": "exponential",
-    "high": 64000,
-    "n_buckets": 100,
-    "description": "GPU process initialization (excluding XPCOM and fork time) time in milliseconds"
-  },
-  "FONTLIST_INITOTHERFAMILYNAMES": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 30000,
-    "n_buckets": 50,
-    "description": "Time(ms) spent on reading other family names from all fonts"
-  },
-  "FONTLIST_INITOTHERFAMILYNAMES_NO_DEFERRING": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 30000,
-    "n_buckets": 50,
-    "description": "Time(ms) spent on reading other family names from all fonts for no timeout case"
-  },
-  "FONTLIST_INITFACENAMELISTS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 30000,
-    "n_buckets": 50,
-    "description": "Time(ms) spent on reading family names from all fonts"
-  },
-  "FONTLIST_BUNDLEDFONTS_ACTIVATE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "bug_numbers": [1696162],
-    "kind": "exponential",
-    "high": 30000,
-    "n_buckets": 50,
-    "description": "Time(ms) spent activating additional fonts bundled with the product"
-  },
-  "DWRITEFONT_DELAYEDINITFONTLIST_TOTAL": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 30000,
-    "n_buckets": 10,
-    "description": "gfxDWriteFontList::DelayedInitFontList Total (ms)"
-  },
-  "DWRITEFONT_DELAYEDINITFONTLIST_COUNT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 10000,
-    "n_buckets": 10,
-    "description": "gfxDWriteFontList::DelayedInitFontList Font Family Count"
-  },
-  "DWRITEFONT_DELAYEDINITFONTLIST_COLLECT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 30000,
-    "n_buckets": 10,
-    "description": "gfxDWriteFontList::DelayedInitFontList GetSystemFontCollection (ms)"
-  },
-  "DWRITEFONT_INIT_PROBLEM": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 8,
-    "description": "DirectWrite system fontlist initialization problem: 1=GDI interop (removed in bug 2011408), 2=system font collection, 3=no fonts"
-  },
-  "MAC_INITFONTLIST_TOTAL": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 30000,
-    "n_buckets": 10,
-    "description": "gfxMacPlatformFontList::InitFontList Total (ms)"
-  },
-  "SYSTEM_FONT_FALLBACK": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 100000,
-    "n_buckets": 50,
-    "description": "System font fallback (us)"
-  },
-  "SYSTEM_FONT_FALLBACK_FIRST": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 40000,
-    "n_buckets": 20,
-    "description": "System font fallback, first call (ms)"
-  },
-  "FONT_CACHE_HIT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "font cache hit"
-  },
-  "BAD_FALLBACK_FONT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "system fallback font can't be used"
-  },
   "SHUTDOWN_OK": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
@@ -187,158 +19,6 @@
     "releaseChannelCollection": "opt-out",
     "kind": "boolean",
     "description": "Did the browser start after a successful shutdown"
-  },
-  "IMAGE_DECODE_TIME": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "low": 50,
-    "high": 50000000,
-    "n_buckets": 100,
-    "description": "Time spent decoding an image (us)"
-  },
-  "IMAGE_DECODE_ON_DRAW_LATENCY": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "low": 50,
-    "high": 50000000,
-    "n_buckets": 100,
-    "description": "Time from starting a decode to it showing up on the screen (us)"
-  },
-  "IMAGE_DECODE_CHUNKS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 500,
-    "n_buckets": 50,
-    "description": "Number of chunks per decode attempt"
-  },
-  "IMAGE_DECODE_COUNT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 500,
-    "n_buckets": 50,
-    "description": "Decode count"
-  },
-  "IMAGE_DECODE_SPEED_JPEG": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "low": 500,
-    "high": 50000000,
-    "n_buckets": 50,
-    "description": "JPEG image decode speed (Kbytes/sec)"
-  },
-  "IMAGE_DECODE_SPEED_GIF": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "low": 500,
-    "high": 50000000,
-    "n_buckets": 50,
-    "description": "GIF image decode speed (Kbytes/sec)"
-  },
-  "IMAGE_DECODE_SPEED_PNG": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "low": 500,
-    "high": 50000000,
-    "n_buckets": 50,
-    "description": "PNG image decode speed (Kbytes/sec)"
-  },
-  "IMAGE_DECODE_SPEED_WEBP": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "low": 500,
-    "high": 50000000,
-    "n_buckets": 50,
-    "description": "WebP image decode speed (Kbytes/sec)",
-    "bug_numbers": [1294490]
-  },
-  "IMAGE_DECODE_SPEED_AVIF": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "low": 500,
-    "high": 50000000,
-    "n_buckets": 50,
-    "description": "AVIF image decode speed (Kbytes/sec)",
-    "bug_numbers": [1294490]
-  },
-  "CANVAS_2D_USED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "2D canvas used"
-  },
-  "CANVAS_WEBGL_ACCL_FAILURE_ID": {
-    "record_in_processes": ["main", "content", "gpu"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "rhunt@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "count",
-    "keyed": true,
-    "description": "Track the failure IDs that lead us to reject attempting to create an accelerated context. CANVAS_WEBGL_FAILURE_ID reports the overall WebGL status with the attempt to fallback.",
-    "bug_numbers": [1272808]
-  },
-  "CANVAS_WEBGL_FAILURE_ID": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "rhunt@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "count",
-    "keyed": true,
-    "description": "WebGL runtime and dynamic failure IDs. This will record a count for each context creation success or failure. Each failure id is a unique identifier that can be traced back to a particular failure branch or blocklist rule.",
-    "bug_numbers": [1272808]
-  },
-  "CANVAS_WEBGL_SUCCESS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "rhunt@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "WebGL1 creation success",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1247327, 1529352]
-  },
-  "CANVAS_WEBGL_USED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "WebGL canvas used"
-  },
-  "CANVAS_WEBGL2_SUCCESS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "rhunt@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "WebGL2 creation success",
-    "bug_numbers": [1247327]
   },
   "TAB_COUNT": {
     "record_in_processes": ["main"],
@@ -512,7 +192,7 @@
     "alert_emails": ["gijs@mozilla.com", "mak@mozilla.com"],
     "expires_in_version": "never",
     "kind": "enumerated",
-    "n_values": 15,
+    "n_values": 16,
     "releaseChannelCollection": "opt-out",
     "description": "The browser that data is pulled from. The values correspond to the internal browser ID (see MigrationUtils.sys.mjs)"
   },
@@ -1276,15 +956,6 @@
     "description": "Records search counts for search access points. The format is: <engine-name>.<search-access-point>. For the urlbar when in search mode, the format is <engine name>.urlbar-searchmode. For the urlbar when an internal @engine shortcut is used, the format is: <engine-name>.alias.",
     "record_into_store": ["main", "account-ecosystem"]
   },
-  "CRASH_STORE_COMPRESSED_BYTES": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 1000000,
-    "n_buckets": 202,
-    "description": "Size (in bytes) of the compressed crash store JSON file."
-  },
   "MEDIA_MP4_PARSE_SAMPLE_DESCRIPTION_ENTRIES_HAVE_MULTIPLE_CODECS": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -1823,48 +1494,6 @@
     "releaseChannelCollection": "opt-out",
     "description": "Counts the number of times launching a subprocess fails. Counts are by subprocess-type using the GeckoProcessType enum."
   },
-  "PROCESS_CRASH_SUBMIT_ATTEMPT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "thunderbird"],
-    "expires_in_version": "never",
-    "kind": "count",
-    "keyed": true,
-    "keys": [
-      "main-crash",
-      "main-hang",
-      "content-crash",
-      "content-hang",
-      "plugin-crash",
-      "plugin-hang",
-      "gmplugin-crash",
-      "gmplugin-hang",
-      "gpu-crash",
-      "gpu-hang",
-      "vr-crash",
-      "vr-hang",
-      "rdd-crash",
-      "rdd-hang",
-      "socket-crash",
-      "socket-hang",
-      "utility-crash",
-      "utility-hang",
-      "sandboxbroker-crash",
-      "sandboxbroker-hang",
-      "forkserver-crash",
-      "forkserver-hang"
-    ],
-    "releaseChannelCollection": "opt-out",
-    "description": "An attempt to submit a crash. Keyed on the CrashManager Crash.type."
-  },
-  "PROCESS_CRASH_SUBMIT_SUCCESS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "keyed": true,
-    "releaseChannelCollection": "opt-out",
-    "description": "The submission status when main/plugin/content crashes are submitted. 1 is success, 0 is failure. Keyed on the CrashManager Crash.type."
-  },
   "VIDEO_PLAY_TIME_MS": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
@@ -2123,16 +1752,6 @@
     "n_buckets": 20,
     "description": "Sanitize: Time it takes to sanitize the open windows list (ms). On Android, this is the time it takes to close all open tabs (ms)."
   },
-  "GRAPHICS_SANITY_TEST": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "aosmond@mozilla.com"],
-    "kind": "enumerated",
-    "n_values": 20,
-    "releaseChannelCollection": "opt-out",
-    "description": "Reports results from the graphics sanity test to track which drivers are having problems (0=TEST_PASSED, 1=TEST_FAILED_RENDER, 2=TEST_FAILED_VIDEO_DECODE, 3=TEST_CRASHED, 4=TEST_TIMEOUT, 5=TEST_FAILED_TO_RUN, 6=TEST_FAILED_VIDEO_ENCODE)"
-  },
   "READER_MODE_PARSE_RESULT": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -2165,16 +1784,6 @@
     "kind": "count",
     "description": "Record the removal of defective permissions.sqlite"
   },
-  "GRAPHICS_DRIVER_STARTUP_TEST": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "rhunt@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 20,
-    "releaseChannelCollection": "opt-out",
-    "description": "Reports whether or not graphics drivers crashed during startup."
-  },
   "WEAVE_DEVICE_COUNT_DESKTOP": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -2196,99 +1805,6 @@
     "n_values": 10,
     "releaseChannelCollection": "opt-out",
     "description": "Number of mobile devices associated with this Sync account. Recorded each time Sync successfully completes the 'clients' engine."
-  },
-  "GFX_CONTENT_FAILED_TO_ACQUIRE_DEVICE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "rhunt@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 6,
-    "description": "Failed to create a gfx content device. 0=content d3d11, 1=image d3d11, 2=d2d1."
-  },
-  "GFX_CRASH": {
-    "record_in_processes": ["main", "content", "gpu"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["gfx-telemetry-alerts@mozilla.com", "rhunt@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 100,
-    "releaseChannelCollection": "opt-out",
-    "description": "Graphics Crash Reason (...)"
-  },
-  "WEBFONT_DOWNLOAD_TIME": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["jdaggett@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 60000,
-    "n_buckets": 50,
-    "description": "Time to download a webfont (ms)"
-  },
-  "WEBFONT_FONTTYPE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["jdaggett@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 10,
-    "description": "Font format type (woff/woff2/ttf/...)"
-  },
-  "WEBFONT_SRCTYPE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["jdaggett@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 5,
-    "description": "Font src type loaded (1 = local, 2 = url, 3 = data)"
-  },
-  "WEBFONT_PER_PAGE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["jdaggett@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "count",
-    "description": "Number of fonts loaded at page load"
-  },
-  "WEBFONT_SIZE_PER_PAGE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["jdaggett@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 5000,
-    "n_buckets": 50,
-    "description": "Size of all fonts loaded at page load (kb)"
-  },
-  "WEBFONT_SIZE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["jdaggett@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 5000,
-    "n_buckets": 50,
-    "description": "Size of font loaded (kb)"
-  },
-  "WEBFONT_COMPRESSION_WOFF": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["jdaggett@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 50,
-    "description": "Compression ratio of WOFF data (%)"
-  },
-  "WEBFONT_COMPRESSION_WOFF2": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["jdaggett@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 50,
-    "description": "Compression ratio of WOFF2 data (%)"
   },
   "DOM_SCRIPT_LOADING_SOURCE": {
     "record_in_processes": ["content"],
@@ -2369,17 +1885,6 @@
     "n_values": 10,
     "description": "Media decoder backend (0=WMF Software, 1=DXVA2D3D9, 2=DXVA2D3D11)"
   },
-  "SANDBOX_FAILED_LAUNCH_KEYED": {
-    "record_in_processes": ["main"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["bowen@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "keyed": true,
-    "n_values": 50,
-    "bug_numbers": [1368600],
-    "description": "Error code when a Windows sandboxed process fails to launch, keyed by process type and Windows error code. See https://searchfox.org/mozilla-central/search?q=ResultCode++path%3Asandbox_types.h&redirect=true for definitions of the error codes."
-  },
   "SUBPROCESS_KILL_HARD": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -2454,49 +1959,6 @@
     "kind": "enumerated",
     "n_values": 20,
     "description": "Cumulative no. bookmark of searches performed before selecting a link."
-  },
-  "GFX_MACOS_VIDEO_LOW_POWER": {
-    "record_in_processes": ["main"],
-    "products": ["firefox"],
-    "alert_emails": ["bwerth@mozilla.com"],
-    "expires_in_version": "never",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1737682],
-    "description": "MacOS video low power state achieved when enqueueing a video frame.",
-    "kind": "categorical",
-    "labels": [
-      "NotVideo",
-      "LowPower",
-      "FailMultipleVideo",
-      "FailWindowed",
-      "FailOverlaid",
-      "FailBacking",
-      "FailMacOSVersion",
-      "FailPref",
-      "FailSurface",
-      "FailEnqueue"
-    ]
-  },
-  "APZ_ZOOM_ACTIVITY": {
-    "products": ["firefox"],
-    "record_in_processes": ["content"],
-    "alert_emails": ["botond@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "bug_numbers": [1627708, 1672576],
-    "description": "Whether non-RDM page had user-triggered zooming activity",
-    "releaseChannelCollection": "opt-out"
-  },
-  "APZ_ZOOM_PINCHSOURCE": {
-    "products": ["firefox"],
-    "record_in_processes": ["main", "gpu"],
-    "alert_emails": ["botond@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 5,
-    "bug_numbers": [1627708, 1672576],
-    "description": "Input device that triggered the zoom gesture (InputData::PinchGestureSource)",
-    "releaseChannelCollection": "opt-out"
   },
   "TEXT_RECOGNITION_API_PERFORMANCE": {
     "record_in_processes": ["main"],

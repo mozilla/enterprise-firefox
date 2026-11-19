@@ -14,6 +14,7 @@ import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.storage.BookmarksStorage
 import mozilla.components.feature.addons.AddonManager
 import mozilla.components.feature.ipprotection.store.IPProtectionStore
+import mozilla.components.feature.tabdata.coordinator.TabDataCoordinator
 import mozilla.components.feature.top.sites.PinnedSiteStorage
 import mozilla.components.service.fxa.store.SyncStore
 import org.mozilla.fenix.R
@@ -28,8 +29,11 @@ import org.mozilla.fenix.browser.RefreshMenuItemProvider
 import org.mozilla.fenix.browser.ShareMenuItemProvider
 import org.mozilla.fenix.browser.applinks.OpenInAppMenuItemProvider
 import org.mozilla.fenix.browser.applinks.OpenInFirefoxMenuItemProvider
+import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.browser.menu.MoreMenuItemsProvider
 import org.mozilla.fenix.browser.menu.MoveToNormalTabsMenuItemProvider
+import org.mozilla.fenix.browser.menu.NewPrivateTabMenuItemProvider
+import org.mozilla.fenix.browser.menu.NewTabMenuItemProvider
 import org.mozilla.fenix.browser.readermode.ReaderViewMenuItemProvider
 import org.mozilla.fenix.collections.SaveToCollectionMenuItemProvider
 import org.mozilla.fenix.components.AppStore
@@ -59,6 +63,8 @@ import org.mozilla.fenix.shortcut.AddToHomeScreenMenuItemProvider
 import org.mozilla.fenix.summarization.SummarizePageMenuItemProvider
 import org.mozilla.fenix.summarization.eligibility.SummarizationEligibilityChecker
 import org.mozilla.fenix.summarization.onboarding.FenixSummarizationFeatureConfiguration
+import org.mozilla.fenix.tabgroups.TabGroupMenuItemProvider
+import org.mozilla.fenix.tabgroups.TabGroupsFeatureDiscoveryConfiguration
 import org.mozilla.fenix.translations.TranslationsEnabledSettings
 import org.mozilla.fenix.translations.TranslationsMenuItemProvider
 import org.mozilla.fenix.utils.Settings
@@ -92,14 +98,33 @@ class MenuItemProvidersFactory(
     private val isAndroidAutomotiveAvailable: Boolean,
     private val quitApplicationDelegate: () -> Unit,
     private val setAsDefaultBrowserDelegate: () -> Unit,
+    private val tabDataCoordinator: TabDataCoordinator,
     private val menuViewScope: CoroutineScope,
     private val applicationScope: CoroutineScope,
+    private val browsingModeManager: BrowsingModeManager,
+    private val tabGroupFeatureConfiguration: TabGroupsFeatureDiscoveryConfiguration,
 ) {
 
     /** Build a [MenuItemProvider] for the given [FenixMenuItem]. */
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun buildProviderFor(item: FenixMenuItem): MenuItemProvider =
         when (item) {
+            FenixMenuItem.NewTab ->
+                NewTabMenuItemProvider(
+                    target = target,
+                    fenixBrowserUseCases = useCases.fenixBrowserUseCases,
+                    settings = settings,
+                    browsingModeManager = browsingModeManager,
+                )
+
+            FenixMenuItem.NewPrivateTab ->
+                NewPrivateTabMenuItemProvider(
+                    target = target,
+                    fenixBrowserUseCases = useCases.fenixBrowserUseCases,
+                    settings = settings,
+                    browsingModeManager = browsingModeManager,
+                )
+
             FenixMenuItem.DefaultBrowserBanner ->
                 DefaultBrowserMenuItemProvider(
                     settings = settings,
@@ -261,6 +286,15 @@ class MenuItemProvidersFactory(
                     tabCollectionStorage = tabCollectionStorage,
                     browserStore = browserStore,
                     target = target,
+                )
+
+            FenixMenuItem.TabGroup ->
+                TabGroupMenuItemProvider(
+                    tabDataCoordinator = tabDataCoordinator,
+                    target = target,
+                    isVisible = tabGroupFeatureConfiguration.showMenuItem,
+                    scope = menuViewScope,
+                    discoveryConfiguration = tabGroupFeatureConfiguration,
                 )
 
             FenixMenuItem.OpenInApp ->

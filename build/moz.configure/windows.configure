@@ -342,21 +342,6 @@ def check_w32API_version():
     )
 
 
-@depends(target)
-def cpu_arch_macro_definition(target):
-    if target.cpu == "x86":
-        return "_X86_"
-    elif target.cpu == "x86_64":
-        return "_AMD64_"
-    elif target.cpu == "aarch64":
-        return "_ARM64_"
-    else:
-        return "_CPU_ARCH_NOT_DEFINED"
-
-
-set_define(cpu_arch_macro_definition, True)
-
-
 check_w32API_version()
 
 
@@ -459,6 +444,13 @@ with only_when(depends(c_compiler)(lambda c: c.type == "clang-cl")):
     with only_when(depends(target.cpu)(lambda cpu: cpu == "x86")):
         add_linker_flag("-LARGEADDRESSAWARE")
         add_linker_flag("-SAFESEH")
+
+    # The MSVC STL marks every function in <atomic> as target("cx16") when
+    # compiling with clang for x64, and clang 23 no longer inlines them into
+    # callers built without that feature. Without this, every std::atomic
+    # operation is an out-of-line call. All x64 CPUs supported by Windows 10+
+    # have cmpxchg16b.
+    add_flag("-mcx16", when=depends(target.cpu)(lambda cpu: cpu == "x86_64"))
 
 
 set_define("WIN32_LEAN_AND_MEAN", True)

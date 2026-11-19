@@ -55,10 +55,9 @@ class JjVersionError(Exception):
 class JujutsuRepository(Repository):
     """An implementation of `Repository` for JJ repositories using the git backend."""
 
-    # Revset for a "HEAD-like" change. Use @ (the working copy commit) unless it
-    # would be discarded when switching away (because it's empty and has no
-    # description.)
-    HEAD_REVSET = 'coalesce(@ ~ (empty() & description(exact:"")) ~ bookmarks(), @-)'
+    # Use @ unless it would be discarded when switching away: empty, without
+    # a description, and without bookmarks.
+    HEAD_REVSET = 'coalesce(@ ~ (empty() & description(exact:"") ~ bookmarks()), @-)'
 
     def __init__(self, path: Path, jj="jj", git="git"):
         super().__init__(path, tool=jj)
@@ -501,6 +500,10 @@ class JujutsuRepository(Repository):
             cmd.extend(follow)
 
         return list(reversed(self._run_read_only(*cmd).splitlines()))
+
+    def get_ancestors(self, limit: int = 20) -> list[str]:
+        """Return the SHAs of the head commit and its ancestors, newest first."""
+        return self._git.get_ancestors(self.head_rev, limit)
 
     def _looks_like_change_id(self, id):
         return len(id) > 0 and all(letter >= "k" and letter <= "z" for letter in id)

@@ -501,6 +501,7 @@ static bool XPCShellInterruptCallback(JSContext* cx) {
 
   MOZ_ASSERT(js::IsFunctionObject(&callback.toObject()));
 
+  js::AutoAllowScriptInInterrupt allowScript(cx);
   JSAutoRealm ar(cx, &callback.toObject());
   RootedValue rv(cx);
   if (!JS_CallFunctionValue(cx, nullptr, callback,
@@ -1301,7 +1302,7 @@ int XRE_XPCShellMain(int argc, char** argv, char** envp,
     // Required for sandboxed child processes.
     if (aShellData->sandboxBrokerServices) {
       SandboxBroker::Initialize(aShellData->sandboxBrokerServices, binDirPath);
-      SandboxBroker::GeckoDependentInitialize();
+      SandboxBroker::CacheGeckoDirs();
     } else {
       NS_WARNING(
           "Failed to initialize broker services, sandboxed "

@@ -6,7 +6,6 @@
 #include "nsISupports.idl"
 #include "nsIBaseWindow.idl"
 
-interface nsIWebBrowser;
 interface nsIDocShellTreeItem;
 
 /**
@@ -159,7 +158,7 @@ interface nsIWebBrowserChrome : nsISupports
      *
      * @see nsIBaseWindow
      */
-    [noscript] void getDimensions(in DimensionKind aDimensionKind, out long aX, out long aY, out long aCX, out long aCY);
+    [noscript] void getDimensions(out long aX, out long aY, out long aCX, out long aCY);
 
     /**
      * Blur the window. This should unfocus the window and send an onblur event.

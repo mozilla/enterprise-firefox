@@ -14,9 +14,11 @@ import subprocess
 import sys
 import time
 from collections import Counter, namedtuple
+from datetime import datetime
 from itertools import dropwhile, islice, takewhile
 from pathlib import Path
 from textwrap import TextWrapper
+from types import SimpleNamespace
 
 from mach.logging import BUILD_ERROR, SUPPRESSED_WARNING, THIRD_PARTY_WARNING
 from mach.site import CommandSiteManager
@@ -31,6 +33,13 @@ import mozpack.path as mozpath
 from mach.mixin.logging import LoggingMixin
 from mach.util import get_state_dir, get_virtualenv_base_dir
 from mozsystemmonitor.resourcemonitor import SystemResourceMonitor
+from mozversioncontrol import (
+    InvalidRepoPath,
+    MissingVCSInfo,
+    MissingVCSTool,
+    StaleWorkspaceError,
+    get_repository_from_build_config,
+)
 from rich.console import Console
 from rich.live import Live
 from rich.text import Text
@@ -48,6 +57,7 @@ from ..telemetry import get_cpu_brand
 from ..testing import install_test_files
 from ..util import (
     FileAvoidWrite,
+    compiler_cache_env,
     construct_log_filename,
     is_running_under_coding_agent,
     resolve_target_to_make,
@@ -399,8 +409,36 @@ class BuildMonitor(MozbuildObject):
         self.warnings_database.prune()
         self.warnings_database.save_to_file(self._warnings_path)
 
+    @property
+    def build_times_path(self):
+        return mozpath.join(self.topobjdir, ".mozbuild", "build_times.json")
+
+    def _write_build_times(self):
+        resources = self.resources
+        if "MOZ_AUTOMATION" not in os.environ or resources.end_time is None:
+            return
+        try:
+            now = time.monotonic()
+            phases = {
+                name: end - start for name, (start, end) in resources.phases.items()
+            }
+            phases["teardown"] = now - resources.stop_time
+            os.makedirs(os.path.dirname(self.build_times_path), exist_ok=True)
+            with open(self.build_times_path, "w", encoding="utf-8", newline="\n") as fh:
+                json.dump(
+                    {"duration": now - resources.start_time, "phases": phases}, fh
+                )
+        except Exception as e:
+            self.log(
+                logging.WARNING,
+                "build_times_error",
+                {"msg": str(e)},
+                "Exception when writing build times: {msg}",
+            )
+
     def record_usage(self):
         if self.resources.forwarding:
+            self._write_build_times()
             return
         try:
             with open(
@@ -560,7 +598,7 @@ class BuildMonitor(MozbuildObject):
                 "Swap in/out (MB): {sin}/{sout}",
             )
 
-    def ccache_stats(self, ccache=None):
+    def ccache_stats(self, ccache=None, ccache_dir=None):
         ccache_stats = None
 
         if ccache is None:
@@ -568,9 +606,13 @@ class BuildMonitor(MozbuildObject):
         if ccache:
             # With CCache v3.7+ we can use --print-stats
             has_machine_format = CCacheStats.check_version_3_7_or_newer(ccache)
+            env = os.environ.copy()
+            if ccache_dir:
+                env["CCACHE_DIR"] = ccache_dir
             try:
                 output = subprocess.check_output(
                     [ccache, "--print-stats" if has_machine_format else "-s"],
+                    env=env,
                     universal_newlines=True,
                 )
                 ccache_stats = CCacheStats(output, has_machine_format)
@@ -1241,6 +1283,79 @@ class CCacheStats:
         return ((major << 8) + minor) >= ((3 << 8) + 7)
 
 
+BUILDID_FILE = "buildid.txt"
+
+
+def write_buildid(topobjdir, substs, environ, what=None):
+    path = mozpath.join(topobjdir, BUILDID_FILE)
+    # We only want to choose the build id once
+    if os.path.exists(path):
+        # Android keeps the one it was first given
+        if substs.get("MOZ_BUILD_APP") == "mobile/android":
+            return
+        # faster make build the files explicitly so also match those
+        if what and not {"faster", "buildid.h"} & set(what):
+            return
+    buildid = environ.get("MOZ_BUILD_DATE")
+    if buildid and not re.fullmatch(r"\d{14}", buildid):
+        print(f"Ignoring invalid MOZ_BUILD_DATE: {buildid}", file=sys.stderr)
+        buildid = None
+    if not buildid:
+        buildid = datetime.now().strftime("%Y%m%d%H%M%S")
+    with FileAvoidWrite(path) as fh:
+        fh.write(f"{buildid}\n")
+
+
+SOURCE_REPO_FILE = "source-repo.txt"
+SOURCESTAMP_FILENAME = "sourcestamp.txt"
+
+
+def get_info_from_sourcestamp(sourcestamp_path):
+    """Return the repository and changeset from a sourcestamp file, or
+    (None, None) when it does not hold a build id and then a source URL.
+    """
+    with open(sourcestamp_path) as f:
+        lines = f.read().splitlines()
+
+    if len(lines) != 2 or not lines[1].startswith("http"):
+        return None, None
+
+    for separator in ["/rev/", "/commit/"]:
+        if separator in lines[1]:
+            return lines[1].split(separator)
+    return None, None
+
+
+def write_source_repo(topobjdir, topsrcdir, substs):
+    # We allow the source repo and changeset to be specified via the
+    # environment (see configure)
+    repo = substs.get("MOZ_SOURCE_REPO")
+    changeset = substs.get("MOZ_SOURCE_CHANGESET")
+    if not repo:
+        sourcestamp_path = mozpath.join(topsrcdir, SOURCESTAMP_FILENAME)
+        if os.path.exists(sourcestamp_path):
+            repo, changeset = get_info_from_sourcestamp(sourcestamp_path)
+    elif not changeset:
+        try:
+            changeset = get_repository_from_build_config(
+                SimpleNamespace(topsrcdir=topsrcdir, substs=substs)
+            ).head_rev
+        except (
+            InvalidRepoPath,
+            MissingVCSInfo,
+            MissingVCSTool,
+            StaleWorkspaceError,
+            subprocess.CalledProcessError,
+        ):
+            pass
+        if not changeset:
+            raise Exception(
+                "could not resolve changeset; try setting MOZ_SOURCE_CHANGESET"
+            )
+    with FileAvoidWrite(mozpath.join(topobjdir, SOURCE_REPO_FILE)) as fh:
+        fh.write(f"{changeset or ''}\n{repo or ''}\n")
+
+
 class BuildDriver(MozbuildObject):
     """Provides a high-level API for build actions."""
 
@@ -1399,7 +1514,9 @@ class BuildDriver(MozbuildObject):
 
             if config.substs.get("MOZ_USING_CCACHE"):
                 ccache = config.substs.get("CCACHE")
-                ccache_start = monitor.ccache_stats(ccache)
+                ccache_start = monitor.ccache_stats(
+                    ccache, config.substs.get("CCACHE_DIR")
+                )
             else:
                 ccache_start = None
 
@@ -1442,6 +1559,9 @@ class BuildDriver(MozbuildObject):
 
             if not config_rc:
                 self.ensure_backend_current()
+
+            write_buildid(self.topobjdir, substs, os.environ, what)
+            write_source_repo(self.topobjdir, self.topsrcdir, substs)
 
             jobs = self.resolve_num_jobs(jobs, job_size)
 
@@ -1550,11 +1670,7 @@ class BuildDriver(MozbuildObject):
                 # starts, so it needs the sccache variables in its environment.
                 # config.mk covers the sub-makes.
                 client_mk_env = dict(append_env or {})
-                client_mk_env.update(
-                    (name, value)
-                    for name, value in config.substs.items()
-                    if name.startswith("SCCACHE_")
-                )
+                client_mk_env.update(compiler_cache_env(config.substs))
                 status = self._run_client_mk(
                     line_handler=output.on_stdout_line,
                     stderr_line_handler=output.on_stderr_line,
@@ -1701,7 +1817,7 @@ class BuildDriver(MozbuildObject):
             print(FINDER_SLOW_MESSAGE % finder_percent)
 
         if config.substs.get("MOZ_USING_CCACHE"):
-            ccache_end = monitor.ccache_stats(ccache)
+            ccache_end = monitor.ccache_stats(ccache, config.substs.get("CCACHE_DIR"))
         else:
             ccache_end = None
 

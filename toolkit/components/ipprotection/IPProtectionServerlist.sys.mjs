@@ -13,7 +13,7 @@ const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "logConsole", () =>
   console.createInstance({
-    prefix: "IPP_Serverlist",
+    logModule: "IPP_Serverlist",
     maxLogLevel: Services.prefs.getBoolPref("browser.ipProtection.log", false)
       ? "Debug"
       : "Warn",
@@ -441,13 +441,6 @@ export class PrefServerList extends IPProtectionServerlistBase {
 
   onPrefChange() {
     this.maybeFetchList();
-  }
-
-  // Re-read the pref so that a policy activated after module load is picked up before #updateState() runs.
-  init() {
-    this.__list = IPProtectionServerlistBase.dataToList(
-      PrefServerList.prefValue
-    );
   }
 
   async initOnStartupCompleted() {

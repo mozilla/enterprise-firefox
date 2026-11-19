@@ -1195,8 +1195,8 @@ nsresult ContentChild::ProvideWindowCommon(
       aOpenWindowInfo->GetIsForPrinting(),
       aOpenWindowInfo->GetIsForWindowDotPrint(),
       aOpenWindowInfo->GetIsTopLevelCreatedByWebContent(), aURI, features,
-      aModifiers, triggeringPrincipal, policyContainer, referrerInfo,
-      aOpenWindowInfo->GetOriginAttributes(),
+      aModifiers, WrapNotNull(triggeringPrincipal), policyContainer,
+      referrerInfo, aOpenWindowInfo->GetOriginAttributes(),
       aLoadState ? aLoadState->HasValidUserGestureActivation() : false,
       aLoadState ? aLoadState->GetTextDirectiveUserActivation() : false,
       std::move(resolve), std::move(reject));
@@ -3190,7 +3190,8 @@ void ContentChild::ShutdownInternal() {
         CrashReporter::Annotation::ProfilerChildShutdownPhase,
         isProfiling ? "Profiling - SendShutdownProfile (sending)"
                     : "Not profiling - SendShutdownProfile (sending)");
-    if (const size_t len = shutdownProfileAndAdditionalInformation.SizeOf();
+    if (const size_t len =
+            shutdownProfileAndAdditionalInformation.InlineIPCSize();
         len >= size_t(IPC::Channel::kMaximumMessageSize)) {
       shutdownProfileAndAdditionalInformation.mProfile = nsPrintfCString(
           "*Profile from pid %u bigger (%zu) than IPC max (%zu)",
@@ -3357,7 +3358,7 @@ void ContentChild::FatalErrorIfNotUsingGPUProcess(const char* const aErrorMsg,
 }
 
 PURLClassifierChild* ContentChild::AllocPURLClassifierChild(
-    nsIPrincipal* aPrincipal, bool* aSuccess) {
+    NotNull<nsIPrincipal*> aPrincipal, bool* aSuccess) {
   *aSuccess = true;
   return new URLClassifierChild();
 }

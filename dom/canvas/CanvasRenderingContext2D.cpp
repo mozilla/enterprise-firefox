@@ -1439,9 +1439,8 @@ void CanvasRenderingContext2D::OnShutdown() {
 }
 
 void CanvasRenderingContext2D::OnRemoteCanvasLost() {
-  // We only lose context / data if we are using remote canvas, which is only
-  // for accelerated targets.
-  if (!mBufferProvider || !mBufferProvider->IsAccelerated() || mIsContextLost) {
+  // We only lose context / data if we are using remote canvas.
+  if (!mBufferProvider || !mBufferProvider->IsRemote() || mIsContextLost) {
     return;
   }
 
@@ -1696,11 +1695,11 @@ bool CanvasRenderingContext2D::BorrowTarget(const IntRect& aPersistedRect,
                                             bool aNeedsClear) {
   // We are attempting to request a DrawTarget from the current
   // PersistentBufferProvider. However, if the provider needs to be refreshed,
-  // or if it is accelerated and the application has requested that we disallow
-  // acceleration, then we skip trying to use this provider so that it will be
+  // or if it is remote and the application has requested software rendering,
+  // then we skip trying to use this provider so that it will be
   // recreated by EnsureTarget later.
   if (!mBufferProvider || mBufferProvider->RequiresRefresh() ||
-      (mBufferProvider->IsAccelerated() && UseSoftwareRendering())) {
+      (mBufferProvider->IsRemote() && UseSoftwareRendering())) {
     return false;
   }
   mTarget = mBufferProvider->BorrowDrawTarget(aPersistedRect);
@@ -1797,7 +1796,8 @@ bool CanvasRenderingContext2D::HasErrorState(ErrorResult& aError,
 bool CanvasRenderingContext2D::EnsureTarget(ErrorResult& aError,
                                             const gfx::Rect* aCoveredRect,
                                             bool aWillClear,
-                                            bool aSkipTransform) {
+                                            bool aSkipTransform,
+                                            bool aPreferAcceleration) {
   if (HasErrorState(aError, false)) {
     return false;
   }
@@ -1848,7 +1848,7 @@ bool CanvasRenderingContext2D::EnsureTarget(ErrorResult& aError,
   RefPtr<DrawTarget> newTarget;
   RefPtr<PersistentBufferProvider> newProvider;
 
-  if (!TryAcceleratedTarget(newTarget, newProvider) &&
+  if (!TryAcceleratedTarget(newTarget, newProvider, aPreferAcceleration) &&
       !TrySharedTarget(newTarget, newProvider) &&
       !TryBasicTarget(newTarget, newProvider, aError)) {
     gfxCriticalError(
@@ -1994,14 +1994,15 @@ static WindowRenderer* WindowRendererFromCanvasElement(
 
 bool CanvasRenderingContext2D::TryAcceleratedTarget(
     RefPtr<gfx::DrawTarget>& aOutDT,
-    RefPtr<layers::PersistentBufferProvider>& aOutProvider) {
+    RefPtr<layers::PersistentBufferProvider>& aOutProvider,
+    bool aPreferAcceleration) {
   if (!XRE_IsContentProcess()) {
     // Only allow accelerated contexts to be created in a content process to
     // ensure it is remoted appropriately and run on the correct parent or
     // GPU process threads.
     return false;
   }
-  if (mBufferProvider && mBufferProvider->IsAccelerated() &&
+  if (mBufferProvider && mBufferProvider->IsRemote() &&
       mBufferProvider->RequiresRefresh()) {
     // If there is already a provider and we got here, then the provider needs
     // to be refreshed and we should avoid using acceleration in the future.
@@ -2021,8 +2022,9 @@ bool CanvasRenderingContext2D::TryAcceleratedTarget(
       return false;
     }
 
-    aOutProvider = PersistentBufferProviderAccelerated::Create(
-        GetSize(), GetSurfaceFormat(), renderer->AsKnowsCompositor());
+    aOutProvider = PersistentBufferProviderRemote::Create(
+        GetSize(), GetSurfaceFormat(), renderer->AsKnowsCompositor(),
+        aPreferAcceleration);
   } else if (mOffscreenCanvas &&
              StaticPrefs::gfx_canvas_remote_allow_offscreen()) {
     RefPtr<ImageBridgeChild> imageBridge = ImageBridgeChild::GetSingleton();
@@ -2030,8 +2032,8 @@ bool CanvasRenderingContext2D::TryAcceleratedTarget(
       return false;
     }
 
-    aOutProvider = PersistentBufferProviderAccelerated::Create(
-        GetSize(), GetSurfaceFormat(), imageBridge);
+    aOutProvider = PersistentBufferProviderRemote::Create(
+        GetSize(), GetSurfaceFormat(), imageBridge, aPreferAcceleration);
   }
 
   if (!aOutProvider) {
@@ -6074,6 +6076,43 @@ MaybeGetSurfaceDescriptorForRemoteCanvas(
 // other valid value for optional_argc is 6 if sx, sy, sw, sh, dx, dy, dw and dh
 // are all passed in.
 
+bool CanvasRenderingContext2D::HasAcceleratedBufferProvider() const {
+  return mBufferProvider && mBufferProvider->IsAccelerated();
+}
+
+bool CanvasRenderingContext2D::MaybeAccelerateForDrawImage(
+    const CanvasImageSource& aImage) {
+  if (mTarget || (mBufferProvider && !mBufferNeedsClear) ||
+      !mAllowAcceleration || UseSoftwareRendering()) {
+    return false;
+  }
+
+  nsICanvasRenderingContextInternal* context = nullptr;
+  if (aImage.IsHTMLCanvasElement()) {
+    HTMLCanvasElement& canvas = aImage.GetAsHTMLCanvasElement();
+    if (canvas.GetCurrentContextType() == CanvasContextType::Canvas2D) {
+      context = canvas.GetCurrentContext();
+    }
+  } else if (aImage.IsOffscreenCanvas()) {
+    OffscreenCanvas& canvas = aImage.GetAsOffscreenCanvas();
+    if (canvas.GetContextType() == CanvasContextType::OffscreenCanvas2D) {
+      context = canvas.GetContext();
+    }
+  }
+  if (!context || context == this ||
+      !static_cast<CanvasRenderingContext2D*>(context)
+           ->HasAcceleratedBufferProvider()) {
+    return false;
+  }
+
+  if (mBufferProvider && !mBufferProvider->IsAccelerated()) {
+    // The kept buffer was going to be cleared anyway.
+    mBufferProvider = nullptr;
+    mBufferNeedsClear = false;
+  }
+  return true;
+}
+
 void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
                                          double aSx, double aSy, double aSw,
                                          double aSh, double aDx, double aDy,
@@ -6099,7 +6138,8 @@ void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
   OffscreenCanvas* offscreenCanvas = nullptr;
   VideoFrame* videoFrame = nullptr;
 
-  if (!EnsureTarget(aError)) {
+  bool preferAcceleration = MaybeAccelerateForDrawImage(aImage);
+  if (!EnsureTarget(aError, nullptr, false, false, preferAcceleration)) {
     return;
   }
 
@@ -6179,8 +6219,7 @@ void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
                         nsLayoutUtils::SFE_NO_RASTERIZING_VECTORS |
                         nsLayoutUtils::SFE_ALLOW_UNCROPPED_UNSCALED;
 
-    bool fastPath = mBufferProvider->IsAccelerated() &&
-                    mTarget->IsRecording() &&
+    bool fastPath = mBufferProvider->IsRemote() && mTarget->IsRecording() &&
                     !(NeedToApplyFilter() || NeedToDrawShadow());
 
     // Prefer handing the remote canvas a surface descriptor, and fall back to
@@ -6488,9 +6527,10 @@ void CanvasRenderingContext2D::DrawDirectlyToCanvas(
   // FLAG_CLAMP is added for increased performance, since we never tile here.
   uint32_t modifiedFlags = aImage.mDrawingFlags | imgIContainer::FLAG_CLAMP;
 
-  // XXX hmm is scaledImageSize really in CSS pixels?
-  SVGImageContext svgContext(
-      Some(CSSSize(scaledImageSize.width, scaledImageSize.height)));
+  // Vector images are laid out at their natural size, so that the root
+  // <svg>'s preserveAspectRatio applies there, and are then scaled to
+  // scaledImageSize, possibly non-uniformly.
+  SVGImageContext svgContext(Some(CSSSize(aImgSize.width, aImgSize.height)));
 
   if (mContextProperties != CanvasContextProperties::None &&
       aImage.mImgContainer->GetType() == imgIContainer::TYPE_VECTOR) {
@@ -6823,13 +6863,6 @@ already_AddRefed<ImageData> CanvasRenderingContext2D::GetImageData(
     aSy -= h;
   } else {
     h = aSh;
-  }
-
-  if (w == 0) {
-    w = 1;
-  }
-  if (h == 0) {
-    h = 1;
   }
 
   RecordCanvasUsage(CanvasExtractionAPI::GetImageData, CSSIntSize(w, h));

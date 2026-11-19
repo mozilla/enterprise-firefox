@@ -733,9 +733,6 @@ constexpr PopoverAttributeState ToPopoverAttributeState(
     case PopoverAttributeKeyword::Auto:
       return PopoverAttributeState::Auto;
     case PopoverAttributeKeyword::Hint:
-      if (!StaticPrefs::dom_element_popoverhint_enabled()) {
-        return PopoverAttributeState::Manual;
-      }
       return PopoverAttributeState::Hint;
     case PopoverAttributeKeyword::EmptyString:
       return PopoverAttributeState::Auto;
@@ -766,11 +763,6 @@ void nsGenericHTMLElement::AfterSetPopoverAttr() {
   PopoverAttributeState newState =
       mapPopoverState(GetParsedAttr(nsGkAtoms::popover));
 
-  if (!StaticPrefs::dom_element_popoverhint_enabled() &&
-      newState == PopoverAttributeState::Hint) {
-    newState = PopoverAttributeState::Manual;
-  }
-
   const PopoverAttributeState oldState = GetPopoverAttributeState();
 
   if (newState != oldState) {
@@ -787,6 +779,13 @@ void nsGenericHTMLElement::AfterSetPopoverAttr() {
     }
 
     if (newState == PopoverAttributeState::None) {
+      // The popover may have been open, and HidePopoverInternal called above,
+      // but that can also fire an event where the popover is now still visible,
+      // so we need to check again, and potentially hide it again.
+      if (IsPopoverOpen()) {
+        HidePopoverWithoutRunningScript();
+      }
+
       auto* popoverData = GetPopoverData();
       if (popoverData) {
         // We have to keep track of the toggle event task, if, for example,
@@ -2506,6 +2505,12 @@ void nsGenericHTMLElement::HandleKeyboardActivation(
   MOZ_ASSERT(aVisitor.mEvent->HasKeyEventMessage());
   MOZ_ASSERT(aVisitor.mEvent->IsTrusted());
 
+  if (StaticPrefs::dom_forms_retain_focus_on_disabled_enabled() &&
+      IsDisabled()) {
+    UnsetFlags(HTML_ELEMENT_ACTIVE_FOR_KEYBOARD);
+    return;
+  }
+
   // If focused element is different from this element, it may be editable.
   // In that case, associated editor for the element should handle the keyboard
   // instead.  Therefore, if this is not the focused element, we should not
@@ -3338,7 +3343,8 @@ void nsGenericHTMLElement::GetInnerText(mozilla::dom::DOMString& aValue,
 }
 
 static already_AddRefed<nsINode> TextToNode(const nsAString& aString,
-                                            nsNodeInfoManager* aNim) {
+                                            nsNodeInfoManager* aNim,
+                                            bool* aStringModified) {
   nsString str;
   const char16_t* s = aString.BeginReading();
   const char16_t* end = aString.EndReading();
@@ -3363,6 +3369,7 @@ static already_AddRefed<nsINode> TextToNode(const nsAString& aString,
       if (s == end) {
         break;
       }
+      *aStringModified = true;
       str.Truncate();
       RefPtr<NodeInfo> ni = aNim->GetNodeInfo(
           nsGkAtoms::br, nullptr, kNameSpaceID_XHTML, nsINode::ELEMENT_NODE);
@@ -3385,8 +3392,12 @@ static already_AddRefed<nsINode> TextToNode(const nsAString& aString,
 
 void nsGenericHTMLElement::SetInnerTextInternal(
     const nsAString& aValue, MutationEffectOnScript aMutationEffectOnScript) {
-  RefPtr<nsINode> node = TextToNode(aValue, NodeInfo()->NodeInfoManager());
-  ReplaceChildren(node, IgnoreErrors(), aMutationEffectOnScript);
+  bool stringModified = false;
+  RefPtr<nsINode> node =
+      TextToNode(aValue, NodeInfo()->NodeInfoManager(), &stringModified);
+  ReplaceChildren(node, IgnoreErrors(),
+                  stringModified ? MutationEffectOnScript::DropTrustWorthiness
+                                 : aMutationEffectOnScript);
 }
 
 // https://html.spec.whatwg.org/#merge-with-the-next-text-node
@@ -3414,7 +3425,8 @@ void nsGenericHTMLElement::SetOuterText(const nsAString& aValue,
   RefPtr<nsINode> previous = GetPreviousSibling();
 
   nsNodeInfoManager* nim = NodeInfo()->NodeInfoManager();
-  RefPtr<nsINode> node = TextToNode(aValue, nim);
+  bool stringModified = false;
+  RefPtr<nsINode> node = TextToNode(aValue, nim, &stringModified);
   if (!node) {
     // This doesn't match the spec, see
     // https://github.com/whatwg/html/issues/7508
@@ -3739,9 +3751,7 @@ void nsGenericHTMLElement::ShowPopoverInternal(Element* aSource,
       GetPopoverData()->SetOpenedInMode(PopoverAttributeState::Hint);
     }
     // 19.6. Set element's popover close watcher.
-    if (StaticPrefs::dom_closewatcher_enabled()) {
-      GetPopoverData()->EnsureCloseWatcher(this);
-    }
+    GetPopoverData()->EnsureCloseWatcher(this);
   }
 
   // 20. Set element's previously focused element to null.

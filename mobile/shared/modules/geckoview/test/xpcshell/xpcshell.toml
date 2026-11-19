@@ -9,6 +9,10 @@ prefs = "browser.crashReports.onDemand=true"
 
 ["test_DelayedInit.js"]
 
+["test_FormAutofillCVVPrefs.js"]
+
+["test_GeckoViewAutocomplete_CreditCard.js"]
+
 ["test_GeckoViewTrackingDB.js"]
 
 ["test_RemoteSettingsCrashPull.js"]

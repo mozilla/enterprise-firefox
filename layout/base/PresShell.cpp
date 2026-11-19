@@ -63,6 +63,7 @@
 #include "mozilla/SMILAnimationController.h"
 #include "mozilla/SVGFragmentIdentifier.h"
 #include "mozilla/SVGObserverUtils.h"
+#include "mozilla/SVGUtils.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/ScrollContainerFrame.h"
 #include "mozilla/ScrollTypes.h"
@@ -1705,8 +1706,6 @@ nsresult PresShell::Initialize() {
   // time we do this!
   MOZ_ASSERT(!mFrameConstructor->GetRootFrame(),
              "How did that happen, exactly?");
-  FrameArena::SortFreeLists();
-
   ViewportFrame* rootFrame;
   {
     nsAutoScriptBlocker scriptBlocker;
@@ -3496,12 +3495,20 @@ static void AccumulateFrameBounds(nsIFrame* aContainerFrame, nsIFrame* aFrame,
                                   nsIFrame*& aPrevBlock,
                                   nsILineIterator*& aLines, int32_t& aCurLine) {
   nsIFrame* frame = aFrame;
-  nsRect frameBounds = nsRect(nsPoint(0, 0), aFrame->GetSize());
+  nsRect frameBounds;
+  nsIFrame* outerSVGFrame =
+      SVGUtils::GetOuterSVGFrameAndCoveredRegion(aFrame, &frameBounds);
+  if (outerSVGFrame) {
+    frame = outerSVGFrame;
+  } else {
+    frameBounds = nsRect(nsPoint(0, 0), aFrame->GetSize());
+  }
 
   // If this is an inline frame and either the bounds height is 0 (quirks
   // layout model) or aUseWholeLineHeightForInlines is set, we need to
   // change the top of the bounds to include the whole line.
-  if (frameBounds.height == 0 || aUseWholeLineHeightForInlines) {
+  if (!outerSVGFrame &&
+      (frameBounds.height == 0 || aUseWholeLineHeightForInlines)) {
     nsIFrame* prevFrame = aFrame;
     nsIFrame* f = aFrame;
 
@@ -6647,6 +6654,10 @@ void PresShell::RemoveFrameFromApproximatelyVisibleList(nsIFrame* aFrame) {
   }
 #endif
 
+  if (mApproximatelyVisibleFrames.IsEmpty()) {
+    return;
+  }
+
   if (AssumeAllFramesVisible()) {
     MOZ_ASSERT(mApproximatelyVisibleFrames.Count() == 0,
                "Shouldn't have any frames in the table");
@@ -9546,11 +9557,7 @@ void PresShell::EventHandler::FinalizeHandlingEvent(
           if (aEvent->mMessage == eKeyDown &&
               !aEvent->mFlags.mDefaultPrevented) {
             if (RefPtr<Document> doc = GetDocument()) {
-              if (StaticPrefs::dom_closewatcher_enabled()) {
-                doc->ProcessCloseRequest();
-              } else {
-                doc->HandleEscKey();
-              }
+              doc->ProcessCloseRequest();
             }
           }
         }

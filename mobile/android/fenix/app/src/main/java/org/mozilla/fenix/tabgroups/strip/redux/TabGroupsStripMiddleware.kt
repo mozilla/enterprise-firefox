@@ -17,12 +17,17 @@ import mozilla.components.lib.state.Store
  * A [Middleware] for the [TabGroupsStripStore] that observes the [TabDataCoordinator] to populate the strip's state and
  * reacts to [TabGroupsStripAction]s to drive navigation and other side effects.
  *
- * @param tabDataCoordinator The [TabDataCoordinator] whose tab data drives the strip.
- * @param scope The [CoroutineScope] used to observe the coordinator.
+ * @param tabDataCoordinator The [TabDataCoordinator] whose tab data drives the strip, selects tapped tabs, and opens
+ *   new tabs in the group.
+ * @param isHomepageAsNewTabEnabled Whether the homepage as a new tab (HNT) feature is enabled.
+ * @param expandGroup Opens the expanded view of the group with the given ID.
+ * @param scope The [CoroutineScope] used to observe the coordinator and run its updates.
  * @param dispatcher The [CoroutineDispatcher] the coordinator observation runs on.
  */
 class TabGroupsStripMiddleware(
     private val tabDataCoordinator: TabDataCoordinator,
+    private val isHomepageAsNewTabEnabled: () -> Boolean,
+    private val expandGroup: (groupId: String) -> Unit,
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : Middleware<TabGroupsStripState, TabGroupsStripAction> {
@@ -34,17 +39,19 @@ class TabGroupsStripMiddleware(
         val visibleState = store.state as? TabGroupsStripState.TabGroupStripVisible
 
         // Bug 2071335 - React to AddTabClicked here by opening and selecting a new homepage tab in this group
-        // Bug 2069525 - React to ExpandGroupClicked here by opening the expanded tab group
         next(action)
 
         when (action) {
             is TabGroupsStripAction.InitializeDataObservation -> observeTabData(store)
             is TabGroupsStripAction.TabClicked ->
                 if (action.tabId != visibleState?.focusedTabId) tabDataCoordinator.selectTab(action.tabId)
+            is TabGroupsStripAction.AddTabClicked ->
+                if (visibleState != null && isHomepageAsNewTabEnabled()) {
+                    scope.launch { tabDataCoordinator.addNewTabToTabGroup(visibleState.groupId) }
+                }
+            is TabGroupsStripAction.ExpandGroupClicked -> visibleState?.let { expandGroup(it.groupId) }
             is TabGroupsStripAction.TabGroupChanged,
-            is TabGroupsStripAction.TabGroupCleared,
-            is TabGroupsStripAction.AddTabClicked,
-            is TabGroupsStripAction.ExpandGroupClicked -> Unit
+            is TabGroupsStripAction.TabGroupCleared -> Unit
         }
     }
 

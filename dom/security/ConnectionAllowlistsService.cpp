@@ -8,6 +8,7 @@
 #include "PolicyContainer.h"
 #include "mozilla/RefPtr.h"
 #include "nsCOMPtr.h"
+#include "nsContentSecurityUtils.h"
 #include "nsIChannelEventSink.h"
 #include "nsILoadInfo.h"
 #include "nsNetUtil.h"
@@ -16,16 +17,36 @@ namespace mozilla::dom {
 
 NS_IMPL_ISUPPORTS(ConnectionAllowlistsService, nsIContentPolicy)
 
+static already_AddRefed<ConnectionAllowlists> GetAllowlistsForLoad(
+    nsILoadInfo* aLoadInfo, nsIURI* aURI) {
+  // Trusted schemes are internal and never reach the network, so they can't be
+  // used to exfiltrate data. Blocking them would break browser features
+  // injected into web content, e.g. video controls.
+  if (nsContentSecurityUtils::IsTrustedScheme(aURI)) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsIPolicyContainer> policyContainer =
+      aLoadInfo->GetPolicyContainer();
+  RefPtr<ConnectionAllowlists> allowlists =
+      PolicyContainer::GetConnectionAllowlists(policyContainer);
+  if (!allowlists) {
+    // Top-level navigations have no policy container, so fall back to the
+    // policy container of the document that started the navigation.
+    policyContainer = aLoadInfo->GetPolicyContainerToInherit();
+    allowlists = PolicyContainer::GetConnectionAllowlists(policyContainer);
+  }
+  return allowlists.forget();
+}
+
 NS_IMETHODIMP
 ConnectionAllowlistsService::ShouldLoad(nsIURI* aContentLocation,
                                         nsILoadInfo* aLoadInfo,
                                         int16_t* aDecision) {
   *aDecision = nsIContentPolicy::ACCEPT;
 
-  nsCOMPtr<nsIPolicyContainer> policyContainer =
-      aLoadInfo->GetPolicyContainer();
   RefPtr<ConnectionAllowlists> allowlists =
-      PolicyContainer::GetConnectionAllowlists(policyContainer);
+      GetAllowlistsForLoad(aLoadInfo, aContentLocation);
   if (!allowlists) {
     return NS_OK;
   }
@@ -63,10 +84,8 @@ nsresult ConnectionAllowlistsService::ConsultForRedirect(
     return NS_OK;
   }
 
-  nsCOMPtr<nsIPolicyContainer> policyContainer =
-      aLoadInfo->GetPolicyContainer();
   RefPtr<ConnectionAllowlists> allowlists =
-      PolicyContainer::GetConnectionAllowlists(policyContainer);
+      GetAllowlistsForLoad(aLoadInfo, aNewURI);
   if (!allowlists) {
     return NS_OK;
   }
@@ -74,9 +93,7 @@ nsresult ConnectionAllowlistsService::ConsultForRedirect(
   if (allowlists->ShouldBlockRedirect(aOriginalURI, aLoadInfo)) {
     NS_SetRequestBlockingReason(
         aLoadInfo, nsILoadInfo::BLOCKING_REASON_CONNECTION_ALLOWLIST);
-    // Use the same status as a load blocked by a content policy, so that
-    // e.g. the frame's error event fires for a blocked navigation.
-    aCancelCode = Some(NS_ERROR_CONTENT_BLOCKED);
+    aCancelCode = Some(NS_ERROR_CONNECTION_ALLOWLIST_VIOLATION);
     return NS_BINDING_FAILED;
   }
 

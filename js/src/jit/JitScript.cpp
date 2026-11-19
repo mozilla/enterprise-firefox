@@ -16,6 +16,7 @@
 #include "jit/IonScript.h"
 #include "jit/JitFrames.h"
 #include "jit/JitSpewer.h"
+#include "jit/JitZone.h"
 #include "jit/ScriptFromCalleeToken.h"
 #include "jit/ShapeList.h"
 #include "jit/TrialInlining.h"
@@ -27,6 +28,7 @@
 #include "vm/JitActivation.h"
 #include "vm/JSScript.h"
 
+#include "gc/BufferAllocator-inl.h"
 #include "gc/GCContext-inl.h"
 #include "jit/JitScript-inl.h"
 #include "jit/JSJitFrameIter-inl.h"
@@ -50,10 +52,10 @@ JitScript::JitScript(JSScript* script, Offset fallbackStubsOffset,
   // Ensure the baselineScript_ and ionScript_ fields match the BaselineDisabled
   // and IonDisabled script flags.
   if (!script->canBaselineCompile()) {
-    setBaselineScriptImpl(script, BaselineDisabledScriptPtr);
+    setIsBaselineDisabled();
   }
   if (!script->canIonCompile()) {
-    setIonScriptImpl(script, IonDisabledScriptPtr);
+    setIsIonDisabled();
   }
 }
 
@@ -95,6 +97,14 @@ bool JSScript::createJitScript(JSContext* cx) {
 
     if (!cx->runtime()->geckoProfiler().insertScriptSource(scriptSource())) {
       ReportOutOfMemory(cx);
+      return false;
+    }
+  }
+
+  if (JitOptions.emitInterpreterEntryTrampoline &&
+      IsBaselineInterpreterEnabled()) {
+    if (!cx->zone()->jitZone()->getOrCreateInterpreterEntryTrampoline(cx,
+                                                                      this)) {
       return false;
     }
   }
@@ -180,13 +190,11 @@ void JSScript::releaseJitScriptOnFinalize(JS::GCContext* gcx) {
   MOZ_ASSERT(hasJitScript());
 
   if (hasIonScript()) {
-    IonScript* ion = jitScript()->clearIonScript(gcx, this);
-    jit::IonScript::Destroy(gcx, ion);
+    jitScript()->clearIonScriptOnFinalize(gcx);
   }
 
   if (hasBaselineScript()) {
-    BaselineScript* baseline = jitScript()->clearBaselineScript(gcx, this);
-    jit::BaselineScript::Destroy(gcx, baseline);
+    jitScript()->clearBaselineScriptOnFinalize(gcx);
   }
 
   releaseJitScript(gcx);
@@ -197,15 +205,9 @@ void JitScript::trace(JSTracer* trc) {
 
   icScript_.trace(trc);
 
-  BaselineScript* baselineScript = baselineScript_.getForTracing();
-  if (baselineScript && IsBaselineScript(baselineScript)) {
-    baselineScript->trace(trc);
-  }
+  TraceEdgeAndBuffer(trc, &baselineScript_, "JitScript::baselineScript_");
 
-  IonScript* ionScript = ionScript_.getForTracing();
-  if (ionScript && IsIonScript(ionScript)) {
-    ionScript->trace(trc);
-  }
+  TraceEdgeAndBuffer(trc, &ionScript_, "JitScript::ionScript_");
 
   TraceEdge(trc, &templateEnv_, "jitscript-template-env");
 
@@ -627,7 +629,7 @@ bool JitScript::ensureHasCachedBaselineJitData(JSContext* cx,
 bool JitScript::ensureHasCachedIonData(JSContext* cx, HandleScript script) {
   MOZ_ASSERT(script->jitScript() == this);
 
-  if (usesEnvironmentChain_.isSome()) {
+  if (usesEnvironmentChain_ != UsesEnvironmentChain::Unknown) {
     return true;
   }
 
@@ -635,7 +637,9 @@ bool JitScript::ensureHasCachedIonData(JSContext* cx, HandleScript script) {
     return false;
   }
 
-  usesEnvironmentChain_.emplace(ScriptUsesEnvironmentChain(script));
+  usesEnvironmentChain_ = ScriptUsesEnvironmentChain(script)
+                              ? UsesEnvironmentChain::Yes
+                              : UsesEnvironmentChain::No;
   return true;
 }
 
@@ -662,55 +666,74 @@ JitScript::functionEnvironmentTemplates(JSFunction* fun) const {
 }
 
 void JitScript::setBaselineScriptImpl(JSScript* script,
-                                      BaselineScript* baselineScript) {
-  JSRuntime* rt = script->runtimeFromMainThread();
-  setBaselineScriptImpl(rt->gcContext(), script, baselineScript);
-}
+                                      BaselineScript* baselineScript,
+                                      ScriptState baselineState) {
+  checkBaselineState();
+  MOZ_ASSERT((baselineState == ScriptState::HasScript) == bool(baselineScript));
 
-void JitScript::setBaselineScriptImpl(JS::GCContext* gcx, JSScript* script,
-                                      BaselineScript* baselineScript) {
-  if (hasBaselineScript()) {
-    gcx->removeCellMemory(script, baselineScript_->allocBytes(),
-                          MemoryUse::BaselineScript);
-    baselineScript_.set(script->zone(), nullptr);
-  }
-
-  MOZ_ASSERT(ionScript_ == nullptr || ionScript_ == IonDisabledScriptPtr);
+  MOZ_ASSERT(ionState_ == ScriptState::None ||
+             ionState_ == ScriptState::Disabled);
 
   baselineScript_.set(script->zone(), baselineScript);
-  if (hasBaselineScript()) {
-    AddCellMemory(script, baselineScript_->allocBytes(),
-                  MemoryUse::BaselineScript);
-  }
+  baselineState_ = baselineState;
 
   script->resetWarmUpResetCounter();
-  script->updateJitCodeRaw(gcx->runtime());
+  script->updateJitCodeRaw(script->runtimeFromMainThread());
 }
 
-void JitScript::setIonScriptImpl(JSScript* script, IonScript* ionScript) {
+BaselineScript* JitScript::clearBaselineScript(JS::GCContext* gcx,
+                                               JSScript* script) {
+  MOZ_ASSERT(!gcx->isMarking() && !gcx->isSweeping() && !gcx->isFinalizing());
+
+  BaselineScript* baseline = baselineScript();
+  setBaselineScriptImpl(script, nullptr, ScriptState::None);
+  return baseline;
+}
+
+void JitScript::clearBaselineScriptOnFinalize(JS::GCContext* gcx) {
+  // No barrier is required if we are finalizing.
+  MOZ_ASSERT(gcx->isFinalizing());
+  baselineScript_.unbarrieredSet(nullptr);
+  baselineState_ = ScriptState::None;
+}
+
+void JitScript::setIonScriptImpl(JSScript* script, IonScript* ionScript,
+                                 ScriptState ionState) {
   JSRuntime* rt = script->runtimeFromMainThread();
-  setIonScriptImpl(rt->gcContext(), script, ionScript);
+  setIonScriptImpl(rt->gcContext(), script, ionScript, ionState);
 }
 
 void JitScript::setIonScriptImpl(JS::GCContext* gcx, JSScript* script,
-                                 IonScript* ionScript) {
-  MOZ_ASSERT_IF(ionScript != IonDisabledScriptPtr,
+                                 IonScript* ionScript, ScriptState ionState) {
+  checkIonState();
+  MOZ_ASSERT_IF(ionState != ScriptState::Disabled,
                 !baselineScript()->hasPendingIonCompileTask());
 
-  JS::Zone* zone = script->zone();
+  Zone* zone = script->zone();
   if (hasIonScript()) {
-    gcx->removeCellMemory(script, ionScript_->allocBytes(),
-                          MemoryUse::IonScript);
     ionScript_.set(zone, nullptr);
   }
 
   ionScript_.set(zone, ionScript);
+  ionState_ = ionState;
   MOZ_ASSERT_IF(hasIonScript(), hasBaselineScript());
-  if (hasIonScript()) {
-    AddCellMemory(script, ionScript_->allocBytes(), MemoryUse::IonScript);
-  }
 
   script->updateJitCodeRaw(gcx->runtime());
+}
+
+IonScript* JitScript::clearIonScript(JS::GCContext* gcx, JSScript* script) {
+  MOZ_ASSERT(!gcx->isMarking() && !gcx->isSweeping() && !gcx->isFinalizing());
+
+  IonScript* ion = ionScript();
+  setIonScriptImpl(gcx, script, nullptr, ScriptState::None);
+  return ion;
+}
+
+void JitScript::clearIonScriptOnFinalize(JS::GCContext* gcx) {
+  // No barrier is required if we are finalizing.
+  MOZ_ASSERT(gcx->isFinalizing());
+  ionScript_.unbarrieredSet(nullptr);
+  ionState_ = ScriptState::None;
 }
 
 #ifdef JS_STRUCTURED_SPEW
@@ -891,13 +914,19 @@ gc::AllocSite* ICScript::getOrCreateAllocSite(JSScript* outerScript,
   MOZ_ASSERT_IF(pcOffset != gc::AllocSite::EnvSitePCOffset,
                 pcOffset < bytecodeSize());
 
-  for (gc::AllocSite* site : allocSites_) {
-    if (site->pcOffset() == pcOffset) {
-      MOZ_ASSERT(site->isNormal());
-      MOZ_ASSERT(site->script() == outerScript);
-      MOZ_ASSERT(site->traceKind() == JS::TraceKind::Object);
-      return site;
-    }
+  size_t index;
+  if (mozilla::BinarySearchIf(
+          allocSites_, 0, allocSites_.length(),
+          [pcOffset](gc::AllocSite* site) {
+            uint32_t offset = site->pcOffset();
+            return pcOffset == offset ? 0 : (pcOffset < offset ? -1 : 1);
+          },
+          &index)) {
+    gc::AllocSite* site = allocSites_[index];
+    MOZ_ASSERT(site->isNormal());
+    MOZ_ASSERT(site->script() == outerScript);
+    MOZ_ASSERT(site->traceKind() == JS::TraceKind::Object);
+    return site;
   }
 
   Zone* zone = outerScript->zone();
@@ -918,7 +947,20 @@ gc::AllocSite* ICScript::getOrCreateAllocSite(JSScript* outerScript,
     return nullptr;
   }
 
-  allocSites_.infallibleAppend(site);
+  MOZ_ALWAYS_TRUE(allocSites_.insert(allocSites_.begin() + index, site));
+
+#ifdef DEBUG
+  static constexpr size_t MaxSitesToCheck = 16;
+  size_t begin = 0;
+  size_t end = allocSites_.length();
+  if (end > MaxSitesToCheck) {
+    begin = index > 0 ? index - 1 : 0;
+    end = std::min(index + 2, end);
+  }
+  for (size_t i = begin + 1; i < end; i++) {
+    MOZ_ASSERT(allocSites_[i - 1]->pcOffset() < allocSites_[i]->pcOffset());
+  }
+#endif
 
   nursery.noteAllocSiteCreated();
 

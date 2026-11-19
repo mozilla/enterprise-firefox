@@ -770,6 +770,7 @@ static Result<CombinedBufferLayout, MediaResult> ComputeLayoutAndAllocationSize(
     MOZ_RELEASE_ASSERT(sourceTop.isValid());
 
     CheckedUint32 sourceHeight(aRect.Height());
+    sourceHeight += sampleSize.Height() - 1;
     sourceHeight /= sampleSize.Height();
     MOZ_RELEASE_ASSERT(sourceHeight.isValid());
 
@@ -786,6 +787,7 @@ static Result<CombinedBufferLayout, MediaResult> ComputeLayoutAndAllocationSize(
     }
 
     CheckedUint32 sourceWidthBytes(aRect.Width());
+    sourceWidthBytes += sampleSize.Width() - 1;
     sourceWidthBytes /= sampleSize.Width();
     MOZ_RELEASE_ASSERT(sourceWidthBytes.isValid());
     sourceWidthBytes *= aFormat.SampleBytes(p);
@@ -850,24 +852,6 @@ static Result<CombinedBufferLayout, MediaResult> ComputeLayoutAndAllocationSize(
   return CombinedBufferLayout(minAllocationSize, std::move(layouts));
 }
 
-// https://w3c.github.io/webcodecs/#videoframe-verify-rect-size-alignment
-static MediaResult VerifyRectSizeAlignment(const VideoFrame::Format& aFormat,
-                                           const gfx::IntRect& aRect) {
-  for (const VideoFrame::Format::Plane& p : aFormat.Planes()) {
-    const gfx::IntSize sample = aFormat.SampleSize(p);
-    if (aRect.Width() % sample.Width() != 0) {
-      return MediaResult(NS_ERROR_INVALID_ARG,
-                         "Mismatch between format and given rect's width"_ns);
-    }
-
-    if (aRect.Height() % sample.Height() != 0) {
-      return MediaResult(NS_ERROR_INVALID_ARG,
-                         "Mismatch between format and given rect's height"_ns);
-    }
-  }
-  return MediaResult(NS_OK);
-}
-
 // https://w3c.github.io/webcodecs/#videoframe-parse-videoframecopytooptions
 static Result<CombinedBufferLayout, MediaResult> ParseVideoFrameCopyToOptions(
     const VideoFrameCopyToOptions& aOptions, const gfx::IntRect& aVisibleRect,
@@ -882,11 +866,6 @@ static Result<CombinedBufferLayout, MediaResult> ParseVideoFrameCopyToOptions(
           error.Insert("rect's ", 0);
           return MediaResult(NS_ERROR_INVALID_ARG, error);
         })));
-
-    MediaResult r = VerifyRectSizeAlignment(aFormat, overrideRect.ref());
-    if (NS_FAILED(r.Code())) {
-      return Err(r);
-    }
   }
 
   gfx::IntRect parsedRect = MOZ_TRY(
@@ -1058,8 +1037,8 @@ static Result<RefPtr<VideoFrame>, MediaResult> CreateVideoFrameFromBuffer(
 
   const Sequence<PlaneLayout>* optLayout = OptionalToPointer(aInit.mLayout);
 
-  CombinedBufferLayout combinedLayout =
-      MOZ_TRY(ComputeLayoutAndAllocationSize(parsedRect, format, optLayout));
+  CombinedBufferLayout combinedLayout = MOZ_TRY(ComputeLayoutAndAllocationSize(
+      gfx::IntRect({0, 0}, codedSize), format, optLayout));
 
   Maybe<uint64_t> duration = OptionalToMaybe(aInit.mDuration);
 
@@ -1071,15 +1050,6 @@ static Result<RefPtr<VideoFrame>, MediaResult> CreateVideoFrameFromBuffer(
           -> Result<RefPtr<layers::Image>, MediaResult> {
         if (aData.Length() <
             static_cast<size_t>(combinedLayout.mAllocationSize)) {
-          return Err(MediaResult(NS_ERROR_INVALID_ARG, "data is too small"_ns));
-        }
-
-        // TODO: If codedSize is (3, 3) and visibleRect is (0, 0, 1, 1) but
-        // the data is 2 x 2 RGBA buffer (2 x 2 x 4 bytes), it pass the
-        // above check. In this case, we can crop it to a 1 x 1-codedSize
-        // image (Bug 1782128).
-        size_t byteCount = MOZ_TRY(format.ByteCount(codedSize));
-        if (aData.Length() < byteCount) {
           return Err(MediaResult(NS_ERROR_INVALID_ARG, "data is too small"_ns));
         }
 
@@ -1160,17 +1130,12 @@ InitializeFrameWithResourceAndSize(nsIGlobalObject* aGlobal,
   MOZ_ASSERT(image);
 
   const Maybe<VideoPixelFormat> pixelFormat = GuessVideoPixelFormat(image);
-  Maybe<VideoFrame::Format> format = ToInternalFormat(pixelFormat);
-  if (format && aInit.mAlpha == AlphaOption::Discard) {
-    format->MakeOpaque();
-    // Keep the alpha data in image for now until it's being rendered.
-    // TODO: The alpha will still be rendered if the format is unrecognized
-    // since no additional flag keeping this request. Should spec address what
-    // to do in this case?
-  }
-  VideoFrame::Resource resource = MOZ_TRY(
-      VideoFrame::ValidateImage(image, format)
+  const VideoFrame::Resource validated = MOZ_TRY(
+      VideoFrame::ValidateImage(image, ToInternalFormat(pixelFormat))
           .mapErr([](const MediaResult& aError) { return aError.Message(); }));
+  const VideoFrame::Resource resource = aInit.mAlpha == AlphaOption::Discard
+                                            ? validated.CreateOpaque()
+                                            : validated;
 
   std::pair<Maybe<gfx::IntRect>, Maybe<gfx::IntSize>> init = MOZ_TRY(
       ValidateVideoFrameInit(aInit, resource.mFormat, resource.mCodedSize));
@@ -1201,10 +1166,6 @@ InitializeFrameFromOtherFrame(nsIGlobalObject* aGlobal,
                               const VideoFrameInit& aInit) {
   MOZ_ASSERT(aGlobal);
 
-  // Keep the alpha data in image for now until it's being rendered.
-  // TODO: The alpha will still be rendered if the format is unrecognized
-  // since no additional flag keeping this request. Should spec address what
-  // to do in this case?
   const VideoFrame::Resource resource = aInit.mAlpha == AlphaOption::Discard
                                             ? aData.mResource.CreateOpaque()
                                             : aData.mResource;
@@ -1730,8 +1691,14 @@ already_AddRefed<VideoFrame> VideoFrame::Constructor(
     return nullptr;
   }
 
-  RefPtr<layers::SourceSurfaceImage> image =
-      new layers::SourceSurfaceImage(surface.get());
+  auto imageResult = CreateImageFromSourceSurface(surface);
+  if (imageResult.isErr()) {
+    auto err = imageResult.unwrapErr();
+    aRv.ThrowTypeError(err.Message());
+    return nullptr;
+  }
+
+  RefPtr<layers::Image> image = imageResult.unwrap();
   auto r = InitializeFrameWithResourceAndSize(global, aInit, image.forget());
   if (r.isErr()) {
     aRv.ThrowTypeError(r.unwrapErr());
@@ -1751,18 +1718,27 @@ already_AddRefed<VideoFrame> VideoFrame::Constructor(
   }
 
   // Check the usability.
-  UniquePtr<ImageBitmapCloneData> data = aImageBitmap.ToCloneData();
-  if (!data || !data->mSurface) {
-    aRv.ThrowInvalidStateError(
-        "The ImageBitmap is closed or its surface acquisition failed");
+  if (aImageBitmap.IsClosed()) {
+    aRv.ThrowInvalidStateError("The ImageBitmap is closed");
     return nullptr;
   }
 
+  SurfaceFromElementResult res = nsLayoutUtils::SurfaceFromImageBitmap(
+      &aImageBitmap, nsLayoutUtils::SFE_ALLOW_NON_PREMULT);
+  RefPtr<gfx::SourceSurface> surface = res.GetSourceSurface();
+  RefPtr<gfx::DataSourceSurface> dataSurface =
+      surface ? surface->GetDataSurface() : nullptr;
+
   // If the origin of the ImageBitmap's image data is not same origin with the
   // entry settings object's origin, then throw a SecurityError DOMException.
-  if (data->mWriteOnly) {
+  if (res.mIsWriteOnly) {
     // Being write-only implies its image is cross-origin w/out CORS headers.
     aRv.ThrowSecurityError("The ImageBitmap is not same-origin");
+    return nullptr;
+  }
+
+  if (NS_WARN_IF(!dataSurface)) {
+    aRv.ThrowInvalidStateError("The ImageBitmap's surface acquisition failed");
     return nullptr;
   }
 
@@ -1772,7 +1748,7 @@ already_AddRefed<VideoFrame> VideoFrame::Constructor(
   }
 
   RefPtr<layers::SourceSurfaceImage> image =
-      new layers::SourceSurfaceImage(data->mSurface.get());
+      new layers::SourceSurfaceImage(dataSurface.get());
   // TODO: Take care of data->mAlphaType
   auto r = InitializeFrameWithResourceAndSize(global, aInit, image.forget());
   if (r.isErr()) {
@@ -2779,6 +2755,10 @@ VideoFrame::Resource::Resource(const RefPtr<layers::Image>& aImage,
 }
 
 VideoFrame::Resource VideoFrame::Resource::CreateOpaque() const {
+  // Keep the alpha data in image for now until it's being rendered.
+  // TODO: The alpha will still be rendered if the format is unrecognized
+  // since no additional flag keeping this request. Should spec address what
+  // to do in this case?
   Maybe<Format> format = mFormat;
   if (format) {
     format->MakeOpaque();

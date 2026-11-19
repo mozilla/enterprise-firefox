@@ -68,15 +68,20 @@ struct BreakpadProcessId {
   task_t task;
 #elif defined(XP_WIN)
   HANDLE handle;
+#elif defined(XP_LINUX)
+  int remote_executor_fd;
 #endif
 };
 
-using RustDumpCallback = void (*)(const void*, BreakpadProcessId,
-                                  const ExtraCrashData*, const breakpad_char*);
+struct OpaqueCrashGenerator;
+
+using RustDumpCallback = void (*)(const OpaqueCrashGenerator*,
+                                  BreakpadProcessId, const ExtraCrashData*,
+                                  const breakpad_char*);
 
 struct BreakpadContext {
   RustDumpCallback callback;
-  const void* generator;
+  const OpaqueCrashGenerator* generator;
 };
 
 #if defined(XP_LINUX)
@@ -93,6 +98,8 @@ void onClientDumpRequestCallback(void* context, const ClientInfo& client_info,
       .task = client_info.task(),
 #elif defined(XP_WIN)
       .handle = client_info.process_handle(),
+#elif defined(XP_LINUX)
+      .remote_executor_fd = client_info.remote_executor_fd(),
 #endif
   };
 #if defined(XP_LINUX)

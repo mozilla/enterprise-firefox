@@ -186,7 +186,7 @@ bool nsFocusManager::sTestMode = false;
 uint64_t nsFocusManager::sFocusActionCounter = 0;
 
 static const char* kObservedPrefs[] = {"accessibility.browsewithcaret",
-                                       "focusmanager.testmode", nullptr};
+                                       "focusmanager.testmode"};
 
 nsFocusManager::nsFocusManager()
     : mActionIdForActiveBrowsingContextInContent(0),
@@ -5964,8 +5964,7 @@ Element* nsFocusManager::GetTheFocusableArea(Element* aTarget,
     return IsAreaElementFocusable(*area) ? area : nullptr;
   }
 
-  nsIFrame* frame = aTarget->GetPrimaryFrame();
-  if (!frame) {
+  if (!aTarget->IsRendered()) {
     return nullptr;
   }
 
@@ -5984,7 +5983,8 @@ Element* nsFocusManager::GetTheFocusableArea(Element* aTarget,
   //   navigable
   // nsIFrame::IsFocusable will effectively perform the checks for them.
   IsFocusableFlags flags = FocusManagerFlagsToIsFocusableFlags(aFlags);
-  if (frame->IsFocusable(flags)) {
+  nsIFrame* frame = aTarget->GetPrimaryFrame();
+  if (frame && frame->IsFocusable(flags)) {
     return aTarget;
   }
 

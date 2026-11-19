@@ -4,7 +4,70 @@ title: Changelog
 permalink: /changelog/
 ---
 
-# 161.0 (In Development)
+# 162.0 (In Development)
+* **concept-engine**
+  * Added an optional `title` to `HitResult.IMAGE_SRC`.
+  * 🆕 Added `EngineSession.requestPictureInPicture` and `EngineSession.exitPictureInPicture` to ask the engine for a picture-in-picture window for the video a session is playing, and to tell it the window has been closed so it can release the state it holds. [Bug 2075323](https://bugzilla.mozilla.org/show_bug.cgi?id=2075323)
+  * 🆕 Added `Settings.creditCardSecurityCodeEnabled` to control whether credit card security codes (CVV) are captured from web forms. [Bug 2089899](https://bugzilla.mozilla.org/show_bug.cgi?id=2089899)
+* **support-utils**
+  * 🆕 Added `String.validateCreditCardNumber()`, which checks that a credit card number has only digits, matches a known card network and passes the Luhn check. It moved here from Fenix. [Bug 2090313](https://bugzilla.mozilla.org/show_bug.cgi?id=2090313)
+  * 🆕 Added `CertificateDetails`, with `X509Certificate.toCertificateDetails()`, `CertificateDetails.toIssuedTo()` and `CertificateDetails.issuerDisplayName()`, for showing who a website's certificate was issued to and who verified it, and the `eu_trust_mark` and `eu_trust_mark_inverted` drawables for showing the EU trust mark of a Qualified Website Authentication Certificate (QWAC). They moved here from Fenix so Focus can use them too. [Bug 2082529](https://bugzilla.mozilla.org/show_bug.cgi?id=2082529)
+  * 🆕 Added `SwitchTabIntent`, holding the action and extra of the intent asking the app to bring the browser back on a tab. [Bug 2090245](https://bugzilla.mozilla.org/show_bug.cgi?id=2090245)
+* **support-locale**
+  * Added a new API `LocaleManager#onAttachBaseContext` that applies only the configuration changes for the locale without cached values. Should only be used in `attachBaseContext` overrides for `Application` and `Activity` classes.
+    *  The API, similar to the others in `LocaleManager` assumes `enableSplit` is disabled for App Bundle splits; languages will be in the base package.
+  * ⚠️ **Breaking change**: Renamed `LocaleManager#updateResources` to `LocaleManager#onConfigurationChanged` to make it's API use case clear. Should only be used in `onConfigurationChanged` overrides typically in `Application`, `Activity`, `Fragment` classes.
+* **support-test**
+  * 🆕 Added `assertNoUncaughtException`.
+* **feature-importer**
+    * ⚠️ **Breaking change**: `BookmarkImporter` is replaced by `ImporterScreen`, which takes a `FileImporter` and the dialog title, so it can import both bookmarks and passwords. The file picker uses the new `FileImporter.mimeType`. `ImporterMiddleware` takes a `FileImporter`. `ImporterAction.FileSelected` takes a nullable `Uri`, where `null` means the user canceled picking a file, and replaces `ImporterAction.FileSelectionCanceled`. `ImporterEvent` is now `Parcelable`, and `ImporterEvent.Failure` and `ImporterAction.ImportFailed` carry a `FileImporterError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **lib-bookmarks-file**
+    * ⚠️ **Breaking change**: `htmlImporter` is now an extension of `FileImporter.Companion`. It takes a `FileParser<BookmarksParseResult>`, returns a `FileImporter<BookmarksImportResult>` and reports failures as a `FileImporterException`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **lib-passwords-file**
+    * ⚠️ **Breaking change**: `csvImporter` is now an extension of `FileImporter.Companion`. It takes a `FileParser<PasswordsParseResult>` and returns a `FileImporter<PasswordsImportResult>`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **lib-bookmark-parser-jsoup**
+    * ⚠️ **Breaking change**: `jsoupParser` is now an extension of `FileParser.Companion` and returns a `FileParser<BookmarksParseResult>`. Parse failures are reported as a `FileParserException` carrying a `BookmarksParseError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **lib-password-parser-csv**
+    * ⚠️ **Breaking change**: `CsvPasswordsFileParser` implements `FileParser<PasswordsParseResult>`. Parse failures are reported as a `FileParserException` carrying a `PasswordsParseError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **concept-bookmarks-file**, **concept-passwords-file** and **feature-password-importer**
+    * ⚠️ **Breaking change**: Removed. Use `FileImporter` from `concept-file-importer` and `feature-importer` instead. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **concept-bookmarks-parser**
+    * ⚠️ **Breaking change**: Removed. Use `FileParser<BookmarksParseResult>` from `concept-file-parser`, with `BookmarksParseResult` and `BookmarksParseError` from `lib-bookmark-parser-jsoup`, instead of `BookmarksFileParser` and `BookmarksParserError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **concept-passwords-parser**
+    * ⚠️ **Breaking change**: Removed. Use `FileParser<PasswordsParseResult>` from `concept-file-parser`, with `PasswordsParseResult` and `PasswordsParseError` from `lib-password-parser-csv`, instead of `PasswordsFileParser` and `PasswordsParserError`. [Bug 2041577](https://bugzilla.mozilla.org/show_bug.cgi?id=2041577)
+* **compose-draggable**
+    * Added `fixedItems` to `createListInteractionState` for list items which cannot be dragged but can have other items moved next to or dropped onto them. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * A list item moved by live reordering now animates into its new position when dropped. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * ⚠️ **Breaking change**: `InteractionState.List` finds the item in a `LazyListState` with `getLazyListItemInfo`, instead of `getLazyGridItemInfo` which now only exists on `InteractionState.Grid`. Removed `InteractionState.List.copyWithNewIndex`, as lists look up the dragged item by its key, so `InteractionState.List.Active.index` stays the index the item had when the drag started. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * A dragged list item no longer jumps back to where it was when live reordering moves it. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * ⚠️ **Breaking change**: Added `ListInteractionState.onDraggedItemPositioned` and `ListInteractionState.updateListLayoutCoordinates`, which custom `ListInteractionState` implementations must implement, to keep a dragged list item under the finger also when the list lays it out out of view. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * `InteractableDragItemContainer` for lists and for grids keeps the dragged item composed while it is scrolled out of view, callers no longer need to. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * ⚠️ **Breaking change**: Replaced `ListInteractionState.previousItemAnimatableOffset` with `ListInteractionState.computeDroppedItemOffset`, which custom `ListInteractionState` implementations must implement, to keep a dropped list item where it was let go of when the list moves it only after that, as without live reordering, instead of drawing it for a frame away from there. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * Added `scrollZoneHeight` to `createListInteractionState`, for the height of the areas at the start and at the end of a list in which a dragged item scrolls it once it went past the edge of the list there, instead of a third of the first visible item. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * The areas at the start and at the end of a list in which a dragged item scrolls it by default are no longer sized from the dragged item when this is the first visible item. [Bug 2086552](https://bugzilla.mozilla.org/show_bug.cgi?id=2086552)
+    * Added `ItemInteractionHandler.onDragEnd`, called instead of `onDragCancel` when the user lets go of a dragged item without dropping it onto another item. By default it calls `onDragCancel`. [Bug 2086550](https://bugzilla.mozilla.org/show_bug.cgi?id=2086550)
+    * Added `interceptInteractionMode` to `createListInteractionState`, to retarget or reject the interaction the list finds for a dragged item. The interaction it returns is optionally shown via a Rect parameter and acted upon when the user lets go. [Bug 2090877](https://bugzilla.mozilla.org/show_bug.cgi?id=2090877)
+* **feature-pictureinpicture**
+    * 🆕 New component showing the video a tab is playing in a picture-in-picture window. [Bug 2075323](https://bugzilla.mozilla.org/show_bug.cgi?id=2075323)
+* **browser-state**
+    * 🆕 Added `PictureInPictureAction` and `BrowserState.pictureInPictureWindow`, which track the picture-in-picture window and the session it shows. [Bug 2075323](https://bugzilla.mozilla.org/show_bug.cgi?id=2075323)
+* **feature-media**
+    * ⚠️ **Breaking change**: Removed `AbstractMediaSessionService.ACTION_SWITCH_TAB` and `AbstractMediaSessionService.EXTRA_TAB_ID`. Use `SwitchTabIntent` from `support-utils` instead. [Bug 2090245](https://bugzilla.mozilla.org/show_bug.cgi?id=2090245)
+* **concept-storage**
+  * ⚠️ **Breaking change**: `cardCvv` no longer has a default value in `CreditCard`, `NewCreditCardFields` and `UpdatableCreditCardFields`. Added a required `cardCvv` to `CreditCardEntry`. [Bug 2089899](https://bugzilla.mozilla.org/show_bug.cgi?id=2089899)
+* **browser-engine-gecko**
+  * The credit card security code now passes between GeckoView and `CreditCardEntry`, and the stored security code goes to GeckoView when it fetches credit cards. [Bug 2089899](https://bugzilla.mozilla.org/show_bug.cgi?id=2089899)
+* **service-sync-autofill**
+  * `GeckoCreditCardsAddressesStorageDelegate` saves the security code from `CreditCardEntry`. [Bug 2089899](https://bugzilla.mozilla.org/show_bug.cgi?id=2089899)
+* **feature-prompts**
+  * 🆕 Added `CreditCardDelegate.isSecurityCodeSaveEnabled`, `CreditCardDelegate.saveSecurityCode` and `CreditCardDelegate.onSaveSecurityCodeChanged`. When `isSecurityCodeSaveEnabled` is true, the save credit card prompt shows the security code, a "Save security codes" toggle, and an edit button that opens an edit card sheet. [Bug 2089899](https://bugzilla.mozilla.org/show_bug.cgi?id=2089899)
+  * **Behavior change**: When `isSecurityCodeSaveEnabled` is false, the save credit card prompt no longer confirms the security code. [Bug 2089899](https://bugzilla.mozilla.org/show_bug.cgi?id=2089899)
+* **feature-media**
+    * ⚠️ **Breaking change**: `RecordingDevicesMiddleware` now requires an explicit `CoroutineScope` to be provided by callers. The constructor no longer supplies a default scope value, improving lifecycle ownership and scope management. [Bug 2086075](https://la.org/show_bug.cgi?id=2086075)
+* **service-firefox-accounts** and **concept-sync**
+    * 🆕 Added an optional parameter determining whether or not to ignore cache when calling `DeviceConstellation.refreshDevices`. [Bug 2088410](https://bugzilla.mozilla.org/show_bug.cgi?id=2088410)
+
+# 161.0
 * **browser-state**
     * Added `TabSessionState.listenToPageActive` and `ListenToPageAction` (`ListenToPageActivated`, `ListenToPageDeactivated`) to track which tab is being read out loud by Listen to Page. [Bug 2072957](https://bugzilla.mozilla.org/show_bug.cgi?id=2072957)
 * **feature-media**
@@ -19,17 +82,6 @@ permalink: /changelog/
     * Added `String.toSnakeCase`, which returns a camelCase or PascalCase string in snake_case. [Bug 2084683](https://bugzilla.mozilla.org/show_bug.cgi?id=2084683)
 * **feature-app-links**
     * ⚠️ **Breaking change**: `launchInApp` on `AppLinksInterceptor`, `AppLinksUseCases` and `AppLinksFeature`, and `shouldPrompt` on `AppLinksFeature` now receive the url being opened so the decision can vary by host. [Bug 2083207](https://bugzilla.mozilla.org/show_bug.cgi?id=2083207)
-* **feature-session**
-    * `SwipeRefreshFeature` now disables pull-to-refresh while the observed tab is in fullscreen or showing a PDF. [Bug 2054920](https://bugzilla.mozilla.org/show_bug.cgi?id=2054920)
-* **support-utils**
-    * 🆕 Added `BuildMetadata`, which reads the R8/ProGuard mapping UUID and SHA-256 from the `build-metadata.properties` asset written by the `WriteBuildMetadata` Gradle task.
-* **feature-top-sites**
-    * **Breaking change**: Renamed `totalSites` to `targetSitesCount` in `TopSitesConfig` and `TopSitesStorage.getTopSites`, since it is the number of top sites to fill up to rather than a limit. [Bug 2075033](https://bugzilla.mozilla.org/show_bug.cgi?id=2075033)
-    * **Behavior change**: `DefaultTopSitesStorage.getTopSites` now returns all the pinned sites, even beyond `targetSitesCount`. The provided, frecent and default top sites still only fill the slots left within `targetSitesCount`, so the returned list can be longer than `targetSitesCount`. [Bug 2075033](https://bugzilla.mozilla.org/show_bug.cgi?id=2075033)
-* **concept-storage**
-    * Added `cardCvv`, the credit card security code, to `CreditCard`, `NewCreditCardFields` and `UpdatableCreditCardFields`. When `UpdatableCreditCardFields.cardCvv` is null, `CreditCardsAddressesStorage.updateCreditCard` keeps the stored security code, and an empty string removes it. [Bug 2085145](https://bugzilla.mozilla.org/show_bug.cgi?id=2085145)
-* **service-sync-autofill**
-    * `AutofillCreditCardsAddressesStorage` stores and returns the credit card security code. `updateCreditCard` no longer removes a stored security code that the caller did not set. [Bug 2085145](https://bugzilla.mozilla.org/show_bug.cgi?id=2085145)
 
 # 160.0
 * **concept-engine**
@@ -55,17 +107,6 @@ permalink: /changelog/
     * Download filenames from `onExternalResponse` are now validated by Gecko with the same rules as desktop, so `GeckoEngineSession` no longer applies the `String.sanitizeFileName` helper from **support-ktx** to them. [Bug 1822968](https://bugzilla.mozilla.org/show_bug.cgi?id=1822968)
 * **compose-base**
     * 🆕 Added `Slider`, an Acorn implementation of the M3 Slider component for Jetpack Compose. [Bug 2067129](https://bugzilla.mozilla.org/show_bug.cgi?id=2067129)
-* **browser-state**
-    * 🆕 Added `BrowserState.pendingExtensionUpdates`, extension updates waiting for the user to grant new permissions, with actions to update, remove and request the review of them, and the `pendingExtensionUpdatesNeedingAttention` selector. [Bug 2067732](https://bugzilla.mozilla.org/show_bug.cgi?id=2067732)
-* **feature-addons**
-    * ⚠️ **Breaking change**: Extension updates that require new permissions are now reviewed in the app instead of in a system notification. `DefaultAddonUpdater` adds such an update to `BrowserState.pendingExtensionUpdates`, and the app removes it once it answers with `PendingExtensionUpdate.complete`. `AddonsManagerAdapter` shows a banner for it, and `PermissionsDialogFragment` can show its new permissions. [Bug 2067732](https://bugzilla.mozilla.org/show_bug.cgi?id=2067732)
-        * `DefaultAddonUpdater` takes a `BrowserStore` instead of a `NotificationsDelegate`.
-        * `PermissionsDialogFragment.newInstance` takes `mode: PermissionsDialogMode` instead of `forOptionalPermissions`, and an optional `promptInstanceId`.
-        * `AddonsManagerAdapter.bindMessageBars` and `CustomViewHolder.AddonViewHolder` take a new `messageBarUpdateView: ComposeView`, and `bindMessageBars` takes optional `pendingUpdateMessage`, `onReviewUpdateClicked` and `onCancelUpdateClicked`.
-        * Added `AddonsManagerAdapterDelegate.onReviewExtensionUpdateClicked` and `onCancelExtensionUpdateClicked`. Implement them, or the banner's buttons do nothing.
-        * Added the `PendingExtensionUpdateBanner` composable. feature-addons now uses Jetpack Compose and depends on `compose-base`.
-        * Removed `DefaultAddonUpdater.NotificationHandlerService`.
-        * Removed `Addon.permissionToTranslationForUpdate` and the `forUpdate` parameter of `Addon.localizePermissions`.
 
 # 159.0
 * **feature-readerview**

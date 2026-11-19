@@ -13,6 +13,7 @@
 #include "jit/BaselineJIT.h"
 #include "jit/Invalidation.h"
 #include "js/Prefs.h"
+#include "vm/Realm.h"
 
 #include "gc/Marking-inl.h"
 #include "gc/PrivateIterators-inl.h"
@@ -26,8 +27,8 @@ using namespace js::gc;
 // prevents unbounded time traversing the list during minor GC.
 static constexpr size_t MaxAllocSitesPerMinorGC = 600;
 
-// The maximum number of times to invalidate JIT code for a site. After this we
-// leave the site's state as Unknown and don't pretenure allocations.
+// The maximum number of times to reset a site or invalidate its JIT code. After
+// this we leave the site's state as Unknown and don't pretenure allocations.
 // Note we use 4 bits to store the invalidation count.
 static constexpr size_t MaxInvalidationCount = 5;
 
@@ -298,10 +299,13 @@ bool AllocSite::invalidationLimitReached() const {
 
 void PretenuringNursery::maybeStopPretenuring(GCRuntime* gc) {
   for (GCZonesIter zone(gc); !zone.done(); zone.next()) {
-    double rate;
-    if (zone->pretenuring.calculateYoungTenuredSurvivalRate(&rate)) {
-      bool lowYoungSurvivalRate = rate < LowYoungSurvivalThreshold;
-      zone->pretenuring.noteLowYoungTenuredSurvivalRate(lowYoungSurvivalRate);
+    for (size_t kind = 0; kind < NurseryTraceKinds; kind++) {
+      double rate;
+      if (zone->pretenuring.calculateYoungTenuredSurvivalRate(kind, &rate)) {
+        bool lowYoungSurvivalRate = rate < LowYoungSurvivalThreshold;
+        zone->pretenuring.noteLowYoungTenuredSurvivalRate(kind,
+                                                          lowYoungSurvivalRate);
+      }
     }
   }
 }
@@ -387,24 +391,27 @@ bool AllocSite::traceWeak(JSTracer* trc) {
   return true;
 }
 
-bool PretenuringZone::calculateYoungTenuredSurvivalRate(double* rateOut) {
-  MOZ_ASSERT(allocCountInNewlyCreatedArenas >=
-             survivorCountInNewlyCreatedArenas);
-  if (allocCountInNewlyCreatedArenas < MinCellsRequiredForSurvivalRate) {
+bool PretenuringZone::calculateYoungTenuredSurvivalRate(size_t kind,
+                                                        double* rateOut) const {
+  MOZ_ASSERT(kind < NurseryTraceKinds);
+  const auto& counts = cellCountsInNewlyCreatedArenas[kind];
+
+  MOZ_ASSERT(counts.allocCount >= counts.survivorCount);
+  if (counts.allocCount < MinCellsRequiredForSurvivalRate) {
     return false;
   }
 
-  *rateOut = double(survivorCountInNewlyCreatedArenas) /
-             double(allocCountInNewlyCreatedArenas);
+  *rateOut = double(counts.survivorCount) / double(counts.allocCount);
   return true;
 }
 
 void PretenuringZone::noteLowYoungTenuredSurvivalRate(
-    bool lowYoungSurvivalRate) {
+    size_t kind, bool lowYoungSurvivalRate) {
+  MOZ_ASSERT(kind < NurseryTraceKinds);
   if (lowYoungSurvivalRate) {
-    lowYoungTenuredSurvivalCount++;
+    lowYoungTenuredSurvivalCount[kind]++;
   } else {
-    lowYoungTenuredSurvivalCount = 0;
+    lowYoungTenuredSurvivalCount[kind] = 0;
   }
 }
 
@@ -426,12 +433,16 @@ bool PretenuringZone::shouldResetNurseryAllocSites() {
   return shouldReset;
 }
 
-bool PretenuringZone::shouldResetPretenuredAllocSites() {
-  bool shouldReset =
-      lowYoungTenuredSurvivalCount >= LowYoungSurvivalCountBeforeRecovery;
+bool PretenuringZone::shouldResetPretenuredAllocSites(JS::TraceKind kind) {
+  size_t index = size_t(kind);
+  MOZ_ASSERT(index < NurseryTraceKinds);
+
+  bool shouldReset = lowYoungTenuredSurvivalCount[index] >=
+                     LowYoungSurvivalCountBeforeRecovery;
   if (shouldReset) {
-    lowYoungTenuredSurvivalCount = 0;
+    lowYoungTenuredSurvivalCount[index] = 0;
   }
+
   return shouldReset;
 }
 

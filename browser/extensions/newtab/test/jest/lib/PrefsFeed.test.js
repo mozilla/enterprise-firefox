@@ -59,7 +59,7 @@ describe("PrefsFeed", () => {
       ["baz", { value: 1, skipBroadcast: true }],
       ["qux", { value: 1, skipBroadcast: true, alsoToPreloaded: true }],
     ]);
-    services = mockServices(["prefs", "obs"]);
+    services = mockServices(["prefs", "obs", "vc"]);
     nimbusFeatures = mockNimbusFeatures();
     region = { home: "US", REGION_TOPIC: "browser-region-updated" };
     selectableProfileService = {
@@ -166,6 +166,24 @@ describe("PrefsFeed", () => {
     expect(data.foo).toBe(1);
     expect(data.bar).toBe(2);
     expect(data.isPrivateBrowsingEnabled).toBe(true);
+  });
+  describe(".adsNewReportReasonsSupported", () => {
+    it("should be true on 161 and newer", () => {
+      services.vc.compare.mockReturnValue(0);
+      feed.onAction({ type: at.INIT });
+      const [[{ data }]] = feed.store.dispatch.mock.calls;
+      expect(services.vc.compare).toHaveBeenCalledWith(
+        expect.anything(),
+        "161.0a1"
+      );
+      expect(data.adsNewReportReasonsSupported).toBe(true);
+    });
+    it("should be false before 161", () => {
+      services.vc.compare.mockReturnValue(-1);
+      feed.onAction({ type: at.INIT });
+      const [[{ data }]] = feed.store.dispatch.mock.calls;
+      expect(data.adsNewReportReasonsSupported).toBe(false);
+    });
   });
   it("should dispatch PREFS_INITIAL_VALUES with a .featureConfig", () => {
     nimbusFeatures.newtab.getAllVariables.mockReturnValue({
@@ -1316,7 +1334,6 @@ describe("PrefsFeed", () => {
           type: "widgetPictureOfTheDay",
           payload: {
             enabled: true,
-            setAsWallpaperEnabled: true,
             size: "large",
           },
         },
@@ -1328,17 +1345,14 @@ describe("PrefsFeed", () => {
       feed.onTrainhopExperimentUpdated();
 
       // `enabled` overrides the user-facing enabled pref's default; `visible`
-      // (not present here) would reveal the widget separately; size and
-      // setAsWallpaperEnabled are read directly from trainhopConfig.
+      // (not present here) would reveal the widget separately; size is read
+      // directly from trainhopConfig.
       expect(setBoolPref).toHaveBeenCalledWith(
         "widgets.pictureOfTheDay.enabled",
         true
       );
       expect(calledNames(setBoolPref)).not.toContain(
         "widgets.system.pictureOfTheDay.enabled"
-      );
-      expect(calledNames(setBoolPref)).not.toContain(
-        "widgets.pictureOfTheDay.setAsWallpaper.enabled"
       );
     });
 

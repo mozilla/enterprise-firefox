@@ -31,6 +31,31 @@ class BrowserCrashes(FeltTests):
         finally:
             self._child_driver.client.socket_timeout = saved_timeout
 
+    def crash_parent_from_chrome(self):
+        """Same as crash_parent, without opening a tab, which Thunderbird's
+        Marionette does not support."""
+        self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
+        self._logger.info(f"Crashing browser at {self._browser_pid}")
+        saved_timeout = self._child_driver.client.socket_timeout
+        self._child_driver.client.socket_timeout = self.socket_timeout
+        try:
+            self._child_driver.set_context("chrome")
+            self._child_driver.execute_script(
+                """
+                const { NetUtil } = ChromeUtils.importESModule(
+                  "resource://gre/modules/NetUtil.sys.mjs"
+                );
+                NetUtil.newChannel({
+                  uri: "about:crashparent",
+                  loadUsingSystemPrincipal: true,
+                }).open();
+                """
+            )
+        except Exception as ex:
+            self._logger.info(f"Caught exception {ex}")
+        finally:
+            self._child_driver.client.socket_timeout = saved_timeout
+
     def connect_and_crash(self):
         self.connect_child_browser()
         self.crash_parent()

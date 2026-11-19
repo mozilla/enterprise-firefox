@@ -7,6 +7,11 @@ run-if = [
   "os != 'android'", # FOG isn't responsible for attribution/distribution on Android.
 ]
 
+["test_DefaultApplicationId.js"]
+run-if = [
+  "os != 'android'", # Android inits its own FOG with its own application id.
+]
+
 ["test_FOGIPCLimit.js"]
 
 ["test_FOGInit.js"]

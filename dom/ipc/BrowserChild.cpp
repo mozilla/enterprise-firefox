@@ -105,7 +105,6 @@
 #include "nsIURI.h"
 #include "nsIURIMutator.h"
 #include "nsIWeakReferenceUtils.h"
-#include "nsIWebBrowser.h"
 #include "nsIWebProgress.h"
 #include "nsIXULRuntime.h"
 #include "nsLayoutUtils.h"
@@ -478,10 +477,7 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
     // here. dom/base/crashtests/1419902.html
     return NS_ERROR_FAILURE;
   }
-  nsIWebBrowser* webBrowser = mWebBrowser;
-
-  mWebNav = do_QueryInterface(webBrowser);
-  NS_ASSERTION(mWebNav, "nsWebBrowser doesn't implement nsIWebNavigation?");
+  mWebNav = mWebBrowser;
 
   // IPC uses a WebBrowser object for which DNS prefetching is turned off
   // by default. But here we really want it, so enable it explicitly
@@ -655,15 +651,9 @@ BrowserChild::SetDimensions(DimensionRequest&& aRequest) {
 }
 
 NS_IMETHODIMP
-BrowserChild::GetDimensions(DimensionKind aDimensionKind, int32_t* aX,
-                            int32_t* aY, int32_t* aCx, int32_t* aCy) {
+BrowserChild::GetDimensions(int32_t* aX, int32_t* aY, int32_t* aCx,
+                            int32_t* aCy) {
   LayoutDeviceIntRect rect = GetOuterRect();
-  if (aDimensionKind == DimensionKind::Inner) {
-    if (aX || aY) {
-      return NS_ERROR_NOT_IMPLEMENTED;
-    }
-    rect.SizeTo(GetInnerSize());
-  }
   if (aX) {
     *aX = rect.x;
   }
@@ -710,14 +700,13 @@ BrowserChild::ProvideWindow(nsIOpenWindowInfo* aOpenWindowInfo,
   // If it turns out we're opening in the current browser, just hand over the
   // current browser's docshell.
   if (openLocation == nsIBrowserDOMWindow::OPEN_CURRENTWINDOW) {
-    nsCOMPtr<nsIWebBrowser> browser = do_GetInterface(WebNavigation());
     *aWindowIsNew = false;
 
-    nsCOMPtr<mozIDOMWindowProxy> win;
-    MOZ_TRY(browser->GetContentDOMWindow(getter_AddRefs(win)));
+    nsCOMPtr<nsPIDOMWindowOuter> win =
+        mWebBrowser ? mWebBrowser->GetWindow() : nullptr;
+    NS_ENSURE_STATE(win);
 
-    RefPtr<BrowsingContext> bc(
-        nsPIDOMWindowOuter::From(win)->GetBrowsingContext());
+    RefPtr<BrowsingContext> bc(win->GetBrowsingContext());
     bc.forget(aReturn);
     return NS_OK;
   }
@@ -758,8 +747,9 @@ void BrowserChild::DestroyWindow() {
     data.reset();
   }
 
-  nsCOMPtr<nsIBaseWindow> baseWindow = do_QueryInterface(WebNavigation());
-  if (baseWindow) baseWindow->Destroy();
+  if (mWebBrowser) {
+    mWebBrowser->Close();
+  }
 
   if (mPuppetWidget) {
     mPuppetWidget->Destroy();
@@ -812,9 +802,8 @@ BrowserChild::~BrowserChild() {
 
   DestroyWindow();
 
-  nsCOMPtr<nsIWebBrowser> webBrowser = do_QueryInterface(WebNavigation());
-  if (webBrowser) {
-    webBrowser->SetContainerWindow(nullptr);
+  if (mWebBrowser) {
+    mWebBrowser->SetWebBrowserChrome(nullptr);
   }
 
   mozilla::DropJSObjects(this);
@@ -1077,13 +1066,13 @@ mozilla::ipc::IPCResult BrowserChild::RecvShow(
 
   mPuppetWidget->SetSizeMode(aOwnerInfo.sizeMode());
   if (!mDidFakeShow) {
-    nsCOMPtr<nsIBaseWindow> baseWindow = do_QueryInterface(WebNavigation());
-    if (!baseWindow) {
-      NS_ERROR("WebNavigation() doesn't QI to nsIBaseWindow");
+    if (!mWebBrowser) {
       return IPC_FAIL_NO_REASON(this);
     }
 
-    baseWindow->SetVisibility(true);
+    if (RefPtr<nsDocShell> docShell = mWebBrowser->GetDocShell()) {
+      docShell->SetVisibility(true);
+    }
     res = InitBrowserChildMessageManager();
   }
 
@@ -1165,9 +1154,9 @@ mozilla::ipc::IPCResult BrowserChild::RecvUpdateDimensions(
   // MobileViewportManager needs the content viewer size to be updated before
   // the reflow, otherwise it gets a stale size when it computes a new CSS
   // viewport.
-  nsCOMPtr<nsIBaseWindow> baseWin = do_QueryInterface(WebNavigation());
-  baseWin->SetPositionAndSize(0, 0, innerSize.width, innerSize.height,
-                              nsIBaseWindow::eRepaint);
+  RefPtr<nsDocShell> docShell = mWebBrowser->GetDocShell();
+  docShell->SetPositionAndSize(0, 0, innerSize.width, innerSize.height,
+                               nsIBaseWindow::eRepaint);
 
   const LayoutDeviceIntRect widgetRect(
       GetOuterRect().TopLeft() + mClientOffset + mChromeOffset, innerSize);
@@ -1542,7 +1531,7 @@ void BrowserChild::ProcessPendingCoalescedMouseDataAndDispatchEvents() {
       // other than mousemove.
       HandleRealMouseButtonEvent(*mouseOrPointerEvent,
                                  data->GetScrollableLayerGuid(),
-                                 data->GetInputBlockId());
+                                 data->GetInputBlockId(), data->GetUUID());
     }
   }
   // mCoalescedMouseEventFlusher may be destroyed when reentrying the event
@@ -1609,7 +1598,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealMouseMoveEvent(
       // be moved again if there is no coalesced data yet when coalescing.
       pendingMouseMoveEvent.mCallbackId = aMouseEvent.mCallbackId;
       pendingMouseMoveEvent.convertToPointerRawUpdate = false;
-      data->Coalesce(pendingMouseMoveEvent, aGuid, aInputBlockId);
+      data->Coalesce(pendingMouseMoveEvent, aGuid, aInputBlockId, nsID{});
       mCoalescedMouseEventFlusher->StartObserver();
       HandleMouseRawUpdateEvent(pendingMouseMoveEvent, aGuid, aInputBlockId);
       return IPC_OK();
@@ -1639,7 +1628,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealMouseMoveEvent(
     // coalescing.
     pendingMouseMoveEvent.mCallbackId = std::move(aMouseEvent.mCallbackId);
     pendingMouseMoveEvent.convertToPointerRawUpdate = false;
-    newData->Coalesce(pendingMouseMoveEvent, aGuid, aInputBlockId);
+    newData->Coalesce(pendingMouseMoveEvent, aGuid, aInputBlockId, nsID{});
 
     // Dispatch all pending mouse events which does NOT include aEvent.
     ProcessPendingCoalescedMouseDataAndDispatchEvents();
@@ -1650,7 +1639,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealMouseMoveEvent(
     return IPC_OK();
   }
 
-  if (!RecvRealMouseButtonEvent(aMouseEvent, aGuid, aInputBlockId)) {
+  if (!RecvRealMouseButtonEvent(aMouseEvent, aGuid, aInputBlockId, nsID{})) {
     return IPC_FAIL_NO_REASON(this);
   }
   return IPC_OK();
@@ -1681,7 +1670,7 @@ void BrowserChild::HandleMouseRawUpdateEvent(
   // For avoiding to make the developers who watch the value with the debugger
   // confused, here sets it to `true`.
   mouseRawUpdateEvent.convertToPointerRawUpdate = true;
-  HandleRealMouseButtonEvent(mouseRawUpdateEvent, aGuid, aInputBlockId);
+  HandleRealMouseButtonEvent(mouseRawUpdateEvent, aGuid, aInputBlockId, nsID{});
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvRealMouseMoveEventNoCompress(
@@ -1706,7 +1695,7 @@ BrowserChild::RecvNormalPriorityRealMouseMoveEventNoCompress(
 mozilla::ipc::IPCResult BrowserChild::RecvSynthMouseMoveEvent(
     const WidgetMouseEvent& aMouseEvent, const ScrollableLayerGuid& aGuid,
     const uint64_t& aInputBlockId) {
-  if (!RecvRealMouseButtonEvent(aMouseEvent, aGuid, aInputBlockId)) {
+  if (!RecvRealMouseButtonEvent(aMouseEvent, aGuid, aInputBlockId, nsID{})) {
     return IPC_FAIL_NO_REASON(this);
   }
   return IPC_OK();
@@ -1720,7 +1709,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvNormalPrioritySynthMouseMoveEvent(
 
 mozilla::ipc::IPCResult BrowserChild::RecvRealMouseButtonEvent(
     const WidgetMouseEvent& aMouseOrPointerEvent,
-    const ScrollableLayerGuid& aGuid, const uint64_t& aInputBlockId) {
+    const ScrollableLayerGuid& aGuid, const uint64_t& aInputBlockId,
+    const nsID& aUUID) {
   MOZ_ASSERT(!aMouseOrPointerEvent.AsDragEvent());
   if (mCoalesceMouseMoveEvents && mCoalescedMouseEventFlusher &&
       aMouseOrPointerEvent.mMessage != eMouseMove) {
@@ -1742,25 +1732,26 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealMouseButtonEvent(
     // listener.  Therefore, let's assert the allowing flag to convert it to
     // eMouseRawUpdate here.
     MOZ_ASSERT(aMouseOrPointerEvent.convertToPointerRawUpdate);
-    dispatchData->Coalesce(aMouseOrPointerEvent, aGuid, aInputBlockId);
+    dispatchData->Coalesce(aMouseOrPointerEvent, aGuid, aInputBlockId, aUUID);
 
     mToBeDispatchedMouseData.Push(dispatchData.release());
     ProcessPendingCoalescedMouseDataAndDispatchEvents();
     return IPC_OK();
   }
-  HandleRealMouseButtonEvent(aMouseOrPointerEvent, aGuid, aInputBlockId);
+  HandleRealMouseButtonEvent(aMouseOrPointerEvent, aGuid, aInputBlockId, aUUID);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvRealPointerButtonEvent(
     const WidgetPointerEvent& aPointerEvent, const ScrollableLayerGuid& aGuid,
     const uint64_t& aInputBlockId) {
-  return RecvRealMouseButtonEvent(aPointerEvent, aGuid, aInputBlockId);
+  return RecvRealMouseButtonEvent(aPointerEvent, aGuid, aInputBlockId, nsID{});
 }
 
 void BrowserChild::HandleRealMouseButtonEvent(
     const WidgetMouseEvent& aMouseOrPointerEvent,
-    const ScrollableLayerGuid& aGuid, const uint64_t& aInputBlockId) {
+    const ScrollableLayerGuid& aGuid, const uint64_t& aInputBlockId,
+    const nsID& aUUID) {
   MOZ_ASSERT(!aMouseOrPointerEvent.AsDragEvent());
 
   AutoSynthesizedEventResponder<WidgetMouseEvent> responder(
@@ -1803,7 +1794,7 @@ void BrowserChild::HandleRealMouseButtonEvent(
   InputAPZContext context2(aGuid, aInputBlockId, nsEventStatus_eSentinel,
                            postLayerization != nullptr);
 
-  DispatchWidgetEventViaAPZ(localEvent);
+  const nsEventStatus status = DispatchWidgetEventViaAPZ(localEvent);
 
   if (aInputBlockId && localEvent.mFlags.mHandledByAPZ && mAPZEventState) {
     mAPZEventState->ProcessMouseEvent(localEvent, aInputBlockId);
@@ -1817,32 +1808,39 @@ void BrowserChild::HandleRealMouseButtonEvent(
   if (postLayerization) {
     postLayerization->Register();
   }
+
+  if (aUUID != nsID{}) {
+    // Inform parent process that this event was handled.
+    SendReplyMouseEvent(status == nsEventStatus_eConsumeNoDefault, aUUID);
+  }
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvNormalPriorityRealMouseButtonEvent(
     const WidgetMouseEvent& aMouseOrPointerEvent,
-    const ScrollableLayerGuid& aGuid, const uint64_t& aInputBlockId) {
-  return RecvRealMouseButtonEvent(aMouseOrPointerEvent, aGuid, aInputBlockId);
+    const ScrollableLayerGuid& aGuid, const uint64_t& aInputBlockId,
+    const nsID& aUUID) {
+  return RecvRealMouseButtonEvent(aMouseOrPointerEvent, aGuid, aInputBlockId,
+                                  aUUID);
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvNormalPriorityRealPointerButtonEvent(
     const WidgetPointerEvent& aPointerEvent, const ScrollableLayerGuid& aGuid,
     const uint64_t& aInputBlockId) {
   return RecvNormalPriorityRealMouseButtonEvent(aPointerEvent, aGuid,
-                                                aInputBlockId);
+                                                aInputBlockId, nsID{});
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvRealMouseEnterExitWidgetEvent(
     const WidgetMouseEvent& aMouseEvent, const ScrollableLayerGuid& aGuid,
     const uint64_t& aInputBlockId) {
-  return RecvRealMouseButtonEvent(aMouseEvent, aGuid, aInputBlockId);
+  return RecvRealMouseButtonEvent(aMouseEvent, aGuid, aInputBlockId, nsID{});
 }
 
 mozilla::ipc::IPCResult
 BrowserChild::RecvNormalPriorityRealMouseEnterExitWidgetEvent(
     const WidgetMouseEvent& aMouseEvent, const ScrollableLayerGuid& aGuid,
     const uint64_t& aInputBlockId) {
-  return RecvRealMouseButtonEvent(aMouseEvent, aGuid, aInputBlockId);
+  return RecvRealMouseButtonEvent(aMouseEvent, aGuid, aInputBlockId, nsID{});
 }
 
 nsEventStatus BrowserChild::DispatchWidgetEventViaAPZ(WidgetGUIEvent& aEvent) {
@@ -3046,7 +3044,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvDestroy() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult BrowserChild::RecvRenderLayers(const bool& aEnabled) {
+mozilla::ipc::IPCResult BrowserChild::RecvRenderLayers(const bool& aEnabled,
+                                                       const uint64_t& aEpoch) {
   auto clearPaintWhileInterruptingJS = MakeScopeExit([&] {
     // We might force a paint, or we might already have painted and this is a
     // no-op. In either case, once we exit this scope, we need to alert the
@@ -3061,6 +3060,13 @@ mozilla::ipc::IPCResult BrowserChild::RecvRenderLayers(const bool& aEnabled) {
   if (aEnabled) {
     ProcessHangMonitor::MaybeStartPaintWhileInterruptingJS();
   }
+
+  // The hang monitor's copy of a request can arrive before or after this one,
+  // so a newer request may already have been applied.
+  if (aEpoch < mRenderLayersEpoch) {
+    return IPC_OK();
+  }
+  mRenderLayersEpoch = aEpoch;
 
   mRenderLayers = aEnabled;
   const bool wasVisible = IsVisible();
@@ -3531,22 +3537,11 @@ void BrowserChild::SchedulePaint() {
   }
 }
 
-void SkipViewTransitionsAfterRenderingReset(Document& aDocument) {
-  if (RefPtr<ViewTransition> transition = aDocument.GetActiveViewTransition()) {
-    transition->SkipTransition(SkipTransitionReason::ResetRendering);
-  }
-
-  aDocument.EnumerateSubDocuments([&](Document& aSubDoc) {
-    SkipViewTransitionsAfterRenderingReset(aSubDoc);
-    return CallState::Continue;
-  });
-}
-
 void BrowserChild::ReinitRendering() {
   MOZ_ASSERT(mLayersId.IsValid());
 
   if (RefPtr<Document> doc = GetTopLevelDocument()) {
-    SkipViewTransitionsAfterRenderingReset(*doc);
+    ViewTransition::SkipAllAfterRenderingReset(*doc);
   }
 
   // In some cases, like when we create a windowless browser,
@@ -3648,9 +3643,9 @@ mozilla::ipc::IPCResult BrowserChild::RecvUIResolutionChanged(
   const LayoutDeviceIntSize innerSize = GetInnerSize();
   if (mHasValidInnerSize && oldInnerSize != innerSize) {
     // See RecvUpdateDimensions for the order of these operations.
-    nsCOMPtr<nsIBaseWindow> baseWin = do_QueryInterface(WebNavigation());
-    baseWin->SetPositionAndSize(0, 0, innerSize.width, innerSize.height,
-                                nsIBaseWindow::eRepaint);
+    RefPtr<nsDocShell> docShell = mWebBrowser->GetDocShell();
+    docShell->SetPositionAndSize(0, 0, innerSize.width, innerSize.height,
+                                 nsIBaseWindow::eRepaint);
 
     const LayoutDeviceIntRect widgetRect(
         GetOuterRect().TopLeft() + mClientOffset + mChromeOffset, innerSize);
@@ -3788,7 +3783,7 @@ LayoutDeviceIntRect BrowserChild::GetOuterRect() {
   return RoundedToInt(mUnscaledOuterRect * mPuppetWidget->GetDefaultScale());
 }
 
-void BrowserChild::PaintWhileInterruptingJS() {
+void BrowserChild::PaintWhileInterruptingJS(uint64_t aEpoch) {
   if (!IPCOpen() || !mPuppetWidget || !mPuppetWidget->HasWindowRenderer()) {
     // Don't bother doing anything now. Better to wait until we receive the
     // message on the PContent channel.
@@ -3797,10 +3792,10 @@ void BrowserChild::PaintWhileInterruptingJS() {
 
   MOZ_DIAGNOSTIC_ASSERT(nsContentUtils::IsSafeToRunScript());
   nsAutoScriptBlocker scriptBlocker;
-  RecvRenderLayers(/* aEnabled = */ true);
+  RecvRenderLayers(/* aEnabled = */ true, aEpoch);
 }
 
-void BrowserChild::UnloadLayersWhileInterruptingJS() {
+void BrowserChild::UnloadLayersWhileInterruptingJS(uint64_t aEpoch) {
   if (!IPCOpen() || !mPuppetWidget || !mPuppetWidget->HasWindowRenderer()) {
     // Don't bother doing anything now. Better to wait until we receive the
     // message on the PContent channel.
@@ -3809,7 +3804,7 @@ void BrowserChild::UnloadLayersWhileInterruptingJS() {
 
   MOZ_DIAGNOSTIC_ASSERT(nsContentUtils::IsSafeToRunScript());
   nsAutoScriptBlocker scriptBlocker;
-  RecvRenderLayers(/* aEnabled = */ false);
+  RecvRenderLayers(/* aEnabled = */ false, aEpoch);
 }
 
 nsresult BrowserChild::CanCancelContentJS(

@@ -364,6 +364,29 @@ void ChromeProcessController::NotifyScaleGestureComplete(
   }
 }
 
+void ChromeProcessController::NotifyTouchSwipableDirections(
+    uint64_t aInputBlockId, SideBits aSwipableDirections) {
+  // mWidget is cleared on mUIThread in Destroy(), so it must only be read on
+  // mUIThread.
+  if (!mUIThread->IsOnCurrentThread()) {
+    mUIThread->Dispatch(NewRunnableMethod<uint64_t, SideBits>(
+        "layers::ChromeProcessController::NotifyTouchSwipableDirections", this,
+        &ChromeProcessController::NotifyTouchSwipableDirections, aInputBlockId,
+        aSwipableDirections));
+    return;
+  }
+
+  if (mWidget) {
+    // Dispatch asynchronously, because this can be called from within
+    // InputQueue and the widget may call back into APZ (e.g.
+    // SetBrowserGestureResponse) while handling it.
+    mUIThread->Dispatch(NewRunnableMethod<uint64_t, SideBits>(
+        "nsIWidget::ReceiveTouchSwipableDirections", mWidget,
+        &nsIWidget::ReceiveTouchSwipableDirections, aInputBlockId,
+        aSwipableDirections));
+  }
+}
+
 nsIFrame* ChromeProcessController::GetWidgetFrame() const {
   return mWidget ? mWidget->GetFrame() : nullptr;
 }

@@ -1089,17 +1089,12 @@ mozilla::ipc::IPCResult HttpChannelParent::RecvDocumentChannelCleanup(
 }
 
 mozilla::ipc::IPCResult HttpChannelParent::RecvRemoveCorsPreflightCacheEntry(
-    nsIURI* uri, const mozilla::ipc::PrincipalInfo& requestingPrincipal,
+    nsIURI* uri, NotNull<nsIPrincipal*> requestingPrincipal,
     const OriginAttributes& originAttributes) {
   if (!uri) {
     return IPC_FAIL_NO_REASON(this);
   }
-  auto principalOrErr = PrincipalInfoToPrincipal(requestingPrincipal);
-  if (NS_WARN_IF(principalOrErr.isErr())) {
-    return IPC_FAIL_NO_REASON(this);
-  }
-  nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
-  nsCORSListenerProxy::RemoveFromCorsPreflightCache(uri, principal,
+  nsCORSListenerProxy::RemoveFromCorsPreflightCache(uri, requestingPrincipal,
                                                     originAttributes);
   return IPC_OK();
 }
@@ -1293,11 +1288,16 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
   chan->GetRedirectCount(&args.redirectCount());
   chan->GetHasHTTPSRR(&args.hasHTTPSRR());
 
-  chan->GetIsProxyUsed(&args.isProxyUsed());
+  (void)chan->GetProxyType(&args.proxyType());
 
   nsCOMPtr<nsILoadInfo> loadInfo = chan->LoadInfo();
   mozilla::ipc::LoadInfoToParentLoadInfoForwarder(loadInfo,
                                                   &args.loadInfoForwarder());
+  if (mEarlyHintPreloaderId) {
+    loadInfo->GetResultPrincipalURI(
+        getter_AddRefs(args.earlyHintResultPrincipalURI()));
+    chan->GetURI(getter_AddRefs(args.earlyHintFinalURI()));
+  }
 
   nsHttpResponseHead* responseHead = chan->GetResponseHead();
   bool useResponseHead = !!responseHead;

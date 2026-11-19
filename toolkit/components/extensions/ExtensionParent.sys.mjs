@@ -352,6 +352,10 @@ const ProxyMessenger = {
 
   // TODO: Rework/simplify this and getSender/getTopBC after bug 1580766.
   async normalizeArgs(arg, sender) {
+    if (!sender.verified && (arg.documentId || arg.tabId)) {
+      return Promise.reject({ message: ERROR_NO_RECEIVERS });
+    }
+
     arg.extensionId = arg.extensionId || sender.extensionId;
     let extension = GlobalManager.extensionMap.get(arg.extensionId);
     if (!extension) {
@@ -1432,6 +1436,7 @@ ParentAPIManager = {
   async recvRemoveListener(data, { actor }) {
     let context = this.getContext(data.childId, actor);
     let listener = context.listenerProxies.get(data.listenerId);
+    context.listenerProxies.delete(data.listenerId);
 
     let handler = await context.apiCan.asyncFindAPIPath(data.path);
     handler.removeListener(listener);
@@ -2483,6 +2488,19 @@ export var StartupCache = {
   },
 
   save() {
+    // The cache is flushed by a profileBeforeChange blocker, so changes made
+    // once that phase has started can no longer be written.
+    if (
+      Services.startup.isInOrBeyondShutdownPhase(
+        Ci.nsIAppStartup.SHUTDOWN_PHASE_APPSHUTDOWN
+      )
+    ) {
+      Cu.reportError(
+        new Error("StartupCache changed too late in shutdown to be saved")
+      );
+      return;
+    }
+
     this._ensureDirectory();
 
     if (!this._saveTask) {

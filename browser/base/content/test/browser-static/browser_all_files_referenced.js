@@ -34,6 +34,7 @@ var gExceptionPaths = [
   "chrome://activity-stream/content/data/content/assets/tabs-top-zap-transparent.svg",
   "chrome://activity-stream/content/data/content/assets/euo-tab-orientation.svg",
   "chrome://activity-stream/content/data/content/assets/euo-chatbot.svg",
+  "chrome://browser/content/aiwindow/assets/agent-watch-kit.svg",
   "chrome://browser/content/assets/moz-vpn.svg",
   "chrome://browser/content/assets/vpn-logo.svg",
   "chrome://browser/content/asrouter/assets/fox-with-box-on-cloud.svg",
@@ -61,6 +62,7 @@ var gExceptionPaths = [
   // wasm is not available.
   "resource://pdf.js/web/wasm/openjpeg_nowasm_fallback.js",
   "resource://pdf.js/web/wasm/jbig2_nowasm_fallback.js",
+  "resource://pdf.js/web/wasm/hellbox_nowasm_fallback.js",
 
   // Exclude the form autofill path that has been moved out of the extensions to
   // toolkit, see bug 1691821.
@@ -69,7 +71,7 @@ var gExceptionPaths = [
   "resource://gre/localization/en-US/toolkit/formautofill",
 
   // Exclude all services-automation because they are used through webdriver
-  "resource://gre/modules/services-automation/",
+  "moz-src:///services/automation/",
 
   // Paths from this folder are constructed in NetErrorParent.sys.mjs based on
   // the type of cert or net error the user is encountering.
@@ -206,7 +208,7 @@ var allowlist = [
   // extensions/pref/autoconfig/src/nsReadConfig.cpp
   { file: "resource://gre/defaults/autoconfig/prefcalls.js" },
 
-  // browser/components/preferences/moreFromMozilla.js
+  // browser/components/preferences/config/moreFromMozilla.mjs
   // These files URLs are constructed programatically at run time.
   {
     file: "chrome://browser/content/preferences/more-from-mozilla-qr-code-simple.svg",
@@ -266,18 +268,6 @@ var allowlist = [
   // Bug 1494170
   // (The references to these files are dynamically generated, so the test can't
   // find the references)
-  {
-    file: "chrome://devtools/skin/images/aboutdebugging-firefox-aurora.svg",
-    isFromDevTools: true,
-  },
-  {
-    file: "chrome://devtools/skin/images/aboutdebugging-firefox-beta.svg",
-    isFromDevTools: true,
-  },
-  {
-    file: "chrome://devtools/skin/images/aboutdebugging-firefox-release.svg",
-    isFromDevTools: true,
-  },
   { file: "chrome://devtools/skin/images/next.svg", isFromDevTools: true },
 
   // Bug 1526672
@@ -351,6 +341,10 @@ var allowlist = [
 
   // Bug 2078933: The widget dashboard will generate widgets with this module.
   { file: "moz-src:///browser/components/widgets/WidgetGenerator.sys.mjs" },
+  // Bug 2085180 - Implement basics of DigestManager
+  {
+    file: "moz-src:///browser/components/aiwindow/models/memories/digests/DigestManager.sys.mjs",
+  },
 ];
 
 if (AppConstants.NIGHTLY_BUILD) {

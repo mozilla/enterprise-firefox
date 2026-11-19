@@ -19,7 +19,7 @@ const MAC_MACHINE_ID_TIMEOUT_MS = 5000;
 
 ChromeUtils.defineLazyGetter(lazy, "log", () =>
   console.createInstance({
-    prefix: "MachineId",
+    logModule: "MachineId",
     maxLogLevel: "Info",
     maxLogLevelPref: "toolkit.machineid.loglevel",
   })

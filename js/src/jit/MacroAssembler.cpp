@@ -959,7 +959,7 @@ void MacroAssembler::initTypedArraySlots(
 
   static_assert(
       FixedLengthTypedArrayObject::FIXED_DATA_START ==
-          FixedLengthTypedArrayObject::DATA_SLOT + 1,
+          FixedLengthTypedArrayObject::DATA_SLOT.index() + 1,
       "fixed inline element data assumed to begin after the data slot");
 
   static_assert(
@@ -1011,7 +1011,7 @@ void MacroAssembler::initTypedArraySlotsInline(
 
   static_assert(
       FixedLengthTypedArrayObject::FIXED_DATA_START ==
-          FixedLengthTypedArrayObject::DATA_SLOT + 1,
+          FixedLengthTypedArrayObject::DATA_SLOT.index() + 1,
       "fixed inline element data assumed to begin after the data slot");
 
   static_assert(
@@ -1084,7 +1084,8 @@ void MacroAssembler::initGCSlots(Register obj, Register temp,
   MOZ_ASSERT(startOfUninitialized <= nfixed);  // Reserved slots must be fixed.
   MOZ_ASSERT(startOfUndefined >= startOfUninitialized);
   MOZ_ASSERT_IF(!templateObj.isCallObject() &&
-                    !templateObj.isBlockLexicalEnvironmentObject(),
+                    !templateObj.isBlockLexicalEnvironmentObject() &&
+                    !templateObj.isClassBodyLexicalEnvironmentObject(),
                 startOfUninitialized == startOfUndefined);
 
   // Copy over any preserved reserved slots.
@@ -2161,7 +2162,7 @@ void MacroAssembler::loadInt32ToStringWithBase(
   {
     // Compute |scratch1 = input / base| and |scratch2 = input % base|.
     if (std::has_single_bit(uint32_t(base))) {
-      uint32_t shift = mozilla::FloorLog2(uint32_t(base));
+      uint32_t shift = std::countr_zero(uint32_t(base));
 
       rshift32(Imm32(shift), input, scratch1);
       and32(Imm32((uint32_t(1) << shift) - 1), input, scratch2);
@@ -3394,7 +3395,7 @@ void MacroAssembler::emitMegamorphicCachedSetSlot(
   // scratch3 = &scratch2->entries_[scratch3]
   constexpr size_t entrySize = sizeof(MegamorphicSetPropCache::Entry);
   if constexpr (std::has_single_bit(entrySize)) {
-    lshift32(Imm32(mozilla::FloorLog2(entrySize)), scratch3);
+    lshift32(Imm32(std::countr_zero(entrySize)), scratch3);
   } else {
     mul32(Imm32(entrySize), scratch3);
   }
@@ -4288,16 +4289,14 @@ void MacroAssembler::loadJitCodeRawNoIon(Register func, Register dest,
 
   // If we have an IonScript, jitCodeRaw_ will point to it, so we have
   // to load the baseline entry out of the BaselineScript.
-  branchPtr(Assembler::BelowOrEqual,
-            Address(scratch, JitScript::offsetOfIonScript()),
-            ImmPtr(IonCompilingScriptPtr), &useJitCodeRaw);
+  branchPtr(Assembler::Equal, Address(scratch, JitScript::offsetOfIonScript()),
+            ImmPtr(nullptr), &useJitCodeRaw);
   loadPtr(Address(scratch, JitScript::offsetOfBaselineScript()), scratch);
 
 #ifdef DEBUG
   // If we have an IonScript, we must also have a BaselineScript.
   Label hasBaselineScript;
-  branchPtr(Assembler::Above, scratch, ImmPtr(BaselineCompilingScriptPtr),
-            &hasBaselineScript);
+  branchPtr(Assembler::NotEqual, scratch, ImmPtr(nullptr), &hasBaselineScript);
   assumeUnreachable("JitScript has IonScript without BaselineScript");
   bind(&hasBaselineScript);
 #endif
@@ -6878,7 +6877,7 @@ CodeOffset MacroAssembler::wasmReturnCallImport(
   wasm::CallSiteDesc stubDesc(desc.bytecodeOffset(),
                               wasm::CallSiteKind::ReturnStub);
   wasmCollapseFrameSlow(retCallInfo, stubDesc);
-  jump(ABINonArgReg0);
+  tailJump(ABINonArgReg0);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
   return CodeOffset(currentOffset());
 }
@@ -7175,7 +7174,7 @@ FaultingCodeRange MacroAssembler::wasmReturnCallIndirect(
   wasm::CallSiteDesc stubDesc(desc.bytecodeOffset(),
                               wasm::CallSiteKind::ReturnStub);
   wasmCollapseFrameSlow(retCallInfo, stubDesc);
-  jump(calleeScratch);
+  tailJump(calleeScratch);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
 
   // Fast path: just load the code pointer and go.
@@ -7186,7 +7185,7 @@ FaultingCodeRange MacroAssembler::wasmReturnCallIndirect(
           calleeScratch);
 
   wasmCollapseFrameFast(retCallInfo);
-  jump(calleeScratch);
+  tailJump(calleeScratch);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
 
   return fcr;
@@ -7316,7 +7315,7 @@ void MacroAssembler::wasmReturnCallRef(
   wasm::CallSiteDesc stubDesc(desc.bytecodeOffset(),
                               wasm::CallSiteKind::ReturnStub);
   wasmCollapseFrameSlow(retCallInfo, stubDesc);
-  jump(calleeScratch);
+  tailJump(calleeScratch);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
 
   // Fast path: just load WASM_FUNC_UNCHECKED_ENTRY_SLOT value and go.
@@ -7327,7 +7326,7 @@ void MacroAssembler::wasmReturnCallRef(
   loadPtr(Address(calleeFnObj, uncheckedEntrySlotOffset), calleeScratch);
 
   wasmCollapseFrameFast(retCallInfo);
-  jump(calleeScratch);
+  tailJump(calleeScratch);
   append(wasm::CodeRangeUnwindInfo::Normal, currentOffset());
 }
 
@@ -8521,6 +8520,22 @@ void MacroAssembler::convertWasmAnyRefToValue(Register instance, Register src,
 void MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc) {
   CodeOffset offset = nopPatchableToCall();
   append(desc, offset);
+}
+
+void MacroAssembler::ensureNearCallPatchSpace(uint32_t offset) {
+  if (currentOffset() - offset < Assembler::PatchWrite_NearCallSize()) {
+    int32_t paddingSize = Assembler::PatchWrite_NearCallSize();
+    paddingSize -= currentOffset() - offset;
+#if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
+    nop(paddingSize);
+#else
+    for (int32_t i = 0; i < paddingSize; i += Assembler::NopSize()) {
+      nop();
+    }
+#endif
+  }
+  MOZ_ASSERT_IF(
+      !oom(), currentOffset() - offset >= Assembler::PatchWrite_NearCallSize());
 }
 
 // Given a cell and the chunk containing that cell, load the word containing
@@ -11054,41 +11069,33 @@ template void MacroAssembler::computeHash1MFBT<WeakMapObject::Map>(
     Register hashTable, Register hashCode, Register hash1, Register scratch);
 
 template <typename Table>
-void MacroAssembler::computeHash2MFBT(Register hashTable, Register hashCode,
-                                      Register hash2, Register sizeMask,
-                                      Register scratch) {
-  // Inline implementation of |mozilla::detail::HashTable::hash2|
+void MacroAssembler::initProbeSequenceMFBT(Register hashTable, Register stride,
+                                           Register sizeMask) {
+  // Inline implementation of |mozilla::detail::HashTable::probeSequence|
 
-  // Load hashShift into sizeMask
-  load8ZeroExtend(Address(hashTable, Table::offsetOfHashShift()), sizeMask);
+  // mSizeMask = rawCapacity() - 1
+  //           = (1 << (kHashNumberBits - hashShift())) - 1
+  //           = UINT32_MAX >> hashShift()
+  load8ZeroExtend(Address(hashTable, Table::offsetOfHashShift()), stride);
+  move32(Imm32(-1), sizeMask);
+  flexibleRshift32(stride, sizeMask);
 
-  //   uint32_t sizeLog2 = kHashNumberBits - hashShift();
-  move32(Imm32(kHashNumberBits), scratch);
-  sub32(sizeMask, scratch);
-
-  //   DoubleHash dh = {((aCurKeyHash << sizeLog2) >> hashShift()) | 1,
-  move32(hashCode, hash2);
-  flexibleLshift32(scratch, hash2);
-  flexibleRshift32(sizeMask, hash2);
-  or32(Imm32(1), hash2);
-
-  // sizeMask = (HashNumber(1) << sizeLog2) - 1};
-  move32(Imm32(1), sizeMask);
-  flexibleLshift32(scratch, sizeMask);
-  sub32(Imm32(1), sizeMask);
+  // mStride = 0
+  move32(Imm32(0), stride);
 }
 
-template void MacroAssembler::computeHash2MFBT<WeakMapObject::Map>(
-    Register hashTable, Register hashCode, Register hash2, Register sizeMask,
-    Register scratch);
+template void MacroAssembler::initProbeSequenceMFBT<WeakMapObject::Map>(
+    Register hashTable, Register stride, Register sizeMask);
 
-void MacroAssembler::applyDoubleHashMFBT(Register hash1, Register hash2,
-                                         Register sizeMask) {
-  // Inline implementation of |mozilla::detail::HashTable::applyDoubleHash|
+void MacroAssembler::nextProbeMFBT(Register hashIndex, Register stride,
+                                   Register sizeMask) {
+  // Inline implementation of |mozilla::detail::HashTable::ProbeSequence::next|
 
-  // return WrappingSubtract(aHash1, aDoubleHash.mHash2) & aDoubleHash.mSizeMask
-  sub32(hash2, hash1);
-  and32(sizeMask, hash1);
+  // mStride++
+  // mIndex = (mIndex + mStride) & mSizeMask
+  add32(Imm32(1), stride);
+  add32(stride, hashIndex);
+  and32(sizeMask, hashIndex);
 }
 
 template <typename Table>
@@ -11182,7 +11189,7 @@ void MacroAssembler::checkForMatchMFBT(Register hashTable, Register hashIndex,
   // Load entries[hashIndex] into |scratch|
   size_t EntrySize = sizeof(typename Table::Entry);
   if (std::has_single_bit(EntrySize)) {
-    uint32_t shift = mozilla::FloorLog2(EntrySize);
+    uint32_t shift = std::countr_zero(EntrySize);
     lshiftPtr(Imm32(shift), hashIndex, scratch);
   } else {
     // Note: this is provided as a fallback. Faster paths are possible for many

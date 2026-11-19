@@ -618,6 +618,7 @@ ScriptLoadHandler::GetInterface(const nsIID& aIID, void** aResult) {
 nsresult ScriptLoadHandler::AsyncOnChannelRedirect(
     nsIChannel* aOld, nsIChannel* aNew, uint32_t aFlags,
     nsIAsyncVerifyRedirectCallback* aCallback) {
+  mRequest->SetHadRedirected();
   mRequest->SetMinimumExpirationTime(
       nsContentUtils::GetSubresourceCacheExpirationTime(aOld, mRequest->URI()));
 

@@ -368,15 +368,8 @@ bool FFmpegVideoDecoder<LIBAV_VER>::VulkanDirectDecodeExportEnabled() {
     if (!mLib->av_hwframe_map) {
       return false;
     }
-    // Keep direct export disabled on bundled ffvpx until lavc is greater than
-    // MOZ_FFMPEG_MIN_LAVC_FOR_VULKAN_DMABUF (62.29.101); then remove this #if.
-#    if defined(FFVPX_VERSION) && \
-        LIBAVCODEC_VERSION_INT <= MOZ_FFMPEG_MIN_LAVC_FOR_VULKAN_DMABUF
-    return false;
-#    else
     return StaticPrefs::
         media_hardware_video_decoding_vulkan_direct_export_enabled_AtStartup();
-#    endif
   }();
   return exportEnabled;
 }
@@ -512,10 +505,20 @@ int FFmpegVideoDecoder<LIBAV_VER>::ChooseVulkanPixelFormatFromContext(
         return true;
       }
 #    ifndef FFVPX_VERSION
+      const unsigned avcodecVersion = mLib->avcodec_version();
+      // FFmpeg 25e187f849 fixes DRM export; libavcodec 62.29.101 can
+      // still identify a build without it.
+      if (avcodecVersion <= AV_VERSION_INT(62, 29, 101)) {
+        FFMPEGV_LOG(
+            "[VULKAN] Direct export disabled: system FFmpeg with libavcodec "
+            "62.29.101 or older may cause video corruption or crashes. "
+            "Using copy");
+        return true;
+      }
       // FFmpeg b7e835e06913 fixes DISTINCT DPB modifier handling; ffvpx has
       // it.
       if (mVulkanDecoder.mNegotiatedCompositorDecoderVendorID == 0x1002 &&
-          mLib->avcodec_version() < AV_VERSION_INT(63, 20, 101)) {
+          avcodecVersion < AV_VERSION_INT(63, 20, 101)) {
         FFMPEGV_LOG(
             "[VULKAN] Direct export disabled: system FFmpeg older than "
             "63.20.101 may cause video corruption on AMD GPUs. Using copy");
@@ -1011,13 +1014,53 @@ FFmpegVideoDecoder<LIBAV_VER>::FFmpegVideoDecoder(
   // initialization.
   mExtraData = new MediaByteBuffer;
   mExtraData->AppendElements(*aConfig.mExtraData);
+}
+
+RefPtr<PlatformDecoderModule::CreateDecoderPromise>
+FFmpegVideoDecoder<LIBAV_VER>::InitHWDecoderIfAllowed() {
+  using CreateDecoderPromise = PlatformDecoderModule::CreateDecoderPromise;
+  // Ensure that decoding is exclusively performed using HW decoding in
+  // the GPU process. If the decoder could not create a HW (or on Android,
+  // MediaCodec) decoding context, reject to allow PDMFactory to select an
+  // alternative HW-capable decoder module if available. In contrast, in the
+  // RDD process, it is acceptable to fallback to SW decoding when HW decoding
+  // is not available.
+  const bool requireHW = XRE_IsGPUProcess();
 #ifdef MOZ_USE_HWDECODE
-  InitHWDecoderIfAllowed();
-#endif  // MOZ_USE_HWDECODE
+  if (!mHardwareDecodingDisabled) {
+    return InvokeAsync(
+        mTaskQueue, __func__, [self = RefPtr{this}, requireHW]() {
+          MediaResult rv = self->ProcessInitHWDecoder();
+          if (NS_FAILED(rv)) {
+            FFMPEGV_LOG("Can't perform hw decoding: {}",
+                        rv.Description().get());
+            if (requireHW) {
+              (void)self->Shutdown();
+              return CreateDecoderPromise::CreateAndReject(rv, __func__);
+            }
+          }
+          return CreateDecoderPromise::CreateAndResolve(
+              RefPtr<MediaDataDecoder>(self), __func__);
+        });
+  }
+#endif
+  if (requireHW) {
+    return CreateDecoderPromise::CreateAndReject(
+        MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                    RESULT_DETAIL("hardware decoding disabled")),
+        __func__);
+  }
+  return CreateDecoderPromise::CreateAndResolve(RefPtr<MediaDataDecoder>(this),
+                                                __func__);
 }
 
 FFmpegVideoDecoder<LIBAV_VER>::~FFmpegVideoDecoder() {
 #ifdef MOZ_WIDGET_ANDROID
+  if (mAndroidImageReader) {
+    // Release the reader's cached image to break its reference cycle. Images
+    // still held by the compositor keep the reader and their AImages alive.
+    mAndroidImageReader->Shutdown();
+  }
   // We must wait to release mSurfaceTextureHandle because there may be
   // outstanding frames that reference us. Those frames take a strong reference
   // to FFmpegVideoDecoder in their CompositorListener, so it keeps it alive
@@ -1038,49 +1081,59 @@ FFmpegVideoDecoder<LIBAV_VER>::~FFmpegVideoDecoder() {
 }
 
 #ifdef MOZ_USE_HWDECODE
-void FFmpegVideoDecoder<LIBAV_VER>::InitHWDecoderIfAllowed() {
-  if (mHardwareDecodingDisabled) {
-    return;
-  }
+MediaResult FFmpegVideoDecoder<LIBAV_VER>::ProcessInitHWDecoder() {
+  MediaResult rv(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                 RESULT_DETAIL("no hardware decoder available"));
 
 #  ifdef MOZ_USE_HWDECODE_VULKAN
-  if (NS_SUCCEEDED(InitVulkanDecoder())) {
-    return;
+  rv = InitVulkanDecoder();
+  if (NS_SUCCEEDED(rv)) {
+    return rv;
   }
 #  endif
 
 #  ifdef FFVPX_VERSION
   if (!StaticPrefs::media_ffvpx_hw_enabled()) {
-    return;
+    return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                       RESULT_DETAIL("media.ffvpx-hw.enabled is false"));
   }
 #  endif
 
 #  ifdef MOZ_ENABLE_VAAPI
-  if (NS_SUCCEEDED(InitVAAPIDecoder())) {
-    return;
+  rv = InitVAAPIDecoder();
+  if (NS_SUCCEEDED(rv)) {
+    return rv;
   }
 #  endif  // MOZ_ENABLE_VAAPI
 
 #  ifdef MOZ_ENABLE_V4L2
   // VAAPI didn't work or is disabled, so try V4L2 with DRM
-  if (NS_SUCCEEDED(InitV4L2Decoder())) {
-    return;
+  rv = InitV4L2Decoder();
+  if (NS_SUCCEEDED(rv)) {
+    return rv;
   }
 #  endif  // MOZ_ENABLE_V4L2
 
 #  ifdef MOZ_ENABLE_D3D11VA
-  if (XRE_IsGPUProcess() && NS_SUCCEEDED(InitD3D11VADecoder())) {
-    return;
+  if (XRE_IsGPUProcess()) {
+    rv = InitD3D11VADecoder();
+    if (NS_SUCCEEDED(rv)) {
+      return rv;
+    }
   }
 #  endif  // MOZ_ENABLE_D3D11VA
 
 #  ifdef MOZ_WIDGET_ANDROID
-  if ((XRE_IsRDDProcess() || XRE_IsGPUProcess() ||
-       (XRE_IsParentProcess() && PR_GetEnv("MOZ_RUN_GTEST"))) &&
-      NS_SUCCEEDED(InitMediaCodecDecoder())) {
-    return;
+  if (XRE_IsRDDProcess() || XRE_IsGPUProcess() ||
+      (XRE_IsParentProcess() && PR_GetEnv("MOZ_RUN_GTEST"))) {
+    rv = InitMediaCodecDecoder();
+    if (NS_SUCCEEDED(rv)) {
+      return rv;
+    }
   }
 #  endif
+
+  return rv;
 }
 #endif  // MOZ_USE_HWDECODE
 
@@ -1093,7 +1146,8 @@ RefPtr<MediaDataDecoder::InitPromise> FFmpegVideoDecoder<LIBAV_VER>::Init() {
   AUTO_PROFILER_LABEL("FFmpegVideoDecoder::Init", MEDIA_PLAYBACK);
   FFMPEG_LOG("FFmpegVideoDecoder, init, IsHardwareAccelerated={}\n",
              IsHardwareAccelerated());
-  // We've finished the HW decoder initialization in the ctor.
+  // FFmpegDecoderModule::CreateDecoderAsync already did HW decoder
+  // initialization via InitHWDecoderIfAllowed.
   if (IsHardwareAccelerated()) {
     return InitPromise::CreateAndResolve(TrackInfo::kVideoTrack, __func__);
   }
@@ -1745,11 +1799,13 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::DoDecode(
           RESULT_DETAIL("avcodec_receive_frame error: %s", errStr));
     }
 
-    MediaResult rv;
+    int64_t pts = GetFramePts(mFrame);
+    int64_t duration = Duration(mFrame);
+    int64_t timecode = -1;
 #  ifdef MOZ_USE_HWDECODE
     if (IsHardwareAccelerated()) {
 #    ifdef MOZ_WIDGET_GTK
-      mDecodeStats.UpdateDecodeTimes(Duration(mFrame));
+      mDecodeStats.UpdateDecodeTimes(duration);
       if (mDecodeStats.IsDecodingSlow() &&
           !StaticPrefs::media_ffmpeg_disable_software_fallback()) {
         PROFILER_MARKER_TEXT("FFmpegVideoDecoder::DoDecode", MEDIA_PLAYBACK, {},
@@ -1759,51 +1815,28 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::DoDecode(
             NS_ERROR_DOM_MEDIA_DECODE_ERR,
             RESULT_DETAIL("HW decoding is slow, switching back to SW decode"));
       }
-      if (mUsingV4L2) {
-        rv = CreateImageV4L2(fpos, GetFramePts(mFrame), Duration(mFrame),
-                             aResults);
-      }
-#      ifdef MOZ_USE_HWDECODE_VULKAN
-      else if (mVulkanDeviceContext) {
-        rv = CreateImageVulkan(fpos, GetFramePts(mFrame), Duration(mFrame),
-                               aResults);
-      }
-#      endif
-      else {
-        rv = CreateImageVAAPI(fpos, GetFramePts(mFrame), Duration(mFrame),
-                              aResults);
-      }
-
-      // If VA-API/V4L2 playback failed, just quit. Decoder is going to be
-      // restarted without hardware acceleration
-      if (NS_FAILED(rv)) {
-        // Explicitly remove dmabuf surface pool as it's configured
-        // for VA-API/V4L2 support.
-        mVideoFramePool = nullptr;
-        return rv;
-      }
-#    elif defined(MOZ_ENABLE_D3D11VA)
-      mDecodeStats.UpdateDecodeTimes(Duration(mFrame));
-      rv = CreateImageD3D11(fpos, GetFramePts(mFrame), Duration(mFrame),
-                            aResults);
 #    elif defined(MOZ_WIDGET_ANDROID)
       InputInfo info(aSample);
       info.mTimecode = -1;
       TakeInputInfo(mFrame, info);
-      mDecodeStats.UpdateDecodeTimes(info.mDuration);
-      rv = CreateImageMediaCodec(fpos, GetFramePts(mFrame), info.mTimecode,
-                                 info.mDuration, aResults);
+      duration = info.mDuration;
+      timecode = info.mTimecode;
+      mDecodeStats.UpdateDecodeTimes(duration);
 #    else
-      mDecodeStats.UpdateDecodeTimes(Duration(mFrame));
-      return MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
-                         RESULT_DETAIL("No HW decoding implementation!"));
+      mDecodeStats.UpdateDecodeTimes(duration);
 #    endif
     } else
 #  endif
     {
-      mDecodeStats.UpdateDecodeTimes(Duration(mFrame));
-      rv = CreateImage(fpos, GetFramePts(mFrame), Duration(mFrame), aResults);
+      mDecodeStats.UpdateDecodeTimes(duration);
     }
+
+    if (MaybeDropFrame(pts, duration)) {
+      continue;
+    }
+
+    MediaResult rv =
+        CreateImageForFrame(fpos, pts, duration, timecode, aResults);
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -1851,6 +1884,14 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::DoDecode(
 
   InputInfo info(aSample);
   TakeInputInfo(mFrame, info);
+
+  if (MaybeDropFrame(pts, info.mDuration)) {
+    // Report the frame so that a drain continues.
+    if (aGotFrame) {
+      *aGotFrame = true;
+    }
+    return NS_OK;
+  }
 
   MediaResult rv = CreateImage(aSample->mOffset, pts, info.mDuration, aResults);
   if (NS_FAILED(rv)) {
@@ -2533,9 +2574,79 @@ FFmpegVideoDecoder<LIBAV_VER>::ProcessFlush() {
 #ifdef MOZ_WIDGET_ANDROID
   ReleaseFramesMediaCodec();
 #endif
+  mSeekTarget.reset();
   mPerformanceRecorder.Record(std::numeric_limits<int64_t>::max());
   return FFmpegDataDecoder::ProcessFlush();
 }
+
+void FFmpegVideoDecoder<LIBAV_VER>::SetSeekThreshold(const TimeUnit& aTime) {
+  (void)mTaskQueue->Dispatch(NS_NewRunnableFunction(
+      "FFmpegVideoDecoder::SetSeekThreshold", [self = RefPtr{this}, aTime] {
+        if (aTime.IsValid()) {
+          self->mSeekTarget = Some(aTime);
+        } else {
+          self->mSeekTarget.reset();
+        }
+      }));
+}
+
+bool FFmpegVideoDecoder<LIBAV_VER>::MaybeDropFrame(int64_t aPts,
+                                                   int64_t aDuration) {
+  MOZ_ASSERT(mTaskQueue->IsOnCurrentThread());
+  if (!mSeekTarget) {
+    return false;
+  }
+  const TimeUnit endTime =
+      TimeUnit::FromMicroseconds(aPts) + TimeUnit::FromMicroseconds(aDuration);
+  if (!endTime.IsValid() || endTime >= *mSeekTarget) {
+    mSeekTarget.reset();
+    return false;
+  }
+  FFMPEG_LOGV("  Dropping frame ending at {} before seek target {}",
+              endTime.ToMicroseconds(), mSeekTarget->ToMicroseconds());
+  return true;
+}
+
+#if LIBAVCODEC_VERSION_MAJOR >= 58
+MediaResult FFmpegVideoDecoder<LIBAV_VER>::CreateImageForFrame(
+    int64_t aOffset, int64_t aPts, int64_t aDuration, int64_t aTimecode,
+    MediaDataDecoder::DecodedData& aResults) {
+#  ifdef MOZ_USE_HWDECODE
+  if (IsHardwareAccelerated()) {
+#    ifdef MOZ_WIDGET_GTK
+    MediaResult rv;
+    if (mUsingV4L2) {
+      rv = CreateImageV4L2(aOffset, aPts, aDuration, aResults);
+    }
+#      ifdef MOZ_USE_HWDECODE_VULKAN
+    else if (mVulkanDeviceContext) {
+      rv = CreateImageVulkan(aOffset, aPts, aDuration, aResults);
+    }
+#      endif
+    else {
+      rv = CreateImageVAAPI(aOffset, aPts, aDuration, aResults);
+    }
+    // If VA-API/V4L2 playback failed, just quit. Decoder is going to be
+    // restarted without hardware acceleration
+    if (NS_FAILED(rv)) {
+      // Explicitly remove dmabuf surface pool as it's configured
+      // for VA-API/V4L2 support.
+      mVideoFramePool = nullptr;
+    }
+    return rv;
+#    elif defined(MOZ_ENABLE_D3D11VA)
+    return CreateImageD3D11(aOffset, aPts, aDuration, aResults);
+#    elif defined(MOZ_WIDGET_ANDROID)
+    return CreateImageMediaCodec(aOffset, aPts, aTimecode, aDuration, aResults);
+#    else
+    return MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
+                       RESULT_DETAIL("No HW decoding implementation!"));
+#    endif
+  }
+#  endif
+  return CreateImage(aOffset, aPts, aDuration, aResults);
+}
+#endif
 
 #ifdef MOZ_WIDGET_ANDROID
 Maybe<MediaDataDecoder::PropertyValue> FFmpegVideoDecoder<
@@ -2632,6 +2743,10 @@ void FFmpegVideoDecoder<LIBAV_VER>::ProcessShutdown() {
 #ifdef MOZ_WIDGET_ANDROID
   mShouldResumeDrain = false;
   ReleaseFramesMediaCodec();
+  if (mAndroidImageReader) {
+    mAndroidImageReader->Shutdown();
+    mAndroidImageReader = nullptr;
+  }
   if (mMediaCodecDeviceContext) {
     mLib->av_buffer_unref(&mMediaCodecDeviceContext);
   }

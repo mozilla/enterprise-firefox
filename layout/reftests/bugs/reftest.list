@@ -913,7 +913,7 @@ fuzzy-if(winWidget,0-123,0-1600) fuzzy-if(swgl,0-1,0-39) == 409659-1a.html 40965
 fuzzy-if(winWidget,0-123,0-1900) fuzzy-if(swgl,0-1,0-39) == 409659-1d.html 409659-1-ref.html # Bug 1128229
 == 410621-1.html 410621-1-ref.html
 pref(layout.css.letter-spacing.model,0) == 411059-1.html 411059-1-ref.html
-fuzzy-if(winWidget,46-144,652-770) == 411334-1.xml 411334-1-ref.xml
+== 411334-1.xml 411334-1-ref.xml
 == 411585-1.html 411585-1-ref.html
 == 411585-2.html 411585-2-ref.html
 fails == 411585-3.html 411585-3-ref.html # bug 426909
@@ -1329,7 +1329,7 @@ pref(browser.display.focus_ring_width,1) == 491180-2.html 491180-2-ref.html
 == 501257-1a.html 501257-1-ref.html
 == 501257-1b.html 501257-1-ref.html
 == 501257-1.xhtml 501257-1-ref.xhtml
-fuzzy(0-6,0-97456) == 501627-1.html 501627-1-ref.html # Bug 1481664
+fuzzy(0-16,0-112000) == 501627-1.html 501627-1-ref.html # Bug 1481664
 == 502288-1.html 502288-1-ref.html
 fuzzy-if(gtkWidget,0-1,0-2) == 502447-1.html 502447-1-ref.html #Bug 1315834
 pref(layout.css.letter-spacing.model,0) == 502795-1.html 502795-1-ref.html
@@ -1664,7 +1664,7 @@ fuzzy(0-1,0-1) == 751012-1b.html 751012-1-ref.html
 == 753329-1.html about:blank
 == 758561-1.html 758561-1-ref.html
 fuzzy(0-1,0-320) fuzzy-if(useDrawSnapshot,1-1,77595-77595) == 759036-1.html 759036-1-ref.html
-fuzzy(0-9,0-5894) fuzzy-if(Android&&device&&!swgl,3-3,5831-5863) == 759036-2.html 759036-2-ref.html
+fuzzy(0-9,0-5897) fuzzy-if(Android&&device&&!swgl,3-3,5831-5897) == 759036-2.html 759036-2-ref.html
 == 776265-1a.html 776265-1-ref.html
 == 776265-1b.html 776265-1-ref.html
 == 776265-1c.html 776265-1-ref.html

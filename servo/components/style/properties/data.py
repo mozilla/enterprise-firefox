@@ -646,6 +646,7 @@ class Longhand(Property):
                 "ImageDecoding",
                 "ImageRendering",
                 "Inert",
+                "Interactivity",
                 "PositionArea",
                 "PositionAreaKeyword",
                 "PositionProperty",
@@ -1361,7 +1362,6 @@ class PropertyRestrictions:
                 "background-blend-mode",
             ]
             + PropertyRestrictions.shorthand(data, "text-decoration")
-            + PropertyRestrictions.shorthand(data, "text-wrap")
             + PropertyRestrictions.shorthand(data, "white-space")
             + PropertyRestrictions.shorthand(data, "background")
             + PropertyRestrictions.shorthand(data, "outline")

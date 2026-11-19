@@ -7,6 +7,8 @@
 
 #include "gfxMatrix.h"
 #include "mozilla/SVGContainerFrame.h"
+#include "mozilla/Variant.h"
+#include "mozilla/dom/SVGGeometryElement.h"
 
 class gfxContext;
 
@@ -104,16 +106,28 @@ class SVGClipPathFrame final : public SVGContainerFrame {
   // mask based clipping.
   bool IsTrivial(nsIFrame** aSingleChild = nullptr);
 
+  // The geometry of mElement, which is to be mapped to the clipped frame's
+  // user space with mTransform, filled with mClipRule.
+  struct SimpleClipGeometry {
+    dom::SVGGeometryElement* mElement;
+    gfxMatrix mTransform;
+    StyleFillRule mClipRule;
+  };
+
+  // Either a rounded rect in the clipped frame's user space or some geometry.
+  using SimpleClipShape =
+      Variant<dom::SVGGeometryElement::SimpleShape, SimpleClipGeometry>;
+
   /**
-   * If this clipPath is trivial and its single child is an axis aligned
-   * rectangle, rounded rectangle, circle or ellipse once the clipPathUnits
-   * and transforms are applied, returns the shape in aClippedFrame's user
-   * space: aRect is the bounding rect and aRadii the corner radii. A
-   * clipPath with no child to clip with yields an empty rect, which clips
-   * everything away.
+   * If this clipPath is trivial, returns its single child as a shape in
+   * aClippedFrame's user space. Children that are an axis aligned rectangle
+   * or rounded rectangle once the clipPathUnits and transforms are applied
+   * are returned as a rounded rect SimpleShape, and, if aAllowGeometry is
+   * true, other geometry elements as a SimpleClipGeometry. A clipPath with no
+   * child to clip with yields an empty rect, which clips everything away.
    */
-  bool GetSimpleClipShape(nsIFrame* aClippedFrame, CSSRect* aRect,
-                          CSSSize* aRadii);
+  Maybe<SimpleClipShape> GetSimpleClipShape(nsIFrame* aClippedFrame,
+                                            bool aAllowGeometry);
 
   // nsIFrame interface:
   nsresult AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
@@ -130,9 +144,10 @@ class SVGClipPathFrame final : public SVGContainerFrame {
   }
 #endif
 
-  SVGBBox GetBBoxForClipPathFrame(const SVGBBox& aBBox,
-                                  const gfxMatrix& aMatrix,
-                                  SVGBBoxFlags aFlags);
+  // Returns the bounds of the clip path's children transformed by aMatrix.
+  // If a BBox is given, each child's bounds are intersected with it.
+  SVGBBox GetBBoxForClipPathFrame(const gfxMatrix& aMatrix,
+                                  const SVGBBox* = nullptr);
 
   /**
    * If the clipPath element transforms its children due to
@@ -145,9 +160,6 @@ class SVGClipPathFrame final : public SVGContainerFrame {
  private:
   // SVGContainerFrame methods:
   gfxMatrix GetCanvasTM() override;
-
-  already_AddRefed<DrawTarget> CreateClipMask(gfxContext& aReferenceContext,
-                                              gfx::IntPoint& aOffset);
 
   void PaintFrameIntoMask(nsIFrame* aFrame, nsIFrame* aClippedFrame,
                           gfxContext& aTarget);

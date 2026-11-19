@@ -64,6 +64,7 @@
 #include "nsIGfxInfo.h"
 #include "nsIXULRuntime.h"
 #include "nsThreadManager.h"
+#include "nsXULAppAPI.h"
 #include "nscore.h"
 #include "prenv.h"
 #include "skia/include/core/SkGraphics.h"
@@ -346,8 +347,8 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
 
 #if defined(MOZ_WIDGET_GTK)
   char* display_name = PR_GetEnv("MOZ_GDK_DISPLAY");
+  bool waylandEnabled = false;
   if (!display_name) {
-    bool waylandEnabled = false;
 #  ifdef MOZ_WAYLAND
     waylandEnabled = IsWaylandEnabled();
 #  endif
@@ -363,9 +364,18 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
                     nullptr, option_name, display_name, nullptr};
     char** argvp = argv;
     gtk_init(&argc, &argvp);
-  } else {
+  } else if (!waylandEnabled) {
     gtk_init(nullptr, nullptr);
   }
+
+  // On Wayland we don't connect to the display. Rendering goes into DMABuf
+  // surfaces which the parent process presents, and EGL uses the device or
+  // surfaceless platform.
+
+#  ifdef MOZ_X11
+  // Do this after initializing GDK, or GDK will install its own handler.
+  XRE_InstallX11ErrorHandler();
+#  endif
 
   // Ensure we have an FT library for font instantiation.
   // This would normally be set by gfxPlatform::Init().
@@ -822,6 +832,9 @@ void GPUParent::ActorDestroy(ActorDestroyReason aWhy) {
         gfxVars::Shutdown();
         gfxConfig::Shutdown();
         CrashReporterClient::DestroySingleton();
+#ifdef MOZ_X11
+        XRE_CleanupX11ErrorHandler();
+#endif
         XRE_ShutdownChildProcess();
       });
 }

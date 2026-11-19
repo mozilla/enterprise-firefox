@@ -831,8 +831,9 @@ void CanonicalBrowsingContext::GetContiguousEntriesForLoad(
     const RefPtr<SessionHistoryEntry>& aEntry) {
   MOZ_DIAGNOSTIC_ASSERT(Navigation::IsAPIEnabled());
   nsCOMPtr<nsIURI> uri =
-      mActiveEntry ? mActiveEntry->GetURIOrInheritedForAboutBlank() : nullptr;
-  nsCOMPtr<nsIURI> targetURI = aEntry->GetURIOrInheritedForAboutBlank();
+      mActiveEntry ? mActiveEntry->GetURIOrInheritedForAboutBlankOrSrcdoc()
+                   : nullptr;
+  nsCOMPtr<nsIURI> targetURI = aEntry->GetURIOrInheritedForAboutBlankOrSrcdoc();
   bool sameOrigin =
       NS_SUCCEEDED(nsContentUtils::GetSecurityManager()->CheckSameOriginURI(
           targetURI, uri, false, false));
@@ -902,8 +903,8 @@ void CanonicalBrowsingContext::MaybeReuseNavigationKeyFromActiveEntry(
     return;
   }
 
-  nsCOMPtr<nsIURI> uri = mActiveEntry->GetURIOrInheritedForAboutBlank();
-  nsCOMPtr<nsIURI> targetURI = aEntry->GetURIOrInheritedForAboutBlank();
+  nsCOMPtr<nsIURI> uri = mActiveEntry->GetURIOrInheritedForAboutBlankOrSrcdoc();
+  nsCOMPtr<nsIURI> targetURI = aEntry->GetURIOrInheritedForAboutBlankOrSrcdoc();
   bool sameOrigin =
       NS_SUCCEEDED(nsContentUtils::GetSecurityManager()->CheckSameOriginURI(
           targetURI, uri, false, false));
@@ -1479,14 +1480,6 @@ void CanonicalBrowsingContext::NotifyOnHistoryReload(
   // the nsDocShell will create a load state based on its document.
 }
 
-// about:blank and about:srcdoc, with or without a query or fragment.
-static bool IsAboutBlankOrSrcdoc(nsIURI* aURI) {
-  nsAutoCString name;
-  return aURI->SchemeIs("about") &&
-         NS_SUCCEEDED(NS_GetAboutModuleName(aURI, name)) &&
-         (name.EqualsLiteral("blank") || name.EqualsLiteral("srcdoc"));
-}
-
 // Returns aPrincipal if it is a content principal, its precursor if it is a
 // null principal, and nullptr otherwise.
 static already_AddRefed<nsIPrincipal> GetPrincipalOrPrecursor(
@@ -1507,7 +1500,7 @@ static already_AddRefed<nsIPrincipal> GetPrincipalOrPrecursor(
 static bool ReloadWouldInheritDocumentPrincipal(
     WindowGlobalParent* aWgp, const SessionHistoryInfo* aInfo) {
   nsIURI* uri = aInfo->GetURI();
-  if (!IsAboutBlankOrSrcdoc(uri) && !uri->SchemeIs("data")) {
+  if (!NS_IsAboutBlankOrSrcdoc(uri) && !uri->SchemeIs("data")) {
     return true;
   }
 
@@ -1730,7 +1723,7 @@ void CanonicalBrowsingContext::ReplaceActiveSessionHistoryEntry(
   // interaction state does not get updated. So we instead propagate state from
   // the previous canonical entry. See bug 1917369.
   const bool hasUserInteraction = mActiveEntry->GetHasUserInteraction();
-  mActiveEntry->SetInfo(aInfo);
+  mActiveEntry->ReplaceInfo(aInfo);
   mActiveEntry->SetHasUserInteraction(hasUserInteraction);
   // Notify children of the update
   nsSHistory* shistory = static_cast<nsSHistory*>(GetSessionHistory());

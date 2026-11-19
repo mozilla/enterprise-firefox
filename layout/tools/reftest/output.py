@@ -6,6 +6,7 @@ import json
 import threading
 from collections import defaultdict
 
+from mozleak.asan import ASanErrorParser
 from mozlog.formatters import TbplFormatter
 from mozrunner.utils import get_stack_fixer_function
 
@@ -23,7 +24,9 @@ class ReftestFormatter(TbplFormatter):
         if "component" in data and data["component"] == "mozleak":
             # Output from mozleak requires that no prefix be added
             # so that mozharness will pick up these failures.
-            return "%s\n" % data["message"]
+            if "message" in data:
+                return "%s\n" % data["message"]
+            return TbplFormatter.__call__(self, data)
 
         formatted = TbplFormatter.__call__(self, data)
 
@@ -145,6 +148,11 @@ class OutputHandler:
         self.log = log
         self.proc_name = None
         self.results = defaultdict(int)
+        self.asan_parser = ASanErrorParser(log)
+        # Mirrors RefTest.lastTestSeen: the running test, or its manifest
+        # between tests, which crashes are blamed on too.
+        self.lastTestSeen = None
+        self.scope = None
 
     def __call__(self, line):
         # need to return processed messages to appease remoteautomation.py
@@ -176,4 +184,8 @@ class OutputHandler:
         if self.stack_fixer_function:
             line = self.stack_fixer_function(line)
         name = self.proc_name or threading.current_thread().name
+        self.asan_parser.log(line, pid=name, scope=self.scope, test=self.lastTestSeen)
         self.log.process_output(name, line)
+
+    def finish(self):
+        self.asan_parser.flush()

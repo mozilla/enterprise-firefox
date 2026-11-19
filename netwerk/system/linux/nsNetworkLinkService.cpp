@@ -4,6 +4,7 @@
 
 #include "nsNetworkLinkService.h"
 
+#include "../LinkServiceCommon.h"
 #include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/Logging.h"
 #include "mozilla/Services.h"
@@ -53,6 +54,25 @@ nsNetworkLinkService::GetNetworkID(nsACString& aNetworkID) {
   }
 
   mNetlinkSvc->GetNetworkID(aNetworkID);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsNetworkLinkService::GetNetworkIDSeed(nsACString& aSeed) {
+  aSeed = GetNetworkIdSeed();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsNetworkLinkService::MatchNetworkID(const nsACString& aNetworkID,
+                                     const nsACString& aSeed,
+                                     nsACString& aMatchingNetworkID,
+                                     bool* aResult) {
+  if (!mNetlinkSvc) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  *aResult = mNetlinkSvc->MatchNetworkID(aNetworkID, aSeed, aMatchingNetworkID);
   return NS_OK;
 }
 
@@ -214,7 +234,6 @@ bool nsINetworkLinkService::HasNonLocalIPv6Address() {
   return mozilla::net::NetlinkService::HasNonLocalIPv6Address();
 }
 
-#if defined(MOZ_ENTERPRISE)
 NS_IMETHODIMP
 nsNetworkLinkService::GetNetworkInterfaces(
     nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
@@ -222,22 +241,5 @@ nsNetworkLinkService::GetNetworkInterfaces(
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  nsTArray<NetworkInterface> interfaces;
-  nsresult rv = mNetlinkSvc->GetNetworkInterfaces(interfaces);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-
-  for (const auto& intf : interfaces) {
-    aNetworkInterfaces.AppendElement(MakeRefPtr<nsNetworkInterface>(&intf));
-  }
-
-  return NS_OK;
+  return mNetlinkSvc->GetNetworkInterfaces(aNetworkInterfaces);
 }
-#else
-NS_IMETHODIMP
-nsNetworkLinkService::GetNetworkInterfaces(
-    nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-#endif

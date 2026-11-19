@@ -6,10 +6,8 @@
 
 #include <dlfcn.h>
 
-#include "WaylandVsyncSource.h"
 #include "WidgetUtilsGtk.h"
 #include "mozilla/StaticPrefs_widget.h"
-#include "mozilla/VsyncDispatcher.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/webrender/WebRenderTypes.h"
 #include "nsAppShell.h"
@@ -53,6 +51,11 @@ static nsWindowWaylandPopupGtk* PopupAsGtk(nsWindowWaylandPopup* aPopup) {
 
   Likewise we use GetWorkspaceID() to create/save the xdg_toplevel session
   for later restore.
+
+  A window which does not wait for session restore cannot be restored, so it
+  ignores MoveToWorkspace() and is added to the session under a new ID instead.
+  This happens when a previous session is restored from the menu or a closed
+  window is reopened.
 */
 
 static struct xdg_toplevel* GetXdgToplevelFromGdkWindow(GdkWindow* aWindow) {
@@ -238,19 +241,6 @@ void nsWindowWaylandToplevelGtk::CreateNative() {
 
   mSurfaceProvider.Initialize(this);
 
-  // Initialize the window specific VsyncSource early in order to avoid races
-  // with BrowserParent::UpdateVsyncParentVsyncDispatcher().
-  // Only use for toplevel windows for now, see bug 1619246.
-
-  if (StaticPrefs::widget_wayland_vsync_enabled_AtStartup() &&
-      IsTopLevelWidget()) {
-    LOG_VSYNC("  create WaylandVsyncSource");
-    mWaylandVsyncSource = new WaylandVsyncSource(this);
-    mWaylandVsyncSource->Init();
-    mWaylandVsyncDispatcher = new VsyncDispatcher(mWaylandVsyncSource);
-    mWaylandVsyncSource->EnableVSyncSource();
-  }
-
   if (IsPipWindow()) {
     // This avoids GTK from managing our top level surface role.
     // We'll handle it manually in OnMap().
@@ -260,6 +250,7 @@ void nsWindowWaylandToplevelGtk::CreateNative() {
   mWaitingToSessionRestore =
       IsTopLevelWidget() &&
       nsAppShell::UpdateAndGetSessionState() == eSessionRestoring;
+  mWaitingToFocusRestore = mWaitingToSessionRestore;
 
   LOGVERBOSE("  mWaitingToSessionRestore %d", mWaitingToSessionRestore);
 }
@@ -309,15 +300,6 @@ void nsWindowWaylandToplevelGtk::DestroyNative() {
     mXdgToplevelRealizedID = 0;
   }
   MozClearPointer(mSessionRestoreToken, xdg_toplevel_session_v1_destroy);
-  ClearPipResources();
-
-  // Shut down our local vsync source
-  // Also drops reference to nsWindow::mSurface.
-  if (mWaylandVsyncSource) {
-    mWaylandVsyncSource->Shutdown();
-    mWaylandVsyncSource = nullptr;
-  }
-  mWaylandVsyncDispatcher = nullptr;
   UnlockNativePointer();
 }
 
@@ -338,13 +320,17 @@ void nsWindowWaylandToplevelGtk::NativeShow(bool aAction) {
     LOG("nsWindowWaylandToplevelGtk::NativeShow show\n");
 
     gtk_widget_show(mShell);
-    SetUserTimeAndStartupTokenForActivatedWindow();
-
-    auto token = std::move(mWindowActivationTokenFromEnv);
-    if (!token.IsEmpty()) {
-      FocusWaylandWindow(token.get());
+    if (mWaitingToFocusRestore) {
+      LOG("  waiting to focus restore, not activated");
     } else {
-      TransferFocusTo();
+      SetUserTimeAndStartupTokenForActivatedWindow();
+
+      auto token = std::move(mWindowActivationTokenFromEnv);
+      if (!token.IsEmpty()) {
+        FocusWaylandWindow(token.get());
+      } else {
+        TransferFocusTo();
+      }
     }
     mNeedsShow = false;
   } else {
@@ -390,6 +376,7 @@ bool nsWindowWaylandToplevelGtk::ApplyEnterLeaveMutterWorkaround() {
 }
 
 void nsWindowWaylandToplevelGtk::OnMapNative() { MaybeCreatePipResources(); }
+void nsWindowWaylandToplevelGtk::OnUnmapNative() { ClearPipResources(); }
 
 void nsWindowWaylandToplevelGtk::HideAndRemoveAppPopups() {
   // Hide back-to-front so child popups close before their parents.

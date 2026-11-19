@@ -523,29 +523,36 @@ IPCResult WindowGlobalParent::RecvUpdateDocumentURI(NotNull<nsIURI*> aURI) {
 }
 
 IPCResult WindowGlobalParent::RecvUpdateDocumentPrincipal(
-    nsIPrincipal* aNewDocumentPrincipal,
-    nsIPrincipal* aNewDocumentPartitionedPrincipal) {
-  if (!mDocumentPrincipal->Equals(aNewDocumentPrincipal)) {
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aNewDocumentPrincipal,
+    Tainted<NotNull<RefPtr<nsIPrincipal>>>&& aNewDocumentPartitionedPrincipal) {
+  if (!MOZ_IS_VALID(aNewDocumentPrincipal,
+                    mDocumentPrincipal->Equals(aNewDocumentPrincipal))) {
     return IPC_FAIL(this,
                     "Trying to reuse WindowGlobalParent but the principal of "
                     "the new document does not match the old one");
   }
+  NotNull<RefPtr<nsIPrincipal>> newDocumentPrincipal =
+      MOZ_NO_VALIDATE(aNewDocumentPrincipal, "Validated above");
   // NOTE: Unfortunately, we cannot check ->Equals for our old & new partitioned
   // principals, as the partition key for an initial about:blank document may
   // not match the partition key of the load which replaces it.
-  if (!VerifyPartitionedPrincipalMatchesDocumentPrincipal(
-          aNewDocumentPrincipal, aNewDocumentPartitionedPrincipal)) {
+  if (!MOZ_IS_VALID(
+          aNewDocumentPartitionedPrincipal,
+          VerifyPartitionedPrincipalMatchesDocumentPrincipal(
+              newDocumentPrincipal, aNewDocumentPartitionedPrincipal))) {
     return IPC_FAIL(
         this, "Invalid PartitionedPrincipal when re-using WindowGlobalParent");
   }
+  NotNull<RefPtr<nsIPrincipal>> newDocumentPartitionedPrincipal =
+      MOZ_NO_VALIDATE(aNewDocumentPartitionedPrincipal, "Validated above");
 
-  mDocumentPrincipal = aNewDocumentPrincipal;
-  if (mDocumentPrincipal->Equals(aNewDocumentPartitionedPrincipal)) {
+  mDocumentPrincipal = newDocumentPrincipal;
+  if (mDocumentPrincipal->Equals(newDocumentPartitionedPrincipal)) {
     // Keep only one copy of the principal around if we don't have a partition
     // key.
     mDocumentPartitionedPrincipal = mDocumentPrincipal;
   } else {
-    mDocumentPartitionedPrincipal = aNewDocumentPartitionedPrincipal;
+    mDocumentPartitionedPrincipal = newDocumentPartitionedPrincipal;
   }
 
   return IPC_OK();
@@ -660,13 +667,14 @@ IPCResult WindowGlobalParent::RecvUpdateDocumentCspSettings(
 }
 
 mozilla::ipc::IPCResult WindowGlobalParent::RecvSetClientInfo(
-    const IPCClientInfo& aIPCClientInfo) {
-  if (!ClientIsValidPrincipalInfo(
-          aIPCClientInfo.principalInfo(),
-          GetContentParent() ? GetContentParent()->LoadedOrigins() : nullptr)) {
+    Tainted<IPCClientInfo>&& aIPCClientInfo) {
+  Maybe<IPCClientInfo&> clientInfo = ValidateClientInfo(
+      aIPCClientInfo,
+      GetContentParent() ? GetContentParent()->LoadedOrigins() : nullptr);
+  if (!clientInfo) {
     return IPC_FAIL(this, "SetClientInfo principal not valid for remote type");
   }
-  mClientInfo = Some(ClientInfo(aIPCClientInfo));
+  mClientInfo = Some(ClientInfo(*clientInfo));
   return IPC_OK();
 }
 
@@ -2506,7 +2514,7 @@ static bool ConflictingCredentialsExist(const ExchangeRecord& aExchange,
   if (attrs.mPartitionKey == aSourcePartitionKey) {
     return false;
   }
-  // M1: same_origin_only gate prevents cross-site hops (see the cross-site
+  // M1: same_site_only gate prevents cross-site hops (see the cross-site
   // redirect check in PrefetchRecordParent::AsyncOnChannelRedirect).
   // M2: implement cookie presence check via nsICookieManager.
   return false;
@@ -2620,6 +2628,60 @@ void WindowGlobalParent::DedupePrefetchRecords(
            "older rec=%p",
            this, rec));
       rec->MarkCanceled();
+    }
+  }
+}
+
+/* static */
+void WindowGlobalParent::ClearPrefetchCache(
+    nsIPrincipal* aPartitionedPrincipal) {
+  // Implements "clear prefetch cache" for Clear-Site-Data "prefetchCache".
+  // Spec:
+  // https://wicg.github.io/nav-speculation/prefetch.html#clear-prefetch-cache
+  // Unlike the spec, which matches on origin alone, documents are matched on
+  // their partitioned principal so that a third-party response can't clear a
+  // first-party document's prefetches.
+  if (LOG_SPECRULES_ENABLED()) {
+    nsAutoCString origin;
+    aPartitionedPrincipal->GetOrigin(origin);
+    LOG_SPECRULES_FMT("WindowGlobalParent::ClearPrefetchCache: origin={}",
+                      origin);
+  }
+  // 1. For each top-level traversable traversable of the user agent's
+  // top-level traversable set:
+  nsTArray<RefPtr<BrowsingContextGroup>> groups;
+  BrowsingContextGroup::GetAllGroups(groups);
+  for (const auto& group : groups) {
+    for (const auto& top : group->Toplevels()) {
+      // 1.1. Let navigables be the inclusive descendant navigables of
+      // traversable's active document.
+      // 1.2. For each navigable in navigables:
+      top->PreOrderWalk([&](dom::BrowsingContext* aBC) {
+        // 1.2.1. Let activeDocument be the navigable's active document.
+        RefPtr<WindowGlobalParent> wgp =
+            aBC->Canonical()->GetCurrentWindowGlobal();
+        // 1.2.2. If activeDocument's origin is not same origin with origin,
+        // then continue.
+        if (!wgp || !wgp->DocumentPartitionedPrincipal()->Equals(
+                        aPartitionedPrincipal)) {
+          return;
+        }
+        // 1.2.3. For each prefetchRecord in activeDocument's prefetch records:
+        nsTArray<PPrefetchRecordParent*> managed;
+        wgp->ManagedPPrefetchRecordParent(managed);
+        if (!managed.IsEmpty()) {
+          LOG_SPECRULES_FMT(
+              "WindowGlobalParent::ClearPrefetchCache: wgp={} clearing {} "
+              "records",
+              fmt::ptr(wgp.get()), managed.Length());
+        }
+        for (auto* p : managed) {
+          // 1.2.3.1. is skipped: prerendering is not implemented, so a
+          // record's prerendering traversable is always null.
+          // 1.2.3.2. Cancel and discard prefetchRecord given activeDocument.
+          static_cast<PrefetchRecordParent*>(p)->MarkCanceled();
+        }
+      });
     }
   }
 }

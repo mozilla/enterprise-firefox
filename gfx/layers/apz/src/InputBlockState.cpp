@@ -693,6 +693,7 @@ bool TouchBlockState::SetAllowedTouchBehaviors(
           aBehaviors.Length());
   mAllowedTouchBehaviors.AppendElements(aBehaviors);
   mAllowedTouchBehaviorSet = true;
+  MaybeNotifyTouchSwipableDirections();
   return true;
 }
 
@@ -925,6 +926,71 @@ bool TouchBlockState::NeedsContentResponseAfterLongTap(
     return false;
   }
   return !HasContentResponded() || !IsDefaultPrevented();
+}
+
+SideBits TouchBlockState::GetSwipableDirections(
+    const AsyncPanZoomController* aTarget) const {
+  MOZ_ASSERT(aTarget, "A confirmed target should be non-null here");
+  MOZ_ASSERT(HasAllowedTouchBehaviors(), "touch action should be confirmed");
+  if (TouchActionAllowsPanningX()) {
+    return GetOverscrollHandoffChain()->GetSwipableDirections(*aTarget);
+  }
+  return SideBits::eNone;
+}
+
+bool TouchBlockState::HasTouchSwipeInfo() const {
+  return (IsTargetConfirmed() && HasAllowedTouchBehaviors() &&
+          HasContentResponded()) ||
+         IsContentResponseTimerExpired();
+}
+
+bool TouchBlockState::SetConfirmedTargetApzc(
+    const RefPtr<AsyncPanZoomController>& aTargetApzc,
+    TargetConfirmationState aState, InputQueueIterator aFirstInput,
+    bool aForScrollbarDrag) {
+  const bool confirmed = InputBlockState::SetConfirmedTargetApzc(
+      aTargetApzc, aState, aFirstInput, aForScrollbarDrag);
+  if (confirmed) {
+    MaybeNotifyTouchSwipableDirections();
+  }
+  return confirmed;
+}
+
+bool TouchBlockState::TimeoutContentResponse() {
+  const bool timeout = CancelableBlockState::TimeoutContentResponse();
+  if (timeout) {
+    MaybeNotifyTouchSwipableDirections();
+  }
+  return timeout;
+}
+
+bool TouchBlockState::SetContentResponse(bool aPreventDefault) {
+  const auto contentResponded =
+      CancelableBlockState::SetContentResponse(aPreventDefault);
+  if (contentResponded) {
+    MaybeNotifyTouchSwipableDirections();
+  }
+  return contentResponded;
+}
+
+void TouchBlockState::MaybeNotifyTouchSwipableDirections() {
+  if (!mTouchSwipableDirectionsCallback || !HasTouchSwipeInfo()) {
+    return;
+  }
+
+  // If the main thread did not respond in time, reject swipe rather than
+  // navigate based on APZ's guess, because navigation discards the current
+  // page.
+  const RefPtr<AsyncPanZoomController>& target = GetTargetApzc();
+  const SideBits swipableDirections =
+      target && !IsContentResponseTimerExpired() && !IsDefaultPrevented()
+          ? GetSwipableDirections(target)
+          : SideBits::eNone;
+
+  TouchSwipableDirectionsCallback callback =
+      std::move(mTouchSwipableDirectionsCallback);
+  mTouchSwipableDirectionsCallback = nullptr;
+  callback(GetBlockId(), swipableDirections);
 }
 
 KeyboardBlockState::KeyboardBlockState(

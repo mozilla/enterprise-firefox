@@ -76,13 +76,6 @@ export LDFLAGS="-fuse-ld=lld -lpthread -Wl,-rpath-link,$MOZ_FETCHES_DIR/sysroot/
 export CC="$CC --sysroot=$MOZ_FETCHES_DIR/sysroot"
 export CXX="$CXX --sysroot=$MOZ_FETCHES_DIR/sysroot"
 
-cd $CROSSTOOLS_SOURCE_DIR
-patch -p1 < $GECKO_PATH/taskcluster/scripts/misc/cctools-llvm-c-headers.patch
-
-# Keep Rust compiler_builtins atoms live during LTO dead-strip so cross-language
-# LTO links (e.g. macOS shippable) don't drop symbols like __umodti3.
-patch -p1 < $GECKO_PATH/taskcluster/scripts/misc/cctools-ld64-dead-strip-compiler-builtins.patch
-
 # Configure crosstools-port
 cd $CROSSTOOLS_CCTOOLS_DIR
 

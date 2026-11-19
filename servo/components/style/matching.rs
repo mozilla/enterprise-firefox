@@ -12,19 +12,19 @@ use crate::computed_value_flags::ComputedValueFlags;
 use crate::context::CascadeInputs;
 use crate::context::{ElementCascadeInputs, QuirksMode};
 use crate::context::{SharedStyleContext, StyleContext};
-use crate::data::{ElementData, ElementStyles};
+use crate::data::ElementData;
+#[cfg(feature = "servo")]
+use crate::data::ElementStyles;
 use crate::dom::TElement;
 #[cfg(feature = "servo")]
 use crate::dom::TNode;
 use crate::invalidation::element::restyle_hints::RestyleHint;
 use crate::properties::ComputedValues;
-use crate::properties::PropertyDeclarationBlock;
 use crate::properties::longhands::display::computed_value::T as Display;
 #[cfg(feature = "servo")]
 use crate::rule_tree::RuleCascadeFlags;
-use crate::rule_tree::{CascadeLevel, CascadeOrigin, StrongRuleNode};
+use crate::rule_tree::{CascadeLevel, CascadeOrigin};
 use crate::selector_parser::{PseudoElement, RestyleDamage};
-use crate::shared_lock::Locked;
 use crate::style_resolver::StyleResolverForElement;
 use crate::style_resolver::{PseudoElementResolution, ResolvedElementStyles};
 use crate::stylesheets::layer_rule::LayerOrder;
@@ -32,7 +32,7 @@ use crate::stylist::RuleInclusion;
 use crate::traversal_flags::TraversalFlags;
 use crate::values::generics::animation::GenericAnimationTimeline;
 use crate::values::specified::animation::Scroller;
-use servo_arc::{Arc, ArcBorrow};
+use servo_arc::Arc;
 
 /// Represents the result of comparing an element's old and new style.
 #[derive(Debug)]
@@ -69,31 +69,6 @@ enum CascadeVisitedMode {
 }
 
 trait PrivateMatchMethods: TElement {
-    fn replace_single_rule_node(
-        context: &SharedStyleContext,
-        level: CascadeLevel,
-        layer_order: LayerOrder,
-        pdb: Option<ArcBorrow<Locked<PropertyDeclarationBlock>>>,
-        path: &mut StrongRuleNode,
-    ) -> bool {
-        let stylist = &context.stylist;
-        let guards = &context.guards;
-
-        let mut important_rules_changed = false;
-        let new_node = stylist.rule_tree().update_rule_at_level(
-            level,
-            layer_order,
-            pdb,
-            path,
-            guards,
-            &mut important_rules_changed,
-        );
-        if let Some(n) = new_node {
-            *path = n;
-        }
-        important_rules_changed
-    }
-
     /// Updates the rule nodes without re-running selector matching, using just
     /// the rule tree, for a specific visited mode.
     ///
@@ -115,44 +90,37 @@ trait PrivateMatchMethods: TElement {
             CascadeVisitedMode::Visited => cascade_inputs.primary.visited_rules.as_mut(),
         };
 
-        let primary_rules = match primary_rules {
-            Some(r) => r,
-            None => return false,
+        let Some(primary_rules) = primary_rules else {
+            return false;
         };
 
-        if !context.shared.traversal_flags.for_animation_only() {
-            let mut result = false;
-            if replacements.contains(RestyleHint::RESTYLE_STYLE_ATTRIBUTE) {
-                let style_attribute = self.style_attribute();
-                result |= Self::replace_single_rule_node(
-                    context.shared,
-                    CascadeLevel::same_tree_author_normal(),
-                    LayerOrder::style_attribute(),
-                    style_attribute,
-                    primary_rules,
-                );
-                result |= Self::replace_single_rule_node(
-                    context.shared,
-                    CascadeLevel::same_tree_author_important(),
-                    LayerOrder::style_attribute(),
-                    style_attribute,
-                    primary_rules,
-                );
-            }
-            return result;
+        let rule_tree = context.shared.stylist.rule_tree();
+        let guards = &context.shared.guards;
+        let mut result = false;
+        if replacements.contains(RestyleHint::RESTYLE_PRES_HINTS) {
+            let mut hints = smallvec::SmallVec::<[_; 3]>::new();
+            self.synthesize_presentational_hints_for_legacy_attributes(&mut hints);
+            rule_tree.replace_pres_hints(&hints, primary_rules);
         }
-
-        // Animation restyle hints are processed prior to other restyle
-        // hints in the animation-only traversal.
-        //
-        // Non-animation restyle hints will be processed in a subsequent
-        // normal traversal.
+        if replacements.contains(RestyleHint::RESTYLE_STYLE_ATTRIBUTE) {
+            let style_attribute = self.style_attribute();
+            // Replace !important first since if it exists it is in the shorter path.
+            result |= rule_tree.replace_single_rule_at_level(
+                CascadeLevel::same_tree_author_important(),
+                LayerOrder::style_attribute(),
+                style_attribute.filter(|attr| attr.read_with(guards.author).any_important()),
+                primary_rules,
+            );
+            result |= rule_tree.replace_single_rule_at_level(
+                CascadeLevel::same_tree_author_normal(),
+                LayerOrder::style_attribute(),
+                style_attribute,
+                primary_rules,
+            );
+        }
         if replacements.intersects(RestyleHint::for_animations()) {
-            debug_assert!(context.shared.traversal_flags.for_animation_only());
-
             if replacements.contains(RestyleHint::RESTYLE_SMIL) {
-                Self::replace_single_rule_node(
-                    context.shared,
+                rule_tree.replace_single_rule_at_level(
                     CascadeLevel::new(CascadeOrigin::SMILOverride),
                     LayerOrder::root(),
                     self.smil_override(),
@@ -161,8 +129,7 @@ trait PrivateMatchMethods: TElement {
             }
 
             if replacements.contains(RestyleHint::RESTYLE_CSS_TRANSITIONS) {
-                Self::replace_single_rule_node(
-                    context.shared,
+                rule_tree.replace_single_rule_at_level(
                     CascadeLevel::new(CascadeOrigin::Transitions),
                     LayerOrder::root(),
                     self.transition_rule(context.shared)
@@ -173,8 +140,7 @@ trait PrivateMatchMethods: TElement {
             }
 
             if replacements.contains(RestyleHint::RESTYLE_CSS_ANIMATIONS) {
-                Self::replace_single_rule_node(
-                    context.shared,
+                rule_tree.replace_single_rule_at_level(
                     CascadeLevel::new(CascadeOrigin::Animations),
                     LayerOrder::root(),
                     self.animation_rule(context.shared)
@@ -185,7 +151,7 @@ trait PrivateMatchMethods: TElement {
             }
         }
 
-        false
+        result
     }
 
     #[inline]
@@ -348,7 +314,7 @@ trait PrivateMatchMethods: TElement {
     fn maybe_resolve_starting_style(
         &self,
         context: &mut StyleContext<Self>,
-        old_values: Option<&Arc<ComputedValues>>,
+        before_change_style: Option<&Arc<ComputedValues>>,
         new_styles: &ResolvedElementStyles,
     ) -> Option<Arc<ComputedValues>> {
         // For both cases:
@@ -360,8 +326,8 @@ trait PrivateMatchMethods: TElement {
 
         // We resolve starting style only if we don't have before-change-style, or we change from
         // display:none.
-        if old_values.is_some()
-            && !new_primary.is_display_property_changed_from_none(old_values.map(|s| &**s))
+        if before_change_style.is_some()
+            && !new_primary.is_display_property_changed_from_none(before_change_style.map(|s| &**s))
         {
             return None;
         }
@@ -382,20 +348,22 @@ trait PrivateMatchMethods: TElement {
     }
 
     /// Handle CSS Transitions. Returns None if we don't need to update transitions. And it returns
-    /// the before-change style per CSS Transitions spec.
-    ///
-    /// Note: The before-change style could be the computed values of all properties on the element
-    /// as of the previous style change event, or the starting style if we don't have the valid
-    /// before-change style there.
+    /// the before-change style or the @starting-style.
     #[cfg(feature = "gecko")]
     fn process_transitions(
         &self,
         context: &mut StyleContext<Self>,
-        old_values: Option<&Arc<ComputedValues>>,
+        before_change_style: Option<&Arc<ComputedValues>>,
         new_styles: &mut ResolvedElementStyles,
     ) -> Option<Arc<ComputedValues>> {
-        let starting_values = self.maybe_resolve_starting_style(context, old_values, new_styles);
-        let before_change_or_starting = starting_values.as_ref().or(old_values);
+        // If the before-change style is the new style, the style changed only due to animations or
+        // transitions of this element or its ancestors, which shouldn't trigger/update transitions.
+        if before_change_style.is_some_and(|s| Arc::ptr_eq(s, &new_styles.primary.style.0)) {
+            return None;
+        }
+        let starting_values =
+            self.maybe_resolve_starting_style(context, before_change_style, new_styles);
+        let before_change_or_starting = starting_values.as_ref().or(before_change_style);
         let new_values = new_styles.primary_style_mut();
 
         if !self.might_need_transitions_update(
@@ -428,91 +396,63 @@ trait PrivateMatchMethods: TElement {
             *new_values = values_without_transitions;
         }
 
-        // Move the new-created starting style, or clone the old values.
+        // Move the new-created starting style, or clone the before-change style.
         if starting_values.is_some() {
             starting_values
         } else {
-            old_values.cloned()
+            before_change_style.cloned()
         }
     }
 
+    /// Updates animations and transitions for the new style. `before_change_style` is the
+    /// before-change style of the element (see `StyleResolverForElement::before_change_style`), or
+    /// None if this is the initial style.
     #[cfg(feature = "gecko")]
     fn process_animations(
         &self,
         context: &mut StyleContext<Self>,
-        old_styles: &mut ElementStyles,
         new_styles: &mut ResolvedElementStyles,
         important_rules_changed: bool,
+        before_change_style: Option<&Arc<ComputedValues>>,
     ) {
         use crate::context::UpdateAnimationsTasks;
+        use crate::properties::style_structs::UI;
 
-        let old_values = &old_styles.primary;
-        if context.shared.traversal_flags.for_animation_only() && old_values.is_some() {
-            return;
-        }
+        let old_values = before_change_style.map(|s| &**s);
 
         // Bug 868975: These steps should examine and update the visited styles
         // in addition to the unvisited styles.
 
         let mut tasks = UpdateAnimationsTasks::empty();
 
-        if old_values.as_deref().map_or_else(
-            || {
-                new_styles
-                    .primary_style()
-                    .get_ui()
-                    .specifies_timeline_scope()
-            },
-            |old| {
-                !old.get_ui()
-                    .timeline_scope_equals(new_styles.primary_style().get_ui())
-            },
-        ) {
-            tasks.insert(UpdateAnimationsTasks::TIMELINE_SCOPES);
-        }
-
-        if old_values.as_deref().map_or_else(
-            || {
-                new_styles
-                    .primary_style()
-                    .get_ui()
-                    .specifies_scroll_timelines()
-            },
-            |old| {
-                !old.get_ui()
-                    .scroll_timelines_equals(new_styles.primary_style().get_ui())
-            },
-        ) {
-            tasks.insert(UpdateAnimationsTasks::SCROLL_TIMELINES);
-        }
-
-        if old_values.as_deref().map_or_else(
-            || {
-                new_styles
-                    .primary_style()
-                    .get_ui()
-                    .specifies_view_timelines()
-            },
-            |old| {
-                !old.get_ui()
-                    .view_timelines_equals(new_styles.primary_style().get_ui())
-            },
-        ) {
-            tasks.insert(UpdateAnimationsTasks::VIEW_TIMELINES);
+        {
+            let new_ui = new_styles.primary_style().get_ui();
+            let changed = |specified: fn(&UI) -> bool, equals: fn(&UI, &UI) -> bool| {
+                old_values.map_or_else(|| specified(new_ui), |old| !equals(old.get_ui(), new_ui))
+            };
+            if changed(UI::specifies_timeline_scope, UI::timeline_scope_equals) {
+                tasks.insert(UpdateAnimationsTasks::TIMELINE_SCOPES);
+            }
+            if changed(UI::specifies_scroll_timelines, UI::scroll_timelines_equals) {
+                tasks.insert(UpdateAnimationsTasks::SCROLL_TIMELINES);
+            }
+            if changed(UI::specifies_view_timelines, UI::view_timelines_equals) {
+                tasks.insert(UpdateAnimationsTasks::VIEW_TIMELINES);
+            }
         }
 
         if self.needs_animations_update(
             context,
-            old_values.as_deref(),
+            old_values,
             new_styles.primary_style(),
             /* pseudo_element = */ None,
         ) {
             tasks.insert(UpdateAnimationsTasks::CSS_ANIMATIONS);
         }
 
-        let before_change_style =
-            self.process_transitions(context, old_values.as_ref(), new_styles);
-        if before_change_style.is_some() {
+        let transitions_before_change_style =
+            self.process_transitions(context, before_change_style, new_styles);
+        if transitions_before_change_style.is_some() {
             tasks.insert(UpdateAnimationsTasks::CSS_TRANSITIONS);
         }
 
@@ -523,7 +463,7 @@ trait PrivateMatchMethods: TElement {
             }
             if new_styles
                 .primary_style()
-                .is_display_property_changed_from_none(old_values.as_deref())
+                .is_display_property_changed_from_none(old_values)
             {
                 tasks.insert(UpdateAnimationsTasks::DISPLAY_CHANGED_FROM_NONE);
             }
@@ -532,7 +472,7 @@ trait PrivateMatchMethods: TElement {
         if !tasks.is_empty() {
             let task = crate::context::SequentialTask::update_animations(
                 *self,
-                before_change_style,
+                transitions_before_change_style,
                 tasks,
             );
             context.thread_local.tasks.push(task);
@@ -777,6 +717,7 @@ trait PrivateMatchMethods: TElement {
         let changed_animations = animation_set.dirty;
         if !animation_set.is_empty() {
             animation_set.dirty = false;
+            self.set_may_have_animations();
             shared_context
                 .animations
                 .sets
@@ -800,7 +741,7 @@ trait PrivateMatchMethods: TElement {
         debug_assert!(
             !shared_context
                 .traversal_flags
-                .contains(TraversalFlags::FinalAnimationTraversal)
+                .contains(TraversalFlags::Forgetful)
         );
 
         let difference = self.compute_style_difference(old_values, new_values, pseudo);
@@ -906,7 +847,6 @@ fn need_to_unconditionally_recascade_for_reset_change(
     //
     // Similarly, we could potentially do better, but this really
     // seems not common enough to care about.
-    #[cfg(feature = "gecko")]
     {
         use crate::values::specified::align::AlignFlags;
 
@@ -1004,18 +944,44 @@ pub trait MatchMethods: TElement {
         data: &mut ElementData,
         mut new_styles: ResolvedElementStyles,
         important_rules_changed: bool,
+        before_change_style: Option<Arc<ComputedValues>>,
     ) -> RestyleHint {
-        self.process_animations(
-            context,
-            &mut data.styles,
-            &mut new_styles,
-            important_rules_changed,
-        );
+        // If the element was restyled only due to its own animations, nothing about them can have
+        // changed.
+        //
+        // FIXME(emilio): This is not quite true. E.g. a font-size animation with other property
+        // animating `em`s would still want animation updates, I think. But this matches more
+        // closely the previous behavior and avoids useless `SequentialTask`s in the common cases.
+        // We probably want to handle more of the animation updates in the style thread....
+        let animation_only = !data.hint.has_non_animation_invalidations()
+            && before_change_style
+                .as_ref()
+                .is_some_and(|s| Arc::ptr_eq(s, &new_styles.primary.style.0));
+        if !animation_only {
+            #[cfg(feature = "gecko")]
+            self.process_animations(
+                context,
+                &mut new_styles,
+                important_rules_changed,
+                before_change_style.as_ref(),
+            );
+            #[cfg(feature = "servo")]
+            self.process_animations(
+                context,
+                &mut data.styles,
+                &mut new_styles,
+                important_rules_changed,
+            );
+        }
 
-        // First of all, update the styles.
+        // First of all, update the styles, and keep the before-change style around for the
+        // children if it's different from the new style, see
+        // StyleResolverForElement::before_change_style.
         let old_styles = data.set_styles(new_styles);
-
         let new_primary_style = data.styles.primary.as_ref().unwrap();
+        data.before_change_style =
+            before_change_style.filter(|s| !Arc::ptr_eq(s, new_primary_style));
+        let old_primary_style = old_styles.primary.as_ref();
 
         let mut child_restyle_hint = RestyleHint::empty();
         let is_root = new_primary_style
@@ -1026,12 +992,11 @@ pub trait MatchMethods: TElement {
         let new_font_size = new_primary_style.get_font().slow_clone_font_size();
         let new_container_type = *new_primary_style.get_container_type();
 
-        let old_style = old_styles.primary.as_ref();
-        let old_font_size = old_style.map(|s| s.get_font().slow_clone_font_size());
+        let old_font_size = old_primary_style.map(|s| s.get_font().slow_clone_font_size());
         let font_size_changed = old_font_size.is_none_or(|fs| fs != new_font_size);
 
-        let line_height_likely_changed =
-            font_size_changed || Self::line_height_likely_changed(old_style, new_primary_style);
+        let line_height_likely_changed = font_size_changed
+            || Self::line_height_likely_changed(old_primary_style, new_primary_style);
 
         // Update root font-relative units. If any of these unit values changed
         // since last time, ensure that we recascade the entire tree.
@@ -1087,19 +1052,18 @@ pub trait MatchMethods: TElement {
             device.set_body_text_color(text_color);
         }
 
-        // Don't accumulate damage if we're in the final animation traversal.
+        // Don't accumulate damage if we're in a forgetful traversal.
         if context
             .shared
             .traversal_flags
-            .contains(TraversalFlags::FinalAnimationTraversal)
+            .contains(TraversalFlags::Forgetful)
         {
             return RestyleHint::RECASCADE_SELF;
         }
 
         // Also, don't do anything if there was no style.
-        let old_primary_style = match old_styles.primary {
-            Some(s) => s,
-            None => return RestyleHint::RECASCADE_SELF,
+        let Some(old_primary_style) = old_primary_style else {
+            return RestyleHint::RECASCADE_SELF;
         };
 
         // Check for changes in writing mode here because we don't care

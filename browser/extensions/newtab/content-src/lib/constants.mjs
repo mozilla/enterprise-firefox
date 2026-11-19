@@ -42,6 +42,7 @@ export const NEWTAB_DARK_THEME = {
 export const WALLPAPER_CATEGORIES = {
   Abstracts: "abstracts",
   Celestial: "celestial",
+  Predecessor: "predecessor",
   Photographs: "photographs",
   SolidColors: "solid-colors",
   Firefox: "firefox",
@@ -55,4 +56,18 @@ export const CUSTOMIZE_SUBPANELS = Object.freeze({
   WIDGETS: "widgets_management",
   THEMES: "themes_management",
   WALLPAPERS: "wallpaper_categories",
+});
+
+// What opened the customize panel. New Tab telemetry records these as the
+// `source` value of `customize_panel_open` (Bug 2066847), so keep them stable.
+export const CUSTOMIZE_PANEL_SOURCES = Object.freeze({
+  CUSTOMIZE_BUTTON: "customize_button",
+  MANAGE_WIDGETS: "manage_widgets",
+  WALLPAPER_FEATURE_HIGHLIGHT: "wallpaper_feature_highlight",
+  PROMO_CARD: "promo_card",
+  PERSONALIZED_CARD: "personalized_card",
+  ACTIVATION_WINDOW_MESSAGE: "activation_window_message",
+  TOP_SITES_WEB_NOTIFICATIONS: "top_sites_web_notifications",
+  SETTINGS: "settings",
+  EXTERNAL_LINK: "external_link",
 });

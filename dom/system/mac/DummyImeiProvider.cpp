@@ -7,19 +7,12 @@
 #include "DummyImeiProvider.h"
 
 #include "mozilla/ClearOnShutdown.h"
-#include "mozilla/Logging.h"
 #include "mozilla/dom/Promise.h"
-#include "nsCOMPtr.h"
 #include "nsIGlobalObject.h"
 
 namespace mozilla::dom {
 
-static LazyLogModule gDummyImeiLog("DummyImei");
-
-#define DI_LOG(level, ...) \
-  MOZ_LOG(gDummyImeiLog, mozilla::LogLevel::level, (__VA_ARGS__))
-
-StaticRefPtr<DummyImeiProvider> sInstance;
+static StaticRefPtr<DummyImeiProvider> sInstance;
 
 /* static */
 already_AddRefed<DummyImeiProvider> DummyImeiProvider::GetInstance() {

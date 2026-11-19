@@ -92,6 +92,11 @@ class WaylandSurface final {
   // Set WaylandSurface target size (viewport & ELG surface if it's present).
   void SetSize(DesktopIntSize aSize);
 
+  // Calculate 'stable' rounded size for subsurface based
+  // on its position.
+  LayoutDeviceIntSize GetScaledSize(const WaylandSurfaceLock& aProofOfLock,
+                                    const DesktopIntSize& aSize) const;
+
   // Apply changes to EGLWindow size set by SetSize().
   // ApplyEGLWindowSize() is called from compostor thread
   // right before GL rendering to set EGLWindow size / viewport size
@@ -108,6 +113,8 @@ class WaylandSurface final {
   bool IsVisible() const { return mIsVisible; }
 
   bool IsToplevelSurface() const { return !mParent; }
+
+  void MarkAsRootSurface() { mIsRootSurface = true; }
 
   // Called from frame callback and sets the visible flag
   void VisibleCallbackHandler();
@@ -159,8 +166,8 @@ class WaylandSurface final {
 
   // Attach WaylandBuffer which shows WaylandBuffer content
   // on screen.
-  bool AttachLocked(const WaylandSurfaceLock& aSurfaceLock,
-                    RefPtr<WaylandBuffer> aBuffer);
+  BufferTransaction* AttachLocked(const WaylandSurfaceLock& aSurfaceLock,
+                                  RefPtr<WaylandBuffer> aBuffer);
   bool IsBufferAttached(WaylandBuffer* aBuffer);
 
   // If there's any WaylandBuffer recently attached, detach it.
@@ -193,7 +200,7 @@ class WaylandSurface final {
   // Place this WaylandSurface above aLowerSurface
   void PlaceAboveLocked(const WaylandSurfaceLock& aProofOfLock,
                         WaylandSurfaceLock& aLowerSurfaceLock);
-  void MoveLocked(const WaylandSurfaceLock& aProofOfLock,
+  bool MoveLocked(const WaylandSurfaceLock& aProofOfLock,
                   DesktopIntPoint aPosition);
   void SetViewportFollowsSizeChangesLocked(
       const WaylandSurfaceLock& aProofOfLock);
@@ -367,7 +374,6 @@ class WaylandSurface final {
 
   void SetHDRMetadata(wp_image_description_creator_params_v1* aParams,
                       gfx::TransferFunction aTransferFunction,
-                      GdkWindow* aGdkWindow,
                       const mozilla::gfx::HDRMetadata& aHDRMetadata);
 
   void SetColorManagementLocked(
@@ -414,10 +420,6 @@ class WaylandSurface final {
   bool ConfigureFractionalScaleLocked(const WaylandSurfaceLock& aProofOfLock,
                                       bool aSetProtocolHandler);
 
-  // Calculate 'stable' rounded size for subsurface based
-  // on its size and position.
-  LayoutDeviceIntSize GetScaledSize(const DesktopIntSize& aSize) const;
-
   // Weak ref to owning widget (nsWindow or NativeLayerWayland),
   // used for diagnostics/logging only.
   void* mLoggingWidget = nullptr;
@@ -428,6 +430,9 @@ class WaylandSurface final {
 
   // mIsVisible means we're really visible as we've got frame callback.
   mozilla::Atomic<bool, mozilla::Relaxed> mIsVisible{false};
+
+  // We're root of wl_subsurface tree used by layer compositor.
+  mozilla::Atomic<bool, mozilla::Relaxed> mIsRootSurface{false};
 
   // We used Gdk functions which needs clean up in main thread.
   mozilla::Atomic<bool, mozilla::Relaxed> mIsPendingGdkCleanup{false};
@@ -569,14 +574,12 @@ class WaylandSurface final {
   WUniquePtr<wp_color_representation_surface_v1> mColorRepresentationSurface;
   WUniquePtr<wp_image_description_v1> mImageDescription;
 
-  static void SetLuminances(wp_image_description_creator_params_v1* aParams,
-                            float minLum, float maxLum, float refLum);
-
-  static void SetContentLightLevel(
+  static bool SetContentLightLevel(
       wp_image_description_creator_params_v1* aParams,
-      const mozilla::gfx::ContentLightLevel& aContentLightLevel);
+      const mozilla::gfx::ContentLightLevel& aContentLightLevel,
+      float aMinLuminance, float aMaxLuminance);
 
-  static void SetMasteringDisplayColorVolume(
+  static bool SetMasteringDisplayColorVolume(
       wp_image_description_creator_params_v1* aParams,
       const mozilla::gfx::Smpte2086Metadata& aSmpte2086);
 };

@@ -7,10 +7,7 @@ const lazy = {};
 import { html, when } from "chrome://global/content/vendor/lit.all.mjs";
 
 import { SidebarPage } from "./sidebar-page.mjs";
-import {
-  navigateToLink,
-  escapeHtmlEntities,
-} from "chrome://browser/content/firefoxview/helpers.mjs";
+import { escapeHtmlEntities } from "chrome://browser/content/firefoxview/helpers.mjs";
 // eslint-disable-next-line import-x/no-unassigned-import
 import "chrome://browser/content/sidebar/sidebar-bookmark-list.mjs";
 
@@ -295,7 +292,7 @@ export class SidebarBookmarks extends SidebarPage {
 
     this.treeView.resetSelection();
     list.dispatchEvent(anchorEvent);
-    navigateToLink(e, row.url, { forceNewTab: false });
+    this.navigateToPlacesLink(e, row.url);
     Glean.sidebar.link.bookmarks.add(1);
   }
 
@@ -314,6 +311,7 @@ export class SidebarBookmarks extends SidebarPage {
             folderEl.textContent?.trim() ??
             "";
           const folderKind = folderEl.dataset.folderKind;
+          const { targetFolderGuid } = folderEl;
           const children = folderEl.querySelector(
             "sidebar-bookmark-list"
           )?.tabItems;
@@ -321,11 +319,14 @@ export class SidebarBookmarks extends SidebarPage {
             guid: folderEl.guid,
             title,
             children,
+            targetFolderGuid,
+            uri: folderEl.uri,
             isFolder: true,
             isEmpty,
             isRootFolder: lazy.PlacesUtils.isRootItem(folderEl.guid),
             isPlaceContainer:
-              folderKind === "place-container" || folderKind === "tags-root",
+              !targetFolderGuid &&
+              (folderKind === "place-container" || folderKind === "tags-root"),
             isTagContainer: folderKind === "tag-container",
             isTagsRoot: folderKind === "tags-root",
           };
@@ -342,6 +343,7 @@ export class SidebarBookmarks extends SidebarPage {
     const isBookmark = !isFolder && !isSeparator;
     const isEmpty = !!this.triggerNode.isEmpty;
     const isRootFolder = !!this.triggerNode.isRootFolder;
+    const isFolderShortcut = !!this.triggerNode.targetFolderGuid;
 
     if (!this.#contextMenuItems) {
       this.#initContextMenuItems();
@@ -397,6 +399,7 @@ export class SidebarBookmarks extends SidebarPage {
     for (const el of disabledForRootItems) {
       el.disabled = isRootFolder;
     }
+    editBookmark.disabled ||= isFolderShortcut;
 
     openInContainerTab.hidden =
       !isBookmark ||
@@ -654,7 +657,11 @@ export class SidebarBookmarks extends SidebarPage {
         label = "sort_bookmarks_by_name";
         break;
       case "sidebar-bookmarks-context-open-in-tab":
-        this.topWindow.openTrustedLinkIn(this.triggerNode.url, "tab");
+        this.topWindow.openTrustedLinkIn(this.triggerNode.url, "tab", {
+          inBackground: Services.prefs.getBoolPref(
+            "browser.tabs.loadInBackground"
+          ),
+        });
         label = "open_in_new_tab";
         break;
       case "sidebar-bookmarks-context-open-in-window":
@@ -886,7 +893,7 @@ export class SidebarBookmarks extends SidebarPage {
     const node = this.triggerNode;
     if (node.isFolder) {
       return {
-        guid: node.guid,
+        guid: this.#concreteGuid(node),
         getIndex: () => lazy.PlacesUtils.bookmarks.DEFAULT_INDEX,
       };
     }
@@ -919,7 +926,9 @@ export class SidebarBookmarks extends SidebarPage {
     const urls = [];
     for (const item of bookmarks) {
       if (item.isFolder) {
-        const tree = await lazy.PlacesUtils.promiseBookmarksTree(item.guid);
+        const tree = await lazy.PlacesUtils.promiseBookmarksTree(
+          this.#concreteGuid(item)
+        );
         urls.push(...this.#collectBookmarkUrls(tree));
       } else if (item.url) {
         urls.push(item.url);
@@ -945,7 +954,20 @@ export class SidebarBookmarks extends SidebarPage {
   }
 
   async #sortByName() {
-    await lazy.PlacesTransactions.SortByName(this.triggerNode.guid).transact();
+    await lazy.PlacesTransactions.SortByName(
+      this.#concreteGuid(this.triggerNode)
+    ).transact();
+  }
+
+  /**
+   * The guid of the folder whose contents a folder node shows: the target
+   * folder for a folder shortcut, or the folder itself otherwise.
+   *
+   * @param {object} node
+   * @returns {string}
+   */
+  #concreteGuid(node) {
+    return node.targetFolderGuid ?? node.guid;
   }
 
   #cutBookmarks(bookmarks) {
@@ -973,6 +995,16 @@ export class SidebarBookmarks extends SidebarPage {
       if (item.isSeparator) {
         return JSON.stringify({
           type: lazy.PlacesUtils.TYPE_X_MOZ_PLACE_SEPARATOR,
+        });
+      }
+      if (item.targetFolderGuid) {
+        return JSON.stringify({
+          type: lazy.PlacesUtils.TYPE_X_MOZ_PLACE,
+          itemGuid: item.guid,
+          concreteGuid: item.targetFolderGuid,
+          instanceId: lazy.PlacesUtils.instanceId,
+          title: item.title,
+          uri: item.uri,
         });
       }
       if (item.isFolder) {
@@ -1121,7 +1153,7 @@ export class SidebarBookmarks extends SidebarPage {
     // Otherwise, paste as a sibling right after the target bookmark.
     const insertionPoint = this.triggerNode.isFolder
       ? {
-          guid: this.triggerNode.guid,
+          guid: this.#concreteGuid(this.triggerNode),
           isTag: false,
           getIndex: async () => lazy.PlacesUtils.bookmarks.DEFAULT_INDEX,
         }
@@ -1238,7 +1270,18 @@ export class SidebarBookmarks extends SidebarPage {
     return tree;
   }
 
-  async #normalizeBookmarkNode(node, guidToL10nId) {
+  /**
+   * @param {object} node
+   * @param {object} guidToL10nId
+   * @param {Set<string>} [shortcutTargets]
+   *   Guids of the folders that folder shortcuts above this node point to, used
+   *   to stop a shortcut from expanding a folder it is already nested in.
+   */
+  async #normalizeBookmarkNode(
+    node,
+    guidToL10nId,
+    shortcutTargets = new Set()
+  ) {
     if (node.iconUri && !node.iconUri.startsWith("fake-favicon-uri:")) {
       node.icon = node.iconUri;
     } else if (node.uri) {
@@ -1253,7 +1296,10 @@ export class SidebarBookmarks extends SidebarPage {
       node.type === lazy.PlacesUtils.TYPE_X_MOZ_PLACE &&
       node.uri?.startsWith("place:")
     ) {
-      await this.#expandPlaceQuery(node);
+      await this.#expandPlaceQuery(node, shortcutTargets);
+      if (node.targetFolderGuid) {
+        shortcutTargets = new Set(shortcutTargets).add(node.targetFolderGuid);
+      }
     }
     const l10nId = guidToL10nId?.[node.guid];
     if (l10nId) {
@@ -1267,24 +1313,30 @@ export class SidebarBookmarks extends SidebarPage {
     // whole tree; the worst case is an incomplete branch.
     await Promise.allSettled(
       (node.children ?? []).map(child =>
-        this.#normalizeBookmarkNode(child, guidToL10nId)
+        this.#normalizeBookmarkNode(child, guidToL10nId, shortcutTargets)
       )
     );
   }
 
   /**
-   * Execute a smart-bookmark (place:) query off the main thread and attach its
-   * results as children, so it renders as a folder like the legacy bookmarks
-   * sidebar.
+   * Attach children to a smart-bookmark (place:) node, so it renders as a
+   * folder like the legacy bookmarks sidebar.
    *
-   * Uses asyncExecuteLegacyQuery to avoid main-thread I/O. That API delivers
-   * flat result rows rather than a node tree, so the container/leaf structure
-   * is rebuilt here (see #runPlaceQueryAsync / #convertPlaceRow).
+   * A folder shortcut takes its children from the folder it points to, since
+   * the query would only return that folder's bookmarks, ordered by creation
+   * rather than by position.
+   *
+   * Other queries are run with asyncExecuteLegacyQuery to avoid main-thread
+   * I/O. That API delivers flat result rows rather than a node tree, so the
+   * container/leaf structure is rebuilt here (see #runPlaceQueryAsync /
+   * #convertPlaceRow).
    *
    * @param {object} node
    *   The bookmark tree node whose `uri` is a `place:` query.
+   * @param {Set<string>} shortcutTargets
+   *   See #normalizeBookmarkNode.
    */
-  async #expandPlaceQuery(node) {
+  async #expandPlaceQuery(node, shortcutTargets) {
     const queryRef = {};
     const optionsRef = {};
     try {
@@ -1311,6 +1363,21 @@ export class SidebarBookmarks extends SidebarPage {
       (optionsRef.value.resultType ===
         Ci.nsINavHistoryQueryOptions.RESULTS_AS_TAGS_ROOT ||
         queryRef.value.tags?.length === 1);
+    const { rootGuid, tagsGuid } = lazy.PlacesUtils.bookmarks;
+    if (targetGuid && targetGuid !== rootGuid && targetGuid !== tagsGuid) {
+      node.targetFolderGuid = targetGuid;
+      node.children = [];
+      if (!shortcutTargets.has(targetGuid)) {
+        try {
+          const folder =
+            await lazy.PlacesUtils.promiseBookmarksTree(targetGuid);
+          node.children = folder?.children ?? [];
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      return;
+    }
     const ancestorKeys = targetGuid ? new Set([targetGuid]) : new Set();
     try {
       node.children = await this.#runPlaceQueryAsync(

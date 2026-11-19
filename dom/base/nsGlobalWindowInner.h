@@ -555,14 +555,6 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   void NotifyDetectXRRuntimesCompleted();
   void NotifyPresentationGenerationChanged(uint32_t aDisplayID);
 
-  void DispatchVRDisplayActivate(uint32_t aDisplayID,
-                                 mozilla::dom::VRDisplayEventReason aReason);
-  void DispatchVRDisplayDeactivate(uint32_t aDisplayID,
-                                   mozilla::dom::VRDisplayEventReason aReason);
-  void DispatchVRDisplayConnect(uint32_t aDisplayID);
-  void DispatchVRDisplayDisconnect(uint32_t aDisplayID);
-  void DispatchVRDisplayPresentChange(uint32_t aDisplayID);
-
 #define EVENT(name_, id_, type_, struct_)                              \
   mozilla::dom::EventHandlerNonNull* GetOn##name_() {                  \
     mozilla::EventListenerManager* elm = GetExistingListenerManager(); \
@@ -1216,7 +1208,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   void DisconnectAndClearGroupMessageManagers() {
     MOZ_RELEASE_ASSERT(IsChromeWindow());
     for (const auto& entry : mChromeFields.mGroupMessageManagers) {
-      mozilla::dom::ChromeMessageBroadcaster* mm = entry.GetWeak();
+      mozilla::dom::ChromeMessageBroadcaster* mm = entry.GetRawPtr();
       if (mm) {
         mm->Disconnect();
       }

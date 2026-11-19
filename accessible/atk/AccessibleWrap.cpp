@@ -583,7 +583,9 @@ AtkRole getRoleCB(AtkObject* aAtkObj) {
     aAtkObj->role = atkRole;                                                \
     break;
 
-  switch (acc->Role()) {
+  role geckoRole = acc->Role();
+
+  switch (geckoRole) {
 #include "RoleMap.inc"
     default:
       MOZ_CRASH("Unknown role.");
@@ -591,41 +593,65 @@ AtkRole getRoleCB(AtkObject* aAtkObj) {
 
 #undef ROLE
 
-  if (aAtkObj->role == ATK_ROLE_LIST_BOX && !IsAtkVersionAtLeast(2, 1)) {
-    aAtkObj->role = ATK_ROLE_LIST;
-  } else if (aAtkObj->role == ATK_ROLE_TABLE_ROW &&
-             !IsAtkVersionAtLeast(2, 1)) {
-    aAtkObj->role = ATK_ROLE_LIST_ITEM;
-  } else if (aAtkObj->role == ATK_ROLE_MATH && !IsAtkVersionAtLeast(2, 12)) {
-    aAtkObj->role = ATK_ROLE_SECTION;
-  } else if (aAtkObj->role == ATK_ROLE_COMMENT && !IsAtkVersionAtLeast(2, 12)) {
-    aAtkObj->role = ATK_ROLE_SECTION;
-  } else if (aAtkObj->role == ATK_ROLE_LANDMARK &&
-             !IsAtkVersionAtLeast(2, 12)) {
-    aAtkObj->role = ATK_ROLE_SECTION;
-  } else if (aAtkObj->role == ATK_ROLE_FOOTNOTE &&
-             !IsAtkVersionAtLeast(2, 25, 2)) {
-    aAtkObj->role = ATK_ROLE_SECTION;
-  } else if (aAtkObj->role == ATK_ROLE_STATIC && !IsAtkVersionAtLeast(2, 16)) {
-    aAtkObj->role = ATK_ROLE_TEXT;
-  } else if ((aAtkObj->role == ATK_ROLE_MATH_FRACTION ||
-              aAtkObj->role == ATK_ROLE_MATH_ROOT) &&
-             !IsAtkVersionAtLeast(2, 16)) {
-    aAtkObj->role = ATK_ROLE_SECTION;
-  } else if (aAtkObj->role == ATK_ROLE_MARK && !IsAtkVersionAtLeast(2, 36)) {
-    aAtkObj->role = ATK_ROLE_TEXT;
-  } else if (aAtkObj->role == ATK_ROLE_SUGGESTION &&
-             !IsAtkVersionAtLeast(2, 36)) {
-    aAtkObj->role = ATK_ROLE_SECTION;
-  } else if (aAtkObj->role == ATK_ROLE_COMMENT && !IsAtkVersionAtLeast(2, 36)) {
-    aAtkObj->role = ATK_ROLE_SECTION;
-  } else if ((aAtkObj->role == ATK_ROLE_CONTENT_DELETION ||
-              aAtkObj->role == ATK_ROLE_CONTENT_INSERTION) &&
-             !IsAtkVersionAtLeast(2, 34)) {
-    aAtkObj->role = ATK_ROLE_SECTION;
-  } else if (aAtkObj->role == ATK_ROLE_DIALOG &&
-             acc->IsARIARole(nsGkAtoms::alertdialog)) {
-    aAtkObj->role = ATK_ROLE_ALERT;
+  // Transform some gecko roles to more specific ATK roles
+
+  if (geckoRole == role::DIALOG) {
+    if (acc->IsARIARole(nsGkAtoms::alertdialog)) {
+      aAtkObj->role = ATK_ROLE_ALERT;
+    }
+  }
+
+  // Fallback to generic roles for backward compat. We expect host systems to
+  // have ATK 2.14 or higher, since the minimum GTK version is 3.14 which was
+  // released in the same cycle as ATK 2.14.
+
+  if (!IsAtkVersionAtLeast(2, 16)) {
+    switch (aAtkObj->role) {
+      case ATK_ROLE_STATIC:
+        aAtkObj->role = ATK_ROLE_TEXT;
+        break;
+      case ATK_ROLE_MATH_FRACTION:
+      case ATK_ROLE_MATH_ROOT:
+        aAtkObj->role = ATK_ROLE_SECTION;
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (!IsAtkVersionAtLeast(2, 26)) {
+    switch (aAtkObj->role) {
+      case ATK_ROLE_FOOTNOTE:
+        aAtkObj->role = ATK_ROLE_SECTION;
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (!IsAtkVersionAtLeast(2, 34)) {
+    switch (aAtkObj->role) {
+      case ATK_ROLE_CONTENT_DELETION:
+      case ATK_ROLE_CONTENT_INSERTION:
+        aAtkObj->role = ATK_ROLE_SECTION;
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (!IsAtkVersionAtLeast(2, 36)) {
+    switch (aAtkObj->role) {
+      case ATK_ROLE_MARK:
+        aAtkObj->role = ATK_ROLE_TEXT;
+        break;
+      case ATK_ROLE_SUGGESTION:
+      case ATK_ROLE_COMMENT:
+        aAtkObj->role = ATK_ROLE_SECTION;
+        break;
+      default:
+        break;
+    }
   }
 
   return aAtkObj->role;
@@ -658,6 +684,13 @@ static AtkAttributeSet* ConvertToAtkAttributeSet(AccAttributes* aAttributes) {
   return objAttributeSet;
 }
 
+// Whether the value of aAcc should be exposed via the valuetext object
+// attribute. We don't want to expose traditional Value() information such as
+// URLs on links and documents, or text in an input or editable combobox.
+static bool ShouldExposeValueText(Accessible* aAcc) {
+  return aAcc->HasNumericValue() || (aAcc->IsCombobox() && !aAcc->IsEditable());
+}
+
 AtkAttributeSet* getAttributesCB(AtkObject* aAtkObj) {
   Accessible* acc = GetInternalObj(aAtkObj);
   if (!acc) {
@@ -665,6 +698,15 @@ AtkAttributeSet* getAttributesCB(AtkObject* aAtkObj) {
   }
   RefPtr<AccAttributes> attributes = acc->Attributes();
   nsAccUtils::SetAccGroupAttrs(attributes, acc);
+  // ATK has no way to retrieve a textual value, so expose it via the valuetext
+  // object attribute.
+  if (ShouldExposeValueText(acc)) {
+    nsString value;
+    acc->Value(value);
+    // This is exposed as "valuetext" because AccAttributes::NameAsString
+    // strips the "aria-" prefix.
+    attributes->SetAttribute(nsGkAtoms::aria_valuetext, std::move(value));
+  }
   return ConvertToAtkAttributeSet(attributes);
 }
 
@@ -751,11 +793,19 @@ gint getIndexInParentCB(AtkObject* aAtkObj) {
 
 static void TranslateStates(uint64_t aState, roles::Role aRole,
                             AtkStateSet* aStateSet) {
-  // atk doesn't have a read only state so read only things shouldn't be
-  // editable. However, we don't do this for list items because Gecko always
-  // exposes those as read only.
-  if ((aState & states::READONLY) && aRole != roles::LISTITEM) {
-    aState &= ~states::EDITABLE;
+  // https://w3c.github.io/aria/core-aam/#ariaReadonlyTrue
+  if ((aState & states::READONLY)) {
+    // If an accessible is read-only it should not have an editable state.
+    if (aRole != roles::LISTITEM) {
+      // ...however, we don't do this for list items because Gecko always
+      // exposes those as read only.
+      aState &= ~states::EDITABLE;
+    } else {
+      aState &= ~states::READONLY;
+    }
+
+    // A read-only accessible should not be checkable either.
+    aState &= ~states::CHECKABLE;
   }
 
   // Convert every state to an entry in AtkStateMap
@@ -949,9 +999,10 @@ void a11y::PlatformEvent(Accessible* aTarget, uint32_t aEventType) {
       break;
     case nsIAccessibleEvent::EVENT_VALUE_CHANGE:
     case nsIAccessibleEvent::EVENT_TEXT_VALUE_CHANGE:
-      if (aTarget->HasNumericValue()) {
-        // Make sure this is a numeric value. Don't fire for string value
-        // changes (e.g. text editing) ATK values are always numeric.
+      // Only fire if we expose valuetext. Don't fire for other string value
+      // changes (e.g. text editing). This works even for Accessibles which
+      // don't support AtkValue, such as comboboxes.
+      if (ShouldExposeValueText(aTarget)) {
         g_object_notify((GObject*)wrapper, "accessible-value");
       }
       break;

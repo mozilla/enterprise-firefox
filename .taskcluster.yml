@@ -361,6 +361,7 @@ tasks:
                       - trustDomain: enterprise
                         isPullRequest: false
                         prNumber: null
+                        baseRef: ''
                         eventType: '${tasks_for}'
                         eventAction: null
                       - $switch:
@@ -400,6 +401,7 @@ tasks:
                                 # to fetch all tags from the repo just on the off-chance it is a tag.
                                 ref: 'refs/heads/${event.pull_request.head.ref}'
                                 baseRev: '${event.pull_request.base.sha}'
+                                baseRef: '${event.pull_request.base.ref}'
                                 headRev: '${event.pull_request.head.sha}'
                                 prNumber: '${event.pull_request.number}'
                                 isPullRequest: true
@@ -416,6 +418,7 @@ tasks:
                               'repoUrl == "https://github.com/mozilla-releng/staging-firefox"': "dev"
                               'repoUrl == "https://github.com/mozilla-firefox/firefox-dev"': "dev"
                               'repoUrl == "https://github.com/mozilla-firefox/firefox-dev-secure"': "dev"
+                              'repoUrl == "https://github.com/mozilla-firefox/firefox-crb"': "dev"
                               'repoUrl == "https://github.com/mozilla-firefox/firefox"': "prod"
                               $default: null
                       shortRef:
@@ -552,6 +555,7 @@ tasks:
                                       $merge:
                                           - GECKO_BASE_REPOSITORY: '${baseRepoUrl}'
                                             GECKO_BASE_REV: '${baseRev}'
+                                            GECKO_BASE_REF: '${baseRef}'
                                             GECKO_HEAD_REPOSITORY: '${repoUrl}'
                                             GECKO_HEAD_REF: '${ref}'
                                             GECKO_HEAD_REV: '${headRev}'
@@ -618,7 +622,8 @@ tasks:
                                                --repository-type=git \
                                                --tasks-for='${tasks_for}' \
                                                --base-repository='${baseRepoUrl}' \
-                                               --base-rev='${baseRev}' \
+                                               --base-rev="$GECKO_BASE_REV" \
+                                               --base-ref="$GECKO_BASE_REF" \
                                                --head-repository='${repoUrl}' \
                                                --head-ref='${ref}' \
                                                --head-rev='${headRev}' \
@@ -755,7 +760,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commBaseRev: c3a4487da7bc0a62acd27ad9901b30d4a3c0a332
+                  commBaseRev: da541524a5bf5e9b26dd863fe66533f0d684bc65
                   commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
                   commHeadRef:
                       $if: 'project == "enterprise-firefox-try"'
@@ -766,7 +771,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commHeadRev: c3a4487da7bc0a62acd27ad9901b30d4a3c0a332
+                  commHeadRev: da541524a5bf5e9b26dd863fe66533f0d684bc65
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}

@@ -298,6 +298,7 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
    *
    * @param context The Context in which this view is running.
    */
+  @SuppressWarnings("this-escape")
   public GeckoView(final Context context) {
     super(context);
     init();
@@ -309,6 +310,7 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
    * @param context the Context in which this view is running
    * @param attrs the set of view attributes to apply
    */
+  @SuppressWarnings("this-escape")
   public GeckoView(final Context context, final AttributeSet attrs) {
     super(context, attrs);
     init();
@@ -341,11 +343,6 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
         new int[] {android.R.attr.state_focused, -android.R.attr.state_focused},
         new ColorDrawable(Color.WHITE));
     setBackground(drawable);
-
-    // This will stop PropertyAnimator from creating a drawing cache (i.e. a
-    // bitmap) from a SurfaceView, which is just not possible (the bitmap will be
-    // transparent).
-    setWillNotCacheDrawing(false);
 
     mSurfaceWrapper = new SurfaceViewWrapper(getContext());
     mSurfaceWrapper.setBackgroundColor(Color.WHITE);
@@ -599,7 +596,7 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
     // Make sure the clear color is set to the default
     mSession.getCompositorController().setClearColor(defaultColor());
 
-    if (ViewCompat.isAttachedToWindow(this)) {
+    if (isAttachedToWindow()) {
       mDisplay.acquire(session.acquireDisplay());
     }
 

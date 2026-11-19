@@ -18,7 +18,6 @@ include WindowGlobalTypes;
 include IPCBlob;
 include IPCStream;
 include IPCTransferable;
-include URIParams;
 include PPrintingTypes;
 include PTabContext;
 include PBackgroundSharedTypes;
@@ -441,6 +440,18 @@ parent:
     async ReplyKeyEvent(WidgetKeyboardEvent aEvent, nsID aUUID);
 
     /**
+     * Send a reply of mouse event to the parent.  This is used for X1/X2
+     * button clicks which may navigate forward/backward if the default
+     * action is not prevented.
+     *
+     * @param aDefaultPrevented  Whether the default action of the event
+     *                           should be prevented.
+     * @param aUUID              The UUID which was generated when aEvent
+     *                           was sent to the remote process.
+     */
+    async ReplyMouseEvent(bool aDefaultPrevented, nsID aUUID);
+
+    /**
      * Retrieves edit commands for the key combination represented by aEvent.
      *
      * @param aType       One of NativeKeyBindingsType.
@@ -593,7 +604,7 @@ parent:
      * Sent by the child to the parent to inform it that an update to the
      * dimensions has been requested.
      *
-     * @param aRequest  The requested change of inner or outer dimensions.
+     * @param aRequest  The requested change of dimensions.
      * @param aScale    The scale at the time of the request. This is to allow
      *                  the parent to recompute the dimensions in case of an
      *                  ongoing scale change.
@@ -752,10 +763,12 @@ child:
     [Priority=input]
     async RealMouseButtonEvent(WidgetMouseEvent event,
                                ScrollableLayerGuid aGuid,
-                               uint64_t aInputBlockId);
+                               uint64_t aInputBlockId,
+                               nsID aUUID);
     async NormalPriorityRealMouseButtonEvent(WidgetMouseEvent event,
                                              ScrollableLayerGuid aGuid,
-                                             uint64_t aInputBlockId);
+                                             uint64_t aInputBlockId,
+                                             nsID aUUID);
 
     [Priority=input]
     async RealPointerButtonEvent(WidgetPointerEvent event,
@@ -898,8 +911,11 @@ child:
      * @param aEnabled
      *        True if the child should render and upload layers, false if the
      *        child should clear layers.
+     * @param aEpoch
+     *        Increases with each request, which is also sent through
+     *        PProcessHangMonitor, so that the child applies only the latest.
      */
-    async RenderLayers(bool aEnabled);
+    async RenderLayers(bool aEnabled, uint64_t aEpoch);
 
     /**
      * Communicates the child that we want layers to be preserved even when the

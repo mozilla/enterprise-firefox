@@ -66,18 +66,18 @@ class ViewportFrame : public nsContainerFrame {
   bool ComputeCustomOverflow(mozilla::OverflowAreas&) override { return false; }
 
   /**
-   * Get the containing block rect when ViewportFrame serves as a containing
-   * block. This method accounts for scrollbars, visual viewport, and dynamic
-   * toolbar sizes.
+   * Return true if aKidFrame is a fixed-pos frame that should cover the root
+   * scrollbars and scrollbar-gutter.
    */
-  nsRect GetContainingBlockAdjustedForScrollbars(
-      const ReflowInput& aReflowInput) const;
+  static bool ShouldCoverScrollbars(const nsIFrame* aKidFrame);
 
   /**
-   * Update our style (and recursively the styles of any anonymous boxes we
-   * might own)
+   * Get the containing block rect when ViewportFrame serves as a containing
+   * block for aKidFrame. This method accounts for scrollbars, visual viewport,
+   * and dynamic toolbar sizes.
    */
-  void UpdateStyle(ServoRestyleState& aStyleSet);
+  nsRect GetContainingBlockAdjustedForScrollbars(
+      const ReflowInput& aReflowInput, const nsIFrame* aKidFrame) const;
 
   /**
    * Return our single anonymous box child.

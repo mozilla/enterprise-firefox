@@ -11,6 +11,7 @@
 // clang-format on
 
 #include "mozilla/Atomics.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/SHA1.h"
 #include "mozilla/TimeStamp.h"
@@ -26,7 +27,11 @@
 
 class nsIThreadPool;
 
+#ifdef MOZ_ENTERPRISE
+namespace mozilla::net {
 class NetworkInterface;
+}  // namespace mozilla::net
+#endif
 
 class nsNotifyAddrListener : public nsINetworkLinkService,
                              public nsIRunnable,
@@ -73,6 +78,9 @@ class nsNotifyAddrListener : public nsINetworkLinkService,
 
   mozilla::Mutex mMutex{"nsNotifyAddrListener::mMutex"};
   nsCString mNetworkId MOZ_GUARDED_BY(mMutex);
+  // Hash state of the inputs of mNetworkId before SeedNetworkId() was
+  // applied, for MatchNetworkID().
+  mozilla::Maybe<mozilla::SHA1Sum> mUnseededNetworkId MOZ_GUARDED_BY(mMutex);
   nsTArray<nsCString> mDnsSuffixList MOZ_GUARDED_BY(mMutex);
   nsTArray<mozilla::net::NetAddr> mDNSResolvers MOZ_GUARDED_BY(mMutex);
 
@@ -99,7 +107,10 @@ class nsNotifyAddrListener : public nsINetworkLinkService,
   // Time stamp for first event during coalescing
   mozilla::TimeStamp mChangeTime;
 
-  nsTArray<NetworkInterface> mNetworkInterfaces;
+#ifdef MOZ_ENTERPRISE
+  nsTArray<mozilla::net::NetworkInterface> mNetworkInterfaces
+      MOZ_GUARDED_BY(mMutex);
+#endif
 };
 
 #endif /* NSNOTIFYADDRLISTENER_H_ */

@@ -234,6 +234,7 @@ Maybe<InlinableCallData> FindInlinableCallData(ICCacheIRStub* stub) {
   ObjOperandId calleeGuardOperand;
   CallFlags flags;
   JSScript* targetScript = nullptr;
+  JSFunction* targetFunction = nullptr;
 
   CacheIRReader reader(stubInfo);
   while (reader.more()) {
@@ -257,6 +258,7 @@ Maybe<InlinableCallData> FindInlinableCallData(ICCacheIRStub* stub) {
         if (function->hasBytecode()) {
           calleeGuardOperand = args.funId;
           targetScript = function->nonLazyScript();
+          targetFunction = function;
         }
         break;
       }
@@ -267,6 +269,7 @@ Maybe<InlinableCallData> FindInlinableCallData(ICCacheIRStub* stub) {
         uint32_t targetOffset = args.expectedOffset;
         uintptr_t rawScript = stubInfo->getStubRawWord(stubData, targetOffset);
         targetScript = reinterpret_cast<JSScript*>(rawScript);
+        targetFunction = nullptr;
         break;
       }
       case CacheOp::CallScriptedFunction: {
@@ -360,6 +363,7 @@ Maybe<InlinableCallData> FindInlinableCallData(ICCacheIRStub* stub) {
     }
     data->callFlags = flags;
     data->target = targetScript;
+    data->targetFunction = targetFunction;
   }
   return data;
 }
@@ -372,6 +376,7 @@ Maybe<InlinableGetterData> FindInlinableGetterData(ICCacheIRStub* stub) {
 
   ObjOperandId maybeCalleeOperand;
   JSScript* targetScript = nullptr;
+  JSFunction* targetFunction = nullptr;
 
   CacheIRReader reader(stubInfo);
   while (reader.more()) {
@@ -391,7 +396,8 @@ Maybe<InlinableGetterData> FindInlinableGetterData(ICCacheIRStub* stub) {
         if (object->is<JSFunction>() &&
             object->as<JSFunction>().hasBytecode()) {
           maybeCalleeOperand = resultOperand;
-          targetScript = object->as<JSFunction>().nonLazyScript();
+          targetFunction = &object->as<JSFunction>();
+          targetScript = targetFunction->nonLazyScript();
         }
         break;
       }
@@ -402,6 +408,7 @@ Maybe<InlinableGetterData> FindInlinableGetterData(ICCacheIRStub* stub) {
         uint32_t targetOffset = args.expectedOffset;
         uintptr_t rawScript = stubInfo->getStubRawWord(stubData, targetOffset);
         targetScript = reinterpret_cast<JSScript*>(rawScript);
+        targetFunction = nullptr;
         break;
       }
       case CacheOp::CallScriptedGetterResult: {
@@ -411,6 +418,7 @@ Maybe<InlinableGetterData> FindInlinableGetterData(ICCacheIRStub* stub) {
         if (maybeCalleeOperand == calleeOperand) {
           data.emplace();
           data->target = targetScript;
+          data->targetFunction = targetFunction;
           data->receiverOperand = args.receiverId;
           data->calleeOperand = calleeOperand;
           data->sameRealm = args.sameRealm;
@@ -427,6 +435,7 @@ Maybe<InlinableGetterData> FindInlinableGetterData(ICCacheIRStub* stub) {
         if (maybeCalleeOperand == calleeOperand) {
           data.emplace();
           data->target = targetScript;
+          data->targetFunction = targetFunction;
           data->receiverOperand = args.receiverId;
           data->calleeOperand = calleeOperand;
           data->icScript = reinterpret_cast<ICScript*>(rawICScript);
@@ -457,6 +466,7 @@ Maybe<InlinableSetterData> FindInlinableSetterData(ICCacheIRStub* stub) {
 
   ObjOperandId maybeCalleeOperand;
   JSScript* targetScript = nullptr;
+  JSFunction* targetFunction = nullptr;
 
   CacheIRReader reader(stubInfo);
   while (reader.more()) {
@@ -476,7 +486,8 @@ Maybe<InlinableSetterData> FindInlinableSetterData(ICCacheIRStub* stub) {
         if (object->is<JSFunction>() &&
             object->as<JSFunction>().hasBytecode()) {
           maybeCalleeOperand = resultOperand;
-          targetScript = object->as<JSFunction>().nonLazyScript();
+          targetFunction = &object->as<JSFunction>();
+          targetScript = targetFunction->nonLazyScript();
         }
         break;
       }
@@ -487,6 +498,7 @@ Maybe<InlinableSetterData> FindInlinableSetterData(ICCacheIRStub* stub) {
         uint32_t targetOffset = args.expectedOffset;
         uintptr_t rawScript = stubInfo->getStubRawWord(stubData, targetOffset);
         targetScript = reinterpret_cast<JSScript*>(rawScript);
+        targetFunction = nullptr;
         break;
       }
       case CacheOp::CallScriptedSetter: {
@@ -496,6 +508,7 @@ Maybe<InlinableSetterData> FindInlinableSetterData(ICCacheIRStub* stub) {
         if (maybeCalleeOperand == calleeOperand) {
           data.emplace();
           data->target = targetScript;
+          data->targetFunction = targetFunction;
           data->receiverOperand = args.receiverId;
           data->calleeOperand = calleeOperand;
           data->rhsOperand = args.rhsId;
@@ -513,6 +526,7 @@ Maybe<InlinableSetterData> FindInlinableSetterData(ICCacheIRStub* stub) {
         if (maybeCalleeOperand == calleeOperand) {
           data.emplace();
           data->target = targetScript;
+          data->targetFunction = targetFunction;
           data->receiverOperand = args.receiverId;
           data->calleeOperand = calleeOperand;
           data->rhsOperand = args.rhsId;

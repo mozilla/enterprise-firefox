@@ -51,23 +51,21 @@ avoid-blacklist-and-whitelist:
         - browser/base/content/test/browser-protectionsUI/browser_protectionsUI_subview_shim.js
         - browser/base/content/test/browser-safebrowsing/browser_whitelisted.js
         - browser/base/content/test/browser-siteIdentity/browser_no_mcb_for_loopback.js
+        - browser/base/content/test/browser-trustPanel/browser_trust_panel.js
+        - browser/base/content/test/browser-trustPanel/browser_trust_panel_icon.js
+        - browser/base/content/test/browser-trustPanel/browser_trust_panel_privacy_metrics_alignment.js
+        - browser/base/content/test/browser-trustPanel/browser_trust_panel_telemetry.js
         - browser/components/enterprisepolicies/Policies.sys.mjs
         - browser/components/migration/ChromeMigrationUtils.sys.mjs
         - browser/components/migration/ChromeProfileMigrator.sys.mjs
         - browser/components/preferences/config/privacy.mjs
         - browser/components/preferences/config/permissions-data.mjs
-        - browser/components/preferences/privacy.inc.xhtml
-        - browser/components/preferences/privacy.js
         - browser/components/resistfingerprinting/test/mochitest/test_bug1354633_media_error.html
         - browser/components/sessionstore/test/browser_crashedTabs.js
         - browser/components/tabbrowser/test/browser/tabMediaIndicator/browser_mute_webAudio.js
         - browser/components/tabbrowser/test/browser/tabs/browser_new_file_whitelisted_http_tab.js
         - browser/components/tabbrowser/test/browser/tabs/browser_tab_drag_drop_perwindow.js
         - browser/components/urlbar/tests/browser-search/browser_searchSingleWordNotification.js
-        - browser/components/urlbar/tests/browser-trustPanel/browser_trust_panel.js
-        - browser/components/urlbar/tests/browser-trustPanel/browser_trust_panel_icon.js
-        - browser/components/urlbar/tests/browser-trustPanel/browser_trust_panel_privacy_metrics_alignment.js
-        - browser/components/urlbar/tests/browser-trustPanel/browser_trust_panel_telemetry.js
         - browser/components/urlbar/tests/browser-UrlbarInput/browser_trimURLs.js
         - browser/components/urlbar/tests/unit/test_providerHeuristicFallback.js
         - browser/components/urlbar/tests/unit/test_search_suggestions.js
@@ -358,3 +356,22 @@ forbid-moduleloaderbase-include:
         - dom/worklet/loader/WorkletModuleLoader.h
         - js/xpconnect/loader/SyncModuleLoader.h
         - js/xpconnect/loader/NonSharedGlobalSyncModuleLoaderScope.h
+
+avoid-early-beta-or-earlier:
+    description: >-
+        EARLY_BETA_OR_EARLIER no longer exists. Use NIGHTLY_BUILD, or
+        NIGHTLY_BUILD || MOZ_DEV_EDITION for features that also need Developer
+        Edition testing.
+    level: error
+    include: ['.']
+    type: external
+    payload: mozcheck:lint
+    setup: mozcheck:setup
+    check: rejected-words
+    check-config:
+        regex-pattern: early_?beta_?or_?earlier
+        ignore-case: true
+    support-files:
+        - 'tools/lint/mozcheck/**'
+    exclude:
+        - tools/lint/rejected-words.yml

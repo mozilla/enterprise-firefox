@@ -141,14 +141,12 @@ browsertime-tp6m:
             - bing
             - [bing-search-restaurants, bing-s-r]
             - booking
-            - cnn
             - [cnn-ampstories, cnn-amp]
             - dailymail
             - [ebay-kleinanzeigen, ebay-k]
             - [ebay-kleinanzeigen-search, ebay-k-s]
             - [google-maps, gmaps]
             - [google-search-restaurants, gsearch-r]
-            - instagram
             - imdb
             - reddit
             - [stackoverflow, stacko]
@@ -160,12 +158,17 @@ browsertime-tp6m:
             geckoview: []
             fenix:
                 by-test-platform:
-                    android-hw-a55.*shippable.*: [trunk-only]
+                    android-hw-a55.*shippable.*: [autoland]
                     default: [mozilla-central]
             default: []
 
 browsertime-tp6m-essential:
     <<: *tp6m-defaults
+    limit-platforms:
+        by-app:
+            fenix: []
+            default:
+                - android-hw.*
     raptor:
         apps: [geckoview, fenix, refbrow]
         run-visual-metrics: true
@@ -174,23 +177,23 @@ browsertime-tp6m-essential:
             - allrecipes
             - [amazon-search, amazon-s]
             - espn
-            - google
-            - [microsoft-support, micros-sup]
-            - [youtube-watch, youtube-w]
     run-on-projects:
         by-app:
             geckoview: []
             fenix:
                 by-test-platform:
-                    android-hw-a55.*shippable.*: [trunk-only]
+                    android-hw-a55.*shippable.*: [autoland]
                     default: []
             default: []
     tier:
-        by-app:
-            geckoview: 1
-            fenix: 1
-            refbrow: 2
-            default: 3
+        by-test-platform:
+            android-em-14-arm64.*: 3
+            default:
+                by-app:
+                    geckoview: 1
+                    fenix: 1
+                    refbrow: 2
+                    default: 3
 
 browsertime-tp6m-webextensions:
     <<: *tp6m-defaults
@@ -327,7 +330,6 @@ browsertime-tp6m-live:
             - [bing-search-restaurants, bing-s-r]
             - booking
             - booking-sf
-            - cnn
             - [cnn-ampstories, cnn-amp]
             - dailymail
             - discord
@@ -336,15 +338,12 @@ browsertime-tp6m-live:
             - espn
             - expedia
             - [fashionbeans, fashbea]
-            - google
             - [google-accounts, gacc]
             - [google-maps, gmaps]
             - [google-search-restaurants, gsearch-r]
-            - instagram
             - imdb
             - [imdb-firefox, imdb-f]
             - [medium-article, medium]
-            - [microsoft-support, micros-sup]
             - nytimes
             - [people-article, people]
             - reddit
@@ -357,7 +356,6 @@ browsertime-tp6m-live:
             - [wikia-marvel, wikia-m]
             - wikipedia
             - youtube
-            - [youtube-watch, youtube-w]
     mozharness:
         extra-options:
             - --live-sites
@@ -457,7 +455,7 @@ browsertime-benchmark-speedometer3-mobile:
         by-app:
             fenix:
                 by-test-platform:
-                    android-em-14-arm64.*: 3
+                    android-em-14-arm64.*: 2
                     default: 1
             geckoview: 2
             cstm-car-m: 2
@@ -666,6 +664,7 @@ browsertime-nav-bench-m:
         by-test-platform:
             android-hw-a55.*shippable.*: [autoland]
             android-hw-a55.*nightlyasrelease.*: [autoland]
+            android-em-14-arm64.*shippable.*: [autoland]
             default: []
     tier: 3
     treeherder-symbol: Btime(navb-m)

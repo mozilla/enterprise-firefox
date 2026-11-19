@@ -2013,7 +2013,7 @@ const OnboardingVideo = props => {
     });
   };
   return /*#__PURE__*/external_React_default().createElement("div", null, /*#__PURE__*/external_React_default().createElement("video", {
-    // eslint-disable-line jsx-a11y/media-has-caption
+    // eslint-disable-line jsx-a11y-x/media-has-caption
     controls: true,
     autoPlay: autoplay,
     src: vidUrl,
@@ -2324,7 +2324,7 @@ function renderSegment(segment, index, handleAction) {
   if (segment?.link_key) {
     return (
       /*#__PURE__*/
-      // eslint-disable-next-line jsx-a11y/anchor-is-valid
+      // eslint-disable-next-line jsx-a11y-x/anchor-is-valid
       external_React_default().createElement("a", {
         key: index,
         value: segment.link_key,
@@ -3863,7 +3863,8 @@ const ConfirmationChecklist = props => {
 
 const EmbeddedBackupRestore = ({
   handleAction,
-  skipButton
+  skipButton,
+  layout
 }) => {
   const [recoveryInProgress, setRecoveryInProgress] = (0,external_React_namespaceObject.useState)(false);
   const ref = (0,external_React_namespaceObject.useRef)(null);
@@ -3902,6 +3903,7 @@ const EmbeddedBackupRestore = ({
   }, /*#__PURE__*/external_React_default().createElement("restore-from-backup", {
     aboutWelcomeEmbedded: "true",
     labelFontWeight: "600",
+    layout: layout,
     ref: ref
   }), skipButton ? /*#__PURE__*/external_React_default().createElement("div", {
     className: "action-buttons"
@@ -4368,7 +4370,8 @@ const ContentTiles = props => {
       content: {
         tiles: tile
       },
-      skipButton: props.content.skip_button
+      skipButton: props.content.skip_button,
+      layout: content.position
     }), tile.type === "fx_backup_file_path" && /*#__PURE__*/external_React_default().createElement(EmbeddedFxBackupOptIn, {
       handleAction: props.handleAction,
       isEncryptedBackup: content.isEncryptedBackup,
@@ -5238,7 +5241,24 @@ class ProtonScreen extends (external_React_default()).PureComponent {
     }
     return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, elements);
   }
-  renderRTAMOIcon(addonType, themeScreenshots, addonIconURL) {
+  renderRTAMOIcon(position, addonType, themeScreenshots, addonIconURL) {
+    if (position === "center-large") {
+      return /*#__PURE__*/external_React_default().createElement("div", {
+        className: "rtamo-icon-wrapper"
+      }, /*#__PURE__*/external_React_default().createElement("div", {
+        className: "rtamo-icon"
+      }, /*#__PURE__*/external_React_default().createElement("img", {
+        className: `${addonType?.includes("theme") ? "rtamo-theme-icon" : "brand-logo"}`,
+        src: addonType?.includes("theme") ? themeScreenshots[0].url : addonIconURL,
+        loading: MultiStageUtils.getLoadingStrategyFor(addonIconURL),
+        alt: "",
+        role: "presentation"
+      })), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "logo-separator"
+      }), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "rtamo-logo"
+      }, this.renderPicture({})));
+    }
     return /*#__PURE__*/external_React_default().createElement("div", {
       className: "rtamo-icon"
     }, /*#__PURE__*/external_React_default().createElement("img", {
@@ -5371,11 +5391,11 @@ class ProtonScreen extends (external_React_default()).PureComponent {
         paddingInline: content.split_content_padding_inline ? content.split_content_padding_inline : null,
         justifyContent: screenStyleJustifyContent
       }
-    }, isCenterLargeFullscreen ? secondaryCTATop : null, isCenterPosition && this.hasAnimatedContent(content) ? this.renderAnimationPlayPauseButton() : null, content.logo && !content.fullscreen ? this.renderPicture(content.logo) : null, isRtamo && !content.fullscreen ? this.renderRTAMOIcon(addonType, this.props.themeScreenshots, this.props.addonIconURL) : null, /*#__PURE__*/external_React_default().createElement("div", {
+    }, isCenterLargeFullscreen ? secondaryCTATop : null, isCenterPosition && this.hasAnimatedContent(content) ? this.renderAnimationPlayPauseButton() : null, content.logo && !content.fullscreen ? this.renderPicture(content.logo) : null, isRtamo && !content.fullscreen ? this.renderRTAMOIcon(content.position, addonType, this.props.themeScreenshots, this.props.addonIconURL) : null, /*#__PURE__*/external_React_default().createElement("div", {
       className: "main-content-inner",
       id: "mainContentInner",
       style: combinedStyles
-    }, content.logo && content.fullscreen ? this.renderPicture(content.logo) : null, isRtamo && content.fullscreen ? this.renderRTAMOIcon(addonType, this.props.themeScreenshots, this.props.addonIconURL) : null, content.title || content.subtitle ? /*#__PURE__*/external_React_default().createElement("div", {
+    }, content.logo && content.fullscreen ? this.renderPicture(content.logo) : null, isRtamo && content.fullscreen ? this.renderRTAMOIcon(content.position, addonType, this.props.themeScreenshots, this.props.addonIconURL) : null, content.title || content.subtitle ? /*#__PURE__*/external_React_default().createElement("div", {
       id: "multi-stage-message-welcome-text",
       className: `welcome-text ${content.title_style || ""}`
     }, content.title ? this.renderTitle(content) : null, content.layout === "last-card" ? this.renderLastCardImage(content) : null, content.subtitle ? /*#__PURE__*/external_React_default().createElement(Localized, {

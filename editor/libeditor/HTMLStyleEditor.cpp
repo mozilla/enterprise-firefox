@@ -1295,7 +1295,7 @@ Result<CaretPoint, nsresult> HTMLEditor::AutoInlineStyleSetter::ApplyStyle(
           aContent, MOZ_KnownLive(HTMLPropertyRef()),
           !mAttribute ? HTMLEditor::DoNothingForNewElement
                       // MOZ_CAN_RUN_SCRIPT_BOUNDARY due to bug 1758868
-                      : [&](HTMLEditor& aHTMLEditor, Element& aNewElement,
+                      : [&](HTMLEditor& /*aHTMLEditor*/, Element& aNewElement,
                             const EditorDOMPoint&) MOZ_CAN_RUN_SCRIPT_BOUNDARY {
                           nsresult rv = aNewElement.SetAttr(
                               kNameSpaceID_None, mAttribute, attributeValue,

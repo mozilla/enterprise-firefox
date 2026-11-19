@@ -163,8 +163,6 @@ class HTMLComboboxAccessible final : public AccessibleWrap {
   virtual ~HTMLComboboxAccessible() = default;
 
   // LocalAccessible
-  virtual EDescriptionValueFlag Description(
-      nsString& aDescription) const override;
   virtual void Value(nsString& aValue) const override;
   virtual a11y::role NativeRole() const override;
   virtual uint64_t NativeState() const override;
@@ -187,6 +185,9 @@ class HTMLComboboxAccessible final : public AccessibleWrap {
    * Return selected option.
    */
   LocalAccessible* SelectedOption() const;
+
+  static void SelectedOptionLabelMaybeChanged(DocAccessible* aDoc,
+                                              nsIContent* aContent);
 };
 
 /*

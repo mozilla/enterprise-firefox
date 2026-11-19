@@ -101,7 +101,6 @@ pub use self::position::{
     PositionAnchorKeyword, PositionArea, PositionAreaKeyword, PositionComponent, PositionOrAuto,
     PositionTryFallbacks, PositionTryOrder, PositionVisibility, ScopedName, ZIndex,
 };
-pub use self::random::{RandomCacheKey, RandomUaIdent};
 pub use self::ratio::Ratio;
 pub use self::rect::NonNegativeLengthOrNumberRect;
 pub use self::resolution::{NoCalcResolution, Resolution};
@@ -133,8 +132,8 @@ pub use self::tree_counting::TreeCountingFunction;
 #[cfg(feature = "gecko")]
 pub use self::ui::CursorImage;
 pub use self::ui::{
-    BoolInteger, Cursor, FieldSizing, ImeMode, Inert, MozTheme, PointerEvents, ScrollbarColor,
-    ScrollbarWidth, UserFocus, UserSelect, WindowDragging, WindowShadow,
+    BoolInteger, Cursor, FieldSizing, ImeMode, Inert, Interactivity, MozTheme, PointerEvents,
+    ScrollbarColor, ScrollbarWidth, UserFocus, UserSelect, WindowDragging, WindowShadow,
 };
 pub use super::generics::grid::GridTemplateComponent as GenericGridTemplateComponent;
 

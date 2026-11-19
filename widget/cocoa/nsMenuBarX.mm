@@ -714,6 +714,21 @@ void nsMenuBarX::CopyAppMenuUserKeyEquivalentsToKeyElements() {
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }
 
+// The nsMenuItemX that aItem belongs to, or nullptr for an item without one,
+// such as an application menu item.
+static nsMenuItemX* MenuItemForNativeMenuItem(NSMenuItem* aItem) {
+  MOZMenuItemRepresentedObject* representedObject = aItem.representedObject;
+  if (![representedObject isKindOfClass:[MOZMenuItemRepresentedObject class]]) {
+    return nullptr;
+  }
+  nsMenuGroupOwnerX* menuGroupOwner = representedObject.menuGroupOwner;
+  if (!menuGroupOwner) {
+    return nullptr;
+  }
+  return menuGroupOwner->GetMenuItemForCommandID(
+      static_cast<uint32_t>(aItem.tag));
+}
+
 /* static */
 void nsMenuBarX::CopyUserKeyEquivalentOfItemToKeyElements(NSMenuItem* aItem) {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
@@ -735,16 +750,7 @@ void nsMenuBarX::CopyUserKeyEquivalentOfItemToKeyElements(NSMenuItem* aItem) {
     return;
   }
 
-  MOZMenuItemRepresentedObject* representedObject = aItem.representedObject;
-  if (![representedObject isKindOfClass:[MOZMenuItemRepresentedObject class]]) {
-    return;
-  }
-  nsMenuGroupOwnerX* menuGroupOwner = representedObject.menuGroupOwner;
-  if (!menuGroupOwner) {
-    return;
-  }
-  if (RefPtr<nsMenuItemX> menuItem = menuGroupOwner->GetMenuItemForCommandID(
-          static_cast<uint32_t>(aItem.tag))) {
+  if (RefPtr<nsMenuItemX> menuItem = MenuItemForNativeMenuItem(aItem)) {
     menuItem->CopyUserKeyEquivalentToKeyElement();
   }
 
@@ -1260,66 +1266,44 @@ void nsMenuBarX::CreateApplicationMenu(nsMenuX* aMenu) {
 
 @end
 
-// Whether aEvent is the key equivalent of aItem. System Settings stores the
-// key as typed on the keyboard layout in use: a letter or digit on its own,
-// with Shift in the modifier mask or as an uppercase letter, and a character
-// that needs Shift, such as "@", as that character. So the pressed key is
-// compared through what it produces on the current layout with and without
-// Shift, and Option and Control never change the character that counts.
-static bool EventMatchesKeyEquivalent(NSEvent* aEvent, NSMenuItem* aItem) {
-  NSString* keyEquivalent = aItem.keyEquivalent;
-  if (keyEquivalent.length != 1) {
-    return false;
-  }
-  uint32_t key = [keyEquivalent characterAtIndex:0];
-  uint32_t lowercaseKey = ToLowerCase(key);
-
-  const NSEventModifierFlags relevantFlags =
-      NSEventModifierFlagCommand | NSEventModifierFlagOption |
-      NSEventModifierFlagControl | NSEventModifierFlagShift;
-  NSEventModifierFlags eventFlags = aEvent.modifierFlags & relevantFlags;
-  NSEventModifierFlags requiredFlags =
-      aItem.keyEquivalentModifierMask & relevantFlags;
-  if (lowercaseKey != key) {
-    // AppKit expresses Shift through an uppercase key equivalent.
-    requiredFlags |= NSEventModifierFlagShift;
-  }
-
-  mozilla::widget::TISInputSourceWrapper& inputSource =
-      mozilla::widget::TISInputSourceWrapper::CurrentInputSource();
-  uint32_t unshifted = inputSource.CharForKeyCode(aEvent.keyCode, 0);
-  uint32_t shifted = inputSource.CharForKeyCode(aEvent.keyCode, shiftKey);
-  if (!unshifted && !shifted) {
-    // A key without a character on the layout, such as a function key, is
-    // compared through the character AppKit gives the event for it.
-    NSString* characters = aEvent.charactersIgnoringModifiers;
-    return characters.length == 1 && [characters characterAtIndex:0] == key &&
-           eventFlags == requiredFlags;
-  }
-  if (unshifted && ToLowerCase(unshifted) == lowercaseKey) {
-    return eventFlags == requiredFlags;
-  }
-  if (shifted && shifted == key) {
-    return eventFlags == (requiredFlags | NSEventModifierFlagShift);
-  }
-  return false;
+// Whether the user assigned aEvent's shortcut to aItem in System Settings.
+static bool IsUserAssignedShortcut(NSEvent* aEvent, NSMenuItem* aItem) {
+  return aItem.userKeyEquivalent.length > 0 &&
+         nsMenuUtilsX::EventMatchesKeyEquivalent(
+             aEvent, aItem.keyEquivalent, aItem.keyEquivalentModifierMask);
 }
 
-// The item in aMenu or its submenus that the user assigned aEvent's shortcut
-// to in System Settings, or nil.
-static NSMenuItem* UserAssignedItemMatchingEvent(NSMenu* aMenu,
-                                                 NSEvent* aEvent) {
+// Whether aEvent is the built-in shortcut of aItem, where the user assigned
+// another shortcut to aItem in System Settings and aItem's shortcut is
+// internal. Gecko handles such a built-in shortcut outside of the key element,
+// as ShortcutKeyDefinitions.cpp does for the Edit commands, so
+// CopyUserKeyEquivalentToKeyElement does not stop it.
+static bool IsReplacedInternalShortcut(NSEvent* aEvent, NSMenuItem* aItem) {
+  if (aItem.userKeyEquivalent.length == 0) {
+    return false;
+  }
+  nsMenuItemX* menuItem = MenuItemForNativeMenuItem(aItem);
+  return menuItem && menuItem->HasInternalShortcut() &&
+         nsMenuUtilsX::EventMatchesKeyEquivalent(
+             aEvent, menuItem->BuiltInKeyEquivalent(),
+             menuItem->BuiltInKeyEquivalentModifierMask());
+}
+
+// The visible item in aMenu or its submenus for which aMatches returns true,
+// or nil.
+static NSMenuItem* VisibleItemMatchingEvent(
+    NSMenu* aMenu, NSEvent* aEvent,
+    bool (*aMatches)(NSEvent* aEvent, NSMenuItem* aItem)) {
   for (NSMenuItem* item in aMenu.itemArray) {
     if (item.hidden) {
       continue;
     }
     if (item.submenu) {
       if (NSMenuItem* match =
-              UserAssignedItemMatchingEvent(item.submenu, aEvent)) {
+              VisibleItemMatchingEvent(item.submenu, aEvent, aMatches)) {
         return match;
       }
-    } else if (item.userKeyEquivalent.length > 0 &&
-               EventMatchesKeyEquivalent(aEvent, item)) {
+    } else if (aMatches(aEvent, item)) {
       return item;
     }
   }
@@ -1369,13 +1353,20 @@ static NSMenuItem* UserAssignedItemMatchingEvent(NSMenu* aMenu,
     return [super performKeyEquivalent:aEvent];
   }
 
-  if (NSMenuItem* item = UserAssignedItemMatchingEvent(self, aEvent)) {
+  if (NSMenuItem* item =
+          VisibleItemMatchingEvent(self, aEvent, IsUserAssignedShortcut)) {
     // AppKit consumes a key equivalent that matches a disabled item without
     // running it.
     if (item.enabled) {
       nsAutoRetainCocoaObject kungFuDeathGrip(self);
       [item.menu performActionForItemAtIndex:[item.menu indexOfItem:item]];
     }
+    return YES;
+  }
+
+  // The assigned shortcut replaces the built-in one, so the built-in shortcut
+  // does nothing.
+  if (VisibleItemMatchingEvent(self, aEvent, IsReplacedInternalShortcut)) {
     return YES;
   }
 

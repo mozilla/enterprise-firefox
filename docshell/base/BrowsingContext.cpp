@@ -159,6 +159,31 @@ DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::dom::EmbedderColorSchemes, mUsed,
 
 }  // namespace IPC
 
+namespace geckoprofiler::markers {
+
+class NavigationRateLimitedMarker
+    : public mozilla::BaseMarkerType<NavigationRateLimitedMarker> {
+ public:
+  static constexpr const char* Name = "NavigationRateLimited";
+  static constexpr const char* Description =
+      "A location or history API call was ignored because the navigation rate "
+      "limit was reached.";
+
+  using MS = mozilla::MarkerSchema;
+  static constexpr MS::PayloadField PayloadFields[] = {
+      {"limit", MS::InputType::Uint32, "Limit", MS::Format::Integer},
+      {"timespan", MS::InputType::TimeDuration, "Timespan",
+       MS::Format::Duration}};
+
+  static constexpr MS::Location Locations[] = {MS::Location::MarkerChart,
+                                               MS::Location::MarkerTable};
+  static constexpr const char* TableLabel =
+      "Limit of {marker.data.limit} calls per {marker.data.timespan} reached";
+  static constexpr const char* ChartLabel = "{marker.name}";
+};
+
+}  // namespace geckoprofiler::markers
+
 namespace mozilla {
 namespace dom {
 
@@ -1202,7 +1227,8 @@ void BrowsingContext::Detach(bool aFromIPC) {
     if (XRE_IsParentProcess() && Canonical()->IsReplaced()) {
       why = u"replace";
     }
-    obs->NotifyObservers(ToSupports(this), "browsing-context-discarded", why);
+    obs->NotifyWhenScriptSafe(ToSupports(this), "browsing-context-discarded",
+                              why);
   }
 
   // NOTE: Doesn't use SetClosed, as it will be set in all processes
@@ -2551,6 +2577,9 @@ nsresult BrowsingContext::InternalLoad(nsDocShellLoadState* aLoadState) {
   // Note: We do this check both here and in `nsDocShell::InternalLoad`.
   // Same reason as for the sandbox flags.
   MOZ_TRY(CheckFramebusting(aLoadState));
+
+  // Ensure we don't keep a strong reference to the source element for too long.
+  aLoadState->SetSourceElement(nullptr);
 
   if (XRE_IsParentProcess()) {
     ContentParent* cp = Canonical()->GetContentParent();
@@ -4457,7 +4486,7 @@ void BrowsingContext::SessionHistoryCommit(
 void BrowsingContext::SetActiveSessionHistoryEntry(
     const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
     SessionHistoryInfo* aPreviousActiveEntry, uint32_t aLoadType,
-    uint32_t aUpdatedCacheKey, bool aUpdateLength) {
+    uint32_t aUpdatedCacheKey) {
   if (XRE_IsContentProcess()) {
     // XXX Why we update cache key only in content process case?
     if (aUpdatedCacheKey != 0) {
@@ -4465,14 +4494,12 @@ void BrowsingContext::SetActiveSessionHistoryEntry(
     }
 
     nsID changeID = {};
-    if (aUpdateLength) {
-      RefPtr<ChildSHistory> shistory = Top()->GetChildSessionHistory();
-      if (shistory) {
-        // We try to mimic what will happen in
-        // CanonicalBrowsingContext::SendSetActiveSessionHistoryEntry
-        if (AddSHEntryWouldIncreaseLength(aPreviousActiveEntry)) {
-          changeID = shistory->AddPendingHistoryChange();
-        }
+    RefPtr<ChildSHistory> shistory = Top()->GetChildSessionHistory();
+    if (shistory) {
+      // We try to mimic what will happen in
+      // CanonicalBrowsingContext::SendSetActiveSessionHistoryEntry
+      if (AddSHEntryWouldIncreaseLength(aPreviousActiveEntry)) {
+        changeID = shistory->AddPendingHistoryChange();
       }
     }
     ContentChild::GetSingleton()->SendSetActiveSessionHistoryEntry(
@@ -4601,6 +4628,12 @@ bool BrowsingContext::CheckNavigationRateLimit(CallerType aCallerType) {
                                       PropertiesFile::DOM_PROPERTIES,
                                       "NavigationChangeFloodingPrevented");
     }
+
+    PROFILER_MARKER(
+        "Navigation rate limited", DOM,
+        MarkerOptions(MarkerStack::Capture(),
+                      MarkerInnerWindowId(GetCurrentInnerWindowId())),
+        NavigationRateLimitedMarker, limitCount, throttleSpan);
 
     return false;
   }

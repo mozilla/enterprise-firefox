@@ -214,6 +214,40 @@ BigInt* BigInt::createFromDigit(JSContext* cx, Digit d, bool isNegative,
   return res;
 }
 
+BigInt* BigInt::createFromPowerOfTwo(JSContext* cx, size_t n, bool isNegative,
+                                     gc::Heap heap) {
+  size_t digitLength = n / DigitBits + 1;
+  BigInt* res = createUninitialized(cx, digitLength, isNegative, heap);
+  if (!res) {
+    return nullptr;
+  }
+  Digits digits = res->unguardedDigits();
+  digits[digitLength - 1] = Digit(1) << (n % DigitBits);
+  zeroDigits(digits.First(digitLength - 1));
+  return res;
+}
+
+template <size_t N, class AllocPolicy>
+BigInt* BigInt::createFromDigitVector(
+    JSContext* cx, const Vector<Digit, N, AllocPolicy>& digits,
+    bool isNegative) {
+  ConstDigits src = digits;
+  size_t length = src.size();
+  while (length && !src[length - 1]) {
+    length--;
+  }
+  if (!length) {
+    return zero(cx);
+  }
+
+  BigInt* result = createUninitialized(cx, length, isNegative);
+  if (!result) {
+    return nullptr;
+  }
+  copyDigits(src.First(length), result->unguardedDigits());
+  return result;
+}
+
 BigInt* BigInt::one(JSContext* cx) { return createFromDigit(cx, 1, false); }
 
 BigInt* BigInt::negativeOne(JSContext* cx) {
@@ -481,61 +515,14 @@ void BigInt::inplaceMultiplyAdd(Digit factor, Digit summand) {
   internalMultiplyAdd(this, factor, summand, digitLength(), this);
 }
 
-// Multiplies `multiplicand` with `multiplier` and adds the result to
-// `accumulator`, starting at `accumulatorIndex` for the least-significant
-// digit.  Callers must ensure that `accumulator`'s digitLength and
-// corresponding digit storage is long enough to hold the result.
-void BigInt::multiplyAccumulate(const BigInt* multiplicand, Digit multiplier,
-                                BigInt* accumulator,
-                                unsigned accumulatorIndex) {
-  MOZ_ASSERT(accumulator->digitLength() >
-             multiplicand->digitLength() + accumulatorIndex);
-  if (!multiplier) {
-    return;
-  }
-
-  auto multiplicandDigits = multiplicand->digits();
-  auto accumulatorDigits = accumulator->digits();
-
-  Digit carry = 0;
-  Digit high = 0;
-  for (unsigned i = 0; i < multiplicandDigits.size(); i++, accumulatorIndex++) {
-    // Add last round's carryovers.
-    Digit acc =
-        digitAdd3(accumulatorDigits[accumulatorIndex], high, carry, &carry);
-
-    // Compute this round's multiplication.
-    Digit multiplicandDigit = multiplicandDigits[i];
-    Digit low = digitMul(multiplier, multiplicandDigit, &high);
-    Digit lowCarry;
-    acc = digitAdd(acc, low, &lowCarry);
-    carry += lowCarry;
-
-    // Store result and prepare for next round.
-    accumulatorDigits[accumulatorIndex] = acc;
-  }
-
-  while (carry || high) {
-    MOZ_ASSERT(accumulatorIndex < accumulatorDigits.size());
-    accumulatorDigits[accumulatorIndex] =
-        digitAdd3(accumulatorDigits[accumulatorIndex], high, carry, &carry);
-    high = 0;
-    accumulatorIndex++;
-  }
-}
-
 inline int8_t BigInt::absoluteCompare(ConstDigits x, ConstDigits y) {
   MOZ_RELEASE_ASSERT(x.size() == y.size());
-  int i = x.size() - 1;
-  while (i >= 0 && x[i] == y[i]) {
-    i--;
+  for (size_t i = x.size(); i > 0; i--) {
+    if (x[i - 1] != y[i - 1]) {
+      return x[i - 1] > y[i - 1] ? 1 : -1;
+    }
   }
-
-  if (i < 0) {
-    return 0;
-  }
-
-  return x[i] > y[i] ? 1 : -1;
+  return 0;
 }
 
 inline int8_t BigInt::absoluteCompare(const BigInt* x, const BigInt* y) {
@@ -616,20 +603,9 @@ BigInt* BigInt::absoluteAdd(JSContext* cx, HandleBigInt x, HandleBigInt y,
     return nullptr;
   }
   {
-    auto leftDigits = left->digits();
-    auto rightDigits = right->digits();
-    auto resultDigits = result->digits();
-    Digit carry = 0;
-    unsigned i = 0;
-    for (; i < rightDigits.size(); i++) {
-      resultDigits[i] = digitAdd3(leftDigits[i], rightDigits[i], carry, &carry);
-    }
-
-    for (; i < leftDigits.size(); i++) {
-      resultDigits[i] = digitAdd(leftDigits[i], carry, &carry);
-    }
-
-    resultDigits[i] = carry;
+    Digits r = result->unguardedDigits();
+    r[left->digitLength()] =
+        addDigits(left->unguardedDigits(), right->unguardedDigits(), r);
   }
 
   return destructivelyTrimHighZeroDigits(cx, result);
@@ -663,23 +639,89 @@ BigInt* BigInt::absoluteSub(JSContext* cx, HandleBigInt x, HandleBigInt y,
   if (!result) {
     return nullptr;
   }
-  {
-    auto xDigits = x->digits();
-    auto yDigits = y->digits();
-    auto resultDigits = result->digits();
-    Digit borrow = 0;
-    unsigned i = 0;
-    for (; i < yDigits.size(); i++) {
-      resultDigits[i] = digitSub3(xDigits[i], yDigits[i], borrow, &borrow);
-    }
-
-    for (; i < xDigits.size(); i++) {
-      resultDigits[i] = digitSub(xDigits[i], borrow, &borrow);
-    }
-
-    MOZ_ASSERT(!borrow);
-  }
+  MOZ_ALWAYS_FALSE(subDigits(x->unguardedDigits(), y->unguardedDigits(),
+                             result->unguardedDigits()));
   return destructivelyTrimHighZeroDigits(cx, result);
+}
+
+// For a single-digit divisor, hardware double-word division is faster than
+// division by multiplication for short dividends.
+#if defined(__x86_64__) || defined(__i386__)
+static constexpr size_t LargeDividendLength = 6;
+#else
+static constexpr size_t LargeDividendLength = 2;
+#endif
+
+MOZ_ALWAYS_INLINE BigInt::Digit BigInt::modDigitsByDigit(ConstDigits u,
+                                                         Digit m) {
+  return u.size() < LargeDividendLength ? modSmallDigitsByDigit(u, m)
+                                        : modLargeDigitsByDigit(u, m);
+}
+
+MOZ_ALWAYS_INLINE BigInt::Digit BigInt::modSmallDigitsByDigit(ConstDigits u,
+                                                              Digit m) {
+  Digit remainder = 0;
+  for (size_t i = u.size(); i-- > 0;) {
+    digitDiv(remainder, u[i], m, &remainder);
+  }
+  return remainder;
+}
+
+BigInt::Digit BigInt::modLargeDigitsByDigit(ConstDigits u, Digit m) {
+  MOZ_RELEASE_ASSERT(u.size() >= LargeDividendLength);
+  unsigned shift = std::countl_zero(m);
+  Digit divisor = m << shift;
+  Digit inverse = normalizedDigitInverse(divisor);
+  size_t i = u.size();
+  Digit remainder = shift ? u[i - 1] >> (DigitBits - shift) : 0;
+  while (i-- > 0) {
+    Digit low = u[i] << shift;
+    if (shift && i > 0) {
+      low |= u[i - 1] >> (DigitBits - shift);
+    }
+    digitDivByMultiplication(remainder, low, divisor, inverse, &remainder);
+  }
+  return remainder >> shift;
+}
+
+// These div helpers are just like the mod helpers, only they write the
+// multi-digit quotient into the storage provided.  All things being equal, it
+// would be nice to unify the implementations behind a template, but the
+// template would be so gross we are leaving things as-is.
+MOZ_ALWAYS_INLINE BigInt::Digit BigInt::divDigitsByDigit(ConstDigits u, Digit m,
+                                                         Digits q) {
+  return u.size() < LargeDividendLength ? divSmallDigitsByDigit(u, m, q)
+                                        : divLargeDigitsByDigit(u, m, q);
+}
+
+MOZ_ALWAYS_INLINE BigInt::Digit BigInt::divSmallDigitsByDigit(ConstDigits u,
+                                                              Digit m,
+                                                              Digits q) {
+  q = q.First(u.size());
+  Digit remainder = 0;
+  for (size_t i = u.size(); i-- > 0;) {
+    q[i] = digitDiv(remainder, u[i], m, &remainder);
+  }
+  return remainder;
+}
+
+BigInt::Digit BigInt::divLargeDigitsByDigit(ConstDigits u, Digit m, Digits q) {
+  MOZ_RELEASE_ASSERT(u.size() >= LargeDividendLength);
+  q = q.First(u.size());
+  unsigned shift = std::countl_zero(m);
+  Digit divisor = m << shift;
+  Digit inverse = normalizedDigitInverse(divisor);
+  size_t i = u.size();
+  Digit remainder = shift ? u[i - 1] >> (DigitBits - shift) : 0;
+  while (i-- > 0) {
+    Digit low = u[i] << shift;
+    if (shift && i > 0) {
+      low |= u[i - 1] >> (DigitBits - shift);
+    }
+    q[i] =
+        digitDivByMultiplication(remainder, low, divisor, inverse, &remainder);
+  }
+  return remainder >> shift;
 }
 
 // Divides `x` by `divisor`, returning the result in `quotient` and `remainder`.
@@ -689,58 +731,44 @@ BigInt* BigInt::absoluteSub(JSContext* cx, HandleBigInt x, HandleBigInt y,
 //
 // If `quotient` is an empty handle, an appropriately sized BigInt will be
 // allocated for it; otherwise the caller must ensure that it is big enough.
-// `quotient` can be the same as `x` for an in-place division. `quotient` can
-// also be `Nothing()` if the caller is only interested in the remainder.
+// `quotient` can be the same as `x` for an in-place division.
 //
 // This function returns false if `quotient` is an empty handle, but allocating
 // the quotient failed.  Otherwise it returns true, indicating success.
-bool BigInt::absoluteDivWithDigitDivisor(
-    JSContext* cx, HandleBigInt x, Digit divisor,
-    const Maybe<MutableHandleBigInt>& quotient, Digit* remainder,
-    bool quotientNegative) {
+bool BigInt::absoluteDivWithDigitDivisor(JSContext* cx, HandleBigInt x,
+                                         Digit divisor,
+                                         MutableHandleBigInt quotient,
+                                         Digit* remainder,
+                                         bool quotientNegative) {
   MOZ_ASSERT(divisor);
 
   MOZ_ASSERT(!x->isZero());
   *remainder = 0;
   if (divisor == 1) {
-    if (quotient) {
-      BigInt* q;
-      if (x->isNegative() == quotientNegative) {
-        q = x;
-      } else {
-        q = neg(cx, x);
-        if (!q) {
-          return false;
-        }
+    BigInt* q;
+    if (x->isNegative() == quotientNegative) {
+      q = x;
+    } else {
+      q = neg(cx, x);
+      if (!q) {
+        return false;
       }
-      quotient.value().set(q);
     }
+    quotient.set(q);
     return true;
   }
 
   unsigned length = x->digitLength();
-  if (quotient) {
-    if (!quotient.value()) {
-      BigInt* q = createUninitialized(cx, length, quotientNegative);
-      if (!q) {
-        return false;
-      }
-      quotient.value().set(q);
+  if (!quotient) {
+    BigInt* q = createUninitialized(cx, length, quotientNegative);
+    if (!q) {
+      return false;
     }
-
-    auto xDigits = x->digits();
-    auto quotientDigits = quotient.value()->digits();
-    for (int i = length - 1; i >= 0; i--) {
-      Digit q = digitDiv(*remainder, xDigits[i], divisor, remainder);
-      quotientDigits[i] = q;
-    }
-  } else {
-    auto xDigits = x->digits();
-    for (int i = length - 1; i >= 0; i--) {
-      digitDiv(*remainder, xDigits[i], divisor, remainder);
-    }
+    quotient.set(q);
   }
 
+  *remainder = divDigitsByDigit(x->unguardedDigits(), divisor,
+                                quotient->unguardedDigits());
   return true;
 }
 
@@ -750,71 +778,6 @@ inline bool BigInt::productGreaterThan(Digit factor1, Digit factor2, Digit high,
   Digit resultHigh;
   Digit resultLow = digitMul(factor1, factor2, &resultHigh);
   return resultHigh > high || (resultHigh == high && resultLow > low);
-}
-
-void BigInt::inplaceRightShiftLowZeroBits(unsigned shift) {
-  MOZ_ASSERT(shift < DigitBits);
-  auto thisDigits = digits();
-  MOZ_ASSERT(!(thisDigits[0] & ((static_cast<Digit>(1) << shift) - 1)),
-             "should only be shifting away zeroes");
-
-  if (!shift) {
-    return;
-  }
-
-  Digit carry = thisDigits[0] >> shift;
-  unsigned last = thisDigits.size() - 1;
-  for (unsigned i = 0; i < last; i++) {
-    Digit d = thisDigits[i + 1];
-    thisDigits[i] = (d << (DigitBits - shift)) | carry;
-    carry = d >> shift;
-  }
-  thisDigits[last] = carry;
-}
-
-// Always copies the input, even when `shift` == 0.
-BigInt* BigInt::absoluteLeftShiftAlwaysCopy(JSContext* cx, HandleBigInt x,
-                                            unsigned shift,
-                                            LeftShiftMode mode) {
-  MOZ_ASSERT(shift < DigitBits);
-  MOZ_ASSERT(!x->isZero());
-
-  unsigned n = x->digitLength();
-  unsigned resultLength = mode == LeftShiftMode::AlwaysAddOneDigit ? n + 1 : n;
-  BigInt* result = createUninitialized(cx, resultLength, x->isNegative());
-  if (!result) {
-    return nullptr;
-  }
-
-  auto xDigits = x->digits();
-  auto resultDigits = result->digits();
-
-  if (!shift) {
-    for (unsigned i = 0; i < n; i++) {
-      resultDigits[i] = xDigits[i];
-    }
-    if (mode == LeftShiftMode::AlwaysAddOneDigit) {
-      resultDigits[n] = 0;
-    }
-
-    return result;
-  }
-
-  Digit carry = 0;
-  for (unsigned i = 0; i < n; i++) {
-    Digit d = xDigits[i];
-    resultDigits[i] = (d << shift) | carry;
-    carry = d >> (DigitBits - shift);
-  }
-
-  if (mode == LeftShiftMode::AlwaysAddOneDigit) {
-    resultDigits[n] = carry;
-  } else {
-    MOZ_ASSERT(mode == LeftShiftMode::SameSizeResult);
-    MOZ_ASSERT(!carry);
-  }
-
-  return result;
 }
 
 // The schoolbook division algorithm computes an estimate of the quotient
@@ -890,15 +853,40 @@ BigInt::Digit BigInt::digitDivByMultiplication(Digit high, Digit low,
   return q1;
 }
 
-void BigInt::multiplyDigits(ConstDigits multiplicand, Digit multiplier,
-                            Digits product) {
-  MOZ_RELEASE_ASSERT(product.size() == multiplicand.size() + 1);
-
+BigInt::Digit BigInt::multiplyDigits(ConstDigits src, Digit multiplier,
+                                     Digits dest) {
+  dest = dest.First(src.size());
   Digit carry = 0;
-  for (size_t i = 0; i < multiplicand.size(); i++) {
-    product[i] = digitMulAdd(multiplicand[i], multiplier, carry, 0, &carry);
+  for (size_t i = 0; i < src.size(); i++) {
+    dest[i] = digitMulAdd(src[i], multiplier, 0, carry, &carry);
   }
-  product[multiplicand.size()] = carry;
+  return carry;
+}
+
+BigInt::Digit BigInt::multiplyAccumulateDigits(ConstDigits src,
+                                               Digit multiplier, Digits acc) {
+  acc = acc.First(src.size());
+  Digit carry = 0;
+  for (size_t i = 0; i < src.size(); i++) {
+    acc[i] = digitMulAdd(src[i], multiplier, acc[i], carry, &carry);
+  }
+  return carry;
+}
+
+void BigInt::schoolbookMultiplyDigits(ConstDigits a, ConstDigits b,
+                                      Digits result) {
+  // Given a choice, it's best to do fewer outer loops over longer digit
+  // spans. Commute the arguments to ensure that `|a| >= |b|`, if needed.
+  if (a.size() < b.size()) {
+    std::swap(b, a);
+  }
+  MOZ_RELEASE_ASSERT(!b.empty());
+  MOZ_RELEASE_ASSERT(result.size() == a.size() + b.size());
+  result[a.size()] = multiplyDigits(a, b[0], result);
+  for (size_t i = 1; i < b.size(); i++) {
+    result[i + a.size()] =
+        b[i] ? multiplyAccumulateDigits(a, b[i], result.From(i)) : 0;
+  }
 }
 
 // Both inplaceSubDigits and inplaceAddDigits check the bounds once, by taking
@@ -919,6 +907,91 @@ BigInt::Digit BigInt::inplaceAddDigits(Digits x, ConstDigits y) {
     xs[i] = digitAdd3(xs[i], y[i], carry, &carry);
   }
   return carry;
+}
+
+BigInt::Digit BigInt::inplaceDecrementDigits(Digits x) {
+  for (size_t i = 0; i < x.size(); i++) {
+    if (x[i]--) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+BigInt::Digit BigInt::inplaceIncrementDigits(Digits x) {
+  for (size_t i = 0; i < x.size(); i++) {
+    if (++x[i]) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+BigInt::Digit BigInt::addDigits(ConstDigits x, ConstDigits y, Digits r) {
+  MOZ_RELEASE_ASSERT(y.size() <= x.size());
+  Digits out = r.First(x.size());
+  Digit carry = 0;
+  size_t i = 0;
+  for (; i < y.size(); i++) {
+    out[i] = digitAdd3(x[i], y[i], carry, &carry);
+  }
+  for (; i < x.size(); i++) {
+    out[i] = digitAdd(x[i], carry, &carry);
+  }
+  return carry;
+}
+
+BigInt::Digit BigInt::subDigits(ConstDigits x, ConstDigits y, Digits r) {
+  MOZ_RELEASE_ASSERT(y.size() <= x.size());
+  Digits out = r.First(x.size());
+  Digit borrow = 0;
+  size_t i = 0;
+  for (; i < y.size(); i++) {
+    out[i] = digitSub3(x[i], y[i], borrow, &borrow);
+  }
+  for (; i < x.size(); i++) {
+    out[i] = digitSub(x[i], borrow, &borrow);
+  }
+  return borrow;
+}
+
+void BigInt::copyDigits(ConstDigits src, Digits dest) {
+  MOZ_RELEASE_ASSERT(dest.size() == src.size());
+  std::copy_n(src.data(), src.size(), dest.data());
+}
+
+void BigInt::zeroDigits(Digits dest) {
+  std::fill_n(dest.data(), dest.size(), 0);
+}
+
+BigInt::Digit BigInt::leftShiftDigits(ConstDigits src, unsigned shift,
+                                      Digits dest) {
+  MOZ_ASSERT(shift > 0 && shift < DigitBits);
+  MOZ_RELEASE_ASSERT(!src.empty());
+  const size_t n = src.size();
+  dest = dest.First(n);
+  Digit carry = src[n - 1] >> (DigitBits - shift);
+  for (size_t i = n - 1; i > 0; i--) {
+    dest[i] = (src[i] << shift) | (src[i - 1] >> (DigitBits - shift));
+  }
+  // We could have a "Digit low" parameter for symmetry with rightShiftDigits,
+  // but no caller actually needs it.
+  dest[0] = src[0] << shift;
+  return carry;
+}
+
+BigInt::Digit BigInt::rightShiftDigits(ConstDigits src, unsigned shift,
+                                       Digit high, Digits dest) {
+  MOZ_ASSERT(shift > 0 && shift < DigitBits);
+  MOZ_RELEASE_ASSERT(!src.empty());
+  const size_t n = src.size();
+  dest = dest.First(n);
+  Digit shiftedOut = src[0] & ((Digit(1) << shift) - 1);
+  for (size_t i = 0; i + 1 < n; i++) {
+    dest[i] = (src[i] >> shift) | (src[i + 1] << (DigitBits - shift));
+  }
+  dest[n - 1] = (src[n - 1] >> shift) | (high << (DigitBits - shift));
+  return shiftedOut;
 }
 
 // See Knuth, Volume 2, section 4.3.1, Algorithm D.  Also see the overview of
@@ -996,7 +1069,7 @@ void BigInt::divideDigitsInPlace(Digits u, ConstDigits v, Digits q,
     // it from the dividend. If there was "borrow", then the quotient digit
     // was one too high, so we must correct it and undo one subtraction of
     // the (shifted) divisor.
-    multiplyDigits(v, qhat, qhatv);
+    qhatv[n] = multiplyDigits(v, qhat, qhatv);
     Digit c = inplaceSubDigits(uj, qhatv);
     if (c) {
       c = inplaceAddDigits(uj, v);
@@ -1015,205 +1088,181 @@ void BigInt::divideDigitsInPlace(Digits u, ConstDigits v, Digits q,
 //
 //   quotient = (dividend - remainder) / divisor, with 0 <= remainder < divisor.
 //
-// Both `quotient` and `remainder` are optional, for callers that are only
-// interested in one of them.
+// `remainder` is optional, for callers that are only interested in the
+// quotient.
 bool BigInt::absoluteDivWithBigIntDivisor(
     JSContext* cx, HandleBigInt dividend, HandleBigInt divisor,
-    const Maybe<MutableHandleBigInt>& quotient,
-    const Maybe<MutableHandleBigInt>& remainder, bool isNegative) {
+    MutableHandleBigInt quotient, const Maybe<MutableHandleBigInt>& remainder,
+    bool isNegative) {
   MOZ_ASSERT(divisor->digitLength() >= 2);
   MOZ_ASSERT(dividend->digitLength() >= divisor->digitLength());
 
   // Any early error return is detectable by checking the quotient and/or
   // remainder output values.
-  MOZ_ASSERT(!quotient || !quotient.value());
+  MOZ_ASSERT(!quotient);
   MOZ_ASSERT(!remainder || !remainder.value());
 
-  const unsigned n = divisor->digitLength();
-  const unsigned m = dividend->digitLength() - n;
+  const size_t n = divisor->digitLength();
+  const size_t m = dividend->digitLength() - n;
+  const size_t uLength = dividend->digitLength() + 1;
 
-  RootedTuple<BigInt*, BigInt*, BigInt*> roots(cx);
-
-  // The quotient to be computed.
-  RootedField<BigInt*, 0> q(roots);
-  if (quotient) {
-    q = createUninitialized(cx, m + 1, isNegative);
-    if (!q) {
-      return false;
-    }
-  }
-
-  // In each iteration, `qhatv` holds `divisor` * `current quotient digit`.
-  // "v" is the book's name for `divisor`, `qhat` the current quotient digit.
+  // These are the names used by Knuth: `v` is the shifted divisor; `u` is the
+  // shifted dividend, which is continuously updated and eventually holds the
+  // remainder; `q` is the quotient; and `qhatv` holds `v` times the current
+  // quotient digit in each iteration.
+  Vector<Digit, 16, SystemAllocPolicy> v;
+  Vector<Digit, 16, SystemAllocPolicy> q;
   Vector<Digit, 16, SystemAllocPolicy> qhatv;
-  if (!qhatv.resize(n + 1)) {
+  Vector<Digit, 16, SystemAllocPolicy> u;
+  if (!v.resizeUninitialized(n) || !q.resizeUninitialized(m + 1) ||
+      !qhatv.resizeUninitialized(n + 1) || !u.resizeUninitialized(uLength)) {
     ReportOutOfMemory(cx);
     return false;
   }
 
   // D1.
-  // Left-shift inputs so that the divisor's MSB is set. This is necessary to
-  // prevent the digit-wise divisions (see digitDiv call below) from
-  // overflowing (they take a two digits wide input, and return a one digit
-  // result).
-  Digit lastDigit = divisor->individualDigit(n - 1);
-  unsigned shift = std::countl_zero(lastDigit);
-
-  RootedField<BigInt*, 1> shiftedDivisor(roots);
-  if (shift > 0) {
-    shiftedDivisor = absoluteLeftShiftAlwaysCopy(cx, divisor, shift,
-                                                 LeftShiftMode::SameSizeResult);
-    if (!shiftedDivisor) {
-      return false;
+  // Normalize by left-shifting inputs so that the divisor's MSB is set.
+  unsigned shift;
+  {
+    ConstDigits divisorDigits = divisor->unguardedDigits();
+    ConstDigits dividendDigits = dividend->unguardedDigits();
+    shift = std::countl_zero(divisorDigits[n - 1]);
+    if (shift) {
+      MOZ_ALWAYS_FALSE(leftShiftDigits(divisorDigits, shift, v));
+      u[uLength - 1] = leftShiftDigits(dividendDigits, shift, u);
+    } else {
+      copyDigits(divisorDigits, v);
+      copyDigits(dividendDigits, Digits(u).First(uLength - 1));
+      u[uLength - 1] = 0;
     }
-  } else {
-    shiftedDivisor = divisor;
   }
 
-  // Holds the (continuously updated) remaining part of the dividend, which
-  // eventually becomes the remainder.
-  RootedField<BigInt*, 2> u(
-      roots, absoluteLeftShiftAlwaysCopy(cx, dividend, shift,
-                                         LeftShiftMode::AlwaysAddOneDigit));
-  if (!u) {
-    return false;
-  }
+  divideDigitsInPlace(u, v, q, qhatv);
 
-  divideDigitsInPlace(u->unguardedDigits(),
-                      shiftedDivisor->unguardedDigits().First(n),
-                      quotient ? q->unguardedDigits() : Digits(), qhatv);
-
-  if (quotient) {
-    BigInt* bi = destructivelyTrimHighZeroDigits(cx, q);
-    if (!bi) {
-      return false;
-    }
-    quotient.value().set(q);
-  }
+  // Normalization introduced low zero bits; they should be zero after division.
+  MOZ_ASSERT((u[0] & ((Digit(1) << shift) - 1)) == 0);
 
   if (remainder) {
-    u->inplaceRightShiftLowZeroBits(shift);
-    remainder.value().set(u);
+    // The remainder is less than `v`, so only its low `n` digits are non-zero.
+    size_t length = n;
+    while (length && !u[length - 1]) {
+      length--;
+    }
+
+    if (length == 0) {
+      BigInt* result = zero(cx);
+      if (!result) {
+        return false;
+      }
+      remainder.value().set(result);
+    } else if (shift == 0) {
+      u.shrinkTo(length);
+      bool rNegative = dividend->isNegative();
+      BigInt* result = createFromDigitVector(cx, u, rNegative);
+      if (!result) {
+        return false;
+      }
+      remainder.value().set(result);
+    } else {
+      Digit rHigh = u[length - 1];
+      // Shifting the remainder back down may clear its top digit.
+      size_t rLength = ((rHigh >> shift) == 0) ? length - 1 : length;
+      bool rNegative = dividend->isNegative();
+      BigInt* result = createUninitialized(cx, rLength, rNegative);
+      if (!result) {
+        return false;
+      }
+      auto src = ConstDigits(u).First(rLength);
+      auto dest = result->unguardedDigits();
+      Digit high = rLength < length ? rHigh : 0;
+      MOZ_ALWAYS_FALSE(rightShiftDigits(src, shift, high, dest));
+      remainder.value().set(result);
+    }
   }
 
+  BigInt* result = createFromDigitVector(cx, q, isNegative);
+  if (!result) {
+    return false;
+  }
+  quotient.set(result);
   return true;
 }
 
-// Helper for Absolute{And,AndNot,Or,Xor}.
-// Performs the given binary `op` on digit pairs of `x` and `y`; when the
-// end of the shorter of the two is reached, `kind` configures how
-// remaining digits are handled.
-// Example:
-//       y:             [ y2 ][ y1 ][ y0 ]
-//       x:       [ x3 ][ x2 ][ x1 ][ x0 ]
-//                   |     |     |     |
-//                (Fill)  (op)  (op)  (op)
-//                   |     |     |     |
-//                   v     v     v     v
-//  result: [  0 ][ x3 ][ r2 ][ r1 ][ r0 ]
-template <BigInt::BitwiseOpKind kind, typename BitwiseOp>
-inline BigInt* BigInt::absoluteBitwiseOp(JSContext* cx, HandleBigInt x,
-                                         HandleBigInt y, BitwiseOp&& op) {
-  unsigned xLength = x->digitLength();
-  unsigned yLength = y->digitLength();
-  unsigned numPairs = std::min(xLength, yLength);
-  unsigned resultLength;
-  if (kind == BitwiseOpKind::SymmetricTrim) {
-    resultLength = numPairs;
-  } else if (kind == BitwiseOpKind::SymmetricFill) {
-    resultLength = std::max(xLength, yLength);
-  } else {
-    MOZ_ASSERT(kind == BitwiseOpKind::AsymmetricFill);
-    resultLength = xLength;
+// Store `op(x, y)` into `dest`, digit by digit.  All three have the same
+// length.
+template <typename Op>
+static MOZ_ALWAYS_INLINE void BitwiseDigits(BigInt::ConstDigits x,
+                                            BigInt::ConstDigits y,
+                                            BigInt::Digits dest, Op op) {
+  MOZ_RELEASE_ASSERT(x.size() == y.size());
+  MOZ_RELEASE_ASSERT(x.size() == dest.size());
+  for (size_t i = 0; i < x.size(); i++) {
+    dest[i] = op(x[i], y[i]);
   }
-  bool resultNegative = false;
+}
 
-  BigInt* result = createUninitialized(cx, resultLength, resultNegative);
-  if (!result) {
-    return nullptr;
+static void AndDigits(BigInt::ConstDigits x, BigInt::ConstDigits y,
+                      BigInt::Digits dest) {
+  BitwiseDigits(x, y, dest, std::bit_and<>());
+}
+
+static void OrDigits(BigInt::ConstDigits x, BigInt::ConstDigits y,
+                     BigInt::Digits dest) {
+  BitwiseDigits(x, y, dest, std::bit_or<>());
+}
+
+static void AndNotDigits(BigInt::ConstDigits x, BigInt::ConstDigits y,
+                         BigInt::Digits dest) {
+  BitwiseDigits(x, y, dest,
+                [](BigInt::Digit a, BigInt::Digit b) { return a & ~b; });
+}
+
+static void XorDigits(BigInt::ConstDigits x, BigInt::ConstDigits y,
+                      BigInt::Digits dest) {
+  BitwiseDigits(x, y, dest, std::bit_xor<>());
+}
+
+// Set the low `b.size()` digits of `r` to `op(r, b - 1)`, for nonzero `b`.  The
+// digits of `b - 1` are all ones below the lowest nonzero digit of `b`, then
+// that digit minus one, then the remaining digits of `b`.
+template <typename Op>
+static void BitwiseAccumulateDecrementedDigits(BigInt::Digits r,
+                                               BigInt::ConstDigits b, Op op) {
+  r = r.First(b.size());
+  size_t j = 0;
+  for (; !b[j]; j++) {
+    r[j] = op(r[j], ~BigInt::Digit(0));
   }
-  {
-    auto xDigits = x->digits();
-    auto yDigits = y->digits();
-    auto resultDigits = result->digits();
-
-    unsigned i = 0;
-    for (; i < numPairs; i++) {
-      resultDigits[i] = op(xDigits[i], yDigits[i]);
-    }
-
-    if (kind != BitwiseOpKind::SymmetricTrim) {
-      DigitsGuard& sourceDigits = kind == BitwiseOpKind::AsymmetricFill
-                                      ? xDigits
-                                  : xLength == i ? yDigits
-                                                 : xDigits;
-      for (; i < resultLength; i++) {
-        resultDigits[i] = sourceDigits[i];
-      }
-    }
-
-    MOZ_ASSERT(i == resultLength);
-  }
-  return destructivelyTrimHighZeroDigits(cx, result);
-}
-
-BigInt* BigInt::absoluteAnd(JSContext* cx, HandleBigInt x, HandleBigInt y) {
-  return absoluteBitwiseOp<BitwiseOpKind::SymmetricTrim>(cx, x, y,
-                                                         std::bit_and<>());
-}
-
-BigInt* BigInt::absoluteOr(JSContext* cx, HandleBigInt x, HandleBigInt y) {
-  return absoluteBitwiseOp<BitwiseOpKind::SymmetricFill>(cx, x, y,
-                                                         std::bit_or<>());
-}
-
-BigInt* BigInt::absoluteAndNot(JSContext* cx, HandleBigInt x, HandleBigInt y) {
-  auto digitOperation = [](Digit a, Digit b) { return a & ~b; };
-  return absoluteBitwiseOp<BitwiseOpKind::AsymmetricFill>(cx, x, y,
-                                                          digitOperation);
-}
-
-BigInt* BigInt::absoluteXor(JSContext* cx, HandleBigInt x, HandleBigInt y) {
-  return absoluteBitwiseOp<BitwiseOpKind::SymmetricFill>(cx, x, y,
-                                                         std::bit_xor<>());
+  r[j] = op(r[j], b[j] - 1);
+  BitwiseDigits(r.From(j + 1), b.From(j + 1), r.From(j + 1), op);
 }
 
 BigInt* BigInt::absoluteAddOne(JSContext* cx, HandleBigInt x,
                                bool resultNegative) {
-  unsigned inputLength = x->digitLength();
-  // The addition will overflow into a new digit if all existing digits are
-  // at maximum.
-  bool willOverflow = true;
-  {
-    auto xDigits = x->digits();
-    for (unsigned i = 0; i < inputLength; i++) {
-      if (std::numeric_limits<Digit>::max() != xDigits[i]) {
-        willOverflow = false;
-        break;
-      }
-    }
+  unsigned length = x->digitLength();
+
+  if (length == 0) {
+    return createFromDigit(cx, 1, resultNegative);
   }
 
-  unsigned resultLength = inputLength + willOverflow;
-  BigInt* result = createUninitialized(cx, resultLength, resultNegative);
+  if (length == 1) {
+    Digit d = x->individualDigit(0);
+    if (d == Digit(-1)) {
+      return createFromPowerOfTwo(cx, DigitBits, resultNegative);
+    }
+    return createFromDigit(cx, d + 1, resultNegative);
+  }
+
+  BigInt* result = createUninitialized(cx, length, resultNegative);
   if (!result) {
     return nullptr;
   }
-  {
-    auto xDigits = x->digits();
-    auto resultDigits = result->digits();
-    Digit carry = 1;
-    for (unsigned i = 0; i < inputLength; i++) {
-      resultDigits[i] = digitAdd(xDigits[i], carry, &carry);
-    }
-    if (resultLength > inputLength) {
-      MOZ_ASSERT(carry == 1);
-      resultDigits[inputLength] = 1;
-    } else {
-      MOZ_ASSERT(!carry);
-    }
+  Digits resultDigits = result->unguardedDigits();
+  copyDigits(x->unguardedDigits(), resultDigits);
+  if (inplaceIncrementDigits(resultDigits)) {
+    return createFromPowerOfTwo(cx, length * DigitBits, resultNegative);
   }
-  return destructivelyTrimHighZeroDigits(cx, result);
+  return result;
 }
 
 BigInt* BigInt::absoluteSubOne(JSContext* cx, HandleBigInt x,
@@ -1235,15 +1284,9 @@ BigInt* BigInt::absoluteSubOne(JSContext* cx, HandleBigInt x,
   if (!result) {
     return nullptr;
   }
-  {
-    auto xDigits = x->digits();
-    auto resultDigits = result->digits();
-    Digit borrow = 1;
-    for (unsigned i = 0; i < length; i++) {
-      resultDigits[i] = digitSub(xDigits[i], borrow, &borrow);
-    }
-    MOZ_ASSERT(!borrow);
-  }
+  Digits resultDigits = result->unguardedDigits();
+  copyDigits(x->unguardedDigits(), resultDigits);
+  MOZ_ALWAYS_FALSE(inplaceDecrementDigits(resultDigits));
   return destructivelyTrimHighZeroDigits(cx, result);
 }
 
@@ -1538,21 +1581,19 @@ JSLinearString* BigInt::toStringGeneric(JSContext* cx, HandleBigInt x,
   RootedBigInt rest(cx);
 
   // In the first round, divide the input, allocating a new BigInt for
-  // the result == rest; from then on divide the rest in-place.
-  //
-  // FIXME: absoluteDivWithDigitDivisor doesn't
-  // destructivelyTrimHighZeroDigits for in-place divisions, leading to
-  // worse constant factors.  See
-  // https://bugzilla.mozilla.org/show_bug.cgi?id=1510213.
-  RootedBigInt dividend(cx, x);
+  // the result == rest; from then on divide the significant digits of the rest
+  // in place.
   do {
     Digit chunk;
-    if (!absoluteDivWithDigitDivisor(cx, dividend, chunkDivisor, Some(&rest),
-                                     &chunk, dividend->isNegative())) {
-      return nullptr;
+    if (!rest) {
+      if (!absoluteDivWithDigitDivisor(cx, x, chunkDivisor, &rest, &chunk,
+                                       x->isNegative())) {
+        return nullptr;
+      }
+    } else {
+      Digits restDigits = rest->unguardedDigits().First(nonZeroDigit + 1);
+      chunk = divDigitsByDigit(restDigits, chunkDivisor, restDigits);
     }
-
-    dividend = rest;
     for (unsigned i = 0; i < chunkChars; i++) {
       MOZ_ASSERT(writePos > 0);
       resultString[--writePos] = radixDigits[chunk % radix];
@@ -2009,11 +2050,7 @@ BigInt* BigInt::copy(JSContext* cx, HandleBigInt x, gc::Heap heap) {
   if (!result) {
     return nullptr;
   }
-  auto xDigits = x->digits();
-  auto resultDigits = result->digits();
-  for (size_t i = 0; i < xDigits.size(); i++) {
-    resultDigits[i] = xDigits[i];
-  }
+  copyDigits(x->unguardedDigits(), result->unguardedDigits());
   return result;
 }
 
@@ -2087,27 +2124,13 @@ BigInt* BigInt::mul(JSContext* cx, HandleBigInt x, HandleBigInt y) {
     }
   }
 
-  unsigned resultLength = x->digitLength() + y->digitLength();
+  size_t resultLength = x->digitLength() + y->digitLength();
   BigInt* result = createUninitialized(cx, resultLength, resultNegative);
   if (!result) {
     return nullptr;
   }
-  result->initializeDigitsToZero();
-
-  // Reorder operands to minimize calls to multiplyAccumulate.
-  BigInt* left = x;
-  BigInt* right = y;
-  if (left->digitLength() < right->digitLength()) {
-    std::swap(left, right);
-  }
-
-  {
-    auto rightDigits = right->digits();
-    for (size_t i = 0; i < rightDigits.size(); i++) {
-      multiplyAccumulate(left, rightDigits[i], result, i);
-    }
-  }
-
+  schoolbookMultiplyDigits(x->unguardedDigits(), y->unguardedDigits(),
+                           result->unguardedDigits());
   return destructivelyTrimHighZeroDigits(cx, result);
 }
 
@@ -2140,12 +2163,12 @@ BigInt* BigInt::div(JSContext* cx, HandleBigInt x, HandleBigInt y) {
     }
 
     Digit remainder;
-    if (!absoluteDivWithDigitDivisor(cx, x, divisor, Some(&quotient),
-                                     &remainder, resultNegative)) {
+    if (!absoluteDivWithDigitDivisor(cx, x, divisor, &quotient, &remainder,
+                                     resultNegative)) {
       return nullptr;
     }
   } else {
-    if (!absoluteDivWithBigIntDivisor(cx, x, y, Some(&quotient), Nothing(),
+    if (!absoluteDivWithBigIntDivisor(cx, x, y, &quotient, Nothing(),
                                       resultNegative)) {
       return nullptr;
     }
@@ -2176,33 +2199,196 @@ BigInt* BigInt::mod(JSContext* cx, HandleBigInt x, HandleBigInt y) {
     return x;
   }
 
-  if (y->digitLength() == 1) {
-    Digit divisor = y->individualDigit(0);
-    if (divisor == 1) {
-      return zero(cx);
-    }
+  size_t n = y->digitLength();
 
-    Digit remainderDigit;
-    bool unusedQuotientNegative = false;
-    if (!absoluteDivWithDigitDivisor(cx, x, divisor, Nothing(), &remainderDigit,
-                                     unusedQuotientNegative)) {
-      MOZ_CRASH("BigInt div by digit failed unexpectedly");
-    }
-
-    if (!remainderDigit) {
-      return zero(cx);
-    }
-
-    return createFromDigit(cx, remainderDigit, x->isNegative());
-  } else {
-    RootedBigInt remainder(cx);
-    if (!absoluteDivWithBigIntDivisor(cx, x, y, Nothing(), Some(&remainder),
-                                      x->isNegative())) {
-      return nullptr;
-    }
-    MOZ_ASSERT(remainder);
-    return destructivelyTrimHighZeroDigits(cx, remainder);
+  // A one-digit divisor needs no copy of the dividend: fold its digits into the
+  // remainder directly.
+  if (n == 1) {
+    Digit mod = modDigitsByDigit(x->unguardedDigits(), y->individualDigit(0));
+    return mod ? createFromDigit(cx, mod, x->isNegative()) : zero(cx);
   }
+
+  size_t length = x->digitLength();
+  Vector<Digit, 16, SystemAllocPolicy> u;
+  // The fallback is to modulo by schoolbook division, which needs a zero digit
+  // above the dividend.
+  if (!u.resizeUninitialized(length + 1)) {
+    ReportOutOfMemory(cx);
+    return nullptr;
+  }
+  copyDigits(x->unguardedDigits(), Digits(u).First(length));
+  u[length] = 0;
+  if (!modDigitsInPlace(u, y->unguardedDigits())) {
+    ReportOutOfMemory(cx);
+    return nullptr;
+  }
+  u.shrinkTo(n);
+  return createFromDigitVector(cx, u, x->isNegative());
+}
+
+bool BigInt::shouldModuloByCrandallReduction(ConstDigits m, uint32_t* k,
+                                             Digit* c) {
+  // `m` is `2^k - c` for a single-digit `c` if all of its bits above the low
+  // digit are set and the low digit is non-zero.
+  size_t n = m.size();
+  if (n < 2) {
+    return false;
+  }
+
+  // High digit is all ones followed by zeroes in the high bits.
+  Digit top = m[n - 1];
+  if (top & (top + 1)) {
+    return false;
+  }
+
+  // Middle digits are all ones.
+  for (size_t i = 1; i < n - 1; i++) {
+    if (m[i] != Digit(-1)) {
+      return false;
+    }
+  }
+
+  // Low digit is non-zero.
+  if (!m[0]) {
+    return false;
+  }
+
+  unsigned topBits = DigitBits - std::countl_zero(top);
+  Digit cValue = -m[0];
+  uint32_t kValue = (n - 1) * DigitBits + topBits;
+
+  // Crandall reduction is always possible if the preceding conditions hold.
+  // But for some one- and two-digit divisors, it's not profitable.
+  unsigned cBits = DigitBits - std::countl_zero(cValue);
+  if (2 * cBits > kValue) {
+    return false;
+  }
+
+  *k = kValue;
+  *c = cValue;
+  return true;
+}
+
+// See "Handbook of Applied Cryptography" by A. Menezes, P. van Oorschot and
+// S. Vanstone, §14.3.4. `r` is an in-out parameter: it starts as the dividend
+// and is incrementally mutated into the modulo.
+void BigInt::modDigitsInPlaceByCrandallReduction(Digits r, uint32_t k,
+                                                 Digit c) {
+  // For single-digit `c`, the divisor has three parts: a bottom digit whose
+  // value is `-c`, a string of all-ones middle digits, and a high digit with a
+  // string of `kHighDigitBits` ones. The bottom and middle digits are together
+  // the low digits.
+  const size_t kLowDigitCount = k / DigitBits;
+  const unsigned kHighDigitBits = k % DigitBits;
+  const Digit kHighDigitMask = (Digit(1) << kHighDigitBits) - 1;
+  MOZ_RELEASE_ASSERT(kLowDigitCount > 0);
+  // If r is smaller, it is already reduced, and the caller should just return
+  // it without copying.
+  MOZ_RELEASE_ASSERT(r.size() >= kLowDigitCount);
+
+  // Consider that `(x + y) mod z = ((x mod z) + y) mod z`. This congruence
+  // holds also for multiplication. We can replace any part of the dividend with
+  // a smaller value that is congruent to it modulo `2^k - c`, without changing
+  // the result.
+  //
+  // Consider also that `2^k mod (2^k - c) = c`. Therefore, if the bits of a
+  // digit at or above bit `k` have value `d` and start at bit `k + s`, they
+  // contribute `d * 2^(k + s)` to the dividend, which is congruent to `d * c *
+  // 2^s`. We clear those bits and add `d * c` at bit `s` instead.
+  //
+  // We do this from the top digit down. Each fold decreases the dividend, so it
+  // never carries above the digit being cleared, but it may carry into that
+  // digit, which is then folded again. Once all bits at or above bit `k` are
+  // clear, the dividend is less than `2^k`, so at most one subtraction of `2^k
+  // - c` remains.
+  for (size_t j = r.size(); j-- > kLowDigitCount;) {
+    const unsigned shift = j == kLowDigitCount ? kHighDigitBits : 0;
+    while (Digit d = r[j] >> shift) {
+      r[j] &= (Digit(1) << shift) - 1;
+      const size_t s = j * DigitBits + shift - k;
+      const unsigned sb = s % DigitBits;
+      // `d * c`...
+      Digit high;
+      Digit low = digitMul(d, c, &high);
+      // ...at bit `s`.
+      Digit t0 = low << sb;
+      Digit t1 = sb ? (high << sb) | (low >> (DigitBits - sb)) : high;
+      Digit t2 = sb ? high >> (DigitBits - sb) : 0;
+      size_t i = s / DigitBits;
+      // Finally, add `d * c * 2^s` back into dividend.
+      Digit carry;
+      r[i] = digitAdd(r[i], t0, &carry);
+      i++;
+      r[i] = digitAdd3(r[i], t1, carry, &carry);
+      i++;
+      if (i < r.size()) {
+        r[i] = digitAdd3(r[i], t2, carry, &carry);
+        for (i++; carry; i++) {
+          r[i] = digitAdd(r[i], carry, &carry);
+        }
+      } else {
+        MOZ_ASSERT(!t2 && !carry);
+      }
+    }
+  }
+
+  // Now `r < 2^k`, so at most one subtraction of `2^k - c` is needed, which is
+  // the case if `r + c >= 2^k`.
+  Digit carry = c;
+  for (size_t i = 0; carry && i < kLowDigitCount; i++) {
+    r[i] = digitAdd(r[i], carry, &carry);
+  }
+  if (kLowDigitCount < r.size()) {
+    Digit top = r[kLowDigitCount] + carry;
+    r[kLowDigitCount] = top & kHighDigitMask;
+    carry = top >> kHighDigitBits;
+  }
+  if (carry) {
+    return;
+  }
+  Digit borrow = c;
+  for (size_t i = 0; borrow; i++) {
+    r[i] = digitSub(r[i], borrow, &borrow);
+  }
+}
+
+bool BigInt::modDigitsInPlace(Digits u, ConstDigits m) {
+  const size_t n = m.size();
+  MOZ_RELEASE_ASSERT(n > 0 && u.size() > n);
+  MOZ_ASSERT(!u[u.size() - 1]);
+
+  if (n == 1) {
+    u[0] = modDigitsByDigit(u, m[0]);
+    return true;
+  }
+
+  uint32_t k;
+  Digit c;
+  if (shouldModuloByCrandallReduction(m, &k, &c)) {
+    modDigitsInPlaceByCrandallReduction(u, k, c);
+    return true;
+  }
+
+  // Schoolbook division needs the divisor's most significant bit to be set.  If
+  // it isn't, normalize by left-shifting, divide, and shift the remainder back.
+  Vector<Digit, 16, SystemAllocPolicy> qhatv;
+  if (!qhatv.resizeUninitialized(n + 1)) {
+    return false;
+  }
+  unsigned shift = std::countl_zero(m[n - 1]);
+  if (!shift) {
+    divideDigitsInPlace(u, m, Digits(), qhatv);
+    return true;
+  }
+  Vector<Digit, 16, SystemAllocPolicy> v;
+  if (!v.resizeUninitialized(n)) {
+    return false;
+  }
+  MOZ_ALWAYS_FALSE(leftShiftDigits(m, shift, v));
+  MOZ_ALWAYS_FALSE(leftShiftDigits(u, shift, u));
+  divideDigitsInPlace(u, v, Digits(), qhatv);
+  MOZ_ALWAYS_FALSE(rightShiftDigits(u.First(n), shift, 0, u));
+  return true;
 }
 
 bool BigInt::divmod(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y,
@@ -2255,8 +2441,8 @@ bool BigInt::divmod(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y,
     } else {
       Rooted<BigInt*> quot(cx);
       Digit remainderDigit;
-      if (!absoluteDivWithDigitDivisor(cx, x, divisor, Some(&quot),
-                                       &remainderDigit, resultNegative)) {
+      if (!absoluteDivWithDigitDivisor(cx, x, divisor, &quot, &remainderDigit,
+                                       resultNegative)) {
         return false;
       }
 
@@ -2277,20 +2463,13 @@ bool BigInt::divmod(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y,
   } else {
     RootedBigInt quot(cx);
     RootedBigInt rem(cx);
-    if (!absoluteDivWithBigIntDivisor(cx, x, y, Some(&quot), Some(&rem),
+    if (!absoluteDivWithBigIntDivisor(cx, x, y, &quot, Some(&rem),
                                       resultNegative)) {
       return false;
     }
 
-    quotient.set(destructivelyTrimHighZeroDigits(cx, quot));
-    if (!quotient) {
-      return false;
-    }
-
-    remainder.set(destructivelyTrimHighZeroDigits(cx, rem));
-    if (!remainder) {
-      return false;
-    }
+    quotient.set(quot);
+    remainder.set(rem);
   }
 
   MOZ_ASSERT(quotient && remainder,
@@ -2370,15 +2549,7 @@ BigInt* BigInt::pow(JSContext* cx, HandleBigInt x, HandleBigInt y) {
                   "n * m can't overflow");
     n *= int(m);
 
-    int length = 1 + (n / DigitBits);
-    BigInt* result = createUninitialized(cx, length, resultNegative);
-    if (!result) {
-      return nullptr;
-    }
-    result->initializeDigitsToZero();
-    result->setIndividualDigit(length - 1, static_cast<Digit>(1)
-                                               << (n % DigitBits));
-    return result;
+    return createFromPowerOfTwo(cx, n, resultNegative);
   }
 
   RootedBigInt runningSquare(cx, x);
@@ -2506,9 +2677,9 @@ BigInt* BigInt::lshByAbsolute(JSContext* cx, HandleBigInt x, HandleBigInt y) {
     return nullptr;
   }
   Digit shift = y->individualDigit(0);
-  int digitShift = static_cast<int>(shift / DigitBits);
-  int bitsShift = static_cast<int>(shift % DigitBits);
-  int length = x->digitLength();
+  size_t length = x->digitLength();
+  size_t digitShift = shift / DigitBits;
+  unsigned bitsShift = shift % DigitBits;
   bool grow =
       bitsShift && (x->individualDigit(length - 1) >> (DigitBits - bitsShift));
   int resultLength = length + digitShift + grow;
@@ -2517,26 +2688,16 @@ BigInt* BigInt::lshByAbsolute(JSContext* cx, HandleBigInt x, HandleBigInt y) {
     return nullptr;
   }
 
-  auto xDigits = x->digits();
-  auto resultDigits = result->digits();
-  int i = 0;
-  for (; i < digitShift; i++) {
-    resultDigits[i] = 0;
-  }
-
+  ConstDigits xDigits = x->unguardedDigits();
+  Digits resultDigits = result->unguardedDigits();
+  zeroDigits(resultDigits.First(digitShift));
+  Digits shifted = resultDigits.From(digitShift);
   if (bitsShift == 0) {
-    for (int j = 0; i < resultLength; i++, j++) {
-      resultDigits[i] = xDigits[j];
-    }
+    copyDigits(xDigits, shifted.First(length));
   } else {
-    Digit carry = 0;
-    for (int j = 0; j < length; i++, j++) {
-      Digit d = xDigits[j];
-      resultDigits[i] = (d << bitsShift) | carry;
-      carry = d >> (DigitBits - bitsShift);
-    }
+    Digit carry = leftShiftDigits(xDigits, bitsShift, shifted);
     if (grow) {
-      resultDigits[i] = carry;
+      shifted[length] = carry;
     } else {
       MOZ_ASSERT(!carry);
     }
@@ -2553,83 +2714,59 @@ BigInt* BigInt::rshByAbsolute(JSContext* cx, HandleBigInt x, HandleBigInt y) {
     return x;
   }
 
-  if (y->digitLength() > 1 || y->individualDigit(0) >= MaxBitLength) {
+  if (MOZ_UNLIKELY(y->digitLength() > 1 ||
+                   y->individualDigit(0) >= MaxBitLength)) {
     return rshByMaximum(cx, x->isNegative());
   }
   Digit shift = y->individualDigit(0);
-  int length = x->digitLength();
-  int digitShift = static_cast<int>(shift / DigitBits);
-  int bitsShift = static_cast<int>(shift % DigitBits);
-  int resultLength = length - digitShift;
-  if (resultLength <= 0) {
+  size_t length = x->digitLength();
+  size_t digitShift = shift / DigitBits;
+  unsigned bitsShift = shift % DigitBits;
+  size_t resultLength = 0;
+  if (digitShift < length) {
+    resultLength = length - digitShift;
+    if (bitsShift && !(x->individualDigit(length - 1) >> bitsShift)) {
+      resultLength--;
+    }
+  }
+  if (MOZ_UNLIKELY(resultLength == 0)) {
     return rshByMaximum(cx, x->isNegative());
   }
-  // For negative numbers, round down if any bit was shifted out (so that e.g.
-  // -5n >> 1n == -3n and not -2n). Check now whether this will happen and
-  // whether it can cause overflow into a new digit. If we allocate the result
-  // large enough up front, it avoids having to do a second allocation later.
-  bool mustRoundDown = false;
-  {
-    auto xDigits = x->digits();
-    if (x->isNegative()) {
-      const Digit mask = (static_cast<Digit>(1) << bitsShift) - 1;
-      if ((xDigits[digitShift] & mask)) {
-        mustRoundDown = true;
-      } else {
-        for (int i = 0; i < digitShift; i++) {
-          if (xDigits[i]) {
-            mustRoundDown = true;
-            break;
-          }
-        }
-      }
-    }
-    // If bits_shift is non-zero, it frees up bits, preventing overflow.
-    if (mustRoundDown && bitsShift == 0) {
-      // Overflow cannot happen if the most significant digit has unset bits.
-      Digit msd = xDigits[length - 1];
-      bool roundingCanOverflow = msd == std::numeric_limits<Digit>::max();
-      if (roundingCanOverflow) {
-        resultLength++;
-      }
-    }
-  }
 
-  MOZ_ASSERT(resultLength <= length);
-  RootedBigInt result(cx,
-                      createUninitialized(cx, resultLength, x->isNegative()));
+  BigInt* result = createUninitialized(cx, resultLength, x->isNegative());
   if (!result) {
     return nullptr;
   }
-  {
-    auto xDigits = x->digits();
-    auto resultDigits = result->digits();
-    if (!bitsShift) {
-      // If roundingCanOverflow, manually initialize the overflow digit.
-      resultDigits[resultLength - 1] = 0;
-      for (int i = digitShift; i < length; i++) {
-        resultDigits[i - digitShift] = xDigits[i];
-      }
-    } else {
-      Digit carry = xDigits[digitShift] >> bitsShift;
-      int last = length - digitShift - 1;
-      for (int i = 0; i < last; i++) {
-        Digit d = xDigits[i + digitShift + 1];
-        resultDigits[i] = (d << (DigitBits - bitsShift)) | carry;
-        carry = d >> bitsShift;
-      }
-      resultDigits[last] = carry;
-    }
+  ConstDigits from = x->unguardedDigits().From(digitShift);
+  Digits resultDigits = result->unguardedDigits();
+  Digit shiftedOut = 0;
+  if (!bitsShift) {
+    copyDigits(from, resultDigits.First(resultLength));
+  } else {
+    Digit high = from.size() > resultLength ? from[resultLength] : 0;
+    ConstDigits src = from.First(resultLength);
+    shiftedOut = rightShiftDigits(src, bitsShift, high, resultDigits);
   }
 
-  if (mustRoundDown) {
-    MOZ_ASSERT(x->isNegative());
-    // Since the result is negative, rounding down means adding one to
-    // its absolute value. This cannot overflow.  TODO: modify the result in
-    // place.
-    return absoluteAddOne(cx, result, x->isNegative());
+  if (!x->isNegative()) {
+    return result;
   }
-  return destructivelyTrimHighZeroDigits(cx, result);
+
+  // If we shift out any bits, we round down. This is trivial for positive
+  // numbers, as truncating rounds to zero. For negative numbers, we round down
+  // by incrementing magnitude of the result, which may overflow into another
+  // digit.
+  bool mustRoundDown = shiftedOut != 0;
+  ConstDigits dropped = x->unguardedDigits().First(digitShift);
+  for (size_t i = 0; !mustRoundDown && i < dropped.size(); i++) {
+    mustRoundDown = dropped[i] != 0;
+  }
+  if (!mustRoundDown || MOZ_LIKELY(inplaceIncrementDigits(resultDigits) == 0)) {
+    return result;
+  }
+
+  // Incrementing overflowed: the result is -2**(DigitBits * resultLength).
+  return createFromPowerOfTwo(cx, DigitBits * resultLength, true);
 }
 
 // BigInt proposal section 1.1.9. BigInt::leftShift ( x, y )
@@ -2658,40 +2795,71 @@ BigInt* BigInt::bitAnd(JSContext* cx, HandleBigInt x, HandleBigInt y) {
     return y;
   }
 
-  if (!x->isNegative() && !y->isNegative()) {
-    return absoluteAnd(cx, x, y);
-  }
-
-  if (x->isNegative() && y->isNegative()) {
-    // (-x) & (-y) == ~(x-1) & ~(y-1) == ~((x-1) | (y-1))
-    // == -(((x-1) | (y-1)) + 1)
-    RootedBigInt x1(cx, absoluteSubOne(cx, x));
-    if (!x1) {
-      return nullptr;
-    }
-    RootedBigInt y1(cx, absoluteSubOne(cx, y));
-    if (!y1) {
-      return nullptr;
-    }
-    RootedBigInt result(cx, absoluteOr(cx, x1, y1));
+  auto bitAndPositive = [cx](HandleBigInt& x, HandleBigInt& y) -> BigInt* {
+    size_t length = std::min(x->digitLength(), y->digitLength());
+    BigInt* result = createUninitialized(cx, length, false);
     if (!result) {
       return nullptr;
     }
-    bool resultNegative = true;
-    return absoluteAddOne(cx, result, resultNegative);
+    ConstDigits xDigits = x->unguardedDigits().First(length);
+    ConstDigits yDigits = y->unguardedDigits().First(length);
+    AndDigits(xDigits, yDigits, result->unguardedDigits());
+    return destructivelyTrimHighZeroDigits(cx, result);
+  };
+  if (!x->isNegative() && !y->isNegative()) {
+    return bitAndPositive(x, y);
   }
 
-  MOZ_ASSERT(x->isNegative() != y->isNegative());
-  HandleBigInt& pos = x->isNegative() ? y : x;
-  HandleBigInt& neg = x->isNegative() ? x : y;
-
-  RootedBigInt neg1(cx, absoluteSubOne(cx, neg));
-  if (!neg1) {
-    return nullptr;
+  auto bitAndNegative = [cx](HandleBigInt& x, HandleBigInt& y) -> BigInt* {
+    // (-x) & (-y) == ~(x-1) & ~(y-1) == ~((x-1) | (y-1))
+    // == -(((x-1) | (y-1)) + 1)
+    MOZ_ASSERT(x->digitLength() >= y->digitLength());
+    size_t length = x->digitLength();
+    BigInt* result = createUninitialized(cx, length, true);
+    if (!result) {
+      return nullptr;
+    }
+    ConstDigits xDigits = x->unguardedDigits();
+    ConstDigits yDigits = y->unguardedDigits();
+    Digits rDigits = result->unguardedDigits();
+    copyDigits(xDigits, rDigits);
+    MOZ_ALWAYS_FALSE(inplaceDecrementDigits(rDigits));
+    BitwiseAccumulateDecrementedDigits(rDigits, yDigits, std::bit_or<>());
+    // The magnitude is at least |x|, so there are no high zero digits.
+    if (MOZ_UNLIKELY(inplaceIncrementDigits(rDigits))) {
+      return createFromPowerOfTwo(cx, length * DigitBits, true);
+    }
+    return result;
+  };
+  if (x->isNegative() && y->isNegative()) {
+    bool swap = x->digitLength() < y->digitLength();
+    return bitAndNegative(swap ? y : x, swap ? x : y);
   }
 
-  // x & (-y) == x & ~(y-1) == x & ~(y-1)
-  return absoluteAndNot(cx, pos, neg1);
+  auto bitAndMixed = [cx](HandleBigInt& x, HandleBigInt& y) -> BigInt* {
+    // x & (-y) == x & ~(y-1)
+    MOZ_ASSERT(!x->isNegative() && y->isNegative());
+    size_t length = x->digitLength();
+    BigInt* result = createUninitialized(cx, length, false);
+    if (!result) {
+      return nullptr;
+    }
+    ConstDigits xDigits = x->unguardedDigits();
+    ConstDigits yDigits = y->unguardedDigits();
+    Digits rDigits = result->unguardedDigits();
+    size_t n = std::min(length, yDigits.size());
+    Digits rLowDigits = rDigits.First(n);
+    // If y is longer than x, only the low `n` digits of y-1 matter, so a borrow
+    // out of them is dropped.  Otherwise y-1 fits in `n` digits, as y is
+    // nonzero.
+    copyDigits(yDigits.First(n), rLowDigits);
+    inplaceDecrementDigits(rLowDigits);
+    AndNotDigits(xDigits.First(n), rLowDigits, rLowDigits);
+    copyDigits(xDigits.From(n), rDigits.From(n));
+    return destructivelyTrimHighZeroDigits(cx, result);
+  };
+  bool swap = x->isNegative();
+  return bitAndMixed(swap ? y : x, swap ? x : y);
 }
 
 // BigInt proposal section 1.1.18. BigInt::bitwiseXOR ( x, y )
@@ -2704,38 +2872,71 @@ BigInt* BigInt::bitXor(JSContext* cx, HandleBigInt x, HandleBigInt y) {
     return x;
   }
 
+  auto bitXorPositive = [cx](HandleBigInt& x, HandleBigInt& y) -> BigInt* {
+    MOZ_ASSERT(x->digitLength() >= y->digitLength());
+    size_t length = x->digitLength();
+    BigInt* result = createUninitialized(cx, length, false);
+    if (!result) {
+      return nullptr;
+    }
+    ConstDigits xDigits = x->unguardedDigits();
+    ConstDigits yDigits = y->unguardedDigits();
+    Digits rDigits = result->unguardedDigits();
+    size_t n = yDigits.size();
+    XorDigits(xDigits.First(n), yDigits, rDigits.First(n));
+    copyDigits(xDigits.From(n), rDigits.From(n));
+    return destructivelyTrimHighZeroDigits(cx, result);
+  };
   if (!x->isNegative() && !y->isNegative()) {
-    return absoluteXor(cx, x, y);
+    bool swap = x->digitLength() < y->digitLength();
+    return bitXorPositive(swap ? y : x, swap ? x : y);
   }
 
-  if (x->isNegative() && y->isNegative()) {
+  auto bitXorNegative = [cx](HandleBigInt& x, HandleBigInt& y) -> BigInt* {
     // (-x) ^ (-y) == ~(x-1) ^ ~(y-1) == (x-1) ^ (y-1)
-    RootedBigInt x1(cx, absoluteSubOne(cx, x));
-    if (!x1) {
+    MOZ_ASSERT(x->digitLength() >= y->digitLength());
+    size_t length = x->digitLength();
+    BigInt* result = createUninitialized(cx, length, false);
+    if (!result) {
       return nullptr;
     }
-    RootedBigInt y1(cx, absoluteSubOne(cx, y));
-    if (!y1) {
+    ConstDigits xDigits = x->unguardedDigits();
+    ConstDigits yDigits = y->unguardedDigits();
+    Digits rDigits = result->unguardedDigits();
+    copyDigits(xDigits, rDigits);
+    MOZ_ALWAYS_FALSE(inplaceDecrementDigits(rDigits));
+    BitwiseAccumulateDecrementedDigits(rDigits, yDigits, std::bit_xor<>());
+    return destructivelyTrimHighZeroDigits(cx, result);
+  };
+  if (x->isNegative() && y->isNegative()) {
+    bool swap = x->digitLength() < y->digitLength();
+    return bitXorNegative(swap ? y : x, swap ? x : y);
+  }
+
+  auto bitXorMixed = [cx](HandleBigInt& x, HandleBigInt& y) -> BigInt* {
+    // x ^ (-y) == x ^ ~(y-1) == ~(x ^ (y-1)) == -((x ^ (y-1)) + 1)
+    MOZ_ASSERT(!x->isNegative() && y->isNegative());
+    size_t length = std::max(x->digitLength(), y->digitLength());
+    BigInt* result = createUninitialized(cx, length, true);
+    if (!result) {
       return nullptr;
     }
-    return absoluteXor(cx, x1, y1);
-  }
-  MOZ_ASSERT(x->isNegative() != y->isNegative());
-
-  HandleBigInt& pos = x->isNegative() ? y : x;
-  HandleBigInt& neg = x->isNegative() ? x : y;
-
-  // x ^ (-y) == x ^ ~(y-1) == ~(x ^ (y-1)) == -((x ^ (y-1)) + 1)
-  RootedBigInt result(cx, absoluteSubOne(cx, neg));
-  if (!result) {
-    return nullptr;
-  }
-  result = absoluteXor(cx, result, pos);
-  if (!result) {
-    return nullptr;
-  }
-  bool resultNegative = true;
-  return absoluteAddOne(cx, result, resultNegative);
+    ConstDigits xDigits = x->unguardedDigits();
+    ConstDigits yDigits = y->unguardedDigits();
+    Digits rDigits = result->unguardedDigits();
+    Digits rLowDigits = rDigits.First(yDigits.size());
+    copyDigits(yDigits, rLowDigits);
+    MOZ_ALWAYS_FALSE(inplaceDecrementDigits(rLowDigits));
+    size_t n = std::min(xDigits.size(), yDigits.size());
+    XorDigits(rDigits.First(n), xDigits.First(n), rDigits.First(n));
+    copyDigits(xDigits.From(n), rDigits.From(yDigits.size()));
+    if (MOZ_UNLIKELY(inplaceIncrementDigits(rDigits))) {
+      return createFromPowerOfTwo(cx, length * DigitBits, true);
+    }
+    return destructivelyTrimHighZeroDigits(cx, result);
+  };
+  bool swap = x->isNegative();
+  return bitXorMixed(swap ? y : x, swap ? x : y);
 }
 
 // BigInt proposal section 1.1.19. BigInt::bitwiseOR ( x, y )
@@ -2748,44 +2949,75 @@ BigInt* BigInt::bitOr(JSContext* cx, HandleBigInt x, HandleBigInt y) {
     return x;
   }
 
-  bool resultNegative = x->isNegative() || y->isNegative();
-
-  if (!resultNegative) {
-    return absoluteOr(cx, x, y);
+  auto bitOrPositive = [cx](HandleBigInt& x, HandleBigInt& y) -> BigInt* {
+    MOZ_ASSERT(x->digitLength() >= y->digitLength());
+    size_t length = x->digitLength();
+    BigInt* result = createUninitialized(cx, length, false);
+    if (!result) {
+      return nullptr;
+    }
+    ConstDigits xDigits = x->unguardedDigits();
+    ConstDigits yDigits = y->unguardedDigits();
+    Digits rDigits = result->unguardedDigits();
+    size_t n = yDigits.size();
+    OrDigits(xDigits.First(n), yDigits, rDigits.First(n));
+    copyDigits(xDigits.From(n), rDigits.From(n));
+    // No trim: the top digit includes the top digit of |x|, which is nonzero.
+    return result;
+  };
+  if (!x->isNegative() && !y->isNegative()) {
+    bool swap = x->digitLength() < y->digitLength();
+    return bitOrPositive(swap ? y : x, swap ? x : y);
   }
 
-  if (x->isNegative() && y->isNegative()) {
+  auto bitOrNegative = [cx](HandleBigInt& x, HandleBigInt& y) -> BigInt* {
     // (-x) | (-y) == ~(x-1) | ~(y-1) == ~((x-1) & (y-1))
     // == -(((x-1) & (y-1)) + 1)
-    RootedBigInt result(cx, absoluteSubOne(cx, x));
+    MOZ_ASSERT(x->digitLength() >= y->digitLength());
+    size_t length = y->digitLength();
+    BigInt* result = createUninitialized(cx, length, true);
     if (!result) {
       return nullptr;
     }
-    RootedBigInt y1(cx, absoluteSubOne(cx, y));
-    if (!y1) {
-      return nullptr;
-    }
-    result = absoluteAnd(cx, result, y1);
+    ConstDigits xDigits = x->unguardedDigits();
+    ConstDigits yDigits = y->unguardedDigits();
+    Digits rDigits = result->unguardedDigits();
+    // Only the low `length` digits of x-1 matter, so a borrow out of them is
+    // dropped.
+    copyDigits(xDigits.First(length), rDigits);
+    inplaceDecrementDigits(rDigits);
+    BitwiseAccumulateDecrementedDigits(rDigits, yDigits, std::bit_and<>());
+    // Carrying out would need y-1 to be all ones, which it can't be.
+    MOZ_ALWAYS_FALSE(inplaceIncrementDigits(rDigits));
+    return destructivelyTrimHighZeroDigits(cx, result);
+  };
+  if (x->isNegative() && y->isNegative()) {
+    bool swap = x->digitLength() < y->digitLength();
+    return bitOrNegative(swap ? y : x, swap ? x : y);
+  }
+
+  auto bitOrMixed = [cx](HandleBigInt& x, HandleBigInt& y) -> BigInt* {
+    // x | (-y) == x | ~(y-1) == ~((y-1) &~ x) == -(((y-1) &~ x) + 1)
+    MOZ_ASSERT(!x->isNegative() && y->isNegative());
+    size_t length = y->digitLength();
+    BigInt* result = createUninitialized(cx, length, true);
     if (!result) {
       return nullptr;
     }
-    return absoluteAddOne(cx, result, resultNegative);
-  }
-
-  MOZ_ASSERT(x->isNegative() != y->isNegative());
-  HandleBigInt& pos = x->isNegative() ? y : x;
-  HandleBigInt& neg = x->isNegative() ? x : y;
-
-  // x | (-y) == x | ~(y-1) == ~((y-1) &~ x) == -(((y-1) &~ x) + 1)
-  RootedBigInt result(cx, absoluteSubOne(cx, neg));
-  if (!result) {
-    return nullptr;
-  }
-  result = absoluteAndNot(cx, result, pos);
-  if (!result) {
-    return nullptr;
-  }
-  return absoluteAddOne(cx, result, resultNegative);
+    ConstDigits xDigits = x->unguardedDigits();
+    ConstDigits yDigits = y->unguardedDigits();
+    Digits rDigits = result->unguardedDigits();
+    copyDigits(yDigits, rDigits);
+    MOZ_ALWAYS_FALSE(inplaceDecrementDigits(rDigits));
+    size_t n = std::min(length, xDigits.size());
+    Digits rLowDigits = rDigits.First(n);
+    AndNotDigits(rLowDigits, xDigits.First(n), rLowDigits);
+    // Carrying out would need y-1 to be all ones, which it can't be.
+    MOZ_ALWAYS_FALSE(inplaceIncrementDigits(rDigits));
+    return destructivelyTrimHighZeroDigits(cx, result);
+  };
+  bool swap = x->isNegative();
+  return bitOrMixed(swap ? y : x, swap ? x : y);
 }
 
 // BigInt proposal section 1.1.2. BigInt::bitwiseNOT ( x )

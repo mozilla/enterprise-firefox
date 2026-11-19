@@ -57,7 +57,7 @@
 #  include <deque>
 #  include <utility>
 
-#  include "mozilla/glean/EnterprisepoliciesMetrics.h"
+#  include "mozilla/glean/EnterprisepoliciesEnterpriseMetrics.h"
 #  include "mozilla/glean/GleanPings.h"
 #endif
 
@@ -666,6 +666,10 @@ static nsresult DoContentSecurityChecks(nsIChannel* aChannel,
         RecordBlocklistDomainBrowsedTelemetry(aChannel, uri);
 #endif
         return NS_ERROR_BLOCKED_BY_POLICY;
+      }
+      if (aLoadInfo->GetRequestBlockingReason() ==
+          nsILoadInfo::BLOCKING_REASON_CONNECTION_ALLOWLIST) {
+        return NS_ERROR_CONNECTION_ALLOWLIST_VIOLATION;
       }
       if (shouldLoad == nsIContentPolicy::REJECT_RESTARTFORCED) {
         return NS_ERROR_RESTART_FORCED;

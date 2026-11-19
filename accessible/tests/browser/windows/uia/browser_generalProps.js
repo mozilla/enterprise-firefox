@@ -277,14 +277,17 @@ addAccessibleTask(
 );
 
 /**
- * Test the LocalizedControlType property. We don't support this ourselves, but
- * the system provides it based on ControlType and AriaRole.
+ * Test the LocalizedControlType property. The system mostly provides it based
+ * on ControlType and AriaRole, but we provide it for some ARIA roles.
  */
 addAccessibleTask(
   `
 <button id="button">button</button>
 <h1 id="h1">h1</h1>
 <main id="main">main</main>
+<math id="math"><mi>x</mi></math>
+<div id="sectionfooter" role="sectionfooter">sectionfooter</div>
+<div id="sectionheader" role="sectionheader">sectionheader</div>
   `,
   async function testLocalizedControlType() {
     await definePyVar("doc", `getDocUia()`);
@@ -306,6 +309,27 @@ addAccessibleTask(
       ),
       "main",
       "main has correct LocalizedControlType"
+    );
+    is(
+      await runPython(
+        `findUiaByDomId(doc, "math").CurrentLocalizedControlType`
+      ),
+      "math",
+      "math has correct LocalizedControlType"
+    );
+    is(
+      await runPython(
+        `findUiaByDomId(doc, "sectionfooter").CurrentLocalizedControlType`
+      ),
+      "section footer",
+      "section footer has correct LocalizedControlType"
+    );
+    is(
+      await runPython(
+        `findUiaByDomId(doc, "sectionheader").CurrentLocalizedControlType`
+      ),
+      "section header",
+      "section header has correct LocalizedControlType"
     );
   }
 );

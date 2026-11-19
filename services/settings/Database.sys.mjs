@@ -14,6 +14,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 ChromeUtils.defineLazyGetter(lazy, "console", () => lazy.Utils.log);
 
+const DELETE_CHUNK_SIZE = 50;
+
 class EmptyDatabaseError extends Error {
   constructor(cid) {
     super(`"${cid}" has not been synced yet`);
@@ -292,6 +294,43 @@ export class Database {
     }
   }
 
+  /**
+   * Delete attachments in small transactions, so that a shutdown only has to
+   * wait for the current one. Rejects once shutdown has started.
+   *
+   * @param {Array<string>} attachmentIds
+   */
+  async deleteAttachments(attachmentIds) {
+    try {
+      for (let i = 0; i < attachmentIds.length; i += DELETE_CHUNK_SIZE) {
+        if (Services.startup.shuttingDown) {
+          throw new lazy.IDBHelpers.ShutdownError(
+            "The application is shutting down",
+            "deleteAttachments()"
+          );
+        }
+        const chunk = attachmentIds.slice(i, i + DELETE_CHUNK_SIZE);
+        await executeIDB(
+          "attachments",
+          store => {
+            for (const attachmentId of chunk) {
+              store.delete([this.identifier, attachmentId]);
+            }
+          },
+          {
+            desc: `deleteAttachments(<${chunk.length} items>) in ${this.identifier}`,
+          }
+        );
+      }
+    } catch (e) {
+      throw new lazy.IDBHelpers.IndexedDBError(
+        e,
+        "deleteAttachments()",
+        this.identifier
+      );
+    }
+  }
+
   async hasAttachments() {
     let count = 0;
     try {
@@ -487,6 +526,14 @@ async function openIDB() {
   let db = await gDBPromise;
   if (!gDB) {
     gDB = db;
+    // The connection can be closed without us asking for it, e.g. when storage
+    // is reset. Open it again next time instead of using a closed database.
+    db.onclose = () => {
+      if (gDB === db) {
+        gDB = null;
+        gDBPromise = null;
+      }
+    };
   }
 }
 

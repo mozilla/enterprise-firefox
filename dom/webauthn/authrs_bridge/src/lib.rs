@@ -22,7 +22,8 @@ use authenticator::{
     errors::AuthenticatorError,
     statecallback::StateCallback,
     AuthenticatorInfo, BioEnrollmentResult, CredentialManagementResult, InteractiveRequest,
-    ManageResult, Pin, RegisterResult, SignResult, StateMachine, StatusPinUv, StatusUpdate,
+    ManageResult, MessageDirection, Pin, RegisterResult, SignResult, StateMachine, StatusPinUv,
+    StatusUpdate,
 };
 use base64::Engine;
 use cstr::cstr;
@@ -38,6 +39,7 @@ use serde_json::json;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, RecvError, Sender};
 use std::sync::{Arc, Mutex};
 use thin_vec::{thin_vec, ThinVec};
@@ -115,6 +117,7 @@ enum BrowserPromptType<'a> {
 enum PromptTarget {
     Browser,
     AboutPage,
+    Logging,
 }
 
 #[derive(Serialize)]
@@ -131,6 +134,7 @@ fn notify_observers(prompt_target: PromptTarget, json: nsString) -> Result<(), n
     let target = match prompt_target {
         PromptTarget::Browser => cstr!("webauthn-prompt"),
         PromptTarget::AboutPage => cstr!("about-webauthn-prompt"),
+        PromptTarget::Logging => cstr!("webauthn-logging"),
     };
 
     RunnableBuilder::new("AuthrsService::send_prompt", move || {
@@ -494,6 +498,7 @@ fn status_callback(
     origin: &String,
     browsing_context_id: u64,
     transaction: Arc<Mutex<Option<TransactionState>>>, /* Shared with an AuthrsService */
+    do_logging: Arc<AtomicBool>,                       /* Shared with an AuthrsService */
 ) -> Result<(), nsresult> {
     let origin = Some(origin.as_str());
     let browsing_context_id = Some(browsing_context_id);
@@ -622,8 +627,29 @@ fn status_callback(
                     browsing_context_id,
                 )?;
             }
-            Ok(StatusUpdate::RequestLogging(_, _)) => {
-                // TODO: https://bugzilla.mozilla.org/show_bug.cgi?id=1868975
+            Ok(StatusUpdate::RequestLogging(dir, msg)) => {
+                if !do_logging.load(Ordering::Relaxed) {
+                    debug!("STATUS: Skipping logging.");
+                    continue;
+                }
+
+                let (protocol, direction) = match dir {
+                    MessageDirection::Ctap1Request => ("CTAP1", "request"),
+                    MessageDirection::Ctap1Response => ("CTAP1", "response"),
+                    MessageDirection::Ctap2Request => ("CTAP2", "request"),
+                    MessageDirection::Ctap2Response => ("CTAP2", "response"),
+                };
+
+                let mut json = nsString::new();
+                if write!(
+                    json,
+                    "{}",
+                    json!({"direction": direction, "protocol": protocol, "data": msg})
+                )
+                .is_ok()
+                {
+                    let _ = notify_observers(PromptTarget::Logging, json);
+                }
             }
             Err(RecvError) => {
                 debug!("STATUS: end");
@@ -709,6 +735,7 @@ pub struct AuthrsService {
     usb_token_manager: Mutex<StateMachine>,
     test_token_manager: TestTokenManager,
     transaction: Arc<Mutex<Option<TransactionState>>>,
+    do_logging: Arc<AtomicBool>,
 }
 
 impl AuthrsService {
@@ -975,6 +1002,7 @@ impl AuthrsService {
         let (status_tx, status_rx) = channel::<StatusUpdate>();
         let status_transaction = self.transaction.clone();
         let status_origin = info.origin.clone();
+        let do_logging = self.do_logging.clone();
         RunnableBuilder::new("AuthrsService::MakeCredential::StatusReceiver", move || {
             let _ = status_callback(
                 status_rx,
@@ -982,6 +1010,7 @@ impl AuthrsService {
                 &status_origin,
                 browsing_context_id,
                 status_transaction,
+                do_logging,
             );
         })
         .may_block(true)
@@ -1221,6 +1250,7 @@ impl AuthrsService {
         let (status_tx, status_rx) = channel::<StatusUpdate>();
         let status_transaction = self.transaction.clone();
         let status_origin = info.origin.to_string();
+        let do_logging = self.do_logging.clone();
         RunnableBuilder::new("AuthrsService::GetAssertion::StatusReceiver", move || {
             let _ = status_callback(
                 status_rx,
@@ -1228,6 +1258,7 @@ impl AuthrsService {
                 &status_origin,
                 browsing_context_id,
                 status_transaction,
+                do_logging,
             );
         })
         .may_block(true)
@@ -1681,6 +1712,18 @@ impl AuthrsService {
             Ok(())
         }
     }
+
+    xpcom_method!(start_logging => StartLogging());
+    pub(crate) fn start_logging(&self) -> Result<(), nsresult> {
+        self.do_logging.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
+    xpcom_method!(stop_logging => StopLogging());
+    pub(crate) fn stop_logging(&self) -> Result<(), nsresult> {
+        self.do_logging.store(false, Ordering::Relaxed);
+        Ok(())
+    }
 }
 
 #[no_mangle]
@@ -1691,6 +1734,7 @@ pub unsafe extern "C" fn authrs_service_constructor(
         usb_token_manager: Mutex::new(StateMachine::new()),
         test_token_manager: TestTokenManager::new(),
         transaction: Arc::new(Mutex::new(None)),
+        do_logging: Arc::new(AtomicBool::new(false)),
     });
 
     #[cfg(feature = "fuzzing")]

@@ -46,6 +46,8 @@ private val re =
 
 private const val MAILTO = "mailto:"
 
+private const val REPLACEMENT_CHAR = '\uFFFD'
+
 // Number of last digits to be shown when credit card number is obfuscated.
 private const val LAST_VISIBLE_DIGITS_COUNT = 4
 
@@ -213,8 +215,8 @@ fun String.sha1(): String {
  *   be returned.
  */
 fun String.toDate(
-    vararg possibleFormats: String =
-        arrayOf(
+    possibleFormats: List<String> =
+        listOf(
             "yyyy-MM-dd'T'HH:mm",
             "yyyy-MM-dd",
             "yyyy-'W'ww",
@@ -516,4 +518,32 @@ fun String.toSnakeCase(): String = buildString {
         }
         append(char.lowercaseChar())
     }
+}
+
+/**
+ * Returns this string with any unpaired UTF-16 surrogates replaced with U+FFFD, or this string itself if it has none.
+ * Web content can produce such strings (e.g. via `document.title`), but they can't be encoded as UTF-8, which is
+ * required when passing them to Rust components. Equivalent to JavaScript's `String.prototype.toWellFormed()`.
+ */
+fun String.toWellFormed(): String {
+    var result: StringBuilder? = null
+    var i = 0
+    while (i < length) {
+        val c = this[i]
+        if (i + 1 < length && Character.isSurrogatePair(c, this[i + 1])) {
+            result?.append(c)?.append(this[i + 1])
+            i += 2
+            continue
+        }
+        if (c.isSurrogate()) {
+            if (result == null) {
+                result = StringBuilder(length).append(this, 0, i)
+            }
+            result.append(REPLACEMENT_CHAR)
+        } else {
+            result?.append(c)
+        }
+        i++
+    }
+    return result?.toString() ?: this
 }
