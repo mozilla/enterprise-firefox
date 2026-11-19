@@ -13,7 +13,6 @@ from operator import itemgetter
 from textwrap import dedent
 
 import mozpack.path as mozpath
-from mozfile import json
 from mozpack.manifests import InstallManifest
 from mozshellutil import quote as shell_quote
 
@@ -28,9 +27,11 @@ from mozbuild.backend.common import (
 )
 from mozbuild.frontend.context import (
     AbsolutePath,
+    CompileFlags,
     ObjDirPath,
     Path,
     SourcePath,
+    WasmFlags,
 )
 
 from ..frontend.data import (
@@ -125,6 +126,11 @@ DEPRECATED_VARIABLES_MESSAGE = (
     "This variable has been deprecated. It does nothing. It must be removed "
     "in order to build."
 )
+
+COMPILE_TARGETS_PER_FLAGS = {
+    CompileFlags: ("target", "target-objects"),
+    WasmFlags: ("pre-compile", "target", "target-objects"),
+}
 
 
 def make_quote(s):
@@ -403,6 +409,8 @@ class RecursiveMakeBackend(MakeBackend):
         self._gkrust_target = None
         self._pre_compile = set()
         self._objdir_local_includes = defaultdict(set)
+        self._compiler_plugins = set()
+        self._compiler_plugin_users = set()
 
         # For a given file produced by the build, gives the top-level target
         # that will produce it.
@@ -674,6 +682,11 @@ class RecursiveMakeBackend(MakeBackend):
 
         elif isinstance(obj, ComputedFlags):
             self._process_computed_flags(obj, backend_file)
+            if obj.flags.get("COMPILER_PLUGIN"):
+                self._compiler_plugin_users.update(
+                    mozpath.join(obj.relobjdir, name)
+                    for name in COMPILE_TARGETS_PER_FLAGS[type(obj.flags)]
+                )
 
         elif isinstance(obj, InstallationTarget):
             self._process_installation_target(obj, backend_file)
@@ -715,6 +728,10 @@ class RecursiveMakeBackend(MakeBackend):
         elif isinstance(obj, HostSharedLibrary):
             self._process_host_shared_library(obj, backend_file)
             self._process_linked_libraries(obj, backend_file)
+            if obj.compiler_plugin:
+                self._compiler_plugins.add(
+                    mozpath.join(backend_file.relobjdir, obj.KIND)
+                )
 
         elif isinstance(obj, ObjdirFiles):
             self._process_objdir_files(obj, obj.files, backend_file)
@@ -929,6 +946,16 @@ class RecursiveMakeBackend(MakeBackend):
             rule = root_deps_mk.create_rule([mozpath.join(relobjdir, tier)])
             rule.add_dependencies([prerequisite])
 
+        compile_targets = set(self._compile_graph.keys()) | all_compile_deps
+        known_targets = compile_targets | {
+            f"{d}/pre-compile" for d in self._pre_compile
+        }
+        if self._compiler_plugins:
+            for target in sorted(self._compiler_plugin_users & known_targets):
+                root_deps_mk.create_rule([target]).add_dependencies(
+                    sorted(self._compiler_plugins)
+                )
+
         root_mk = Makefile()
 
         # Fill root.mk with the convenience variables.
@@ -942,10 +969,7 @@ class RecursiveMakeBackend(MakeBackend):
             "pre_compile_targets := %s"
             % " ".join(sorted("%s/pre-compile" % p for p in self._pre_compile))
         )
-        root_mk.add_statement(
-            "compile_targets := %s"
-            % " ".join(sorted(set(self._compile_graph.keys()) | all_compile_deps))
-        )
+        root_mk.add_statement(f"compile_targets := {' '.join(sorted(compile_targets))}")
         root_mk.add_statement(
             "syms_targets := %s"
             % " ".join(sorted(set("%s/syms" % d for d in self._no_skip["syms"])))
@@ -1441,20 +1465,25 @@ class RecursiveMakeBackend(MakeBackend):
         backend_file.write(f"PROGRAM = {program}\n")
         if not obj.cxx_link and not self.environment.bin_suffix:
             backend_file.write("PROG_IS_C_ONLY_%s := 1\n" % obj.program)
-        self._add_lto_object_path_flags(obj, program, backend_file)
+        self._add_link_flags(
+            program, "LDFLAGS", obj.lto_object_path_flags, backend_file
+        )
+        self._add_link_flags(program, "LDFLAGS", obj.pdb_link_flags, backend_file)
         self._add_dump_syms_target(obj, program, backend_file)
 
-    def _add_lto_object_path_flags(self, obj, target, backend_file):
-        if flags := obj.lto_object_path_flags:
-            backend_file.write(f"{target}: LDFLAGS += {' '.join(flags)}\n")
+    def _add_link_flags(self, target, var, flags, backend_file):
+        if flags:
+            backend_file.write(f"{target}: {var} += {' '.join(flags)}\n")
 
     def _add_dump_syms_target(self, obj, target, backend_file):
         if obj.dump_syms:
             backend_file.write(f"DUMP_SYMS_TARGETS += {target}\n")
 
     def _process_host_program(self, program, backend_file):
-        backend_file.write(
-            "HOST_PROGRAM = %s\n" % self._pretty_path(program.output_path, backend_file)
+        target = self._pretty_path(program.output_path, backend_file)
+        backend_file.write(f"HOST_PROGRAM = {target}\n")
+        self._add_link_flags(
+            target, "HOST_LDFLAGS", program.pdb_link_flags, backend_file
         )
         if program.cxx_link:
             backend_file.write_once("HOST_CPP_PROG_LINK := 1\n")
@@ -1563,11 +1592,17 @@ class RecursiveMakeBackend(MakeBackend):
             assert obj.cxx_link
         elif not obj.cxx_link and not self.environment.bin_suffix:
             backend_file.write(f"PROG_IS_C_ONLY_{obj.program} := 1\n")
-        self._add_lto_object_path_flags(obj, obj.program, backend_file)
+        self._add_link_flags(
+            obj.program, "LDFLAGS", obj.lto_object_path_flags, backend_file
+        )
+        self._add_link_flags(obj.program, "LDFLAGS", obj.pdb_link_flags, backend_file)
         self._add_dump_syms_target(obj, obj.program, backend_file)
 
     def _process_host_simple_program(self, obj, backend_file):
         backend_file.write(f"HOST_SIMPLE_PROGRAMS += {obj.program}\n")
+        self._add_link_flags(
+            obj.program, "HOST_LDFLAGS", obj.pdb_link_flags, backend_file
+        )
         if obj.cxx_link:
             backend_file.write_once("HOST_CPP_PROG_LINK := 1\n")
 
@@ -1694,7 +1729,9 @@ class RecursiveMakeBackend(MakeBackend):
         )
         shared_lib = self._pretty_path(libdef.output_path, backend_file)
         backend_file.write("SHARED_LIBRARY := %s\n" % shared_lib)
-        self._add_lto_object_path_flags(libdef, shared_lib, backend_file)
+        self._add_link_flags(
+            shared_lib, "LDFLAGS", libdef.lto_object_path_flags, backend_file
+        )
         self._add_dump_syms_target(libdef, shared_lib, backend_file)
         if libdef.dso_link_flags:
             backend_file.write(
@@ -1743,6 +1780,9 @@ class RecursiveMakeBackend(MakeBackend):
 
     def _process_host_shared_library(self, libdef, backend_file):
         backend_file.write("HOST_SHARED_LIBRARY = %s\n" % libdef.lib_name)
+        self._add_link_flags(
+            libdef.lib_name, "HOST_LDFLAGS", libdef.pdb_link_flags, backend_file
+        )
 
     def _build_target_for_obj(self, obj):
         if hasattr(obj, "output_category") and obj.output_category:
@@ -1826,8 +1866,6 @@ class RecursiveMakeBackend(MakeBackend):
             else:
                 backend_file.write_once("%s_OBJS := %s\n" % (obj.name, objs_ref))
             backend_file.write("%s: %s\n" % (obj_target, objs_ref))
-        if getattr(obj, "symbols_file", None):
-            backend_file.write_once("%s: %s\n" % (obj_target, obj.symbols_file))
 
         for dep in getattr(obj, "extra_link_deps", ()):
             backend_file.write_once(
@@ -2022,8 +2060,8 @@ class RecursiveMakeBackend(MakeBackend):
                     # support. Do it here, as this is where they enter the build.
                     if f.lower().endswith((".dll", ".so", ".dylib")):
                         rules.append(
-                            "\t$(call py_action,check_binary %s,%s)"
-                            % (basename, mozpath.join(install_location, basename))
+                            f"\t$(call py_action,check_binary {basename},"
+                            f"--prebuilt {mozpath.join(install_location, basename)})"
                         )
                 backend_file.write("misc::\n%s\n" % "\n".join(rules))
 
@@ -2216,53 +2254,9 @@ class RecursiveMakeBackend(MakeBackend):
             )
 
     def _process_macos_bundle(self, obj, backend_file):
-        context = obj._context
         spec = obj.bundle
-
-        resolved = {
-            "bundle": Path(context, spec["bundle"]).full_path,
-            "lproj": spec["lproj"],
-            "binaries": [],
-            "extra_files": [],
-            "moves": [list(m) for m in spec["moves"]],
-            "pkginfo": spec["pkginfo"],
-            "copies": [Path(context, c).full_path for c in spec["copies"]],
-        }
-        inputs = []
-        if spec["skeleton"]:
-            resolved["skeleton"] = Path(context, spec["skeleton"]).full_path
-        for key in ("info_plist", "strings"):
-            if value := spec[key]:
-                path = Path(context, value)
-                resolved[key] = path.full_path
-                inputs.append(path)
-        for key in ("binaries", "extra_files"):
-            for source, dest in spec[key]:
-                path = Path(context, source)
-                resolved[key].append([path.full_path, dest])
-                inputs.append(path)
-        if spec["stage"]:
-            resolved["stage"] = Path(context, spec["stage"]).full_path
-            macos_files = Path(context, spec["macos_files"])
-            macos_copy_files = Path(context, spec["macos_copy_files"])
-            resolved["macos_files"] = macos_files.full_path
-            resolved["macos_copy_files"] = macos_copy_files.full_path
-            inputs.append(macos_files)
-            inputs.append(macos_copy_files)
-
-        name = mozpath.basename(resolved["bundle"])
-        safe_name = name.replace(" ", "")
-        # Bundles in one directory can share a basename (the same `.app` built
-        # into different locations), so key the spec on the objdir-relative path.
-        spec_id = (
-            mozpath
-            .relpath(resolved["bundle"], self.environment.topobjdir)
-            .replace("/", "_")
-            .replace(" ", "")
-        )
-        spec_name = f"{spec_id}.bundle.json"
-        with self._write_file(mozpath.join(backend_file.objdir, spec_name)) as fh:
-            json.dump(resolved, fh, sort_keys=True, indent=2)
+        resolved, inputs, spec_name = self._macos_bundle_specs[obj]
+        safe_name = mozpath.basename(resolved["bundle"]).replace(" ", "")
 
         if spec["stage"]:
             tier = "tools"

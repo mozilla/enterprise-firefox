@@ -235,8 +235,6 @@ toolkit/components/backgroundtasks/BackgroundTask_success.sys.mjs
 toolkit/components/backgroundtasks/BackgroundTasksManager.sys.mjs
 toolkit/components/backgroundtasks/BackgroundTasksUtils.sys.mjs
 toolkit/components/backgroundtasks/dbg-actors.js
-toolkit/components/contentrelevancy/ContentRelevancyManager.sys.mjs
-toolkit/components/contentrelevancy/private/InputUtils.sys.mjs
 toolkit/components/crashes/CrashService.sys.mjs
 toolkit/components/crashes/RemoteSettingsCrashPull.sys.mjs
 toolkit/components/crashmonitor/CrashMonitor.sys.mjs
@@ -455,9 +453,6 @@ toolkit/components/thumbnails/PageThumbs.worker.js
 toolkit/components/thumbnails/PageThumbsStorageService.sys.mjs
 toolkit/components/timermanager/UpdateTimerManager.sys.mjs
 toolkit/components/tooltiptext/TooltipTextProvider.sys.mjs
-toolkit/components/translations/LanguageDetector.sys.mjs
-toolkit/components/translations/cld2/cld-worker.js
-toolkit/components/translations/cld2/cld-worker.js.mem
 toolkit/components/url-classifier/SafeBrowsing.sys.mjs
 toolkit/components/url-classifier/UrlClassifierHashCompleter.sys.mjs
 toolkit/components/url-classifier/UrlClassifierLib.sys.mjs

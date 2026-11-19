@@ -139,6 +139,87 @@ describe("Travel widget", () => {
     expect(userEvent[0].data.widget_size).toBe("large");
   });
 
+  describe("interaction_state", () => {
+    const { origin } = new URL(mockState.FramedWidgets.travel.url);
+    const withInteraction = interacted => ({
+      ...mockState,
+      Prefs: {
+        ...mockState.Prefs,
+        values: {
+          ...mockState.Prefs.values,
+          "widgets.travel.interaction": interacted,
+        },
+      },
+    });
+    const renderTravel = (state, handleUserInteraction = jest.fn()) => (
+      <WrapWithProvider state={state}>
+        <Travel
+          dispatch={jest.fn()}
+          handleUserInteraction={handleUserInteraction}
+          widgetsMayBeMaximized={true}
+          widgetEnabledMap={{}}
+        />
+      </WrapWithProvider>
+    );
+    const sent = postMessage =>
+      postMessage.mock.calls
+        .filter(([data]) => data.message === "interaction_state")
+        .map(([data, targetOrigin]) => {
+          expect(data).toMatchObject({
+            channel: "travel_widget",
+            type: "action",
+          });
+          expect(targetOrigin).toBe(origin);
+          return data.payload.interacted;
+        });
+    const setup = handleUserInteraction => {
+      const rendered = render(
+        renderTravel(withInteraction(false), handleUserInteraction)
+      );
+      const frame = rendered.container.querySelector("iframe.travel-frame");
+      const postMessage = jest
+        .spyOn(frame.contentWindow, "postMessage")
+        .mockImplementation(() => {});
+      return { ...rendered, postMessage };
+    };
+    const ready = container =>
+      postFrameMessage(container, {
+        type: "widget_ready",
+        payload: { protocol: 1 },
+      });
+
+    it("waits for widget_ready, then sends it once", () => {
+      const { container, postMessage } = setup();
+      expect(sent(postMessage)).toEqual([]);
+      ready(container);
+      expect(sent(postMessage)).toEqual([false]);
+    });
+
+    it("sends it again when the frame reloads", () => {
+      const { container, postMessage } = setup();
+      ready(container);
+      ready(container);
+      expect(sent(postMessage)).toEqual([false, false]);
+    });
+
+    it("sends the new value when the interaction pref changes", () => {
+      const { container, postMessage, rerender } = setup();
+      ready(container);
+      rerender(renderTravel(withInteraction(true)));
+      expect(sent(postMessage)).toEqual([false, true]);
+    });
+
+    it("sends interacted: true after Explore travel's change_size", () => {
+      let rendered;
+      const handleUserInteraction = () =>
+        rendered.rerender(renderTravel(withInteraction(true)));
+      rendered = setup(handleUserInteraction);
+      ready(rendered.container);
+      postChangeSize(rendered.container, "large");
+      expect(sent(rendered.postMessage)).toEqual([false, true]);
+    });
+  });
+
   describe("frame user events", () => {
     const postUserEvent = (container, payload) =>
       postFrameMessage(container, {
@@ -227,6 +308,32 @@ describe("Travel widget", () => {
       "sandbox",
       "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
     );
+  });
+
+  describe("region fragment", () => {
+    const renderWithRegion = url => {
+      const state = {
+        ...mockState,
+        Prefs: {
+          ...mockState.Prefs,
+          values: { ...mockState.Prefs.values, region: "IE" },
+        },
+        FramedWidgets: { travel: { url } },
+      };
+      const { container } = renderWidget(jest.fn(), {}, state);
+      return container.querySelector("iframe.travel-frame").getAttribute("src");
+    };
+    const { url } = mockState.FramedWidgets.travel;
+
+    it("passes the home region to the frame in its URL fragment", () => {
+      expect(renderWithRegion(url)).toBe(`${url}#region=IE`);
+    });
+
+    it("keeps a fragment the manifest URL already has", () => {
+      expect(renderWithRegion(`${url}#debug=1`)).toBe(
+        `${url}#debug=1&region=IE`
+      );
+    });
   });
 
   it("renders nothing without a manifest entry", () => {

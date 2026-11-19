@@ -76,6 +76,7 @@ enum class LaunchStatus {
 
 static LaunchStatus sLaunchStatus = LaunchStatus::Initial;
 static bool sHasFinishedLaunching = false;
+static bool sShouldActivateAfterLaunch = false;
 
 #ifdef NIGHTLY_BUILD
 static mozilla::TimeStamp sStartupRunLoopStart;
@@ -310,6 +311,12 @@ void InitializeMacApp() {
 
 nsTArray<nsCString> TakeStartupURLs() { return std::move(StartupURLs()); }
 
+void ActivateMacAppAfterLaunch() {
+  MOZ_ASSERT(!sHasFinishedLaunching,
+             "Must be requested before AppKit finishes launching");
+  sShouldActivateAfterLaunch = true;
+}
+
 @implementation MacApplicationDelegate
 
 - (IBAction)undo:(id)aSender {
@@ -439,6 +446,13 @@ nsTArray<nsCString> TakeStartupURLs() { return std::move(StartupURLs()); }
 
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
   sHasFinishedLaunching = true;
+  if (sShouldActivateAfterLaunch) {
+    sShouldActivateAfterLaunch = false;
+    ProcessSerialNumber psn;
+    if (::GetCurrentProcess(&psn) == noErr) {
+      ::SetFrontProcess(&psn);
+    }
+  }
   LOG_STARTUP_RUN_LOOP_EVENT("didfinish");
 }
 

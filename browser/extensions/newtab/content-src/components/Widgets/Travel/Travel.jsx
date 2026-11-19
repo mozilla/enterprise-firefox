@@ -3,7 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // eslint-disable-next-line no-unused-vars
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import {
@@ -26,6 +26,7 @@ import {
   useFramedWidgetReady,
   useFramedWidgetSize,
 } from "../useFramedWidgetMessages";
+import { useSrcAfterPageShown } from "../usePageVisible";
 
 const USER_ACTION_TYPES = {
   ...WIDGET_USER_ACTIONS,
@@ -35,6 +36,21 @@ const USER_ACTION_TYPES = {
 const KAYAK_URL = "https://www.kayak.com/";
 
 const TRAVEL_ENTRY = WIDGET_REGISTRY.find(w => w.id === "travel");
+
+function withRegion(src, region) {
+  if (!src || !region) {
+    return src;
+  }
+  try {
+    const url = new URL(src);
+    const params = new URLSearchParams(url.hash.slice(1));
+    params.set("region", region);
+    url.hash = params;
+    return url.href;
+  } catch {
+    return src;
+  }
+}
 
 /**
  * Travel widget.
@@ -56,11 +72,17 @@ function Travel({
 }) {
   const prefs = useSelector(state => state.Prefs.values);
   const framedWidgets = useSelector(state => state.FramedWidgets);
-  const { src, state: frameState } = resolveWidgetFrame(
+  const { src: frameSrc, state: frameState } = resolveWidgetFrame(
     TRAVEL_ENTRY,
     prefs,
     framedWidgets
   );
+  // The frame reads its market and partner site from the region once, at load.
+  // A region that arrives later changes src, which reloads the frame on
+  // purpose. That only happens in a new profile's first session. The frame
+  // isn't held back until the region is known, so Travel still shows (using
+  // the browser language) if the region lookup never finishes.
+  const src = useSrcAfterPageShown(withRegion(frameSrc, prefs.region));
   const widgetSize = resolveWidgetSize(TRAVEL_ENTRY, prefs);
   const hasInteracted = prefs["widgets.travel.interaction"];
 
@@ -92,7 +114,7 @@ function Travel({
   const recordErrorRef = useRef(null);
   // The frame stays hidden until the widget's document sends widget_ready. A
   // load timeout or terminal widget_error hides the whole widget.
-  const { ready, variant } = useFramedWidgetReady({
+  const { ready, readyPayload, variant } = useFramedWidgetReady({
     widget: TRAVEL_ENTRY,
     src,
     iframeRef,
@@ -115,6 +137,34 @@ function Travel({
     widgetVariant: variant,
   });
   recordErrorRef.current = recordError;
+
+  const frameOrigin = useMemo(() => {
+    try {
+      return new URL(src).origin;
+    } catch {
+      return null;
+    }
+  }, [src]);
+  useEffect(() => {
+    const frameWindow = iframeRef.current?.contentWindow;
+    if (!readyPayload || !frameWindow || !frameOrigin) {
+      return;
+    }
+    frameWindow.postMessage(
+      {
+        channel: `${TRAVEL_ENTRY.telemetryName}_widget`,
+        type: "action",
+        message: "interaction_state",
+        payload: { interacted: Boolean(hasInteracted) },
+        sentAt: new Date().toISOString(),
+      },
+      frameOrigin
+    );
+    // frameOrigin is left out: a new document sends its own widget_ready,
+    // which sends this again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readyPayload, hasInteracted]);
+
   // The frame's user events count as the user interacting once the frame is
   // showing, but only allowlisted ones reach Glean.
   useFramedWidgetMessages({

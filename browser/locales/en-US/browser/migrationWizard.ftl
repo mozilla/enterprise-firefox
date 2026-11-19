@@ -26,6 +26,7 @@ migration-wizard-selection-option-with-profile = { $sourceBrowser } — { $profi
 # name string should have a key with "migration-wizard-migrator-display-name-"
 # as a prefix followed by the unique identification key for the migrator.
 
+# Name for the Arc browser - this should not be localized
 migration-wizard-migrator-display-name-arc = Arc
 migration-wizard-migrator-display-name-brave = Brave
 migration-wizard-migrator-display-name-canary = Chrome Canary
@@ -328,7 +329,7 @@ migration-wizard-progress-success-passwords =
 # browser has completed.
 #
 # Variables:
-#  $maxAgeInDays (Number): the maximum number of days of history that might be imported.
+#  $maxAgeInDays (Number): the number of days of history imported.
 migration-wizard-progress-success-history =
     { $maxAgeInDays ->
         [one] From the last day

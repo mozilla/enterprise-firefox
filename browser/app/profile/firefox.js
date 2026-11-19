@@ -593,8 +593,12 @@ pref("browser.urlbar.weather.featureGate", false);
 // Enable clipboard suggestions feature, the pref should be removed once stable.
 pref("browser.urlbar.clipboard.featureGate", false);
 
-// Enable context menu on the urlbar.
+// Whether a user interaction, such as right-clicking a urlbar result, opens the
+// result's context menu.
 pref("browser.urlbar.contextMenu.featureGate", false);
+
+// Whether urlbar result menus offer to open the result in a new tab or window.
+pref("browser.urlbar.resultTargetMenu.featureGate", false);
 
 // The minimum prefix length of a weather keyword the user must type to trigger
 // the suggestion. 0 means the min length should be taken from Nimbus or remote
@@ -2583,7 +2587,7 @@ pref("browser.smartwindow.resumeActivity.enabled", true);
 pref("browser.smartwindow.resumeCards.enabled", true);
 pref("browser.smartwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.smartwindow.firstrun.hasCompleted", false);
-pref("browser.smartwindow.firstrun.singlePageWithAutoModel", false);
+pref("browser.smartwindow.firstrun.singlePageWithAutoModel", true);
 pref("browser.smartwindow.showThemesNotice", true);
 pref("browser.smartwindow.sidebar.openByDefault", true);
 pref("browser.smartwindow.isDefaultWindow", false);
@@ -2616,6 +2620,13 @@ pref("browser.smartwindow.smartformfill.disallowedRegions", "FR");
 // which keeps the feature away from the stray inputs a page uses for
 // something other than a form the user fills in.
 pref("browser.smartwindow.smartformfill.minFormFields", 4);
+
+// How many characters of page text a fill sends, shared between the page and
+// the source tabs.
+pref("browser.smartwindow.smartformfill.maxPageContentLength", 10000);
+
+// How many open tabs Smart Form Fill considers as sources for a form.
+pref("browser.smartwindow.smartformfill.maxTabs", 30);
 
 #ifdef NIGHTLY_BUILD
 pref("browser.smartwindow.aitab.menus", true);
@@ -3210,6 +3221,11 @@ pref("browser.migrate.firefox.enabled", true);
 pref("browser.migrate.opera.enabled", true);
 pref("browser.migrate.opera-gx.enabled", true);
 pref("browser.migrate.safari.enabled", true);
+// Number of most recent URLs to import from Safari history, 0 for no limit.
+pref("browser.migrate.safari.history.limit", 0);
+// Number of recent visits to import per URL from Safari history, capped at
+// places.frecency.pages.numSampledVisits.
+pref("browser.migrate.safari.history.visit.limit", 5);
 pref("browser.migrate.vivaldi.enabled", true);
 
 pref("browser.migrate.content-modal.import-all.enabled", true);
@@ -4134,6 +4150,8 @@ pref("browser.ipProtection.bandwidth.enabled", true);
 pref("browser.ipProtection.bandwidth.maxInGb", 50);
 // Pref that stores the current egress location for the VPN
 pref("browser.ipProtection.egressLocation", "");
+// Pref that stores whether message announcing extra locations has been dismissed.
+pref("browser.ipProtection.locationUnlockMessageDismissed", false);
 // Pref that flips at 50%, 75%, and 90% bandwidth usage thresholds
 pref("browser.ipProtection.bandwidthThreshold", 0);
 // Tracks the highest bandwidth warning threshold (75 or 90) dismissed per surface.

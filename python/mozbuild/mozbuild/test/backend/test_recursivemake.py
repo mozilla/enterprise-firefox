@@ -455,6 +455,28 @@ class TestRecursiveMakeBackend(BackendTester):
             other = json.load(fh)
         self.assertTrue(other["bundle"].endswith("dist/other/Test.app"))
 
+        objdir = mozpath.normsep(env.topobjdir)
+        with open(mozpath.join(env.topobjdir, "macos-bundles.json")) as fh:
+            self.assertEqual(
+                json.load(fh),
+                {
+                    "bundles": [
+                        {
+                            "spec": f"{objdir}/dist_Staged.app.bundle.json",
+                            "stage": True,
+                        },
+                        {
+                            "spec": f"{objdir}/dist_bin_Test.app.bundle.json",
+                            "stage": False,
+                        },
+                        {
+                            "spec": f"{objdir}/dist_other_Test.app.bundle.json",
+                            "stage": False,
+                        },
+                    ]
+                },
+            )
+
         backend_path = mozpath.join(env.topobjdir, "backend.mk")
         backend = open(backend_path).read()
         self.assertIn("py_action,assemble_macos_bundle Test.app", backend)
@@ -1892,7 +1914,8 @@ class TestRecursiveMakeBackend(BackendTester):
             # Debug information is installed, but there is nothing to check.
             f"$(INSTALL) {pdb} $(DEPTH)/dist/bin/",
             f"$(INSTALL) {so} $(DEPTH)/dist/bin/",
-            "$(call py_action,check_binary libfoo.so,$(DEPTH)/dist/bin/libfoo.so)",
+            "$(call py_action,check_binary libfoo.so,--prebuilt "
+            "$(DEPTH)/dist/bin/libfoo.so)",
         ]
 
         found = [str for str in lines if "libfoo." in str]
@@ -2425,6 +2448,102 @@ class TestRecursiveMakeBackend(BackendTester):
             ["EXTRA_DSO_LDOPTS += -PDB:not-installed.pdb -IMPLIB:not-installed.lib"],
         )
 
+    def _program_ldflags(self, cc_type, subdir, **substs):
+        env = self._get_environment(
+            "program-paths",
+            substs={"OS_ARCH": "WINNT", "CC_TYPE": cc_type, **substs},
+        )
+        self._consume("program-paths", RecursiveMakeBackend, env=env)
+
+        with open(os.path.join(env.topobjdir, subdir, "backend.mk")) as fh:
+            return [l.rstrip() for l in fh if ": LDFLAGS += " in l]
+
+    def test_clang_cl_program_pdb(self):
+        self.assertEqual(
+            self._program_ldflags("clang-cl", "dist-bin"),
+            ["$(DEPTH)/dist/bin/dist-bin.prog: LDFLAGS += -PDB:dist-bin.pdb"],
+        )
+
+    def test_clang_cl_program_pdb_copy_pdbs(self):
+        self.assertEqual(
+            self._program_ldflags("clang-cl", "dist-bin", MOZ_COPY_PDBS="1"),
+            [
+                "$(DEPTH)/dist/bin/dist-bin.prog: LDFLAGS += "
+                "-PDB:../dist/bin/dist-bin.pdb"
+            ],
+        )
+
+    def test_clang_cl_simple_program_pdb_copy_pdbs(self):
+        self.assertEqual(
+            self._program_ldflags("clang-cl", "dist-bin-simple", MOZ_COPY_PDBS="1"),
+            ["simple.prog: LDFLAGS += -PDB:simple.pdb"],
+        )
+
+    def test_mingw_program_pdb(self):
+        self.assertEqual(
+            self._program_ldflags("clang", "dist-bin"),
+            [
+                "$(DEPTH)/dist/bin/dist-bin.prog: LDFLAGS += "
+                "-Wl,-pdb,../dist/bin/dist-bin.pdb"
+            ],
+        )
+
+    def test_mingw_simple_program_pdb(self):
+        self.assertEqual(
+            self._program_ldflags("clang", "dist-bin-simple"),
+            ["simple.prog: LDFLAGS += -Wl,-pdb,simple.pdb"],
+        )
+
+    def test_program_pdb_not_windows(self):
+        for subdir in ("dist-bin", "dist-bin-simple"):
+            self.assertEqual(
+                self._program_ldflags("clang", subdir, OS_ARCH="Darwin"), []
+            )
+
+    def _host_ldflags(self, name, subdir, host_cc_type="clang-cl", **substs):
+        env = self._get_environment(
+            name,
+            substs={"HOST_OS_ARCH": "WINNT", "HOST_CC_TYPE": host_cc_type, **substs},
+        )
+        self._consume(name, RecursiveMakeBackend, env=env)
+
+        with open(os.path.join(env.topobjdir, subdir, "backend.mk")) as fh:
+            return [l.rstrip() for l in fh if ": HOST_LDFLAGS += " in l]
+
+    def test_clang_cl_host_program_pdb(self):
+        self.assertEqual(
+            self._host_ldflags("host-cpp-link", "cpp"),
+            ["$(DEPTH)/dist/host/bin/cpphost: HOST_LDFLAGS += -PDB:cpphost.pdb"],
+        )
+
+    def test_clang_host_program_pdb(self):
+        self.assertEqual(
+            self._host_ldflags("host-cpp-link", "cpp", "clang"),
+            ["$(DEPTH)/dist/host/bin/cpphost: HOST_LDFLAGS += -DEBUG -PDB:cpphost.pdb"],
+        )
+
+    def test_clang_cl_host_simple_program_pdb(self):
+        self.assertEqual(
+            self._host_ldflags("host-cpp-link", "simple"),
+            ["host_asimple: HOST_LDFLAGS += -PDB:host_asimple.pdb"],
+        )
+
+    def test_clang_cl_host_shared_library_pdb(self):
+        self.assertEqual(
+            self._host_ldflags("clang-plugin", "plugin"),
+            ["libclang-plugin.so: HOST_LDFLAGS += -DEBUG -PDB:libclang-plugin.pdb"],
+        )
+
+    def test_host_pdb_not_windows(self):
+        self.assertEqual(
+            self._host_ldflags("host-cpp-link", "cpp", "clang", HOST_OS_ARCH="Linux"),
+            [],
+        )
+        self.assertEqual(
+            self._host_ldflags("clang-plugin", "plugin", "clang", HOST_OS_ARCH="Linux"),
+            [],
+        )
+
     def test_per_source_object_deps(self):
         env = self._consume("per-source-object-deps", RecursiveMakeBackend)
 
@@ -2546,6 +2665,10 @@ class TestRecursiveMakeBackend(BackendTester):
         with open(sharedlib_backend) as fh:
             sharedlib_content = fh.read()
         self.assertIn(
+            "libextra-link-deps-lib.so: libextra-link-deps-lib.so.symbols",
+            sharedlib_content,
+        )
+        self.assertIn(
             "libextra-link-deps-lib.so: generated.rsp",
             sharedlib_content,
         )
@@ -2627,6 +2750,23 @@ class TestRecursiveMakeBackend(BackendTester):
             backend_mk("dist-subdir"),
         )
         self.assertNotIn("IMPORT_LIB_DEST", backend_mk("not-installed"))
+
+    def test_compiler_plugin(self):
+        env = self._consume("clang-plugin", RecursiveMakeBackend)
+
+        with open(mozpath.join(env.topobjdir, "root-deps.mk")) as fh:
+            lines = sorted(l.strip() for l in fh if l.rstrip().endswith("plugin/host"))
+        self.assertEqual(
+            lines,
+            [
+                "consumer/target-objects: plugin/host",
+                "plugin/tests/target-objects: plugin/host",
+                "program/target-objects: plugin/host",
+                "program/target: plugin/host",
+                "wasm/pre-compile: plugin/host",
+                "wasm/target-objects: plugin/host",
+            ],
+        )
 
     def test_licenses_json(self):
         """LICENSES declarations are aggregated into licenses.json."""

@@ -127,8 +127,6 @@ enum class GCAbortReason {
   _(ModuleSyntheticFields)                 \
   _(ModuleExports)                         \
   _(ModuleImportAttributes)                \
-  _(BaselineScript)                        \
-  _(IonScript)                             \
   _(RegExpSharedBytecode)                  \
   _(RegExpSharedNamedCaptureData)          \
   _(RegExpSharedNamedCaptureSliceData)     \

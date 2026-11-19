@@ -22,12 +22,14 @@ const MAIN_FILE = { ...PINNED_FILE, revision: "main" };
 
 const TASK_NAME = "test_model_hub_download_failures";
 
-// Large enough that both the interruption point and an abort on the first
-// progress event land well short of the end.
+// Large enough that the interruption point lands well short of the end.
 const BODY_SIZE = 1024 * 1024;
 
 // A multiple of the mock hub's 16 KiB streaming chunk, as setFile requires.
 const FAIL_AFTER_BYTES = 256 * 1024;
+
+// Where test_aborted_download_rejects pauses, short of BODY_SIZE.
+const PAUSE_AFTER_BYTES = 256 * 1024;
 
 /**
  * @param {number} size
@@ -96,6 +98,9 @@ async function hasHeaders(modelHub, { model, revision, file }) {
  * @param {object} options.modelFile - The {model, revision, file} to serve.
  * @param {?number} [options.failAfterBytes] - Drop the connection after this
  *   many bytes of an advertised full-length body.
+ * @param {?number} [options.pauseAfterBytes] - Send only this many bytes of
+ *   an advertised full-length body, then hold the connection open until
+ *   `hub.resumeAfterPause()` is called.
  * @param {number} [options.failTimes] - Answer this many requests with
  *   `failStatus` before serving anything.
  * @param {number} [options.failStatus] - The status to fail with.
@@ -103,6 +108,7 @@ async function hasHeaders(modelHub, { model, revision, file }) {
 async function withModelHub({
   modelFile,
   failAfterBytes = null,
+  pauseAfterBytes = null,
   failTimes = 0,
   failStatus = 500,
 }) {
@@ -111,6 +117,7 @@ async function withModelHub({
     ...modelFile,
     content: makeBodyContent(BODY_SIZE),
     failAfterBytes,
+    pauseAfterBytes,
     failTimes,
     failStatus,
   });
@@ -187,6 +194,7 @@ add_task(async function test_interrupted_transfer_rejects() {
 add_task(async function test_aborted_download_rejects() {
   const { hub, modelHub, args, cleanup } = await withModelHub({
     modelFile: PINNED_FILE,
+    pauseAfterBytes: PAUSE_AFTER_BYTES,
   });
 
   const abortController = new AbortController();

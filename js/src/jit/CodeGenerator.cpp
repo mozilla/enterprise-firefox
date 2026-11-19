@@ -91,6 +91,7 @@
 #include "wasm/WasmStubs.h"
 
 #include "builtin/Boolean-inl.h"
+#include "gc/BufferAllocator-inl.h"
 #include "jit/MacroAssembler-inl.h"
 #include "jit/shared/CodeGenerator-shared-inl.h"
 #include "jit/TemplateObject-inl.h"
@@ -7631,13 +7632,21 @@ void CodeGenerator::emitAllocateSpaceForApply(T* apply, Register calleeReg,
 
     Label noUnderflow;
     if (apply->hasSingleTarget()) {
-      masm.branch32(Assembler::AboveOrEqual, argcreg,
-                    Imm32(apply->getSingleTarget()->nargs()), &noUnderflow);
+      uint32_t nargs = apply->getSingleTarget()->nargs();
+      MOZ_RELEASE_ASSERT(nargs <= JIT_ARGS_LENGTH_MAX);
+      masm.branch32(Assembler::AboveOrEqual, argcreg, Imm32(nargs),
+                    &noUnderflow);
     } else {
       masm.branchTestObjIsFunction(Assembler::NotEqual, calleeReg, scratch,
                                    calleeReg, &noUnderflow);
       masm.loadFunctionArgCount(calleeReg, scratch);
       masm.branch32(Assembler::AboveOrEqual, argcreg, scratch, &noUnderflow);
+
+      // If a function expects more arguments than the maximum number of
+      // arguments supported in jitcode, we will fall back to the VM, which
+      // can handle argument underflow itself.
+      masm.branch32(Assembler::Above, scratch, Imm32(JIT_ARGS_LENGTH_MAX),
+                    &noUnderflow);
     }
     masm.branchIfFunctionHasJitEntry(calleeReg, ool->entry());
     masm.bind(&noUnderflow);
@@ -7758,13 +7767,21 @@ void CodeGenerator::emitAllocateSpaceForConstructAndPushNewTarget(
 
     Label noUnderflow;
     if (construct->hasSingleTarget()) {
-      masm.branch32(Assembler::AboveOrEqual, argcreg,
-                    Imm32(construct->getSingleTarget()->nargs()), &noUnderflow);
+      uint32_t nargs = construct->getSingleTarget()->nargs();
+      MOZ_RELEASE_ASSERT(nargs <= JIT_ARGS_LENGTH_MAX);
+      masm.branch32(Assembler::AboveOrEqual, argcreg, Imm32(nargs),
+                    &noUnderflow);
     } else {
       masm.branchTestObjIsFunction(Assembler::NotEqual, calleeReg, scratch,
                                    calleeReg, &noUnderflow);
       masm.loadFunctionArgCount(calleeReg, scratch);
       masm.branch32(Assembler::AboveOrEqual, argcreg, scratch, &noUnderflow);
+
+      // If a function expects more arguments than the maximum number of
+      // arguments supported in jitcode, we will fall back to the VM, which
+      // can handle argument underflow itself.
+      masm.branch32(Assembler::Above, scratch, Imm32(JIT_ARGS_LENGTH_MAX),
+                    &noUnderflow);
     }
     masm.branchIfFunctionHasJitEntry(calleeReg, ool->entry());
     masm.bind(&noUnderflow);
@@ -8109,6 +8126,14 @@ void CodeGenerator::emitApplyGeneric(T* apply) {
 
   // Guard that calleereg is an interpreted function with a JSScript.
   masm.branchIfFunctionHasNoJitEntry(calleereg, &invoke);
+
+  // If the target expects more arguments than we support in jitcode,
+  // fall back to the VM.
+  if (!apply->hasSingleTarget()) {
+    masm.loadFunctionArgCount(calleereg, scratch);
+    masm.branch32(Assembler::Above, scratch, Imm32(JIT_ARGS_LENGTH_MAX),
+                  &invoke);
+  }
 
   // Guard that callee allows the [[Call]] or [[Construct]] operation required.
   if (constructing) {
@@ -17950,25 +17975,6 @@ bool CodeGenerator::link(JSContext* cx) {
 
   size_t numNurseryObjects = snapshot_->nurseryObjects().length();
 
-  IonScript* ionScript = IonScript::New(
-      cx, compilationId, graph.localSlotsSize(), argumentSlots, frameDepth_,
-      snapshots_.listSize(), snapshots_.RVATableSize(), recovers_.size(),
-      graph.numConstants(), numNurseryObjects, safepointIndices_.length(),
-      osiIndices_.length(), icList_.length(), runtimeData_.length(),
-      safepoints_.size());
-  if (!ionScript) {
-    return false;
-  }
-#ifdef DEBUG
-  ionScript->setICHash(snapshot_->icHash());
-#endif
-
-  auto freeIonScript = mozilla::MakeScopeExit([&ionScript] {
-    // Use js_free instead of IonScript::Destroy: the cache list is still
-    // uninitialized.
-    js_free(ionScript);
-  });
-
   Linker linker(masm);
   JitCode* code = linker.newCode(cx, CodeKind::Ion);
   if (!code) {
@@ -18035,6 +18041,20 @@ bool CodeGenerator::link(JSContext* cx) {
     code->setHasBytecodeMap();
   }
 
+  RootedBuffer<IonScript> ionScript(cx);
+  ionScript = IonScript::New(
+      cx, compilationId, graph.localSlotsSize(), argumentSlots, frameDepth_,
+      snapshots_.listSize(), snapshots_.RVATableSize(), recovers_.size(),
+      graph.numConstants(), numNurseryObjects, safepointIndices_.length(),
+      osiIndices_.length(), icList_.length(), runtimeData_.length(),
+      safepoints_.size());
+  if (!ionScript) {
+    return false;
+  }
+#ifdef DEBUG
+  ionScript->setICHash(snapshot_->icHash());
+#endif
+
   ionScript->setMethod(code);
 
   // If the Gecko Profiler is enabled, mark IonScript as having been
@@ -18042,6 +18062,9 @@ bool CodeGenerator::link(JSContext* cx) {
   if (isProfilerInstrumentationEnabled()) {
     ionScript->setHasProfilingInstrumentation();
   }
+
+  // NOTE: The address of the IonScript and interior pointers are embedded in
+  // the code below. This relies on the buffer allocator not moving buffers.
 
   Assembler::PatchDataWithValueCheck(
       CodeLocationLabel(code, invalidateEpilogueData_), ImmPtr(ionScript),
@@ -18147,7 +18170,6 @@ bool CodeGenerator::link(JSContext* cx) {
 
   // Transfer ownership of the IonScript to the JitScript. At this point enough
   // of the IonScript must be initialized for IonScript::Destroy to work.
-  freeIonScript.release();
   script->jitScript()->setIonScript(script, ionScript);
 
   return true;
@@ -22206,6 +22228,12 @@ void CodeGenerator::visitGeneratorResume(LGeneratorResume* lir) {
   Register callee = ToRegister(lir->temp0());
   Register scratch = ToRegister(lir->temp1());
 
+  using Fn = bool (*)(JSContext*, HandleObject, HandleValue, int32_t,
+                      MutableHandleValue);
+  OutOfLineCode* ool = oolCallVM<Fn, jit::ResumeGeneratorFromJit>(
+      lir, ArgList(genObj, value, Imm32(resumeKind)),
+      StoreValueTo(ToOutValue(lir)));
+
   // Load callee. Note that JSOp::Resume is never used for modules.
   masm.unboxObject(
       Address(genObj, AbstractGeneratorObject::offsetOfCalleeOrModuleSlot()),
@@ -22214,6 +22242,11 @@ void CodeGenerator::visitGeneratorResume(LGeneratorResume* lir) {
   // The pushed argument Values are the formals (all |undefined|) and the resume
   // args stored after the formals.
   masm.loadFunctionArgCount(callee, scratch);
+
+  // Resume in the VM if there are too many formals to push here.
+  masm.branch32(Assembler::Above, scratch, Imm32(JIT_ARGS_LENGTH_MAX),
+                ool->entry());
+
   masm.alignJitStackBasedOnNArgs(scratch, /* countIncludesThis = */ false,
                                  /* extraArgs = */ ResumeFrameArgs::NumSlots);
 
@@ -22258,6 +22291,7 @@ void CodeGenerator::visitGeneratorResume(LGeneratorResume* lir) {
 
   masm.setFramePushed(frameSize());
   emitRestoreStackPointerFromFP();
+  masm.bind(ool->rejoin());
 }
 
 // The offset of a ResumeFrameArgs slot from the frame pointer.

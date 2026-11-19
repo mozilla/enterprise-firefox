@@ -69,6 +69,11 @@ skip-if = [
   "enterprise", # Enterprise is always authenticated; there is no unauthenticated panel UI.
 ]
 
+["browser_ipprotection_extra_locations_confirmation_message.js"]
+skip-if = [
+  "enterprise", # Enterprise does not initialize the IP Protection panel.
+]
+
 ["browser_ipprotection_header.js"]
 skip-if = [
   "enterprise", # Enterprise does not show the IP Protection toolbar button or panel containing the header.

@@ -133,7 +133,14 @@ void ModemManagerImeiProvider::QueryModemImei(RefPtr<Promise> aPromise,
 
 void ModemManagerImeiProvider::OnIntrospectFinish(RefPtr<Promise> aPromise,
                                                   RefPtr<GVariant> aResult) {
-  const gchar* introspectXml;
+  if (!aResult || !g_variant_is_of_type(aResult, G_VARIANT_TYPE("(s)"))) {
+    MMI_LOG(Error, "Unexpected Introspect reply type: %s",
+            aResult ? g_variant_get_type_string(aResult) : "(null)");
+    aPromise->MaybeReject(NS_ERROR_ILLEGAL_VALUE);
+    return;
+  }
+
+  const gchar* introspectXml = nullptr;
   g_variant_get(aResult, "(&s)", &introspectXml);
 
   GUniquePtr<GError> error;
@@ -153,14 +160,20 @@ void ModemManagerImeiProvider::OnIntrospectFinish(RefPtr<Promise> aPromise,
   }
 
   GDBusNodeInfo* modem = nodeInfos->nodes[0];
-  if (!modem) {
+  if (!modem || !modem->path) {
     aPromise->MaybeReject(NS_ERROR_NOT_IMPLEMENTED);
     return;
   }
 
+  nsPrintfCString modemPath("%s/%s", kModemRootPath, modem->path);
+  if (!g_variant_is_object_path(modemPath.get())) {
+    MMI_LOG(Error, "Invalid modem path: %s", modemPath.get());
+    aPromise->MaybeReject(NS_ERROR_ILLEGAL_VALUE);
+    return;
+  }
+
   MMI_LOG(Debug, "Query IMEI: %s", modem->path);
-  QueryModemImei(aPromise,
-                 nsPrintfCString("%s/%s", kModemRootPath, modem->path));
+  QueryModemImei(aPromise, modemPath);
 }
 
 void ModemManagerImeiProvider::CollectImei(RefPtr<Promise> aPromise) {

@@ -97,6 +97,12 @@ class HostMixin:
         defines = self._context["HOST_DEFINES"]
         return HostDefines(self._context, defines) if defines else None
 
+    def _host_pdb_link_flags(self, debug):
+        if self.config.substs.get("HOST_OS_ARCH") != "WINNT":
+            return []
+        pdb = f"-PDB:{mozpath.splitext(self.name)[0]}.pdb"
+        return ["-DEBUG", pdb] if debug else [pdb]
+
 
 class DirectoryTraversal(ContextDerived):
     """Describes how directory traversal for building should work.
@@ -520,12 +526,29 @@ class BaseProgram(Linkable):
     def name(self):
         return self.program
 
+    def _pdb_link_flags(self, linked_dir):
+        substs = self.config.substs
+        if substs.get("OS_ARCH") != "WINNT":
+            return []
+        # clang-cl writes the pdb to the build directory, or next to the
+        # executable under MOZ_COPY_PDBS. MinGW always writes it next to the
+        # executable.
+        pdb = f"{mozpath.splitext(self.program)[0]}.pdb"
+        beside = mozpath.relpath(mozpath.join(linked_dir, pdb), self.objdir)
+        if substs.get("CC_TYPE") == "clang-cl":
+            return [f"-PDB:{beside if substs.get('MOZ_COPY_PDBS') else pdb}"]
+        return [f"-Wl,-pdb,{beside}"]
+
 
 class Program(BaseProgram):
     """Context derived container object for PROGRAM"""
 
     SUFFIX_VAR = "BIN_SUFFIX"
     KIND = "target"
+
+    @property
+    def pdb_link_flags(self):
+        return self._pdb_link_flags(mozpath.dirname(self.output_path.full_path))
 
 
 class HostProgram(HostMixin, BaseProgram):
@@ -538,12 +561,22 @@ class HostProgram(HostMixin, BaseProgram):
     def install_target(self):
         return "dist/host/bin"
 
+    @property
+    def pdb_link_flags(self):
+        return self._host_pdb_link_flags(
+            self.config.substs.get("HOST_CC_TYPE") != "clang-cl"
+        )
+
 
 class SimpleProgram(BaseProgram):
     """Context derived container object for each program in SIMPLE_PROGRAMS"""
 
     SUFFIX_VAR = "BIN_SUFFIX"
     KIND = "target"
+
+    @property
+    def pdb_link_flags(self):
+        return self._pdb_link_flags(self.objdir)
 
     def source_files(self):
         for srcs in self.sources.values():
@@ -562,6 +595,8 @@ class HostSimpleProgram(HostMixin, BaseProgram):
 
     SUFFIX_VAR = "HOST_BIN_SUFFIX"
     KIND = "host"
+
+    pdb_link_flags = HostProgram.pdb_link_flags
 
     def source_files(self):
         for srcs in self.sources.values():
@@ -1003,6 +1038,11 @@ class HostSharedLibrary(HostMixin, Library):
             self.basename,
             context.config.host_dll_suffix,
         )
+        self.compiler_plugin = bool(context.get("IS_COMPILER_PLUGIN"))
+
+    @property
+    def pdb_link_flags(self):
+        return self._host_pdb_link_flags(True)
 
 
 class ExternalLibrary:
@@ -1661,7 +1701,6 @@ class GeneratedFile(ContextDerived):
                 ".plist",
                 ".s",
                 ".S",
-                "symverscript",
             ))
         ]
         if self.required_during_compile and self.required_before_compile:

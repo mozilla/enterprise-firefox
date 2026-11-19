@@ -992,6 +992,10 @@ class TreeMetadataEmitter(LoggingMixin):
                 linkables.append(lib)
                 if not lib.installed:
                     generated_files.add(lib.lib_name)
+                if lib.symbols_file:
+                    lib.extra_link_deps.append(
+                        ObjDirPath(context, "!" + lib.symbols_file)
+                    )
                 if symbols_file and isinstance(symbols_file, SourcePath):
                     script = mozpath.join(
                         mozpath.dirname(mozpath.dirname(__file__)),
@@ -1086,6 +1090,15 @@ class TreeMetadataEmitter(LoggingMixin):
                     )
                 seen[basename] = (src, symbol)
 
+        if context.get("IS_COMPILER_PLUGIN") and not any(
+            isinstance(l, HostSharedLibrary) for l in host_linkables
+        ):
+            raise SandboxValidationError(
+                "IS_COMPILER_PLUGIN is set but no host shared library is defined "
+                "in this directory.",
+                context,
+            )
+
         extra_link_deps = context.get("EXTRA_LINK_DEPS")
         if extra_link_deps:
             link_targets = [
@@ -1106,9 +1119,8 @@ class TreeMetadataEmitter(LoggingMixin):
                         f"(resolved to {dep.full_path})",
                         context,
                     )
-            deps = list(extra_link_deps)
             for linkable in link_targets:
-                linkable.extra_link_deps = deps
+                linkable.extra_link_deps += extra_link_deps
         # Only emit sources if we have linkables defined in the same context.
         # Note the linkables are not emitted in this function, but much later,
         # after aggregation (because of e.g. USE_LIBS processing).
@@ -1349,6 +1361,23 @@ class TreeMetadataEmitter(LoggingMixin):
         computed_as_flags = ComputedFlags(context, context["ASM_FLAGS"])
         computed_wasm_flags = ComputedFlags(context, context["WASM_FLAGS"])
 
+        # Set compiler and link flags according to whether we want a console.
+        if context.config.substs.get("TARGET_OS") == "WINNT":
+            if context.get("WINCONSOLE", True):
+                extra_win32_exe_ldflags = context.config.substs.get(
+                    "WIN32_CONSOLE_EXE_LDFLAGS", []
+                )
+                # TODO: Bug 2069767 - Keep MOZ_WINCONSOLE undefined by default:
+                # Output() in nsAppRunner.cpp only shows startup errors in a
+                # message box when it is undefined.
+                if "WINCONSOLE" in context:
+                    context["DEFINES"]["MOZ_WINCONSOLE"] = True
+            else:
+                extra_win32_exe_ldflags = context.config.substs.get(
+                    "WIN32_GUI_EXE_LDFLAGS", []
+                )
+            context["WIN32_EXE_LDFLAGS"] += extra_win32_exe_ldflags
+
         # Proxy some variables as-is until we have richer classes to represent
         # them. We should aim to keep this set small because it violates the
         # desired abstraction of the build definition away from makefiles.
@@ -1411,19 +1440,6 @@ class TreeMetadataEmitter(LoggingMixin):
 
         if "HOST_LDFLAGS" in context and context["HOST_LDFLAGS"]:
             computed_host_link_flags.resolve_flags("MOZBUILD", context["HOST_LDFLAGS"])
-
-        # Set compiler and link flags according to whether we want a console.
-        if context.config.substs.get("TARGET_OS") == "WINNT":
-            if context.get("WINCONSOLE", True):
-                context["WIN32_EXE_LDFLAGS"] += context.config.substs.get(
-                    "WIN32_CONSOLE_EXE_LDFLAGS", []
-                )
-                if "WINCONSOLE" in context:
-                    context["DEFINES"]["MOZ_WINCONSOLE"] = True
-            else:
-                context["WIN32_EXE_LDFLAGS"] += context.config.substs.get(
-                    "WIN32_GUI_EXE_LDFLAGS", []
-                )
 
         deffile = context.get("DEFFILE")
         if deffile and context.config.substs.get("OS_TARGET") == "WINNT":
@@ -1879,12 +1895,15 @@ class TreeMetadataEmitter(LoggingMixin):
             raise SandboxValidationError(str(error), context)
 
     def _process_generated_files(self, context):
-        # The link reads whatever EXTRA_LINK_DEPS names, so a generated file
-        # among them has to be written before the link rather than alongside
-        # the other generated files.
+        # The link reads whatever EXTRA_LINK_DEPS and SYMBOLS_FILE name, so a
+        # generated file among them has to be written before the link rather
+        # than alongside the other generated files.
         link_deps = {
             mozpath.normpath(dep.full_path)
-            for dep in context.get("EXTRA_LINK_DEPS") or ()
+            for dep in [
+                *context.get("EXTRA_LINK_DEPS", []),
+                context.get("SYMBOLS_FILE"),
+            ]
             if isinstance(dep, ObjDirPath)
         }
 
