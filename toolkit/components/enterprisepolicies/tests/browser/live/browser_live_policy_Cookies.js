@@ -43,6 +43,25 @@ function getPersistDataPermission(origin) {
   );
 }
 
+// Permissions set by policy can only be removed by passing EXPIRE_POLICY.
+function removeCookiePermissions() {
+  for (const perm of Services.perms.all) {
+    if (perm.type != "cookie" && perm.type != "persist-data-on-shutdown") {
+      continue;
+    }
+    if (perm.expireType == Ci.nsIPermissionManager.EXPIRE_POLICY) {
+      Services.perms.addFromPrincipal(
+        perm.principal,
+        perm.type,
+        UNKNOWN,
+        Ci.nsIPermissionManager.EXPIRE_POLICY
+      );
+    } else {
+      Services.perms.removePermission(perm);
+    }
+  }
+}
+
 function checkBehaviorPref(prefName, expectedValue, expectedLocked) {
   Assert.strictEqual(
     Services.prefs.getIntPref(prefName),
@@ -111,10 +130,7 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
   const blockOrigin = "https://block.example.com";
   const sessionOrigin = "https://session.example.com";
 
-  registerCleanupFunction(() => {
-    Services.perms.removeByType("cookie");
-    Services.perms.removeByType("persist-data-on-shutdown");
-  });
+  registerCleanupFunction(removeCookiePermissions);
 
   info("Applying a Cookies policy config with Allow/Block/AllowSession lists.");
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
@@ -164,10 +180,7 @@ add_task(async function test_cookie_permissions_reconciled_on_update() {
   const keptOrigin = "https://kept.example.com";
   const droppedOrigin = "https://dropped.example.com";
 
-  registerCleanupFunction(() => {
-    Services.perms.removeByType("cookie");
-    Services.perms.removeByType("persist-data-on-shutdown");
-  });
+  registerCleanupFunction(removeCookiePermissions);
 
   info("Applying a Cookies policy config allowing two origins.");
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
@@ -218,10 +231,7 @@ add_task(
   async function test_persist_data_on_shutdown_not_cleared_on_policy_removal_compat() {
     const allowOrigin = "https://persist.example.com";
 
-    registerCleanupFunction(() => {
-      Services.perms.removeByType("cookie");
-      Services.perms.removeByType("persist-data-on-shutdown");
-    });
+    registerCleanupFunction(removeCookiePermissions);
 
     info(
       "Applying a Cookies policy config with an Allow list; no SanitizeOnShutdown policy is present."
