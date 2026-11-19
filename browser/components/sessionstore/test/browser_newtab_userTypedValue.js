@@ -60,6 +60,10 @@ add_task(async function () {
     if (url == BROWSER_NEW_TAB_URL || url === "about:opentabs") {
       continue; // We tested about:newtab using BrowserCommands.openTab() above.
     }
+    // Enterprise builds show about:home for about:welcome (bug 2082020).
+    if (AppConstants.MOZ_ENTERPRISE && url == "about:welcome") {
+      continue;
+    }
     info("Testing " + url + " - " + new Date());
     await BrowserTestUtils.openNewForegroundTab(win.gBrowser, url);
     await BrowserTestUtils.closeWindow(win);

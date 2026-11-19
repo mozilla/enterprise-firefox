@@ -37,6 +37,10 @@ add_task(async function () {
     "deleteprofile",
     "newprofile",
   ];
+  // Enterprise builds also block about:profiles (bug 2082093).
+  if (AppConstants.MOZ_ENTERPRISE) {
+    skipURLs.push("profiles");
+  }
 
   for (let cid in Cc) {
     let result = cid.match(

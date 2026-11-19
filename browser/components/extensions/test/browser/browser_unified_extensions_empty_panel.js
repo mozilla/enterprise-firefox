@@ -221,7 +221,7 @@ add_task(async function test_button_opens_discopane_when_no_extension() {
 // gUnifiedExtensions.onPanelViewShowing in browser-addons.js asynchronously
 // updates the panel content, but should be no-op if the panel has closed
 // in the meantime. And definitely not show (multiple) discover buttons.
-add_task(async function test_discover_button_not_added_after_panel_close() {
+async function test_discover_button_not_added_after_panel_close() {
   const win = await BrowserTestUtils.openNewBrowserWindow();
   const sandbox = sinon.createSandbox();
   const deferred = Promise.withResolvers();
@@ -289,7 +289,15 @@ add_task(async function test_discover_button_not_added_after_panel_close() {
 
   sandbox.restore();
   await BrowserTestUtils.closeWindow(win);
-});
+}
+add_task(
+  {
+    // Enterprise builds disable the discovery pane
+    // (extensions.getAddons.showPane=false)
+    skip_if: () => AppConstants.MOZ_ENTERPRISE,
+  },
+  test_discover_button_not_added_after_panel_close
+);
 
 add_task(async function test_button_opens_extlist_when_all_exts_pinned() {
   const extensions = createExtensions([

@@ -169,7 +169,7 @@ const warningUI = {
 
   /**
    * The window to show the warning from. The most recent window can be a
-   * private window, a popup or a taskbar tab, and InfoBar refuses all of those.
+   * popup or a taskbar tab, and InfoBar refuses both.
    *
    * InfoBar is only reached once a window exists, so the first poll does not
    * drag its module graph into "policies-startup".

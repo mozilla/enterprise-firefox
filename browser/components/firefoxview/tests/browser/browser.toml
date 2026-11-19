@@ -7,6 +7,7 @@ prefs = [
 ]
 
 ["browser_chats_firefoxview.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds, bug 2073100
 
 ["browser_dragDrop_after_opening_fxViewTab.js"]
 skip-if = [

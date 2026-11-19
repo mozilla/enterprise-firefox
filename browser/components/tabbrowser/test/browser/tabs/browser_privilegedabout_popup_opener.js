@@ -2,6 +2,11 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+// Enterprise builds show about:home for about:welcome (bug 2082020).
+const PRIVILEGED_ABOUT_URL = AppConstants.MOZ_ENTERPRISE
+  ? "about:home"
+  : "about:welcome";
+
 add_task(async function privilegedabout_navigation_severs_popup_opener() {
   await BrowserTestUtils.withNewTab(
     "https://example.org/",
@@ -37,7 +42,7 @@ add_task(async function privilegedabout_navigation_severs_popup_opener() {
 
       await BrowserTestUtils.loadURIString({
         browser: popupBrowser,
-        uriString: "about:welcome",
+        uriString: PRIVILEGED_ABOUT_URL,
       });
 
       let newPopupBC = popupBrowser.browsingContext;
@@ -56,7 +61,11 @@ add_task(async function privilegedabout_navigation_severs_popup_opener() {
         );
       });
       await SpecialPowers.spawn(popupBrowser, [], () => {
-        is(content.opener, null, "about:welcome should have no opener");
+        is(
+          content.opener,
+          null,
+          "the privileged about page should have no opener"
+        );
       });
 
       BrowserTestUtils.removeTab(popupTab);

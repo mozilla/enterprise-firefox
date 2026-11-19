@@ -103,7 +103,7 @@ async function activateContextAndWaitFor(selector, where) {
   await closeMethod(openedThing);
 }
 
-add_task(async function test_select_text_link_smartwindow() {
+async function test_select_text_link_smartwindow() {
   await SpecialPowers.pushPrefEnv({
     set: [["browser.smartwindow.enabled", true]],
   });
@@ -116,7 +116,12 @@ add_task(async function test_select_text_link_smartwindow() {
   }
   BrowserTestUtils.removeTab(testTab);
   await SpecialPowers.popPrefEnv();
-});
+}
+// Smart Window is disabled in enterprise builds (bug 2073100).
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  test_select_text_link_smartwindow
+);
 
 add_task(async function test_select_text_link() {
   let testTab = await BrowserTestUtils.openNewForegroundTab(

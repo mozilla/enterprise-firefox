@@ -41,5 +41,6 @@ skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there 
 support-files = ["!/browser/components/profiles/tests/browser/head.js"]
 
 ["browser_sync_device_view_all_tabs_telemetry.js"]
+skip-if = ["enterprise"] # Enterprise Accounts replaces Firefox Accounts; there is no fxa sign-in or signed-out flow.
 
 ["browser_synced_tabs_view.js"]
