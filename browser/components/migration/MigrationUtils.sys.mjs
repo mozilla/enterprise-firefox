@@ -829,6 +829,15 @@ class MigrationUtils {
   };
 
   /**
+   * The date of the oldest history visit imported during the most recent
+   * migration, or null if no visits were imported. Pseudo-private so that
+   * MigratorBase can reset it alongside _importQuantities.
+   *
+   * @type {Date|null}
+   */
+  _oldestImportedVisitDate = null;
+
+  /**
    * The entrypoint passed to showMigrationWizard when it last opened
    * about:preferences, until consumed by consumePendingPreferencesEntrypoint.
    *
@@ -855,6 +864,21 @@ class MigrationUtils {
       );
     }
     return this._importQuantities[type];
+  }
+
+  /**
+   * Returns the number of days of history covered by the most recent
+   * migration, based on the oldest imported visit. Falls back to
+   * HISTORY_MAX_AGE_IN_DAYS if no visits were imported.
+   *
+   * @returns {number}
+   */
+  getImportedHistoryAgeInDays() {
+    if (!this._oldestImportedVisitDate) {
+      return this.HISTORY_MAX_AGE_IN_DAYS;
+    }
+    let ageInMs = Date.now() - this._oldestImportedVisitDate.getTime();
+    return Math.max(1, Math.ceil(ageInMs / (24 * 60 * 60 * 1000)));
   }
 
   insertBookmarkWrapper(bookmark) {
@@ -916,8 +940,17 @@ class MigrationUtils {
         if (visit.date && visit.date > now) {
           visit.date = now;
         }
+
+        if (
+          visit.date &&
+          (!this._oldestImportedVisitDate ||
+            visit.date < this._oldestImportedVisitDate)
+        ) {
+          this._oldestImportedVisitDate = visit.date;
+        }
       }
     }
+
     if (gKeepUndoData) {
       this.#updateHistoryUndo(pageInfos);
     }
@@ -1268,6 +1301,25 @@ class MigrationUtils {
 
   get HISTORY_MAX_AGE_IN_MILLISECONDS() {
     return this.HISTORY_MAX_AGE_IN_DAYS * 24 * 60 * 60 * 1000;
+  }
+
+  /**
+   * Returns the number of visits to import per history URL, read from the
+   * given pref. Places only samples the most recent
+   * places.frecency.pages.numSampledVisits visits for frecency, so importing
+   * more wouldn't change it.
+   *
+   * @param {string} prefName
+   * @returns {number} A value between 1 and numSampledVisits.
+   */
+  getHistoryVisitLimit(prefName) {
+    return Math.max(
+      1,
+      Math.min(
+        Services.prefs.getIntPref(prefName),
+        Services.prefs.getIntPref("places.frecency.pages.numSampledVisits")
+      )
+    );
   }
 
   /**

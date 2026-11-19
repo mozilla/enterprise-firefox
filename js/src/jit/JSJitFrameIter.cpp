@@ -490,16 +490,24 @@ JSJitProfilingFrameIterator::JSJitProfilingFrameIterator(JSContext* cx,
 
   // If nothing matches, for now just assume we are at the start of the last
   // frame's baseline jit code or interpreter code.
+
   type_ = FrameType::BaselineJS;
-  if (frameScript()->hasBaselineScript()) {
-    resumePCinCurrentFrame_ = frameScript()->baselineScript()->method()->raw();
-  } else if (!IsPortableBaselineInterpreterEnabled()) {
+  if (JitScript* jitScript = frameScript()->maybeJitScript()) {
+    if (BaselineScript* baselineScript =
+            jitScript->maybeBaselineScriptForProfiler()) {
+      resumePCinCurrentFrame_ = baselineScript->method()->raw();
+      return;
+    }
+  }
+
+  if (!IsPortableBaselineInterpreterEnabled()) {
     MOZ_ASSERT(IsBaselineInterpreterEnabled());
     resumePCinCurrentFrame_ =
         cx->runtime()->jitRuntime()->baselineInterpreter().codeRaw();
-  } else {
-    resumePCinCurrentFrame_ = nullptr;
+    return;
   }
+
+  resumePCinCurrentFrame_ = nullptr;
 }
 
 template <typename ReturnType = CommonFrameLayout*>
@@ -515,21 +523,25 @@ JSJitProfilingFrameIterator::JSJitProfilingFrameIterator(
 
 bool JSJitProfilingFrameIterator::tryInitWithPC(void* pc) {
   JSScript* callee = frameScript();
+  JitScript* jitScript = callee->jitScript();
 
   // Check for Ion first, since it's more likely for hot code.
-  if (callee->hasIonScript() &&
-      callee->ionScript()->method()->containsNativePC(pc)) {
-    type_ = FrameType::IonJS;
-    resumePCinCurrentFrame_ = pc;
-    return true;
+  if (IonScript* ionScript = jitScript->maybeIonScriptForProfiler()) {
+    if (ionScript->method()->containsNativePC(pc)) {
+      type_ = FrameType::IonJS;
+      resumePCinCurrentFrame_ = pc;
+      return true;
+    }
   }
 
   // Check for containment in Baseline jitcode second.
-  if (callee->hasBaselineScript() &&
-      callee->baselineScript()->method()->containsNativePC(pc)) {
-    type_ = FrameType::BaselineJS;
-    resumePCinCurrentFrame_ = pc;
-    return true;
+  if (BaselineScript* baselineScript =
+          jitScript->maybeBaselineScriptForProfiler()) {
+    if (baselineScript->method()->containsNativePC(pc)) {
+      type_ = FrameType::BaselineJS;
+      resumePCinCurrentFrame_ = pc;
+      return true;
+    }
   }
 
   return false;

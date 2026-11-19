@@ -748,29 +748,24 @@ bool SetArrayLength(JSContext* cx, HandleObject obj, HandleValue value,
                     bool strict) {
   Handle<ArrayObject*> array = obj.as<ArrayObject>();
 
-  RootedId id(cx, NameToId(cx->names().length));
   ObjectOpResult result;
 
   // SetArrayLength is called by IC stubs for SetProp and SetElem on arrays'
   // "length" property.
   //
-  // ArraySetLength below coerces |value| before checking for length being
-  // writable, and in the case of illegal values, will throw RangeError even
-  // when "length" is not writable. This is incorrect observable behavior,
-  // as a regular [[Set]] operation will check for "length" being
-  // writable before attempting any assignment.
-  //
-  // So, perform ArraySetLength if and only if "length" is writable.
+  // ArrayLengthSetter must only be called if "length" is writable. This check
+  // must also happen before |value| is coerced: a regular [[Set]] on a
+  // non-writable "length" fails without throwing a RangeError for invalid
+  // length values.
   if (array->lengthIsWritable()) {
-    Rooted<PropertyDescriptor> desc(
-        cx, PropertyDescriptor::Data(value, JS::PropertyAttribute::Writable));
-    if (!ArraySetLength(cx, array, id, desc, result)) {
+    if (!ArrayLengthSetter(cx, array, value, result)) {
       return false;
     }
   } else {
     MOZ_ALWAYS_TRUE(result.fail(JSMSG_READ_ONLY));
   }
 
+  RootedId id(cx, NameToId(cx->names().length));
   return result.checkStrictModeError(cx, obj, id, strict);
 }
 
@@ -1213,6 +1208,15 @@ JSObject* CreateGenerator(JSContext* cx, HandleFunction callee,
       cx, args ? &args->as<ArgumentsObject>() : nullptr);
   return AbstractGeneratorObject::create(cx, callee, script, environmentChain,
                                          argsObj);
+}
+
+bool ResumeGeneratorFromJit(JSContext* cx, HandleObject obj, HandleValue value,
+                            int32_t resumeKind, MutableHandleValue rval) {
+  Rooted<AbstractGeneratorObject*> genObj(cx,
+                                          &obj->as<AbstractGeneratorObject>());
+  AutoRealm ar(cx, genObj);
+  return js::ResumeGenerator(cx, genObj, value, IntToResumeKind(resumeKind),
+                             rval);
 }
 
 bool NormalSuspend(JSContext* cx, HandleObject obj, BaselineFrame* frame,
@@ -1845,42 +1849,53 @@ static MOZ_ALWAYS_INLINE bool MaybeGetNativePropertyAndWriteToCache(
   }
 }
 
+// Handles a get from a valid cache entry that isn't a MissingOwnProperty entry.
+// Returns false for accessor properties, which can't be called here.
+static MOZ_ALWAYS_INLINE bool GetNativeDataPropertyFromCacheEntry(
+    NativeObject* nobj, const MegamorphicCacheEntry& entry, Value* vp) {
+  MOZ_ASSERT(!entry.isMissingOwnProperty());
+  if (entry.isDataProperty()) {
+    for (size_t i = 0, numHops = entry.numHops(); i < numHops; i++) {
+      nobj = &nobj->staticPrototype()->as<NativeObject>();
+    }
+    uint32_t offset = entry.slotOffset().offset();
+    if (entry.slotOffset().isFixedSlot()) {
+      size_t index = NativeObject::getFixedSlotIndexFromOffset(offset);
+      *vp = nobj->getFixedSlot(index);
+    } else {
+      size_t index = NativeObject::getDynamicSlotIndexFromOffset(offset);
+      *vp = nobj->getDynamicSlot(index);
+    }
+    return true;
+  }
+  if (entry.isMissingProperty()) {
+    vp->setUndefined();
+    return true;
+  }
+  MOZ_ASSERT(entry.isAccessorProperty());
+  return false;
+}
+
+// Like GetNativeDataPropertyPure, but for callers that haven't looked up the
+// megamorphic cache entry themselves: IC stubs on x86, which don't have enough
+// registers to do it, and the portable baseline interpreter. Uses the entry if
+// it's valid, and otherwise does the full lookup and caches the result where it
+// can.
 bool GetNativeDataPropertyPureWithCacheLookup(JSContext* cx, JSObject* obj,
                                               PropertyKey key,
                                               MegamorphicCacheEntry* entry,
                                               Value* vp) {
   AutoUnsafeCallWithABI unsafe;
 
-  // If we're on x86, we didn't have enough registers to populate this
-  // directly in Baseline JITted code, so we do the lookup here.
   Shape* receiverShape = obj->shape();
   MegamorphicCache& cache = cx->caches().megamorphicCache;
 
   if (cache.lookup(receiverShape, key, &entry)) {
     NativeObject* nobj = &obj->as<NativeObject>();
     VerifyCacheEntry(cx, nobj, key, *entry);
-    if (entry->isDataProperty()) {
-      for (size_t i = 0, numHops = entry->numHops(); i < numHops; i++) {
-        nobj = &nobj->staticPrototype()->as<NativeObject>();
-      }
-      uint32_t offset = entry->slotOffset().offset();
-      if (entry->slotOffset().isFixedSlot()) {
-        size_t index = NativeObject::getFixedSlotIndexFromOffset(offset);
-        *vp = nobj->getFixedSlot(index);
-      } else {
-        size_t index = NativeObject::getDynamicSlotIndexFromOffset(offset);
-        *vp = nobj->getDynamicSlot(index);
-      }
-      return true;
+    if (!entry->isMissingOwnProperty()) {
+      return GetNativeDataPropertyFromCacheEntry(nobj, *entry, vp);
     }
-    if (entry->isMissingProperty()) {
-      vp->setUndefined();
-      return true;
-    }
-    if (entry->isAccessorProperty()) {
-      return false;
-    }
-    MOZ_ASSERT(entry->isMissingOwnProperty());
   }
 
   return MaybeGetNativePropertyAndWriteToCache<NoGC>(cx, obj, key, entry, vp);
@@ -1988,11 +2003,18 @@ bool GetNativeDataPropertyByValuePure(JSContext* cx, JSObject* obj,
 
   Shape* receiverShape = obj->shape();
   MegamorphicCache& cache = cx->caches().megamorphicCache;
+  Value* res = vp + 1;
   if (!entry) {
-    cache.lookup(receiverShape, key, &entry);
+    // The JIT couldn't atomize the key inline, so it didn't probe the cache.
+    if (cache.lookup(receiverShape, key, &entry)) {
+      NativeObject* nobj = &obj->as<NativeObject>();
+      VerifyCacheEntry(cx, nobj, key, *entry);
+      if (!entry->isMissingOwnProperty()) {
+        return GetNativeDataPropertyFromCacheEntry(nobj, *entry, res);
+      }
+    }
   }
 
-  Value* res = vp + 1;
   return MaybeGetNativePropertyAndWriteToCache<NoGC>(cx, obj, key, entry, res);
 }
 

@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +26,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +37,10 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CollectionInfo
+import androidx.compose.ui.semantics.collectionInfo
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -49,6 +57,8 @@ import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.DROP_AR
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.HIDDEN_SECTIONS
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.RESET_BUTTON
 import mozilla.components.compose.menu.ui.utils.customizeMenuPreviewData
+import mozilla.components.compose.menu.ui.utils.ext.saveMove
+import mozilla.components.compose.menu.ui.utils.rememberA11yUpdatesAnnouncer
 import mozilla.components.lib.state.ext.observeAsComposableState
 
 /**
@@ -98,9 +108,21 @@ private fun CustomizeMenuList(
     val listState = rememberLazyListState()
     val dragState = rememberCustomizeMenuDragState(store, menuState, listState)
     val itemSpacing = AcornTheme.layout.space.static150
+    val announcer = rememberA11yUpdatesAnnouncer()
+    var actionsGroupId by rememberSaveable { mutableStateOf<String?>(null) }
+    val onMove = { movedGroupId: String, movedGroups: CustomizeMenuGroups, moveAnnouncement: String ->
+        movedGroups.listIndexOf(movedGroupId)?.let { listState.moveAndKeepVisible(movedGroupId, it) }
+        store.saveMove(dragState.groups, movedGroupId, movedGroups)
+        announcer.announce(moveAnnouncement)
+    }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().onGloballyPositioned(dragState.interactionState::updateListLayoutCoordinates),
+        modifier =
+            Modifier.fillMaxSize()
+                .onGloballyPositioned(dragState.interactionState::updateListLayoutCoordinates)
+                // Not all items are menu sections so avoid having them all counted and read to the user.
+                // Each section tells separately of its position among the shown ones.
+                .semantics { collectionInfo = CollectionInfo(rowCount = -1, columnCount = 1) },
         state = listState,
         userScrollEnabled = !dragState.isDragging,
         contentPadding =
@@ -120,25 +142,17 @@ private fun CustomizeMenuList(
             dragState = dragState,
             firstIndex = 1,
             itemSpacing = itemSpacing,
+            onMove = onMove,
+            highlightedGroupId = actionsGroupId,
+            onShowActions = { actionsGroupId = it },
         )
 
         item(key = HIDDEN_SECTIONS) {
-            CustomizeMenuHiddenSectionsTitle(
-                modifier =
-                    Modifier.animateItem()
-                        .padding(top = itemSpacing)
-                        .dropLine(HIDDEN_SECTIONS, dragState.dropTarget, itemSpacing)
-            )
+            HiddenSectionsItem(dragState = dragState, itemSpacing = itemSpacing)
         }
 
         if (!dragState.hasHiddenGroups) {
-            item(key = DROP_AREA) {
-                val isDropTarget by
-                    remember(dragState.dropTarget) {
-                        derivedStateOf { dragState.dropTarget.value == CustomizeMenuDropTarget.EmptyHiddenArea }
-                    }
-                CustomizeMenuDropArea(isDropTarget = isDropTarget, modifier = Modifier.animateItem())
-            }
+            item(key = DROP_AREA) { DropAreaItem(dragState = dragState) }
         }
 
         customizeMenuGroups(
@@ -146,18 +160,72 @@ private fun CustomizeMenuList(
             dragState = dragState,
             firstIndex = dragState.firstHiddenIndex,
             itemSpacing = itemSpacing,
+            onMove = onMove,
+            highlightedGroupId = actionsGroupId,
+            onShowActions = { actionsGroupId = it },
             isHidden = true,
         )
 
         if (menuState.isCustomized) {
             item(key = RESET_BUTTON) {
-                CustomizeMenuResetButton(
+                ResetButtonItem(
+                    dragState = dragState,
+                    itemSpacing = itemSpacing,
                     onClick = { store.dispatch(ResetToDefaultClicked) },
-                    modifier = Modifier.animateItem().padding(top = itemSpacing),
                 )
             }
         }
     }
+
+    CustomizeMenuSectionActionsSheetOf(
+        groupId = actionsGroupId,
+        groups = dragState.groups,
+        onMove = onMove,
+        onDismissRequest = { actionsGroupId = null },
+    )
+
+    // Drawn over the list, important to be the last element here.
+    // Will allow for accessibility services to be told of its updates, which they aren't if it is covered.
+    announcer.LiveRegion()
+}
+
+/**
+ * Bottom sheet with the actions moving the group with [groupId], shown only while [groups] has it.
+ *
+ * @param groupId Id of the group, if any.
+ * @param groups The shown and the hidden groups.
+ * @param onMove Called with the id of the group, the moved groups and the announcement of the chosen action.
+ * @param onDismissRequest Called when the sheet is hidden, to stop showing it.
+ */
+@Composable
+private fun CustomizeMenuSectionActionsSheetOf(
+    groupId: String?,
+    groups: CustomizeMenuGroups,
+    onMove: (movedGroupId: String, movedGroups: CustomizeMenuGroups, announcement: String) -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    val group = (groups.shown + groups.hidden).firstOrNull { it.id == groupId } ?: return
+    CustomizeMenuSectionActionsSheet(
+        actions = customizeMenuSectionActions(group, groups),
+        onAction = { movedGroups, announcement -> onMove(group.id, movedGroups, announcement) },
+        onDismissRequest = onDismissRequest,
+    )
+}
+
+/**
+ * Keep the item with [key] where it is in view, or bring it into view, once it moves to [index] in the list, for it to
+ * stay laid out and keep the focus of accessibility services.
+ */
+private fun LazyListState.moveAndKeepVisible(key: Any, index: Int) {
+    val layout = layoutInfo
+    val item = layout.visibleItemsInfo.firstOrNull { it.key == key }
+    if (item == null) {
+        requestScrollToItem(index)
+        return
+    }
+    val lastFullyVisibleOffset = (layout.viewportEndOffset - item.size).coerceAtLeast(layout.viewportStartOffset)
+    val offset = item.offset.coerceIn(layout.viewportStartOffset, lastFullyVisibleOffset)
+    requestScrollToItem(index, scrollOffset = -offset)
 }
 
 @Composable
@@ -204,7 +272,7 @@ private fun CustomizeMenuDragBar(
     ) {
         Text(
             text = stringResource(R.string.mozac_menu_customize_drag_to_reorder),
-            modifier = Modifier.weight(1f).basicMarquee(),
+            modifier = Modifier.weight(1f).basicMarquee().semantics { heading() },
             style = AcornTheme.typography.headline8,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -216,12 +284,68 @@ private fun CustomizeMenuDragBar(
     }
 }
 
+/**
+ * The [HIDDEN_SECTIONS] item of the list: the space keeping the hidden sections in place while a shown group is
+ * dragged, then their title, each a node of the item of its own (see [HiddenAreaSpace]).
+ *
+ * @param dragState State of dragging the groups of the screen.
+ * @param itemSpacing Space between the items of the list.
+ */
+@Composable
+private fun LazyItemScope.HiddenSectionsItem(dragState: CustomizeMenuDragState, itemSpacing: Dp) {
+    HiddenAreaSpace(
+        dragState = dragState,
+        itemSpacing = itemSpacing,
+        modifier = Modifier.drawnOnlyInView(HIDDEN_SECTIONS, dragState).animateItem(),
+    )
+    CustomizeMenuHiddenSectionsTitle(
+        modifier =
+            Modifier.drawnOnlyInView(HIDDEN_SECTIONS, dragState)
+                .animateItem()
+                .padding(top = itemSpacing)
+                .dropLine(HIDDEN_SECTIONS, dragState.dropTarget, itemSpacing, placeAfter = true)
+    )
+}
+
+/**
+ * The [DROP_AREA] item of the list, where shown groups are dropped to hide them while none is hidden.
+ *
+ * @param dragState State of dragging the groups of the screen.
+ */
+@Composable
+private fun LazyItemScope.DropAreaItem(dragState: CustomizeMenuDragState) {
+    val isDropTarget by
+        remember(dragState.dropTarget) {
+            derivedStateOf { dragState.dropTarget.value == CustomizeMenuDropTarget.EmptyHiddenArea }
+        }
+    CustomizeMenuDropArea(
+        isDropTarget = isDropTarget,
+        modifier = Modifier.drawnOnlyInView(DROP_AREA, dragState).animateItem(),
+    )
+}
+
+/**
+ * The [RESET_BUTTON] item of the list.
+ *
+ * @param dragState State of dragging the groups of the screen.
+ * @param itemSpacing Space between the items of the list.
+ * @param onClick Called when the button is clicked.
+ */
+@Composable
+private fun LazyItemScope.ResetButtonItem(dragState: CustomizeMenuDragState, itemSpacing: Dp, onClick: () -> Unit) {
+    CustomizeMenuResetButton(
+        onClick = onClick,
+        modifier = Modifier.drawnOnlyInView(RESET_BUTTON, dragState).animateItem().padding(top = itemSpacing),
+    )
+}
+
 @Composable
 private fun CustomizeMenuHiddenSectionsTitle(modifier: Modifier = Modifier) {
     Text(
         text = stringResource(R.string.mozac_menu_customize_hidden_sections),
         modifier =
             modifier
+                .semantics { heading() }
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = AcornTheme.layout.space.static600)
                 .padding(

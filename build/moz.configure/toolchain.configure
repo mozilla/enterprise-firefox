@@ -2512,7 +2512,7 @@ def depend_cflags(host_or_target_c_compiler):
     @depends(host_or_target_c_compiler)
     def depend_cflags(host_or_target_c_compiler):
         if host_or_target_c_compiler.type != "clang-cl":
-            return ["-MD", "-MP", "-MF $(MDDEPDIR)/$(@F).pp"]
+            return ["-MD", "-MP", "-MF", "{depfile}"]
         else:
             # clang-cl doesn't accept the normal -MD -MP -MF options that clang
             # does, but the underlying cc1 binary understands how to generate
@@ -2525,18 +2525,18 @@ def depend_cflags(host_or_target_c_compiler):
                 "-Xclang",
                 "-dependency-file",
                 "-Xclang",
-                "$(MDDEPDIR)/$(@F).pp",
+                "{depfile}",
                 "-Xclang",
                 "-MT",
                 "-Xclang",
-                "$@",
+                "{target}",
             ]
 
     return depend_cflags
 
 
-set_config("_DEPEND_CFLAGS", depend_cflags(c_compiler))
-set_config("_HOST_DEPEND_CFLAGS", depend_cflags(host_c_compiler))
+set_config("DEPEND_CFLAGS", depend_cflags(c_compiler))
+set_config("HOST_DEPEND_CFLAGS", depend_cflags(host_c_compiler))
 
 
 @depends(c_compiler)
@@ -3712,7 +3712,7 @@ def ar_config(c_compiler, toolchain_prefix=None):
         if c_compiler.type == "clang-cl":
             return namespace(
                 names=("llvm-lib",),
-                flags=("-llvmlibthin", "-out:$@") + extra_ar_flags,
+                flags=("-llvmlibthin", "-out:{target}") + extra_ar_flags,
             )
 
         names = tuple("%s%s" % (p, "ar") for p in (toolchain_prefix or ()) + ("",))
@@ -3729,7 +3729,7 @@ def ar_config(c_compiler, toolchain_prefix=None):
 
         return namespace(
             names=names,
-            flags=("crs",) + extra_ar_flags + ("$@",),
+            flags=("crs",) + extra_ar_flags + ("{target}",),
         )
 
     return ar_config
@@ -3776,7 +3776,7 @@ def ar_supports_response_files(c_compiler, extra_toolchain_flags, ar, ar_config)
                     os.remove(lib_path)
                     ar_command = (
                         [ar]
-                        + [x.replace("$@", lib_path) for x in ar_config.flags]
+                        + [x.replace("{target}", lib_path) for x in ar_config.flags]
                         + ["@" + list_path]
                     )
                     result = check_cmd_output(*ar_command, onerror=lambda: None)

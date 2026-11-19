@@ -10,6 +10,8 @@
 ChromeUtils.defineESModuleGetters(this, {
   AIWindow:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  AIWindowToolbarButtons:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowToolbarButtons.sys.mjs",
   AIWindowUI:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
   AIWindowTestUtils: "resource://testing-common/AIWindowTestUtils.sys.mjs",
@@ -324,6 +326,88 @@ const MOCK_RS_RECORDS = [
       version: "1.0",
     },
   ]);
+
+// Auto's chat record, routing to an existing model choice like the real one.
+const MOCK_AUTO_RS_RECORD = (() => {
+  const {
+    AUTO_MODEL_CHOICE_ID,
+    FALLBACK_MODELS,
+    FEATURE_MAJOR_VERSIONS,
+    MODEL_FEATURES,
+  } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
+  );
+  return {
+    kind: "params",
+    feature: MODEL_FEATURES.CHAT,
+    model: "auto",
+    inference_model: FALLBACK_MODELS[1].model,
+    model_details: FALLBACK_MODELS[1],
+    model_choice_id: AUTO_MODEL_CHOICE_ID,
+    service_type: "ai",
+    purpose: "chat",
+    parameters: {},
+    version: `v${FEATURE_MAJOR_VERSIONS[MODEL_FEATURES.CHAT]}.0`,
+  };
+})();
+
+const AUTO_MODEL_PREF = "browser.smartwindow.firstrun.singlePageWithAutoModel";
+
+/**
+ * Opens a Smart Window with a model choice and the auto model’s routing record
+ * in Remote Settings.
+ *
+ * @param {object} options
+ * @param {boolean} [options.enabled] - Value of the auto model pref
+ * @param {string} [options.modelChoice] - Default model choice
+ * @param {?object} [options.autoRecord] - The auto model’s routing record in
+ *   Remote Settings, or null for none
+ * @param {(fixture: {win: Window, browser: MozBrowser, engineManager: MockEngineManager}) => Promise<void>} task
+ */
+async function withModelChoiceWindow(
+  {
+    enabled = true,
+    modelChoice = Services.prefs.getStringPref(
+      "browser.smartwindow.firstrun.modelChoice",
+      ""
+    ),
+    autoRecord = MOCK_AUTO_RS_RECORD,
+  },
+  task
+) {
+  const { _clearModelsDataCacheForTesting } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
+  );
+  const { MockEngineManager } = ChromeUtils.importESModule(
+    "resource://testing-common/AIWindowTestUtils.sys.mjs"
+  );
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [AUTO_MODEL_PREF, enabled],
+      ["browser.smartwindow.firstrun.modelChoice", modelChoice],
+    ],
+  });
+  const engineManager = new MockEngineManager();
+  let win;
+  try {
+    _setRemoteClientForTesting({
+      get: async () =>
+        autoRecord ? [...MOCK_RS_RECORDS, autoRecord] : MOCK_RS_RECORDS,
+    });
+    _clearModelsDataCacheForTesting();
+    win = await openAIWindow();
+    await task({ win, browser: win.gBrowser.selectedBrowser, engineManager });
+  } finally {
+    if (win) {
+      await BrowserTestUtils.closeWindow(win);
+    }
+    await engineManager.rejectAllRequests();
+    engineManager.cleanupMocks();
+    _setRemoteClientForTesting({ get: async () => MOCK_RS_RECORDS });
+    _clearModelsDataCacheForTesting();
+    await SpecialPowers.popPrefEnv();
+  }
+}
 
 add_setup(async function () {
   if (parseInt(Services.env.get("MOZ_CHAOSMODE"), 16)) {
@@ -645,9 +729,17 @@ async function stubResumeActivityGenerationPool(sb, memoryCount) {
     url: `https://example.com/pool-${i}`,
     title: `Example ${i}`,
   }));
+  // Memory `i` is `i` days old with `i` component summaries, so suggestions
+  // keep pool order and each card's telemetry is predictable.
   const memories = urls.map((page, i) => ({
     id: `pool-memory-${i}`,
     memory_summary: `Research topic ${i}`,
+    strength: i * 4.25,
+    created_at: Date.now() - i * 24 * 60 * 60 * 1000,
+    component_summaries: Array.from({ length: i }, () => ({
+      memory_summary: "Merged topic",
+      reasoning: "Merged",
+    })),
     sensitivity_category: MEMORY_SENSITIVITY_CATEGORY_NOT_SENSITIVE,
     source_ids: {
       history_source_ids: [PlacesUtils.history.hashURL(page.url)],
@@ -1553,14 +1645,10 @@ async function switchSmartbarModel(browser, modelChoiceId) {
     );
     const modelSelect = smartbar.querySelector("input-model-select");
     const triggerButton = modelSelect.shadowRoot.querySelector("moz-button");
-    triggerButton.click();
-
     const panelList = modelSelect.shadowRoot.querySelector("panel-list");
-    await ContentTaskUtils.waitForMutationCondition(
-      panelList,
-      { attributes: true },
-      () => panelList.hasAttribute("open")
-    );
+    const shown = ContentTaskUtils.waitForEvent(panelList, "shown");
+    triggerButton.click();
+    await shown;
 
     const { getModelDisplayOrder } = ChromeUtils.importESModule(
       "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
@@ -1867,5 +1955,22 @@ async function getUserMessageChipTypes(browser, messageIndex) {
     );
     const { websites } = chipContainer().wrappedJSObject;
     return websites.map(website => website.type);
+  });
+}
+
+/**
+ * Waits for the expected model in the smartbar model select.
+ *
+ * @param {MozBrowser} browser - The browser element
+ * @param {string} expectedModel - The expected model name
+ */
+async function waitForSelectedModel(browser, expectedModel) {
+  await SpecialPowers.spawn(browser, [expectedModel], async expected => {
+    const aiWindowElement = content.document.querySelector("ai-window");
+    await ContentTaskUtils.waitForMutationCondition(
+      aiWindowElement,
+      { attributes: true },
+      () => aiWindowElement.selectedModelId === expected
+    );
   });
 }

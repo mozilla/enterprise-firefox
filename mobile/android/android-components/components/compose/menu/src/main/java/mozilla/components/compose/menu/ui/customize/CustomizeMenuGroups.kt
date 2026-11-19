@@ -35,6 +35,17 @@ internal data class CustomizeMenuGroups(
         get() = 1 + shown.size
 
     /**
+     * Index in the list of the group with [id], or `null` if there is none. A hidden group is right below the hidden
+     * sections title, as the area to drag groups into to hide them is shown only when no group is hidden.
+     */
+    fun listIndexOf(id: String): Int? {
+        val shownIndex = shown.indexOfFirst { it.id == id }
+        if (shownIndex != -1) return 1 + shownIndex
+        val hiddenIndex = hidden.indexOfFirst { it.id == id }
+        return if (hiddenIndex == -1) null else hiddenSectionsIndex + 1 + hiddenIndex
+    }
+
+    /**
      * Move a group next to another group, or to either side of [CustomizeMenuItemKey.HIDDEN_SECTIONS] to show it last
      * or hide it first. Mandatory groups cannot be hidden.
      *
@@ -64,6 +75,35 @@ internal data class CustomizeMenuGroups(
 
             else -> this
         }
+    }
+
+    /** Move the shown group with [id] above the shown group before it, or `null` if it is not shown or shown first. */
+    fun moveUp(id: String): CustomizeMenuGroups? {
+        val index = shown.indexOfFirst { it.id == id }
+        if (index < 1) return null
+        return moveGroup(id, shown[index - 1].id, placeAfter = false)
+    }
+
+    /** Move the shown group with [id] below the shown group after it, or `null` if it is not shown or shown last. */
+    fun moveDown(id: String): CustomizeMenuGroups? {
+        val index = shown.indexOfFirst { it.id == id }
+        if (index == -1 || index == shown.lastIndex) return null
+        return moveGroup(id, shown[index + 1].id, placeAfter = true)
+    }
+
+    /**
+     * Hide the shown group with [id] first among the hidden groups, or `null` if it is not shown or cannot be removed
+     * from the menu.
+     */
+    fun moveToHidden(id: String): CustomizeMenuGroups? {
+        if (shown.none { it.id == id } || id in mandatoryIds) return null
+        return moveGroup(id, CustomizeMenuItemKey.HIDDEN_SECTIONS, placeAfter = true)
+    }
+
+    /** Show the hidden group with [id] last among the shown groups, or `null` if it is not hidden. */
+    fun moveToShown(id: String): CustomizeMenuGroups? {
+        if (hidden.none { it.id == id }) return null
+        return moveGroup(id, CustomizeMenuItemKey.HIDDEN_SECTIONS, placeAfter = false)
     }
 }
 

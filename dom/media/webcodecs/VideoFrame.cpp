@@ -1037,8 +1037,8 @@ static Result<RefPtr<VideoFrame>, MediaResult> CreateVideoFrameFromBuffer(
 
   const Sequence<PlaneLayout>* optLayout = OptionalToPointer(aInit.mLayout);
 
-  CombinedBufferLayout combinedLayout =
-      MOZ_TRY(ComputeLayoutAndAllocationSize(parsedRect, format, optLayout));
+  CombinedBufferLayout combinedLayout = MOZ_TRY(ComputeLayoutAndAllocationSize(
+      gfx::IntRect({0, 0}, codedSize), format, optLayout));
 
   Maybe<uint64_t> duration = OptionalToMaybe(aInit.mDuration);
 
@@ -1050,15 +1050,6 @@ static Result<RefPtr<VideoFrame>, MediaResult> CreateVideoFrameFromBuffer(
           -> Result<RefPtr<layers::Image>, MediaResult> {
         if (aData.Length() <
             static_cast<size_t>(combinedLayout.mAllocationSize)) {
-          return Err(MediaResult(NS_ERROR_INVALID_ARG, "data is too small"_ns));
-        }
-
-        // TODO: If codedSize is (3, 3) and visibleRect is (0, 0, 1, 1) but
-        // the data is 2 x 2 RGBA buffer (2 x 2 x 4 bytes), it pass the
-        // above check. In this case, we can crop it to a 1 x 1-codedSize
-        // image (Bug 1782128).
-        size_t byteCount = MOZ_TRY(format.ByteCount(codedSize));
-        if (aData.Length() < byteCount) {
           return Err(MediaResult(NS_ERROR_INVALID_ARG, "data is too small"_ns));
         }
 
@@ -1727,18 +1718,27 @@ already_AddRefed<VideoFrame> VideoFrame::Constructor(
   }
 
   // Check the usability.
-  UniquePtr<ImageBitmapCloneData> data = aImageBitmap.ToCloneData();
-  if (!data || !data->mSurface) {
-    aRv.ThrowInvalidStateError(
-        "The ImageBitmap is closed or its surface acquisition failed");
+  if (aImageBitmap.IsClosed()) {
+    aRv.ThrowInvalidStateError("The ImageBitmap is closed");
     return nullptr;
   }
 
+  SurfaceFromElementResult res = nsLayoutUtils::SurfaceFromImageBitmap(
+      &aImageBitmap, nsLayoutUtils::SFE_ALLOW_NON_PREMULT);
+  RefPtr<gfx::SourceSurface> surface = res.GetSourceSurface();
+  RefPtr<gfx::DataSourceSurface> dataSurface =
+      surface ? surface->GetDataSurface() : nullptr;
+
   // If the origin of the ImageBitmap's image data is not same origin with the
   // entry settings object's origin, then throw a SecurityError DOMException.
-  if (data->mWriteOnly) {
+  if (res.mIsWriteOnly) {
     // Being write-only implies its image is cross-origin w/out CORS headers.
     aRv.ThrowSecurityError("The ImageBitmap is not same-origin");
+    return nullptr;
+  }
+
+  if (NS_WARN_IF(!dataSurface)) {
+    aRv.ThrowInvalidStateError("The ImageBitmap's surface acquisition failed");
     return nullptr;
   }
 
@@ -1748,7 +1748,7 @@ already_AddRefed<VideoFrame> VideoFrame::Constructor(
   }
 
   RefPtr<layers::SourceSurfaceImage> image =
-      new layers::SourceSurfaceImage(data->mSurface.get());
+      new layers::SourceSurfaceImage(dataSurface.get());
   // TODO: Take care of data->mAlphaType
   auto r = InitializeFrameWithResourceAndSize(global, aInit, image.forget());
   if (r.isErr()) {

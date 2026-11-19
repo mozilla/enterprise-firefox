@@ -41,6 +41,10 @@ import mozilla.components.ui.icons.R as iconsR
  * @param firstIndex Index in the list of the first of these groups.
  * @param itemSpacing Space between the items of the list. It is added above each group, not by the list, for a dragged
  *   group, which takes no space, to not leave more of it between the groups around it.
+ * @param onMove Called when the custom action of an accessibility service moves a group, with its id and the groups as
+ *   moved, to save them, and what to tell the user about the move.
+ * @param highlightedGroupId Id of the group to highlight, as the one the open actions sheet acts on, if any.
+ * @param onShowActions Called with the id of a group when the user long presses its drag handle, to show its actions.
  * @param isHidden Whether these groups were removed from the menu.
  */
 internal fun LazyListScope.customizeMenuGroups(
@@ -48,6 +52,9 @@ internal fun LazyListScope.customizeMenuGroups(
     dragState: CustomizeMenuDragState,
     firstIndex: Int,
     itemSpacing: Dp,
+    onMove: (movedGroupId: String, movedGroups: CustomizeMenuGroups, announcement: String) -> Unit,
+    highlightedGroupId: String?,
+    onShowActions: (groupId: String) -> Unit,
     isHidden: Boolean = false,
 ) {
     val interactionState = dragState.interactionState
@@ -62,16 +69,22 @@ internal fun LazyListScope.customizeMenuGroups(
             key = group.id,
             position = firstIndex + index,
             modifier =
-                Modifier.groupPlacement(
-                    isDragged = isDragged,
-                    dropTarget = dragState.dropTarget,
-                    itemSpacing = itemSpacing,
-                ),
+                Modifier.drawnOnlyInView(group.id, dragState)
+                    .groupPlacement(
+                        isDragged = isDragged,
+                        dropTarget = dragState.dropTarget,
+                        itemSpacing = itemSpacing,
+                    ),
         ) {
             CustomizeMenuGroupContent(
                 group = group,
                 modifier =
-                    Modifier.padding(top = itemSpacing)
+                    Modifier.customizeMenuGroupSemantics(
+                            group = group,
+                            groups = dragState.groups,
+                            onMove = { movedGroups, announcement -> onMove(group.id, movedGroups, announcement) },
+                        )
+                        .padding(top = itemSpacing)
                         .dropLine(group.id, dragState.dropTarget, itemSpacing)
                         .alpha(if (isDragged) DRAGGED_GROUP_ALPHA else 1f)
                         .padding(
@@ -80,6 +93,8 @@ internal fun LazyListScope.customizeMenuGroups(
                         ),
                 state = dragState.groups.stateOf(group, isDragged = isDragged, isHidden = isHidden),
                 dragState = dragState,
+                isHighlighted = group.id == highlightedGroupId,
+                onDragHandleLongPress = { onShowActions(group.id) },
             )
         }
     }
@@ -169,6 +184,9 @@ private fun CustomizeMenuPreview() {
                     dragState = dragState,
                     firstIndex = 0,
                     itemSpacing = 0.dp,
+                    onMove = { _, _, _ -> },
+                    highlightedGroupId = null,
+                    onShowActions = {},
                 )
             }
         }

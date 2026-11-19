@@ -323,6 +323,9 @@ function createServer(markup, code) {
  *   real progress and then a partial-transfer error, rather than a short file.
  *   Must be a positive multiple of 16384 below the body length; setFile throws
  *   otherwise rather than rounding to a different interruption point.
+ * @property {number} [pauseAfterBytes] - Send only this many bytes, then hold
+ *   the connection open until resumeAfterPause() is called. Cannot be
+ *   combined with failAfterBytes.
  */
 
 /**
@@ -332,6 +335,8 @@ function createServer(markup, code) {
  * @property {number} failTimes
  * @property {number} failStatus
  * @property {?number} failAfterBytes
+ * @property {?number} pauseAfterBytes
+ * @property {?PromiseWithResolvers<void>} pauseGate
  * @property {number} attempts - Drives `failTimes`. Assertions should use
  *   requestCount() instead, which counts 404s and survives removeFile().
  */
@@ -992,7 +997,10 @@ export const MLTestUtils = {
    */
   createMockModelHub() {
     const urlTemplate = "{model}/resolve/{revision}";
-    const streamChunkSize = 16 * 1024;
+
+    // The granularity at which an interrupted body is streamed, and therefore
+    // the granularity failAfterBytes is validated against.
+    const interruptChunkSize = 16 * 1024;
 
     const server = new HttpServer();
     server.start(-1);
@@ -1046,14 +1054,23 @@ export const MLTestUtils = {
 
       const isHead = request.method === "HEAD";
       const failAfterBytes = isHead ? null : entry.failAfterBytes;
+      const pauseAfterBytes = isHead ? null : entry.pauseAfterBytes;
+      const interrupted = failAfterBytes !== null;
+      const paused = pauseAfterBytes !== null;
 
-      // Bodies are always streamed asynchronously in explicit chunks below,
-      // so httpd.js can't compute Content-Length from a synchronous write.
-      response.processAsync();
+      // httpd.js overwrites Content-Length with the real body length on any
+      // non-async response, so the cases that need a Content-Length which
+      // disagrees with the body have to go through processAsync.
+      if (isHead || interrupted || paused) {
+        response.processAsync();
+      }
 
       response.setStatusLine(request.httpVersion, 200, "");
       response.setHeader("ETag", entry.etag);
-      response.setHeader("Content-Length", String(entry.bytes.length));
+
+      if (isHead || interrupted || paused) {
+        response.setHeader("Content-Length", String(entry.bytes.length));
+      }
 
       /** @param {Uint8Array} chunk */
       const write = chunk => {
@@ -1076,19 +1093,39 @@ export const MLTestUtils = {
         return;
       }
 
-      const limit = failAfterBytes ?? entry.bytes.length;
-      let offset = 0;
-      const pump = () => {
-        if (offset === limit) {
-          response.finish();
-          return;
-        }
-        const end = Math.min(offset + streamChunkSize, limit);
-        write(entry.bytes.subarray(offset, end));
-        offset = end;
-        setTimeout(pump, 0);
-      };
-      pump();
+      if (interrupted) {
+        let offset = 0;
+        const pump = () => {
+          if (offset === failAfterBytes) {
+            response.finish();
+            return;
+          }
+          const end = offset + interruptChunkSize;
+          write(entry.bytes.subarray(offset, end));
+          offset = end;
+          setTimeout(pump, 0);
+        };
+        pump();
+        return;
+      }
+
+      if (paused) {
+        write(entry.bytes.subarray(0, pauseAfterBytes));
+        entry.pauseGate ??= Promise.withResolvers();
+        entry.pauseGate.promise.then(() => {
+          // An aborted client may already be gone by the time this resumes, so wrap
+          // everything in try/catch blocks.
+          try {
+            write(entry.bytes.subarray(pauseAfterBytes));
+          } catch {}
+          try {
+            response.finish();
+          } catch {}
+        });
+        return;
+      }
+
+      write(entry.bytes);
     };
 
     server.registerPrefixHandler("/", handler);
@@ -1117,6 +1154,7 @@ export const MLTestUtils = {
           failTimes = 0,
           failStatus = 500,
           failAfterBytes = null,
+          pauseAfterBytes = null,
         } = spec;
 
         // Checked by typeof rather than `instanceof Uint8Array`, which is false
@@ -1130,12 +1168,26 @@ export const MLTestUtils = {
           failAfterBytes !== null &&
           (failAfterBytes <= 0 ||
             failAfterBytes >= bytes.length ||
-            failAfterBytes % streamChunkSize !== 0)
+            failAfterBytes % interruptChunkSize !== 0)
         ) {
           throw new Error(
-            `failAfterBytes must be a positive multiple of ${streamChunkSize} ` +
+            `failAfterBytes must be a positive multiple of ${interruptChunkSize} ` +
               `below the ${bytes.length}-byte body, so the interruption point is ` +
               `exact. Got ${failAfterBytes}.`
+          );
+        }
+        if (
+          pauseAfterBytes !== null &&
+          (pauseAfterBytes <= 0 || pauseAfterBytes >= bytes.length)
+        ) {
+          throw new Error(
+            `pauseAfterBytes must be a positive number below the ${bytes.length}-byte ` +
+              `body, so there is a remainder to resume. Got ${pauseAfterBytes}.`
+          );
+        }
+        if (failAfterBytes !== null && pauseAfterBytes !== null) {
+          throw new Error(
+            "failAfterBytes and pauseAfterBytes cannot be combined."
           );
         }
         const etag = spec.etag ?? `"mock-etag-${++etagCounter}"`;
@@ -1159,6 +1211,8 @@ export const MLTestUtils = {
           failTimes,
           failStatus,
           failAfterBytes,
+          pauseAfterBytes,
+          pauseGate: null,
           attempts: 0,
         });
 
@@ -1181,6 +1235,23 @@ export const MLTestUtils = {
        */
       removeFile({ model, revision, file }) {
         return entries.delete(pathFor({ model, revision, file }));
+      },
+
+      /**
+       * Send the rest of a body paused by `pauseAfterBytes`.
+       *
+       * @param {object} triple
+       * @param {string} triple.model
+       * @param {string} triple.revision
+       * @param {string} triple.file
+       */
+      resumeAfterPause({ model, revision, file }) {
+        const entry = entries.get(pathFor({ model, revision, file }));
+        if (!entry || entry.pauseAfterBytes === null) {
+          throw new Error("That file has no pauseAfterBytes to resume.");
+        }
+        entry.pauseGate ??= Promise.withResolvers();
+        entry.pauseGate.resolve();
       },
 
       /**
@@ -1208,6 +1279,10 @@ export const MLTestUtils = {
        * @returns {Promise<void>}
        */
       async cleanup() {
+        // Clean up any unresolved pause gates.
+        for (const entry of entries.values()) {
+          entry.pauseGate?.resolve();
+        }
         await new Promise(resolve => server.stop(resolve));
       },
     };

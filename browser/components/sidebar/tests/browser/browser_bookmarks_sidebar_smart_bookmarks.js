@@ -204,6 +204,71 @@ add_task(async function test_bookmarks_smart_bookmark_uses_bookmark_guid() {
   SidebarController.hide();
 });
 
+add_task(async function test_bookmarks_folder_shortcut_matches_folder() {
+  // A folder shortcut must list the folder's children in their position order,
+  // including subfolders, rather than in the order they were created.
+  const moved = await addBookmark({
+    title: "Moved In",
+    url: "https://example.com/shortcut-order-moved",
+  });
+  const folder = await addFolder("Order Shortcut Target");
+  await addBookmark({
+    title: "First",
+    url: "https://example.com/shortcut-order-first",
+    parentGuid: folder.guid,
+  });
+  await addBookmark({
+    title: "Last",
+    url: "https://example.com/shortcut-order-last",
+    parentGuid: folder.guid,
+  });
+  const subfolder = await addFolder("Nested Folder", folder.guid);
+  await addBookmark({
+    title: "Inside Nested",
+    url: "https://example.com/shortcut-order-nested",
+    parentGuid: subfolder.guid,
+  });
+  await PlacesUtils.bookmarks.update({
+    guid: moved.guid,
+    parentGuid: folder.guid,
+    index: 1,
+  });
+  const shortcut = await PlacesUtils.bookmarks.insert({
+    parentGuid: PlacesUtils.bookmarks.toolbarGuid,
+    title: "Order Shortcut",
+    url: `place:parent=${folder.guid}`,
+  });
+
+  const { component } = await showBookmarksSidebar(window);
+  const tabList = component.bookmarkList;
+  const toolbarDetails = await openToolbarFolder(tabList);
+  const toolbarList = toolbarDetails.querySelector("sidebar-bookmark-list");
+  const shortcutFolder =
+    await SidebarTestUtils.bookmarks.findBookmarkItemByGuid(
+      toolbarList,
+      "folderEls",
+      shortcut.guid
+    );
+  await openFolder(shortcutFolder);
+
+  const shortcutList = shortcutFolder.querySelector("sidebar-bookmark-list");
+  Assert.deepEqual(
+    shortcutList.tabItems.map(item => item.title),
+    ["First", "Moved In", "Last", "Nested Folder"],
+    "Shortcut lists the folder's children in position order."
+  );
+  const nestedFolder = await SidebarTestUtils.bookmarks.findBookmarkItemByGuid(
+    shortcutList,
+    "folderEls",
+    subfolder.guid
+  );
+  ok(nestedFolder, "Subfolder is shown inside the shortcut.");
+
+  await PlacesUtils.bookmarks.remove(shortcut.guid);
+  await PlacesUtils.bookmarks.remove(folder.guid);
+  SidebarTestUtils.closePanel(window);
+});
+
 add_task(async function test_bookmarks_folder_shortcut_uses_folder_icon() {
   // A shortcut to a plain folder should render with a plain folder icon,
   // not the tag-container icon (bug 2047956).
@@ -600,4 +665,104 @@ add_task(async function test_bookmarks_smart_bookmark_context_menu() {
 
   await removeSmartBookmarks(smartBookmarks, url, tag);
   SidebarController.hide();
+});
+
+add_task(async function test_bookmarks_folder_shortcut_context_menu() {
+  const folder = await addFolder("Context Menu Shortcut Target");
+  const bookmarkB = await addBookmark({
+    title: "B Page",
+    url: "https://example.com/folder-shortcut-menu-b",
+    parentGuid: folder.guid,
+  });
+  const bookmarkA = await addBookmark({
+    title: "A Page",
+    url: "https://example.com/folder-shortcut-menu-a",
+    parentGuid: folder.guid,
+  });
+  const shortcut = await PlacesUtils.bookmarks.insert({
+    parentGuid: PlacesUtils.bookmarks.toolbarGuid,
+    title: "Context Menu Shortcut",
+    url: `place:parent=${folder.guid}`,
+  });
+
+  const { component } = await showBookmarksSidebar(window);
+  const tabList = component.bookmarkList;
+  const toolbarDetails = await openToolbarFolder(tabList);
+  const toolbarList = toolbarDetails.querySelector("sidebar-bookmark-list");
+  const shortcutFolder =
+    await SidebarTestUtils.bookmarks.findBookmarkItemByGuid(
+      toolbarList,
+      "folderEls",
+      shortcut.guid
+    );
+  const summary = shortcutFolder.querySelector("summary");
+
+  const contextMenu = SidebarController.currentContextMenu;
+  const item = id => document.getElementById(id);
+  await openAndWaitForContextMenu(contextMenu, summary, () => {});
+  for (const id of [
+    "sidebar-bookmarks-context-open-all-bookmarks",
+    "sidebar-bookmarks-context-sort-by-name",
+    "sidebar-bookmarks-context-delete-bookmark",
+    "sidebar-bookmarks-context-cut",
+    "sidebar-bookmarks-context-copy",
+    "sidebar-bookmarks-context-add-bookmark",
+    "sidebar-bookmarks-context-add-folder",
+    "sidebar-bookmarks-context-add-separator",
+  ]) {
+    ok(!item(id).hidden, `${id} is visible for a folder shortcut.`);
+    ok(!item(id).disabled, `${id} is enabled for a folder shortcut.`);
+  }
+  ok(
+    !item("sidebar-bookmarks-context-edit-bookmark").hidden,
+    "Edit is visible for a folder shortcut."
+  );
+  ok(
+    item("sidebar-bookmarks-context-edit-bookmark").disabled,
+    "Edit is disabled for a folder shortcut."
+  );
+  Assert.equal(
+    item("sidebar-bookmarks-context-delete-bookmark").getAttribute(
+      "data-l10n-id"
+    ),
+    "places-delete-folder",
+    "Delete uses the folder label."
+  );
+  const promiseHidden = BrowserTestUtils.waitForPopupEvent(
+    contextMenu,
+    "hidden"
+  );
+  contextMenu.hidePopup();
+  await promiseHidden;
+
+  info("Sort by name sorts the target folder.");
+  await activateContextMenuItem(
+    summary,
+    "sidebar-bookmarks-context-sort-by-name"
+  );
+  await TestUtils.waitForCondition(async () => {
+    const fetched = await PlacesUtils.bookmarks.fetch(bookmarkA.guid);
+    return fetched.index === 0;
+  }, "Target folder is sorted by name.");
+
+  info("Open all opens the target folder's bookmarks.");
+  const openStub = sinon.stub(window, "openTrustedLinkIn");
+  await activateContextMenuItem(
+    summary,
+    "sidebar-bookmarks-context-open-all-bookmarks"
+  );
+  await TestUtils.waitForCondition(
+    () => openStub.callCount === 2,
+    "Both bookmarks in the target folder are opened."
+  );
+  Assert.deepEqual(
+    openStub.args.map(([url]) => url).toSorted(),
+    [bookmarkA.url.href, bookmarkB.url.href],
+    "The target folder's bookmarks are opened."
+  );
+  openStub.restore();
+
+  await PlacesUtils.bookmarks.remove(shortcut.guid);
+  await PlacesUtils.bookmarks.remove(folder.guid);
+  SidebarTestUtils.closePanel(window);
 });

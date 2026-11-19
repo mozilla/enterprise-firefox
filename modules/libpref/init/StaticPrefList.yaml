@@ -3944,6 +3944,14 @@
   value: false
   mirror: always
 
+# Support for the `eyedropper` attribute on <input type=color>, letting the
+# picker sample a color from the page. Experimental, no spec yet.
+# See https://github.com/mozilla/explainers/blob/main/eyedropper-input.md.
+- name: dom.input.color_eyedropper.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # How long a content process can take before closing its IPC channel
 # after shutdown is initiated.  If the process exceeds the timeout,
 # we fear the worst and kill it.
@@ -6823,6 +6831,14 @@
   value: false
   mirror: once
 
+# Threshold on all pending spellcheck operations (including dictionary updates
+# and async word checks) before DOM mutations share one dirty range. Zero or
+# negative values coalesce from the first mutation.
+- name: extensions.spellcheck.inline.dom-mutation-coalescing-threshold
+  type: int32_t
+  value: 32
+  mirror: always
+
 # Maximum number of misspelled words in a text.
 - name: extensions.spellcheck.inline.max-misspellings
   type: int32_t
@@ -9208,9 +9224,9 @@
   value: false
   mirror: always
 
-- name: gfx.remote-texture.recycle.disabled
+- name: gfx.remote-texture.recycle.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: gfx.remote-texture.wait-owner-at-image-host
@@ -12805,6 +12821,12 @@
   value: false
   mirror: always
 
+# Whether MediaSource supports the audio/mpeg byte stream format.
+- name: media.mediasource.mp3.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # true for talos tests so that VideoSink passes on the most recently decoded
 # frame to exercise the compositor even when the frame is out of date because
 # the decoder is stressed.
@@ -12917,7 +12939,11 @@
 # Does the GMPlugin process use native event processing
 - name: media.gmp.use-native-event-processing
   type: RelaxedAtomicBool
-  value: @IS_NOT_XP_MACOSX@
+#if defined(XP_WIN) || defined(XP_MACOSX)
+  value: false
+#else
+  value: true
+#endif
   mirror: always
 
 #ifdef MOZ_WIDGET_ANDROID
@@ -20794,11 +20820,7 @@
 # When true, right-clicking selects the word/link under the cursor.
 - name: ui.mouse.right_click.select_under_cursor
   type: bool
-#ifdef XP_MACOSX
-  value: @IS_NIGHTLY_BUILD@
-#else
-  value: false
-#endif
+  value: @IS_XP_MACOSX@
   mirror: always
 
 # When true, right-clicking selects the word under the cursor in editable

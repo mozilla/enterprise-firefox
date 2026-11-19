@@ -336,7 +336,10 @@ void RemoteTextureMap::Shutdown() {
 bool RemoteTextureMap::RecycleTexture(
     const RefPtr<RemoteTextureRecycleBin>& aRecycleBin,
     TextureDataHolder& aHolder, bool aExpireOldTextures) {
-  if (!aHolder.mTextureData ||
+  // Keep resources in aHolder when recycling is disabled so callers can
+  // release them on the creating thread.
+  if (!StaticPrefs::gfx_remote_texture_recycle_enabled() ||
+      !aHolder.mTextureData ||
       (aHolder.mTextureHost &&
        aHolder.mTextureHost->GetFlags() & TextureFlags::DUMMY_TEXTURE)) {
     return false;
@@ -376,9 +379,7 @@ bool RemoteTextureMap::RecycleTexture(
     // Recycle texture data
     recycled.mTextureData = std::move(aHolder.mTextureData);
   }
-  if (!StaticPrefs::gfx_remote_texture_recycle_disabled()) {
-    aRecycleBin->mRecycledTextures.push_back(std::move(recycled));
-  }
+  aRecycleBin->mRecycledTextures.push_back(std::move(recycled));
 
   return true;
 }
@@ -1209,6 +1210,8 @@ bool RemoteTextureMap::WaitForTxn(const RemoteTextureOwnerId aOwnerId,
                                   const base::ProcessId aForPid,
                                   RemoteTextureTxnType aTxnType,
                                   RemoteTextureTxnId aTxnId) {
+  // Release the scheduler after unlocking: its destructor locks mMonitor.
+  RefPtr<RemoteTextureTxnScheduler> scheduler;
   MonitorAutoLock lock(mMonitor);
   auto* owner = GetTextureOwner(lock, aOwnerId, aForPid);
   if (!owner) {
@@ -1226,7 +1229,7 @@ bool RemoteTextureMap::WaitForTxn(const RemoteTextureOwnerId aOwnerId,
   const auto key = std::pair(aForPid, aTxnType);
   auto it = mTxnSchedulers.find(key);
   if (it != mTxnSchedulers.end()) {
-    RefPtr<RemoteTextureTxnScheduler> scheduler(it->second);
+    scheduler = RefPtr<RemoteTextureTxnScheduler>(it->second);
     if (scheduler) {
       if (scheduler->WaitForTxn(lock, aOwnerId, aTxnId)) {
         owner->mWaitForTxn = true;

@@ -5,7 +5,11 @@
 #ifndef nsCSPUtils_h_
 #define nsCSPUtils_h_
 
+#include <iterator>
+
+#include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/Maybe.h"
 #include "nsCOMPtr.h"
 #include "nsILoadInfo.h"
 #include "nsIURI.h"
@@ -228,8 +232,7 @@ class nsCSPBaseSrc {
 
   virtual bool permits(nsIURI* aUri, bool aWasRedirected, bool aReportOnly,
                        bool aUpgradeInsecure) const;
-  virtual bool allows(enum CSPKeyword aKeyword,
-                      const nsAString& aContentOrNonce) const;
+  virtual bool allows(enum CSPKeyword aKeyword) const;
   virtual bool visit(nsCSPSrcVisitor* aVisitor) const = 0;
   virtual void toString(nsAString& outStr) const = 0;
 
@@ -312,8 +315,7 @@ class nsCSPKeywordSrc : public nsCSPBaseSrc {
   explicit nsCSPKeywordSrc(CSPKeyword aKeyword);
   virtual ~nsCSPKeywordSrc();
 
-  bool allows(enum CSPKeyword aKeyword,
-              const nsAString& aContentOrNonce) const override;
+  bool allows(enum CSPKeyword aKeyword) const override;
   bool visit(nsCSPSrcVisitor* aVisitor) const override;
   void toString(nsAString& outStr) const override;
 
@@ -341,17 +343,41 @@ class nsCSPNonceSrc : public nsCSPBaseSrc {
   explicit nsCSPNonceSrc(const nsAString& aNonce);
   virtual ~nsCSPNonceSrc();
 
-  bool allows(enum CSPKeyword aKeyword,
-              const nsAString& aContentOrNonce) const override;
+  // Nonce matching happens in nsCSPDirective::allowsByNonce(), rather than in
+  // allows().
+  bool allows(enum CSPKeyword aKeyword) const override { return false; }
   bool visit(nsCSPSrcVisitor* aVisitor) const override;
   void toString(nsAString& outStr) const override;
 
-  inline void getNonce(nsAString& outStr) const { outStr.Assign(mNonce); };
+  inline const nsAString& nonce() const { return mNonce; };
 
   bool isNonce() const final { return true; }
 
  private:
   nsString mNonce;
+};
+
+/* =============== CSPHashDigestsCache ============ */
+
+// Caches the digests of a value, for matching it against hash expressions.
+// Each digest is computed when first needed, so the value is hashed once per
+// algorithm, rather than once per expression. The value must outlive it.
+class MOZ_STACK_CLASS CSPHashDigestsCache {
+ public:
+  explicit CSPHashDigestsCache(const nsACString& aValue) : mValue(aValue) {}
+
+  // Returns the base64 encoding of the digest of the value with aAlgorithm,
+  // one of kAlgorithms, computing it if needed, or Nothing() if it isn't one
+  // or the digest can't be computed.
+  mozilla::Maybe<const nsCString&> GetOrComputeDigest(
+      const nsAString& aAlgorithm);
+
+ private:
+  // The algorithms of hash expressions.
+  static constexpr const char* kAlgorithms[] = {"sha256", "sha384", "sha512"};
+
+  const nsACString& mValue;
+  mozilla::Maybe<nsCString> mDigests[std::size(kAlgorithms)];
 };
 
 /* =============== nsCSPHashSrcBase ============ */
@@ -370,6 +396,10 @@ class nsCSPHashSrcBase : public nsCSPBaseSrc {
 
   inline void getHash(nsAString& outStr) const { outStr.Assign(mHash); };
 
+  // Whether the digest of aCache's value with this expression's algorithm is
+  // identical to this expression's hash.
+  bool matchesDigestOf(CSPHashDigestsCache& aCache) const;
+
  protected:
   nsString mAlgorithm;
   nsString mHash;
@@ -382,8 +412,9 @@ class nsCSPHashSrc final : public nsCSPHashSrcBase {
   nsCSPHashSrc(const nsAString& aAlgorithm, const nsAString& aHash)
       : nsCSPHashSrcBase(aAlgorithm, aHash) {}
 
-  bool allows(enum CSPKeyword aKeyword,
-              const nsAString& aContentOrNonce) const override;
+  // Hash matching happens in nsCSPDirective::allowsByHash(), rather than in
+  // allows().
+  bool allows(enum CSPKeyword aKeyword) const override { return false; }
   bool visit(nsCSPSrcVisitor* aVisitor) const override;
 
   bool isHash() const final { return true; }
@@ -402,10 +433,7 @@ class nsCSPUrlHashSrc final : public nsCSPHashSrcBase {
   nsCSPUrlHashSrc(const nsAString& aAlgorithm, const nsAString& aHash)
       : nsCSPHashSrcBase(aAlgorithm, aHash) {}
 
-  bool allows(enum CSPKeyword aKeyword,
-              const nsAString& aContentOrNonce) const override {
-    return false;
-  }
+  bool allows(enum CSPKeyword aKeyword) const override { return false; }
   bool visit(nsCSPSrcVisitor* aVisitor) const override;
 
   bool isUrlHash() const final { return true; }
@@ -529,8 +557,11 @@ class nsCSPDirective {
   virtual bool permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo,
                        nsIURI* aUri, bool aWasRedirected, bool aReportOnly,
                        bool aUpgradeInsecure) const;
-  virtual bool allows(enum CSPKeyword aKeyword,
-                      const nsAString& aContentOrNonce) const;
+  virtual bool allows(enum CSPKeyword aKeyword) const;
+  // Whether a nonce-source expression allows an element with the nonce aNonce.
+  bool allowsByNonce(const nsAString& aNonce) const;
+  // Whether a hash-source expression allows aContent by its hash.
+  bool allowsByHash(const nsAString& aContent) const;
   bool allowsAllInlineBehavior(CSPDirective aDir) const;
 
   // Implements step 2.1 to 2.7 of
@@ -658,10 +689,7 @@ class nsBlockAllMixedContentDirective : public nsCSPDirective {
 
   bool permits(nsIURI* aUri) const { return false; }
 
-  bool allows(enum CSPKeyword aKeyword,
-              const nsAString& aContentOrNonce) const override {
-    return false;
-  }
+  bool allows(enum CSPKeyword aKeyword) const override { return false; }
 
   void toString(nsAString& outStr) const override;
 
@@ -716,10 +744,7 @@ class nsUpgradeInsecureDirective : public nsCSPDirective {
 
   bool permits(nsIURI* aUri) const { return false; }
 
-  bool allows(enum CSPKeyword aKeyword,
-              const nsAString& aContentOrNonce) const override {
-    return false;
-  }
+  bool allows(enum CSPKeyword aKeyword) const override { return false; }
 
   void toString(nsAString& outStr) const override;
 
@@ -741,8 +766,9 @@ class nsCSPPolicy {
                bool aWasRedirected, bool aSpecific,
                nsAString& outViolatedDirective,
                nsAString& outViolatedDirectiveString) const;
-  bool allows(CSPDirective aDirective, enum CSPKeyword aKeyword,
-              const nsAString& aContentOrNonce) const;
+  bool allows(CSPDirective aDirective, enum CSPKeyword aKeyword) const;
+  bool allowsByNonce(CSPDirective aDirective, const nsAString& aNonce) const;
+  bool allowsByHash(CSPDirective aDirective, const nsAString& aContent) const;
   void toString(nsAString& outStr) const;
   void toDomCSPStruct(mozilla::dom::CSP& outCSP) const;
 

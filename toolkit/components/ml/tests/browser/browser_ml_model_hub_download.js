@@ -59,11 +59,16 @@ registerCleanupFunction(() => {
  *
  * @param {object} [options]
  * @param {string} [options.content]
+ * @param {?number} [options.pauseAfterBytes] - Send only this many bytes,
+ *   then hold the connection open until `hub.resumeAfterPause()` is called.
  * @returns {Promise<object>}
  */
-async function withModelHub({ content = CONFIG_JSON } = {}) {
+async function withModelHub({
+  content = CONFIG_JSON,
+  pauseAfterBytes = null,
+} = {}) {
   const hub = MLTestUtils.createMockModelHub();
-  const served = hub.setFile({ ...MODEL_FILE, content });
+  const served = hub.setFile({ ...MODEL_FILE, content, pauseAfterBytes });
 
   const modelHub = new ModelHub({
     rootUrl: hub.rootUrl,
@@ -676,14 +681,19 @@ add_task(async function test_already_aborted_read_does_not_start_download() {
  * caller's read or the other caller's progress updates.
  */
 add_task(async function test_progress_callback_exceptions_are_isolated() {
+  const content = "x".repeat(1024 * 1024);
+
   for (const statusText of [
     "initiate",
     "size_estimate",
     "in_progress",
     "done",
   ]) {
+    // "in_progress" needs a second, distinct chunk after the first.
+    const pauseAfterBytes = statusText === "in_progress" ? 64 * 1024 : null;
     const { hub, modelHub, served, cleanup } = await withModelHub({
-      content: "x".repeat(1024 * 1024),
+      content,
+      pauseAfterBytes,
     });
     let threw = false;
     const events = [];
@@ -702,7 +712,12 @@ add_task(async function test_progress_callback_exceptions_are_isolated() {
         }),
         modelHub.getModelFileAsArrayBuffer({
           ...MODEL_ARGS,
-          progressCallback: progress => events.push(progress.statusText),
+          progressCallback: progress => {
+            events.push(progress.statusText);
+            if (pauseAfterBytes && progress.statusText === "size_estimate") {
+              hub.resumeAfterPause(MODEL_FILE);
+            }
+          },
         }),
       ]);
 

@@ -4289,16 +4289,14 @@ void MacroAssembler::loadJitCodeRawNoIon(Register func, Register dest,
 
   // If we have an IonScript, jitCodeRaw_ will point to it, so we have
   // to load the baseline entry out of the BaselineScript.
-  branchPtr(Assembler::BelowOrEqual,
-            Address(scratch, JitScript::offsetOfIonScript()),
-            ImmPtr(IonCompilingScriptPtr), &useJitCodeRaw);
+  branchPtr(Assembler::Equal, Address(scratch, JitScript::offsetOfIonScript()),
+            ImmPtr(nullptr), &useJitCodeRaw);
   loadPtr(Address(scratch, JitScript::offsetOfBaselineScript()), scratch);
 
 #ifdef DEBUG
   // If we have an IonScript, we must also have a BaselineScript.
   Label hasBaselineScript;
-  branchPtr(Assembler::Above, scratch, ImmPtr(BaselineCompilingScriptPtr),
-            &hasBaselineScript);
+  branchPtr(Assembler::NotEqual, scratch, ImmPtr(nullptr), &hasBaselineScript);
   assumeUnreachable("JitScript has IonScript without BaselineScript");
   bind(&hasBaselineScript);
 #endif

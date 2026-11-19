@@ -6,6 +6,7 @@ UNIFIED_SOURCES += [
     "TestContainerParser.cpp",
     "TestExtractH265CodecDetails.cpp",
     "TestExtractVPXCodecDetails.cpp",
+    "TestMPEGAudioByteStream.cpp",
 ]
 
 UNIFIED_SOURCES += [
@@ -16,5 +17,8 @@ LOCAL_INCLUDES += [
     "/dom/media",
     "/dom/media/mediasource",
 ]
+
+# Add libFuzzer configuration directives
+include("/tools/fuzzing/libfuzzer-config.mozbuild")
 
 FINAL_LIBRARY = "xul-gtest"
