@@ -27,10 +27,6 @@ const SYNC_CONNECTED = 1;
 const BACKUP_ARCHIVE_ENABLED_PREF_NAME = "browser.backup.archive.enabled";
 const BACKUP_RESTORE_ENABLED_PREF_NAME = "browser.backup.restore.enabled";
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
-});
-
 var gSyncPane = {
   get page() {
     return document.getElementById("weavePrefsDeck").selectedIndex;
@@ -44,10 +40,6 @@ var gSyncPane = {
     this._setupEventListeners();
     this.setupEnginesUI();
     this.updateSyncUI();
-
-    if (lazy.AppConstants.MOZ_ENTERPRISE) {
-      this.restrictEnterpriseView();
-    }
 
     document
       .getElementById("weavePrefsDeck")
@@ -286,28 +278,6 @@ var gSyncPane = {
       syncConfiguredEl.hidden = true;
       syncNotConfiguredEl.hidden = false;
       syncConnectAnotherDeviceEl.hidden = true;
-    }
-  },
-
-  restrictEnterpriseView() {
-    // "Sign out" button
-    const fxaUnlinkButton = document.getElementById("fxaUnlinkButton");
-    fxaUnlinkButton.setAttribute("restricted-enterprise-view", true);
-
-    // "Manage accounts link"
-    const manageAccountsLink = document.getElementById("verifiedManage");
-    manageAccountsLink.setAttribute("restricted-enterprise-view", true);
-
-    // Connect another device link
-    const connectAnotherDeviceLink = document.getElementById(
-      "connect-another-device"
-    );
-    connectAnotherDeviceLink.setAttribute("restricted-enterprise-view", true);
-
-    if (!Services.policies.isAllowed("sync")) {
-      // Hide info box and "Turn on syncing..." button (visible when Sync is disabled)
-      const syncOffBox = document.getElementById("syncNotConfigured");
-      syncOffBox.setAttribute("restricted-enterprise-view", true);
     }
   },
 

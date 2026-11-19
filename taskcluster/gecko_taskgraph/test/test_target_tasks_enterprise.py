@@ -84,10 +84,22 @@ def test_nightly_schedules_upload_and_tag(graph):
     assert repacks_of(labels, "enterprise-oci-upload") == [
         "moz/prodGCP",
         "moz/stageGCP",
-        "smp/prodGCP",
-        "smp/stageGCP",
     ]
-    assert repacks_of(labels, "enterprise-oci-tag") == ["moz/stageGCP"]
+    assert repacks_of(labels, "enterprise-oci-tag") == [
+        "moz/prodGCP",
+        "moz/stageGCP",
+    ]
+
+
+def test_nightly_builds_generic(graph):
+    """`moz/generic` is built alongside the uploaded repacks, `hosted/*` is not."""
+    labels = target_tasks.target_tasks_nightly_enterprise(graph, PARAMETERS, {})
+
+    assert repacks_of(labels, "enterprise-repack-repackage") == [
+        "moz/generic",
+        "moz/prodGCP",
+        "moz/stageGCP",
+    ]
 
 
 def test_smp_is_tagged_on_both_gcp_targets(graph):

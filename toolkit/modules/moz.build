@@ -372,6 +372,7 @@ for var in (
     "MOZ_SELECTABLE_PROFILES",
     "MOZ_ENTERPRISE",
     "USE_LIBZ_RS",
+    "MOZ_PUSH_NOTIFICATION_HELPER",
 ):
     DEFINES[f"{var}_BOOL"] = "true" if CONFIG[var] else "false"
 

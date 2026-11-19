@@ -27,7 +27,7 @@
 //! an authenticated in-process session).
 
 #[cfg(mock)]
-use crate::std::mock::{mock_key, MockKey};
+use crate::std::mock::MockKey;
 
 /// Return an `Authorization: Bearer` header for an upload to `url`, built from
 /// the access token that the crashing process exported into the environment.
@@ -49,6 +49,7 @@ pub fn enterprise_authorization_header(url: &str) -> Option<(String, String)> {
 crate::std::mock::mocked_static! {
     /// The token for this run, set once by [`init_access_token`].
     static ACCESS_TOKEN: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    mocked type = std::sync::Arc<std::sync::OnceLock<Option<String>>>;
 
     impl ACCESS_TOKEN {
         fn set(self, token: Option<String>) -> Option<Result<(), Option<String>>> {

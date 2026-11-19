@@ -12,6 +12,9 @@ extern "C" {
 
 void felt_init();
 
+// Implemented in nsAppRunner.cpp for felt_init(). aArg must be lowercase.
+bool felt_check_arg_exists(const char* aArg);
+
 bool is_felt_ui();
 
 #ifdef MOZ_WIDGET_GTK
@@ -33,6 +36,10 @@ bool firefox_connect_to_felt(const char* server_name);
 void firefox_felt_connection_start_thread();
 
 bool firefox_felt_is_startup_complete();
+
+bool is_managed_app_disconnected_from_felt();
+
+bool is_managed_app_shutdown_requested();
 
 bool firefox_felt_clear_stored_console_url(const nsACString* aFeltJsonPath);
 

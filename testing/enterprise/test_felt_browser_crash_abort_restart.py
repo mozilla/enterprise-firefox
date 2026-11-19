@@ -11,9 +11,10 @@ sys.path.append(os.path.dirname(__file__))
 from base_test import Environment
 from felt_browser_crashes import BrowserCrashes
 from felt_consts import WHOAMI_EMAIL
+from felt_tests import FeltKeyStoreStub
 
 
-class BrowserCrashAbortRestart(BrowserCrashes):
+class BrowserCrashAbortRestart(FeltKeyStoreStub, BrowserCrashes):
     EXTRA_PREFS = {
         "enterprise.browser.abnormal_exit_limit": 2,
         "enterprise.browser.abnormal_exit_period": 120,

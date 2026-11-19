@@ -1933,7 +1933,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
     Services.appinfo.processType === Services.appinfo.PROCESS_TYPE_DEFAULT
       ? "Main"
       : "Content";
-  return LoginHelper.createLogger(`LoginHelper(${processName})`);
+  return LoginHelper.createLogger(`LoginHelper.${processName}`);
 });
 
 LoginHelper.init();

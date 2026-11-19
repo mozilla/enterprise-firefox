@@ -56,12 +56,14 @@ pub enum FeltMessage {
     StartupReady,
     AccessToken((String, i64)),
     /// The console-supplied primarySecret (64-char hex string), shipped
-    /// from the Felt UI process to the spawned browsing Firefox.
-    /// Storage encryption uses it as the password to unlock the
-    /// `lockstore::kek::password:sqlite` Password KEK that wraps every
-    /// per-DB DEK. Must arrive BEFORE the storage layer initializes
-    /// (i.e. before `profile-do-change`); sent unconditionally on the
-    /// first IPC handshake, ahead of `AccessToken` / `Ready`.
+    /// from the Felt UI process to the spawned browsing Firefox. Lockstore
+    /// uses it as the password for the profile's Password KEKs:
+    /// `lockstore::kek::password:profile` and the
+    /// `lockstore::kek::password:sqlite` one that wraps every per-DB DEK.
+    /// Must arrive BEFORE the KEK bring-up that precedes
+    /// `profile-do-change`; sent
+    /// unconditionally on the first IPC handshake, ahead of
+    /// `AccessToken` / `Ready`.
     PrimarySecret(String),
     RefreshTokens,
     FeltReady(u32),

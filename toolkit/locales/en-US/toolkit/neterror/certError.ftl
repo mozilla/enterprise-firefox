@@ -147,6 +147,7 @@ csp-xfo-error-title = { -brand-short-name } Can’t Open This Page
 corruptedContentErrorv2-title = Corrupted Content Error
 sslv3Used-title = Unable to Connect Securely
 inadequateSecurityError-title = Your connection is not secure
+blockedByPolicy-title = Blocked Page
 clockSkewError-title = Your Computer Clock is Wrong
 networkProtocolError-title = Network Protocol Error
 nssBadCert-title = Warning: Potential Security Risk Ahead

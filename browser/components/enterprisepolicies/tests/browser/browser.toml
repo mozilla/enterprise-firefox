@@ -157,8 +157,6 @@ skip-if = ["enterprise"] # Applies Extensions, unsupported in enterprise builds
 
 ["browser_policy_pdfviewer.js"]
 
-["browser_policy_privatebrowsingmodeavailability.js"]
-
 ["browser_policy_privatebrowsingmodeavailability_srd.js"]
 
 ["browser_policy_sanitize_on_shutdown.js"]

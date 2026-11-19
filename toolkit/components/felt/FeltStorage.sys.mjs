@@ -9,6 +9,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
 });
 
+const PENDING_URLS_VERSION = 1;
+
 /**
  * Storage helper for reading and writing felt-related data to felt.json
  */
@@ -16,6 +18,15 @@ export const FeltStorage = {
   _initialized: false,
 
   _feltStorage: null,
+
+  /**
+   * Bumped by clearPendingURLs() so a storePendingURLs() call that was
+   * already encrypting when the queue was cleared can tell its result is
+   * stale.
+   *
+   * @type {number}
+   */
+  _pendingURLsGeneration: 0,
   /**
    * Absolute path to the felt.json file in the user's app-data directory (UAppData).
    *
@@ -204,6 +215,105 @@ export const FeltStorage = {
       delete this._feltStorage.data.lockingTokens[email];
       this._feltStorage.saveSoon();
     }
+  },
+
+  /**
+   * Encrypts and stores queued external URLs so an app restart can carry them
+   * over. Encryption is owned here so felt.json can never hold the plaintext
+   * addresses, matching how the locked-session token is stored. The version
+   * sits beside the ciphertext so a launch can tell whether the record is its
+   * own without asking the keystore. If clearPendingURLs() runs while the
+   * keystore is answering, the result is dropped, so a signout cannot be
+   * undone by a write that started before it.
+   *
+   * @param {Array<object>} urls The pending URL payloads.
+   * @returns {Promise<void>}
+   */
+  async storePendingURLs(urls) {
+    if (!urls.length) {
+      await this.clearPendingURLs();
+      return;
+    }
+    const generation = this._pendingURLsGeneration;
+    const encryptedURLs = await lazy.OSKeyStore.encrypt(JSON.stringify(urls));
+    if (generation !== this._pendingURLsGeneration) {
+      return;
+    }
+    this._feltStorage.data.pendingURLs = {
+      version: PENDING_URLS_VERSION,
+      ciphertext: encryptedURLs,
+    };
+    await this._feltStorage._save();
+  },
+
+  /**
+   * Removes any stored external URLs.
+   *
+   * @returns {Promise<void>}
+   */
+  async clearPendingURLs() {
+    this._pendingURLsGeneration++;
+    if (
+      !this._feltStorage?.dataReady ||
+      this._feltStorage.data.pendingURLs === undefined
+    ) {
+      return;
+    }
+    delete this._feltStorage.data.pendingURLs;
+    await this._feltStorage._save();
+  },
+
+  /**
+   * Reads the stored external URLs. A usable record is left in place until
+   * the caller stores the restored queue again, so a restart that interrupts
+   * this launch before then still finds it. A record that cannot be read is
+   * removed, so it is not retried on every launch. A record with another
+   * version is left alone, since a different build sharing felt.json may have
+   * written it.
+   *
+   * @returns {Promise<Array<object>>} The pending URL payloads, or an empty
+   *   array when there is nothing usable stored.
+   */
+  async readPendingURLs() {
+    const record = this._feltStorage.data?.pendingURLs;
+    if (record == null) {
+      await this.clearPendingURLs();
+      return [];
+    }
+    if (
+      Number.isInteger(record.version) &&
+      record.version !== PENDING_URLS_VERSION
+    ) {
+      return [];
+    }
+    if (
+      record.version !== PENDING_URLS_VERSION ||
+      typeof record.ciphertext !== "string"
+    ) {
+      await this.clearPendingURLs();
+      return [];
+    }
+    let urls;
+    try {
+      const plaintext = await lazy.OSKeyStore.decrypt(
+        record.ciphertext,
+        "",
+        false
+      );
+      urls = JSON.parse(
+        new TextDecoder().decode(
+          Uint8Array.from(plaintext, char => char.charCodeAt(0))
+        )
+      );
+    } catch (error) {
+      await this.clearPendingURLs();
+      throw error;
+    }
+    if (!Array.isArray(urls) || !urls.length) {
+      await this.clearPendingURLs();
+      return [];
+    }
+    return urls;
   },
 
   async uninit() {

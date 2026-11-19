@@ -17,4 +17,6 @@ firefox-appdir = "browser"
 # Only run in MOZ_ENTERPRISE builds
 run-if = ["enterprise"]
 
+["test_DownloadsViewUI_getCommandNamesFrom.js"]
+
 ["test_DownloadsViewableInternally.js"]

@@ -3694,6 +3694,7 @@ export class UpdateService {
       AUSTLMY.pingBoolPref(
         Glean.update["notPrefUpdateServiceEnabled" + this._pingSuffix],
         PREF_APP_UPDATE_SERVICE_ENABLED,
+        true,
         true
       );
       // Glean metric names:

@@ -12,3 +12,5 @@ run-if = [
 ["test_null_local_policy_ignored.js"]
 
 ["test_null_policy_value.js"]
+
+["test_set_default_pref_after_shared_map.js"]

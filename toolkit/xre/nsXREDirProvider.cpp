@@ -57,6 +57,9 @@
 #include "mozilla/XREAppData.h"
 #include "mozilla/security/lockstore/ProfileKek.h"
 #include "nsPrintfCString.h"
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/security/lockstore/ProfileKekStartup.h"
+#endif
 
 #ifdef MOZ_THUNDERBIRD
 #  ifdef XP_MACOSX
@@ -645,6 +648,17 @@ nsXREDirProvider::DoStartup() {
     bool isBackgroundTask = false;
 #ifdef MOZ_BACKGROUNDTASKS
     isBackgroundTask = mozilla::BackgroundTasks::IsBackgroundTaskMode();
+#endif
+#if defined(MOZ_ENTERPRISE)
+    // Here rather than in an observer of the notification below: observers are
+    // notified in reverse registration order, so no registration point can
+    // guarantee running ahead of the consumers that open encrypted profile
+    // databases, and those fail closed until the KEKs are up. Blocks for as
+    // long as the key derivation takes. Also precedes the primary-password
+    // sync, which leaves the profile KEK alone once it finds it unlocked.
+    if (XRE_IsParentProcess() && !isBackgroundTask) {
+      mozilla::security::lockstore::ProfileKekStartup::BringUpProfileKeks();
+    }
 #endif
     // Ahead of profile-do-change, whose observers start opening profile
     // databases that cannot be read until the profile KEK is unlocked.

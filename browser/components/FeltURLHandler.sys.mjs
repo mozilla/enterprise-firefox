@@ -15,8 +15,15 @@ ChromeUtils.defineLazyGetter(
 );
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
+  FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
 });
+
+ChromeUtils.defineLazyGetter(lazy, "legacyPendingURLsPath", () =>
+  PathUtils.join(
+    Services.dirsvc.get("ProfD", Ci.nsIFile).path,
+    "pendingURLs.json"
+  )
+);
 
 export const FELT_OPEN_WINDOW_DISPOSITION = {
   DEFAULT: 0,
@@ -24,62 +31,151 @@ export const FELT_OPEN_WINDOW_DISPOSITION = {
   NEW_PRIVATE_WINDOW: 2,
 };
 
+const ALLOWED_EXTERNAL_SCHEMES = new Set(["http", "https", "file"]);
+
+/**
+ * Parses an external URL payload and rejects any URL whose scheme is not in
+ * ALLOWED_EXTERNAL_SCHEMES. Callers load these with fromExternal: true, which
+ * stops a principal-inheriting URL from picking up the current document's
+ * principal.
+ *
+ * @param {object} payload
+ *   External URL and optional window disposition.
+ * @returns {{url: string, disposition: number}|null}
+ *   The payload with defaults, or null if the URL is invalid or its scheme is
+ *   not allowed. An empty URL is kept, and opens the default page.
+ */
+export function sanitizeFeltURLPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+  const url = payload.url === undefined ? "" : payload.url;
+  if (typeof url !== "string") {
+    return null;
+  }
+  if (url) {
+    try {
+      if (!ALLOWED_EXTERNAL_SCHEMES.has(Services.io.newURI(url).scheme)) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return {
+    url,
+    disposition: payload.disposition ?? FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
+  };
+}
+
 // Queue for Felt external link handling
 // URL requests are stored here when they arrive via command line (before Felt extension loads)
-// FeltProcessParent imports this module and manages forwarding from this queue
+// FeltProcessParent imports this module and manages forwarding from this queue.
+//
+// The stored copy mirrors the queue so an app restart can carry it over
+// (bug 2032092). FeltStorage encrypts it, and only a launch that is itself a
+// restart reads it back, so URLs queued by one session are never reopened by an
+// unrelated one.
+
 export const gFeltPendingURLs = {
   _pendingURLs: [],
-  _pendingFilePath: PathUtils.join(
-    Services.dirsvc.get("ProfD", Ci.nsIFile).path,
-    "pendingURLs.json"
-  ),
   _ready: false,
   _initPromise: null,
+  _writes: Promise.resolve(),
+  _writeQueued: false,
 
   async init() {
+    if (!Services.felt?.isFeltUI()) {
+      throw new Error("The Felt URL queue is only used in the Felt UI process");
+    }
     if (this._ready) {
       return;
     }
+    if (!this._initPromise) {
+      this._initPromise = this._restore()
+        .catch(error => {
+          console.error("Failed to restore pending Felt URLs", error);
+        })
+        .finally(() => {
+          this._ready = true;
+          this._initPromise = null;
+        });
+    }
+    await this._initPromise;
+  },
 
-    if (this._initPromise) {
-      await this._initPromise;
+  async _restore() {
+    const queue = this._pendingURLs;
+    // Read before awaiting: requesting a restart sets MOZ_APP_RESTART in this
+    // process, which would make a cold launch look like a restart.
+    const wasRestarted = Services.startup.wasRestarted;
+    // Builds before bug 2073035 kept the queue as plaintext in the scratch
+    // profile, which outlives upgrades. It is removed unread.
+    await IOUtils.remove(lazy.legacyPendingURLsPath, {
+      ignoreAbsent: true,
+    }).catch(error => {
+      console.error("Failed to remove legacy pending Felt URLs", error);
+    });
+    await lazy.FeltStorage.init();
+    if (!wasRestarted) {
+      await lazy.FeltStorage.clearPendingURLs();
       return;
     }
-
-    this._initPromise = (async () => {
-      if (this._ready) {
-        return;
-      }
-
-      const storage = new lazy.JSONFile({
-        path: this._pendingFilePath,
-      });
-
-      await storage.load();
-
-      if (storage.data?.pendingURLs) {
-        this._pendingURLs = storage.data.pendingURLs;
-      }
-
-      this._storage = storage;
-      this._ready = true;
-    })();
-    try {
-      await this._initPromise;
-    } finally {
-      this._initPromise = null;
+    const restored = await lazy.FeltStorage.readPendingURLs();
+    // clear() replaces the queue. A signout while a stalled keystore was still
+    // decrypting must not hand the previous session's URLs to the next one.
+    if (queue !== this._pendingURLs) {
+      return;
     }
+    if (restored.length) {
+      this._pendingURLs.unshift(
+        ...restored.map(sanitizeFeltURLPayload).filter(Boolean)
+      );
+      this._persist();
+    }
+  },
+
+  /**
+   * Brings the stored copy in line with the queue. Writes are chained so a
+   * slower earlier one cannot land after a later one and resurrect URLs that
+   * have since been opened. They also wait for init(), so a URL that arrives
+   * on the command line before the restore has run cannot overwrite the
+   * stored queue before it has been read. A write that has not started yet
+   * reads the queue when it does, so later updates join it rather than each
+   * encrypting and saving the whole queue again. clear() reaches FeltStorage
+   * without waiting on the chain, which is how a write that was encrypting
+   * when it ran gets dropped.
+   *
+   * @returns {Promise<void>} Resolves once this update has been written.
+   */
+  _persist() {
+    if (this._writeQueued) {
+      return this._writes;
+    }
+    this._writeQueued = true;
+    this._writes = this._writes
+      .then(() => this.init())
+      .then(async () => {
+        this._writeQueued = false;
+        await lazy.FeltStorage.storePendingURLs(this._pendingURLs);
+      })
+      .catch(error => {
+        this._writeQueued = false;
+        console.error("Failed to store pending Felt URLs", error);
+      });
+    return this._writes;
   },
 
   [Symbol.iterator]() {
     return this._pendingURLs[Symbol.iterator]();
   },
 
-  async push(payload) {
-    await this.init();
+  push(payload) {
+    if (!Services.felt?.isFeltUI()) {
+      throw new Error("The Felt URL queue is only used in the Felt UI process");
+    }
     const rv = this._pendingURLs.push(payload);
-    this._storage.data.pendingURLs = this._pendingURLs;
-    this._storage.saveSoon();
+    this._persist();
     return rv;
   },
 
@@ -88,9 +184,16 @@ export const gFeltPendingURLs = {
   },
 
   clear() {
+    if (!Services.felt?.isFeltUI()) {
+      throw new Error("The Felt URL queue is only used in the Felt UI process");
+    }
     this._pendingURLs = [];
-    this._storage.data.pendingURLs = [];
-    this._storage.saveSoon();
+    // Not chained behind _writes, so a write stuck on the keystore cannot
+    // keep the stored queue around past a signout.
+    lazy.FeltStorage.clearPendingURLs().catch(error => {
+      console.error("Failed to clear stored Felt URLs", error);
+    });
+    this._persist();
   },
 };
 
@@ -146,6 +249,12 @@ export function resetFeltFirefoxWindowReady() {
 // gSystemPrincipal (see resolveURIInternal), and the receiving Firefox side
 // should use system principal for externally-triggered URLs.
 export function queueFeltURL(payload) {
+  payload = sanitizeFeltURLPayload(payload);
+  if (!payload) {
+    console.error("Refusing to queue invalid Felt URL");
+    return;
+  }
+
   let isReady = isFeltFirefoxWindowReady();
   try {
     const { queueURL } = ChromeUtils.importESModule(
@@ -157,9 +266,7 @@ export function queueFeltURL(payload) {
       `Retrying to queue url ${payload.url} after initial failure:`,
       e
     );
-    gFeltPendingURLs.push(payload).catch(err => {
-      console.error("Failed to persist pending Felt URL", err);
-    });
+    gFeltPendingURLs.push(payload);
     Services.cpmm.sendAsyncMessage("FeltParent:ForceFeltFocus", {});
   }
 

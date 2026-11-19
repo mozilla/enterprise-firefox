@@ -34,6 +34,8 @@ consumers will need to arrange this themselves.
 import collections
 import functools
 import glob
+import itertools
+import json
 import logging
 import operator
 import os
@@ -2036,8 +2038,40 @@ https://firefox-source-docs.mozilla.org/contributing/vcs/mercurial_bundles.html
         )
         return 1
 
+    def _try_push_base_revision(self):
+        """Return the revision a try push is based on, if this is one.
+
+        A try push head only exists in the try repository, so the tree the push
+        is based on has no artifacts indexed for it. `mach try` records the base
+        revision in the ``try_task_config.json`` it commits, so for a git push,
+        where there is no pushlog to walk back through, that file is what names
+        a revision the candidate trees know about. Thunderbird searches from the
+        comm checkout, which a try push does not move and which has no such file.
+        """
+        if not os.environ.get("MOZ_AUTOMATION"):
+            return None
+        try:
+            with open(mozpath.join(self._topsrcdir, "try_task_config.json")) as fh:
+                base_rev = json.load(fh).get("parameters", {}).get("base_rev", "")
+        except (OSError, ValueError, AttributeError):
+            return None
+        if not re.match(r"^[A-Fa-f0-9]{40}$", base_rev) or set(base_rev) == {"0"}:
+            return None
+        return base_rev
+
     def install_from_recent(self, distdir):
         hg_pushheads = self._find_pushheads()
+        base_rev = self._try_push_base_revision()
+        if base_rev:
+            self.log(
+                logging.INFO,
+                "artifact",
+                {"rev": base_rev},
+                "Starting the search at {rev}, the revision this try push is based on.",
+            )
+            hg_pushheads = itertools.chain(
+                [(self._artifact_job.candidate_trees, base_rev)], hg_pushheads
+            )
         return self._install_from_hg_pushheads(hg_pushheads, distdir)
 
     def install_from_revset(self, revset, distdir):

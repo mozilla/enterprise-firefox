@@ -10,10 +10,10 @@ import time
 
 sys.path.append(os.path.dirname(__file__))
 
-from felt_tests import FeltTests
+from felt_tests import FeltKeyStoreStub, FeltTests
 
 
-class BaseBrowserExternalLink(FeltTests):
+class BaseBrowserExternalLink(FeltKeyStoreStub, FeltTests):
     def run_felt_browser_started(self):
         self.connect_child_browser()
 
@@ -66,8 +66,8 @@ class BaseBrowserExternalLink(FeltTests):
         self.third_party_open_external_link()
         self.check_has_external_link_tab(tabs)
 
-    def run_open_about_pages(self):
-        self._external_link = "about:buildconfig"
-        self.check_has_external_link_tab()
-        self._external_link = "about:logo"
-        self.check_has_external_link_tab()
+    def check_planted_urls_not_opened(self, urls):
+        """The URLs from a rejected stored queue must never reach a tab."""
+        for url in urls:
+            self._external_link = url
+            self.check_no_external_link_tab()

@@ -29,6 +29,8 @@ skip-if = [
 
 ["test_ExternalComponentsFeed.js"]
 
+["test_FramedWidgetsFeed.js"]
+
 ["test_HighlightsFeed.js"]
 
 ["test_InferredFeatureModel.js"]

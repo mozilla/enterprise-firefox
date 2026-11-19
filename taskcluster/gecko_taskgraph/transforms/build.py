@@ -148,8 +148,6 @@ def _supports_artifact_build(job, env):
         job.get("index", {}).get("job-name") in ARTIFACT_JOBS
         # If tests aren't packaged, then we are not able to rebuild all the packages
         and env.get("MOZ_AUTOMATION_PACKAGE_TESTS") == "1"
-        # Android shippable artifact builds are not supported
-        and not ("android" in job["name"] and job["attributes"].get("shippable", False))
     )
 
 
@@ -211,6 +209,9 @@ def use_artifact(config, jobs):
         ):
             job["treeherder"]["symbol"] = add_suffix(job["treeherder"]["symbol"], "a")
             job["worker"]["env"]["USE_ARTIFACT"] = "1"
+            if "enterprise" in config.params.get("project", ""):
+                if not job["attributes"].get("shippable"):
+                    job["worker"]["env"]["MOZ_ARTIFACT_ALLOW_NON_SHIPPABLE"] = "1"
             job["attributes"]["artifact-build"] = True
             # Artifact builds don't compile anything.
             job["use-sccache"] = False
