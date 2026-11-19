@@ -61,7 +61,7 @@ add_UITour_task(async function test_showFirefoxAccountsForAIWindow() {
 
 add_UITour_task(
   async function test_showFirefoxAccountsForAIWindow_entrypoint() {
-    if (IS_ESR) {
+    if (SMART_WINDOW_DISABLEDgit ) {
       Assert.ok(true, "Smart Window is not available on ESR, skipping.");
       return;
     }
