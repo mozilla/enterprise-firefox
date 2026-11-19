@@ -52,47 +52,45 @@ linux64/opt:
             - sysroot-wasm32-wasi
             - onnxruntime-x86_64-linux-gnu
 
-linux64-enterprise-shippable/opt:
-    description: "Linux64 Enterprise Shippable Opt"
-    use-pgo: linux64-shippable/opt
+linux64-enterprise/opt:
+    description: "Linux64 Enterprise Opt"
     index:
         product: firefox
         job-name: linux64-enterprise-opt
-        type: shippable
     attributes:
-        shippable: true
         enable-build-signing: true
         enable-full-crashsymbols: true
-    shipping-phase: build
-    shipping-product: firefox-enterprise
     treeherder:
-        platform: linux64-enterprise-shippable/opt
-        symbol: Bpgo(Bent)
-        tier: 1
-    worker-type: b-linux-docker-xlarge-amd
+        platform: linux64-enterprise/opt
+        symbol: Bent
+        tier:
+            by-project:
+                enterprise-firefox.*: 1
+                default: 2
     worker:
         max-run-time: 7200
         env:
-            PERFHERDER_EXTRA_OPTIONS: enterprise
-            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            MOZ_AUTOMATION_PACKAGE_TESTS:
+                by-project:
+                    enterprise-firefox.*: "1"
+                    default: null
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
             MOZ_ENABLE_FULL_SYMBOLS: "1"
-            MOZ_GENERATE_SBOM: "1"
+    mozconfig:
+        variant: opt-enterprise
     run:
         using: mozharness
         actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
-            - taskcluster_nightly.py
         script: "mozharness/scripts/fx_desktop_build.py"
         secrets: true
         tooltool-downloads: public
-    run-on-projects: ["enterprise-firefox"]
-    run-on-repo-type: ["git"]
-    use-sccache: false
+    run-on-projects: ['mozilla-central', 'enterprise-firefox']
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:
@@ -151,42 +149,47 @@ linux64-appservices/opt:
             - sysroot-wasm32-wasi
             - onnxruntime-x86_64-linux-gnu
 
-linux64-enterprise/opt:
-    description: "Linux64 Enterprise Opt"
+linux64-enterprise-shippable/opt:
+    description: "Linux64 Enterprise Shippable Opt"
+    use-pgo: linux64-shippable/opt
     index:
         product: firefox
         job-name: linux64-enterprise-opt
+        type: shippable
     attributes:
+        shippable: true
+        enable-build-signing: true
         enable-full-crashsymbols: true
-        code-review: true
     shipping-phase: build
+    shipping-product: firefox-enterprise
     treeherder:
-        platform: linux64-enterprise/opt
-        symbol: Bent
+        platform: linux64-enterprise-shippable/opt
+        symbol: Bpgo(Bent)
         tier: 1
     worker-type: b-linux-docker-xlarge-amd
     worker:
         max-run-time: 7200
         env:
+            PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
             MOZ_ENABLE_FULL_SYMBOLS: "1"
-    mozconfig:
-        variant: opt-enterprise
+            MOZ_GENERATE_SBOM: "1"
     run:
         using: mozharness
         actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
+            - taskcluster_nightly.py
         script: "mozharness/scripts/fx_desktop_build.py"
         secrets: true
         tooltool-downloads: public
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
-    use-sccache: true
+    use-sccache: false
     use-python: "3.11"
     fetches:
         toolchain:
@@ -560,15 +563,20 @@ linux64-enterprise/debug:
         job-name: linux64-enterprise-debug
     attributes:
         enable-full-crashsymbols: true
-        code-review: true
     treeherder:
         platform: linux64-enterprise/debug
         symbol: Bent
-    worker-type: b-linux-docker-xlarge-amd
+        tier:
+            by-project:
+                enterprise-firefox.*: 1
+                default: 2
     worker:
         max-run-time: 5400
         env:
-            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            MOZ_AUTOMATION_PACKAGE_TESTS:
+                by-project:
+                    enterprise-firefox.*: "1"
+                    default: null
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
@@ -585,8 +593,7 @@ linux64-enterprise/debug:
         secrets: true
         custom-build-variant-cfg: debug
         tooltool-downloads: public
-    run-on-projects: ["enterprise-firefox"]
-    run-on-repo-type: ["git"]
+    run-on-projects: ['mozilla-central', 'enterprise-firefox']
     use-sccache: true
     use-python: "3.11"
     fetches:
@@ -1891,18 +1898,19 @@ linux64-aarch64/opt:
 
 linux64-aarch64-enterprise/opt:
     description: "Linux AArch64 (a.k.a. ARM64) Enterprise Opt"
-    worker-type: b-linux-docker-xlarge-amd
     index:
         product: firefox
         job-name: linux64-aarch64-enterprise-opt
     attributes:
         enable-build-signing: true
         enable-full-crashsymbols: true
-        code-review: true
     treeherder:
         platform: linux64-aarch64-enterprise/opt
         symbol: Bent
-        tier: 1
+        tier:
+            by-project:
+                enterprise-firefox.*: 1
+                default: 2
     worker:
         max-run-time: 7200
     mozconfig:
@@ -1981,17 +1989,18 @@ linux64-aarch64/debug:
 
 linux64-aarch64-enterprise/debug:
     description: "Linux AArch64 (a.k.a. ARM64) Enterprise Debug"
-    worker-type: b-linux-docker-xlarge-amd
     index:
         product: firefox
         job-name: linux64-aarch64-enterprise-debug
     attributes:
         enable-full-crashsymbols: true
-        code-review: true
     treeherder:
         platform: linux64-aarch64-enterprise/debug
         symbol: Bent
-        tier: 1
+        tier:
+            by-project:
+                enterprise-firefox.*: 1
+                default: 2
     worker:
         max-run-time: 7200
     mozconfig:
