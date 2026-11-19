@@ -597,7 +597,7 @@ const POLICIES_TESTS = [
 
   // POLICY: DisableShield
   {
-    skipInEnterprise: true,
+    skipIfEnterprise: true,
     policies: {
       DisableFirefoxStudies: true,
     },
@@ -630,7 +630,7 @@ const POLICIES_TESTS = [
 
   // POLICY: FirefoxHome
   {
-    skipInEnterprise: true,
+    skipIfEnterprise: true,
     policies: {
       FirefoxHome: {
         Stories: false,
@@ -661,7 +661,7 @@ const POLICIES_TESTS = [
   // POLICY: FirefoxHome (locking both sponsored settings locks the parent
   // "Support Firefox" toggle to their combined value)
   {
-    skipInEnterprise: true,
+    skipIfEnterprise: true,
     policies: {
       FirefoxHome: {
         SponsoredTopSites: false,
@@ -742,7 +742,7 @@ const POLICIES_TESTS = [
 
   // POLICY: UserMessaging
   {
-    skipInEnterprise: true,
+    skipIfEnterprise: true,
     policies: {
       UserMessaging: {
         SkipOnboarding: true,
@@ -756,7 +756,7 @@ const POLICIES_TESTS = [
 
   // POLICY: UserMessaging->SkipOnboarding false (bug 1697566)
   {
-    skipInEnterprise: true,
+    skipIfEnterprise: true,
     policies: {
       UserMessaging: {
         SkipOnboarding: false,
@@ -769,7 +769,7 @@ const POLICIES_TESTS = [
   },
 
   {
-    skipInEnterprise: true,
+    skipIfEnterprise: true,
     policies: {
       UserMessaging: {
         ExtensionRecommendations: false,
@@ -782,7 +782,7 @@ const POLICIES_TESTS = [
   },
 
   {
-    skipInEnterprise: true,
+    skipIfEnterprise: true,
     policies: {
       UserMessaging: {
         FeatureRecommendations: false,
@@ -1202,7 +1202,7 @@ const POLICIES_TESTS = [
 
   // Bug 1772503
   {
-    skipInEnterprise: true,
+    skipIfEnterprise: true,
     policies: {
       DisableFirefoxStudies: true,
     },
@@ -1447,7 +1447,7 @@ const POLICIES_TESTS = [
 
   // CrashReportsSubmit - enabled
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       CrashReportsSubmit: {
         Enabled: true,
@@ -1467,7 +1467,7 @@ const POLICIES_TESTS = [
 
   // CrashReportsSubmit - disabled
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       CrashReportsSubmit: {
         Enabled: false,
@@ -1486,7 +1486,7 @@ const POLICIES_TESTS = [
 
   // POLICY: ContentAnalysisTelemetry
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       ContentAnalysisTelemetry: {
         Enabled: true,
@@ -1499,7 +1499,7 @@ const POLICIES_TESTS = [
     },
   },
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       ContentAnalysisTelemetry: {
         Enabled: false,
@@ -1514,7 +1514,7 @@ const POLICIES_TESTS = [
 
   // POLICY: SignOut
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       SignOut: {
         Shutdown: {
@@ -1528,7 +1528,7 @@ const POLICIES_TESTS = [
     },
   },
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       SignOut: {
         Shutdown: {
@@ -1541,7 +1541,7 @@ const POLICIES_TESTS = [
     },
   },
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       SignOut: {
         Restart: {
@@ -1556,7 +1556,7 @@ const POLICIES_TESTS = [
     },
   },
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       SignOut: {
         Restart: {
@@ -1569,7 +1569,7 @@ const POLICIES_TESTS = [
     },
   },
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       SignOut: {
         Crash: {
@@ -1584,7 +1584,7 @@ const POLICIES_TESTS = [
     },
   },
   {
-    enterpriseOnly: true,
+    runIfEnterprise: true,
     policies: {
       SignOut: {
         Crash: {
@@ -1611,8 +1611,8 @@ add_task(async function test_policy_simple_prefs() {
 
   for (let test of POLICIES_TESTS) {
     // Some policies (or subkeys) are not applied on enterprise
-    // builds, so their cases are marked skipInEnterprise.
-    if (test.skipInEnterprise && AppConstants.MOZ_ENTERPRISE) {
+    // builds, so their cases are marked skipIfEnterprise.
+    if (test.skipIfEnterprise && AppConstants.MOZ_ENTERPRISE) {
       info(
         `Skipping ${Object.keys(test.policies).join(
           ", "
@@ -1620,7 +1620,7 @@ add_task(async function test_policy_simple_prefs() {
       );
       continue;
     }
-    if (test.enterpriseOnly && !AppConstants.MOZ_ENTERPRISE) {
+    if (test.runIfEnterprise && !AppConstants.MOZ_ENTERPRISE) {
       info(
         `Skipping ${Object.keys(test.policies).join(
           ", "
