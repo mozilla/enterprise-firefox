@@ -6,12 +6,16 @@ https://creativecommons.org/publicdomain/zero/1.0/ */
 const { IPPEnterpriseTelemetrySingleton } = ChromeUtils.importESModule(
   "resource://testing-common/ipprotection/IPPEnterpriseTelemetry.sys.mjs"
 );
+const { NetUtil } = ChromeUtils.importESModule(
+  "resource://gre/modules/NetUtil.sys.mjs"
+);
 
 const ISOLATION_KEY = "access-connector-key";
 
 let connectionIsolationKey = ISOLATION_KEY;
 let proxyActive = true;
 let proxyState = IPPProxyStates.ACTIVE;
+let stopOnError = false;
 
 do_get_profile();
 Services.fog.initializeFOG();
@@ -27,6 +31,7 @@ Services.fog.initializeFOG();
  * @param {number} [options.type] - The external content policy type.
  * @param {number} [options.proxyConnectResponseCode] - The proxy's response
  *   to the CONNECT request.
+ * @param {boolean} [options.fromCache] - Whether the page came from the cache.
  */
 function makeFinishedChannel(
   host,
@@ -35,13 +40,19 @@ function makeFinishedChannel(
     isolationKey = ISOLATION_KEY,
     type = Ci.nsIContentPolicy.TYPE_DOCUMENT,
     proxyConnectResponseCode = 200,
+    fromCache = false,
   } = {}
 ) {
   return {
     QueryInterface: ChromeUtils.generateQI([
       Ci.nsIHttpChannel,
       Ci.nsIProxiedChannel,
+      Ci.nsICacheInfoChannel,
     ]),
+    getCacheDisposition: () =>
+      fromCache
+        ? Ci.nsICacheInfoChannel.kCacheHit
+        : Ci.nsICacheInfoChannel.kCacheMissed,
     URI: Services.io.newURI(`https://${host}/page`),
     status,
     loadInfo: { externalContentPolicyType: type },
@@ -51,22 +62,62 @@ function makeFinishedChannel(
 }
 
 /**
- * Runs an action and returns the domains in the enterprise ping it submits,
- * or an empty array if it submits none. Submitting clears the ping's events,
- * so they are read in the submit callback.
+ * A top-level document channel that IPPChannelFilter cancelled before it
+ * reached a proxy, as it does while the connection is failed.
+ *
+ * @param {string} host
+ * @param {number} [status]
+ * @returns {nsIHttpChannel}
+ */
+function makeCancelledChannel(
+  host,
+  status = Cr.NS_ERROR_PROXY_CONNECTION_REFUSED
+) {
+  const channel = NetUtil.newChannel({
+    uri: `https://${host}/page`,
+    loadUsingSystemPrincipal: true,
+    contentPolicyType: Ci.nsIContentPolicy.TYPE_DOCUMENT,
+  }).QueryInterface(Ci.nsIHttpChannel);
+  channel.cancel(status);
+  return channel;
+}
+
+/**
+ * Runs an action and returns the domains of one metric's events in the
+ * enterprise ping it submits, or an empty array if it submits none.
+ * Submitting clears the ping's events, so they are read in the submit
+ * callback.
  *
  * @param {Function} action - Expected to submit at most once.
+ * @param {object} [metric] - The event metric to read.
  * @returns {string[]}
  */
-function domainsSubmittedDuring(action) {
+function domainsSubmittedDuring(
+  action,
+  metric = Glean.accessConnector.domainAccessStarted
+) {
   let domains = [];
   GleanPings.enterprise.testBeforeNextSubmit(() => {
-    domains = (
-      Glean.accessConnector.domainAccessStarted.testGetValue("enterprise") ?? []
-    ).map(event => event.extra.domain);
+    domains = (metric.testGetValue("enterprise") ?? []).map(
+      event => event.extra.domain
+    );
   });
   action();
   return domains;
+}
+
+function errorDomainsSubmittedDuring(action) {
+  return domainsSubmittedDuring(action, Glean.accessConnector.proxyError);
+}
+
+function setProxyState(state) {
+  const prevState = proxyState;
+  proxyState = state;
+  IPPProxyManager.dispatchEvent(
+    new CustomEvent("IPPProxyManager:StateChanged", {
+      detail: { state, prevState },
+    })
+  );
 }
 
 function stopRequest(telemetry, channel) {
@@ -86,7 +137,27 @@ add_setup(function () {
     .get(() => connectionIsolationKey);
   sandbox.stub(IPPProxyManager, "active").get(() => proxyActive);
   sandbox.stub(IPPProxyManager, "state").get(() => proxyState);
-  registerCleanupFunction(() => sandbox.restore());
+
+  // Registered before any telemetry instance, as IPProtectionActivator
+  // initializes IPPAlwaysOn first, so it stops the proxy from inside the
+  // ERROR notification before telemetry receives it.
+  const alwaysOnStop = ({ detail }) => {
+    if (stopOnError && detail.state === IPPProxyStates.ERROR) {
+      proxyActive = false;
+      setProxyState(IPPProxyStates.READY);
+    }
+  };
+  IPPProxyManager.addEventListener(
+    "IPPProxyManager:StateChanged",
+    alwaysOnStop
+  );
+  registerCleanupFunction(() => {
+    IPPProxyManager.removeEventListener(
+      "IPPProxyManager:StateChanged",
+      alwaysOnStop
+    );
+    sandbox.restore();
+  });
 });
 
 add_task(function test_first_load_per_domain_is_recorded() {
@@ -212,15 +283,15 @@ add_task(function test_observes_only_while_proxy_active() {
   );
 
   proxyActive = true;
-  IPPProxyManager.dispatchEvent(new Event("IPPProxyManager:StateChanged"));
+  setProxyState(IPPProxyStates.ACTIVE);
   Assert.ok(isObserving(telemetry), "Observing while the proxy is active");
 
   proxyActive = false;
-  IPPProxyManager.dispatchEvent(new Event("IPPProxyManager:StateChanged"));
+  setProxyState(IPPProxyStates.READY);
   Assert.ok(!isObserving(telemetry), "Stops observing when the proxy stops");
 
   proxyActive = true;
-  IPPProxyManager.dispatchEvent(new Event("IPPProxyManager:StateChanged"));
+  setProxyState(IPPProxyStates.ACTIVE);
   telemetry.uninit();
   Assert.ok(!isObserving(telemetry), "Stops observing on uninit");
 });
@@ -230,10 +301,6 @@ add_task(function test_reports_again_after_reconnect() {
   const telemetry = new IPPEnterpriseTelemetrySingleton();
   telemetry.init();
 
-  const setState = newState => {
-    proxyState = newState;
-    IPPProxyManager.dispatchEvent(new Event("IPPProxyManager:StateChanged"));
-  };
   const load = () =>
     domainsSubmittedDuring(() =>
       stopRequest(telemetry, makeFinishedChannel("app.corp.example"))
@@ -241,7 +308,7 @@ add_task(function test_reports_again_after_reconnect() {
 
   Assert.deepEqual(load(), ["app.corp.example"], "First load is submitted");
 
-  setState(IPPProxyStates.ACTIVE);
+  setProxyState(IPPProxyStates.ACTIVE);
   Assert.deepEqual(load(), [], "A state event while active does not reset");
 
   for (const interruption of [
@@ -249,8 +316,8 @@ add_task(function test_reports_again_after_reconnect() {
     IPPProxyStates.PAUSED,
     IPPProxyStates.READY,
   ]) {
-    setState(interruption);
-    setState(IPPProxyStates.ACTIVE);
+    setProxyState(interruption);
+    setProxyState(IPPProxyStates.ACTIVE);
     Assert.deepEqual(
       load(),
       ["app.corp.example"],
@@ -312,14 +379,12 @@ add_task(function test_retains_keys_across_rotation() {
       "The current key is accepted"
     );
 
-    proxyState = IPPProxyStates.READY;
     proxyActive = false;
     connectionIsolationKey = null;
-    IPPProxyManager.dispatchEvent(new Event("IPPProxyManager:StateChanged"));
-    proxyState = IPPProxyStates.ACTIVE;
+    setProxyState(IPPProxyStates.READY);
     proxyActive = true;
     connectionIsolationKey = "reconnected-key";
-    IPPProxyManager.dispatchEvent(new Event("IPPProxyManager:StateChanged"));
+    setProxyState(IPPProxyStates.ACTIVE);
 
     for (const key of [ISOLATION_KEY, "rotated-key", "next-key"]) {
       Assert.deepEqual(
@@ -404,5 +469,291 @@ add_task(function test_limits_retained_keys() {
   } finally {
     telemetry.uninit();
     connectionIsolationKey = ISOLATION_KEY;
+  }
+});
+
+add_task(function test_proxy_failures_are_recorded() {
+  Services.fog.testResetFOG();
+  const telemetry = new IPPEnterpriseTelemetrySingleton();
+  telemetry.init();
+  const cases = [
+    ["refused.corp.example", { status: Cr.NS_ERROR_PROXY_CONNECTION_REFUSED }],
+    ["unresolved.corp.example", { status: Cr.NS_ERROR_UNKNOWN_PROXY_HOST }],
+    [
+      "gateway.corp.example",
+      {
+        status: Cr.NS_ERROR_PROXY_BAD_GATEWAY,
+        proxyConnectResponseCode: 502,
+      },
+    ],
+    ["rejected.corp.example", { proxyConnectResponseCode: 407 }],
+  ];
+
+  for (const [host, options] of cases) {
+    Assert.deepEqual(
+      errorDomainsSubmittedDuring(() =>
+        stopRequest(telemetry, makeFinishedChannel(host, options))
+      ),
+      [host],
+      `A proxy failure for ${host} submits its host`
+    );
+  }
+  telemetry.uninit();
+});
+
+add_task(function test_ignored_failures() {
+  Services.fog.testResetFOG();
+  const telemetry = new IPPEnterpriseTelemetrySingleton();
+  telemetry.init();
+  const refused = { status: Cr.NS_ERROR_PROXY_CONNECTION_REFUSED };
+  const cases = [
+    [
+      "site failure",
+      makeFinishedChannel("app.corp.example", {
+        status: Cr.NS_ERROR_CONNECTION_REFUSED,
+      }),
+    ],
+    [
+      "untunneled load",
+      makeFinishedChannel("app.corp.example", {
+        proxyConnectResponseCode: -1,
+      }),
+    ],
+    [
+      "subresource",
+      makeFinishedChannel("app.corp.example", {
+        ...refused,
+        type: Ci.nsIContentPolicy.TYPE_SCRIPT,
+      }),
+    ],
+    [
+      "unproxied",
+      makeFinishedChannel("app.corp.example", {
+        ...refused,
+        isolationKey: null,
+      }),
+    ],
+    [
+      "service worker load",
+      {
+        ...makeFinishedChannel("app.corp.example", refused),
+        QueryInterface: ChromeUtils.generateQI([Ci.nsIHttpChannel]),
+      },
+    ],
+    [
+      "another proxy connection",
+      makeFinishedChannel("app.corp.example", {
+        ...refused,
+        isolationKey: "other",
+      }),
+    ],
+    ["cancelled while connected", makeCancelledChannel("app.corp.example")],
+  ];
+
+  const getRule = sinon
+    .stub(IPPSiteRuleManager, "getRule")
+    .returns(IPPPrincipalRules.INCLUDED);
+  try {
+    for (const [name, channel] of cases) {
+      Assert.deepEqual(
+        errorDomainsSubmittedDuring(() => stopRequest(telemetry, channel)),
+        [],
+        `A ${name} submits no proxy error`
+      );
+    }
+  } finally {
+    getRule.restore();
+    telemetry.uninit();
+  }
+});
+
+/**
+ * Fails the connection the way IPPAlwaysOn handles it: the proxy is stopped
+ * while the ERROR notification is still being dispatched, before its
+ * cancelled loads finish.
+ */
+function failAndStopConnection() {
+  stopOnError = true;
+  try {
+    setProxyState(IPPProxyStates.ERROR);
+  } finally {
+    stopOnError = false;
+  }
+}
+
+add_task(function test_proxy_errors_reported_once_per_outage() {
+  Services.fog.testResetFOG();
+  const telemetry = new IPPEnterpriseTelemetrySingleton();
+  telemetry.init();
+  const fail = (host, isolationKey = ISOLATION_KEY) =>
+    errorDomainsSubmittedDuring(() =>
+      stopRequest(
+        telemetry,
+        makeFinishedChannel(host, {
+          status: Cr.NS_ERROR_PROXY_CONNECTION_REFUSED,
+          isolationKey,
+        })
+      )
+    );
+
+  try {
+    Assert.deepEqual(fail("app.corp.example"), ["app.corp.example"]);
+    Assert.deepEqual(fail("app.corp.example"), [], "Repeats submit nothing");
+
+    failAndStopConnection();
+    Assert.ok(isObserving(telemetry), "Still observing after the stop");
+    Assert.deepEqual(
+      fail("other.corp.example"),
+      ["other.corp.example"],
+      "An in-flight load failing after the stop is submitted"
+    );
+    Assert.deepEqual(
+      fail("app.corp.example"),
+      [],
+      "A domain already reported in this outage submits nothing"
+    );
+    Assert.deepEqual(
+      domainsSubmittedDuring(() =>
+        stopRequest(telemetry, makeFinishedChannel("late.corp.example"))
+      ),
+      [],
+      "An in-flight load succeeding after the failure is not recorded"
+    );
+
+    setProxyState(IPPProxyStates.ACTIVATING);
+    failAndStopConnection();
+    Assert.deepEqual(
+      fail("app.corp.example"),
+      [],
+      "A failed retry does not start a new outage"
+    );
+
+    proxyActive = true;
+    connectionIsolationKey = "reconnected-key";
+    setProxyState(IPPProxyStates.ACTIVE);
+    Assert.deepEqual(
+      fail("new.corp.example"),
+      [],
+      "Keys from the failed connection are dropped once reconnected"
+    );
+    Assert.deepEqual(
+      fail("app.corp.example", "reconnected-key"),
+      [],
+      "A domain still failing after a reconnect submits nothing"
+    );
+
+    proxyActive = false;
+    setProxyState(IPPProxyStates.READY);
+    Assert.ok(!isObserving(telemetry), "A normal stop ends observation");
+  } finally {
+    telemetry.uninit();
+    proxyState = IPPProxyStates.ACTIVE;
+    proxyActive = true;
+    connectionIsolationKey = ISOLATION_KEY;
+  }
+});
+
+add_task(function test_proxy_errors_reported_again_after_recovery() {
+  Services.fog.testResetFOG();
+  const telemetry = new IPPEnterpriseTelemetrySingleton();
+  telemetry.init();
+  const fail = host =>
+    errorDomainsSubmittedDuring(() =>
+      stopRequest(
+        telemetry,
+        makeFinishedChannel(host, {
+          status: Cr.NS_ERROR_PROXY_CONNECTION_REFUSED,
+        })
+      )
+    );
+  const load = (host, options) =>
+    stopRequest(telemetry, makeFinishedChannel(host, options));
+
+  try {
+    Assert.deepEqual(fail("app.corp.example"), ["app.corp.example"]);
+
+    load("other.corp.example");
+    Assert.deepEqual(
+      fail("app.corp.example"),
+      [],
+      "Another domain loading does not end this domain's outage"
+    );
+
+    load("app.corp.example", { fromCache: true });
+    Assert.deepEqual(
+      fail("app.corp.example"),
+      [],
+      "A page from the cache does not end the outage"
+    );
+
+    load("app.corp.example", { isolationKey: null });
+    Assert.deepEqual(
+      fail("app.corp.example"),
+      [],
+      "A load that didn't go through the proxy does not end the outage"
+    );
+
+    load("app.corp.example");
+    Assert.deepEqual(
+      fail("app.corp.example"),
+      ["app.corp.example"],
+      "A failure after the domain loads through the proxy is submitted"
+    );
+  } finally {
+    telemetry.uninit();
+  }
+});
+
+add_task(function test_failed_connection_cancellations() {
+  Services.fog.testResetFOG();
+  const telemetry = new IPPEnterpriseTelemetrySingleton();
+  telemetry.init();
+  const getRule = sinon
+    .stub(IPPSiteRuleManager, "getRule")
+    .callsFake(principal =>
+      principal.host === "excluded.corp.example"
+        ? IPPPrincipalRules.EXCLUDED
+        : IPPPrincipalRules.INCLUDED
+    );
+  const cancel = (host, status) =>
+    errorDomainsSubmittedDuring(() =>
+      stopRequest(telemetry, makeCancelledChannel(host, status))
+    );
+
+  try {
+    failAndStopConnection();
+    Assert.deepEqual(
+      cancel("app.corp.example"),
+      ["app.corp.example"],
+      "A load cancelled for an included site is submitted after the stop"
+    );
+    Assert.equal(
+      getRule.lastCall.args[0].host,
+      "app.corp.example",
+      "The site rule is looked up for the page"
+    );
+    Assert.deepEqual(
+      cancel("excluded.corp.example"),
+      [],
+      "A load for a site the Access Connector does not route submits nothing"
+    );
+    Assert.deepEqual(
+      cancel("other.corp.example", Cr.NS_ERROR_UNKNOWN_PROXY_HOST),
+      [],
+      "A failure the channel filter does not produce submits nothing"
+    );
+
+    proxyActive = true;
+    setProxyState(IPPProxyStates.ACTIVE);
+    Assert.deepEqual(
+      cancel("new.corp.example"),
+      [],
+      "Cancelled loads without a key are not attributed once reconnected"
+    );
+  } finally {
+    getRule.restore();
+    telemetry.uninit();
+    proxyState = IPPProxyStates.ACTIVE;
+    proxyActive = true;
   }
 });

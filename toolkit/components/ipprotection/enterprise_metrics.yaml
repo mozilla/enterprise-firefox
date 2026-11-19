@@ -39,3 +39,33 @@ access_connector:
         description: >
           The hostname of the page, without scheme, port, or path.
         type: string
+  proxy_error:
+    type: event
+    description: >
+      Recorded the first time a top-level page on a domain fails to load
+      through the Access Connector proxy because of the proxy, such as when
+      the proxy connection is down, the proxy host cannot be resolved, or the
+      proxy rejects the tunnel. Failures from the site itself are not
+      included. A failing domain is not recorded again until a page on it
+      loads through the Access Connector, or the proxy is stopped or paused,
+      so retries during one outage are recorded once. Loads from private
+      windows are included.
+      Only collected when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_sensitivity:
+      - highly_sensitive
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    expires: never
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      domain:
+        description: >
+          The hostname of the page that failed to load, without scheme, port,
+          or path.
+        type: string

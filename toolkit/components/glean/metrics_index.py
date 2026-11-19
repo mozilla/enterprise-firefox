@@ -194,7 +194,6 @@ background_tasks_metrics = [
 # Order is lexicographical, enforced by t/c/glean/tests/pytest/test_yaml_indices.py
 firefox_enterprise_metrics = [
     "browser/components/downloads/enterprise_metrics.yaml",
-    "browser/components/enterprise/enterprise_metrics.yaml",
     "browser/components/enterprisepolicies/enterprise_metrics.yaml",
     "toolkit/components/contentanalysis/enterprise_metrics.yaml",
     "toolkit/components/ipprotection/enterprise_metrics.yaml",
