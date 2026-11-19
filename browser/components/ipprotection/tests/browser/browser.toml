@@ -70,6 +70,9 @@ skip-if = [
 ]
 
 ["browser_ipprotection_extra_locations_confirmation_message.js"]
+skip-if = [
+  "enterprise", # Enterprise does not initialize the IP Protection panel.
+]
 
 ["browser_ipprotection_header.js"]
 skip-if = [
