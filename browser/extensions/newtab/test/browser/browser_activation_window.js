@@ -337,7 +337,7 @@ add_task(async function test_user_enabling_persists_topsites() {
  * window (by setting the pref to true), their choice persists after the
  * activation window expires.
  */
-add_task(async function test_user_enabling_persists_topstories() {
+async function test_user_enabling_persists_topstories() {
   const sandbox = sinon.createSandbox();
   let profileCreatedInstant = TEST_PROFILE_24H_AGO;
 
@@ -399,7 +399,12 @@ add_task(async function test_user_enabling_persists_topstories() {
 
   await doExperimentCleanup();
   sandbox.restore();
-});
+}
+// Top Stories are removed on enterprise builds (bug 2070187).
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  test_user_enabling_persists_topstories
+);
 
 /**
  * Tests that when a user explicitly disables top sites during the activation
@@ -473,7 +478,7 @@ add_task(async function test_user_disabling_persists_topsites() {
  * window (by setting the pref to false), their choice persists after the
  * activation window expires.
  */
-add_task(async function test_user_disabling_persists_topstories() {
+async function test_user_disabling_persists_topstories() {
   const sandbox = sinon.createSandbox();
   let profileCreatedInstant = TEST_PROFILE_24H_AGO;
 
@@ -536,7 +541,12 @@ add_task(async function test_user_disabling_persists_topstories() {
 
   await doExperimentCleanup();
   sandbox.restore();
-});
+}
+// Top Stories are removed on enterprise builds (bug 2070187).
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  test_user_disabling_persists_topstories
+);
 
 /**
  * Tests that entering the activation window disables widgets by default when

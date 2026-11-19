@@ -88,7 +88,11 @@ add_task(async function test_newtab_tab_close_sends_ping() {
     // Sponsored topsites are turned off in tests to avoid making remote requests.
     Assert.ok(!Glean.topsites.sponsoredEnabled.testGetValue());
     Assert.ok(Glean.pocket.enabled.testGetValue());
-    Assert.ok(Glean.pocket.sponsoredStoriesEnabled.testGetValue());
+    // Sponsored stories are removed on enterprise builds (bug 2070187).
+    Assert.equal(
+      Glean.pocket.sponsoredStoriesEnabled.testGetValue(),
+      !AppConstants.MOZ_ENTERPRISE
+    );
   });
 
   BrowserTestUtils.removeTab(tab);
@@ -148,7 +152,11 @@ add_task(async function test_newtab_tab_nav_sends_ping() {
     // Sponsored topsites are turned off in tests to avoid making remote requests.
     Assert.ok(!Glean.topsites.sponsoredEnabled.testGetValue());
     Assert.ok(Glean.pocket.enabled.testGetValue());
-    Assert.ok(Glean.pocket.sponsoredStoriesEnabled.testGetValue());
+    // Sponsored stories are removed on enterprise builds (bug 2070187).
+    Assert.equal(
+      Glean.pocket.sponsoredStoriesEnabled.testGetValue(),
+      !AppConstants.MOZ_ENTERPRISE
+    );
   });
 
   BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "about:mozilla");

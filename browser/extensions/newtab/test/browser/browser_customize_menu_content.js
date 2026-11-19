@@ -58,6 +58,9 @@ add_setup(async function () {
 });
 
 test_newtab({
+  // Top Stories, and with them the Pocket toggle, are removed on enterprise
+  // builds (bug 2070187).
+  skip_if: () => AppConstants.MOZ_ENTERPRISE,
   async before({ pushPrefs }) {
     await pushPrefs(
       ["browser.newtabpage.activity-stream.feeds.discoverystreamfeed", true],

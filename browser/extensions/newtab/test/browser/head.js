@@ -352,6 +352,7 @@ function addContentHelpers() {
  *     test   {Function} The test to run in the about:newtab content task taking
  *                       an arg from "before" and returns a result to "after"
  *     after  {Function} Optional. Runs after and with the result of "test"
+ *     skip_if {Function} Optional. Passed to add_task to skip the test
  * @param browserURL {optional String}
  *   {String} This parameter is used to explicitly specify URL opened in new tab
  */
@@ -426,5 +427,9 @@ function test_newtab(testInfo, browserURL = "about:newtab") {
 
   // Copy the name of the content task to identify the test
   Object.defineProperty(testTask, "name", { value: contentTask.name });
-  add_task(testTask);
+  if (testInfo.skip_if) {
+    add_task({ skip_if: testInfo.skip_if }, testTask);
+  } else {
+    add_task(testTask);
+  }
 }
