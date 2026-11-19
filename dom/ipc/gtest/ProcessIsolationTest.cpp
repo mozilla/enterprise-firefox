@@ -95,9 +95,6 @@ class MockEnterprisePoliciesService final : public nsIEnterprisePolicies {
     *aRetVal = !gJitDisabled;
     return NS_OK;
   }
-  NS_IMETHOD HasSitePoliciesForURI(nsIURI*, bool* aRetVal) override {
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
   NS_IMETHOD GetActivePolicies(JS::MutableHandle<JS::Value>) override {
     return NS_ERROR_NOT_IMPLEMENTED;
   }

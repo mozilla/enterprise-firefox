@@ -17,6 +17,21 @@
   <vbox class="panel-subview-body">
     <html:div data-l10n-id="lockdown-mode-popup-message" />
   </vbox>
+  <vbox id="lockdown-mode-details-footer" class="panel-subview-footer-button">
+    <toolbarseparator />
+    <toolbarbutton id="lockdown-mode-details-button"
+                   class="subviewbutton subviewbutton-nav"
+                   closemenu="none">
+      <label class="toolbarbutton-text" flex="1" data-l10n-id="lockdown-mode-details-label" />
+      <label id="lockdown-mode-details-count" class="toolbarbutton-text" />
+    </toolbarbutton>
+  </vbox>
+</panelview>
+
+<panelview id="panelUI-lockdown-mode-details" class="PanelUI-subView enterprise-urlbar-panel-subview"
+           data-l10n-id="lockdown-mode-details-header"
+           data-l10n-attrs="title">
+  <vbox id="lockdown-mode-details-list" class="panel-subview-body" />
 </panelview>
 
 <panelview id="panelUI-access-connector" class="PanelUI-subView enterprise-urlbar-panel-subview"
