@@ -40,20 +40,22 @@ add_task(async function test_remote_process_given_empty_profile_path() {
 
   // Loading the test module should succeed, but adding it to the permanent
   // database fails. Thus, the call to `addModule` should fail, but the module
-  // will be loaded temporarily (i.e. for this session).
+  // will be loaded temporarily (i.e. for this session). Without profile
+  // PKCS#11 modules there is no permanent database, so `addModule` only loads
+  // the module and succeeds.
   let threw = false;
   try {
     await moduleDB.addModule("PKCS11 Test Module", libraryFile.path, 0, 0);
   } catch (_) {
     threw = true;
   }
-  ok(threw, "addModule should fail");
-  testModule = await findModuleByName(moduleDB, "PKCS11 Test Module");
-  notEqual(
-    testModule,
-    null,
-    "addModule threw, but the module should be loaded temporarily"
+  equal(
+    threw,
+    !AppConstants.MOZ_DISABLE_PROFILE_PKCS11_MODULES,
+    "addModule should fail only if it writes the permanent database"
   );
+  testModule = await findModuleByName(moduleDB, "PKCS11 Test Module");
+  notEqual(testModule, null, "the module should be loaded temporarily");
   let testSlot = findSlotByName(testModule, "Test PKCS11 Slot");
   notEqual(testSlot, null, "should be able to find 'Test PKCS11 Slot'");
   equal(
