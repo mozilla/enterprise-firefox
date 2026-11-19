@@ -7,8 +7,12 @@ head = "head.js"
 ["browser_HeartbeatSurvey.js"]
 
 ["browser_LegacyHeartbeatFeature.js"]
+skip-if = ["enterprise"] # Nimbus studies are disabled on Firefox Enterprise, bug 2073149
 
 ["browser_about_preferences.js"]
+# Enterprise builds hide the studies checkbox this test targets and lock
+# datareporting.healthreport.uploadEnabled on.
+skip-if = ["enterprise"]
 
 ["browser_about_studies.js"]
 https_first_disabled = true
