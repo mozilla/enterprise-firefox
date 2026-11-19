@@ -5817,6 +5817,12 @@ static void ReadAheadDlls(const wchar_t* greDir) {
 }
 #endif
 
+bool IsLaunchingBrowserDevtools() {
+  const char* chromeParam = nullptr;
+  return (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) &&
+         (strcmp(chromeParam, BROWSER_TOOLBOX_WINDOW_URL) == 0);
+}
+
 #if defined(MOZ_UPDATER) && !defined(MOZ_WIDGET_ANDROID)
 enum struct ShouldNotProcessUpdatesReason {
   DevToolsLaunching,
@@ -5843,12 +5849,6 @@ const char* ShouldNotProcessUpdatesReasonAsString(
     default:
       MOZ_CRASH("impossible value for ShouldNotProcessUpdatesReason");
   }
-}
-
-bool IsLaunchingBrowserDevtools() {
-  const char* chromeParam = nullptr;
-  return (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) &&
-         (strcmp(chromeParam, BROWSER_TOOLBOX_WINDOW_URL) == 0);
 }
 
 Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
