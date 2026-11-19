@@ -193,7 +193,10 @@ export const CaptivePortal = {
     const uri = Services.io.newURI(url);
     const principal = Services.scriptSecurityManager.createContentPrincipal(
       uri,
-      { privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID }
+      {
+        privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
+        userContextId: this._portalUserContextId,
+      }
     );
     Services.perms.addFromPrincipal(
       principal,
@@ -223,9 +226,17 @@ export const CaptivePortal = {
     browser.fixupAndLoadURIString(url, {
       triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({
         privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
+        userContextId: this._portalUserContextId,
       }),
     });
     browser.focus();
+  },
+
+  get _portalUserContextId() {
+    return parseInt(
+      this._doc.getElementById("portal-browser").getAttribute("usercontextid"),
+      10
+    );
   },
 
   hideOverlay() {
@@ -235,17 +246,20 @@ export const CaptivePortal = {
   hidePortalBrowser() {
     const browser = this._doc.getElementById("portal-browser");
     this.hideOverlay();
-    // The portal shares the private session (pbId=1) with SSO, and FELT collects
-    // every cookie in it, so drop the portal's cookies on teardown. Clearing the
-    // whole jar is safe: an SSO the portal interrupted was aborted and restarts
-    // clean, so there are no console cookies to lose.
+    // The portal has its own cookie jar (usercontextid on #portal-browser),
+    // which FELT never collects. The page can still write to it while
+    // unloading.
     Services.cookies.removeCookiesWithOriginAttributes(
-      JSON.stringify({ privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID })
+      JSON.stringify({
+        privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
+        userContextId: this._portalUserContextId,
+      })
     );
     // Discard the portal page; dismissal follows the connectivity signal.
     browser.fixupAndLoadURIString("about:blank", {
       triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({
         privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
+        userContextId: this._portalUserContextId,
       }),
     });
   },
