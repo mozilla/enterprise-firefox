@@ -199,16 +199,36 @@ export const Updates = {
       return null;
     });
     if (history) {
+      // Default branch only since the FELT profile is user-writable.
       // The UpdaterManager history's capped at 10 max.
-      const maxConsecutiveUpdateFailures = Math.min(
-        Services.prefs.getIntPref(
-          "enterprise.felt.max_consecutive_update_failure",
-          3
-        ),
-        10
+      const maxConsecutiveUpdateFailures = Math.max(
+        1,
+        Math.min(
+          Services.prefs
+            .getDefaultBranch(null)
+            .getIntPref("enterprise.felt.max_consecutive_update_failure", 3),
+          10
+        )
       );
+      // Failures for updates we're already past are stale. This mirrors
+      // updateIsAtLeastAsOldAs in UpdateService.sys.mjs, so any update the
+      // updater would offer again still counts.
+      const isAtLeastAsOldAsCurrent = update => {
+        if (!update.appVersion || !update.buildID) {
+          return false;
+        }
+        const versionComparison = Services.vc.compare(
+          update.appVersion,
+          Services.appinfo.version
+        );
+        return (
+          versionComparison < 0 ||
+          (versionComparison == 0 &&
+            update.buildID == Services.appinfo.appBuildID)
+        );
+      };
       const firstNonFailed = history.findIndex(
-        update => update.state !== "failed"
+        update => update.state !== "failed" || isAtLeastAsOldAsCurrent(update)
       );
       const consecutiveUpdateFailures =
         firstNonFailed === -1 ? history.length : firstNonFailed;
