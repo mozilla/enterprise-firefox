@@ -9,6 +9,7 @@ skip-if = ["enterprise"] # Urlbar interventions are disabled on Firefox Enterpri
 ["browser_picks.js"]
 
 ["browser_searchTips.js"]
+skip-if = ["enterprise"] # Search tips are disabled with contextual feature recommendations on Firefox Enterprise, bug 2073149
 support-files = [
   "../browser/slow-page.sjs",
   "slow-page.html",
@@ -16,6 +17,7 @@ support-files = [
 https_first_disabled = true
 
 ["browser_searchTips_interaction.js"]
+skip-if = ["enterprise"] # Search tips are disabled with contextual feature recommendations on Firefox Enterprise, bug 2073149
 https_first_disabled = true
 
 ["browser_selection.js"]
