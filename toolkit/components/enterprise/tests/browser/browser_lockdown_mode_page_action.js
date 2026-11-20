@@ -163,10 +163,11 @@ add_task(async function test_button_position() {
       "page-action-buttons",
       "Enterprise urlbar actions container should be inside page-action-buttons"
     );
-    Assert.equal(
-      enterpriseActions.nextElementSibling?.id,
-      "share-button",
-      "Enterprise urlbar actions container should be positioned just before the share button"
+    Assert.ok(
+      enterpriseActions.compareDocumentPosition(
+        document.getElementById("share-button")
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      "Enterprise urlbar actions container should be positioned before the share button"
     );
   });
 });

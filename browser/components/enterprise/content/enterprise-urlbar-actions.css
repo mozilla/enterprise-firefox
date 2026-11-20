@@ -6,23 +6,10 @@
   list-style-image: var(--lockdown-mode-icon);
 }
 
-#access-connector-button .urlbar-icon {
-  list-style-image: var(--access-connector-icon);
-}
-
-#access-connector-button[error] .urlbar-icon {
-  list-style-image: var(--access-connector-error-icon);
-}
-
 @media not (forced-colors) {
-  #lockdown-mode-button .urlbar-icon,
-  #access-connector-button .urlbar-icon {
+  #lockdown-mode-button .urlbar-icon {
     -moz-context-properties: fill;
     fill: var(--icon-color-information);
-  }
-
-  #access-connector-button[error] .urlbar-icon {
-    fill: var(--icon-color-critical);
   }
 }
 

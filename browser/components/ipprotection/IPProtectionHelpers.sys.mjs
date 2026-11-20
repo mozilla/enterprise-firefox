@@ -29,6 +29,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
+    AccessConnector:
+      "moz-src:///browser/components/ipprotection/enterprise/AccessConnector.sys.mjs",
     IPPEnterpriseAuthProvider:
       "moz-src:///toolkit/components/ipprotection/enterprise/IPPEnterpriseAuthProvider.sys.mjs",
   });
@@ -48,6 +50,19 @@ class UIHelper {
     this.handleEvent = this.#handleEvent.bind(this);
   }
 
+  /**
+   * The manager for the current build's per-window UI: AccessConnector for
+   * the enterprise urlbar button, IPProtection for the toolbar widget
+   * otherwise.
+   *
+   * @returns {AccessConnector|IPProtectionWidget}
+   */
+  get #uiManager() {
+    return AppConstants.MOZ_ENTERPRISE
+      ? lazy.AccessConnector
+      : lazy.IPProtection;
+  }
+
   init() {
     lazy.IPProtectionService.addEventListener(
       "IPProtectionService:StateChanged",
@@ -62,27 +77,26 @@ class UIHelper {
       "IPProtectionService:StateChanged",
       this.handleEvent
     );
-    lazy.IPProtection.uninit();
+    this.#uiManager.uninit();
   }
 
   #handleEvent(_event) {
     const state = lazy.IPProtectionService.state;
 
     if (
-      !lazy.IPProtection.isInitialized &&
-      !AppConstants.MOZ_ENTERPRISE &&
+      !this.#uiManager.isInitialized &&
       state !== lazy.IPProtectionStates.UNINITIALIZED &&
       state !== lazy.IPProtectionStates.UNAVAILABLE
     ) {
-      lazy.IPProtection.init();
+      this.#uiManager.init();
     }
 
     if (
-      lazy.IPProtection.isInitialized &&
+      this.#uiManager.isInitialized &&
       (state === lazy.IPProtectionStates.UNINITIALIZED ||
         state === lazy.IPProtectionStates.UNAVAILABLE)
     ) {
-      lazy.IPProtection.uninit();
+      this.#uiManager.uninit();
     }
   }
 }
