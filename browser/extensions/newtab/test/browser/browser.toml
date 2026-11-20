@@ -51,6 +51,9 @@ https_first_disabled = true
 ["browser_customize_menu_render.js"]
 
 ["browser_discovery_card.js"]
+skip-if = [
+  "enterprise", # Top Stories are removed on enterprise builds, bug 2070187
+]
 
 ["browser_discovery_render.js"]
 
@@ -63,8 +66,14 @@ https_first_disabled = true
 ["browser_highlights_section.js"]
 
 ["browser_newtab_header.js"]
+skip-if = [
+  "enterprise", # Top Stories are removed on enterprise builds, bug 2070187
+]
 
 ["browser_newtab_last_LinkMenu.js"]
+skip-if = [
+  "enterprise", # Top Stories are removed on enterprise builds, bug 2070187
+]
 
 ["browser_newtab_overrides.js"]
 

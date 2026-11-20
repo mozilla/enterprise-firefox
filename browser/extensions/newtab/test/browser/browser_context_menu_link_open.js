@@ -184,6 +184,8 @@ function recordedStoryClick() {
 }
 
 test_newtab({
+  // Top Stories are removed on enterprise builds (bug 2070187).
+  skip_if: () => AppConstants.MOZ_ENTERPRISE,
   async before({ pushPrefs, tab }) {
     storyTab = tab;
     sinon
