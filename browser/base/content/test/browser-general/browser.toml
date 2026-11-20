@@ -264,6 +264,7 @@ skip-if = [
 run-if = [
   "datareporting",
 ]
+skip-if = ["enterprise"] # Enterprise builds never show the data reporting notification.
 # DO NOT ADD MORE TESTS HERE. USE A TOPICAL DIRECTORY INSTEAD.
 
 ["browser_documentnavigation.js"]
