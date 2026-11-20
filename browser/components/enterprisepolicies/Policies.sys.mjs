@@ -2045,6 +2045,20 @@ export var Policies = {
               "normal_installed"
           ) {
             const existingAddon = addons.get(extensionID);
+            if (
+              existingAddon &&
+              existingAddon.pendingOperations &
+                lazy.AddonManager.PENDING_UNINSTALL
+            ) {
+              try {
+                existingAddon.cancelUninstall();
+              } catch (e) {
+                lazy.reportFailure(
+                  "ExtensionSettings",
+                  `Could not restore add-on ${extensionID}: ${e.message}`
+                );
+              }
+            }
             if (extensionSettings[extensionID].install_url) {
               lazy.installAddonFromURL(
                 extensionSettings[extensionID].install_url,

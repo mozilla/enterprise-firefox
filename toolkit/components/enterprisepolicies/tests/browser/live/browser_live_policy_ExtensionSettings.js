@@ -356,6 +356,58 @@ add_task(async function test_installation_mode_lifecycle() {
   await waitForLivePolicyUpdate({});
 });
 
+// Functional: an add-on the user removed in about:addons stays pending
+// uninstall until restart. Re-applying force_installed must cancel the pending
+// uninstall and restart the add-on live.
+add_task(async function test_force_installed_restores_pending_uninstall() {
+  const id = "pending-uninstall-live@example.com";
+  registerCleanupFunction(() => uninstallAndSettle(id));
+
+  let addon = await installWebExtension(id, {
+    name: "pending uninstall live test",
+  });
+
+  // Start with a clean engine state
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    { policies: {} },
+    null
+  );
+
+  info("Removing the add-on with undo, as about:addons does.");
+  await addon.uninstall(true);
+  Assert.ok(
+    addon.pendingOperations & AddonManager.PENDING_UNINSTALL,
+    "the add-on is pending uninstall"
+  );
+  await TestUtils.waitForCondition(
+    () => !WebExtensionPolicy.getByID(id),
+    "the pending-uninstall add-on shuts down"
+  );
+
+  info("Re-applying force_installed.");
+  await waitForLivePolicyUpdate({
+    ExtensionSettings: { [id]: { installation_mode: "force_installed" } },
+  });
+  await TestUtils.waitForCondition(
+    () => WebExtensionPolicy.getByID(id),
+    "the add-on restarts live"
+  );
+
+  addon = await AddonManager.getAddonByID(id);
+  Assert.ok(
+    !(addon.pendingOperations & AddonManager.PENDING_UNINSTALL),
+    "the pending uninstall is cancelled"
+  );
+  Assert.ok(addon.isActive, "the add-on is active again");
+  Assert.ok(
+    !(addon.permissions & AddonManager.PERM_CAN_UNINSTALL),
+    "force_installed removes the uninstall capability"
+  );
+
+  await waitForLivePolicyUpdate({});
+  await uninstallAndSettle(id);
+});
+
 // Functional: an installed extension whose permission is added to
 // blocked_permissions must actually become disabled, and
 // removing the policy must re-enable it.
