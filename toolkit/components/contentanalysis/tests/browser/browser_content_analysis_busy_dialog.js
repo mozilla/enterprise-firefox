@@ -1,6 +1,12 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
+/* import-globals-from clipboard_copy_helpers.js */
+Services.scriptloader.loadSubScript(
+  getRootDirectory(gTestPath) + "clipboard_copy_helpers.js",
+  this
+);
+
 let mockCA = makeMockContentAnalysis();
 
 add_setup(async function test_setup() {
@@ -104,6 +110,45 @@ async function testBusyDialog(cancel) {
   BrowserTestUtils.removeTab(tab);
 }
 
+// With the local clipboard off, a copy holds the page for its verdict and
+// the busy dialog shows for it like for a paste.
+async function testBusyDialogForCopyWithLocalClipboardOff() {
+  await withClipboardCopyPrefs(/* keepLocalCopy */ false, [], async () => {
+    mockCA.setupForTest(true, /* waitForEvent */ true, /* showDialogs */ true);
+    let tab = await openCopyTestPage();
+    let browser = tab.linkedBrowser;
+    setClipboardText(PREVIOUS_CLIPBOARD_TEXT);
+    await selectAllIn(browser, "testInput");
+
+    let scanStartedPromise = new Promise(res => {
+      mockCA.eventTarget.addEventListener("inAnalyzeContentRequest", res, {
+        once: true,
+      });
+    });
+    let dialogPromise = BrowserTestUtils.promiseAlertDialogOpen();
+    let doCopyPromise = BrowserTestUtils.synthesizeKey(
+      "c",
+      { accelKey: true },
+      browser
+    );
+    await scanStartedPromise;
+
+    let win = await dialogPromise;
+    let dialog = win.document.querySelector("dialog");
+    is(
+      mockCA.calls[0].reason,
+      Ci.nsIContentAnalysisRequest.eClipboardCopy,
+      "the request is the copy"
+    );
+
+    releaseCopyVerdict(mockCA, true);
+    await doCopyPromise;
+    ok(!dialog.open, "the busy dialog closed with the verdict");
+
+    BrowserTestUtils.removeTab(tab);
+  });
+}
+
 async function testClosingTab() {
   mockCA.setupForTest(true, /* waitForEvent */ true, /* showDialogs */ true);
   let tab = BrowserTestUtils.addTab(gBrowser);
@@ -177,4 +222,8 @@ add_task(async function testBusyConfirmationDialogWithNoCancel() {
 // the busy dialog is closed and the request is cancelled.
 add_task(async function testClosingTabCancelsRequest() {
   await testClosingTab();
+});
+
+add_task(async function testBusyDialogShownForCopyWithLocalClipboardOff() {
+  await testBusyDialogForCopyWithLocalClipboardOff();
 });
