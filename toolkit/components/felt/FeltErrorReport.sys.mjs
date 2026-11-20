@@ -5,14 +5,15 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   getResolvedErrorConfig: "chrome://global/content/errors/error-lookup.mjs",
   initializeRegistry: "chrome://global/content/errors/error-registry.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("FeltErrorReport");
+  return console.createInstance({
+    logModule: "FeltErrorReport",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 export const ERROR_SOURCE = {

@@ -5,9 +5,11 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = XPCOMUtils.declareLazy({
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-  log: () => lazy.createEnterpriseLogger("ConsoleProxyBypassFilter"),
+  log: () =>
+    console.createInstance({
+      logModule: "ConsoleProxyBypassFilter",
+      maxLogLevelPref: "enterprise.log_level",
+    }),
   ProxyService: {
     service: "@mozilla.org/network/protocol-proxy-service;1",
     iid: Ci.nsIProtocolProxyService,

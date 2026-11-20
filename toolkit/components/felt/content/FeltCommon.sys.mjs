@@ -6,13 +6,11 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-});
-
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("FeltCommon");
+  return console.createInstance({
+    logModule: "FeltCommon",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 export const FeltCommon = {
