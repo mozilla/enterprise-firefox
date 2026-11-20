@@ -40,6 +40,15 @@ const SECURITY_LOGGING_PREFS = {
   },
 };
 
+// The settings a configured event leaves out are locked to these defaults, which
+// are what each recorder assumes when its pref is unset, so no user pref can
+// alter any part of an event the administrator controls.
+const SETTING_DEFAULTS = {
+  Enabled: false,
+  UrlLogging: "full",
+  FileLogging: "full",
+};
+
 function forEachSetting(param, callback) {
   for (const [event, settings] of Object.entries(SECURITY_LOGGING_PREFS)) {
     const eventParam = param?.[event];
@@ -47,12 +56,16 @@ function forEachSetting(param, callback) {
       continue;
     }
     for (const [setting, pref] of Object.entries(settings)) {
-      if (Object.hasOwn(eventParam, setting)) {
-        callback(pref, eventParam[setting]);
-      }
+      callback(pref, eventParam[setting] ?? SETTING_DEFAULTS[setting]);
     }
   }
 }
+
+const MANAGED_PREFS = new Set(
+  Object.values(SECURITY_LOGGING_PREFS).flatMap(settings =>
+    Object.values(settings)
+  )
+);
 
 export const SecurityLoggingPolicy = {
   apply(param) {
@@ -65,5 +78,17 @@ export const SecurityLoggingPolicy = {
     forEachSetting(oldParam, pref =>
       lazy.PoliciesUtils.unsetAndUnlockPref(pref)
     );
+  },
+
+  /**
+   * Whether this policy owns the given pref. Other policies leave such prefs
+   * alone, so that this policy's settings do not depend on the order in which
+   * policies are applied.
+   *
+   * @param {string} prefName
+   * @returns {boolean}
+   */
+  managesPref(prefName) {
+    return MANAGED_PREFS.has(prefName);
   },
 };

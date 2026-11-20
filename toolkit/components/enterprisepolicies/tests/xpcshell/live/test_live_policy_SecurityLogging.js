@@ -199,13 +199,27 @@ add_task(async function test_unmentioned_settings_are_untouched_live() {
       },
     });
 
+    // The settings a configured event leaves out are locked to their defaults;
+    // events the policy does not configure are left alone.
     EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_ENABLED_PREF, true, true);
+    EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_URL_PREF, "full", true);
+    EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_FILE_PREF, "full", true);
     EnterprisePolicyTesting.checkPolicyPref(PRINT_ENABLED_PREF, true, true);
 
     await updatePolicies({ policies: {} });
 
     EnterprisePolicyTesting.checkPolicyPref(
       DOWNLOAD_ENABLED_PREF,
+      undefined,
+      false
+    );
+    EnterprisePolicyTesting.checkPolicyPref(
+      DOWNLOAD_URL_PREF,
+      undefined,
+      false
+    );
+    EnterprisePolicyTesting.checkPolicyPref(
+      DOWNLOAD_FILE_PREF,
       undefined,
       false
     );

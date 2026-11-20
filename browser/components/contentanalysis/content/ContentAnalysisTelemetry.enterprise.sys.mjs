@@ -368,15 +368,7 @@ export const ContentAnalysisTelemetryEnterprise = {
         rule_name: ruleName || "",
       });
 
-      // Allow tests to disable submission to inspect recorded telemetry
-      if (
-        !Services.prefs.getBoolPref(
-          "browser.contentanalysis.enterprise.telemetry.testing.disableSubmit",
-          false
-        )
-      ) {
-        GleanPings.enterprise.submit();
-      }
+      GleanPings.enterprise.submit();
     } catch (ex) {
       // Report but otherwise swallow the failure - telemetry errors should not
       // break content analysis.
