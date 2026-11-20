@@ -730,10 +730,8 @@ def target_tasks_enterprise_firefox_with_tests(
         ):
             return False
 
-        # browser-chrome is not green on enterprise builds. Before this was
-        # applied to all platforms, only Windows ran it: the mochitest kind
-        # config gives Linux enterprise no M(bc) variant to run, and macOS
-        # enterprise was filtered here.
+        # Filter out browser-chrome on enterprise builds until the suite is
+        # green.
         if (
             test_platform
             and "enterprise" in test_platform
