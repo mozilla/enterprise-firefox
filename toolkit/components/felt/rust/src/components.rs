@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 use nserror::{
-    nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_NOT_CONNECTED,
-    NS_ERROR_PORT_ACCESS_NOT_ALLOWED, NS_ERROR_UNEXPECTED, NS_OK,
+    nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_INVALID_ARG,
+    NS_ERROR_NOT_AVAILABLE, NS_ERROR_NOT_CONNECTED, NS_ERROR_PORT_ACCESS_NOT_ALLOWED,
+    NS_ERROR_UNEXPECTED, NS_OK,
 };
 use nsstring::{nsACString, nsAString, nsCString, nsString};
 use std::cell::RefCell;
@@ -20,9 +21,9 @@ use xpcom::{xpcom_method, RefPtr};
 
 use log::{error, trace};
 
-use crate::message::{FeltMessage, FELT_IPC_VERSION};
+use crate::message::{FeltMessage, FirefoxConfig, FELT_IPC_VERSION};
 use crate::utils;
-use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
+use crate::utils::{Tokens, CONSOLE_URL, FIREFOX_CONFIG, TOKENS, TOKEN_EXPIRY_SKEW};
 
 #[xpcom(implement(nsIFelt), atomic)]
 pub struct FeltXPCOM {
@@ -165,6 +166,34 @@ impl FeltXPCOM {
         trace!("FeltXPCOM::SendIntPreference: {}", name);
         self.send(FeltMessage::IntPreference((name, value)))
             .to_result()
+    }
+
+    xpcom_method!(send_firefox_config => SendFirefoxConfig(config: *const nsACString));
+    fn send_firefox_config(&self, config: &nsACString) -> Result<(), nserror::nsresult> {
+        if !self.is_felt_ui {
+            error!("FeltXPCOM::SendFirefoxConfig: called from the browser side");
+            return Err(NS_ERROR_UNEXPECTED);
+        }
+        let config: FirefoxConfig = serde_json::from_slice(&config[..]).map_err(|err| {
+            error!(
+                "FeltXPCOM::SendFirefoxConfig: invalid configuration: {}",
+                err
+            );
+            NS_ERROR_INVALID_ARG
+        })?;
+        trace!("FeltXPCOM::SendFirefoxConfig: {:?}", config);
+        self.send(FeltMessage::FirefoxConfig(config)).to_result()
+    }
+
+    xpcom_method!(get_firefox_config => GetFirefoxConfig() -> nsACString);
+    fn get_firefox_config(&self) -> Result<nsCString, nserror::nsresult> {
+        if !self.is_felt_browser {
+            error!("FeltXPCOM::GetFirefoxConfig: called from the Felt UI side");
+            return Err(NS_ERROR_UNEXPECTED);
+        }
+        let config = FIREFOX_CONFIG.get().ok_or(NS_ERROR_NOT_AVAILABLE)?;
+        let json = serde_json::to_string(config).map_err(|_| NS_ERROR_FAILURE)?;
+        Ok(nsCString::from(json))
     }
 
     fn SendReady(&self) -> nserror::nsresult {
