@@ -857,7 +857,7 @@ add_task(async function feature_callout_more_button_with_dismiss() {
   await BrowserTestUtils.closeWindow(win);
 });
 
-add_task(async function test_content_document_selector() {
+async function test_content_document_selector() {
   const { AuthProvider } = ChromeUtils.importESModule(
     "moz-src:///browser/components/aiwindow/models/AuthProvider.sys.mjs"
   );
@@ -911,4 +911,9 @@ add_task(async function test_content_document_selector() {
   await SpecialPowers.popPrefEnv();
   sandbox.restore();
   stub.restore();
-});
+}
+// Smart Window is disabled in enterprise builds (bug 2073100).
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  test_content_document_selector
+);

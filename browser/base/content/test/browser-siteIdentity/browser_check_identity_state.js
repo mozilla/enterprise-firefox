@@ -126,6 +126,15 @@ add_task(async function chromeUITest() {
     "http://example.com/" + DUMMY,
   ];
 
+  // Enterprise builds block about:profiles (bug 2082093) and show about:home
+  // for about:welcome (bug 2082020).
+  if (AppConstants.MOZ_ENTERPRISE) {
+    secureChromePages = secureChromePages.filter(page => page != "profiles");
+    nonSecureExamplePages = nonSecureExamplePages.filter(
+      page => page != "about:welcome"
+    );
+  }
+
   for (let i = 0; i < secureChromePages.length; i++) {
     await BrowserTestUtils.withNewTab("about:" + secureChromePages[i], () => {
       is(getIdentityMode(), "chromeUI", "Identity should be chromeUI");

@@ -190,7 +190,7 @@ add_task(async function test_open_ai_window() {
   await SpecialPowers.popPrefEnv();
 });
 
-add_task(async function test_open_ai_window_tab_in_ai_window() {
+async function test_open_ai_window_tab_in_ai_window() {
   await SpecialPowers.pushPrefEnv({
     set: [["browser.smartwindow.enabled", true]],
   });
@@ -209,4 +209,9 @@ add_task(async function test_open_ai_window_tab_in_ai_window() {
   await BrowserTestUtils.removeTab(tab);
   await BrowserTestUtils.closeWindow(win);
   await SpecialPowers.popPrefEnv();
-});
+}
+// Smart Window is disabled in enterprise builds (bug 2073100).
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  test_open_ai_window_tab_in_ai_window
+);

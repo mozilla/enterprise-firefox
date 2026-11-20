@@ -457,15 +457,20 @@ add_task(async function test_warns_in_a_window_that_can_take_a_bar() {
   const win = Services.wm.getMostRecentBrowserWindow();
   await reset(win);
 
-  // InfoBar refuses a private window, and the most recent window is the one
-  // the user just opened.
-  const privateWin = await BrowserTestUtils.openNewBrowserWindow({
-    private: true,
+  // InfoBar refuses a popup, and the most recent window is the one the user
+  // just opened.
+  await SpecialPowers.pushPrefEnv({
+    set: [["dom.disable_open_during_load", false]],
   });
+  const popupPromise = BrowserTestUtils.waitForNewWindow();
+  await SpecialPowers.spawn(win.gBrowser.selectedBrowser, [], () => {
+    content.open("about:blank", "", "popup");
+  });
+  const popupWin = await popupPromise;
   Assert.equal(
     Services.wm.getMostRecentBrowserWindow(),
-    privateWin,
-    "The private window is the most recent one"
+    popupWin,
+    "The popup is the most recent one"
   );
 
   RelaunchEnforcer.onConsolePoll({ MinutesRemaining: 45 });
@@ -476,18 +481,15 @@ add_task(async function test_warns_in_a_window_that_can_take_a_bar() {
     [WARNING_ID],
     "The warning went to the window that can show it"
   );
-  Assert.deepEqual(
-    notificationValues(privateWin),
-    [],
-    "No warning in the private window"
-  );
+  Assert.deepEqual(notificationValues(popupWin), [], "No warning in the popup");
 
   RelaunchEnforcer.onConsolePoll(null);
   await TestUtils.waitForCondition(
     () => !notificationValues(win).length,
     "The relaunch bar goes away"
   );
-  await BrowserTestUtils.closeWindow(privateWin);
+  await BrowserTestUtils.closeWindow(popupWin);
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_forced_quit_hook_suppresses_can_close() {

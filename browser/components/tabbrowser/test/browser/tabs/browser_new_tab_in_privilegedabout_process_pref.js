@@ -101,6 +101,10 @@ add_task(async function process_switching_through_loading_in_the_same_tab() {
       [`${ABOUT_HOME}?q=baz`, E10SUtils.PRIVILEGEDABOUT_REMOTE_TYPE],
       [TEST_HTTP, E10SUtils.WEB_REMOTE_TYPE],
     ]) {
+      // Enterprise builds show about:home for about:welcome (bug 2082020).
+      if (AppConstants.MOZ_ENTERPRISE && url.startsWith(ABOUT_WELCOME)) {
+        continue;
+      }
       BrowserTestUtils.startLoadingURIString(browser, url);
       await BrowserTestUtils.browserLoaded(browser, false, url);
       checkBrowserRemoteType(browser, remoteType);
