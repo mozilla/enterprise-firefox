@@ -571,6 +571,12 @@ interface nsIApplicationUpdateService : nsISupports
   readonly attribute boolean canApplyUpdates;
 
   /**
+   * Whether or not the Update Service is allowed to run. Used to gate update
+   * system where it is not supported, e.g. packaged apps.
+   */
+  readonly attribute boolean supportsUpdates;
+
+  /**
    * Whether or not a different instance is handling updates of this
    * installation.  This currently only ever returns true on Windows
    * when 2 instances of an application are open. Only one of the instances
