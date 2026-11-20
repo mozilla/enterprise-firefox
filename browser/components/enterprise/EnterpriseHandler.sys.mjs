@@ -411,7 +411,8 @@ export const EnterpriseHandler = {
    */
   lockOrSignOut() {
     this._skipSignoutPrompt = true;
-    if (!Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit)) {
+    Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+    if (!Services.startup.attemptingQuit) {
       // Vetoed by a beforeunload handler; the next close must prompt again.
       this._skipSignoutPrompt = false;
     }
