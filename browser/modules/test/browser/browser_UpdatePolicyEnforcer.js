@@ -40,12 +40,9 @@ function popPrefs() {
 }
 
 // InfoBar won't show a new infobar until the removed one is cleaned up.
-async function removeInfoBars(win) {
-  win.gNotificationBox.removeAllNotifications();
-  await TestUtils.waitForCondition(
-    () => !InfoBar._activeInfobar,
-    "Waiting for the infobar to be cleaned up"
-  );
+// Skipping the animation runs that cleanup synchronously.
+function removeInfoBars(win) {
+  win.gNotificationBox.removeAllNotifications(true);
 }
 
 add_task(async function test_compulsoryRestartNotification() {
@@ -95,7 +92,7 @@ add_task(async function test_compulsoryRestartNotification() {
     );
   } finally {
     testingOnly_resetTasks();
-    await removeInfoBars(win);
+    removeInfoBars(win);
     await popPrefs();
   }
 });
@@ -127,7 +124,7 @@ add_task(async function test_compulsoryRestartNotificationFromFelt() {
     );
   } finally {
     testingOnly_resetTasks();
-    await removeInfoBars(win);
+    removeInfoBars(win);
     await popPrefs();
   }
 });
