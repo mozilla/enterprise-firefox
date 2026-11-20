@@ -1,6 +1,10 @@
 [DEFAULT]
 head = "head.js"
 firefox-appdir = "browser"
-run-if = ["enterprise"]
+run-if = [
+  "enterprise",
+]
+
+["test_TelemetryReportingPolicy_enterprise.js"]
 
 ["test_TelemetrySend_enterprise.js"]
