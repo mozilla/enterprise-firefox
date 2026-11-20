@@ -411,6 +411,10 @@ const SNAPSHOT_SCHEMA = {
             required: false,
             type: "string",
           },
+          "security.storage.encryption.enabled": {
+            required: false,
+            type: "boolean",
+          },
         }),
       },
     },
