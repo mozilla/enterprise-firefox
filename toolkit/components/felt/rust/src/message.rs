@@ -65,17 +65,26 @@ pub enum FeltMessage {
     /// unconditionally on the first IPC handshake, ahead of
     /// `AccessToken` / `Ready`.
     PrimarySecret(String),
-    RefreshTokens,
+    RefreshTokens {
+        request_id: u32,
+        network_loss_enforced: bool,
+    },
+    TokenRefreshResult {
+        request_id: u32,
+        access_token: String,
+        expires_at: i64,
+        error: String,
+    },
     FeltReady(u32),
     OpenURL((String, i32, Option<FocusHint>)),
     RestartForced,
     Restarting(bool),
-    LogoutShutdown,
+    LogoutShutdown(Option<String>),
     /// Sent by the browser (which owns the locking pref the Felt UI process
     /// cannot read) whenever `enterprise.locking.crash` is applied or
     /// changed, so a crash-abort can lock the session instead of discarding it.
     CrashLockIntent(bool),
-    Exiting(bool),
+    Exiting(bool, Option<String>),
     UpdateReady,
     Shutdown,
     CheckForUpdates,
@@ -87,4 +96,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 16;
+pub const FELT_IPC_VERSION: u32 = 17;
