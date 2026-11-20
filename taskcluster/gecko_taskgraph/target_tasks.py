@@ -721,15 +721,24 @@ def target_tasks_enterprise_firefox_with_tests(
         ):
             return False
 
-        # Reduce the macOS worker pool load
-        if test_platform and "macos" in test_platform:
-            if "enterprise" in test_platform:
-                # For enterprise builds, keep what is green at least
-                if "test" in task.kind and ("browser-chrome" in task.label):
-                    return False
-            else:
-                # For non enterprise builds do not run macOS tests.
-                return False
+        # Reduce the macOS worker pool load: do not run macOS tests for non
+        # enterprise builds.
+        if (
+            test_platform
+            and "macos" in test_platform
+            and "enterprise" not in test_platform
+        ):
+            return False
+
+        # Filter out browser-chrome on enterprise builds until the suite is
+        # green.
+        if (
+            test_platform
+            and "enterprise" in test_platform
+            and "test" in task.kind
+            and "browser-chrome" in task.label
+        ):
+            return False
 
         build_platform = task.attributes.get("build_platform")
         test_platform = task.attributes.get("test_platform")
