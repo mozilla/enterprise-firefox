@@ -150,7 +150,7 @@ void EditContext::Init(const EditContextInit& aInit, ErrorResult& aRv) {
   RefPtr<Document> document = window->GetDoc();
   MOZ_ASSERT(document);
   RefPtr<AnonymousContent> anonymousContent =
-      document->InsertAnonymousContent(aRv);
+      document->InsertAnonymousContent(AnonymousContentOptions{}, aRv);
   if (NS_WARN_IF(!anonymousContent)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;

@@ -191,7 +191,7 @@ bool AccessibleCaret::IsInPositionFixedSubtree() const {
 }
 
 void AccessibleCaret::InjectCaretElement(Document* aDocument) {
-  mCaretElementHolder = aDocument->InsertAnonymousContent(IgnoreErrors());
+  mCaretElementHolder = aDocument->InsertAnonymousContent(AnonymousContentOptions{}, IgnoreErrors());
   MOZ_RELEASE_ASSERT(mCaretElementHolder, "We must have anonymous content!");
 
   CreateCaretElement();

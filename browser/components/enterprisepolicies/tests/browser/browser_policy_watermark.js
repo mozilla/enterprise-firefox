@@ -2,6 +2,11 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
 
+Services.scriptloader.loadSubScript(
+  "chrome://mochitests/content/browser/toolkit/components/printing/tests/head.js",
+  this
+);
+
 const PAGE_URL =
   "http://mochi.test:8888/browser/browser/components/enterprisepolicies/tests/browser/policy_watermark.html";
 
@@ -49,13 +54,6 @@ function isShowingWatermark(browser) {
   });
 }
 
-function isShowingPrintWatermark(browser) {
-  return SpecialPowers.spawn(browser, [], async () => {
-    let actor = content.windowGlobalChild.getExistingActor("WatermarkPolicy");
-    return actor?.isShowingPrintWatermark ?? false;
-  });
-}
-
 function hasReceivedConfig(browser) {
   return SpecialPowers.spawn(browser, [], async () => {
     let actor = content.windowGlobalChild.getExistingActor("WatermarkPolicy");
@@ -67,10 +65,28 @@ function hasReceivedConfig(browser) {
 // Content-Security-Policy. It must be drawn as inline SVG (a tiled <pattern>,
 // not a data: URL background image, which strict CSPs like the JSON viewer's
 // block) and be laid out with a non-zero size. Returns whether both hold.
-function isPrintWatermarkRendered(browser) {
+function isWatermarkRendered(browser) {
   return SpecialPowers.spawn(browser, [], async () => {
-    let node = content.document.getElementById("enterprise-watermark-print");
-    let svg = node?.querySelector("svg");
+    function findWatermark(node) {
+      if (node.nodeType === 1 && node.id === "enterprise-watermark") {
+        return node;
+      }
+
+      for (let child of SpecialPowers.InspectorUtils.getChildrenForNode(
+        node,
+        true,
+        false
+      )) {
+        let found = findWatermark(child);
+        if (found) {
+          return found;
+        }
+      }
+      return null;
+    }
+    let watermark = findWatermark(content.document);
+    info(`watermark: ${watermark}`);
+    let svg = watermark?.querySelector("svg");
     if (!svg || !svg.querySelector("pattern")) {
       return false;
     }
@@ -119,9 +135,6 @@ add_task(async function test_watermark_not_shown_on_non_matching_page() {
   await setupPolicyEngineWithJson("");
 });
 
-// The on-screen watermark uses anonymous content, which isn't included when
-// the document is cloned for printing (see WatermarkChild.sys.mjs), so this
-// exercises the separate real-DOM-node watermark inserted around printing.
 add_task(async function test_watermark_shown_when_printing() {
   await setupPolicyEngineWithJson(MATCHING_POLICY);
 
@@ -136,22 +149,17 @@ add_task(async function test_watermark_shown_when_printing() {
         "Watermark is drawn before printing"
       );
 
-      ok(
-        !(await isShowingPrintWatermark(browser)),
-        "No print watermark before printing starts"
-      );
+      let helper = new PrintHelper(browser);
+      await helper.startPrint();
 
-      await dispatchPrintEvent(browser, "beforeprint");
-      ok(
-        await isShowingPrintWatermark(browser),
-        "Print watermark is inserted for beforeprint"
-      );
-
-      await dispatchPrintEvent(browser, "afterprint");
-      ok(
-        !(await isShowingPrintWatermark(browser)),
-        "Print watermark is removed again after afterprint"
-      );
+      try {
+        await TestUtils.waitForCondition(
+          () => isWatermarkRendered(helper.currentPrintPreviewBrowser),
+          "Watermark is drawn in the print preview"
+        );
+      } finally {
+        await helper.closeDialog();
+      }
     }
   );
 
@@ -251,20 +259,9 @@ add_task(async function test_watermark_shown_when_printing_reader_page() {
         "Watermark is drawn before printing the reader page"
       );
 
-      await dispatchPrintEvent(browser, "beforeprint");
       ok(
-        await isShowingPrintWatermark(browser),
-        "Print watermark is inserted for beforeprint on a reader page"
-      );
-      ok(
-        await isPrintWatermarkRendered(browser),
-        "Print watermark renders as inline SVG despite the reader page's CSP"
-      );
-
-      await dispatchPrintEvent(browser, "afterprint");
-      ok(
-        !(await isShowingPrintWatermark(browser)),
-        "Print watermark is removed again after afterprint on a reader page"
+        await isWatermarkRendered(browser),
+        "Watermark renders as inline SVG despite the reader page's CSP"
       );
     }
   );
@@ -287,12 +284,10 @@ add_task(async function test_watermark_shown_in_json_viewer() {
         "Watermark is drawn in the JSON viewer"
       );
 
-      await dispatchPrintEvent(browser, "beforeprint");
       ok(
-        await isPrintWatermarkRendered(browser),
-        "Print watermark renders as inline SVG despite the JSON viewer's CSP"
+        await isWatermarkRendered(browser),
+        "Watermark renders as inline SVG despite the JSON viewer's CSP"
       );
-      await dispatchPrintEvent(browser, "afterprint");
     }
   );
 
