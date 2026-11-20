@@ -49,6 +49,11 @@ skip-if = [
 
 ["test_profile_client.js"]
 
+["test_profile_client_enterprise.js"]
+run-if = [
+  "enterprise",
+]
+
 ["test_push_service.js"]
 
 ["test_storage_manager.js"]
