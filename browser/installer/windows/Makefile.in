@@ -19,13 +19,20 @@ PPL_LOCALE_ARGS = \
   --l10n-dir=$(topsrcdir)/browser/locales/en-US/installer \
   $(NULL)
 else
-PPL_LOCALE_ARGS=$(call EXPAND_LOCALE_SRCDIR,browser/locales)/installer
+ifeq (en-US,$(AB_CD))
+PPL_LOCALE_ARGS=$(topsrcdir)/browser/locales/en-US/installer
+else
+PPL_LOCALE_ARGS = \
+  --l10n-dir=$(L10NBASEDIR)/$(AB_CD)/browser/installer \
+  --l10n-dir=$(topsrcdir)/browser/locales/en-US/installer \
+  $(NULL)
+endif
 endif
 
 stage_installer:
 	$(call py_action,nsis_stage installer,$(NSIS_STAGE_ARGS) \
 	$(addprefix --install=,$(addprefix $(MOZILLA_DIR)/other-licenses/nsis/,$(NSIS_CUSTOM_UI))) \
-	--single-file nsisstrings.properties nsisstrings.nlf \
+	--single-file nsisstrings.ftl nsisstrings.nlf \
 	--convert-utf8 $(srcdir)/nsis/extensionsLocale.nsh $(CONFIG_DIR)/extensionsLocale.nsh)
 
 $(CONFIG_DIR)/setup.exe::

@@ -85,6 +85,9 @@ class DefaultFenixSettingsIndexer(
         }
     }
 
+    override fun getIndexedItem(preferenceKey: String): SettingsSearchItem? =
+        settings.get().firstOrNull { it.preferenceKey == preferenceKey }
+
     /**
      * Get every indexed setting, unfiltered by any query.
      *
@@ -214,7 +217,7 @@ class DefaultFenixSettingsIndexer(
                         attributeValue.takeIf { it.isNotBlank() }?.substring(1)?.let { getStringResource(it) } ?: ""
                 }
                 IS_VISIBLE_ATTRIBUTE_NAME -> {
-                    if (attributeValue == "false") {
+                    if (!parser.resolveBooleanAttribute(i)) {
                         return null
                     }
                 }
@@ -261,7 +264,7 @@ class DefaultFenixSettingsIndexer(
                 SUMMARY_ATTRIBUTE_NAME -> summary = getStringResource(attributeValue.substring(1))
                 IS_VISIBLE_ATTRIBUTE_NAME,
                 IS_ENABLED_ATTRIBUTE_NAME -> {
-                    if (attributeValue == "false") {
+                    if (!parser.resolveBooleanAttribute(i)) {
                         return null
                     }
                 }
@@ -277,6 +280,23 @@ class DefaultFenixSettingsIndexer(
             categoryHeader = categoryHeader,
             preferenceFileInformation = preferenceFileInformation,
         )
+    }
+
+    /**
+     * Resolve a boolean attribute that is either a literal or a `@bool` resource reference. Defaults to true when the
+     * value can't be read as a boolean.
+     */
+    private fun XmlResourceParser.resolveBooleanAttribute(index: Int): Boolean {
+        val resourceId = getAttributeResourceValue(index, 0)
+        return if (resourceId != 0) {
+            try {
+                context.resources.getBoolean(resourceId)
+            } catch (e: Resources.NotFoundException) {
+                true
+            }
+        } else {
+            getAttributeBooleanValue(index, true)
+        }
     }
 
     /**

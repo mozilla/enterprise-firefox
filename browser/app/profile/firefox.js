@@ -3450,9 +3450,7 @@ pref("browser.toolbars.tab-groups.enabled", false);
 
 pref("security.certerrors.felt-privacy-v1", true);
 
-#ifdef NIGHTLY_BUILD
-  pref("security.utility_pkcs11_module_process.enabled", true);
-#endif
+pref("security.utility_pkcs11_module_process.enabled", true);
 
 // Prefs to control the Firefox Account toolbar menu.
 // This pref will surface existing Firefox Account information
@@ -4018,6 +4016,19 @@ pref("browser.fireButton.enabled", false);
 // Which flow the fire button starts. "panel" shows the confirmation panel;
 // "direct" skips it and opens the clear browsing data dialog straight away.
 pref("browser.fireButton.flow", "panel");
+
+// Whether private windows get covered by a lock screen, requiring OS
+// authentication, when the OS session gets locked, starts the screensaver
+// (macOS only) or goes to sleep. Only supported on macOS and Windows.
+pref("browser.privatebrowsing.lockOnScreenLock.enabled", false);
+// Whether locking windows is available at all. If false, windows never get
+// locked, regardless of browser.privatebrowsing.lockOnScreenLock.enabled, and
+// the setting is hidden.
+#ifdef NIGHTLY_BUILD
+pref("browser.privatebrowsing.lockOnScreenLock.featureGate", true);
+#else
+pref("browser.privatebrowsing.lockOnScreenLock.featureGate", false);
+#endif
 
 // the preferences related to the Nimbus experiment, to activate and deactivate
 // the the entire rollout (see: bug 1864216 - two prompts, 1877500 - set two in one prompt)

@@ -47,6 +47,8 @@ import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
 import org.mozilla.fenix.tabstray.syncedtabs.SyncedTabsListItem
+import org.mozilla.fenix.tabstray.telemetry.OnTabClose
+import org.mozilla.fenix.tabstray.telemetry.TabCloseType
 import org.mozilla.fenix.tabstray.ui.banner.TabsTrayBanner
 import org.mozilla.fenix.tabstray.ui.fab.TabManagerFloatingToolbar
 import org.mozilla.fenix.tabstray.ui.syncedtabs.OnTabClick as OnSyncedTabClick
@@ -66,7 +68,7 @@ import org.mozilla.fenix.theme.FirefoxTheme
  * @param modifier The [Modifier] used to style the container of the Tabs Tray UI.
  * @param onAction Invoked to pass upwards a [TabsTrayAction] in response to a UI event.
  * @param onTabPageClick Invoked when the user clicks on the Normal, Private, or Synced tabs page button.
- * @param onTabClose Invoked when the user clicks to close a tab.
+ * @param onTabClose Invoked when the user closes a tab, with the [TabCloseType] of the interaction.
  * @param onItemClick Invoked when the user clicks on a tab.
  * @param onItemLongClick Invoked when the user long clicks a tab.
  * @param onInactiveTabsHeaderClick Invoked when the user clicks on the inactive tabs section header.
@@ -81,8 +83,6 @@ import org.mozilla.fenix.theme.FirefoxTheme
  * @param onSyncedTabClick Invoked when the user clicks on a synced tab.
  * @param onSyncedTabClose Invoked when the user clicks on a synced tab's close button.
  * @param onSignInClick Invoked when an unauthenticated user clicks to sign-in.
- * @param onSaveToCollectionClick Invoked when the user clicks on the save to collection button from the multi select
- *   banner.
  * @param onShareSelectedTabsClick Invoked when the user clicks on the share button from the multi select banner.
  * @param onTabSettingsClick Invoked when the user clicks on the tab settings banner menu item.
  * @param onRecentlyClosedClick Invoked when the user clicks on the recently closed banner menu item.
@@ -119,7 +119,7 @@ fun TabsTray(
     modifier: Modifier = Modifier,
     onAction: (TabsTrayAction) -> Unit,
     onTabPageClick: (Page) -> Unit,
-    onTabClose: (TabsTrayItem.Tab) -> Unit,
+    onTabClose: OnTabClose,
     onItemClick: (TabsTrayItem) -> Unit,
     onItemLongClick: (TabsTrayItem) -> Unit,
     onInactiveTabsHeaderClick: (Boolean) -> Unit,
@@ -132,7 +132,6 @@ fun TabsTray(
     onSyncedTabClick: OnSyncedTabClick,
     onSyncedTabClose: OnSyncedTabClose,
     onSignInClick: () -> Unit,
-    onSaveToCollectionClick: () -> Unit,
     onShareSelectedTabsClick: () -> Unit,
     onTabSettingsClick: () -> Unit,
     onRecentlyClosedClick: () -> Unit,
@@ -195,7 +194,6 @@ fun TabsTray(
                 state = state,
                 onAction = onAction,
                 onTabPageIndicatorClicked = onTabPageClick,
-                onSaveToCollectionClick = onSaveToCollectionClick,
                 onShareSelectedTabsClick = onShareSelectedTabsClick,
                 onDeleteSelectedTabsClick = onDeleteSelectedTabsClick,
                 onBookmarkSelectedTabsClick = onBookmarkSelectedTabsClick,
@@ -390,7 +388,7 @@ private fun TabsTrayPreview(
                 store.dispatch(TabsTrayAction.PageSelected(page))
             },
             itemInteractionHandler = NoOpItemInteractionHandler,
-            onTabClose = { _ ->
+            onTabClose = { _, _ ->
                 scope.launch {
                     snackbarHostState.displaySnackbar(visuals = SnackbarVisuals(message = "Tab closed"))
                 }
@@ -441,7 +439,6 @@ private fun TabsTrayPreview(
                 }
             },
             onSignInClick = {},
-            onSaveToCollectionClick = {},
             onShareSelectedTabsClick = {},
             onTabSettingsClick = {},
             onRecentlyClosedClick = {},

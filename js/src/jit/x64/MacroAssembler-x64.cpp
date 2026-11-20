@@ -696,6 +696,27 @@ void MacroAssemblerX64::unwindToShadowStackPtr(Register newShstkPtr,
   bind(&done);
 }
 
+void MacroAssemblerX64::switchToShadowStackPtr(Register newShstkPtr) {
+  ScratchRegisterScope scratch(asMasm());
+  MOZ_ASSERT(newShstkPtr != scratch);
+
+  Label done;
+  // A null shadow stack pointer means the shadow stack wasn't enabled when it
+  // was saved.
+  asMasm().branchTestPtr(Assembler::Zero, newShstkPtr, newShstkPtr, &done);
+
+  // The shadow stack may have been disabled for this thread since the pointer
+  // was saved.
+  moveShadowStackPtrTo(scratch);
+  asMasm().branchTestPtr(Assembler::Zero, scratch, scratch, &done);
+
+  // The restore token is in the slot just below the shadow stack pointer that
+  // it resumes with.
+  rstorssp(Address(newShstkPtr, -int32_t(sizeof(uintptr_t))));
+  saveprevssp();
+  bind(&done);
+}
+
 void MacroAssemblerX64::handleFailureWithHandlerTail(
     Label* profilerExitTail, Label* bailoutTail,
     uint32_t* returnValueCheckOffset) {
@@ -723,8 +744,13 @@ void MacroAssemblerX64::handleFailureWithHandlerTail(
   *returnValueCheckOffset = asMasm().indirectTarget(TargetKind::Jump).offset();
 
 #ifdef JS_HW_SHADOW_STACK
-  // HandleException replaces the shadow stack pointer read above on entry with
-  // the new shadow stack pointer corresponding to the target handler.
+  // HandleException replaces the shadow stack pointer stored above with the
+  // one corresponding to the frame we want to resume in. If that frame is on
+  // a continuation stack, we must first switch to its shadow stack using the
+  // restore token that was left when we last switched away from it.
+  loadPtr(Address(rsp, ResumeFromException::offsetOfShadowStackSwitchPointer()),
+          rax);
+  switchToShadowStackPtr(rax);
   loadPtr(Address(rsp, ResumeFromException::offsetOfShadowStackPointer()), rax);
   unwindToShadowStackPtr(rax, rcx);
 #endif

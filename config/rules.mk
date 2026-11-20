@@ -391,42 +391,15 @@ $(CWASMOBJS):
 	$(WASM_CC) -o $@ -c $(WASM_CFLAGS) $($(notdir $<)_FLAGS) $<
 	$(call BUILDSTATUS,END_Object $@)
 
-WINEWRAP = $(if $(and $(filter %.exe,$1),$(WINE)),$(WINE) $1,$1)
-
-# Windows program run via Wine don't like Unix absolute paths (they look
-# like command line arguments). So when needed, create relative paths
-# from absolute paths. We start with $(DEPTH), which gets us to topobjdir,
-# then add "/.." for each component of topobjdir, which gets us to /.
-# then we can add the absolute path after that and we have a relative path,
-# albeit longer than it could be.
-ifdef WINE
-relativize = $(if $(filter /%,$1),$(DEPTH)$(subst $(space),,$(foreach d,$(subst /, ,$(topobjdir)),/..))$1,$1)
-else
-relativize = $1
-endif
-
-ifdef WINE
-# asmarm64 needs a library that can be found in $PATH but for some reason,
-# wine wants its path in $WINEPATH, so fill that to make it happy.
-$(ASOBJS) $(SOBJS): export WINEPATH=$(subst :,;,$(PATH))
-endif
-
 ifdef ASFILES
 # The AS_DASH_C_FLAG is needed cause not all assemblers (Solaris) accept
 # a '-c' flag.
 $(ASOBJS):
 	$(REPORT_BUILD_VERBOSE)
 	$(call BUILDSTATUS,OBJECT_FILE $@)
-	$(call WINEWRAP,$(AS)) $(ASOUTOPTION)$@ $(ASFLAGS) $($(notdir $<)_FLAGS) $(AS_DASH_C_FLAG) $(call relativize,$<)
+	$(AS) $(ASOUTOPTION)$@ $(ASFLAGS) $($(notdir $<)_FLAGS) $(AS_DASH_C_FLAG) $<
 	$(call BUILDSTATUS,END_Object $@)
 endif
-
-define syms_template
-$(2): $(1)
-ifdef MOZ_CRASHREPORTER
-	$$(call py_action,dumpsymbols $$@,$$(abspath $$<) $$(abspath $$@) $$(DUMP_SYMBOLS_FLAGS))
-endif
-endef
 
 # Binaries installed into dist/bin/gtest (the gtest libxul and the libraries
 # its tests load) are only used by gtest runs. Keep their symbols out of the
@@ -435,37 +408,13 @@ ifneq (,$(filter $(DIST)/bin/gtest%,$(FINAL_TARGET)))
 DUMP_SYMBOLS_FLAGS += --symbols-dir=crashreporter-symbols-gtest
 endif
 
-ifdef MOZ_AUTOMATION
-ifeq (,$(filter 1,$(MOZ_AUTOMATION_BUILD_SYMBOLS)))
-DUMP_SYMS_TARGETS :=
-endif
-endif
-
-ifdef MOZ_COPY_PDBS
-MAIN_PDB_FILES = $(addsuffix .pdb,$(basename $(DUMP_SYMS_TARGETS)))
-MAIN_PDB_DEST ?= $(FINAL_TARGET)
-MAIN_PDB_TARGET = syms
-INSTALL_TARGETS += MAIN_PDB
-
-ifdef CPP_UNIT_TESTS
-CPP_UNIT_TESTS_PDB_FILES = $(addsuffix .pdb,$(basename $(CPP_UNIT_TESTS)))
-CPP_UNIT_TESTS_PDB_DEST = $(DIST)/cppunittests
-CPP_UNIT_TESTS_PDB_TARGET = syms
-INSTALL_TARGETS += CPP_UNIT_TESTS_PDB
-endif
-
-else ifdef MOZ_CRASHREPORTER
-$(foreach file,$(DUMP_SYMS_TARGETS),$(eval $(call syms_template,$(file),$(notdir $(file))_syms.track)))
-syms:: $(foreach file,$(DUMP_SYMS_TARGETS),$(notdir $(file))_syms.track)
-endif
-
 ifneq (,$(RUST_TESTS)$(RUST_LIBRARY_FILE)$(HOST_RUST_LIBRARY_FILE)$(RUST_PROGRAMS)$(HOST_RUST_PROGRAMS))
 include $(MOZILLA_DIR)/config/makefiles/rust.mk
 endif
 
 $(SOBJS):
 	$(REPORT_BUILD)
-	$(call WINEWRAP,$(AS)) $(ASOUTOPTION)$@ $(SFLAGS) $($(notdir $<)_FLAGS) -c $(call relativize,$<)
+	$(AS) $(ASOUTOPTION)$@ $(SFLAGS) $($(notdir $<)_FLAGS) -c $<
 
 $(CPPOBJS):
 	$(REPORT_BUILD_VERBOSE)

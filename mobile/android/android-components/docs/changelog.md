@@ -4,7 +4,9 @@ title: Changelog
 permalink: /changelog/
 ---
 
-# 162.0 (In Development)
+# 163.0 (In Development)
+
+# 162.0
 * **concept-engine**
   * Added an optional `title` to `HitResult.IMAGE_SRC`.
   * 🆕 Added `EngineSession.requestPictureInPicture` and `EngineSession.exitPictureInPicture` to ask the engine for a picture-in-picture window for the video a session is playing, and to tell it the window has been closed so it can release the state it holds. [Bug 2075323](https://bugzilla.mozilla.org/show_bug.cgi?id=2075323)
@@ -66,6 +68,11 @@ permalink: /changelog/
     * ⚠️ **Breaking change**: `RecordingDevicesMiddleware` now requires an explicit `CoroutineScope` to be provided by callers. The constructor no longer supplies a default scope value, improving lifecycle ownership and scope management. [Bug 2086075](https://la.org/show_bug.cgi?id=2086075)
 * **service-firefox-accounts** and **concept-sync**
     * 🆕 Added an optional parameter determining whether or not to ignore cache when calling `DeviceConstellation.refreshDevices`. [Bug 2088410](https://bugzilla.mozilla.org/show_bug.cgi?id=2088410)
+* **concept-sync**
+    * ⚠️ **Breaking change**: Replaced `DeviceConstellation.finalizeDevice(authType, config)` with `DeviceConstellation.ensureCapabilities(capabilities)`, which updates the capabilities advertised for the current device. [Bug 2080763](https://bugzilla.mozilla.org/show_bug.cgi?id=2080763)
+    * ⚠️ **Breaking change**: `DeviceConfig.capabilities` is now private. Use `DeviceConfig.getCapabilities(hasSyncScope)`, which returns an empty set when the account does not have the Sync scope. [Bug 2080763](https://bugzilla.mozilla.org/show_bug.cgi?id=2080763)
+* **service-firefox-accounts**
+    * `FxaAccountManager` only advertises the `SEND_TAB` and `CLOSE_TABS` device capabilities when the account has the Sync scope. [Bug 2080763](https://bugzilla.mozilla.org/show_bug.cgi?id=2080763)
 
 # 161.0
 * **browser-state**

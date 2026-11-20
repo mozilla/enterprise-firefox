@@ -114,7 +114,6 @@ CSPDirective CSP_StringToCSPDirective(const nsAString& aDir);
   MACRO(CSP_UNSAFE_EVAL, "'unsafe-eval'")           \
   MACRO(CSP_UNSAFE_HASHES, "'unsafe-hashes'")       \
   MACRO(CSP_NONE, "'none'")                         \
-  MACRO(CSP_NONCE, "'nonce-")                       \
   MACRO(CSP_REPORT_SAMPLE, "'report-sample'")       \
   MACRO(CSP_STRICT_DYNAMIC, "'strict-dynamic'")     \
   MACRO(CSP_WASM_UNSAFE_EVAL, "'wasm-unsafe-eval'") \
@@ -128,12 +127,7 @@ enum CSPKeyword {
 
   // CSP_LAST_KEYWORD_VALUE always needs to be the last element in the enum
   // because we use it to calculate the size for the char* array.
-  CSP_LAST_KEYWORD_VALUE,
-
-  // Putting CSP_HASH after the delimitor, because CSP_HASH is not a valid
-  // keyword (hash uses e.g. sha256, sha512) but we use CSP_HASH internally
-  // to identify allowed hashes in ::allows.
-  CSP_HASH
+  CSP_LAST_KEYWORD_VALUE
 };
 
 // The keywords, in UTF-8 form.
@@ -232,7 +226,6 @@ class nsCSPBaseSrc {
 
   virtual bool permits(nsIURI* aUri, bool aWasRedirected, bool aReportOnly,
                        bool aUpgradeInsecure) const;
-  virtual bool allows(enum CSPKeyword aKeyword) const;
   virtual bool visit(nsCSPSrcVisitor* aVisitor) const = 0;
   virtual void toString(nsAString& outStr) const = 0;
 
@@ -315,7 +308,6 @@ class nsCSPKeywordSrc : public nsCSPBaseSrc {
   explicit nsCSPKeywordSrc(CSPKeyword aKeyword);
   virtual ~nsCSPKeywordSrc();
 
-  bool allows(enum CSPKeyword aKeyword) const override;
   bool visit(nsCSPSrcVisitor* aVisitor) const override;
   void toString(nsAString& outStr) const override;
 
@@ -343,9 +335,6 @@ class nsCSPNonceSrc : public nsCSPBaseSrc {
   explicit nsCSPNonceSrc(const nsAString& aNonce);
   virtual ~nsCSPNonceSrc();
 
-  // Nonce matching happens in nsCSPDirective::allowsByNonce(), rather than in
-  // allows().
-  bool allows(enum CSPKeyword aKeyword) const override { return false; }
   bool visit(nsCSPSrcVisitor* aVisitor) const override;
   void toString(nsAString& outStr) const override;
 
@@ -412,9 +401,6 @@ class nsCSPHashSrc final : public nsCSPHashSrcBase {
   nsCSPHashSrc(const nsAString& aAlgorithm, const nsAString& aHash)
       : nsCSPHashSrcBase(aAlgorithm, aHash) {}
 
-  // Hash matching happens in nsCSPDirective::allowsByHash(), rather than in
-  // allows().
-  bool allows(enum CSPKeyword aKeyword) const override { return false; }
   bool visit(nsCSPSrcVisitor* aVisitor) const override;
 
   bool isHash() const final { return true; }
@@ -433,7 +419,6 @@ class nsCSPUrlHashSrc final : public nsCSPHashSrcBase {
   nsCSPUrlHashSrc(const nsAString& aAlgorithm, const nsAString& aHash)
       : nsCSPHashSrcBase(aAlgorithm, aHash) {}
 
-  bool allows(enum CSPKeyword aKeyword) const override { return false; }
   bool visit(nsCSPSrcVisitor* aVisitor) const override;
 
   bool isUrlHash() const final { return true; }
@@ -554,9 +539,15 @@ class nsCSPDirective {
   explicit nsCSPDirective(CSPDirective aDirective);
   virtual ~nsCSPDirective();
 
+  // aOriginalURIIfRedirect is the URI the request started out with if it was
+  // redirected, null otherwise.
+  //
+  // TODO: Go back to a "was redirected" flag once url hashes match the URL
+  // string a request was made with, which doesn't change on redirects. See
+  // bug 2087026.
   virtual bool permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo,
-                       nsIURI* aUri, bool aWasRedirected, bool aReportOnly,
-                       bool aUpgradeInsecure) const;
+                       nsIURI* aUri, nsIURI* aOriginalURIIfRedirect,
+                       bool aReportOnly, bool aUpgradeInsecure) const;
   virtual bool allows(enum CSPKeyword aKeyword) const;
   // Whether a nonce-source expression allows an element with the nonce aNonce.
   bool allowsByNonce(const nsAString& aNonce) const;
@@ -682,7 +673,7 @@ class nsBlockAllMixedContentDirective : public nsCSPDirective {
   ~nsBlockAllMixedContentDirective();
 
   bool permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo, nsIURI* aUri,
-               bool aWasRedirected, bool aReportOnly,
+               nsIURI* aOriginalURIIfRedirect, bool aReportOnly,
                bool aUpgradeInsecure) const override {
     return false;
   }
@@ -737,7 +728,7 @@ class nsUpgradeInsecureDirective : public nsCSPDirective {
   ~nsUpgradeInsecureDirective();
 
   bool permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo, nsIURI* aUri,
-               bool aWasRedirected, bool aReportOnly,
+               nsIURI* aOriginalURIIfRedirect, bool aReportOnly,
                bool aUpgradeInsecure) const override {
     return false;
   }
@@ -763,7 +754,7 @@ class nsCSPPolicy {
   virtual ~nsCSPPolicy();
 
   bool permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo, nsIURI* aUri,
-               bool aWasRedirected, bool aSpecific,
+               nsIURI* aOriginalURIIfRedirect, bool aSpecific,
                nsAString& outViolatedDirective,
                nsAString& outViolatedDirectiveString) const;
   bool allows(CSPDirective aDirective, enum CSPKeyword aKeyword) const;

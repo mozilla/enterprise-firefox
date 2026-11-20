@@ -10,6 +10,7 @@ import org.mozilla.fenix.tabstray.browser.InactiveTabsInteractor
 import org.mozilla.fenix.tabstray.browser.TabsTrayFabInteractor
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.redux.state.Page
+import org.mozilla.fenix.tabstray.telemetry.TabCloseType
 
 /** Interactor for responding to all user actions in the tab manager. */
 interface TabManagerInteractor : SyncedTabsInteractor, InactiveTabsInteractor, TabsTrayFabInteractor {
@@ -38,9 +39,6 @@ interface TabManagerInteractor : SyncedTabsInteractor, InactiveTabsInteractor, T
     /** Invoked when the bookmark button in the multi selection banner is clicked. */
     fun onBookmarkSelectedTabsClicked()
 
-    /** Invoked when the collections button in the multi selection banner is clicked. */
-    fun onAddSelectedTabsToCollectionClicked()
-
     /** Invoked when the share button in the multi selection banner is clicked. */
     fun onShareSelectedTabs()
 
@@ -61,7 +59,7 @@ interface TabManagerInteractor : SyncedTabsInteractor, InactiveTabsInteractor, T
     fun onTabSelected(tab: TabsTrayItem.Tab, source: String? = null)
 
     /** A tab has been closed. */
-    fun onTabClosed(tab: TabsTrayItem.Tab, source: String? = null)
+    fun onTabClosed(tab: TabsTrayItem.Tab, source: String? = null, tabCloseType: TabCloseType)
 }
 
 /**
@@ -91,10 +89,6 @@ class DefaultTabManagerInteractor(private val controller: TabManagerController) 
         controller.handleBookmarkSelectedTabsClicked()
     }
 
-    override fun onAddSelectedTabsToCollectionClicked() {
-        controller.handleAddSelectedTabsToCollectionClicked()
-    }
-
     override fun onShareSelectedTabs() {
         controller.handleShareSelectedTabsClicked()
     }
@@ -109,8 +103,8 @@ class DefaultTabManagerInteractor(private val controller: TabManagerController) 
 
     override fun onBackPressed(): Boolean = controller.handleBackPressed()
 
-    override fun onTabClosed(tab: TabsTrayItem.Tab, source: String?) {
-        controller.handleTabDeletion(tab, source)
+    override fun onTabClosed(tab: TabsTrayItem.Tab, source: String?, tabCloseType: TabCloseType) {
+        controller.handleTabDeletion(tab, source, tabCloseType)
     }
 
     override fun onTabSelected(tab: TabsTrayItem.Tab, source: String?) {

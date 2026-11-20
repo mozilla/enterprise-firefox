@@ -96,6 +96,22 @@ https_first_disabled = true
 
 ["browser_UsageTelemetry_window_opening.js"]
 
+["browser_WindowLock.js"]
+run-if = [
+  "os == 'mac'",
+  "os == 'win'",
+]
+support-files = [
+  "!/dom/media/mediacontrol/tests/browser/file_non_autoplay.html",
+  "!/dom/media/test/gizmo.mp4",
+]
+
+["browser_WindowLock_featureGate.js"]
+run-if = [
+  "os == 'mac'",
+  "os == 'win'",
+]
+
 ["browser_aswebauth_session.js"]
 run-if = ["os == 'mac'"]
 support-files = [

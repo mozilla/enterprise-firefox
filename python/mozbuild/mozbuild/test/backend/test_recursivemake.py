@@ -1638,8 +1638,6 @@ class TestRecursiveMakeBackend(BackendTester):
             f"CARGO_TARGET_DIR := {env.topobjdir}",
             "RUST_PROGRAMS += $(DEPTH)/i686-pc-windows-msvc/release/test-program-features.exe",
             "RUST_CARGO_PROGRAMS += test-program-features",
-            "DUMP_SYMS_TARGETS += "
-            "$(DEPTH)/i686-pc-windows-msvc/release/test-program-features.exe",
             self._cargo_deps("CARGO_PROGRAM_DEPS", ".cargo-program-spec.json"),
         ]
 
@@ -1686,7 +1684,6 @@ class TestRecursiveMakeBackend(BackendTester):
             "CARGO_TARGET_DIR := %s" % env.topobjdir,
             "RUST_PROGRAMS += $(DEPTH)/i686-pc-windows-msvc/release/target.exe",
             "RUST_CARGO_PROGRAMS += target",
-            "DUMP_SYMS_TARGETS += $(DEPTH)/i686-pc-windows-msvc/release/target.exe",
             "HOST_RUST_PROGRAMS += $(DEPTH)/i686-pc-windows-msvc/release/host.exe",
             "HOST_RUST_CARGO_PROGRAMS += host",
             self._cargo_deps(
@@ -2569,52 +2566,134 @@ class TestRecursiveMakeBackend(BackendTester):
         self.assertIn("unprofiled.$(OBJ_SUFFIX): COMPUTED_PGO_CFLAGS :=\n", lines)
         self.assertNotIn("profiled.$(OBJ_SUFFIX): COMPUTED_PGO_CFLAGS :=\n", lines)
 
-    def test_dump_syms_targets(self):
-        env = self._consume("program-paths", RecursiveMakeBackend)
+    def _syms_rules(self, name, target):
+        return [
+            f"syms:: {name}_syms.track",
+            f"{name}_syms.track: {target}",
+            "\t$(call py_action,dumpsymbols $@,$(abspath $<) "
+            "$(abspath $@) $(DUMP_SYMBOLS_FLAGS))",
+        ]
 
-        expected = {
-            "dist-bin": "DUMP_SYMS_TARGETS += $(DEPTH)/dist/bin/dist-bin.prog\n",
-            "dist-subdir": "DUMP_SYMS_TARGETS += "
-            "$(DEPTH)/dist/bin/foo/dist-subdir.prog\n",
-            "not-installed": "DUMP_SYMS_TARGETS += not-installed.prog\n",
-            "dist-bin-simple": "DUMP_SYMS_TARGETS += simple.prog\n",
-        }
-        for subdir, line in expected.items():
+    def _syms_lines(self, name, subdirs, **substs):
+        env = self._get_environment(name, substs=substs)
+        self._consume(name, RecursiveMakeBackend, env=env)
+        result = {}
+        for subdir in subdirs:
             with open(os.path.join(env.topobjdir, subdir, "backend.mk")) as fh:
-                self.assertIn(line, fh.readlines())
+                result[subdir] = [
+                    l.rstrip("\n")
+                    for l in fh
+                    if "syms" in l or "PDB" in l or "dumpsymbols" in l
+                ]
+        return result
 
-        for subdir in ("final-target", "dist-bin-sibling"):
-            with open(os.path.join(env.topobjdir, subdir, "backend.mk")) as fh:
-                self.assertNotIn("DUMP_SYMS_TARGETS", fh.read())
+    def test_dump_syms_rules(self):
+        rules = self._syms_rules
+        self.assertEqual(
+            self._syms_lines(
+                "program-paths",
+                (
+                    "dist-bin",
+                    "dist-subdir",
+                    "not-installed",
+                    "dist-bin-simple",
+                    "final-target",
+                    "dist-bin-sibling",
+                ),
+                MOZ_CRASHREPORTER="1",
+            ),
+            {
+                "dist-bin": rules("dist-bin.prog", "$(DEPTH)/dist/bin/dist-bin.prog"),
+                "dist-subdir": rules(
+                    "dist-subdir.prog", "$(DEPTH)/dist/bin/foo/dist-subdir.prog"
+                ),
+                "not-installed": rules("not-installed.prog", "not-installed.prog"),
+                "dist-bin-simple": rules("simple.prog", "simple.prog"),
+                "final-target": [],
+                "dist-bin-sibling": [],
+            },
+        )
+
+    def test_dump_syms_no_crashreporter(self):
+        self.assertEqual(
+            self._syms_lines("program-paths", ("dist-bin", "dist-bin-simple")),
+            {"dist-bin": [], "dist-bin-simple": []},
+        )
+
+    def test_dump_syms_copy_pdbs(self):
+        self.assertEqual(
+            self._syms_lines(
+                "program-paths",
+                ("dist-bin", "dist-bin-simple"),
+                MOZ_CRASHREPORTER="1",
+                MOZ_COPY_PDBS="1",
+            ),
+            {
+                "dist-bin": [
+                    "MAIN_PDB_FILES += $(DEPTH)/dist/bin/dist-bin.pdb",
+                    "MAIN_PDB_DEST ?= $(FINAL_TARGET)",
+                    "MAIN_PDB_TARGET = syms",
+                    "INSTALL_TARGETS += MAIN_PDB",
+                ],
+                "dist-bin-simple": [
+                    "MAIN_PDB_FILES += simple.pdb",
+                    "MAIN_PDB_DEST ?= $(FINAL_TARGET)",
+                    "MAIN_PDB_TARGET = syms",
+                    "INSTALL_TARGETS += MAIN_PDB",
+                ],
+            },
+        )
+
+    def test_dump_syms_copy_pdbs_cpp_unit_tests(self):
+        self.assertEqual(
+            self._syms_lines("cpp-unit-tests", ("",), MOZ_COPY_PDBS="1"),
+            {
+                "": [
+                    "CPP_UNIT_TESTS_PDB_FILES += TestOne.pdb",
+                    "CPP_UNIT_TESTS_PDB_DEST = $(DIST)/cppunittests",
+                    "CPP_UNIT_TESTS_PDB_TARGET = syms",
+                    "INSTALL_TARGETS += CPP_UNIT_TESTS_PDB",
+                    "MAIN_PDB_FILES += TestOne.pdb",
+                    "MAIN_PDB_DEST ?= $(FINAL_TARGET)",
+                    "MAIN_PDB_TARGET = syms",
+                    "INSTALL_TARGETS += MAIN_PDB",
+                    "CPP_UNIT_TESTS_PDB_FILES += TestTwo.pdb",
+                    "MAIN_PDB_FILES += TestTwo.pdb",
+                ]
+            },
+        )
 
     def test_dump_syms_profile_generate(self):
-        env = self._get_environment(
-            "program-paths", substs={"MOZ_PROFILE_GENERATE": "1"}
+        self.assertEqual(
+            self._syms_lines(
+                "program-paths",
+                ("dist-bin-simple", "dist-bin"),
+                MOZ_CRASHREPORTER="1",
+                MOZ_PROFILE_GENERATE="1",
+            ),
+            {
+                "dist-bin-simple": [],
+                "dist-bin": self._syms_rules(
+                    "dist-bin.prog", "$(DEPTH)/dist/bin/dist-bin.prog"
+                ),
+            },
         )
-        self._consume("program-paths", RecursiveMakeBackend, env=env)
-
-        with open(os.path.join(env.topobjdir, "dist-bin-simple", "backend.mk")) as fh:
-            self.assertNotIn("DUMP_SYMS_TARGETS", fh.read())
-        with open(os.path.join(env.topobjdir, "dist-bin", "backend.mk")) as fh:
-            self.assertIn(
-                "DUMP_SYMS_TARGETS += $(DEPTH)/dist/bin/dist-bin.prog\n",
-                fh.readlines(),
-            )
 
     def test_dump_syms_output_category(self):
-        env = self._consume("shared-library-output-category", RecursiveMakeBackend)
-
-        with open(
-            os.path.join(env.topobjdir, "without-output-category", "backend.mk")
-        ) as fh:
-            self.assertIn(
-                "DUMP_SYMS_TARGETS += $(DEPTH)/dist/bin/libwithout-category.so\n",
-                fh.readlines(),
-            )
-        with open(
-            os.path.join(env.topobjdir, "with-output-category", "backend.mk")
-        ) as fh:
-            self.assertNotIn("DUMP_SYMS_TARGETS", fh.read())
+        self.assertEqual(
+            self._syms_lines(
+                "shared-library-output-category",
+                ("without-output-category", "with-output-category"),
+                MOZ_CRASHREPORTER="1",
+            ),
+            {
+                "without-output-category": self._syms_rules(
+                    "libwithout-category.so",
+                    "$(DEPTH)/dist/bin/libwithout-category.so",
+                ),
+                "with-output-category": [],
+            },
+        )
 
     def test_lto_object_path(self):
         env = self._consume("lto-object-path", RecursiveMakeBackend)

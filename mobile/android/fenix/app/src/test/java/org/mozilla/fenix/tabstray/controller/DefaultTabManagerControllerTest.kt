@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.tabstray.controller
 
-import android.content.Context
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDirections
@@ -62,7 +61,6 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.AppStore
-import org.mozilla.fenix.components.TabCollectionStorage
 import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
 import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.bookmarks.BookmarksUseCase
@@ -82,6 +80,7 @@ import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
 import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
+import org.mozilla.fenix.tabstray.telemetry.TabCloseType
 import org.mozilla.fenix.tabstray.ui.TabManagementFragmentDirections
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
@@ -107,7 +106,6 @@ class DefaultTabManagerControllerTest {
     private lateinit var loadUrlUseCase: SessionUseCases.DefaultLoadUrlUseCase
     private lateinit var searchUseCases: SearchUseCases
     private lateinit var homepageTitle: String
-    private lateinit var context: Context
 
     private val appStore: AppStore = mockk(relaxed = true)
     private val settings: Settings = mockk(relaxed = true)
@@ -115,7 +113,6 @@ class DefaultTabManagerControllerTest {
 
     private val addBookmarkUseCase: BookmarksUseCase.AddBookmarksUseCase = mockk(relaxed = true)
     private val closeSyncedTabsUseCases: CloseTabsUseCases = mockk(relaxed = true)
-    private val collectionStorage: TabCollectionStorage = mockk(relaxed = true)
     private val testDispatcher = StandardTestDispatcher()
 
     private val testNormalTab =
@@ -135,7 +132,6 @@ class DefaultTabManagerControllerTest {
     @Before
     fun setup() {
         MockKAnnotations.init(this)
-        context = spyk(testContext)
         loadUrlUseCase = mockk(relaxed = true)
         searchUseCases = mockk(relaxed = true)
         homepageTitle = testContext.getString(R.string.tab_tray_homepage_tab)
@@ -310,8 +306,39 @@ class DefaultTabManagerControllerTest {
     @Test
     fun `WHEN handleTabDeletion is called THEN Event#ClosedExistingTab is added to telemetry`() {
         val tab = createTab(id = "testTabId", url = "https://mozilla.org", private = true)
+        setUpSingleUnselectedPrivateTabState(tab)
 
         assertNull(TabsTray.closedExistingTab.testGetValue())
+
+        createController().handleTabDeletion(TabsTrayItem.Tab(tab = tab), "unknown", TabCloseType.TAP)
+        assertNotNull(TabsTray.closedExistingTab.testGetValue())
+    }
+
+    @Test
+    fun `WHEN handleTabDeletion is called with the tap close type THEN Event#ClosedExistingTab is recorded with the tap type`() {
+        val tab = createTab(id = "testTabId", url = "https://mozilla.org", private = true)
+        setUpSingleUnselectedPrivateTabState(tab)
+
+        createController().handleTabDeletion(TabsTrayItem.Tab(tab = tab), "test_source", TabCloseType.TAP)
+
+        val event = TabsTray.closedExistingTab.testGetValue()!!.single()
+        assertEquals("test_source", event.extra?.get("source"))
+        assertEquals(TabCloseType.TAP.telemetryId, event.extra?.get("type"))
+    }
+
+    @Test
+    fun `WHEN handleTabDeletion is called with the swipe close type THEN Event#ClosedExistingTab is recorded with the swipe type`() {
+        val tab = createTab(id = "testTabId", url = "https://mozilla.org", private = true)
+        setUpSingleUnselectedPrivateTabState(tab)
+
+        createController().handleTabDeletion(TabsTrayItem.Tab(tab = tab), "test_source", TabCloseType.SWIPE)
+
+        val event = TabsTray.closedExistingTab.testGetValue()!!.single()
+        assertEquals("test_source", event.extra?.get("source"))
+        assertEquals(TabCloseType.SWIPE.telemetryId, event.extra?.get("type"))
+    }
+
+    private fun setUpSingleUnselectedPrivateTabState(tab: TabSessionState) {
 
         browserStore = BrowserStore(BrowserState(tabs = listOf(tab)))
 
@@ -327,9 +354,6 @@ class DefaultTabManagerControllerTest {
                         every { tabs } returns emptyList()
                     }
             }
-
-        createController().handleTabDeletion(TabsTrayItem.Tab(tab = tab), "unknown")
-        assertNotNull(TabsTray.closedExistingTab.testGetValue())
     }
 
     @Test
@@ -375,7 +399,7 @@ class DefaultTabManagerControllerTest {
                 }
             )
 
-        controller.handleTabDeletion(TabsTrayItem.Tab(tab = tab), "unknown")
+        controller.handleTabDeletion(TabsTrayItem.Tab(tab = tab), "unknown", TabCloseType.TAP)
 
         assertTrue(showCancelledDownloadWarningInvoked)
     }
@@ -484,7 +508,7 @@ class DefaultTabManagerControllerTest {
                     showUndoSnackbarForTabInvoked = true
                 }
             )
-            .handleTabDeletion(TabsTrayItem.Tab(tab = tab))
+            .handleTabDeletion(TabsTrayItem.Tab(tab = tab), tabCloseType = TabCloseType.TAP)
 
         verify { tabsUseCases.removeTab("22", emptySet()) }
         assertTrue(showUndoSnackbarForTabInvoked)
@@ -513,7 +537,7 @@ class DefaultTabManagerControllerTest {
                     }
             }
 
-        controller.handleTabDeletion(TabsTrayItem.Tab(tab = tab))
+        controller.handleTabDeletion(TabsTrayItem.Tab(tab = tab), tabCloseType = TabCloseType.TAP)
 
         verify { controller.dismissTabManagerAndNavigateHome(testTabId) }
 
@@ -546,7 +570,7 @@ class DefaultTabManagerControllerTest {
                     }
             }
 
-        controller.handleTabDeletion(TabsTrayItem.Tab(tab = tab))
+        controller.handleTabDeletion(TabsTrayItem.Tab(tab = tab), tabCloseType = TabCloseType.TAP)
 
         verify(exactly = 0) { controller.dismissTabManagerAndNavigateHome(testTabId) }
 
@@ -873,7 +897,7 @@ class DefaultTabManagerControllerTest {
 
         val controller = spyk(createController())
 
-        controller.handleTabDeletion(TabsTrayItem.Tab(tab = activeTab))
+        controller.handleTabDeletion(TabsTrayItem.Tab(tab = activeTab), tabCloseType = TabCloseType.TAP)
 
         verify { controller.dismissTabManagerAndNavigateHome("activeId") }
 
@@ -910,7 +934,7 @@ class DefaultTabManagerControllerTest {
         var showUndoSnackbarForTabInvoked = false
         val controller = spyk(createController(showUndoSnackbarForTab = { showUndoSnackbarForTabInvoked = true }))
 
-        controller.handleTabDeletion(TabsTrayItem.Tab(tab = activeTab))
+        controller.handleTabDeletion(TabsTrayItem.Tab(tab = activeTab), tabCloseType = TabCloseType.TAP)
 
         assertTrue(showUndoSnackbarForTabInvoked)
         verify(exactly = 0) { controller.dismissTabManagerAndNavigateHome(any()) }
@@ -1050,7 +1074,7 @@ class DefaultTabManagerControllerTest {
                 )
             )
 
-        controller.handleTabDeletion(TabsTrayItem.Tab(tab = active1))
+        controller.handleTabDeletion(TabsTrayItem.Tab(tab = active1), tabCloseType = TabCloseType.TAP)
 
         verify { tabsUseCases.removeTab(tabId = "active1", excludedFallbackTabIds = setOf("inactive1")) }
         verify(exactly = 0) { controller.dismissTabManagerAndNavigateHome(sessionId = any()) }
@@ -1198,7 +1222,7 @@ class DefaultTabManagerControllerTest {
                 )
             )
 
-        controller.handleTabDeletion(TabsTrayItem.Tab(tab = focusedPrivateTab))
+        controller.handleTabDeletion(TabsTrayItem.Tab(tab = focusedPrivateTab), tabCloseType = TabCloseType.TAP)
 
         verify { tabsUseCases.removeTab(tabId = "focusedPrivate", excludedFallbackTabIds = any()) }
         verify(exactly = 0) { controller.dismissTabManagerAndNavigateHome(any()) }
@@ -1245,7 +1269,7 @@ class DefaultTabManagerControllerTest {
                 )
             )
 
-        controller.handleTabDeletion(TabsTrayItem.Tab(tab = focusedNormalTab))
+        controller.handleTabDeletion(TabsTrayItem.Tab(tab = focusedNormalTab), tabCloseType = TabCloseType.TAP)
 
         verify { tabsUseCases.removeTab(tabId = "focusedNormal", excludedFallbackTabIds = emptySet()) }
         verify(exactly = 0) { controller.dismissTabManagerAndNavigateHome(any()) }
@@ -1281,7 +1305,7 @@ class DefaultTabManagerControllerTest {
                 )
             )
 
-        controller.handleTabDeletion(displayTab)
+        controller.handleTabDeletion(displayTab, tabCloseType = TabCloseType.TAP)
 
         verify { controller.dismissTabManagerAndNavigateHome(displayTab.id) }
         verify(exactly = 0) { tabsUseCases.removeTab(tabId = displayTab.id, excludedFallbackTabIds = any()) }
@@ -1318,7 +1342,7 @@ class DefaultTabManagerControllerTest {
                 )
             )
 
-        controller.handleTabDeletion(displayTab)
+        controller.handleTabDeletion(displayTab, tabCloseType = TabCloseType.TAP)
 
         verify(exactly = 0) { controller.dismissTabManagerAndNavigateHome(displayTab.id) }
         verify { tabsUseCases.removeTab(tabId = displayTab.id, excludedFallbackTabIds = any()) }
@@ -2017,6 +2041,35 @@ class DefaultTabManagerControllerTest {
     }
 
     @Test
+    fun `WHEN handleDeletePrivateTabWarningAccepted is called THEN Event#ClosedExistingTab is recorded with the unknown type`() {
+        val tabToDelete = createTab(id = "private_last", url = "https://mozilla.org", private = true)
+
+        browserStore =
+            BrowserStore(
+                BrowserState(
+                    tabs = listOf(tabToDelete),
+                    selectedTabId = "private_last",
+                    downloads = emptyMap(),
+                )
+            )
+
+        every { trayStore.state } returns
+            TabsTrayState(
+                selectedTabId = "private_last",
+                privateBrowsing = TabsTrayState.PrivateBrowsingState(tabs = listOf(TabsTrayItem.Tab(tabToDelete))),
+                normalTabsState = TabsTrayState.NormalTabsState(items = emptyList()),
+                inactiveTabs = TabsTrayState.InactiveTabsState(tabs = emptyList()),
+                tabGroupState = TabsTrayState.TabGroupState(groups = emptyList()),
+            )
+
+        createController().handleDeletePrivateTabWarningAccepted(tabId = "private_last", source = "test_source")
+
+        val event = TabsTray.closedExistingTab.testGetValue()!!.single()
+        assertEquals("test_source", event.extra?.get("source"))
+        assertEquals(TabCloseType.UNKNOWN.telemetryId, event.extra?.get("type"))
+    }
+
+    @Test
     fun `WHEN onCloseAllPrivateTabsWarningConfirmed is called THEN it bypasses the download warning and navigates to home where the private tabs are deleted`() {
         val controller = spyk(createController())
 
@@ -2525,7 +2578,7 @@ class DefaultTabManagerControllerTest {
         val controller = spyk(createController())
         val tab = TabsTrayItem.Tab(tab = createTab(url = "", lastAccess = 0L, createdAt = 0L))
 
-        every { controller.handleTabDeletion(any(), any()) } just runs
+        every { controller.handleTabDeletion(any(), any(), any()) } just runs
 
         assertNull(TabsTray.closeInactiveTab.testGetValue())
 
@@ -2533,7 +2586,7 @@ class DefaultTabManagerControllerTest {
 
         assertNotNull(TabsTray.closeInactiveTab.testGetValue())
 
-        verify { controller.handleTabDeletion(tab, INACTIVE_TABS_FEATURE_NAME) }
+        verify { controller.handleTabDeletion(tab, INACTIVE_TABS_FEATURE_NAME, TabCloseType.TAP) }
     }
 
     @Test
@@ -2680,7 +2733,7 @@ class DefaultTabManagerControllerTest {
             )
 
         controller.handleTabSelected(currentTab, "source")
-        controller.handleTabDeletion(TabsTrayItem.Tab(tab = privateTabData))
+        controller.handleTabDeletion(TabsTrayItem.Tab(tab = privateTabData), tabCloseType = TabCloseType.TAP)
 
         assertTrue(showUndoSnackbarForTabInvoked)
         assertFalse(navigateToHomeAndDeleteSessionInvoked)
@@ -2749,22 +2802,6 @@ class DefaultTabManagerControllerTest {
 
         val snapshot = TabsTray.shareSelectedTabs.testGetValue()!!
         assertEquals("2", snapshot.single().extra?.getValue("tab_count"))
-    }
-
-    @Test
-    fun `GIVEN one tab is selected WHEN the add selected tabs to collection button is clicked THEN report the telemetry and show the collections dialog`() {
-        val controller = spyk(createController())
-        every { controller.showCollectionsDialog(any()) } just runs
-
-        every { trayStore.state.mode.selectedTabs } returns
-            setOf(TabsTrayItem.Tab(tab = createTab(url = "https://mozilla.org")))
-        every { controller.showCollectionsDialog(any()) } answers {}
-
-        assertNull(TabsTray.saveToCollection.testGetValue())
-
-        controller.handleAddSelectedTabsToCollectionClicked()
-
-        assertNotNull(TabsTray.saveToCollection.testGetValue())
     }
 
     @Test
@@ -3246,12 +3283,10 @@ class DefaultTabManagerControllerTest {
         showUndoSnackbarForSyncedTab: (CloseTabsUseCases.UndoableOperation) -> Unit = { _ -> },
         showUndoSnackbarForMultipleTabs: (Boolean, Int) -> Unit = { _, _ -> },
         showCancelledDownloadWarning: (Int, String?, String?) -> Unit = { _, _, _ -> },
-        showCollectionSnackbar: (Int, Boolean) -> Unit = { _, _ -> },
         showBookmarkSnackbar: (Int, String?) -> Unit = { _, _ -> },
     ): DefaultTabManagerController {
         return DefaultTabManagerController(
             accountManager = accountManager,
-            context = context,
             appStore = appStore,
             tabsTrayStore = trayStore,
             browserStore = browserStore,
@@ -3267,14 +3302,12 @@ class DefaultTabManagerControllerTest {
             addBookmarkUseCase = addBookmarkUseCase,
             ioDispatcher = testDispatcher,
             mainDispatcher = testDispatcher,
-            collectionStorage = collectionStorage,
             showUndoSnackbarForTab = showUndoSnackbarForTab,
             showUndoSnackbarForInactiveTab = showUndoSnackbarForInactiveTab,
             showUndoSnackbarForSyncedTab = showUndoSnackbarForSyncedTab,
             showUndoSnackbarForMultipleTabs = showUndoSnackbarForMultipleTabs,
             showCancelledDownloadWarning = showCancelledDownloadWarning,
             showBookmarkSnackbar = showBookmarkSnackbar,
-            showCollectionSnackbar = showCollectionSnackbar,
         )
     }
 

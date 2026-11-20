@@ -61,11 +61,12 @@ def nsis_stage(
                 + [ab_cd, str(config_dir)]
             )
 
-        for properties, nlf in single_files:
+        for ftl, nlf in single_files:
             subprocess.check_call(
                 [sys.executable, ppl, "--preprocess-single-file", str(topsrcdir)]
                 + locale_args
-                + [str(config_dir), properties, nlf]
+                + ([f"--ab-cd={ab_cd}"] if ab_cd else [])
+                + [str(config_dir), ftl, nlf]
             )
 
         for src, dest in convert_utf8:
@@ -107,7 +108,7 @@ def write_spec(
         "preprocessor_args": preprocessor_args,
         "topsrcdir": str(args.topsrcdir) if args.topsrcdir else "",
         "preprocess_locale_script": args.preprocess_locale_script,
-        "locale_args": args.locale_args,
+        "repack_locale_args": args.repack_locale_args,
         "preprocess_locale": args.preprocess_locale,
         "single_files": args.single_files,
         "convert_utf8": [[src, Path(dest).name] for src, dest in args.convert_utf8],
@@ -129,8 +130,8 @@ def stage_repack(
         raise ValueError(f"{spec_path} does not record a repack l10n dir")
 
     locale_args = [f"--l10n-dir={real_locale_mergedir / repack_l10n_dir}"] + [
-        arg if arg.startswith("--l10n-dir=") else f"--l10n-dir={arg}"
-        for arg in spec["locale_args"]
+        f"--l10n-dir={arg.removeprefix('--l10n-dir=')}"
+        for arg in spec["repack_locale_args"]
     ]
     preprocessor_args = [
         f"-DAB_CD={ab_cd}" if arg.startswith("-DAB_CD=") else arg
@@ -214,7 +215,7 @@ def _parser() -> argparse.ArgumentParser:
         nargs=2,
         default=[],
         dest="single_files",
-        metavar=("PROPERTIES", "NLF"),
+        metavar=("FTL", "NLF"),
         help="Run preprocess-locale.py --preprocess-single-file. Repeatable.",
     )
     parser.add_argument(
@@ -239,6 +240,15 @@ def _parser() -> argparse.ArgumentParser:
         "strings, joined to the locale merge dir on repack. Required with "
         "--spec-out.",
     )
+    parser.add_argument(
+        "--repack-locale-arg",
+        action="append",
+        default=[],
+        dest="repack_locale_args",
+        help="--locale-arg token a repack reads after its own locale, in place "
+        "of the --locale-arg tokens of this stage. Repeatable, and required with "
+        "--spec-out.",
+    )
     return parser
 
 
@@ -251,6 +261,8 @@ def _stage(argv: list[str]) -> tuple[int, argparse.Namespace]:
         parser.error("--preprocess-locale-script is required for the locale steps")
     if args.spec_out and not args.repack_l10n_dir:
         parser.error("--repack-l10n-dir is required with --spec-out")
+    if args.spec_out and not args.repack_locale_args:
+        parser.error("--repack-locale-arg is required with --spec-out")
 
     preprocessor_args = []
     for defines in args.defines_strings:
@@ -280,7 +292,7 @@ def main(argv: list[str]) -> int:
     return _stage(argv)[0]
 
 
-def generate(output, *argv: str) -> int:
+def generate(output, *argv: str) -> int | set[str]:
     ret, args = _stage([*argv])
     if ret:
         return ret
@@ -288,7 +300,14 @@ def generate(output, *argv: str) -> int:
     output.write(
         stage_digest(args.config_dir, {Path(src).name for src in args.installs})
     )
-    return 0
+    l10n_dirs = [
+        d
+        for arg in args.locale_args
+        if (d := Path(arg.removeprefix("--l10n-dir="))).is_dir()
+    ]
+    return {str(d) for d in l10n_dirs} | {
+        str(p) for d in l10n_dirs for p in d.iterdir() if p.is_file()
+    }
 
 
 if __name__ == "__main__":

@@ -51,6 +51,12 @@ skip-if = ["enterprise"] # Enterprise builds repurpose the VPN as the Access Con
 # submitHealthReportBox checkbox this test targets is never rendered.
 skip-if = ["enterprise"]
 
+["browser_privacy_windowLock.js"]
+run-if = [
+  "os == 'mac'",
+  "os == 'win'",
+]
+
 ["browser_privacypane_2.js"]
 
 ["browser_privacypane_3.js"]

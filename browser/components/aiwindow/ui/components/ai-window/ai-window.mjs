@@ -64,6 +64,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   generateConversationStartersSidebar:
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
+  DIGEST_DISMISSED:
+    "moz-src:///browser/components/aiwindow/ui/modules/DigestActivity.sys.mjs",
   JourneyManager:
     "moz-src:///browser/components/aiwindow/models/memories/journeys/JourneyManager.sys.mjs",
   MemoriesManager:
@@ -295,6 +297,7 @@ export class AIWindow extends MozLitElement {
     resumeSectionHidden: { type: Boolean, state: true },
     startersResolved: { type: Boolean, state: true },
     recentChats: { type: Array, state: true },
+    smartPageType: { type: Object, state: true },
   };
 
   #browser;
@@ -575,6 +578,13 @@ export class AIWindow extends MozLitElement {
     this.resumeSectionHidden = lazy.ResumeActivity.isSectionHiddenForSession();
     this.startersResolved = false;
     this.recentChats = [];
+    /**
+     * Descriptor for the type of the Smart Page in the current tab, set by
+     * AIWindowUI; null when the tab is not a stored Smart Page.
+     *
+     * @type {?import("moz-src:///browser/components/aiwindow/ui/modules/AITabPageTypes.sys.mjs").AITabPageTypeDescriptor}
+     */
+    this.smartPageType = null;
     this.showFooter = this.mode === MODE.FULLPAGE;
     this.promoMessage = null;
     this.showDisclaimer = this.mode !== MODE.FULLPAGE;
@@ -732,6 +742,7 @@ export class AIWindow extends MozLitElement {
       this.#topSitesObserver,
       "newtab-top-sites-changed"
     );
+    Services.obs.addObserver(this.#onDigestDismissed, lazy.DIGEST_DISMISSED);
 
     this.#removeClientErrorListeners = installClientErrorListeners(
       this.documentGlobal,
@@ -985,6 +996,8 @@ export class AIWindow extends MozLitElement {
       this.#onAvailableModelsChanged,
       lazy.MODELS_DATA_CHANGED_TOPIC
     );
+
+    Services.obs.removeObserver(this.#onDigestDismissed, lazy.DIGEST_DISMISSED);
 
     // Clean up Top Sites store observer
     if (this.#topSitesObserver) {
@@ -2532,6 +2545,11 @@ export class AIWindow extends MozLitElement {
    * @private
    */
   #handlePromptDismissed = event => {
+    // Digest pills are removed by #onDigestDismissed in every window.
+    if (event.detail.type === "digest") {
+      return;
+    }
+
     const { memory } = event.detail;
     lazy.ResumeActivity.dismissMemory(memory.id);
 
@@ -2542,6 +2560,24 @@ export class AIWindow extends MozLitElement {
     this.#renderStarterPrompts(remaining, true, false);
 
     this.#recordQuickPromptDismissed();
+  };
+
+  /**
+   * Removes a dismissed digest's pill from this tab. The pill disables its
+   * digest itself.
+   *
+   * @param {nsISupports} _subject
+   * @param {string} _topic
+   * @param {string} id - The digest's ID
+   */
+  #onDigestDismissed = (_subject, _topic, id) => {
+    const starters = this.#conversation?.transientStarters ?? [];
+    if (!starters.some(starter => starter.id === id)) {
+      return;
+    }
+    const remaining = starters.filter(starter => starter.id !== id);
+    this.#conversation.transientStarters = remaining;
+    this.#renderStarterPrompts(remaining, true, false);
   };
 
   /**
@@ -4206,7 +4242,8 @@ export class AIWindow extends MozLitElement {
       <div id="browser-container"></div>
       ${this.#isSmartPageSidebar &&
       !this.isGenerating &&
-      !this.#conversation?.messageCount
+      !this.#conversation?.messageCount &&
+      this.smartPageType?.editable
         ? html`
             <div class="smartpage-chat-message">
               <img

@@ -5,7 +5,6 @@
 package org.mozilla.fenix.home
 
 import androidx.navigation.NavController
-import androidx.navigation.NavDirections
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -123,29 +122,6 @@ class DefaultSessionControlControllerTest {
         every { activity.components.settings } returns settings
         every { activity.components.settings } returns settings
         every { activity.filesDir } returns filesDir
-    }
-
-    @Test
-    fun handleCollectionAddTabTapped() {
-        val collection =
-            mockk<TabCollection> {
-                every { id } returns 12L
-            }
-        createController().handleCollectionAddTabTapped(collection)
-
-        assertNotNull(Collections.addTabButton.testGetValue())
-        val recordedEvents = Collections.addTabButton.testGetValue()!!
-        assertEquals(1, recordedEvents.size)
-        assertEquals(null, recordedEvents.single().extra)
-
-        verify {
-            navController.navigate(
-                match<NavDirections> {
-                    it.actionId == R.id.action_global_collectionCreationFragment
-                },
-                null,
-            )
-        }
     }
 
     @Test
@@ -383,27 +359,6 @@ class DefaultSessionControlControllerTest {
     }
 
     @Test
-    fun handleRenameCollectionTapped() {
-        val collection =
-            mockk<TabCollection> {
-                every { id } returns 3L
-            }
-        createController().handleRenameCollectionTapped(collection)
-
-        assertNotNull(Collections.renameButton.testGetValue())
-        val recordedEvents = Collections.renameButton.testGetValue()!!
-        assertEquals(1, recordedEvents.size)
-        assertEquals(null, recordedEvents.single().extra)
-
-        verify {
-            navController.navigate(
-                match<NavDirections> { it.actionId == R.id.action_global_collectionCreationFragment },
-                null,
-            )
-        }
-    }
-
-    @Test
     fun `GIVEN exactly the required amount of downloaded thumbnails with no errors WHEN handling wallpaper dialog THEN dialog is shown`() {
         val wallpaperState =
             WallpaperState.default.copy(
@@ -489,18 +444,6 @@ class DefaultSessionControlControllerTest {
         val collection = mockk<TabCollection>()
         createController().handleToggleCollectionExpanded(collection, true)
         verify { appStore.dispatch(AppAction.CollectionExpanded(collection, true)) }
-    }
-
-    @Test
-    fun handleCreateCollection() {
-        createController().handleCreateCollection()
-
-        verify {
-            navController.navigate(
-                match<NavDirections> { it.actionId == R.id.action_global_tabManagementFragment },
-                null,
-            )
-        }
     }
 
     @Test
@@ -701,7 +644,6 @@ class DefaultSessionControlControllerTest {
     }
 
     private fun createController(
-        registerCollectionStorageObserver: () -> Unit = {},
         showTabTray: () -> Unit = {},
         removeCollectionWithUndo: (tabCollection: TabCollection) -> Unit = {},
     ): DefaultSessionControlController {
@@ -727,10 +669,6 @@ class DefaultSessionControlControllerTest {
             .apply {
                 registerCallback(
                     object : SessionControlControllerCallback {
-                        override fun registerCollectionStorageObserver() {
-                            registerCollectionStorageObserver()
-                        }
-
                         override fun removeCollection(tabCollection: TabCollection) {
                             removeCollectionWithUndo(tabCollection)
                         }
