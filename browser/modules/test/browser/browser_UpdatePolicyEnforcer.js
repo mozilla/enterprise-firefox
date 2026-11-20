@@ -86,7 +86,7 @@ add_task(async function test_compulsoryRestartNotification() {
     );
   } finally {
     testingOnly_resetTasks();
-    win.gNotificationBox.removeAllNotifications();
+    win.gNotificationBox.removeAllNotifications(true);
     await popPrefs();
   }
 });
@@ -97,10 +97,10 @@ add_task(async function test_compulsoryRestartNotification() {
  */
 add_task(async function test_compulsoryRestartNotificationFromFelt() {
   await pushPrefs([prefName, JSON.stringify(prefValue)]);
+  let win = Services.wm.getMostRecentBrowserWindow();
   try {
     testingOnly_resetTasks();
 
-    let win = Services.wm.getMostRecentBrowserWindow();
     for (let n of [...win.gNotificationBox.allNotifications]) {
       n.dismiss();
     }
@@ -118,6 +118,7 @@ add_task(async function test_compulsoryRestartNotificationFromFelt() {
     );
   } finally {
     testingOnly_resetTasks();
+    win.gNotificationBox.removeAllNotifications(true);
     await popPrefs();
   }
 });
