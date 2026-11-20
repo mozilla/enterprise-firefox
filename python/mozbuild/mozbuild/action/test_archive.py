@@ -133,6 +133,11 @@ ARCHIVE_FILES = {
         {"source": buildconfig.topobjdir, "base": "_tests", "pattern": "mozbase/**"},
         {
             "source": buildconfig.topsrcdir,
+            "base": "testing/performance",
+            "patterns": ["mozperfcommon/setup.py", "mozperfcommon/mozperfcommon/**"],
+        },
+        {
+            "source": buildconfig.topsrcdir,
             "base": "testing",
             "pattern": "firefox-ui/**",
             "ignore": ["firefox-ui/tests"],
@@ -326,7 +331,10 @@ ARCHIVE_FILES = {
         {
             "source": buildconfig.topsrcdir,
             "base": "",
-            "pattern": "testing/performance/common/performance-artifact-schema.json",
+            "patterns": [
+                "testing/performance/common/performance-artifact-schema.json",
+                "testing/performance/common/expected_changes.yml",
+            ],
         },
         {
             "source": buildconfig.topsrcdir,

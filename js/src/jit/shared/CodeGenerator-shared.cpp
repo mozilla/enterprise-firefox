@@ -232,7 +232,11 @@ bool CodeGeneratorShared::generateOutOfLineCode() {
 }
 
 void CodeGeneratorShared::emitBailoutOOL(LSnapshot* snapshot) {
+#ifdef JS_CODEGEN_ARM64
+  masm.move32(Imm32(snapshot->snapshotOffset()), BailoutSnapshotOffsetReg);
+#else
   masm.push(Imm32(snapshot->snapshotOffset()));
+#endif
   jumpToDeoptLabel();
 }
 
@@ -291,6 +295,9 @@ void CodeGeneratorShared::addOutOfLineCode(OutOfLineCode* code,
   code->setFramePushed(masm.framePushed());
   code->setBytecodeSite(site);
   outOfLineCode_.pushBack(code);
+#ifdef DEBUG
+  masm.propagateOOM(currentInstructionOols_.append(code));
+#endif
 }
 
 bool CodeGeneratorShared::addNativeToBytecodeEntry(const BytecodeSite* site) {

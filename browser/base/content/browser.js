@@ -770,6 +770,9 @@ Object.defineProperty(this, "gFindBarPromise", {
 });
 
 function shouldSuppressPopupNotifications() {
+  const { WindowLock } = ChromeUtils.importESModule(
+    "moz-src:///browser/modules/WindowLock.sys.mjs"
+  );
   // We have to hide notifications explicitly when the window is
   // minimized because of the effects of the "noautohide" attribute on Linux.
   // This can be removed once bug 545265 and bug 1320361 are fixed.
@@ -778,7 +781,8 @@ function shouldSuppressPopupNotifications() {
   return (
     window.windowState == window.STATE_MINIMIZED ||
     gBrowser?.selectedBrowser.hasAttribute("tabDialogShowing") ||
-    gDialogBox?.isOpen
+    gDialogBox?.isOpen ||
+    WindowLock.isWindowLocked(window)
   );
 }
 
@@ -3901,6 +3905,14 @@ function CanCloseWindow() {
     return true;
   }
 
+  // Don't show beforeunload prompts while the window is locked.
+  const { WindowLock } = ChromeUtils.importESModule(
+    "moz-src:///browser/modules/WindowLock.sys.mjs"
+  );
+  if (WindowLock.isWindowLocked(window)) {
+    return true;
+  }
+
   for (let browser of gBrowser.browsers) {
     // Don't instantiate lazy browsers.
     if (!browser.isConnected) {
@@ -4851,8 +4863,9 @@ var gDialogBox = {
       urlbar.view?.close();
     }
 
+    using disposables = new DisposableStack();
     try {
-      await this._open(uri, args, triggeringEvent);
+      await this._open(uri, args, triggeringEvent, disposables);
     } catch (ex) {
       console.error(ex);
     } finally {
@@ -4871,7 +4884,6 @@ var gDialogBox = {
       document.documentElement.removeAttribute("window-modal-open");
       dialog.removeEventListener("dialogopen", this);
       dialog.removeEventListener("close", this);
-      this._updateMenuAndCommandState(true /* to enable */);
       this._dialog = null;
       UpdatePopupNotificationsVisibility();
     }
@@ -4901,7 +4913,15 @@ var gDialogBox = {
     }
   },
 
-  _open(uri, args, triggeringEvent) {
+  /**
+   * @param {string} uri - URI of the dialog document.
+   * @param {object} args - Arguments for the dialog.
+   * @param {Event} [triggeringEvent] - The event that made the user open the
+   * dialog, see SubDialog.open().
+   * @param {DisposableStack} disposables - Receives what needs to be undone
+   * once the dialog is closed.
+   */
+  _open(uri, args, triggeringEvent, disposables) {
     // Get this offset before we touch style below, as touching style seems
     // to reset the cached layout bounds.
     let offset = window.windowUtils.getBoundsWithoutFlushing(
@@ -4919,7 +4939,7 @@ var gDialogBox = {
     this._didOpenHTMLDialog = true;
 
     // Disable menus and shortcuts.
-    this._updateMenuAndCommandState(false /* to disable */);
+    this.disableMenusAndCommands(disposables);
 
     // Now actually set up the dialog contents:
     let template = document.getElementById("window-modal-dialog-template")
@@ -4961,6 +4981,9 @@ var gDialogBox = {
     "key_browserConsole",
     "key_browserToolbox",
 
+    // Locking windows must stay possible while a dialog is open.
+    "cmd_lockWindows",
+
     // Don't touch the editing keys/commands which we might want inside the dialog.
     "key_undo",
     "key_redo",
@@ -4971,6 +4994,26 @@ var gDialogBox = {
     "key_delete",
     "key_selectAll",
   ]),
+
+  // Number of callers currently requiring menus and commands to be disabled.
+  _menuAndCommandDisablers: 0,
+
+  /**
+   * Disables menus and commands until the given stack is disposed. They only
+   * get enabled again once every stack passed here has been disposed.
+   *
+   * @param {DisposableStack} disposables
+   */
+  disableMenusAndCommands(disposables) {
+    disposables.defer(() => {
+      if (--this._menuAndCommandDisablers == 0) {
+        this._updateMenuAndCommandState(true /* to enable */);
+      }
+    });
+    if (this._menuAndCommandDisablers++ == 0) {
+      this._updateMenuAndCommandState(false /* to disable */);
+    }
+  },
 
   _updateMenuAndCommandState(shouldBeEnabled) {
     let editorCommands = document.getElementById("editMenuCommands");

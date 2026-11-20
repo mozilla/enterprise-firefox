@@ -24,6 +24,10 @@ namespace mozilla {
   wrapper->mCallThread->Dispatch(
       NS_NewRunnableFunction(__func__, [wrapper, aSharedState] {
         webrtc::CallConfig config(wrapper->mEnvWrapper->Environment(), nullptr);
+        // libwebrtc drops initial frames above 320x240 while the encoder
+        // target is below 300kbps. Leave room for packet overhead and an audio
+        // stream so that up to 640x480 can be sent from the start.
+        config.bitrate_config.start_bitrate_bps = 400000;
         config.audio_state =
             webrtc::AudioState::Create(aSharedState->mAudioStateConfig);
         wrapper->SetCall(
@@ -59,6 +63,22 @@ void WebrtcCallWrapper::RegisterConduit(MediaSessionConduit* conduit) {
 void WebrtcCallWrapper::UnregisterConduit(MediaSessionConduit* conduit) {
   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
   mConduits.erase(conduit);
+}
+
+void WebrtcCallWrapper::UpdateReadyTransports(webrtc::MediaType aType,
+                                              int aDelta) {
+  MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+  MOZ_ASSERT(aType == webrtc::MediaType::AUDIO ||
+             aType == webrtc::MediaType::VIDEO);
+  size_t& ready = aType == webrtc::MediaType::VIDEO ? mNumReadyVideoTransports
+                                                    : mNumReadyAudioTransports;
+  MOZ_ASSERT_IF(aDelta < 0, ready >= static_cast<size_t>(-aDelta));
+  const bool wasReady = ready > 0;
+  ready += aDelta;
+  if (mCall && wasReady != (ready > 0)) {
+    mCall->SignalChannelNetworkState(
+        aType, ready > 0 ? webrtc::kNetworkUp : webrtc::kNetworkDown);
+  }
 }
 
 void WebrtcCallWrapper::Destroy() {

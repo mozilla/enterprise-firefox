@@ -68,6 +68,7 @@ classes_with_WrapForJNI = [
     "MediaDrmProxy",
     "MozLog",
     "PanZoomController",
+    "RemoteSurfaceAllocator",
     "Sample",
     "SampleBuffer",
     "ScreenManagerHelper",
@@ -89,6 +90,9 @@ classes_with_WrapForJNI = [
     "WebResponse",
     "XPCOMEventTarget",
 ]
+
+if CONFIG["MOZ_WEBRTC"]:
+    classes_with_WrapForJNI += ["JniCommonJni"]
 
 natives_from_WrapForJNI = sorted([
     "GeneratedJNI/{}Natives.h".format(c) for c in classes_with_WrapForJNI

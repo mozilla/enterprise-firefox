@@ -226,7 +226,6 @@ class TabManagementFragment : Fragment() {
         tabManagerController =
             DefaultTabManagerController(
                 accountManager = requireComponents.backgroundServices.accountManager,
-                context = requireContext(),
                 appStore = requireComponents.appStore,
                 tabsTrayStore = tabsTrayStore,
                 browserStore = requireComponents.core.store,
@@ -240,14 +239,12 @@ class TabManagementFragment : Fragment() {
                 shareUseCases = requireComponents.useCases.shareUseCases,
                 closeSyncedTabsUseCases = requireComponents.useCases.closeSyncedTabsUseCases,
                 addBookmarkUseCase = requireComponents.useCases.bookmarksUseCases.addBookmark,
-                collectionStorage = requireComponents.core.tabCollectionStorage,
                 showUndoSnackbarForTab = ::showUndoSnackbarForTab,
                 showUndoSnackbarForInactiveTab = ::showUndoSnackbarForInactiveTab,
                 showUndoSnackbarForSyncedTab = ::showUndoSnackbarForSyncedTab,
                 showUndoSnackbarForMultipleTabs = ::showUndoSnackbarForMultipleTabs,
                 showCancelledDownloadWarning = ::showCancelledDownloadWarning,
                 showBookmarkSnackbar = ::showBookmarkSnackbar,
-                showCollectionSnackbar = ::showCollectionSnackbar,
             )
 
         tabManagerCfrController =
@@ -398,7 +395,6 @@ class TabManagementFragment : Fragment() {
                 metadata = { destination ->
                     BottomSheetSceneStrategy.bottomSheet(
                         handleContentDescription = resources.getString(R.string.tab_group_sheet_dismiss_description),
-                        showBetaLabel = true,
                         fullyExpandOnFirstOpen =
                             destination.group.shouldFullyExpandOnFirstOpen(windowSize = windowSize),
                     )
@@ -420,7 +416,6 @@ class TabManagementFragment : Fragment() {
                         skipPartiallyExpanded = true,
                         handleContentDescription =
                             stringResource(id = R.string.edit_tab_group_bottom_sheet_grabber_content_description),
-                        showBetaLabel = true,
                     )
             ) {
                 RenderEditTabGroup(formState = state.tabGroupState.formState)
@@ -429,8 +424,7 @@ class TabManagementFragment : Fragment() {
                 metadata =
                     BottomSheetSceneStrategy.bottomSheet(
                         handleContentDescription =
-                            stringResource(id = R.string.add_to_tab_group_bottom_sheet_grabber_content_description),
-                        showBetaLabel = true,
+                            stringResource(id = R.string.add_to_tab_group_bottom_sheet_grabber_content_description)
                     )
             ) {
                 RenderAddToTabGroup()
@@ -575,7 +569,9 @@ class TabManagementFragment : Fragment() {
                     page = page,
                 )
             },
-            onTabClose = { tab -> tabManagerInteractor.onTabClosed(tab, TAB_MANAGER_FEATURE_NAME) },
+            onTabClose = { tab, tabCloseType ->
+                tabManagerInteractor.onTabClosed(tab, TAB_MANAGER_FEATURE_NAME, tabCloseType)
+            },
             onItemClick = { handleItemClick(item = it, handleTabClick = handleTabClick) },
             onItemLongClick = { item ->
                 tabsTrayStore.dispatch(TabsTrayAction.TabItemLongClicked(item))
@@ -593,7 +589,6 @@ class TabManagementFragment : Fragment() {
             onSyncedTabClick = tabManagerInteractor::onSyncedTabClicked,
             onSyncedTabClose = tabManagerInteractor::onSyncedTabClosed,
             onSignInClick = tabManagerInteractor::onSignInClicked,
-            onSaveToCollectionClick = tabManagerInteractor::onAddSelectedTabsToCollectionClicked,
             onShareSelectedTabsClick = tabManagerInteractor::onShareSelectedTabs,
             onTabSettingsClick = tabManagerController::onTabSettingsClicked,
             onRecentlyClosedClick = tabManagerController::onOpenRecentlyClosedClicked,
@@ -753,7 +748,6 @@ class TabManagementFragment : Fragment() {
                             Config.channel.isDebug || requireComponents.settings.showSecretDebugMenuThisSession,
                         showTabAutoCloseBanner =
                             settings.shouldShowAutoCloseTabsBanner && settings.canShowCfr && settings.cfrPopupsEnabled,
-                        collectionsEnabled = settings.collections,
                     ),
             )
 
@@ -1020,24 +1014,6 @@ class TabManagementFragment : Fragment() {
     @VisibleForTesting
     internal fun recordBreadcrumb(message: String) {
         context?.components?.analytics?.crashReporter?.recordCrashBreadcrumb(Breadcrumb(message = message))
-    }
-
-    private fun showCollectionSnackbar(
-        tabSize: Int,
-        isNewCollection: Boolean = false,
-    ) {
-        val messageResId =
-            when {
-                isNewCollection -> R.string.create_collection_tabs_saved_new_collection_2
-                tabSize == 1 -> R.string.create_collection_tab_saved_2
-                else -> return // Don't show snackbar for multiple tabs
-            }
-        lifecycleScope.launch {
-            snackbarHostState.displaySnackbar(
-                message = getString(messageResId),
-                timeout = requireComponents.settings.getSnackbarTimeout(hasAction = false),
-            )
-        }
     }
 
     @VisibleForTesting

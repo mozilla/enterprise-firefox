@@ -127,8 +127,8 @@ add_task(async function test_enterprise_management_works() {
   await extension.unload();
 });
 
-add_task(async function test_enterprise_management_locked_addon() {
-  const TEST_ID = "test_management_policy_locked@tests.mozilla.com";
+add_task(async function test_enterprise_management_force_installed_addon() {
+  const TEST_ID = "test_management_policy_force_installed@tests.mozilla.com";
 
   async function background(TEST_ADDON_ID) {
     let addon = await browser.management.get(TEST_ADDON_ID);
@@ -136,7 +136,7 @@ add_task(async function test_enterprise_management_locked_addon() {
     await browser.test.assertRejects(
       browser.management.setEnabled(TEST_ADDON_ID, false),
       `Cannot disable add-on ${TEST_ADDON_ID}: disallowed by enterprise policy`,
-      "setEnabled should fail for a locked add-on"
+      "setEnabled should fail for a force-installed add-on"
     );
     addon = await browser.management.get(TEST_ADDON_ID);
     browser.test.assertTrue(addon.enabled, "addon is still enabled");
@@ -158,31 +158,20 @@ add_task(async function test_enterprise_management_locked_addon() {
 
   let serverHost = `http://localhost:${server.identity.primaryPort}`;
 
-  let xpiFilename = `/locked.xpi`;
+  let xpiFilename = `/force_installed.xpi`;
   server.registerFile(xpiFilename, originalXpi);
-
-  // Enterprise builds do not support the legacy Extensions policy; there,
-  // force_installed is what makes an add-on undisableable.
-  let lockPolicies = AppConstants.MOZ_ENTERPRISE
-    ? {
-        ExtensionSettings: {
-          [TEST_ADDON_ID]: { installation_mode: "force_installed" },
-        },
-      }
-    : { Extensions: { Locked: [TEST_ADDON_ID] } };
 
   let extension = ExtensionTestUtils.expectExtension(TEST_ID);
   await Promise.all([
     AddonTestUtils.promiseInstallEvent("onInstallEnded"),
     EnterprisePolicyTesting.setupPolicyEngineWithJson({
       policies: {
-        ...lockPolicies,
         ExtensionSettings: {
-          ...lockPolicies.ExtensionSettings,
           [TEST_ID]: {
             installation_mode: "force_installed",
             install_url: serverHost + xpiFilename,
           },
+          [TEST_ADDON_ID]: { installation_mode: "force_installed" },
         },
       },
     }),

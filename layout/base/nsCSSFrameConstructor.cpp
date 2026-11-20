@@ -3185,8 +3185,7 @@ nsIFrame* nsCSSFrameConstructor::ConstructBlockRubyFrame(
   nsFrameConstructorSaveState absoluteSaveState;
   blockFrame->AddStateBits(NS_FRAME_CAN_HAVE_ABSPOS_CHILDREN);
   if (newFrame->IsAbsPosContainingBlock()) {
-    aState.PushAbsoluteContainingBlock(blockFrame, blockFrame,
-                                       absoluteSaveState);
+    aState.PushAbsoluteContainingBlock(blockFrame, newFrame, absoluteSaveState);
   }
   nsFrameConstructorSaveState floatSaveState;
   aState.MaybePushFloatContainingBlock(blockFrame, floatSaveState);
@@ -5127,7 +5126,7 @@ void nsCSSFrameConstructor::AddFrameConstructionItemsInternal(
   // NOTE(emilio): This is rather hacky, we should ideally remove this and make
   // shadow tree creation faster, see bug 2017005.
   if (const RefPtr input = HTMLInputElement::FromNode(aContent)) {
-    if (auto* sr = input->CreateShadowTreeFromLayoutIfNeeded()) {
+    if (auto* sr = input->CreateShadowTreeBeforeLayoutIfNeeded()) {
       StyleNewChildRange(sr->GetFirstChild(), nullptr);
     }
   }
@@ -6807,8 +6806,8 @@ bool nsCSSFrameConstructor::ContentWillBeRemoved(nsIContent* aChild,
   // complexity for the display: none -> other case, which right now
   // unnecessarily walks the content tree down.
   auto CouldHaveBeenDisplayContents = [aKind](nsIContent* aContent) -> bool {
-    return aContent->IsElement() && (aKind != RemovalKind::Dom ||
-                                     IsDisplayContents(aContent->AsElement()));
+    return aContent->IsElement() &&
+           (aKind != RemovalKind::Dom || aContent->AsElement()->HasServoData());
   };
 
   if (!childFrame) {

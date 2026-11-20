@@ -25,6 +25,8 @@ subsuite = "mozbuild"
 
 ["action/test_nsis_stage.py"]
 
+["action/test_preprocess_locale.py"]
+
 ["action/test_node.py"]
 
 ["action/test_package.py"]
@@ -32,6 +34,8 @@ subsuite = "mozbuild"
 ["action/test_process_install_manifest.py"]
 
 ["action/test_run_cargo.py"]
+
+["action/test_wine_exe.py"]
 
 ["action/test_xpi_archive.py"]
 
@@ -102,6 +106,8 @@ subsuite = "mozbuild"
 ["controller/test_ccachestats.py"]
 
 ["controller/test_clobber.py"]
+
+["controller/test_jobserver.py"]
 
 ["controller/test_source_repo.py"]
 

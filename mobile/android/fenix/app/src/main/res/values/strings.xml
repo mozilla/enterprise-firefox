@@ -38,12 +38,6 @@
     <string name="tab_tray_multi_select_title">%1$d selected</string>
     <!-- Tab tray multi select title in app bar when no tabs are selected -->
     <string name="tab_tray_multi_select_title_empty">Select tabs</string>
-    <!-- Label of button in create collection dialog for creating a new collection  -->
-    <string name="tab_tray_add_new_collection">Add new collection</string>
-    <!-- Label of editable text in create collection dialog for naming a new collection  -->
-    <string name="tab_tray_add_new_collection_name">Name</string>
-    <!-- Label of button in save to collection dialog for selecting a current collection  -->
-    <string name="tab_tray_select_collection">Select collection</string>
     <!-- Content description for close button while in multiselect mode in tab tray -->
     <string name="tab_tray_close_multiselect_content_description">Exit multiselect mode</string>
     <!-- The header text displayed on the synced tabs page when the user is not logged into an account. -->
@@ -223,8 +217,6 @@
     <string name="resync_button_content_description">Resync</string>
     <!-- Browser menu button that opens the find in page menu -->
     <string name="browser_menu_find_in_page">Find in page</string>
-    <!-- Browser menu button that saves the current tab to a collection -->
-    <string name="browser_menu_save_to_collection_2">Save to collection</string>
     <!-- Browser menu button that open a share menu to share the current site -->
     <string name="browser_menu_share">Share</string>
     <!-- Browser menu button that goes to the homepage screen -->
@@ -1500,8 +1492,6 @@
     <string name="tab_manager_multiselect_menu_item_close_content_description">Close selected tabs</string>
     <!-- Text shown in the multiselect menu for sharing selected tabs. -->
     <string name="tab_manager_multiselect_menu_item_share">Share</string>
-    <!-- Text shown in the multiselect menu for adding selected tabs to collections. -->
-    <string name="tab_manager_multiselect_menu_item_add_to_collection">Add to collection</string>
     <!-- Text shown in the multiselect menu for adding selected tabs to a tab group. -->
     <string name="tab_manager_multiselect_menu_item_add_to_tab_group">Add to group</string>
     <!-- Content description for tabs tray multiselect menu -->
@@ -1526,12 +1516,8 @@
     <string name="tab_manager_search_bar_back_content_description">Return to tab manager</string>
     <!-- Text for the menu button to delete a collection -->
     <string name="collection_delete">Delete collection</string>
-    <!-- Text for the menu button to rename a collection -->
-    <string name="collection_rename">Rename collection</string>
     <!-- Text for the button to open tabs of the selected collection -->
     <string name="collection_open_tabs">Open tabs</string>
-    <!-- Hint for adding name of a collection -->
-    <string name="collection_name_hint">Collection name</string>
     <!-- Text for the menu button to remove a top site -->
     <string name="remove_top_site">Remove</string>
     <!-- Text for the menu button to delete a top site from history -->
@@ -2173,43 +2159,9 @@
     <!-- Content description (not visible, for screen readers etc.): Opens the collection menu when pressed -->
     <string name="collection_menu_button_content_description">Collection menu</string>
 
-    <!-- Title for the "select tabs" step of the collection creator -->
-    <string name="create_collection_select_tabs">Select Tabs</string>
-    <!-- Title for the "select collection" step of the collection creator -->
-    <string name="create_collection_select_collection">Select collection</string>
-    <!-- Title for the "name collection" step of the collection creator -->
-    <string name="create_collection_name_collection">Name collection</string>
-    <!-- Button to add new collection for the "select collection" step of the collection creator -->
-    <string name="create_collection_add_new_collection">Add new collection</string>
-    <!-- Button to select all tabs in the "select tabs" step of the collection creator -->
-    <string name="create_collection_select_all">Select all</string>
-    <!-- Button to deselect all tabs in the "select tabs" step of the collection creator -->
-    <string name="create_collection_deselect_all">Deselect all</string>
-    <!-- Text to prompt users to select the tabs to save in the "select tabs" step of the collection creator -->
-    <string name="create_collection_save_to_collection_empty">Select tabs to save</string>
-    <!-- Text to show users how many tabs they have selected in the "select tabs" step of the collection creator.
-     %d is a placeholder for the number of tabs selected. -->
-    <string name="create_collection_save_to_collection_tabs_selected">%d tabs selected</string>
-    <!-- Text to show users they have one tab selected in the "select tabs" step of the collection creator.
-    %d is a placeholder for the number of tabs selected. -->
-    <string name="create_collection_save_to_collection_tab_selected">%d tab selected</string>
-    <!-- Text shown in snackbar when one or multiple tabs have been saved in a new collection -->
-    <string name="create_collection_tabs_saved_new_collection_2">Collection saved</string>
-    <!-- Text shown in snackbar when one tab has been saved in a collection -->
-    <string name="create_collection_tab_saved_2">Tab saved</string>
-    <!-- Content description (not visible, for screen readers etc.): button to close the collection creator -->
-    <string name="create_collection_close">Close</string>
-    <!-- Button to save currently selected tabs in the "select tabs" step of the collection creator-->
-    <string name="create_collection_save">Save</string>
     <!-- Snackbar action to view the collection the user just created or updated -->
     <string name="create_collection_view">View</string>
-    <!-- Text for the OK button from collection dialogs -->
-    <string name="create_collection_positive">OK</string>
-    <!-- Text for the cancel button from collection dialogs -->
-    <string name="create_collection_negative">Cancel</string>
 
-    <!-- Default name for a new collection in "name new collection" step of the collection creator. %d is a placeholder for the number of collections-->
-    <string name="create_collection_default_name">Collection %d</string>
 
     <!-- Share -->
     <!-- Share screen header -->
@@ -2730,13 +2682,6 @@
     <string name="about_debug_menu_toast_progress">Debug menu: %1$d click(s) left to enable</string>
     <string name="about_debug_menu_toast_done">Debug menu enabled</string>
 
-    <!-- Browser long press popup menu -->
-    <!-- Copy the current url -->
-    <string name="browser_toolbar_long_press_popup_copy">Copy</string>
-    <!-- Paste & go the text in the clipboard. '&amp;' is replaced with the ampersand symbol: & -->
-    <string name="browser_toolbar_long_press_popup_paste_and_go">Paste &amp; Go</string>
-    <!-- Paste the text in the clipboard -->
-    <string name="browser_toolbar_long_press_popup_paste">Paste</string>
     <!-- Snackbar message shown after an URL has been copied to clipboard. -->
     <string name="browser_toolbar_url_copied_to_clipboard_snackbar">URL copied to clipboard</string>
 
@@ -3467,8 +3412,8 @@
 
 
     <!-- Translations options dialog -->
-    <!-- Title of the translation options dialog that allows a user to set their translation options for the site the user is currently on. -->
-    <string name="translation_option_bottom_sheet_title_heading">Translation options</string>
+    <!-- Title of the translation options dialog that allows a user to set their translation preferences for the site the user is currently on. -->
+    <string name="translation_option_bottom_sheet_title_heading2">Translation preferences</string>
     <!-- Toggle switch label that allows a user to set the setting if they would like the browser to always offer or suggest translations when available. -->
     <string name="translation_option_bottom_sheet_always_translate">Always offer to translate</string>
     <!-- Toggle switch label that allows a user to set if they would like a given language to automatically translate or not. %1$s is the language name, for example, "Spanish". -->

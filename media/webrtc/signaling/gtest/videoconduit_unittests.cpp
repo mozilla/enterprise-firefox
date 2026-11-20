@@ -4,6 +4,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #define GTEST_HAS_RTTI 0
+#include "AudioConduit.h"
 #include "Canonicals.h"
 #include "ImageContainer.h"
 #include "MockCall.h"
@@ -11,11 +12,15 @@
 #include "RtpRtcpConfig.h"
 #include "VideoConduit.h"
 #include "VideoFrameConverter.h"
+#include "api/field_trials_view.h"
+#include "api/make_ref_counted.h"
 #include "api/video/i420_buffer.h"
 #include "api/video/video_sink_interface.h"
 #include "gtest/gtest.h"
 #include "media/base/media_constants.h"
+#include "mozilla/Span.h"
 #include "nss.h"
+#include "video/config/encoder_stream_factory.h"
 
 using namespace mozilla;
 using namespace mozilla::layers;
@@ -524,7 +529,7 @@ TEST_F(VideoConduitTest, TestConfigureSendMediaCodecDefaults) {
     const std::vector<webrtc::VideoStream> videoStreams =
         Call()->CreateEncoderStreams(640, 480);
     EXPECT_EQ(videoStreams.size(), 1U);
-    EXPECT_EQ(videoStreams[0].min_bitrate_bps, 150000);
+    EXPECT_EQ(videoStreams[0].min_bitrate_bps, 30000);
     EXPECT_EQ(videoStreams[0].target_bitrate_bps, 500000);
     EXPECT_EQ(videoStreams[0].max_bitrate_bps, 2000000);
   }
@@ -535,7 +540,7 @@ TEST_F(VideoConduitTest, TestConfigureSendMediaCodecDefaults) {
     const std::vector<webrtc::VideoStream> videoStreams =
         Call()->CreateEncoderStreams(1280, 720);
     EXPECT_EQ(videoStreams.size(), 1U);
-    EXPECT_EQ(videoStreams[0].min_bitrate_bps, 1200000);
+    EXPECT_EQ(videoStreams[0].min_bitrate_bps, 30000);
     EXPECT_EQ(videoStreams[0].target_bitrate_bps, 1500000);
     EXPECT_EQ(videoStreams[0].max_bitrate_bps, 5000000);
   }
@@ -563,7 +568,7 @@ TEST_F(VideoConduitTest, TestConfigureSendMediaCodecTias) {
     const std::vector<webrtc::VideoStream> videoStreams =
         Call()->CreateEncoderStreams(1280, 720);
     ASSERT_EQ(videoStreams.size(), 1U);
-    ASSERT_EQ(videoStreams[0].min_bitrate_bps, 1200000);
+    ASSERT_EQ(videoStreams[0].min_bitrate_bps, 30000);
     ASSERT_EQ(videoStreams[0].target_bitrate_bps, 1500000);
     ASSERT_EQ(videoStreams[0].max_bitrate_bps, 2000000);
   }
@@ -615,6 +620,91 @@ TEST_F(VideoConduitTest, TestConfigureSendMediaCodecMaxBr) {
   ASSERT_LE(videoStreams[0].min_bitrate_bps, 50000);
   ASSERT_LE(videoStreams[0].target_bitrate_bps, 50000);
   ASSERT_EQ(videoStreams[0].max_bitrate_bps, 50000);
+}
+
+MATCHER(HasSameLayerLimits, "") {
+  const auto& [actual, expected] = arg;
+  return actual.min_bitrate_bps == expected.min_bitrate_bps &&
+         actual.target_bitrate_bps == expected.target_bitrate_bps &&
+         actual.max_bitrate_bps == expected.max_bitrate_bps;
+}
+
+class NoFieldTrials : public webrtc::FieldTrialsView {
+ public:
+  std::string Lookup(absl::string_view) const override { return ""; }
+};
+
+class VideoConduitSimulcastCodecTest : public VideoConduitTest,
+                                       public WithParamInterface<const char*> {
+ protected:
+  // A b=TIAS or max-bitrate of 0 means unlimited.
+  void ConfigureSimulcast(int aTias, uint64_t aMiddleLayerMaxBr) {
+    mControl.Update([&](auto& aControl) {
+      aControl.mTransmitting = true;
+      VideoCodecConfig codecConfig(120, GetParam(), VideoEncodingConstraints());
+      codecConfig.mTias = aTias;
+      for (double scaleDownBy : {4.0, 2.0, 1.0}) {
+        auto& encoding = codecConfig.mEncodings.emplace_back();
+        encoding.constraints.scaleDownBy = scaleDownBy;
+      }
+      codecConfig.mEncodings[1].constraints.maxBr = aMiddleLayerMaxBr;
+      aControl.mVideoSendCodec = Some(codecConfig);
+      aControl.mVideoSendRtpRtcpConfig =
+          Some(RtpRtcpConfig(webrtc::RtcpMode::kCompound, true));
+      aControl.mLocalSsrcs = {42, 43, 44};
+      aControl.mLocalVideoRtxSsrcs = {45, 46, 47};
+    });
+    ASSERT_TRUE(Call()->mVideoSendEncoderConfig);
+  }
+
+  // The streams libwebrtc's own stream factory makes for the same three
+  // layers, with no limits configured.
+  std::vector<webrtc::VideoStream> ExpectedLibwebrtcStreams() {
+    webrtc::VideoEncoderConfig config;
+    config.codec_type = webrtc::PayloadStringToCodecType(GetParam());
+    config.number_of_streams = 3;
+    for (double scaleDownBy : {4.0, 2.0, 1.0}) {
+      webrtc::VideoStream layer;
+      layer.scale_resolution_down_by = scaleDownBy;
+      config.simulcast_layers.push_back(layer);
+    }
+    return webrtc::make_ref_counted<webrtc::EncoderStreamFactory>(
+               webrtc::VideoEncoder::EncoderInfo())
+        ->CreateEncoderStreams(NoFieldTrials(), 1280, 720, config);
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(WebRtcSimulcastCodecs, VideoConduitSimulcastCodecTest,
+                         Values("VP8", "VP9", "H264", "AV1"));
+
+TEST_P(VideoConduitSimulcastCodecTest, TestConfigureSendMediaCodecBitrates) {
+  ConfigureSimulcast(0, 0);
+  const std::vector<webrtc::VideoStream> videoStreams =
+      Call()->CreateEncoderStreams(1280, 720);
+  EXPECT_THAT(videoStreams,
+              Pointwise(HasSameLayerLimits(), ExpectedLibwebrtcStreams()));
+}
+
+// The layer limits are only lowered, by the max-bitrate of an encoding and by
+// b=TIAS. A cap can leave a gap between a layer's max and the next layer's min,
+// as it can in libwebrtc.
+TEST_P(VideoConduitSimulcastCodecTest,
+       TestConfigureSendMediaCodecBitratesCapped) {
+  constexpr int kTias = 1'000'000;
+  constexpr int kMiddleLayerMaxBr = 300'000;
+  ConfigureSimulcast(kTias, kMiddleLayerMaxBr);
+  const std::vector<webrtc::VideoStream> videoStreams =
+      Call()->CreateEncoderStreams(1280, 720);
+  std::vector<webrtc::VideoStream> expected = ExpectedLibwebrtcStreams();
+  for (size_t i = 0; i < expected.size(); ++i) {
+    const int cap = i == 1 ? std::min(kTias, kMiddleLayerMaxBr) : kTias;
+    auto& layer = expected[i];
+    layer.max_bitrate_bps = std::min(layer.max_bitrate_bps, cap);
+    layer.target_bitrate_bps = std::min(layer.target_bitrate_bps, cap);
+    layer.min_bitrate_bps =
+        std::min(layer.min_bitrate_bps, layer.max_bitrate_bps);
+  }
+  EXPECT_THAT(videoStreams, Pointwise(HasSameLayerLimits(), expected));
 }
 
 TEST_F(VideoConduitTest, TestConfigureSendMediaCodecScaleResolutionBy) {
@@ -1284,7 +1374,7 @@ TEST_P(VideoConduitCodecModeTest, TestReconfigureSendMediaCodec) {
     const std::vector<webrtc::VideoStream> videoStreams =
         Call()->CreateEncoderStreams(1280, 720);
     ASSERT_EQ(videoStreams.size(), 1U);
-    EXPECT_EQ(videoStreams[0].min_bitrate_bps, 1200000);
+    EXPECT_EQ(videoStreams[0].min_bitrate_bps, 30000);
     EXPECT_EQ(videoStreams[0].target_bitrate_bps, 1500000);
     EXPECT_EQ(videoStreams[0].max_bitrate_bps, 2000000);
   }
@@ -1414,7 +1504,7 @@ TEST_P(VideoConduitCodecModeTest,
     const std::vector<webrtc::VideoStream> videoStreams =
         Call()->CreateEncoderStreams(1280, 720);
     ASSERT_EQ(videoStreams.size(), 1U);
-    EXPECT_EQ(videoStreams[0].min_bitrate_bps, 1200000);
+    EXPECT_EQ(videoStreams[0].min_bitrate_bps, 30000);
     EXPECT_EQ(videoStreams[0].target_bitrate_bps, 1500000);
     EXPECT_EQ(videoStreams[0].max_bitrate_bps, 2000000);
   }
@@ -2634,6 +2724,90 @@ TEST_F(VideoConduitTest, TestRemoteRtxSsrc) {
       Call()->mVideoReceiveConfig->rtp.rtx_associated_payload_types.size(), 0U);
   EXPECT_EQ(Call()->mVideoReceiveConfig->rtp.remote_ssrc, 2U);
   EXPECT_EQ(Call()->mVideoReceiveConfig->rtp.rtx_ssrc, 0U);
+}
+
+TEST_F(VideoConduitTest, TestNetworkStateFollowsTransportReadiness) {
+  mControl.Update([&](auto& aControl) {
+    aControl.mTransmitting = true;
+    VideoCodecConfig codecConfig(120, "VP8", VideoEncodingConstraints());
+    codecConfig.mEncodings.emplace_back();
+    aControl.mVideoSendCodec = Some(codecConfig);
+    aControl.mVideoSendRtpRtcpConfig =
+        Some(RtpRtcpConfig(webrtc::RtcpMode::kCompound, true));
+  });
+  ASSERT_TRUE(Call()->mVideoSendEncoderConfig);
+  NS_ProcessPendingEvents(nullptr);
+  auto& signals = Call()->mNetworkStateSignals;
+  EXPECT_TRUE(signals.IsEmpty());
+
+  mVideoConduit->SetTransportActive(true);
+  NS_ProcessPendingEvents(nullptr);
+  EXPECT_THAT(Span(signals), ElementsAre(FieldsAre(webrtc::MediaType::VIDEO,
+                                                   webrtc::kNetworkUp)));
+  signals.Clear();
+
+  mVideoConduit->SetTransportActive(false);
+  NS_ProcessPendingEvents(nullptr);
+  EXPECT_THAT(Span(signals), ElementsAre(FieldsAre(webrtc::MediaType::VIDEO,
+                                                   webrtc::kNetworkDown)));
+}
+
+TEST_F(VideoConduitTest, TestNetworkStateForAudioAndVideo) {
+  auto audioConduit = MakeRefPtr<WebrtcAudioConduit>(
+      mCallWrapper, GetCurrentSerialEventTarget());
+  mControl.Update([&](auto& aControl) {
+    audioConduit->InitControl(&mControl);
+    aControl.mTransmitting = true;
+    aControl.mAudioSendCodec =
+        Some(AudioCodecConfig(114, "opus", 48000, 2, false));
+    VideoCodecConfig codecConfig(120, "VP8", VideoEncodingConstraints());
+    codecConfig.mEncodings.emplace_back();
+    aControl.mVideoSendCodec = Some(codecConfig);
+    aControl.mVideoSendRtpRtcpConfig =
+        Some(RtpRtcpConfig(webrtc::RtcpMode::kCompound, true));
+  });
+  ASSERT_TRUE(Call()->mAudioSendConfig);
+  ASSERT_TRUE(Call()->mVideoSendEncoderConfig);
+  NS_ProcessPendingEvents(nullptr);
+  auto& signals = Call()->mNetworkStateSignals;
+  EXPECT_TRUE(signals.IsEmpty());
+
+  mVideoConduit->SetTransportActive(true);
+  audioConduit->SetTransportActive(true);
+  NS_ProcessPendingEvents(nullptr);
+  EXPECT_THAT(
+      Span(signals),
+      ElementsAre(FieldsAre(webrtc::MediaType::VIDEO, webrtc::kNetworkUp),
+                  FieldsAre(webrtc::MediaType::AUDIO, webrtc::kNetworkUp)));
+  signals.Clear();
+
+  mVideoConduit->SetTransportActive(false);
+  audioConduit->SetTransportActive(false);
+  NS_ProcessPendingEvents(nullptr);
+  EXPECT_THAT(
+      Span(signals),
+      ElementsAre(FieldsAre(webrtc::MediaType::VIDEO, webrtc::kNetworkDown),
+                  FieldsAre(webrtc::MediaType::AUDIO, webrtc::kNetworkDown)));
+  signals.Clear();
+
+  audioConduit->SetTransportActive(true);
+  mVideoConduit->SetTransportActive(true);
+  NS_ProcessPendingEvents(nullptr);
+  EXPECT_THAT(
+      Span(signals),
+      ElementsAre(FieldsAre(webrtc::MediaType::AUDIO, webrtc::kNetworkUp),
+                  FieldsAre(webrtc::MediaType::VIDEO, webrtc::kNetworkUp)));
+  signals.Clear();
+
+  audioConduit->SetTransportActive(false);
+  mVideoConduit->SetTransportActive(false);
+  NS_ProcessPendingEvents(nullptr);
+  EXPECT_THAT(
+      Span(signals),
+      ElementsAre(FieldsAre(webrtc::MediaType::AUDIO, webrtc::kNetworkDown),
+                  FieldsAre(webrtc::MediaType::VIDEO, webrtc::kNetworkDown)));
+
+  (void)WaitFor(audioConduit->Shutdown());
 }
 
 }  // End namespace test.

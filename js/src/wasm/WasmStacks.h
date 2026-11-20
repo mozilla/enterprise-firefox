@@ -98,6 +98,10 @@ using UniqueContStack = mozilla::UniquePtr<ContStack, ContStackDeleter>;
 struct alignas(16) SwitchTarget {
   void* framePointer = nullptr;
   void* stackPointer = nullptr;
+#  ifdef JS_HW_SHADOW_STACK
+  // The shadow stack pointer to resume this target with.
+  uintptr_t* shadowStackPointer = nullptr;
+#  endif
   void* resumePC = nullptr;
   wasm::Instance* instance = nullptr;
   // An optional pointer to where params for a stack switching operation can be
@@ -177,6 +181,10 @@ struct ContStackSize {
   size_t jitStackSize = 0;
   size_t headerSize = 0;
   size_t totalSize = 0;
+#  ifdef JS_HW_SHADOW_STACK
+  // The size of the separately mapped hardware shadow stack for each stack.
+  size_t shadowStackSize = 0;
+#  endif
 
   void compute();
 };
@@ -197,6 +205,22 @@ class ContStack {
   JS::NativeStackBase stackBase_ = 0;
   JS::NativeStackLimit stackLimitForSystem_ = JS::NativeStackLimitMin;
   JS::NativeStackLimit stackLimitForJit_ = JS::NativeStackLimitMin;
+
+#  ifdef JS_HW_SHADOW_STACK
+  // The base of this stack's shadow stack allocation.
+  uintptr_t shadowStackAllocationBase_ = 0;
+
+  // The shadow stack pointer to switch to this stack's shadow stack with for
+  // the initial resume.
+  uintptr_t* initialShadowStackPointer_ = nullptr;
+
+  // The shadow stack pointer to switch back to this stack's shadow stack with
+  // when returning from a VM exit to the main stack. While the native stack
+  // pointer is recovered by leaving the frame pointer on the continuation
+  // stack, the shadow stack has no equivalent, so it is saved here. This
+  // works since there can be at most one exit in progress for a ContStack.
+  uintptr_t* exitShadowStackPointer_ = nullptr;
+#  endif
 
   // The initial resume target and callee for the base frame to use.
   SwitchTarget initialResumeTarget_{};
@@ -257,6 +281,12 @@ class ContStack {
   // already decommitted. Requires gc::DecommitEnabled().
   void decommit();
 
+  // Ensure that the ContStack has a usable hardware shadow stack (if enabled).
+  bool ensureShadowStack();
+  // Release any hardware shadow stack pages. ensureShadowStack must be called
+  // before this ContStack is used again.
+  void freeShadowStack();
+
   static void free(ContStack* stack);
   friend ContStackDeleter;
   friend class ContStackArena;
@@ -307,9 +337,23 @@ class ContStack {
     return offsetof(ContStack, resumeTarget_);
   }
 
+#  ifdef JS_HW_SHADOW_STACK
+  static constexpr int32_t offsetOfExitShadowStackPointer() {
+    return offsetof(ContStack, exitShadowStackPointer_);
+  }
+#  endif
+
   // The allocation base pointer for this stack. This is not the stack base for
   // execution.
   uintptr_t allocationBase() const { return allocationBase_; }
+
+  uintptr_t* exitShadowStackPointer() const {
+#  ifdef JS_HW_SHADOW_STACK
+    return exitShadowStackPointer_;
+#  else
+    return nullptr;
+#  endif
+  }
 
   // Return if we can resume this stack.
   bool canResume() const {
@@ -448,6 +492,11 @@ class ContStackArena {
 
   // Find the stack that would belong to this SP, if any.
   ContStack* findForAddress(uintptr_t address) const;
+
+#  ifdef JS_HW_SHADOW_STACK
+  // Bytes of shadow stack currently mapped for stacks in this arena.
+  size_t shadowStackMappedBytes() const;
+#  endif
 
   template <typename Fn>
   void forEachAllocatedStack(Fn&& fn) const {

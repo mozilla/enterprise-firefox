@@ -364,6 +364,10 @@ Preferences.addAll([
   { id: "privacy.clearOnShutdown.siteSettings", type: "bool" },
   { id: "privacy.clearOnShutdown_v2.siteSettings", type: "bool" },
 
+  // Lock windows when the OS session gets locked
+  { id: "browser.privatebrowsing.lockOnScreenLock.enabled", type: "bool" },
+  { id: "browser.privatebrowsing.lockOnScreenLock.featureGate", type: "bool" },
+
   // Do not track and Global Privacy Control
   { id: "privacy.donottrackheader.enabled", type: "bool" },
   { id: "privacy.globalprivacycontrol.enabled", type: "bool" },
@@ -630,6 +634,13 @@ SettingGroupManager.registerGroups({
         id: "relayIntegration",
         l10nId: "preferences-privacy-relay-available",
         supportPage: "firefox-relay-integration",
+      },
+      {
+        id: "windowLockEnabled",
+        l10nId:
+          lazy.AppConstants.platform == "win"
+            ? "preferences-window-lock-windows"
+            : "preferences-window-lock-macos",
       },
       {
         id: "dntRemoval",
@@ -2498,6 +2509,21 @@ Preferences.addSetting({
     } else {
       Glean.relayIntegration.disabledPrefChange.record();
     }
+  },
+});
+Preferences.addSetting({
+  id: "windowLockFeatureEnabled",
+  pref: "browser.privatebrowsing.lockOnScreenLock.featureGate",
+});
+Preferences.addSetting({
+  id: "windowLockEnabled",
+  pref: "browser.privatebrowsing.lockOnScreenLock.enabled",
+  deps: ["windowLockFeatureEnabled"],
+  visible: ({ windowLockFeatureEnabled }) =>
+    ["macosx", "win"].includes(lazy.AppConstants.platform) &&
+    windowLockFeatureEnabled.value,
+  onUserChange(checked) {
+    Glean.windowLock.toggled.record({ checked });
   },
 });
 Preferences.addSetting({

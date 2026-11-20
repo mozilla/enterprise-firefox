@@ -32,6 +32,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
+  SelectionUtils: "resource://gre/modules/SelectionUtils.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   TranslationsParent: "resource://gre/actors/TranslationsParent.sys.mjs",
   TranslationsUtils:
@@ -424,6 +425,16 @@ export class nsContextMenu {
     }
   }
 
+  /**
+   * Returns whether the menu was opened on a link while anything in the
+   * document is selected, including a selection made by right click.
+   *
+   * @returns {boolean}
+   */
+  #isLinkWithSelection() {
+    return this.onLink && this.isContentSelected;
+  }
+
   initTextFragmentItems() {
     const shouldShow =
       !(
@@ -432,7 +443,9 @@ export class nsContextMenu {
         this.onEditable ||
         this.browser.currentURI.schemeIs("view-source")
       ) &&
-      (this.hasTextFragments || this.isContentSelected);
+      (this.hasTextFragments || this.isContentSelected) &&
+      !this.onLink &&
+      !this.#isLinkWithSelection();
     this.showItem("context-copy-link-to-highlight", shouldShow);
     this.showItem(
       "context-copy-clean-link-to-highlight",
@@ -521,7 +534,7 @@ export class nsContextMenu {
 
       document.l10n.setAttributes(
         item,
-        "main-context-menu-open-link-in-container-tab",
+        "main-context-menu-open-link-in-container-tab-2",
         {
           containerName: label,
         }
@@ -853,7 +866,8 @@ export class nsContextMenu {
       !this.inAboutDevtoolsToolbox &&
         this.isContentSelected &&
         this.selectionInfo.isDocumentLevelSelection &&
-        lazy.gPrintEnabled
+        lazy.gPrintEnabled &&
+        !this.#isLinkWithSelection()
     );
 
     var showViewSource = !(
@@ -945,16 +959,21 @@ export class nsContextMenu {
     this.showTranslateSelectionItem();
     this.showItem(
       "context-turn-on-highlight-menu",
-      this.isTextSelected &&
+      !(this.onLink || this.onPlainTextLink) &&
+        this.isTextSelected &&
         !this.onTextInput &&
         lazy.GenAI.canTurnOnSelectionMenu(this.window)
     );
-    lazy.GenAI.buildAskChatMenu(document.getElementById("context-ask-chat"), {
-      browser: this.browser,
-      selectionInfo: this.selectionInfo,
-      showItem: this.showItem.bind(this),
-      source: "page",
-    });
+    if (this.onLink || this.onPlainTextLink) {
+      this.showItem("context-ask-chat", false);
+    } else {
+      lazy.GenAI.buildAskChatMenu(document.getElementById("context-ask-chat"), {
+        browser: this.browser,
+        selectionInfo: this.selectionInfo,
+        showItem: this.showItem.bind(this),
+        source: "page",
+      });
+    }
     this.showItem(
       "context-create-aitab",
       lazy.AIWindowMenu.canShowAITabMenu(this.window, [this.browser.currentURI])
@@ -1051,7 +1070,24 @@ export class nsContextMenu {
     this.showItem("context-undo", this.onTextInput);
     this.showItem("context-redo", this.onTextInput);
     this.showItem("context-cut", this.onTextInput);
-    this.showItem("context-copy", this.isContentSelected || this.onTextInput);
+
+    // For selected links, do not show the Copy item.
+    const canShowCopy =
+      (this.isContentSelected || this.onTextInput) &&
+      !this.#isLinkWithSelection();
+    if (canShowCopy) {
+      let copyItem = this.document.getElementById("context-copy");
+      // For selected plain text links outside of inputs, move Copy next to
+      // "Copy Link" and "Copy Clean Link".
+      // Otherwise, keep it with other items.
+      if (this.isContentSelected && this.onPlainTextLink && !this.onTextInput) {
+        this.document.getElementById("context-copylink").before(copyItem);
+      } else {
+        this.document.getElementById("context-paste").before(copyItem);
+      }
+    }
+    this.showItem("context-copy", canShowCopy);
+
     this.showItem("context-paste", this.onTextInput);
     this.showItem("context-paste-no-formatting", this.isDesignMode);
     this.showItem("context-delete", this.onTextInput);
@@ -1097,11 +1133,6 @@ export class nsContextMenu {
 
     let disabledAttr = this.#canStripParams() ? null : true;
     this.setItemAttr("context-stripOnShareLink", "disabled", disabledAttr);
-
-    let sendLinkSeparator = this.document.getElementById(
-      "context-sep-sendlinktodevice"
-    );
-    sendLinkSeparator.toggleAttribute("ensureHidden", !this.syncItemsShown);
 
     this.showItem("context-copyvideourl", this.onVideo);
     this.showItem("context-copyaudiourl", this.onAudio);
@@ -1344,7 +1375,7 @@ export class nsContextMenu {
   }
 
   initSyncItems() {
-    this.syncItemsShown = this.window.gSync.updateContentContextMenu(this);
+    this.window.gSync.updateContentContextMenu(this);
   }
 
   initViewSourceItems() {
@@ -2841,11 +2872,11 @@ export class nsContextMenu {
       isPrivateSearchMenuitem: true,
     });
 
-    let frameSeparator = document.getElementById("frame-sep");
+    let searchSeparator = document.getElementById("context-sep-search");
 
     // Add a divider between "Search X for Y" and "This Frame", and between
     // "Search X for Y" and "Check Spelling", but no divider in other cases.
-    frameSeparator.toggleAttribute(
+    searchSeparator.toggleAttribute(
       "ensureHidden",
       menuItem.hidden && this.inFrame
     );
@@ -2855,18 +2886,7 @@ export class nsContextMenu {
       return;
     }
 
-    // Copied to alert.js' prefillAlertInfo().
-    // If the JS character after our truncation point is a trail surrogate,
-    // include it in the truncated string to avoid splitting a surrogate pair.
-    if (selectedText.length > 15) {
-      let truncLength = 15;
-      let truncChar = selectedText[15].charCodeAt(0);
-      if (truncChar >= 0xdc00 && truncChar <= 0xdfff) {
-        truncLength++;
-      }
-      selectedText =
-        selectedText.substr(0, truncLength) + Services.locale.ellipsis;
-    }
+    selectedText = lazy.SelectionUtils.truncateForDisplay(selectedText, 15);
 
     const { gNavigatorBundle } = this.window;
     // format "Search <engine> for <selection>" string to show in menu

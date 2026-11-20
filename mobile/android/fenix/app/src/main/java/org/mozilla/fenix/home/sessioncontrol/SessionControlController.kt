@@ -11,7 +11,6 @@ import androidx.navigation.NavDirections
 import java.lang.ref.WeakReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import mozilla.components.browser.state.selector.getNormalOrPrivateTabs
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.Engine
 import mozilla.components.concept.engine.prompt.ShareData
@@ -26,7 +25,6 @@ import org.mozilla.fenix.GleanMetrics.Collections
 import org.mozilla.fenix.GleanMetrics.HomeBookmarks
 import org.mozilla.fenix.GleanMetrics.RecentTabs
 import org.mozilla.fenix.R
-import org.mozilla.fenix.collections.SaveCollectionStep
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.TabCollectionStorage
 import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
@@ -50,9 +48,6 @@ import org.mozilla.fenix.wallpapers.WallpaperState
  */
 @Suppress("TooManyFunctions")
 interface SessionControlController {
-    /** @see [CollectionInteractor.onCollectionAddTabTapped] */
-    fun handleCollectionAddTabTapped(collection: TabCollection)
-
     /** @see [CollectionInteractor.onCollectionOpenTabClicked] */
     fun handleCollectionOpenTabClicked(tab: ComponentTab)
 
@@ -68,14 +63,8 @@ interface SessionControlController {
     /** @see [CollectionInteractor.onDeleteCollectionTapped] */
     fun handleDeleteCollectionTapped(collection: TabCollection)
 
-    /** @see [CollectionInteractor.onRenameCollectionTapped] */
-    fun handleRenameCollectionTapped(collection: TabCollection)
-
     /** @see [CollectionInteractor.onToggleCollectionExpanded] */
     fun handleToggleCollectionExpanded(collection: TabCollection, expand: Boolean)
-
-    /** @see [CollectionInteractor.onAddTabsToCollectionTapped] */
-    fun handleCreateCollection()
 
     /** @see [MessageCardInteractor.onMessageClicked] */
     fun handleMessageClicked(message: Message)
@@ -104,9 +93,6 @@ interface SessionControlController {
 
 /** Interface for [SessionControlController] callbacks that are implemented in the UI. */
 interface SessionControlControllerCallback {
-
-    /** Callback to register the [TabCollectionStorage.Observer]. */
-    fun registerCollectionStorageObserver()
 
     /** Callback to remove collection. */
     fun removeCollection(tabCollection: TabCollection)
@@ -150,14 +136,6 @@ class DefaultSessionControlController(
 
     override fun unregisterCallback() {
         this.callback = null
-    }
-
-    override fun handleCollectionAddTabTapped(collection: TabCollection) {
-        Collections.addTabButton.record(NoExtras())
-        showCollectionCreationFragment(
-            step = SaveCollectionStep.SelectTabs,
-            selectedTabCollectionId = collection.id,
-        )
     }
 
     override fun handleCollectionOpenTabClicked(tab: ComponentTab) {
@@ -231,14 +209,6 @@ class DefaultSessionControlController(
         Collections.removed.record(NoExtras())
     }
 
-    override fun handleRenameCollectionTapped(collection: TabCollection) {
-        showCollectionCreationFragment(
-            step = SaveCollectionStep.RenameCollection,
-            selectedTabCollectionId = collection.id,
-        )
-        Collections.renameButton.record(NoExtras())
-    }
-
     override fun handleShowWallpapersOnboardingDialog(state: WallpaperState): Boolean {
         return if (appStore.state.mode.isPrivate) {
             false
@@ -265,41 +235,6 @@ class DefaultSessionControlController(
 
     override fun handleToggleCollectionExpanded(collection: TabCollection, expand: Boolean) {
         appStore.dispatch(AppAction.CollectionExpanded(collection, expand))
-    }
-
-    private fun showTabTrayCollectionCreation() {
-        val directions = HomeFragmentDirections.actionGlobalTabManagementFragment(enterMultiselect = true)
-        navController.nav(R.id.homeFragment, directions)
-    }
-
-    private fun showCollectionCreationFragment(
-        step: SaveCollectionStep,
-        selectedTabIds: Array<String>? = null,
-        selectedTabCollectionId: Long? = null,
-    ) {
-        if (navController.currentDestination?.id == R.id.collectionCreationFragment) return
-
-        // Only register the observer right before moving to collection creation
-        callback?.registerCollectionStorageObserver()
-
-        val tabIds =
-            store.state
-                .getNormalOrPrivateTabs(private = appStore.state.mode.isPrivate)
-                .map { session -> session.id }
-                .toList()
-                .toTypedArray()
-        val directions =
-            HomeFragmentDirections.actionGlobalCollectionCreationFragment(
-                tabIds = tabIds,
-                saveCollectionStep = step,
-                selectedTabIds = selectedTabIds,
-                selectedTabCollectionId = selectedTabCollectionId ?: -1,
-            )
-        navController.nav(R.id.homeFragment, directions)
-    }
-
-    override fun handleCreateCollection() {
-        showTabTrayCollectionCreation()
     }
 
     private fun showShareFragment(shareSubject: String, data: List<ShareData>) {

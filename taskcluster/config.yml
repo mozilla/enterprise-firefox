@@ -735,7 +735,7 @@ workers:
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
-        b-win2025(|-xxlarge):
+        b-win2025(|-xxlarge|-gpu):
             provisioner: '{trust-domain}-{level}'
             implementation: generic-worker
             os: windows

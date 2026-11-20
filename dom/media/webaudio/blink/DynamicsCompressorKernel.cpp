@@ -229,11 +229,14 @@ void DynamicsCompressorKernel::process(
   float k = updateStaticCurveParameters(dbThreshold, dbKnee, ratio);
 
   // Makeup gain.
+  // The compression curve maps an input amplitude of 1.0 to at most 1.0,
+  // so the reciprocal of its output is bounded away from zero.
   float fullRangeGain = saturate(1, k);
   float fullRangeMakeupGain = 1 / fullRangeGain;
 
   // Empirical/perceptual tuning.
-  fullRangeMakeupGain = fdlibm_powf(fullRangeMakeupGain, 0.6f);
+  // Equivalent to (1 / fullRangeGain)^0.6.
+  fullRangeMakeupGain = fdlibm_expf(0.6f * fdlibm_logf(fullRangeMakeupGain));
 
   float masterLinearGain =
       WebAudioUtils::ConvertDecibelsToLinear(dbPostGain) * fullRangeMakeupGain;
@@ -366,7 +369,8 @@ void DynamicsCompressorKernel::process(
       float effAttenDiffDb = std::max(0.5f, m_maxAttackCompressionDiffDb);
 
       float x = 0.25f / effAttenDiffDb;
-      envelopeRate = 1 - fdlibm_powf(x, 1 / attackFrames);
+      // Equivalent to 1 - x^(1 / attackFrames).
+      envelopeRate = 1 - fdlibm_expf(fdlibm_logf(x) / attackFrames);
     }
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

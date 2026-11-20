@@ -297,20 +297,11 @@ def android_build_geckoview_example(command_context, args):
 @CommandArgument("args", nargs=argparse.REMAINDER)
 def android_compile_all(command_context, args):
     tasks = command_context.substs["GRADLE_ANDROID_COMPILE_ALL_TASKS"]
-
-    # Serialize the indexing build: the scip-javac plugin races when concurrent
-    # compile tasks write its shared output. --no-parallel is insufficient (it only
-    # disables cross-project parallelism), so cap the worker pool to one. See bug 2036411.
-    if command_context.substs.get("ENABLE_MOZSEARCH_PLUGIN"):
-        tasks = tasks + ["--max-workers=1"]
-
-    ret = gradle(
+    return gradle(
         command_context,
         tasks + args,
         verbose=True,
     )
-
-    return ret
 
 
 def install_app_bundle(command_context, bundle):
@@ -827,6 +818,17 @@ def gradle(command_context, args, verbose=False, gradle_path=None, topsrcdir=Non
 
     if command_context.substs.get("MOZ_AUTOMATION"):
         gradle_flags += ["--console=plain"]
+
+    android_gradle = load_source(
+        "android_gradle", os.path.join(os.path.dirname(__file__), "gradle.py")
+    )
+
+    if max_heap := os.environ.get("MOZ_GRADLE_MAX_HEAP"):
+        jvmargs = android_gradle.jvmargs_with_max_heap(topsrcdir, max_heap)
+        gradle_flags += [f"-Dorg.gradle.jvmargs={jvmargs}"]
+
+    if seed := os.environ.get("MOZ_GRADLE_USER_HOME_SEED"):
+        android_gradle.seed_gradle_user_home(seed, os.environ.get("GRADLE_USER_HOME"))
 
     env = os.environ.copy()
 

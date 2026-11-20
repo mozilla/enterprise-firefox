@@ -1013,9 +1013,30 @@ add_task(async function round_trip_invalid_ace_label() {
   let uri = Services.io.newURI("http://xn--xn--d--fg4n/");
   Assert.equal(uri.spec, "http://xn--xn--d--fg4n/");
 
-  // Entirely invalid punycode will throw a MALFORMED error.
+  // ASCII domains never fail IDNA, even with invalid punycode.
+  // https://url.spec.whatwg.org/#concept-domain-to-ascii
+  uri = Services.io.newURI("http://a.b.c.XN--pokxncvks");
+  Assert.equal(uri.spec, "http://a.b.c.xn--pokxncvks/");
+  Assert.equal(uri.displayHost, "a.b.c.xn--pokxncvks");
+
+  let tests = [
+    ["xn--ab-j1t", "xn--ab-j1t"],
+    ["XN--A.pt", "xn--a.pt"],
+    ["xn--", "xn--"],
+    ["xn--ASCII-", "xn--ascii-"],
+    ["xn--1ug.example", "xn--1ug.example"],
+    ["xn--ls8h=", "xn--ls8h="],
+  ];
+  for (let [input, expected] of tests) {
+    uri = Services.io.newURI(`https://${input}/x`);
+    Assert.equal(uri.asciiHost, expected, input);
+    Assert.equal(uri.host, expected, input);
+    Assert.equal(uri.spec, `https://${expected}/x`, input);
+  }
+
+  // Forbidden domain code points still fail.
   Assert.throws(() => {
-    uri = Services.io.newURI("http://a.b.c.XN--pokxncvks");
+    Services.io.newURI("http://xn--a%5E/");
   }, /NS_ERROR_MALFORMED_URI/);
 });
 
@@ -1032,6 +1053,22 @@ add_task(async function test_bug1875119() {
   // the expected behavior is for the call to not raise an NS_NOINTERFACE error anymore
   // but to be returning false instead (and so the test has been adjusted accordingly).
   Assert.ok(!uri1.equals(uri2), "Expect uri1.equals(uri2) to be false");
+});
+
+add_task(async function test_file_url_equality_does_not_resolve_files() {
+  const pairs = [
+    ["file:///foo/bar/", "file:///foo/bar"],
+    ["file:///foo/b%61r", "file:///foo/bar"],
+    ["jar:file:///foo/bar.jar/!/x", "jar:file:///foo/bar.jar!/x"],
+    ["jar:file:///foo/b%61r.jar!/x", "jar:file:///foo/bar.jar!/x"],
+  ];
+  for (let [a, b] of pairs) {
+    let uri1 = Services.io.newURI(a);
+    let uri2 = Services.io.newURI(b);
+    Assert.ok(!uri1.equals(uri2), `${a} != ${b}`);
+    Assert.ok(!uri2.equals(uri1), `${b} != ${a}`);
+    Assert.ok(!uri1.equalsExceptRef(uri2), `${a} != ${b} (except ref)`);
+  }
 });
 
 add_task(async function test_bug1843717() {
