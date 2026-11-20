@@ -1,0 +1,73 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+"""
+Create the decision task of the Thunderbird (comm) graph, see
+gecko_taskgraph/util/comm_decision.py.
+"""
+
+import os
+
+from taskgraph.transforms.base import TransformSequence
+
+from gecko_taskgraph.util.comm_decision import (
+    COMM_CRON_TARGET_TASKS_METHODS,
+    COMM_DECISION_LABEL,
+    COMM_PROJECTS,
+    get_comm_decision_treeherder,
+    make_comm_decision_task,
+)
+
+transforms = TransformSequence()
+
+# WIP: pull requests schedule like pushes, see target_tasks.py.
+COMM_TASKS_FOR = ("github-push", "github-pull-request")
+
+
+@transforms.add
+def filter_projects(config, tasks):
+    params = config.params
+    if params["project"] not in COMM_PROJECTS:
+        return
+    # The Enterprise cron jobs of COMM_CRON_TARGET_TASKS_METHODS generate the
+    # comm graph too.
+    if not params["tasks_for"].startswith(COMM_TASKS_FOR) and not (
+        params["tasks_for"] == "cron"
+        and params["target_tasks_method"] in COMM_CRON_TARGET_TASKS_METHODS
+    ):
+        return
+    yield from tasks
+
+
+@transforms.add
+def make_task(config, tasks):
+    for task in tasks:
+        attributes = task.get("attributes", {})
+        if "TASK_ID" not in os.environ:
+            # Outside of a decision task (`mach taskgraph`, `mach try`) there is
+            # no task to copy: only provide the label, so that it can be
+            # selected.
+            yield {
+                "label": COMM_DECISION_LABEL,
+                "description": task["description"],
+                "attributes": attributes,
+                "dependencies": {},
+                "optimization": None,
+                "task": {
+                    "provisionerId": "{}-{}".format(
+                        config.graph_config["trust-domain"], config.params["level"]
+                    ),
+                    "workerType": "decision",
+                    "metadata": {
+                        "name": COMM_DECISION_LABEL,
+                        "description": task["description"],
+                    },
+                    "payload": {},
+                    "extra": {"treeherder": get_comm_decision_treeherder()},
+                },
+            }
+            continue
+
+        taskdesc = make_comm_decision_task(config.graph_config, config.params)
+        taskdesc["attributes"].update(attributes)
+        yield taskdesc
