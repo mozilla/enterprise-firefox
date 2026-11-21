@@ -72,45 +72,50 @@ pub struct FeltIpcClient {
     rx: Option<ipc_channel::ipc::IpcReceiver<FeltMessage>>,
 }
 
-/// Why the browser could not take the felt endpoint into use.
-#[derive(Debug, PartialEq)]
-pub(crate) enum EndpointError {
-    /// The endpoint could not be reached, or did not answer as felt does.
-    Unavailable,
-    /// The endpoint belongs to another process than the felt pid given.
+#[derive(Debug)]
+pub(crate) enum HandshakeError {
+    Connect(std::io::Error),
     Refused { owner: Option<u32>, expected: u32 },
+    Send(ipc_channel::IpcError),
+    Receive(ipc_channel::IpcError),
+    UnexpectedReply(FeltMessage),
+}
+
+impl std::fmt::Display for HandshakeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Connect(err) => write!(f, "could not connect to the endpoint: {}", err),
+            Self::Refused { owner, expected } => write!(
+                f,
+                "endpoint owned by pid {:?}, expected the felt process {}",
+                owner, expected
+            ),
+            Self::Send(err) => write!(f, "could not send the browser's channel: {}", err),
+            Self::Receive(err) => write!(f, "could not receive felt's reply: {}", err),
+            Self::UnexpectedReply(msg) => write!(f, "unexpected first message {:?}", msg),
+        }
+    }
 }
 
 impl FeltIpcClient {
     /// Connects to the felt endpoint named on the command line and completes
     /// the channel exchange. On `Err` nothing has been trusted and the caller
-    /// must not continue: `Unavailable` is an ordinary failure, `Refused` means
-    /// another process sits at felt's endpoint (see `verify_from_felt_pid`).
-    pub fn new(felt_server_name: String, felt_pid: u32) -> Result<Self, EndpointError> {
+    /// must not continue; `Refused` means another process sits at felt's
+    /// endpoint (see `verify_from_felt_pid`).
+    pub fn new(felt_server_name: String, felt_pid: u32) -> Result<Self, HandshakeError> {
         trace!("FeltIpcClient::new({})", felt_server_name);
 
         let (tx_felt_to_firefox, rx_firefox_to_felt): (
             ipc_channel::ipc::IpcSender<FeltMessage>,
             ipc_channel::ipc::IpcReceiver<FeltMessage>,
         ) = ipc_channel::ipc::channel().unwrap();
-        let tx0 = match ipc_channel::ipc::IpcSender::connect(felt_server_name) {
-            Ok(tx0) => tx0,
-            Err(err) => {
-                trace!("FeltIpcClient::new() failed: {}", err);
-                return Err(EndpointError::Unavailable);
-            }
-        };
+        let tx0 = ipc_channel::ipc::IpcSender::connect(felt_server_name)
+            .map_err(HandshakeError::Connect)?;
         trace!("FeltIpcClient::new() connected!");
 
         Self::verify_from_felt_pid(&tx0, felt_pid)?;
 
-        if let Err(err) = tx0.send(tx_felt_to_firefox) {
-            error!(
-                "FeltIpcClient::new() failed to send the browser's channel: {}",
-                err
-            );
-            return Err(EndpointError::Unavailable);
-        }
+        tx0.send(tx_felt_to_firefox).map_err(HandshakeError::Send)?;
 
         match Self::receive_reply_from(&rx_firefox_to_felt, felt_pid)? {
             FeltMessage::ClientChannel(tx_firefox_to_felt) => {
@@ -120,10 +125,7 @@ impl FeltIpcClient {
                     rx: Some(rx_firefox_to_felt),
                 })
             }
-            msg => {
-                error!("FeltIpcClient::new() unexpected first message {:?}", msg);
-                Err(EndpointError::Unavailable)
-            }
+            msg => Err(HandshakeError::UnexpectedReply(msg)),
         }
     }
 
@@ -138,7 +140,7 @@ impl FeltIpcClient {
     fn verify_from_felt_pid(
         tx0: &ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
         felt_pid: u32,
-    ) -> Result<(), EndpointError> {
+    ) -> Result<(), HandshakeError> {
         let peer_pid = tx0.peer_pid();
         if peer_is_authorized(peer_pid, felt_pid) {
             return Ok(());
@@ -147,7 +149,7 @@ impl FeltIpcClient {
             "FeltIpcClient::new() refused endpoint: owned by pid {:?}, expected felt pid {}",
             peer_pid, felt_pid
         );
-        Err(EndpointError::Refused {
+        Err(HandshakeError::Refused {
             owner: peer_pid,
             expected: felt_pid,
         })
@@ -161,7 +163,7 @@ impl FeltIpcClient {
     fn verify_from_felt_pid(
         _tx0: &ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
         _felt_pid: u32,
-    ) -> Result<(), EndpointError> {
+    ) -> Result<(), HandshakeError> {
         Ok(())
     }
 
@@ -173,7 +175,7 @@ impl FeltIpcClient {
     fn receive_reply_from(
         rx: &ipc_channel::ipc::IpcReceiver<FeltMessage>,
         felt_pid: u32,
-    ) -> Result<FeltMessage, EndpointError> {
+    ) -> Result<FeltMessage, HandshakeError> {
         match rx.recv_with_sender_pid() {
             Ok((msg, sender_pid)) if peer_is_authorized(sender_pid, felt_pid) => Ok(msg),
             Ok((_, sender_pid)) => {
@@ -181,15 +183,12 @@ impl FeltIpcClient {
                     "FeltIpcClient::new() refused endpoint: reply sent by pid {:?}, expected felt pid {}",
                     sender_pid, felt_pid
                 );
-                Err(EndpointError::Refused {
+                Err(HandshakeError::Refused {
                     owner: sender_pid,
                     expected: felt_pid,
                 })
             }
-            Err(err) => {
-                trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() ERR {}", err);
-                Err(EndpointError::Unavailable)
-            }
+            Err(err) => Err(HandshakeError::Receive(err)),
         }
     }
 
@@ -200,11 +199,8 @@ impl FeltIpcClient {
     fn receive_reply_from(
         rx: &ipc_channel::ipc::IpcReceiver<FeltMessage>,
         _felt_pid: u32,
-    ) -> Result<FeltMessage, EndpointError> {
-        rx.recv().map_err(|err| {
-            trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() ERR {}", err);
-            EndpointError::Unavailable
-        })
+    ) -> Result<FeltMessage, HandshakeError> {
+        rx.recv().map_err(HandshakeError::Receive)
     }
 
     pub fn send_felt_ready(&self) {
@@ -320,14 +316,17 @@ impl FeltClientThread {
         );
         let felt_client = match FeltIpcClient::new(felt_server_name, felt_pid) {
             Ok(client) => client,
-            Err(EndpointError::Unavailable) => return Err(()),
-            // Another process at felt's endpoint is a signal about the device
-            // that administrators should see, and this early in startup a crash
-            // report is the only channel that reaches them.
-            Err(EndpointError::Refused { owner, expected }) => panic!(
+            // Another process at felt's endpoint means something on the device
+            // is impersonating felt, so abort instead of exiting like an
+            // ordinary failure.
+            Err(HandshakeError::Refused { owner, expected }) => panic!(
                 "FELT endpoint owned by pid {:?}, expected the felt process {}",
                 owner, expected
             ),
+            Err(err) => {
+                error!("FeltClientThread::new(): FELT handshake failed: {}", err);
+                return Err(());
+            }
         };
         if felt_client.report_version() {
             Ok(Self {
@@ -945,7 +944,7 @@ mod tests {
         let client = FeltIpcClient::new(name, std::process::id() + 1);
         let impostor_was_answered = impostor.join().unwrap();
         assert!(
-            matches!(client, Err(EndpointError::Refused { .. })),
+            matches!(client, Err(HandshakeError::Refused { .. })),
             "the browser refuses the impostor"
         );
         // Everywhere but macOS the browser sends nothing to a refused endpoint;

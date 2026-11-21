@@ -7637,7 +7637,9 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     // FELT IPC channel
     Maybe<const char*> felt =
         geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
-    // Nothing re-reads the Felt pid, so it is removed here.
+    // No other code relies on the -feltPid argument. Removing it here, before
+    // Firefox saves its command line for relaunching after a restart or a
+    // crash, keeps it out of those relaunches.
     Maybe<uint64_t> feltPid = geckoargs::sFeltPid.Get(gArgc, gArgv);
     const char* mozFeltEnv = PR_GetEnv("MOZ_FELT_UI");
     if (mozFeltEnv) {
@@ -7684,12 +7686,14 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
       // is as mandatory as the endpoint name.
       if (!feltPid.isSome()) {
         Output(true,
-               "Error: Felt browser mode requires the Felt process id.\n");
+               "Error: FELT-managed application requires a FELT process id "
+               "command line argument.\n");
         return 1;
       }
       if (*feltPid == 0 || *feltPid > UINT32_MAX) {
         Output(true,
-               "Error: FELT-managed application got an invalid FELT process id.\n");
+               "Error: FELT-managed application got an invalid "
+               "FELT process id.\n");
         return 1;
       }
       if (!firefox_connect_to_felt(*felt, static_cast<uint32_t>(*feltPid))) {

@@ -4,9 +4,9 @@
 "use strict";
 
 // Bug 2073022: a felt browser only completes the IPC handshake with the felt
-// process named on its command line. Started with no felt pid, an invalid one,
-// or one that does not own the endpoint, the real browser binary must exit
-// with status 1 before it does anything else.
+// process named on its command line. Started with no felt pid or an invalid
+// one, the real browser binary must exit with status 1, and with a felt pid
+// that does not own the endpoint it must abort, before it does anything else.
 
 const { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs"
@@ -33,12 +33,9 @@ async function launchBrowser(args, afterSpawn = () => {}) {
     command: browserBinary(),
     arguments: ["--foreground", ...args],
     stderr: "pipe",
-    // A refused endpoint is reported as a crash; keep the crash reporter out
-    // of the test.
     environment: {
       MOZ_BYPASS_FELT: "",
       MOZ_FELT_UI: "",
-      MOZ_CRASHREPORTER_DISABLE: "1",
     },
     environmentAppend: true,
   });
@@ -57,9 +54,9 @@ function assertRefused({ exitCode, stderr }, reason, message) {
   Assert.ok(stderr.includes(reason), `${message}: stderr says why: ${stderr}`);
 }
 
-// An endpoint owned by another process is reported as a crash, so the browser
-// aborts instead of exiting with status 1. The crash reason goes to the crash
-// report; stderr carries the refusal line logged before the abort.
+// The browser deliberately aborts, rather than exiting with status 1 as it does
+// for other failures, when another process owns the endpoint. stderr carries
+// the refusal line it logs before aborting.
 function assertAborted({ exitCode, stderr }, reason, message) {
   Assert.notEqual(exitCode, 0, `${message}: did not exit normally`);
   Assert.notEqual(exitCode, 1, `${message}: aborted rather than exited`);
@@ -69,7 +66,7 @@ function assertAborted({ exitCode, stderr }, reason, message) {
 add_task(async function test_missing_felt_pid_exits() {
   assertRefused(
     await launchBrowser(["-felt", "unused-endpoint-name"]),
-    "requires the Felt process id",
+    "requires a FELT process id",
     "no felt pid"
   );
 });
@@ -78,7 +75,7 @@ add_task(async function test_invalid_felt_pid_exits() {
   for (const pid of ["0", "4294967296"]) {
     assertRefused(
       await launchBrowser(["-felt", "unused-endpoint-name", "-feltPid", pid]),
-      "invalid Felt process id",
+      "invalid FELT process id",
       `-feltPid ${pid}`
     );
   }
@@ -90,18 +87,18 @@ add_task(async function test_invalid_felt_pid_exits() {
       "-feltPid",
       "notapid",
     ]),
-    "requires the Felt process id",
+    "requires a FELT process id",
     "-feltPid notapid"
   );
 });
 
 // The endpoint is owned by this process, but the browser is told to expect
-// another pid, so it must refuse it and abort with a crash report. Everywhere
-// but macOS the browser decides before sending anything, so the endpoint is
-// never read. On macOS the browser decides from the reply, so the endpoint must
-// accept and answer, which ipcChannel does for the spawned pid; whether
-// ipcChannel itself then fails depends on whether the browser has already
-// dropped its end, so only the browser's outcome is asserted.
+// another pid, so it must refuse it and abort. Everywhere but macOS the
+// browser decides before sending anything, so the endpoint is never read. On
+// macOS the browser decides from the reply, so the endpoint must accept and
+// answer, which ipcChannel does for the spawned pid; whether ipcChannel itself
+// then fails depends on whether the browser has already dropped its end, so
+// only the browser's outcome is asserted.
 add_task(async function test_endpoint_of_another_pid_is_refused() {
   const endpoint = Services.felt.oneShotIpcServer();
   const args = [
