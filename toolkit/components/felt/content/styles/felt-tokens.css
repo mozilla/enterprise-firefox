@@ -4,21 +4,18 @@
 
 @media (prefers-color-scheme: light) {
   :root {
-    --felt-update-spinner-img-url: url("chrome://felt/content/assets/enterprise-update-spinner-light.svg");
     --felt-update-checkmark-img-url: url("chrome://felt/content/assets/enterprise-update-checkmark-light.svg");
   }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --felt-update-spinner-img-url: url("chrome://felt/content/assets/enterprise-update-spinner-dark.svg");
     --felt-update-checkmark-img-url: url("chrome://felt/content/assets/enterprise-update-checkmark-dark.svg");
   }
 }
 
 @media (forced-colors: active) {
   :root {
-    --felt-update-spinner-img-url: url("chrome://felt/content/assets/enterprise-update-spinner-hcm.svg");
     --felt-update-checkmark-img-url: url("chrome://felt/content/assets/enterprise-update-checkmark-hcm.svg");
   }
 }
