@@ -363,15 +363,15 @@ add_task(async function test_force_installed_restores_pending_uninstall() {
   const id = "pending-uninstall-live@example.com";
   registerCleanupFunction(() => uninstallAndSettle(id));
 
-  let addon = await installWebExtension(id, {
-    name: "pending uninstall live test",
-  });
-
   // Start with a clean engine state
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     { policies: {} },
     null
   );
+
+  let addon = await installWebExtension(id, {
+    name: "pending uninstall live test",
+  });
 
   info("Removing the add-on with undo, as about:addons does.");
   await addon.uninstall(true);
