@@ -94,6 +94,8 @@ function resetToLoginPage({ keepPendingSignIn = false } = {}) {
   // Close the windows opened by the SSO page.
   for (const win of Services.wm.getEnumerator("navigator:browser")) {
     if (win != window) {
+      // Prevent the user from vetoing the close.
+      win.skipNextCanClose = true;
       win.close();
     }
   }

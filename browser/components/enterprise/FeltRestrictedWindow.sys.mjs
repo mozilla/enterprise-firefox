@@ -42,6 +42,16 @@ const ALLOWED_COMMANDS = new Set([
   "cmd_fullZoomReset",
 ]);
 
+// Allowed AppCommand events.
+const ALLOWED_APP_COMMANDS = new Set([
+  "Back",
+  "Forward",
+  "Reload",
+  "Stop",
+  "Close",
+  "Find",
+]);
+
 // macOS application menu items that need to be removed.
 const APP_MENU_ITEMS = [
   "aboutName",
@@ -82,6 +92,17 @@ export const FeltRestrictedWindow = {
         key.setAttribute("disabled", "true");
       }
     }
+
+    // Run before gBrowserInit's AppCommand listener.
+    win.addEventListener(
+      "AppCommand",
+      event => {
+        if (!ALLOWED_APP_COMMANDS.has(event.command)) {
+          event.stopImmediatePropagation();
+        }
+      },
+      true
+    );
 
     // Run after gBrowserInit's DOMContentLoaded listener.
     win.addEventListener(

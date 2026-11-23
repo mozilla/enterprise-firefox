@@ -136,6 +136,22 @@ class FeltRestrictedWindow(FeltTests):
         self._wait_for_single_tab_at("/watermark_blank_page")
         self._driver.set_context("content")
 
+    def test_app_commands_are_restricted(self):
+        self._open_restricted_window()
+        self._driver.execute_script(
+            """
+            document.documentElement.dispatchEvent(
+              new CommandEvent("AppCommand", {
+                bubbles: true,
+                cancelable: true,
+                command: "New",
+              })
+            );
+            """
+        )
+        self._wait_for_single_tab_at("/watermark_blank_page")
+        self._driver.set_context("content")
+
     def test_link_drops_are_ignored(self):
         self._open_restricted_window()
         assert self._driver.execute_script(
@@ -170,14 +186,35 @@ class FeltRestrictedWindow(FeltTests):
     def test_window_is_closed_on_sso_timeout(self):
         # Leave enough time to open the window before the sign-in times out.
         with self._driver.using_prefs(
-            {"enterprise.sso.timeout_ms": 15000}, default_branch=True
+            {
+                "enterprise.sso.timeout_ms": 15000,
+                "dom.require_user_interaction_for_beforeunload": False,
+            },
+            default_branch=True,
         ):
+            self._driver.set_context("chrome")
+            self._driver.execute_script(
+                """
+                window.promptOpened = false;
+                Services.obs.addObserver(() => {
+                  window.promptOpened = true;
+                }, "common-dialog-loaded");
+                """
+            )
             self._open_restricted_window()
+            self._driver.set_context("content")
+            self._driver.execute_script(
+                "window.addEventListener('beforeunload', e => e.preventDefault());"
+            )
+            self._driver.set_context("chrome")
             self._longwaiter(self._driver).until(
                 lambda _: len(self._driver.chrome_window_handles) == 1,
                 message="The browser window is closed when the sign-in times out",
             )
             self._driver.switch_to_window(self._driver.chrome_window_handles[0])
+            assert not self._driver.execute_script("return window.promptOpened;"), (
+                "The page is not asked whether the browser window can close"
+            )
         self._driver.set_context("content")
 
     @unittest.skipUnless(sys.platform == "darwin", "macOS application menu")
