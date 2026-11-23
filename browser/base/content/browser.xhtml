@@ -63,6 +63,10 @@
     rel="stylesheet"
     href="chrome://browser/content/enterprise/enterprise-chrome.css"
   />
+  <link
+    rel="stylesheet"
+    href="chrome://enterprise/content/enterprise-badge.css"
+  />
 #endif
 
   <link rel="localization" href="branding/brand.ftl"/>
@@ -105,6 +109,9 @@
   <link rel="localization" href="browser/syncedTabs.ftl"/>
   <link rel="localization" href="browser/profiles.ftl"/>
   <link rel="localization" href="browser/autoTabGrouping.ftl"/>
+#ifdef MOZ_ENTERPRISE
+  <link rel="localization" href="toolkit/enterprise/enterprise.ftl"/>
+#endif
   <!-- Untranslated FTL files -->
   <link rel="localization" href="preview/credentialChooser.ftl" />
   <link rel="localization" href="preview/enUS-searchFeatures.ftl" />
