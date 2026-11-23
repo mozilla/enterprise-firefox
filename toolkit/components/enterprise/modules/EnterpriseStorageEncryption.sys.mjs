@@ -73,6 +73,7 @@ export const EnterpriseStorageEncryption = {
     // changePassword does not authenticate the session, so log in
     // explicitly and verify.
     try {
+      await pk11token.logout();
       const sdr = Cc["@mozilla.org/security/sdr;1"].getService(
         Ci.nsISecretDecoderRing
       );
