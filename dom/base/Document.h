@@ -125,6 +125,7 @@
 #else
 namespace mozilla {
 namespace dom {
+class AnonymousContentOptions;
 class BooleanOrImportNodeOptions;
 class ElementCreationOptionsOrString;
 }  // namespace dom
@@ -1460,7 +1461,7 @@ class Document : public nsINode,
    */
   nsresult GetSrcdocData(nsAString& aSrcdocData);
 
-  already_AddRefed<AnonymousContent> InsertAnonymousContent(ErrorResult&);
+  already_AddRefed<AnonymousContent> InsertAnonymousContent(const AnonymousContentOptions& aOptions, ErrorResult&);
   void RemoveAnonymousContent(AnonymousContent&);
   nsTArray<RefPtr<AnonymousContent>>& GetAnonymousContents() {
     return mAnonymousContents;
