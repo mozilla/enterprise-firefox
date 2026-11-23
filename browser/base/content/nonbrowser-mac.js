@@ -137,7 +137,7 @@ var NonBrowserWindow = {
         this.setupFeltDockMenuState();
         // The application menu of every window is built from this menubar.
         const { FeltRestrictedWindow } = ChromeUtils.importESModule(
-          "resource:///modules/enterprise/FeltRestrictedWindow.sys.mjs"
+          "moz-src:///browser/components/enterprise/FeltRestrictedWindow.sys.mjs"
         );
         FeltRestrictedWindow.restrictAppMenu(document);
       }

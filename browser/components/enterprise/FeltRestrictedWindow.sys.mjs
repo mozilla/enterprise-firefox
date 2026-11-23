@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Editing, find, navigation, zoom and window management only.
+// Editing, find, navigation and window management only.
 const ALLOWED_KEYS = new Set([
   "key_undo",
   "key_redo",
@@ -29,13 +29,17 @@ const ALLOWED_KEYS = new Set([
   "key_reload_skip_cache2",
   "key_stop",
   "key_stop_mac",
-  "key_fullZoomReduce",
-  "key_fullZoomEnlarge",
-  "key_fullZoomReset",
   "key_minimizeWindow",
   "key_hideThisAppCmdMac",
   "key_hideOtherAppsCmdMac",
   "key_quitApplication",
+]);
+
+// Every key bound to one of these commands is allowed.
+const ALLOWED_COMMANDS = new Set([
+  "cmd_fullZoomReduce",
+  "cmd_fullZoomEnlarge",
+  "cmd_fullZoomReset",
 ]);
 
 // macOS application menu items that need to be removed.
@@ -69,8 +73,12 @@ export const FeltRestrictedWindow = {
       menu.hidden = true;
     }
     // Disable any keyboard shortcut not explicitly allowed
+    // Keys added later stay enabled, like the DevTools keys of developer builds.
     for (const key of doc.getElementsByTagName("key")) {
-      if (!ALLOWED_KEYS.has(key.id)) {
+      if (
+        !ALLOWED_KEYS.has(key.id) &&
+        !ALLOWED_COMMANDS.has(key.getAttribute("command"))
+      ) {
         key.setAttribute("disabled", "true");
       }
     }

@@ -271,7 +271,7 @@ var gBrowserInit = {
     // Restrict the windows opened when running as Felt to prevent the user from escaping
     if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
       const { FeltRestrictedWindow } = ChromeUtils.importESModule(
-        "resource:///modules/enterprise/FeltRestrictedWindow.sys.mjs"
+        "moz-src:///browser/components/enterprise/FeltRestrictedWindow.sys.mjs"
       );
       FeltRestrictedWindow.init(window);
     }

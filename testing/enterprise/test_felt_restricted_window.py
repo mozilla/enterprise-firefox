@@ -115,6 +115,19 @@ class FeltRestrictedWindow(FeltTests):
         for key_id in ESCAPE_KEYS:
             assert key_id not in enabled_keys, f"{key_id} is disabled"
 
+        disabled_zoom_keys = self._driver.execute_script(
+            """
+            return Array.from(document.getElementsByTagName("key"))
+              .filter(
+                key =>
+                  key.getAttribute("command")?.startsWith("cmd_fullZoom") &&
+                  key.getAttribute("disabled") == "true"
+              )
+              .map(key => key.getAttribute("data-l10n-id"));
+            """
+        )
+        assert disabled_zoom_keys == [], f"{disabled_zoom_keys} are enabled"
+
         for key in ["t", "n"]:
             self._driver.actions.sequence("key", "keyboard").key_down(
                 self._accel()
@@ -128,6 +141,12 @@ class FeltRestrictedWindow(FeltTests):
         assert self._driver.execute_script(
             "return gBrowser.selectedBrowser.droppedLinkHandler === null;"
         ), "The browser has no dropped link handler"
+        assert self._driver.execute_script(
+            """
+            const tab = gBrowser.addTrustedTab("about:blank");
+            return tab.linkedBrowser.droppedLinkHandler === null;
+            """
+        ), "A browser added later has no dropped link handler"
         self._driver.set_context("content")
 
     def test_toolbars_are_hidden(self):
