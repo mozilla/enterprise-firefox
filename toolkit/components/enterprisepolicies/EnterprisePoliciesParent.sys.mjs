@@ -837,10 +837,6 @@ EnterprisePoliciesManager.prototype = {
         });
       }
     }
-
-    if (previouslyApplied) {
-      this._runMissingPolicyCallbacks(unparsedPolicies);
-    }
   },
 
   _runMissingPolicyCallbacks(presentPolicies = {}) {
