@@ -3185,8 +3185,7 @@ nsIFrame* nsCSSFrameConstructor::ConstructBlockRubyFrame(
   nsFrameConstructorSaveState absoluteSaveState;
   blockFrame->AddStateBits(NS_FRAME_CAN_HAVE_ABSPOS_CHILDREN);
   if (newFrame->IsAbsPosContainingBlock()) {
-    aState.PushAbsoluteContainingBlock(blockFrame, blockFrame,
-                                       absoluteSaveState);
+    aState.PushAbsoluteContainingBlock(blockFrame, newFrame, absoluteSaveState);
   }
   nsFrameConstructorSaveState floatSaveState;
   aState.MaybePushFloatContainingBlock(blockFrame, floatSaveState);
@@ -6807,8 +6806,8 @@ bool nsCSSFrameConstructor::ContentWillBeRemoved(nsIContent* aChild,
   // complexity for the display: none -> other case, which right now
   // unnecessarily walks the content tree down.
   auto CouldHaveBeenDisplayContents = [aKind](nsIContent* aContent) -> bool {
-    return aContent->IsElement() && (aKind != RemovalKind::Dom ||
-                                     IsDisplayContents(aContent->AsElement()));
+    return aContent->IsElement() &&
+           (aKind != RemovalKind::Dom || aContent->AsElement()->HasServoData());
   };
 
   if (!childFrame) {
