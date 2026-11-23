@@ -29,7 +29,15 @@ async function runBrowser(args) {
   try {
     const proc = await Subprocess.call({
       command: browserBinary(),
-      arguments: ["-profile", profileDir, ...args],
+      // A Felt browser also needs the pid of the Felt process it may trust;
+      // without it, it exits before trying to connect.
+      arguments: [
+        "-profile",
+        profileDir,
+        "-feltPid",
+        String(Services.appinfo.processID),
+        ...args,
+      ],
       environment: { MOZ_BYPASS_FELT: "", MOZ_FELT_UI: "" },
       environmentAppend: true,
       stderr: "pipe",

@@ -92,6 +92,11 @@ impl OsIpcReceiver {
         None
     }
 
+    /// Like `recv`; the sender pid is always `None` for the in-process back-end.
+    pub fn recv_with_sender_pid(&self) -> Result<(IpcMessage, Option<u32>), ChannelError> {
+        Ok((self.recv()?, None))
+    }
+
     pub fn recv(&self) -> Result<IpcMessage, ChannelError> {
         let r = self.receiver.borrow();
         let r = r.as_ref().unwrap();
@@ -140,6 +145,12 @@ impl OsIpcSender {
         let record = ONE_SHOT_SERVERS.lock().unwrap().get(&name).unwrap().clone();
         record.connect();
         Ok(record.sender)
+    }
+
+    /// No OS peer process exists for the in-process back-end, so there is no
+    /// peer pid to attest. Always returns `None`.
+    pub fn peer_pid(&self) -> Option<u32> {
+        None
     }
 
     pub fn get_max_fragment_size() -> usize {
