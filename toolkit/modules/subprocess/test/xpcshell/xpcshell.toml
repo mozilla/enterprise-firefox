@@ -17,6 +17,9 @@ support-files = [
 
 ["test_subprocess_connectRunning.js"]
 
+["test_subprocess_fd_inherit.js"]
+skip-if = ["os == 'win'"]
+
 ["test_subprocess_getEnvironment.js"]
 
 ["test_subprocess_pathSearch.js"]

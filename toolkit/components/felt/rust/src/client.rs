@@ -14,6 +14,7 @@ use xpcom::RefPtr;
 
 use log::{error, trace};
 
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 use crate::components::peer_is_authorized;
 use crate::message::{nsICookieWrapper, FeltMessage, FELT_IPC_VERSION};
 use crate::utils::{self, Tokens, TOKENS};
@@ -74,7 +75,9 @@ pub struct FeltIpcClient {
 
 #[derive(Debug)]
 pub(crate) enum HandshakeError {
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     Connect(std::io::Error),
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     Refused { owner: Option<u32>, expected: u32 },
     Send(ipc_channel::IpcError),
     Receive(ipc_channel::IpcError),
@@ -84,7 +87,9 @@ pub(crate) enum HandshakeError {
 impl std::fmt::Display for HandshakeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
             Self::Connect(err) => write!(f, "could not connect to the endpoint: {}", err),
+            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
             Self::Refused { owner, expected } => write!(
                 f,
                 "endpoint owned by pid {:?}, expected the felt process {}",
@@ -98,28 +103,67 @@ impl std::fmt::Display for HandshakeError {
 }
 
 impl FeltIpcClient {
-    /// Connects to the felt endpoint named on the command line and completes
-    /// the channel exchange. On `Err` nothing has been trusted and the caller
-    /// must not continue; `Refused` means another process sits at felt's
-    /// endpoint (see `verify_from_felt_pid`).
+    /// macOS: connects to the felt endpoint named on the command line and
+    /// completes the channel exchange. On `Err` nothing has been trusted and
+    /// the caller must not continue; `Refused` means another process sits at
+    /// felt's endpoint (see `receive_reply_from`).
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     pub fn new(felt_server_name: String, felt_pid: u32) -> Result<Self, HandshakeError> {
         trace!("FeltIpcClient::new({})", felt_server_name);
+        let tx0 = ipc_channel::ipc::IpcSender::connect(felt_server_name)
+            .map_err(HandshakeError::Connect)?;
+        trace!("FeltIpcClient::new() connected!");
+        Self::bootstrap(tx0, |rx| Self::receive_reply_from(rx, felt_pid))
+    }
 
+    /// Linux: rebuilds the bootstrap sender from the fd inherited from felt,
+    /// then completes the channel exchange. Only felt holds the other end, so
+    /// there is no owner to verify.
+    #[cfg(target_os = "linux")]
+    pub fn new_from_fd(fd: std::os::unix::io::RawFd) -> Result<Self, HandshakeError> {
+        trace!("FeltIpcClient::new_from_fd({})", fd);
+        // SAFETY: fd is the inherited bootstrap sender endpoint produced by
+        // FeltXPCOM::create_inherited_channel_fd, carrying IpcSender<FeltMessage>.
+        let tx0: ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>> =
+            unsafe { ipc_channel::ipc::IpcSender::from_raw_fd(fd) };
+        Self::bootstrap(tx0, Self::receive_reply)
+    }
+
+    /// Windows: rebuilds the bootstrap sender from the pipe HANDLE inherited
+    /// through the launcher, then completes the channel exchange. Only felt
+    /// holds the other end, so there is no owner to verify.
+    #[cfg(target_os = "windows")]
+    pub fn new_from_handle(handle: usize) -> Result<Self, HandshakeError> {
+        trace!("FeltIpcClient::new_from_handle({})", handle);
+        // SAFETY: handle is the inherited bootstrap sender endpoint produced by
+        // FeltXPCOM::create_inherited_channel_handle, carrying IpcSender<FeltMessage>.
+        let tx0: ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>> = unsafe {
+            ipc_channel::ipc::IpcSender::from_raw_handle(
+                handle as std::os::windows::io::RawHandle,
+            )
+        };
+        Self::bootstrap(tx0, Self::receive_reply)
+    }
+
+    // Shared exchange over the bootstrap channel: send our felt->firefox sender
+    // to felt, then receive back, with `receive_reply`, the firefox->felt sender
+    // it created.
+    fn bootstrap(
+        tx0: ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
+        receive_reply: impl FnOnce(
+            &ipc_channel::ipc::IpcReceiver<FeltMessage>,
+        ) -> Result<FeltMessage, HandshakeError>,
+    ) -> Result<Self, HandshakeError> {
         let (tx_felt_to_firefox, rx_firefox_to_felt): (
             ipc_channel::ipc::IpcSender<FeltMessage>,
             ipc_channel::ipc::IpcReceiver<FeltMessage>,
         ) = ipc_channel::ipc::channel().unwrap();
-        let tx0 = ipc_channel::ipc::IpcSender::connect(felt_server_name)
-            .map_err(HandshakeError::Connect)?;
-        trace!("FeltIpcClient::new() connected!");
-
-        Self::verify_from_felt_pid(&tx0, felt_pid)?;
 
         tx0.send(tx_felt_to_firefox).map_err(HandshakeError::Send)?;
 
-        match Self::receive_reply_from(&rx_firefox_to_felt, felt_pid)? {
+        match receive_reply(&rx_firefox_to_felt)? {
             FeltMessage::ClientChannel(tx_firefox_to_felt) => {
-                trace!("FeltIpcClient::new() rx_firefox_to_felt.recv() OK");
+                trace!("FeltIpcClient::bootstrap() rx_firefox_to_felt.recv() OK");
                 Ok(Self {
                     tx: Arc::new(Mutex::new(Some(tx_firefox_to_felt))),
                     rx: Some(rx_firefox_to_felt),
@@ -129,49 +173,22 @@ impl FeltIpcClient {
         }
     }
 
-    /// AUTHORIZATION of the endpoint. Any same-user process could have claimed
-    /// the endpoint name given on the command line, so the endpoint is only
-    /// trusted if the process at its other end is the felt process whose pid
-    /// was given next to it. The pid comes from the connected socket or pipe
-    /// (`SO_PEERCRED`, `GetNamedPipeServerProcessId`), which the kernel fills
-    /// in and the peer cannot forge, and it is checked before anything is sent.
-    /// A mismatch is logged and refused.
-    #[cfg(not(target_os = "macos"))]
-    fn verify_from_felt_pid(
-        tx0: &ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
-        felt_pid: u32,
-    ) -> Result<(), HandshakeError> {
-        let peer_pid = tx0.peer_pid();
-        if peer_is_authorized(peer_pid, felt_pid) {
-            return Ok(());
-        }
-        error!(
-            "FeltIpcClient::new() refused endpoint: owned by pid {:?}, expected felt pid {}",
-            peer_pid, felt_pid
-        );
-        Err(HandshakeError::Refused {
-            owner: peer_pid,
-            expected: felt_pid,
-        })
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    fn receive_reply(
+        rx: &ipc_channel::ipc::IpcReceiver<FeltMessage>,
+    ) -> Result<FeltMessage, HandshakeError> {
+        rx.recv().map_err(HandshakeError::Receive)
     }
 
-    /// On macOS the endpoint is a Mach send right, which has no attestable
-    /// owner, so the check happens on felt's reply instead, in
-    /// `receive_reply_from`. Until then the browser has only handed out a send
-    /// right to its own fresh receiver, which an impostor can do nothing with.
-    #[cfg(target_os = "macos")]
-    fn verify_from_felt_pid(
-        _tx0: &ipc_channel::ipc::IpcSender<ipc_channel::ipc::IpcSender<FeltMessage>>,
-        _felt_pid: u32,
-    ) -> Result<(), HandshakeError> {
-        Ok(())
-    }
-
-    /// Receives felt's reply to the browser's channel. On macOS this is where
-    /// the endpoint is verified: the kernel's audit trailer on the reply names
-    /// the task that sent it, which must be `felt_pid`. Any other sender is
-    /// logged and refused, and the connection attempt ends.
-    #[cfg(target_os = "macos")]
+    /// Receives felt's reply to the browser's channel and verifies the
+    /// endpoint. Any same-user process could have claimed the endpoint name
+    /// given on the command line, and a Mach send right has no attestable
+    /// owner, so the check is made on the reply: the kernel's audit trailer
+    /// names the task that sent it, which must be `felt_pid`. Until then the
+    /// browser has only handed out a send right to its own fresh receiver,
+    /// which an impostor can do nothing with. Any other sender is logged and
+    /// refused, and the connection attempt ends.
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     fn receive_reply_from(
         rx: &ipc_channel::ipc::IpcReceiver<FeltMessage>,
         felt_pid: u32,
@@ -190,17 +207,6 @@ impl FeltIpcClient {
             }
             Err(err) => Err(HandshakeError::Receive(err)),
         }
-    }
-
-    /// Receives felt's reply to the browser's channel. The endpoint was already
-    /// verified by `verify_from_felt_pid` before anything was sent, so the
-    /// reply needs no check of its own here.
-    #[cfg(not(target_os = "macos"))]
-    fn receive_reply_from(
-        rx: &ipc_channel::ipc::IpcReceiver<FeltMessage>,
-        _felt_pid: u32,
-    ) -> Result<FeltMessage, HandshakeError> {
-        rx.recv().map_err(HandshakeError::Receive)
     }
 
     pub fn send_felt_ready(&self) {
@@ -309,22 +315,40 @@ pub struct FeltClientThread {
 }
 
 impl FeltClientThread {
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     pub fn new(felt_server_name: String, felt_pid: u32) -> Result<Self, ()> {
         trace!(
             "FeltClientThread::new(): connecting to {}",
             felt_server_name.clone()
         );
-        let felt_client = match FeltIpcClient::new(felt_server_name, felt_pid) {
+        Self::from_handshake(FeltIpcClient::new(felt_server_name, felt_pid))
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn new_from_fd(fd: std::os::unix::io::RawFd) -> Result<Self, ()> {
+        trace!("FeltClientThread::new_from_fd(): connecting via inherited fd {fd}");
+        Self::from_handshake(FeltIpcClient::new_from_fd(fd))
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn new_from_handle(handle: usize) -> Result<Self, ()> {
+        trace!("FeltClientThread::new_from_handle(): connecting via inherited handle {handle}");
+        Self::from_handshake(FeltIpcClient::new_from_handle(handle))
+    }
+
+    fn from_handshake(handshake: Result<FeltIpcClient, HandshakeError>) -> Result<Self, ()> {
+        let felt_client = match handshake {
             Ok(client) => client,
             // Another process at felt's endpoint means something on the device
             // is impersonating felt, so abort instead of exiting like an
             // ordinary failure.
+            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
             Err(HandshakeError::Refused { owner, expected }) => panic!(
                 "FELT endpoint owned by pid {:?}, expected the felt process {}",
                 owner, expected
             ),
             Err(err) => {
-                error!("FeltClientThread::new(): FELT handshake failed: {}", err);
+                error!("FeltClientThread: FELT handshake failed: {}", err);
                 return Err(());
             }
         };
@@ -334,7 +358,7 @@ impl FeltClientThread {
                 startup_ready: Arc::new(AtomicBool::new(false)),
             })
         } else {
-            trace!("FeltClientThread::new(): failure to report version");
+            error!("FeltClientThread::from_handshake(): failure to report version");
             Err(())
         }
     }
@@ -694,7 +718,9 @@ impl FeltClientThread {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     use ipc_channel::ipc::{channel, IpcOneShotServer, IpcSender};
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     use std::thread;
     use std::sync::atomic::AtomicUsize;
     use std::sync::MutexGuard;
@@ -914,6 +940,7 @@ mod tests {
     // Plays the endpoint the browser is told about: accepts the browser's
     // connection and answers with the channel the browser talks back on, as
     // FeltXPCOM::ipc_channel does. Reports whether it got to answer the browser.
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     fn endpoint() -> (thread::JoinHandle<bool>, String) {
         let (server, name) = IpcOneShotServer::<IpcSender<FeltMessage>>::new().unwrap();
         let felt = thread::spawn(move || match server.accept() {
@@ -929,6 +956,8 @@ mod tests {
 
     // Bug 2073022: the browser must only complete the handshake with the felt
     // process that spawned it, whatever process the endpoint name resolves to.
+    // Only macOS has a named endpoint; elsewhere the browser inherits its end.
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     #[test]
     fn browser_connects_to_the_endpoint_of_the_expected_pid() {
         let (felt, name) = endpoint();
@@ -938,6 +967,7 @@ mod tests {
         assert!(client.tx.lock().unwrap().is_some() && client.rx.is_some());
     }
 
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     #[test]
     fn browser_refuses_an_endpoint_of_another_pid() {
         let (impostor, name) = endpoint();
@@ -947,8 +977,8 @@ mod tests {
             matches!(client, Err(HandshakeError::Refused { .. })),
             "the browser refuses the impostor"
         );
-        // Everywhere but macOS the browser sends nothing to a refused endpoint;
-        // on macOS it needs the reply to decide.
-        assert_eq!(impostor_was_answered, cfg!(target_os = "macos"));
+        // A Mach send right has no attestable owner, so the browser needs the
+        // reply to decide.
+        assert!(impostor_was_answered);
     }
 }

@@ -23,7 +23,6 @@
 #include <windows.h>
 #include <processthreadsapi.h>
 #include <shlwapi.h>
-#include <stdio.h>
 #include <appmodel.h>
 #include <wrl.h>
 #include <wrl/wrappers/corewrappers.h>
@@ -290,28 +289,6 @@ static void MaybeBreakForBrowserDebugging() {
   ::Sleep(pauseLenMs);
 }
 
-#if defined(MOZ_ENTERPRISE)
-// felt, the enterprise launcher UI, hands the browser it spawns an IPC endpoint
-// via -felt and admits only the peer whose pid it expects. That peer is
-// whichever process ends up running as the browser, which with a launcher
-// process interposed is the launcher's child rather than the process felt
-// spawned. Announce that pid to felt on stdout: the stdout felt hands the
-// spawned process is a pipe only felt's own process tree can write to, and felt
-// drains it and parses this line in
-// toolkit/components/felt/content/FeltProcessParent.sys.mjs, so the format must
-// stay in sync with that file.
-static void AnnounceFeltBrowserPid(DWORD aPid) {
-  MOZ_ASSERT(aPid != 0);
-  fprintf(stdout, "\nFELT_BROWSER_PID=%lu\n", aPid);
-  fflush(stdout);
-}
-
-static bool IsFeltSpawned(int& argc, wchar_t** argv) {
-  return mozilla::CheckArg(argc, argv, "felt", nullptr,
-                           mozilla::CheckArgFlag::None) == mozilla::ARG_FOUND;
-}
-#endif
-
 static bool DoLauncherProcessChecks(int& argc, wchar_t** argv) {
   // NB: We run all tests in this function instead of returning early in order
   // to ensure that all side effects take place, such as clearing environment
@@ -451,7 +428,7 @@ static bool IsPackagedAppAutostarted() {
   return false;
 }
 
-static Maybe<int> RunLauncherMain(int& argc, wchar_t* argv[]) {
+Maybe<int> LauncherMain(int& argc, wchar_t* argv[]) {
   EnsureBrowserCommandlineSafe(argc, argv);
 
   // return fast when we're a child process.
@@ -603,6 +580,25 @@ static Maybe<int> RunLauncherMain(int& argc, wchar_t* argv[]) {
 
   attrs.AddInheritableHandles(stdHandles);
 
+  // FELT fenced IPC endpoint: when this launcher is starting a Felt browser,
+  // the bootstrap pipe HANDLE was inherited from the Felt process (its value
+  // carried in MOZ_FELT_IPC_HANDLE, which also rides through to the browser).
+  // Add it to the handle list so the browser child inherits it and can
+  // reconstruct the channel.
+  HANDLE feltHandle = nullptr;
+  if (const wchar_t* feltHandleStr = _wgetenv(L"MOZ_FELT_IPC_HANDLE")) {
+    wchar_t* end = nullptr;
+    unsigned long long feltHandleVal = ::wcstoull(feltHandleStr, &end, 10);
+    if (end && *end == L'\0' && feltHandleVal != 0) {
+      feltHandle =
+          reinterpret_cast<HANDLE>(static_cast<uintptr_t>(feltHandleVal));
+      if (!attrs.AddInheritableHandle(feltHandle)) {
+        HandleLauncherError(LAUNCHER_ERROR_FROM_LAST());
+        return Nothing();
+      }
+    }
+  }
+
   DWORD creationFlags = CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT;
 
   STARTUPINFOEXW siex;
@@ -685,14 +681,11 @@ static Maybe<int> RunLauncherMain(int& argc, wchar_t* argv[]) {
     return Nothing();
   }
 
-#if defined(MOZ_ENTERPRISE)
-  // Only now is the child certain to be the process that runs as the browser:
-  // each failure above falls back to running it in this process, which
-  // LauncherMain then announces instead.
-  if (IsFeltSpawned(argc, argv)) {
-    AnnounceFeltBrowserPid(pi.dwProcessId);
+  // The browser child now owns the FELT endpoint and we can no longer fall back
+  // to running as the browser ourselves, so drop our inherited copy.
+  if (feltHandle) {
+    ::CloseHandle(feltHandle);
   }
-#endif
 
   if (flags & LauncherFlags::eWaitForBrowser) {
     DWORD exitCode;
@@ -712,21 +705,6 @@ static Maybe<int> RunLauncherMain(int& argc, wchar_t* argv[]) {
   }
 
   return Some(0);
-}
-
-Maybe<int> LauncherMain(int& argc, wchar_t* argv[]) {
-  Maybe<int> result = RunLauncherMain(argc, argv);
-#if defined(MOZ_ENTERPRISE)
-  // Nothing means this process goes on to run as the browser, either because
-  // no launcher process was interposed or because interposing one failed and
-  // we fell back. A launcher that did interpose has announced this process
-  // already, and it is the only thing that sets gDeelevationStatus.
-  if (result.isNothing() && IsFeltSpawned(argc, argv) &&
-      gDeelevationStatus == DeelevationStatus::DefaultStaticValue) {
-    AnnounceFeltBrowserPid(::GetCurrentProcessId());
-  }
-#endif
-  return result;
 }
 
 }  // namespace mozilla

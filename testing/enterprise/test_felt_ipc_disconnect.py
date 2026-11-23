@@ -39,6 +39,23 @@ class FeltIpcDisconnect(FeltKeyStoreStub, FeltTests):
         self._browser_process = psutil.Process(pid)
         return pid
 
+    def _browser_pid_of(self, spawned_pid):
+        """On Windows FELT spawns a launcher process, which runs the browser as
+        its child; elsewhere, and in applications without a launcher process,
+        the spawned process is the browser."""
+        if platform.system() != "Windows":
+            return spawned_pid
+        spawned = psutil.Process(spawned_pid)
+        browsers = [
+            child.pid
+            for child in spawned.children()
+            if child.exe() == spawned.exe() and "-contentproc" not in child.cmdline()
+        ]
+        self.assertLessEqual(
+            len(browsers), 1, "A launcher should run one browser as its child"
+        )
+        return browsers[0] if browsers else spawned_pid
+
     def _kill_felt_and_wait_for_browser_exit(self, app_pid, expect_error_dialog=False):
         parent_pid = self._driver.session_capabilities["moz:processID"]
         self._driver.delete_session(send_request=False)
@@ -135,10 +152,9 @@ class FeltIpcDisconnect(FeltKeyStoreStub, FeltTests):
     def test_disconnect_before_startup_ready(self):
         self._hold_felt_after_child_exit()
         self._prepare_felt_keystore()
-        # Both wrappers call the real methods. _awaitAnnouncedBrowserPid records
-        # the browser pid (proc.pid is the launcher on Windows).
-        # sendPrefsToFirefox publishes that pid, then never resolves, so FELT
-        # never sends Ready and the browser stays in its startup wait.
+        # The wrapper calls the real method. sendPrefsToFirefox publishes the
+        # pid of the process FELT spawned, then never resolves, so FELT never
+        # sends Ready and the browser stays in its startup wait.
         with self._driver.using_context("chrome"):
             self._driver.execute_script(
                 """
@@ -146,17 +162,12 @@ class FeltIpcDisconnect(FeltKeyStoreStub, FeltTests):
                   "chrome://felt/content/FeltProcessParent.sys.mjs"
                 );
                 const prototype = FeltProcessParent.prototype;
-                const awaitPid = prototype._awaitAnnouncedBrowserPid;
-                prototype._awaitAnnouncedBrowserPid = async function(...args) {
-                  this.testBrowserPid = await awaitPid.apply(this, args);
-                  return this.testBrowserPid;
-                };
                 const sendPrefs = prototype.sendPrefsToFirefox;
                 prototype.sendPrefsToFirefox = async function() {
                   await sendPrefs.call(this);
                   Services.prefs.setStringPref(
                     "enterprise.felt_tests.ipc_startup_app_pid",
-                    String(this.testBrowserPid || this.proc.pid)
+                    String(this.proc.pid)
                   );
                   await new Promise(() => {});
                 };
@@ -168,7 +179,7 @@ class FeltIpcDisconnect(FeltKeyStoreStub, FeltTests):
             lambda driver: driver.get_pref("enterprise.felt_tests.ipc_startup_app_pid"),
             message="FELT should pause browser startup before sending Ready",
         )
-        app_pid = self._track_browser(int(app_pid))
+        app_pid = self._track_browser(self._browser_pid_of(int(app_pid)))
         self.assertTrue(
             self._browser_process.is_running()
             and self._browser_process.status() != psutil.STATUS_ZOMBIE,
