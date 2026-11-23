@@ -444,7 +444,7 @@ EnterprisePoliciesManager.prototype = {
     }
 
     if (previouslyApplied) {
-      this._runMissingPolicyCallbacks(unparsedPolicies);
+      this._runMissingPolicyCallbacks(effectivePolicies);
     }
 
     this._updateStatus();
