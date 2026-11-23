@@ -6,7 +6,6 @@
 @import url("chrome://global/skin/design-system/text-and-typography.css");
 @import url("chrome://global/skin/design-system/tokens-brand.css");
 @import url("chrome://branding/content/felt-tokens.css");
-@import url("chrome://felt/content/styles/felt-tokens.css");
 
 :root {
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
@@ -356,6 +355,8 @@ body.notification-open .felt:not(#notification-popup-box .felt) {
 }
 
 .felt-updates-uptodate::before {
-  content: var(--felt-update-checkmark-img-url);
+  content: url("chrome://felt/content/assets/enterprise-update-checkmark.svg");
+  -moz-context-properties: fill;
+  fill: var(--icon-color-success);
   margin: 0 var(--space-small) 0 0;
 }
