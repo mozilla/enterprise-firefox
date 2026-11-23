@@ -19,7 +19,10 @@ class FeltVerifyNetError(FeltConsoleErrorBase):
             """
             const callback = arguments[arguments.length - 1];
             const { FeltErrorReport } = ChromeUtils.importESModule("moz-src:///toolkit/components/felt/FeltErrorReport.sys.mjs");
-            FeltErrorReport.handleNetError({errorPageURI: `about:neterror?e=${arguments[0]}&u=https%3A//www.mozilla.org`}).then(_ => callback());
+            FeltErrorReport.handleNetError(
+              {errorPageURI: `about:neterror?e=${arguments[0]}&u=https%3A//www.mozilla.org`},
+              document.getElementById("browser").browsingContext
+            ).then(_ => callback());
             """,
             [error],
         )

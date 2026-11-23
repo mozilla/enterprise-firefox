@@ -929,7 +929,6 @@ if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
     parent: {
       esModuleURI: "chrome://felt/content/FeltErrorWindowParent.sys.mjs",
     },
-    allFrames: true,
     safeForUntrustedWebProcess: true,
     matches: ["about:certerror?*", "about:neterror?*"],
   };

@@ -27,7 +27,10 @@ export class FeltErrorWindowParent extends JSWindowActorParent {
     switch (message.name) {
       case "ErrorReport": {
         const errorPage = message.data;
-        lazy.FeltErrorReport.handleNetError(errorPage).catch(err =>
+        lazy.FeltErrorReport.handleNetError(
+          errorPage,
+          this.browsingContext
+        ).catch(err =>
           lazy.log.error(`Error while handling ErrorReport message: ${err}`)
         );
         break;
