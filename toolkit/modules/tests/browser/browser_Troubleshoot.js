@@ -1091,7 +1091,7 @@ const SNAPSHOT_SCHEMA = {
     },
     normandy: {
       type: "object",
-      required: AppConstants.MOZ_NORMANDY,
+      required: AppConstants.MOZ_BUILD_APP === "browser",
       properties: {
         nimbusExperiments: {
           type: "array",

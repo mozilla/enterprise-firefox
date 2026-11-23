@@ -4,16 +4,6 @@
 
 import static org.mozilla.conventions.BuildConfigKt.getBuildId
 
-buildscript {
-    repositories {
-        gradle.configureMavenRepositories(delegate)
-    }
-
-    dependencies {
-        classpath libs.mozilla.glean.gradle.plugin
-    }
-}
-
 plugins {
     id 'com.android.library'
     alias(libs.plugins.dependency.analysis)
@@ -82,7 +72,6 @@ dependencies {
 
 ext {
     gleanNamespace = "mozilla.telemetry.glean"
-    gleanPythonEnvDir = gradle.mozconfig.substs.GRADLE_GLEAN_PARSER_VENV
 }
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 apply from: '../../../common-config.gradle'

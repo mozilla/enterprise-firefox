@@ -68,6 +68,8 @@ const lazy = XPCOMUtils.declareLazy({
   tabLocalization: () =>
     new Localization(["browser/tabbrowser.ftl", "branding/brand.ftl"], true),
   TabMetrics: "moz-src:///browser/components/tabbrowser/TabMetrics.sys.mjs",
+  TabSplitViewState:
+    "moz-src:///browser/components/sessionstore/TabSplitViewState.sys.mjs",
   TabStateFlusher:
     "moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs",
   TaskbarTabs: "moz-src:///browser/components/taskbartabs/TaskbarTabs.sys.mjs",
@@ -5108,6 +5110,10 @@ export class Tabbrowser {
         containingTabsFragment: this.document.createDocumentFragment(),
       });
     }
+    splitViewDataList = lazy.TabSplitViewState.normalize(
+      tabDataList,
+      splitViewDataList
+    );
     for (const splitViewData of splitViewDataList) {
       splitViewWorkingData.set(splitViewData.id, {
         numberOfTabs: splitViewData.numberOfTabs,
@@ -7901,8 +7907,13 @@ export class Tabbrowser {
    *   Key-value pairs that will be serialized into the features string.
    * @param {boolean} [options.replaceLastTab=false]
    *   When true, opens a newtab to prevent the window from closing.
+   * @param {nsIPropertyBag2} [options.extraOptions]
+   *   Passed to the new window as window.arguments[1].
    */
-  replaceTabWithWindow(aTab, { replaceLastTab = false, ...features } = {}) {
+  replaceTabWithWindow(
+    aTab,
+    { replaceLastTab = false, extraOptions = null, ...features } = {}
+  ) {
     if (this.tabs.length == 1) {
       if (!replaceLastTab) {
         return null;
@@ -7923,6 +7934,9 @@ export class Tabbrowser {
     // tell a new window to take the "dropped" tab
     let args = Cc["@mozilla.org/array;1"].createInstance(Ci.nsIMutableArray);
     args.appendElement(/** @type {nsISupports} */ (aTab.splitview ?? aTab));
+    if (extraOptions) {
+      args.appendElement(extraOptions);
+    }
     return lazy.BrowserWindowTracker.openWindow({
       private: lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal),
       features: Object.entries(features)

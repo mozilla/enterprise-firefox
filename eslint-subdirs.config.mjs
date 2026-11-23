@@ -171,7 +171,6 @@ export default [
   )),
   ...(await convertConfigurationFile("toolkit/components/felt")),
   ...(await convertConfigurationFile("toolkit/components/narrate")),
-  ...(await convertConfigurationFile("toolkit/components/normandy/test")),
   ...(await convertConfigurationFile(
     "toolkit/components/passwordmgr/test/browser"
   )),

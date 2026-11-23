@@ -1562,6 +1562,12 @@ export class ExtensionData {
     });
   }
 
+  // GeneratedWidgetExtension overrides this to allow the `generated_widget`
+  // manifest key, which is reserved for generated widgets.
+  canUseGeneratedWidgets() {
+    return false;
+  }
+
   canUseAPIExperiment() {
     return (
       this.type == "extension" &&
@@ -2172,6 +2178,19 @@ export class ExtensionData {
         manifest.builtin_widget = null;
       }
 
+      if (manifest.generated_widget && !this.canUseGeneratedWidgets()) {
+        if (this.temporarilyInstalled) {
+          this.manifestError(
+            `Using 'generated_widget' is reserved for generated widgets.`
+          );
+        } else {
+          this.manifestWarning(
+            `Ignoring 'generated_widget': reserved for generated widgets.`
+          );
+        }
+        manifest.generated_widget = null;
+      }
+
       if (manifest.experiment_apis) {
         if (this.canUseAPIExperiment()) {
           let parentModules = {};
@@ -2474,7 +2493,7 @@ export class ExtensionData {
   }
 
   // Returns true if an addon is builtin to Firefox or
-  // distributed via Normandy into a system location.
+  // distributed into a system location.
   get isAppProvided() {
     return this.addonData.builtIn || this.addonData.isSystem;
   }

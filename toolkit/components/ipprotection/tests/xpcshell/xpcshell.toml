@@ -34,6 +34,8 @@ skip-if = ["!enterprise"]
 
 ["test_IPPLifecycleHelper.js"]
 
+["test_IPPNetworkUtils.js"]
+
 ["test_IPPPermissionRuleProvider.js"]
 
 ["test_IPPProxyableRuleProvider.js"]

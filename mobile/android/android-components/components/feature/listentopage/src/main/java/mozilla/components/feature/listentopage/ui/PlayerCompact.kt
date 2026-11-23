@@ -32,6 +32,7 @@ import mozilla.components.compose.base.button.IconButton
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.feature.listentopage.ArticleProgress
 import mozilla.components.feature.listentopage.ListenAction
+import mozilla.components.feature.listentopage.PlayerMode
 import mozilla.components.feature.listentopage.R
 import mozilla.components.ui.icons.R as iconsR
 
@@ -41,8 +42,7 @@ internal fun PlayerCompact(
     article: ArticleDetails,
     articleProgressState: State<ArticleProgress>,
     playbackUiState: PlaybackUiState,
-    onAction: (ListenAction) -> Unit,
-    onExpandClicked: () -> Unit,
+    onAction: (ListenAction.User) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -56,7 +56,7 @@ internal fun PlayerCompact(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
-                onClick = { onAction(ListenAction.Session.StopRequested()) },
+                onClick = { onAction(ListenAction.User.Session.StopRequested()) },
                 colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.surface),
                 contentDescription = stringResource(R.string.mozac_feature_listentopage_close),
             ) {
@@ -74,7 +74,7 @@ internal fun PlayerCompact(
                         .clickable(
                             onClickLabel = stringResource(R.string.mozac_feature_listentopage_expand_player),
                             role = Role.Button,
-                            onClick = onExpandClicked,
+                            onClick = { onAction(ListenAction.User.ModeChanged(PlayerMode.Expanded)) },
                         ),
                 shouldScrollTitle =
                     playbackUiState is PlaybackUiState.Playing || playbackUiState is PlaybackUiState.Buffering,
@@ -88,7 +88,7 @@ internal fun PlayerCompact(
             )
             PlayPauseButton(
                 playbackUiState = playbackUiState,
-                onButtonClicked = { onAction(ListenAction.Controls.PlayPauseClicked) },
+                onButtonClicked = { onAction(ListenAction.User.Controls.PlayPauseClicked) },
             )
         }
         // Reserves the space the progress bar occupies, since the bar itself is drawn as
@@ -124,7 +124,6 @@ private fun PlayerCompactPreview(@PreviewParameter(PlaybackUIStatePreviewProvide
                     remember { mutableStateOf(ArticleProgress(positionMs = 84_000, durationMs = 360_000)) },
                 playbackUiState = state,
                 onAction = {},
-                onExpandClicked = {},
             )
         }
     }

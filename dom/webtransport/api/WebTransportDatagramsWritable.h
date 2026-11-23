@@ -42,17 +42,19 @@ class WebTransportDatagramsWritable final : public WritableStream {
   int64_t SendOrder() const { return mSendOrder; }
   void SetSendOrder(int64_t aSendOrder);
 
-  void OnDatagramReady(uint64_t aDatagramId);
-
   // Whether the session was already connected (child actor set) when this
   // writable's algorithms were created.
   bool IsConnected() const;
 
   void SetChild(WebTransportChild* aChild);
 
-  // Resolves this writable's withheld write promise, if any, so the
-  // WritableStream is not left waiting on it once the session is torn down.
+  // Forwards to the algorithms instance; see
+  // OutgoingDatagramStreamAlgorithms::Cleanup()/RetireInFlight()/
+  // TryResolveBackpressureFromCredit() for details.
   void Cleanup();
+  void RetireInFlight(uint64_t aCount);
+  bool TryResolveBackpressureFromCredit(uint64_t aAvailableBytes,
+                                        size_t* aResolvedBytes);
 
  private:
   ~WebTransportDatagramsWritable() override;

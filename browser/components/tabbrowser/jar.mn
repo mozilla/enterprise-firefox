@@ -3,8 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 browser.jar:
-   content/browser/tabbrowser/browser-allTabsMenu.js      (content/browser-allTabsMenu.js)
-   content/browser/tabbrowser/browser-ctrlTab.js          (content/browser-ctrlTab.js)
+   content/browser/tabbrowser/all-tabs-menu.mjs           (content/all-tabs-menu.mjs)
+   content/browser/tabbrowser/browser-ctrlTab.mjs         (content/browser-ctrlTab.mjs)
    content/browser/tabbrowser/browser-fullZoom.js         (content/browser-fullZoom.js)
    content/browser/tabbrowser/drag-and-drop.mjs           (content/drag-and-drop.mjs)
    content/browser/tabbrowser/opentabs.css                (content/opentabs.css)
@@ -14,7 +14,7 @@ browser.jar:
    content/browser/tabbrowser/address-footer.mjs          (content/address-footer.mjs)
    content/browser/tabbrowser/status-panel.mjs            (content/status-panel.mjs)
    content/browser/tabbrowser/tab.mjs                     (content/tab.mjs)
-   content/browser/tabbrowser/tab-context-menu.js         (content/tab-context-menu.js)
+   content/browser/tabbrowser/tab-context-menu.mjs        (content/tab-context-menu.mjs)
    content/browser/tabbrowser/tab-bar-visibility.mjs      (content/tab-bar-visibility.mjs)
    content/browser/tabbrowser/tab-groups-list.mjs         (content/tab-groups-list.mjs)
    content/browser/tabbrowser/tab-hover-preview.mjs       (content/tab-hover-preview.mjs)

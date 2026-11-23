@@ -634,6 +634,15 @@ nsresult Http3Session::ProcessEvents() {
   Http3Event event{};
   event.tag = Http3Event::Tag::NoEvent;
 
+  // A burst of datagrams arrives within a single call, and the sessions batch
+  // them for IPC, so tell each one we are done as we leave.
+  nsTArray<RefPtr<Http3WebTransportSession>> datagramSessions;
+  auto flushDatagrams = MakeScopeExit([&datagramSessions] {
+    for (const auto& session : datagramSessions) {
+      session->FlushIncomingDatagrams();
+    }
+  });
+
   nsresult rv = mHttp3Connection->GetEvent(&event, data);
   if (NS_FAILED(rv)) {
     LOG(("Http3Session::ProcessEvents [this=%p] rv=%" PRIx32, this,
@@ -765,6 +774,19 @@ nsresult Http3Session::ProcessEvents() {
       case Http3Event::Tag::RequestsCreatable:
         LOG(("Http3Session::ProcessEvents - StreamCreatable"));
         ProcessPending();
+        break;
+      case Http3Event::Tag::OutgoingDatagramSpaceAvailable:
+        LOG(("Http3Session::ProcessEvents - OutgoingDatagramSpaceAvailable"));
+        // Connection-scoped: neqo does not say which session drained.
+        // The listener only sends IPC and never closes a session, so
+        // mWebTransportSessions can't change here.  If that stops being true,
+        // iterate mWebTransportSessions.Clone() instead.
+        for (const auto& stream : mWebTransportSessions) {
+          if (Http3WebTransportSession* session =
+                  stream->GetHttp3WebTransportSession()) {
+            session->NotifyOutgoingDatagramSpaceAvailable();
+          }
+        }
         break;
       case Http3Event::Tag::AuthenticationNeeded:
         LOG(("Http3Session::ProcessEvents - AuthenticationNeeded %d",
@@ -1082,6 +1104,9 @@ nsresult Http3Session::ProcessEvents() {
             }
 
             wt->OnDatagramReceived(std::move(data));
+            if (!datagramSessions.Contains(wt)) {
+              datagramSessions.AppendElement(wt);
+            }
           } break;
           case WebTransportEventExternal::Tag::Draining: {
             uint64_t sessionId = event.web_transport._0.draining.session_id;
@@ -1321,6 +1346,9 @@ nsresult Http3Session::ProcessOutput(nsIUDPSocket* socket) {
           self->SetupTimer(timeout);
         });
     mSocket = nullptr;
+    if (NS_SUCCEEDED(rv)) {
+      NotifyOutgoingDatagramProgress();
+    }
     return rv;
   }
 
@@ -1347,7 +1375,25 @@ nsresult Http3Session::ProcessOutput(nsIUDPSocket* socket) {
     socket->AddOutputBytes(rv.bytes_written);
   }
 
+  NotifyOutgoingDatagramProgress();
   return NS_OK;
+}
+
+void Http3Session::NotifyOutgoingDatagramProgress() {
+  if (!std::exchange(mOutgoingDatagramProgressRequested, false)) {
+    return;
+  }
+  // As for OutgoingDatagramSpaceAvailable in ProcessEvents(), the listener
+  // only samples the queue and sends IPC, so mWebTransportSessions can't
+  // change here.
+  for (const auto& stream : mWebTransportSessions) {
+    if (Http3WebTransportSession* session =
+            stream->GetHttp3WebTransportSession()) {
+      if (session->TakeOutgoingDatagramProgressRequest()) {
+        session->NotifyOutgoingDatagramSpaceAvailable();
+      }
+    }
+  }
 }
 
 // This is only called when timer expires.
@@ -2508,6 +2554,7 @@ void Http3Session::CloseStreamInternal(Http3StreamBase* aStream,
     }
 
     mStreamIdHash.Remove(aStream->StreamId());
+    mWebTransportStreamToSessionMap.Remove(aStream->StreamId());
 
     // Start to idle when we remove the last stream.
     if (mStreamIdHash.IsEmpty()) {
@@ -3317,52 +3364,30 @@ nsresult Http3Session::CreateWebTransportStream(
                                                     aStreamId);
 }
 
-void Http3Session::SendDatagram(Http3WebTransportSession* aSession,
-                                nsTArray<uint8_t>& aData, uint64_t aTrackingId,
-                                uint64_t aSendGroupId, int64_t aSendOrder,
-                                TimeStamp aTimestamp) {
+nsresult Http3Session::SendDatagram(Http3WebTransportSession* aSession,
+                                    nsTArray<uint8_t>& aData,
+                                    uint64_t aSendGroupId, int64_t aSendOrder,
+                                    TimeStamp aTimestamp) {
   // Taken as late as possible, so time spent getting here counts too.
   uint64_t ageUs = static_cast<uint64_t>(
       std::max(0.0, (TimeStamp::Now() - aTimestamp).ToMicroseconds()));
-  bool belowHighWaterMark = false;
+  // Sent untracked: the sent/expired/dropped outcome is read back in
+  // aggregate via GetDatagramSessionStats() rather than reported per
+  // datagram, so there is nothing to forward to aSession here.
   nsresult rv = mHttp3Connection->WebTransportSendDatagram(
-      aSession->StreamId(), aData, aTrackingId, &belowHighWaterMark,
-      aSendGroupId, aSendOrder, ageUs);
-  LOG(("Http3Session::SendDatagram %p res=%" PRIx32
-       " belowHWM=%d, sendGroup=%" PRIu64 ", sendOrder=%" PRId64,
-       this, static_cast<uint32_t>(rv), belowHighWaterMark, aSendGroupId,
-       aSendOrder));
+      aSession->StreamId(), aData, aSendGroupId, aSendOrder, ageUs);
+  LOG(("Http3Session::SendDatagram %p res=%" PRIx32 ", sendGroup=%" PRIu64
+       ", sendOrder=%" PRId64,
+       this, static_cast<uint32_t>(rv), aSendGroupId, aSendOrder));
 
-  // Settle the write as soon as neqo has accepted or refused the datagram,
-  // whether or not the queue is above its high water mark.  neqo reports no
-  // later outcome for a queued datagram that expires or is evicted, and
-  // Http3Client doesn't forward the ones it does report, so a write left
-  // waiting for one would never settle, and content would stop writing once
-  // outgoingMaxBufferedDatagrams of them were outstanding.
-  //
-  // This knowingly departs from writeDatagrams
-  // (https://w3c.github.io/webtransport/#writedatagrams), which holds a write
-  // made while the send queue is full until queued datagrams are dequeued;
-  // bug 1818883 restores backpressure by pacing writes against neqo's queue
-  // capacity.
-  if (aTrackingId && NS_SUCCEEDED(rv)) {
-    aSession->OnOutgoingDatagramOutCome(
-        aTrackingId, WebTransportSessionEventListener::DatagramOutcome::SENT);
+  // Not ForceSend(): its backup timer would hold the datagram up to 17ms
+  // before process_output() runs, all of it counted against outgoingMaxAge.
+  // Datagrams queued in the same task, e.g. one IPC batch, still go out in a
+  // single SendData().
+  if (NS_SUCCEEDED(rv) && mUdpConn && !IsClosing()) {
+    (void)mUdpConn->ForceSendNow();
   }
-
-  if (aTrackingId && NS_FAILED(rv)) {
-    WebTransportSessionEventListener::DatagramOutcome outcome;
-    if (rv == NS_ERROR_NOT_AVAILABLE) {
-      outcome = WebTransportSessionEventListener::DatagramOutcome::
-          DROPPED_TOO_MUCH_DATA;
-    } else if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
-      outcome =
-          WebTransportSessionEventListener::DatagramOutcome::DROPPED_QUEUE_FULL;
-    } else {
-      outcome = WebTransportSessionEventListener::DatagramOutcome::UNKNOWN;
-    }
-    aSession->OnOutgoingDatagramOutCome(aTrackingId, outcome);
-  }
+  return rv;
 }
 
 uint64_t Http3Session::MaxDatagramSize(uint64_t aSessionId) {
@@ -3386,6 +3411,23 @@ void Http3Session::SetDatagramMaxBufferedDatagrams(
        aSessionId, aMaxBufferedDatagrams));
   (void)mHttp3Connection->WebTransportSetDatagramMaxBufferedDatagrams(
       aSessionId, aMaxBufferedDatagrams);
+}
+
+bool Http3Session::GetDatagramQueueCapacity(uint64_t aSessionId,
+                                            size_t* aRemainingBytes,
+                                            size_t* aQueuedDatagrams,
+                                            size_t* aMaxQueuedBytes) {
+  nsresult rv = mHttp3Connection->WebTransportDatagramQueueCapacity(
+      aSessionId, aRemainingBytes, aQueuedDatagrams, aMaxQueuedBytes);
+  return NS_SUCCEEDED(rv);
+}
+
+bool Http3Session::GetDatagramSessionStats(uint64_t aSessionId, uint64_t* aSent,
+                                           uint64_t* aExpired,
+                                           uint64_t* aDropped) {
+  nsresult rv = mHttp3Connection->WebTransportDatagramSessionStats(
+      aSessionId, aSent, aExpired, aDropped);
+  return NS_SUCCEEDED(rv);
 }
 
 void Http3Session::SetDatagramMaxAge(uint64_t aSessionId, double aMaxAge) {
@@ -3462,11 +3504,11 @@ void Http3Session::SetSendOrder(Http3StreamBase* aStream, int64_t aSendOrder) {
   }
 }
 
-void Http3Session::SetSendGroup(Http3StreamBase* aStream,
+void Http3Session::SetSendGroup(Http3WebTransportStream* aStream,
                                 uint64_t aSendGroupId) {
   if (!IsClosing()) {
     nsresult rv = mHttp3Connection->WebTransportSetSendGroup(
-        aStream->StreamId(), aSendGroupId);
+        aStream->SessionId(), aStream->StreamId(), aSendGroupId);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "WebTransportSetSendGroup failed");
     (void)rv;
   }

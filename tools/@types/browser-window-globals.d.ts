@@ -26,8 +26,23 @@ declare namespace BrowserWindow {
   var RTL_UI: boolean;
 
   function isBlankPageURL(aURL: string): boolean;
+  function isElementVisible(aElement: Element | null): boolean;
   function isInitialPage(url: string | nsIURI): boolean;
   function CreateContainerTabMenu(event: Event): void;
+  function createUserContextMenu(
+    event: Event,
+    options?: {
+      target?: Element | null;
+      isContextMenu?: boolean;
+      isPanelList?: boolean;
+      excludeUserContextId?: number | string | null;
+      showDefaultTab?: boolean;
+      showAddContainer?: boolean;
+      showManageContainers?: boolean;
+      containerSource?: string;
+    }
+  ): void;
+  function showFullScreenViewContextMenuItems(popup: Element): void;
   function UpdatePopupNotificationsVisibility(): void;
   function openPreferences(
     paneID?: string,
@@ -70,6 +85,14 @@ declare namespace BrowserWindow {
     updateUIState(state?: SidebarStateProps): Promise<void>;
   };
 
+  // browser-sync.js
+  var gSync: {
+    updateTabContextMenu(
+      aPopupMenu: XULPopupElement,
+      aTargetTab: MozTabbrowserTab
+    ): void;
+  };
+
   // browser-webrtc.js
   var gSharedTabWarning: {
     willShowSharedTabWarning(tab: MozTabbrowserTab): boolean;
@@ -95,6 +118,17 @@ declare namespace BrowserWindow {
 
   var FirefoxViewHandler: {
     tab: MozTabbrowserTab | null;
+    openTab(section?: string): void;
+  };
+
+  // customizableui/content/panelUI.js
+  var PanelUI: {
+    showSubView(
+      aViewId: string,
+      aAnchor: Element,
+      aEvent?: Event
+    ): Promise<void>;
+    _ensureShortcutsShown(view?: Element): void;
   };
 
   var XULBrowserWindow: {
@@ -120,9 +154,18 @@ declare namespace BrowserWindow {
     removeListener(listener: MousePosListener): void;
   };
 
+  // tabbrowser/content/all-tabs-menu.mjs
+  var gTabsPanel: typeof import("chrome://browser/content/tabbrowser/all-tabs-menu.mjs").gTabsPanel;
+
+  // tabbrowser/content/browser-ctrlTab.mjs
+  var ctrlTab: typeof import("chrome://browser/content/tabbrowser/browser-ctrlTab.mjs").ctrlTab;
+
   // tabbrowser/content/status-panel.mjs
   var StatusPanel: typeof import("chrome://browser/content/tabbrowser/status-panel.mjs").StatusPanel;
 
   // tabbrowser/content/tab-bar-visibility.mjs
   var TabBarVisibility: typeof import("chrome://browser/content/tabbrowser/tab-bar-visibility.mjs").TabBarVisibility;
+
+  // tabbrowser/content/tab-context-menu.mjs
+  var TabContextMenu: typeof import("chrome://browser/content/tabbrowser/tab-context-menu.mjs").TabContextMenu;
 }

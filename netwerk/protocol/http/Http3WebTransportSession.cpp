@@ -5,6 +5,8 @@
 // HttpLog.h should generally be included first
 #include "Http3WebTransportSession.h"
 
+#include <utility>
+
 #include "Http3Session.h"
 #include "Http3Stream.h"
 #include "Http3WebTransportStream.h"
@@ -325,8 +327,8 @@ void Http3TunnelStreamBase::TransactionIsDone(nsresult aResult) {
 // Http3WebTransportSession
 //-----------------------------------------------------------------------------
 
-Http3WebTransportSession::Http3WebTransportSession(nsAHttpTransaction* trans,
-                                                   Http3Session* aHttp3Session)
+Http3WebTransportSession::Http3WebTransportSession(
+    nsAHttpTransaction* trans, Http3SessionBase* aHttp3Session)
     : Http3TunnelStreamBase(trans, aHttp3Session) {
   LOG(("Http3WebTransportSession ctor %p", this));
 }
@@ -553,7 +555,6 @@ Http3WebTransportSession::OnIncomingWebTransportStream(
 }
 
 void Http3WebTransportSession::SendDatagram(nsTArray<uint8_t>&& aData,
-                                            uint64_t aTrackingId,
                                             uint64_t aSendGroupId,
                                             int64_t aSendOrder,
                                             TimeStamp aTimestamp) {
@@ -574,21 +575,12 @@ void Http3WebTransportSession::SendDatagram(nsTArray<uint8_t>&& aData,
     return;
   }
 
-  // SendDatagram() enqueues the datagram into neqo's per-session queue but
-  // does not send it immediately. The datagram is moved to the QUIC send
-  // queue during process_output() (called from ProcessOutput() in
-  // Http3Session::SendData()).
-  //
-  // StreamHasDataToWrite() triggers the chain:
-  //   StreamReadyToWrite() -> ForceSend() -> HttpConnectionUDP::ForceSend()
-  //     -> MaybeForceSendIO() -> [async dispatch] -> SendData()
-  //     -> ProcessOutput() -> neqo process_output()
-  //
-  // This means the datagram is actually transmitted after one event loop
-  // cycle (the async dispatch in ForceSend/MaybeForceSendIO).
-  mSession->SendDatagram(this, aData, aTrackingId, aSendGroupId, aSendOrder,
-                         aTimestamp);
-  mSession->StreamHasDataToWrite(this);
+  // Enqueues into neqo's per-session queue and schedules a SendData(), which
+  // runs neqo's process_output(), for the next event loop turn.
+  if (NS_FAILED(mSession->SendDatagram(this, aData, aSendGroupId, aSendOrder,
+                                       aTimestamp))) {
+    mFailedOutgoingDatagrams++;
+  }
 }
 
 void Http3WebTransportSession::OnDatagramReceived(nsTArray<uint8_t>&& aData) {
@@ -650,6 +642,45 @@ void Http3WebTransportSession::SetDatagramMaxAge(double aMaxAge) {
   }
 
   mSession->SetDatagramMaxAge(mStreamId, aMaxAge);
+}
+
+bool Http3WebTransportSession::GetDatagramQueueCapacity(
+    size_t* aRemainingBytes, size_t* aQueuedDatagrams,
+    size_t* aMaxQueuedBytes) {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  if (mRecvState != ACTIVE) {
+    return false;
+  }
+
+  return mSession->GetDatagramQueueCapacity(mStreamId, aRemainingBytes,
+                                            aQueuedDatagrams, aMaxQueuedBytes);
+}
+
+bool Http3WebTransportSession::GetDatagramSessionStats(uint64_t* aSent,
+                                                       uint64_t* aExpired,
+                                                       uint64_t* aDropped) {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  if (mRecvState != ACTIVE) {
+    return false;
+  }
+
+  if (!mSession->GetDatagramSessionStats(mStreamId, aSent, aExpired,
+                                         aDropped)) {
+    return false;
+  }
+  *aDropped += mFailedOutgoingDatagrams;
+  return true;
+}
+
+void Http3WebTransportSession::RequestOutgoingDatagramProgress() {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  mOutgoingDatagramProgressRequested = true;
+  mSession->RequestOutgoingDatagramProgress();
+}
+
+bool Http3WebTransportSession::TakeOutgoingDatagramProgressRequest() {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  return std::exchange(mOutgoingDatagramProgressRequested, false);
 }
 
 void Http3WebTransportSession::GetStats() {
@@ -740,20 +771,6 @@ nsresult Http3WebTransportSession::RegisterSendGroup(uint64_t aGroupId) {
     return NS_ERROR_NOT_AVAILABLE;
   }
   return mSession->RegisterWebTransportSendGroup(mStreamId, aGroupId);
-}
-
-void Http3WebTransportSession::OnOutgoingDatagramOutCome(
-    uint64_t aId, WebTransportSessionEventListener::DatagramOutcome aOutCome) {
-  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
-  LOG(("Http3WebTransportSession::OnOutgoingDatagramOutCome this=%p id=%" PRIx64
-       ", outCome=%d mRecvState=%d",
-       this, aId, static_cast<uint32_t>(aOutCome), mRecvState));
-  RefPtr<WebTransportSessionEventListener> listener = GetListener();
-  if (mRecvState != ACTIVE || !listener || !aId) {
-    return;
-  }
-
-  listener->OnOutgoingDatagramOutCome(aId, aOutCome);
 }
 
 void Http3WebTransportSession::

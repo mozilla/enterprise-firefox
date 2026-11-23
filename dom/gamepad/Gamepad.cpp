@@ -36,16 +36,14 @@ void Gamepad::UpdateTimestamp() {
 
 Gamepad::Gamepad(nsISupports* aParent, const nsAString& aID, int32_t aIndex,
                  GamepadHandle aHandle, GamepadMappingType aMapping,
-                 GamepadHand aHand, uint32_t aNumButtons, uint32_t aNumAxes,
-                 uint32_t aNumHaptics, uint32_t aNumLightIndicator,
-                 uint32_t aNumTouchEvents)
+                 uint32_t aNumButtons, uint32_t aNumAxes, uint32_t aNumHaptics,
+                 uint32_t aNumLightIndicator, uint32_t aNumTouchEvents)
     : mParent(aParent),
       mID(aID),
       mIndex(aIndex),
       mHandle(aHandle),
       mTouchIdHashValue(0),
       mMapping(aMapping),
-      mHand(aHand),
       mConnected(true),
       mButtons(aNumButtons),
       mAxes(aNumAxes),
@@ -106,11 +104,6 @@ void Gamepad::SetAxis(uint32_t aAxis, double aValue) {
   UpdateTimestamp();
 }
 
-void Gamepad::SetPose(const GamepadPoseState& aPose) {
-  mPose->SetPoseState(aPose);
-  UpdateTimestamp();
-}
-
 void Gamepad::SetLightIndicatorType(uint32_t aLightIndex,
                                     GamepadLightIndicatorType aType) {
   // Until we fix the synchronization errors in Bug 1682554, this can be
@@ -141,8 +134,6 @@ void Gamepad::SetTouchEvent(uint32_t aTouchIndex,
   UpdateTimestamp();
 }
 
-void Gamepad::SetHand(GamepadHand aHand) { mHand = aHand; }
-
 void Gamepad::SyncState(Gamepad* aOther) {
   if (mButtons.Length() != aOther->mButtons.Length() ||
       mAxes.Length() != aOther->mAxes.Length()) {
@@ -165,13 +156,6 @@ void Gamepad::SyncState(Gamepad* aOther) {
     Gamepad_Binding::ClearCachedAxesValue(this);
   }
 
-  if (StaticPrefs::dom_gamepad_pose_enabled()) {
-    MOZ_ASSERT(aOther->GetPose());
-    mPose->SetPoseState(aOther->GetPose()->GetPoseState());
-  }
-  if (StaticPrefs::dom_gamepad_hand_enabled()) {
-    mHand = aOther->Hand();
-  }
   if (StaticPrefs::dom_gamepad_haptic_actuators_enabled()) {
     for (uint32_t i = 0; i < mHapticActuators.Length(); ++i) {
       mHapticActuators[i]->Set(aOther->mHapticActuators[i]);
@@ -193,8 +177,8 @@ void Gamepad::SyncState(Gamepad* aOther) {
 
 already_AddRefed<Gamepad> Gamepad::Clone(nsISupports* aParent) {
   RefPtr<Gamepad> out =
-      new Gamepad(aParent, mID, mIndex, mHandle, mMapping, mHand,
-                  mButtons.Length(), mAxes.Length(), mHapticActuators.Length(),
+      new Gamepad(aParent, mID, mIndex, mHandle, mMapping, mButtons.Length(),
+                  mAxes.Length(), mHapticActuators.Length(),
                   mLightIndicators.Length(), mTouchEvents.Length());
   out->SyncState(this);
   return out.forget();

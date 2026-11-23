@@ -54,6 +54,29 @@ when starting it, when the toolbox connects to the browser.
 When running this code, Firefox will look for models in the Mozilla model hub located at <https://model-hub.mozilla.org>
 which contains a curated list of models.
 
+## On-device text generation
+
+Options with the `llama.cpp` backend create a `TextGenerationEngine`. It accepts
+the Chat Completions request of the `openai` backend, so a feature runs on device
+by passing different options to `createEngine`:
+
+```javascript
+const engine = await createEngine({
+  ...localOptions,
+  backend: "llama.cpp",
+  taskName: "text-generation",
+});
+const { finalOutput } = await engine.run(
+  { args: messages, inferenceParams: { temperature: 0 } },
+  { signal }
+);
+await engine.terminate();
+```
+
+`runWithGenerator` takes the same request. Each `createEngine` call loads its own
+model, which stays loaded until `terminate()`. Requests carrying `tools` reject,
+and `response_format` is ignored.
+
 ## Available Options
 
 Options passed to the `createEngine` function are verified and converted into a `PipelineOptions` object.
@@ -79,9 +102,7 @@ Below are the options available:
 - **executionPriority**: priority for the engine, can be `HIGH` (critical to Firefox), `NORMAL` (default), or `LOW` (third-party calls).
 - **device**: where the model loads, an `HWInferencePlacement`: device ids or device kinds, ordered by preference. Applies only to the llama.cpp backend.
 - **kvCacheDtype**: quantization level for the llama.cpp backend. It only applies to the llama.cpp backend when flash attention is enabled. Otherwise, it is always `f32`.
-- **numContext**: Maximum context size. Applies only to the llama.cpp backend.
-- **numBatch**: Number of tokens processed in a single forward pass. Applies only to the llama.cpp backend.
-- **numUbatch**: Token batch size. Applies only to the llama.cpp backend.
+- **numBatch**: Tokens per forward pass, setting both llama.cpp batch sizes. Longer prompts are decoded in chunks of this size. Applies only to the llama.cpp backend.
 - **flashAttn**: Whether to use flash attention. Applies only to the llama.cpp backend.
 - **useMmap**: Whether to use memory mapped for the model. Applies only to the llama.cpp backend.
 - **useMlock**: Whether to lock in memory the full model. Applies only to the llama.cpp backend.

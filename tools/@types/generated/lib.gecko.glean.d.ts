@@ -1390,6 +1390,7 @@ interface GleanImpl {
     collectData: GleanTimingDistribution;
     collectSessionHistory: GleanTimingDistribution;
     corruptFile: Record<"false"|"true", GleanCounter>;
+    emptySessionWrite: GleanEventWithExtras<{ closed_windows?: string|number, is_final_write?: string|boolean, prev_size_bytes?: string|number, prev_tabs?: string|number, prev_windows?: string|number, run_state?: string, size_bytes?: string|number, windows?: string|number }>;
     fileSizeBytes: GleanMemoryDistribution;
     manualRestoreDurationUntilEagerTabsRestored: GleanTimingDistribution;
     newTabOnRestoreEnabled: GleanBoolean;
@@ -1406,7 +1407,7 @@ interface GleanImpl {
     startupInitSession: GleanTimingDistribution;
     startupOnloadInitialWindow: GleanTimingDistribution;
     startupSessionAutoRestored: GleanEventWithExtras<{ new_tab_action?: string }>;
-    startupSessionAvailability: GleanEventWithExtras<{ clean?: string, clean_backup?: string, format?: string, origin?: string, recovery?: string, recovery_backup?: string, restarted_by_os?: string|boolean, resume_from_crash?: string|boolean, resume_session_once?: string|boolean, resuming_after_os_restart?: string|boolean, startup_page_is_resume?: string|boolean, upgrade_backup?: string }>;
+    startupSessionAvailability: GleanEventWithExtras<{ clean?: string, clean_backup?: string, closed_windows?: string|number, format?: string, origin?: string, recovery?: string, recovery_backup?: string, restarted_by_os?: string|boolean, resume_from_crash?: string|boolean, resume_session_once?: string|boolean, resuming_after_os_restart?: string|boolean, startup_page_is_resume?: string|boolean, tabs?: string|number, upgrade_backup?: string, windows?: string|number }>;
     startupSessionDecision: GleanEventWithExtras<{ action?: string, init_error?: string, interstitial_reason?: string, permanent_private?: string|boolean, previous_session_crashed?: string|boolean, resume_reason?: string, session_type?: string }>;
     startupSessionOutcome: GleanEventWithExtras<{ outcome?: string }>;
     startupTimeline: Record<"sessionRestoreInitialized"|"sessionRestoreRestoring", GleanQuantity>;

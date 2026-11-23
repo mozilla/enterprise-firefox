@@ -132,6 +132,9 @@ export class IPProtectionPanel {
    * @typedef {object} State
    * @property {boolean} isProtectionEnabled
    *  The timestamp in milliseconds since IP Protection was enabled
+   * @property {boolean} isDefaultMode
+   *  True if the proxy connection uses the default mode (the mode a
+   *  user-started connection gets), even if it has since failed.
    * @property {string} location
    *  The location country code
    * @property {Array<{code: string, available: boolean}>} locationsList
@@ -160,6 +163,8 @@ export class IPProtectionPanel {
    *  True if the VPN service is in the process of connecting, else false.
    * @property {boolean} isActive
    *  True if the VPN proxy is active, else false.
+   * @property {boolean} isRetrying
+   *  True while a connection is being retried from the error state.
    * @property {boolean} isPremium
    * True if the current device has Firefox set as the default browser or the user has a Mozilla VPN subscription
    * Initially false; recomputed asynchronously before the panel is shown.
@@ -469,6 +474,7 @@ export class IPProtectionPanel {
         lazy.IPProtectionService.state ===
         lazy.IPProtectionStates.UNAUTHENTICATED,
       isProtectionEnabled: lazy.IPPProxyManager.isDefaultModeActive,
+      isDefaultMode: lazy.IPPProxyManager.mode === lazy.IPPMode.getDefault(),
       location: lazy.EGRESS_LOCATION || null,
       locationsList: lazy.IPProtectionServerlist.countries,
       error: "",
@@ -485,6 +491,7 @@ export class IPProtectionPanel {
       isActivating:
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
       isActive: lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE,
+      isRetrying: false,
       isEnrolling: lazy.IPProtectionService.authProvider.isEnrolling,
       isPremium: false,
       isDefaultBrowser: false,
@@ -615,7 +622,9 @@ export class IPProtectionPanel {
       lazy.ERRORS.NOT_READY,
     ];
     if (error && !handledElsewhere.includes(error)) {
-      const errorMessage = this.#errorMessage(error);
+      const errorMessage = this.state.error
+        ? this.state.error
+        : this.#errorMessage(error);
       this.setState({
         error: errorMessage,
         showSiteInclusionPrompt: false,
@@ -638,6 +647,23 @@ export class IPProtectionPanel {
       : lazy.IPProtectionServerlist.getRecommendedLocation();
     if (current && wanted?.country.code !== current.country.code) {
       lazy.IPPProxyManager.switch(country);
+    }
+  }
+
+  /**
+   * Retries a failed connection from the error state. The error stays
+   * visible, in its trying again state, until the connection is active or
+   * paused, so a failed retry returns to the same error.
+   */
+  async #retryProxy() {
+    if (this.state.isRetrying) {
+      return;
+    }
+    this.setState({ isRetrying: true });
+    try {
+      await this.#startProxy();
+    } finally {
+      this.setState({ isRetrying: false });
     }
   }
 
@@ -1038,6 +1064,7 @@ export class IPProtectionPanel {
     doc.addEventListener("IPProtection:ClickUpgrade", this.handleEvent);
     doc.addEventListener("IPProtection:Close", this.handleEvent);
     doc.addEventListener("IPProtection:UserEnable", this.handleEvent);
+    doc.addEventListener("IPProtection:UserRetry", this.handleEvent);
     doc.addEventListener("IPProtection:UserDisable", this.handleEvent);
     doc.addEventListener("IPProtection:OptIn", this.handleEvent);
     doc.addEventListener("IPProtection:UserEnableVPNForSite", this.handleEvent);
@@ -1067,6 +1094,7 @@ export class IPProtectionPanel {
     doc.removeEventListener("IPProtection:ClickUpgrade", this.handleEvent);
     doc.removeEventListener("IPProtection:Close", this.handleEvent);
     doc.removeEventListener("IPProtection:UserEnable", this.handleEvent);
+    doc.removeEventListener("IPProtection:UserRetry", this.handleEvent);
     doc.removeEventListener("IPProtection:UserDisable", this.handleEvent);
     doc.removeEventListener("IPProtection:OptIn", this.handleEvent);
     doc.removeEventListener(
@@ -1501,6 +1529,8 @@ export class IPProtectionPanel {
         Services.prefs.setBoolPref(SITE_INCLUSION_PROMPT_SHOWN_PREF, true);
         this.setState({ showSiteInclusionPrompt: true });
       }
+    } else if (event.type == "IPProtection:UserRetry") {
+      this.#retryProxy();
     } else if (event.type == "IPProtection:UserDisable") {
       this.#stopProxy();
       Services.prefs.setBoolPref("browser.ipProtection.userEnabled", false);
@@ -1521,7 +1551,13 @@ export class IPProtectionPanel {
       event.type == "IPProtectionService:StateChanged" ||
       event.type === "IPPAuthProvider:StateChanged"
     ) {
-      const errorType = this.#getProxyErrorType();
+      const keepErrorState =
+        this.state.isRetrying &&
+        lazy.IPPProxyManager.state !== lazy.IPPProxyStates.ACTIVE &&
+        lazy.IPPProxyManager.state !== lazy.IPPProxyStates.PAUSED;
+      const errorType = keepErrorState
+        ? this.state.error
+        : this.#getProxyErrorType();
       const paused = lazy.IPPProxyManager.state === lazy.IPPProxyStates.PAUSED;
 
       this.setState({
@@ -1529,6 +1565,9 @@ export class IPProtectionPanel {
           lazy.IPProtectionService.state ===
           lazy.IPProtectionStates.UNAUTHENTICATED,
         isProtectionEnabled: lazy.IPPProxyManager.isDefaultModeActive,
+        isDefaultMode: keepErrorState
+          ? this.state.isDefaultMode
+          : lazy.IPPProxyManager.mode === lazy.IPPMode.getDefault(),
         hasUpgraded: lazy.IPProtectionService.authProvider.hasUpgraded,
         error: errorType,
         isActivating:

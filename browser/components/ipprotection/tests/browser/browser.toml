@@ -17,6 +17,8 @@ skip-if = [
   "enterprise", # Enterprise uses a different panel template without status card, paused, or upgrade UI.
 ]
 
+["browser_IPPTabRuleProvider.js"]
+
 ["browser_IPPUsageHelper.js"]
 skip-if = [
   "enterprise", # Enterprise does not show the IP Protection toolbar button or panel containing the usage.

@@ -25,6 +25,7 @@
 
 namespace mozilla::dom {
 
+class DOMException;
 class Headers;
 class WebTransportError;
 class WebTransportDatagramDuplexStream;
@@ -76,7 +77,7 @@ class WebTransport final : public nsISupports, public nsWrapperCache {
   // this calls CloseNative(), which doesn't actually run script.   See bug
   // 1810942
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void Cleanup(
-      WebTransportError* aError, const WebTransportCloseInfo* aCloseInfo,
+      DOMException* aError, const WebTransportCloseInfo* aCloseInfo,
       ErrorResult& aRv);
 
   // From Parent
@@ -92,7 +93,10 @@ class WebTransport final : public nsISupports, public nsWrapperCache {
   void NewDatagramReceived(nsTArray<uint8_t>&& aData,
                            const mozilla::TimeStamp& aTimeStamp);
 
-  void OnDatagramReady(uint64_t aDatagramId);
+  void OnDatagramCapacity(uint64_t aCumulativeDatagrams,
+                          uint64_t aCumulativeBytes, uint64_t aSentDelta,
+                          uint64_t aExpiredDelta, uint64_t aDroppedDelta,
+                          uint64_t aDatagramPrefixBytes);
 
   void RemoteClosed(bool aCleanly, const uint32_t& aCode,
                     const nsACString& aReason,
@@ -176,6 +180,12 @@ class WebTransport final : public nsISupports, public nsWrapperCache {
   // both immediately (when connected) and deferred until [[Ready]] settles
   // (when called during "connecting").
   void SendGetStatsRequest(Promise* aPromise);
+
+  // Issues the IPC ExportKeyingMaterial request and wires the response to
+  // aPromise; deferred like SendGetStatsRequest() while "connecting".
+  void SendExportKeyingMaterial(const nsTArray<uint8_t>& aLabel,
+                                const nsTArray<uint8_t>& aContext,
+                                uint32_t aOutputLength, Promise* aPromise);
 
   nsCOMPtr<nsIGlobalObject> mGlobal;
   // We are the owner of WebTransportChild.  We must call Shutdown() on it

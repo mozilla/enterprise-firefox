@@ -132,13 +132,14 @@ sealed interface TabGroupAction : TabsTrayAction {
         TabGroupAction, TabsStorageAction
 
     /**
-     * Fired when the user performs an action to move a tab from one group to another.
+     * Fired when the user picks an existing group to move a tab into. If the tab is the last one in its current group,
+     * this requests confirmation to delete that group instead of moving the tab.
      *
      * @property tabId The ID of the tab.
      * @property groupId The ID of the group the tab is being added into.
      * @property groupTitle The title of the group, used to display a SnackBar.
      */
-    data class TabMovedToExistingTabGroup(val tabId: String, val groupId: String, val groupTitle: String) :
+    data class ExistingGroupSelectedForMove(val tabId: String, val groupId: String, val groupTitle: String) :
         TabGroupAction, TabsStorageAction
 
     /**
@@ -161,6 +162,13 @@ sealed interface TabGroupAction : TabsTrayAction {
      * @property group The [TabsTrayItem.TabGroup] to be closed.
      */
     data class CloseTabGroupClicked(val group: TabsTrayItem.TabGroup) : TabGroupAction, TabsStorageAction
+
+    /**
+     * Invoked when the user clicks to add a new tab to a tab group from the expanded view.
+     *
+     * @property group The [TabsTrayItem.TabGroup] the new tab is added to.
+     */
+    data class AddNewTabToGroupClicked(val group: TabsTrayItem.TabGroup) : TabGroupAction, TabsStorageAction
 
     /**
      * [TabGroupAction] fired when one [TabsTrayItem] is dropped onto another.
@@ -205,4 +213,20 @@ sealed interface TabGroupAction : TabsTrayAction {
 
     /** Pushes enriched [TabsTrayItem.TabGroup] objects from a subscription to the store */
     data class TabGroupsUpdated(val tabGroups: List<TabsTrayItem.TabGroup>) : TabGroupAction
+
+    /**
+     * Invoked when the user confirms moving the last tab out of a group and deleting the source group.
+     *
+     * @property sourceGroupId The group the tab is moving from, which is being deleted
+     * @property destinationGroupId The group the tab is moving to.
+     * @property destinationGroupTitle The title of the destination group.
+     */
+    data class MoveTabAndDeleteGroupConfirmed(
+        val sourceGroupId: String,
+        val destinationGroupId: String,
+        val destinationGroupTitle: String,
+    ) : TabGroupAction, TabsStorageAction
+
+    /** Invoked when the user cancels moving the last tab out of a group and deleting the source group. */
+    data object MoveTabAndDeleteGroupCanceled : TabGroupAction
 }

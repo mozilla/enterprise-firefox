@@ -21,6 +21,10 @@ import androidx.preference.PreferenceManager
 import java.io.File
 import java.security.InvalidParameterException
 import java.util.concurrent.TimeUnit.MILLISECONDS
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import mozilla.components.concept.engine.Engine
 import mozilla.components.concept.engine.Engine.HttpsOnlyMode
 import mozilla.components.feature.automotive.isAndroidAutomotiveAvailable
@@ -107,9 +111,6 @@ class Settings(
         private const val ASK_TO_ALLOW_INT = 1
         private const val ALLOWED_INT = 2
         private const val INACTIVE_TAB_MINIMUM_TO_SHOW_AUTO_CLOSE_DIALOG = 20
-
-        const val LONGFOX_PEEK_ANIMATION_MAX_SHOWS = 5
-        const val LONGFOX_PEEK_ANIMATION_LAUNCH_INTERVAL = 3
 
         const val THIRTY_SECONDS_MS = 30 * 1000L
         const val FOUR_HOURS_MS = 60 * 60 * 4 * 1000L
@@ -576,11 +577,25 @@ class Settings(
             persistDefaultIfNotExists = true,
         )
 
-    var currentWallpaperName by
+    private var storedWallpaperName by
         stringPreference(
             appContext.getPreferenceKey(R.string.pref_key_current_wallpaper),
-            default = Wallpaper.EdgeToEdge.name,
+            default = Wallpaper.Gradient.name,
         )
+
+    /** The name of the selected wallpaper. A name stored before the wallpapers were renamed is migrated on read. */
+    var currentWallpaperName: String
+        get() {
+            val storedName = storedWallpaperName
+            val name = Wallpaper.migrateLegacyName(storedName)
+            if (name != storedName) {
+                storedWallpaperName = name
+            }
+            return name
+        }
+        set(value) {
+            storedWallpaperName = value
+        }
 
     /**
      * A cache of the text color to use on text overlaying the current wallpaper. The value will be `0` if the color is
@@ -3393,6 +3408,20 @@ class Settings(
             default = { DefaultTabManagementFeatureHelper.showTabGroupsInMenu },
         )
 
+    /** [showTabGroupsInMenu], emitting its current value and then every change. */
+    val showTabGroupsInMenuFlow: Flow<Boolean> = callbackFlow {
+        val key = appContext.getPreferenceKey(R.string.pref_key_show_tab_groups_in_menu)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changedKey ->
+            if (changedKey == null || changedKey == key) {
+                trySend(showTabGroupsInMenu)
+            }
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        send(showTabGroupsInMenu)
+        awaitClose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+        .distinctUntilChanged()
+
     /** Whether the Native Share Sheet feature is enabled. */
     var nativeShareSheetEnabled by
         booleanPreference(
@@ -3463,43 +3492,6 @@ class Settings(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_menu_customization_screen),
             default = { false },
         )
-
-    /** Whether Longfox is enabled. */
-    var longfoxEnabled by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_enable_longfox),
-            default = { FxNimbus.features.longfox.value().enabled },
-        )
-
-    /**
-     * Number of times the app has been foregrounded (cold start or returned from background). Used to gate the longfox
-     * peek animation.
-     */
-    var appLaunchCount by
-        intPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_app_launch_count),
-            default = 0,
-        )
-
-    /**
-     * Number of times the longfox peek animation has been shown on the homepage. Capped at
-     * [LONGFOX_PEEK_ANIMATION_MAX_SHOWS]; once reached the animation is no longer shown.
-     */
-    var longfoxPeekAnimationShownCount by
-        intPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_longfox_peek_animation_shown_count),
-            default = 0,
-        )
-
-    /**
-     * Returns true when the longfox peek animation should be armed for the current app foreground: feature enabled, not
-     * yet reached the show cap, and on every Nth launch.
-     */
-    fun shouldShowLongfoxPeekAnimationThisTime(): Boolean =
-        longfoxEnabled &&
-            longfoxPeekAnimationShownCount < LONGFOX_PEEK_ANIMATION_MAX_SHOWS &&
-            appLaunchCount > 0 &&
-            appLaunchCount % LONGFOX_PEEK_ANIMATION_LAUNCH_INTERVAL == 0
 
     /** Indicates whether the app should automatically clean up downloaded files. */
     fun shouldCleanUpDownloadsAutomatically(): Boolean {

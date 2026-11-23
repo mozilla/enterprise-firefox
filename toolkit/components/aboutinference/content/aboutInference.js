@@ -16,6 +16,7 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   DownloadUtils: "resource://gre/modules/DownloadUtils.sys.mjs",
   ModelHub: "chrome://global/content/ml/ModelHub.sys.mjs",
   getInferenceProcessInfo: "chrome://global/content/ml/Utils.sys.mjs",
@@ -293,11 +294,6 @@ async function runTextGeneration() {
   const maxTokens = parseInt(document.getElementById("tg.maxTokens").value);
   const engines = parseInt(document.getElementById("tg.engines").value);
   const runs = parseInt(document.getElementById("tg.runs").value);
-  // Characters bound the prompt tokens and the chat template adds a few; the
-  // batch must hold the whole prompt, which llama.cpp asserts.
-  const numContext = prompt.length + maxTokens + 64;
-  const numBatch = numContext;
-  const numUbatch = Math.min(numBatch, 512);
   const options = {
     featureId: "about-inference",
     engineId: "about-inference-text-generation",
@@ -307,9 +303,6 @@ async function runTextGeneration() {
     modelFile: fullModelId.substring(lastSlash + 1),
     modelRevision: document.getElementById("tg.revision").value.trim(),
     numThreads: parseInt(document.getElementById("tg.threads").value),
-    numContext,
-    numBatch,
-    numUbatch,
     kvCacheDtype: document.getElementById("tg.kvCacheDtype").value,
     flashAttn: document.getElementById("tg.flashAttn").checked,
     useMmap: true,
@@ -1115,15 +1108,12 @@ async function runInference() {
     const modelFile = modelId.substring(lastSlashIndex + 1);
     modelId = modelId.substring(0, lastSlashIndex);
 
-    const numContext = JSON.stringify(inputData.inputArgs).length;
-    const numBatch = Math.min(numContext, 1024);
+    const numBatch = Math.min(JSON.stringify(inputData.inputArgs).length, 1024);
     additionalEngineOptions = {
       modelFile,
       modelId,
       backend: "llama.cpp",
-      numContext,
       numBatch,
-      numUbatch: numBatch,
       useMlock: false,
       useMmap: true,
       kvCacheDtype: "q8_0",
@@ -1435,6 +1425,25 @@ function showSubTab(name) {
   }
 }
 
+function isBrowserApp() {
+  return lazy.AppConstants.MOZ_BUILD_APP === "browser";
+}
+
+function showMemories() {
+  const show = location.hash === "#memories" && isBrowserApp();
+  const panel = document.getElementById("memories");
+  document.l10n.setAttributes(
+    document.querySelector("title"),
+    show ? "about-inference-memories-title" : "about-inference-title"
+  );
+  document.body.classList.toggle("memories", show);
+  if (!show) {
+    panel.replaceChildren();
+  } else if (!panel.firstChild) {
+    panel.append(document.createElement("memories-view"));
+  }
+}
+
 function onSubTabKeydown(event) {
   const tabs = [...event.currentTarget.querySelectorAll("[role='tab']")];
   const rtl = getComputedStyle(document.documentElement).direction === "rtl";
@@ -1556,9 +1565,7 @@ async function runBenchmark() {
         modelRevision: "main",
         modelHub: "mozilla",
         modelHubRootUrl: "https://model-hub.mozilla.org",
-        numContext: 1024,
         numBatch: 1024,
-        numUbatch: 1024,
         useMlock: false,
         useMmap: true,
         kvCacheDtype: "q8_0",
@@ -1647,6 +1654,9 @@ async function runBenchmark() {
  * @async
  */
 window.onload = async function () {
+  document.getElementById("memories-link").hidden = !isBrowserApp();
+  showMemories();
+  window.addEventListener("hashchange", showMemories);
   let menu = document.getElementById("categories");
   menu.addEventListener("click", function click(e) {
     if (

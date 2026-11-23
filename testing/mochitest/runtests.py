@@ -3081,7 +3081,11 @@ toolbar#nav-bar {
                 restartAfterFailure=restartAfterFailure,
             )
 
+            timed_out = False
+
             def timeoutHandler():
+                nonlocal timed_out
+                timed_out = True
                 browserProcessId = outputHandler.browserProcessId
                 self.handleTimeout(
                     timeout,
@@ -3204,6 +3208,7 @@ toolbar#nav-bar {
                 )
                 # must report an integer to process_exit()
                 status = 0
+            exit_code = status
             self.log.process_exit("Main app process", status)
             runner.process_handler = None
 
@@ -3237,7 +3242,7 @@ toolbar#nav-bar {
                 # no need to keep return code 137, 245, etc.
                 status = 1
                 self.message_logger.dump_buffered()
-                msg = f"application terminated with exit code {status}"
+                msg = f"application terminated with exit code {exit_code}"
                 # self.message_logger.is_test_running indicates we need to send a test_end
                 if crashAsPass and self.message_logger.is_test_running:
                     # this works for browser-chrome, mochitest-plain has status=0
@@ -3297,9 +3302,17 @@ toolbar#nav-bar {
                     # this works for browser-chrome, mochitest-plain has status=0
                     expected = "CRASH"
                 status = 0
-            elif crash_count or zombieProcesses:
+            elif crash_count or zombieProcesses or status:
                 if self.message_logger.is_test_running:
                     expected = "PASS"
+                elif status and not crash_count and not timed_out:
+                    # No minidump reported the abnormal exit, e.g. a sanitizer
+                    # abort in a build without a crash reporter. A harness
+                    # timeout has already reported the test it killed.
+                    self.log.error(
+                        f"TEST-UNEXPECTED-FAIL | {self.lastTestSeen} | "
+                        f"application terminated with exit code {exit_code}"
+                    )
                 status = 1
 
             if expected:
@@ -3313,7 +3326,7 @@ toolbar#nav-bar {
                     "source": "mochitest",
                     "time": int(time.time() * 1000),
                     "test": self.lastTestSeen,
-                    "message": f"application terminated with exit code {status}",
+                    "message": f"application terminated with exit code {exit_code}",
                 }
 
                 # for looping scenarios (like --restartAfterFailure), document the test
@@ -3562,6 +3575,7 @@ toolbar#nav-bar {
         bisect = bisection.Bisect(self)
         finished = False
         status = 0
+        result = 0
         bisection_log = 0
 
         # Retry-on-failure relies on counters populated by the desktop
@@ -3592,13 +3606,14 @@ toolbar#nav-bar {
 
             self.tests_started = set()
             if options.restartBetweenTests:
-                result = self.doTests(options, testsToRun[:1], manifestToFilter)
+                res = self.doTests(options, testsToRun[:1], manifestToFilter)
             else:
-                result = self.doTests(options, testsToRun, manifestToFilter)
-            if result == TBPL_RETRY:  # terminate task
-                return result
-            if result == -1:  # interrupted
-                return result
+                res = self.doTests(options, testsToRun, manifestToFilter)
+            if res == TBPL_RETRY:  # terminate task
+                return res
+            if res == -1:  # interrupted
+                return res
+            result = result or res
 
             if options.bisectChunk:
                 status = bisect.post_test(options, self.expectedError, self.result)
@@ -3684,6 +3699,17 @@ toolbar#nav-bar {
             elif test.get("scheme") == "https":
                 httpsTests.append(test)
         return {"http": httpTests, "https": httpsTests}
+
+    def getVerifiedTestPath(self, options):
+        """Returns the source path of the test to verify. test-verify tasks
+        verify one test per harness run, but a local run can verify several,
+        e.g. a whole directory, and its verification steps then run them
+        together: this returns None then."""
+        if isinstance(options.manifestFile, TestManifest):
+            paths = [t.get("srcdir_relpath") for t in options.manifestFile.tests]
+        else:
+            paths = options.test_paths or []
+        return paths[0] if len(paths) == 1 else None
 
     def verifyTests(self, options):
         """
@@ -3776,49 +3802,68 @@ toolbar#nav-bar {
 
         if options.verify_fission:
             steps = [
-                ("1. Run each test without fission.", fission_step1),
-                ("2. Run each test with fission.", fission_step2),
+                ("no fission", "1. Run each test without fission.", fission_step1),
+                ("fission", "2. Run each test with fission.", fission_step2),
             ]
         else:
             steps = [
-                (f"1. Run each test {VERIFY_REPEAT} times in one browser.", step1),
                 (
+                    "repeat",
+                    f"1. Run each test {VERIFY_REPEAT} times in one browser.",
+                    step1,
+                ),
+                (
+                    "standalone",
                     f"2. Run each test {VERIFY_REPEAT_SINGLE_BROWSER} times in a new browser each time.",
                     step2,
                 ),
                 (
+                    "repeat",
                     f"3. Run each test {VERIFY_REPEAT} times in one browser, in chaos mode.",
                     step3,
                 ),
                 (
+                    "standalone",
                     f"4. Run each test {VERIFY_REPEAT_SINGLE_BROWSER} times in a new browser each time, in chaos mode.",
                     step4,
                 ),
             ]
 
         stepResults = {}
-        for descr, step in steps:
+        for _, descr, _ in steps:
             stepResults[descr] = "not run / incomplete"
 
         startTime = datetime.now()
         maxTime = timedelta(seconds=options.verify_max_time)
+        testPath = self.getVerifiedTestPath(options)
+        testGroup = f"{testPath} --verify" if testPath else None
+        if testGroup:
+            self.log.group_start(name=testGroup)
         finalResult = "PASSED"
-        for descr, step in steps:
+        in_chaos_group = False
+        for name, descr, step in steps:
             if (datetime.now() - startTime) > maxTime:
                 self.log.info("::: Test verification is taking too long: Giving up!")
                 self.log.info(
                     "::: So far, all checks passed, but not all checks were run."
                 )
                 break
+            if step in (step3, step4) and not in_chaos_group:
+                self.log.group_start(name="chaos")
+                in_chaos_group = True
+            self.log.group_start(name=name)
             self.log.info(":::")
             self.log.info(f'::: Running test verification step "{descr}"...')
             self.log.info(":::")
             result = step()
+            self.log.group_end(name=name)
             if result != 0:
                 stepResults[descr] = "FAIL"
                 finalResult = "FAILED!"
                 break
             stepResults[descr] = "Pass"
+        if in_chaos_group:
+            self.log.group_end(name="chaos")
 
         self.logPreamble([])
 
@@ -3834,6 +3879,8 @@ toolbar#nav-bar {
         self.log.info(":::")
         self.log.info(f"::: Test verification {finalResult}")
         self.log.info(":::")
+        if testGroup:
+            self.log.group_end(name=testGroup)
 
         return 0
 

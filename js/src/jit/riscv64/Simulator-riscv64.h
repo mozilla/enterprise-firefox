@@ -36,6 +36,7 @@
 #include "mozilla/Casting.h"
 #include "mozilla/FloatingPoint.h"
 
+#include <array>
 #include <cmath>
 #include <limits>
 #include <type_traits>
@@ -295,14 +296,25 @@ class SimInstruction : public InstructionBase {
   Type type_ = kUnsupported;
 
  public:
+  // The encoding types of the 32-bit instructions by major opcode bits 6..2.
+  static constexpr auto kBaseOpcodeTypes = [] {
+    std::array<Type, 32> types{};
+    for (Instr i = 0; i < 32; i++) {
+      types[i] = BaseOpcodeType((i << 2) | 3);
+    }
+    return types;
+  }();
+
   SimInstruction() = default;
 
   explicit SimInstruction(Instruction* instr) { *this = instr; }
 
   SimInstruction& operator=(Instruction* instr) {
-    operand_ = *reinterpret_cast<const int32_t*>(instr);
+    operand_ = instr->InstructionBits();
     instr_ = instr;
-    type_ = InstructionBase::InstructionType();
+    type_ = IsShortInstruction()
+                ? InstructionBase::InstructionType()
+                : kBaseOpcodeTypes[(operand_ & kBaseOpcodeMask) >> 2];
     MOZ_ASSERT(reinterpret_cast<void*>(&operand_) == this);
     return *this;
   }
@@ -847,8 +859,7 @@ class Simulator {
   bool overRecursed(uintptr_t newsp = 0) const;
   bool overRecursedWithExtra(uint32_t extra) const;
 
-  // Executes MIPS instructions until the PC reaches end_sim_pc.
-  template <bool enableStopSimAt>
+  // Executes RISC-V instructions until the PC reaches end_sim_pc.
   void execute();
 
   // Sets up the simulator state and grabs the result on return.
@@ -955,8 +966,15 @@ class Simulator {
     return true;
   }
 
-  // Executes one instruction.
-  void InstructionDecode(const SimInstruction& instr);
+  // Decodes and executes one instruction.
+  void ExecuteInstruction(Instruction* instr);
+  // As ExecuteInstruction, with the icache check, tracing and the watch.
+  void ExecuteInstructionWithChecks(const SimInstruction& instr);
+  // As ExecuteInstructionWithChecks, with the stop-at count and single
+  // stepping.
+  void ExecuteSlowPath(int64_t program_counter);
+  // Sets instruction_checks_, which execute tests before each instruction.
+  void UpdateInstructionChecks();
 
   // ICache.
   // static void CheckICache(base::CustomMatcherHashMap* i_cache,
@@ -1156,6 +1174,7 @@ class Simulator {
   char* stack_;
   uintptr_t stackLimit_;
   bool pc_modified_;
+  bool instruction_checks_ = true;
   int64_t icount_;
   int64_t break_count_;
 

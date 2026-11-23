@@ -19,7 +19,7 @@ import {
  * Resolve browser error signals to a canonical registry ID.
  *
  * Handles resolution scenarios in priority order:
- * 1. System state overrides (no connectivity, VPN active)
+ * 1. System state overrides (no connectivity, VPN failure)
  * 2. Direct registry lookup by errorCodeString (C++ error strings)
  * 3. Fallback to a shared config when errorCodeString is unregistered
  * 4. Direct registry lookup by gErrorCode (URL-derived error codes)
@@ -28,8 +28,9 @@ import {
  * @param {string} signals.errorCodeString - Raw error string from the security/network layer
  * @param {string} signals.gErrorCode - URL-derived error code (e= parameter)
  * @param {boolean} signals.noConnectivity - System has no network connectivity
- * @param {boolean} signals.vpnActive - VPN is currently active
+ * @param {boolean} [signals.vpnError] - The proxy failure is the VPN's
  * @param {boolean} signals.accessConnectorActive - Enterprise Access Connector is active
+>>>>>>> origin/main
  * @returns {string|null} Canonical registry ID, or null if the error has no
  *   Felt Privacy config.
  */
@@ -37,7 +38,7 @@ export function resolveErrorID({
   errorCodeString,
   gErrorCode,
   noConnectivity,
-  vpnActive,
+  vpnError = false,
   accessConnectorActive,
 }) {
   // System state overrides.
@@ -52,7 +53,7 @@ export function resolveErrorID({
   ) {
     return "accessConnectorFailure";
   }
-  if (gErrorCode === "proxyConnectFailure" && vpnActive) {
+  if (vpnError) {
     return "vpnFailure";
   }
 

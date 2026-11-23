@@ -118,8 +118,8 @@ add_task(async function test_textgenerator_max_tokens_bounds() {
     );
     Assert.lessOrEqual(
       huge.usage.generatedTokens,
-      TINYSTORIES_CONTEXT_SIZE,
-      "A budget past the context is served up to the context, not beyond"
+      TINYSTORIES_TRAINED_CONTEXT,
+      "A budget past the trained context is capped to it"
     );
   } finally {
     generator.terminate();
@@ -128,7 +128,7 @@ add_task(async function test_textgenerator_max_tokens_bounds() {
 
 add_task(async function test_textgenerator_cancel() {
   const maxTokens = 4000;
-  const generator = await createTinyStoriesGenerator({ contextSize: 4096 });
+  const generator = await createTinyStoriesGenerator();
   try {
     let streamed = "";
     let cancelRequested = false;
@@ -188,7 +188,7 @@ add_task(async function test_prompt_code_points() {
   const modelFile = await File.createFromFileName(
     getTestFilePath("data/Mozilla/test-llama/main/byte-fallback.gguf")
   );
-  const generator = await TextGenerator.create(modelFile, { contextSize: 128 });
+  const generator = await TextGenerator.create(modelFile);
   try {
     const request = {
       messages: [{ role: "user", content: "abc" }],
@@ -208,4 +208,36 @@ add_task(async function test_prompt_code_points() {
   } finally {
     generator.terminate();
   }
+});
+
+add_task(async function test_prompt_longer_than_batch() {
+  const results = [];
+  for (const batchSize of [4, 512]) {
+    const generator = await createTinyStoriesGenerator({ batchSize });
+    try {
+      results.push(
+        await generator.generate({
+          messages: [
+            { role: "user", content: "The cat sat on the mat. ".repeat(32) },
+          ],
+          maxTokens: 8,
+          samplers: TINYSTORIES_GREEDY_SAMPLERS,
+        })
+      );
+    } finally {
+      generator.terminate();
+    }
+  }
+  Assert.greater(results[0].usage.promptTokens, 32, "The prompt spans batches");
+  Assert.greater(results[0].usage.generatedTokens, 0, "It generates output");
+  Assert.equal(
+    results[0].content,
+    results[1].content,
+    "Batching preserves greedy output"
+  );
+  Assert.equal(
+    results[0].usage.promptTokens,
+    results[1].usage.promptTokens,
+    "Both runs consume the whole prompt"
+  );
 });

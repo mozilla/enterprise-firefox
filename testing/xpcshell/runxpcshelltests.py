@@ -1803,10 +1803,10 @@ class XPCShellTests:
         """
         if os.getenv("MOZ_ASSUME_NODE_RUNNING", None):
             self.log.info("Assuming required node servers are already running")
-            if not os.getenv("MOZHTTP2_PORT", None):
+            if not os.getenv("MOZNODE_EXEC_PORT", None):
                 self.log.warning(
-                    "MOZHTTP2_PORT environment variable not set. "
-                    "Tests requiring http/2 will fail."
+                    "MOZNODE_EXEC_PORT environment variable not set. "
+                    "Tests requiring node servers will fail."
                 )
             return
 
@@ -2623,18 +2623,22 @@ class XPCShellTests:
 
             steps = [
                 (
+                    None,
                     f"1. Run each test {VERIFY_REPEAT} times, sequentially.",
                     step_sequential,
                 ),
                 (
+                    None,
                     f"2. Run each test {VERIFY_REPEAT} times, in parallel.",
                     step_parallel,
                 ),
                 (
+                    "chaos",
                     f"3. Run each test {VERIFY_REPEAT} times, sequentially, in chaos mode.",
                     step_chaos,
                 ),
                 (
+                    "chaos",
                     f"4. Run each test {VERIFY_REPEAT} times, in parallel, in chaos mode.",
                     step_chaos_parallel,
                 ),
@@ -2642,11 +2646,14 @@ class XPCShellTests:
             startTime = datetime.now()
             maxTime = timedelta(seconds=options["verifyMaxTime"])
             for test_object in self.alltests:
+                test_group = f"{test_object['id']} --verify"
+                self.log.group_start(name=test_group)
                 stepResults = {}
-                for descr, step in steps:
+                for _, descr, _ in steps:
                     stepResults[descr] = "not run / incomplete"
                 finalResult = "PASSED"
-                for descr, step in steps:
+                group = None
+                for name, descr, step in steps:
                     if (datetime.now() - startTime) > maxTime:
                         self.log.info(
                             "::: Test verification is taking too long: Giving up!"
@@ -2665,6 +2672,12 @@ class XPCShellTests:
                         if self.sequential:
                             stepResults[descr] = "Skipped, running sequentially"
                             continue
+                    if name != group:
+                        if group:
+                            self.log.group_end(name=group)
+                        if name:
+                            self.log.group_start(name=name)
+                        group = name
                     self.log.info(":::")
                     self.log.info('::: Running test verification step "%s"...' % descr)
                     self.log.info(":::")
@@ -2674,6 +2687,8 @@ class XPCShellTests:
                         finalResult = "FAILED!"
                         break
                     stepResults[descr] = "Pass"
+                if group:
+                    self.log.group_end(name=group)
                 self.log.info(":::")
                 self.log.info(
                     "::: Test verification summary for: %s" % test_object["path"]
@@ -2684,6 +2699,7 @@ class XPCShellTests:
                 self.log.info(":::")
                 self.log.info("::: Test verification %s" % finalResult)
                 self.log.info(":::")
+                self.log.group_end(name=test_group)
 
         self.shutdownNode()
         self.shutdownHttp3Server()

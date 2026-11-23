@@ -2341,6 +2341,13 @@ mozilla::ipc::IPCResult ContentChild::RecvNotifyVisited(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult ContentChild::RecvNotifyGlobalHistoryCleared() {
+  if (nsCOMPtr<IHistory> history = components::History::Service()) {
+    history->NotifyHistoryCleared();
+  }
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult ContentChild::RecvThemeChanged(
     FullLookAndFeel&& aLookAndFeelData, widget::ThemeChangeKind aKind) {
   LookAndFeel::SetData(std::move(aLookAndFeelData));
@@ -3910,8 +3917,9 @@ mozilla::ipc::IPCResult ContentChild::RecvWindowFocus(
     return IPC_OK();
   }
 
+  LazyFocusActionId actionId(aActionId);
   nsGlobalWindowOuter::Cast(window)->FocusOuter(
-      aCallerType, /* aFromOtherProcess */ true, aActionId);
+      aCallerType, /* aFromOtherProcess */ true, actionId);
   return IPC_OK();
 }
 
@@ -3963,7 +3971,8 @@ mozilla::ipc::IPCResult ContentChild::RecvRaiseWindow(
   }
 
   if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
-    fm->RaiseWindow(window, aCallerType, aActionId);
+    LazyFocusActionId actionId(aActionId);
+    fm->RaiseWindow(window, aCallerType, actionId);
   }
   return IPC_OK();
 }

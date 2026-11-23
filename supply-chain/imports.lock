@@ -22,13 +22,6 @@ user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
 
-[[publisher.atomic]]
-version = "0.4.6"
-when = "2020-07-05"
-user-id = 2915
-user-login = "Amanieu"
-user-name = "Amanieu d'Antras"
-
 [[publisher.audio_thread_priority]]
 version = "0.38.0"
 when = "2026-09-17"
@@ -268,15 +261,15 @@ user-login = "jrmuizel"
 user-name = "Jeff Muizelaar"
 
 [[publisher.glean]]
-version = "71.0.0"
-when = "2026-10-22"
+version = "71.1.0"
+when = "2026-11-16"
 user-id = 48
 user-login = "badboy"
 user-name = "Jan-Erik Rediger"
 
 [[publisher.glean-core]]
-version = "71.0.0"
-when = "2026-10-22"
+version = "71.1.0"
+when = "2026-11-16"
 user-id = 48
 user-login = "badboy"
 user-name = "Jan-Erik Rediger"
@@ -487,23 +480,9 @@ user-id = 4484
 user-login = "hsivonen"
 user-name = "Henri Sivonen"
 
-[[publisher.num]]
-version = "0.4.3"
-when = "2024-05-08"
-user-id = 539
-user-login = "cuviper"
-user-name = "Josh Stone"
-
 [[publisher.num-bigint]]
 version = "0.4.6"
 when = "2024-06-27"
-user-id = 539
-user-login = "cuviper"
-user-name = "Josh Stone"
-
-[[publisher.num-complex]]
-version = "0.4.6"
-when = "2024-05-07"
 user-id = 539
 user-login = "cuviper"
 user-name = "Josh Stone"
@@ -3980,18 +3959,6 @@ who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.19.0 -> 0.20.0"
 notes = "Removed all LMDB-specific code, added malloc_size_of integration"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.audits.rmp]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "0.8.14 -> 0.8.15"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.audits.rmp-serde]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "1.3.0 -> 1.3.1"
 aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
 
 [[audits.mozilla.audits.rustc_version]]

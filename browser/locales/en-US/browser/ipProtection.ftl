@@ -271,10 +271,12 @@ upgrade-vpn-button = Try { -mozilla-vpn-brand-name }
 
 ## Messages and errors
 
-ipprotection-connection-status-generic-error-title-1 = Couldn’t connect to VPN
-  .aria-label = Couldn’t connect to VPN
-ipprotection-connection-status-generic-error-description = Try again in a few minutes.
-ipprotection-connection-status-generic-error-try-again = Please try again later.
+ipprotection-connection-status-try-again-button = Try again
+# Label for button that causes the VPN to deactivate the VPN (but any site inclusions continue to use the VPN)
+ipprotection-connection-error-continue-without-vpn = Continue without VPN
+# Shown in place of the error title while the VPN tries to connect again
+ipprotection-connection-status-trying-again-title = Trying again…
+  .aria-label = Trying again…
 
 ipprotection-connection-status-network-error-title-1 = Check your internet connection
   .aria-label = Check your internet connection
@@ -531,8 +533,5 @@ vpn-error-page-new-session = Start a new session
 
 vpn-paused-alert-close-tabs-button = Close all tabs
 vpn-paused-alert-continue-wo-vpn-button = Continue without VPN
-
-vpn-error-alert-title-1 = VPN and rules aren’t working right now.
-vpn-error-alert-body-1 = Turning VPN on and off may fix the issue.
 
 ##

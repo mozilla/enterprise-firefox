@@ -17,6 +17,14 @@ void WebTransportChild::Shutdown(bool aClose) {
   Close();
 }
 
+// Shutdown() clears mTransport first, so this only reaches the transport when
+// the actor goes away without the content side asking: the parent can't send
+// CloseAll from its own ActorDestroy(), so settle everything here instead.
+void WebTransportChild::ActorDestroy(ActorDestroyReason aWhy) {
+  LOG(("ActorDestroy WebTransportChild %d", aWhy));
+  CloseAll();
+}
+
 void WebTransportChild::CloseAll() {
   if (mTransport) {
     RefPtr<WebTransport> self(mTransport);
@@ -60,20 +68,38 @@ void WebTransportChild::CloseAll() {
   return IPC_OK();
 }
 
-::mozilla::ipc::IPCResult WebTransportChild::RecvIncomingDatagram(
-    nsTArray<uint8_t>&& aData, const TimeStamp& aRecvTimeStamp) {
-  if (mTransport) {
-    RefPtr<WebTransport> self(mTransport);
-    self->NewDatagramReceived(std::move(aData), aRecvTimeStamp);
+::mozilla::ipc::IPCResult WebTransportChild::RecvIncomingDatagrams(
+    nsTArray<IncomingDatagram>&& aDatagrams) {
+  if (!mTransport) {
+    return IPC_OK();
+  }
+
+  // One task per datagram, rather than handing the whole batch over inline.
+  // Each task gets a microtask checkpoint after it, which is what lets a
+  // pending read() resolve and drain the DOM queue between arrivals. Delivering
+  // a batch inline would give the burst no checkpoints at all, so with a queue
+  // bound smaller than the batch every arrival would evict its predecessor and
+  // only the last queueful would ever reach script.
+  for (auto& datagram : aDatagrams) {
+    NS_DispatchToCurrentThread(NS_NewRunnableFunction(
+        "WebTransportChild::RecvIncomingDatagrams",
+        [self = RefPtr{mTransport}, data = std::move(datagram.data()),
+         ts = datagram.receivedTime()]() mutable {
+          self->NewDatagramReceived(std::move(data), ts);
+        }));
   }
   return IPC_OK();
 }
 
-::mozilla::ipc::IPCResult WebTransportChild::RecvDatagramReady(
-    const uint64_t& aDatagramId) {
+::mozilla::ipc::IPCResult WebTransportChild::RecvDatagramCapacity(
+    const uint64_t& aCumulativeDatagrams, const uint64_t& aCumulativeBytes,
+    const uint64_t& aSentDelta, const uint64_t& aExpiredDelta,
+    const uint64_t& aDroppedDelta, const uint64_t& aDatagramPrefixBytes) {
   if (mTransport) {
     RefPtr<WebTransport> self(mTransport);
-    self->OnDatagramReady(aDatagramId);
+    self->OnDatagramCapacity(aCumulativeDatagrams, aCumulativeBytes, aSentDelta,
+                             aExpiredDelta, aDroppedDelta,
+                             aDatagramPrefixBytes);
   }
   return IPC_OK();
 }

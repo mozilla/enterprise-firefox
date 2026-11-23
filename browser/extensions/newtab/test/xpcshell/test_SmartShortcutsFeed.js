@@ -5,6 +5,8 @@
 
 ChromeUtils.defineESModuleGetters(this, {
   actionTypes: "resource://newtab/common/Actions.mjs",
+  PlacesTestUtils: "resource://testing-common/PlacesTestUtils.sys.mjs",
+  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   SmartShortcutsFeed: "resource://newtab/lib/SmartShortcutsFeed.sys.mjs",
 });
 
@@ -136,4 +138,125 @@ add_task(async function test_force_log_keeps_feed_enabled_when_remote_false() {
     feed.isEnabled(),
     "local force_log pref also keeps logging enabled"
   );
+});
+
+function countInteractions() {
+  return PlacesTestUtils.getDatabaseValue(
+    "moz_newtab_shortcuts_interaction",
+    "COUNT(*)"
+  );
+}
+
+add_task(async function test_interactions_written_in_one_flush() {
+  await PlacesUtils.history.clear();
+  await PlacesTestUtils.addVisits("https://example.com/");
+  const guid = await PlacesTestUtils.getDatabaseValue("moz_places", "guid", {
+    url: "https://example.com/",
+  });
+
+  let feed = new SmartShortcutsFeed();
+  feed.store = makeStore({
+    [PREF_SYSTEM_SHORTCUTS_PERSONALIZATION]: true,
+  });
+  await feed.onAction({ type: actionTypes.INIT });
+
+  for (const [type, isPinned, position] of [
+    ["impression", false, 0],
+    ["impression", true, 1],
+    ["click", false, 2],
+  ]) {
+    await feed.onAction({
+      type: actionTypes.TOP_SITES_ORGANIC_IMPRESSION_STATS,
+      data: { type, guid, position, isPinned },
+    });
+  }
+
+  Assert.ok(feed.flushTask.isArmed, "Flush is scheduled, not run");
+  Assert.equal(feed.pendingInteractions.length, 3, "Interactions are queued");
+
+  const firstTask = feed.flushTask;
+  await feed.onAction({ type: actionTypes.UNINIT });
+
+  Assert.equal(await countInteractions(), 3, "UNINIT writes all interactions");
+  const db = await PlacesUtils.promiseDBConnection();
+  const stored = await db.execute(
+    `SELECT event_type, pinned, tile_position
+     FROM moz_newtab_shortcuts_interaction ORDER BY id`
+  );
+  Assert.deepEqual(
+    stored.map(row => [
+      row.getResultByName("event_type"),
+      row.getResultByName("pinned"),
+      row.getResultByName("tile_position"),
+    ]),
+    [
+      [0, 0, 0],
+      [0, 1, 1],
+      [1, 0, 2],
+    ],
+    "Each interaction is stored with its own values"
+  );
+  Assert.equal(feed.pendingInteractions.length, 0, "Queue is emptied");
+
+  await feed.onAction({ type: actionTypes.INIT });
+  await feed.onAction({
+    type: actionTypes.TOP_SITES_ORGANIC_IMPRESSION_STATS,
+    data: { type: "impression", guid, position: 0, isPinned: false },
+  });
+  Assert.notEqual(feed.flushTask, firstTask, "A new task is created");
+  Assert.ok(feed.flushTask.isArmed, "The new task is scheduled");
+
+  await feed.onAction({ type: actionTypes.UNINIT });
+  Assert.equal(await countInteractions(), 4, "The new task writes too");
+
+  await PlacesUtils.history.clear();
+});
+
+add_task(async function test_idle_daily_observer() {
+  let feed = new SmartShortcutsFeed();
+  feed.store = makeStore({
+    [PREF_SYSTEM_SHORTCUTS_PERSONALIZATION]: true,
+  });
+
+  const countObservers = () =>
+    [...Services.obs.enumerateObservers("idle-daily")].length;
+  const before = countObservers();
+
+  await feed.onAction({ type: actionTypes.INIT });
+  Assert.equal(countObservers(), before + 1, "Observes idle-daily after INIT");
+
+  await feed.onAction({ type: actionTypes.UNINIT });
+  Assert.equal(countObservers(), before, "Stops observing on UNINIT");
+});
+
+add_task(async function test_idle_daily_prunes_old_interactions() {
+  await PlacesUtils.history.clear();
+  await PlacesTestUtils.addVisits("https://example.com/");
+  const placeId = await PlacesTestUtils.getDatabaseValue("moz_places", "id", {
+    url: "https://example.com/",
+  });
+
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  await PlacesUtils.withConnectionWrapper("test", async db => {
+    for (const age of [1, 63]) {
+      await db.execute(
+        `INSERT INTO moz_newtab_shortcuts_interaction
+           (place_id, event_type, timestamp_s, pinned, tile_position)
+         VALUES (:placeId, 0, :timestamp_s, 0, 0)`,
+        { placeId, timestamp_s: Math.round((now - age * DAY_MS) / 1000) }
+      );
+    }
+  });
+
+  let feed = new SmartShortcutsFeed();
+  await feed.pruneInteractions();
+
+  Assert.equal(
+    await countInteractions(),
+    1,
+    "Removes interactions past the lookback window"
+  );
+
+  await PlacesUtils.history.clear();
 });

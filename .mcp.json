@@ -4,13 +4,13 @@
       "type": "http",
       "url": "https://mcp-dev.moz.tools/mcp"
     },
-    "firefox-devtools": {
+    "firefox": {
       "type": "stdio",
       "command": "${MACH_PYTHON:-python3}",
       "args": [
         "mach",
         "--quiet",
-        "firefox-devtools-mcp",
+        "firefox-mcp",
         "--pref",
         "remote.prefs.recommended=false",
         "--pref",

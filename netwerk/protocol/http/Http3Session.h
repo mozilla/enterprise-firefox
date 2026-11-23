@@ -152,10 +152,9 @@ class Http3SessionBase {
   virtual bool CloseWebTransport(
       uint64_t aSessionId, uint32_t aError, const nsACString& aMessage,
       mozilla::dom::WebTransportStatsData& aStats) = 0;
-  virtual void SendDatagram(Http3WebTransportSession* aSession,
-                            nsTArray<uint8_t>& aData, uint64_t aTrackingId,
-                            uint64_t aSendGroupId, int64_t aSendOrder,
-                            TimeStamp aTimestamp) = 0;
+  virtual nsresult SendDatagram(Http3WebTransportSession* aSession,
+                                nsTArray<uint8_t>& aData, uint64_t aSendGroupId,
+                                int64_t aSendOrder, TimeStamp aTimestamp) = 0;
   virtual uint64_t MaxDatagramSize(uint64_t aSessionId) = 0;
   virtual nsresult ExportWebTransportKeyingMaterial(
       uint64_t aSessionId, const nsTArray<uint8_t>& aLabel,
@@ -164,6 +163,21 @@ class Http3SessionBase {
   virtual void SetDatagramMaxBufferedDatagrams(
       uint64_t aSessionId, uint32_t aMaxBufferedDatagrams) = 0;
   virtual void SetDatagramMaxAge(uint64_t aSessionId, double aMaxAge) = 0;
+  // Have the next output pass check its sessions for a datagram progress
+  // request; see WebTransportSessionBase::RequestOutgoingDatagramProgress().
+  virtual void RequestOutgoingDatagramProgress() = 0;
+  // A snapshot of this session's outgoing-datagram queue state, for driving
+  // a content-process credit grant. aRemainingBytes/aMaxQueuedBytes bound
+  // that queue's byte budget; aQueuedDatagrams is informational only.
+  virtual bool GetDatagramQueueCapacity(uint64_t aSessionId,
+                                        size_t* aRemainingBytes,
+                                        size_t* aQueuedDatagrams,
+                                        size_t* aMaxQueuedBytes) = 0;
+  // Cumulative sent/expired/dropped outgoing-datagram counts for this
+  // session, for driving the aggregate DatagramCapacity feedback.
+  virtual bool GetDatagramSessionStats(uint64_t aSessionId, uint64_t* aSent,
+                                       uint64_t* aExpired,
+                                       uint64_t* aDropped) = 0;
   virtual bool GetWebTransportSessionStats(
       uint64_t aSessionId, mozilla::dom::WebTransportStatsData& aStats) = 0;
   virtual nsresult RegisterWebTransportSendGroup(uint64_t aSessionId,
@@ -182,7 +196,7 @@ class Http3SessionBase {
   virtual void StreamStopSending(Http3WebTransportStream* aStream,
                                  uint64_t aErrorCode) = 0;
   virtual void SetSendOrder(Http3StreamBase* aStream, int64_t aSendOrder) = 0;
-  virtual void SetSendGroup(Http3StreamBase* aStream,
+  virtual void SetSendGroup(Http3WebTransportStream* aStream,
                             uint64_t aSendGroupId) = 0;
 };
 
@@ -317,10 +331,9 @@ class Http3Session final : public Http3SessionBase,
   void StreamStopSending(Http3WebTransportStream* aStream,
                          uint64_t aErrorCode) override;
 
-  void SendDatagram(Http3WebTransportSession* aSession,
-                    nsTArray<uint8_t>& aData, uint64_t aTrackingId,
-                    uint64_t aSendGroupId, int64_t aSendOrder,
-                    TimeStamp aTimestamp) override;
+  nsresult SendDatagram(Http3WebTransportSession* aSession,
+                        nsTArray<uint8_t>& aData, uint64_t aSendGroupId,
+                        int64_t aSendOrder, TimeStamp aTimestamp) override;
   void SendHTTPDatagram(uint64_t aStreamId, nsTArray<uint8_t>& aData,
                         uint64_t aTrackingId) override;
 
@@ -337,6 +350,14 @@ class Http3Session final : public Http3SessionBase,
   void SetDatagramMaxBufferedDatagrams(uint64_t aSessionId,
                                        uint32_t aMaxBufferedDatagrams) override;
   void SetDatagramMaxAge(uint64_t aSessionId, double aMaxAge) override;
+  void RequestOutgoingDatagramProgress() override {
+    mOutgoingDatagramProgressRequested = true;
+  }
+  bool GetDatagramQueueCapacity(uint64_t aSessionId, size_t* aRemainingBytes,
+                                size_t* aQueuedDatagrams,
+                                size_t* aMaxQueuedBytes) override;
+  bool GetDatagramSessionStats(uint64_t aSessionId, uint64_t* aSent,
+                               uint64_t* aExpired, uint64_t* aDropped) override;
   nsresult GetWebTransportSessionProtocol(uint64_t aSessionId,
                                           nsACString& aProtocol) override;
   void SetWebTransportAnticipatedConcurrentIncomingUnidirectionalStreams(
@@ -345,7 +366,8 @@ class Http3Session final : public Http3SessionBase,
       uint64_t aSessionId, uint16_t aValue) override;
 
   void SetSendOrder(Http3StreamBase* aStream, int64_t aSendOrder) override;
-  void SetSendGroup(Http3StreamBase* aStream, uint64_t aSendGroupId) override;
+  void SetSendGroup(Http3WebTransportStream* aStream,
+                    uint64_t aSendGroupId) override;
 
   void CloseWebTransportConn() override;
 
@@ -374,6 +396,7 @@ class Http3Session final : public Http3SessionBase,
                           bool justKidding);
 
   nsresult ProcessOutput(nsIUDPSocket* socket);
+  void NotifyOutgoingDatagramProgress();
   nsresult ProcessInput(nsIUDPSocket* socket);
   nsresult ProcessEvents();
 
@@ -421,9 +444,9 @@ class Http3Session final : public Http3SessionBase,
 
   RefPtr<NeqoHttp3Conn> mHttp3Connection;
   RefPtr<nsAHttpConnection> mConnection;
-  // We need an extra map to store the mapping of WebTransportSession and
-  // WebTransportStreams to handle the case that a stream is already removed
-  // from mStreamIdHash and we still need the WebTransportSession.
+  // Maps a WebTransport stream to its session, so a RESET_STREAM or
+  // STOP_SENDING for a stream can be reported to the session.  Entries live
+  // as long as the stream is in mStreamIdHash.
   nsTHashMap<nsUint64HashKey, uint64_t> mWebTransportStreamToSessionMap;
   nsRefPtrHashtable<nsUint64HashKey, Http3StreamBase> mStreamIdHash;
   nsRefPtrHashtable<nsPtrHashKey<nsAHttpTransaction>, Http3StreamBase>
@@ -552,6 +575,9 @@ class Http3Session final : public Http3SessionBase,
   nsTArray<RefPtr<Http3StreamBase>> mTunnelStreams;
 
   bool mHasWebTransportSession = false;
+  // Whether some session in mWebTransportSessions has a pending
+  // RequestOutgoingDatagramProgress(), so output passes needn't walk them all.
+  bool mOutgoingDatagramProgressRequested = false;
   // When true, we don't add this connection info into the Http/3 excluded list.
   bool mDontExclude = false;
   // True if any stream accepted Do0RTT() during the ZERORTT phase.  When the

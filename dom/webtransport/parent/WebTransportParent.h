@@ -9,6 +9,7 @@
 
 #include "ErrorList.h"
 #include "mozilla/dom/ClientIPCTypes.h"
+#include "mozilla/dom/DatagramCredit.h"
 #include "mozilla/dom/FlippedOnce.h"
 #include "mozilla/dom/PWebTransportParent.h"
 #include "mozilla/ipc/Endpoint.h"
@@ -78,14 +79,19 @@ class WebTransportParent : public PWebTransportParent,
       int64_t aSendOrder, Maybe<uint64_t> aSendGroupId,
       CreateBidirectionalStreamResolver&& aResolver);
 
-  ::mozilla::ipc::IPCResult RecvOutgoingDatagram(
-      const uint64_t& aDatagramId, nsTArray<uint8_t>&& aData,
-      const TimeStamp& aTimestamp, const uint64_t& aSendGroupId,
-      const int64_t& aSendOrder, OutgoingDatagramResolver&& aResolver);
+  ::mozilla::ipc::IPCResult RecvOutgoingDatagrams(
+      nsTArray<OutgoingDatagram>&& aDatagrams);
 
   ::mozilla::ipc::IPCResult RecvUpdateDatagramQueueParams(
       const uint32_t& aOutgoingMaxBufferedDatagrams,
       const double& aOutgoingMaxAge);
+
+  // Queries neqo's outgoing datagram queue capacity and sent/expired/dropped
+  // counters and, if either has advanced enough since the last one sent,
+  // sends an updated DatagramCapacity.  Called after every
+  // RecvOutgoingDatagrams() batch and whenever the session reports that its
+  // outgoing datagram queue has room again.
+  void MaybeSendDatagramCapacity();
 
   ::mozilla::ipc::IPCResult RecvGetMaxDatagramSize(
       GetMaxDatagramSizeResolver&& aResolver);
@@ -93,9 +99,9 @@ class WebTransportParent : public PWebTransportParent,
   ::mozilla::ipc::IPCResult RecvGetHttpChannelID(
       GetHttpChannelIDResolver&& aResolver);
 
-  // Drops the callback-map entries of a peer-opened stream whose pipes have
-  // all finished copying.
-  void RemoveFinishedIncomingStream(uint64_t aStreamId);
+  // Drops the callback-map entries of a stream whose pipes have all finished
+  // copying.
+  void RemoveFinishedStream(uint64_t aStreamId);
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
@@ -136,6 +142,14 @@ class WebTransportParent : public PWebTransportParent,
   // called on the socket thread after mWebTransport has been retargeted there.
   void CloseSessionForDestroyedActor();
 
+  // Adds the expiries counted by mDatagramCreditGranter to aStats, which only
+  // carries neqo's own count.  Must be called on the socket thread.
+  void AddParentExpiredOutgoing(WebTransportStatsData& aStats) const;
+
+  // Hands whatever OnDatagramReceived() has accumulated to the child as one
+  // message. Socket thread only.
+  void FlushIncomingDatagrams();
+
   using ResolveType =
       std::tuple<const nsresult&, const uint8_t&, const uint64_t&>;
 
@@ -155,17 +169,25 @@ class WebTransportParent : public PWebTransportParent,
   // This is needed because mResolver is resolved on the background thread and
   // OnSessionClosed is called on the socket thread.
   std::function<void()> mExecuteAfterResolverCallback MOZ_GUARDED_BY(mMutex);
-  OutgoingDatagramResolver mOutgoingDatagramResolver;
   GetMaxDatagramSizeResolver mMaxDatagramSizeResolver;
   uint64_t mMaxDatagramSizeValue{0};
-  // Last value set via RecvUpdateDatagramQueueParams(), used by
-  // RecvOutgoingDatagram() to drop datagrams that are already older than
+  // Last values set via RecvUpdateDatagramQueueParams(), used by
+  // RecvOutgoingDatagrams() to drop datagrams that are already older than
   // outgoingMaxAge by the time they reach the parent (see comment there).
   double mDatagramMaxAge{std::numeric_limits<double>::infinity()};
-  // Latest write timestamp handed to neqo; see RecvOutgoingDatagram().
+  // Latest write timestamp handed to neqo; see RecvOutgoingDatagrams().
   TimeStamp mLastOutgoingDatagramTimestamp;
-  // When OnSessionReady() ran; the earliest a datagram could have been sent.
-  TimeStamp mSessionReadyTime;
+  // Computes the DatagramCapacity messages sent to content; also counts the
+  // datagrams RecvOutgoingDatagrams() drops for age, which neqo cannot see.
+  OutgoingDatagramCreditGranter mDatagramCreditGranter;
+  // Set while RecvOutgoingDatagrams() runs, so a space-available notification
+  // the session raises synchronously from inside it (HTTP/2 writes a datagram
+  // capsule as soon as it is enqueued) defers to that batch's own sample.
+  bool mInOutgoingDatagramsBatch{false};
+  // Incoming datagrams accumulated by OnDatagramReceived() for the next
+  // IncomingDatagrams message. Socket thread only.
+  nsTArray<IncomingDatagram> mPendingIncoming;
+  size_t mPendingIncomingBytes{0};
   // Resolvers for in-flight GetStats() requests; only one gather runs at a
   // time, so concurrent calls share it. Socket thread only; drained via
   // ResolvePendingGetStats().

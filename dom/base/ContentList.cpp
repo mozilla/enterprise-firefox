@@ -1118,8 +1118,8 @@ void LabelsNodeList::ResetRoots() {
   // If the outermost labeled element or host is in a shadow tree, its
   // containing shadow root is already in newRoots.
   if (!labeledElementOrHostIsInShadowTree) {
-    // `labeledHost` is either `labeledElement`, or the shadow host which has
-    // `labeledElement` as its resolved reference target.
+    // `labeledElementOrHost` is either `labeledElement`, or the shadow host
+    // which has `labeledElement` as its resolved reference target.
     if (Document* doc = labeledElementOrHost->GetUncomposedDoc()) {
       newRoots.AppendElement(doc);
     } else if (newRoots.IsEmpty()) {
@@ -1166,7 +1166,7 @@ void LabelsNodeList::ResetRoots() {
 }
 
 nsINode* LabelsNodeList::GetNextNode(nsINode* aCurrent) {
-  auto* labeledElement = (nsGenericHTMLElement*)mData;
+  auto* labeledElement = static_cast<nsGenericHTMLElement*>(mData);
   MOZ_ASSERT(labeledElement, "Must have labeled element");
   MOZ_ASSERT(mRootNode, "Must have root node");
 
@@ -1193,18 +1193,20 @@ nsINode* LabelsNodeList::GetNextNode(nsINode* aCurrent) {
   }
 
   // If we descended into a shadow tree, back out of it until we find an
-  // adjacent node, or hit a shadow root which doesn't have the current element
-  // as its reference target.
-  nsINode* cur = aCurrent;
-  while (!next) {
-    ShadowRoot* shadow = cur->GetContainingShadow();
-    if (!shadow || shadow->GetReferenceTargetElement() == cur) {
+  // adjacent node, or hit a shadow root which doesn't have labeledElement as
+  // its resolved reference target.
+  for (ShadowRoot* shadow = aCurrent->GetContainingShadow(); shadow;
+       shadow = shadow->Host()->GetContainingShadow()) {
+    Element* curElement = shadow->Host();
+    if (curElement->ResolveReferenceTarget() != labeledElement) {
       break;
     }
-    cur = shadow->Host();
-    next = cur->GetNextNode();
+    next = curElement->GetNextNode();
+    if (next) {
+      return next;
+    }
   }
-  return next;
+  return nullptr;
 }
 
 void LabelsNodeList::PopulateSelf(uint32_t aNeededLength) {
