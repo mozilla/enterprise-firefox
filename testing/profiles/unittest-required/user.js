@@ -6,8 +6,6 @@
 // NOTE: Toggling prefs for testing features should happen in
 // unittest-features/user.js or in harness/test manifests, not here!
 /* globals user_pref */
-// Make sure Shield doesn't hit the network.
-user_pref("app.normandy.api_url", "");
 // Make sure the notification permission migration test doesn't hit the network.
 user_pref("app.support.baseURL", "http://{server}/support-dummy/");
 user_pref("app.update.staging.enabled", false);
@@ -56,6 +54,7 @@ user_pref("browser.urlbar.suggest.searches", false);
 user_pref("browser.fixup.domainsuffixwhitelist.test", true);
 user_pref("browser.warnOnQuit", false);
 user_pref("captivedetect.canonicalURL", "http://{server}/captive-detect/success.txt");
+user_pref("captivedetect.httpsCheck.url", "http://{server}/captive-detect/https-check");
 // Enable android logcat for better diagnostics on beta/release
 user_pref("consoleservice.logcat", true);
 // Point Firefox Health Report at a local server. We don't care if it actually

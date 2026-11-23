@@ -7,11 +7,6 @@
      `lintConfig` in each app's build.gradle rather than being named lint.xml, so that it is never
      picked up implicitly by another project through lint's directory hierarchy. -->
 <lint>
-    <!-- The android-lint mozlint task reports every issue in the lint report as a failure, including
-         the informational note lint emits about findings filtered by the baseline. Silence just that
-         note; the baseline itself still grandfathers the underlying findings. -->
-    <issue id="LintBaseline" severity="ignore" />
-
     <!-- Lints that don't apply to our translation process -->
     <issue id="MissingTranslation" severity="ignore" />
     <issue id="MissingQuantity" severity="ignore" />
@@ -57,7 +52,7 @@
     </issue>
 
     <!-- Lints that are disabled by default -->
-    <issue id="ConvertToWebp" severity="warning" />
+    <issue id="ConvertToWebp" severity="error" />
 
     <!-- Performance: big wins from a theoretical perspective so we escalate to error. -->
     <issue id="DrawAllocation" severity="error" />
@@ -85,6 +80,9 @@
     <issue id="UselessParent" severity="error" />
     <issue id="UnusedNamespace" severity="error" />
     <issue id="UnusedResources" severity="error">
+        <!-- The sports widget (bug 2084788) has badges for teams it doesn't reference yet. The resource
+             shrinker still removes the unreferenced ones from release builds. -->
+        <ignore path="**/drawable-*/team_badge_*" />
         <!-- Localized strings are removed by the l10n import a while after the string is removed from
              the default strings.xml, so the localized files temporarily hold unreferenced strings. -->
         <ignore path="**/values-*/strings.xml" />

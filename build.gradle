@@ -219,13 +219,6 @@ subprojects { project ->
             dependencies {
                 lintChecks project.project(':components:tooling-lint')
             }
-
-            android {
-                // Copied from subbproject's build.gradle
-                lint {
-                    baseline = file("${project.projectDir}/lint-baseline.xml")
-                }
-            }
         }
     }
 }
@@ -257,4 +250,16 @@ tasks.register("lint-a-c") {
     group = "verification"
     description = "(Deprecated) alias for :android-components:lint"
     dependsOn ":android-components:lint"
+}
+
+if (gradle.mozconfig.substs.MOZ_APPSERVICES_IN_TREE) {
+    def appServicesDir = file("third_party/application-services").toPath()
+    def appServicesProjects = subprojects.findAll { it.projectDir.toPath().startsWith(appServicesDir) }
+    if (appServicesProjects.isEmpty()) {
+        throw new GradleException("No application-services projects found under ${appServicesDir}")
+    }
+    tasks.register("publishApplicationServices") {
+        description = "Publishes every in-tree application-services component."
+        dependsOn appServicesProjects.collect { "${it.path}:publish" }
+    }
 }

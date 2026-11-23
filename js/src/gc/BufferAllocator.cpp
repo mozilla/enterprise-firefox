@@ -357,6 +357,10 @@ inline void BufferAllocator::ChunkLists::checkAvailable() const {
 
 MOZ_ALWAYS_INLINE void PoisonAlloc(void* alloc, uint8_t value, size_t bytes,
                                    MemCheckKind kind) {
+  // Apply to the whole allocation before poisoning, as destructors such as
+  // ~GCPtr in debug builds may have made parts of it inaccessible.
+  SetMemCheckKind(alloc, bytes, kind);
+
 #if !(defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION) || defined(DEBUG))
   // Limit poisoning in release builds.
   bytes = std::min(bytes, size_t(256));
@@ -1766,6 +1770,12 @@ void BufferAllocator::clearMarkStateAfterBarrierVerification() {
     clearChunkMarkBits(chunk);
   }
 
+  for (auto* buffers : {&largeNurseryAllocs.ref(), &largeTenuredAllocs.ref()}) {
+    for (LargeBuffer* buffer : *buffers) {
+      buffer->isMarked = false;
+    }
+  }
+
 #ifdef DEBUG
   checkGCStateNotInUse();
 #endif
@@ -2093,6 +2103,7 @@ void BufferAllocator::checkAllocListGCStateNotInUse(LargeAllocList& list,
   for (LargeBuffer* buffer : list) {
     MOZ_ASSERT(buffer->isNurseryOwned == isNurseryOwned);
     MOZ_ASSERT_IF(!isNurseryOwned, !buffer->allocatedDuringCollection);
+    MOZ_ASSERT(!buffer->isMarked);
   }
 }
 

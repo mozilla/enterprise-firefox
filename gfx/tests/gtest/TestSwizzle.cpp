@@ -783,6 +783,11 @@ TEST(Moz2D, SwizzleData)
       0, 254, 253, 255, 255, 0,   0, 255, 0,   0,
       0, 255, 3,   2,   1,   255, 9, 0,   127, 255,
   };
+  // check opaquifying into alpha-first order
+  const uint8_t check_xrgb[5 * 4] = {
+      255, 0, 254, 253, 255, 255, 0,   0, 255, 0,
+      0,   0, 255, 3,   2,   1,   255, 9, 0,   127,
+  };
   // check packing
   uint8_t out24[5 * 3];
   const uint8_t check_bgr[5 * 3] = {253, 254, 0, 0, 0,   255, 0, 0,
@@ -800,32 +805,49 @@ TEST(Moz2D, SwizzleData)
       PACK_RGB565(1, 2, 3),     PACK_RGB565(127, 0, 9),
   };
 
-  SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8, out,
-              sizeof(out), SurfaceFormat::B8G8R8A8, IntSize(5, 1));
+  EXPECT_TRUE(SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8,
+                          out, sizeof(out), SurfaceFormat::B8G8R8A8,
+                          IntSize(5, 1)));
   EXPECT_TRUE(ArrayEqual(out, check_bgra));
 
-  SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8, out,
-              sizeof(out), SurfaceFormat::R8G8B8A8, IntSize(5, 1));
+  EXPECT_TRUE(SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8,
+                          out, sizeof(out), SurfaceFormat::R8G8B8A8,
+                          IntSize(5, 1)));
   EXPECT_TRUE(ArrayEqual(out, check_rgba));
 
-  SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8, out,
-              sizeof(out), SurfaceFormat::A8R8G8B8, IntSize(5, 1));
+  EXPECT_TRUE(SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8,
+                          out, sizeof(out), SurfaceFormat::A8R8G8B8,
+                          IntSize(5, 1)));
   EXPECT_TRUE(ArrayEqual(out, check_argb));
 
-  SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8, out,
-              sizeof(out), SurfaceFormat::R8G8B8X8, IntSize(5, 1));
+  EXPECT_TRUE(SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8,
+                          out, sizeof(out), SurfaceFormat::R8G8B8X8,
+                          IntSize(5, 1)));
   EXPECT_TRUE(ArrayEqual(out, check_rgbx));
 
-  SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8, out24,
-              sizeof(out24), SurfaceFormat::B8G8R8, IntSize(5, 1));
+  EXPECT_TRUE(SwizzleData(check_rgba, sizeof(check_rgba),
+                          SurfaceFormat::R8G8B8X8, out, sizeof(out),
+                          SurfaceFormat::A8R8G8B8, IntSize(5, 1)));
+  EXPECT_TRUE(ArrayEqual(out, check_xrgb));
+
+  EXPECT_TRUE(SwizzleData(check_rgba, sizeof(check_rgba),
+                          SurfaceFormat::R8G8B8A8, out, sizeof(out),
+                          SurfaceFormat::X8R8G8B8, IntSize(5, 1)));
+  EXPECT_TRUE(ArrayEqual(out, check_xrgb));
+
+  EXPECT_TRUE(SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8,
+                          out24, sizeof(out24), SurfaceFormat::B8G8R8,
+                          IntSize(5, 1)));
   EXPECT_TRUE(ArrayEqual(out24, check_bgr));
 
-  SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8, out24,
-              sizeof(out24), SurfaceFormat::R8G8B8, IntSize(5, 1));
+  EXPECT_TRUE(SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8,
+                          out24, sizeof(out24), SurfaceFormat::R8G8B8,
+                          IntSize(5, 1)));
   EXPECT_TRUE(ArrayEqual(out24, check_rgb));
 
-  SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8, out8,
-              sizeof(out8), SurfaceFormat::A8, IntSize(5, 1));
+  EXPECT_TRUE(SwizzleData(in_bgra, sizeof(in_bgra), SurfaceFormat::B8G8R8A8,
+                          out8, sizeof(out8), SurfaceFormat::A8,
+                          IntSize(5, 1)));
   EXPECT_TRUE(ArrayEqual(out8, check_a));
 
   const uint8_t* uint32_argb;
@@ -838,9 +860,10 @@ TEST(Moz2D, SwizzleData)
     uint32_argb = check_bgra;
   }
 
-  SwizzleData(uint32_argb, sizeof(in_bgra), SurfaceFormat::A8R8G8B8_UINT32,
-              reinterpret_cast<uint8_t*>(out16), sizeof(out16),
-              SurfaceFormat::R5G6B5_UINT16, IntSize(5, 1));
+  EXPECT_TRUE(SwizzleData(uint32_argb, sizeof(in_bgra),
+                          SurfaceFormat::A8R8G8B8_UINT32,
+                          reinterpret_cast<uint8_t*>(out16), sizeof(out16),
+                          SurfaceFormat::R5G6B5_UINT16, IntSize(5, 1)));
   EXPECT_TRUE(ArrayEqual(out16, check_16));
 }
 
@@ -916,6 +939,11 @@ TEST(Moz2D, SwizzleRow)
       0, 254, 253, 255, 255, 0,   0, 255, 0,   0,
       0, 255, 3,   2,   1,   255, 9, 0,   127, 255,
   };
+  // check opaquifying into alpha-first order
+  const uint8_t check_xrgb[5 * 4] = {
+      255, 0, 254, 253, 255, 255, 0,   0, 255, 0,
+      0,   0, 255, 3,   2,   1,   255, 9, 0,   127,
+  };
   // check packing
   uint8_t out24[5 * 3];
   const uint8_t check_bgr[5 * 3] = {253, 254, 0, 0, 0,   255, 0, 0,
@@ -965,6 +993,26 @@ TEST(Moz2D, SwizzleRow)
     if (func) {
       func(in_bgra, out, 5);
       EXPECT_TRUE(ArrayEqual(out, check_rgbx));
+    } else {
+      EXPECT_NE(arch, SwizzleArch::eAny);
+      EXPECT_NE(arch, SwizzleArch::eFallback);
+    }
+
+    func = RowFnFor(SwizzleOp::Copy, SurfaceFormat::R8G8B8X8,
+                    SurfaceFormat::A8R8G8B8, arch);
+    if (func) {
+      func(check_rgba, out, 5);
+      EXPECT_TRUE(ArrayEqual(out, check_xrgb));
+    } else {
+      EXPECT_NE(arch, SwizzleArch::eAny);
+      EXPECT_NE(arch, SwizzleArch::eFallback);
+    }
+
+    func = RowFnFor(SwizzleOp::Copy, SurfaceFormat::R8G8B8A8,
+                    SurfaceFormat::X8R8G8B8, arch);
+    if (func) {
+      func(check_rgba, out, 5);
+      EXPECT_TRUE(ArrayEqual(out, check_xrgb));
     } else {
       EXPECT_NE(arch, SwizzleArch::eAny);
       EXPECT_NE(arch, SwizzleArch::eFallback);

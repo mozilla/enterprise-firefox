@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-11-19T17:30:45.534884+00:00'
+updated_at: '2026-11-20T18:30:34.130881+00:00'
 export:
   path: ./docs/mots/index.md
   format: md
@@ -3789,7 +3789,7 @@ modules:
         meta:
           components:
             - Firefox::Address Bar
-          review_group: urlbar-reviewers
+          review_group: urlbar-reviewers-rotation
 
       - name: Application Update
         description: The application update services.
@@ -3848,7 +3848,7 @@ modules:
           components:
             - Firefox::Theme
             - Toolkit::Themes
-          review_group: desktop-theme-reviewers
+          review_group: desktop-theme-reviewers-rotation
         owners:
           - *dao
           - *hjones
@@ -3914,13 +3914,13 @@ modules:
           systems.
         includes:
           - browser/components/nimbus/**/*
-          - toolkit/components/normandy/**/*
           - toolkit/components/nimbus/**/*
         meta:
           owners_emeritus:
             - Michael Cooper
           peers_emeritus:
             - Daniel Thorn
+            - Gijs Kruitbosch
           components:
             - Firefox::Normandy
             - Firefox::Nimbus Desktop Client
@@ -3929,7 +3929,6 @@ modules:
         owners:
           - *beth
         peers:
-          - *Gijs
           - *emcminn
           - *charlie
           - *aminomancer
@@ -4184,7 +4183,7 @@ modules:
             - Firefox::Search
           peers_emeritus:
             - Michael de Boer
-          review_group: search-reviewers
+          review_group: search-reviewers-rotation
         owners:
           - *standard8
         peers:
@@ -4279,7 +4278,7 @@ modules:
         meta:
           components:
             - Firefox::Tabbed Browser
-          review_group: tabbrowser-reviewers
+          review_group: tabbrowser-reviewers-rotation
           peers_emeritus:
             - Jared Wein
             - Matthew N
@@ -5082,5 +5081,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: 1115a30da5dd04369ebad6a46606641f4be0c1a3
-  export: 3cdfde064aca9727d626f07df2762b5eedbd2176
+  config: ba181b5af70cb7515dab697a6934585c04359d1e
+  export: 9b96c6babf6dd5ba48f9378c997779633d6dcd1b

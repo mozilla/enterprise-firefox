@@ -1629,6 +1629,7 @@ size_t GCRuntime::markingWorkerCount() const {
 }
 
 #ifdef DEBUG
+
 void GCRuntime::assertNoMarkingWork() const {
   for (const auto& marker : markers) {
     MOZ_ASSERT(marker->isDrained());
@@ -1636,6 +1637,21 @@ void GCRuntime::assertNoMarkingWork() const {
   MOZ_ASSERT(!hasDelayedMarking());
   MOZ_ASSERT(!hasAnyDeferredWeakMaps());
 }
+
+void GCRuntime::assertNoMarkingWorkInSweepingZones() const {
+  for (const auto& marker : markers) {
+    marker->forEachMarkStackCell([](Cell* cell) {
+      Zone* zone = cell->asTenured().zone();
+      MOZ_ASSERT(zone->isGCMarking());
+    });
+  }
+  for (Arena* arena = delayedMarkingList; arena;
+       arena = arena->getNextDelayedMarking()) {
+    MOZ_ASSERT(arena->zone()->isGCMarking());
+  }
+  MOZ_ASSERT(!hasAnyDeferredWeakMaps());
+}
+
 #endif
 
 bool GCRuntime::setParallelMarkingEnabled(bool enabled) {
@@ -4241,6 +4257,10 @@ GCRuntime::IncrementalResult GCRuntime::resetIncrementalGC(
 
       abortSweepAfterCurrentGroup = true;
       isCompacting = false;
+
+      // The gray marking state may not be valid. Marking (in particular gray
+      // marking) happens during the sweep phase.
+      setGrayBitsInvalid();
 
       break;
     }

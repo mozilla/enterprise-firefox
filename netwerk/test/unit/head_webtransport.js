@@ -39,15 +39,12 @@ WebTransportListener.prototype = {
       this.onDatagram(data);
     }
   },
+  onDatagramsFlush() {},
+  onOutgoingDatagramSpaceAvailable() {},
   onMaxDatagramSize(size) {
     info("max datagram size: " + size);
     if (this.onMaxDatagramSize) {
       this.onMaxDatagramSize(size);
-    }
-  },
-  onOutgoingDatagramOutCome(id, outcome) {
-    if (this.onDatagramOutcome) {
-      this.onDatagramOutcome({ id, outcome });
     }
   },
 

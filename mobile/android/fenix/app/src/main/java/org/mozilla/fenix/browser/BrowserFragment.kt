@@ -364,7 +364,7 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemIns
                     onListenClicked = {
                         context.components.core.store.state.selectedTab?.let { tab ->
                             context.components.listenToPage.store.dispatch(
-                                ListenAction.Session.ListenRequested(
+                                ListenAction.User.Session.ListenRequested(
                                     tabId = tab.id,
                                     url = tab.readerState.activeUrl ?: tab.content.url,
                                 )
@@ -418,12 +418,6 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemIns
 
     override fun onStart() {
         super.onStart()
-        val context = requireContext()
-
-        if (context.components.appStore.state.longfoxEntryPointReady) {
-            context.components.appStore.dispatch(AppAction.UpdateShowFoxPeekAnimation(false))
-        }
-
         subscribeToTabCollections()
         updateLastBrowseActivity()
 

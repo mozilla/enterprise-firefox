@@ -37,10 +37,11 @@ import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.feature.listentopage.ArticleProgress
 import mozilla.components.feature.listentopage.ListenAction
 import mozilla.components.feature.listentopage.ListenError
-import mozilla.components.feature.listentopage.PlaybackPhase
-import mozilla.components.feature.listentopage.PlaybackSpeed
+import mozilla.components.feature.listentopage.PlayerMode
 import mozilla.components.feature.listentopage.R
 import mozilla.components.feature.listentopage.VoiceState
+import mozilla.components.feature.listentopage.playback.PlaybackPhase
+import mozilla.components.feature.listentopage.playback.PlaybackSpeed
 import mozilla.components.support.test.robolectric.testContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -80,7 +81,6 @@ class ListenSheetTest {
 
     private fun setContent(
         expanded: Boolean,
-        onExpandClicked: () -> Unit = {},
         onAction: (ListenAction) -> Unit = {},
         articleProgress: ArticleProgress = ArticleProgress(LESS_THAN_ONE_SEC_ELAPSED_TIME_MS, TOTAL_DURATION_MS),
         playbackPhase: PlaybackPhase = PlaybackPhase.Playing,
@@ -97,7 +97,6 @@ class ListenSheetTest {
                         speed = PlaybackSpeed.Default,
                         voiceState = VoiceState(),
                         onAction = onAction,
-                        onExpandClicked = onExpandClicked,
                         expanded = expanded,
                         error = error,
                         modifier = Modifier.fillMaxWidth(),
@@ -139,12 +138,12 @@ class ListenSheetTest {
 
     @Test
     fun `GIVEN the sheet is compact WHEN the article heading is clicked THEN expanding is requested`() {
-        var expandClicked = false
-        setContent(expanded = false, onExpandClicked = { expandClicked = true })
+        val actions = mutableListOf<ListenAction>()
+        setContent(expanded = false, onAction = { actions.add(it) })
 
         composeTestRule.onNodeWithText(TITLE).performClick()
 
-        assertTrue(expandClicked)
+        assertEquals(listOf(ListenAction.User.ModeChanged(PlayerMode.Expanded)), actions)
     }
 
     // Play button tests
@@ -317,7 +316,7 @@ class ListenSheetTest {
 
         dragThumbPastEnd(release = true)
 
-        val seek = actions.single() as ListenAction.Playback.SeekRequested
+        val seek = actions.single() as ListenAction.User.Controls.SeekRequested
         assertEquals(1f, seek.fraction, 0.01f)
     }
 
@@ -370,7 +369,7 @@ class ListenSheetTest {
             .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress))
             .performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(0.5f)) }
 
-        assertEquals(listOf(ListenAction.Playback.SeekRequested(0.5f)), actions)
+        assertEquals(listOf(ListenAction.User.Controls.SeekRequested(0.5f)), actions)
     }
 
     @Test

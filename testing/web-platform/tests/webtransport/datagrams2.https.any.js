@@ -140,3 +140,123 @@ promise_test(async t => {
   await writer.ready;
   await writer.write(new Uint8Array([0]));
 }, 'Every write() of a datagram burst that overruns the outgoing queue settles');
+
+promise_test(async t => {
+  const wt = new WebTransport(webtransport_url('echo.py'));
+  wt.closed.catch(() => {});
+  t.add_cleanup(() => wt.close());
+  await wt.ready;
+
+  // Large enough that outgoingMaxBufferedDatagrams does not pace the burst, and
+  // outgoingMaxAge left at its default of Infinity, so nothing may leave the
+  // queue except by being sent. The burst holds more bytes than an
+  // implementation is likely to buffer for a session, so it has to pace the
+  // writes instead of dropping datagrams.
+  const burst = 4000;
+  wt.datagrams.outgoingMaxBufferedDatagrams = burst * 2;
+  wt.datagrams.incomingMaxBufferedDatagrams = burst;
+
+  let received = 0;
+  const readLoop = (async () => {
+    for await (const value of wt.datagrams.readable) {
+      if (++received == burst) {
+        return;
+      }
+    }
+  })();
+
+  const writer = wt.datagrams.createWritable().getWriter();
+  const writes = [];
+  for (let i = 0; i < burst; i++) {
+    writes.push(writer.write(new Uint8Array(15).fill(i & 0xff)));
+  }
+  assert_array_equals(await Promise.all(writes), new Array(burst).fill(undefined),
+    'every write() should resolve with undefined');
+
+  // Datagrams are unreliable, so tolerate a little loss on the way, but not the
+  // dozens a queue evicting its oldest datagrams loses.
+  await Promise.race([readLoop, wait(5000)]);
+  assert_greater_than_equal(received, burst - 10,
+    'Datagrams written faster than they can be sent should not be dropped');
+
+  const stats = await wt.getStats();
+  assert_equals(stats.datagrams.expiredOutgoing, 0,
+    'Datagrams should not expire with an unlimited outgoingMaxAge');
+
+  await writer.ready;
+  await writer.write(new Uint8Array([0]));
+}, 'A burst of datagrams larger than the transport buffers is paced, not dropped');
+
+promise_test(async t => {
+  // Establish a WebTransport session.
+  const wt = new WebTransport(webtransport_url('echo.py'));
+  wt.closed.catch(() => {});
+  t.add_cleanup(() => wt.close());
+  await wt.ready;
+
+  // The default outgoingMaxBufferedDatagrams is implementation-defined, so
+  // set it well below the burst size.
+  const maxBuffered = 10;
+  wt.datagrams.outgoingMaxBufferedDatagrams = maxBuffered;
+  const writer = wt.datagrams.writable.getWriter();
+  const datagram = new Uint8Array(1);
+
+  // A burst larger than outgoingMaxBufferedDatagrams. Written all in the same
+  // task, with no await between writes, so every promise's resolution state
+  // reflects only what the implementation itself decided, not test timing.
+  const N = maxBuffered * 10;
+  const resolved = new Array(N).fill(false);
+  const promises = [];
+  for (let i = 0; i < N; i++) {
+    const p = writer.write(datagram);
+    p.then(() => { resolved[i] = true; });
+    promises.push(p);
+  }
+
+  // Once outgoingMaxBufferedDatagrams datagrams are queued, writeDatagrams
+  // withholds the next write() promise until sendDatagrams dequeues one,
+  // which happens in a network task and so cannot complete within this
+  // microtask turn.
+  await Promise.resolve();
+  const resolvedImmediately = resolved.filter(Boolean).length;
+  assert_less_than(resolvedImmediately, N,
+    'a burst this size must not have every write() promise resolve in the same microtask turn');
+
+  // All of them must still eventually settle.
+  await Promise.all(promises);
+}, 'A burst larger than outgoingMaxBufferedDatagrams paces write() resolution instead of resolving it all immediately');
+
+promise_test(async t => {
+  // Establish a WebTransport session.
+  const wt = new WebTransport(webtransport_url('echo.py'));
+  wt.closed.catch(() => {});
+  await wt.ready;
+
+  // The default outgoingMaxBufferedDatagrams is implementation-defined; set
+  // it well below N so some of these writes are still withheld when close()
+  // runs.
+  const maxBuffered = 5;
+  wt.datagrams.outgoingMaxBufferedDatagrams = maxBuffered;
+  const writer = wt.datagrams.writable.getWriter();
+  const datagram = new Uint8Array(1);
+
+  const N = maxBuffered * 10;
+  const promises = [];
+  for (let i = 0; i < N; i++) {
+    promises.push(writer.write(datagram));
+  }
+
+  // Close immediately, before any network task can have dequeued a
+  // datagram, so every withheld promise depends on cleanup settling it.
+  // Cleanup resolves the withheld write and errors the writable, which
+  // rejects the writes queued behind it.
+  wt.close();
+
+  const results = await Promise.allSettled(promises);
+  const firstRejected = results.findIndex(r => r.status == 'rejected');
+  for (const result of results.slice(firstRejected == -1 ? N : firstRejected)) {
+    assert_equals(result.status, 'rejected',
+                  'no write() resolves after the first rejected one');
+    assert_throws_dom('AbortError', () => { throw result.reason; });
+  }
+}, 'Closing a session settles every deferred outgoing datagram write() promise');

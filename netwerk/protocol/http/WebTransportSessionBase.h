@@ -68,9 +68,8 @@ class WebTransportSessionBase {
   virtual void SetAnticipatedConcurrentIncomingBidirectionalStreams(
       uint16_t aValue) = 0;
   // aTimestamp is when the datagram was written, for outgoingMaxAge.
-  virtual void SendDatagram(nsTArray<uint8_t>&& aData, uint64_t aTrackingId,
-                            uint64_t aSendGroupId, int64_t aSendOrder,
-                            TimeStamp aTimestamp) = 0;
+  virtual void SendDatagram(nsTArray<uint8_t>&& aData, uint64_t aSendGroupId,
+                            int64_t aSendOrder, TimeStamp aTimestamp) = 0;
   virtual void SetDatagramMaxBufferedDatagrams(
       uint32_t aMaxBufferedDatagrams) = 0;
   virtual void SetDatagramMaxAge(double aMaxAge) = 0;
@@ -82,6 +81,33 @@ class WebTransportSessionBase {
       std::function<void(Result<RefPtr<WebTransportStreamBase>, nsresult>&&)>&&
           aCallback) = 0;
   virtual void StartReading() {}
+
+  // Tells the listener that no further datagram will arrive until we return to
+  // the event loop. Call it once after each run of OnDatagramReceived() calls,
+  // so that a listener batching them for IPC knows the batch is complete.
+  void FlushIncomingDatagrams();
+
+  // Tell the listener the outgoing datagram queue has room again.
+  void NotifyOutgoingDatagramSpaceAvailable();
+
+  // Ask for one NotifyOutgoingDatagramSpaceAvailable() after the next output
+  // pass.  neqo only signals space after rejecting a datagram, which a sender
+  // that stays within the credit it was granted never causes.  HTTP/2 already
+  // re-samples after each pass that writes a datagram.  Socket thread.
+  virtual void RequestOutgoingDatagramProgress() {}
+
+  // A snapshot of the outgoing datagram queue, and its cumulative
+  // sent/expired/dropped counts, for WebTransportParent's DatagramCapacity
+  // feedback.  False if the session cannot report them.
+  virtual bool GetDatagramQueueCapacity(size_t* aRemainingBytes,
+                                        size_t* aQueuedDatagrams,
+                                        size_t* aMaxQueuedBytes) {
+    return false;
+  }
+  virtual bool GetDatagramSessionStats(uint64_t* aSent, uint64_t* aExpired,
+                                       uint64_t* aDropped) {
+    return false;
+  }
 
   virtual Http3WebTransportSession* GetHttp3WebTransportSession() {
     return nullptr;

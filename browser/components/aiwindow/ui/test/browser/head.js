@@ -466,6 +466,7 @@ add_setup(async function () {
   registerCleanupFunction(() => {
     _setLoadPromptForTesting(null);
   });
+  registerCleanupFunction(clearSmartWindowUsagePrefs);
 });
 
 /**
@@ -551,6 +552,54 @@ async function openAIWindowSidebar(win, url = "about:blank") {
   }
   const sidebarBrowser = await waitForSidebarReady(win);
   return { win, sidebarBrowser };
+}
+
+/**
+ * Clears the prefs a Smart Window writes while it is in use, so they do not
+ * outlive the test file that opened it.
+ */
+function clearSmartWindowUsagePrefs() {
+  Services.prefs.clearUserPref("browser.smartwindow.lastSmartWindowUsageTime");
+  Services.prefs.clearUserPref("browser.smartwindow.lastLLMTelemetryRunTime");
+  Services.prefs.clearUserPref("places.semanticHistory.initialized");
+}
+
+/**
+ * Opens the Smart Window that a file's tests share, closed after them.
+ *
+ * @returns {Promise<ChromeWindow>}
+ */
+async function openSharedAIWindow() {
+  const win = await openAIWindow();
+  registerCleanupFunction(async () => {
+    await BrowserTestUtils.closeWindow(win);
+    clearSmartWindowUsagePrefs();
+  });
+  return win;
+}
+
+/**
+ * Replaces every tab in the window with a fresh Smart Window full page, so a
+ * test starts on a new page and the window only holds the tabs it opens. The
+ * replaced tabs skip session history, which the smartbar also offers. Needs
+ * browser.newtab.preload=false: the new tab can otherwise take the preloaded
+ * page and never finish loading.
+ *
+ * @param {ChromeWindow} win
+ * @returns {Promise<Element>} The page's ai-window element.
+ */
+async function openOnlyAIWindowTab(win) {
+  const tab = await BrowserTestUtils.openNewForegroundTab(
+    win.gBrowser,
+    AIWINDOW_URL
+  );
+  for (const other of win.gBrowser.tabs.filter(t => t != tab)) {
+    BrowserTestUtils.removeTab(other, { skipSessionStore: true });
+  }
+  return TestUtils.waitForCondition(
+    () => tab.linkedBrowser.contentDocument?.querySelector("ai-window"),
+    "Wait for ai-window element"
+  );
 }
 
 /**
@@ -647,6 +696,9 @@ async function _stubResumeActivityGenerationCore(
 
   const originalAvailableLocales = Services.locale.availableLocales;
   const originalRequestedLocales = Services.locale.requestedLocales;
+  const hadRequestedPref = Services.prefs.prefHasUserValue(
+    "intl.locale.requested"
+  );
   Services.locale.availableLocales = ["en-US"];
   Services.locale.requestedLocales = ["en-US"];
 
@@ -663,6 +715,10 @@ async function _stubResumeActivityGenerationCore(
       }
       Services.locale.availableLocales = originalAvailableLocales;
       Services.locale.requestedLocales = originalRequestedLocales;
+      // Setting requestedLocales leaves a user value even when restoring one.
+      if (!hadRequestedPref) {
+        Services.prefs.clearUserPref("intl.locale.requested");
+      }
     },
   };
 }

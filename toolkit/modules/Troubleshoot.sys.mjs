@@ -1051,7 +1051,7 @@ var dataProviders = {
   },
 
   async normandy(done) {
-    if (!AppConstants.MOZ_NORMANDY) {
+    if (AppConstants.MOZ_BUILD_APP !== "browser") {
       done();
       return;
     }
@@ -1060,7 +1060,7 @@ var dataProviders = {
       "resource://nimbus/ExperimentAPI.sys.mjs"
     );
 
-    // Get Normandy data in parallel, and sort each group by slug.
+    // Get Nimbus data in parallel, and sort each group by slug.
     const [nimbusExperiments, nimbusRollouts] = await Promise.all(
       [
         ExperimentAPI.manager.store

@@ -23,8 +23,7 @@ namespace mozilla::dom {
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WebTransportDatagramDuplexStream, mGlobal,
                                       mReadable, mWritable, mWebTransport,
                                       mIncomingAlgorithms, mOutgoingAlgorithms,
-                                      mCreatedWritables, mAllWritables,
-                                      mWritableDatagramMap)
+                                      mCreatedWritables, mAllWritables)
 // mIncomingDatagramsQueue can't participate in a cycle
 NS_IMPL_CYCLE_COLLECTING_ADDREF(WebTransportDatagramDuplexStream)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(WebTransportDatagramDuplexStream)
@@ -36,6 +35,17 @@ NS_INTERFACE_MAP_END
 WebTransportDatagramDuplexStream::WebTransportDatagramDuplexStream(
     nsIGlobalObject* aGlobal, WebTransport* aWebTransport)
     : mGlobal(aGlobal), mWebTransport(aWebTransport) {}
+
+OutgoingDatagramStreamAlgorithms::OutgoingDatagramStreamAlgorithms(
+    WebTransportDatagramDuplexStream* aDatagrams,
+    WebTransportSendGroup* aSendGroup, int64_t aSendOrder)
+    : mDatagrams(aDatagrams),
+      mSendGroup(aSendGroup),
+      mSendOrder(aSendOrder),
+      mBackpressurePromise(
+          Promise::CreateInfallible(aDatagrams->GetParentObject())) {
+  mBackpressurePromise->MaybeResolveWithUndefined();
+}
 
 void WebTransportDatagramDuplexStream::Init(bool aUseByteStream,
                                             ErrorResult& aError) {
@@ -66,6 +76,11 @@ void WebTransportDatagramDuplexStream::Init(bool aUseByteStream,
       mOutgoingAlgorithms;
   // Step 19: Set up outgoingDatagrams with writeAlgorithm set to
   // writeDatagramsAlgorithm.
+  //
+  // Backpressure at the outgoingMaxBufferedDatagrams limit is exerted by
+  // writeDatagrams returning a pending [[BackpressurePromise]] (see
+  // WriteCallbackImpl), not by the queuing strategy, so highWaterMark is left
+  // at the Streams default (Nothing() -> 1).
   mWritable = WritableStream::CreateNative(cx, *global, *outgoingAlgorithms,
                                            Nothing(), nullptr, aError);
   if (aError.Failed()) {
@@ -75,11 +90,23 @@ void WebTransportDatagramDuplexStream::Init(bool aUseByteStream,
 }
 
 void WebTransportDatagramDuplexStream::SetChild(WebTransportChild* aChild) {
+  // The page may have changed outgoingMaxAge or outgoingMaxBufferedDatagrams
+  // from their defaults before the session connected.  The parent must know
+  // them before it sees any pre-connect datagram: queuing them below can flush
+  // a batch straight away.
+  aChild->SendUpdateDatagramQueueParams(mOutgoingMaxBufferedDatagrams,
+                                        mOutgoingMaxAge);
   mOutgoingAlgorithms->SetChild(aChild);
   for (auto& writable : mCreatedWritables) {
     writable->SetChild(aChild);
   }
   mCreatedWritables.Clear();
+
+  // Every algorithms instance above just queued its mWaitConnectQueue via
+  // QueueOutgoingDatagram(); flush that initial batch now rather than
+  // waiting for a posted runnable, since this is already a known batch
+  // boundary.
+  FlushOutgoingDatagrams();
 }
 
 void WebTransportDatagramDuplexStream::SetIncomingMaxAge(
@@ -101,28 +128,21 @@ void WebTransportDatagramDuplexStream::SetIncomingMaxAge(
   mIncomingMaxAge = value;
 }
 
-void WebTransportDatagramDuplexStream::SetOutgoingMaxAge(
-    const Nullable<double>& aMaxAge, ErrorResult& aRv) {
+void WebTransportDatagramDuplexStream::SetOutgoingMaxAge(double aMaxAge,
+                                                         ErrorResult& aRv) {
   // https://w3c.github.io/webtransport/#dom-webtransportdatagramduplexstream-outgoingmaxage
-  Nullable<double> value = aMaxAge;
-  if (!value.IsNull()) {
-    // Step 1
-    if (isnan(value.Value()) || value.Value() < 0.) {
-      aRv.ThrowRangeError("Invalid OutgoingMaxAge");
-      return;
-    }
-    // Step 2
-    if (value.Value() == 0.) {
-      value.SetNull();
-    }
+  // Step 1: If value is negative, 0, or NaN, throw a RangeError.
+  if (isnan(aMaxAge) || aMaxAge <= 0.) {
+    aRv.ThrowRangeError("Invalid OutgoingMaxAge");
+    return;
   }
-  // Step 3
-  mOutgoingMaxAge = value;
+  // Step 2: Set this.[[OutgoingDatagramsExpirationDuration]] to value.
+  mOutgoingMaxAge = aMaxAge;
 
-  // Send updated parameters to parent/neqo; null means no expiration (INFINITY)
-  mOutgoingAlgorithms->UpdateQueueParams(
-      mOutgoingMaxBufferedDatagrams,
-      mOutgoingMaxAge.IsNull() ? INFINITY : mOutgoingMaxAge.Value());
+  // Keep the new params ordered after datagrams already written.
+  FlushOutgoingDatagrams();
+  mOutgoingAlgorithms->UpdateQueueParams(mOutgoingMaxBufferedDatagrams,
+                                         mOutgoingMaxAge);
 }
 
 void WebTransportDatagramDuplexStream::SetIncomingMaxBufferedDatagrams(
@@ -136,10 +156,16 @@ void WebTransportDatagramDuplexStream::SetOutgoingMaxBufferedDatagrams(
   // https://w3c.github.io/webtransport/#dom-webtransportdatagramduplexstream-outgoingmaxbuffereddatagrams
   mOutgoingMaxBufferedDatagrams = std::max(aValue, 1u);
 
+  // outgoingMaxBufferedDatagrams sizes the outgoing datagram queue, not the
+  // Streams queuing-strategy highWaterMark (which stays at the spec default of
+  // 1). Backpressure at this limit is exerted by writeDatagrams returning a
+  // pending [[BackpressurePromise]] (see WriteCallbackImpl), so the controller
+  // HWM is unchanged.
+
   // Send updated parameters to parent/neqo
-  mOutgoingAlgorithms->UpdateQueueParams(
-      mOutgoingMaxBufferedDatagrams,
-      mOutgoingMaxAge.IsNull() ? INFINITY : mOutgoingMaxAge.Value());
+  FlushOutgoingDatagrams();
+  mOutgoingAlgorithms->UpdateQueueParams(mOutgoingMaxBufferedDatagrams,
+                                         mOutgoingMaxAge);
 }
 
 already_AddRefed<WebTransportDatagramsWritable>
@@ -200,6 +226,10 @@ WebTransportDatagramDuplexStream::CreateWritable(
 void WebTransportDatagramDuplexStream::NewDatagramReceived(
     nsTArray<uint8_t>&& aData, const mozilla::TimeStamp& aTimeStamp) {
   LOG(("received Datagram, size = %zu", aData.Length()));
+  if (mWebTransport->mState == WebTransport::WebTransportState::CLOSED ||
+      mWebTransport->mState == WebTransport::WebTransportState::FAILED) {
+    return;
+  }
 
   // Drop oldest datagrams if the queue has reached the buffer limit. We still
   // drop if equal since we're about to add one.
@@ -212,6 +242,32 @@ void WebTransportDatagramDuplexStream::NewDatagramReceived(
     UniquePtr<DatagramEntry> entry = mIncomingDatagramsQueue.Pop();
     mDroppedIncoming++;
   }
+  // Filter out any datagrams that have a duration since reception longer than
+  // the effective max age. Entries are FIFO by arrival time, so once the oldest
+  // (front) entry isn't expired, none behind it can be either.
+  //
+  // A null incomingMaxAge does not mean "keep forever": receiveDatagrams step 4
+  // requires us to substitute an implementation-defined duration, and the
+  // attribute keeps reporting null either way since the substitution is local
+  // to the algorithm. Unlike the outgoing default this is a fixed value rather
+  // than a multiple of the RTT, because it bounds how long a datagram waits for
+  // the application to read it, which has nothing to do with the path. It is
+  // also only a staleness bound, not a memory bound -
+  // incomingMaxBufferedDatagrams already caps the queue - so it can afford to
+  // be generous. Same value Chromium uses (kDefaultIncomingMaxAge).
+  static constexpr double kDefaultIncomingMaxAgeMs = 60000.0;
+  const double maxAgeMs = mIncomingMaxAge.IsNull() ? kDefaultIncomingMaxAgeMs
+                                                   : mIncomingMaxAge.Value();
+  TimeStamp now = TimeStamp::Now();
+  while (!mIncomingDatagramsQueue.IsEmpty() &&
+         (now - mIncomingDatagramsQueue.FirstElement()->mTimeStamp)
+                 .ToMilliseconds() > maxAgeMs) {
+    LOG(("Dropping expired incoming datagram: age exceeds max age (%f ms)",
+         maxAgeMs));
+    UniquePtr<DatagramEntry> entry = mIncomingDatagramsQueue.Pop();
+    mExpiredIncoming++;
+  }
+
   mIncomingDatagramsQueue.Push(
       std::make_unique<DatagramEntry>(std::move(aData), aTimeStamp));
   mIncomingAlgorithms->NotifyDatagramAvailable();
@@ -379,25 +435,10 @@ void IncomingDatagramStreamAlgorithms::NotifyDatagramAvailable() {
   }
 }
 
-// nsTArray<QueuedDatagram>'s generic cycle-collection support (nsTArray.h)
-// needs these to reach mPromise; declared friend in QueuedDatagram's
-// enclosing class since the type itself is private.
-void ImplCycleCollectionTraverse(
-    nsCycleCollectionTraversalCallback& aCallback,
-    OutgoingDatagramStreamAlgorithms::QueuedDatagram& aField, const char* aName,
-    uint32_t aFlags) {
-  ImplCycleCollectionTraverse(aCallback, aField.mPromise, aName, aFlags);
-}
-
-void ImplCycleCollectionUnlink(
-    OutgoingDatagramStreamAlgorithms::QueuedDatagram& aField) {
-  ImplCycleCollectionUnlink(aField.mPromise);
-}
-
 NS_IMPL_CYCLE_COLLECTION_INHERITED(OutgoingDatagramStreamAlgorithms,
                                    UnderlyingSinkAlgorithmsWrapper, mDatagrams,
                                    mSendGroup, mOwnerWritable,
-                                   mWaitConnectQueue, mPendingDatagramPromises)
+                                   mBackpressurePromise)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(OutgoingDatagramStreamAlgorithms)
 NS_INTERFACE_MAP_END_INHERITING(UnderlyingSinkAlgorithmsWrapper)
@@ -406,11 +447,73 @@ NS_IMPL_ADDREF_INHERITED(OutgoingDatagramStreamAlgorithms,
 NS_IMPL_RELEASE_INHERITED(OutgoingDatagramStreamAlgorithms,
                           UnderlyingSinkAlgorithmsWrapper)
 
+// Bound one OutgoingDatagrams message well under the parent's
+// kMaxBatchBytes/kMaxBatchDatagrams, which it treats as a protocol error.  The
+// count cap matters only for tiny datagrams.
+static constexpr size_t kMaxOutgoingMessageBytes = 64 * 1024;
+static constexpr size_t kMaxOutgoingMessageDatagrams = 1024;
+
+void WebTransportDatagramDuplexStream::QueueOutgoingDatagram(
+    OutgoingDatagram&& aDatagram) {
+  mPendingOutgoingBytes += aDatagram.data().Length();
+  mPendingOutgoing.AppendElement(std::move(aDatagram));
+
+  if (mPendingOutgoingBytes >= kMaxOutgoingMessageBytes) {
+    FlushOutgoingDatagrams();
+    return;
+  }
+  if (mOutgoingFlushPending) {
+    return;
+  }
+  mOutgoingFlushPending = true;
+  nsresult rv = NS_DispatchToCurrentThread(NS_NewRunnableFunction(
+      "WebTransportDatagramDuplexStream::QueueOutgoingDatagram",
+      [self = RefPtr{this}]() {
+        self->mOutgoingFlushPending = false;
+        self->FlushOutgoingDatagrams();
+      }));
+  if (NS_FAILED(rv)) {
+    mOutgoingFlushPending = false;
+  }
+}
+
+void WebTransportDatagramDuplexStream::FlushOutgoingDatagrams() {
+  if (mPendingOutgoing.IsEmpty()) {
+    return;
+  }
+
+  WebTransportChild* child = mOutgoingAlgorithms->GetChild();
+  MOZ_ASSERT(child);
+
+  LOG(("Flushing %zu batched outgoing datagrams", mPendingOutgoing.Length()));
+  // Fire-and-forget: datagrams are sent untracked, so there is no reply to
+  // wait for. If the actor is already dead, Send* below just fails
+  // (returns false) having done nothing -- WebTransportChild::ActorDestroy()
+  // already resolved every [[BackpressurePromise]] by the time that can
+  // happen, via
+  // CloseAll(), so there's nothing left here to settle.
+  Span<const OutgoingDatagram> pending(mPendingOutgoing);
+  size_t start = 0;
+  size_t bytes = 0;
+  for (size_t i = 0; i < pending.Length(); ++i) {
+    bytes += pending[i].data().Length();
+    if (bytes >= kMaxOutgoingMessageBytes ||
+        i + 1 - start == kMaxOutgoingMessageDatagrams ||
+        i + 1 == pending.Length()) {
+      (void)child->SendOutgoingDatagrams(pending.FromTo(start, i + 1));
+      start = i + 1;
+      bytes = 0;
+    }
+  }
+  mPendingOutgoing.Clear();
+  mPendingOutgoingBytes = 0;
+}
+
 already_AddRefed<Promise> OutgoingDatagramStreamAlgorithms::WriteCallbackImpl(
     JSContext* aCx, JS::Handle<JS::Value> aChunk,
     WritableStreamDefaultController& aController, ErrorResult& aError) {
   // https://w3c.github.io/webtransport/#writedatagrams
-  // Step 1. Let timestamp be a timestamp representing now.
+  // Step 1: Let timestamp be a timestamp representing now.
   TimeStamp now = TimeStamp::Now();
 
   // Step 2: If data is not a BufferSource object, then return a promise
@@ -422,95 +525,100 @@ already_AddRefed<Promise> OutgoingDatagramStreamAlgorithms::WriteCallbackImpl(
     return nullptr;
   }
 
-  // Step 3: Let datagrams be transport.[[Datagrams]].
+  // Step 3: Let duplex be transport.[[Datagrams]].
   // (mDatagrams is transport.[[Datagrams]])
 
+  // Step 5 (early): Let bytes be a copy of bytes which data represents.
+  // Copied here rather than in step order since step 4 needs its length and
+  // the steps below hand the buffer straight off.
   nsTArray<uint8_t> data;
   (void)AppendTypedArrayDataTo(arrayBuffer, data);
 
-  // Step 4: If datagrams.[[OutgoingMaxDatagramSize]] is less than data’s
+  // Step 4: If duplex.[[OutgoingMaxDatagramSize]] is less than data’s
   // [[ByteLength]], return a promise resolved with undefined.
   if (mDatagrams->mOutgoingMaxDataSize < static_cast<uint64_t>(data.Length())) {
     return Promise::CreateResolvedWithUndefined(mDatagrams->GetParentObject(),
                                                 aError);
   }
 
-  // Step 5: Let promise be a new Promise
-  RefPtr<Promise> promise =
-      Promise::CreateInfallible(mDatagrams->GetParentObject());
+  // WritableStream doesn't call us again until the promise returned last
+  // time settles, so a pending one is never replaced below.
+  MOZ_ASSERT(mBackpressurePromise->State() != Promise::PromiseState::Pending);
 
-  // Assign unique datagram ID from the shared counter on the duplex stream
-  uint64_t datagramId = mDatagrams->mNextDatagramId++;
+  // Step 6: Let chunk be (bytes, timestamp).
+  size_t dataLength = data.Length();
+
+  // See mCleanedUp: the write is still consumed, but nothing is forwarded.
+  //
+  // Not in spec: writeDatagrams has no closed/failed check, so the spec
+  // enqueues this write and, past outgoingMaxBufferedDatagrams, sets a new
+  // [[BackpressurePromise]] that nothing resolves once cleanup has run,
+  // since sendDatagrams no longer runs then.  Returning the one cleanup
+  // resolved instead lets the WritableStream finish.
+  if (mCleanedUp) {
+    return do_AddRef(mBackpressurePromise);
+  }
 
   // mChild is set when we move to Connected
   if (mChild) {
-    // Step 7: Let chunk be (bytes, timestamp, promise).
-    // Step 8: Enqueue chunk to writable.[[OutgoingDatagramsQueue]].
+    // Step 7: Enqueue chunk to writable.[[OutgoingDatagramsQueue]].
     //
-    // Not in spec: the promise is always tracked in mPendingDatagramPromises
-    // so OnDatagramReady()/Cleanup() can find and settle it later.
-    mPendingDatagramPromises.InsertOrUpdate(datagramId, promise);
-    // Step 9: If the length of writable.[[OutgoingDatagramsQueue]] is less
-    // than datagrams.[[OutgoingMaxBufferedDatagrams]], then resolve promise
-    // with undefined.
+    // Not in spec: that queue lives in the parent process (and below it in
+    // neqo), so the chunk is handed to the parent below, and mInFlight
+    // stands in for the queue's length -- it counts every datagram handed to
+    // the parent until RetireInFlight() is told (in aggregate) that it has
+    // left neqo's queue.  Per-instance, like the spec's slot, which is
+    // per-writable.
     //
-    // Not in spec: [[OutgoingDatagramsQueue]] lives in the parent, so the
-    // count of tracked promises stands in for its length.
-    if (mPendingDatagramPromises.Count() <
-        mDatagrams->mOutgoingMaxBufferedDatagrams) {
-      // Below outgoingMaxBufferedDatagrams: resolve immediately.
-      promise->MaybeResolveWithUndefined();
+    // Step 8: If writable's send queue is full, then set
+    // writable.[[BackpressurePromise]] to a new promise.
+    //
+    // The send queue is full when its length is not less than
+    // duplex.[[OutgoingMaxBufferedDatagrams]], or when its byte length is
+    // greater than an implementation-defined limit.  Ours is neqo's queue byte
+    // budget, which evicts once full, so the datagram must also fit in the
+    // parent's byte credit.
+    bool underMaxBuffered =
+        mInFlight.Add(mDatagrams->mOutgoingMaxBufferedDatagrams);
+    if (underMaxBuffered && mDatagrams->mCredit.HasBytesFor(dataLength)) {
+      mDatagrams->mCredit.Charge(dataLength);
     } else {
-      // At or above outgoingMaxBufferedDatagrams: withhold the promise so the
-      // WritableStream applies backpressure. Resolved later by
-      // OnDatagramReady() once the datagram is sent or dropped.
+      // Resolved by TryResolveBackpressureFromCredit() as the parent's
+      // DatagramCapacity grants allow, or by Cleanup() at teardown.
+      mBackpressurePromise =
+          Promise::CreateInfallible(mDatagrams->GetParentObject());
+      mBackpressureBytes = dataLength;
     }
 
-    // Register for DatagramReady routing. mOwnerWritable is null for the
-    // default writable exposed via `.writable` (it isn't wrapped in its own
-    // WebTransportDatagramsWritable), so this registers a null entry for it.
-    // Every outstanding datagram id is always present in the map, so
-    // OnDatagramReady can treat a missing entry as a bug rather than
-    // silently guessing it belongs to the default writable.
-    mDatagrams->mWritableDatagramMap.InsertOrUpdate(datagramId, mOwnerWritable);
-
-    // We pass along the datagram to the parent with its ID.
-    // The OutgoingDatagramsQueue lives in parent/neqo, and steps 6-9 are
-    // implemented there. Parent will send DatagramReady when appropriate.
-    LOG(("Sending Datagram id=%" PRIu64 ", size = %zu", datagramId,
-         data.Length()));
+    // The rest of step 7: queue the datagram for the next batched
+    // OutgoingDatagrams message.  The real [[OutgoingDatagramsQueue]] and
+    // all of sendDatagrams live in parent/neqo.
     uint64_t sendGroupId = mSendGroup ? mSendGroup->GetGroupId() : 0;
-    LOG(("Sending Datagram id=%" PRIu64 ", size = %zu, sendGroup = %" PRIu64
-         ", sendOrder = %" PRId64,
-         datagramId, data.Length(), sendGroupId, mSendOrder));
-    mChild->SendOutgoingDatagram(
-        datagramId, std::move(data), now, sendGroupId, mSendOrder,
-        [](nsresult&&) {
-          // IPC succeeded - actual promise resolution happens via DatagramReady
-          LOG(("Datagram IPC succeeded"));
-        },
-        [self = RefPtr{this},
-         datagramId](mozilla::ipc::ResponseRejectReason&&) {
-          LOG(("Datagram IPC failed for id=%" PRIu64, datagramId));
-          // IPC failed - remove from pending maps and resolve promise
-          // immediately
-          self->mDatagrams->mWritableDatagramMap.Remove(datagramId);
-          if (Maybe<RefPtr<Promise>> promise =
-                  self->mPendingDatagramPromises.Extract(datagramId)) {
-            (*promise)->MaybeResolveWithUndefined();
-          }
-        });
+    LOG(("Queuing datagram size=%zu, sendGroup=%" PRIu64 ", sendOrder=%" PRId64,
+         dataLength, sendGroupId, mSendOrder));
+    mDatagrams->QueueOutgoingDatagram(
+        OutgoingDatagram(std::move(data), now, sendGroupId, mSendOrder));
   } else {
-    LOG(("Queuing datagram id=%" PRIu64 " for connect", datagramId));
-    // Queue locally until we can send it.
-    // Multiple datagrams can be queued if they arrive before connection.
-    mWaitConnectQueue.AppendElement(QueuedDatagram(
-        datagramId, std::make_unique<DatagramEntry>(std::move(data), now),
-        promise));
+    LOG(("Queuing datagram for connect, size=%zu", dataLength));
+    // Step 7 again, with nowhere to hand the chunk off to yet: until
+    // SetChild() connects us, mWaitConnectQueue is this writable's
+    // [[OutgoingDatagramsQueue]].
+    mWaitConnectQueue.AppendElement(
+        std::make_unique<DatagramEntry>(std::move(data), now));
+
+    // Step 8 measured against that queue instead.
+    if (mWaitConnectQueue.Length() <
+        mDatagrams->mOutgoingMaxBufferedDatagrams) {
+      mDatagrams->mCredit.Charge(dataLength);
+    } else {
+      mBackpressurePromise =
+          Promise::CreateInfallible(mDatagrams->GetParentObject());
+      mBackpressureBytes = dataLength;
+    }
   }
 
-  // Step 10: return promise
-  return promise.forget();
+  // Step 9: Return writable.[[BackpressurePromise]].
+  return do_AddRef(mBackpressurePromise);
 }
 
 // XXX should we allow datagrams to be sent before connect?  Check IETF spec
@@ -518,73 +626,97 @@ void OutgoingDatagramStreamAlgorithms::SetChild(WebTransportChild* aChild) {
   LOG(("Setting child in datagrams, %zu queued datagrams",
        mWaitConnectQueue.Length()));
   mChild = aChild;
+  // The pre-connect stand-in queue drains into the real
+  // [[OutgoingDatagramsQueue]] in the parent, so every datagram in it becomes
+  // in flight now -- mirrors the mChild-set branch of WriteCallbackImpl,
+  // which counts a datagram as in flight the moment it is handed to the
+  // parent.
+  mInFlight.AddQueued(mWaitConnectQueue.Length());
   // Send all queued datagrams
   for (auto& queued : mWaitConnectQueue) {
-    // Add promise to pending map so OnDatagramReady can resolve it
-    mPendingDatagramPromises.InsertOrUpdate(queued.mDatagramId,
-                                            queued.mPromise);
-
-    // See the identical registration in WriteCallbackImpl.
-    mDatagrams->mWritableDatagramMap.InsertOrUpdate(queued.mDatagramId,
-                                                    mOwnerWritable);
-
     uint64_t sendGroupId = mSendGroup ? mSendGroup->GetGroupId() : 0;
-    uint64_t datagramId = queued.mDatagramId;
-    mChild->SendOutgoingDatagram(
-        datagramId, queued.mEntry->mBuffer, queued.mEntry->mTimeStamp,
-        sendGroupId, mSendOrder,
-        [](nsresult&&) { LOG_VERBOSE(("Early Datagram IPC succeeded")); },
-        [self = RefPtr{this},
-         datagramId](mozilla::ipc::ResponseRejectReason&&) {
-          LOG(("Early Datagram IPC failed for id=%" PRIu64, datagramId));
-          // Remove from pending maps and resolve on failure
-          self->mDatagrams->mWritableDatagramMap.Remove(datagramId);
-          if (Maybe<RefPtr<Promise>> promise =
-                  self->mPendingDatagramPromises.Extract(datagramId)) {
-            (*promise)->MaybeResolveWithUndefined();
-          }
-        });
+    mDatagrams->QueueOutgoingDatagram(
+        OutgoingDatagram(std::move(queued->mBuffer), queued->mTimeStamp,
+                         sendGroupId, mSendOrder));
   }
   mWaitConnectQueue.Clear();
 }
 
-void WebTransportDatagramDuplexStream::OnDatagramReady(uint64_t aDatagramId) {
-  Maybe<RefPtr<WebTransportDatagramsWritable>> entry =
-      mWritableDatagramMap.Extract(aDatagramId);
-  if (!entry) {
-    // A missing entry means DatagramReady arrived for an id that was never
-    // registered or already completed. Expected right after Cleanup()
-    // (mChild can outlive it, e.g. after a remote close), a bug otherwise.
-    MOZ_ASSERT(
-        mCleanedUp,
-        "OnDatagramReady for unregistered/already-completed datagram id");
-    return;
+bool OutgoingDatagramStreamAlgorithms::TryResolveBackpressureFromCredit(
+    uint64_t aAvailableBytes, size_t* aResolvedBytes) {
+  if (mBackpressurePromise->State() != Promise::PromiseState::Pending ||
+      DatagramQueueCharge(mBackpressureBytes,
+                          mDatagrams->mCredit.DatagramPrefixBytes()) >
+          aAvailableBytes) {
+    return false;
   }
-  RefPtr<WebTransportDatagramsWritable> writable = entry.extract();
-  if (writable) {
-    writable->OnDatagramReady(aDatagramId);
-  } else {
-    // Not in spec: the default writable exposed via our legacy `.writable`
-    // attribute, which the current spec has removed from
-    // WebTransportDatagramDuplexStream entirely (datagrams are only sent
-    // via createWritable()-created writables now). It isn't wrapped in a
-    // WebTransportDatagramsWritable object, so it registers a null entry
-    // above instead of an owner.
-    mOutgoingAlgorithms->OnDatagramReady(aDatagramId);
-  }
+  *aResolvedBytes = mBackpressureBytes;
+  mBackpressurePromise->MaybeResolveWithUndefined();
+  return true;
 }
 
-void OutgoingDatagramStreamAlgorithms::OnDatagramReady(uint64_t aDatagramId) {
-  LOG(("OnDatagramReady for id=%" PRIu64, aDatagramId));
+void OutgoingDatagramStreamAlgorithms::RetireInFlight(uint64_t aCount) {
+  mInFlight.Retire(aCount);
+}
 
-  if (Maybe<RefPtr<Promise>> promise =
-          mPendingDatagramPromises.Extract(aDatagramId)) {
-    LOG(("Resolving promise for datagram id=%" PRIu64, aDatagramId));
-    (*promise)->MaybeResolveWithUndefined();
-  } else {
-    LOG(("Warning: No pending promise found for datagram id=%" PRIu64,
-         aDatagramId));
+void WebTransportDatagramDuplexStream::OnDatagramCapacity(
+    uint64_t aCumulativeDatagrams, uint64_t aCumulativeBytes,
+    uint64_t aSentDelta, uint64_t aExpiredDelta, uint64_t aDroppedDelta,
+    uint64_t aDatagramPrefixBytes) {
+  // The parent's aggregate stand-in for sendDatagrams:
+  // https://w3c.github.io/webtransport/#senddatagrams
+  // Every datagram counted here has left [[OutgoingDatagramsQueue]] -- sent
+  // (step 5.4.6), expired (step 5.2.3) or dropped -- and sendDatagrams
+  // dequeues outgoing datagrams for it (steps 5.3, 5.4.5 and 5.5).
+  // https://w3c.github.io/webtransport/#dequeue-outgoing-datagrams
+
+  mCredit.SetDatagramPrefixBytes(aDatagramPrefixBytes);
+
+  mSentOutgoing += aSentDelta;
+  mExpiredOutgoing += aExpiredDelta;
+  mDroppedOutgoing += aDroppedDelta;
+
+  // The aggregate can't say which writable a datagram came from, so free the
+  // writeDatagrams step 8 slots on every one.  That is only ever too generous,
+  // and exact for the usual single writable.
+  uint64_t retiredCount = aSentDelta + aExpiredDelta + aDroppedDelta;
+  mOutgoingAlgorithms->RetireInFlight(retiredCount);
+  for (auto& writable : mAllWritables) {
+    writable->RetireInFlight(retiredCount);
   }
+
+  // Matches SenderFlowControl::update: only an increase moves the limit, so
+  // a grant that arrives late relative to a newer one is a harmless no-op.
+  mCredit.Raise(aCumulativeDatagrams, aCumulativeBytes);
+
+  // The resolutions dequeue outgoing datagrams step 3 owes, round-robin across
+  // writables so one long backlog can't starve the others while credit lasts.
+  size_t resolvedCount = 0;
+  bool resolvedAny = true;
+  while (resolvedAny && mCredit.HasDatagramRoom()) {
+    resolvedAny = false;
+    size_t bytes = 0;
+    if (mOutgoingAlgorithms->TryResolveBackpressureFromCredit(
+            mCredit.BytesAvailable(), &bytes)) {
+      mCredit.Charge(bytes);
+      resolvedCount++;
+      resolvedAny = true;
+    }
+    for (auto& writable : mAllWritables) {
+      if (!mCredit.HasDatagramRoom()) {
+        break;
+      }
+      size_t writableBytes = 0;
+      if (writable->TryResolveBackpressureFromCredit(mCredit.BytesAvailable(),
+                                                     &writableBytes)) {
+        mCredit.Charge(writableBytes);
+        resolvedCount++;
+        resolvedAny = true;
+      }
+    }
+  }
+  LOG(("OnDatagramCapacity resolved %zu backpressure promises from credit",
+       resolvedCount));
 }
 
 void OutgoingDatagramStreamAlgorithms::UpdateQueueParams(
@@ -600,62 +732,57 @@ void OutgoingDatagramStreamAlgorithms::UpdateQueueParams(
 }
 
 void OutgoingDatagramStreamAlgorithms::Cleanup() {
-  for (const auto& promise : mPendingDatagramPromises.Values()) {
-    promise->MaybeResolveWithUndefined();
-  }
-  mPendingDatagramPromises.Clear();
-  for (auto& queued : mWaitConnectQueue) {
-    queued.mPromise->MaybeResolveWithUndefined();
-  }
+  mCleanedUp = true;
+  // https://w3c.github.io/webtransport/#webtransport-cleanup
+  // Step 12.1: Set writable.[[OutgoingDatagramsQueue]] to an empty queue.
   mWaitConnectQueue.Clear();
+  // Step 12.2: Resolve writable.[[BackpressurePromise]] with undefined.
+  mBackpressurePromise->MaybeResolveWithUndefined();
 }
 
-void WebTransportDatagramDuplexStream::Cleanup() {
+nsTArray<RefPtr<WebTransportDatagramsWritable>>
+WebTransportDatagramDuplexStream::Cleanup() {
+  // Step 11: Set transport.[[Datagrams]].[[Writables]] to an empty set.
+  nsTArray<RefPtr<WebTransportDatagramsWritable>> writables =
+      std::move(mAllWritables);
+  mCreatedWritables.Clear();
+  // Step 12: For each writable in outgoingDatagramWritables:
+  // The default writable isn't in [[Writables]], so it is handled here too.
   mOutgoingAlgorithms->Cleanup();
-  for (const auto& writable : mAllWritables) {
+  for (const auto& writable : writables) {
     writable->Cleanup();
   }
-  mWritableDatagramMap.Clear();
-  mCleanedUp = true;
+  // The rest of each writable's [[OutgoingDatagramsQueue]] is this batch, and
+  // what the parent and neqo hold, which go away with the session.  Drop the
+  // batch so a flush already posted for later becomes a no-op instead of
+  // sending stale data for a torn-down session.
+  mPendingOutgoing.Clear();
+  mPendingOutgoingBytes = 0;
+  // Step 13: Set transport.[[Datagrams]].[[IncomingDatagramsQueue]] to an
+  // empty queue.
+  mIncomingDatagramsQueue.Clear();
+  return writables;
 }
 
-// static
-void WebTransportDatagramDuplexStream::CloseOrErrorWritable(
-    JSContext* aCx, WritableStream* aWritable, bool aClean,
+void WebTransportDatagramDuplexStream::ErrorWritables(
+    JSContext* aCx,
+    const nsTArray<RefPtr<WebTransportDatagramsWritable>>& aWritables,
     JS::Handle<JS::Value> aErrorValue) {
-  if (!aWritable) {
-    return;
+  if (RefPtr<WritableStream> writable = mWritable) {
+    writable->ErrorNative(aCx, aErrorValue, IgnoreErrors());
   }
-  // Best-effort: one writable already closing/errored (e.g. a duplicate
-  // call) must not stop the rest from being settled.
-  if (aClean) {
-    // https://w3c.github.io/webtransport/#webtransport-cleanup step 16.5
-    // calls "close" on every writable unconditionally, but
-    // WritableStreamClose() asserts the stream has no close already
-    // queued/in-flight -- a race with the page's own writer.close() would
-    // trip it. WritableStreamCloseQueuedOrInFlight isn't observable from
-    // the public Streams API, so a fix belongs in WebTransport's
-    // cleanup() algorithm, not here; skipping is safe meanwhile, since the
-    // page's own close() call already settles the writable once the
-    // underlying sink finishes closing.
-    // See https://github.com/w3c/webtransport/issues/797
-    if (aWritable->CloseQueuedOrInFlight()) {
-      return;
-    }
-    RefPtr<Promise> ignored = aWritable->CloseNative(aCx, IgnoreErrors());
-  } else {
-    aWritable->ErrorNative(aCx, aErrorValue, IgnoreErrors());
+  for (const auto& writable : aWritables) {
+    MOZ_KnownLive(writable)->ErrorNative(aCx, aErrorValue, IgnoreErrors());
   }
 }
 
-void WebTransportDatagramDuplexStream::CloseOrErrorWritables(
+void WebTransportDatagramDuplexStream::CloseOrErrorReadable(
     JSContext* aCx, bool aClean, JS::Handle<JS::Value> aErrorValue) {
-  CloseOrErrorWritable(aCx, MOZ_KnownLive(mWritable), aClean, aErrorValue);
-  // Iterate a copy, since settling a writable must not invalidate the loop.
-  nsTArray<RefPtr<WebTransportDatagramsWritable>> writables =
-      mAllWritables.Clone();
-  for (const auto& writable : writables) {
-    CloseOrErrorWritable(aCx, MOZ_KnownLive(writable), aClean, aErrorValue);
+  RefPtr<ReadableStream> readable = mReadable;
+  if (aClean) {
+    readable->CloseNative(aCx, IgnoreErrors());
+  } else {
+    readable->ErrorNative(aCx, aErrorValue, IgnoreErrors());
   }
 }
 

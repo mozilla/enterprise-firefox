@@ -90,7 +90,7 @@ class Http3WebTransportSession final : public WebTransportSessionBase,
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(Http3WebTransportSession, override)
 
-  Http3WebTransportSession(nsAHttpTransaction*, Http3Session*);
+  Http3WebTransportSession(nsAHttpTransaction*, Http3SessionBase*);
 
   Http3WebTransportSession* GetHttp3WebTransportSession() override {
     return this;
@@ -127,9 +127,8 @@ class Http3WebTransportSession final : public WebTransportSessionBase,
   already_AddRefed<Http3WebTransportStream> OnIncomingWebTransportStream(
       WebTransportStreamType aType, uint64_t aId);
 
-  void SendDatagram(nsTArray<uint8_t>&& aData, uint64_t aTrackingId,
-                    uint64_t aSendGroupId, int64_t aSendOrder,
-                    TimeStamp aTimestamp) override;
+  void SendDatagram(nsTArray<uint8_t>&& aData, uint64_t aSendGroupId,
+                    int64_t aSendOrder, TimeStamp aTimestamp) override;
 
   void OnDatagramReceived(nsTArray<uint8_t>&& aData) override;
 
@@ -137,6 +136,15 @@ class Http3WebTransportSession final : public WebTransportSessionBase,
 
   void SetDatagramMaxBufferedDatagrams(uint32_t aMaxBufferedDatagrams) override;
   void SetDatagramMaxAge(double aMaxAge) override;
+
+  bool GetDatagramQueueCapacity(size_t* aRemainingBytes,
+                                size_t* aQueuedDatagrams,
+                                size_t* aMaxQueuedBytes) override;
+  bool GetDatagramSessionStats(uint64_t* aSent, uint64_t* aExpired,
+                               uint64_t* aDropped) override;
+
+  void RequestOutgoingDatagramProgress() override;
+  bool TakeOutgoingDatagramProgressRequest();
 
   nsresult ExportKeyingMaterial(const nsTArray<uint8_t>& aLabel,
                                 const nsTArray<uint8_t>& aContext,
@@ -150,9 +158,6 @@ class Http3WebTransportSession final : public WebTransportSessionBase,
   void GetNegotiatedProtocol(nsACString& aProtocol) override;
   void GetResponseHeaders(nsTArray<nsCString>& aNames,
                           nsTArray<nsCString>& aValues) override;
-
-  void OnOutgoingDatagramOutCome(
-      uint64_t aId, WebTransportSessionEventListener::DatagramOutcome aOutCome);
 
   void SetAnticipatedConcurrentIncomingUnidirectionalStreams(
       uint16_t aValue) override;
@@ -177,6 +182,14 @@ class Http3WebTransportSession final : public WebTransportSessionBase,
 
   // Cached stats for passing to OnSessionClosed
   mozilla::dom::WebTransportStatsData mCachedStats;
+
+  // Outgoing datagrams neqo refused to enqueue at all, so never counted by
+  // its own sent/expired/dropped stats.  Folded into
+  // GetDatagramSessionStats()'s dropped count, since content counts every
+  // datagram it hands over as in flight until that aggregate retires it.
+  uint64_t mFailedOutgoingDatagrams{0};
+  // Socket thread only.
+  bool mOutgoingDatagramProgressRequested = false;
 };
 
 }  // namespace mozilla::net

@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -120,7 +121,6 @@ import org.mozilla.fenix.components.metrics.installSourcePackage
 import org.mozilla.fenix.components.toolbar.ToolbarPosition
 import org.mozilla.fenix.components.toolbar.TopDividerColumn
 import org.mozilla.fenix.compose.snackbar.SnackbarState
-import org.mozilla.fenix.compose.verticalFadingEdges
 import org.mozilla.fenix.ext.application
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.hideToolbar
@@ -135,7 +135,6 @@ import org.mozilla.fenix.home.collections.migration.CollectionsMigrationCardMidd
 import org.mozilla.fenix.home.collections.migration.CollectionsMigrationCardState
 import org.mozilla.fenix.home.collections.migration.CollectionsMigrationCardStore
 import org.mozilla.fenix.home.ext.showWallpaperOnboardingDialog
-import org.mozilla.fenix.home.logo.LogoController
 import org.mozilla.fenix.home.logo.TrackingProtectionController
 import org.mozilla.fenix.home.pocket.controller.DefaultPocketStoriesController
 import org.mozilla.fenix.home.privatebrowsing.controller.DefaultPrivateBrowsingController
@@ -153,12 +152,14 @@ import org.mozilla.fenix.home.sessioncontrol.SessionControlInteractor
 import org.mozilla.fenix.home.store.HomeToolbarStoreBuilder
 import org.mozilla.fenix.home.store.HomepageState
 import org.mozilla.fenix.home.termsofuse.DefaultPrivacyNoticeBannerController
+import org.mozilla.fenix.home.toolbar.CollapsingTopBarState
 import org.mozilla.fenix.home.toolbar.DefaultToolbarController
 import org.mozilla.fenix.home.toolbar.FenixHomeToolbar
 import org.mozilla.fenix.home.toolbar.HomeNavigationBar
 import org.mozilla.fenix.home.toolbar.HomeToolbarComposable
 import org.mozilla.fenix.home.toolbar.HomeToolbarComposable.Companion.DirectToSearchConfig
 import org.mozilla.fenix.home.toolbar.WallpaperToolbarScrim
+import org.mozilla.fenix.home.toolbar.collapsingTopBar
 import org.mozilla.fenix.home.toolbar.homepageToolbarColors
 import org.mozilla.fenix.home.topsites.DefaultTopSitesView
 import org.mozilla.fenix.home.topsites.TopSitesBinding
@@ -167,7 +168,9 @@ import org.mozilla.fenix.home.topsites.controller.TopSitesSource
 import org.mozilla.fenix.home.topsites.getTopSitesConfig
 import org.mozilla.fenix.home.ui.HomeSwipeIntegration
 import org.mozilla.fenix.home.ui.Homepage
+import org.mozilla.fenix.home.ui.MiddleSearchPinState
 import org.mozilla.fenix.home.ui.WallpaperBackground
+import org.mozilla.fenix.home.ui.rememberMiddleSearchPinState
 import org.mozilla.fenix.ipprotection.store.Surface as IPProtectionSurface
 import org.mozilla.fenix.ipprotection.ui.IPProtectionBottomSheetFragment
 import org.mozilla.fenix.messaging.DefaultMessageController
@@ -554,7 +557,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                 .navigate(NavGraphDirections.actionGlobalUnlockPrivateTabsFragment(NavigationOrigin.HOME_PAGE))
         }
 
-        toolbarView.build(requireComponents.settings.isHomepageMiddleSearchEnabled)
+        toolbarView.build()
 
         requireComponents.appStore.state.wasLastTabClosedPrivate?.also {
             showUndoSnackbar(requireContext().tabClosedUndoMessage(it))
@@ -706,6 +709,27 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                 var bottomBarHeight by remember { mutableIntStateOf(0) }
                 val fadeContentEdges = isOverUniversalEdgeToEdgeWallpaper(appState.value)
                 val searchBackgroundColor = toolbarView.searchBackgroundColor()
+                val middleSearchPinState = rememberMiddleSearchPinState()
+                val collapsingTopBarState =
+                    remember(middleSearchPinState) {
+                        CollapsingTopBarState(
+                            distanceBeforeCollapse = {
+                                middleSearchPinState.distance?.toFloat() ?: Float.POSITIVE_INFINITY
+                            },
+                            remainingScroll = {
+                                with(middleSearchPinState.scrollState) { (maxValue - value).toFloat() }
+                            },
+                        )
+                    }
+                val isTopBarCollapsible =
+                    settings.isHomepageMiddleSearchEnabled && !appState.value.searchState.isSearchActive
+
+                LaunchedEffect(isTopBarCollapsible) {
+                    collapsingTopBarState.isEnabled = isTopBarCollapsible
+                    if (!isTopBarCollapsible) {
+                        collapsingTopBarState.expand()
+                    }
+                }
 
                 LaunchedEffect(currentWallpaper.name, isPrivateMode, searchBackgroundColor) {
                     applyWallpaperSystemBarsTheme(
@@ -731,19 +755,28 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
 
                         if (showToolbarScrim) {
                             WallpaperToolbarScrim(
-                                topContentHeight = topBarHeight,
-                                bottomContentHeight = bottomBarHeight,
+                                topContentHeight = { topBarHeight },
+                                bottomContentHeight = { bottomBarHeight },
                             )
                         }
 
                         Scaffold(
-                            modifier = Modifier.fillMaxSize().systemBarsPadding().displayCutoutPadding().imePadding(),
+                            modifier =
+                                Modifier.fillMaxSize()
+                                    .systemBarsPadding()
+                                    .displayCutoutPadding()
+                                    .imePadding()
+                                    .nestedScroll(collapsingTopBarState.nestedScrollConnection),
                             topBar = {
                                 HomeTopBar(
                                     settings = settings,
                                     isToolbarAtTop = isToolbarAtTop,
                                     captureToolbarBounds = captureToolbarBounds,
-                                    modifier = Modifier.onSizeChanged { topBarHeight = it.height },
+                                    modifier =
+                                        Modifier.onSizeChanged { topBarHeight = it.height }
+                                            .thenConditional(Modifier.collapsingTopBar(collapsingTopBarState)) {
+                                                settings.isHomepageMiddleSearchEnabled
+                                            },
                                 )
                             },
                             bottomBar = {
@@ -761,6 +794,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                                 appState = appState.value,
                                 privacyNoticeBannerState = privacyNoticeBannerState.value,
                                 collectionsMigrationCardState = collectionsMigrationCardState.value,
+                                middleSearchPinState = middleSearchPinState,
                                 settings = settings,
                                 innerPadding = innerPadding,
                                 fadeContentEdges = fadeContentEdges,
@@ -962,6 +996,7 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
         appState: AppState,
         privacyNoticeBannerState: PrivacyNoticeBannerState,
         collectionsMigrationCardState: CollectionsMigrationCardState,
+        middleSearchPinState: MiddleSearchPinState,
         settings: Settings,
         innerPadding: PaddingValues,
         fadeContentEdges: Boolean,
@@ -1001,13 +1036,8 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                 onTopSitesItemBound = {
                     StartupTimeline.onTopSitesItemBound(activity = (requireActivity() as HomeActivity))
                 },
-                onMiddleSearchBarVisibilityChanged = { isVisible ->
-                    toolbarView.updateAddressBarVisibility(!isVisible)
-                },
-                modifier =
-                    Modifier.thenConditional(Modifier.verticalFadingEdges(HOMEPAGE_EDGE_FADE_LENGTH)) {
-                        fadeContentEdges
-                    },
+                middleSearchPinState = middleSearchPinState,
+                contentFadeLength = HOMEPAGE_EDGE_FADE_LENGTH.takeIf { fadeContentEdges },
             )
 
             if (microsurveyVisible) {
@@ -1702,12 +1732,6 @@ class HomeFragment : Fragment(), UserInteractionHandler, OnLongPressedListener {
                     TrackingProtectionController(
                         navController = findNavController(),
                         currentSessionId = requireComponents.core.store.state.selectedTabId,
-                    ),
-                logoController =
-                    LogoController(
-                        longFoxFeature = requireComponents.core.longFoxFeature,
-                        context = requireActivity(),
-                        longFoxEnabled = requireComponents.settings.longfoxEnabled,
                     ),
             )
     }

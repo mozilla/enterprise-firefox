@@ -62,20 +62,8 @@ enum LlamaKVCacheDtype {
  * Name are chosen to map directly to the ones from llama.cpp.
  */
 dictionary LlamaContextOptions {
-  /**
-   * Maximum combined length of input & generate tokens.
-   */
-  unsigned long nCtx = 2048;
-
-  /**
-   * Logical max batch size submitted to llama_decode.
-   */
-  unsigned long nBatch = 2048;
-
-  /**
-   * Physical max batch size for actual processing.
-   */
-  unsigned long nUbatch = 512;
+  /** Tokens per decode call; sets llama.cpp n_batch and n_ubatch. */
+  unsigned long nBatch = 512;
 
   /**
    * Maximum number of concurrent sequences (distinct KV states).
@@ -146,7 +134,8 @@ dictionary LlamaModelOptions {
   HWInferencePlacement placement = {};
 
   /**
-   * Context configuration (e.g. nCtx, threads).
+   * Context configuration (e.g. threads, batch size). Each generation sizes
+   * the context to its prompt and maxGeneratedTokens.
    */
   LlamaContextOptions context = {};
 

@@ -66,8 +66,6 @@ export const AppConstants: Readonly<{
 
   MOZ_CRASHREPORTER: boolean;
 
-  MOZ_NORMANDY: boolean;
-
   MOZ_MAINTENANCE_SERVICE: boolean;
 
   MOZ_BACKGROUNDTASKS: boolean;

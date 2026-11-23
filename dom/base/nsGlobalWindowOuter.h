@@ -68,6 +68,7 @@ class nsHistory;
 class nsGlobalWindowObserver;
 class nsGlobalWindowInner;
 class nsDOMWindowUtils;
+class LazyFocusActionId;
 struct nsRect;
 class nsWindowRoot;
 class nsWindowSizes;
@@ -512,7 +513,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // kungFuDeathGrip in it.
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void FocusOuter(
       mozilla::dom::CallerType aCallerType, bool aFromOtherProcess,
-      uint64_t aActionId);
+      LazyFocusActionId& aActionId);
   nsresult Focus(mozilla::dom::CallerType aCallerType) override;
   // TODO: Convert BlurOuter() to MOZ_CAN_RUN_SCRIPT and get rid of the
   // kungFuDeathGrip in it.
@@ -947,6 +948,10 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   void SetDocShell(nsDocShell* aDocShell);
 
+  // Sends the command updates which were coalesced by UpdateCommands() in a
+  // content process to the parent process.
+  void SendPendingCommandUpdatesToParentProcess();
+
   // nsPIDOMWindow{Inner,Outer} should be able to see these helper methods.
   friend class nsPIDOMWindowInner;
   friend class nsPIDOMWindowOuter;
@@ -1090,6 +1095,11 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // Whether the chrome window is currently in a full screen transition. This
   // flag is updated from FullscreenTransitionTask.
   bool mIsInFullScreenTransition = false;
+
+  // In a content process, the actions passed to UpdateCommands() which have
+  // not been sent to the parent process yet. A runnable which sends them is
+  // pending iff this is non-empty.
+  AutoTArray<nsString, 1> mPendingCommandUpdateActions;
 
   friend class nsDOMWindowUtils;
   friend class mozilla::dom::BrowsingContext;

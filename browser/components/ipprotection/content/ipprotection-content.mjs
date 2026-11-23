@@ -57,6 +57,8 @@ export default class IPProtectionContentElement extends MozLitElement {
     activeSubscriptionEl: "#active-subscription-vpn-content",
     supportLinkEl: "#vpn-support-link",
     statusBoxEl: "ipprotection-status-box",
+    tryAgainButtonEl: "#try-again-button",
+    continueWithoutVpnButtonEl: "#continue-without-vpn-button",
     siteExclusionControlEl: "#site-exclusion-control",
     siteExclusionToggleEl: "#site-exclusion-toggle",
     siteExclusionDescriptionEl: '#site-exclusion-toggle > [slot="description"]',
@@ -161,6 +163,18 @@ export default class IPProtectionContentElement extends MozLitElement {
     Glean.ipprotection.clickUpgradeButton.record();
   }
 
+  handleTryAgain() {
+    this.dispatchEvent(
+      new CustomEvent("IPProtection:UserRetry", { bubbles: true })
+    );
+  }
+
+  handleToggleOff() {
+    this.dispatchEvent(
+      new CustomEvent("IPProtection:UserDisable", { bubbles: true })
+    );
+  }
+
   focus() {
     if (this.state.unauthenticated) {
       this.unauthenticatedEl?.focus();
@@ -175,9 +189,7 @@ export default class IPProtectionContentElement extends MozLitElement {
         new CustomEvent("IPProtection:UserEnable", { bubbles: true })
       );
     } else if (event.type === "ipprotection-status-card:user-toggled-off") {
-      this.dispatchEvent(
-        new CustomEvent("IPProtection:UserDisable", { bubbles: true })
-      );
+      this.handleToggleOff();
     }
   }
 
@@ -512,36 +524,38 @@ export default class IPProtectionContentElement extends MozLitElement {
 
   errorTemplate() {
     const isNetworkError = this.state.error === ERRORS.NETWORK;
-    const isCatastrophicError = this.state.error === ERRORS.CATASTROPHIC;
     const isRestrictedGeoError = this.state.error === ERRORS.VPN_UNAVAILABLE;
 
-    let headerL10nId = "ipprotection-connection-status-generic-error-title-1";
-    let descriptionL10nId =
-      "ipprotection-connection-status-generic-error-description";
+    let headerL10nId = "ipprotection-connection-status-blocked-error-title-1";
+    let descriptionL10nId = null;
     let errorType = ERRORS.GENERIC;
-    let imageSrc = null;
+    let imageSrc =
+      "chrome://browser/content/ipprotection/assets/states/ipprotection-error.svg";
     let supportSlug = null;
+    let showButtons = true;
+    const isRetrying = !!this.state.isRetrying;
 
     if (isNetworkError) {
       headerL10nId = "ipprotection-connection-status-network-error-title-1";
       descriptionL10nId =
         "ipprotection-connection-status-network-error-description";
       errorType = ERRORS.NETWORK;
+      showButtons = false;
       imageSrc =
         "chrome://browser/content/ipprotection/assets/states/ipprotection-info.svg";
-    } else if (isCatastrophicError) {
-      headerL10nId = "ipprotection-connection-status-blocked-error-title-1";
-      descriptionL10nId =
-        "ipprotection-connection-status-generic-error-try-again";
-      errorType = ERRORS.CATASTROPHIC;
-      imageSrc =
-        "chrome://browser/content/ipprotection/assets/states/ipprotection-error.svg";
     } else if (isRestrictedGeoError) {
       headerL10nId = "ipprotection-connection-status-blocked-error-title-1";
       descriptionL10nId =
         "ipprotection-connection-status-blocked-error-description-1";
       errorType = ERRORS.VPN_UNAVAILABLE;
+      showButtons = false;
+      imageSrc = null;
       supportSlug = LINKS.NO_ACCESS_SUPPORT_SLUG;
+    }
+
+    if (isRetrying) {
+      headerL10nId = "ipprotection-connection-status-trying-again-title";
+      descriptionL10nId = null;
     }
 
     return html`
@@ -559,6 +573,33 @@ export default class IPProtectionContentElement extends MozLitElement {
                 class="icon"
                 src=${imageSrc}
               />
+            `
+          : null}
+        ${showButtons
+          ? html`
+              <moz-button
+                id="try-again-button"
+                slot="action"
+                type="primary"
+                data-l10n-id="ipprotection-connection-status-try-again-button"
+                ?disabled=${isRetrying}
+                @click=${this.handleTryAgain}
+                closemenu="none"
+              ></moz-button>
+            `
+          : null}
+        ${showButtons && this.state.isDefaultMode
+          ? html`
+              <moz-button
+                id="continue-without-vpn-button"
+                slot="action"
+                type="secondary"
+                class="toolbarbutton"
+                data-l10n-id="ipprotection-connection-error-continue-without-vpn"
+                ?disabled=${isRetrying}
+                @click=${this.handleToggleOff}
+                closemenu="none"
+              ></moz-button>
             `
           : null}
       </ipprotection-status-box>

@@ -132,6 +132,7 @@ media/openmax_dl/
 media/openmax_il/
 media/webrtc/signaling/gtest/MockCall.h
 mfbt/double-conversion/double-conversion/
+mfbt/zmij/
 mobile/android/android-components/components/feature/readerview/src/main/assets/extensions/readerview/readability/JSDOMParser-0.4.2.js
 mobile/android/android-components/components/feature/readerview/src/main/assets/extensions/readerview/readability/readability-0.4.2.js
 mobile/android/android-components/components/feature/readerview/src/main/assets/extensions/readerview/readability/readability-readerable-0.4.2.js
@@ -184,7 +185,6 @@ toolkit/components/contentanalysis/content_analysis/sdk/
 toolkit/components/certviewer/content/vendor/
 toolkit/components/jsoncpp/
 toolkit/components/ml/vendor/
-toolkit/components/normandy/vendor/
 toolkit/components/passwordmgr/shared/PasswordRulesParser.sys.mjs
 toolkit/components/protobuf/src/
 toolkit/components/protobuf/third_party/

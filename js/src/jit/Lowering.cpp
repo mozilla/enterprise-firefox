@@ -2695,6 +2695,14 @@ void LIRGenerator::visitBigIntMod(MBigIntMod* ins) {
   assignSafepoint(lir, ins);
 }
 
+void LIRGenerator::visitBigIntMulMod(MBigIntMulMod* ins) {
+  auto* lir = new (alloc()) LBigIntMulMod(useRegisterAtStart(ins->lhs()),
+                                          useRegisterAtStart(ins->rhs()),
+                                          useRegisterAtStart(ins->modulus()));
+  defineReturn(lir, ins);
+  assignSafepoint(lir, ins);
+}
+
 void LIRGenerator::visitBigIntPow(MBigIntPow* ins) {
   auto* lir = new (alloc()) LBigIntPow(useRegisterAtStart(ins->lhs()),
                                        useRegisterAtStart(ins->rhs()));
@@ -6214,6 +6222,14 @@ void LIRGenerator::visitGuardHasProxyHandler(MGuardHasProxyHandler* ins) {
 void LIRGenerator::visitNurseryObject(MNurseryObject* ins) {
   MOZ_ASSERT(ins->type() == MIRType::Object);
 
+  // Snapshots refer to nursery objects by their index in the IonScript's
+  // nursery object list, so we only need to load the object if it has uses
+  // other than resume points and instructions recovered on bailout.
+  if (!ins->hasLiveDefUses()) {
+    emitAtUses(ins);
+    return;
+  }
+
   auto* lir = new (alloc()) LNurseryObject();
   define(lir, ins);
 }
@@ -7463,6 +7479,8 @@ void LIRGenerator::visitWasmReturnCall(MWasmReturnCall* ins) {
 }
 
 void LIRGenerator::visitWasmCallLandingPrePad(MWasmCallLandingPrePad* ins) {
+  // Exception handling jumps indirectly to the start of this block.
+  ins->block()->lir()->setIsIndirectJumpTarget();
   add(new (alloc()) LWasmCallLandingPrePad, ins);
 }
 

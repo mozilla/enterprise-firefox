@@ -5875,7 +5875,7 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
   }
 #  endif
   // Bug 2055849: Don't process updates if MOZ_DISABLE_UPDATE_PROCESSING is set.
-  // Set by default when using https://github.com/mozilla/firefox-devtools-mcp.
+  // Set by default when using https://github.com/mozilla/firefox-mcp.
   if (EnvHasValue("MOZ_DISABLE_UPDATE_PROCESSING")) {
     NS_WARNING("ShouldNotProcessUpdates(): DisabledByEnvironment");
     return Some(ShouldNotProcessUpdatesReason::DisabledByEnvironment);
@@ -8100,16 +8100,8 @@ bool XRE_UseNativeEventProcessing() {
 namespace mozilla {
 
 uint32_t GetMaxWebProcessCount() {
-  // multiOptOut is in int to allow us to run multiple experiments without
-  // introducing multiple prefs a la the autostart.N prefs.
-  if (Preferences::GetInt("dom.ipc.multiOptOut", 0) >=
-      nsIXULRuntime::E10S_MULTI_EXPERIMENT) {
-    return 1;
-  }
-
-  const char* optInPref = "dom.ipc.processCount";
-  uint32_t optInPrefValue = Preferences::GetInt(optInPref, 1);
-  return std::max(1u, optInPrefValue);
+  int32_t processCount = Preferences::GetInt("dom.ipc.processCount", 1);
+  return static_cast<uint32_t>(std::max(1, processCount));
 }
 
 const char* PlatformBuildID() { return gToolkitBuildID; }

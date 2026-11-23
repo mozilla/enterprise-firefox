@@ -167,6 +167,7 @@ export const UrlbarShared = {
       "clearL10nCache",
       "clearTopSitesCache",
       "close",
+      "invalidateResults",
       "startTail150",
       "updateResultMenuCommands",
     ]),

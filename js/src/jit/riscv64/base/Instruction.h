@@ -29,6 +29,8 @@ const Instr kIllegalInstr = 0;  // All other bits are 0s (i.e., ecall)
 const Instr rtCallRedirInstr = SYSTEM;  // All other bits are 0s (i.e., ecall)
 // An EBreak instruction, used for debugging and semi-hosting
 const Instr kBreakInstr = SYSTEM | 1 << kImm12Shift;  // ebreak
+// The Zihintpause hint, which is encoded as "fence w, 0"
+const Instr kPauseInstr = MISC_MEM | PSW << kPredOrderShift;
 
 constexpr uint8_t kInstrSize = 4;
 constexpr uint8_t kShortInstrSize = 2;
@@ -169,6 +171,44 @@ class InstructionBase {
 
   // Get the encoding type of the instruction.
   Type InstructionType() const;
+
+  // Get the encoding type of a 32-bit instruction from its major opcode.
+  static constexpr Type BaseOpcodeType(Instr bits) {
+    switch (bits & kBaseOpcodeMask) {
+      case LOAD:
+      case LOAD_FP:
+      case MISC_MEM:
+      case OP_IMM:
+      case OP_IMM_32:
+      case JALR:
+      case SYSTEM:
+        return kIType;
+      case AUIPC:
+      case LUI:
+        return kUType;
+      case STORE:
+      case STORE_FP:
+        return kSType;
+      case AMO:
+      case OP:
+      case OP_32:
+      case OP_FP:
+        return kRType;
+      case MADD:
+      case MSUB:
+      case NMSUB:
+      case NMADD:
+        return kR4Type;
+      case BRANCH:
+        return kBType;
+      case JAL:
+        return kJType;
+      case OP_V:
+        return kVType;
+      default:
+        return kUnsupported;
+    }
+  }
   OffsetSize GetOffsetSize() const;
   inline ImmBranchRangeType GetImmBranchRangeType() const {
     return OffsetSizeToImmBranchRangeType(GetOffsetSize());

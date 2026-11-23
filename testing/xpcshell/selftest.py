@@ -21,6 +21,8 @@ import mozfile
 import mozinfo
 import six
 from mozlog import structured
+from mozlog.formatters import JSONFormatter
+from mozlog.handlers import StreamHandler
 from runxpcshelltests import XPCShellTests
 
 TEST_PASS_STRING = "TEST-PASS"
@@ -1290,6 +1292,46 @@ add_test({
         self.assertTestResult(False, retry=True, verify=True)
         self.assertEqual(1, self.x.failCount)
         self.assertNotInLog("will retry")
+
+    def testVerify(self):
+        """
+        Check that --verify logs a group for each test, with its chaos mode steps
+        in a group of their own.
+        """
+        self.writeFile("test_basic.js", SIMPLE_PASSING_TEST)
+        self.writeFile("test_add_test_simple.js", ADD_TEST_SIMPLE)
+        self.writeManifest(["test_basic.js", "test_add_test_simple.js"])
+        raw = six.StringIO()
+        self.x.log.add_handler(StreamHandler(raw, JSONFormatter()))
+
+        self.assertTestResult(True, verify=True)
+        records = [json.loads(l) for l in raw.getvalue().splitlines()]
+        groups = [
+            (r["action"], os.path.basename(r["name"]))
+            for r in records
+            if r["action"] in ("group_start", "group_end")
+        ]
+        self.assertEqual(
+            [
+                marker
+                for test in ("test_basic.js", "test_add_test_simple.js")
+                for marker in (
+                    ("group_start", f"{test} --verify"),
+                    ("group_start", "sequential"),
+                    ("group_end", "sequential"),
+                    ("group_start", "parallel"),
+                    ("group_end", "parallel"),
+                    ("group_start", "chaos"),
+                    ("group_start", "sequential"),
+                    ("group_end", "sequential"),
+                    ("group_start", "parallel"),
+                    ("group_end", "parallel"),
+                    ("group_end", "chaos"),
+                    ("group_end", f"{test} --verify"),
+                )
+            ],
+            groups,
+        )
 
     def testCrashWithRetry(self):
         """

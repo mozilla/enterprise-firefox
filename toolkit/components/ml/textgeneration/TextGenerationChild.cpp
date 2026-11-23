@@ -121,9 +121,7 @@ static LlamaModelOptions ToLlamaModelOptions(
   // mmap of a descriptor needs syscalls the utility sandbox denies.
   modelOptions.mUseMmap = false;
   modelOptions.mUseMlock = false;
-  modelOptions.mContext.mNCtx = aOptions.contextSize();
   modelOptions.mContext.mNBatch = aOptions.batchSize();
-  modelOptions.mContext.mNUbatch = aOptions.ubatchSize();
   modelOptions.mContext.mNThreads =
       static_cast<int32_t>(aOptions.numThreadsDecoding());
   modelOptions.mContext.mNThreadsBatch =
@@ -140,17 +138,10 @@ static LlamaModelOptions ToLlamaModelOptions(
   return modelOptions;
 }
 
-// The budget is an unsigned long on the surface, but an int32_t in llama.cpp,
-// which sizes the context to hold the prompt plus the whole budget. Left
-// unbounded it wraps negative -- ending the run after one token -- and asks
-// for a context no allocation can serve. A generation cannot outrun its own
-// context, so that is the bound; contextSize 0 means the model's default.
-static uint32_t EffectiveMaxTokens(const GenerateRequest& aRequest,
-                                   uint32_t aContextSize) {
-  static constexpr uint32_t kMax =
-      static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
-  const uint32_t budget = std::min(aRequest.maxTokens(), kMax);
-  return aContextSize ? std::min(budget, aContextSize) : budget;
+// The budget is an unsigned long on the surface, but an int32_t in llama.cpp.
+static uint32_t EffectiveMaxTokens(const GenerateRequest& aRequest) {
+  return std::min(aRequest.maxTokens(),
+                  static_cast<uint32_t>(std::numeric_limits<int32_t>::max()));
 }
 
 static LlamaChatOptions ToLlamaChatOptions(const GenerateRequest& aRequest,
@@ -223,8 +214,7 @@ class TextGenerationChild::Generation {
         mRequest(std::move(aRequest)),
         mResolver(std::make_shared<GenerateResolver>(std::move(aResolve))),
         mBufferLength(std::max(1u, mRequest.bufferLength())),
-        mMaxTokens(
-            EffectiveMaxTokens(mRequest, aChild->mOptions.contextSize())),
+        mMaxTokens(EffectiveMaxTokens(mRequest)),
         mDecoder(UTF_8_ENCODING->NewDecoderWithoutBOMHandling()) {}
 
   void Run() {
@@ -346,7 +336,9 @@ class TextGenerationChild::Generation {
     if (mCancelled || mChild->mShutdown) {
       return TextGenerationFinishReason::Cancelled;
     }
-    if (mGeneratedTokens >= mMaxTokens) {
+    if (mGeneratedTokens >= mMaxTokens ||
+        mGeneratedTokens >=
+            static_cast<uint32_t>(mChild->mBackend->MaxGeneratedTokens())) {
       return TextGenerationFinishReason::Length;
     }
     if (mLastToken >= 0 && mRequest.stopTokens().Contains(mLastToken)) {
@@ -415,8 +407,7 @@ void TextGenerationChild::Initialize() {
         if (result.type() == LoadResult::TLoadSuccess) {
           PROFILER_MARKER(ML_TEXT_GENERATION_TRACK, ML_SETUP,
                           MarkerTiming::IntervalUntilNowFrom(loadStart),
-                          MLBackendInitMarker, self->mOptions.contextSize(),
-                          self->mOptions.numThreads(),
+                          MLBackendInitMarker, self->mOptions.numThreads(),
                           self->mOptions.numThreadsDecoding(),
                           dom::GetEnumString(self->mOptions.kvCacheDtype()),
                           self->mOptions.flashAttn());

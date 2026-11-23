@@ -517,10 +517,6 @@ Generates attributed versions of releases for partners.
 
 Chunks the partner repacks by locale.
 
-## release-partner-repack-signing
-
-Internal signing of partner repacks.
-
 ## release-partner-repack-mac-signing
 
 Mac signing without notarization.
@@ -566,10 +562,6 @@ Utilises landoscript to perform tagging that should happen near the start of a r
 ## release-eme-free-repack
 
 Generates customized versions of releases for eme-free repacks.
-
-## release-eme-free-repack-signing
-
-Internal signing of eme-free repacks
 
 ## release-eme-free-repack-repackage
 
@@ -818,6 +810,13 @@ final PGO build. This is the 1st stage of the full 3-step PGO process.
 Tasks that take a build configured for PGO and run the binary against a sample
 set to generate profile data. This is the 2nd stage of the full 3-step PGO
 process.
+
+## pgo-coverage
+
+Tasks that report which source directories the training run of a
+generate-profile task executes code from, as a `pgo-coverage.txt` artifact and
+in Perfherder, to find what the PGO training corpus misses. They run apart from
+the 3-step PGO process so that they don't delay the PGO build.
 
 ## geckodriver-signing
 

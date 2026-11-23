@@ -11,9 +11,12 @@ install required.
 import datetime
 import json
 import os
+import re
 import sys
+import types
 
 import mozunit
+import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _AGGREGATION_DIR = os.path.dirname(_HERE)
@@ -141,6 +144,19 @@ def test_query_sql_filters_build_date_in_sql():
     )
 
 
+def test_query_sql_holds_each_ping_to_its_own_builds_submission_window():
+    # Otherwise every day of a window but the last would also get the late
+    # pings submitted up to end_date + 5.
+    sql = bhr_collection.build_query_sql(
+        datetime.date(2026, 5, 1), datetime.date(2026, 5, 3), 100
+    )
+    build_date = "SAFE.PARSE_DATE('%Y%m%d', SUBSTR(client_info.app_build, 1, 8))"
+    assert f"TIMESTAMP(DATE_SUB({build_date}, INTERVAL 5 DAY))" in sql
+    assert f"TIMESTAMP(DATE_ADD({build_date}, INTERVAL 5 DAY))" in sql
+    # The window-wide range stays, since it is what prunes the scan.
+    assert "BETWEEN '2026-04-26' AND '2026-05-08'" in sql
+
+
 def test_query_sql_does_not_select_unused_ping_info():
     sql = bhr_collection.build_query_sql(
         datetime.date(2026, 5, 1), datetime.date(2026, 5, 1), 1
@@ -189,19 +205,197 @@ def _make_row(os_name, os_version, arch, app_build, hangs_reports, hangs_modules
     }
 
 
-def _install_fake_client(monkeypatch, rows):
-    # _query_bigquery is the single BigQuery touchpoint; stub it to return our
-    # fake rows so the tests stay offline and don't need google-cloud-bigquery.
-    monkeypatch.setattr(
-        bhr_collection, "_query_bigquery", lambda sql, billing_project: iter(rows)
+def _install_fake_bigquery(monkeypatch, rows=()):
+    """Stand in for google-cloud-bigquery, so the tests stay offline and run
+    without it installed. Every table's rows read back as `rows`, except that a
+    table made by a query ending in `WHERE build_date = '<D>'` reads back only
+    the rows of builds from D.
+
+    NotFound: get_table raises it for a table that does not exist. Setting
+    lose_race makes get_table miss tables that exist, as it does when a concurrent
+    run creates the table between this run's check and its CREATE.
+
+    Conflict: a CREATE TABLE creates its table or, if the table already exists,
+    its result raises Conflict.
+
+    PreconditionFailed: update_table raises it when lose_update_race is set, as it
+    does when a concurrent run updates the table after this run fetched it.
+
+    Returns a record of the projects clients are made for, the queries run, the
+    tables created and read, and the fields of each table update.
+    """
+    bq = types.SimpleNamespace(
+        projects=[],
+        queries=[],
+        read=[],
+        tables={},
+        updated=[],
+        lose_race=False,
+        lose_update_race=False,
     )
+
+    class NotFound(Exception):
+        pass
+
+    class Conflict(Exception):
+        pass
+
+    class PreconditionFailed(Exception):
+        pass
+
+    class Client:
+        def __init__(self, project):
+            bq.projects.append(project)
+
+        def get_table(self, table_id):
+            if table_id not in bq.tables or bq.lose_race:
+                raise NotFound(table_id)
+            return bq.tables[table_id]
+
+        def update_table(self, table, fields):
+            if bq.lose_update_race:
+                raise PreconditionFailed(table)
+            bq.updated.append(fields)
+
+        def query(self, sql):
+            bq.queries.append(sql)
+            table_id = re.search(r"TABLE `([^`]+)`", sql).group(1)
+            match = re.search(r"WHERE build_date = '(\d{8})'$", sql)
+
+            def result():
+                if table_id in bq.tables:
+                    raise Conflict(table_id)
+                bq.tables[table_id] = types.SimpleNamespace(
+                    expires=None, build_date=match and match.group(1)
+                )
+
+            return types.SimpleNamespace(job_id="job", result=result)
+
+        def list_rows(self, table_id):
+            bq.read.append(table_id)
+            build_date = bq.tables[table_id].build_date
+            return (
+                row
+                for row in rows
+                if build_date is None
+                or row["client_info"]["app_build"].startswith(build_date)
+            )
+
+    modules = {
+        name: types.ModuleType(name)
+        for name in (
+            "google",
+            "google.cloud",
+            "google.cloud.bigquery",
+            "google.api_core",
+            "google.api_core.exceptions",
+        )
+    }
+    modules["google"].cloud = modules["google.cloud"]
+    modules["google"].api_core = modules["google.api_core"]
+    modules["google.cloud"].bigquery = modules["google.cloud.bigquery"]
+    modules["google.cloud.bigquery"].Client = Client
+    modules["google.api_core"].exceptions = modules["google.api_core.exceptions"]
+    modules["google.api_core.exceptions"].NotFound = NotFound
+    modules["google.api_core.exceptions"].Conflict = Conflict
+    modules["google.api_core.exceptions"].PreconditionFailed = PreconditionFailed
+    for name, module in modules.items():
+        monkeypatch.setitem(sys.modules, name, module)
+    return bq
+
+
+def test_query_bigquery_reads_back_the_table_its_query_creates(monkeypatch):
+    bq = _install_fake_bigquery(monkeypatch)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", False)
+    (create,) = bq.queries
+    assert create.endswith("AS\nSELECT 1")
+    assert len(bq.read) == 1
+    assert f"TABLE `{bq.read[0]}`" in create
+
+
+def test_query_bigquery_reuses_an_earlier_scan_of_the_same_query(monkeypatch):
+    # A retry after a run died past its scan must not pay for the scan again.
+    bq = _install_fake_bigquery(monkeypatch)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", True)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", True)
+    assert len(bq.queries) == 1
+    assert "INTERVAL 72 HOUR" in bq.queries[0]
+    assert len(bq.tables) == 1, "Reusing a scan must keep a single result table"
+    (table_id,) = bq.tables
+    assert bq.read == [table_id, table_id]
+
+    bhr_collection._query_bigquery("SELECT 2", "test-project", True)
+    assert len(bq.queries) == 2
+    assert len(bq.tables) == 2
+    assert bq.read[2] in bq.tables and bq.read[2] != table_id
+    assert all(t.startswith("mozdata.tmp.bhr_aggregate_") for t in bq.tables)
+
+
+def test_query_bigquery_pushes_back_the_expiry_of_a_table_it_reuses(monkeypatch):
+    # A table found close to its expiry must not go while it is being read.
+    bq = _install_fake_bigquery(monkeypatch)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", True)
+    before = datetime.datetime.now(datetime.timezone.utc)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", True)
+    (table,) = bq.tables.values()
+    assert table.expires >= before + datetime.timedelta(hours=72)
+    assert bq.updated == [["expires"]]
+
+
+def test_query_bigquery_reads_a_table_a_concurrent_reuse_pushed_back(monkeypatch):
+    bq = _install_fake_bigquery(monkeypatch)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", True)
+    bq.lose_update_race = True
+    bhr_collection._query_bigquery("SELECT 1", "test-project", True)
+    assert len(bq.queries) == 1
+    assert len(bq.tables) == 1, "Reusing a scan must keep a single result table"
+    (table_id,) = bq.tables
+    assert bq.read == [table_id, table_id]
+
+
+def test_query_bigquery_scans_afresh_without_reuse(monkeypatch):
+    # Neither an earlier run's table nor its own retry's is read.
+    bq = _install_fake_bigquery(monkeypatch)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", True)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", False)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", False)
+    assert len(bq.queries) == 3
+    assert len(bq.tables) == 3
+    assert sorted(bq.read) == sorted(bq.tables)
+    assert all("INTERVAL 6 HOUR" in q for q in bq.queries[1:])
+
+
+def test_query_bigquery_reraises_conflict_without_reuse(monkeypatch):
+    bq = _install_fake_bigquery(monkeypatch)
+    monkeypatch.setattr(
+        bhr_collection.uuid, "uuid4", lambda: types.SimpleNamespace(hex="0" * 32)
+    )
+    bhr_collection._query_bigquery("SELECT 1", "test-project", False)
+    conflict = sys.modules["google.api_core.exceptions"].Conflict
+    with pytest.raises(conflict):
+        bhr_collection._query_bigquery("SELECT 1", "test-project", False)
+    assert len(bq.queries) == 2
+    assert len(bq.read) == 1, "A non-reusable run must not read an existing table"
+
+
+def test_query_bigquery_reads_the_table_a_concurrent_run_created(monkeypatch):
+    bq = _install_fake_bigquery(monkeypatch)
+    bhr_collection._query_bigquery("SELECT 1", "test-project", True)
+    bq.lose_race = True
+    # Neither fails nor replaces the other run's table.
+    bhr_collection._query_bigquery("SELECT 1", "test-project", True)
+    assert len(bq.queries) == 2
+    assert all(q.startswith("CREATE TABLE ") for q in bq.queries)
+    assert len(bq.tables) == 1, "Reusing a scan must keep a single result table"
+    (table_id,) = bq.tables
+    assert bq.read == [table_id, table_id]
 
 
 def test_get_data_yields_ping_for_valid_row_in_build_window(monkeypatch):
     rows = [
         _make_row("Linux", "5.10", "x86_64", "20260501123456", "[]"),
     ]
-    _install_fake_client(monkeypatch, rows)
+    _install_fake_bigquery(monkeypatch, rows)
 
     pings = list(
         bhr_collection.get_data(
@@ -222,7 +416,7 @@ def test_get_data_drops_rows_with_missing_required_fields(monkeypatch):
         # OS missing — should be dropped.
         _make_row(None, "5.10", "x86_64", "20260501123456", "[]"),
     ]
-    _install_fake_client(monkeypatch, rows)
+    _install_fake_bigquery(monkeypatch, rows)
 
     pings = list(
         bhr_collection.get_data(
@@ -234,26 +428,10 @@ def test_get_data_drops_rows_with_missing_required_fields(monkeypatch):
     assert len(pings) == 1
 
 
-def _capture_sql(monkeypatch):
-    """Stub _query_bigquery, recording the SQL it's handed (returns no rows).
-
-    Build-date filtering lives only in the SQL, so get_data's date handling is
-    verified by checking the query it builds rather than by filtering rows.
-    """
-    captured = {}
-
-    def fake_query(sql, billing_project):
-        captured["sql"] = sql
-        return iter([])
-
-    monkeypatch.setattr(bhr_collection, "_query_bigquery", fake_query)
-    return captured
-
-
 def test_get_data_default_end_date_is_same_as_start(monkeypatch):
     # When end_date isn't passed, the build window collapses to one day, which
     # is what the SQL build-date filter should use.
-    captured = _capture_sql(monkeypatch)
+    bq = _install_fake_bigquery(monkeypatch)
 
     list(
         bhr_collection.get_data(
@@ -264,12 +442,12 @@ def test_get_data_default_end_date_is_same_as_start(monkeypatch):
     )
     assert (
         "SUBSTR(client_info.app_build, 1, 8) BETWEEN '20260501' AND '20260501'"
-        in captured["sql"]
+        in bq.queries[0]
     )
 
 
 def test_get_data_explicit_end_date_widens_window(monkeypatch):
-    captured = _capture_sql(monkeypatch)
+    bq = _install_fake_bigquery(monkeypatch)
 
     list(
         bhr_collection.get_data(
@@ -281,8 +459,54 @@ def test_get_data_explicit_end_date_widens_window(monkeypatch):
     )
     assert (
         "SUBSTR(client_info.app_build, 1, 8) BETWEEN '20260501' AND '20260502'"
-        in captured["sql"]
+        in bq.queries[0]
     )
+
+
+def test_get_data_reuses_an_earlier_scan_only_when_asked(monkeypatch):
+    bq = _install_fake_bigquery(monkeypatch)
+    args = dict(
+        date=datetime.date(2026, 5, 1),
+        sample_size=0.001,
+        billing_project="test-project",
+    )
+    list(bhr_collection.get_data(**args))
+    list(bhr_collection.get_data(**args))
+    assert len(bq.queries) == 2
+    list(bhr_collection.get_data(reuse=True, **args))
+    list(bhr_collection.get_data(reuse=True, **args))
+    assert len(bq.queries) == 3
+
+
+def test_aggregate_passes_reuse_on_to_the_query(monkeypatch, tmp_path):
+    import symbolication
+
+    hang = {
+        "thread": "Gecko",
+        "process": "main",
+        "duration": 500,
+        "stack": [{"frame": "1000", "module": 0}],
+        "annotations": [["UserInteracting", "true"]],
+    }
+    row = _make_row(
+        "Linux",
+        "5.10",
+        "x86_64",
+        "20260502123456",
+        json.dumps([hang]),
+        json.dumps([["xul.pdb", "ABC"]]),
+    )
+    bq = _install_fake_bigquery(monkeypatch, [row])
+    monkeypatch.setattr(symbolication, "fetch_url", lambda _url: (False, ""))
+    for reuse in (False, True, True):
+        bhr_collection.aggregate(
+            date=datetime.date(2026, 5, 2),
+            sample_size=0.001,
+            billing_project="test-project",
+            output_dir=str(tmp_path),
+            reuse=reuse,
+        )
+    assert len(bq.queries) == 2
 
 
 def test_get_data_exclude_modules_omits_hangs_modules_property(monkeypatch):
@@ -300,7 +524,7 @@ def test_get_data_exclude_modules_omits_hangs_modules_property(monkeypatch):
             "metrics": {"object": {"hangs_reports": "[]", "hangs_modules": None}},
         },
     ]
-    _install_fake_client(monkeypatch, rows)
+    _install_fake_bigquery(monkeypatch, rows)
 
     pings = list(
         bhr_collection.get_data(
@@ -315,13 +539,7 @@ def test_get_data_exclude_modules_omits_hangs_modules_property(monkeypatch):
 
 
 def test_get_data_passes_billing_project_to_query(monkeypatch):
-    captured = {}
-
-    def fake_query(sql, billing_project):
-        captured["billing_project"] = billing_project
-        return iter([])
-
-    monkeypatch.setattr(bhr_collection, "_query_bigquery", fake_query)
+    bq = _install_fake_bigquery(monkeypatch)
 
     list(
         bhr_collection.get_data(
@@ -330,7 +548,7 @@ def test_get_data_passes_billing_project_to_query(monkeypatch):
             billing_project="my-bill-here",
         )
     )
-    assert captured["billing_project"] == "my-bill-here"
+    assert bq.projects == ["my-bill-here"]
 
 
 def test_get_data_is_lazy_generator(monkeypatch):
@@ -345,9 +563,7 @@ def test_get_data_is_lazy_generator(monkeypatch):
             rows_seen.append(row)
             yield row
 
-    monkeypatch.setattr(
-        bhr_collection, "_query_bigquery", lambda sql, billing_project: make_iterator()
-    )
+    _install_fake_bigquery(monkeypatch, make_iterator())
 
     gen = bhr_collection.get_data(
         date=datetime.date(2026, 5, 1),
@@ -807,7 +1023,7 @@ def test_aggregate_end_to_end_offline(monkeypatch, tmp_path):
         json.dumps([hang]),
         json.dumps([["xul.pdb", "ABC"], ["kernel32.pdb", "XYZ"]]),
     )
-    _install_fake_client(monkeypatch, [row])
+    _install_fake_bigquery(monkeypatch, [row])
     monkeypatch.setattr(symbolication, "fetch_url", lambda _url: (False, ""))
 
     profile = bhr_collection.aggregate(
@@ -833,6 +1049,219 @@ def test_aggregate_end_to_end_offline(monkeypatch, tmp_path):
     # The written file round-trips to the same profile.
     with open(tmp_path / "hangs_main_current.json") as f:
         assert json.load(f)["usageHoursByDate"] == {"20260502": 1.0}
+
+
+def test_aggregate_window_writes_one_artifact_per_build_date(monkeypatch, tmp_path):
+    # Two pings from different builds, fetched by one query. Each build date
+    # must come out as its own artifact carrying only its own day, so the
+    # roll-up and the dashboard keep seeing single-day files.
+    import symbolication
+
+    def _hang(duration):
+        return {
+            "thread": "Gecko",
+            "process": "main",
+            "duration": duration,
+            "stack": [{"frame": "1000", "module": 0}],
+            "annotations": [["UserInteracting", "true"]],
+        }
+
+    modules = json.dumps([["xul.pdb", "ABC"]])
+    rows = [
+        _make_row(
+            "Linux",
+            "5.10",
+            "x86_64",
+            "20260502123456",
+            json.dumps([_hang(500)]),
+            modules,
+        ),
+        _make_row(
+            "Linux",
+            "5.10",
+            "x86_64",
+            "20260504123456",
+            json.dumps([_hang(600)]),
+            modules,
+        ),
+    ]
+    bq = _install_fake_bigquery(monkeypatch, rows)
+    monkeypatch.setattr(symbolication, "fetch_url", lambda _url: (False, ""))
+
+    profile = bhr_collection.aggregate(
+        date=datetime.date(2026, 5, 2),
+        end_date=datetime.date(2026, 5, 4),
+        sample_size=0.001,
+        billing_project="test-project",
+        output_dir=str(tmp_path),
+    )
+    assert len(bq.queries) == 4, "One scan for the window, then a read per day"
+    assert "CLUSTER BY build_date" in bq.queries[0]
+
+    for date in ("20260502", "20260504"):
+        path = tmp_path / f"hangs_main_{date}.json"
+        assert path.exists(), f"missing artifact for {date}"
+        with open(path) as f:
+            day = json.load(f)
+        # Only its own day, so thread["dates"][0] stays right for the roll-up.
+        assert day["usageHoursByDate"] == {date: 1.0}
+        assert [d["date"] for d in day["threads"][0]["dates"]] == [date]
+
+    # A day with no hangs still gets an artifact, an empty one, for its index route.
+    with open(tmp_path / "hangs_main_20260503.json") as f:
+        assert json.load(f)["usageHoursByDate"] == {"20260503": 1.0}
+
+    # `current` is the newest day, and is what aggregate() returns.
+    assert profile["usageHoursByDate"] == {"20260504": 1.0}
+    with open(tmp_path / "hangs_main_current.json") as f:
+        assert json.load(f)["usageHoursByDate"] == {"20260504": 1.0}
+
+
+def test_aggregate_gives_each_day_its_own_uuid(monkeypatch, tmp_path):
+    import symbolication
+
+    def _hang():
+        return {
+            "thread": "Gecko",
+            "process": "main",
+            "duration": 500,
+            "stack": [{"frame": "1000", "module": 0}],
+            "annotations": [["UserInteracting", "true"]],
+        }
+
+    modules = json.dumps([["xul.pdb", "ABC"]])
+    rows = [
+        _make_row(
+            "Linux",
+            "5.10",
+            "x86_64",
+            f"2026050{d}123456",
+            json.dumps([_hang()]),
+            modules,
+        )
+        for d in (2, 3)
+    ]
+    _install_fake_bigquery(monkeypatch, rows)
+    monkeypatch.setattr(symbolication, "fetch_url", lambda _url: (False, ""))
+
+    bhr_collection.aggregate(
+        date=datetime.date(2026, 5, 2),
+        end_date=datetime.date(2026, 5, 3),
+        sample_size=0.001,
+        billing_project="test-project",
+        output_dir=str(tmp_path),
+    )
+
+    uuids = set()
+    for date in ("20260502", "20260503"):
+        with open(tmp_path / f"hangs_main_{date}.json") as f:
+            uuids.add(json.load(f)["uuid"])
+    assert len(uuids) == 2
+
+
+def test_aggregate_single_day_is_unchanged(monkeypatch, tmp_path):
+    # The daily cron passes no end_date; it must behave exactly as before.
+    import symbolication
+
+    hang = {
+        "thread": "Gecko",
+        "process": "main",
+        "duration": 500,
+        "stack": [{"frame": "1000", "module": 0}],
+        "annotations": [["UserInteracting", "true"]],
+    }
+    bq = _install_fake_bigquery(
+        monkeypatch,
+        [
+            _make_row(
+                "Linux",
+                "5.10",
+                "x86_64",
+                "20260502123456",
+                json.dumps([hang]),
+                json.dumps([["xul.pdb", "ABC"]]),
+            )
+        ],
+    )
+    monkeypatch.setattr(symbolication, "fetch_url", lambda _url: (False, ""))
+
+    profile = bhr_collection.aggregate(
+        date=datetime.date(2026, 5, 2),
+        sample_size=0.001,
+        billing_project="test-project",
+        output_dir=str(tmp_path),
+    )
+
+    assert profile["usageHoursByDate"] == {"20260502": 1.0}
+    assert (tmp_path / "hangs_main_20260502.json").exists()
+    assert (tmp_path / "hangs_main_current.json").exists()
+    assert len(bq.queries) == 1, "A single day is read straight from its scan"
+
+
+def test_get_data_by_day_reads_the_window_one_build_date_at_a_time(monkeypatch):
+    rows = [
+        _make_row("Linux", "5.10", "x86_64", f"2026050{d}123456", "[]") for d in (2, 3)
+    ]
+    bq = _install_fake_bigquery(monkeypatch, rows)
+    args = dict(
+        date=datetime.date(2026, 5, 2),
+        end_date=datetime.date(2026, 5, 3),
+        sample_size=0.001,
+        billing_project="test-project",
+        reuse=True,
+    )
+    by_day = bhr_collection.get_data_by_day(**args)
+    for i, expected in enumerate(("20260502", "20260503")):
+        build_date, pings = next(by_day)
+        assert build_date == expected
+        assert [p["client_info/app_build"][:8] for p in pings] == [expected]
+        assert len(bq.queries) == 2 + i, "The window's scan, then a read per day so far"
+
+    # A retry reuses the window's scan, and copies each day out of it again.
+    for _, pings in bhr_collection.get_data_by_day(**args):
+        list(pings)
+    assert len(bq.queries) == 5, "A retry must not scan the window again"
+
+
+def _aggregate_window(tmp_path, days, sample_size):
+    start = datetime.date(2026, 5, 1)
+    bhr_collection.aggregate(
+        date=start,
+        end_date=start + datetime.timedelta(days=days - 1),
+        sample_size=sample_size,
+        billing_project="test-project",
+        output_dir=str(tmp_path),
+    )
+
+
+@pytest.mark.parametrize("days, sample_size", [(3, 0.5), (2, 0.75), (1, 1.0)])
+def test_aggregate_accepts_a_window_up_to_the_limits(
+    monkeypatch, tmp_path, days, sample_size
+):
+    bq = _install_fake_bigquery(monkeypatch)
+    _aggregate_window(tmp_path, days, sample_size)
+    assert len(bq.queries) == (1 if days == 1 else 1 + days), (
+        "One scan, plus a read per day when the window spans several"
+    )
+    assert len(list(tmp_path.glob("hangs_main_2026*.json"))) == days
+
+
+@pytest.mark.parametrize(
+    "days, sample_size, message",
+    [
+        # Within days * sample size, but past the day count.
+        (4, 0.25, "more than 3 days"),
+        (3, 0.5001, "sample size"),
+        (2, 0.7501, "sample size"),
+    ],
+)
+def test_aggregate_refuses_a_window_past_the_limits(
+    monkeypatch, tmp_path, days, sample_size, message
+):
+    bq = _install_fake_bigquery(monkeypatch)
+    with pytest.raises(ValueError, match=message):
+        _aggregate_window(tmp_path, days, sample_size)
+    assert bq.queries == []
 
 
 if __name__ == "__main__":

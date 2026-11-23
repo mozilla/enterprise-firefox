@@ -89,10 +89,11 @@ class ProjectPlugin : Plugin<Project> {
         configureAndroidBuildToolsVersion(project, substs)
         configureAppServicesSubstitution(project, extraProperties, substs)
         configureGleanSubstitution(project, extraProperties)
+        configureGleanPythonEnvDir(project, substs)
         configureGleanVersionResolution(project)
         configureKtfmt(project, mozilla)
         configureDetekt(project, mozilla)
-        configureAndroidComponentsLint(project, mozilla, topsrcdir)
+        configureAndroidLint(project, mozilla)
         configureRoomImplementationCheck(project)
         configureUnitTests(project)
         configurePackagingResourcesExcludes(project)
@@ -172,6 +173,10 @@ class ProjectPlugin : Plugin<Project> {
         if (extraProperties.has("localProperties.autoPublish.glean.dir")) {
             substituteWithMavenLocal(project, "local-glean", GLEAN_GROUPS)
         }
+    }
+
+    private fun configureGleanPythonEnvDir(project: Project, substs: Map<*, *>) {
+        project.extensions.extraProperties["gleanPythonEnvDir"] = substs["GRADLE_GLEAN_PARSER_VENV"] as String
     }
 
     // Extract native libs from libsForTests JARs so transitive .so dependencies
@@ -588,36 +593,28 @@ class ProjectPlugin : Plugin<Project> {
         }
     }
 
-    @Suppress("DEPRECATION") // `sarifReport` and `sarifOutput` are deprecated
-    private fun configureAndroidComponentsLint(project: Project, mozilla: ProjectExtension, topsrcdir: String) {
+    private fun configureAndroidLint(project: Project, mozilla: ProjectExtension) {
         val action = Action<AppliedPlugin> {
-            if (!mozilla.androidComponentsProject.get()) return@Action
-
-            val sarifOutputFile = File(
-                topsrcdir,
-                "mobile/android/android-components/build/reports/lint/lint-report-${project.name}.sarif.json",
-            )
             val android = project.extensions.getByType<CommonExtension>()
             with(android.lint) {
-                baseline = project.file("lint-baseline.xml")
                 warningsAsErrors = true
                 abortOnError = false
-                sarifReport = true
-                sarifOutput = sarifOutputFile
-                disable += listOf(
-                    "MissingTranslation",
-                    "ExtraTranslation",
-                    "MissingDefaultResource",
-                    // We do not want to enforce this as a generic rule for all languages (see #6117, #6056, #6118)
-                    "TypographyEllipsis",
-                    // https://github.com/mozilla-mobile/android-components/issues/10641
-                    "UnspecifiedImmutableFlag",
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=1795427
-                    "UnusedResources",
-                    // "We do not impose rules on locales"
-                    // https://github.com/mozilla-mobile/android-components/pull/11069
-                    "TypographyDashes",
-                )
+                if (mozilla.androidComponentsProject.get()) {
+                    disable += listOf(
+                        "MissingTranslation",
+                        "ExtraTranslation",
+                        "MissingDefaultResource",
+                        // We do not want to enforce this as a generic rule for all languages (see #6117, #6056, #6118)
+                        "TypographyEllipsis",
+                        // https://github.com/mozilla-mobile/android-components/issues/10641
+                        "UnspecifiedImmutableFlag",
+                        // https://bugzilla.mozilla.org/show_bug.cgi?id=1795427
+                        "UnusedResources",
+                        // "We do not impose rules on locales"
+                        // https://github.com/mozilla-mobile/android-components/pull/11069
+                        "TypographyDashes",
+                    )
+                }
             }
         }
         project.pluginManager.withPlugin("com.android.library", action)

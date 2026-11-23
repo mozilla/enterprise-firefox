@@ -2660,7 +2660,7 @@
 # Bug 2037346
 - name: docshell.shistory.restoreSubframesOnReload
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -5882,12 +5882,6 @@
   value: 5000
   mirror: always
 
-# Whether to treat the clicks on scrollbars as user interaction with web content.
-- name: dom.user_activation.ignore_scrollbars
-  type: bool
-  value: true
-  mirror: always
-
 # Whether to shim a Components object on untrusted windows.
 - name: dom.use_components_shim
   type: bool
@@ -7713,6 +7707,14 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+
+#ifdef MOZ_WIDGET_ANDROID
+# Enable GPU-process readback for ImageReader video in remote canvas drawImage.
+- name: gfx.canvas.remote.use-draw-image-fast-path-aimage-reader
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+#endif
 
 #ifdef XP_WIN
 - name: gfx.canvas.remote.use-draw-image-fast-path-d3d

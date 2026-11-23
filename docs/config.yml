@@ -146,6 +146,7 @@ redirects:
     tools/lint/coding-style: code-quality/coding-style
     tools/static-analysis/index.html: code-quality/static-analysis.html
     code-quality/typescript/updatingTypes.html: code-quality/typescript/index.html
+    ai-agent-tools/firefox-devtools-mcp.html: ai-agent-tools/firefox-mcp.html
 
 # Please do not add more exceptions to these warnings. Generally they should be
 # fixable. If you need help please ask in the firefox-source-docs channel on Matrix.
@@ -154,15 +155,6 @@ allowed_warnings:
     # be fixed in this tree, and scope each entry to the page it is about.
     # graphviz is installed in CI but may be missing from local setups.
     - "WARNING: dot command 'dot' cannot be run \\(needed for graphviz output\\)"
-    # Bug 1915274 - security/nss is imported from upstream NSS, so these have
-    # to be fixed there.
-    - "security/nss/build\\.md:.*: WARNING: more than one target found for 'myst' cross-reference build:"
-    - "security/nss/legacy_extracts/asn1\\.md:.*: WARNING: 'myst' cross-reference target not found: '(templates|asn\\.1_tags|decoder_modifiers)'"
-    - "security/nss/legacy_extracts/structure\\.md:.*: WARNING: 'myst' cross-reference target not found: 'api_structure'"
-    # Bug 2008577 - The Rust component JS bindings carry the Markdown doc
-    # comments of application-services, so these have to be fixed there.
-    - "rust-components/api/js/db_crypto\\.md:.*: WARNING: Inline (literal|interpreted text or phrase reference) start-string without end-string"
-    - "rust-components/api/js/remote_settings\\.md:.*: WARNING: Bullet list ends without a blank line"
 
 # Paths to exclude from documentation staging to avoid duplicate builds
 exclude_patterns:

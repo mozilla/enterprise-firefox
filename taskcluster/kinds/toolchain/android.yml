@@ -22,6 +22,9 @@ linux64-android-avd-x86_64-repack:
     description: "Android AVD (Linux) repack toolchain build"
     treeherder:
         symbol: TL(avd-x86_64)
+    worker-type: b-linux-kvm
+    worker:
+        kvm: true
     run:
         script: repack-android-avd-linux.sh
         arguments:
@@ -193,7 +196,7 @@ linux64-jdk-repack:
         toolchain-artifact: project/gecko/jdk/jdk-linux.tar.zst
         toolchain-alias: linux64-jdk
         toolchain-env:
-            JAVA_HOME: "/builds/worker/fetches/jdk/jdk-25.0.5+8"
+            JAVA_HOME: "/builds/worker/fetches/jdk/jdk-25.0.5.1+2"
 
 linux64-android-sdk-linux-repack:
     description: "Android SDK (Linux) repack toolchain build"
