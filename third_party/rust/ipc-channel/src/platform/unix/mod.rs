@@ -117,6 +117,28 @@ pub fn channel() -> Result<(OsIpcSender, OsIpcReceiver), UnixError> {
     }
 }
 
+/// Clear `FD_CLOEXEC` on `fd` so it is inherited across `exec` into a child.
+///
+/// On Linux and illumos endpoints created by `channel()` are `SOCK_CLOEXEC`, so
+/// a parent that hands a child an exported fd must clear the flag before
+/// spawning, otherwise the fd is closed by the `exec`.
+///
+/// From this call until the parent closes its copy, every child the parent
+/// spawns inherits the fd, unless the spawn closes the fds it was not given.
+/// The call only uses `fcntl`, so it can instead run between `fork` and
+/// `exec`, where it affects that one child.
+pub fn set_fd_inheritable(fd: RawFd) -> io::Result<()> {
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+    if flags < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let res = unsafe { libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) };
+    if res < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
 #[derive(Clone, Copy)]
 struct PollEntry {
     pub id: u64,
@@ -256,6 +278,39 @@ impl OsIpcSender {
         // SAFETY: the `Arc<SharedFileDescriptor>` held by `self` keeps the fd
         // open for the duration of the call.
         unsafe { socket_peer_pid(self.fd.0) }
+    }
+
+    /// Export the underlying socket fd without closing it.
+    ///
+    /// Only succeeds when this sender uniquely owns the fd (no outstanding
+    /// clones share the `Arc`); otherwise the sender is handed back unchanged
+    /// via `Err`, since exporting a shared fd would leave the other clones with
+    /// a dangling reference once the caller closes it.
+    pub fn into_raw_fd(self) -> Result<RawFd, OsIpcSender> {
+        match Arc::try_unwrap(self.fd) {
+            Ok(shared) => {
+                let fd = shared.0;
+                mem::forget(shared);
+                Ok(fd)
+            },
+            Err(fd) => Err(OsIpcSender { fd }),
+        }
+    }
+
+    /// Reconstruct a sender from a raw socket fd. Where `channel()` creates
+    /// its fds close-on-exec, the flag is set again, so the fd is not passed on
+    /// to processes the caller spawns.
+    ///
+    /// # Safety
+    /// `fd` must be a valid `SOCK_SEQPACKET` fd created by this crate's
+    /// `channel()`, and ownership of it is transferred to the returned sender.
+    pub unsafe fn from_raw_fd(fd: RawFd) -> OsIpcSender {
+        if SOCK_FLAGS & libc::SOCK_CLOEXEC != 0 {
+            let flags = libc::fcntl(fd, libc::F_GETFD);
+            let res = libc::fcntl(fd, libc::F_SETFD, flags | libc::FD_CLOEXEC);
+            debug_assert!(flags >= 0 && res >= 0, "from_raw_fd: not an open fd");
+        }
+        OsIpcSender::from_fd(fd)
     }
 
     /// Maximum size of the kernel buffer used for transfers over this channel.

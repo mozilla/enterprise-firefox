@@ -398,6 +398,108 @@ where
             os_sender: self.os_sender,
         }
     }
+
+    /// Export this sender's underlying fd without closing it, for handing the
+    /// sending end of a channel to a child process as an inherited fd.
+    ///
+    /// Only succeeds when this sender uniquely owns the fd (no outstanding
+    /// clones); otherwise the sender is returned unchanged via `Err`.
+    ///
+    /// On Linux and illumos the returned fd retains `FD_CLOEXEC`, so the caller
+    /// must call [`set_fd_inheritable`](crate::platform::set_fd_inheritable) on
+    /// it before spawning a child or the fd will be closed on exec.
+    ///
+    /// The caller owns the returned fd and must close it once the child is
+    /// spawned, or if the spawn fails: the receiver only sees the channel close
+    /// when every copy of the sending end is closed.
+    ///
+    /// [`IpcReceiver::peer_pid`] on this channel reports the process that
+    /// created it, not the child that inherited the sending end.
+    #[cfg(all(
+        not(feature = "force-inprocess"),
+        any(
+            target_os = "linux",
+            target_os = "openbsd",
+            target_os = "freebsd",
+            target_os = "illumos",
+        )
+    ))]
+    pub fn into_raw_fd(self) -> Result<std::os::unix::io::RawFd, Self> {
+        match self.os_sender.into_raw_fd() {
+            Ok(fd) => Ok(fd),
+            Err(os_sender) => Err(IpcSender {
+                os_sender,
+                phantom: PhantomData,
+            }),
+        }
+    }
+
+    /// Reconstruct a typed sender from a raw fd.
+    ///
+    /// # Safety
+    /// `fd` must be an endpoint fd previously produced by [`IpcSender::into_raw_fd`].
+    /// A descriptor inherited from a parent process is an acceptable source. The
+    /// descriptor must not be owned or closed anywhere else, since the returned
+    /// sender takes ownership and closing it twice is undefined behaviour.
+    ///
+    /// The channel should carry messages of type `T`; if it does not, receiving
+    /// fails to deserialize.
+    #[cfg(all(
+        not(feature = "force-inprocess"),
+        any(
+            target_os = "linux",
+            target_os = "openbsd",
+            target_os = "freebsd",
+            target_os = "illumos",
+        )
+    ))]
+    pub unsafe fn from_raw_fd(fd: std::os::unix::io::RawFd) -> Self {
+        IpcSender {
+            os_sender: OsIpcSender::from_raw_fd(fd),
+            phantom: PhantomData,
+        }
+    }
+
+    /// Duplicate this sender's pipe handle as an inheritable handle, for handing
+    /// the sending end of a channel to a child process. The sender is left
+    /// intact and the returned handle is owned by the caller, which must close
+    /// its copy once the child is spawned. The receiver only sees the channel
+    /// close when every sender handle is closed, so drop this sender as well
+    /// unless the parent also sends on the channel.
+    ///
+    /// Until the caller closes the returned handle, every child it spawns with
+    /// handle inheritance and no explicit handle list inherits it too.
+    ///
+    /// [`IpcReceiver::peer_pid`] on this channel reports the process that
+    /// created it, not the child that inherited the sending end. A sender in
+    /// another process delivers channels, shared memory and large payloads by
+    /// opening the process that created the channel, so those sends fail if
+    /// the child is not allowed to open its parent.
+    #[cfg(all(not(feature = "force-inprocess"), target_os = "windows"))]
+    pub fn inheritable_raw_handle(&self) -> io::Result<std::os::windows::io::RawHandle> {
+        self.os_sender
+            .inheritable_raw_handle()
+            .map_err(io::Error::from)
+    }
+
+    /// Reconstruct a typed sender from a raw pipe handle.
+    ///
+    /// # Safety
+    /// `handle` must be an endpoint handle previously produced by
+    /// [`IpcSender::inheritable_raw_handle`]. A handle inherited from a parent
+    /// process is an acceptable source. The handle must not be owned or closed
+    /// anywhere else, since the returned sender takes ownership and closing it
+    /// twice is undefined behaviour.
+    ///
+    /// The channel should carry messages of type `T`; if it does not, receiving
+    /// fails to deserialize.
+    #[cfg(all(not(feature = "force-inprocess"), target_os = "windows"))]
+    pub unsafe fn from_raw_handle(handle: std::os::windows::io::RawHandle) -> Self {
+        IpcSender {
+            os_sender: OsIpcSender::from_raw_handle(handle),
+            phantom: PhantomData,
+        }
+    }
 }
 
 impl<'de, T> Deserialize<'de> for IpcSender<T> {

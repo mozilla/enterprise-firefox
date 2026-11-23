@@ -4223,6 +4223,20 @@ types) and reads the sender's pid with libbsm's audit_token_to_pid.
 [[audits.ipc-channel]]
 who = "John Reitano <jreitano@mozilla.com>"
 criteria = "safe-to-deploy"
+delta = "0.21.0@git:b16dd0e2bd8dcb7a0699066bfe6630f504b2cac9 -> 0.21.0@git:6f434e030386274746a7da94d576212c7995deab"
+importable = false
+notes = """
+Lets a parent hand a child the sending end of a channel as an inherited fd or
+handle (Bug 2073137): IpcSender::into_raw_fd() / from_raw_fd() and
+platform::set_fd_inheritable() on unix, IpcSender::inheritable_raw_handle() /
+from_raw_handle() on windows. The import functions make the endpoint
+non-inheritable again. No existing transport behaviour changes and there are
+no new dependencies.
+"""
+
+[[audits.ipc-channel]]
+who = "John Reitano <jreitano@mozilla.com>"
+criteria = "safe-to-deploy"
 delta = "0.21.0@git:cbc0a688243230cda9b826976affbc9ad237a23c -> 0.21.0@git:b16dd0e2bd8dcb7a0699066bfe6630f504b2cac9"
 importable = false
 notes = """
