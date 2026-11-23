@@ -863,6 +863,13 @@ var TelemetryReportingPolicyImpl = {
    * Determine whether the user should be notified of telemetry policy.
    */
   _shouldNotifyDataReportingPolicy() {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      this._log.trace(
+        "_shouldNotifyDataReportingPolicy - Data collection is not user configurable on enterprise builds."
+      );
+      return false;
+    }
+
     if (!this.dataSubmissionEnabled) {
       this._log.trace(
         "_shouldNotifyDataReportingPolicy - Data submission disabled by the policy."
