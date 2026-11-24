@@ -104,7 +104,7 @@ add_task(async function test_restricted_domains_apply_update_remove() {
 // A "*": blocked config locks the discovery/recommendations prefs and
 // disallows temporary add-on installs; removal must restore all of them.
 add_task(async function test_block_all_prefs_and_feature_reverted() {
-  const initialShowPaneType = Services.prefs.getPrefType(SHOW_PANE_PREF);
+  const initialShowPane = Services.prefs.getBoolPref(SHOW_PANE_PREF);
   const initialRecommendations =
     Services.prefs.getBoolPref(RECOMMENDATIONS_PREF);
   Assert.ok(
@@ -156,8 +156,8 @@ add_task(async function test_block_all_prefs_and_feature_reverted() {
     "getAddons.showPane is unlocked after removal"
   );
   Assert.equal(
-    Services.prefs.getPrefType(SHOW_PANE_PREF),
-    initialShowPaneType,
+    Services.prefs.getBoolPref(SHOW_PANE_PREF),
+    initialShowPane,
     "getAddons.showPane is restored after removal"
   );
   Assert.ok(
