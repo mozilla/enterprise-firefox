@@ -51,6 +51,7 @@ class BaseBrowserSignout(FeltTests):
         # Verify felt authentication window reloaded
         self.await_felt_auth_window()
         self.force_window()
+        self.await_signout_settled()
 
         # Verify no user signed in in Felt
         self.assert_user_signed_out(env=Environment.FELT)
@@ -58,6 +59,24 @@ class BaseBrowserSignout(FeltTests):
         # Verify no cookies from the previous sign in session
         cookies = self.get_private_cookies()
         assert len(cookies) == 0, f"No private cookies, found {len(cookies)}"
+
+    def await_signout_settled(self):
+        """Wait until the sign-in window has finished tearing down the
+        previous session, which may outlast the browser."""
+        self._driver.set_context("chrome")
+        try:
+            self._longwait.until(
+                lambda _: self._driver.execute_script(
+                    """
+                    const { FeltCommon } = ChromeUtils.importESModule(
+                        "chrome://felt/content/FeltCommon.sys.mjs"
+                    );
+                    return FeltCommon.pendingSignOut === null;
+                    """
+                )
+            )
+        finally:
+            self._driver.set_context("content")
 
     def _accept_signout_dialog(self):
         self._child_driver.set_context("chrome")

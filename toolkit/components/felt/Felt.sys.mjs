@@ -20,6 +20,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   WebAuthnPromptHelper:
     "moz-src:///toolkit/modules/WebAuthnPromptHelper.sys.mjs",
+  FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
 });
 
@@ -465,10 +466,29 @@ export class Felt {
 
     if (topic === "domwindowclosed" && this._win === subject) {
       Services.ww.unregisterNotification(this._winObserver);
-      Services.startup.quit(
-        Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
-      );
+      this.#quitAfterPendingSignOut();
     }
+  }
+
+  /**
+   * Quit FELT once any signout in progress has cleared its session's
+   * credentials, which quitting earlier would leave behind.
+   */
+  async #quitAfterPendingSignOut() {
+    const pendingSignOut = lazy.FeltCommon.pendingSignOut;
+    if (pendingSignOut) {
+      Services.startup.enterLastWindowClosingSurvivalArea();
+      try {
+        await pendingSignOut;
+      } catch (err) {
+        lazy.log.error(`Pending signout failed: ${err}`);
+      } finally {
+        Services.startup.exitLastWindowClosingSurvivalArea();
+      }
+    }
+    Services.startup.quit(
+      Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
+    );
   }
 
   closeWindow() {

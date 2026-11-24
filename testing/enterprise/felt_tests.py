@@ -711,10 +711,14 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 m = self.build_policies_response()
 
         elif path == "/sso/logout":
-            # Hold the request open to simulate a console that does not answer.
-            stall_deadline = time.monotonic() + 120
+            # Hold the request open to simulate a console that does not answer,
+            # then drop it. The server is single-threaded, so stalling past the
+            # client's signout timeout would only block every other request.
+            stall_deadline = time.monotonic() + 12
             while self.server.signout_stall.value and time.monotonic() < stall_deadline:
                 time.sleep(0.2)
+            if self.server.signout_stall.value:
+                return
             if not self.check_auth():
                 return
             with self.server.signout_count.get_lock():

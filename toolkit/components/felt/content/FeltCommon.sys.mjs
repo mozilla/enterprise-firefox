@@ -19,6 +19,13 @@ export const FeltCommon = {
   PRIVATE_BROWSING_ID: 1,
   ENTERPRISE_PROFILE: `enterprise-profile-${AppConstants.MOZ_UPDATE_CHANNEL}`,
   POLICY_POLLING_FREQUENCY: 60_000,
+  /**
+   * Settles once the signout in progress has cleared the session's
+   * credentials, or null when no signout is in progress.
+   *
+   * @type {Promise<void>|null}
+   */
+  pendingSignOut: null,
 };
 
 /**
