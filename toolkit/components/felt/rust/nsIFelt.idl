@@ -21,6 +21,14 @@ interface nsIFelt : nsISupports {
    * and return its name for the spawned browser to connect to. Fails on Linux
    * and Windows, which use the fenced bootstrap (createInheritedChannelFd /
    * createInheritedChannelHandle, then acceptInheritedChannel) instead.
+   *
+   * macOS keeps the named server because an ordinary Mach right is not
+   * inherited across posix_spawn the way an fd or a handle is. The name can be
+   * looked up by any process in the bootstrap namespace, so both ends check the
+   * pid of their peer from the kernel-supplied audit token. Gecko passes Mach
+   * rights to its own child processes the same way: a per-launch bootstrap name
+   * on the command line and a pid check at check-in (see
+   * MachHandleProcessCheckIn in mach_ipc_mac.cc).
    */
   [must_use]
   ACString oneShotIpcServer();
