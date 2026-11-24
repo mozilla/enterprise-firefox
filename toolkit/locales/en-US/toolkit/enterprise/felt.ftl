@@ -46,6 +46,10 @@ felt-version = { $version }
 felt-urlbar-web-authn-anchor =
     .tooltiptext = Open Web Authentication panel
 
+felt-signing-out-title = Sign out
+felt-signing-out-status = Signing you out…
+felt-signing-out-details = This can take longer on a slow connection. You can sign in again once it’s done.
+
 ## Error details when launching the browser crashes
 
 felt-browser-error-sso-timeout2 =

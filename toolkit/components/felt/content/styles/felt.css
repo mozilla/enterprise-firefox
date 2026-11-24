@@ -76,7 +76,8 @@ body {
 }
 
 .felt-login__email-pane,
-.felt-updates-pane {
+.felt-updates-pane,
+.felt-signing-out-pane {
   display: flex;
   flex-direction: column;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
@@ -98,7 +99,8 @@ body {
 }
 
 .felt-form,
-.felt-updates__infos {
+.felt-updates__infos,
+.felt-signing-out__content {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -136,7 +138,8 @@ body {
 }
 
 .felt-updates-checking,
-.felt-updates-application-msg {
+.felt-updates-application-msg,
+.felt-signing-out__progress {
   width: 100%;
   color: var(--text-color, #15141a);
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
@@ -146,9 +149,20 @@ body {
   line-height: normal;
 }
 
-.felt-updates-checking {
+.felt-updates-checking,
+.felt-signing-out__progress {
   display: flex;
   gap: var(--space-small);
+}
+
+.felt-login:not(.felt-login--signing-out) .felt-signing-out-pane,
+.felt-login--signing-out .felt-login__email-pane {
+  display: none !important;
+}
+
+.felt-signing-out__details {
+  color: var(--text-color-deemphasized);
+  margin: 0;
 }
 
 .felt-updates-spinner {
@@ -198,7 +212,8 @@ body {
   color: var(--button-text-color-primary);
 }
 
-.felt-form__elements {
+.felt-form__elements,
+.felt-signing-out__elements {
   display: flex;
   flex-direction: column;
   align-items: flex-start;

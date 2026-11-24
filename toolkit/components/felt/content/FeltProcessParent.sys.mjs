@@ -1312,7 +1312,8 @@ export class FeltProcessParent extends JSProcessActorParent {
   /**
    * Perform all the logout operations on FELT side.
    *
-   * @returns {Promise<void>} Resolves once the browser shutdown was requested.
+   * @returns {Promise<void>} Resolves once the browser has exited and the
+   *   session's credentials are cleared.
    */
   async logoutFirefox() {
     if (!Services.felt.isFeltUI()) {
@@ -1327,16 +1328,27 @@ export class FeltProcessParent extends JSProcessActorParent {
     lazy.log.debug(
       `Logout, waiting on process ${gFeltProcessParentInstance.proc.pid}`
     );
-    await this._signOutSession();
-    Services.felt.shutdownFirefox();
-    const reportSignedOut = () => {
-      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
+    // Starting the signout sets logoutReported before the browser exits, so the
+    // exit is never taken for a lock. The browser must not wait on the console.
+    const signedOut = this._signOutSession();
+    // Tied to the signout itself, so a failed browser shutdown below cannot
+    // leave sign-in blocked once it settles.
+    const clearPendingSignOut = () => {
+      if (lazy.FeltCommon.pendingSignOut === signedOut) {
+        lazy.FeltCommon.pendingSignOut = null;
+      }
     };
-    if (gFeltProcessParentInstance.proc) {
-      gFeltProcessParentInstance.proc.exitPromise.then(reportSignedOut);
-    } else {
-      reportSignedOut();
+    lazy.FeltCommon.pendingSignOut = signedOut;
+    signedOut.then(clearPendingSignOut, clearPendingSignOut);
+    try {
+      Services.felt.shutdownFirefox();
+      await gFeltProcessParentInstance.proc?.exitPromise;
+    } finally {
+      // Signing in again before this session's credentials are cleared would
+      // race their teardown, so the sign-in window holds off until then.
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
     }
+    await signedOut;
   }
 
   /**

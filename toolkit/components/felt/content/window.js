@@ -110,8 +110,9 @@ function resetToLoginPageWithError(errorType, details = null, cause = null) {
 }
 
 async function connectToConsole(email) {
-  // One attempt at a time: block a concurrent second submit or resume.
-  if (signInInFlight) {
+  // One attempt at a time: block a concurrent second submit or resume. A new
+  // sign-in would also race the previous session's signout teardown.
+  if (signInInFlight || lazy.FeltCommon.pendingSignOut) {
     return;
   }
   signInInFlight = true;
@@ -356,6 +357,32 @@ async function listenFormEmailSubmission() {
       connectToConsole(emailInput.value);
     }
   });
+}
+
+/**
+ * Shows a signing out pane in place of the email form until the previous
+ * session's signout has cleared its credentials.
+ */
+async function waitForPendingSignOut() {
+  const pendingSignOut = lazy.FeltCommon.pendingSignOut;
+  if (!pendingSignOut) {
+    return;
+  }
+  // A class only this function touches, as the update check and captive portal
+  // both toggle the login and email panes.
+  const loginPane = document.querySelector(".felt-login");
+  loginPane.classList.add("felt-login--signing-out");
+  try {
+    await pendingSignOut;
+  } catch (err) {
+    lazy.log.error(`Pending signout failed: ${err}`);
+  } finally {
+    loginPane.classList.remove("felt-login--signing-out");
+    // The signout may have dropped a locking token, so refresh the button.
+    document
+      .getElementById("felt-form__email")
+      .dispatchEvent(new Event("input"));
+  }
 }
 
 function informAboutPotentialStartupFailure() {
@@ -612,6 +639,7 @@ window.addEventListener(
     setupContextMenu();
     setupBackButton();
     listenFormEmailSubmission();
+    waitForPendingSignOut();
     focusEmailOnLoginVisible();
     informAboutPotentialStartupFailure();
     macosActivateApplication();

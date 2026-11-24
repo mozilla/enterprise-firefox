@@ -9,6 +9,10 @@ const FELT_REFRESH_TIMEOUT = 60000;
 // Bound a single console request so a stalled server can't wedge the poller.
 const XHR_TIMEOUT_MS = 60000;
 
+// The sign-in window waits on the signout, so it must give up well before the
+// default request timeout.
+const SIGNOUT_TIMEOUT_MS = 10000;
+
 // The login flow this client speaks, reported on the SSO login URL: a callback
 // carrying a one-time token that the token endpoint redeems with the posture.
 const SSO_LOGIN_VERSION = "v2";
@@ -365,16 +369,23 @@ export const ConsoleClient = {
    * @param {string|null} [options.body=null] - Request body
    * @param {""|"arraybuffer"} [options.responseType=""] - XHR response type -
    *   use "arraybuffer" for binary responses and "" for text responses.
+   * @param {number} [options.timeoutMs=XHR_TIMEOUT_MS] - Request timeout.
    * @returns {Promise<{ok: boolean, status: number, json: Function, text: Function, arrayBuffer: Function}>}
    */
   _xhrFetch(
     url,
-    { method = "GET", headers = {}, body = null, responseType = "" } = {}
+    {
+      method = "GET",
+      headers = {},
+      body = null,
+      responseType = "",
+      timeoutMs = XHR_TIMEOUT_MS,
+    } = {}
   ) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url, true);
-      xhr.timeout = XHR_TIMEOUT_MS;
+      xhr.timeout = timeoutMs;
       xhr.responseType = responseType;
 
       // Handle both plain objects and Headers instances
@@ -456,11 +467,25 @@ export const ConsoleClient = {
    *
    * @param {string} path - Console API to request
    * @param {"GET"|"POST"} method - Console API method to use
-   * @param {{ _didRefresh?: boolean, jsonBody?: object }} [options]
+   * @param {object} [options]
+   * @param {boolean} [options._didRefresh=false]
+   * @param {object} [options.jsonBody=null]
+   * @param {number} [options.timeoutMs=XHR_TIMEOUT_MS]
+   * @param {boolean} [options.refreshOnAuthError=true] - Whether a 401 or 403
+   *   refreshes the session and retries.
    * @throws {Error}
    * @returns {Promise<any>} Parsed JSON response body.
    */
-  async _fetch(path, method, { _didRefresh = false, jsonBody = null } = {}) {
+  async _fetch(
+    path,
+    method,
+    {
+      _didRefresh = false,
+      jsonBody = null,
+      timeoutMs = XHR_TIMEOUT_MS,
+      refreshOnAuthError = true,
+    } = {}
+  ) {
     if (method !== "GET" && method !== "POST") {
       throw new TypeError(
         `Invalid method: ${method}. Expected "GET" or "POST".`
@@ -480,15 +505,24 @@ export const ConsoleClient = {
       method,
       headers,
       body: jsonBody === null ? undefined : JSON.stringify(jsonBody),
+      timeoutMs,
     });
 
     if (res.ok) {
       return await res.json();
     }
 
-    if ((res.status === 403 || res.status === 401) && !_didRefresh) {
+    if (
+      (res.status === 403 || res.status === 401) &&
+      refreshOnAuthError &&
+      !_didRefresh
+    ) {
       await this._refreshSession();
-      return this._fetch(path, method, { _didRefresh: true, jsonBody });
+      return this._fetch(path, method, {
+        _didRefresh: true,
+        jsonBody,
+        timeoutMs,
+      });
     }
 
     const text = await res.text().catch(() => "");
@@ -547,13 +581,22 @@ export const ConsoleClient = {
    *
    * @param {string} path - Console API to request
    * @param {object} jsonBody - JSON body
+   * @param {{ timeoutMs?: number, refreshOnAuthError?: boolean }} [options]
    *
    * @throws {Error}
    *
    * @returns {Promise<any>} Promise which resolves to a parsed JSON response body.
    */
-  async _post(path, jsonBody = null) {
-    return this._fetch(path, "POST", { jsonBody });
+  async _post(
+    path,
+    jsonBody = null,
+    { timeoutMs = XHR_TIMEOUT_MS, refreshOnAuthError = true } = {}
+  ) {
+    return this._fetch(path, "POST", {
+      jsonBody,
+      timeoutMs,
+      refreshOnAuthError,
+    });
   },
 
   /**
@@ -756,7 +799,12 @@ export const ConsoleClient = {
    * @returns {Promise<any>}
    */
   async performServerSignout() {
-    return this._post(this._paths.SIGNOUT);
+    // A rejected token leaves nothing to end server-side, and a refresh would
+    // keep the sign-in window waiting on the network for no gain.
+    return this._post(this._paths.SIGNOUT, null, {
+      timeoutMs: SIGNOUT_TIMEOUT_MS,
+      refreshOnAuthError: false,
+    });
   },
 
   /**

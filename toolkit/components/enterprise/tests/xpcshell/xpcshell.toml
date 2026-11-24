@@ -6,6 +6,8 @@ skip-if = [
 
 ["test_console_client_console_address.js"]
 
+["test_console_client_signout_timeout.js"]
+
 ["test_felt_storage_console_address.js"]
 
 ["test_forced_quit_handler.js"]

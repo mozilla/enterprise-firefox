@@ -37,6 +37,48 @@ class BaseBrowserSignout(FeltTests):
         user = self.get_logged_in_user_info(env=Environment.FIREFOX)
         self._signed_in_email = user["email"]
 
+        self._accept_signout_dialog()
+
+        # This is not true but it will make sure the harness does not try to
+        # cleanup the browser and we can then make sure that our self-closing
+        # is correct.
+        self._manually_closed_child = True
+
+        # Set new cookie on server side
+        self.cookie_name.value = str(uuid.uuid1()).split("-")[0]
+        self.cookie_value.value = str(uuid.uuid4()).split("-")[4]
+
+        # Verify felt authentication window reloaded
+        self.await_felt_auth_window()
+        self.force_window()
+        self.await_signout_settled()
+
+        # Verify no user signed in in Felt
+        self.assert_user_signed_out(env=Environment.FELT)
+
+        # Verify no cookies from the previous sign in session
+        cookies = self.get_private_cookies()
+        assert len(cookies) == 0, f"No private cookies, found {len(cookies)}"
+
+    def await_signout_settled(self):
+        """Wait until the sign-in window has finished tearing down the
+        previous session, which may outlast the browser."""
+        self._driver.set_context("chrome")
+        try:
+            self._longwait.until(
+                lambda _: self._driver.execute_script(
+                    """
+                    const { FeltCommon } = ChromeUtils.importESModule(
+                        "chrome://felt/content/FeltCommon.sys.mjs"
+                    );
+                    return FeltCommon.pendingSignOut === null;
+                    """
+                )
+            )
+        finally:
+            self._driver.set_context("content")
+
+    def _accept_signout_dialog(self):
         self._child_driver.set_context("chrome")
 
         self._logger.info("Clicking enterprise badge to open enterprise panel")
@@ -94,26 +136,6 @@ class BaseBrowserSignout(FeltTests):
             # accepted, so the connection may already be closed by the time we
             # reset its context. _child_driver is not used after this point.
             pass
-
-        # This is not true but it will make sure the harness does not try to
-        # cleanup the browser and we can then make sure that our self-closing
-        # is correct.
-        self._manually_closed_child = True
-
-        # Set new cookie on server side
-        self.cookie_name.value = str(uuid.uuid1()).split("-")[0]
-        self.cookie_value.value = str(uuid.uuid4()).split("-")[4]
-
-        # Verify felt authentication window reloaded
-        self.await_felt_auth_window()
-        self.force_window()
-
-        # Verify no user signed in in Felt
-        self.assert_user_signed_out(env=Environment.FELT)
-
-        # Verify no cookies from the previous sign in session
-        cookies = self.get_private_cookies()
-        assert len(cookies) == 0, f"No private cookies, found {len(cookies)}"
 
     def run_perform_signout(self):
         self.connect_child_browser(
