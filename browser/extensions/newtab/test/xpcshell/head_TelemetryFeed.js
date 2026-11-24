@@ -3,6 +3,8 @@
 
 "use strict";
 
+/* import-globals-from head.js */
+
 const { updateAppInfo } = ChromeUtils.importESModule(
   "resource://testing-common/AppInfo.sys.mjs"
 );

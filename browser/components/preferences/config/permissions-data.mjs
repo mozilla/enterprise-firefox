@@ -445,8 +445,7 @@ Preferences.addSetting({
   id: "enableNimbusRollouts",
   pref: "nimbus.rollouts.enabled",
   visible: () =>
-    lazy.AppConstants.MOZ_DATA_REPORTING &&
-    !lazy.AppConstants.MOZ_ENTERPRISE,
+    lazy.AppConstants.MOZ_DATA_REPORTING && !lazy.AppConstants.MOZ_ENTERPRISE,
   disabled: () => !Services.policies.isAllowed("NimbusRollouts"),
   get: value => {
     if (!Services.policies.isAllowed("NimbusRollouts")) {
