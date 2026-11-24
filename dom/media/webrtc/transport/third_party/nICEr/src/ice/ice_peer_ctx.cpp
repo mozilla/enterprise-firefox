@@ -265,33 +265,6 @@ int nr_ice_peer_ctx_find_pstream(nr_ice_peer_ctx *pctx, nr_ice_media_stream *str
     return(_status);
   }
 
-int nr_ice_peer_ctx_remove_pstream(nr_ice_peer_ctx *pctx, nr_ice_media_stream **pstreamp)
-  {
-    int r,_status;
-
-    /* Update pctx->active_streams, which paces the check timers. Not
-       done through nr_ice_media_stream_set_state(), since there is no state
-       that means "gone". */
-    if((*pstreamp)->ice_state == NR_ICE_MEDIA_STREAM_CHECKS_ACTIVE) {
-      pctx->active_streams--;
-      r_log(LOG_ICE,LOG_DEBUG,"ICE-PEER(%s): removing stream %s while it is checking; %d active streams",pctx->label,(*pstreamp)->label,pctx->active_streams);
-    }
-
-    STAILQ_REMOVE(&pctx->peer_streams,*pstreamp,nr_ice_media_stream_,entry);
-
-    if(r=nr_ice_media_stream_destroy(pstreamp)) {
-      ABORT(r);
-    }
-
-    /* The removed stream may have been the one the others were frozen
-       behind, or the last one holding up completion. */
-    nr_ice_peer_ctx_react_to_stream_change(pctx);
-
-    _status=0;
- abort:
-    return(_status);
-  }
-
 int nr_ice_peer_ctx_parse_trickle_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_stream *stream, char *candidate, const char *resolved_address)
   {
     nr_ice_media_stream *pstream;
