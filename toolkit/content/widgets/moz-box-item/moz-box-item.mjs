@@ -36,11 +36,6 @@ const NAVIGATION_VALUE = {
  * context for specific settings.
  *
  * @tagname moz-box-item
- * @property {string} label - Label for the button.
- * @property {string} description - Descriptive text for the button.
- * @property {string} iconSrc - The src for an optional icon shown next to the label.
- * @property {string} supportPage - The name of the SUMO support page to link to.
- * @property {"default"|"medium-icon"|"large-icon"} layout - Layout style for the box content.
  * @slot default - Slot for the box item's content, which overrides label and description.
  * @slot support-link - Slot for custom support link element.
  * @slot description - Slot for custom description content.
@@ -66,15 +61,44 @@ export class MozBoxItem extends MozBoxBase {
 
   constructor() {
     super();
+
+    /**
+     * Layout style for the box content.
+     *
+     * @type {"default" | "medium-icon" | "large-icon"}
+     */
     this.layout = "default";
+
+    /**
+     * The name of the SUMO support page to link to.
+     *
+     * @type {string | undefined}
+     */
+    this.supportPage = undefined;
+
+    /**
+     * Whether an element is slotted into the support-link slot.
+     *
+     * @type {boolean | undefined}
+     */
+    this._hasSlottedSupportLink = undefined;
+
+    /**
+     * Whether content is slotted into the description slot.
+     *
+     * @type {boolean}
+     */
     this._hasSlottedDescription = false;
+
     this.addEventListener("keydown", e => this.handleKeydown(e));
   }
 
+  /** @internal */
   get hasSupportPage() {
     return this.supportPage || this._hasSlottedSupportLink;
   }
 
+  /** @internal */
   get hasDescription() {
     return this.description || this._hasSlottedDescription;
   }
@@ -155,6 +179,7 @@ export class MozBoxItem extends MozBoxBase {
     return NAVIGATION_DIRECTIONS.LTR;
   }
 
+  /** @internal */
   get isDraggable() {
     const reorderableParent = this.closest("moz-box-group");
     return (
@@ -169,6 +194,7 @@ export class MozBoxItem extends MozBoxBase {
    * Whether the item itself can receive focus, rather than delegating
    * focus to one of its action elements.
    *
+   * @internal
    * @returns {boolean}
    */
   get isFocusable() {

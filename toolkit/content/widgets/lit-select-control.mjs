@@ -63,6 +63,10 @@ export class SelectControlBaseElement extends MozLitElement {
     fieldset: "moz-fieldset",
   };
 
+  /**
+   * Selected value for the group. Changing the value updates the checked
+   * state of the child items and vice versa.
+   */
   set value(newValue) {
     this.#value = newValue;
     this.#internals.setFormValue(newValue);
@@ -80,10 +84,12 @@ export class SelectControlBaseElement extends MozLitElement {
     return this.#value;
   }
 
+  /** @internal */
   get hasValue() {
     return this.value === 0 || this.value === false || !!this.value;
   }
 
+  /** @internal */
   set focusedIndex(newIndex) {
     if (this.#focusedIndex !== newIndex) {
       this.#focusedIndex = newIndex;
@@ -91,10 +97,12 @@ export class SelectControlBaseElement extends MozLitElement {
     }
   }
 
+  /** @internal */
   get checkedIndex() {
     return this.#checkedIndex;
   }
 
+  /** @internal */
   set checkedIndex(newIndex) {
     if (this.#checkedIndex !== newIndex) {
       this.#checkedIndex = newIndex;
@@ -107,6 +115,7 @@ export class SelectControlBaseElement extends MozLitElement {
     this.#focusedIndex = undefined;
   }
 
+  /** @internal */
   get focusableIndex() {
     let activeEl = this.getRootNode().activeElement;
     let childElFocused =
@@ -135,6 +144,7 @@ export class SelectControlBaseElement extends MozLitElement {
 
   // Query for child elements the first time they are needed + ensure they
   // have been upgraded so we can access properties.
+  /** @internal */
   get childElements() {
     if (!this.#childElements) {
       this.#childElements = (
@@ -158,9 +168,71 @@ export class SelectControlBaseElement extends MozLitElement {
 
   constructor() {
     super();
+
+    /**
+     * Selection behavior of the group.
+     *
+     * @type {"radio" | "listbox"}
+     */
     this.type = "radio";
+
+    /**
+     * Whether the group and its items are disabled.
+     *
+     * @type {boolean}
+     */
     this.disabled = false;
+
+    /**
+     * Description for the group of items.
+     *
+     * @type {string | undefined}
+     */
+    this.description = undefined;
+
+    /**
+     * Name of the SUMO support page to link to.
+     *
+     * @type {string | undefined}
+     */
+    this.supportPage = undefined;
+
+    /**
+     * Label for the group of items.
+     *
+     * @type {string | undefined}
+     */
+    this.label = undefined;
+
+    /**
+     * Accessible name for the group when no visible label is provided.
+     *
+     * @type {string | undefined}
+     */
+    this.ariaLabel = undefined;
+
+    /**
+     * Name of the control. Propagates to the child items.
+     *
+     * @type {string | undefined}
+     */
+    this.name = undefined;
+
+    /**
+     * Heading level used to render the label.
+     *
+     * @type {number | undefined}
+     */
+    this.headingLevel = undefined;
+
+    /**
+     * Layout orientation of the group, "horizontal" or "vertical". Propagates
+     * to the child items.
+     *
+     * @type {string}
+     */
     this.orientation = "horizontal";
+
     this.#internals = this.attachInternals();
     this.addEventListener("blur", e => this.handleBlur(e), true);
     this.addEventListener("keydown", e => this.handleKeydown(e));
@@ -393,18 +465,77 @@ export const SelectControlItemMixin = superClass =>
       position: { type: Number, state: true },
     };
 
+    /** @internal */
     get controller() {
       return this.#controller;
     }
 
+    /** @internal */
     get isDisabled() {
       return this.disabled || this.parentDisabled;
     }
 
     constructor() {
       super();
-      this.checked = false;
+
+      /**
+       * Name of the item, set by the parent select control.
+       *
+       * @type {string | undefined}
+       */
+      this.name = undefined;
+
+      /**
+       * Value of the item.
+       *
+       * @type {string | undefined}
+       */
+      this.value = undefined;
+
+      /**
+       * Whether the parent select control is disabled.
+       *
+       * @type {boolean}
+       */
       this.parentDisabled = false;
+
+      /**
+       * Whether the item is selected.
+       *
+       * @type {boolean}
+       */
+      this.checked = false;
+
+      /**
+       * Layout orientation of the parent select control, "horizontal" or
+       * "vertical".
+       *
+       * @type {string | undefined}
+       */
+      this.orientation = undefined;
+
+      /**
+       * Tabindex of the item. Only one item in the group is focusable at a
+       * time.
+       *
+       * @type {number | undefined}
+       */
+      this.itemTabIndex = undefined;
+
+      /**
+       * ARIA role of the item, set by the parent select control.
+       *
+       * @type {string | undefined}
+       */
+      this.role = undefined;
+
+      /**
+       * Index of the item within the parent select control.
+       *
+       * @type {number | undefined}
+       */
+      this.position = undefined;
+
       this.addEventListener("focus", () => {
         if (!this.isDisabled) {
           this.controller.focusedIndex = this.position;

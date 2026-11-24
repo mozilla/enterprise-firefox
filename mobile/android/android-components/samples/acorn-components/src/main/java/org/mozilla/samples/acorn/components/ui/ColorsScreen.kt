@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -82,7 +80,6 @@ private fun SwatchCell(swatch: ColorSwatch, modifier: Modifier = Modifier) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ColorGroupSection(group: ColorGroup) {
     Column(
@@ -100,7 +97,6 @@ private fun ColorGroupSection(group: ColorGroup) {
 }
 
 /** Displays the Nova color palette organized by color group. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ColorsScreen(onNavigateUp: () -> Unit = {}) {
     Scaffold(

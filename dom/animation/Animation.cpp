@@ -319,6 +319,8 @@ bool Animation::SetTimelineNoUpdate(AnimationTimeline* aTimeline,
     return false;
   }
 
+  AutoMutationBatchForAnimation mb(*this);
+
   // 3. Let previous play state be animation’s play state.
   const AnimationPlayState previousPlayState = PlayState();
   // 4. Let previous current time be the animation’s current time.
@@ -460,9 +462,10 @@ bool Animation::SetTimelineNoUpdate(AnimationTimeline* aTimeline,
   // with the did seek flag set to false, and the synchronously notify flag set
   // to false.
   UpdateTiming(SeekFlag::NoSeek, SyncNotifyFlag::Async);
+  if (IsRelevant()) {
+    MutationObservers::NotifyAnimationChanged(this);
+  }
 
-  // FIXME: Bug 1799071: Check if we need to add
-  // MutationObservers::NotifyAnimationChanged(this) here.
   return true;
 }
 
@@ -477,12 +480,8 @@ void Animation::SetTimelineRangeNoUpdate(AnimationRange&& aRange,
     return;
   }
 
-  // TODO: Bug 2006262. We may have to rewrite this when adding the attribute:
-  // https://drafts.csswg.org/web-animations-2/#dom-animation-rangestart
-  // https://drafts.csswg.org/web-animations-2/#dom-animation-rangeend
-  //
-  // For now, this is not exposed and is set during initialization of the CSS
-  // Animations.
+  AutoMutationBatchForAnimation mb(*this);
+
   const auto overridden = PropertiesOverridenByJS();
   const auto startOverridden =
       aFromJS == FromJS::No &&
@@ -504,6 +503,10 @@ void Animation::SetTimelineRangeNoUpdate(AnimationRange&& aRange,
   if (mEffect) {
     mEffect->UpdateNormalizedTiming();
     MaybeUpdateKeyframeComputedOffsets();
+  }
+
+  if (IsRelevant()) {
+    MutationObservers::NotifyAnimationChanged(this);
   }
 }
 

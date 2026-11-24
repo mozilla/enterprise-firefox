@@ -93,6 +93,20 @@ const DIR_TRASH = "trash";
 
 const FILE_XPI_STATES = "addonStartup.json.lz4";
 
+// Win32 ERROR_VIRUS_INFECTED mapped by nsLocalFileWin to NS_ERROR_MODULE_WIN32,
+// which can be hit when accessing XPI files and distribution directories
+// that a Windows Antivirus may have already flagged (e.g. malware application
+// may have dropped an xpi with a known malicious signatures in a XPIProvider
+// location or in <appdir>/distribution/extensions directory).
+const NS_ERROR_WIN32_VIRUS_INFECTED = 0x807100e1;
+
+const IGNORE_ADDON_NSIFILE_ERROR_CODES = new Set([
+  Cr.NS_ERROR_FILE_ACCESS_DENIED,
+  Cr.NS_ERROR_FILE_NOT_FOUND,
+  Cr.NS_ERROR_FILE_UNRECOGNIZED_PATH,
+  NS_ERROR_WIN32_VIRUS_INFECTED,
+]);
+
 const KEY_PROFILEDIR = "ProfD";
 const KEY_ADDON_APP_DIR = "XREAddonAppDir";
 const KEY_APP_DISTRIBUTION = "XREAppDist";
@@ -1138,6 +1152,38 @@ class DirectoryLocation extends XPIStateLocation {
   }
 
   /**
+   * Resolves the path read from a pointer file, either as an absolute path
+   * or as a path relative to the pointer file's parent directory.
+   *
+   * @param {string} aPath
+   *        The path read from the pointer file
+   * @param {nsIFile} aPointerFile
+   *        The pointer file
+   * @returns {nsIFile?}
+   *        An nsIFile object for the resolved path, or null if the path
+   *        is invalid.
+   */
+  _resolveLinkPath(aPath, aPointerFile) {
+    let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    try {
+      file.initWithPath(aPath);
+      return file;
+    } catch (e) {
+      // Not an absolute path, fall back to a path relative to the pointer file.
+    }
+    try {
+      file.setRelativeDescriptor(aPointerFile.parent, aPath);
+      return file;
+    } catch (e) {
+      logger.warn(
+        `File pointer ${aPointerFile.path} contains an invalid path ${aPath}`,
+        e
+      );
+      return null;
+    }
+  }
+
+  /**
    * Reads a single-line file containing the path to a directory, and
    * returns an nsIFile pointing to that directory, if successful.
    *
@@ -1161,19 +1207,22 @@ class DirectoryLocation extends XPIStateLocation {
         return null;
       }
     } else {
-      let fis = new FileInputStream(aFile, -1, -1, false);
+      let fis;
       let line = {};
-      fis.QueryInterface(Ci.nsILineInputStream).readLine(line);
-      fis.close();
+      try {
+        fis = new FileInputStream(aFile, -1, -1, false);
+        fis.QueryInterface(Ci.nsILineInputStream).readLine(line);
+      } catch (e) {
+        logger.warn(`Failed to read file pointer ${aFile.path}`, e);
+        return null;
+      } finally {
+        fis?.close();
+      }
 
       if (line.value) {
-        linkedDirectory = Cc["@mozilla.org/file/local;1"].createInstance(
-          Ci.nsIFile
-        );
-        try {
-          linkedDirectory.initWithPath(line.value);
-        } catch (e) {
-          linkedDirectory.setRelativeDescriptor(aFile.parent, line.value);
+        linkedDirectory = this._resolveLinkPath(line.value, aFile);
+        if (!linkedDirectory) {
+          return null;
         }
       }
     }
@@ -1439,17 +1488,34 @@ class WinRegLocation extends XPIStateLocation {
       return addons;
     }
 
+    function readAddon(id) {
+      let value;
+      try {
+        value = key.readStringValue(id);
+        let file = new nsIFile(value);
+        if (!file.exists()) {
+          logger.warn(`Ignoring missing add-on in ${file.path}`);
+          return;
+        }
+        addons.set(id, file);
+      } catch (e) {
+        // initWithPath throws NS_ERROR_FILE_UNRECOGNIZED_PATH for relative paths
+        // or unexpanded %VAR%, and NS_ERROR_FILE_ACCESS_DENIED for blocked UNC paths.
+        if (!IGNORE_ADDON_NSIFILE_ERROR_CODES.has(e.result)) {
+          throw e;
+        }
+        logger.warn(
+          `Ignoring WinReg-registered add-on entry ${id} with path "${value}"`,
+          e
+        );
+      }
+    }
+
     try {
       let count = key.valueCount;
       for (let i = 0; i < count; ++i) {
         let id = key.getValueName(i);
-        let file = new nsIFile(key.readStringValue(id));
-        if (!file.exists()) {
-          logger.warn(`Ignoring missing add-on in ${file.path}`);
-          continue;
-        }
-
-        addons.set(id, file);
+        readAddon(id);
       }
     } finally {
       key.close();
@@ -3206,7 +3272,17 @@ export var XPIProvider = {
 
     let availableLocales = [];
     for (let file of iterDirectory(distroDirs[0])) {
-      if (file.isDirectory() && file.leafName.startsWith("locale-")) {
+      let isDir;
+      try {
+        isDir = file.isDirectory();
+      } catch (e) {
+        if (!IGNORE_ADDON_NSIFILE_ERROR_CODES.has(e.result)) {
+          throw e;
+        }
+        logger.warn(`Ignoring distribution entry ${file.path}`, e);
+        continue;
+      }
+      if (isDir && file.leafName.startsWith("locale-")) {
         availableLocales.push(file.leafName.replace("locale-", ""));
       }
     }
@@ -3232,8 +3308,13 @@ export var XPIProvider = {
       for (let file of iterDirectory(distroDir)) {
         if (!isXPI(file.leafName, true)) {
           // Only warn for files, not directories
-          if (!file.isDirectory()) {
-            logger.warn(`Ignoring distribution: not an XPI: ${file.path}`);
+          try {
+            if (!file.isDirectory()) {
+              logger.warn(`Ignoring distribution: not an XPI: ${file.path}`);
+            }
+          } catch (e) {
+            // Non-XPI entries are skipped anyway, any error can be ignored.
+            logger.warn(`Ignoring distribution entry ${file.path}`, e);
           }
           continue;
         }

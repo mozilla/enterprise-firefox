@@ -6,6 +6,7 @@ package org.mozilla.fenix.components
 
 import android.app.Application
 import android.content.Context
+import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.platform.LocalContext
@@ -95,6 +96,7 @@ import org.mozilla.fenix.home.middleware.HomeTelemetryMiddleware
 import org.mozilla.fenix.home.setup.store.DefaultSetupChecklistRepository
 import org.mozilla.fenix.home.setup.store.SetupChecklistPreferencesMiddleware
 import org.mozilla.fenix.home.setup.store.SetupChecklistTelemetryMiddleware
+import org.mozilla.fenix.home.sports.SportsWidgetRefreshMiddleware
 import org.mozilla.fenix.ipprotection.store.DefaultIPProtectionPromptRepository
 import org.mozilla.fenix.listentopage.ListenToPageAIControlFeature
 import org.mozilla.fenix.messaging.state.MessagingMiddleware
@@ -383,6 +385,12 @@ class Components(
                                 settings.migrateLastReviewPromptTimePrefIfNeeded(nimbus.events)
                             },
                         AppVisualCompletenessMiddleware(performance.visualCompletenessQueue),
+                        SportsWidgetRefreshMiddleware(
+                            merinoSportsUpdater = lazy { sports.merinoSportsUpdater },
+                            merinoMatchesStorage = lazy { sports.merinoMatchesStorage },
+                            is24HourFormat = { DateFormat.is24HourFormat(context) },
+                            visualCompletenessQueue = performance.visualCompletenessQueue,
+                        ),
                     ),
             )
             .also {
@@ -500,10 +508,6 @@ class Components(
         if (!settings.enableHomepageCustomization) {
             add(context.getString(R.string.pref_key_homepage_search_location_top))
             add(context.getString(R.string.pref_key_enable_homepage_searchbar2))
-        }
-
-        if (!settings.enableOledTheme) {
-            add(context.getString(R.string.pref_key_oled_theme))
         }
     }
 

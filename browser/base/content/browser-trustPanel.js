@@ -93,6 +93,12 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "extensions.webcompat.smartblockEmbeds.enabled",
   false
 );
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "protectionsPanelRedesignEnabled",
+  "browser.protectionsPanelRedesign.enabled",
+  false
+);
 
 const ETP_ENABLED_ASSETS = {
   label: "trustpanel-etp-label-enabled",
@@ -153,10 +159,31 @@ const CLOSING_REASONS = {
   PRIVACY_SETTINGS_OPENED: "privacySettingsOpened",
   SMARTBLOCK_TOGGLED: "smartblockToggled",
   MONITOR_OPENED: "monitorOpened",
+  REPORT_SENT: "reportSent",
 };
 
 // Indexed by the HTTPS-Only menulist values, see #getHttpsOnlyPermission.
 const HTTPS_ONLY_SETTINGS = ["on", "off", "off-temporarily"];
+
+// [selector, l10n ID, redesigned l10n ID] for the strings of
+// securityInformation.inc.xhtml that the redesigned panel replaces.
+const SECURITY_VIEW_REDESIGN_STRINGS = [
+  [
+    ".identity-popup-connection-secure.security-view",
+    "identity-connection-verified",
+    "trustpanel-connection-secure",
+  ],
+  [
+    ".identity-popup-connection-not-secure.security-view",
+    "identity-connection-not-secure-security-view",
+    "trustpanel-connection-not-secure",
+  ],
+  [
+    ".identity-popup-description-insecure > label",
+    "identity-description-insecure",
+    "trustpanel-connection-not-secure-description",
+  ],
+];
 
 const SMARTBLOCK_EMBED_INFO = [
   {
@@ -522,9 +549,32 @@ class TrustPanel {
       document
         .getElementById("trustpanel-popup-security-httpsonlymode-menulist")
         .addEventListener("command", () => this.#changeHttpsOnlyPermission());
+      document
+        .getElementById("trustpanel-clear-cookie-cancel-redesign")
+        .addEventListener("click", () => this.#cancelClearSiteData());
+      document
+        .getElementById("trustpanel-clear-cookie-clear-redesign")
+        .addEventListener("click", () => this.#clearSiteData());
 
       this.#popup.addEventListener("popupshown", this);
       this.#popup.addEventListener("popuphidden", this);
+      document
+        .getElementById("trustpanel-fix-site-issue-button")
+        .addEventListener("command", event =>
+          this.#showSiteIssueSubview(event)
+        );
+      document
+        .getElementById("trustpanel-report-broken-site-button")
+        .addEventListener("command", event =>
+          ReportBrokenSite.handleParentMenuButtonCommand(event.target)
+        );
+      document
+        .getElementById("trustpanel-popup-multiView")
+        .addEventListener("ViewShowing", event => {
+          if (event.target.id == "report-broken-site-popup-reportSentView") {
+            this.#closingReason = CLOSING_REASONS.REPORT_SENT;
+          }
+        });
     }
   }
 
@@ -1329,10 +1379,32 @@ class TrustPanel {
   }
 
   #updateSecurityInformationSubview() {
+    let view = document.getElementById("trustpanel-securityInformationView");
+    let redesign = protectionsPanelRedesignEnabled;
+    view.toggleAttribute("redesign", redesign);
+    view.toggleAttribute("shrink-to-fit", redesign);
     document.l10n.setAttributes(
-      document.getElementById("trustpanel-securityInformationView"),
-      "trustpanel-site-information-header",
+      view,
+      redesign
+        ? "trustpanel-connection-info-header"
+        : "trustpanel-site-information-header",
       { host: this.#displayHost }
+    );
+    for (let [
+      selector,
+      l10nId,
+      redesignL10nId,
+    ] of SECURITY_VIEW_REDESIGN_STRINGS) {
+      document.l10n.setAttributes(
+        view.querySelector(selector),
+        redesign ? redesignL10nId : l10nId
+      );
+    }
+    this.#updateAttribute(
+      document.getElementById("trustpanel-siteinformation-morelink"),
+      "shortcut",
+      redesign &&
+        ShortcutUtils.prettifyShortcut(document.getElementById("key_viewInfo"))
     );
 
     let connection = this.#connectionState();
@@ -1438,14 +1510,20 @@ class TrustPanel {
   }
 
   async #showClearCookiesSubview(event) {
+    let redesign = protectionsPanelRedesignEnabled;
+    let viewId = redesign
+      ? "trustpanel-clearcookiesView-redesign"
+      : "trustpanel-clearcookiesView";
     document.l10n.setAttributes(
-      document.getElementById("trustpanel-clearcookiesView"),
-      "trustpanel-clear-cookies-header",
+      document.getElementById(viewId),
+      redesign
+        ? "trustpanel-clear-cookies-header-redesign"
+        : "trustpanel-clear-cookies-header",
       { host: this.#displayHost }
     );
     document
       .getElementById("trustpanel-popup-multiView")
-      .showSubView("trustpanel-clearcookiesView", event.target);
+      .showSubView(viewId, event.target);
     Glean.trustpanel.clearCookiesOpened.record();
   }
 
@@ -2457,7 +2535,7 @@ class TrustPanel {
     }
   }
 
-  onPopupShown() {
+  onPopupShown(event) {
     this.#shownAt = performance.now();
     window.addEventListener("focus", this, true);
     PopupNotifications.suppressWhileOpen(this.#popup);
@@ -2481,6 +2559,17 @@ class TrustPanel {
         once: true,
       });
     }
+
+    ReportBrokenSite.updateParentMenu(event);
+  }
+
+  #showSiteIssueSubview(event) {
+    document.getElementById("trustpanel-site-issue-step-vpn").hidden =
+      !Services.prefs.getBoolPref("browser.ipProtection.enabled", false);
+    document
+      .getElementById("trustpanel-popup-multiView")
+      .showSubView("trustpanel-siteIssueView", event.target);
+    Glean.trustpanel.siteIssueOpened.record();
   }
 
   onPopupHidden() {
