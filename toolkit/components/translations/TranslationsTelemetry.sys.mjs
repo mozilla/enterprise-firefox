@@ -628,6 +628,20 @@ class FullPageTranslationsPanelTelemetry {
     });
   }
 
+  /**
+   * Records activation of the full-page panel's translations companion button.
+   */
+  static onCompanionButton() {
+    FullPageTranslationsPanelTelemetry.#withRateLimits(({ flowId }) => {
+      Glean.translationsPanel.companionButton.record({
+        flow_id: flowId,
+      });
+      TranslationsTelemetry.logEventToConsole(
+        FullPageTranslationsPanelTelemetry.onCompanionButton
+      );
+    });
+  }
+
   static onChangeSourceLanguageButton() {
     FullPageTranslationsPanelTelemetry.#withRateLimits(({ flowId }) => {
       Glean.translationsPanel.changeSourceLanguageButton.record({
@@ -1081,6 +1095,8 @@ class AboutTranslationsPageTelemetry {
    *
    * @param {object} data
    * @param {boolean} data.maintainFlow
+   * @param {"full" | "split"} data.openLocation
+   *   Where the page opened.
    */
   static onOpen(data) {
     if (!data.maintainFlow) {
@@ -1092,10 +1108,25 @@ class AboutTranslationsPageTelemetry {
     AboutTranslationsPageTelemetry.#withRateLimits(({ flowId }) => {
       Glean.translationsAboutTranslationsPage.open.record({
         flow_id: flowId,
+        open_location: data.openLocation,
       });
       TranslationsTelemetry.logEventToConsole(
         AboutTranslationsPageTelemetry.onOpen,
         data
+      );
+    });
+  }
+
+  /**
+   * Records activation of the about:translations Split View close button.
+   */
+  static onCloseCompanionButton() {
+    AboutTranslationsPageTelemetry.#withRateLimits(({ flowId }) => {
+      Glean.translationsAboutTranslationsPage.closeCompanionButton.record({
+        flow_id: flowId,
+      });
+      TranslationsTelemetry.logEventToConsole(
+        AboutTranslationsPageTelemetry.onCloseCompanionButton
       );
     });
   }

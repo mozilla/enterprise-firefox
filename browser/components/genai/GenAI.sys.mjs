@@ -772,11 +772,7 @@ export const GenAI = {
     });
 
     copyActionButton.addEventListener("click", async () => {
-      lazy.ClipboardHelper.copyString(
-        panel.selectionData.selection,
-        panel.selectionData.browser.browsingContext.currentWindowContext
-      );
-
+      const generation = ++copyGeneration;
       Glean.selectionMenu.actionClick.record({
         action: "copy",
         selection: panel.selectionData.selection.length,
@@ -784,7 +780,24 @@ export const GenAI = {
       });
       panel.markInteracted();
 
-      const generation = ++copyGeneration;
+      const { windowGlobal, browser, selection } = panel.selectionData;
+      let copied = false;
+      if (windowGlobal?.isCurrentGlobal) {
+        copied = await windowGlobal
+          .getActor("GenAI")
+          .sendQuery("CopySelection")
+          .catch(() => false);
+      }
+      if (!copied) {
+        lazy.ClipboardHelper.copyString(
+          selection,
+          browser.browsingContext.currentWindowContext
+        );
+      }
+      if (generation != copyGeneration) {
+        return;
+      }
+
       document.l10n.setAttributes(
         copyConfirmationText,
         "genai-shortcut-copy-confirmation"

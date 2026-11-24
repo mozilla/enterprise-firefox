@@ -39,9 +39,9 @@ import {
 import { embeddingsGeneratorFactory } from "chrome://global/content/ml/EmbeddingsGenerator.sys.mjs";
 import { SmartTabGroupingManager } from "moz-src:///browser/components/tabbrowser/SmartTabGrouping.sys.mjs";
 import { UI_TYPES } from "moz-src:///browser/components/aiwindow/ui/modules/ToolUI.sys.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   AIWindow:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
@@ -54,6 +54,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   MemoriesManager:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore:
     "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   SmartWindowNavigationInfo:
@@ -63,14 +64,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   // @todo Bug 2009194
   // PageDataService:
   //   "moz-src:///browser/components/pagedata/PageDataService.sys.mjs",
+  console: () =>
+    console.createInstance({
+      logModule: "Conversation",
+      maxLogLevelPref: "browser.smartwindow.conversation.logLevel",
+    }),
 });
-
-ChromeUtils.defineLazyGetter(lazy, "console", () =>
-  console.createInstance({
-    logModule: "Conversation",
-    maxLogLevelPref: "browser.smartwindow.conversation.logLevel",
-  })
-);
 
 // Important! Changing or removing this value requires a security review.
 //
@@ -376,7 +375,10 @@ export const toolsConfig = [
         `recently viewed. If 'topic' is specified, ` +
         "the tabs whose titles are most similar to the " +
         "topic are returned instead, ordered by similarity. " +
-        "Tabs sharing a `windowId` are in the same browser window.",
+        "Tabs sharing a `windowId` are in the same browser window. " +
+        "`tabs` leaves out some open tabs (such as new tab and internal pages) " +
+        "and is capped, so to answer how many tabs are open use `totalTabCount` " +
+        "and the per-window `tabCount` in `windows`, never the length of `tabs`.",
       parameters: {
         type: "object",
         properties: {
@@ -684,6 +686,52 @@ export function getTabList(amount = MAX_TABS) {
 }
 
 /**
+ * Counts the open tabs in every non-private browser window, including tabs
+ * getTabList never describes. Only counts leave this function, so windows whose
+ * tabs are not listed expose nothing beyond their size.
+ *
+ * @returns {Array<WindowTabCount>}
+ */
+function getWindowTabCounts() {
+  /** @type {Array<WindowTabCount>} */
+  const windows = [];
+
+  for (const win of lazy.BrowserWindowTracker.orderedWindows) {
+    if (
+      win.closed ||
+      !win.gBrowser ||
+      !win.toolbar.visible ||
+      win.document.documentElement.hasAttribute("taskbartab") ||
+      lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+    ) {
+      continue;
+    }
+
+    windows.push({
+      windowId: lazy.SessionStore.getWindowId(win),
+      isSmartWindow: lazy.AIWindow.isAIWindowActive(win),
+      tabCount: win.gBrowser.nonHiddenTabs.length,
+    });
+  }
+
+  return windows;
+}
+
+/**
+ * @typedef {object} WindowTabCount
+ * @property {string|null} windowId - SessionStore ID of the browser window.
+ * @property {boolean} isSmartWindow - Whether the window is a Smart Window.
+ * @property {number} tabCount - Number of open tabs in the window.
+ */
+
+/**
+ * @typedef {object} OpenTabsResult
+ * @property {number} totalTabCount - Open tabs across all windows in `windows`.
+ * @property {Array<WindowTabCount>} windows - Tab count of each open window.
+ * @property {Array<TabInfo>} tabs - Tabs described to the model.
+ */
+
+/**
  * Metadata about a Tab used in chat conversations.
  *
  * @typedef {object} TabInfo
@@ -703,7 +751,7 @@ export function getTabList(amount = MAX_TABS) {
  * @param {string} [toolParams.topic] - Optional. If specified, tabs are ranked by
  *   similarity between the topic and each tab's title.
  * @param {ChatConversation} conversation
- * @returns {Promise<Array<TabInfo>>}
+ * @returns {Promise<OpenTabsResult>}
  */
 export async function getOpenTabs({ topic = "" } = {}, conversation) {
   // No security check needed. The security checks prevent data exfiltration,
@@ -752,6 +800,7 @@ export async function getOpenTabs({ topic = "" } = {}, conversation) {
   }
 
   const recentTabs = tabs.slice(0, MAX_TABS);
+  const windows = getWindowTabCounts();
 
   // Tab titles are truncated to 100 characters and therefore not expected to
   // contain enough untrusted data for a prompt injection attack.
@@ -766,7 +815,11 @@ export async function getOpenTabs({ topic = "" } = {}, conversation) {
     `Tool:get_open_tabs(${recentTabs.length})`
   );
 
-  return recentTabs;
+  return {
+    totalTabCount: windows.reduce((sum, w) => sum + w.tabCount, 0),
+    windows,
+    tabs: recentTabs,
+  };
 }
 
 /**
@@ -860,10 +913,28 @@ export class RunSearch {
   /**
    * @param {object} [toolParams]
    * @param {BrowsingContext} browsingContext
-   * @param {ChatConversation} conversation
+   * @param {ChatConversation} [conversation] - Its last user message is the
+   *   query when toolParams has none, and a conversation without one gets an
+   *   error. Only when no conversation is passed is the most recent stored
+   *   user message used instead.
+   * @param {nsISearchEngine} [engine] - The default search engine, already
+   *   looked up. Passing it means performSearch awaits nothing before it
+   *   navigates; without it, performSearch looks the engine up.
+   * @param {AbortSignal} [signal] - The chat response's signal. Stopping the
+   *   response before the chat's tab is selected cancels the search. Once the
+   *   tab is selected the search finishes, including while a full-page chat
+   *   moves to the sidebar.
    * @returns {Promise<string>}
+   * @throws {DOMException} The signal's AbortError when the response was
+   *   stopped before the chat's tab was selected.
    */
-  static async runSearch(toolParams, browsingContext, conversation) {
+  static async runSearch(
+    toolParams,
+    browsingContext,
+    conversation,
+    engine,
+    signal
+  ) {
     // No security check, always allowed because we assume that the search
     // provider is trusted.
 
@@ -872,14 +943,25 @@ export class RunSearch {
     if (toolParams.query) {
       query = toolParams.query;
     } else {
-      const recentUserMessages = await ChatStore.getMostRecentMessages(
-        MESSAGE_ROLE.USER,
-        1
-      );
-      if (!recentUserMessages.length) {
-        return "Error: no user messages stored to user as the search query.";
+      // Stored messages span every chat, so read them only when no
+      // conversation was passed to take the user's message from.
+      let userMessage;
+      if (conversation) {
+        userMessage = conversation.messages?.findLast(
+          m => m.role === MESSAGE_ROLE.USER
+        );
+      } else {
+        [userMessage] = await ChatStore.getMostRecentMessages(
+          MESSAGE_ROLE.USER,
+          1
+        );
+        // Stopping during the read cancels the search before the tab is touched.
+        signal?.throwIfAborted();
       }
-      query = recentUserMessages[0].content.body;
+      if (!userMessage) {
+        return "Error: no user messages stored to use as the search query.";
+      }
+      query = userMessage.content.body;
     }
 
     if (!query || typeof query !== "string" || !query.trim()) {
@@ -900,6 +982,12 @@ export class RunSearch {
     let targetTab =
       originalBrowser && win.gBrowser?.getTabForBrowser(originalBrowser);
 
+    // Checked before the tab switch and the move to the sidebar, and not
+    // after: a chat moved to the sidebar must finish its search, or it is left
+    // open in both the full page and the sidebar. The navigation also aborts a
+    // full-page chat's signal, so later aborts do not mean the user stopped.
+    signal?.throwIfAborted();
+
     if (targetTab) {
       // Switch to the original tab if it's different from currently selected
       RunSearch.#ensureTabSelected(targetTab);
@@ -919,7 +1007,12 @@ export class RunSearch {
 
     let result;
     try {
-      await RunSearch.#performSearchAndWait(win, originalBrowser, query.trim());
+      await RunSearch.#performSearchAndWait(
+        win,
+        originalBrowser,
+        query.trim(),
+        engine
+      );
       result = RunSearch.#extractSerpContent(originalBrowser, conversation);
     } catch (e) {
       console.error("[RunSearch] search failed:", e);
@@ -983,8 +1076,10 @@ export class RunSearch {
    * @param {Window} win
    * @param {XULElement} browser
    * @param {string} query
+   * @param {nsISearchEngine} [engine] - The engine to search with, passed
+   *   through to performSearch.
    */
-  static async #performSearchAndWait(win, browser, query) {
+  static async #performSearchAndWait(win, browser, query, engine) {
     const navigationPromise = new Promise((resolve, reject) => {
       const timeout = lazy.setTimeout(() => {
         win.gBrowser.removeProgressListener(listener);
@@ -1016,7 +1111,7 @@ export class RunSearch {
       win.gBrowser.addProgressListener(listener);
     });
 
-    await lazy.AIWindow.performSearch(query, win);
+    await lazy.AIWindow.performSearch(query, win, engine);
     await navigationPromise;
     await lazy.AIWindow.focusSidebar(win);
 

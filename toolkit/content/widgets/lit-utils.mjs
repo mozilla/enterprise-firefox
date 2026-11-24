@@ -237,6 +237,7 @@ export class MozLitElement extends LitElement {
    * Whether the app locale is RTL. Falls back to the document direction where
    * Services is unavailable.
    *
+   * @internal
    * @returns {boolean}
    */
   get isDocumentRTL() {
@@ -265,20 +266,6 @@ export class MozLitElement extends LitElement {
  *
  * Subclasses must implement the inputTemplate() method which returns the input
  * template for this specific input element with its id set to "input".
- *
- * @property {string} label - The text of the label element
- * @property {string} name - The name of the input control
- * @property {string} value - The value of the input control
- * @property {boolean} disabled - The disabled state of the input control
- * @property {string} iconSrc - The src for an optional icon
- * @property {string} description - The text for the description element that helps describe the input control
- * @property {string} supportPage - Name of the SUMO support page to link to.
- * @property {boolean} parentDisabled - When this element is nested under another input and that
- *     input is disabled or unchecked/unpressed the parent will set this property to true so this
- *     element can be disabled.
- * @property {string} ariaLabel - The aria-label text when there is no visible label.
- * @property {string} ariaDescription - The aria-description text when there is no visible description.
- * @property {string} title - The title attribute, mapped onto the inner focusable control.
  */
 export class MozBaseInputElement extends MozLitElement {
   static formAssociated = true;
@@ -307,10 +294,102 @@ export class MozBaseInputElement extends MozLitElement {
 
   constructor() {
     super();
+
+    /**
+     * The text of the label element.
+     *
+     * @type {string | undefined}
+     */
+    this.label = undefined;
+
+    /**
+     * The name of the input control.
+     *
+     * @type {string | undefined}
+     */
+    this.name = undefined;
+
+    /**
+     * The value of the input control.
+     *
+     * @type {string | undefined}
+     */
+    this.value = undefined;
+
+    /**
+     * The src for an optional icon.
+     *
+     * @type {string | undefined}
+     */
+    this.iconSrc = undefined;
+
+    /**
+     * The disabled state of the input control.
+     *
+     * @type {boolean}
+     */
     this.disabled = false;
+
+    /**
+     * The text for the description element that helps describe the input
+     * control.
+     *
+     * @type {string | undefined}
+     */
+    this.description = undefined;
+
+    /**
+     * Name of the SUMO support page to link to.
+     *
+     * @type {string | undefined}
+     */
+    this.supportPage = undefined;
+
+    /**
+     * Access key for the inner focusable control.
+     *
+     * @type {string | undefined}
+     */
+    this.accessKey = undefined;
+
+    /**
+     * True when a parent input is disabled or unchecked, so this nested
+     * element can be disabled along with it.
+     *
+     * @type {boolean | undefined}
+     */
+    this.parentDisabled = undefined;
+
+    /**
+     * The aria-label text when there is no visible label.
+     *
+     * @type {string | undefined}
+     */
+    this.ariaLabel = undefined;
+
+    /**
+     * The aria-description text when there is no visible description.
+     *
+     * @type {string | undefined}
+     */
+    this.ariaDescription = undefined;
+
+    /**
+     * The title attribute, mapped onto the inner focusable control.
+     *
+     * @type {string | undefined}
+     */
+    this.title = undefined;
+
+    /**
+     * Placement of the input relative to its label.
+     *
+     * @type {"inline" | "block" | "inline-end"}
+     */
     this.inputLayout = /** @type {typeof MozBaseInputElement} */ (
       this.constructor
     ).inputLayout;
+
     this.#internals = this.attachInternals();
   }
 
@@ -390,38 +469,47 @@ export class MozBaseInputElement extends MozLitElement {
     }
   }
 
+  /** @internal */
   get inputEl() {
     return this.renderRoot.getElementById("input");
   }
 
+  /** @internal */
   get labelEl() {
     return this.renderRoot.querySelector("label");
   }
 
+  /** @internal */
   get icon() {
     return this.renderRoot.querySelector(".icon");
   }
 
+  /** @internal */
   get descriptionEl() {
     return this.renderRoot.getElementById("description");
   }
 
+  /** @internal */
   get nestedEls() {
     return this.renderRoot.querySelector(".nested")?.assignedElements() ?? [];
   }
 
+  /** @internal */
   get hasDescription() {
     return this.#internals.states.has("has-description");
   }
 
+  /** @internal */
   get hasSupportLink() {
     return this.#internals.states.has("has-support-link");
   }
 
+  /** @internal */
   get hasLabel() {
     return this.#internals.states.has("has-label");
   }
 
+  /** @internal */
   get isDisabled() {
     return !!(this.disabled || this.parentDisabled);
   }
@@ -594,10 +682,6 @@ export class MozBaseInputElement extends MozLitElement {
 
 /**
  * Base class for moz-box-* elements providing common properties and templates.
- *
- * @property {string} label - The text for the label element.
- * @property {string} description - The text for the description element.
- * @property {string} iconSrc - The src for an optional icon.
  */
 export class MozBoxBase extends MozLitElement {
   static properties = {
@@ -608,19 +692,40 @@ export class MozBoxBase extends MozLitElement {
 
   constructor() {
     super();
+
+    /**
+     * The text for the label element.
+     *
+     * @type {string}
+     */
     this.label = "";
+
+    /**
+     * The text for the description element.
+     *
+     * @type {string}
+     */
     this.description = "";
+
+    /**
+     * The src for an optional icon.
+     *
+     * @type {string}
+     */
     this.iconSrc = "";
   }
 
+  /** @internal */
   get labelEl() {
     return this.renderRoot.querySelector(".label");
   }
 
+  /** @internal */
   get descriptionEl() {
     return this.renderRoot.querySelector(".description");
   }
 
+  /** @internal */
   get iconEl() {
     return this.renderRoot.querySelector(".icon");
   }

@@ -132,7 +132,7 @@ void nsWindowWaylandToplevelGtk::FocusWaylandWindow(const char* aTokenID) {
 
 void nsWindowWaylandToplevelGtk::MaybeCreatePipResources() {
   LOG("MaybeCreatePipResources()");
-  if (!IsPipWindow()) {
+  if (!IsNativePipWindow()) {
     return;
   }
 
@@ -191,7 +191,7 @@ void nsWindowWaylandToplevelGtk::ClearPipResources() {
   MozClearPointer(mPipResources.mXdgSurface, xdg_surface_destroy);
 }
 
-bool nsWindowWaylandToplevelGtk::PIPMove() {
+bool nsWindowWaylandToplevelGtk::MovePIP() {
   if (!mPipResources.mPipSurface) {
     return false;
   }
@@ -201,7 +201,7 @@ bool nsWindowWaylandToplevelGtk::PIPMove() {
   return true;
 }
 
-bool nsWindowWaylandToplevelGtk::PIPResize(GdkWindowEdge aEdge) {
+bool nsWindowWaylandToplevelGtk::ResizePIP(GdkWindowEdge aEdge) {
   if (!mPipResources.mPipSurface) {
     return false;
   }
@@ -241,7 +241,7 @@ void nsWindowWaylandToplevelGtk::CreateNative() {
 
   mSurfaceProvider.Initialize(this);
 
-  if (IsPipWindow()) {
+  if (IsNativePipWindow()) {
     // This avoids GTK from managing our top level surface role.
     // We'll handle it manually in OnMap().
     gdk_wayland_window_set_use_custom_surface(GetToplevelGdkWindow());
@@ -387,6 +387,36 @@ void nsWindowWaylandToplevelGtk::HideAndRemoveAppPopups() {
                            /* aRemoveFromPopupList */ true);
     popup = prev;
   }
+}
+
+bool nsWindowWaylandToplevelGtk::IsFullscreenSupported() {
+  return !IsNativePipWindow();
+}
+
+void nsWindowWaylandToplevelGtk::StartWindowDrag(int aX, int aY, int aTime) {
+  if (IsNativePipWindow()) {
+    if (MovePIP()) {
+      // The ungrab is needed because the compositor won't send a button
+      // release event. GDK may get stuck thinking that the implicit grab is
+      // still active.
+      GdkSeatUngrab(GdkDeviceGetSeat(GdkGetPointer()));
+    }
+    return;
+  }
+  gdk_window_begin_move_drag(GetToplevelGdkWindow(), 1, aX, aY, aTime);
+}
+
+void nsWindowWaylandToplevelGtk::ResizeWindowDrag(GdkWindowEdge aEdge,
+                                                  GdkEventButton* aEvent) {
+  if (ResizePIP(aEdge)) {
+    // The ungrab is needed because the compositor won't send a button release
+    // event. GDK may get stuck thinking that the implicit grab is still
+    // active.
+    GdkSeatUngrab(GdkDeviceGetSeat(GdkGetPointer()));
+    return;
+  }
+  gdk_window_begin_resize_drag(GetToplevelGdkWindow(), aEdge, aEvent->button,
+                               aEvent->x_root, aEvent->y_root, aEvent->time);
 }
 
 // ----------------------------------------------------------------------

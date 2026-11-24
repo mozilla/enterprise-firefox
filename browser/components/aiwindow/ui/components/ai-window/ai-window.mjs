@@ -22,8 +22,7 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
-const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   AuthProvider:
     "moz-src:///browser/components/aiwindow/models/AuthProvider.sys.mjs",
   Chat: "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs",
@@ -107,13 +106,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   isTabGroupMember: "chrome://browser/content/urlbar/SmartbarMentionUtils.mjs",
   tabManagementService:
     "moz-src:///browser/components/aiwindow/ui/modules/TabManagementService.sys.mjs",
-});
-
-ChromeUtils.defineLazyGetter(lazy, "log", function () {
-  return console.createInstance({
-    logModule: "AIWindow",
-    maxLogLevelPref: "browser.smartwindow.aiWindow.logLevel",
-  });
+  log() {
+    return console.createInstance({
+      logModule: "AIWindow",
+      maxLogLevelPref: "browser.smartwindow.aiWindow.logLevel",
+    });
+  },
 });
 
 /**
@@ -524,23 +522,24 @@ export class AIWindow extends MozLitElement {
       this,
       "memoriesConversationPref",
       PREF_MEMORIES_CONVERSATION,
-      true,
+      null,
       () => this.#syncMemoriesButtonUI()
     );
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
       "memoriesHistoryPref",
       PREF_MEMORIES_HISTORY,
-      true,
+      null,
       () => this.#syncMemoriesButtonUI()
     );
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
       "hideTopSitesPref",
       PREF_HIDE_TOP_SITES,
-      false,
+      null,
       () => this.#syncTopSites()
     );
+    // Newtab sets this pref's default at runtime, so it can still be unset.
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
       "topSitesFeedPref",
@@ -551,14 +550,13 @@ export class AIWindow extends MozLitElement {
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
       "agentEnabledPref",
-      PREF_AGENT_ENABLED,
-      false
+      PREF_AGENT_ENABLED
     );
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
       "resumeCardsPref",
       PREF_RESUME_CARDS,
-      false,
+      null,
       () => this.requestUpdate()
     );
 

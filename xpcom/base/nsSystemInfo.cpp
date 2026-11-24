@@ -23,10 +23,8 @@
 
 #ifdef XP_WIN
 #  include <comutil.h>
+#  include <iwscapi.h>
 #  include <time.h>
-#  ifndef __MINGW32__
-#    include <iwscapi.h>
-#  endif  // __MINGW32__
 #  include <windows.h>
 #  include <winioctl.h>
 #  ifdef MOZ_ENTERPRISE
@@ -40,10 +38,9 @@
 #    undef ACCESS_WRITE
 #    undef ACCESS_ALL
 #  endif  // MOZ_ENTERPRISE
-#  ifndef __MINGW32__
-#    include <wrl.h>
-#    include <wscapi.h>
-#  endif  // __MINGW32__
+#  include <wrl.h>
+#  include <wscapi.h>
+
 #  include "WinUtils.h"
 #  include "base/scoped_handle_win.h"
 #  include "mozilla/DynamicallyLinkedFunctionPtr.h"
@@ -445,8 +442,6 @@ nsresult CollectCountryCode(nsAString& aCountryCode) {
 
 }  // namespace
 
-#  ifndef __MINGW32__
-
 static HRESULT EnumWSCProductList(
     nsAString& aOutput, mozilla::NotNull<IWSCProductList*> aProdList) {
   MOZ_ASSERT(aOutput.IsEmpty());
@@ -542,8 +537,6 @@ static nsresult GetWindowsSecurityCenterInfo(nsAString& aAVInfo,
 
   return NS_OK;
 }
-
-#  endif  // __MINGW32__
 
 #endif  // defined(XP_WIN)
 
@@ -1430,13 +1423,6 @@ nsresult CollectProcessInfo(ProcessInfo& info) {
   return NS_OK;
 }
 
-#if defined(__MINGW32__)
-WINBASEAPI
-BOOL WINAPI IsUserCetAvailableInEnvironment(_In_ DWORD UserCetEnvironment);
-
-#  define USER_CET_ENVIRONMENT_WIN32_PROCESS 0x00000000
-#endif
-
 #if defined(MOZ_ENTERPRISE) && defined(XP_LINUX)
 bool GetSecureBootStatus_Linux() {
   std::ifstream input(
@@ -1710,7 +1696,6 @@ nsresult nsSystemInfo::Init() {
     return rv;
   }
 
-#  ifndef __MINGW32__
   nsAutoString avInfo, antiSpyInfo, firewallInfo;
   if (NS_SUCCEEDED(
           GetWindowsSecurityCenterInfo(avInfo, antiSpyInfo, firewallInfo))) {
@@ -1735,7 +1720,6 @@ nsresult nsSystemInfo::Init() {
       }
     }
   }
-#  endif  // __MINGW32__
 
   mozilla::DynamicallyLinkedFunctionPtr<
       decltype(&IsUserCetAvailableInEnvironment)>
