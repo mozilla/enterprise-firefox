@@ -24,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -204,7 +203,6 @@ private fun IPProtectionStatus.isReadyToUse() =
         IPProtectionStatus.AwaitingService -> false
     }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IPProtectionTopAppBar(
     showDebugAction: Boolean,
@@ -418,13 +416,13 @@ private fun VpnToggleRow(
         Icon(
             painter = painterResource(iconsR.drawable.mozac_ic_globe_24),
             contentDescription = null,
-            tint = if (enabled) colors.leadingIconColor else colors.disabledLeadingIconColor,
+            tint = if (enabled) colors.leadingContentColor else colors.disabledLeadingContentColor,
         )
         Text(
             text = stringResource(R.string.ip_protection_toggle_label),
             modifier = Modifier.weight(1f),
             style = FirefoxTheme.typography.subtitle1,
-            color = if (enabled) colors.headlineColor else colors.disabledHeadlineColor,
+            color = if (enabled) colors.contentColor else colors.disabledContentColor,
         )
         Switch(
             checked = checked,

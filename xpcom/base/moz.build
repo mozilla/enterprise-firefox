@@ -115,10 +115,6 @@ if CONFIG["OS_ARCH"] == "WINNT":
         OS_LIBS += [
             "netapi32",
         ]
-    if CONFIG["CC_TYPE"] not in ("gcc", "clang"):
-        OS_LIBS += [
-            "wscapi",
-        ]
 
 EXPORTS.mozilla += [
     "AppShutdown.h",

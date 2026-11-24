@@ -543,6 +543,13 @@ export var Policies = {
           locked
         );
       }
+      if ("DisabledSchemes" in param) {
+        lazy.PoliciesUtils.setDefaultPref(
+          "network.http.auth.disabled-schemes",
+          param.DisabledSchemes.join(","),
+          locked
+        );
+      }
     },
   },
 
@@ -4015,7 +4022,7 @@ export var Policies = {
         let matchPatterns;
 
         if (!matches.length || matches.includes("*")) {
-          matchPatterns = [new MatchPattern("<all_urls>")];
+          matchPatterns = [new MatchPattern("*://*/*")];
         } else {
           matchPatterns = matches.map(this.intoMatchPattern);
 

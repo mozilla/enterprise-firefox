@@ -75,6 +75,30 @@ add_task(async function test_load_sets_and_unlocks_on_fresh_token() {
   }
 });
 
+add_task(async function test_load_discards_keys_of_passwordless_token() {
+  const sdr = Cc["@mozilla.org/security/sdr;1"].getService(
+    Ci.nsISecretDecoderRing
+  );
+  const encrypted = sdr.encryptString("written before load()");
+
+  const sandbox = sinon.createSandbox();
+  sandbox.stub(ConsoleClient, "getPrimarySecret").resolves({ data: SECRET });
+  const startup = stubStartupQuit();
+  try {
+    await EnterpriseStorageEncryption.load();
+
+    Assert.throws(
+      () => sdr.decryptString(encrypted),
+      /NS_ERROR_FAILURE/,
+      "keys from before load() are gone"
+    );
+  } finally {
+    await clearTokenPassword(SECRET);
+    startup.restore();
+    sandbox.restore();
+  }
+});
+
 add_task(async function test_load_unlocks_when_password_already_set() {
   // Token already carries the console secret: load() must skip changePassword
   // and still log in.
@@ -192,3 +216,33 @@ add_task(async function test_load_force_quits_when_login_fails() {
     sandbox.restore();
   }
 });
+
+add_task(
+  async function test_load_force_quits_when_unlocked_with_other_password() {
+    const sdr = Cc["@mozilla.org/security/sdr;1"].getService(
+      Ci.nsISecretDecoderRing
+    );
+    const token = getToken();
+    await token.changePassword("", "some-other-password");
+    Assert.ok(
+      sdr.login("some-other-password"),
+      "unlocked with another password"
+    );
+    Assert.ok(token.isLoggedIn, "token is unlocked before load()");
+
+    const sandbox = sinon.createSandbox();
+    sandbox.stub(ConsoleClient, "getPrimarySecret").resolves({ data: SECRET });
+    const startup = stubStartupQuit();
+    try {
+      await EnterpriseStorageEncryption.load();
+
+      Assert.equal(startup.calls.length, 1, "force-quit once");
+      Assert.equal(startup.calls[0].exitCode, UNLOCK_FAILED);
+      Assert.ok(!token.isLoggedIn, "token is locked after load()");
+    } finally {
+      await clearTokenPassword("some-other-password");
+      startup.restore();
+      sandbox.restore();
+    }
+  }
+);

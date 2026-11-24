@@ -151,6 +151,58 @@ describe("useFramedWidgetReady", () => {
     expect(onError).toHaveBeenCalledWith("load_timeout", true);
   });
 
+  describe("while the page is hidden", () => {
+    let visibilityDescriptor;
+
+    const setVisibility = value => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value,
+      });
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+    };
+
+    beforeEach(() => {
+      visibilityDescriptor = Object.getOwnPropertyDescriptor(
+        document,
+        "visibilityState"
+      );
+    });
+
+    afterEach(() => {
+      if (visibilityDescriptor) {
+        Object.defineProperty(
+          document,
+          "visibilityState",
+          visibilityDescriptor
+        );
+      } else {
+        delete document.visibilityState;
+      }
+    });
+
+    it("doesn't run the load timeout until the page is visible", () => {
+      const { onError } = renderReady();
+      setVisibility("hidden");
+      act(() => jest.advanceTimersByTime(FRAMED_WIDGET_LOAD_TIMEOUT_MS * 2));
+      expect(onError).not.toHaveBeenCalled();
+      setVisibility("visible");
+      act(() => jest.advanceTimersByTime(FRAMED_WIDGET_LOAD_TIMEOUT_MS));
+      expect(onError).toHaveBeenCalledWith("load_timeout", true);
+    });
+
+    it("starts the load timeout over when the page is shown again", () => {
+      const { onError } = renderReady();
+      act(() => jest.advanceTimersByTime(FRAMED_WIDGET_LOAD_TIMEOUT_MS - 1));
+      setVisibility("hidden");
+      setVisibility("visible");
+      act(() => jest.advanceTimersByTime(FRAMED_WIDGET_LOAD_TIMEOUT_MS - 1));
+      expect(onError).not.toHaveBeenCalled();
+      act(() => jest.advanceTimersByTime(1));
+      expect(onError).toHaveBeenCalledWith("load_timeout", true);
+    });
+  });
+
   it("doesn't time out without a document", () => {
     const onError = jest.fn();
     const { result } = renderHook(() =>
@@ -207,7 +259,7 @@ describe("useFramedWidgetReady", () => {
 });
 
 describe("useFramedWidgetSize", () => {
-  function renderSize(widgetSize = "medium") {
+  function renderSize() {
     const onAction = jest.fn();
     const hook = renderHook(
       props =>
@@ -218,7 +270,7 @@ describe("useFramedWidgetSize", () => {
           onAction,
           ...props,
         }),
-      { initialProps: { widgetSize } }
+      { initialProps: {} }
     );
     return { ...hook, onAction };
   }
@@ -245,11 +297,10 @@ describe("useFramedWidgetSize", () => {
     expect(result.current.requestedSize).toBeNull();
   });
 
-  it("drops the request when the widget's own size changes", () => {
-    const { result, rerender } = renderSize("medium");
+  it("drops the request when the widget's URL changes", () => {
+    const { result, rerender } = renderSize();
     post(action("change_size", { size: "large" }));
-    expect(result.current.requestedSize).toBe("large");
-    rerender({ widgetSize: "large" });
+    rerender({ src: `${ORIGIN}/1.0.1/index.html` });
     expect(result.current.requestedSize).toBeNull();
   });
 });

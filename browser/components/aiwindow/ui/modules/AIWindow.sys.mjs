@@ -30,8 +30,7 @@ const PREF_SEMANTIC_HISTORY_SMARTWINDOW_FEATURE_GATE =
   "places.semanticHistory.smartwindow.featureGate";
 const PREF_FIRSTRUN_HAS_COMPLETED = "browser.smartwindow.firstrun.hasCompleted";
 
-const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   AITab: "moz-src:///browser/components/aiwindow/models/aitab/AITab.sys.mjs",
   getAllModelsData:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
@@ -77,22 +76,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TelemetryScheduler:
     "moz-src:///browser/components/aiwindow/models/TelemetryManager.sys.mjs",
   URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
+  l10n: () => new Localization(["preview/aiWindow.ftl"], true),
+  hasFirstrunCompleted: {
+    pref: PREF_FIRSTRUN_HAS_COMPLETED,
+    onUpdate: (_pref, _previous, hasCompleted) =>
+      hasCompleted && AIWindow._startSchedulers(),
+  },
 });
-
-ChromeUtils.defineLazyGetter(
-  lazy,
-  "l10n",
-  () => new Localization(["preview/aiWindow.ftl"], true)
-);
-
-XPCOMUtils.defineLazyPreferenceGetter(
-  lazy,
-  "hasFirstrunCompleted",
-  PREF_FIRSTRUN_HAS_COMPLETED,
-  false,
-  (_pref, _previous, hasCompleted) =>
-    hasCompleted && AIWindow._startSchedulers()
-);
 
 /**
  * AI Window Service
@@ -578,13 +568,18 @@ export const AIWindow = {
    *
    * @param {string} query
    * @param {Window} window
+   * @param {?nsISearchEngine} [defaultEngine] - The default search engine, when
+   *   the caller has already looked it up. Passing it means nothing is awaited
+   *   before the navigation starts.
    */
-  async performSearch(query, window) {
-    let engine = null;
-    try {
-      engine = await lazy.SearchService.getDefault();
-    } catch (error) {
-      console.error(`Failed to get default search engine:`, error);
+  async performSearch(query, window, defaultEngine) {
+    let engine = defaultEngine;
+    if (!engine) {
+      try {
+        engine = await lazy.SearchService.getDefault();
+      } catch (error) {
+        console.error(`Failed to get default search engine:`, error);
+      }
     }
 
     const triggeringPrincipal =
@@ -1244,7 +1239,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   AIWindow,
   "AIWindowEnabledPref",
   PREF_SMARTWINDOW_ENABLED,
-  false,
+  null,
   AIWindow._onAIWindowEnabledPrefChange.bind(AIWindow)
 );
 
@@ -1252,7 +1247,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   AIWindow,
   "AIControlSmartWindow",
   PREF_AI_CONTROL_SMARTWINDOW,
-  "default",
+  null,
   AIWindow._onAIWindowEnabledPrefChange.bind(AIWindow)
 );
 
@@ -1260,6 +1255,6 @@ XPCOMUtils.defineLazyPreferenceGetter(
   AIWindow,
   "AIControlDefault",
   PREF_AI_CONTROL_DEFAULT,
-  "available",
+  null,
   AIWindow._onAIWindowEnabledPrefChange.bind(AIWindow)
 );

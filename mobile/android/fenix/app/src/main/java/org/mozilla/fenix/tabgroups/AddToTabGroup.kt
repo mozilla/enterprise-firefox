@@ -23,7 +23,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -47,6 +46,7 @@ import mozilla.components.compose.base.theme.PreviewThemeProvider
 import mozilla.components.compose.base.theme.Theme
 import mozilla.components.ui.icons.R as iconsR
 import org.mozilla.fenix.R
+import org.mozilla.fenix.compose.rememberModalSheetState
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
@@ -62,7 +62,6 @@ private val NEW_TAB_GROUP_COMPONENT_WIDTH = 78.dp
  * @param onAddToNewTabGroup Invoked when user clicks to add to a new tab group.
  * @param onAddToExistingTabGroup Invoked when user clicks to add to an existing tab group.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddToTabGroup(
     tabGroups: List<TabsTrayItem.TabGroup>,
@@ -232,7 +231,7 @@ private fun AddToTabGroupContentPreview(
 @FlexibleWindowPreview
 @Composable
 private fun AddToTabGroupBottomSheetPreview(@PreviewParameter(PreviewThemeProvider::class) theme: Theme) {
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalSheetState()
     LaunchedEffect(Unit) {
         if (!sheetState.isVisible) {
             sheetState.show()

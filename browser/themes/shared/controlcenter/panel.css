@@ -1143,6 +1143,16 @@
   display: none;
 }
 
+#trustpanel-clearcookiesView-redesign {
+  .trustpanel-section {
+    gap: var(--space-large);
+  }
+
+  moz-button-group {
+    justify-content: flex-start;
+  }
+}
+
 .trustpanel-section {
   padding: var(--panel-menuitem-padding);
   margin: var(--panel-menuitem-margin);
@@ -1244,6 +1254,41 @@
 
 #trustpanel-smartblock-toggle-container {
   margin-block-start: var(--space-large);
+}
+
+#trustpanel-securityInformationView[redesign] {
+  #identity-popup-content-verifier-label {
+    font-weight: var(--font-weight-heading);
+  }
+
+  #identity-popup-content-verifier {
+    font-weight: var(--font-weight);
+  }
+
+  #trustpanel-popup[connection="not-secure"] & .identity-popup-security-connection {
+    list-style-image: url(chrome://global/skin/icons/security-warning.svg);
+    -moz-context-properties: fill, fill-opacity;
+  }
+
+  #identity-popup-content-cert-info {
+    border-block-end: none;
+  }
+
+  .identity-popup-description-insecure {
+    margin-block-end: var(--space-large);
+
+    > label {
+      display: inline;
+    }
+  }
+
+  #trustpanel-siteinformation-morelink[shortcut]::after {
+    margin-inline-start: auto;
+  }
+}
+
+.trustpanel-connection-learn-more:not(#trustpanel-securityInformationView[redesign] *) {
+  display: none;
 }
 
 #trustpanel-securityInformationView > .panel-header + toolbarseparator {
@@ -1530,4 +1575,34 @@
     background-image: url(chrome://global/skin/icons/arrow-left.svg);
     background-position-x: left var(--space-large);
   }
+}
+
+#trustpanel-site-issue-steps {
+  align-items: flex-start;
+  gap: var(--space-medium);
+}
+
+.trustpanel-site-issue-icon,
+#trustpanel-report-broken-site-button .toolbarbutton-icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+#trustpanel-site-issue-steps-list {
+  margin-block: var(--space-xsmall);
+  padding-inline-start: var(--space-xlarge);
+}
+
+#trustpanel-report-broken-site-button {
+  align-items: flex-start;
+
+  > .toolbarbutton-text {
+    padding-inline-start: var(--space-medium);
+  }
+}
+
+.trustpanel-report-broken-site-description {
+  color: var(--text-color-deemphasized);
 }

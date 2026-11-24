@@ -16,9 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -39,8 +40,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
@@ -54,6 +53,7 @@ import mozilla.components.compose.base.menu.MenuItem
 import mozilla.components.compose.base.snackbar.Snackbar
 import mozilla.components.compose.base.snackbar.displaySnackbar
 import mozilla.components.compose.base.text.Text
+import mozilla.components.compose.base.textfield.SecureTextField
 import mozilla.components.compose.base.textfield.TextField
 import mozilla.components.compose.base.theme.PreviewThemeProvider
 import mozilla.components.compose.base.theme.Theme
@@ -115,7 +115,6 @@ internal fun LoginDetailsScreen(store: LoginsStore) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LoginDetailTopBar(
     store: LoginsStore,
@@ -278,9 +277,8 @@ private fun LoginDetailsPassword(
     val coroutineScope = rememberCoroutineScope()
     val passwordSnackbarText = stringResource(R.string.logins_password_copied)
 
-    TextField(
-        value = password,
-        onValueChange = {},
+    SecureTextField(
+        state = remember(password) { TextFieldState(password) },
         isEnabled = false,
         placeholder = "",
         errorText = "",
@@ -327,11 +325,11 @@ private fun LoginDetailsPassword(
                 )
             }
         },
-        visualTransformation =
+        textObfuscationMode =
             if (isPasswordVisible) {
-                VisualTransformation.None
+                TextObfuscationMode.Visible
             } else {
-                PasswordVisualTransformation()
+                TextObfuscationMode.System
             },
     )
 }
