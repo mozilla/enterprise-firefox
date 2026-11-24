@@ -540,74 +540,43 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Fetches the configurations for Firefox and sends
-   * each configuration point over to Firefox as preferences
+   * Fetches the configurations for Firefox and sends them over to Firefox,
+   * the fixed values as one configuration object and extra_prefs as
+   * preferences, terminating the spawned process if that fails.
    */
-  async _applyFirefoxConfigs() {
-    const {
-      learn_more_url,
-      company_logo_url,
-      policies: { polling_frequency },
-      services: { push_url, remote_settings_url, tokenserver_url },
-      extra_prefs,
-    } = await lazy.ConsoleClient.getFirefoxConfigs();
+  async _applyFirefoxConfigsOrTerminate() {
+    try {
+      const {
+        learn_more_url,
+        company_logo_url,
+        policies: { polling_frequency },
+        services: { push_url, remote_settings_url, tokenserver_url },
+        extra_prefs,
+      } = await lazy.ConsoleClient.getFirefoxConfigs();
 
-    if (learn_more_url === null) {
-      lazy.log.error("No learn_more_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference(
-        "enterprise.configs.learn_more_url",
-        learn_more_url
+      Services.felt.sendFirefoxConfig({
+        learnMoreUrl: learn_more_url,
+        companyLogoUrl: company_logo_url,
+        pollingFrequency: polling_frequency,
+        tokenserverUrl: tokenserver_url,
+        remoteSettingsUrl: remote_settings_url,
+        pushUrl: push_url,
+      });
+
+      // Monitor device posture on the same cadence as the policy poll.
+      this._posturePollMs = polling_frequency;
+
+      extra_prefs.forEach(pref => {
+        this._setPrefInFirefox(pref);
+      });
+    } catch (e) {
+      lazy.log.error(
+        `Terminating process ${this.proc.pid}: applying the Firefox configuration failed:`,
+        e
       );
+      await this.proc.kill(0);
+      throw e;
     }
-
-    if (company_logo_url === null) {
-      lazy.log.error("No company_logo_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference(
-        "enterprise.configs.company_logo_url",
-        company_logo_url
-      );
-    }
-
-    if (polling_frequency === null) {
-      lazy.log.error("No polling_frequency in Firefox configuration");
-    } else {
-      Services.felt.sendIntPreference(
-        "enterprise.policies.live.polling_interval",
-        polling_frequency
-      );
-    }
-    // Monitor device posture on the same cadence as the policy poll.
-    this._posturePollMs = polling_frequency;
-
-    if (tokenserver_url === null) {
-      lazy.log.error("No tokenserver_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference(
-        "identity.sync.tokenserver.uri",
-        tokenserver_url
-      );
-    }
-
-    if (remote_settings_url === null) {
-      lazy.log.error("No remote_settings_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference(
-        "services.settings.server",
-        remote_settings_url
-      );
-    }
-
-    if (push_url === null) {
-      lazy.log.error("No push_url in Firefox configuration");
-    } else {
-      Services.felt.sendStringPreference("dom.push.serverURL", push_url);
-    }
-
-    extra_prefs.forEach(pref => {
-      this._setPrefInFirefox(pref);
-    });
   }
 
   /**
@@ -775,7 +744,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
         Services.felt.sendAccessToken();
 
-        await this._applyFirefoxConfigs();
+        await this._applyFirefoxConfigsOrTerminate();
 
         Services.felt.sendCookies(ssoCollectedCookies);
         Services.felt.sendReady();

@@ -35,8 +35,23 @@ export const isBuildAppBrowser = () => {
 
 const ENTERPRISE_LOG_LEVEL_PREF = "enterprise.log_level";
 
+let gFirefoxConfig = null;
+
 export const EnterpriseCommon = {
   ENTERPRISE_DEVICE_ID_PREF: "enterprise.sync.device_id",
+
+  /**
+   * The console's fixed browser configuration, received from Felt.
+   *
+   * @returns {nsIFeltFirefoxConfig|null} null outside a browser launched by
+   *          Felt.
+   */
+  getFirefoxConfig() {
+    if (!gFirefoxConfig && Services.felt?.isFeltBrowser()) {
+      gFirefoxConfig = Services.felt.getFirefoxConfig();
+    }
+    return gFirefoxConfig;
+  },
 };
 
 export function createEnterpriseLogger(logModule) {

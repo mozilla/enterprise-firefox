@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 use nserror::{
-    nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_NOT_CONNECTED,
-    NS_ERROR_PORT_ACCESS_NOT_ALLOWED, NS_ERROR_UNEXPECTED, NS_OK,
+    nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_INVALID_ARG,
+    NS_ERROR_NOT_AVAILABLE, NS_ERROR_NOT_CONNECTED, NS_ERROR_PORT_ACCESS_NOT_ALLOWED,
+    NS_ERROR_UNEXPECTED, NS_OK,
 };
 use nsstring::{nsACString, nsAString, nsCString, nsString};
 use std::cell::RefCell;
@@ -13,16 +14,16 @@ use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc};
 use thin_vec::ThinVec;
 use time::UtcDateTime;
 use xpcom::interfaces::{
-    nsICategoryManager, nsIContentPolicy, nsICookie, nsILoadInfo, nsIObserver, nsIObserverService,
-    nsISupports, nsIURI,
+    nsICategoryManager, nsIContentPolicy, nsICookie, nsIFeltFirefoxConfig, nsILoadInfo,
+    nsIObserver, nsIObserverService, nsISupports, nsIURI,
 };
 use xpcom::{xpcom_method, RefPtr};
 
 use log::{error, trace};
 
-use crate::message::{FeltMessage, FELT_IPC_VERSION};
+use crate::message::{FeltMessage, FirefoxConfig, FELT_IPC_VERSION};
 use crate::utils;
-use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
+use crate::utils::{Tokens, CONSOLE_URL, FIREFOX_CONFIG, TOKENS, TOKEN_EXPIRY_SKEW};
 
 #[xpcom(implement(nsIFelt), atomic)]
 pub struct FeltXPCOM {
@@ -165,6 +166,31 @@ impl FeltXPCOM {
         trace!("FeltXPCOM::SendIntPreference: {}", name);
         self.send(FeltMessage::IntPreference((name, value)))
             .to_result()
+    }
+
+    xpcom_method!(send_firefox_config => SendFirefoxConfig(config: *const nsIFeltFirefoxConfig));
+    fn send_firefox_config(&self, config: &nsIFeltFirefoxConfig) -> Result<(), nserror::nsresult> {
+        if !self.is_felt_ui {
+            error!("FeltXPCOM::SendFirefoxConfig: called from the browser side");
+            return Err(NS_ERROR_UNEXPECTED);
+        }
+        let config = read_firefox_config(config)?;
+        trace!("FeltXPCOM::SendFirefoxConfig: {:?}", config);
+        self.send(FeltMessage::FirefoxConfig(config)).to_result()
+    }
+
+    xpcom_method!(get_firefox_config => GetFirefoxConfig() -> *const nsIFeltFirefoxConfig);
+    fn get_firefox_config(&self) -> Result<RefPtr<nsIFeltFirefoxConfig>, nserror::nsresult> {
+        if !self.is_felt_browser {
+            error!("FeltXPCOM::GetFirefoxConfig: called from the Felt UI side");
+            return Err(NS_ERROR_UNEXPECTED);
+        }
+        let config = FIREFOX_CONFIG.get().ok_or(NS_ERROR_NOT_AVAILABLE)?;
+        FeltFirefoxConfig::allocate(InitFeltFirefoxConfig {
+            config: config.clone(),
+        })
+        .query_interface::<nsIFeltFirefoxConfig>()
+        .ok_or(NS_ERROR_FAILURE)
     }
 
     fn SendReady(&self) -> nserror::nsresult {
@@ -729,6 +755,93 @@ impl FeltXPCOM {
         } else {
             Err(NS_ERROR_FAILURE)
         }
+    }
+}
+
+/// Reads the configuration, failing with NS_ERROR_INVALID_ARG when the
+/// polling frequency is zero or a service URL is empty.
+fn read_firefox_config(config: &nsIFeltFirefoxConfig) -> Result<FirefoxConfig, nsresult> {
+    let optional = |value: nsCString| (!value.is_empty()).then(|| value.to_string());
+    let required = |name: &str, value: nsCString| {
+        if value.is_empty() {
+            error!("read_firefox_config(): no {} in the configuration", name);
+            Err(NS_ERROR_INVALID_ARG)
+        } else {
+            Ok(value.to_string())
+        }
+    };
+
+    let mut learn_more_url = nsCString::new();
+    unsafe { config.GetLearnMoreUrl(&mut *learn_more_url) }.to_result()?;
+    let mut company_logo_url = nsCString::new();
+    unsafe { config.GetCompanyLogoUrl(&mut *company_logo_url) }.to_result()?;
+    let mut polling_frequency = 0;
+    unsafe { config.GetPollingFrequency(&mut polling_frequency) }.to_result()?;
+    if polling_frequency == 0 {
+        error!("read_firefox_config(): no pollingFrequency in the configuration");
+        return Err(NS_ERROR_INVALID_ARG);
+    }
+    let mut tokenserver_url = nsCString::new();
+    unsafe { config.GetTokenserverUrl(&mut *tokenserver_url) }.to_result()?;
+    let mut remote_settings_url = nsCString::new();
+    unsafe { config.GetRemoteSettingsUrl(&mut *remote_settings_url) }.to_result()?;
+    let mut push_url = nsCString::new();
+    unsafe { config.GetPushUrl(&mut *push_url) }.to_result()?;
+
+    Ok(FirefoxConfig {
+        learn_more_url: optional(learn_more_url),
+        company_logo_url: optional(company_logo_url),
+        polling_frequency,
+        tokenserver_url: required("tokenserverUrl", tokenserver_url)?,
+        remote_settings_url: required("remoteSettingsUrl", remote_settings_url)?,
+        push_url: required("pushUrl", push_url)?,
+    })
+}
+
+#[xpcom(implement(nsIFeltFirefoxConfig), atomic)]
+struct FeltFirefoxConfig {
+    config: FirefoxConfig,
+}
+
+impl FeltFirefoxConfig {
+    xpcom_method!(get_learn_more_url => GetLearnMoreUrl() -> nsACString);
+    fn get_learn_more_url(&self) -> Result<nsCString, nsresult> {
+        Ok(self
+            .config
+            .learn_more_url
+            .as_deref()
+            .unwrap_or_default()
+            .into())
+    }
+
+    xpcom_method!(get_company_logo_url => GetCompanyLogoUrl() -> nsACString);
+    fn get_company_logo_url(&self) -> Result<nsCString, nsresult> {
+        Ok(self
+            .config
+            .company_logo_url
+            .as_deref()
+            .unwrap_or_default()
+            .into())
+    }
+
+    xpcom_method!(get_polling_frequency => GetPollingFrequency() -> u64);
+    fn get_polling_frequency(&self) -> Result<u64, nsresult> {
+        Ok(self.config.polling_frequency)
+    }
+
+    xpcom_method!(get_tokenserver_url => GetTokenserverUrl() -> nsACString);
+    fn get_tokenserver_url(&self) -> Result<nsCString, nsresult> {
+        Ok(self.config.tokenserver_url.as_str().into())
+    }
+
+    xpcom_method!(get_remote_settings_url => GetRemoteSettingsUrl() -> nsACString);
+    fn get_remote_settings_url(&self) -> Result<nsCString, nsresult> {
+        Ok(self.config.remote_settings_url.as_str().into())
+    }
+
+    xpcom_method!(get_push_url => GetPushUrl() -> nsACString);
+    fn get_push_url(&self) -> Result<nsCString, nsresult> {
+        Ok(self.config.push_url.as_str().into())
     }
 }
 

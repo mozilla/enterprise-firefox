@@ -8,6 +8,8 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   CanonicalJSON: "resource://gre/modules/CanonicalJSON.sys.mjs",
+  EnterpriseCommon:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   initiateShutdown:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
@@ -1555,9 +1557,6 @@ class JSONPoliciesProvider extends PoliciesProvider {
  * Uses JSON like JSONPoliciesProvider
  */
 class RemotePoliciesProvider extends PoliciesProvider {
-  POLLING_FREQUENCY_PREF = "enterprise.policies.live.polling_interval";
-  POLLING_FREQUENCY_FALLBACK = 60_000;
-
   static #instance = null;
   static getInstance() {
     if (!this.#instance) {
@@ -1581,18 +1580,14 @@ class RemotePoliciesProvider extends PoliciesProvider {
     this._updateInProgress = false;
     this._lastPoliciesHash = null;
     this._lastPollError = null;
-    this._pollingFrequency = Services.prefs.getIntPref(
-      this.POLLING_FREQUENCY_PREF,
-      this.POLLING_FREQUENCY_FALLBACK
-    );
-    Services.prefs.addObserver(this.POLLING_FREQUENCY_PREF, this);
+    this._pollingFrequency =
+      lazy.EnterpriseCommon.getFirefoxConfig().pollingFrequency;
     Services.obs.addObserver(this, "EnterprisePolicies:Initialized");
     Services.obs.addObserver(this, "xpcom-shutdown");
   }
 
   _destroy() {
     this._stopPolling();
-    Services.prefs.removeObserver(this.POLLING_FREQUENCY_PREF, this);
     Services.obs.removeObserver(this, "EnterprisePolicies:Initialized");
     Services.obs.removeObserver(this, "xpcom-shutdown");
   }
@@ -1607,28 +1602,10 @@ class RemotePoliciesProvider extends PoliciesProvider {
     return this._policies?.[POLICY_DISABLE_LOCAL_POLICIES] === true;
   }
 
-  observe(aSubject, aTopic, aData) {
+  observe(aSubject, aTopic) {
     switch (aTopic) {
       case "EnterprisePolicies:Initialized":
         this._startPolling();
-        break;
-      case "nsPref:changed":
-        if (aData === this.POLLING_FREQUENCY_PREF) {
-          const p = this._pollingFrequency;
-          this._pollingFrequency = Services.prefs.getIntPref(
-            this.POLLING_FREQUENCY_PREF,
-            this.POLLING_FREQUENCY_FALLBACK
-          );
-          if (p === this._pollingFrequency) {
-            // Nothing changed
-            return;
-          }
-          lazy.log.debug(
-            `Remote policy polling interval changed from ${p}ms to ${this._pollingFrequency}ms.`
-          );
-          this._stopPolling();
-          this._startPolling();
-        }
         break;
       case "xpcom-shutdown":
         this._destroy();

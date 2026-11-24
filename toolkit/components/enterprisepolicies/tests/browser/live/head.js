@@ -47,6 +47,7 @@ add_setup(async () => {
   // enable remote here, serve an empty policy set, the policy engines get
   // restarted in each test file
   EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
+  EnterprisePolicyTesting.stubFirefoxConfig({ pollingFrequency: 500 });
   await SpecialPowers.pushPrefEnv({
     set: [["enterprise.policies.live.enabled", true]],
   });
@@ -57,6 +58,8 @@ add_setup(async () => {
       EnterprisePolicyTesting.remotePoliciesStub.restore();
       EnterprisePolicyTesting.remotePoliciesStub = null;
     }
+    EnterprisePolicyTesting.firefoxConfigStub.restore();
+    EnterprisePolicyTesting.firefoxConfigStub = null;
     PoliciesPrefTracker.stop();
   });
 });

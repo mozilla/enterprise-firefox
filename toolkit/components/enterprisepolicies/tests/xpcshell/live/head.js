@@ -33,7 +33,7 @@ add_setup(async function () {
 
   EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
   Services.prefs.setBoolPref("enterprise.policies.live.enabled", true);
-  Services.prefs.setIntPref("enterprise.policies.live.polling_interval", 500);
+  EnterprisePolicyTesting.stubFirefoxConfig({ pollingFrequency: 500 });
 
   // Set the enterprise console address before any Proxy policy applies so the
   // console-exclusion path resolves deterministically for every test.
@@ -49,7 +49,8 @@ add_setup(async function () {
       EnterprisePolicyTesting.remotePoliciesStub = null;
     }
     Services.prefs.clearUserPref("enterprise.policies.live.enabled");
-    Services.prefs.clearUserPref("enterprise.policies.live.polling_interval");
+    EnterprisePolicyTesting.firefoxConfigStub.restore();
+    EnterprisePolicyTesting.firefoxConfigStub = null;
     Services.prefs.clearUserPref("enterprise.console.address");
     PoliciesPrefTracker.stop();
   });
