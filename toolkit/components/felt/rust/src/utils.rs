@@ -230,17 +230,14 @@ pub fn inject_int_pref(name: String, value: i32) {
     });
 }
 
-/// Keeps the configuration for getFirefoxConfig() and locks the service URL
-/// prefs, to the configuration's value or else the built-in default, so the
-/// user cannot override them.
+/// Stores the configuration for getFirefoxConfig() and locks the service URL prefs.
 pub fn apply_firefox_config(config: FirefoxConfig) {
     let service_prefs = [
         ("identity.sync.tokenserver.uri", config.tokenserver_url.clone()),
         ("services.settings.server", config.remote_settings_url.clone()),
         ("dom.push.serverURL", config.push_url.clone()),
-        // Sync prefers this legacy pref over identity.sync.tokenserver.uri,
-        // and falls back to it when this one is empty.
-        ("services.sync.tokenServerURI", Some(String::new())),
+        // Lock the legacy pref empty so Sync reads identity.sync.tokenserver.uri.
+        ("services.sync.tokenServerURI", String::new()),
     ];
     if FIREFOX_CONFIG.set(config).is_err() {
         error!("apply_firefox_config(): configuration already received, ignoring");
@@ -248,13 +245,12 @@ pub fn apply_firefox_config(config: FirefoxConfig) {
     }
     do_main_thread("felt_apply_firefox_config", async move {
         for (name, value) in service_prefs {
-            lock_default_string_pref(name, value.as_deref());
+            lock_default_string_pref(name, &value);
         }
     });
 }
 
-/// Locks the default value of a string pref, after setting it to value if any.
-fn lock_default_string_pref(name: &str, value: Option<&str>) {
+fn lock_default_string_pref(name: &str, value: &str) {
     let c_name = CString::new(name).expect("Pref name contained a null byte");
     let prefs: RefPtr<nsIPrefService> = xpcom::components::Preferences::service().unwrap();
     let rv = xpcom::getter_addrefs(|p| unsafe { prefs.GetDefaultBranch(std::ptr::null(), p) })
@@ -266,10 +262,8 @@ fn lock_default_string_pref(name: &str, value: Option<&str>) {
             if locked {
                 branch.UnlockPref(c_name.as_ptr()).to_result()?;
             }
-            if let Some(value) = value {
-                let c_value: nsCString = value.into();
-                branch.SetStringPref(c_name.as_ptr(), &*c_value).to_result()?;
-            }
+            let c_value: nsCString = value.into();
+            branch.SetStringPref(c_name.as_ptr(), &*c_value).to_result()?;
             branch.LockPref(c_name.as_ptr()).to_result()
         });
     if let Err(err) = rv {

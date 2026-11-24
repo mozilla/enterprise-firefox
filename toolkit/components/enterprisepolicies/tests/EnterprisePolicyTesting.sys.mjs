@@ -18,6 +18,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   sinon: "resource://testing-common/Sinon.sys.mjs",
   ConsoleClient:
     "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
+  EnterpriseCommon:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 export var EnterprisePolicyTesting = {
@@ -170,6 +172,22 @@ export var EnterprisePolicyTesting = {
       "getRemotePolicies"
     );
     this.remotePoliciesStub.callsFake(() => Promise.resolve(policies));
+  },
+
+  firefoxConfigStub: null,
+
+  /**
+   * Stub EnterpriseCommon.getFirefoxConfig so the remote provider polls at
+   * the given interval.
+   *
+   * @param {object} config
+   * @param {number} config.pollingFrequency in milliseconds
+   */
+  stubFirefoxConfig(config) {
+    this.firefoxConfigStub?.restore();
+    this.firefoxConfigStub = lazy.sinon
+      .stub(lazy.EnterpriseCommon, "getFirefoxConfig")
+      .returns(config);
   },
 
   /**

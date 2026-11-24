@@ -6,6 +6,20 @@
 #include "nsISupports.idl"
 #include "nsICookie.idl"
 
+/**
+ * The console's fixed browser configuration.
+ */
+[scriptable, uuid(2033c9ee-592d-44cd-b1af-df84d820ca90)]
+interface nsIFeltFirefoxConfig : nsISupports {
+  readonly attribute AUTF8String learnMoreUrl;
+  readonly attribute AUTF8String companyLogoUrl;
+  // In milliseconds.
+  readonly attribute unsigned long long pollingFrequency;
+  readonly attribute AUTF8String tokenserverUrl;
+  readonly attribute AUTF8String remoteSettingsUrl;
+  readonly attribute AUTF8String pushUrl;
+};
+
 [scriptable, uuid(48fc7a4c-058a-4231-8650-83160ee20cb9)]
 interface nsIFelt : nsISupports {
   const unsigned long FeltEncryptionExitCode_Archive = 0x93;
@@ -77,20 +91,18 @@ interface nsIFelt : nsISupports {
    * Send the console's fixed browser configuration to the spawned Firefox.
    * Felt UI process only.
    *
-   * @param config JSON object with the optional keys learn_more_url,
-   *        company_logo_url, polling_frequency, tokenserver_url,
-   *        remote_settings_url and push_url.
+   * @throws NS_ERROR_INVALID_ARG if pollingFrequency is zero, or
+   *         tokenserverUrl, remoteSettingsUrl or pushUrl is empty.
    */
   [must_use]
-  void sendFirefoxConfig(in AUTF8String config);
+  void sendFirefoxConfig(in nsIFeltFirefoxConfig config);
 
   /**
-   * The configuration received from Felt, in the format sendFirefoxConfig
-   * takes. Spawned Firefox only. Fails with NS_ERROR_NOT_AVAILABLE before it
-   * has arrived.
+   * The configuration received from Felt. Spawned Firefox only. Fails with
+   * NS_ERROR_NOT_AVAILABLE before it has arrived.
    */
   [must_use]
-  AUTF8String getFirefoxConfig();
+  nsIFeltFirefoxConfig getFirefoxConfig();
 
   [must_use]
   void sendCookies(in Array<nsICookie> cookies);

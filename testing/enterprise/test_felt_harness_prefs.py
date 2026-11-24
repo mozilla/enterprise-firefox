@@ -8,6 +8,7 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
+from felt_consts import firefox_config
 from marionette_driver.geckoinstance import DesktopInstance, GeckoInstance
 from test_felt_browser_signout import BaseBrowserSignout
 
@@ -139,9 +140,11 @@ class HarnessPrefs(BaseBrowserSignout):
         child_prefs = {
             **gecko_prefs,
             **enterprise_prefs,
-            # services.settings.server is set to "" by FELT via FeltProcessParent,
-            # which forwards remote_settings_url from the console Firefox configuration.
-            "services.settings.server": "",
+            # FELT sets services.settings.server to the remote_settings_url of
+            # the console Firefox configuration.
+            "services.settings.server": firefox_config["remote_settings_url"][
+                "pref_value"
+            ],
             **self.EXTRA_CHILD_PREFS,
         }
         self._check_prefs(self._child_driver, child_prefs, "child browser")

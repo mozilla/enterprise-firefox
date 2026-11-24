@@ -29,8 +29,8 @@ class FeltStartsBrowser(FeltTests):
         )
 
     def get_service_prefs_child(self):
-        """Tries to override each service URL pref, then returns its value,
-        built-in default and locked state."""
+        """Tries to override each service URL pref, then returns its value and
+        locked state."""
         self._child_driver.set_context("chrome")
         prefs = self._child_driver.execute_script(
             """
@@ -42,7 +42,6 @@ class FeltStartsBrowser(FeltTests):
               } catch {}
               prefs[name] = {
                 value: Services.prefs.getStringPref(name),
-                default: Services.prefs.getDefaultBranch("").getStringPref(name),
                 locked: Services.prefs.prefIsLocked(name),
               };
             }
@@ -64,7 +63,17 @@ class FeltStartsBrowser(FeltTests):
         prefs = self.get_service_prefs_child()
         self._child_driver.set_context("chrome")
         config = self._child_driver.execute_script(
-            "return JSON.parse(Services.felt.getFirefoxConfig());"
+            """
+            const config = Services.felt.getFirefoxConfig();
+            return {
+              learn_more_url: config.learnMoreUrl,
+              company_logo_url: config.companyLogoUrl,
+              polling_frequency: config.pollingFrequency,
+              tokenserver_url: config.tokenserverUrl,
+              remote_settings_url: config.remoteSettingsUrl,
+              push_url: config.pushUrl,
+            };
+            """
         )
         self._child_driver.set_context("content")
 
@@ -85,10 +94,3 @@ class FeltStartsBrowser(FeltTests):
         assert legacy["value"] == "", (
             f"{LEGACY_TOKENSERVER_PREF} is {legacy['value']} instead of empty"
         )
-
-    def run_ensure_service_prefs_locked_to_defaults(self):
-        for name, pref in self.get_service_prefs_child().items():
-            assert pref["locked"], f"{name} is not locked"
-            assert pref["value"] == pref["default"], (
-                f"{name} is {pref['value']} instead of its default {pref['default']}"
-            )

@@ -8,11 +8,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ConsoleClient:
     "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
+  EnterpriseCommon:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   isTesting:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-  getFirefoxConfig:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
@@ -223,7 +223,7 @@ export const EnterpriseBadge = {
    * Returns null if the url is invalid.
    */
   _retrieveLearnMoreLink() {
-    const learnMoreUrl = lazy.getFirefoxConfig()?.learn_more_url;
+    const learnMoreUrl = lazy.EnterpriseCommon.getFirefoxConfig()?.learnMoreUrl;
 
     if (!learnMoreUrl) {
       lazy.log.warn("No learn more url available.");
@@ -303,7 +303,7 @@ export const EnterpriseBadge = {
   },
 
   _updateLogo(window) {
-    const logoUrl = lazy.getFirefoxConfig()?.company_logo_url;
+    const logoUrl = lazy.EnterpriseCommon.getFirefoxConfig()?.companyLogoUrl;
 
     if (!logoUrl) {
       lazy.log.warn("No company logo url available.");

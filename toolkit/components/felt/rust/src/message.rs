@@ -44,16 +44,15 @@ impl nsICookieWrapper {
     }
 }
 
-/// The fixed browser configuration the console serves to Felt. Fields are
-/// `None` when the console sends no valid value for them.
-#[derive(Debug, Serialize, Deserialize)]
+/// The fixed browser configuration the console serves to Felt.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FirefoxConfig {
     pub learn_more_url: Option<String>,
     pub company_logo_url: Option<String>,
-    pub polling_frequency: Option<i32>,
-    pub tokenserver_url: Option<String>,
-    pub remote_settings_url: Option<String>,
-    pub push_url: Option<String>,
+    pub polling_frequency: u64,
+    pub tokenserver_url: String,
+    pub remote_settings_url: String,
+    pub push_url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

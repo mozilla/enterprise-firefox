@@ -20,14 +20,15 @@ firefox_config = {
     },
     "tokenserver_url": {
         "pref_id": "identity.sync.tokenserver.uri",
-        "pref_value": "",
+        "pref_value": "http://localhost:0/tokenserver",
     },
     "push_url": {
         "pref_id": "dom.push.serverURL",
-        "pref_value": "",
+        "pref_value": "wss://localhost:0/push",
     },
     "remote_settings_url": {
         "pref_id": "services.settings.server",
-        "pref_value": "",
+        # The value marionette sets, so Remote Settings stays off the network.
+        "pref_value": "data:,#remote-settings-dummy/v1",
     },
 }

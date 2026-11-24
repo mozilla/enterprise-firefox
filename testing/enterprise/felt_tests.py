@@ -426,6 +426,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             }
             if self.server.config_omit_services.value:
                 config["services"] = {}
+            if self.server.config_omit_polling_frequency.value:
+                config["policies"] = {}
             m = json.dumps(config)
             contentType = "application/json"
 
@@ -792,6 +794,7 @@ def serve(
     policies_fail_request=None,
     policies_omit_policies=None,
     config_omit_services=None,
+    config_omit_polling_frequency=None,
     key_fail_request=None,
     token_fail_request=None,
     signout_count=None,
@@ -842,6 +845,11 @@ def serve(
     )
     httpd.config_omit_services = (
         config_omit_services if config_omit_services is not None else Value("B", 0)
+    )
+    httpd.config_omit_polling_frequency = (
+        config_omit_polling_frequency
+        if config_omit_polling_frequency is not None
+        else Value("B", 0)
     )
     httpd.key_fail_request = (
         key_fail_request if key_fail_request is not None else Value("B", 0)
@@ -970,6 +978,8 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policies_omit_policies = Value("B", 0)
         # Serves the Firefox configuration without any service URL.
         self.config_omit_services = Value("B", 0)
+        # Serves the Firefox configuration without a polling frequency.
+        self.config_omit_polling_frequency = Value("B", 0)
         self.key_fail_request = Value("B", 0)
         self.token_fail_request = Value("B", 0)
         """
@@ -1006,6 +1016,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 policies_fail_request=self.policies_fail_request,
                 policies_omit_policies=self.policies_omit_policies,
                 config_omit_services=self.config_omit_services,
+                config_omit_polling_frequency=self.config_omit_polling_frequency,
                 key_fail_request=self.key_fail_request,
                 token_fail_request=self.token_fail_request,
                 signout_count=self.signout_count,

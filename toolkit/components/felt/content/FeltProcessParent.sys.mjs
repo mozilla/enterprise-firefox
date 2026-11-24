@@ -531,44 +531,41 @@ export class FeltProcessParent extends JSProcessActorParent {
   /**
    * Fetches the configurations for Firefox and sends them over to Firefox,
    * the fixed values as one configuration object and extra_prefs as
-   * preferences
+   * preferences, terminating the spawned process if that fails.
    */
-  async _applyFirefoxConfigs() {
-    const {
-      learn_more_url,
-      company_logo_url,
-      policies: { polling_frequency },
-      services: { push_url, remote_settings_url, tokenserver_url },
-      extra_prefs,
-    } = await lazy.ConsoleClient.getFirefoxConfigs();
+  async _applyFirefoxConfigsOrTerminate() {
+    try {
+      const {
+        learn_more_url,
+        company_logo_url,
+        policies: { polling_frequency },
+        services: { push_url, remote_settings_url, tokenserver_url },
+        extra_prefs,
+      } = await lazy.ConsoleClient.getFirefoxConfigs();
 
-    const isString = value => typeof value === "string";
-    const isInt32 = value => Number.isInteger(value) && value === (value | 0);
-    const config = {};
-    for (const [key, value, isValid] of [
-      ["learn_more_url", learn_more_url, isString],
-      ["company_logo_url", company_logo_url, isString],
-      ["polling_frequency", polling_frequency, isInt32],
-      ["tokenserver_url", tokenserver_url, isString],
-      ["remote_settings_url", remote_settings_url, isString],
-      ["push_url", push_url, isString],
-    ]) {
-      if (value === null || value === undefined) {
-        lazy.log.error(`No ${key} in Firefox configuration`);
-      } else if (!isValid(value)) {
-        lazy.log.error(`Invalid ${key} in Firefox configuration:`, value);
-      } else {
-        config[key] = value;
-      }
+      Services.felt.sendFirefoxConfig({
+        learnMoreUrl: learn_more_url,
+        companyLogoUrl: company_logo_url,
+        pollingFrequency: polling_frequency,
+        tokenserverUrl: tokenserver_url,
+        remoteSettingsUrl: remote_settings_url,
+        pushUrl: push_url,
+      });
+
+      // Monitor device posture on the same cadence as the policy poll.
+      this._posturePollMs = polling_frequency;
+
+      extra_prefs.forEach(pref => {
+        this._setPrefInFirefox(pref);
+      });
+    } catch (e) {
+      lazy.log.error(
+        `Terminating process ${this.proc.pid}: applying the Firefox configuration failed:`,
+        e
+      );
+      await this.proc.kill(0);
+      throw e;
     }
-    Services.felt.sendFirefoxConfig(JSON.stringify(config));
-
-    // Monitor device posture on the same cadence as the policy poll.
-    this._posturePollMs = config.polling_frequency;
-
-    extra_prefs.forEach(pref => {
-      this._setPrefInFirefox(pref);
-    });
   }
 
   /**
@@ -736,7 +733,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
         Services.felt.sendAccessToken();
 
-        await this._applyFirefoxConfigs();
+        await this._applyFirefoxConfigsOrTerminate();
 
         Services.felt.sendCookies(ssoCollectedCookies);
         Services.felt.sendReady();

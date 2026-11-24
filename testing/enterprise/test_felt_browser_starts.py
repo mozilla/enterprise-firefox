@@ -8,6 +8,8 @@ import struct
 import sys
 from pathlib import Path
 
+import psutil
+
 sys.path.append(os.path.dirname(__file__))
 
 from felt_browser_starts import FeltStartsBrowser
@@ -21,11 +23,34 @@ class FeltStartsBrowserCli(FeltStartsBrowser):
         self.run_ensure_profile_encryption(self._driver.profile)
         self.run_ensure_profile_encryption(self._child_driver.profile)
 
-    def test_felt_locks_service_urls_missing_from_config(self):
+    def test_felt_aborts_launch_when_config_misses_service_urls(self):
         self.config_omit_services.value = 1
-        super().run_felt_base()
-        self.run_felt_browser_started()
-        self.run_ensure_service_prefs_locked_to_defaults()
+        self.run_ensure_launch_aborted()
+
+    def test_felt_aborts_launch_when_config_misses_polling_frequency(self):
+        self.config_omit_polling_frequency.value = 1
+        self.run_ensure_launch_aborted()
+
+    def run_ensure_launch_aborted(self):
+        self._manually_closed_child = True
+        with self.expect_new_felt_auth_window():
+            super().run_felt_base()
+
+        self._driver.set_context("chrome")
+        error_msg = self.get_elem(".felt-browser-error-launch-failure")
+        assert error_msg.is_displayed(), (
+            "launch failure shown when the configuration is invalid"
+        )
+
+        self._wait.until(
+            lambda _: (
+                not any(
+                    self._child_profile_path_value in (proc.info["cmdline"] or [])
+                    for proc in psutil.process_iter(["cmdline"])
+                )
+            ),
+            message="The browser has exited",
+        )
 
     def find_sqlite_files(self, directory, skip_names=("lockstore.keys.sqlite",)):
         return [

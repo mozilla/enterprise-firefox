@@ -35,8 +35,23 @@ export const isBuildAppBrowser = () => {
 
 const ENTERPRISE_LOG_LEVEL_PREF = "enterprise.log_level";
 
+let gFirefoxConfig = null;
+
 export const EnterpriseCommon = {
   ENTERPRISE_DEVICE_ID_PREF: "enterprise.sync.device_id",
+
+  /**
+   * The console's fixed browser configuration, received from Felt.
+   *
+   * @returns {nsIFeltFirefoxConfig|null} null outside a browser launched by
+   *          Felt.
+   */
+  getFirefoxConfig() {
+    if (!gFirefoxConfig && Services.felt?.isFeltBrowser()) {
+      gFirefoxConfig = Services.felt.getFirefoxConfig();
+    }
+    return gFirefoxConfig;
+  },
 };
 
 export function createEnterpriseLogger(logModule) {
@@ -44,24 +59,6 @@ export function createEnterpriseLogger(logModule) {
     logModule,
     maxLogLevelPref: ENTERPRISE_LOG_LEVEL_PREF,
   });
-}
-
-/**
- * The console's fixed browser configuration, received from Felt.
- *
- * @returns {object|null} The configuration, or null outside a browser
- *          launched by Felt or when Felt sent none.
- */
-export function getFirefoxConfig() {
-  if (!Services.felt?.isFeltBrowser()) {
-    return null;
-  }
-  try {
-    return JSON.parse(Services.felt.getFirefoxConfig());
-  } catch (e) {
-    console.error(`No Firefox configuration from Felt: ${e}`);
-    return null;
-  }
 }
 
 export function initiateShutdown() {
