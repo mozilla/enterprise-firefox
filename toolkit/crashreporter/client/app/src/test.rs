@@ -88,7 +88,7 @@ const MOCK_MINIDUMP_EXTRA: &str = r#"{
         "AsyncShutdownTimeout": "{}",
         "StackTraces": "{}",
         "Version": "100.0",
-        "ServerURL": "https://reports.example.com",
+        "ServerURL": "https://reports.example.com/",
         "TelemetryServerURL": "https://telemetry.example.com",
         "TelemetryClientId": "telemetry_client",
         "TelemetryProfileGroupId": "telemetry_profile_group",
@@ -107,7 +107,7 @@ static MOCK_MINIDUMP_EXTRA_EXPECTED: std::sync::LazyLock<String> = std::sync::La
         "AsyncShutdownTimeout": "{{}}",
         "StackTraces": "{{}}",
         "Version": "100.0",
-        "ServerURL": "https://reports.example.com",
+        "ServerURL": "https://reports.example.com/",
         "TelemetryServerURL": "https://telemetry.example.com",
         "TelemetryClientId": "telemetry_client",
         "TelemetryProfileGroupId": "telemetry_profile_group",
@@ -592,7 +592,7 @@ fn customize_extra_file(test: &mut GuiTest, extra_fields: &[(&str, &str)]) -> St
             "BuildID": "1234",
             "StackTraces": "{{}}",
             "Version": "100.0",
-            "ServerURL": "https://reports.example.com",
+            "ServerURL": "https://reports.example.com/",
             "TelemetryServerURL": "https://telemetry.example.com",
             "TelemetryClientId": "telemetry_client",
             "TelemetryProfileGroupId": "telemetry_profile_group",
@@ -875,7 +875,7 @@ fn reads_profile_directory() {
             "status": "OK"
         },
         "Version": "100.0",
-        "ServerURL": "https://reports.example.com",
+        "ServerURL": "https://reports.example.com/",
         "TelemetryServerURL": "https://telemetry.example.com",
         "TelemetryClientId": "telemetry_client",
         "TelemetryProfileGroupId": "telemetry_profile_group",
@@ -1360,7 +1360,7 @@ fn background_task_network_backend() {
             let expected_args: Vec<OsString> = [
                 "--backgroundtask",
                 "crashreporterNetworkBackend",
-                "https://reports.example.com",
+                "https://reports.example.com/",
                 net::http::user_agent(),
             ]
             .into_iter()
@@ -1477,7 +1477,7 @@ fn background_task_network_backend_with_authorization_header() {
                 let expected_args: Vec<OsString> = [
                     "--backgroundtask",
                     "crashreporterNetworkBackend",
-                    "https://reports.example.com",
+                    "https://reports.example.com/",
                     net::http::user_agent(),
                 ]
                 .into_iter()
@@ -1571,7 +1571,7 @@ fn background_task_network_backend_with_authorization_header() {
 #[test]
 fn background_task_network_backend_omits_authorization_header_for_other_url() {
     let mut test = GuiTest::new();
-    test.config.report_url = Some("https://evil.example.com".into());
+    test.config.report_url = Some("https://evil.example.com/".into());
     let ran_process = Counter::new();
     let mock_ran_process = ran_process.clone();
     test.mock
@@ -1588,7 +1588,7 @@ fn background_task_network_backend_omits_authorization_header_for_other_url() {
 
                 mock_ran_process.inc();
 
-                assert_eq!(cmd.args[2], OsString::from("https://evil.example.com"));
+                assert_eq!(cmd.args[2], OsString::from("https://evil.example.com/"));
                 let request_file = &cmd.args[4];
 
                 use ::std::io::{Read, Seek, Write};
@@ -1662,7 +1662,7 @@ fn curl_binary() {
                     "memory_report=@\"data_dir{0}pending{0}minidump.memory.json.gz\"",
                     curl_escaped_separator
                 ),
-                "https://reports.example.com",
+                "https://reports.example.com/",
             ]
             .into_iter()
             .map(Into::into)
@@ -1753,7 +1753,7 @@ fn curl_binary_with_authorization_header() {
                         "memory_report=@\"data_dir{0}pending{0}minidump.memory.json.gz\"",
                         curl_escaped_separator
                     ),
-                    "https://reports.example.com",
+                    "https://reports.example.com/",
                 ]
                 .into_iter()
                 .map(Into::into)
@@ -1780,7 +1780,7 @@ fn curl_binary_with_authorization_header() {
 #[test]
 fn curl_binary_omits_authorization_header_for_other_url() {
     let mut test = GuiTest::new();
-    test.config.report_url = Some("https://evil.example.com".into());
+    test.config.report_url = Some("https://evil.example.com/".into());
     let ran_process = Counter::new();
     let mock_ran_process = ran_process.clone();
     test.mock
@@ -1798,7 +1798,7 @@ fn curl_binary_omits_authorization_header_for_other_url() {
                 assert!(!cmd.args.contains(&OsString::from("--header")));
                 assert_eq!(
                     cmd.args.last().unwrap(),
-                    &OsString::from("https://evil.example.com")
+                    &OsString::from("https://evil.example.com/")
                 );
                 let mut output = crate::std::process::success_output();
                 output.stdout = format!("CrashID={MOCK_REMOTE_CRASH_ID}").into();
@@ -1838,7 +1838,7 @@ fn background_task_curl_fallback() {
                 let expected_args: Vec<OsString> = [
                     "--backgroundtask",
                     "crashreporterNetworkBackend",
-                    "https://reports.example.com",
+                    "https://reports.example.com/",
                     net::http::user_agent(),
                 ]
                 .into_iter()
@@ -1933,7 +1933,7 @@ fn background_task_curl_fallback() {
                         "upload_file_minidump=@\"data_dir{0}pending{0}minidump.dmp\"",
                         curl_escaped_separator
                     ),
-                    "https://reports.example.com",
+                    "https://reports.example.com/",
                 ]
                 .into_iter()
                 .map(Into::into)
@@ -1991,7 +1991,7 @@ fn background_task_curl_fallback_with_authorization_header() {
                 let expected_args: Vec<OsString> = [
                     "--backgroundtask",
                     "crashreporterNetworkBackend",
-                    "https://reports.example.com",
+                    "https://reports.example.com/",
                     net::http::user_agent(),
                 ]
                 .into_iter()
@@ -2086,7 +2086,7 @@ fn background_task_curl_fallback_with_authorization_header() {
                         "upload_file_minidump=@\"data_dir{0}pending{0}minidump.dmp\"",
                         curl_escaped_separator
                     ),
-                    "https://reports.example.com",
+                    "https://reports.example.com/",
                 ]
                 .into_iter()
                 .map(Into::into)
