@@ -5,8 +5,6 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   ClientSession:
     "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
   ConsoleClient:
@@ -28,7 +26,10 @@ if (lazy.isBuildAppBrowser()) {
 }
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("FeltLocking");
+  return console.createInstance({
+    logModule: "FeltLocking",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 ChromeUtils.defineLazyGetter(lazy, "localization", () => {

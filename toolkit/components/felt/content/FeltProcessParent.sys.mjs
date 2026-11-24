@@ -25,8 +25,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   isTesting:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   resolveManagedProfile: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
@@ -51,11 +49,17 @@ if (lazy.isBuildAppBrowser()) {
 }
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("FeltProcessParent");
+  return console.createInstance({
+    logModule: "FeltProcessParent",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 ChromeUtils.defineLazyGetter(lazy, "logProcess", () => {
-  return lazy.createEnterpriseLogger("FeltBrowser");
+  return console.createInstance({
+    logModule: "FeltBrowser",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 const PROCESS_START_REASON = {

@@ -33,18 +33,9 @@ export const isBuildAppBrowser = () => {
   return AppConstants.MOZ_BUILD_APP == "browser";
 };
 
-const ENTERPRISE_LOG_LEVEL_PREF = "enterprise.log_level";
-
 export const EnterpriseCommon = {
   ENTERPRISE_DEVICE_ID_PREF: "enterprise.sync.device_id",
 };
-
-export function createEnterpriseLogger(logModule) {
-  return console.createInstance({
-    logModule,
-    maxLogLevelPref: ENTERPRISE_LOG_LEVEL_PREF,
-  });
-}
 
 export function initiateShutdown() {
   // TODO: Bug 2001029 - Assert or force-enable session restore?

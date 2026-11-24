@@ -5,8 +5,6 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   InfoBar: "resource:///modules/asrouter/InfoBar.sys.mjs",
   RelaunchEnforcer:
     "moz-src:///toolkit/components/enterprise/modules/RelaunchEnforcer.sys.mjs",
@@ -15,7 +13,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("EnterpriseForcedQuit");
+  return console.createInstance({
+    logModule: "EnterpriseForcedQuit",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 const WARNING_ID = "ENTERPRISE_RELAUNCH_WARNING";

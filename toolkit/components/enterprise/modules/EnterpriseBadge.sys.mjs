@@ -10,12 +10,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   isTesting:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("EnterpriseBadge");
+  return console.createInstance({
+    logModule: "EnterpriseBadge",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 const COMPANY_LOGO_URL_PREF = "enterprise.configs.company_logo_url";

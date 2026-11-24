@@ -18,8 +18,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/enterprise/modules/ConsoleProxyBypassFilter.sys.mjs",
   EnterpriseCommon:
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
   ForcedQuitHandler:
     "moz-src:///toolkit/components/enterprise/modules/ForcedQuitHandler.sys.mjs",
@@ -28,7 +26,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("ConsoleClient");
+  return console.createInstance({
+    logModule: "ConsoleClient",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 /**

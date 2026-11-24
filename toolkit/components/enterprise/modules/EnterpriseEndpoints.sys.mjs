@@ -7,12 +7,13 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient:
     "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("EnterpriseEndpoints");
+  return console.createInstance({
+    logModule: "EnterpriseEndpoints",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 // Todo: Bug 2024702

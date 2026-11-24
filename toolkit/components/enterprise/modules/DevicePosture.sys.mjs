@@ -11,8 +11,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/enterprise/modules/EnterpriseOSInfo.sys.mjs",
   ConsoleClient:
     "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   DiskEncryption: "moz-src:///toolkit/modules/DiskEncryption.sys.mjs",
   EdrDetection: "moz-src:///toolkit/modules/EdrDetection.sys.mjs",
   MachineId: "moz-src:///toolkit/modules/MachineId.sys.mjs",
@@ -99,7 +97,10 @@ function getSecurityInfo() {
 const DEFAULT_POSTURE_POLL_MS = 60000;
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("DevicePosture");
+  return console.createInstance({
+    logModule: "DevicePosture",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 // The EDR agents the console asked us to probe for, as a JSON string. Absent,

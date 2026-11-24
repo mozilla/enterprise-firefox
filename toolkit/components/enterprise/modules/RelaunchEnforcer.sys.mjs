@@ -5,15 +5,16 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   ForcedQuitHandler:
     "moz-src:///toolkit/components/enterprise/modules/ForcedQuitHandler.sys.mjs",
   ScheduledTask: "resource://gre/modules/ScheduledTask.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("RelaunchEnforcer");
+  return console.createInstance({
+    logModule: "RelaunchEnforcer",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 const MS_PER_MINUTE = 60 * 1000;

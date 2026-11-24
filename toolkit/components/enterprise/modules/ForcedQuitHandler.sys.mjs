@@ -5,14 +5,15 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("ForcedQuitHandler");
+  return console.createInstance({
+    logModule: "ForcedQuitHandler",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 const FORCED_QUIT_HOOK_CATEGORY = "enterprise-forced-quit-hook";

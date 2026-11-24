@@ -4,13 +4,11 @@
 
 const lazy = {};
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  createEnterpriseLogger:
-    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
-});
-
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return lazy.createEnterpriseLogger("FeltErrorWindowChild");
+  return console.createInstance({
+    logModule: "FeltErrorWindowChild",
+    maxLogLevelPref: "enterprise.log_level",
+  });
 });
 
 /**
