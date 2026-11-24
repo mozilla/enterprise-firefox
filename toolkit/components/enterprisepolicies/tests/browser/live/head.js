@@ -57,6 +57,19 @@ add_setup(async () => {
       EnterprisePolicyTesting.remotePoliciesStub.restore();
       EnterprisePolicyTesting.remotePoliciesStub = null;
     }
+
+    // Policy permissions are only removed when EXPIRE_POLICY is passed, so
+    // remove them the same way the policy engine does.
+    for (let p of Services.perms.all) {
+      if (p.expireType == Services.perms.EXPIRE_POLICY) {
+        Services.perms.addFromPrincipal(
+          p.principal,
+          p.type,
+          Services.perms.UNKNOWN_ACTION,
+          Services.perms.EXPIRE_POLICY
+        );
+      }
+    }
     PoliciesPrefTracker.stop();
   });
 });
