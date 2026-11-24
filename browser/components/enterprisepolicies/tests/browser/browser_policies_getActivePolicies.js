@@ -6,12 +6,12 @@
 add_task(async function test_active_policies() {
   await setupPolicyEngineWithJson({
     policies: {
-      PrivateBrowsingModeAvailability: 1,
+      BlockAboutSupport: true,
     },
   });
 
   let expected = {
-    PrivateBrowsingModeAvailability: 1,
+    BlockAboutSupport: true,
   };
 
   Assert.deepEqual(
