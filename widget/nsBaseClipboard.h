@@ -20,6 +20,8 @@ extern mozilla::LazyLogModule gWidgetClipboardLog;
 #define MOZ_CLIPBOARD_LOG_ENABLED() \
   MOZ_LOG_TEST(gWidgetClipboardLog, mozilla::LogLevel::Debug)
 
+class nsIContentAnalysisLocalCopyInfo;
+class nsIContentAnalysisResponse;
 class nsITransferable;
 class nsIClipboardOwner;
 class nsIPrincipal;
@@ -120,6 +122,15 @@ class nsBaseClipboard : public nsIClipboard {
   using GetWebCustomFormatsCallback = mozilla::MoveOnlyFunction<void(
       mozilla::Result<nsTArray<nsCString>, nsresult>)>;
 
+  // What the global clipboard cache is keeping for a copying page because
+  // content analysis has not (or not yet) let the copy onto the native
+  // clipboard, or null if it is keeping nothing. Only Enterprise builds keep
+  // copies.
+  already_AddRefed<nsIContentAnalysisLocalCopyInfo> GetKeptCopyInfo();
+
+  // Whether the global clipboard cache is keeping a copy for a copying page.
+  bool IsKeepingCopy();
+
   // The inner window id of the window the cached data that
   // aRequestingWindowContext would read came from, if the cache is valid and
   // we know it.
@@ -197,6 +208,12 @@ class nsBaseClipboard : public nsIClipboard {
   // clipboard.  A newer write replaces the entry, which makes the older
   // check's completion a no-op, so the write issued last always wins
   // no matter which verdict arrives first.
+  //
+  // In Enterprise builds the copy may also be kept in the global clipboard
+  // cache for the copying page (see KeepPendingCopyInClipboardCache), while its
+  // verdict is pending, while the user has yet to answer a warning about it,
+  // and after the verdict blocks it. It stays in mPendingCopy until the kept
+  // copy is dropped (see OnKeptCopyDropped).
   class PendingCopy final {
    public:
     NS_INLINE_DECL_REFCOUNTING(PendingCopy)
@@ -227,9 +244,22 @@ class nsBaseClipboard : public nsIClipboard {
     // while content analysis is enabled.
     bool MayBeReadBy(mozilla::dom::WindowContext* aRequestingWindow) const;
 
+    // What a kept copy is waiting for.
+    enum class KeptState : uint8_t {
+      // Its content analysis verdict.
+      ePending,
+      // The user's answer to a content analysis warning about the copy.
+      eWarn,
+      // Nothing: content analysis blocked the copy.
+      eBlocked,
+    };
+
     const nsCOMPtr<nsITransferable> mTransferable;
     const nsCOMPtr<nsIClipboardOwner> mOwner;
     const RefPtr<mozilla::dom::WindowContext> mWindowContext;
+    KeptState mKeptState = KeptState::ePending;
+    // Identifies the undecided warning while mKeptState is eWarn.
+    nsCString mWarnRequestToken;
 
    private:
     ~PendingCopy() = default;
@@ -245,6 +275,14 @@ class nsBaseClipboard : public nsIClipboard {
                        bool aCheckContentAnalysis,
                        SetDataCompletion&& aCompletion = nullptr);
 
+  // Writes aTransferable to the native clipboard and caches it as what the
+  // native clipboard holds. A copy kept in the clipboard cache (see
+  // ClipboardCache::SetKeptCopy) stays kept.
+  nsresult CommitToNativeClipboard(nsITransferable* aTransferable,
+                                   nsIClipboardOwner* aOwner,
+                                   ClipboardType aWhichClipboard,
+                                   mozilla::dom::WindowContext* aWindowContext);
+
   // Whether this write has to wait for a content analysis copy verdict.
   bool NeedsCopyContentAnalysis(nsITransferable* aTransferable,
                                 ClipboardType aWhichClipboard,
@@ -254,9 +292,33 @@ class nsBaseClipboard : public nsIClipboard {
   void OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
                                    PendingCopy* aPendingCopy, bool aAllowed);
 
+  // Called on the main thread when a deferred copy that is kept in the
+  // clipboard cache gets a warn verdict the user has yet to answer. Writes the
+  // warn placeholder, keeps the copy for the copying page, and completes the
+  // copy so the page can go on.
+  void OnCopyContentAnalysisWarn(ClipboardType aWhichClipboard,
+                                 PendingCopy* aPendingCopy,
+                                 nsIContentAnalysisResponse* aResponse);
+
   // Replaces the clipboard contents with a localized notice that the copy was
   // not permitted.
   void WriteCopyBlockedPlaceholder(ClipboardType aWhichClipboard);
+
+  // Writes the localized notice aL10nId to the native clipboard in place of
+  // the copy the global clipboard cache is keeping, which stays valid for the
+  // copying page. Returns false if the notice could not be written.
+  bool WriteCopyPlaceholderForKeptCopy(const nsACString& aL10nId);
+
+  // Caches mPendingCopy's data for its page in the global clipboard cache, so
+  // that the page can paste it without waiting for the verdict. Returns false
+  // if the data could not be cached.
+  bool KeepPendingCopyInClipboardCache();
+
+  // Whether the global clipboard cache is keeping aPendingCopy.
+  bool IsKept(PendingCopy* aPendingCopy) const;
+
+  // Called when the global clipboard cache drops aPendingCopy's kept data.
+  void OnKeptCopyDropped(PendingCopy* aPendingCopy);
 
   // Drops any deferred copy for this clipboard type, completing it with
   // aReason.  No-op if there isn't one.
@@ -421,6 +483,10 @@ class nsBaseClipboard : public nsIClipboard {
   // Return clipboard cache if the cached data is valid, otherwise clear the
   // cached data and returns null.
   ClipboardCache* GetClipboardCacheIfValid(ClipboardType aClipboardType);
+
+  // Drop the copy kept in the clipboard cache if the native clipboard has
+  // changed since it was kept, or its page is gone.
+  void DropKeptCopyIfStale(ClipboardType aClipboardType);
 
   // Return the copy kept in the clipboard cache if it is still valid,
   // otherwise drop it and return null.

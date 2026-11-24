@@ -3215,6 +3215,13 @@ mozilla::ipc::IPCResult ContentParent::RecvSetClipboard(
       true /* aFilterUnknownFlavors */);
   NS_ENSURE_SUCCESS(rv, IPC_OK());
 
+  // A discarded window would otherwise be treated like a null (chrome) one,
+  // which is exempt from content analysis, so drop the write instead.
+  if (MOZ_UNLIKELY(nsIContentAnalysis::MightBeActive()) &&
+      aRequestingWindowContext.IsDiscarded()) {
+    return IPC_OK();
+  }
+
   // OK if this is null
   RefPtr<WindowGlobalParent> window;
   if (!aRequestingWindowContext.IsDiscarded()) {
