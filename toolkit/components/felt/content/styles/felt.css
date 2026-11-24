@@ -6,13 +6,17 @@
 @import url("chrome://global/skin/design-system/text-and-typography.css");
 @import url("chrome://global/skin/design-system/tokens-brand.css");
 @import url("chrome://branding/content/felt-tokens.css");
-@import url("chrome://felt/content/styles/felt-tokens.css");
 
 :root {
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   min-width: 727px;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   min-height: 744px;
+  --felt-update-spinner-fill: var(--color-accent-primary);
+
+  @media (forced-colors) {
+    --felt-update-spinner-fill: var(--icon-color);
+  }
 }
 
 body {
@@ -153,7 +157,9 @@ body {
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   width: 24px;
   animation: spinner 1s linear infinite;
-  content: var(--felt-update-spinner-img-url);
+  content: url("chrome://felt/content/assets/enterprise-update-spinner.svg");
+  -moz-context-properties: fill;
+  fill: var(--felt-update-spinner-fill);
   flex-shrink: 0;
 }
 
@@ -349,6 +355,8 @@ body.notification-open .felt:not(#notification-popup-box .felt) {
 }
 
 .felt-updates-uptodate::before {
-  content: var(--felt-update-checkmark-img-url);
+  content: url("chrome://felt/content/assets/enterprise-update-checkmark.svg");
+  -moz-context-properties: fill;
+  fill: var(--icon-color-success);
   margin: 0 var(--space-small) 0 0;
 }
