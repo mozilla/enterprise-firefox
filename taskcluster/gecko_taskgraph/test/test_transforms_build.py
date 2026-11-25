@@ -181,18 +181,29 @@ def keyed_by_project_build():
     return {
         "name": "linux64-enterprise/opt",
         "treeherder": {
-            "tier": {"by-project": {"enterprise-firefox.*": 1, "default": 2}}
+            "tier": {
+                "by-project": {
+                    "enterprise-firefox": 1,
+                    "enterprise-firefox-try": 1,
+                    "default": 2,
+                }
+            }
         },
         "optimization": {
             "by-project": {
-                "enterprise-firefox.*": None,
+                "enterprise-firefox": None,
+                "enterprise-firefox-try": None,
                 "default": {"skip-unless-expanded": None},
             }
         },
         "worker": {
             "env": {
                 "MOZ_AUTOMATION_PACKAGE_TESTS": {
-                    "by-project": {"enterprise-firefox.*": "1", "default": None}
+                    "by-project": {
+                        "enterprise-firefox": "1",
+                        "enterprise-firefox-try": "1",
+                        "default": None,
+                    }
                 },
                 "MOZ_ENABLE_FULL_SYMBOLS": "1",
             }

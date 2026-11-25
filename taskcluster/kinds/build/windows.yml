@@ -227,14 +227,16 @@ win64-enterprise/debug:
         symbol: Bent
         tier:
             by-project:
-                enterprise-firefox.*: 1
+                enterprise-firefox: 1
+                enterprise-firefox-try: 1
                 default: 2
     worker:
         max-run-time: 7200
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS:
                 by-project:
-                    enterprise-firefox.*: "1"
+                    enterprise-firefox: "1"
+                    enterprise-firefox-try: "1"
                     default: null
     mozconfig:
         variant: debug-enterprise
@@ -487,14 +489,16 @@ win64-enterprise/opt:
         symbol: Bent
         tier:
             by-project:
-                enterprise-firefox.*: 1
+                enterprise-firefox: 1
+                enterprise-firefox-try: 1
                 default: 2
     worker:
         max-run-time: 7200
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS:
                 by-project:
-                    enterprise-firefox.*: "1"
+                    enterprise-firefox: "1"
+                    enterprise-firefox-try: "1"
                     default: null
     mozconfig:
         variant: opt-enterprise
@@ -1734,7 +1738,8 @@ win64-aarch64-enterprise/debug:
         symbol: Bent
         tier:
             by-project:
-                enterprise-firefox.*: 1
+                enterprise-firefox: 1
+                enterprise-firefox-try: 1
                 default: 2
     worker:
         max-run-time: 7200
@@ -1774,7 +1779,8 @@ win64-aarch64-enterprise/debug:
             - onnxruntime-aarch64-windows-msvc
     optimization:
         by-project:
-            enterprise-firefox.*: null
+            enterprise-firefox: null
+            enterprise-firefox-try: null
             default:
                 skip-unless-expanded: null
 
@@ -1843,7 +1849,8 @@ win64-aarch64-enterprise/opt:
         symbol: Bent
         tier:
             by-project:
-                enterprise-firefox.*: 1
+                enterprise-firefox: 1
+                enterprise-firefox-try: 1
                 default: 2
     worker:
         max-run-time: 7200
@@ -1882,7 +1889,8 @@ win64-aarch64-enterprise/opt:
             - onnxruntime-aarch64-windows-msvc
     optimization:
         by-project:
-            enterprise-firefox.*: null
+            enterprise-firefox: null
+            enterprise-firefox-try: null
             default:
                 skip-unless-expanded: null
 
