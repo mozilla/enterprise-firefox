@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -272,6 +274,10 @@ export class Felt {
       defaults.setBoolPref("extensions.getAddons.cache.enabled", false);
       defaults.setBoolPref("browser.region.update.enabled", false);
       defaults.setCharPref("browser.region.network.url", "");
+      // Turn off every DevTools entry point, except in developer builds.
+      if (AppConstants.MOZ_UPDATE_CHANNEL != "default") {
+        defaults.setBoolPref("devtools.policy.disabled", true);
+      }
       await lazy.FeltStorage.init();
       if (await lazy.FeltStorage.recoverInterruptedSession()) {
         lazy.log.warn(
