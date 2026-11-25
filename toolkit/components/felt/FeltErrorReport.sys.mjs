@@ -242,10 +242,24 @@ export const FeltErrorReport = {
    *                         field which is a URL containing error code as 'e'
    *                         parameter and URL triggering the error as
    *                         'u' parameter.
+   * @param {CanonicalBrowsingContext} aBrowsingContext - The browsing context
+   *                         that loaded the error page. Subframe errors are
+   *                         ignored, and only errors from the SSO browser
+   *                         return to the email pane.
    */
-  async handleNetError(aData) {
+  async handleNetError(aData, aBrowsingContext) {
     const errorPageURI = aData.errorPageURI;
     lazy.log.debug(`handleNetError(${errorPageURI})`);
+
+    if (aBrowsingContext.parent) {
+      lazy.log.debug(
+        `handleNetError(${errorPageURI}): ignoring subframe error`
+      );
+      return;
+    }
+    const isSso =
+      aBrowsingContext.embedderElement ===
+      this._document.getElementById("browser");
 
     try {
       const parsedErrorPage = new URL(errorPageURI);
@@ -281,10 +295,14 @@ export const FeltErrorReport = {
       await this.updateNetworkError("network", null, ERROR_SOURCE.NET);
     }
 
-    this._document
-      .querySelector(".felt-login__email-pane")
-      .classList.remove("is-hidden");
-    this._document.querySelector(".felt-login__sso").classList.add("is-hidden");
+    if (isSso) {
+      this._document
+        .querySelector(".felt-login__email-pane")
+        .classList.remove("is-hidden");
+      this._document
+        .querySelector(".felt-login__sso")
+        .classList.add("is-hidden");
+    }
   },
 
   /**

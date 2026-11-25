@@ -289,8 +289,11 @@ async function connectToConsole(email) {
       }
     },
 
-    onLocationChange(_webProgress, _request, _location, flags) {
+    onLocationChange(webProgress, _request, _location, flags) {
       if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
+        if (!webProgress.isTopLevel) {
+          return;
+        }
         clearTimeout(ssoTimeout);
         resetToLoginPageWithError("felt-browser-error-connection");
         return;

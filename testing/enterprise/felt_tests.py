@@ -237,6 +237,19 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 </html>
             """
 
+        elif path == "/sso_url_failing_iframe":
+            m = """
+<html>
+<head>
+    <title>SSO with failing iframe</title>
+</head>
+<body>
+    <h1>SSO</h1>
+    <iframe src="http://nonexistent.localdomain/"></iframe>
+</body>
+</html>
+            """
+
         elif path == "/watermark_blank_page":
             # Blank, full-viewport page used to verify the on-screen watermark
             # is actually painted (its anonymous content isn't in the DOM).

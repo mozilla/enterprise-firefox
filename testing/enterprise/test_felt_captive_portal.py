@@ -16,6 +16,7 @@ BANNER = ".felt-browser-error-captive-portal"
 PORTAL_OVERLAY = ".felt-login__portal"
 SSO_PANE = ".felt-login__sso"
 EMAIL_PANE = ".felt-login__email-pane"
+CONNECTION_ERROR = ".felt-browser-error-connection"
 
 
 class FeltCaptivePortal(FeltTests):
@@ -31,6 +32,8 @@ class FeltCaptivePortal(FeltTests):
         and hides the banner;
       - clearing the portal (success) tears the portal browser down;
       - aborting the portal tears it down and returns to the login form;
+      - a portal page that fails to load shows the connection error bar
+        without leaving the portal;
       - a portal that interrupts an in-flight sign-in resumes it once cleared.
     """
 
@@ -63,6 +66,13 @@ class FeltCaptivePortal(FeltTests):
         self._driver.set_context("chrome")
         return self._driver.execute_script(
             "return document.getElementById('portal-browser').currentURI.spec;"
+        )
+
+    def _portal_document_uri(self):
+        self._driver.set_context("chrome")
+        return self._driver.execute_script(
+            "return document.getElementById('portal-browser').browsingContext"
+            "?.currentWindowGlobal?.documentURI.spec ?? '';"
         )
 
     def _portal_is_remote(self):
@@ -129,6 +139,33 @@ class FeltCaptivePortal(FeltTests):
             ),
             message="Aborting the portal tears it down and returns to the login form",
         )
+        self._driver.set_context("content")
+
+    def test_portal_neterror_shows_connection_error(self):
+        self.set_string_pref(
+            "captivedetect.canonicalURL", "http://nonexistent.localdomain/"
+        )
+        self._driver.set_context("chrome")
+
+        self._notify("captive-portal-login")
+        self._wait.until(
+            lambda _: self._displayed(BANNER),
+            message="Banner appears when a portal is detected",
+        )
+        self.find_elem_by_id("felt-open-network-login").click()
+        self._wait.until(
+            lambda _: self._portal_document_uri().startswith("about:neterror"),
+            message="The portal browser loads an error page",
+        )
+
+        self._wait.until(
+            lambda _: self._displayed(CONNECTION_ERROR),
+            message="A portal error page shows the connection error bar",
+        )
+        assert self.find_elem(CONNECTION_ERROR).get_attribute("source") == "net", (
+            "The connection error bar comes from the error page"
+        )
+        assert self._displayed(PORTAL_OVERLAY), "The portal browser stays shown"
         self._driver.set_context("content")
 
     def test_sign_in_resumes_after_portal(self):

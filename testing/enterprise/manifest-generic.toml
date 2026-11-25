@@ -50,6 +50,8 @@ subsuite = "enterprise"
 
 ["test_felt_status_panel.py"]
 
+["test_felt_subframe_error.py"]
+
 ["test_felt_token_refresh_5xx.py"]
 
 ["test_felt_ui_scratch_profile_refuses.py"]
