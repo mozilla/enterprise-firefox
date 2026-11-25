@@ -4,7 +4,7 @@
 """Launch a Firefox build under Marionette for the probe scripts.
 
 Not a command. `contrast.py` and `pair_walk.py` beside it import it, and so do
-`desktop-theme-probing`'s `firefox-probe.py` and `marker-probe.py`:
+`desktop-probing`'s `firefox-probe.py` and `marker-probe.py`:
 `add_launch_arguments()` gives a parser the launch flags, and
 `run(args, prog, body)` launches the binary, verifies the prefs, calls
 `body(client)` and tears the browser down, returning the process exit code.
@@ -81,7 +81,7 @@ def import_marionette(prog):
                 sys.path.pop(0)
     sys.exit(
         f"{prog}: cannot import marionette_driver. Run this script as "
-        "`./mach python --virtualenv wpt <path>` from a Firefox checkout."
+        "`./mach python --virtualenv desktop-theme <path>` from a Firefox checkout."
     )
 
 
@@ -696,7 +696,7 @@ STALE_BUILD_SIGNATURES = (
 # stale-build signature before StaleBuildWatch stops the browser.
 STALE_BUILD_GRACE = 20
 
-STALE_BUILD_HINT = "(desktop-theme-probing references/build-freshness.md §1)"
+STALE_BUILD_HINT = "(desktop-probing references/build-freshness.md §1)"
 
 
 def find_stale_build(log_path):

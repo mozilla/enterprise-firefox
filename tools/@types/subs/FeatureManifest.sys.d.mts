@@ -3746,6 +3746,14 @@ export const FeatureManifest: {
                     pref: string;
                 };
             };
+            h3SendInitialPriorityUpdate: {
+                description: string;
+                type: string;
+                setPref: {
+                    branch: string;
+                    pref: string;
+                };
+            };
             fetchPriority: {
                 description: string;
                 type: string;
@@ -3786,15 +3794,7 @@ export const FeatureManifest: {
                     pref: string;
                 };
             };
-            documentPriorityIncremental: {
-                description: string;
-                type: string;
-                setPref: {
-                    branch: string;
-                    pref: string;
-                };
-            };
-            imagePriorityIncremental: {
+            priorityIncrementalByDefault: {
                 description: string;
                 type: string;
                 setPref: {

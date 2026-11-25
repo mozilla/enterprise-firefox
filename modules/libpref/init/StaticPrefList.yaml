@@ -2021,6 +2021,12 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# The Oblivious HTTP relay used to send SafeBrowsing V5 real-time requests.
+- name: browser.safebrowsing.realTime.ohttpRelayURL
+  type: String
+  value: ""
+  mirror: never
+
 # SafeBrowsing Real-Time Request Simulation
 - name: browser.safebrowsing.realTime.simulation.enabled
   type: bool
@@ -3048,6 +3054,12 @@
   value: true
   mirror: always
 
+# Whether drag events have non-zero clientX/Y, etc.
+- name: dom.event.drag.include_coordinates
+  type: bool
+  value: true
+  mirror: always
+
 - name: dom.event.dragexit.enabled
   type: bool
   value: @IS_NOT_NIGHTLY_BUILD@
@@ -3291,13 +3303,6 @@
 - name: dom.fetchObserver.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Whether to set the incremental flag on the top level document's
-# priority header
-- name: dom.document_priority.incremental
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # Whether the Document PictureInPicture API is enabled
@@ -9516,12 +9521,6 @@
   value: false
   mirror: always
 
-# Whether to set the incremental attribute in the Priority header for images
-- name: image.priority.incremental
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # How strict we are in accepting/rejecting AVIF inputs according to whether they
 # conform to the specification
 # 0 = Permissive: accept whatever we can simply, unambiguously interpret
@@ -12268,7 +12267,7 @@
 # Is support for the unprefixed 'line-clamp' property enabled?
 - name: layout.css.line-clamp.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -12825,6 +12824,12 @@
 
 # Whether MediaSource supports the audio/mpeg byte stream format.
 - name: media.mediasource.mp3.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Whether MediaSource supports the audio/aac byte stream format.
+- name: media.mediasource.aac.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
@@ -15415,6 +15420,12 @@
   value: true
   mirror: always
 
+# Set the incremental flag by default based on the content policy type.
+- name: network.http.priority.incremental_by_default
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # The maximum allowed length for a referrer header - 4096 default.
 # 0 means no limit.
 - name: network.http.referer.referrerLengthLimit
@@ -17334,6 +17345,14 @@
   value: true
   mirror: always
 
+# Whether a RFC 9218 PRIORITY_UPDATE frame should be sent on the HTTP/3 control
+# stream at the beginning of each request.
+- name: network.http.http3.send_initial_priority_update
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+  rust: true
+
 # Depriorizing background tabs notifies websites when switching to or from the
 # tab while still loading resources for the website. On one hand it might
 # improve performance when switching to an tab with a website using the same
@@ -17801,7 +17820,11 @@
 
 - name: network.http.happy_eyeballs_enabled
   type: RelaxedAtomicBool
+#if defined(ANDROID)
   value: @IS_NIGHTLY_BUILD@
+#else
+  value: true
+#endif
   mirror: always
 
 # When true, HTTP upgrade requests (e.g. WebSocket) use HTTPS RR.

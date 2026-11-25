@@ -1437,8 +1437,9 @@ menu-share-copy-links =
            *[other] Copy { $count } Links
         }
     .accesskey = L
-menu-share-windows =
+menu-share-windows2 =
     .label = More Options
+    .accesskey = M
 ui-tour-info-panel-close =
     .tooltiptext = Close
 
@@ -1808,6 +1809,15 @@ urlbar-trust-icon-trackers-blocked-longform-label = { $count ->
   [one] { $count } tracker blocked
   *[other] { $count } trackers blocked
 }
+
+# Variables:
+#   $count (Number) - Number of trackers blocked on the current site.
+urlbar-trust-icon-trackers-blocked-tooltip = { $count ->
+  [one] { $count } tracker blocked on this site
+  *[other] { $count } trackers blocked on this site
+}
+urlbar-trust-icon-no-trackers-found-tooltip = No trackers found on this site
+urlbar-trust-icon-tracking-protection-off-tooltip = Tracking protection is off for this site
 
 trustpanel-etp-label-enabled = Enhanced Tracking Protection is on
 trustpanel-etp-label-disabled = Enhanced Tracking Protection is off

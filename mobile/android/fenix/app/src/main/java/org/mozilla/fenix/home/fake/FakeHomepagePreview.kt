@@ -109,6 +109,14 @@ internal object FakeHomepagePreview {
                 override fun onPrivacyReportTapped() {
                     /* no op */
                 }
+
+                override fun onSportsWidgetWallpapersClicked() {
+                    /* no op */
+                }
+
+                override fun onSportsWidgetRemoveClicked() {
+                    /* no op */
+                }
             }
 
     internal val storiesInteractor

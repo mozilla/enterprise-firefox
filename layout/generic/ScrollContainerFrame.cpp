@@ -1185,10 +1185,16 @@ void ScrollContainerFrame::PlaceScrollArea(ScrollReflowInput& aState,
     }
     AdjustForPerspective(aState.mContentsOverflowAreas.ScrollableOverflow());
   }
+  StoreScrolledFrameOverflow(
+      aState.mContentsOverflowAreas.ScrollableOverflow());
+}
+
+void ScrollContainerFrame::StoreScrolledFrameOverflow(
+    const nsRect& aScrollableOverflow) {
   // Preserve the width or height of empty rects
   const nsSize portSize = ScrollPort().Size();
-  nsRect scrolledRect = GetUnsnappedScrolledRectInternal(
-      aState.mContentsOverflowAreas.ScrollableOverflow(), portSize);
+  nsRect scrolledRect =
+      GetUnsnappedScrolledRectInternal(aScrollableOverflow, portSize);
   nsRect scrolledArea = scrolledRect.UnionEdges(nsRect(nsPoint(), portSize));
   // Store the new overflow area. Note that this changes where an outline
   // of the scrolled frame would be painted, but scrolled frames can't have
@@ -1391,10 +1397,6 @@ static void GetScrollableOverflowForPerspective(
         double bottomDelta =
             (postScroll.YMost() - preScroll.YMost() + 600.0) / 600.0;
 
-        // We can't ever have negative scrolling.
-        NS_ASSERTION(rightDelta > 0.0f && bottomDelta > 0.0f,
-                     "Scrolling can't be reversed!");
-
         // Move preScroll into the coordinate space of the scrollport.
         preScroll += offset + scrollPos;
 
@@ -1408,15 +1410,26 @@ static void GetScrollableOverflowForPerspective(
                           std::max(0, aScrollPort.X() - preScroll.X()));
 
         // Scale according to rightDelta/bottomDelta to adjust for the different
-        // scroll rates.
-        overhang.top = NSCoordSaturatingMultiply(
-            overhang.top, static_cast<float>(1 / bottomDelta));
-        overhang.right = NSCoordSaturatingMultiply(
-            overhang.right, static_cast<float>(1 / rightDelta));
-        overhang.bottom = NSCoordSaturatingMultiply(
-            overhang.bottom, static_cast<float>(1 / bottomDelta));
-        overhang.left = NSCoordSaturatingMultiply(
-            overhang.left, static_cast<float>(1 / rightDelta));
+        // scroll rates. With a negative rate the content moves the opposite
+        // way as we scroll, so the overhang on one side can only be scrolled
+        // into view by extending the overflow on the other side. With a rate
+        // of zero scrolling never brings it into view.
+        auto scaleOverhang = [](nscoord aOverhang, double aRate) {
+          return aRate == 0.0
+                     ? 0
+                     : NSCoordSaturatingMultiply(
+                           aOverhang, static_cast<float>(1 / std::abs(aRate)));
+        };
+        if (bottomDelta < 0.0) {
+          std::swap(overhang.top, overhang.bottom);
+        }
+        if (rightDelta < 0.0) {
+          std::swap(overhang.left, overhang.right);
+        }
+        overhang.top = scaleOverhang(overhang.top, bottomDelta);
+        overhang.right = scaleOverhang(overhang.right, rightDelta);
+        overhang.bottom = scaleOverhang(overhang.bottom, bottomDelta);
+        overhang.left = scaleOverhang(overhang.left, rightDelta);
 
         // Take the minimum overflow rect that would allow the current scroll
         // position, using the size of the scroll port and offset by the
@@ -6632,6 +6645,15 @@ void ScrollContainerFrame::ReflowCallbackCanceled() {
 bool ScrollContainerFrame::ComputeCustomOverflow(
     OverflowAreas& aOverflowAreas) {
   ScrollStyles ss = GetScrollStyles();
+
+  if (ChildrenHavePerspective()) {
+    // The scrolled frame's overflow was just recomputed without taking
+    // perspective into account, which makes the scrollable overflow depend on
+    // the scroll position.
+    nsRect scrollableOverflow;
+    AdjustForPerspective(scrollableOverflow);
+    StoreScrolledFrameOverflow(scrollableOverflow);
+  }
 
   // Reflow when the change in overflow leads to one of our scrollbars
   // changing or might require repositioning the scrolled content due to

@@ -1146,8 +1146,19 @@ let ShellServiceInternal = {
     ini.setString("Desktop Entry", "Name", title);
     ini.setString("Desktop Entry", "Icon", iconPath);
 
-    // All desktop files made with this must run the Firefox executable.
-    argv.unshift(await ShellService._findStartupCommand());
+    // All desktop files made with this must run the Firefox executable. Under
+    // Snap, the executable is in a revision-specific mount that goes away after
+    // updates, and running it directly would bypass confinement.
+    let snapInstanceName = ShellService._getSnapInstanceName();
+    if (snapInstanceName) {
+      argv.unshift(
+        "snap",
+        "run",
+        `${snapInstanceName}.${AppConstants.MOZ_APP_NAME}`
+      );
+    } else {
+      argv.unshift(await ShellService._findStartupCommand());
+    }
 
     // https://specifications.freedesktop.org/desktop-entry/latest/exec-variables
     // (\x60 = backtick, \x24 = dollar sign, \x22 = double quote, and
@@ -1275,8 +1286,8 @@ let ShellServiceInternal = {
   /**
    * Removes the Linux desktop entry given its app ID.
    *
-   * This only removes entries within XDG_DATA_HOME as it is now, i.e. system
-   * shortcuts will not be removed.
+   * This only removes entries within XDG_DATA_HOME as it is now (or
+   * SNAP_REAL_HOME under Snap), i.e. system shortcuts will not be removed.
    *
    * @param {string} appId - The appId given to createLinuxDesktopEntry.
    */
@@ -1339,6 +1350,23 @@ let ShellServiceInternal = {
       );
     }
 
+    // snapd points HOME and XDG_DATA_HOME into the snap's private directories,
+    // which the desktop environment doesn't look at.
+    let realHome = Services.env.get("SNAP_REAL_HOME");
+    if (
+      ShellService._getSnapInstanceName() &&
+      realHome &&
+      PathUtils.isAbsolute(realHome)
+    ) {
+      return PathUtils.join(
+        realHome,
+        ".local",
+        "share",
+        "applications",
+        `${appId}.desktop`
+      );
+    }
+
     // TODO is there any way to reuse existing logic for this?
     // Find the location of ~/.local/share/applications.
     let dataHome = Services.env.get("XDG_DATA_HOME");
@@ -1348,6 +1376,26 @@ let ShellServiceInternal = {
     }
 
     return PathUtils.join(dataHome, "applications", `${appId}.desktop`);
+  },
+
+  /**
+   * Gets the name of the Snap instance this browser is running in.
+   *
+   * @returns {?string} The instance name (e.g. 'firefox' or 'firefox_beta'),
+   * or null when not running under Snap.
+   */
+  _getSnapInstanceName() {
+    if (
+      AppConstants.platform !== "linux" ||
+      !lazy.gioService.isRunningUnderSnap
+    ) {
+      return null;
+    }
+    return (
+      Services.env.get("SNAP_INSTANCE_NAME") ||
+      Services.env.get("SNAP_NAME") ||
+      null
+    );
   },
 
   async requestCreateAndPinSecondaryTile(tileId, name, iconPath, args) {

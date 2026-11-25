@@ -1695,6 +1695,16 @@ nsXULAppInfo::GetDesktopEnvironment(nsACString& aDesktopEnvironment) {
 }
 
 NS_IMETHODIMP
+nsXULAppInfo::GetIsGnomeDesktopEnvironment(bool* aResult) {
+#ifdef MOZ_WIDGET_GTK
+  *aResult = IsGnomeDesktopEnvironment();
+#else
+  *aResult = false;
+#endif
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsXULAppInfo::GetIsWayland(bool* aResult) {
 #ifdef MOZ_WIDGET_GTK
   *aResult = GdkIsWaylandDisplay();
@@ -5815,6 +5825,14 @@ static void ReadAheadDlls(const wchar_t* greDir) {
 }
 #endif
 
+#if !defined(MOZ_WIDGET_ANDROID)
+bool IsLaunchingBrowserDevtools() {
+  const char* chromeParam = nullptr;
+  return (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) &&
+         (strcmp(chromeParam, BROWSER_TOOLBOX_WINDOW_URL) == 0);
+}
+#endif
+
 #if defined(MOZ_UPDATER) && !defined(MOZ_WIDGET_ANDROID)
 enum struct ShouldNotProcessUpdatesReason {
   DevToolsLaunching,
@@ -5822,7 +5840,8 @@ enum struct ShouldNotProcessUpdatesReason {
   OtherInstanceRunning,
   FirstStartup,
   FeltOnlyUpdates,
-  DisabledByEnvironment
+  DisabledByEnvironment,
+  LaunchedByAIAgent
 };
 
 const char* ShouldNotProcessUpdatesReasonAsString(
@@ -5838,15 +5857,28 @@ const char* ShouldNotProcessUpdatesReasonAsString(
       return "FeltOnlyUpdates";
     case ShouldNotProcessUpdatesReason::DisabledByEnvironment:
       return "DisabledByEnvironment";
+    case ShouldNotProcessUpdatesReason::LaunchedByAIAgent:
+      return "LaunchedByAIAgent";
     default:
       MOZ_CRASH("impossible value for ShouldNotProcessUpdatesReason");
   }
 }
 
-bool IsLaunchingBrowserDevtools() {
-  const char* chromeParam = nullptr;
-  return (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) &&
-         (strcmp(chromeParam, BROWSER_TOOLBOX_WINDOW_URL) == 0);
+// Returns the name of the first environment variable found that indicates a
+// launch by an AI agent, or nullptr if there is none.
+static const char* GetAIAgentEnvVar() {
+  static const char* const kAIAgentEnvVars[] = {
+      "CLAUDECODE",     "CLINE_ACTIVE", "CODEX_SANDBOX",     "CODEX_THREAD_ID",
+      "COPILOT_AGENT",  "COPILOT_CLI",  "CURSOR_AGENT",      "DSH_SHELL",
+      "GEMINI_CLI",     "HERMES_AGENT", "HERMES_SESSION_ID", "MUSE_SESSION_ID",
+      "OPENCLAW_SHELL", "OPENCODE",     "PI_CODING_AGENT",   "PI_TOOL_CALL_ID",
+  };
+  for (const char* envVar : kAIAgentEnvVars) {
+    if (EnvHasValue(envVar)) {
+      return envVar;
+    }
+  }
+  return nullptr;
 }
 
 Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
@@ -5933,6 +5965,25 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
     }
   }
 #  endif
+
+  // Applying a pending update forces other running instances of the same
+  // installation to restart (bug 1480452), which an AI agent launching its own
+  // instance should not do to the user.
+  if (ARG_FOUND != CheckArgExists("test-process-updates") &&
+      !EnvHasValue("MOZ_TEST_PROCESS_UPDATES") &&
+      !EnvHasValue("MOZ_AGENT_ALLOW_UPDATE_PROCESSING")) {
+    if (const char* agentEnvVar = GetAIAgentEnvVar()) {
+      printf(
+          "Pending updates will not be applied because %s is set in the "
+          "environment, which indicates a launch by an AI agent. Set "
+          "MOZ_AGENT_ALLOW_UPDATE_PROCESSING=1 to apply pending updates at "
+          "startup.\n",
+          agentEnvVar);
+      fflush(stdout);
+      NS_WARNING("ShouldNotProcessUpdates(): LaunchedByAIAgent");
+      return Some(ShouldNotProcessUpdatesReason::LaunchedByAIAgent);
+    }
+  }
 
   return Nothing();
 }
@@ -6322,38 +6373,8 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
 
 #if defined(MOZ_HAS_REMOTE)
   if (gRemoteService) {
-    // Use the full profile path to identify the profile.
-    nsCString profilePath;
-
-#  ifdef XP_WIN
-    nsString path;
-    rv = mProfD->GetPath(path);
+    rv = gRemoteService->SetProfile(mProfD, profile);
     if (NS_SUCCEEDED(rv)) {
-      CopyUTF16toUTF8(path, profilePath);
-    }
-#  else
-    rv = mProfD->GetNativePath(profilePath);
-#  endif
-
-    if (NS_SUCCEEDED(rv)) {
-#  if defined(MOZ_ENTERPRISE) && defined(XP_WIN)
-      if (is_felt_ui()) {
-        // On Windows, key remoting on the profile's leaf name rather than its
-        // full path. The FELT profile holds no important state (hence it lives
-        // under %TEMP%), but that %TEMP% prefix varies by launch context (8.3
-        // vs long form, per-session or relocated temp), which breaks the
-        // remote-window lookup across launchers. The leaf name is hardcoded and
-        // embeds the update channel ("felt-<channel>"), so it is stable across
-        // launchers and unlikely to collide with other channels running in
-        // parallel.
-        nsAutoString profileName;
-        if (NS_SUCCEEDED(mProfD->GetLeafName(profileName))) {
-          CopyUTF16toUTF8(profileName, profilePath);
-        }
-      }
-#  endif
-      gRemoteService->SetProfile(profilePath);
-
       if (!mDisableRemoteClient) {
         // Try to remote the entire command line. If this fails, start up
         // normally.
@@ -6368,19 +6389,6 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
         gRemoteService->SetStartupToken(startupToken);
 #  endif
         rv = gRemoteService->StartClient();
-
-        if (rv == NS_ERROR_NOT_AVAILABLE && profile) {
-          // Older versions would use the profile name in preference to the
-          // path.
-          nsCString profileName;
-          profile->GetName(profileName);
-          gRemoteService->SetProfile(profileName);
-
-          rv = gRemoteService->StartClient();
-
-          // Reset back to the path.
-          gRemoteService->SetProfile(profilePath);
-        }
 
         if (NS_SUCCEEDED(rv)) {
           *aExitFlag = true;

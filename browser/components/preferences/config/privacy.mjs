@@ -3876,6 +3876,9 @@ Preferences.addSetting({
   deps: ["urlbarNimbusListener"],
   visible: () =>
     window.NimbusFeatures.urlbar.getVariable("trackerCountFeatureGate"),
+  onUserChange(enabled) {
+    Glean.privacyUiEtp.trackerCountToggled.record({ enabled });
+  },
 });
 
 Preferences.addSetting({

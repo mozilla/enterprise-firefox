@@ -49,8 +49,6 @@ class SVGTurbulenceRenderer {
   Size mBaseFrequency;
   int32_t mNumOctaves;
   StitchInfo mStitchInfo;
-  bool mStitchable;
-  TurbulenceType mType;
   uint8_t mLatticeSelector[sBSize];
   f32x4_t mGradient[sBSize][2];
 };
@@ -100,11 +98,7 @@ template <TurbulenceType Type, bool Stitch, typename f32x4_t, typename i32x4_t,
 SVGTurbulenceRenderer<Type, Stitch, f32x4_t, i32x4_t, u8x16_t>::
     SVGTurbulenceRenderer(const Size& aBaseFrequency, int32_t aSeed,
                           int aNumOctaves, const Rect& aTileRect)
-    : mBaseFrequency(aBaseFrequency),
-      mNumOctaves(aNumOctaves),
-      mStitchInfo(),
-      mStitchable(false),
-      mType(TURBULENCE_TYPE_TURBULENCE) {
+    : mBaseFrequency(aBaseFrequency), mNumOctaves(aNumOctaves), mStitchInfo() {
   InitFromSeed(aSeed);
   if (Stitch) {
     AdjustBaseFrequencyForStitch(aTileRect);

@@ -679,6 +679,11 @@ skip-if = [
 
 ["test_dns_localredirect.js"]
 
+["test_dns_lookups_per_host.js"]
+skip-if = [
+  "os == 'android'", # The servers run on the host, not the device
+]
+
 ["test_dns_negative_grace.js"]
 skip-if = [
   "os == 'android'",
@@ -1571,6 +1576,8 @@ prefs = ["network.auth.force-generic-ntlm=true"]
 ["test_post.js"]
 
 ["test_prio_header_override_forbid.js"]
+
+["test_priority_incremental.js"]
 
 ["test_private_cookie_changed.js"]
 

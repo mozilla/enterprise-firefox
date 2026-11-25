@@ -57,7 +57,7 @@ hide-types = [
 bitfield-enums = [
     "nsChangeHint",
     "mozilla::OriginFlags",
-    "NodeSelectorFlags",
+    "NodeStyleFlags",
 ]
 rusty-enums = [
     "nsCompatibility",
@@ -276,7 +276,7 @@ allowlist-types = [
     "mozilla::InheritTarget",
     "mozilla::dom::MediaList",
     "mozilla::StyleRuleInclusion",
-    "NodeSelectorFlags",
+    "NodeStyleFlags",
     "AnchorPosResolutionParams",
     "AnchorPosOffsetResolutionParams",
 ]
@@ -405,7 +405,7 @@ cbindgen-types = [
     { gecko = "StyleOffsetPathFunction", servo = "crate::values::computed::motion::OffsetPathFunction" },
     { gecko = "StyleGenericOffsetPath", servo = "crate::values::generics::motion::OffsetPath" },
     { gecko = "StyleGenericOffsetPathFunction", servo = "crate::values::generics::motion::OffsetPathFunction" },
-    { gecko = "StyleComputedMozPrefFeatureValue", servo = "crate::queries::condition::ComputedMozPrefFeatureValue" },
+    { gecko = "StyleComputedMozPrefFeatureValue", servo = "crate::queries::moz_pref::ComputedMozPrefFeatureValue" },
     { gecko = "StyleMozTheme", servo = "crate::values::computed::ui::MozTheme" },
     { gecko = "StyleOffsetPosition", servo = "crate::values::computed::motion::OffsetPosition" },
     { gecko = "StyleOffsetRotate", servo = "crate::values::computed::motion::OffsetRotate" },

@@ -506,8 +506,12 @@ nsAccessibilityService::ListenersChanged(nsIArray* aEventChanges) {
         }
         if (!acc && nsCoreUtils::HasClickListener(content)) {
           // Create an accessible for a inaccessible element having click event
-          // handler.
-          document->ContentInserted(content, content->GetNextSibling());
+          // handler. An element that isn't rendered can't get one; frame
+          // construction will notify us if it becomes rendered later.
+          if (content->GetPrimaryFrame() ||
+              nsCoreUtils::CanCreateAccessibleWithoutFrame(content)) {
+            document->ContentInserted(content, content->GetNextSibling());
+          }
         } else if (acc) {
           if ((acc->IsHTMLLink() && !acc->AsHTMLLink()->IsLinked()) ||
               (content->IsElement() &&
@@ -1792,6 +1796,10 @@ void nsAccessibilityService::Shutdown() {
   if (observerService) {
     observerService->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
   }
+
+  nsCOMPtr<nsIEventListenerService> eventListenerService =
+      do_GetService("@mozilla.org/eventlistenerservice;1");
+  eventListenerService->RemoveListenerChangeListener(this);
 
   // Stop accessible document loader.
   DocManager::Shutdown();

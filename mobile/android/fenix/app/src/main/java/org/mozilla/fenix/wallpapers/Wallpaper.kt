@@ -54,10 +54,6 @@ data class Wallpaper(
     )
 
     companion object {
-        const val AMETHYST = "amethyst"
-        const val CERULEAN = "cerulean"
-        const val SUNRISE = "sunrise"
-        const val BEACH_VIBE = "beach-vibe"
         const val FIREFOX_COLLECTION = "firefox"
         const val SOLID = "solid"
         const val GRADIENT = "gradient"
@@ -65,6 +61,7 @@ data class Wallpaper(
 
         // Names the solid and gradient wallpapers were stored under before they were renamed.
         private const val LEGACY_SOLID = "default"
+        private const val LEGACY_NONE = "NONE"
         private const val LEGACY_GRADIENT = "edge-to-edge"
 
         private val localWallpapers = listOf(SOLID, GRADIENT)
@@ -129,16 +126,6 @@ data class Wallpaper(
         /**
          * Defines the standard path at which a wallpaper resource is kept on disk.
          *
-         * @param orientation One of landscape/portrait.
-         * @param theme One of dark/light.
-         * @param name The name of the wallpaper.
-         */
-        fun legacyGetLocalPath(orientation: String, theme: String, name: String): String =
-            "wallpapers/$orientation/$theme/$name.png"
-
-        /**
-         * Defines the standard path at which a wallpaper resource is kept on disk.
-         *
          * @param name The name of the wallpaper.
          * @param type The type of image that should be retrieved.
          */
@@ -173,14 +160,11 @@ data class Wallpaper(
         }
 
         /**
-         * Check if a wallpaper name matches the solid wallpaper. Considers empty strings to be the solid wallpaper
-         * since that likely means a wallpaper has never been set. The "none" case here is to deal with a legacy case
-         * where the default wallpaper used to be Wallpaper.NONE. See commit 7a44412, Wallpaper.NONE and
-         * Settings.currentWallpaper (legacy name) for context.
+         * Check if a wallpaper name matches the solid wallpaper.
          *
          * @param name The name to check.
          */
-        fun nameIsSolid(name: String): Boolean = name.isEmpty() || name == SOLID || name.lowercase() == "none"
+        fun nameIsSolid(name: String): Boolean = name == SOLID
 
         /**
          * Returns the name to store for a wallpaper stored under [name], replacing the names the solid and gradient
@@ -189,9 +173,9 @@ data class Wallpaper(
          * @param name The stored wallpaper name.
          */
         fun migrateLegacyName(name: String): String =
-            when (name) {
-                LEGACY_SOLID -> SOLID
-                LEGACY_GRADIENT -> GRADIENT
+            when {
+                name.isEmpty() || name == LEGACY_SOLID || name == LEGACY_NONE -> SOLID
+                name == LEGACY_GRADIENT -> GRADIENT
                 else -> name
             }
 

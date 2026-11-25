@@ -92,15 +92,10 @@ class WasmFrameIter {
   bool currentFrameIsReturnCallFallback_ = false;
 #ifdef ENABLE_WASM_JSPI
   ContStack* contStack_ = nullptr;
-  // A continuation stack that the trap occurred on but which has no frame in
-  // this iteration (its only frame was torn down by a trapping return_call).
+  // A continuation stack that the exit or trap occurred on but which has no
+  // frame in this iteration (its only frame was torn down by a return_call).
   // Exception unwinding must free it even though no iterated frame is on it.
   ContStack* unwoundContStack_ = nullptr;
-  // The initial function's instance, recovered from the continuation base
-  // frame's callee-instance slot when crossing it, so GC traces it even if a
-  // return_call collapsed the initial function's frame. Only set for the frame
-  // reached by crossing the base frame.
-  Instance* contBaseInstance_ = nullptr;
 #endif
 #ifdef JS_HW_SHADOW_STACK
   // These fields track the shadow stack pointer while unwinding the stack for
@@ -257,9 +252,6 @@ class WasmFrameIter {
   // See unwoundContStack_. Null in all cases except the trapping return_call
   // described there.
   ContStack* unwoundContStack() const { return unwoundContStack_; }
-
-  // See contBaseInstance_.
-  Instance* contBaseInstance() const { return contBaseInstance_; }
 #endif
 
   uintptr_t* shadowStackPointer() const {
