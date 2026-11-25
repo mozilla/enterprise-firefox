@@ -3543,6 +3543,14 @@ static void AccumulateFrameBounds(nsIFrame* aContainerFrame, nsIFrame* aFrame,
   nsRect transformedBounds = nsLayoutUtils::TransformFrameRectToAncestor(
       frame, frameBounds, aContainerFrame);
 
+  if (aFrame->IsInSVGTextSubtree()) {
+    // Transforming out of SVG text can lazily resolve bidi, which destroys the
+    // block's cached line iterator.
+    aPrevBlock = nullptr;
+    aLines = nullptr;
+    aCurLine = 0;
+  }
+
   if (aHaveRect) {
     // We can't use nsRect::UnionRect since it drops empty rects on
     // the floor, and we need to include them.  (Thus we need
@@ -4562,9 +4570,7 @@ static inline void AssertFrameTreeIsSane(const PresShell& aPresShell) {
 }
 
 void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
-  // FIXME(emilio, bug 1530177): Turn into a release assert when bug 1530188 and
-  // bug 1530190 are fixed.
-  MOZ_DIAGNOSTIC_ASSERT(!mForbiddenToFlush, "This is bad!");
+  MOZ_RELEASE_ASSERT(!mForbiddenToFlush, "This is bad!");
 
   // Per our API contract, hold a strong ref to ourselves until we return.
   RefPtr<PresShell> kungFuDeathGrip = this;
