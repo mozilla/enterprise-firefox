@@ -31,6 +31,10 @@
 #include "mozilla/TimeStamp.h"
 #include "mozilla/UniquePtr.h"
 
+#if defined(MOZ_ENTERPRISE) && defined(XP_WIN)
+#  include "mozilla/toolkit/components/felt/felt.h"
+#endif
+
 // Time to wait for the startup lock
 #define START_TIMEOUT_MSEC 5000
 #define START_SLEEP_MSEC 100
