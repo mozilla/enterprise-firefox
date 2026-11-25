@@ -71,9 +71,12 @@ async function parseINI(path) {
 }
 
 add_setup(async function setup() {
-  Services.dirsvc
-    .QueryInterface(Ci.nsIDirectoryService)
-    .registerProvider(gDirectoryServiceProvider);
+  // The directory service might have cached the real home directory before
+  // the test started, which would take precedence over our provider.
+  if (Services.dirsvc.has("Home")) {
+    Services.dirsvc.undefine("Home");
+  }
+  Services.dirsvc.registerProvider(gDirectoryServiceProvider);
 
   sinon
     .stub(getSubprocessImplForTest(), "getEnvironment")
@@ -567,5 +570,67 @@ add_task(async function test_failsIfApiDisabled() {
     "deleteLinuxDesktopEntry fails without a backend"
   );
 
+  Services.prefs.clearUserPref("browser.shell.desktop-entry-api");
+});
+
+add_task(async function test_snapLauncher() {
+  Services.prefs.setStringPref("browser.shell.desktop-entry-api", "filesystem");
+  let sandbox = sinon.createSandbox();
+  sandbox.stub(ShellService, "_getSnapInstanceName").returns("firefox_beta");
+
+  await ShellService.createLinuxDesktopEntry(
+    "snaplauncher",
+    "Snap Test",
+    ["abc"],
+    ""
+  );
+  let path = PathUtils.join(
+    gTmpDir.path,
+    "home",
+    ".local",
+    "share",
+    "applications",
+    "snaplauncher.desktop"
+  );
+  let ini = await parseINI(path);
+  Assert.equal(
+    ini.getString("Desktop Entry", "Exec"),
+    `"snap" "run" "firefox_beta.${AppConstants.MOZ_APP_NAME}" "abc"`,
+    "The browser is started through snap run under Snap"
+  );
+
+  await IOUtils.remove(path);
+  sandbox.restore();
+  Services.prefs.clearUserPref("browser.shell.desktop-entry-api");
+});
+
+add_task(async function test_snapRealHome() {
+  Services.prefs.setStringPref("browser.shell.desktop-entry-api", "filesystem");
+  let sandbox = sinon.createSandbox();
+  sandbox.stub(ShellService, "_getSnapInstanceName").returns("firefox");
+
+  let realHome = PathUtils.join(gTmpDir.path, "realhome");
+  Services.env.set("SNAP_REAL_HOME", realHome);
+  Services.env.set("XDG_DATA_HOME", PathUtils.join(gTmpDir.path, "snapdata"));
+
+  let path = PathUtils.join(
+    realHome,
+    ".local",
+    "share",
+    "applications",
+    "snaphome.desktop"
+  );
+  await ShellService.createLinuxDesktopEntry("snaphome", "Snap Test", [], "");
+  ok(
+    await IOUtils.exists(path),
+    "The desktop file is written under SNAP_REAL_HOME"
+  );
+
+  await ShellService.deleteLinuxDesktopEntry("snaphome");
+  ok(!(await IOUtils.exists(path)), "The desktop file was deleted");
+
+  Services.env.set("SNAP_REAL_HOME", "");
+  Services.env.set("XDG_DATA_HOME", "");
+  sandbox.restore();
   Services.prefs.clearUserPref("browser.shell.desktop-entry-api");
 });

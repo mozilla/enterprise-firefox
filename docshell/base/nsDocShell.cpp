@@ -1335,14 +1335,9 @@ static LoadingSessionHistoryInfo CreateLoadingEntryForJavascriptURL(
   loadingEntry.mTriggeringNavigationType = Some(NavigationType::Replace);
   loadingEntry.mReplacesActiveEntry = !!aActiveEntry;
 
-  // https://html.spec.whatwg.org/#update-document-for-history-step-application
-  // The replaced entry is the previous entry for the new document's
-  // activation, unless it belonged to the initial about:blank document.
   loadingEntry.mPreviousEntry =
-      aOldDocument.IsInitialDocument() || !aActiveEntry
-          ? Some(PreviousSessionHistoryInfo{})
-          : PreviousSessionHistoryInfo::CreateValidatedPreviousEntry(
-                info, Some(*aActiveEntry), Some(NavigationType::Replace));
+      PreviousSessionHistoryInfo::CreateValidatedPreviousEntry(
+          aNewDocument, aOldDocument, aActiveEntry);
 
   // The old document might not have entries, in which case the new entry gets
   // appended.
@@ -9699,9 +9694,7 @@ nsIPrincipal* nsDocShell::GetInheritedPrincipal(
       nsCOMPtr<nsIClassOfService> cos(do_QueryInterface(channel));
       if (cos) {
         cos->AddClassFlags(nsIClassOfService::UrgentStart);
-        if (StaticPrefs::dom_document_priority_incremental()) {
-          cos->SetIncremental(true);
-        }
+        cos->SetIncremental(true);
       }
     }
   }
@@ -11294,22 +11287,13 @@ nsresult nsDocShell::AddState(JS::Handle<JS::Value> aData,
 
   // Don't clobber the load type of an existing network load.
   Maybe<AutoRestore<uint32_t>> loadTypeResetter;
-  if (StaticPrefs::
-          docshell_shistory_sameDocumentNavigationOverridesLoadType() &&
-      !document->NodePrincipal()->IsURIInPrefList(
-          "docshell.shistory.sameDocumentNavigationOverridesLoadType."
-          "forceDisable")) {
+  if (JustStartedNetworkLoad() ||
+      (StaticPrefs::
+           docshell_shistory_sameDocumentNavigationOverridesLoadType() &&
+       !document->NodePrincipal()->IsURIInPrefList(
+           "docshell.shistory.sameDocumentNavigationOverridesLoadType."
+           "forceDisable"))) {
     loadTypeResetter.emplace(mLoadType);
-  }
-
-  // pushState effectively becomes replaceState when we've started a network
-  // load but haven't adopted its document yet.  This mirrors what we do with
-  // changes to the hash at this stage of the game.
-  if (JustStartedNetworkLoad()) {
-    if (!loadTypeResetter.isSome()) {
-      loadTypeResetter.emplace(mLoadType);
-    }
-    aReplace = true;
   }
 
   // Step A: Serialize aData using structured clone.
@@ -11443,7 +11427,13 @@ nsresult nsDocShell::UpdateURLAndHistory(
   // Implements
   // https://html.spec.whatwg.org/multipage/history.html#url-and-history-update-steps
   MOZ_ASSERT(aHistoryHandling != NavigationHistoryBehavior::Auto);
-  bool isReplace = aHistoryHandling == NavigationHistoryBehavior::Replace;
+
+  // 4. If document's is initial about:blank is true, then set historyHandling
+  //    to "replace".
+  //
+  // Also, if there is no session history, always treat it as a replace.
+  bool isReplace = aHistoryHandling == NavigationHistoryBehavior::Replace ||
+                   aDocument->IsInitialDocument() || !mActiveEntry;
 
   // If we have a pending title change, handle it before creating a new entry.
   aDocument->DoNotifyPossibleTitleChange();
@@ -11451,7 +11441,6 @@ nsresult nsDocShell::UpdateURLAndHistory(
   // Step 2, if aReplace is false: Create a new entry in the session
   // history. This will erase all SHEntries after the new entry and make this
   // entry the current one.
-  NS_ENSURE_TRUE(mActiveEntry || isReplace, NS_ERROR_FAILURE);
 
   // If this push/replaceState changed the document's current URI and the new
   // URI differs from the old URI in more than the hash, or if the old

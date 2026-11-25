@@ -5977,6 +5977,7 @@ sync_auth:
         type: boolean
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2068232
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2095573
     data_reviews:
       - https://phabricator.services.mozilla.com/D334605
     data_sensitivity:
@@ -15544,6 +15545,8 @@ nimbus_system:
     send_in_pings:
       - nimbus-targeting-context
     lifetime: application
+    no_lint:
+      - UNKNOWN_PING_REFERENCED  # nimbus-targeting-context is defined in appservices
 
 partnerships:
   vivo_file_check_error:

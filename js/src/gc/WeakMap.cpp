@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "gc/PublicIterators.h"
+#include "js/friend/CycleCollector.h"
 #include "vm/JSObject.h"
 
 #include "gc/AtomMarking-inl.h"
@@ -291,6 +292,106 @@ void WeakMapBase::traceAllMappings(WeakMapTracer* tracer) {
     });
   }
 }
+
+void js::gc::ShouldWeakMappingEntryBeBlack(JSObject* map, Cell* key,
+                                           Cell* delegate, Cell* value,
+                                           bool* keyShouldBeBlack,
+                                           bool* valueShouldBeBlack) {
+  *keyShouldBeBlack = false;
+  *valueShouldBeBlack = false;
+
+  // If nothing that could be held alive by this entry is marked gray, return.
+  bool keyMightNeedMarking = key && key->isMarkedGray();
+  bool valueMightNeedMarking = value && value->isMarkedGray() &&
+                               value->getTraceKind() != JS::TraceKind::String;
+  if (!keyMightNeedMarking && !valueMightNeedMarking) {
+    return;
+  }
+
+  if (!JS::IsCCTraceKind(key->getTraceKind())) {
+    key = nullptr;
+  }
+
+  if (keyMightNeedMarking) {
+    if (delegate && !delegate->isMarkedGray() &&
+        (!map || !map->isMarkedGray())) {
+      *keyShouldBeBlack = true;
+    }
+  }
+
+  if (value && value->isMarkedGray() && (!key || !key->isMarkedGray()) &&
+      (!map || !map->isMarkedGray()) &&
+      value->getTraceKind() != JS::TraceKind::Shape) {
+    *valueShouldBeBlack = true;
+  }
+}
+
+/* static */
+void WeakMapBase::fixAllGrayMappings(JSRuntime* rt) {
+  bool anyMarked;
+  do {
+    anyMarked = false;
+    for (ZonesIter zone(rt, SkipAtoms); !zone.done(); zone.next()) {
+      ForAllWeakMapsInZone(zone, [&anyMarked](WeakMapBase* map) {
+        if (map->fixGrayMappings()) {
+          anyMarked = true;
+        }
+      });
+    }
+  } while (anyMarked);
+}
+
+namespace {
+
+#if defined(JS_GC_ZEAL) || defined(DEBUG)
+struct CheckWeakMappingGrayBitsTracer final : public WeakMapTracer {
+  explicit CheckWeakMappingGrayBitsTracer(JSRuntime* rt) : WeakMapTracer(rt) {}
+
+  void trace(JSObject* map, JS::GCCellPtr key, JS::GCCellPtr delegate,
+             JS::GCCellPtr value) override {
+    bool keyShouldBeBlack;
+    bool valueShouldBeBlack;
+    ShouldWeakMappingEntryBeBlack(map, key.asCell(), delegate.asCell(),
+                                  value.asCell(), &keyShouldBeBlack,
+                                  &valueShouldBeBlack);
+
+    if (keyShouldBeBlack) {
+      fprintf(stderr, "Weak mapping key %p of map %p should be black\n",
+              key.asCell(), map);
+      failed = true;
+    }
+
+    if (valueShouldBeBlack) {
+      fprintf(stderr, "Weak mapping value %p of map %p should be black\n",
+              value.asCell(), map);
+      failed = true;
+    }
+  }
+
+  bool failed = false;
+};
+#endif
+
+}  // namespace
+
+JS_PUBLIC_API void js::FixWeakMappingGrayBits(JSRuntime* rt) {
+  MOZ_ASSERT(!JS::RuntimeHeapIsBusy());
+  MOZ_ASSERT(!rt->gc.isIncrementalGCInProgress());
+  MOZ_ASSERT(rt->gc.areGrayBitsValid());
+
+  WeakMapBase::fixAllGrayMappings(rt);
+}
+
+#if defined(JS_GC_ZEAL) || defined(DEBUG)
+JS_PUBLIC_API bool js::CheckWeakMappingGrayBits(JSRuntime* rt) {
+  MOZ_ASSERT(!JS::RuntimeHeapIsBusy());
+  MOZ_ASSERT(!rt->gc.isIncrementalGCInProgress());
+
+  CheckWeakMappingGrayBitsTracer tracer(rt);
+  WeakMapBase::traceAllMappings(&tracer);
+  return !tracer.failed;
+}
+#endif
 
 #if defined(JS_GC_ZEAL)
 

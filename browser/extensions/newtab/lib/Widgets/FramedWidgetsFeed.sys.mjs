@@ -4,6 +4,8 @@
 
 /** @import {Store} from "resource://newtab/lib/Store.sys.mjs" */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   NewTabMerinoWrapper: "resource://newtab/lib/NewTabMerinoWrapper.sys.mjs",
@@ -17,6 +19,8 @@ import {
 import {
   FRAMED_WIDGETS,
   isAllowedFrameUrl,
+  isEndpointAllowlisted,
+  isFramedStageAllowed,
   isWidgetEnabled,
 } from "resource://newtab/common/WidgetsRegistry.mjs";
 
@@ -27,7 +31,6 @@ const PREF_WIDGETS_ENABLED = "widgets.enabled";
 const PREF_ENVIRONMENT = "widgets.framed.environment";
 // Suffixed with the environment: widgets.framed.endpoint.prod / .stage
 const PREF_ENDPOINT_PREFIX = "widgets.framed.endpoint.";
-const PREF_ENDPOINTS_ALLOWLIST = "discoverystream.endpoints";
 
 // How long a cached manifest is served before it is refetched.
 const CACHE_EXPIRY_MS = 30 * 60 * 1000;
@@ -58,24 +61,27 @@ export class FramedWidgetsFeed {
     );
   }
 
-  // Guard the endpoint against the shared allowlist so a mis-set pref can't
-  // point the fetch at an arbitrary host.
+  // Falls back to prod where stage isn't allowed (see isFramedStageAllowed),
+  // so a stage setting carried to Beta or Release can't hide every framed
+  // widget.
   getEnvironment() {
     const { values } = this.store.getState().Prefs;
-    return values[PREF_ENVIRONMENT] === "stage" ? "stage" : "prod";
+    return values[PREF_ENVIRONMENT] === "stage" &&
+      isFramedStageAllowed(values, this.isNightlyBuild())
+      ? "stage"
+      : "prod";
   }
 
+  // Guard the prod endpoint against the shared allowlist so a mis-set pref
+  // can't point the fetch at an arbitrary host.
   getEndpoint() {
     const { values } = this.store.getState().Prefs;
-    const endpoint = values[PREF_ENDPOINT_PREFIX + this.getEnvironment()];
+    const environment = this.getEnvironment();
+    const endpoint = values[PREF_ENDPOINT_PREFIX + environment];
     if (!endpoint) {
       return null;
     }
-    const allowed = (values[PREF_ENDPOINTS_ALLOWLIST] ?? "")
-      .split(",")
-      .map(item => item.trim())
-      .filter(item => item);
-    if (!allowed.some(prefix => endpoint.startsWith(prefix))) {
+    if (environment === "prod" && !isEndpointAllowlisted(values, endpoint)) {
       console.error(`Framed widgets endpoint not in allowlist: ${endpoint}`);
       return null;
     }
@@ -195,4 +201,8 @@ FramedWidgetsFeed.prototype.PersistentCache = (...args) => {
 };
 FramedWidgetsFeed.prototype.Date = () => {
   return Date;
+};
+// Wrapped so tests can cover both Nightly and other builds.
+FramedWidgetsFeed.prototype.isNightlyBuild = () => {
+  return AppConstants.NIGHTLY_BUILD;
 };

@@ -110,6 +110,16 @@ Check the directory, and add each module that fails to `exclude`:
 ./mach ts check path/to/dir
 ```
 
+`./mach ts summary path/to/dir` counts the errors per file, per error code,
+per unresolved name and per type that lacks a property instead of listing them.
+To compare two states of the directory, save the first run with `--save FILE`,
+then list the errors the second run added or removed with `--diff FILE`.
+
+When many errors are TS2339 or TS2551 on one type, `--members TYPE` lists the
+properties TypeScript can't find on that type, with a count for each. This
+shows what a declaration for the type, such as an interface for a custom
+element, needs to include.
+
 ## Landing the Project
 
 The project should only be landed when the linter passes. It is acceptable to

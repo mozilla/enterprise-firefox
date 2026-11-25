@@ -397,6 +397,7 @@ class TelemetryHandler {
   constructor() {
     this._contentHandler = new ContentHandler({
       findItemForBrowser: this.findItemForBrowser.bind(this),
+      hasTrackedBrowsers: () => this._browserInfoByURL.size > 0,
     });
   }
 
@@ -1535,9 +1536,12 @@ class ContentHandler {
    *   The options for the handler.
    * @param {(browser: object) => object} options.findItemForBrowser
    *   The function for finding an item for the browser.
+   * @param {() => boolean} options.hasTrackedBrowsers
+   *   The function for checking whether any SERP is being tracked.
    */
   constructor(options) {
     this._findItemForBrowser = options.findItemForBrowser;
+    this._hasTrackedBrowsers = options.hasTrackedBrowsers;
   }
 
   /**
@@ -1615,7 +1619,16 @@ class ContentHandler {
    * @param {nsIChannel} channel   The channel that generated the activity.
    */
   observeActivity(channel) {
-    if (!(channel instanceof Ci.nsIChannel)) {
+    // Only responses following a tracked SERP can be ad clicks.
+    if (!this._hasTrackedBrowsers() || !(channel instanceof Ci.nsIChannel)) {
+      return;
+    }
+
+    // Resolve the browser now because a top level navigation can replace the
+    // browsing context before the dispatch below runs, after which the channel
+    // no longer leads to the browser.
+    let channelBrowser = this._getChannelBrowser(channel);
+    if (!channelBrowser) {
       return;
     }
 
@@ -1630,11 +1643,6 @@ class ContentHandler {
       lazy.logConsole.debug("Ad click already recorded");
       return;
     }
-
-    // Resolve the browser now because a top level navigation can replace the
-    // browsing context before the dispatch below runs, after which the channel
-    // no longer leads to the browser.
-    let channelBrowser = this._getChannelBrowser(channel);
 
     Services.tm.dispatchToMainThread(() => {
       // We suspect that No Content (204) responses are used to transfer or
@@ -1654,31 +1662,30 @@ class ContentHandler {
       // Find the browser that is linked to SERP tracking item for this request.
       // The request may come from the SERP tab itself, or from a new tab/window
       // opened by a link on the SERP.
-      let serpBrowser, item;
-      if (channelBrowser) {
-        // Check if the request comes directly from a tracked SERP tab.
-        item = this._findItemForBrowser(channelBrowser);
+      /** @type {MozBrowser} */
+      let serpBrowser;
+      // Check if the request comes directly from a tracked SERP tab.
+      let item = this._findItemForBrowser(channelBrowser);
+      if (item) {
+        serpBrowser = channelBrowser;
+      } else {
+        // The request is from a different tab. Check if it was opened
+        // by a SERP tab.
+        let tab = channelBrowser
+          .getTabBrowser()
+          ?.getTabForBrowser(channelBrowser)?.openerTab;
+        item = this._findItemForBrowser(tab?.linkedBrowser);
         if (item) {
-          serpBrowser = channelBrowser;
+          serpBrowser = tab.linkedBrowser;
         } else {
-          // The request is from a different tab. Check if it was opened
-          // by a SERP tab.
-          let tab = channelBrowser
-            .getTabBrowser()
-            ?.getTabForBrowser(channelBrowser)?.openerTab;
-          item = this._findItemForBrowser(tab?.linkedBrowser);
-          if (item) {
-            serpBrowser = tab.linkedBrowser;
-          } else {
-            // For new windows, there's no opener tab. Fallback to the
-            // selected tab in the previous window.
-            let win = lazy.BrowserWindowTracker.orderedWindows.at(1);
-            let selectedBrowser = win?.gBrowser.selectedBrowser;
-            if (selectedBrowser) {
-              item = this._findItemForBrowser(selectedBrowser);
-              if (item) {
-                serpBrowser = selectedBrowser;
-              }
+          // For new windows, there's no opener tab. Fallback to the
+          // selected tab in the previous window.
+          let win = lazy.BrowserWindowTracker.orderedWindows.at(1);
+          let selectedBrowser = win?.gBrowser.selectedBrowser;
+          if (selectedBrowser) {
+            item = this._findItemForBrowser(selectedBrowser);
+            if (item) {
+              serpBrowser = selectedBrowser;
             }
           }
         }

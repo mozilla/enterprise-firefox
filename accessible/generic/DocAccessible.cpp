@@ -977,6 +977,17 @@ void DocAccessible::AttributeChanged(dom::Element* aElement,
 
   LocalAccessible* accessible = GetAccessibleOrDocument(aElement);
   if (!accessible) {
+    if (aAttribute == nsGkAtoms::label) {
+      HTMLComboboxAccessible::SelectedOptionLabelMaybeChanged(this, aElement);
+      return;
+    }
+
+    // An element that isn't rendered can't get an Accessible; frame
+    // construction will notify us if it becomes rendered later.
+    if (!aElement->GetPrimaryFrame() &&
+        !nsCoreUtils::CanCreateAccessibleWithoutFrame(aElement)) {
+      return;
+    }
     if (aModType == AttrModType::Addition &&
         aria::AttrCharacteristicsFor(aAttribute) & ATTR_GLOBAL) {
       // The element doesn't have an Accessible, but a global ARIA attribute
@@ -989,10 +1000,6 @@ void DocAccessible::AttributeChanged(dom::Element* aElement,
       // Accessible. Create one if appropriate.
       ContentInserted(aElement, aElement->GetNextSibling());
       return;
-    }
-
-    if (aAttribute == nsGkAtoms::label) {
-      HTMLComboboxAccessible::SelectedOptionLabelMaybeChanged(this, aElement);
     }
 
     // The element doesn't have an Accessible, so ignore the attribute
@@ -1512,32 +1519,38 @@ bool DocAccessible::PruneOrInsertSubtree(nsIContent* aRoot,
 
   bool insert = false;
 
-  // In the case that we are, or are in, a shadow host, we need to assure
-  // some accessibles are removed if they are not rendered anymore.
-  nsIContent* shadowHost =
-      aRoot->GetShadowRoot() ? aRoot : aRoot->GetContainingShadowHost();
-  if (shadowHost) {
-    // Check all explicit children in the host, if they are not slotted
-    // then remove their accessibles and subtrees.
-    for (nsIContent* childNode = shadowHost->GetFirstChild(); childNode;
+  auto removeUnrenderedChildren = [this](nsIContent* aParent) {
+    for (nsIContent* childNode = aParent->GetFirstChild(); childNode;
          childNode = childNode->GetNextSibling()) {
       if (!childNode->GetPrimaryFrame() &&
           !nsCoreUtils::CanCreateAccessibleWithoutFrame(childNode)) {
         ContentRemoved(childNode);
       }
     }
+  };
+
+  // In the case that we are, or are in, a shadow host, we need to assure
+  // some accessibles are removed if they are not rendered anymore: check all
+  // explicit children in the host, if they are not slotted then remove their
+  // accessibles and subtrees. When descending, we only do this where the walk
+  // enters a shadow tree: at the host, at the insert root, or at a slot (where
+  // we enter the shadow tree containing its assigned nodes, if any).
+  nsIContent* containingShadowHost = aRoot->GetContainingShadowHost();
+  if (aRoot->GetShadowRoot()) {
+    removeUnrenderedChildren(aRoot);
+  } else if (aIsInsertRoot && containingShadowHost) {
+    removeUnrenderedChildren(containingShadowHost);
+  }
+
+  if (containingShadowHost && aRoot->IsHTMLElement(nsGkAtoms::slot)) {
+    if (nsIContent* assignedNodesHost =
+            containingShadowHost->GetContainingShadowHost()) {
+      removeUnrenderedChildren(assignedNodesHost);
+    }
 
     // If this is a slot, check to see if its fallback content is rendered,
     // if not - remove it.
-    if (aRoot->IsHTMLElement(nsGkAtoms::slot)) {
-      for (nsIContent* childNode = aRoot->GetFirstChild(); childNode;
-           childNode = childNode->GetNextSibling()) {
-        if (!childNode->GetPrimaryFrame() &&
-            !nsCoreUtils::CanCreateAccessibleWithoutFrame(childNode)) {
-          ContentRemoved(childNode);
-        }
-      }
-    }
+    removeUnrenderedChildren(aRoot);
   }
 
   // If we already have an accessible, check if we need to remove it, recreate

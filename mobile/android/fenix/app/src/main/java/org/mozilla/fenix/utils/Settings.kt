@@ -627,20 +627,6 @@ class Settings(
             default = 0,
         )
 
-    /** Indicates if the current legacy wallpaper should be migrated. */
-    var shouldMigrateLegacyWallpaper by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_should_migrate_wallpaper),
-            default = true,
-        )
-
-    /** Indicates if the current legacy wallpaper card colors should be migrated. */
-    var shouldMigrateLegacyWallpaperCardColors by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_should_migrate_wallpaper_card_colors),
-            default = true,
-        )
-
     /** Indicates if the wallpaper onboarding dialog should be shown. */
     var showWallpaperOnboarding by
         booleanPreference(
@@ -3558,10 +3544,15 @@ class Settings(
             default = { FxNimbus.features.accountSyncDecouple.value().enabled },
         )
 
+    /**
+     * Feature flag that indicates if the Trust Panel shows the certificate details of the current website, with the EU
+     * trust mark for websites that present a QWAC. The flag is backed by a Nimbus flag, with an option to override it
+     * through secret settings.
+     */
     var isQwacUiEnabled by
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_qwac_ui),
-            default = false,
+            default = { FxNimbus.features.qwacUi.value().enabled },
         )
 
     private var powerSavingModeAutoPreference by
