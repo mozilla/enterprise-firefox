@@ -82,10 +82,12 @@ def test_nightly_schedules_upload_and_tag(graph):
     labels = target_tasks.target_tasks_nightly_enterprise(graph, PARAMETERS, {})
 
     assert repacks_of(labels, "enterprise-oci-upload") == [
+        "moz/generic",
         "moz/prodGCP",
         "moz/stageGCP",
     ]
     assert repacks_of(labels, "enterprise-oci-tag") == [
+        "moz/generic",
         "moz/prodGCP",
         "moz/stageGCP",
     ]
@@ -112,24 +114,25 @@ def test_smp_is_tagged_on_both_gcp_targets(graph):
     assert repacks_of(labels, "enterprise-oci-tag") == ["smp/prodGCP", "smp/stageGCP"]
 
 
-def test_moz_is_tagged_on_stage_and_prod(graph):
+def test_moz_is_tagged_on_stage_prod_generic(graph):
     """The console only imports tagged builds; serving them to users is gated
     by the console's own approval setting, not by the tag."""
     stage = target_tasks.target_tasks_nightly_enterprise_stage(graph, PARAMETERS, {})
-    prod = target_tasks.target_tasks_nightly_enterprise_prod(graph, PARAMETERS, {})
 
     assert repacks_of(stage, "enterprise-oci-upload") == ["moz/stageGCP"]
     assert repacks_of(stage, "enterprise-oci-tag") == ["moz/stageGCP"]
 
+    prod = target_tasks.target_tasks_nightly_enterprise_prod(graph, PARAMETERS, {})
+
     assert repacks_of(prod, "enterprise-oci-upload") == ["moz/prodGCP"]
     assert repacks_of(prod, "enterprise-oci-tag") == ["moz/prodGCP"]
 
+    generic = target_tasks.target_tasks_nightly_enterprise_generic(
+        graph, PARAMETERS, {}
+    )
 
-@pytest.mark.parametrize("kind", ("enterprise-oci-upload", "enterprise-oci-tag"))
-def test_generic_sub_config_is_never_scheduled(graph, kind):
-    """`moz/generic` is the un-customized repack; no registry wants it."""
-    labels = target_tasks.target_tasks_nightly_enterprise(graph, PARAMETERS, {})
-    assert "moz/generic" not in repacks_of(labels, kind)
+    assert repacks_of(generic, "enterprise-oci-upload") == ["moz/generic"]
+    assert repacks_of(generic, "enterprise-oci-tag") == ["moz/generic"]
 
 
 @pytest.mark.parametrize("kind", ("enterprise-oci-upload", "enterprise-oci-tag"))
