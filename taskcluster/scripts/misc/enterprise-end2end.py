@@ -151,14 +151,16 @@ def wait_for_run(run_url, token, poll_interval, timeout):
     deadline = time.monotonic() + timeout
     while True:
         status, data = github_api(run_url, token)
-        if status != 200:
+        if status == 200:
+            print(f"GitHub Workflow Run {run_url}: status {data['status']}")
+            if data["status"] == "completed":
+                return data
+        elif status == 404:
+            print(f"GitHub Workflow Run {run_url}: not yet available")
+        else:
             raise ValueError(
                 f"github workflow run failed: {status}: {data.get('message')}"
             )
-
-        print(f"GitHub Workflow Run {run_url}: status {data['status']}")
-        if data["status"] == "completed":
-            return data
 
         if time.monotonic() > deadline:
             raise TimeoutError(
