@@ -416,16 +416,6 @@ EnterprisePoliciesManager.prototype = {
   _activateStartupPolicies(previouslyApplied) {
     const effectivePolicies = { ...this._effectivePolicies() };
 
-    if (previouslyApplied) {
-      // Allow a policy to provide a default for when the provider did not set a policy.
-      for (const policyName of Object.keys(lazy.Policies)) {
-        const policyImpl = lazy.Policies[policyName];
-        if (policyImpl.onMissing && !(policyName in effectivePolicies)) {
-          effectivePolicies[policyName] = policyImpl.onMissing();
-        }
-      }
-    }
-
     lazy.log.debug(
       `Parsing ${Object.keys(effectivePolicies).length} startup policies.`
     );
@@ -451,6 +441,10 @@ EnterprisePoliciesManager.prototype = {
 
       const policyImpl = lazy.Policies[policyName];
       this._schedulePolicyActivations(policyName, policyImpl, parsedParams);
+    }
+
+    if (previouslyApplied) {
+      this._runMissingPolicyCallbacks(effectivePolicies);
     }
 
     this._updateStatus();
@@ -843,12 +837,16 @@ EnterprisePoliciesManager.prototype = {
         });
       }
     }
+
+    if (previouslyApplied) {
+      this._runMissingPolicyCallbacks(unparsedPolicies);
+    }
   },
 
-  _runMissingPolicyCallbacks() {
-    for (const policyName of Object.keys(lazy.Policies)) {
-      const policyImpl = lazy.Policies[policyName];
-      if (!policyImpl.onMissing) {
+  _runMissingPolicyCallbacks(presentPolicies = {}) {
+    for (let policyName of Object.keys(lazy.Policies)) {
+      let policyImpl = lazy.Policies[policyName];
+      if (!policyImpl.onMissing || policyName in presentPolicies) {
         continue;
       }
       this._schedulePolicyActivations(
