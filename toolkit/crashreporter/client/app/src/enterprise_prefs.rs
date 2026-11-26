@@ -106,8 +106,8 @@ fn base_from_server_url(server_url: Option<&str>) -> Option<String> {
 /// endpoint from the enterprise console address.
 pub fn console_report_url(server_url: Option<&str>) -> anyhow::Result<String> {
     if let Some(server_url) = server_url {
-        if Url::parse(server_url).is_ok() {
-            return Ok(server_url.to_owned());
+        if let Ok(url) = Url::parse(server_url) {
+            return Ok(url.into());
         }
     }
     Ok(format!("{}/{}", console_address()?, CRASH_SUBMIT_PATH))
@@ -346,6 +346,17 @@ mod test {
                 "https://console.example.com/foo/api/browser/crash-reports/submit"
             ))?,
             "https://console.example.com/foo/api/browser/crash-reports/submit"
+        );
+        anyhow::Ok(())
+    }
+
+    #[test]
+    fn report_url_normalizes_annotation() -> anyhow::Result<()> {
+        assert_eq!(
+            console_report_url(Some(
+                "HTTPS://Console.Example.com:443\\api/browser/crash-reports/submit"
+            ))?,
+            "https://console.example.com/api/browser/crash-reports/submit"
         );
         anyhow::Ok(())
     }
