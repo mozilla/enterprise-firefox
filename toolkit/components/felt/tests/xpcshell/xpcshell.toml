@@ -6,21 +6,18 @@ head = "head.js"
 ["test_FeltStorage_locking.js"]
 
 ["test_felt_browser_endpoint_refusal.js"]
-# Launches the application binary. On Windows the startup errors it exercises
-# are shown in a message box, so it would hang there.
-run-if = ["os != 'win' && buildapp == 'browser'"]
+# Launches the application binary with `-felt`, which only macOS reads: Linux
+# and Windows take their endpoint from an inherited fd or handle.
+run-if = ["os == 'mac' && buildapp == 'browser'"]
 run-sequentially = ["true"]
 
 ["test_felt_browser_ipc_args.js"]
 run-if = ["buildapp == 'browser'"]
 
-["test_felt_browser_pid_announcement.js"]
-run-if = ["os == 'win' && buildapp == 'browser'"]
-
 ["test_felt_parent_message_sender.js"]
 
 ["test_felt_command_line_flags.js"]
-run-if = ["os != 'win' && buildapp == 'browser'"] # Windows reports startup errors in a message box
+run-if = ["os == 'mac' && buildapp == 'browser'"] # Only macOS reads -felt; Linux and Windows inherit their endpoint
 run-sequentially = ["true"] # Launches the application binary
 
 ["test_felt_ipc_channel_refusal.js"]

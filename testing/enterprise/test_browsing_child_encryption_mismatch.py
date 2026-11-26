@@ -40,9 +40,22 @@ assert len(PLAINTEXT_SQLITE_HEADER) == 24
     "the relaunch (so subprocess.run sees the parent exit immediately and "
     "the child becomes a detached process to be terminated by the test), "
     "OR add an instrumentation hook (write a marker file at the new profile "
-    "before LaunchChild) that the test can poll for. The current test is "
-    "preserved as a structural starting point."
+    "before LaunchChild) that the test can poll for. Also, the Felt connect "
+    "in XRE_main runs before this gate in XRE_mainStartup, so a browser "
+    "launched without a real Felt parent exits before reaching it; the test "
+    "needs a Felt parent or a hook that skips the connect. The current test "
+    "is preserved as a structural starting point."
 )
+def felt_browser_marker_env():
+    # Linux and Windows mark the Felt browser with the inherited-endpoint env
+    # var instead of the -felt argument, which only macOS still uses.
+    if sys.platform.startswith("linux"):
+        return {"MOZ_FELT_IPC_FD": "-1"}
+    if sys.platform == "win32":
+        return {"MOZ_FELT_IPC_HANDLE": "0"}
+    return {}
+
+
 class BrowsingChildEncryptionMismatch(MarionetteTestCase):
     """Drive HandleBrowsingChildEncryptionMismatch via the
     MOZ_TEST_AUTO_CONFIRM_PROFILE_RESET test override, parameterized over
@@ -159,7 +172,10 @@ class BrowsingChildEncryptionMismatch(MarionetteTestCase):
 
         result = self._run(
             ["-felt", "--profile", old_path, "-no-remote", "-headless"],
-            extra_env={"MOZ_TEST_AUTO_CONFIRM_PROFILE_RESET": choice},
+            extra_env={
+                "MOZ_TEST_AUTO_CONFIRM_PROFILE_RESET": choice,
+                **felt_browser_marker_env(),
+            },
             timeout=180,
         )
         out = result.stdout.decode("utf-8", errors="replace")

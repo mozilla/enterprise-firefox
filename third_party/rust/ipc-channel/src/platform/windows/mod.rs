@@ -21,6 +21,7 @@ use std::{
     marker::{Send, Sync},
     mem,
     ops::{Deref, DerefMut, RangeFrom},
+    os::windows::io::RawHandle,
     ptr, slice,
     sync::LazyLock,
     thread,
@@ -31,10 +32,11 @@ use windows::{
     core::{Error as WinError, HRESULT, PCSTR},
     Win32::{
         Foundation::{
-            CloseHandle, CompareObjectHandles, DuplicateHandle, GetLastError,
+            CloseHandle, CompareObjectHandles, DuplicateHandle, GetLastError, SetHandleInformation,
             DUPLICATE_CLOSE_SOURCE, DUPLICATE_HANDLE_OPTIONS, DUPLICATE_SAME_ACCESS,
-            ERROR_BROKEN_PIPE, ERROR_IO_INCOMPLETE, ERROR_IO_PENDING, ERROR_NOT_FOUND,
-            ERROR_NO_DATA, ERROR_PIPE_CONNECTED, HANDLE, INVALID_HANDLE_VALUE, WAIT_TIMEOUT,
+            ERROR_BROKEN_PIPE, ERROR_INVALID_HANDLE, ERROR_IO_INCOMPLETE, ERROR_IO_PENDING,
+            ERROR_NOT_FOUND, ERROR_NO_DATA, ERROR_PIPE_CONNECTED, HANDLE, HANDLE_FLAGS,
+            HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE, WAIT_TIMEOUT,
         },
         Storage::FileSystem::{
             CreateFileA, ReadFile, WriteFile, FILE_ATTRIBUTE_NORMAL, FILE_FLAG_OVERLAPPED,
@@ -393,6 +395,32 @@ fn dup_handle_to_process_with_flags(
             0,
             false,
             flags,
+        )
+        .map(|()| WinHandle::new(new_handle))
+    }
+}
+
+/// Duplicate a handle in the current process, marking the copy inheritable.
+///
+/// A child process spawned with `bInheritHandles = TRUE` inherits the copy.
+fn dup_handle_inheritable(handle: &WinHandle) -> Result<WinHandle, WinError> {
+    if !handle.is_valid() {
+        return Err(WinError::new(
+            ERROR_INVALID_HANDLE.to_hresult(),
+            "dup_handle_inheritable",
+        ));
+    }
+
+    unsafe {
+        let mut new_handle: HANDLE = INVALID_HANDLE_VALUE;
+        DuplicateHandle(
+            CURRENT_PROCESS_HANDLE.as_raw(),
+            handle.as_raw(),
+            CURRENT_PROCESS_HANDLE.as_raw(),
+            &mut new_handle,
+            0,
+            true,
+            DUPLICATE_SAME_ACCESS,
         )
         .map(|()| WinHandle::new(new_handle))
     }
@@ -1350,6 +1378,31 @@ impl OsIpcSender {
 
     fn from_handle(handle: WinHandle) -> OsIpcSender {
         OsIpcSender { handle }
+    }
+
+    /// Reconstruct a sender from a raw pipe handle. The handle is made
+    /// non-inheritable, so it is not passed on to processes the caller spawns.
+    ///
+    /// # Safety
+    /// `handle` must be a valid pipe handle created by this crate's `channel()`,
+    /// and ownership of it is transferred to the returned sender.
+    pub unsafe fn from_raw_handle(handle: RawHandle) -> OsIpcSender {
+        let handle = HANDLE(handle as _);
+        let res = SetHandleInformation(handle, HANDLE_FLAG_INHERIT.0, HANDLE_FLAGS(0));
+        debug_assert!(res.is_ok(), "from_raw_handle: not an open handle");
+        OsIpcSender::from_handle(WinHandle::new(handle))
+    }
+
+    /// Duplicate the pipe handle as an inheritable handle, leaving this
+    /// sender's own handle intact. The returned raw handle is owned by the
+    /// caller, which must close its copy once the child is spawned. The
+    /// receiver only sees the channel close when every sender handle is closed,
+    /// so a parent that keeps this sender alive keeps the channel open.
+    pub fn inheritable_raw_handle(&self) -> Result<RawHandle, WinError> {
+        let dup = dup_handle_inheritable(&self.handle)?;
+        let raw = dup.as_raw();
+        mem::forget(dup);
+        Ok(raw.0 as RawHandle)
     }
 
     /// Connect to a pipe server.

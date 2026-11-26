@@ -47,6 +47,122 @@ fn simple() {
     assert_eq!(ipc_message.data, data);
 }
 
+// Round-trips a sender through into_raw_fd/from_raw_fd and checks that the
+// exported fd is not closed, can be made inheritable and still carries a
+// message.
+#[cfg(all(
+    not(feature = "force-inprocess"),
+    any(
+        target_os = "linux",
+        target_os = "openbsd",
+        target_os = "freebsd",
+        target_os = "illumos",
+    )
+))]
+#[test]
+fn raw_fd_round_trip() {
+    let (tx, rx) = platform::channel().unwrap();
+    let tx_fd = tx.into_raw_fd().expect("sender should be uniquely owned");
+
+    // On Linux and illumos endpoints are created SOCK_CLOEXEC, so an exported fd
+    // starts with FD_CLOEXEC set; openbsd/freebsd use SOCK_FLAGS = 0.
+    let fd_flags = || {
+        let flags = unsafe { libc::fcntl(tx_fd, libc::F_GETFD) };
+        assert!(flags >= 0, "the exported fd should still be open");
+        flags
+    };
+    #[cfg(any(target_os = "linux", target_os = "illumos"))]
+    assert_ne!(
+        fd_flags() & libc::FD_CLOEXEC,
+        0,
+        "endpoint fd should start with FD_CLOEXEC set"
+    );
+
+    platform::set_fd_inheritable(tx_fd).unwrap();
+
+    assert_eq!(
+        fd_flags() & libc::FD_CLOEXEC,
+        0,
+        "set_fd_inheritable should clear FD_CLOEXEC"
+    );
+
+    let tx = unsafe { OsIpcSender::from_raw_fd(tx_fd) };
+
+    #[cfg(any(target_os = "linux", target_os = "illumos"))]
+    assert_ne!(
+        fd_flags() & libc::FD_CLOEXEC,
+        0,
+        "from_raw_fd should set FD_CLOEXEC again"
+    );
+
+    let data: &[u8] = b"1234567";
+    tx.send(data, Vec::new(), Vec::new()).unwrap();
+    let ipc_message = rx.recv().unwrap();
+    assert_eq!(ipc_message.data, data);
+}
+
+// Rebuilds a sender from the inheritable duplicate of its handle, as a child
+// process would from an inherited handle. Checks that the duplicate is
+// inheritable, that rebuilding the sender makes it non-inheritable, and that
+// the duplicate alone keeps the channel usable once the original sender is gone.
+#[cfg(all(not(feature = "force-inprocess"), target_os = "windows"))]
+#[test]
+fn inheritable_raw_handle_round_trip() {
+    let (tx, rx) = platform::channel().unwrap();
+    use windows::Win32::Foundation::{GetHandleInformation, HANDLE, HANDLE_FLAG_INHERIT};
+
+    let handle = tx.inheritable_raw_handle().unwrap();
+    drop(tx);
+
+    let is_inheritable = || {
+        let mut flags = 0;
+        unsafe { GetHandleInformation(HANDLE(handle as _), &mut flags) }.unwrap();
+        flags & HANDLE_FLAG_INHERIT.0 != 0
+    };
+    assert!(is_inheritable(), "the duplicate should be inheritable");
+
+    let tx = unsafe { OsIpcSender::from_raw_handle(handle) };
+    assert!(
+        !is_inheritable(),
+        "from_raw_handle should make the handle non-inheritable"
+    );
+
+    let data: &[u8] = b"1234567";
+    tx.send(data, Vec::new(), Vec::new()).unwrap();
+    let ipc_message = rx.recv().unwrap();
+    assert_eq!(ipc_message.data, data);
+}
+
+// A sender that is still shared (has an outstanding clone) must not be
+// exportable, since closing the exported fd would dangle the clone. After the
+// clone is dropped the sender handed back via Err must still work.
+#[cfg(all(
+    not(feature = "force-inprocess"),
+    any(
+        target_os = "linux",
+        target_os = "openbsd",
+        target_os = "freebsd",
+        target_os = "illumos",
+    )
+))]
+#[test]
+fn shared_sender_cannot_be_exported() {
+    let (tx, rx) = platform::channel().unwrap();
+    let tx_clone = tx.clone();
+
+    let tx = match tx.into_raw_fd() {
+        Ok(_) => panic!("a shared sender must not be exportable"),
+        Err(tx) => tx,
+    };
+
+    drop(tx_clone);
+
+    let data: &[u8] = b"1234567";
+    tx.send(data, Vec::new(), Vec::new()).unwrap();
+    let ipc_message = rx.recv().unwrap();
+    assert_eq!(ipc_message.data, data);
+}
+
 #[test]
 fn sender_transfer() {
     let (super_tx, super_rx) = platform::channel().unwrap();

@@ -7641,13 +7641,16 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     // Initialize Felt state up-front so we can decide whether to continue.
     felt_init();
 
-    // FELT IPC channel
-    Maybe<const char*> felt =
+    // FELT IPC channel. Only macOS consumes these values; Linux and Windows
+    // ignore them because their endpoint is inherited (MOZ_FELT_IPC_FD /
+    // MOZ_FELT_IPC_HANDLE).
+    [[maybe_unused]] Maybe<const char*> felt =
         geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
     // No other code relies on the -feltPid argument. Removing it here, before
     // Firefox saves its command line for relaunching after a restart or a
     // crash, keeps it out of those relaunches.
-    Maybe<uint64_t> feltPid = geckoargs::sFeltPid.Get(gArgc, gArgv);
+    [[maybe_unused]] Maybe<uint64_t> feltPid =
+        geckoargs::sFeltPid.Get(gArgc, gArgv);
     const char* mozFeltEnv = PR_GetEnv("MOZ_FELT_UI");
     if (mozFeltEnv) {
       PR_SetEnv("MOZ_FELT_UI=");
@@ -7683,6 +7686,27 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 
     NS_WARNING("Checking for FELT");
     if (is_felt_browser()) {
+#  if defined(XP_LINUX) && !defined(ANDROID)
+      // Fenced-fd path: the bootstrap endpoint fd is inherited from the Felt
+      // process (MOZ_FELT_IPC_FD), so there is no `-felt <name>` socket to
+      // validate.
+      if (!firefox_connect_to_felt_fd()) {
+        Output(true,
+               "Error: Failed to connect to Felt over the inherited IPC "
+               "endpoint.\n");
+        return 1;
+      }
+#  elif defined(XP_WIN)
+      // Fenced-handle path: the bootstrap endpoint pipe HANDLE is inherited
+      // through the launcher (MOZ_FELT_IPC_HANDLE), so there is no `-felt
+      // <name>` socket to validate.
+      if (!firefox_connect_to_felt_handle()) {
+        Output(true,
+               "Error: Failed to connect to Felt over the inherited IPC "
+               "endpoint.\n");
+        return 1;
+      }
+#  else
       // Felt browser mode requires a valid Felt socket for SSO enforcement
       if (!felt.isSome()) {
         Output(true,
@@ -7709,6 +7733,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
             "Error: Failed to connect to Felt. SSO authentication required.\n");
         return 1;
       }
+#  endif
     }
   }
 #endif

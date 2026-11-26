@@ -573,10 +573,36 @@ class Process extends BaseProcess {
     startupInfo.hStdOutput = handles[1];
     startupInfo.hStdError = handles[2];
 
+    // Extra inheritable handles (e.g. the FELT fenced IPC endpoint) travel to
+    // the child through the same PROC_THREAD_ATTRIBUTE_HANDLE_LIST as the stdio
+    // handles; the caller made them inheritable, and CreateProcessW below already
+    // inherits only the handles named in this list.
+    let extraHandles = (options.handleInherit || []).map(handle =>
+      ctypes.cast(ctypes.uintptr_t(handle), win32.HANDLE)
+    );
+
     // Note: This needs to be kept alive until we destroy the attribute list.
-    let handleArray = win32.HANDLE.array()(handles);
+    let handleArray = win32.HANDLE.array()(handles.concat(extraHandles));
 
     let threadAttrs = win32.createThreadAttributeList(handleArray);
+    if (!threadAttrs && extraHandles.length) {
+      // Without the attribute list, CreateProcessW would inherit every
+      // inheritable handle in this process rather than only the listed ones.
+      for (let handle of new Set(handles)) {
+        if (handle && handle.dispose) {
+          handle.dispose();
+        }
+      }
+      for (let handle of extraHandles) {
+        libc.CloseHandle(handle);
+      }
+      for (let pipe of this.pipes) {
+        pipe.close();
+      }
+      throw new Error(
+        "Failed to create the thread attribute list needed for handleInherit"
+      );
+    }
     if (threadAttrs) {
       // If have thread attributes to pass, pass the size of the full extended
       // startup info struct.
@@ -611,6 +637,12 @@ class Process extends BaseProcess {
 
     if (threadAttrs) {
       libc.DeleteProcThreadAttributeList(threadAttrs);
+    }
+
+    // The child now holds its own inherited copy; drop ours, mirroring the unix
+    // fdInherit handling.
+    for (let handle of extraHandles) {
+      libc.CloseHandle(handle);
     }
 
     if (ok) {

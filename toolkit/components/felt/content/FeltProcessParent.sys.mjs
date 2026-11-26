@@ -65,24 +65,6 @@ const PROCESS_START_REASON = {
 };
 
 /**
- * Reads the browser pid the Windows launcher process announced, if `line` is
- * such an announcement. The launcher
- * (browser/app/winlauncher/LauncherProcessWin.cpp) writes it on the spawned
- * process's stdout; keep the format in sync.
- *
- * @param {string} line - One line of the spawned process's stdout.
- * @returns {number|null} The announced pid, or null for any other line.
- */
-export function parseAnnouncedBrowserPid(line) {
-  const match = /^FELT_BROWSER_PID=(\d{1,10})$/.exec(line.trim());
-  if (!match) {
-    return null;
-  }
-  const pid = Number(match[1]);
-  return pid > 0 && pid <= 0xffffffff ? pid : null;
-}
-
-/**
  * Opens felt's IPC channel to the spawned browser, terminating the spawned
  * process if that fails. A refused peer has already consumed the one-shot
  * server, so the browser must not keep starting with its released endpoint
@@ -996,7 +978,20 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   async startFirefoxProcess(browserGeneration) {
-    let socket = Services.felt.oneShotIpcServer();
+    // Linux/Windows use the fenced bootstrap: create a normal ipc::channel() in
+    // the parent and hand the browser child one endpoint as an inherited fd
+    // (Linux) or pipe HANDLE (Windows), with no published name. On Windows the
+    // browser is spawned by the launcher process, so the inheritable HANDLE
+    // travels felt -> launcher -> browser by handle inheritance (its value
+    // carried in MOZ_FELT_IPC_HANDLE). macOS still uses the connect-by-name
+    // one-shot server.
+    const useFencedFd = Services.appinfo.OS == "Linux";
+    const useFencedHandle = Services.appinfo.OS == "WINNT";
+
+    let socket;
+    if (!useFencedFd && !useFencedHandle) {
+      socket = Services.felt.oneShotIpcServer();
+    }
 
     const firefoxBin = Services.felt.binPath();
 
@@ -1056,7 +1051,10 @@ export class FeltProcessParent extends JSProcessActorParent {
       ...launcherArgs,
       "--foreground",
       ...profileArgs,
-      ...browserIpcArgs(socket),
+      // On the fenced paths the browser is identified by the MOZ_FELT_IPC_FD /
+      // MOZ_FELT_IPC_HANDLE env var (set below) rather than the `-felt <name>`
+      // argv rendezvous.
+      ...(useFencedFd || useFencedHandle ? [] : browserIpcArgs(socket)),
       ...extraRunArgs,
     ];
 
@@ -1068,6 +1066,24 @@ export class FeltProcessParent extends JSProcessActorParent {
       environment: { ...this._startupPolicies.environment, ...extraRunEnv },
     };
 
+    // The fenced endpoint is created only now, with no await before the spawn,
+    // so it is inheritable for as short a time as possible.
+    if (useFencedFd) {
+      // Inherit the endpoint fd into the child (kept out of CloseSuperfluousFds
+      // by fdMap) and tell the child its number via the environment.
+      const feltFd = Services.felt.createInheritedChannelFd();
+      firefoxRun.fdInherit = [feltFd];
+      firefoxRun.environment.MOZ_FELT_IPC_FD = String(feltFd);
+    } else if (useFencedHandle) {
+      // Inherit the endpoint HANDLE into the spawned launcher (added to its
+      // PROC_THREAD_ATTRIBUTE_HANDLE_LIST) and tell the child its value via the
+      // environment. The launcher re-inherits it to the browser child, and the
+      // env var rides through transitively.
+      const feltHandle = Services.felt.createInheritedChannelHandle();
+      firefoxRun.handleInherit = [feltHandle];
+      firefoxRun.environment.MOZ_FELT_IPC_HANDLE = String(feltHandle);
+    }
+
     try {
       this.proc = await lazy.Subprocess.call(firefoxRun);
       this.proc.profilePath = foundProfile?.rootDir.path || profilePath;
@@ -1076,21 +1092,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       throw e;
     }
 
-    // The Windows launcher process announces on stdout which pid runs as the
-    // browser (see parseAnnouncedBrowserPid). Only the first announcement
-    // counts: it precedes any code that is not ours in the process tree (a
-    // later one could come from a content process, which inherits stdout), and
-    // resolve() ignores later calls.
-    let announceBrowserPid;
-    const browserPidAnnounced = new Promise(resolve => {
-      announceBrowserPid = resolve;
-    });
     this.onPipeDataAvailable(this.proc.stdout, this.proc.pid, (pid, chunk) => {
-      const announcedPid = parseAnnouncedBrowserPid(chunk);
-      if (announcedPid !== null) {
-        announceBrowserPid(announcedPid);
-        return;
-      }
       lazy.logProcess.info(`[${pid}]: ${chunk}`);
     });
 
@@ -1098,45 +1100,23 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.logProcess.error(`[${pid}]: ${chunk}`);
     });
 
-    // Authenticate the IPC peer before ipcChannel() hands it any managed
-    // secret. Pass the OS process id of the process that runs as the browser;
-    // ipcChannel() verifies the connecting peer's pid against it and refuses
-    // any other same-user process that races to connect, so such a process
-    // receives no primarySecret, tokens, prefs, or cookies. That process is the
-    // one just spawned, except when the Windows
-    // launcher process is interposed: then it is the browser child the launcher
-    // announces, so wait for the announcement.
-    const browserPid = useLauncherProcess
-      ? await this._awaitAnnouncedBrowserPid(browserPidAnnounced)
-      : this.proc.pid;
-    await openIpcChannelOrTerminate(this.proc, () =>
-      Services.felt.ipcChannel(browserPid, browserGeneration)
-    );
-  }
-
-  /**
-   * Waits for the Windows launcher process to announce which pid runs as the
-   * browser. Rejects if the spawned process exits first: the browser it was to
-   * announce is gone with it, or was never started.
-   *
-   * @param {Promise<number>} browserPidAnnounced - Resolves with that pid.
-   * @returns {Promise<number>} The announced pid.
-   */
-  async _awaitAnnouncedBrowserPid(browserPidAnnounced) {
-    const proc = this.proc;
-    const browserPid = await Promise.race([
-      browserPidAnnounced,
-      proc.exitPromise.then(() => null),
-    ]);
-    if (browserPid === null) {
-      throw new Error(
-        `Process ${proc.pid} exited with code ${proc.exitCode} before announcing the browser pid`
+    if (useFencedFd || useFencedHandle) {
+      // Fenced path: receive the browser's felt->firefox sender over the
+      // inherited bootstrap channel and start the felt server.
+      await openIpcChannelOrTerminate(this.proc, () =>
+        Services.felt.acceptInheritedChannel(browserGeneration)
       );
+      return;
     }
-    lazy.log.debug(
-      `Process ${proc.pid} announced browser pid ${browserPid} for IPC peer authentication`
+
+    // Authenticate the IPC peer before ipcChannel() hands it any managed
+    // secret. ipcChannel() verifies the connecting peer's pid against the
+    // process just spawned and refuses any other same-user process that races
+    // to connect, so such a process receives no primarySecret, tokens, prefs,
+    // or cookies.
+    await openIpcChannelOrTerminate(this.proc, () =>
+      Services.felt.ipcChannel(this.proc.pid, browserGeneration)
     );
-    return browserPid;
   }
 
   /**

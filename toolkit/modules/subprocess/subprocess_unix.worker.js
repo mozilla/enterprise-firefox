@@ -394,6 +394,15 @@ class Process extends BaseProcess {
       launchOptions.fdMap.push({ src, dst });
     }
 
+    // Extra file descriptors to inherit into the child unchanged (same number in
+    // parent and child). The fds are already cleared of FD_CLOEXEC by the
+    // caller; mapping them keeps CloseSuperfluousFds (in the child) from closing
+    // them.
+    let inheritFds = options.fdInherit || [];
+    for (let fd of inheritFds) {
+      launchOptions.fdMap.push({ src: fd, dst: fd });
+    }
+
     try {
       this.pid = IOUtils.launchProcess(options.arguments, launchOptions);
     } catch (e) {
@@ -411,6 +420,11 @@ class Process extends BaseProcess {
     } finally {
       for (let fd of new Set(fds.values())) {
         fd.dispose();
+      }
+      // The child now owns its forked copy; drop ours so that only the child
+      // holds the fd (and its EOF is observable on our side).
+      for (let fd of inheritFds) {
+        libc.close(fd);
       }
     }
   }
