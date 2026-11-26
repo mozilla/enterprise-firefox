@@ -21,3 +21,4 @@ support-files = [
   "default-ee.key",
   "test-int.pem",
 ]
+skip-if = ["enterprise"] # Bug 2098219: Python sqlite3 cannot read encrypted ssl_tokens_cache.sqlite after restart
