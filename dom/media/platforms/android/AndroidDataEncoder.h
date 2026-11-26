@@ -8,10 +8,14 @@
 #include "JavaCallbacksSupport.h"
 #include "MediaData.h"
 #include "PlatformEncoderModule.h"
+#include "gtest/MozGtestFriend.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"
 
 namespace mozilla {
+
+// The MediaCodec MIME type for aCodec, or "" if unsupported.
+const char* AndroidEncoderMimeType(CodecType aCodec);
 
 class AndroidDataEncoder final : public MediaDataEncoder {
  public:
@@ -66,6 +70,8 @@ class AndroidDataEncoder final : public MediaDataEncoder {
     AndroidDataEncoder* mEncoder MOZ_GUARDED_BY(mMutex);
   };
   friend class CallbacksSupport;
+
+  FRIEND_TEST(MediaDataEncoderTest, AndroidDoesNotWriteBeyondConfiguredFrame);
 
   ~AndroidDataEncoder() override { MOZ_ASSERT(!mJavaEncoder); }
 

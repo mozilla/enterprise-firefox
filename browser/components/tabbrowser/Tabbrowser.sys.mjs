@@ -468,8 +468,8 @@ export class Tabbrowser {
     "purgeSessionHistory",
     "stopScroll",
     "startScroll",
-    "userTypedValue",
-    "didStartLoadSinceLastUserTyping",
+    "urlbarOverrideValue",
+    "loadStartedSinceUrlbarOverride",
     "audioMuted",
   ];
 
@@ -1228,16 +1228,16 @@ export class Tabbrowser {
   }
 
   /**
-   * What the user typed into the address bar for the selected tab and has not
-   * loaded yet, or null if there is none. A location change in the tab resets
-   * it to null once a load has started since the user last typed.
+   * The address bar value to show for the selected tab instead of its URL, or
+   * null if there is none. A location change in the tab resets it to null once
+   * a load has started since the value was set.
    */
-  set userTypedValue(val) {
-    this.selectedBrowser.userTypedValue = val;
+  set urlbarOverrideValue(val) {
+    this.selectedBrowser.urlbarOverrideValue = val;
   }
 
-  get userTypedValue() {
-    return this.selectedBrowser.userTypedValue;
+  get urlbarOverrideValue() {
+    return this.selectedBrowser.urlbarOverrideValue;
   }
 
   #setFindbarData() {
@@ -2257,7 +2257,8 @@ export class Tabbrowser {
       this.documentGlobal.gURLBar.focused;
 
     if (this.#asyncTabSwitching) {
-      newBrowser._userTypedValueAtBeforeTabSwitch = newBrowser.userTypedValue;
+      newBrowser._urlbarOverrideValueAtBeforeTabSwitch =
+        newBrowser.urlbarOverrideValue;
     }
 
     if (this.isFindBarInitialized(oldTab)) {
@@ -2328,12 +2329,13 @@ export class Tabbrowser {
               // by the time we got here, focusing will cause the text to be
               // selected which could cause them to overwrite what they've
               // already typed in.
-              let userTypedValueAtBeforeTabSwitch =
-                newBrowser._userTypedValueAtBeforeTabSwitch;
-              delete newBrowser._userTypedValueAtBeforeTabSwitch;
+              let urlbarOverrideValueAtBeforeTabSwitch =
+                newBrowser._urlbarOverrideValueAtBeforeTabSwitch;
+              delete newBrowser._urlbarOverrideValueAtBeforeTabSwitch;
               if (
-                newBrowser.userTypedValue &&
-                newBrowser.userTypedValue != userTypedValueAtBeforeTabSwitch
+                newBrowser.urlbarOverrideValue &&
+                newBrowser.urlbarOverrideValue !=
+                  urlbarOverrideValueAtBeforeTabSwitch
               ) {
                 return;
               }
@@ -2975,8 +2977,7 @@ export class Tabbrowser {
     // We'll be creating a new listener, so destroy the old one.
     listener?.destroy();
 
-    let oldUserTypedValue = aBrowser.userTypedValue;
-    let hadStartedLoad = aBrowser.didStartLoadSinceLastUserTyping();
+    let urlbarOverride = aBrowser.urlbarOverride;
 
     // Change the "remote" attribute.
 
@@ -3001,10 +3002,7 @@ export class Tabbrowser {
     // Once we have new frameloaders, this call sets the browser back up.
     aBrowser.construct();
 
-    aBrowser.userTypedValue = oldUserTypedValue;
-    if (hadStartedLoad) {
-      aBrowser.urlbarChangeTracker.startedLoad();
-    }
+    aBrowser.urlbarOverride = urlbarOverride;
 
     // Create a new tab progress listener for the new browser we just injected,
     // since tab progress listeners have logic for handling the initial about:blank
@@ -3278,8 +3276,8 @@ export class Tabbrowser {
             return (browser._cachedCurrentURI = Services.io.newURI(url));
           };
           break;
-        case "didStartLoadSinceLastUserTyping":
-          getter = () => () => false;
+        case "loadStartedSinceUrlbarOverride":
+          getter = () => false;
           break;
         case "fullZoom":
         case "textZoom":
@@ -3322,7 +3320,7 @@ export class Tabbrowser {
             });
           };
           break;
-        case "userTypedValue":
+        case "urlbarOverrideValue":
           getter = () => lazy.SessionStore.getLazyTabValue(aTab, name);
           break;
         default:
@@ -5026,7 +5024,7 @@ export class Tabbrowser {
       // pretend the user typed this so it'll be available till
       // the document successfully loads
       if (uriString && !this.documentGlobal.gInitialPages.includes(uriString)) {
-        browser.userTypedValue = uriString;
+        browser.urlbarOverrideValue = uriString;
       }
 
       let loadFlags = LOAD_FLAGS_NONE;
@@ -10121,7 +10119,7 @@ export class Tabbrowser {
         ) {
           return;
         }
-        event.target.userTypedValue = null;
+        event.target.urlbarOverrideValue = null;
         if (event.target == this.selectedBrowser) {
           this.documentGlobal.gURLBar.setURI();
         }
@@ -10299,14 +10297,10 @@ export class Tabbrowser {
       // We'll be creating a new listener, so destroy the old one.
       oldListener.destroy();
 
-      let oldUserTypedValue = browser.userTypedValue;
-      let hadStartedLoad = browser.didStartLoadSinceLastUserTyping();
+      let urlbarOverride = browser.urlbarOverride;
 
       let didChange = () => {
-        browser.userTypedValue = oldUserTypedValue;
-        if (hadStartedLoad) {
-          browser.urlbarChangeTracker.startedLoad();
-        }
+        browser.urlbarOverride = urlbarOverride;
 
         // Create a new tab progress listener for the new browser we just
         // injected, since tab progress listeners have logic for handling the
@@ -10682,7 +10676,7 @@ class TabProgressListener {
           // page in the browser is about:blank (indicating it is a newly
           // created or re-created browser, e.g. because it just switched
           // remoteness or is a new tab/window).
-          this._browser.urlbarChangeTracker.startedLoad();
+          this._browser.setLoadStartedSinceUrlbarOverride(true);
 
           // To improve the user experience and perceived performance when
           // opening links in new tabs, we show the url and tab title sooner,
@@ -10707,7 +10701,7 @@ class TabProgressListener {
 
             this._browser.browsingContext.nonWebControlledLoadingURI =
               originalLocation;
-            if (this._tab.selected && !this.#tabbrowser.userTypedValue) {
+            if (this._tab.selected && !this.#tabbrowser.urlbarOverrideValue) {
               this.#documentGlobal.gURLBar.setURI();
             }
           }
@@ -10777,7 +10771,7 @@ class TabProgressListener {
           // request was stopped (possibly from a content script)
           // before the location changed.
 
-          this._browser.userTypedValue = null;
+          this._browser.urlbarOverrideValue = null;
           // When SHIP is enabled and a load gets cancelled due to another one
           // starting, the error is NS_BINDING_CANCELLED_OLD_LOAD.
           // When these prefs are not enabled, the error is different and
@@ -10798,7 +10792,7 @@ class TabProgressListener {
             this.#documentGlobal.gURLBar.setURI();
           }
         } else if (isSuccessful) {
-          this._browser.urlbarChangeTracker.finishedLoad();
+          this._browser.setLoadStartedSinceUrlbarOverride(false);
         }
       }
 
@@ -10822,9 +10816,9 @@ class TabProgressListener {
         this.#tabbrowser.setDefaultIcon(this._tab, this._browser.documentURI);
       }
 
-      // For keyword URIs clear the user typed value since they will be changed into real URIs
+      // For keyword URIs clear the address bar value override since they will be changed into real URIs
       if (location.scheme == "keyword") {
-        this._browser.userTypedValue = null;
+        this._browser.urlbarOverrideValue = null;
       }
 
       if (this._tab.selected) {
@@ -10889,17 +10883,17 @@ class TabProgressListener {
       // failed URI (particularly for SSL errors). However, don't clear the value
       // if the error page's URI is about:blank, because that causes complete
       // loss of urlbar contents for invalid URI errors (see bug 867957).
-      // Another reason to clear the userTypedValue is if this was an anchor
+      // Another reason to clear the urlbarOverrideValue is if this was an anchor
       // navigation initiated by the user.
       // Finally, we do insert the URL if this is a same-document navigation
       // and the user cleared the URL manually.
       if (
-        this._browser.didStartLoadSinceLastUserTyping() ||
+        this._browser.loadStartedSinceUrlbarOverride ||
         (isErrorPage && aLocation.spec != "about:blank") ||
         (isSameDocument && this._browser.isNavigating) ||
-        (isSameDocument && !this._browser.userTypedValue)
+        (isSameDocument && !this._browser.urlbarOverrideValue)
       ) {
-        this._browser.userTypedValue = null;
+        this._browser.urlbarOverrideValue = null;
       }
 
       // If the tab has been set to "busy" outside the stateChange

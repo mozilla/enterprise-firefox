@@ -259,9 +259,9 @@ nsresult Http3Session::Init(nsHttpConnectionInfo* aConnInfo,
     uint32_t maxAttempts =
         StaticPrefs::network_ssl_tokens_cache_records_per_entry();
     bool tokenFound = false;
-    bool tokenAccepted = false;
     for (uint32_t attempt = 0; attempt < maxAttempts; ++attempt) {
-      if (NS_FAILED(SSLTokensCache::Get(peerId, token, info))) {
+      if (NS_FAILED(SSLTokensCache::Get(peerId, token, info, nullptr,
+                                        &mTokenRestored))) {
         break;
       }
       tokenFound = true;
@@ -272,7 +272,7 @@ nsresult Http3Session::Init(nsHttpConnectionInfo* aConnInfo,
              attempt));
         continue;
       }
-      tokenAccepted = true;
+      mTokenAccepted = true;
       mSocketControl->SetSessionCacheInfo(std::move(info));
       if (mHttp3Connection->IsZeroRtt()) {
         LOG(("Can send ZeroRtt data"));
@@ -300,8 +300,8 @@ nsresult Http3Session::Init(nsHttpConnectionInfo* aConnInfo,
       }
       break;
     }
-    if (tokenFound && !tokenAccepted) {
-      glean::network::ssl_token_resumption_outcome.Get("rejected"_ns).Add();
+    if (tokenFound && !mTokenAccepted) {
+      RecordTokenResumption("rejected"_ns);
     }
   }
 
@@ -1416,6 +1416,7 @@ nsresult Http3Session::ProcessOutputAndEvents(nsIUDPSocket* socket) {
             ("Http3Session %p stuck in ZERORTT for %.2fms (timeout=%ums), "
              "closing connection",
              this, elapsed.ToMilliseconds(), timeout));
+        NoteHandshakeTimeout();
         return NS_ERROR_NET_TIMEOUT;
       }
     }
@@ -2383,6 +2384,12 @@ void Http3Session::CloseInternal(bool aCallNeqoClose) {
     mBeforeConnectedError = true;
   }
 
+  // Closes by necko aren't failures, except on a handshake timeout.
+  if (mTokenAccepted && !mHandshakeSucceeded && NS_FAILED(mError) &&
+      (!aCallNeqoClose || NS_FAILED(mSocketError) || mHandshakeTimedOut)) {
+    RecordTokenResumption("failed"_ns);
+  }
+
   if (mState == ZERORTT) {
     ZeroRttTelemetry(aCallNeqoClose ? ZeroRttOutcome::USED_CONN_CLOSED_BY_NECKO
                                     : ZeroRttOutcome::USED_CONN_ERROR);
@@ -2999,13 +3006,8 @@ void Http3Session::SetSecInfo() {
                             secInfo.signature_scheme, secInfo.ech_accepted);
     mHandshakeSucceeded = true;
 
-    bool tokenPresent = false;
-    if (NS_SUCCEEDED(
-            mSocketControl->GetResumptionTokenPresent(&tokenPresent)) &&
-        tokenPresent) {
-      glean::network::ssl_token_resumption_outcome
-          .Get(secInfo.resumed ? "resumed"_ns : "not_resumed"_ns)
-          .Add();
+    if (mTokenAccepted) {
+      RecordTokenResumption(secInfo.resumed ? "resumed"_ns : "not_resumed"_ns);
     }
   }
 
@@ -3257,6 +3259,12 @@ void Http3Session::EchOutcomeTelemetry() {
       mHandshakeSucceeded ? 0 : 1);
 }
 #endif
+
+void Http3Session::RecordTokenResumption(const nsACString& aOutcome) {
+  glean::network::ssl_token_resumption
+      .Get(mTokenRestored ? "h3_restored"_ns : "h3_session"_ns, aOutcome)
+      .Add();
+}
 
 void Http3Session::ZeroRttTelemetry(ZeroRttOutcome aOutcome) {
   nsAutoCString key;

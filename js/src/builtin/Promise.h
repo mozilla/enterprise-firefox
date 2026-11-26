@@ -64,6 +64,13 @@ enum class PromiseHandler : uint32_t {
   AsyncGeneratorYieldReturnAwaitedFulfilled,
   AsyncGeneratorYieldReturnAwaitedRejected,
 
+  // https://tc39.es/ecma262/#sec-yield (step 2)
+  //
+  // The Await in AsyncGeneratorYield(? Await(value)) for JSOp::AwaitThenYield.
+  // The fulfilled handler performs AsyncGeneratorYield.
+  AsyncGeneratorYieldAwaitedFulfilled,
+  AsyncGeneratorYieldAwaitedRejected,
+
   // AsyncFromSyncIteratorContinuation ( result, promiseCapability )
   // https://tc39.es/ecma262/#sec-asyncfromsynciteratorcontinuation
   //
@@ -202,10 +209,21 @@ enum class UnhandledRejectionBehavior { Ignore, Report };
 // If the await operation can be skipped and the resolution value for `val` can
 // be acquired, stored the resolved value to `resolved` and `true` to
 // `*canSkip`.  Otherwise, stores `false` to `*canSkip`.
-[[nodiscard]] bool CanSkipAwait(JSContext* cx, JS::Handle<JS::Value> val,
-                                bool* canSkip);
-[[nodiscard]] bool ExtractAwaitValue(JSContext* cx, JS::Handle<JS::Value> val,
-                                     JS::MutableHandle<JS::Value> resolved);
+//
+// The FromOp variants are called from JSOp::CanSkipAwait and
+// JSOp::MaybeExtractAwaitValue. The AfterSuspend variants are called by the
+// runtime after the async generator has been suspended.
+[[nodiscard]] bool CanSkipAwaitFromOp(JSContext* cx, JS::Handle<JS::Value> val,
+                                      bool* canSkip);
+[[nodiscard]] bool CanSkipAwaitAfterSuspend(JSContext* cx,
+                                            JS::Handle<JS::Value> val,
+                                            bool* canSkip);
+[[nodiscard]] bool ExtractAwaitValueFromOp(
+    JSContext* cx, JS::Handle<JS::Value> val,
+    JS::MutableHandle<JS::Value> resolved);
+[[nodiscard]] bool ExtractAwaitValueAfterSuspend(
+    JSContext* cx, JS::Handle<JS::Value> val,
+    JS::MutableHandle<JS::Value> resolved);
 
 bool AsyncFromSyncIteratorMethod(JSContext* cx, JS::CallArgs& args,
                                  CompletionKind completionKind);

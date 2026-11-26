@@ -13,7 +13,10 @@
 
 // start() on a language whose model is supported but not installed asks to
 // download it (the same prompt install() uses), delays every event until it
-// is there, and fires "not-allowed" if the download is refused.
+// is there, and fires "not-allowed" if the download is refused. Like
+// install(), it only asks with transient user activation. Where the
+// on-device-speech-recognition Permissions Policy disallows install(), start()
+// fails with "service-not-allowed", model or not.
 //
 // Uses the in-process model hub mock, where nothing is installed to begin
 // with, and the prompt-testing pref, where
@@ -38,14 +41,17 @@ function sessionOutcome(sr) {
   });
 }
 
-function audioTrack() {
-  const ctx = new AudioContext();
+function audioTrack(win = window) {
+  const ctx = new win.AudioContext();
   return ctx.createMediaStreamDestination().stream.getAudioTracks()[0];
 }
 
 // Starts a session on a language whose model is not installed yet, with the
 // prompt answered by allowDownload.
-async function startSession(allowDownload) {
+async function startSession(
+  allowDownload,
+  { win = window, gesture = true } = {}
+) {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["media.webspeech.recognition.enable", true],
@@ -55,11 +61,62 @@ async function startSession(allowDownload) {
     ],
   });
 
-  const sr = new SpeechRecognition();
+  const sr = new win.SpeechRecognition();
   sr.lang = LANG;
   const outcome = sessionOutcome(sr);
-  sr.start(audioTrack());
-  return { sr, outcome };
+  const errored = new Promise(resolve => {
+    sr.addEventListener("error", e => resolve(e.error), { once: true });
+  });
+  if (gesture) {
+    SpecialPowers.wrap(win.document).notifyUserGestureActivation();
+  }
+  sr.start(audioTrack(win));
+  return { sr, outcome, errored };
+}
+
+// The prompt would allow the download, so only start()'s gates can keep the
+// model from being installed. start() then proceeds as with install_on_start
+// off: the mock backend runs without a model, a real one fails the session.
+async function isNotOffered({ sr, outcome }, why) {
+  await new Promise(resolve => {
+    sr.addEventListener("start", resolve, { once: true });
+    sr.addEventListener("end", resolve, { once: true });
+  });
+  sr.abort();
+  await outcome;
+
+  const opts = { langs: [LANG], processLocally: true };
+  isnot(await SpeechRecognition.available(opts), "available",
+        `start() did not install the model ${why}`);
+
+  await SpecialPowers.popPrefEnv();
+}
+
+async function noUserActivationIsNotOffered() {
+  await isNotOffered(await startSession(true, { gesture: false }),
+                     "without user activation");
+}
+
+// A document that can't call install() can't unmask the language pack for its
+// storage key, so start() treats it as unavailable.
+async function disallowedFrameFails(why) {
+  const iframe = document.createElement("iframe");
+  iframe.allow = "on-device-speech-recognition 'none'";
+  document.body.appendChild(iframe);
+
+  const opts = { langs: [LANG], processLocally: true };
+  const availability = await SpeechRecognition.available(opts);
+  const { errored } = await startSession(true, { win: iframe.contentWindow });
+  // Step 4.1 aborts before [[started]], so "end" doesn't follow.
+  const error = await errored;
+
+  is(error, "service-not-allowed",
+     `start() fails where Permissions Policy disallows it, ${why}`);
+  is(await SpeechRecognition.available(opts), availability,
+     `start() did not install the model where it is disallowed, ${why}`);
+
+  iframe.remove();
+  await SpecialPowers.popPrefEnv();
 }
 
 async function refusedDownloadFailsTheSession() {
@@ -92,8 +149,11 @@ async function allowedDownloadStartsTheSession() {
 
 (async () => {
   try {
+    await noUserActivationIsNotOffered();
+    await disallowedFrameFails("without the model");
     await refusedDownloadFailsTheSession();
     await allowedDownloadStartsTheSession();
+    await disallowedFrameFails("with the model installed");
   } catch (e) {
     ok(false, "Test threw: " + e + "\n" + e.stack);
   }

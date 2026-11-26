@@ -290,13 +290,6 @@ void HttpChannelParent::CleanupBackgroundChannel() {
   }
 }
 
-base::ProcessId HttpChannelParent::OtherPid() const {
-  if (mIPCClosed) {
-    return 0;
-  }
-  return PHttpChannelParent::OtherPid();
-}
-
 //-----------------------------------------------------------------------------
 // HttpChannelParent::nsISupports
 //-----------------------------------------------------------------------------
@@ -1354,7 +1347,7 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
 
   rv = NS_OK;
 
-  nsCOMPtr<nsICacheEntry> altDataSource;
+  nsCOMPtr<nsIInputStream> altDataStream;
   nsCOMPtr<nsICacheInfoChannel> cacheChannel =
       do_QueryInterface(static_cast<nsIChannel*>(mChannel.get()));
   if (cacheChannel) {
@@ -1363,7 +1356,8 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
           pref.deliverAltData() ==
               nsICacheInfoChannel::PreferredAlternativeDataDeliveryType::
                   SERIALIZE) {
-        altDataSource = mCacheEntry;
+        (void)cacheChannel->GetAlternativeDataInputStream(
+            getter_AddRefs(altDataStream));
         break;
       }
     }
@@ -1392,7 +1386,7 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
     if (!mBgParent->OnStartRequest(
             std::move(newResponseHead), useResponseHead,
             cleanedUpRequest ? cleanedUpRequestHeaders : requestHead->Headers(),
-            args, altDataSource, chan->GetOnStartRequestStartTime())) {
+            args, altDataStream, chan->GetOnStartRequestStartTime())) {
       rv = NS_ERROR_UNEXPECTED;
     }
   }

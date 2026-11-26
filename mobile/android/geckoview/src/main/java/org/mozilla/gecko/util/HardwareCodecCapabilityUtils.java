@@ -7,11 +7,13 @@ package org.mozilla.gecko.util;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
+import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
 import android.os.Build;
 import android.util.Log;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -157,7 +159,9 @@ public final class HardwareCodecCapabilityUtils {
   // decoders, and SWE or HWE for encoders.
   // Decoders which support a 10-bit profile are additionally listed with
   // SW10B or HW10B. Hardware video decoders additionally report their largest
-  // supported width and height with HWMAX<width>,<height>.
+  // supported width and height with HWMAX<width>,<height>, and are listed with
+  // HWADAPT if they are the default decoder for the MIME type and support
+  // adaptive playback.
   @WrapForJNI
   public static String[] getSupportedMimeTypesWithAccelInfo() {
     final Set<String> mimeTypes = new HashSet<>();
@@ -173,9 +177,12 @@ public final class HardwareCodecCapabilityUtils {
       final Set<String> aMimeTypes, final MediaCodecInfo[] aInfos, final boolean aIsEncoder) {
     final String swTag = aIsEncoder ? "SWE " : "SW ";
     final String hwTag = aIsEncoder ? "HWE " : "HW ";
+    // MediaCodec.createDecoderByType picks the first decoder in list order.
+    final Set<String> defaultDecoderMimeTypes = new HashSet<>();
 
     for (final MediaCodecInfo info : aInfos) {
       for (final String mimeType : info.getSupportedTypes()) {
+        final boolean isDefaultDecoder = !aIsEncoder && defaultDecoderMimeTypes.add(mimeType);
         final CodecCapabilities caps = info.getCapabilitiesForType(mimeType);
         final boolean supports10Bit = !aIsEncoder && supports10BitProfile(mimeType, caps);
         if (!isHardwareAccelerated(info, getSupportedHWCodecPrefixes(mimeType, aIsEncoder))) {
@@ -200,6 +207,9 @@ public final class HardwareCodecCapabilityUtils {
                       + video.getSupportedHeights().getUpper()
                       + " "
                       + mimeType);
+            }
+            if (isDefaultDecoder && supportsAdaptivePlayback(mimeType, caps)) {
+              aMimeTypes.add("HWADAPT " + mimeType);
             }
           }
         }
@@ -227,20 +237,20 @@ public final class HardwareCodecCapabilityUtils {
 
   public static boolean checkSupportsAdaptivePlayback(
       final MediaCodec aCodec, final String aMimeType) {
-    if (isAdaptivePlaybackBlocklisted(aMimeType)) {
-      return false;
-    }
-
     try {
       final MediaCodecInfo info = aCodec.getCodecInfo();
-      final MediaCodecInfo.CodecCapabilities capabilities = info.getCapabilitiesForType(aMimeType);
-      return capabilities != null
-          && capabilities.isFeatureSupported(
-              MediaCodecInfo.CodecCapabilities.FEATURE_AdaptivePlayback);
+      return supportsAdaptivePlayback(aMimeType, info.getCapabilitiesForType(aMimeType));
     } catch (final IllegalArgumentException e) {
       Log.e(LOGTAG, "Retrieve codec information failed", e);
     }
     return false;
+  }
+
+  private static boolean supportsAdaptivePlayback(
+      final String aMimeType, final CodecCapabilities aCapabilities) {
+    return !isAdaptivePlaybackBlocklisted(aMimeType)
+        && aCapabilities != null
+        && aCapabilities.isFeatureSupported(CodecCapabilities.FEATURE_AdaptivePlayback);
   }
 
   // See Bug1360626 and
@@ -361,6 +371,73 @@ public final class HardwareCodecCapabilityUtils {
   @WrapForJNI
   public static boolean hasHWHEVC(final boolean aIsEncoder) {
     return getHWCodecCapability(HEVC_MIME_TYPE, aIsEncoder);
+  }
+
+  private static final HashMap<String, Integer> sMaxEncoderPixels = new HashMap<>();
+
+  // The largest frame size, in pixels, any encoder for aMimeType accepts, or 0
+  // when unknown.
+  @WrapForJNI
+  public static synchronized int getMaxEncoderPixels(final String aMimeType) {
+    final Integer cached = sMaxEncoderPixels.get(aMimeType);
+    if (cached != null) {
+      return cached;
+    }
+    int max = 0;
+    for (final MediaCodecInfo info : getCodecList()) {
+      if (!info.isEncoder()) {
+        continue;
+      }
+      final CodecCapabilities capabilities;
+      try {
+        capabilities = info.getCapabilitiesForType(aMimeType);
+      } catch (final IllegalArgumentException e) {
+        continue;
+      }
+      final VideoCapabilities video = capabilities.getVideoCapabilities();
+      if (video == null) {
+        continue;
+      }
+      max = Math.max(max, widestFramePixels(video));
+      max = Math.max(max, tallestFramePixels(video));
+      Log.d(LOGTAG, "Encoder " + info.getName() + " max pixels " + max);
+    }
+    sMaxEncoderPixels.put(aMimeType, max);
+    return max;
+  }
+
+  // The widest frame aVideo accepts, in pixels, or 0 if unknown.
+  private static int widestFramePixels(final VideoCapabilities aVideo) {
+    try {
+      final int width = aVideo.getSupportedWidths().getUpper();
+      return supportedAlignedPixels(aVideo, width, aVideo.getSupportedHeightsFor(width).getUpper());
+    } catch (final IllegalArgumentException e) {
+      return 0;
+    }
+  }
+
+  // The tallest frame aVideo accepts, in pixels, or 0 if unknown.
+  private static int tallestFramePixels(final VideoCapabilities aVideo) {
+    try {
+      final int height = aVideo.getSupportedHeights().getUpper();
+      return supportedAlignedPixels(
+          aVideo, aVideo.getSupportedWidthsFor(height).getUpper(), height);
+    } catch (final IllegalArgumentException e) {
+      return 0;
+    }
+  }
+
+  // aWidth x aHeight rounded down to aVideo's alignment, in pixels, or 0 if
+  // aVideo doesn't accept that size. The width and height ranges alone are only
+  // a bounding box, so the pair is verified with isSizeSupported.
+  private static int supportedAlignedPixels(
+      final VideoCapabilities aVideo, final int aWidth, final int aHeight) {
+    final int width = aWidth - aWidth % aVideo.getWidthAlignment();
+    final int height = aHeight - aHeight % aVideo.getHeightAlignment();
+    if (!aVideo.isSizeSupported(width, height)) {
+      return 0;
+    }
+    return width * height;
   }
 
   @WrapForJNI

@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -26,6 +27,8 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainHeight
 import kotlin.math.roundToInt
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.compose.menu.data.MenuItem
@@ -48,6 +51,7 @@ private const val PEEK_RATIO = 4f / 7f
  * @param modifier The modifier to apply to this layout.
  * @param showDivider Whether to show dividers between items.
  * @param contentAlpha Alpha applied to the whole list.
+ * @param hasSmallEndCorners Whether to use small corners at the end side, as when another box is joined to the list.
  */
 @Composable
 internal fun CustomizeMenuListItemGroup(
@@ -55,6 +59,7 @@ internal fun CustomizeMenuListItemGroup(
     modifier: Modifier = Modifier,
     showDivider: Boolean = false,
     contentAlpha: Float = 1f,
+    hasSmallEndCorners: Boolean = false,
 ) {
     val shownItems = remember(items) { items.take(COLLAPSED_ITEMS_COUNT) }
     val isCollapsed = items.size >= COLLAPSED_ITEMS_COUNT
@@ -63,7 +68,7 @@ internal fun CustomizeMenuListItemGroup(
         modifier =
             modifier
                 .alpha(contentAlpha)
-                .clip(shape = MaterialTheme.shapes.extraLarge)
+                .clip(shape = MaterialTheme.shapes.extraLarge.withSmallEndCorners(hasSmallEndCorners))
                 .menuListGroupSemantics(shownItems.size),
         verticalArrangement = Arrangement.spacedBy(AcornTheme.layout.space.static25),
     ) {
@@ -74,7 +79,9 @@ internal fun CustomizeMenuListItemGroup(
                     color = MaterialTheme.colorScheme.outlineVariant,
                 )
             }
-            val itemShape = getListItemShape(itemIndex = index, totalItems = shownItems.size)
+            val itemShape =
+                getListItemShape(itemIndex = index, totalItems = shownItems.size)
+                    .withSmallEndCorners(hasSmallEndCorners)
             val isPeeked = isCollapsed && index == shownItems.lastIndex
             MenuListItem(
                 title = item.title,
@@ -96,13 +103,26 @@ internal fun CustomizeMenuListItemGroup(
     }
 }
 
+/** This with small corners at the end side, if [hasSmallEndCorners] and this has corners to change. */
+@Composable
+internal fun Shape.withSmallEndCorners(hasSmallEndCorners: Boolean): Shape =
+    if (hasSmallEndCorners && this is CornerBasedShape) {
+        copy(
+            topEnd = MaterialTheme.shapes.extraSmall.topEnd,
+            bottomEnd = MaterialTheme.shapes.extraSmall.bottomEnd,
+        )
+    } else {
+        this
+    }
+
 /**
  * Report only the [PEEK_RATIO] of the height of this, with the rest of its content overflowing the reported bounds for
- * an ancestor to clip.
+ * an ancestor to clip. The content is measured for its full height, not squeezed into the reported one.
  */
 private fun Modifier.peekOnly() = layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints)
-    layout(placeable.width, (placeable.height * PEEK_RATIO).roundToInt()) { placeable.place(0, 0) }
+    val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+    val height = constraints.constrainHeight((placeable.height * PEEK_RATIO).roundToInt())
+    layout(placeable.width, height) { placeable.place(0, 0) }
 }
 
 /**

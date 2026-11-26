@@ -26,6 +26,7 @@
 #include "mozilla/RandomNum.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/glean/SecurityManagerSslMetrics.h"
@@ -1873,15 +1874,22 @@ nsresult nsSSLIOLayerAddToSocket(int32_t family, const char* host, int32_t port,
   // We are going use a clear connection first //
   if (forSTARTTLS || haveProxy) {
     infoObject->SetHandshakeNotPending();
-  }
-
-  rv = infoObject->SetResumptionTokenFromExternalCache(sslSock);
-  if (NS_FAILED(rv)) {
-    return rv;
+  } else {
+    // ActivateSSL looks up the token for a connection that starts in the clear.
+    rv = infoObject->SetResumptionTokenFromExternalCache(sslSock);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
   }
   if (SSL_SetResumptionTokenCallback(sslSock, &StoreResumptionToken,
                                      infoObject) != SECSuccess) {
     return NS_ERROR_FAILURE;
+  }
+  // Only plaintext tokens resume after a restart.
+  if (StaticPrefs::network_ssl_tokens_cache_persistence() &&
+      SSL_EnablePlaintextResumptionExport(sslSock, PR_TRUE) != SECSuccess) {
+    MOZ_LOG(gPIPNSSLog, LogLevel::Debug,
+            ("[%p] Plaintext resumption export unavailable", (void*)sslSock));
   }
 
   MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("[%p] Socket set up", (void*)sslSock));

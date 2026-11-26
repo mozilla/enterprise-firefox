@@ -658,6 +658,8 @@ void DocumentLoadListener::ActivateFromPrefetch(
 
   nsCOMPtr<nsILoadInfo> loadInfo = mChannel->LoadInfo();
   loadInfo->SetActivatedFromNavigationalPrefetch(true);
+  loadInfo->SetNavigationalPrefetchHadNetworkTransfer(
+      aRec->FinalResponseHadNetworkTransfer());
 
   // Serve the record's own response rather than whatever entry a cache lookup
   // of the navigation URL would find.
@@ -1482,10 +1484,6 @@ auto DocumentLoadListener::OpenInParent(nsDocShellLoadState* aLoadState,
   return Open(loadState, loadInfo, loadFlags, cacheKey, Nothing(),
               TimeStamp::Now(), timing, std::move(initialClientInfo), false,
               browsingContext->GetContentParent(), &rv);
-}
-
-base::ProcessId DocumentLoadListener::OtherPid() const {
-  return mContentParent ? mContentParent->OtherPid() : base::ProcessId{0};
 }
 
 void DocumentLoadListener::FireStateChange(uint32_t aStateFlags,
@@ -2712,11 +2710,8 @@ void DocumentLoadListener::TriggerRedirectToRealChannel(
 
   nsTArray<ParentEndpoint> parentEndpoints(aStreamFilterRequests.Length());
   if (!aStreamFilterRequests.IsEmpty()) {
-    base::ProcessId pid =
-        contentParent ? contentParent->OtherPid() : base::ProcessId{0};
-
     for (StreamFilterRequest& request : aStreamFilterRequests) {
-      if (!pid) {
+      if (!contentParent) {
         request.mPromise->Reject(false, __func__);
         request.mPromise = nullptr;
         continue;

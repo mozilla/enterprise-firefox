@@ -36,6 +36,7 @@
 #include "mozilla/SVGObserverUtils.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_webgl.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/ContentChild.h"
@@ -774,13 +775,12 @@ void WebGLContext::FinishInit() {
 void WebGLContext::InitUploadableSdTypes() {
   webgl::EnumMask<layers::SurfaceDescriptor::Type> types;
   types[layers::SurfaceDescriptor::TSurfaceDescriptorBuffer] = true;
-  // Only support canvas surface interchange if using AC2D. This guarantees
-  // that WebGL and AC2D commands are sequenced and processed on the same
-  // thread, so that there is no mal-ordering between AC2D and WebGL
-  // processing. We can flush out AC2D commands to produce a surface in time
-  // for WebGL to use without requiring any blocking to occur.
+  // CanvasTranslator resolves these descriptors by replaying pending AC2D
+  // events on the canvas render thread. The translator event queue must be
+  // enabled for this to work.
   types[layers::SurfaceDescriptor::TSurfaceDescriptorCanvasSurface] =
-      gfx::gfxVars::UseAcceleratedCanvas2D();
+      gfx::gfxVars::UseAcceleratedCanvas2D() &&
+      StaticPrefs::gfx_canvas_remote_use_canvas_translator_event_AtStartup();
   // This is conditional on not using the Compositor thread because we may
   // need to synchronize with the RDD process over the PVideoBridge protocol
   // to wait for the texture to be available in the compositor process. We
@@ -1362,8 +1362,9 @@ bool WebGLContext::PushRemoteTexture(
       if (!mHost) {
         return onFailure();
       }
-      auto pid = mHost->mOwner->OtherPid();
-      mRemoteTextureOwner = MakeRefPtr<layers::RemoteTextureOwnerClient>(pid);
+      auto childID = mHost->mOwner->OtherChildID();
+      mRemoteTextureOwner =
+          MakeRefPtr<layers::RemoteTextureOwnerClient>(childID);
     }
     ownerClient = mRemoteTextureOwner;
   }
@@ -1488,8 +1489,8 @@ void WebGLContext::EnsureContextLostRemoteTextureOwner(
     if (!mHost) {
       return;
     }
-    auto pid = mHost->mOwner->OtherPid();
-    mRemoteTextureOwner = MakeRefPtr<layers::RemoteTextureOwnerClient>(pid);
+    auto childID = mHost->mOwner->OtherChildID();
+    mRemoteTextureOwner = MakeRefPtr<layers::RemoteTextureOwnerClient>(childID);
   }
 
   layers::RemoteTextureOwnerId ownerId = options.remoteTextureOwnerId;

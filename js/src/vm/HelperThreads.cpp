@@ -5,8 +5,7 @@
 #include "vm/HelperThreads.h"
 
 #include "mozilla/ReverseIterator.h"  // mozilla::Reversed(...)
-#include "mozilla/ScopeExit.h"
-#include "mozilla/Span.h"  // mozilla::Span<TaggedScriptThingIndex>
+#include "mozilla/Span.h"             // mozilla::Span<TaggedScriptThingIndex>
 
 #include <algorithm>
 
@@ -511,65 +510,6 @@ size_t GlobalHelperThreadState::maxWasmPartialTier2CompileThreads() const {
   return MaxPartialTier2CompileTasks;
 }
 
-void GlobalHelperThreadState::trace(JSTracer* trc) {
-  {
-    AutoLockHelperThreadState lock;
-
-#ifdef DEBUG
-    // Since we hold the helper thread lock here we must disable GCMarker's
-    // checking of the atom reference bitmap since that also relies on taking
-    // the lock.
-    GCMarker* marker = nullptr;
-    if (trc->isMarkingTracer()) {
-      marker = GCMarker::fromTracer(trc);
-      marker->setCheckAtomMarking(false);
-    }
-    auto reenableAtomMarkingCheck = mozilla::MakeScopeExit([marker] {
-      if (marker) {
-        marker->setCheckAtomMarking(true);
-      }
-    });
-#endif
-
-    for (auto task : baselineWorklist(lock)) {
-      task->trace(trc);
-    }
-    for (auto task : baselineFinishedList(lock)) {
-      task->trace(trc);
-    }
-
-    for (auto task : ionWorklist(lock)) {
-      task->alloc().lifoAlloc()->setReadWrite();
-      task->trace(trc);
-      task->alloc().lifoAlloc()->setReadOnly();
-    }
-    for (auto task : ionFinishedList(lock)) {
-      task->trace(trc);
-    }
-
-    for (auto* helper : helperTasks(lock)) {
-      if (helper->is<jit::IonCompileTask>()) {
-        jit::IonCompileTask* ionCompileTask = helper->as<jit::IonCompileTask>();
-        ionCompileTask->alloc().lifoAlloc()->setReadWrite();
-        ionCompileTask->trace(trc);
-      } else if (helper->is<jit::BaselineCompileTask>()) {
-        helper->as<jit::BaselineCompileTask>()->trace(trc);
-      }
-    }
-  }
-
-  // The lazy link list is only accessed on the main thread, so trace it after
-  // releasing the lock.
-  JSRuntime* rt = trc->runtime();
-  if (auto* jitRuntime = rt->jitRuntime()) {
-    jit::IonCompileTask* task = jitRuntime->ionLazyLinkList(rt).getFirst();
-    while (task) {
-      task->trace(trc);
-      task = task->getNext();
-    }
-  }
-}
-
 // Definition of helper thread tasks.
 //
 // Priority is determined by the order they're listed here.
@@ -780,10 +720,6 @@ bool GlobalHelperThreadState::submitTask(
     return false;
   }
 
-  // The build is moving off-thread. Freeze the LifoAlloc to prevent any
-  // unwanted mutations.
-  task->alloc().lifoAlloc()->setReadOnly();
-
   dispatch(locked);
   return true;
 }
@@ -868,7 +804,8 @@ static bool ShouldForceIonFreeTask(const CompilationSelector& selector) {
 void GlobalHelperThreadState::cancelOffThreadIonCompile(
     const CompilationSelector& selector,
     WaitForRunningCompiles waitForRunning) {
-  jit::JitRuntime* jitRuntime = GetSelectorRuntime(selector)->jitRuntime();
+  JSRuntime* runtime = GetSelectorRuntime(selector);
+  jit::JitRuntime* jitRuntime = runtime->jitRuntime();
   MOZ_ASSERT(jitRuntime);
 
   AutoStartIonFreeTask freeTask(jitRuntime, ShouldForceIonFreeTask(selector));
@@ -884,11 +821,6 @@ void GlobalHelperThreadState::cancelOffThreadIonCompile(
     for (size_t i = 0; i < worklist.length(); i++) {
       jit::IonCompileTask* task = worklist[i];
       if (IonCompileTaskMatches(selector, task)) {
-        // Once finished, tasks are added to a Linked list which is
-        // allocated with the IonCompileTask class. The IonCompileTask is
-        // allocated in the LifoAlloc so we need the LifoAlloc to be mutable.
-        worklist[i]->alloc().lifoAlloc()->setReadWrite();
-
         FinishOffThreadIonCompile(task, lock);
         remove(worklist, &i);
       }
@@ -904,7 +836,6 @@ void GlobalHelperThreadState::cancelOffThreadIonCompile(
 
         jit::IonCompileTask* ionCompileTask = helper->as<jit::IonCompileTask>();
         if (IonCompileTaskMatches(selector, ionCompileTask)) {
-          ionCompileTask->alloc().lifoAlloc()->setReadWrite();
           ionCompileTask->mirGen().cancel();
           cancelled = true;
         }
@@ -921,20 +852,20 @@ void GlobalHelperThreadState::cancelOffThreadIonCompile(
     for (size_t i = 0; i < finished.length(); i++) {
       jit::IonCompileTask* task = finished[i];
       if (IonCompileTaskMatches(selector, task)) {
-        JSRuntime* rt = task->script()->runtimeFromAnyThread();
         jitRuntime->numFinishedOffThreadTasksRef(lock)--;
-        jit::FinishOffThreadTask(rt, freeTask, task);
+        task->removeFrom(jitRuntime->ionOffThreadList(runtime));
+        jit::FinishOffThreadTask(runtime, freeTask, task);
         remove(finished, &i);
       }
     }
   }
 
   /* Cancel lazy linking for pending tasks (attached to the ionScript). */
-  JSRuntime* runtime = GetSelectorRuntime(selector);
   jit::IonCompileTask* task = jitRuntime->ionLazyLinkList(runtime).getFirst();
   while (task) {
     jit::IonCompileTask* next = task->getNext();
     if (IonCompileTaskMatches(selector, task)) {
+      jitRuntime->ionLazyLinkListRemove(runtime, task);
       jit::FinishOffThreadTask(runtime, freeTask, task);
     }
     task = next;
@@ -986,53 +917,25 @@ void js::CancelOffThreadIonCompile(const CompilationSelector& selector,
 }
 
 #ifdef DEBUG
-bool GlobalHelperThreadState::hasOffThreadIonCompile(
-    Zone* zone, AutoLockHelperThreadState& lock) {
-  for (jit::IonCompileTask* task : ionWorklist(lock)) {
-    if (task->script()->zoneFromAnyThread() == zone) {
-      return true;
-    }
-  }
-
-  for (auto* helper : helperTasks(lock)) {
-    if (helper->is<jit::IonCompileTask>()) {
-      JSScript* script = helper->as<jit::IonCompileTask>()->script();
-      if (script->zoneFromAnyThread() == zone) {
-        return true;
-      }
-    }
-  }
-
-  for (jit::IonCompileTask* task : ionFinishedList(lock)) {
-    if (task->script()->zoneFromAnyThread() == zone) {
-      return true;
-    }
-  }
-
+bool js::HasOffThreadIonCompile(Zone* zone) {
   JSRuntime* rt = zone->runtimeFromMainThread();
-  if (rt->hasJitRuntime()) {
-    for (jit::IonCompileTask* task : rt->jitRuntime()->ionLazyLinkList(rt)) {
-      if (task->script()->zone() == zone) {
-        return true;
-      }
+  if (!rt->hasJitRuntime()) {
+    return false;
+  }
+
+  jit::JitRuntime* jitRuntime = rt->jitRuntime();
+  for (jit::IonCompileTask* task : jitRuntime->ionOffThreadList(rt)) {
+    if (task->script()->zone() == zone) {
+      return true;
+    }
+  }
+  for (jit::IonCompileTask* task : jitRuntime->ionLazyLinkList(rt)) {
+    if (task->script()->zone() == zone) {
+      return true;
     }
   }
 
   return false;
-}
-
-bool js::HasOffThreadIonCompile(Zone* zone) {
-  if (jit::IsPortableBaselineInterpreterEnabled()) {
-    return false;
-  }
-
-  AutoLockHelperThreadState lock;
-
-  if (!HelperThreadState().isInitialized(lock)) {
-    return false;
-  }
-
-  return HelperThreadState().hasOffThreadIonCompile(zone, lock);
 }
 #endif
 
@@ -1145,7 +1048,12 @@ bool GlobalHelperThreadState::submitTask(
 
 bool js::StartOffThreadBaselineCompile(jit::BaselineCompileTask* task,
                                        const AutoLockHelperThreadState& lock) {
-  return HelperThreadState().submitTask(task, lock);
+  if (!HelperThreadState().submitTask(task, lock)) {
+    return false;
+  }
+  JSRuntime* rt = task->runtimeFromAnyThread();
+  rt->jitRuntime()->baselineOffThreadList(rt).insertBack(task);
+  return true;
 }
 
 /*

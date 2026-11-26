@@ -21,12 +21,14 @@ sealed interface CustomizableMenuAction : Action {
      * @property mandatoryGroupIds Ids of the [items] which cannot be removed from the menu.
      * @property hiddenGroupIds Ids of the [items] removed from the menu.
      * @property isCustomized Whether this menu structure differs from the default one.
+     * @property editableGroupIds Ids of the [items] whose items can be edited in a screen of their own.
      */
     data class Update(
         val items: List<MenuItemsGroup>,
         val mandatoryGroupIds: Set<String>,
         val hiddenGroupIds: Set<String>,
         val isCustomized: Boolean,
+        val editableGroupIds: Set<String> = emptySet(),
     ) : CustomizableMenuAction
 
     /**
@@ -60,12 +62,16 @@ sealed interface CustomizableMenuAction : Action {
     /** The user tapped or gestured to go back while in the customization screen. */
     data object BackPressed : CustomizableMenuAction
 
-    /** The user tapped "Reset to default" on the customize menu screen. */
-    data object ResetToDefaultClicked : CustomizableMenuAction
-
     /** The user confirmed resetting the menu to default in the confirmation dialog. */
     data object ResetToDefaultConfirmed : CustomizableMenuAction
 
     /** The user tapped "Preview" on the customize menu screen. */
     data object PreviewClicked : CustomizableMenuAction
+
+    /**
+     * The user tapped the button to edit the items of a menu group.
+     *
+     * @property groupId Id of the menu group.
+     */
+    data class EditGroupItemsClicked(val groupId: String) : CustomizableMenuAction
 }

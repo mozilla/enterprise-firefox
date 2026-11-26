@@ -1,11 +1,20 @@
 [DEFAULT]
 prefs = [
   "browser.widgets.generated.enabled=true",
+  "extensions.widgets.generated.enabled=true",
 ]
 support-files = ["head.js"]
 
 ["browser_generated_widgets.js"]
+skip-if = [
+  "!nightly_build",
+]
 
 ["browser_sidebar_widget_studio.js"]
+
+["browser_widget_studio_creation.js"]
+skip-if = [
+  "!nightly_build",
+]
 
 ["browser_widget_studio_sign_in.js"]

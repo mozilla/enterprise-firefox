@@ -995,15 +995,6 @@ features:
         value:
           opening_animation_enabled: true
 
-  tab-groups:
-    no-lint: [MISSING_CONTACTS]
-    description: Control the visibility of the tab groups feature.
-    variables:
-      enabled:
-        description: >
-          Whether or not to enable the tab groups feature.
-        type: Boolean
-        default: true
   tab-groups-drag-and-drop:
     no-lint: [MISSING_CONTACTS]
     description: Control the visibility of drag and drop for tab groups.
@@ -1265,15 +1256,6 @@ features:
       - channel: developer
         value:
           allowed-regions: ["XX"]
-
-  show-more-shortcuts:
-    no-lint: [MISSING_CONTACTS]
-    description: Feature to show expand/collapse buttons for shortcuts on the homepage.
-    variables:
-      enabled:
-        description: If true, show the expand/collapse buttons on the homepage.
-        type: Boolean
-        default: true
 
   regional-default-shortcuts:
     no-lint: [MISSING_CONTACTS]

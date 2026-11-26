@@ -430,6 +430,99 @@ AsyncGeneratorRequest* AsyncGeneratorRequest::create(
   return true;
 }
 
+// Performs AsyncGeneratorYield. If the generator has to be resumed, because the
+// queue isn't empty or because AsyncGeneratorYield failed with a catchable
+// exception, sets |*resumeAgain| to true and stores the completion to resume
+// with in |*completionKind| and |resumeValue|.
+[[nodiscard]] static bool AsyncGeneratorYieldAndGetResumption(
+    JSContext* cx, Handle<AsyncGeneratorObject*> generator, HandleValue value,
+    bool* resumeAgain, CompletionKind* completionKind,
+    MutableHandleValue resumeValue) {
+  if (AsyncGeneratorYield(cx, generator, value, resumeAgain, completionKind,
+                          resumeValue)) {
+    MOZ_ASSERT_IF(*resumeAgain, *completionKind != CompletionKind::Return);
+    return true;
+  }
+
+  // Not much we can do about uncatchable exceptions, so just bail.
+  if (!cx->isExceptionPending()) {
+    return false;
+  }
+  // This can happen if PromiseResolve inside Await fails during
+  // AsyncGeneratorUnwrapYieldResumption, which is performed only if the queue
+  // is not empty.
+  //
+  // Per spec, the PromiseResolve failure happens before suspending the
+  // generator. Given that implementation-wise we've already suspended the
+  // generator, return a throw completion to resume the generator with.
+  //
+  // On the other hand, per spec, if the queue is empty, this generator
+  // is getting suspended and there's no fallible operation.
+  // However, we can hit OOM during it, for example in
+  // AsyncGeneratorCompleteStep while creating the iterator result object.
+  //
+  // And in this case, there's no spec-compliant way to report it, either to
+  // the generator itself or to the consumer of the generator. Treat it as an
+  // error that happened as a part of microtask handling, and propagate it to
+  // the microtask queue.
+  if (generator->isQueueEmpty()) {
+    return false;
+  }
+  if (!GetAndClearException(cx, resumeValue)) {
+    return false;
+  }
+  *resumeAgain = true;
+  *completionKind = CompletionKind::Throw;
+  return true;
+}
+
+// Yield ( value )
+// https://tc39.es/ecma262/#sec-yield
+//
+// Step 2. The Await(value) in AsyncGeneratorYield(? Await(value)) was
+// fulfilled.
+[[nodiscard]] static bool AsyncGeneratorYieldAwaitedFulfilled(
+    JSContext* cx, Handle<AsyncGeneratorObject*> generator, HandleValue value) {
+  MOZ_ASSERT(generator->isExecuting(),
+             "Yield-Await fulfilled when not in 'Executing' state");
+
+  bool resumeAgain = false;
+  CompletionKind completionKind = CompletionKind::Normal;
+  RootedValue resumeValue(cx);
+  if (!AsyncGeneratorYieldAndGetResumption(cx, generator, value, &resumeAgain,
+                                           &completionKind, &resumeValue)) {
+    return false;
+  }
+  if (!resumeAgain) {
+    return true;
+  }
+  return AsyncGeneratorResume(cx, generator, completionKind, resumeValue);
+}
+
+// Yield ( value )
+// https://tc39.es/ecma262/#sec-yield
+//
+// Step 2. The Await(value) in AsyncGeneratorYield(? Await(value)) was
+// rejected. The generator is resumed with a throw completion at the yield.
+[[nodiscard]] static bool AsyncGeneratorYieldAwaitedRejected(
+    JSContext* cx, Handle<AsyncGeneratorObject*> generator,
+    HandleValue reason) {
+  MOZ_ASSERT(generator->isExecuting(),
+             "Yield-Await rejected when not in 'Executing' state");
+  return AsyncGeneratorResume(cx, generator, CompletionKind::Throw, reason);
+}
+
+// Yield ( value )
+// https://tc39.es/ecma262/#sec-yield
+//
+// Step 2. The Await(value) in AsyncGeneratorYield(? Await(value)).
+[[nodiscard]] static bool AsyncGeneratorYieldAwait(
+    JSContext* cx, Handle<AsyncGeneratorObject*> generator, HandleValue value) {
+  return InternalAsyncGeneratorAwait(
+      cx, generator, value, PromiseHandler::AsyncGeneratorYieldAwaitedFulfilled,
+      PromiseHandler::AsyncGeneratorYieldAwaitedRejected);
+}
+
 // ES2026 draft rev bdfd596ffad5aeb2957aed4e1db36be3665c69ec
 //
 // Await in async function
@@ -1283,8 +1376,34 @@ bool js::AsyncGeneratorThrow(JSContext* cx, unsigned argc, Value* vp) {
       return AsyncGeneratorThrown(cx, generator);
     }
 
-    if (generator->isAfterAwait()) {
-      if (!AsyncGeneratorAwait(cx, generator, thisOrRval)) {
+    if (generator->isClosed()) {
+      return AsyncGeneratorReturned(cx, generator, thisOrRval);
+    }
+
+    JSOp suspendOp = generator->suspendOp();
+
+    bool needsAwait = suspendOp == JSOp::Await;
+    if (suspendOp == JSOp::AwaitThenYield) {
+      // If the await can be skipped, fall through to the yield below. Otherwise
+      // AsyncGeneratorYieldAwaitedFulfilled performs the yield.
+      bool canSkip;
+      if (!CanSkipAwaitAfterSuspend(cx, thisOrRval, &canSkip)) {
+        return false;
+      }
+      if (canSkip) {
+        if (!ExtractAwaitValueAfterSuspend(cx, thisOrRval, &thisOrRval)) {
+          return false;
+        }
+      } else {
+        needsAwait = true;
+      }
+    }
+
+    if (needsAwait) {
+      bool awaitOk = suspendOp == JSOp::Await
+                         ? AsyncGeneratorAwait(cx, generator, thisOrRval)
+                         : AsyncGeneratorYieldAwait(cx, generator, thisOrRval);
+      if (!awaitOk) {
         // Not much we can do about uncatchable exceptions, so just bail.
         if (!cx->isExceptionPending()) {
           return false;
@@ -1306,50 +1425,18 @@ bool js::AsyncGeneratorThrow(JSContext* cx, unsigned argc, Value* vp) {
       return true;
     }
 
-    if (generator->isAfterYield()) {
-      bool resumeAgain = false;
-      if (!AsyncGeneratorYield(cx, generator, thisOrRval, &resumeAgain,
-                               &completionKind, &resumeArgument)) {
-        // Not much we can do about uncatchable exceptions, so just bail.
-        if (!cx->isExceptionPending()) {
-          return false;
-        }
-        // This can also happen if PromiseResolve inside Await fails
-        // during AsyncGeneratorUnwrapYieldResumption.
-        // AsyncGeneratorUnwrapYieldResumption is performed only if the
-        // queue is not empty.
-        //
-        // Per spec, the PromiseResolve failure happens before suspending the
-        // generator.
-        // Given that implementation-wise we've already suspended the generator,
-        // resume it with a throw completion.
-        //
-        // On the other hand, per spec, if the queue is empty, this generator
-        // is getting suspended and there's no fallible operation.
-        // However, we can hit OOM during it, for example in
-        // AsyncGeneratorCompleteStep while creating the iterator result object.
-        //
-        // And in this case, there's no spec-compliant way to report it, to
-        // either to the generator itself or to the consumer of the generator.
-        // Treat it as an error happened as a a part of microtask handling,
-        // and propagate it to the microtask queue.
-        if (generator->isQueueEmpty()) {
-          return false;
-        }
-        if (!GetAndClearException(cx, &resumeArgument)) {
-          return false;
-        }
-        completionKind = CompletionKind::Throw;
-        continue;
-      }
-      if (resumeAgain) {
-        MOZ_ASSERT(completionKind != CompletionKind::Return);
-        continue;
-      }
-      return true;
-    }
+    MOZ_ASSERT(suspendOp == JSOp::Yield || suspendOp == JSOp::AwaitThenYield);
 
-    return AsyncGeneratorReturned(cx, generator, thisOrRval);
+    bool resumeAgain = false;
+    if (!AsyncGeneratorYieldAndGetResumption(cx, generator, thisOrRval,
+                                             &resumeAgain, &completionKind,
+                                             &resumeArgument)) {
+      return false;
+    }
+    if (resumeAgain) {
+      continue;
+    }
+    return true;
   }
 }
 
@@ -1538,6 +1625,12 @@ const JSClass js::AsyncGeneratorFunctionClass = {
 
     case PromiseHandler::AsyncGeneratorYieldReturnAwaitedRejected:
       return AsyncGeneratorYieldReturnAwaitedRejected(cx, generator, argument);
+
+    case PromiseHandler::AsyncGeneratorYieldAwaitedFulfilled:
+      return AsyncGeneratorYieldAwaitedFulfilled(cx, generator, argument);
+
+    case PromiseHandler::AsyncGeneratorYieldAwaitedRejected:
+      return AsyncGeneratorYieldAwaitedRejected(cx, generator, argument);
 
     default:
       MOZ_CRASH("Bad handler in AsyncGeneratorPromiseReactionJob");

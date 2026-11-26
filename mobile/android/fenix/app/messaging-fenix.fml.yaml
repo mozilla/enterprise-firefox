@@ -58,6 +58,14 @@ import:
               FXA_CURRENTLY_SIGNED_IN: "is_fxa_signed_in == true"
               FXA_MORE_THAN_1_DEVICE: "fxa_connected_devices > 1"
 
+              # VPN feature triggers
+              VPN_READY: "triggerContext.vpn.is_ready_to_use == true"
+              VPN_AUTH_PROVIDER_GPI: "triggerContext.vpn.auth_provider == 'gpi'"
+              VPN_AUTH_PROVIDER_FXA: "triggerContext.vpn.auth_provider == 'fxa'"
+              VPN_RESET_PROMPT_PENDING: >-
+                triggerContext.vpn.usage_reset_prompt_pending == true &&
+                triggerContext.vpn.is_enabled == false
+
               # Has the user signed in the last 4 years
               FXA_SIGNED_IN: "'sync_auth.sign_in'|eventLastSeen('Years', 0) <= 4"
               FXA_NOT_SIGNED_IN: "'sync_auth.sign_in'|eventLastSeen('Years', 0) > 4"
@@ -72,6 +80,7 @@ import:
 
             actions:
               ENABLE_PRIVATE_BROWSING: ://enable_private_browsing
+              FXA_BEGIN_AUTH: ://fxa_begin_auth
               INSTALL_SEARCH_WIDGET: ://install_search_widget
               MAKE_DEFAULT_BROWSER: ://make_default_browser
               VIEW_BOOKMARKS: ://urls_bookmarks
@@ -116,11 +125,21 @@ import:
               MICROSURVEY:
                 priority: 50
                 max-display-count: 5
+              SETTINGS_CARD:
+                priority: 50
+                max-display-count: 1
+              SETTINGS_CARD_PERSISTENT:
+                priority: 50
+                max-display-count: 10000
+              SETTINGS_CARD_HIGH_PRIORITY:
+                priority: 60
+                max-display-count: 1
             $$surfaces:
               - homescreen
               - notification
               - survey
               - microsurvey
+              - settings_vpn
 
         - channel: developer
           value:

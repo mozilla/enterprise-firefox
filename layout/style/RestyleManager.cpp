@@ -3326,7 +3326,7 @@ void RestyleManager::DoProcessPendingRestyles(ServoTraversalFlags aFlags) {
     doc->ClearServoRestyleRoot();
     ClearSnapshots();
 
-    while (!currentChanges.IsEmpty()) {
+    do {
       ProcessRestyledFrames(currentChanges);
       MOZ_ASSERT(currentChanges.IsEmpty());
       for (ReentrantChange& change : newChanges) {
@@ -3342,7 +3342,7 @@ void RestyleManager::DoProcessPendingRestyles(ServoTraversalFlags aFlags) {
                                     change.mContent, change.mHint);
       }
       newChanges.Clear();
-    }
+    } while (!currentChanges.IsEmpty());
 
     mReentrantChanges = nullptr;
 
@@ -3437,7 +3437,8 @@ void RestyleManager::ProcessAllPendingAttributeAndStateInvalidations() {
     // Servo data for the element might have been dropped. (e.g. by removing
     // from its document)
     if (key->HasStyleFlag(NodeStyleFlags::HasSnapshot)) {
-      Servo_ProcessInvalidations(StyleSet()->RawData(), key, &mSnapshots);
+      Servo_ProcessSnapshotInvalidations(StyleSet()->RawData(), key,
+                                         &mSnapshots);
     }
   }
   ClearSnapshots();

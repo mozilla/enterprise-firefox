@@ -14,8 +14,10 @@ BROWSER_CHROME_MANIFESTS += [
     "test/browser/get_page_content/browser.toml",
     "test/browser/organize_tabs/browser.toml",
     "test/browser/resume/browser.toml",
+    "test/browser/sidebar/browser.toml",
     "test/browser/smart_actions/browser.toml",
     "test/browser/smartbar/browser.toml",
+    "test/browser/starters/browser.toml",
     "test/browser/tasks/browser.toml",
     "test/browser_perf/perftest.toml",
 ]
@@ -83,6 +85,7 @@ MOZ_SRC_FILES += [
     "modules/SQLiteStoreBase.sys.mjs",
     "modules/TabManagementService.sys.mjs",
     "modules/ToolActionLog.sys.mjs",
+    "modules/ToolTabActions.sys.mjs",
     "modules/ToolUI.sys.mjs",
     "modules/ToolUITelemetry.sys.mjs",
     "modules/ToUSpotlight.sys.mjs",

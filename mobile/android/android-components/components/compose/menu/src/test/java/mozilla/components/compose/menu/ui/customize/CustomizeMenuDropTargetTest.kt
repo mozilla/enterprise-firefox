@@ -13,7 +13,7 @@ import mozilla.components.compose.menu.ui.customize.CustomizeMenuDropTarget.InPl
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuDropTarget.NextTo
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.DRAG_BAR
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.DROP_AREA
-import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.HIDDEN_SECTIONS
+import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.HIDDEN_TITLE
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.RESET_BUTTON
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -44,7 +44,7 @@ class CustomizeMenuDropTargetTest {
     @Test
     fun `GIVEN a group dragged above the hidden area WHEN the list places it with the hidden groups THEN it is placed as the last visible group`() {
         assertEquals(
-            NextTo(HIDDEN_SECTIONS, placeAfter = false),
+            NextTo(HIDDEN_TITLE, placeAfter = false),
             dropTargetOf(found = reorderingNextTo("c", placeAfter = false), draggedCenter = aboveHiddenArea),
         )
     }
@@ -52,7 +52,7 @@ class CustomizeMenuDropTargetTest {
     @Test
     fun `GIVEN a group dragged above the hidden area WHEN the list places it in the area to drag groups into THEN it is placed as the last visible group`() {
         assertEquals(
-            NextTo(HIDDEN_SECTIONS, placeAfter = false),
+            NextTo(HIDDEN_TITLE, placeAfter = false),
             dropTargetOf(
                 found = reorderingNextTo(DROP_AREA, placeAfter = false),
                 draggedCenter = aboveHiddenArea,
@@ -72,8 +72,8 @@ class CustomizeMenuDropTargetTest {
     @Test
     fun `GIVEN a group dragged over the hidden area WHEN the list places it with the shown groups THEN it is shown at the top of the hidden items`() {
         assertEquals(
-            NextTo(HIDDEN_SECTIONS, placeAfter = true),
-            dropTargetOf(found = reorderingNextTo(HIDDEN_SECTIONS, placeAfter = false), draggedCenter = overHiddenArea),
+            NextTo(HIDDEN_TITLE, placeAfter = true),
+            dropTargetOf(found = reorderingNextTo(HIDDEN_TITLE, placeAfter = false), draggedCenter = overHiddenArea),
         )
     }
 
@@ -82,6 +82,22 @@ class CustomizeMenuDropTargetTest {
         assertEquals(
             InPlace,
             dropTargetOf(found = reorderingNextTo("b", placeAfter = false), draggedCenter = aboveHiddenArea),
+        )
+    }
+
+    @Test
+    fun `GIVEN the dragged group only takes the drop line's space WHEN the space is left out THEN it still counts as collapsed and is dropped in place`() {
+        val extraSpace = ExtraItemSpace().apply { record("a", extra = 16, size = 16) }
+
+        assertEquals(
+            InPlace,
+            dropTargetOf(
+                found = reorderingNextTo("b", placeAfter = false),
+                draggedCenter = aboveHiddenArea,
+                layout =
+                    layoutOf(DRAG_BAR, "a", "b", HIDDEN_TITLE, "c", collapsed = "a", collapsedSize = 16)
+                        .without(extraSpace),
+            ),
         )
     }
 
@@ -125,7 +141,7 @@ class CustomizeMenuDropTargetTest {
                 found = InteractionMode.List.None,
                 draggedCenter = 450f,
                 draggedId = "c",
-                layout = layoutOf(DRAG_BAR, "a", "b", HIDDEN_SECTIONS, DROP_AREA, "c", collapsed = "c"),
+                layout = layoutOf(DRAG_BAR, "a", "b", HIDDEN_TITLE, DROP_AREA, "c", collapsed = "c"),
             ),
         )
     }
@@ -155,7 +171,7 @@ class CustomizeMenuDropTargetTest {
     @Test
     fun `GIVEN a mandatory group dragged above the hidden area WHEN the list places it with the hidden groups THEN it is shown as the last visible group`() {
         assertEquals(
-            NextTo(HIDDEN_SECTIONS, placeAfter = false),
+            NextTo(HIDDEN_TITLE, placeAfter = false),
             dropTargetOf(
                 found = reorderingNextTo("c", placeAfter = false),
                 draggedCenter = aboveHiddenArea,
@@ -175,7 +191,7 @@ class CustomizeMenuDropTargetTest {
             dropTargetOf(
                 found = reorderingNextTo("c", placeAfter = true),
                 draggedCenter = belowHiddenArea,
-                layout = layoutOf(DRAG_BAR, "a", "b", HIDDEN_SECTIONS, "c", RESET_BUTTON, collapsed = "a"),
+                layout = layoutOf(DRAG_BAR, "a", "b", HIDDEN_TITLE, "c", RESET_BUTTON, collapsed = "a"),
             )
         )
     }
@@ -225,7 +241,7 @@ class CustomizeMenuDropTargetTest {
             dropTargetOf(
                 found = reorderingNextTo("b", placeAfter = true),
                 draggedCenter = 50f,
-                layout = layoutOf("b", HIDDEN_SECTIONS, "c", firstIndex = 2, totalItemsCount = 5),
+                layout = layoutOf("b", HIDDEN_TITLE, "c", firstIndex = 2, totalItemsCount = 5),
             ),
         )
     }
@@ -249,6 +265,37 @@ class CustomizeMenuDropTargetTest {
     @Test
     fun `WHEN a group is dropped in place THEN no group is moved`() {
         assertEquals(groups, groups.drop("a", InPlace))
+    }
+
+    @Test
+    fun `WHEN a group is dropped before a list item THEN the item takes space above itself for the line`() {
+        assertEquals(DropLineSpace.ABOVE, dropLineSpaceOf("b", isDragged = false, NextTo("b", placeAfter = false)))
+    }
+
+    @Test
+    fun `WHEN a group is dropped after a list item THEN the item takes space below itself for the line`() {
+        assertEquals(DropLineSpace.BELOW, dropLineSpaceOf("b", isDragged = false, NextTo("b", placeAfter = true)))
+    }
+
+    @Test
+    fun `WHEN a group is dropped next to another list item THEN the item takes no space for the line`() {
+        assertNull(dropLineSpaceOf("b", isDragged = false, NextTo("c", placeAfter = true)))
+    }
+
+    @Test
+    fun `WHEN a group is dropped in place THEN it takes space below itself for the line`() {
+        assertEquals(DropLineSpace.BELOW, dropLineSpaceOf("a", isDragged = true, InPlace))
+    }
+
+    @Test
+    fun `WHEN a group is dropped in place THEN the other list items take no space for the line`() {
+        assertNull(dropLineSpaceOf("b", isDragged = false, InPlace))
+    }
+
+    @Test
+    fun `WHEN a group is dropped into the empty hidden area or nowhere THEN no list item takes space for a line`() {
+        assertNull(dropLineSpaceOf("a", isDragged = true, EmptyHiddenArea))
+        assertNull(dropLineSpaceOf("a", isDragged = true, null))
     }
 
     /**
@@ -277,7 +324,7 @@ class CustomizeMenuDropTargetTest {
     private fun layoutOf(groups: CustomizeMenuGroups, collapsed: Any? = null): LazyListLayoutInfo {
         val dropArea = if (groups.hidden.isEmpty()) listOf(DROP_AREA) else emptyList()
         val shown = listOf<Any>(DRAG_BAR) + groups.shown.map { it.id }
-        val keys = shown + HIDDEN_SECTIONS + dropArea + groups.hidden.map { it.id }
+        val keys = shown + HIDDEN_TITLE + dropArea + groups.hidden.map { it.id }
         return layoutOf(*keys.toTypedArray(), collapsed = collapsed)
     }
 

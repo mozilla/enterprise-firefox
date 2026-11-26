@@ -2935,6 +2935,10 @@ bool WarpBuilder::build_Await(BytecodeLocation loc) {
 }
 bool WarpBuilder::build_Yield(BytecodeLocation loc) { return build_Await(loc); }
 
+bool WarpBuilder::build_AwaitThenYield(BytecodeLocation loc) {
+  return build_Await(loc);
+}
+
 bool WarpBuilder::buildSuspend(BytecodeLocation loc, MDefinition* gen,
                                MDefinition* retVal) {
   MOZ_ASSERT(resumeAnalysis_.isSome());
@@ -3327,6 +3331,14 @@ bool WarpBuilder::build_GetImport(BytecodeLocation loc) {
   auto* snapshot = getOpSnapshot<WarpGetImport>(loc);
 
   ModuleEnvironmentObject* targetEnv = snapshot->targetEnv();
+
+  if (snapshot->needsWasmMutableGlobalRead()) {
+    auto* ins = MCallGetWasmMutableGlobal::New(
+        alloc(), targetEnv, snapshot->slot(), loc.getPropertyName(script_));
+    current->add(ins);
+    current->push(ins);
+    return resumeAfter(ins, loc);
+  }
 
   // Load the target environment slot.
   MConstant* obj = constant(ObjectValue(*targetEnv));

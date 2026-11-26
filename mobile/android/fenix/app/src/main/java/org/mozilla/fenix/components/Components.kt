@@ -447,6 +447,7 @@ class Components(
                     isExpandedToolbarEnabled = settings.shouldUseExpandedToolbar,
                 )
             },
+            defaultSectionsInfo = BrowserMenuConfiguration.defaultSectionsInfo(),
             requiredSectionIds = BrowserMenuConfiguration.REQUIRED_SECTION_IDS,
             scope = applicationScope,
         )
@@ -613,6 +614,7 @@ class Components(
                     integrityClient = lazy { integrityClient },
                 ),
             lazyAppStore = lazy { appStore },
+            lazyNimbusController = lazy { nimbus.messaging },
             settings = settings,
             context = context,
         )

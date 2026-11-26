@@ -187,7 +187,7 @@ object SettingsSelectors : SelectorContainer {
 
     val LANGUAGE_BUTTON =
         Selector(
-            strategy = SelectorStrategy.ESPRESSO_BY_TEXT,
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT,
             value = getStringResource(R.string.preferences_language),
             description = "the Language button",
             groups = setOf(Group.GENERAL_SETTINGS_SECTION),
@@ -291,14 +291,6 @@ object SettingsSelectors : SelectorContainer {
             value = "Private browsing",
             description = "the Private browsing button",
             groups = setOf(Group.PRIVACY_AND_SECURITY_SETTINGS_SECTION),
-        )
-
-    val SIGN_IN_BUTTON =
-        Selector(
-            strategy = SelectorStrategy.ESPRESSO_BY_TEXT,
-            value = "Sign in",
-            description = "the Sign in button",
-            groups = setOf(Group.SYNC),
         )
 
     val SIGN_IN_PROMO_CARD =

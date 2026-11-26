@@ -8,6 +8,7 @@ const { NimbusTestUtils } = ChromeUtils.importESModule(
 );
 
 const ENABLED_PREF = "browser.widgets.generated.enabled";
+const ORDER_PREF = "browser.widgets.studio.order";
 
 add_setup(mockAuthentication);
 
@@ -240,7 +241,7 @@ add_task(async function test_panel_composer() {
     "Composer focused"
   );
 
-  EventUtils.synthesizeKey("KEY_Escape", {}, panel.ownerGlobal);
+  EventUtils.synthesizeKey("KEY_Escape", {}, panel.documentGlobal);
   await panel.updateComplete;
   ok(!panel.composer, "Escape hid composer");
   await TestUtils.waitForCondition(
@@ -264,15 +265,87 @@ add_task(async function test_panel_composer() {
     () => composer.shadowRoot.activeElement?.localName == "textarea",
     "Composer focused again"
   );
+  SidebarController.hide();
+});
 
-  EventUtils.sendString("weather", panel.ownerGlobal);
-  EventUtils.synthesizeKey("KEY_Enter", {}, panel.ownerGlobal);
-  await panel.updateComplete;
-  ok(!panel.composer, "Submit hid composer");
-  await TestUtils.waitForCondition(
-    () => panel.shadowRoot.activeElement == panel.composeButton,
-    "Compose button focused after submit"
+add_task(async function test_generated_widgets_listed() {
+  let { WidgetManager } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/widgets/WidgetManager.sys.mjs"
   );
-  ok(SidebarController.isOpen, "Panel open");
+  let { GeneratedWidgetsProvider } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/widgets/GeneratedWidgetsProvider.sys.mjs"
+  );
+  registerCleanupFunction(() => Services.prefs.clearUserPref(ORDER_PREF));
+  let panel = await openWidgetsSidebar();
+  let a = await installGeneratedWidget({ name: "Widget A" });
+  let b = await installGeneratedWidget({ name: "Widget B" });
+  let { widgets } = panel;
+  let ids = list =>
+    list.map(widget => widget.id).filter(id => id == a || id == b);
+  await TestUtils.waitForCondition(
+    () => ids(widgets.all).length == 2,
+    "Widgets listed"
+  );
+  Assert.deepEqual(ids(widgets.all), [a, b], "Install order");
+  Assert.deepEqual(widgets.order.slice(-2), [a, b], "Order saved");
+  Assert.deepEqual(ids(widgets.disabled), [a, b], "Disabled");
+
+  widgets.order = [b, a];
+  Assert.deepEqual(ids(widgets.all), [b, a], "Saved order");
+
+  WidgetManager.getWidgetByID(b).enabled = true;
+  await TestUtils.waitForCondition(
+    () => ids(widgets.enabled).length == 1,
+    "Widget enabled"
+  );
+  Assert.deepEqual(ids(widgets.enabled), [b], "Enabled");
+  Assert.deepEqual(ids(widgets.disabled), [a], "Disabled");
+
+  SidebarController.hide();
+  await GeneratedWidgetsProvider.uninstall(a);
+  Assert.ok(widgets.order.includes(a), "Kept while closed");
+  ({ widgets } = await openWidgetsSidebar());
+  await TestUtils.waitForCondition(
+    () => !widgets.order.includes(a),
+    "Uninstalled widget unsaved"
+  );
+  Assert.deepEqual(ids(widgets.all), [b], "Uninstalled widget removed");
+  SidebarController.hide();
+});
+
+add_task(async function test_generated_widgets_drawn() {
+  let { GeneratedWidgetsProvider } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/widgets/GeneratedWidgetsProvider.sys.mjs"
+  );
+  registerCleanupFunction(() => Services.prefs.clearUserPref(ORDER_PREF));
+  let panel = await openWidgetsSidebar();
+  let a = await installGeneratedWidget({ name: "Widget A" });
+  let b = await installGeneratedWidget({ name: "Widget B" });
+  let cards = () =>
+    [...panel.querySelectorAll(":scope > moz-widget")].filter(
+      card => card.widgetId == a || card.widgetId == b
+    );
+  let ids = () => cards().map(card => card.widgetId);
+  await TestUtils.waitForCondition(() => cards().length == 2, "Cards drawn");
+  Assert.deepEqual(ids(), [a, b], "Card order");
+
+  for (let card of cards()) {
+    let url = WebExtensionPolicy.getByID(card.widgetId).getURL("widget.html");
+    await TestUtils.waitForCondition(
+      () =>
+        card.frame?.browsingContext?.currentWindowGlobal?.documentURI?.spec ==
+        url,
+      "Widget page loaded"
+    );
+    is(card.frame.remoteType, "extension", "Extension remote type");
+  }
+
+  panel.widgets.order = panel.widgets.order.toReversed();
+  await TestUtils.waitForCondition(() => ids()[0] == b, "Cards reordered");
+  Assert.deepEqual(ids(), [b, a], "Reversed order");
+
+  await GeneratedWidgetsProvider.uninstall(a);
+  await TestUtils.waitForCondition(() => cards().length == 1, "Card removed");
+  Assert.deepEqual(ids(), [b], "Remaining card");
   SidebarController.hide();
 });

@@ -36,9 +36,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -52,6 +54,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
+import java.text.NumberFormat
 import kotlin.time.Instant
 import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.compose.base.LinkText
@@ -78,13 +81,23 @@ import mozilla.components.feature.ipprotection.store.state.Uninitialized
 import mozilla.components.feature.ipprotection.store.state.UsageQuota
 import mozilla.components.feature.ipprotection.store.state.gigabytes
 import mozilla.components.feature.ipprotection.store.state.ipProtectionStatus
+import mozilla.components.service.nimbus.messaging.Message
+import mozilla.components.service.nimbus.messaging.MessageData
+import mozilla.components.service.nimbus.messaging.StyleData
+import mozilla.components.service.nimbus.messaging.types.VpnSettingsMessage
 import mozilla.components.ui.icons.R as iconsR
+import org.mozilla.experiments.nimbus.NullVariables
+import org.mozilla.experiments.nimbus.StringHolder
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.list.TextListItem
 import org.mozilla.fenix.compose.settings.SettingsSectionHeader
+import org.mozilla.fenix.nimbus.FxNimbus
+import org.mozilla.fenix.settings.ipprotection.IPProtectionMessageCard
 import org.mozilla.fenix.theme.FirefoxTheme
 
 private val PROMO_ILLUSTRATION_SIZE = 60.dp
+private const val MESSAGE_TITLE_KEY_FXA_LIMIT = "fxa_data_limit_gb"
+private const val MESSAGE_TITLE_KEY_GPI_LIMIT = "gpi_data_limit_gb"
 
 /**
  * The main VPN / IP Protection settings screen.
@@ -103,6 +116,9 @@ private val PROMO_ILLUSTRATION_SIZE = 60.dp
  * @param onLocationClicked Called when the VPN location row is tapped.
  * @param isLocationSelectionEnabled Whether the location row is interactive. When `false`, the row is displayed without
  *   a click affordance.
+ * @param message The Nimbus message selected for the VPN surface, or null.
+ * @param onMessageClick Called when the message is clicked.
+ * @param onMessageDismiss Called when the message is dismissed.
  */
 @Suppress("LongParameterList")
 @Composable
@@ -118,6 +134,9 @@ fun IPProtectionScreen(
     onNavigateBack: () -> Unit,
     onLocationClicked: () -> Unit,
     isLocationSelectionEnabled: Boolean = false,
+    message: Message? = null,
+    onMessageClick: (Message) -> Unit = {},
+    onMessageDismiss: (Message) -> Unit = {},
 ) {
     val screenTitle = stringResource(R.string.ip_protection_settings_title)
     val status = state.ipProtectionStatus
@@ -168,6 +187,9 @@ fun IPProtectionScreen(
                             quota = usageQuota,
                             isDataLimitReached = state.proxyStatus is Authorized.DataLimitReached,
                             onLearnMoreClick = onLearnMoreClick,
+                            message = message,
+                            onMessageDismiss = onMessageDismiss,
+                            onMessageClick = onMessageClick,
                         )
 
                         HorizontalDivider()
@@ -189,7 +211,7 @@ fun IPProtectionScreen(
     }
 }
 
-private fun IPProtectionStatus.isReadyToUse() =
+internal fun IPProtectionStatus.isReadyToUse() =
     when (this) {
         IPProtectionStatus.Disabled,
         IPProtectionStatus.Activating,
@@ -254,6 +276,9 @@ private fun DataLimitSection(
     isDataLimitReached: Boolean,
     quota: UsageQuota.Metered,
     onLearnMoreClick: () -> Unit,
+    message: Message? = null,
+    onMessageDismiss: (message: Message) -> Unit = {},
+    onMessageClick: (message: Message) -> Unit = {},
 ) {
     Column(
         modifier =
@@ -320,6 +345,54 @@ private fun DataLimitSection(
                     vertical = FirefoxTheme.layout.space.static150,
                 ),
     )
+
+    if (message != null) {
+        MessageCard(message, onMessageClick, onMessageDismiss)
+    }
+}
+
+@Composable
+private fun MessageCard(message: Message, onMessageClick: (Message) -> Unit, onMessageDismiss: (Message) -> Unit) {
+    val feature = FxNimbus.features.ipProtection.value()
+    val locale = LocalLocale.current
+    val numberFormat = remember(locale) { NumberFormat.getIntegerInstance(locale.platformLocale) }
+
+    val vpnMessage =
+        VpnSettingsMessage.createFrom(
+            message = message,
+            locale = locale.platformLocale,
+            titleArgsReplacements =
+                buildMap {
+                    numberFormat.safeFormat(feature.dataLimitGigabyte)?.let {
+                        put(MESSAGE_TITLE_KEY_FXA_LIMIT, it)
+                    }
+                    numberFormat.safeFormat(feature.gpiDataLimitGigabytes)?.let {
+                        put(MESSAGE_TITLE_KEY_GPI_LIMIT, it)
+                    }
+                },
+        ) ?: return
+
+    IPProtectionMessageCard(
+        modifier =
+            Modifier.padding(
+                    start = FirefoxTheme.layout.space.dynamic200,
+                    end = FirefoxTheme.layout.space.dynamic200,
+                    bottom = FirefoxTheme.layout.space.static150,
+                )
+                .fillMaxWidth(),
+        message = vpnMessage,
+        onAction = onMessageClick,
+        onDismiss = onMessageDismiss,
+    )
+}
+
+@Composable
+private fun NumberFormat.safeFormat(value: Int): String? {
+    return try {
+        format(value)
+    } catch (_: NumberFormatException) {
+        null
+    }
 }
 
 @Composable
@@ -660,6 +733,50 @@ private fun IPProtectionScreenConnectingPreview(@PreviewParameter(PreviewThemePr
                 ),
             snackbarHostState = SnackbarHostState(),
             promoDate = null,
+            onVpnToggle = {},
+            onLearnMoreClick = {},
+            onGetStartedClick = {},
+            showDebugAction = false,
+            onDebugActionClick = {},
+            onNavigateBack = {},
+            onLocationClicked = {},
+        )
+    }
+}
+
+@OptIn(ExperimentalAndroidComponentsApi::class)
+@FlexibleWindowPreview
+@Composable
+private fun IPProtectionScreenMessagePreview(@PreviewParameter(PreviewThemeProvider::class) theme: Theme) {
+    NullVariables.instance.setContext(LocalContext.current)
+    FirefoxTheme(theme = theme) {
+        IPProtectionScreen(
+            state =
+                IPProtectionState(
+                    eligibilityStatus = EligibilityStatus.Eligible,
+                    proxyStatus = Authorized.Active,
+                    serviceStatus = ServiceState.Ready,
+                    usageQuota =
+                        UsageQuota.Metered(
+                            max = FiftyGb,
+                            remaining = FortyGb,
+                        ),
+                ),
+            snackbarHostState = SnackbarHostState(),
+            promoDate = null,
+            message =
+                Message(
+                    id = "id",
+                    data =
+                        MessageData(
+                            title = StringHolder(null, "Boost your VPN data limit to 50 GB"),
+                            buttonLabel = StringHolder(null, "Sign in"),
+                        ),
+                    action = "",
+                    style = StyleData(),
+                    triggerIfAll = emptyList(),
+                    metadata = Message.Metadata(id = "id"),
+                ),
             onVpnToggle = {},
             onLearnMoreClick = {},
             onGetStartedClick = {},

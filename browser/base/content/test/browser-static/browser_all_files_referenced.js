@@ -75,6 +75,11 @@ var gExceptionPaths = [
   // Exclude all services-automation because they are used through webdriver
   "moz-src:///services/automation/",
 
+  // BrowserAIDriver.sys.mjs is only loaded dynamically via ChromeUtils.importESModule
+  // from bootstrap.js, which is injected by the external Python ai driver through
+  // Selenium, similar to services/automation above.
+  "moz-src:///browser/components/ai/driver/",
+
   // Paths from this folder are constructed in NetErrorParent.sys.mjs based on
   // the type of cert or net error the user is encountering.
   "chrome://global/content/neterror/supportpages/",
@@ -329,6 +334,12 @@ var allowlist = [
   // dom/xslt/xslt/txMozillaXSLTProcessor.cpp
   { file: "resource://gre/localization/en-US/dom/xslt.ftl" },
 
+  // dom/base/nsContentUtils.cpp
+  { file: "resource://gre/localization/en-US/dom/dom.ftl" },
+  { file: "resource://gre/localization/en-US/dom/deprecations.ftl" },
+  { file: "resource://gre/localization/en-US/dom/dialogs.ftl" },
+  { file: "resource://gre/localization/en-US/dom/form-validation.ftl" },
+
   // A QA and dev debug tool.
   { file: "chrome://browser/content/places/interactionsViewer.html" },
 
@@ -338,8 +349,19 @@ var allowlist = [
     file: "moz-src:///browser/components/backup/resources/CookiesBackupResource.sys.mjs",
   },
 
-  // Bug 2078933: The widget dashboard will generate widgets with this module.
-  { file: "moz-src:///browser/components/widgets/WidgetGenerator.sys.mjs" },
+  // Bug 2088187: Smart Window Digests will use this form for setup.
+  {
+    file: "chrome://browser/content/aiwindow/components/smartwindow-digest-form.mjs",
+  },
+
+  // Bug 2092347: Smart Window Digests will use this modal.
+  {
+    file: "chrome://browser/content/aiwindow/components/smartwindow-digest-modal.mjs",
+  },
+  // Bug 2088187: Smart Window Digests Toasts.
+  {
+    file: "chrome://browser/content/aiwindow/components/smartwindow-digest-toast.mjs",
+  },
 ];
 
 if (AppConstants.NIGHTLY_BUILD) {

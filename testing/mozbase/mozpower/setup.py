@@ -5,9 +5,9 @@
 from setuptools import setup
 
 PACKAGE_NAME = "mozpower"
-PACKAGE_VERSION = "1.1.2"
+PACKAGE_VERSION = "1.1.3"
 
-deps = ["mozlog >= 6.0", "mozdevice >= 4.0.0,<5"]
+deps = ["mozlog >= 6.0", "mozdevice >= 4.0.0"]
 
 setup(
     name=PACKAGE_NAME,
@@ -17,12 +17,6 @@ setup(
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
     ],
     # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
     keywords="",
@@ -37,5 +31,5 @@ setup(
     entry_points="""
       # -*- Entry points: -*-
       """,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
 )

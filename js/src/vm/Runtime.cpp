@@ -320,6 +320,8 @@ void JSRuntime::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
       cx->interpreterStack().sizeOfExcludingThis(mallocSizeOf);
   rtSizes->uncompressedSourceCache +=
       caches().uncompressedSourceCache.sizeOfExcludingThis(mallocSizeOf);
+  rtSizes->megamorphicSetPropCache +=
+      mallocSizeOf(caches().megamorphicSetPropCache.get());
 
   rtSizes->gc.nurseryCommitted += gc.nursery().totalCommitted();
   rtSizes->gc.nurseryMallocedBuffers +=
@@ -364,6 +366,11 @@ void JSRuntime::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
     // Sizes of the IonCompileTasks we are holding for lazy linking
     for (auto* task : jitRuntime_->ionLazyLinkList(this)) {
       rtSizes->jitLazyLink += task->sizeOfExcludingThis(mallocSizeOf);
+    }
+
+    if (jitRuntime_->hasJitHintsMap()) {
+      rtSizes->jitHints +=
+          jitRuntime_->getJitHintsMap()->sizeOfIncludingThis(mallocSizeOf);
     }
   }
 

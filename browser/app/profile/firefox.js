@@ -605,12 +605,6 @@ pref("browser.urlbar.resultTargetMenu.featureGate", false);
 // settings.
 pref("browser.urlbar.weather.minKeywordLength", 0);
 
-// The UI treatment to use for weather suggestions. Possible values:
-// 0: (default) Simplest UI with current temperature and location
-// 1: Simpler UI, adds current conditions, high/low, and URL
-// 2: Full UI, adds forecast
-pref("browser.urlbar.weather.uiTreatment", 0);
-
 // If `browser.urlbar.weather.featureGate` is true, this controls whether
 // weather suggestions are turned on.
 pref("browser.urlbar.suggest.weather", true);
@@ -2602,8 +2596,6 @@ pref("browser.smartwindow.memories.logLevel", "Warn");
 pref("browser.smartwindow.newtab.focusSmartbar", true);
 // Gates resume-activity ("pick up where you left off") starter generation.
 pref("browser.smartwindow.resumeActivity.enabled", true);
-// TODO Bug 2067871: remove once journey store is available.
-pref("browser.smartwindow.resumeCards.enabled", true);
 pref("browser.smartwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.smartwindow.firstrun.hasCompleted", false);
 pref("browser.smartwindow.firstrun.modelChoice", "");
@@ -2722,11 +2714,13 @@ pref(
   '{"visibilityPref":"browser.widgets.generated.enabled"}'
 );
 pref("browser.widgets.generated.loglevel", "Warn");
-pref("browser.widgets.generated.endpoint", "");
+pref("browser.widgets.generated.endpoint", "https://mlpa-nonprod-stage-mozilla.freetls.fastly.net/v1");
+pref("browser.widgets.generated.customEndpoint", "");
 pref("browser.widgets.generated.apiKey", "");
 pref("browser.widgets.generated.model", "");
 pref("browser.widgets.generated.maxTurns", 30);
 pref("browser.widgets.generated.localPrompt", false);
+pref("browser.widgets.generated.promptTip.seen", false);
 
 // Block insecure active content on https pages
 pref("security.mixed_content.block_active_content", true);

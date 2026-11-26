@@ -163,7 +163,7 @@ export class ChromeProfileMigrator extends MigratorBase {
     return false;
   }
 
-  async getPermissions(win) {
+  async getPermissions(win, { onFilePickerShown } = {}) {
     // Get the original path to the user data and ignore any existing remapping.
     // This allows us to set a new remapping if the user navigates the platforms
     // filepicker to a different directory on a second permission request attempt.
@@ -187,6 +187,7 @@ export class ChromeProfileMigrator extends MigratorBase {
       // the local state folder, the OS should grant us read access to everything
       // inside, so we don't need to check or do anything else with what's
       // returned by the filepicker.
+      onFilePickerShown?.();
       let result = await new Promise(resolve => fp.open(resolve));
       // Bail if the user cancels the dialog:
       if (result == Ci.nsIFilePicker.returnCancel) {
@@ -351,12 +352,20 @@ export class ChromeProfileMigrator extends MigratorBase {
   }
 
   async getLastUsedDate() {
-    let sourceProfiles = await this.getSourceProfiles();
-    if (!sourceProfiles) {
-      return new Date(0);
-    }
     let chromeUserDataPath = await this._getChromeUserDataPathIfExists();
     if (!chromeUserDataPath) {
+      return new Date(0);
+    }
+    if (this.#shouldAvoidReadingData()) {
+      // The profiles can't be read before the user selects the data folder,
+      // but the modification date of Local State can.
+      let info = await IOUtils.stat(
+        PathUtils.join(chromeUserDataPath, "Local State")
+      ).catch(() => null);
+      return new Date(info?.lastModified ?? 0);
+    }
+    let sourceProfiles = await this.getSourceProfiles();
+    if (!sourceProfiles) {
       return new Date(0);
     }
     let datePromises = sourceProfiles.map(async profile => {

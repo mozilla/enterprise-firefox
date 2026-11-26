@@ -5,23 +5,17 @@
 package mozilla.components.compose.menu.ui.customize
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -39,23 +33,23 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CollectionInfo
 import androidx.compose.ui.semantics.collectionInfo
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.button.OutlinedButton
-import mozilla.components.compose.base.button.TextButton
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.compose.menu.R
+import mozilla.components.compose.menu.store.CustomizableMenuAction.EditGroupItemsClicked
 import mozilla.components.compose.menu.store.CustomizableMenuAction.PreviewClicked
-import mozilla.components.compose.menu.store.CustomizableMenuAction.ResetToDefaultClicked
+import mozilla.components.compose.menu.store.CustomizableMenuAction.ResetToDefaultConfirmed
 import mozilla.components.compose.menu.store.CustomizableMenuState
 import mozilla.components.compose.menu.store.CustomizableMenuStore
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.DRAG_BAR
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.DROP_AREA
-import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.HIDDEN_SECTIONS
+import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.HIDDEN_TITLE
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuItemKey.RESET_BUTTON
+import mozilla.components.compose.menu.ui.utils.HIDDEN_SECTIONS_TITLE_PART
 import mozilla.components.compose.menu.ui.utils.customizeMenuPreviewData
 import mozilla.components.compose.menu.ui.utils.ext.saveMove
 import mozilla.components.compose.menu.ui.utils.rememberA11yUpdatesAnnouncer
@@ -71,6 +65,39 @@ import mozilla.components.lib.state.ext.observeAsComposableState
 fun CustomizeMenuContent(
     store: CustomizableMenuStore,
     modifier: Modifier = Modifier,
+) {
+    var isResetDialogShown by rememberSaveable { mutableStateOf(false) }
+    CustomizeMenuCenteredList(modifier = modifier) { leftPadding, rightPadding ->
+        CustomizeMenuList(
+            store = store,
+            leftPadding = leftPadding,
+            rightPadding = rightPadding,
+            onResetToDefaultClick = { isResetDialogShown = true },
+        )
+    }
+
+    if (isResetDialogShown) {
+        ResetToDefaultDialog(
+            onConfirm = {
+                isResetDialogShown = false
+                store.dispatch(ResetToDefaultConfirmed)
+            },
+            onDismiss = { isResetDialogShown = false },
+        )
+    }
+}
+
+/**
+ * Layout for the lists of the customize menu screens, taking the whole width to be scrolled from anywhere, with the
+ * items no wider than the maximum width and centered in the window, as far as the free width allows.
+ *
+ * @param modifier The [Modifier] to be applied to the layout.
+ * @param content The list, given the left and right padding to apply to its content.
+ */
+@Composable
+internal fun CustomizeMenuCenteredList(
+    modifier: Modifier = Modifier,
+    content: @Composable (leftPadding: Dp, rightPadding: Dp) -> Unit,
 ) {
     val windowWidth = LocalWindowInfo.current.containerSize.width
     // How far right of the center of the window this is, when beside a larger notch than navigation bar for example.
@@ -90,19 +117,17 @@ fun CustomizeMenuContent(
             }
         // The items are centered in the window, as far as the free width allows.
         val shift = with(LocalDensity.current) { offCenter.toDp() }.coerceIn(-freeWidth / 2, freeWidth / 2)
-        CustomizeMenuList(
-            store = store,
-            leftPadding = freeWidth / 2 - shift,
-            rightPadding = freeWidth / 2 + shift,
-        )
+        content(freeWidth / 2 - shift, freeWidth / 2 + shift)
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun CustomizeMenuList(
     store: CustomizableMenuStore,
     leftPadding: Dp,
     rightPadding: Dp,
+    onResetToDefaultClick: () -> Unit,
 ) {
     val menuState by store.observeAsComposableState { it }
     val listState = rememberLazyListState()
@@ -112,7 +137,7 @@ private fun CustomizeMenuList(
     var actionsGroupId by rememberSaveable { mutableStateOf<String?>(null) }
     val onMove = { movedGroupId: String, movedGroups: CustomizeMenuGroups, moveAnnouncement: String ->
         movedGroups.listIndexOf(movedGroupId)?.let { listState.moveAndKeepVisible(movedGroupId, it) }
-        store.saveMove(dragState.groups, movedGroupId, movedGroups)
+        store.saveMove(dragState.items, movedGroupId, movedGroups)
         announcer.announce(moveAnnouncement)
     }
 
@@ -133,30 +158,37 @@ private fun CustomizeMenuList(
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        item(key = DRAG_BAR) {
-            CustomizeMenuDragBar({ store.dispatch(PreviewClicked) })
-        }
+        item(key = DRAG_BAR) { DragBarItem(onPreviewClick = { store.dispatch(PreviewClicked) }) }
 
         customizeMenuGroups(
-            menuGroups = dragState.groups.shown,
+            menuGroups = dragState.items.shown,
             dragState = dragState,
             firstIndex = 1,
             itemSpacing = itemSpacing,
             onMove = onMove,
             highlightedGroupId = actionsGroupId,
             onShowActions = { actionsGroupId = it },
+            editAction = { id ->
+                { store.dispatch(EditGroupItemsClicked(id)) }.takeIf { id in menuState.editableGroupIds }
+            },
         )
 
-        item(key = HIDDEN_SECTIONS) {
-            HiddenSectionsItem(dragState = dragState, itemSpacing = itemSpacing)
+        item(key = HIDDEN_TITLE) {
+            HiddenSectionsItem(
+                title = stringResource(R.string.mozac_menu_customize_hidden_sections),
+                dragState = dragState,
+                itemSpacing = itemSpacing,
+            )
         }
 
-        if (!dragState.hasHiddenGroups) {
-            item(key = DROP_AREA) { DropAreaItem(dragState = dragState) }
+        if (!dragState.hasHiddenItems) {
+            item(key = DROP_AREA) {
+                DropAreaItem(text = stringResource(R.string.mozac_menu_customize_drag_to_hide), dragState = dragState)
+            }
         }
 
         customizeMenuGroups(
-            menuGroups = dragState.groups.hidden,
+            menuGroups = dragState.items.hidden,
             dragState = dragState,
             firstIndex = dragState.firstHiddenIndex,
             itemSpacing = itemSpacing,
@@ -171,7 +203,7 @@ private fun CustomizeMenuList(
                 ResetButtonItem(
                     dragState = dragState,
                     itemSpacing = itemSpacing,
-                    onClick = { store.dispatch(ResetToDefaultClicked) },
+                    onClick = onResetToDefaultClick,
                 )
             }
         }
@@ -179,7 +211,7 @@ private fun CustomizeMenuList(
 
     CustomizeMenuSectionActionsSheetOf(
         groupId = actionsGroupId,
-        groups = dragState.groups,
+        groups = dragState.items,
         onMove = onMove,
         onDismissRequest = { actionsGroupId = null },
     )
@@ -252,73 +284,66 @@ private fun CustomizeMenuResetButton(
     }
 }
 
+/**
+ * The [DRAG_BAR] item of the list.
+ *
+ * @param onPreviewClick Called when the "Preview" button is clicked.
+ */
 @Composable
-private fun CustomizeMenuDragBar(
-    onPreviewClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = AcornTheme.layout.space.static600)
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .padding(
-                    start = AcornTheme.layout.space.static200,
-                    end = AcornTheme.layout.space.static100,
-                ),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(R.string.mozac_menu_customize_drag_to_reorder),
-            modifier = Modifier.weight(1f).basicMarquee().semantics { heading() },
-            style = AcornTheme.typography.headline8,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-        )
-        TextButton(
-            text = stringResource(R.string.mozac_menu_customize_preview),
-            onClick = onPreviewClick,
-        )
-    }
+private fun DragBarItem(onPreviewClick: () -> Unit) {
+    CustomizeMenuDragBar(
+        text = stringResource(R.string.mozac_menu_customize_drag_to_reorder),
+        onPreviewClick = onPreviewClick,
+    )
 }
 
 /**
- * The [HIDDEN_SECTIONS] item of the list: the space keeping the hidden sections in place while a shown group is
+ * The [HIDDEN_TITLE] item of the list: the space keeping the hidden groups or items in place while a shown one is
  * dragged, then their title, each a node of the item of its own (see [HiddenAreaSpace]).
  *
- * @param dragState State of dragging the groups of the screen.
+ * @param title The title shown above the hidden groups or items.
+ * @param dragState State of dragging the items of the screen.
  * @param itemSpacing Space between the items of the list.
  */
 @Composable
-private fun LazyItemScope.HiddenSectionsItem(dragState: CustomizeMenuDragState, itemSpacing: Dp) {
+internal fun LazyItemScope.HiddenSectionsItem(title: String, dragState: CustomizeMenuDragState<*>, itemSpacing: Dp) {
     HiddenAreaSpace(
         dragState = dragState,
         itemSpacing = itemSpacing,
-        modifier = Modifier.drawnOnlyInView(HIDDEN_SECTIONS, dragState).animateItem(),
+        modifier = Modifier.drawnOnlyInView(HIDDEN_TITLE, dragState).animateItem(),
     )
-    CustomizeMenuHiddenSectionsTitle(
+    CustomizeMenuHiddenTitle(
+        text = title,
         modifier =
-            Modifier.drawnOnlyInView(HIDDEN_SECTIONS, dragState)
+            Modifier.drawnOnlyInView(HIDDEN_TITLE, dragState)
                 .animateItem()
-                .padding(top = itemSpacing)
-                .dropLine(HIDDEN_SECTIONS, dragState.dropTarget, itemSpacing, placeAfter = true)
+                .dropLineSpace(
+                    key = HIDDEN_TITLE,
+                    isDragged = false,
+                    dropTarget = dragState.dropTarget,
+                    extraSpace = dragState.extraSpace,
+                    itemSpacing = itemSpacing,
+                    part = HIDDEN_SECTIONS_TITLE_PART,
+                    sides = setOf(DropLineSpace.BELOW),
+                )
+                .padding(top = itemSpacing),
     )
 }
 
 /**
- * The [DROP_AREA] item of the list, where shown groups are dropped to hide them while none is hidden.
+ * The [DROP_AREA] item of the list, where shown groups or items are dropped to hide them while none is hidden.
  *
- * @param dragState State of dragging the groups of the screen.
+ * @param text What to tell the user to drag into it.
+ * @param dragState State of dragging the items of the screen.
  */
 @Composable
-private fun LazyItemScope.DropAreaItem(dragState: CustomizeMenuDragState) {
+internal fun LazyItemScope.DropAreaItem(text: String, dragState: CustomizeMenuDragState<*>) {
     val isDropTarget by
         remember(dragState.dropTarget) {
             derivedStateOf { dragState.dropTarget.value == CustomizeMenuDropTarget.EmptyHiddenArea }
         }
     CustomizeMenuDropArea(
+        text = text,
         isDropTarget = isDropTarget,
         modifier = Modifier.drawnOnlyInView(DROP_AREA, dragState).animateItem(),
     )
@@ -327,81 +352,16 @@ private fun LazyItemScope.DropAreaItem(dragState: CustomizeMenuDragState) {
 /**
  * The [RESET_BUTTON] item of the list.
  *
- * @param dragState State of dragging the groups of the screen.
+ * @param dragState State of dragging the items of the screen.
  * @param itemSpacing Space between the items of the list.
  * @param onClick Called when the button is clicked.
  */
 @Composable
-private fun LazyItemScope.ResetButtonItem(dragState: CustomizeMenuDragState, itemSpacing: Dp, onClick: () -> Unit) {
+private fun LazyItemScope.ResetButtonItem(dragState: CustomizeMenuDragState<*>, itemSpacing: Dp, onClick: () -> Unit) {
     CustomizeMenuResetButton(
         onClick = onClick,
         modifier = Modifier.drawnOnlyInView(RESET_BUTTON, dragState).animateItem().padding(top = itemSpacing),
     )
-}
-
-@Composable
-private fun CustomizeMenuHiddenSectionsTitle(modifier: Modifier = Modifier) {
-    Text(
-        text = stringResource(R.string.mozac_menu_customize_hidden_sections),
-        modifier =
-            modifier
-                .semantics { heading() }
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = AcornTheme.layout.space.static600)
-                .padding(
-                    start = AcornTheme.layout.space.static200,
-                    end = AcornTheme.layout.space.static100,
-                    top = AcornTheme.layout.space.static100,
-                    bottom = AcornTheme.layout.space.static50,
-                )
-                .wrapContentHeight(Alignment.CenterVertically),
-        style = AcornTheme.typography.headline8,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-/**
- * The empty area to drag groups into to hide them.
- *
- * @param isDropTarget Whether a dragged group is dropped into it, which highlights it.
- * @param modifier The [Modifier] to be applied to the area.
- */
-@Composable
-private fun CustomizeMenuDropArea(isDropTarget: Boolean, modifier: Modifier = Modifier) {
-    Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(
-                    start = AcornTheme.layout.space.static200,
-                    top = AcornTheme.layout.space.static150,
-                    end = AcornTheme.layout.space.static200,
-                )
-                .then(
-                    if (isDropTarget) {
-                        Modifier.background(
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            shape = MaterialTheme.shapes.extraLarge,
-                        )
-                    } else {
-                        Modifier
-                    }
-                )
-                .hiddenSectionBorder(isHighlighted = isDropTarget)
-                .defaultMinSize(minHeight = 72.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = stringResource(R.string.mozac_menu_customize_drag_to_hide),
-            style = AcornTheme.typography.body2,
-            color =
-                if (isDropTarget) {
-                    MaterialTheme.colorScheme.tertiary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-        )
-    }
 }
 
 @PreviewLightDark

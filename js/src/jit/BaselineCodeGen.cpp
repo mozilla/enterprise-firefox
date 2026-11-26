@@ -5710,7 +5710,7 @@ bool BaselineCodeGen<Handler>::emit_CanSkipAwait() {
   frame.syncStack(0);
 
   // The await can only be skipped when this is the first frame of its
-  // activation. See js::CanSkipAwait.
+  // activation. See js::CanSkipAwaitFromOp.
   Label notEntryFrame, done;
   masm.branchIfNotActivationEntryFrame(R1.scratchReg(), &notEntryFrame);
 
@@ -5720,7 +5720,7 @@ bool BaselineCodeGen<Handler>::emit_CanSkipAwait() {
   pushArg(R0);
 
   using Fn = bool (*)(JSContext*, HandleValue, bool* canSkip);
-  if (!callVM<Fn, js::CanSkipAwait>()) {
+  if (!callVM<Fn, js::CanSkipAwaitFromOp>()) {
     return false;
   }
   masm.jump(&done);
@@ -5748,7 +5748,7 @@ bool BaselineCodeGen<Handler>::emit_MaybeExtractAwaitValue() {
   pushArg(R0);
 
   using Fn = bool (*)(JSContext*, HandleValue, MutableHandleValue);
-  if (!callVM<Fn, js::ExtractAwaitValue>()) {
+  if (!callVM<Fn, js::ExtractAwaitValueFromOp>()) {
     return false;
   }
 
@@ -6317,7 +6317,7 @@ bool BaselineCodeGen<Handler>::emit_Generator() {
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emitSuspend(JSOp op) {
   MOZ_ASSERT(op == JSOp::InitialYield || op == JSOp::Yield ||
-             op == JSOp::Await);
+             op == JSOp::AwaitThenYield || op == JSOp::Await);
 
   // Load the generator object in R2, but leave the return value on the
   // expression stack.
@@ -6400,6 +6400,11 @@ bool BaselineCodeGen<Handler>::emit_InitialYield() {
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emit_Yield() {
   return emitSuspend(JSOp::Yield);
+}
+
+template <typename Handler>
+bool BaselineCodeGen<Handler>::emit_AwaitThenYield() {
+  return emitSuspend(JSOp::AwaitThenYield);
 }
 
 template <typename Handler>

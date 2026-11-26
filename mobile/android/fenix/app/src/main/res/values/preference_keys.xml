@@ -29,6 +29,8 @@
     <string name="pref_key_has_shown_ip_protection_prompt" translatable="false">pref_key_has_shown_ip_protection_prompt</string>
     <string name="pref_key_ip_protection_settings" translatable="false">pref_key_ip_protection_settings</string>
     <string name="pref_key_ip_protection_last_data_limit_notice_cycle_reset_time" translatable="false">pref_key_ip_protection_last_data_limit_notice_cycle_reset_time</string>
+    <string name="pref_key_ip_protection_last_usage_cycle_reset_time" translatable="false">pref_key_ip_protection_last_usage_cycle_reset_time</string>
+    <string name="pref_key_ip_protection_usage_quota_reset_prompt_pending" translatable="false">pref_key_ip_protection_usage_quota_reset_prompt_pending</string>
     <string name="pref_key_enable_ip_protection_locations" translatable="false">pref_key_enable_ip_protection_locations</string>
     <string name="pref_key_data_choices" translatable="false">pref_key_data_choices</string>
     <string name="pref_key_delete_browsing_data" translatable="false">pref_key_delete_browsing_data</string>
@@ -58,7 +60,6 @@
     <string name="pref_key_rate" translatable="false">pref_key_rate</string>
     <string name="pref_key_about" translatable="false">pref_key_about</string>
     <string name="pref_key_account" translatable="false">pref_key_account</string>
-    <string name="pref_key_sign_in" translatable="false">pref_key_sign_in</string>
     <string name="pref_key_sign_in_promo" translatable="false">pref_key_sign_in_promo</string>
     <string name="pref_key_account_auth_error" translatable="false">pref_key_account_auth_error</string>
     <string name="pref_key_sync_debug" translatable="false">pref_key_sync_debug</string>
@@ -417,6 +418,8 @@
     <string name="pref_key_top_sites_max_limit" translatable="false">pref_key_top_sites_max_limit</string>
     <!-- Whether or not the top sites section is shown on the home screen -->
     <string name="pref_key_show_top_sites" translatable="false">pref_key_show_top_sites</string>
+    <!-- Whether or not the top frecent sites are shown along with the pinned top sites -->
+    <string name="pref_key_show_top_frecent_sites" translatable="false">pref_key_show_top_frecent_sites</string>
     <!-- Whether or not the sponsored shortcuts are shown along with the top recent sites shortcuts -->
     <string name="pref_key_enable_contile" translatable="false">pref_key_enable_contile</string>
     <!-- Query containing the search parameters to be hidden from the top frecent sites  -->
@@ -506,7 +509,6 @@
     <string name="pref_key_should_show_custom_tab_extensions" translatable="false">pref_key_should_show_custom_tab_extensions</string>
     <string name="pref_key_enable_homepage_as_new_tab" translatable="false">pref_key_enable_homepage_as_new_tab</string>
     <string name="pref_key_enable_ads_client_for_stories" translatable="false">pref_key_enable_ads_client_for_stories</string>
-    <string name="pref_key_show_more_shortcuts" translatable="false">pref_key_show_more_shortcuts</string>
     <string name="pref_key_enable_picture_in_picture_window" translatable="false">pref_key_enable_picture_in_picture_window</string>
     <string name="pref_key_enable_homepage_weather_widget" translatable="false">pref_key_enable_homepage_weather_widget</string>
     <string name="pref_key_show_homepage_weather_widget" translatable="false">pref_key_show_homepage_weather_widget</string>
@@ -527,6 +529,7 @@
     <string name="pref_key_enable_homepage_customization" translatable="false">pref_key_enable_homepage_customization</string>
     <string name="pref_key_enable_homepage_trending_recent_search" translatable="false">pref_key_enable_homepage_trending_recent_search</string>
     <string name="pref_key_enable_menu_customization_screen" translatable="false">pref_key_enable_menu_customization_screen</string>
+    <string name="pref_key_enable_tools_menu_customization" translatable="false">pref_key_enable_tools_menu_customization</string>
     <string name="pref_key_enable_account_settings_new_ui" translatable="false">pref_key_enable_account_settings_new_ui</string>
     <string name="pref_key_enable_sync_decoupling" translatable="false">pref_key_enable_sync_decoupling</string>
     <!-- Renamed when the QWAC UI moved to Nimbus, so that values saved from the old XML default of false are ignored. -->
