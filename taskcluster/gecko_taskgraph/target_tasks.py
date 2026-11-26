@@ -608,11 +608,15 @@ ENTERPRISE_SKIPPED_KINDS = {
     "web-platform-tests",
     "reftest",
     # Fenix only, and enterprise has no Fenix
+    "build-apk",
+    "build-bundle",
+    "build-samples-browser",
     "instrumented-build-apk",
     "generate-baseline-profile-firebase",
     "instrumented-build-macrobenchmark-apk",
     "run-macrobenchmark-firebase",
     "ui-test-apk",
+    "test-components",
 }
 
 # No scopes for proj-autophone workers
@@ -621,9 +625,17 @@ ENTERPRISE_SKIPPED_PROVISIONERS = {"proj-autophone"}
 # They require special hardware and credentials
 ENTERPRISE_SKIPPED_TEST_PLATFORMS = ("windows11-aarch64",)
 
-# Android tasks kept on enterprise; the builds come in as dependencies of their
-# symbol upload. Linters are kept as well, everything else is dropped.
+# Android tasks kept on enterprise. Linters are kept as well, everything else
+# is dropped.
 ENTERPRISE_KEPT_ANDROID_KINDS = {"build", "upload-symbols"}
+
+# Builds forced on enterprise even though they are not flagged with the project
+# in `run_on_projects`. They must be targets themselves: their symbol upload
+# alone does not keep them, as `if_dependencies` pruning removes both.
+ENTERPRISE_FORCED_BUILDS = {
+    "build-android-aarch64/debug",
+    "build-android-x86_64/debug",
+}
 
 
 def is_lint(task):
@@ -698,8 +710,10 @@ def target_tasks_enterprise_firefox_with_tests(
         test_platform = task.attributes.get("test_platform")
 
         # Only keep builds that have been explicitely flagged
-        if task.kind == "build" and not parameters["project"] in task.attributes.get(
-            "run_on_projects"
+        if (
+            task.kind == "build"
+            and task.label not in ENTERPRISE_FORCED_BUILDS
+            and not parameters["project"] in task.attributes.get("run_on_projects")
         ):
             return False
 
