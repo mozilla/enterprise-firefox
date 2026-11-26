@@ -10,17 +10,23 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -31,6 +37,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import mozilla.components.compose.base.R as baseR
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.base.theme.AcornTheme
+import mozilla.components.compose.base.theme.layout.AcornLayout
+import mozilla.components.compose.base.theme.layout.AcornSpace
 import mozilla.components.compose.menu.R
 import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.MenuItemsGroup
@@ -478,6 +486,84 @@ class CustomizeMenuContentTest {
     }
 
     @Test
+    fun `WHEN a section is dragged below another section THEN the line showing where it is dropped takes space after that section`() {
+        setContent(menuState(shown = listOf(row("Shown 1"), row("Shown 2"), row("Shown 3"))))
+        val oldGap = gapBetween("Shown 2", "Shown 3")
+
+        longPressAndMove(title = "Shown 1", to = { boundsOf("Shown 2").bottomCenter })
+
+        assertEquals(oldGap + dropLineSpace(), gapBetween("Shown 2", "Shown 3"), 0.5f)
+        release()
+    }
+
+    @Test
+    fun `WHEN a section is dragged above the first section THEN the line showing where it is dropped takes space before it`() {
+        setContent(menuState(shown = listOf(row("Shown 1"), row("Shown 2"), row("Shown 3"))))
+        val oldTop = boundsOf("Shown 1").top
+
+        longPressAndMove(title = "Shown 3", to = { Offset(boundsOf("Shown 1").center.x, oldTop) })
+
+        assertEquals(oldTop + dropLineSpace(), boundsOf("Shown 1").top, 0.5f)
+        release()
+    }
+
+    @Test
+    fun `WHEN a section is dragged back to where it was THEN the line showing it is dropped there takes space where the section was`() {
+        setContent(menuState(shown = listOf(row("Shown 1"), row("Shown 2"), row("Shown 3"))))
+        val oldGap = gapBetween("Shown 1", "Shown 2")
+        val shown2 = boundsOf("Shown 2")
+
+        longPressAndMove(title = "Shown 2", to = { shown2.topCenter })
+
+        assertEquals(oldGap + dropLineSpace(), gapBetween("Shown 1", "Shown 3"), 0.5f)
+        release()
+    }
+
+    @Test
+    fun `WHEN a section dragged back to where it was is let go THEN the line showing where it is dropped takes no more space`() {
+        setContent(menuState(shown = listOf(row("Shown 1"), row("Shown 2"), row("Shown 3"))))
+        val oldGap = gapBetween("Shown 1", "Shown 2")
+        val shown2 = boundsOf("Shown 2")
+
+        longPressAndDrag(title = "Shown 2", to = { shown2.topCenter })
+
+        assertEquals(oldGap, gapBetween("Shown 1", "Shown 2"), 0.5f)
+    }
+
+    @Test
+    fun `WHEN the gesture dragging a section is cancelled THEN the line showing where it is dropped takes no more space`() {
+        setContent(menuState(shown = listOf(row("Shown 1"), row("Shown 2"), row("Shown 3"))))
+        val oldGap = gapBetween("Shown 2", "Shown 3")
+
+        longPressAndMove(title = "Shown 1", to = { boundsOf("Shown 2").bottomCenter })
+        cancelGesture()
+
+        assertEquals(oldGap, gapBetween("Shown 2", "Shown 3"), 0.5f)
+    }
+
+    @Test
+    fun `WHEN a hidden section is dragged onto the bottom of the hidden sections title THEN the line showing where it is dropped takes space above the title`() {
+        setContent(menuState(shown = listOf(row("Shown 1"), row("Shown 2")), hidden = listOf(row("Hidden"))))
+        val oldGap = gapBetween("Shown 2", hiddenSectionsTitle)
+
+        longPressAndMove(title = "Hidden", to = { boundsOf(hiddenSectionsTitle).bottomCenter })
+
+        assertEquals(oldGap + dropLineSpace(), gapBetween("Shown 2", hiddenSectionsTitle), 0.5f)
+        release()
+    }
+
+    @Test
+    fun `GIVEN hidden sections WHEN a shown section is dragged over them THEN the line showing where it is dropped takes space below the hidden sections title`() {
+        setContent(menuState(shown = listOf(row("Shown 1"), row("Shown 2")), hidden = listOf(row("Hidden"))))
+        val oldGap = gapBetween(hiddenSectionsTitle, "Hidden")
+
+        longPressAndMove(title = "Shown 1", to = { boundsOf("Hidden").topCenter })
+
+        assertEquals(oldGap + dropLineSpace(), gapBetween(hiddenSectionsTitle, "Hidden"), 0.5f)
+        release()
+    }
+
+    @Test
     fun `GIVEN hidden sections WHEN a shown section is dragged among the shown sections THEN the shown sections below it take its space AND the hidden sections stay where they are`() {
         setContent(
             menuState(
@@ -878,6 +964,73 @@ class CustomizeMenuContentTest {
         assertEquals(listOf("Shown 2", "Shown 3", "Shown 1"), shownIds(store))
     }
 
+    @Test
+    fun `GIVEN sections whose items can be edited THEN only the shown ones have the button editing them`() {
+        setContent(
+            menuState(
+                shown = listOf(row("Editable"), row("Other")),
+                hidden = listOf(row("Hidden editable")),
+                editableIds = setOf("Editable", "Hidden editable"),
+            )
+        )
+
+        composeTestRule.onAllNodesWithTag(EDIT_GROUP_ITEMS_BUTTON_TAG, useUnmergedTree = true).assertCountEquals(1)
+        composeTestRule
+            .onAllNodes(hasTestTag(EDIT_GROUP_ITEMS_BUTTON_TAG) and sectionAncestor("Editable"), useUnmergedTree = true)
+            .assertCountEquals(1)
+        composeTestRule
+            .onAllNodes(hasTestTag(EDIT_GROUP_ITEMS_BUTTON_TAG) and sectionAncestor("Other"), useUnmergedTree = true)
+            .assertCountEquals(0)
+    }
+
+    @Test
+    fun `WHEN a section whose items can be edited is dragged THEN it has no button nor action editing them AND has them again once dropped`() {
+        val editItems = testContext.getString(R.string.mozac_menu_customize_edit_items)
+        setContent(menuState(shown = listOf(row("Editable"), row("Other")), editableIds = setOf("Editable")))
+        assertTrue(editItems in customActionLabelsOf("Editable"))
+
+        longPressAndMove(title = "Editable", to = { boundsOf("Other").bottomCenter })
+
+        composeTestRule.onAllNodes(hasContentDescription("Editable", substring = true)).assertCountEquals(1)
+        composeTestRule.onAllNodesWithTag(EDIT_GROUP_ITEMS_BUTTON_TAG, useUnmergedTree = true).assertCountEquals(0)
+        assertTrue(editItems !in customActionLabelsOf("Editable"))
+
+        release()
+
+        composeTestRule.onAllNodesWithTag(EDIT_GROUP_ITEMS_BUTTON_TAG, useUnmergedTree = true).assertCountEquals(1)
+        assertTrue(editItems in customActionLabelsOf("Editable"))
+    }
+
+    @Test
+    fun `GIVEN no section whose items can be edited THEN no section has the button editing its items`() {
+        setContent(menuState(shown = listOf(row("First"), row("Second"))))
+
+        composeTestRule.onAllNodesWithTag(EDIT_GROUP_ITEMS_BUTTON_TAG, useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `WHEN the user taps the button editing the items of a section THEN tell the store`() {
+        val actions = mutableListOf<CustomizableMenuAction>()
+        val captureActions: Middleware<CustomizableMenuState, CustomizableMenuAction> = { _, next, action ->
+            actions.add(action)
+            next(action)
+        }
+        setContent(menuState(shown = listOf(row("Editable")), editableIds = setOf("Editable")), listOf(captureActions))
+
+        composeTestRule.onNodeWithTag(EDIT_GROUP_ITEMS_BUTTON_TAG, useUnmergedTree = true).performClick()
+
+        assertTrue(CustomizableMenuAction.EditGroupItemsClicked("Editable") in actions)
+    }
+
+    private fun sectionAncestor(itemNames: String) = hasAnyAncestor(hasContentDescription(itemNames, substring = true))
+
+    private fun customActionLabelsOf(itemNames: String) =
+        composeTestRule
+            .onAllNodes(hasContentDescription(itemNames, substring = true))
+            .fetchSemanticsNodes()
+            .flatMap { it.config.getOrElse(SemanticsActions.CustomActions) { emptyList() } }
+            .map { it.label }
+
     private fun setContent(
         state: CustomizableMenuState,
         middleware: List<Middleware<CustomizableMenuState, CustomizableMenuAction>> = emptyList(),
@@ -912,6 +1065,14 @@ class CustomizeMenuContentTest {
             assertEquals(at, boundsOf(hiddenSectionsTitle))
         }
     }
+
+    private fun gapBetween(above: String, below: String) = boundsOf(below).top - boundsOf(above).bottom
+
+    /** Space the drop line takes: the spacing between sections plus the line's thickness. */
+    private fun dropLineSpace() =
+        with(composeTestRule.density) {
+            (AcornSpace.Small.static150.roundToPx() + AcornLayout.AcornBorder.heaviest.roundToPx()).toFloat()
+        }
 
     private fun rootBounds() = composeTestRule.onRoot().fetchSemanticsNode().boundsInRoot
 
@@ -1040,12 +1201,14 @@ class CustomizeMenuContentTest {
         hidden: List<MenuItemsGroup> = emptyList(),
         mandatoryIds: Set<String> = emptySet(),
         isCustomized: Boolean = false,
+        editableIds: Set<String> = emptySet(),
     ) =
         CustomizableMenuState(
             menuGroups = shown + hidden,
             mandatoryGroupIds = mandatoryIds,
             hiddenGroupIds = hidden.map { it.id }.toSet(),
             isCustomized = isCustomized,
+            editableGroupIds = editableIds,
         )
 
     private fun row(title: String) = row(id = title, title)

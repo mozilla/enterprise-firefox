@@ -48,6 +48,7 @@
 #include "mozilla/webrender/RenderThread.h"
 #include "mozilla/widget/CompositorWidget.h"
 #include "nsExceptionHandler.h"
+#include "nsXULAppAPI.h"
 
 #ifdef XP_WIN
 #  include "mozilla/gfx/DeviceManagerDx.h"
@@ -2307,7 +2308,7 @@ void WebRenderBridgeParent::AddPipelineIdForCompositable(
       break;
     case CompositableHandleOwner::ImageBridge: {
       RefPtr<ImageBridgeParent> imageBridge =
-          ImageBridgeParent::GetInstance(OtherPid());
+          ImageBridgeParent::GetInstance(OtherChildID());
       if (!imageBridge) {
         return;
       }
@@ -3341,9 +3342,7 @@ void WebRenderBridgeParent::NotifyNotUsed(PTextureParent* aTexture,
   MOZ_ASSERT_UNREACHABLE("unexpected to be called");
 }
 
-base::ProcessId WebRenderBridgeParent::GetChildProcessId() {
-  return OtherPid();
-}
+GeckoChildID WebRenderBridgeParent::GetChildID() { return OtherChildID(); }
 
 dom::ContentParentId WebRenderBridgeParent::GetContentId() {
   MOZ_ASSERT(mCompositorBridge);
@@ -3351,7 +3350,7 @@ dom::ContentParentId WebRenderBridgeParent::GetContentId() {
 }
 
 bool WebRenderBridgeParent::IsSameProcess() const {
-  return OtherPid() == base::GetCurrentProcId();
+  return OtherChildID() == XRE_GetChildID();
 }
 
 mozilla::ipc::IPCResult WebRenderBridgeParent::RecvNewCompositable(

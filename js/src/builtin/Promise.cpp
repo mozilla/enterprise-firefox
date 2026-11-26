@@ -3713,8 +3713,8 @@ static bool PromiseResolveBuiltinThenableJob(JSContext* cx,
  *
  * Returns true in *needsDeferral if the synchronous steps of resolving a
  * promise with `value` _might_ execute user code: e.g.
- * - a Proxy or other exotic object on the prototype chain, an accessor with a
- *   getter for `"then"`, or a callable data-property `"then"`.
+ * - a Proxy or other exotic object on the prototype chain, or an accessor with
+ *   a getter for `"then"`.
  *
  */
 static void RequiresDeferredPromiseResolution(HandleValue value, JSContext* cx,
@@ -3741,21 +3741,9 @@ static void RequiresDeferredPromiseResolution(HandleValue value, JSContext* cx,
 
   MOZ_ASSERT(prop.isNativeProperty());
 
+  // PropertyAccessCouldRunUserCode: Getter needs deferral.
   PropertyInfo propInfo = prop.propertyInfo();
-  if (propInfo.isAccessorProperty()) {
-    // PropertyAccessCouldRunUserCode: Getter needs deferral.
-    *needsDeferral = holder->hasGetter(propInfo);
-    return;
-  }
-
-  MOZ_ASSERT(propInfo.isDataProperty());
-
-  // Read the data property's value from the holder found by the lookup above,
-  // rather than looking "then" up a second time.
-  Value thenVal = holder->getSlot(propInfo.slot());
-
-  *needsDeferral = IsCallable(thenVal);
-  return;
+  *needsDeferral = propInfo.isAccessorProperty() && holder->hasGetter(propInfo);
 }
 
 /**
@@ -3856,7 +3844,7 @@ static void RequiresDeferredPromiseResolution(HandleValue value, JSContext* cx,
  * SafePromiseResolve (promiseCapability, resolution)
  *
  * Resolves `promise` with `resolution`. If the synchronous resolution steps
- * might run user code (Proxy, accessor, or callable "then" data property),
+ * might run user code (Proxy or other exotic object, or a "then" getter),
  * mark the promise's resolving functions as no-ops and defer the actual
  * PerformPromiseResolution steps to a freshly-enqueued microtask.
  *
@@ -9120,45 +9108,69 @@ void PromiseObject::dumpOwnFields(js::JSONPrinter& json) const {
 void PromiseObject::dumpOwnStringContent(js::GenericPrinter& out) const {}
 #endif
 
-// We can skip `await` with an already resolved value only if the current frame
-// is the topmost JS frame and the current job is the last job in the job queue.
-// This guarantees that any new job enqueued in the current turn will be
-// executed immediately after the current job.
+// The stack CanSkipAwait requires for skipping an await.
+enum class AwaitStack {
+  OnlyAsyncFrame,
+  Empty,
+};
+
+// We can skip `await` with an already resolved value only if no other JS code
+// is on the stack and the current job is the last job in the job queue. This
+// guarantees that any new job enqueued in the current turn will be executed
+// immediately after the current job.
 //
-// The predicate is split across the JSOp::CanSkipAwait op and this function:
+// There are two cases:
 //
-//  - The op calls js::CanSkipAwait iff the stack frame is the first frame of
-//    its activation. Checking this in JIT code is much cheaper than checking it
-//    here in C++.
+//  * AwaitStack::OnlyAsyncFrame: the await is performed by JSOp::CanSkipAwait
+//    and can be skipped only if the async function's frame is the only JS
+//    frame. The predicate is split across the op and this function:
 //
-//  - js::CanSkipAwait then requires the activation to have been entered to
-//    resume a suspended async function and to be the context's only activation.
+//    - The op calls js::CanSkipAwaitFromOp iff the stack frame is the first
+//      frame of its activation. Checking this in JIT code is much cheaper than
+//      checking it here in C++.
 //
-// This lets us avoid an expensive frame iteration in non-debug builds.
-[[nodiscard]] bool js::CanSkipAwait(JSContext* cx, HandleValue val,
-                                    bool* canSkip) {
+//    - CanSkipAwait then requires the activation to have been entered to
+//      resume a suspended async function and to be the context's only
+//      activation.
+//
+//    This lets us avoid an expensive frame iteration in non-debug builds.
+//
+//  * AwaitStack::Empty: the await is performed by the runtime after the async
+//    generator has been suspended and can be skipped only if there are no JS
+//    activations on the stack.
+template <AwaitStack Stack>
+[[nodiscard]] static bool CanSkipAwait(JSContext* cx, HandleValue val,
+                                       bool* canSkip) {
   if (!cx->canSkipEnqueuingJobs) {
     *canSkip = false;
     return true;
   }
 
-  // The op already established the stack frame is the first frame of its
-  // activation. Ensure the activation is a resume and the sole activation.
-  Activation* act = cx->activation();
-  if (!act->enteredForGeneratorResume() || act->prev()) {
-    *canSkip = false;
-    return true;
-  }
+  if constexpr (Stack == AwaitStack::OnlyAsyncFrame) {
+    // The op already established the stack frame is the first frame of its
+    // activation. Ensure the activation is a resume and the sole activation.
+    Activation* act = cx->activation();
+    if (!act->enteredForGeneratorResume() || act->prev()) {
+      *canSkip = false;
+      return true;
+    }
 
-  // In debug builds, assert our JS caller is the only frame on the stack.
+    // In debug builds, assert our JS caller is the only frame on the stack.
 #ifdef DEBUG
-  FrameIter iter(cx);
-  MOZ_ASSERT(!iter.done());
-  MOZ_ASSERT(iter.isFunctionFrame(), "CanSkipAwait is only used for functions");
-  MOZ_ASSERT(iter.calleeTemplate()->isAsync());
-  ++iter;
-  MOZ_ASSERT(iter.done());
+    FrameIter iter(cx);
+    MOZ_ASSERT(!iter.done());
+    MOZ_ASSERT(iter.isFunctionFrame(),
+               "CanSkipAwait is only used for functions");
+    MOZ_ASSERT(iter.calleeTemplate()->isAsync());
+    ++iter;
+    MOZ_ASSERT(iter.done());
 #endif
+  } else {
+    if (cx->activation()) {
+      *canSkip = false;
+      return true;
+    }
+  }
 
   // Primitive values cannot be 'thenables', so we can trivially skip the
   // await operation.
@@ -9208,13 +9220,24 @@ void PromiseObject::dumpOwnStringContent(js::GenericPrinter& out) const {}
   return true;
 }
 
-[[nodiscard]] bool js::ExtractAwaitValue(JSContext* cx, HandleValue val,
-                                         MutableHandleValue resolved) {
+[[nodiscard]] bool js::CanSkipAwaitFromOp(JSContext* cx, HandleValue val,
+                                          bool* canSkip) {
+  return CanSkipAwait<AwaitStack::OnlyAsyncFrame>(cx, val, canSkip);
+}
+
+[[nodiscard]] bool js::CanSkipAwaitAfterSuspend(JSContext* cx, HandleValue val,
+                                                bool* canSkip) {
+  return CanSkipAwait<AwaitStack::Empty>(cx, val, canSkip);
+}
+
+template <AwaitStack Stack>
+[[nodiscard]] static bool ExtractAwaitValue(JSContext* cx, HandleValue val,
+                                            MutableHandleValue resolved) {
 // Ensure all callers of this are jumping past the
 // extract if it's not possible to extract.
 #ifdef DEBUG
   bool canSkip;
-  if (!CanSkipAwait(cx, val, &canSkip)) {
+  if (!CanSkipAwait<Stack>(cx, val, &canSkip)) {
     return false;
   }
   MOZ_ASSERT(canSkip == true);
@@ -9236,6 +9259,16 @@ void PromiseObject::dumpOwnStringContent(js::GenericPrinter& out) const {}
   }
 
   return true;
+}
+
+[[nodiscard]] bool js::ExtractAwaitValueFromOp(JSContext* cx, HandleValue val,
+                                               MutableHandleValue resolved) {
+  return ExtractAwaitValue<AwaitStack::OnlyAsyncFrame>(cx, val, resolved);
+}
+
+[[nodiscard]] bool js::ExtractAwaitValueAfterSuspend(
+    JSContext* cx, HandleValue val, MutableHandleValue resolved) {
+  return ExtractAwaitValue<AwaitStack::Empty>(cx, val, resolved);
 }
 
 // Unwrap an object, and return the unwrapped ptr iff it's not a

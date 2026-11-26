@@ -37,10 +37,7 @@ skip-if = ["enterprise"]
 
 ["browser_browserIcon.js"]
 run-if = [
-  "os == 'win'",
-]
-skip-if = [
-  "msix", # The custom browser icon feature is currently unsupported on packaged (MSIX) builds.
+  "os == 'win' && !msix", # The custom browser icon feature is currently unsupported on packaged (MSIX) builds.
 ]
 
 ["browser_bug1018066_resetScrollPosition.js"]
@@ -54,11 +51,6 @@ skip-if = [
 ["browser_colors_dialog.js"]
 
 ["browser_extension_controlled.js"]
-skip-if = [
-  "true", # Bug 2084686 this will require significant changes to work with SRD UI
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && ccov", # Linux: bug 1613530
-  "os == 'win' && ccov",                                                                    # Windows: bug 1437051
-]
 
 ["browser_fluent.js"]
 

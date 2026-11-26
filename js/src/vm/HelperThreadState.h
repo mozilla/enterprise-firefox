@@ -434,14 +434,8 @@ class GlobalHelperThreadState {
 
   void runPendingSourceCompressions(JSRuntime* runtime);
 
-  void trace(JSTracer* trc);
-
   void waitForAllTasks();
   void waitForAllTasksLocked(AutoLockHelperThreadState&);
-
-#ifdef DEBUG
-  bool hasOffThreadIonCompile(Zone* zone, AutoLockHelperThreadState& lock);
-#endif
 
   void cancelOffThreadBaselineCompile(const CompilationSelector& selector);
   void cancelOffThreadIonCompile(const CompilationSelector& selector,

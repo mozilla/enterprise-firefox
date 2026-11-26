@@ -759,6 +759,13 @@ void XPCJSRuntime::TraceAdditionalNativeGrayRoots(JSTracer* trc) {
   XPCWrappedNativeScope::TraceWrappedNativesInAllScopes(this, trc);
 }
 
+static CompartmentPrivate::RemoteProxyMap& RemoteProxyMapForScope(
+    XPCWrappedNativeScope* aScope) {
+  CompartmentPrivate* priv = CompartmentPrivate::Get(aScope->Compartment());
+  MOZ_ASSERT(priv);
+  return priv->GetRemoteProxyMap();
+}
+
 void XPCJSRuntime::TraverseAdditionalNativeRoots(
     nsCycleCollectionNoteRootCallback& cb) {
   XPCWrappedNativeScope::SuspectAllWrappers(cb);
@@ -767,6 +774,19 @@ void XPCJSRuntime::TraverseAdditionalNativeRoots(
   for (auto* wjs : mSubjectToFinalizationWJS) {
     MOZ_DIAGNOSTIC_ASSERT(wjs->IsSubjectToFinalization());
     cb.NoteXPCOMRoot(ToSupports(wjs), parti);
+  }
+
+  // There is a one-to-one mapping between XPCWrappedNativeScope and
+  // CompartmentPrivate, so iterating over mWrappedNativeScopes visits every
+  // remote proxy map.
+  for (XPCWrappedNativeScope* scope : mWrappedNativeScopes) {
+    auto& map = RemoteProxyMapForScope(scope);
+    for (auto iter = map.iter(); !iter.done(); iter.next()) {
+      JSObject* proxy = iter.get().value().unbarrieredGet();
+      if (JS::ObjectIsMarkedGray(proxy) || cb.WantAllTraces()) {
+        cb.NoteJSRoot(proxy);
+      }
+    }
   }
 }
 
@@ -798,6 +818,24 @@ void XPCJSRuntime::EndCycleCollectionCallback(CycleCollectorResults& aResults) {
 
 void XPCJSRuntime::DispatchDeferredDeletion(bool aContinuation, bool aPurge) {
   mAsyncSnowWhiteFreer->Start(aContinuation, aPurge);
+}
+
+void XPCJSRuntime::ClearWhiteJSWeakReferences(
+    JS::ShouldClearWeakRefTargetCallback aCallback, void* aData) {
+  CycleCollectedJSRuntime::ClearWhiteJSWeakReferences(aCallback, aData);
+
+  // There is a one-to-one mapping between XPCWrappedNativeScope and
+  // CompartmentPrivate, so iterating over mWrappedNativeScopes visits every
+  // remote proxy map.
+  for (XPCWrappedNativeScope* scope : mWrappedNativeScopes) {
+    auto& map = RemoteProxyMapForScope(scope);
+    for (auto iter = map.modIter(); !iter.done(); iter.next()) {
+      JSObject* proxy = iter.get().value().unbarrieredGet();
+      if (aCallback(JS::GCCellPtr(proxy), aData)) {
+        iter.remove();
+      }
+    }
+  }
 }
 
 void xpc_UnmarkSkippableJSHolders() {
@@ -1475,7 +1513,7 @@ static void ReportZoneStats(const JS::ZoneStats& zStats,
                  "Shared compiled regexp data.");
 
   ZRREPORT_BYTES(pathPrefix + "zone-object"_ns, zStats.zoneObject,
-                 "The JS::Zone object itself.");
+                 "The JS::Zone object itself and its atom cache.");
 
   ZRREPORT_BYTES(pathPrefix + "regexp-zone"_ns, zStats.regexpZone,
                  "The regexp zone and regexp data.");
@@ -1979,6 +2017,10 @@ void ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats& rtStats,
                 rtStats.runtime.uncompressedSourceCache,
                 "The uncompressed source code cache.");
 
+  RREPORT_BYTES(rtPath + "runtime/runtime/megamorphic-set-prop-cache"_ns,
+                KIND_HEAP, rtStats.runtime.megamorphicSetPropCache,
+                "The megamorphic SetProp cache.");
+
   RREPORT_BYTES(rtPath + "runtime/script-data"_ns, KIND_HEAP,
                 rtStats.runtime.scriptData,
                 "The table holding script data shared in the runtime.");
@@ -2054,6 +2096,10 @@ void ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats& rtStats,
   RREPORT_BYTES(rtPath + "runtime/jit-lazylink"_ns, KIND_HEAP,
                 rtStats.runtime.jitLazyLink,
                 "IonMonkey compilations waiting for lazy linking.");
+
+  RREPORT_BYTES(rtPath + "runtime/jit-hints"_ns, KIND_HEAP,
+                rtStats.runtime.jitHints,
+                "The map of hints used to speed up JIT compilation.");
 
   if (rtTotalOut) {
     *rtTotalOut = rtTotal;

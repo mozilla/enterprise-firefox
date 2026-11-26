@@ -70,6 +70,7 @@
 #include "nsIWidget.h"        // for nsIWidget
 #include "nsTArray.h"         // for nsTArray
 #include "nsThreadUtils.h"    // for NS_IsMainThread
+#include "nsXULAppAPI.h"
 #ifdef XP_WIN
 #  include "mozilla/layers/CompositorD3D11.h"
 #  include "mozilla/widget/WinCompositorWidget.h"
@@ -115,7 +116,7 @@ CompositorBridgeParentBase::CompositorBridgeParentBase(
 
 CompositorBridgeParentBase::~CompositorBridgeParentBase() = default;
 
-ProcessId CompositorBridgeParentBase::GetChildProcessId() { return OtherPid(); }
+GeckoChildID CompositorBridgeParentBase::GetChildID() { return OtherChildID(); }
 
 dom::ContentParentId CompositorBridgeParentBase::GetContentId() {
   return mCompositorManager->GetContentId();
@@ -1037,12 +1038,12 @@ void CompositorBridgeParent::CollectEmbeddedChildNamespaces(
 
 mozilla::ipc::IPCResult CompositorBridgeParent::RecvMapAndNotifyChildCreated(
     const LayersId& aChild, const LayersId& aEmbedderId,
-    const base::ProcessId& aOwnerPid, CompositorOptions* aOptions) {
+    const GeckoChildID& aOwnerChildID, CompositorOptions* aOptions) {
   // We only use this message when the remote compositor is in the GPU process.
   // It is harmless to call it, though.
   MOZ_RELEASE_ASSERT(XRE_IsGPUProcess());
 
-  LayerTreeOwnerTracker::Get()->Map(aChild, aOwnerPid);
+  LayerTreeOwnerTracker::Get()->Map(aChild, aOwnerChildID);
 
   LayersId oldEmbedder;
   {
@@ -1935,7 +1936,7 @@ already_AddRefed<PTextureParent> CompositorBridgeParent::AllocPTextureParent(
 }
 
 bool CompositorBridgeParent::IsSameProcess() const {
-  return OtherPid() == base::GetCurrentProcId();
+  return OtherChildID() == XRE_GetChildID();
 }
 
 struct ContentFrameMarker : public BaseMarkerType<ContentFrameMarker> {

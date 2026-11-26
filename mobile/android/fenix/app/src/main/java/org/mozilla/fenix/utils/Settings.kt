@@ -307,6 +307,13 @@ class Settings(
             default = { homescreenSections[HomeScreenSection.TOP_SITES] == true },
         )
 
+    /** Indicates whether or not the top frecent sites are shown along with the pinned top sites. */
+    var showTopFrecentSites by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_show_top_frecent_sites),
+            default = true,
+        )
+
     /** Indicates whether or not the privacy report should be shown on the home screen. */
     var showPrivacyReportFeature by
         booleanPreference(
@@ -2707,13 +2714,6 @@ class Settings(
             default = { FxNimbus.features.adsClientForStories.value().enabled },
         )
 
-    /** Indicates if more shortcuts should be shown. */
-    var showMoreShortcuts by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_show_more_shortcuts),
-            default = { FxNimbus.features.showMoreShortcuts.value().enabled },
-        )
-
     /** Indicates if the regional default shortcuts are enabled. */
     val enableRegionalDefaultShortcuts: Boolean
         get() = FxNimbus.features.regionalDefaultShortcuts.value().enabled
@@ -3015,6 +3015,21 @@ class Settings(
 
     private val lastDataLimitNoticeCycleResetTimeKey =
         appContext.getPreferenceKey(R.string.pref_key_ip_protection_last_data_limit_notice_cycle_reset_time)
+
+    /** The reset time of the most recently observed metered VPN usage cycle. */
+    var ipProtectionLastUsageCycleResetTime: String?
+        get() = preferences.getString(lastUsageCycleResetTimeKey, null)
+        set(value) = preferences.edit { putString(lastUsageCycleResetTimeKey, value) }
+
+    private val lastUsageCycleResetTimeKey =
+        appContext.getPreferenceKey(R.string.pref_key_ip_protection_last_usage_cycle_reset_time)
+
+    var ipProtectionUsageQuotaResetPromptPending: Boolean
+        get() = preferences.getBoolean(usageQuotaResetPromptPendingKey, false)
+        set(value) = preferences.edit { putBoolean(usageQuotaResetPromptPendingKey, value) }
+
+    private val usageQuotaResetPromptPendingKey =
+        appContext.getPreferenceKey(R.string.pref_key_ip_protection_usage_quota_reset_prompt_pending)
 
     /** Indicates if the IPProtection onboarding bottom sheet feature variable is enabled via Nimbus. */
     val shouldShowIPProtectionOnboardingBottomSheet: Boolean
@@ -3352,7 +3367,7 @@ class Settings(
     var tabGroupsEnabled by
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_tab_groups),
-            default = { DefaultTabManagementFeatureHelper.tabGroupsEnabled },
+            default = true,
         )
 
     /** Whether drag and drop is enabled for the Tab Groups feature. */
@@ -3476,6 +3491,13 @@ class Settings(
     var isMenuCustomizationScreenEnabled by
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_menu_customization_screen),
+            default = { false },
+        )
+
+    /** Whether customizing the items of the browser menu Tools section is allowed. */
+    var isToolsMenuCustomizationEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_enable_tools_menu_customization),
             default = { false },
         )
 

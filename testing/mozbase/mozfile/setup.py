@@ -5,7 +5,7 @@
 from setuptools import setup
 
 PACKAGE_NAME = "mozfile"
-PACKAGE_VERSION = "3.0.0"
+PACKAGE_VERSION = "3.1.0"
 
 setup(
     name=PACKAGE_NAME,
@@ -15,12 +15,6 @@ setup(
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
     ],
     keywords="mozilla",
@@ -33,5 +27,5 @@ setup(
     zip_safe=False,
     install_requires=["redo"],
     tests_require=["wptserve"],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
 )

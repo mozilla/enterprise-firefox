@@ -120,12 +120,14 @@ bool AbstractGeneratorObject::suspend(JSContext* cx, HandleObject obj,
                                       AbstractFramePtr frame,
                                       const jsbytecode* pc, unsigned nvalues) {
   MOZ_ASSERT(JSOp(*pc) == JSOp::InitialYield || JSOp(*pc) == JSOp::Yield ||
-             JSOp(*pc) == JSOp::Await);
+             JSOp(*pc) == JSOp::AwaitThenYield || JSOp(*pc) == JSOp::Await);
 
   auto genObj = obj.as<AbstractGeneratorObject>();
   MOZ_ASSERT(!genObj->hasStackStorage() || genObj->isStackStorageEmpty());
   MOZ_ASSERT_IF(JSOp(*pc) == JSOp::Await, genObj->script()->isAsync());
   MOZ_ASSERT_IF(JSOp(*pc) == JSOp::Yield, genObj->script()->isGenerator());
+  MOZ_ASSERT_IF(JSOp(*pc) == JSOp::AwaitThenYield,
+                genObj->script()->isGenerator() && genObj->script()->isAsync());
 
   if (nvalues > 0) {
     ArrayObject* stack = nullptr;
@@ -223,7 +225,7 @@ AbstractGeneratorObject* js::GetGeneratorObjectForModule(ModuleObject* module) {
     return nullptr;
   }
 
-  Value genValue = moduleEnv->getSlot(prop->slot());
+  Value genValue = moduleEnv->getRawSlot(prop->slot());
   return genValue.isObject()
              ? &genValue.toObject().as<AbstractGeneratorObject>()
              : nullptr;
@@ -461,28 +463,15 @@ void AbstractGeneratorObject::setClosed(JSContext* cx) {
   DebugAPI::onGeneratorClosed(cx, this);
 }
 
-bool AbstractGeneratorObject::isAfterYield() {
-  return isAfterYieldOrAwait(JSOp::Yield);
-}
-
-bool AbstractGeneratorObject::isAfterAwait() {
-  return isAfterYieldOrAwait(JSOp::Await);
-}
-
-bool AbstractGeneratorObject::isAfterYieldOrAwait(JSOp op) {
-  if (isClosed() || isRunning()) {
-    return false;
-  }
+JSOp AbstractGeneratorObject::suspendOp() const {
+  MOZ_RELEASE_ASSERT(isSuspended());
 
   JSScript* script = this->script();
   jsbytecode* code = script->code();
   uint32_t nextOffset = script->resumeOffsets()[resumeIndex()];
-  if (JSOp(code[nextOffset]) != JSOp::AfterYield) {
-    return false;
-  }
+  MOZ_RELEASE_ASSERT(JSOp(code[nextOffset]) == JSOp::AfterYield);
 
-  jsbytecode* suspendPC = SuspendPCForAfterYield(code + nextOffset);
-  return JSOp(*suspendPC) == op;
+  return JSOp(*SuspendPCForAfterYield(code + nextOffset));
 }
 
 template <>

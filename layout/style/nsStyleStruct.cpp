@@ -2646,6 +2646,13 @@ nsChangeHint nsStyleDisplay::CalcDifference(
     hint |= nsChangeHint_RepaintFrame;
   }
 
+  // Refresh the SVG resource reference even when adding or removing transform
+  // style, which skips CalcTransformPropertyDifference below.
+  if ((mOffsetPath.IsUrl() || aNewData.mOffsetPath.IsUrl()) &&
+      mOffsetPath != aNewData.mOffsetPath) {
+    hint |= nsChangeHint_UpdateEffects;
+  }
+
   /* If we've added or removed the transform property, we need to reconstruct
    * the frame to add or remove the view object, and also to handle abs-pos and
    * fixed-pos containers.
@@ -2726,6 +2733,11 @@ nsChangeHint nsStyleDisplay::CalcDifference(
         aOldStyle.StylePosition()->NeedsHypotheticalPositionIfAbsPos()) {
       hint |=
           nsChangeHint_NeedReflow | nsChangeHint_ReflowChangesSizeOrPosition;
+    } else if (mWebkitLineClamp.webkit_legacy) {
+      // For legacy -webkit-line-clamp, the specified display must be
+      // -webkit-box. If it has changed, so has whether line-clamp applies,
+      // therefore reflow.
+      hint |= NS_STYLE_HINT_REFLOW;
     } else {
       hint |= nsChangeHint_NeutralChange;
     }

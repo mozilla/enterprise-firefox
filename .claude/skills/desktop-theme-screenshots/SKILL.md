@@ -26,8 +26,10 @@ what to shoot.** The doc lives in the source tree, not in this skill's
 directory, and it's kept up to date with how different parts of the code base
 interact in non-obvious ways; it may differ from what you remember.
 
-Sort the diff into one of these cases by where its difference shows; the case
-decides what you capture, force or log:
+Sort the diff into these cases by where its difference shows; the case decides
+what you capture, force or log. One diff often falls under several, such as a
+focus ring that shows only under `:focus-visible` beside a hit area that moves
+no pixels; handle every case it falls under, each with its own pair.
 
 - **Visible in the default state.** Capture and move on.
 - **Visible only in a state.** Force the state rather than driving the UI to it:
@@ -52,8 +54,8 @@ decides what you capture, force or log:
   each property the diff changes, on the element it changes, in both halves, and
   hand over the measurement, as for a 1px `color-mix()` border. A hue change
   across a wide area (a translucent shadow's color) can stay visible below the
-  threshold: diff it at `--threshold 0`, and attach a `zoom-pair.py` crop when
-  the zoom shows it.
+  threshold: diff it at `--threshold 0`, and hand it over with `sheet.py`
+  (§7), which counts every differing pixel and enlarges them below the pair.
 - **Visible only for some content or configuration.** A change to what clips,
   overflows, truncates or scrolls shows only where content reaches the boundary
   (e.g. a long label, an icon drawn to its corners, RTL), and a rule under a
@@ -78,16 +80,22 @@ decides what you capture, force or log:
 | Chrome, no fixture needed | `firefox-probe.py --realm chrome --async` running `capture.js` |
 | Content, such as a web page or an about: page | `firefox-probe.py --steps` with a `drawSnapshot` step; the Firefox MCP last |
 | Chrome ink inside the browser's rect, such as an outline or border drawn over the page's edge | a compositor grab: `drawWindow` paints chrome over the tab panel's background, never under the composited page, so ink the page covers reads visible (§1 "Chrome and content canvases" in `desktop-probing`'s [`measuring-pixels.md`](../desktop-probing/references/measuring-pixels.md)) |
-| An open panel or menupopup | a compositor grab (§2 "The compositor's output" in `desktop-probing`'s [`measuring-pixels.md`](../desktop-probing/references/measuring-pixels.md)) |
+| An open panel or menupopup | a compositor grab (§2 "The compositor's output" in `desktop-probing`'s [`measuring-pixels.md`](../desktop-probing/references/measuring-pixels.md)), worked below under "Grab route" |
+
+A subject that matches two rows, such as a button a suite's fixture renders
+inside an open panel, takes the popup row: no fixture makes `drawWindow` draw a
+popup.
 
 `drawWindow` and the chrome window's `drawSnapshot` both leave an open popup out
 and draw what lies under it. A popup here is a `<panel>` or `<menupopup>`
 element; a dropdown built from ordinary elements in the window captures like
-the rest of the chrome. On Linux a compositor grab of a popup needs `--setpref
-ui.GtkCSDTransparencyAvailable=1` in both halves: without it `popup.css` paints
-the popup square with no shadow margin, and a change to its radius or shadow
-yields an identical pair (`platform-linux.md`, section HEADLESS, in
-`desktop-probing`).
+the rest of the chrome. On Linux without a compositing manager, as on Xvfb,
+`popup.css` paints a popup square with no shadow margin. That shows a change to
+what the popup holds, but a change to its radius or shadow yields an identical
+pair: for one, pass `--setpref ui.GtkCSDTransparencyAvailable=1` in both
+halves, and expect the corners and the margin to paint black on Xvfb, since a
+pixel the popup leaves transparent has nothing composited under it
+(`platform-linux.md`, section COMPOSITING, in `desktop-probing`).
 
 **`capture.js`.** Paste [`scripts/capture.js`](scripts/capture.js) at the head
 of the test or probe and call `await capture(name, element)` once per shot (it
@@ -103,7 +111,11 @@ root's `remotecontrol` attribute (the harness's stripes over the address bar).
 The background is white; for white ink, pass `{ background: "magenta" }` and
 check the ink's pixel count. Its `SHOT` line gives the frame's size, `dpr=` and
 `origin=` in the window, all in whole CSS px; it throws for an element with no
-box or outside the window. Log the element's rect and the computed value of each
+box or outside the window. The frame follows the element, so an element the
+change resizes gives frames of different sizes in the two halves, which compare
+out of alignment: capture an ancestor whose size the change leaves alone, such
+as the toolbar around a button, and crop both halves to the element with
+`sheet.py --rect` (§7). Log the element's rect and the computed value of each
 property the diff changes beside it (§5).
 
 - **The label and the output directory come from prefs**, `shots.label` and
@@ -151,6 +163,44 @@ host's platform file in `desktop-probing`, section GRABS, allows), run
 each half yourself with the by-hand revert in `desktop-probing` §6
 between them.
 
+**Grab route.** Each half is a `--no-headless` chrome probe on a private Xvfb
+display. Its steps file sets the surface up and opens the popup in a `chrome`
+step, then takes `{"grab": "<name>"}`, which writes `<name>.png` beside the
+steps file, so each half needs its own directory. A step waits only for a
+promise it returns, so write a setup that awaits as
+`return (async () => { …; await shown; })()`, with `shown` the popup's
+`popupshown` promise, taken before the call that opens it. The snippet runs
+after the last step and reads the state that step left: return the popup's
+`getOuterScreenRect()` from it for `sheet.py --rect`. Xvfb takes the desktop's
+color scheme, so pin it, and with no window manager the popup hides itself
+unless `ui.popup.disable_autohide` is set. Run the whole of this as one call,
+with a tool timeout that covers both launches:
+
+```sh
+half() {  # $1: after or before
+  env -u WAYLAND_DISPLAY GDK_BACKEND=x11 MOZ_ENABLE_WAYLAND=0 \
+    xvfb-run -a -s "-screen 0 1600x1000x24" timeout 300 \
+    ./mach python --virtualenv desktop-theme .claude/skills/desktop-probing/scripts/firefox-probe.py \
+    --binary "$PWD/<objdir>/dist/bin/firefox" --no-headless --realm chrome \
+    --window-size 1200x800 \
+    --setpref ui.systemUsesDarkTheme=0 --setpref ui.popup.disable_autohide=true \
+    --steps <dir>/$1/steps.json --script-file <dir>/read.js \
+    --gecko-log <dir>/$1/gecko.log --result-file <dir>/$1/result.json
+}
+half after
+if git diff --quiet HEAD -- <paths>; then
+  ( trap 'git restore --source=HEAD --worktree -- <paths>' EXIT
+    git restore --source=<base> --worktree -- <paths> && half before )
+else
+  echo '<paths> differ from HEAD; commit the change first' >&2
+fi
+git status --short
+```
+
+One change often needs two routes, such as a grab for the button in an open
+panel and `capture-pair.sh` for the same button in the toolbar. Give the pairs
+from both to one `sheet.py` call.
+
 **Firefox MCP route.** Use `screenshot_page` or `screenshot_by_uid`, headless,
 on this tree's binary (`desktop-probing` §1's binary check). Before the
 first `restart_firefox`, read §1 "Binary and profile", §2 "Prefs" and §5
@@ -178,8 +228,43 @@ one scratch test give both halves.
 `--base` for the before half and restores it afterwards; read its `--help`
 before passing any option. Its `--probe` form takes a chrome-context script
 pasting `capture.js` in place of a test, for a chrome surface no suite's fixture
-renders. One call captures one cell of a regime matrix; run it once per cell,
-with that cell's prefs and setup file.
+renders. One call captures one cell of a regime matrix.
+
+For a change that reaches many surfaces in many regimes,
+[`scripts/matrix.py`](scripts/matrix.py) runs `capture-pair.sh --probe` once per
+cell from a JSON spec of regimes and surface sets, and its `render` mode draws
+the run into PNG sheets: one for the shots where a reading changed, one for
+those that failed or measured nothing the same way before and after, one for
+those where only pixels differ, and one for those with only a contrast failure
+before and after (which the change did not cause). Each row shows before,
+after and the difference under a numbered caption, with a zoomed crop when the
+change is narrow. `notes.md` beside the sheets gives each numbered row's notes
+and names the identical shots last: a surface you expected to change that shows
+up there is one the change does not reach. `render` prints one line per shot;
+read the details from `rows.json`. Read its `--help` for the spec and the set
+script's contract.
+A spec needs only the surfaces the change reaches: the run covers eleven
+built-in regimes (light and dark under Nova and classic, the same four in high
+contrast, the native theme, an add-on theme and an approximation of Windows
+high contrast chrome) and reverts every modified file linked into the objdir;
+list a copied file in `paths`. A set lists its shots as selectors with an
+optional pseudo-class lock and attributes to set, and records the colors,
+borders, shadows and opacity of each element and of every rendered element
+inside it; a set script reaches any other state and calls the same `shot()`. A
+popup such as the app menu is a widget of its own that `capture()` cannot
+draw, and the screen grab it needs runs only with `--no-headless`, which the
+matrix does not pass. In a set script, record in
+`readings[name]` any other value the change is meant to move, such as a
+`contrast()` result for another subject, so `notes.md` can say what changed. A
+reading that changed with no pixel changing means the value does not paint
+where you expected, such as an icon that takes its color from `fill` and not
+`color`.
+Under Nova, `contrast()` judges no tab strip text, because its walk ends on a
+background image on `body`.
+To post the result, attach the sheets to the bug with the `bug-filing` skill's
+`attach-to-bug.py`, with `notes.md` as the comment text, and link that bug
+comment from the revision if a reviewer needs it. A sheet over
+Phabricator's 8 MiB upload limit comes split into numbered parts.
 
 - **Each `<path>` is a file the browser loads.** For a `*.tokens.json` change,
   pass the generated token CSS that `./mach buildtokens` writes into the tree.
@@ -237,6 +322,13 @@ takes the text color, a marker background turns `Canvas`): mark per
 
 ## 5. Verify the pair actually differs
 
+Look at every image before handing it over. A blank or half-painted shot, such
+as a panel grabbed before it painted, differs from its partner under `cmp` and
+`pixel-diff` like a real change. After a step that changes the state, such as
+opening a popup or switching a mode, let the surface settle before the shot:
+wait for its event (`popupshown`), finish its animations and wait two animation
+frames.
+
 `cmp` the two files. Differing byte sizes prove a difference; equal ones prove
 nothing. An identical pair means one of three things; say which:
 
@@ -257,7 +349,8 @@ To learn whether the files differ *where you changed something*,
 box, confined by `--rect` to the element; a zero count also reports the
 differences under `--threshold`, which is §1's "too small" case. `--help`
 covers the rect's origin, `--dpr`, `--offset`, `--lines` (what a caption for a
-change one or two device pixels wide quotes) and the exit codes; the host's
+change one or two device pixels wide quotes), `--diff-image` (a picture of
+where they differ, to attach beside the pair) and the exit codes; the host's
 platform file in `desktop-probing`, section GRABS, gives a grab's scale.
 It needs Pillow, which the `desktop-theme` site carries. A completed comparison
 exits 0 when no pixel inside `--rect` differs by more than `--threshold`, 1 when
@@ -311,13 +404,32 @@ Clean up per `desktop-probing` §6. Name the files so the pair is obvious
 (`before-<variant>-<subject>.png`), tell the user the directory, and say for
 each pair what to look at and what it was taken in: the element state and
 whether it was forced or the node hand-built, the color regime and theme,
-feature prefs, density, device pixel ratio and platform. A change a few device
-pixels wide is invisible in a full-window shot, so attach a zoom beside the
-pair: `scripts/zoom-pair.py before.png after.png zoom.png --rect X,Y,W,H`
-(`--help`).
+feature prefs, density, device pixel ratio and platform.
 
-Attach each image with the `bug-filing` skill's
+Hand the pairs over as one image, to the user as on a bug, so that nobody has
+to open the files one by one: [`scripts/sheet.py`](scripts/sheet.py) draws each
+pair under a caption as before and after, with both enlarged below them when
+the change is narrow or the capture small (`--help`). Caption each pair with
+its surface and state, such as "Overflow panel, :focus-visible", without a
+number, since `sheet.py` numbers the pairs. Put what every pair shares, such as
+the platform, theme and device pixel ratio, in `--title`, and what differs
+between pairs, such as a grab on Xvfb beside a headless capture, in each
+caption. Crop a screen grab to the popup with `--rect N=X,Y,W,H`, from its
+`getOuterScreenRect()`, and any pair to the region it is about, such as a
+narrow change in a capture where something wider differs too.
+
+`sheet.py` draws the pixel difference beside a pair only when it is hard to
+see: no channel differs by more than 64, or the differing pixels cover at most
+1% of the capture. For the others it prints "no difference drawn" with the
+numbers. When a user is there to ask, ask whether to add those differences,
+and rerun with `--diff all` if they want them; without one, keep the default.
+A `matrix.py` run already draws its sheets. `sheet.py` counts every differing
+pixel (`--threshold 0`) where `pixel-diff` ignores differences up to 20, so its
+count for a pair is the larger; say which threshold a quoted count used.
+
+Attach the sheet with the `bug-filing` skill's
 `.agents/skills/bug-filing/attach-to-bug.py`, following that skill's dry-run
-steps; pass `--file-name` where several variant directories each hold a
-`before.png`. Attaching is outward-facing and permanent: confirm with the user
+steps. The comment names what every pair shares, as `--title` does, then gives
+one line per numbered pair saying what changed from before to after and whether
+the state was forced or the node hand-built. Attaching is outward-facing and permanent: confirm with the user
 first and say which bug.

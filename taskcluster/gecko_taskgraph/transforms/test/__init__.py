@@ -732,7 +732,6 @@ def make_job_description(config, tasks):
             jobdesc["optimization"] = {"test": schedules}
 
         run = jobdesc["run"] = {}
-        run["clone-with"] = "hg"
         if "run-command" in task:
             # A suite that is not driven by mozharness: a per-suite transform
             # set the command to run out of the checkout instead.

@@ -13970,8 +13970,8 @@ interface nsIAboutModule extends nsISupports {
   readonly HIDE_FROM_ABOUTABOUT?: 4;
   /** <!-- binding_to(idl, const, XPIDL_nsIAboutModule_ENABLE_INDEXED_DB) --> */
   readonly ENABLE_INDEXED_DB?: 8;
-  /** <!-- binding_to(idl, const, XPIDL_nsIAboutModule_URI_CAN_LOAD_IN_CHILD) --> */
-  readonly URI_CAN_LOAD_IN_CHILD?: 16;
+  /** <!-- binding_to(idl, const, XPIDL_nsIAboutModule_URI_IS_ERROR_PAGE) --> */
+  readonly URI_IS_ERROR_PAGE?: 16;
   /** <!-- binding_to(idl, const, XPIDL_nsIAboutModule_URI_MUST_LOAD_IN_CHILD) --> */
   readonly URI_MUST_LOAD_IN_CHILD?: 32;
   /** <!-- binding_to(idl, const, XPIDL_nsIAboutModule_MAKE_UNLINKABLE) --> */
@@ -21182,6 +21182,8 @@ interface nsIAppStartup extends nsISupports, Enums<typeof nsIAppStartup_IDLShutd
   trackStartupCrashEnd(): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIAppStartup_quit) --> */
   quit(aMode: u32, aExitCode?: i32): void;
+  /** <!-- binding_to(idl, method, XPIDL_nsIAppStartup_canQuit) --> */
+  canQuit(aReason?: string): boolean;
   /** <!-- binding_to(idl, method, XPIDL_nsIAppStartup_advanceShutdownPhase) --> */
   advanceShutdownPhase(aPhase: nsIAppStartup.IDLShutdownPhase): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIAppStartup_setImpendingShutdown) --> */

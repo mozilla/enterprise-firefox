@@ -110,6 +110,7 @@ class NSSSocketControl final : public CommonSocketControl {
   NS_IMETHOD GetPeerId(nsACString& aResult) override;
   NS_IMETHOD GetRetryEchConfig(nsACString& aEchConfig) override;
   NS_IMETHOD DisableEarlyData(void) override;
+  NS_IMETHOD NoteHandshakeTimeout() override;
   NS_IMETHOD SetHandshakeCallbackListener(
       nsITlsHandshakeCallbackListener* callback) override;
   NS_IMETHOD Claim() override;
@@ -272,6 +273,7 @@ class NSSSocketControl final : public CommonSocketControl {
     COMMON_SOCKET_CONTROL_ASSERT_ON_OWNING_THREAD();
     if (!mClaimed) {
       SetCanceled(PR_CONNECT_RESET_ERROR);
+      mCanceledUnclaimed = true;
     }
     return !mClaimed;
   }
@@ -304,6 +306,8 @@ class NSSSocketControl final : public CommonSocketControl {
   bool mPreliminaryHandshakeDone;  // after false start items are complete
 
   nsresult ActivateSSL();
+  void RecordTokenResumption(const nsACString& aOutcome);
+  bool HasResumptionOutcomeToRecord() const;
 
   nsCString mEsniTxt;
   nsCString mEchConfig;
@@ -312,7 +316,10 @@ class NSSSocketControl final : public CommonSocketControl {
   bool mFalseStartCallbackCalled;
   bool mFalseStarted;
   bool mIsFullHandshake;
-  bool mDrewResumptionToken;
+  bool mTriedResumptionToken;
+  bool mTokenRestored;  // Whether the last token tried was loaded from disk.
+  bool mCanceledUnclaimed;
+  bool mHandshakeTimedOut;
   bool mNotedTimeUntilReady;
   EchExtensionStatus mEchExtensionStatus;  // Currently only used for telemetry.
 

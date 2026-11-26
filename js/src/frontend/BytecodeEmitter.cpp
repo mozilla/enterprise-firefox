@@ -65,6 +65,7 @@
 #include "vm/BytecodeUtil.h"  // JOF_*, IsArgOp, IsLocalOp, SET_UINT24, SET_ICINDEX, BytecodeFallsThrough, BytecodeIsJumpTarget
 #include "vm/CompletionKind.h"          // CompletionKind
 #include "vm/ConstantCompareOperand.h"  // ConstantCompareOperand
+#include "vm/EnvironmentObject.h"       // ClassBodyLexicalEnvironmentObject
 #include "vm/FunctionPrefixKind.h"      // FunctionPrefixKind
 #include "vm/GeneratorObject.h"         // AbstractGeneratorObject
 #include "vm/Opcodes.h"                 // JSOp, JSOpLength_*
@@ -2238,7 +2239,7 @@ bool BytecodeEmitter::emitYieldOp(JSOp op) {
   }
 
   MOZ_ASSERT(op == JSOp::InitialYield || op == JSOp::Yield ||
-             op == JSOp::Await);
+             op == JSOp::AwaitThenYield || op == JSOp::Await);
 
   BytecodeOffset off;
   if (!emitN(op, 3, &off)) {
@@ -2248,7 +2249,8 @@ bool BytecodeEmitter::emitYieldOp(JSOp op) {
   // InitialYield is always the first yield node.
   MOZ_ASSERT_IF(op == JSOp::InitialYield, bytecodeSection().numYields() == 0);
 
-  if (op == JSOp::InitialYield || op == JSOp::Yield) {
+  if (op == JSOp::InitialYield || op == JSOp::Yield ||
+      op == JSOp::AwaitThenYield) {
     bytecodeSection().addNumYields();
   }
 
@@ -6794,13 +6796,9 @@ bool BytecodeEmitter::emitYield(UnaryNode* yieldNode) {
     }
   }
 
-  if (sc->asSuspendableContext()->isAsync()) {
-    MOZ_ASSERT(!needsIteratorResult);
-    if (!emitAwaitInInnermostScope()) {
-      //            [stack] RESULT
-      return false;
-    }
-  }
+  // In async generators, JSOp::AwaitThenYield performs the Await.
+  bool isAsync = sc->asSuspendableContext()->isAsync();
+  MOZ_ASSERT_IF(isAsync, !needsIteratorResult);
 
   if (needsIteratorResult) {
     if (!emitFinishIteratorResult(false)) {
@@ -6817,7 +6815,7 @@ bool BytecodeEmitter::emitYield(UnaryNode* yieldNode) {
     return false;
   }
 
-  if (!emitYieldOp(JSOp::Yield)) {
+  if (!emitYieldOp(isAsync ? JSOp::AwaitThenYield : JSOp::Yield)) {
     //              [stack] YIELDRESULT RESUMEKIND
     return false;
   }
@@ -11067,6 +11065,92 @@ const MemberInitializers& BytecodeEmitter::findMemberInitializersForCall()
   return *compilationState.scopeContext.memberInitializers;
 }
 
+bool BytecodeEmitter::emitGetConstructorPrivateBrand(
+    const MemberInitializers& memberInitializers) {
+  // Load the |.privateBrand| for the constructor found by
+  // |findMemberInitializersForCall|. This is used at the start of base class
+  // constructors and after |super()| calls in derived class constructors.
+  //
+  // We can't look up |.privateBrand| by name here. Each class with private
+  // methods has its own |.privateBrand| binding in its class body scope, and
+  // |super()| can be inside the class body of a nested class. For example:
+  //
+  //   class Outer extends Base {
+  //     #outerMethod() {}
+  //     constructor() {
+  //       class Inner {
+  //         #innerMethod() {}
+  //         [super()]() {}
+  //       }
+  //     }
+  //   }
+  //
+  // Here a name lookup from |super()| would find Inner's |.privateBrand|, but
+  // the |super()| belongs to Outer's constructor, so the brand must come from
+  // Outer.
+
+  MOZ_ASSERT(memberInitializers.hasPrivateBrand);
+
+  // Find the constructor (the nearest non-arrow function scope), then load
+  // |.privateBrand| from the class body scope enclosing it.
+  uint32_t numHops = 0;
+  bool foundConstructor = false;
+  for (const auto* current = this; current; current = current->parent) {
+    for (EmitterScope* es = current->innermostEmitterScope(); es;
+         es = es->enclosingInFrame()) {
+      AbstractScopePtr scope = es->scope(current);
+      if (foundConstructor && scope.is<ClassBodyScope>()) {
+        MOZ_RELEASE_ASSERT(scope.hasEnvironment());
+        return emitGetPrivateBrandAtHops(numHops);
+      }
+      if (scope.is<FunctionScope>() && !scope.isArrow()) {
+        MOZ_ASSERT(!foundConstructor);
+        MOZ_ASSERT(&current->sc->asFunctionBox()->memberInitializers() ==
+                   &memberInitializers);
+        foundConstructor = true;
+      }
+      if (scope.hasEnvironment()) {
+        numHops++;
+      }
+    }
+  }
+
+  MOZ_ASSERT(compilationState.input.target ==
+                 CompilationInput::CompilationTarget::Delazification ||
+             compilationState.input.target ==
+                 CompilationInput::CompilationTarget::Eval);
+
+  // For lazy functions and direct eval, continue at the compilation's enclosing
+  // scope.
+  for (InputScopeIter si(compilationState.input.enclosingScope); si; si++) {
+    if (foundConstructor && si.kind() == ScopeKind::ClassBody) {
+      MOZ_RELEASE_ASSERT(si.hasSyntacticEnvironment());
+      return emitGetPrivateBrandAtHops(numHops);
+    }
+    if (si.kind() == ScopeKind::Function && !si.scope().isArrow()) {
+      MOZ_ASSERT(!foundConstructor);
+      MOZ_ASSERT(si.scope().useMemberInitializers());
+      MOZ_ASSERT(si.scope().getMemberInitializers().serialize() ==
+                 memberInitializers.serialize());
+      foundConstructor = true;
+    }
+    if (si.hasSyntacticEnvironment()) {
+      numHops++;
+    }
+  }
+
+  MOZ_CRASH("Class constructor without enclosing class body scope");
+}
+
+bool BytecodeEmitter::emitGetPrivateBrandAtHops(uint32_t numHops) {
+  MOZ_RELEASE_ASSERT(numHops < ENVCOORD_HOPS_LIMIT - 1);
+  NameLocation loc = NameLocation::EnvironmentCoordinate(
+      BindingKind::Synthetic, numHops,
+      ClassBodyLexicalEnvironmentObject::privateBrandSlot());
+  return emitGetNameAtLocation(
+      TaggedParserAtomIndex::WellKnown::dot_privateBrand_(), loc);
+}
+
 bool BytecodeEmitter::emitInlinedFieldValue(const InlinedField& field) {
   switch (field.valueKind) {
     case InlinedFieldValueKind::Number:
@@ -11107,7 +11191,7 @@ bool BytecodeEmitter::emitInitializeInstanceMembers(
       //            [stack] THIS
       return false;
     }
-    if (!emitGetName(TaggedParserAtomIndex::WellKnown::dot_privateBrand_())) {
+    if (!emitGetConstructorPrivateBrand(memberInitializers)) {
       //            [stack] THIS BRAND
       return false;
     }

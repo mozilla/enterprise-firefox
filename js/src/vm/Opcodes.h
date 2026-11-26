@@ -1995,13 +1995,12 @@
     MACRO(InitialYield, initial_yield, NULL, 4, 1, 2, JOF_RESUMEINDEX) \
     /*
      * Bytecode emitted after `yield` expressions. This is useful for the
-     * Debugger and `AbstractGeneratorObject::isAfterYieldOrAwait`. It's
-     * treated as jump target op so that the Baseline Interpreter can
-     * efficiently restore the frame's interpreterICEntry when resuming a
-     * generator.
+     * Debugger and `AbstractGeneratorObject::suspendOp`. It's treated as jump
+     * target op so that the Baseline Interpreter can efficiently restore the
+     * frame's interpreterICEntry when resuming a generator.
      *
-     * The preceding instruction in the script must be `Yield`, `InitialYield`,
-     * or `Await`.
+     * The preceding instruction in the script must be `Yield`,
+     * `AwaitThenYield`, `InitialYield`, or `Await`.
      *
      *   Category: Functions
      *   Type: Generators and async functions
@@ -2057,6 +2056,30 @@
      *   Stack: rval1, gen => rval2, resumeKind
      */ \
     MACRO(Yield, yield, NULL, 4, 2, 2, JOF_RESUMEINDEX) \
+    /*
+     * Suspend the current async generator and return to the caller. The runtime
+     * then awaits `rval1`. If the await is fulfilled, the runtime yields the
+     * result. If it's rejected, the generator is resumed with a throw
+     * completion.
+     *
+     * This instruction must appear only in scripts for async generators. `gen`
+     * must be the generator object for the current stack frame. The resume
+     * point indicated by `resumeIndex` must be the next instruction in the
+     * script, which must be `AfterYield`.
+     *
+     * When AsyncGeneratorResume resumes the generator, `rval2` and `resumeKind`
+     * receive the value and resume kind it passes to js::ResumeGenerator.
+     *
+     * Implements: [Yield][1] for async generators.
+     *
+     * [1]: https://tc39.es/ecma262/#sec-yield
+     *
+     *   Category: Functions
+     *   Type: Generators and async functions
+     *   Operands: uint24_t resumeIndex
+     *   Stack: rval1, gen => rval2, resumeKind
+     */ \
+    MACRO(AwaitThenYield, await_then_yield, NULL, 4, 2, 2, JOF_RESUMEINDEX) \
     /*
      * Arrange for this async function to resume asynchronously when `value`
      * becomes resolved.
@@ -3593,7 +3616,6 @@
  */
 
 #define FOR_EACH_TRAILING_UNUSED_OPCODE(MACRO) \
-  MACRO(239)                                   \
   MACRO(240)                                   \
   MACRO(241)                                   \
   MACRO(242)                                   \

@@ -937,6 +937,16 @@ bool GetIntrinsicValue(JSContext* cx, Handle<PropertyName*> name,
   return GlobalObject::getIntrinsicValue(cx, cx->global(), name, rval);
 }
 
+bool GetWasmMutableGlobalValue(JSContext* cx, HandleObject environment,
+                               uint32_t slot, Handle<PropertyName*> name,
+                               MutableHandleValue rval) {
+  if (!environment->as<ModuleEnvironmentObject>().getBindingValue(cx, slot,
+                                                                  rval)) {
+    return false;
+  }
+  return CheckUninitializedLexical(cx, name, rval);
+}
+
 static uint32_t NumTraceableArgsForCreateThis(HandleFunction fun,
                                               uint32_t argc) {
   uint32_t numActualArgs = std::max(argc, uint32_t(fun->nargs()));
@@ -1222,7 +1232,7 @@ bool ResumeGeneratorFromJit(JSContext* cx, HandleObject obj, HandleValue value,
 bool NormalSuspend(JSContext* cx, HandleObject obj, BaselineFrame* frame,
                    uint32_t frameSize, const jsbytecode* pc) {
   MOZ_ASSERT(JSOp(*pc) == JSOp::InitialYield || JSOp(*pc) == JSOp::Yield ||
-             JSOp(*pc) == JSOp::Await);
+             JSOp(*pc) == JSOp::AwaitThenYield || JSOp(*pc) == JSOp::Await);
 
   // Minus one because we don't want to include the return value.
   uint32_t numSlots = frame->numValueSlots(frameSize) - 1;

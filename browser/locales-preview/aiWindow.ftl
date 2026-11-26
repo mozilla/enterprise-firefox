@@ -274,12 +274,21 @@ smartwindow-agent-monitor-page-not-watchable =
 # Fallback name used for $monitorName when the watched page has no title.
 smartwindow-agent-monitor-default-name = Page Watch
 
+# Task confirmation shown in chat after the user creates a task to watch a page.
 # The <a data-l10n-name="tasks"> element links to the tasks page. Its text is
 # the page address; keep it and the element (with its name) unchanged.
 # Variables:
 #   $monitorName (string) - The name of the page or target being watched
-#   $schedule (string) - Readable check cadence, e.g. "daily at 9:00 AM"
-smartwindow-agent-monitor-watching = I’ll check { $monitorName } { $schedule }. I’ll notify you when I find content matching your task. View or edit this task anytime at <a data-l10n-name="tasks">about:smartwindowtasks</a>.
+#   $time (date) - The scheduled check time
+smartwindow-agent-monitor-watching-daily = I’ll check { $monitorName } daily at { DATETIME($time, hour: "numeric", minute: "2-digit") }. I’ll notify you when I find content matching your task. View or edit this task anytime at <a data-l10n-name="tasks">about:smartwindowtasks</a>.
+
+# Task confirmation shown in chat after the user creates a task to watch a page.
+# The <a data-l10n-name="tasks"> element links to the tasks page. Its text is
+# the page address; keep it and the element (with its name) unchanged.
+# Variables:
+#   $monitorName (string) - The name of the page or target being watched
+#   $time (date) - The scheduled check time, on the scheduled day of the week
+smartwindow-agent-monitor-watching-weekly = I’ll check { $monitorName } weekly on { DATETIME($time, weekday: "long") } at { DATETIME($time, hour: "numeric", minute: "2-digit") }. I’ll notify you when I find content matching your task. View or edit this task anytime at <a data-l10n-name="tasks">about:smartwindowtasks</a>.
 
 # Shown in place of the card when the user deletes a task from the chat.
 # Variables:
@@ -288,15 +297,6 @@ smartwindow-agent-monitor-deleted = I’ve stopped watching { $monitorName } and
 
 # Shown in place of the card when the user cancels creating a task from the chat.
 smartwindow-agent-monitor-canceled = Canceled. Is there anything else I can assist you with?
-
-# Check watch schedule, added { $schedule } in the chat message.
-# Variables:
-#   $time (date) - The scheduled check time
-smartwindow-agent-monitor-schedule-daily = daily at { DATETIME($time, hour: "numeric", minute: "2-digit") }
-
-# Variables:
-#   $time (date) - The scheduled check day and time
-smartwindow-agent-monitor-schedule-weekly = weekly on { DATETIME($time, weekday: "long") } at { DATETIME($time, hour: "numeric", minute: "2-digit") }
 
 # Status chip and change-history rows shown on a monitor card in chat.
 smartwindow-agent-monitor-status-watching = Watching
@@ -432,86 +432,6 @@ smartbar-command-watch-description = Get notified when pages change
 # Footer note shown at the bottom of the command palette, hinting that more
 # task command types will be added later.
 smartbar-command-coming-soon = More types of tasks are coming soon
-
-## Smart Form Fill
-
-ai-smart-form-fill-autocomplete-label = Smart Form Fill
-ai-smart-form-fill-autocomplete-loading = Loading
-ai-smart-form-fill-autocomplete-sources-label = Fill from sources
-ai-smart-form-fill-autocomplete-choose-tabs = Open or choose pages related to this form to get autofill suggestions
-ai-smart-form-fill-autocomplete-open-tabs = Open pages related to this form to get autofill suggestions
-ai-smart-form-fill-close-review =
-    .label = Close
-
-# Variables:
-#   $tabs (number) - The number of tabs used as a source for autofill
-ai-smart-form-fill-autocomplete-tabs-count =
-    { $tabs ->
-        [one] { $tabs } tab
-       *[other] { $tabs } tabs
-    }
-
-# Sources are what tabs the Smart Form Fill should use to generate field values
-ai-smart-form-fill-edit-sources = Edit sources
-ai-smart-form-fill-suggested-tabs = Suggested tabs
-ai-smart-form-fill-other-tabs = Other tabs
-
-# Variables:
-#   $tabTitle (string) - Title of the tab controlled by the toggle
-ai-smart-form-fill-tab-select-toggle =
-    .aria-label = Toggle tab selection for “{ $tabTitle }”
-
-ai-smart-form-fill-cancel-tab-select =
-    .label = Cancel
-
-ai-smart-form-fill-accept-tab-select =
-    .label = Done
-
-ai-smart-form-fill-fill-form =
-    .label = Fill form
-
-ai-smart-form-fill-review-heading = Review suggestions
-
-# Variables:
-#   $count (number) - The number of generated form field suggestions
-ai-smart-form-fill-review-description =
-    { $count ->
-        [one] We found suggestions for { $count } field. Edit or delete anything that’s not correct.
-       *[other] We found suggestions for { $count } fields. Edit or delete anything that’s not correct.
-    }
-
-ai-smart-form-fill-field =
-    .label = Field
-
-ai-smart-form-fill-jump-to-bottom =
-    .tooltiptext = Jump to bottom
-    .aria-label = Jump to bottom of suggestions
-
-ai-smart-form-fill-cancel-review =
-    .label = Cancel
-
-ai-smart-form-fill-finding-suggestions = Finding suggestions
-
-ai-smart-form-fill-stop-finding-suggestions =
-    .aria-label = Stop finding suggestions
-
-ai-smart-form-fill-success-heading = Suggestions added to form
-ai-smart-form-fill-success-description = Review the form and fill any remaining fields before you submit.
-
-ai-smart-form-fill-no-changes-heading = No changes applied
-ai-smart-form-fill-no-changes-description = Smart Form Fill didn’t fill any fields. Check the form and try again.
-
-ai-smart-form-fill-no-suggestions-heading = No suggestions found
-ai-smart-form-fill-no-suggestions-description = Smart Form Fill wasn’t able to generate any suggestions for this form.
-
-ai-smart-form-fill-error-try-again-heading = Suggestions weren’t added to the form
-ai-smart-form-fill-error-try-again-description = Something went wrong. Try adding suggestions again.
-
-ai-smart-form-fill-error-heading = Suggestions weren’t added
-ai-smart-form-fill-error-description = Something went wrong. To try again, select a form field and choose Fill from sources.
-
-ai-smart-form-fill-try-again =
-    .label = Try again
 
 ## Smart Page generated pages
 
@@ -650,3 +570,102 @@ ai-clarifying-question-close =
 smart-actions-toolbar =
     .aria-label = Smart actions
 smart-actions-loading = Looking at this page…
+
+## Smart Window digest starter dismiss button
+## Shown on hover over a digest starter pill. Turns off the digest and
+## removes its pill from the starter row.
+## Variables:
+##   $text (String) - The label of the pill, which is the digest's title, for example "Morning News"
+
+aiwindow-starter-digest-dismiss =
+    .aria-label = Dismiss { $text }
+
+## Smart Window digest modal
+## The dialog that holds the digest form.
+
+smartwindow-digest-modal-create =
+    .aria-label = Create a digest
+smartwindow-digest-modal-edit =
+    .aria-label = Edit digest
+smartwindow-digest-modal-close =
+    .aria-label = Close
+
+## Smart Window digest toast
+## Shown after the user creates a digest. Variables:
+##   $title (String) - The digest's topic, for example "Nutrition research".
+
+smartwindow-digest-toast-created-daily =
+    .heading = Daily digest created for “{ $title }”
+    .message = Find it on your new tab.
+smartwindow-digest-toast-created-weekly =
+    .heading = Weekly digest created for “{ $title }”
+    .message = Find it on your new tab.
+smartwindow-digest-toast-created =
+    .heading = Digest created for “{ $title }”
+    .message = Find it on your new tab.
+smartwindow-digest-toast-view =
+    .label = View digest
+
+## Shown when creating or editing a digest fails.
+
+smartwindow-digest-toast-error-create =
+    .heading = Couldn’t create digest
+    .message = Something went wrong. Try again.
+smartwindow-digest-toast-error-edit =
+    .heading = Couldn’t save changes
+    .message = Something went wrong. Try again.
+
+## Smart Window digest form
+## Used to create a digest, or edit an existing one. A digest is a summary
+## about a topic that is refreshed on a schedule the user sets.
+
+smartwindow-digest-form-create-heading = Create a digest
+smartwindow-digest-form-edit-heading = Edit digest
+smartwindow-digest-form-create-subheading = You’ll get a summary about this topic on a schedule you set.
+smartwindow-digest-form-edit-subheading = Change how this digest is set up.
+# Label above the digest's topic, which is generated and can't be edited
+smartwindow-digest-form-topic-label = Topic
+smartwindow-digest-form-description =
+    .label = What to cover
+    .placeholder = Describe what you want to follow and what kind of updates matter to you.
+# Info button beside the digest's topic. Opens a popup explaining where the
+# digest's topic came from.
+smartwindow-digest-form-memory-tooltip-trigger =
+    .aria-label = Where this topic came from
+# Shown in the popup opened by the info button beside the digest's topic. The
+# link opens Smart Window's memory settings.
+smartwindow-digest-form-memory-tooltip = This topic is based on <a data-l10n-name="memories-link">your memories</a>
+smartwindow-digest-form-sources =
+    .label = Preferred sources
+    .placeholder = Add a website
+smartwindow-digest-form-frequency =
+    .label = How often to update
+smartwindow-digest-form-frequency-daily =
+    .label = Daily
+smartwindow-digest-form-frequency-weekly =
+    .label = Weekly
+# The digest only updates when the user asks for it
+smartwindow-digest-form-frequency-on-demand =
+    .label = On demand
+# Shown beside the frequency dropdown when Weekly is selected
+smartwindow-digest-form-day =
+    .label = Day
+smartwindow-digest-form-time =
+    .label = Time
+smartwindow-digest-form-length =
+    .label = Digest length
+smartwindow-digest-form-length-standard =
+    .label = Standard
+smartwindow-digest-form-length-short =
+    .label = Short
+smartwindow-digest-form-required-note = * Required
+# Note shown at the bottom of the create form indicating required fields
+# The asterisk (*) marks form fields that must be filled in.
+smartwindow-digest-form-cancel =
+    .label = Cancel
+smartwindow-digest-form-create =
+    .label = Create
+smartwindow-digest-form-save =
+    .label = Save changes
+smartwindow-digest-form-error-description = Enter what you want this digest to cover.
+smartwindow-digest-form-error-url = Enter a valid website address.

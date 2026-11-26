@@ -51,7 +51,14 @@ const WIDGET_PAGE = "widget.html";
 
 export const OUTPUT_DIRECTORY = "widget-generator";
 
+/**
+ * The longest prompt that GeneratedWidgetManifest in builtin_widget.json
+ * accepts.
+ */
+const MAX_PROMPT_LENGTH = 2000;
+
 const ENDPOINT_PREF = "browser.widgets.generated.endpoint";
+const CUSTOM_ENDPOINT_PREF = "browser.widgets.generated.customEndpoint";
 const API_KEY_PREF = "browser.widgets.generated.apiKey";
 const MODEL_PREF = "browser.widgets.generated.model";
 const MAX_TURNS_PREF = "browser.widgets.generated.maxTurns";
@@ -72,10 +79,18 @@ export const PROMPT_MAJOR_VERSION = 2;
 export const GENERATION_ERRORS = Object.freeze({
   /** AI Controls block custom widgets. */
   BLOCKED: "blocked",
-  /** No account is signed in. */
+  /** No account token is available, or the service rejects it. */
   AUTH: "auth",
   /** The model can't be reached. */
   SERVICE: "service",
+  /** The account reached its daily limit. */
+  BUDGET: "budget",
+  /** The account sent too many requests in a short time. */
+  RATE_LIMIT: "rate_limit",
+  /** The service has no room for more requests. */
+  CAPACITY: "capacity",
+  /** The network blocks requests to the service. */
+  NETWORK: "network",
   /** The model's files don't make a widget. */
   GENERATION: "generation",
   /** The model declined a request that needs more than a widget can do. */
@@ -85,6 +100,59 @@ export const GENERATION_ERRORS = Object.freeze({
   /** The model declined a request under the acceptable use rules. */
   POLICY: DECLINE_KINDS.POLICY,
 });
+
+/**
+ * The MLPA error codes in the body of a failed model request.
+ */
+const MLPA_ERRORS = Object.freeze({
+  BUDGET_EXCEEDED: 1,
+  RATE_LIMIT_EXCEEDED: 2,
+  MAX_USERS_REACHED: 4,
+  UPSTREAM_RATE_LIMIT: 5,
+  FASTLY_WAF_RATE_LIMIT: 6,
+  GLOBAL_BUDGET_EXCEEDED: 10,
+});
+
+/**
+ * The GENERATION_ERRORS code for each HTTP status of a failed model request,
+ * either directly or by the MLPA error code in the response body.
+ */
+const REQUEST_ERRORS = new Map([
+  [401, GENERATION_ERRORS.AUTH],
+  [403, new Map([[MLPA_ERRORS.MAX_USERS_REACHED, GENERATION_ERRORS.CAPACITY]])],
+  [406, GENERATION_ERRORS.NETWORK],
+  [413, GENERATION_ERRORS.GENERATION],
+  [
+    429,
+    new Map([
+      [MLPA_ERRORS.BUDGET_EXCEEDED, GENERATION_ERRORS.BUDGET],
+      [MLPA_ERRORS.RATE_LIMIT_EXCEEDED, GENERATION_ERRORS.RATE_LIMIT],
+      [MLPA_ERRORS.UPSTREAM_RATE_LIMIT, GENERATION_ERRORS.RATE_LIMIT],
+      [MLPA_ERRORS.FASTLY_WAF_RATE_LIMIT, GENERATION_ERRORS.RATE_LIMIT],
+      [MLPA_ERRORS.GLOBAL_BUDGET_EXCEEDED, GENERATION_ERRORS.CAPACITY],
+    ]),
+  ],
+  [
+    500,
+    new Map([[MLPA_ERRORS.GLOBAL_BUDGET_EXCEEDED, GENERATION_ERRORS.CAPACITY]]),
+  ],
+]);
+
+/**
+ * @param {Error} error - the error of a failed model request
+ * @returns {string} the GENERATION_ERRORS code for it. A 429 without a known
+ *   MLPA error code is a rate limit.
+ */
+function requestErrorCode(error) {
+  let code = REQUEST_ERRORS.get(error?.status);
+  if (code instanceof Map) {
+    code = code.get(error.error);
+  }
+  if (!code && error?.status === 429) {
+    return GENERATION_ERRORS.RATE_LIMIT;
+  }
+  return code ?? GENERATION_ERRORS.SERVICE;
+}
 
 /**
  * An error generating a widget.
@@ -110,6 +178,8 @@ class _WidgetGenerator {
   #clearing = null;
 
   /**
+   * Generates a widget's zip file.
+   *
    * @param {object} options
    * @param {string} options.prompt - what the user asks for
    * @param {AbortSignal} [options.signal] - aborting it ends generation at the
@@ -118,18 +188,28 @@ class _WidgetGenerator {
    */
   async generate({ prompt, signal }) {
     signal?.throwIfAborted();
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+      throw new WidgetGeneratorError(
+        `The prompt is longer than ${MAX_PROMPT_LENGTH} characters`,
+        GENERATION_ERRORS.GENERATION
+      );
+    }
     this.#throwIfBlocked();
-    let endpoint = Services.prefs.getStringPref(ENDPOINT_PREF, "");
+    let customEndpoint = Services.prefs.getStringPref(CUSTOM_ENDPOINT_PREF, "");
     let connection = {};
     let token = null;
-    if (endpoint) {
+    if (customEndpoint) {
       // A custom connection set from prefs
       connection = {
-        baseURL: endpoint,
+        baseURL: customEndpoint,
         apiKey: Services.prefs.getStringPref(API_KEY_PREF, ""),
       };
     } else {
-      // The default openAIEngine connection using an account token.
+      connection = {
+        baseURL:
+          Services.prefs.getStringPref(ENDPOINT_PREF, "") ||
+          lazy.openAIEngine.endpoint,
+      };
       token = await lazy.AuthProvider.getToken();
       if (!token) {
         throw new WidgetGeneratorError(
@@ -280,16 +360,19 @@ class _WidgetGenerator {
    * Sends the conversation to the model for its next reply.
    *
    * @param {object} conversation - the conversation holding the request
-   * @param {?string} token - null when the endpoint pref is set
+   * @param {object} options
+   * @param {?string} options.token - null when the custom endpoint pref is set
+   * @param {AbortSignal} [options.signal] - aborting it ends the request
    * @returns {Promise<{finalOutput: string, toolCalls: object[]}>} the reply
    */
-  async #runTurn(conversation, token) {
+  async #runTurn(conversation, { token, signal }) {
     try {
-      return await conversation.run({ token, tools: TOOLS });
+      return await conversation.run({ token, tools: TOOLS, signal });
     } catch (error) {
+      signal?.throwIfAborted();
       throw new WidgetGeneratorError(
         "The model request failed",
-        GENERATION_ERRORS.SERVICE,
+        requestErrorCode(error),
         error
       );
     }
@@ -301,8 +384,9 @@ class _WidgetGenerator {
    *
    * @param {object} conversation - the conversation holding the request
    * @param {object} options
-   * @param {?string} options.token - null when the endpoint pref is set
-   * @param {AbortSignal} [options.signal] - checked after each reply
+   * @param {?string} options.token - null when the custom endpoint pref is set
+   * @param {AbortSignal} [options.signal] - aborting it ends the request in
+   *   progress
    * @returns {Promise<Map<string, string>>} the files the model wrote, by path
    */
   async #runConversation(conversation, { token, signal }) {
@@ -310,7 +394,7 @@ class _WidgetGenerator {
     let lastError;
     let maxTurns = Services.prefs.getIntPref(MAX_TURNS_PREF, 30);
     for (let turn = 0; turn < maxTurns; turn++) {
-      let response = await this.#runTurn(conversation, token);
+      let response = await this.#runTurn(conversation, { token, signal });
       signal?.throwIfAborted();
       this.#throwIfBlocked();
       let text = response?.finalOutput?.trim();
@@ -376,12 +460,12 @@ class _WidgetGenerator {
   }
 
   /**
-   * Checks the manifest has a name and a written page.
+   * Checks the manifest has a name and the files have a widget page.
    *
    * @param {object} manifest - the model's manifest
    * @param {Map<string, string>} files - the model's files, by path
-   * @throws {WidgetGeneratorError} when the manifest has no name or the files
-   *   have no widget.html
+   * @throws {WidgetGeneratorError} when the name is missing or the files have
+   *   no widget.html
    */
   #validate(manifest, files) {
     let name = manifest?.name;

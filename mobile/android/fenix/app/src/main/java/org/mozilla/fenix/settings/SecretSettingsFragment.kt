@@ -213,11 +213,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_show_more_shortcuts).apply {
-            isChecked = settings.showMoreShortcuts
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_picture_in_picture_window).apply {
             isChecked = settings.enablePictureInPictureWindow
             onPreferenceChangeListener = SharedPreferenceUpdater()
@@ -640,9 +635,20 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
                         if (enabled) {
                             context.components.menuCustomizationRepository.warmUp()
                         }
+                        if (Config.channel.isDebug) {
+                            requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_tools_menu_customization)
+                                .apply { isVisible = enabled }
+                        }
+
                         return super.onPreferenceChange(preference, newValue)
                     }
                 }
+        }
+
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_tools_menu_customization).apply {
+            isVisible = Config.channel.isDebug && context.components.settings.isMenuCustomizationScreenEnabled
+            isChecked = context.components.settings.isToolsMenuCustomizationEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
         }
     }
 

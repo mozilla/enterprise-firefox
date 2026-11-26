@@ -6,13 +6,14 @@ package org.mozilla.fenix.components.menu.middleware
 
 import androidx.navigation.NavController
 import androidx.navigation.NavDirections
+import androidx.navigation.NavOptions
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import mozilla.components.compose.menu.store.CustomizableMenuAction.BackPressed
+import mozilla.components.compose.menu.store.CustomizableMenuAction.EditGroupItemsClicked
 import mozilla.components.compose.menu.store.CustomizableMenuAction.Init
 import mozilla.components.compose.menu.store.CustomizableMenuAction.PreviewClicked
-import mozilla.components.compose.menu.store.CustomizableMenuAction.ResetToDefaultClicked
 import mozilla.components.compose.menu.store.CustomizableMenuAction.ResetToDefaultConfirmed
 import mozilla.components.compose.menu.store.CustomizableMenuState
 import mozilla.components.compose.menu.store.CustomizableMenuStore
@@ -41,14 +42,14 @@ class CustomizeMenuNavigationMiddlewareTest {
     }
 
     @Test
-    fun `WHEN ResetToDefaultClicked is dispatched THEN navigate to ResetToDefaultDialogFragment`() {
+    fun `WHEN EditGroupItemsClicked is dispatched THEN navigate to the screen editing the items of that section`() {
         val store = createStore()
 
-        store.dispatch(ResetToDefaultClicked)
+        store.dispatch(EditGroupItemsClicked("tools"))
 
         verify {
             navController.navigate(
-                CustomizeMenuFragmentDirections.actionCustomizeMenuFragmentToResetToDefaultDialogFragment(),
+                CustomizeMenuFragmentDirections.actionCustomizeMenuFragmentToEditMenuItemsFragment(sectionId = "tools"),
                 null,
             )
         }
@@ -63,7 +64,7 @@ class CustomizeMenuNavigationMiddlewareTest {
         store.dispatch(ResetToDefaultConfirmed)
 
         verify(exactly = 0) {
-            navController.navigate(any<NavDirections>())
+            navController.navigate(any<NavDirections>(), any<NavOptions>())
         }
     }
 

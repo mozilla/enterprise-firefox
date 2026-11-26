@@ -108,8 +108,6 @@
     <string name="preferences_debug_settings_hide_collections_ui" translatable="false">Hide Collections UI</string>
     <!-- Label for migrating Collections to Tab Groups -->
     <string name="preferences_debug_settings_migrate_collections_to_tab_groups" translatable="false">Migrate Collections to Tab Groups</string>
-    <!-- Label for showing more shortcuts -->
-    <string name="preferences_debug_settings_show_more_shortcuts" translatable="false">Show More Shortcuts</string>
     <!-- Label for enabling the picture-in-picture window -->
     <string name="preferences_debug_settings_picture_in_picture_window" translatable="false">Enable Picture-in-Picture Window</string>
     <!-- Label for enabling Homepage Weather Widget -->
@@ -130,6 +128,8 @@
     <string name="preferences_debug_settings_show_toolbar_in_focus_mode" translatable="false">Enable focus mode</string>
     <!-- Label for the option to enable browser menu customization screen -->
     <string name="preferences_debug_settings_enable_menu_customization_screen" translatable="false">Enable menu customization screen</string>
+    <!-- Label for the option to enable customizing the browser menu Tools items -->
+    <string name="preferences_debug_settings_enable_tools_menu_customization" translatable="false">Enable tools menu customization</string>
     <!-- Label for toggling Remote Crash Pull -->
     <string name="preferences_crash_pull_never_show_again" translatable="false">Never show Crash Pull</string>
     <!-- Label for enabling the Debug Drawer -->
@@ -198,7 +198,6 @@
 
     <!-- Label for enabling IPProtection through secret settings -->
     <string name="preferences_debug_settings_ip_protection" translatable="false">Enable IP Protection UI</string>
-    <string name="preferences_debug_settings_ip_protection_locations" translatable="false">Enable IP Protection Locations selection</string>
 
     <!-- Label for allowing GPI (Google Play Integrity) authentication for IPProtection through secret settings -->
     <string name="preferences_debug_settings_ip_protection_use_gpi" translatable="false">Use GPI authentication for IP Protection while signed out (requires restart)</string>

@@ -67,7 +67,7 @@ class ImageBridgeParent final : public PImageBridgeParent,
   void NotifyNotUsed(PTextureParent* aTexture,
                      uint64_t aTransactionId) override;
 
-  base::ProcessId GetChildProcessId() override { return OtherPid(); }
+  GeckoChildID GetChildID() override { return OtherChildID(); }
   dom::ContentParentId GetContentId() override { return mContentId; }
 
   // PImageBridge
@@ -105,7 +105,7 @@ class ImageBridgeParent final : public PImageBridgeParent,
 
   bool IsSameProcess() const override;
 
-  static already_AddRefed<ImageBridgeParent> GetInstance(ProcessId aId);
+  static already_AddRefed<ImageBridgeParent> GetInstance(GeckoChildID aId);
 
   static bool NotifyImageComposites(
       nsTArray<ImageCompositeNotificationInfo>& aNotifications);
@@ -136,7 +136,7 @@ class ImageBridgeParent final : public PImageBridgeParent,
   /**
    * Map of all living ImageBridgeParent instances
    */
-  typedef std::map<base::ProcessId, ImageBridgeParent*> ImageBridgeMap;
+  typedef std::map<GeckoChildID, ImageBridgeParent*> ImageBridgeMap;
   static ImageBridgeMap sImageBridges;
 
   RefPtr<CompositorThreadHolder> mCompositorThreadHolder;

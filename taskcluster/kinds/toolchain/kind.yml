@@ -36,6 +36,7 @@ tasks-from:
     - clang.yml
     - compiler-rt.yml
     - custom-car.yml
+    - darling.yml
     - dxc.yml
     - dump-syms.yml
     - embedded-uniffi-bindgen.yml
@@ -46,10 +47,12 @@ tasks-from:
     - grcov.yml
     - hostutils.yml
     - jj.yml
+    - libcxx.yml
     - libunwind.yml
     - libxml2.yml
     - llvm-symbolizer.yml
     - macos-sdk.yml
+    - metal.yml
     - mingw.yml
     - minidump-stackwalk.yml
     - misc.yml

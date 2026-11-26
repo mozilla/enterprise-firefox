@@ -6,6 +6,7 @@
 #include "NSSSocketControl.h"
 
 #include "mozilla/Base64.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/glean/NetwerkMetrics.h"
@@ -41,7 +42,10 @@ NSSSocketControl::NSSSocketControl(
       mFalseStartCallbackCalled(false),
       mFalseStarted(false),
       mIsFullHandshake(false),
-      mDrewResumptionToken(false),
+      mTriedResumptionToken(false),
+      mTokenRestored(false),
+      mCanceledUnclaimed(false),
+      mHandshakeTimedOut(false),
       mNotedTimeUntilReady(false),
       mEchExtensionStatus(EchExtensionStatus::kNotPresent),
       mMaybeShortWrite(Nothing()),
@@ -116,6 +120,17 @@ void NSSSocketControl::NoteTimeUntilReady() {
           ("[%p] NSSSocketControl::NoteTimeUntilReady\n", mFd));
 }
 
+void NSSSocketControl::RecordTokenResumption(const nsACString& aOutcome) {
+  glean::network::ssl_token_resumption
+      .Get(mTokenRestored ? "tcp_restored"_ns : "tcp_session"_ns, aOutcome)
+      .Add();
+}
+
+bool NSSSocketControl::HasResumptionOutcomeToRecord() const {
+  return mTriedResumptionToken && mSessionCacheInfo.isSome() &&
+         !mCanceledUnclaimed;
+}
+
 void NSSSocketControl::SetHandshakeCompleted() {
   COMMON_SOCKET_CONTROL_ASSERT_ON_OWNING_THREAD();
   if (!mHandshakeCompleted) {
@@ -132,12 +147,9 @@ void NSSSocketControl::SetHandshakeCompleted() {
             static_cast<glean::ssl::ResumedSessionLabel>(!IsFullHandshake()))
         .Add();
 
-    if (mDrewResumptionToken) {
-      glean::network::ssl_token_resumption_outcome
-          .Get(mSessionCacheInfo.isNothing() ? "rejected"_ns
-               : IsFullHandshake()           ? "not_resumed"_ns
-                                             : "resumed"_ns)
-          .Add();
+    if (HasResumptionOutcomeToRecord()) {
+      RecordTokenResumption(IsFullHandshake() ? "not_resumed"_ns
+                                              : "resumed"_ns);
     }
 
     using glean::tls_handshake::CompletedLabel;
@@ -525,6 +537,13 @@ NSSSocketControl::DisableEarlyData() {
 }
 
 NS_IMETHODIMP
+NSSSocketControl::NoteHandshakeTimeout() {
+  COMMON_SOCKET_CONTROL_ASSERT_ON_OWNING_THREAD();
+  mHandshakeTimedOut = true;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 NSSSocketControl::SetHandshakeCallbackListener(
     nsITlsHandshakeCallbackListener* callback) {
   COMMON_SOCKET_CONTROL_ASSERT_ON_OWNING_THREAD();
@@ -536,6 +555,12 @@ PRStatus NSSSocketControl::CloseSocketAndDestroy() {
   COMMON_SOCKET_CONTROL_ASSERT_ON_OWNING_THREAD();
 
   mClientAuthCertificateRequest.reset();
+
+  // Closes by necko aren't failures, except on a handshake timeout.
+  if (HasResumptionOutcomeToRecord() && !mHandshakeCompleted &&
+      (IsCanceled() || mHandshakeTimedOut)) {
+    RecordTokenResumption("failed"_ns);
+  }
 
   PRFileDesc* popped = PR_PopIOLayer(mFd, PR_TOP_IO_LAYER);
   MOZ_ASSERT(
@@ -707,13 +732,19 @@ nsresult NSSSocketControl::SetResumptionTokenFromExternalCache(PRFileDesc* fd) {
     return rv;
   }
 
+  auto recordRejected = MakeScopeExit([&] {
+    if (mTriedResumptionToken && mSessionCacheInfo.isNothing()) {
+      RecordTokenResumption("rejected"_ns);
+    }
+  });
   uint32_t maxAttempts =
       mozilla::StaticPrefs::network_ssl_tokens_cache_records_per_entry();
   for (uint32_t attempt = 0; attempt < maxAttempts; ++attempt) {
     nsTArray<uint8_t> token;
     uint64_t tokenId = 0;
     mozilla::net::SessionCacheInfo info;
-    rv = mozilla::net::SSLTokensCache::Get(peerId, token, info, &tokenId);
+    rv = mozilla::net::SSLTokensCache::Get(peerId, token, info, &tokenId,
+                                           &mTokenRestored);
     if (NS_FAILED(rv)) {
       if (rv == NS_ERROR_NOT_AVAILABLE) {
         // It's ok if we can't find the token.
@@ -722,7 +753,7 @@ nsresult NSSSocketControl::SetResumptionTokenFromExternalCache(PRFileDesc* fd) {
 
       return rv;
     }
-    mDrewResumptionToken = true;
+    mTriedResumptionToken = true;
 
     SECStatus srv =
         SSL_SetResumptionToken(fd, token.Elements(), token.Length());

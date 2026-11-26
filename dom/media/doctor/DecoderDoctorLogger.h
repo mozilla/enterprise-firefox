@@ -41,7 +41,7 @@ class DecoderDoctorLogger {
   // Is logging currently enabled? This is tested anyway in all public `Log...`
   // functions, but it may be used to prevent logging-only work in clients.
   static inline bool IsDDLoggingEnabled() {
-    return MOZ_UNLIKELY(static_cast<LogState>(sLogState) == scEnabled);
+    return MOZ_UNLIKELY(sLogState.load() == scEnabled);
   }
 
   // Shutdown logging. This will prevent more messages to be queued, but the

@@ -16,66 +16,55 @@ import mozilla.components.compose.menu.store.CustomizableMenuAction.BackPressed
 import mozilla.components.compose.menu.store.CustomizableMenuState
 import mozilla.components.compose.menu.store.CustomizableMenuStore
 import mozilla.components.compose.menu.ui.customize.CustomizeMenuContent
-import mozilla.components.feature.automotive.isAndroidAutomotiveAvailable
-import mozilla.components.lib.state.helpers.StoreProvider.Companion.navBackStackStore
+import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
 import mozilla.components.support.base.feature.UserInteractionHandler
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
-import org.mozilla.fenix.components.menu.MenuAccessPoint
-import org.mozilla.fenix.components.menu.MenuBuilder
-import org.mozilla.fenix.components.menu.MenuItemProvidersFactory
 import org.mozilla.fenix.components.menu.MenuItemsRegistry
-import org.mozilla.fenix.components.menu.MenuTarget
 import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration
 import org.mozilla.fenix.components.menu.middleware.CustomizeMenuMiddleware
 import org.mozilla.fenix.components.menu.middleware.CustomizeMenuNavigationMiddleware
 import org.mozilla.fenix.components.menu.middleware.CustomizeMenuTelemetryMiddleware
 import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.isToolbarAtBottom
-import org.mozilla.fenix.ext.openSetDefaultBrowserOption
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.showToolbar
 import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
 import org.mozilla.fenix.theme.FirefoxTheme
-import org.mozilla.fenix.translations.TranslationsEnabledSettings
 
 /** Screen allowing the user to customize the order of and what menu items or menu sections are to be shown. */
 class CustomizeMenuFragment : Fragment(), UserInteractionHandler, SystemInsetsPaddedFragment {
     private val snackbarBinding = ViewBoundFeatureWrapper<SnackbarBinding>()
 
-    private val menuStore: CustomizableMenuStore by lazy {
-        val backStackEntry = findNavController().getBackStackEntry(R.id.customize_menu_graph)
-        backStackEntry
-            .navBackStackStore(CustomizableMenuState(emptyList())) { restoredState ->
-                val components = requireComponents
-                val menuItemsRegistry =
-                    MenuItemsRegistry(
-                        configuration = BrowserMenuConfiguration.allSections(),
-                        resolver = buildMenuItemProvidersFactory()::buildProviderFor,
-                    )
-
-                CustomizableMenuStore(
-                    initialState = restoredState,
-                    middleware =
-                        listOf(
-                            CustomizeMenuMiddleware(
-                                repository = components.menuCustomizationRepository,
-                                menuBuilder = MenuBuilder(menuItemsRegistry),
-                                isToolbarAtBottom = requireContext().isToolbarAtBottom(),
-                                isExpandedToolbarEnabled = components.settings.shouldUseExpandedToolbar,
-                                scope = viewLifecycleOwner.lifecycle.coroutineScope,
-                                appStore = components.appStore,
-                                cannotHideSectionMessage = getString(R.string.customize_menu_cannot_hide_section),
-                            ),
-                            CustomizeMenuNavigationMiddleware(findNavController()),
-                            CustomizeMenuTelemetryMiddleware(),
-                        ),
+    private val menuStore: CustomizableMenuStore by
+        fragmentStore(CustomizableMenuState(emptyList())) { restoredState ->
+            val components = requireComponents
+            val menuItemsRegistry =
+                MenuItemsRegistry(
+                    configuration = BrowserMenuConfiguration.allSections(),
+                    resolver = buildCustomizeMenuItemProvidersFactory()::buildProviderFor,
                 )
-            }
-            .value
-    }
+
+            CustomizableMenuStore(
+                initialState = restoredState,
+                middleware =
+                    listOf(
+                        CustomizeMenuMiddleware(
+                            repository = components.menuCustomizationRepository,
+                            registry = menuItemsRegistry,
+                            isToolbarAtBottom = requireContext().isToolbarAtBottom(),
+                            isExpandedToolbarEnabled = components.settings.shouldUseExpandedToolbar,
+                            isToolsMenuCustomizationEnabled = components.settings.isToolsMenuCustomizationEnabled,
+                            scope = viewLifecycleOwner.lifecycle.coroutineScope,
+                            appStore = components.appStore,
+                            cannotHideSectionMessage = getString(R.string.customize_menu_cannot_hide_section),
+                        ),
+                        CustomizeMenuNavigationMiddleware(findNavController()),
+                        CustomizeMenuTelemetryMiddleware(),
+                    ),
+            )
+        }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -117,41 +106,5 @@ class CustomizeMenuFragment : Fragment(), UserInteractionHandler, SystemInsetsPa
     override fun onBackPressed(): Boolean {
         menuStore.dispatch(BackPressed)
         return false
-    }
-
-    private fun buildMenuItemProvidersFactory(): MenuItemProvidersFactory {
-        val components = requireComponents
-        val context = requireContext()
-        val activity = requireActivity()
-
-        return MenuItemProvidersFactory(
-            context = context,
-            accessPoint = MenuAccessPoint.Browser,
-            target = MenuTarget.CustomizeMenu,
-            browserStore = components.core.store,
-            appStore = components.appStore,
-            ipProtectionStore = components.ipProtection.store,
-            syncStore = components.backgroundServices.syncStore,
-            httpClient = components.core.client,
-            historyStorage = components.core.historyStorage,
-            bookmarksStorage = components.core.bookmarksStorage,
-            pinnedSiteStorage = components.core.pinnedSiteStorage,
-            permissionStorage = components.core.permissionStorage,
-            useCases = components.useCases,
-            addonManager = components.addonManager,
-            engine = components.core.engine,
-            settings = components.settings,
-            summarizeFeatureSettings = components.core.summarizeFeatureSettings,
-            summarizeEligibilityChecker = components.core.summarizationEligibilityChecker,
-            translationsSettings = TranslationsEnabledSettings.dataStore(context),
-            isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
-            quitApplicationDelegate = activity::finishAndRemoveTask,
-            setAsDefaultBrowserDelegate = activity::openSetDefaultBrowserOption,
-            tabDataCoordinator = components.tabDataCoordinator,
-            menuViewScope = viewLifecycleOwner.lifecycle.coroutineScope,
-            applicationScope = components.applicationScope,
-            browsingModeManager = (activity as HomeActivity).browsingModeManager,
-            tabGroupFeatureConfiguration = components.core.tabGroupDiscoveryFeatureConfiguration,
-        )
     }
 }

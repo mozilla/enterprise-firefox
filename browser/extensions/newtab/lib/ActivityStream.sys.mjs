@@ -51,7 +51,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   RemoteRenderer: "resource://newtab/lib/RemoteRenderer.sys.mjs",
   SectionsFeed: "resource://newtab/lib/SectionsManager.sys.mjs",
   SectionsLayoutFeed: "resource://newtab/lib/SectionsLayoutFeed.sys.mjs",
-  StocksFeed: "resource://newtab/lib/Widgets/StocksFeed.sys.mjs",
   PrivacyFeed: "resource://newtab/lib/Widgets/PrivacyFeed.sys.mjs",
   RecentSearchesFeed:
     "resource://newtab/lib/Widgets/RecentSearchesFeed.sys.mjs",
@@ -1365,6 +1364,27 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "discoverystream.editorsPick.enabled",
+    {
+      title: "Boolean flag to pin the Editors' Pick story in Popular Today",
+      value: false,
+    },
+  ],
+  [
+    "discoverystream.editorsPick.position",
+    {
+      title: "Popular Today tile position the Editors' Pick story is pinned to",
+      value: 2,
+    },
+  ],
+  [
+    "discoverystream.editorsPick.showBadge",
+    {
+      title: "Boolean flag to show the Editors' Pick badge on the pinned story",
+      value: false,
+    },
+  ],
+  [
     "discoverystream.sections.ordering",
     {
       title: "Name of the sections ordering to render from Remote Settings",
@@ -1426,6 +1446,14 @@ export const PREFS_CONFIG = new Map([
     "discoverystream.reportAds.newReasons.enabled",
     {
       title: "Boolean flag to enable updated reporting reasons for ads",
+      value: false,
+    },
+  ],
+  [
+    "discoverystream.reportAds.tiles.enabled",
+    {
+      title:
+        "Boolean flag to enable reporting sponsored tiles from the context menu",
       value: false,
     },
   ],
@@ -1936,24 +1964,6 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "widgets.stocks.enabled",
-    {
-      title: "Enables the stocks widget",
-      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
-      getValue: () => !marketGateEnabled(),
-      allowSetFromContent: { type: "boolean" },
-    },
-  ],
-  [
-    "widgets.stocks.interaction",
-    {
-      title:
-        "Boolean flag for determining if a user has interacted with the stocks widget",
-      value: false,
-      allowSetFromContent: { type: "boolean" },
-    },
-  ],
-  [
     "widgets.recentSearches.enabled",
     {
       title: "Enables the recent searches widget",
@@ -2106,15 +2116,6 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "widgets.system.stocks.enabled",
-    {
-      title: "Enables the stocks widget experiment in Nimbus",
-      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
-      value: false,
-      allowSetFromContent: { type: "boolean" },
-    },
-  ],
-  [
     "widgets.system.pictureOfTheDay.enabled",
     {
       title: "Makes the picture of the day widget available",
@@ -2224,14 +2225,6 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "widgets.stocks.size",
-    {
-      title: "Size of the stocks widget (small, medium, or large)",
-      value: "",
-      allowSetFromContent: { oneOf: ["small", "medium", "large"] },
-    },
-  ],
-  [
     "widgets.recentSearches.size",
     {
       title: "Size of the recent searches widget (medium or large)",
@@ -2287,14 +2280,6 @@ export const PREFS_CONFIG = new Map([
         "Tab the recent searches widget last showed, so a new tab opens the widget on the same tab as the user last selected",
       value: "recent",
       allowSetFromContent: { oneOf: ["recent", "trending"] },
-    },
-  ],
-  [
-    "widgets.stocks.watchlist",
-    {
-      title: "Saved stocks widget watchlist ticker symbols (comma-separated)",
-      value: "",
-      allowSetFromContent: { type: "string" },
     },
   ],
   [
@@ -2869,12 +2854,6 @@ const FEEDS_DATA = [
     factory: () => new lazy.WebNotificationsFeed(),
     title:
       "Captures web notifications (Service-Worker and page) for newtab surfaces",
-    value: true,
-  },
-  {
-    name: "stocksfeed",
-    factory: () => new lazy.StocksFeed(),
-    title: "Handles fetching and caching stocks data",
     value: true,
   },
   {

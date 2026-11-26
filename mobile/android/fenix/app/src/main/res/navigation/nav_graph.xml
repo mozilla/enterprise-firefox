@@ -1420,14 +1420,6 @@
             app:argType="mozilla.components.feature.addons.Addon" />
     </fragment>
     <fragment
-        android:id="@+id/notYetSupportedAddonFragment"
-        android:name="org.mozilla.fenix.addons.NotYetSupportedAddonFragment"
-        tools:layout="@layout/fragment_not_yet_supported_addons">
-        <argument
-            android:name="addons"
-            app:argType="mozilla.components.feature.addons.Addon[]" />
-    </fragment>
-    <fragment
         android:id="@+id/addonPermissionsDetailFragment"
         android:name="org.mozilla.fenix.addons.AddonPermissionsDetailsFragment">
         <argument
@@ -1485,9 +1477,6 @@
             <action
                 android:id="@+id/action_addonsManagementFragment_to_installedAddonDetails"
                 app:destination="@id/installedAddonDetailsFragment" />
-            <action
-                android:id="@+id/action_addonsManagementFragment_to_notYetSupportedAddonFragment"
-                app:destination="@id/notYetSupportedAddonFragment" />
             <argument
                 android:name="installAddonId"
                 android:defaultValue="@null"
@@ -1865,13 +1854,25 @@
                 android:id="@+id/action_customizeMenuFragment_to_menuFragment"
                 app:destination="@id/menu_graph" />
             <action
-                android:id="@+id/action_customizeMenuFragment_to_resetToDefaultDialogFragment"
-                app:destination="@id/resetToDefaultDialogFragment" />
+                android:id="@+id/action_customizeMenuFragment_to_editMenuItemsFragment"
+                app:destination="@id/editMenuItemsFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right" />
         </fragment>
 
-        <dialog
-            android:id="@+id/resetToDefaultDialogFragment"
-            android:name="org.mozilla.fenix.components.menu.compose.customize.ResetToDefaultDialogFragment" />
+        <fragment
+            android:id="@+id/editMenuItemsFragment"
+            android:name="org.mozilla.fenix.components.menu.compose.customize.EditMenuItemsFragment"
+            android:label="@string/edit_menu_items">
+            <argument
+                android:name="sectionId"
+                app:argType="string" />
+            <action
+                android:id="@+id/action_editMenuItemsFragment_to_menuFragment"
+                app:destination="@id/menu_graph" />
+        </fragment>
     </navigation>
 
     <navigation

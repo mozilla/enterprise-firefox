@@ -2743,10 +2743,6 @@ void FFmpegVideoDecoder<LIBAV_VER>::ProcessShutdown() {
 #ifdef MOZ_WIDGET_ANDROID
   mShouldResumeDrain = false;
   ReleaseFramesMediaCodec();
-  if (mAndroidImageReaderClient) {
-    mAndroidImageReaderClient->Shutdown();
-    mAndroidImageReaderClient = nullptr;
-  }
   if (mMediaCodecDeviceContext) {
     mLib->av_buffer_unref(&mMediaCodecDeviceContext);
   }
@@ -2765,6 +2761,13 @@ void FFmpegVideoDecoder<LIBAV_VER>::ProcessShutdown() {
   // 4. VulkanDeviceHolder::Drop — always (no-op if already nullptr); last
   //    process-wide client may vkDestroyDevice under sDeviceHolders.
   FFmpegDataDecoder<LIBAV_VER>::ProcessShutdown();
+#ifdef MOZ_WIDGET_ANDROID
+  // Keep the reader's output Surface alive while FFmpeg closes the codec.
+  if (mAndroidImageReaderClient) {
+    mAndroidImageReaderClient->Shutdown();
+    mAndroidImageReaderClient = nullptr;
+  }
+#endif
 #if defined(MOZ_USE_HWDECODE) && defined(MOZ_WIDGET_GTK)
   if (IsHardwareAccelerated()) {
 #  ifdef MOZ_USE_HWDECODE_VULKAN
@@ -3297,6 +3300,21 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::InitMediaCodecDecoder() {
   }
   mCodecContext->opaque = this;
   InitHWCodecContext(ContextType::MediaCodec);
+
+#  ifdef USING_MOZFFVPX
+  const gfx::IntSize maxSize =
+      media::MCSInfo::GetMediaCodecAdaptivePlaybackMaxSize(
+          media::MCSInfo::GetMediaCodecFromMimeType(mInfo.mMimeType),
+          mInfo.mImage);
+  if (!maxSize.IsEmpty()) {
+    FFMPEG_LOG("  adaptive playback max size {}x{}", maxSize.width,
+               maxSize.height);
+    mLib->av_opt_set_int(mCodecContext->priv_data, "max_width", maxSize.width,
+                         0);
+    mLib->av_opt_set_int(mCodecContext->priv_data, "max_height", maxSize.height,
+                         0);
+  }
+#  endif
 
   // MOZ_REQUIRES isn't recognized in MakeScopeExit, but InitMediaCodecDecoder
   // already locks sMutex at the start, so just escape thread analysis.

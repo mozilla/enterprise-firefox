@@ -13,12 +13,21 @@ permalink: /changelog/
   * 🆕 Added `rememberSyncedTextFieldState`, which remembers a `TextFieldState` kept in sync with a caller-owned string, for moving value-based text fields onto the state-based APIs. [Bug 2094916](https://bugzilla.mozilla.org/show_bug.cgi?id=2094916)
   * ⚠️ **Breaking change**: Removed the `visualTransformation` parameter from `TextField`. Use `SecureTextField` for password input. [Bug 2094916](https://bugzilla.mozilla.org/show_bug.cgi?id=2094916)
   * 🆕 Added `SecureTextField`, an outlined text field for password input that masks its text through a `TextObfuscationMode`. [Bug 2094916](https://bugzilla.mozilla.org/show_bug.cgi?id=2094916)
+* **feature-addons**
+  * ⚠️ **Breaking change**: Removed the "Not yet supported" section of the add-ons manager, which is no longer shown since no add-on is marked as unsupported. Removed `UnsupportedAddonsAdapter`, `UnsupportedAddonsAdapterDelegate`, `CustomViewHolder.UnsupportedSectionViewHolder` and `AddonsManagerAdapterDelegate.onNotYetSupportedSectionClicked`. Installed add-ons are now listed in the enabled or disabled section whether or not they are supported. [Bug 2095972](https://bugzilla.mozilla.org/show_bug.cgi?id=2095972)
 * **concept-engine**
   * 🆕 Added `DownloadDelegate.getContentFileName`, which returns the filename a content provider has for a `content://` URI. [Bug 2071966](https://bugzilla.mozilla.org/show_bug.cgi?id=2071966)
 * **support-ktx**
   * 🆕 Added `Uri.getFileNameOrNullForContentUris`, which finds the filename a content provider has for a `content://` Uri. [Bug 2071966](https://bugzilla.mozilla.org/show_bug.cgi?id=2071966)
 * **support-utils**
   * 🆕 Added `DownloadUtils.fileNameFromContentDisposition`, which pulls the filename from a Content-Disposition. [Bug 2071966](https://bugzilla.mozilla.org/show_bug.cgi?id=2071966)
+* **lib-state**
+  * A store declared as a `Fragment` property with `fragmentStore` is now built again, from its last state, for each new view of the fragment, instead of staying the one built for the first view. [Bug 2090975](https://bugzilla.mozilla.org/show_bug.cgi?id=2090975)
+* **compose-menu**
+  * ⚠️ **Breaking change**: The customize menu screen now asks the user to confirm resetting the menu to default itself, so `CustomizableMenuAction.ResetToDefaultClicked` was removed. [Bug 2090975](https://bugzilla.mozilla.org/show_bug.cgi?id=2090975)
+  * 🆕 Added `EditMenuItemsContent`, the screen showing the items of a menu section as `CustomizableMenuItem`s, shown and hidden, with `CustomizableMenuItemsStore`, `CustomizableMenuItemsState` and `CustomizableMenuItemsAction` for its state. [Bug 2090975](https://bugzilla.mozilla.org/show_bug.cgi?id=2090975)
+  * 🆕 Added `CustomizableMenuState.editableGroupIds` and `CustomizableMenuAction.Update.editableGroupIds`, the groups the customize menu screen shows a button for editing the items of, which dispatches the new `CustomizableMenuAction.EditGroupItemsClicked`. [Bug 2090975](https://bugzilla.mozilla.org/show_bug.cgi?id=2090975)
+  * 🆕 Added `CustomizableMenuItemsAction.ItemsChanged`, which `EditMenuItemsContent` dispatches when the user drags an item to another place inside its section or inside the item it is in. [Bug 2090976](https://bugzilla.mozilla.org/show_bug.cgi?id=2090976)
 
 # 162.0
 * **concept-engine**
@@ -63,6 +72,7 @@ permalink: /changelog/
     * The areas at the start and at the end of a list in which a dragged item scrolls it by default are no longer sized from the dragged item when this is the first visible item. [Bug 2086552](https://bugzilla.mozilla.org/show_bug.cgi?id=2086552)
     * Added `ItemInteractionHandler.onDragEnd`, called instead of `onDragCancel` when the user lets go of a dragged item without dropping it onto another item. By default it calls `onDragCancel`. [Bug 2086550](https://bugzilla.mozilla.org/show_bug.cgi?id=2086550)
     * Added `interceptInteractionMode` to `createListInteractionState`, to retarget or reject the interaction the list finds for a dragged item. The interaction it returns is optionally shown via a Rect parameter and acted upon when the user lets go. [Bug 2090877](https://bugzilla.mozilla.org/show_bug.cgi?id=2090877)
+    * Added `targetingLayoutInfo` to `createListInteractionState`, to adjust the list's layout before the interaction for a dragged item is found in it. `interceptInteractionMode` is now also given that layout. [Bug 2091672](https://bugzilla.mozilla.org/show_bug.cgi?id=2091672)
 * **feature-pictureinpicture**
     * 🆕 New component showing the video a tab is playing in a picture-in-picture window. [Bug 2075323](https://bugzilla.mozilla.org/show_bug.cgi?id=2075323)
 * **browser-state**

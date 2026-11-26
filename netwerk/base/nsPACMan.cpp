@@ -776,7 +776,7 @@ void nsPACMan::OnLoadFailure() {
   mScheduledReload = TimeStamp::Now() + TimeDuration::FromSeconds(interval);
 
   LOG(("OnLoadFailure: retry in %d seconds (%d fails)\n", interval,
-       (uint32_t)mLoadFailureCount));
+       mLoadFailureCount.load()));
 
   // while we wait for the retry queued members should try direct
   // even if that means fast failure.
@@ -884,9 +884,9 @@ bool nsPACMan::ProcessPending() {
         // DIRECT indicates that system proxy settings are not configured to use
         // SOCKS proxy. Try https proxy as a secondary preferrable proxy. This
         // is mainly for websocket whose precedence is SOCKS > HTTPS > DIRECT.
-        NS_SUCCEEDED(mSystemProxySettings->GetProxyForURI(
+        (void)mSystemProxySettings->GetProxyForURI(
             query->mSpec, nsDependentCString(kProxyType_HTTPS), query->mHost,
-            query->mPort, pacString));
+            query->mPort, pacString);
       }
     }
     LOG(("Use proxy from system settings: %s\n", pacString.get()));

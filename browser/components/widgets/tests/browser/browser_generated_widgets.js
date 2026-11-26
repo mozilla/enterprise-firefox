@@ -7,6 +7,12 @@ const { GENERATION_ERRORS, OUTPUT_DIRECTORY, WidgetGenerator } =
   ChromeUtils.importESModule(
     "moz-src:///browser/components/widgets/WidgetGenerator.sys.mjs"
   );
+const { CREATION_ERRORS, WidgetCreator } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/widgets/WidgetCreator.sys.mjs"
+);
+const { GeneratedWidgetsProvider } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/widgets/GeneratedWidgetsProvider.sys.mjs"
+);
 const { MockEngineManager } = ChromeUtils.importESModule(
   "resource://testing-common/AIWindowTestUtils.sys.mjs"
 );
@@ -22,6 +28,8 @@ const ZipReader = Components.Constructor(
   "nsIZipReader",
   "open"
 );
+
+const PROVIDER_PREF = "extensions.widgets.generated.enabled";
 
 const LOCAL_PROMPT_PREF = "browser.widgets.generated.localPrompt";
 
@@ -43,6 +51,7 @@ document.body.textContent = formatTemperature(21.5, "°C");`,
 };
 
 let mockEngine;
+let build;
 
 async function answer(...responses) {
   for (let response of responses) {
@@ -172,13 +181,14 @@ add_setup(async function () {
   mockEngine = new MockEngineManager();
   // The widget-generation service takes no `purpose`. MockEngineManager finds
   // engines by purpose, so the tests add one.
-  let build = sinon.stub(openAIEngine, "build").callsFake(options =>
+  build = sinon.stub(openAIEngine, "build").callsFake(options =>
     build.wrappedMethod.call(openAIEngine, {
       ...options,
       purpose: PURPOSES.WIDGET_GENERATION,
     })
   );
   await setGeneratorRecords();
+  await SpecialPowers.pushPrefEnv({ set: [[PROVIDER_PREF, true]] });
 
   registerCleanupFunction(async () => {
     build.restore();
@@ -585,9 +595,26 @@ add_task(async function test_the_row_overrides_the_global_block() {
   }
 });
 
-add_task(async function test_the_endpoint_override_needs_no_account() {
+add_task(async function test_the_endpoint_pref_sets_the_engine_url() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.widgets.generated.endpoint", "http://localhost:1/"]],
+    set: [["browser.widgets.generated.endpoint", "http://localhost:2/"]],
+  });
+  build.resetHistory();
+  try {
+    await generate(
+      { prompt: PROMPT },
+      simulateWriteFileResponse(FILES),
+      "Done."
+    );
+    Assert.equal(build.lastCall.args[0].baseURL, "http://localhost:2/", "URL");
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function test_the_custom_endpoint_needs_no_account() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.widgets.generated.customEndpoint", "http://localhost:1/"]],
   });
   let [, getToken] = mockEngine.mocks;
   getToken.resetHistory();
@@ -606,10 +633,10 @@ add_task(async function test_the_endpoint_override_needs_no_account() {
   }
 });
 
-add_task(async function test_the_endpoint_override_is_still_blocked() {
+add_task(async function test_the_custom_endpoint_is_still_blocked() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.widgets.generated.endpoint", "http://localhost:1/"],
+      ["browser.widgets.generated.customEndpoint", "http://localhost:1/"],
       ["browser.ai.control.generatedWidgets", "blocked"],
     ],
   });
@@ -617,7 +644,7 @@ add_task(async function test_the_endpoint_override_is_still_blocked() {
     await Assert.rejects(
       WidgetGenerator.generate({ prompt: PROMPT }),
       error => error.code == GENERATION_ERRORS.BLOCKED,
-      "The endpoint override respects the block"
+      "The custom endpoint respects the block"
     );
   } finally {
     await SpecialPowers.popPrefEnv();
@@ -760,6 +787,37 @@ add_task(async function test_a_failed_request_is_a_service_error() {
   );
 });
 
+add_task(async function test_a_rejected_request_has_its_service_code() {
+  for (let [status, mlpaCode, code] of [
+    [401, undefined, GENERATION_ERRORS.AUTH],
+    [403, 4, GENERATION_ERRORS.CAPACITY],
+    [406, undefined, GENERATION_ERRORS.NETWORK],
+    [413, 3, GENERATION_ERRORS.GENERATION],
+    [429, 1, GENERATION_ERRORS.BUDGET],
+    [429, 2, GENERATION_ERRORS.RATE_LIMIT],
+    [429, 10, GENERATION_ERRORS.CAPACITY],
+    [429, undefined, GENERATION_ERRORS.RATE_LIMIT],
+    [500, 10, GENERATION_ERRORS.CAPACITY],
+    [500, undefined, GENERATION_ERRORS.SERVICE],
+  ]) {
+    let generating = WidgetGenerator.generate({ prompt: PROMPT });
+    let { reject } = await mockEngine.captureRequest({
+      purpose: PURPOSES.WIDGET_GENERATION,
+    });
+    reject(
+      Object.assign(new Error(`${status} status code`), {
+        status,
+        error: mlpaCode,
+      })
+    );
+    await Assert.rejects(
+      generating,
+      error => error.code == code,
+      `${status} ${mlpaCode ?? ""}`
+    );
+  }
+});
+
 add_task(async function test_an_aborted_signal_ends_generation() {
   let [createEngine, getToken] = mockEngine.mocks;
   createEngine.resetHistory();
@@ -781,16 +839,116 @@ add_task(async function test_an_aborted_signal_ends_generation() {
     prompt: PROMPT,
     signal: controller.signal,
   });
-  let { respond } = await mockEngine.captureRequest({
+  await mockEngine.captureRequest({
     purpose: PURPOSES.WIDGET_GENERATION,
   });
   controller.abort();
-  respond(simulateWriteFileResponse(FILES));
   await Assert.rejects(
     generating,
     error => error.name == "AbortError",
     "Aborted while generating"
   );
+});
+
+add_task(async function test_one_creation_is_pending_at_a_time() {
+  let started = BrowserTestUtils.waitForEvent(
+    WidgetCreator,
+    "WidgetCreator:Creating"
+  );
+  let creating = WidgetCreator.create({ prompt: PROMPT });
+  let { detail } = await started;
+  is(detail.pending, creating, "Event promise");
+  is(WidgetCreator.pending, creating, "Pending");
+  is(WidgetCreator.prompt, PROMPT, "Prompt");
+
+  let listener = sinon.spy();
+  WidgetCreator.addEventListener("WidgetCreator:Creating", listener);
+  await Assert.rejects(
+    WidgetCreator.create({ prompt: PROMPT }),
+    error => error.code == CREATION_ERRORS.BUSY,
+    "Second creation"
+  );
+  WidgetCreator.removeEventListener("WidgetCreator:Creating", listener);
+  ok(listener.notCalled, "No event");
+
+  let install = sinon
+    .stub(GeneratedWidgetsProvider, "install")
+    .callsFake(path => {
+      cleanup(path);
+      WidgetCreator.cancel();
+      is(WidgetCreator.pending, creating, "Cancel ignored while installing");
+      return install.wrappedMethod.call(GeneratedWidgetsProvider, path);
+    });
+  try {
+    await answer(simulateWriteFileResponse(FILES), "Done.");
+    let { id } = await creating;
+    registerCleanupFunction(() => GeneratedWidgetsProvider.uninstall(id));
+  } finally {
+    install.restore();
+  }
+  is(WidgetCreator.pending, null, "Cleared");
+  is(WidgetCreator.prompt, null, "Prompt cleared");
+});
+
+add_task(async function test_a_failed_creation_is_cleared() {
+  let failed = BrowserTestUtils.waitForEvent(
+    WidgetCreator,
+    "WidgetCreator:Error"
+  );
+  let creating = WidgetCreator.create({ prompt: PROMPT });
+  await answer("Done.");
+  await Assert.rejects(
+    creating,
+    error => error.code == GENERATION_ERRORS.GENERATION,
+    "No files"
+  );
+  let { detail } = await failed;
+  is(detail.error.code, GENERATION_ERRORS.GENERATION, "Event error");
+  is(detail.prompt, PROMPT, "Event prompt");
+  is(WidgetCreator.pending, null, "Cleared");
+  is(WidgetCreator.prompt, null, "Prompt cleared");
+});
+
+add_task(async function test_cancel_rejects_during_a_turn() {
+  let creating = WidgetCreator.create({ prompt: PROMPT });
+  await mockEngine.captureRequest({
+    purpose: PURPOSES.WIDGET_GENERATION,
+  });
+  let listener = sinon.spy();
+  WidgetCreator.addEventListener("WidgetCreator:Error", listener);
+  WidgetCreator.cancel();
+  await Assert.rejects(
+    creating,
+    error => error.name == "AbortError",
+    "Canceled"
+  );
+  WidgetCreator.removeEventListener("WidgetCreator:Error", listener);
+  ok(listener.notCalled, "No error event");
+  is(WidgetCreator.pending, null, "Cleared");
+  is(WidgetCreator.prompt, null, "Prompt cleared");
+});
+
+add_task(async function test_cancel_after_generating_skips_the_install() {
+  let generating = sinon
+    .stub(WidgetGenerator, "generate")
+    .callsFake(async () => {
+      await TestUtils.waitForTick();
+      WidgetCreator.cancel();
+      return "widget.zip";
+    });
+  let install = sinon.spy(GeneratedWidgetsProvider, "install");
+  try {
+    await Assert.rejects(
+      WidgetCreator.create({ prompt: PROMPT }),
+      error => error.name == "AbortError",
+      "Canceled"
+    );
+    await TestUtils.waitForTick();
+    ok(install.notCalled, "Not installed");
+  } finally {
+    generating.restore();
+    install.restore();
+  }
 });
 
 /**
@@ -881,4 +1039,62 @@ add_task(async function test_an_incomplete_widget_fails_validation() {
       message
     );
   }
+});
+
+add_task(async function test_a_long_prompt_is_rejected() {
+  let [createEngine, getToken] = mockEngine.mocks;
+  createEngine.resetHistory();
+  getToken.resetHistory();
+  await Assert.rejects(
+    WidgetGenerator.generate({ prompt: "x".repeat(2001) }),
+    error =>
+      error.code == GENERATION_ERRORS.GENERATION &&
+      /prompt/.test(error.message),
+    "Long prompt"
+  );
+  Assert.ok(getToken.notCalled, "No token");
+  Assert.ok(createEngine.notCalled, "No engine");
+  await generate(
+    { prompt: "x".repeat(2000) },
+    simulateWriteFileResponse(FILES),
+    "Done."
+  );
+});
+
+add_task(async function test_a_long_name_is_packaged() {
+  let files = {
+    ...FILES,
+    "manifest.json": JSON.stringify({ name: "x".repeat(76) }),
+  };
+  let path = await generate(
+    { prompt: PROMPT },
+    simulateWriteFileResponse(files),
+    "Done."
+  );
+  let { name } = JSON.parse(readZip(path).get("widget.json"));
+  Assert.equal(name.length, 76, "Long name");
+});
+
+add_task(async function test_a_package_installs_and_its_page_loads() {
+  let path = await generate(
+    { prompt: PROMPT },
+    simulateWriteFileResponse(FILES),
+    "Done."
+  );
+  let { id } = await GeneratedWidgetsProvider.install(path);
+  registerCleanupFunction(() => GeneratedWidgetsProvider.uninstall(id));
+  let policy = WebExtensionPolicy.getByID(id);
+  Assert.ok(policy?.active, "Running");
+  let text = await BrowserTestUtils.withNewTab(
+    policy.getURL("widget.html"),
+    browser =>
+      SpecialPowers.spawn(browser, [], async () => {
+        await ContentTaskUtils.waitForCondition(
+          () => content.document.body?.textContent,
+          "Waiting for the widget"
+        );
+        return content.document.body.textContent;
+      })
+  );
+  Assert.equal(text, "21.5°C", "Page");
 });

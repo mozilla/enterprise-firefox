@@ -1219,6 +1219,45 @@ describe("Reducers", () => {
           .bookmarkTitle
       ).toBeUndefined();
     });
+    it("should store sponsored tile fields with REPORT_AD_OPEN", () => {
+      const state = DiscoveryStream(undefined, {
+        type: at.REPORT_AD_OPEN,
+        data: {
+          block_key: "block-key-1",
+          card_type: "spoc",
+          isSponsoredTopSite: 2,
+          url: "https://sponsor.example.com",
+        },
+      });
+      expect(state.report).toMatchObject({
+        block_key: "block-key-1",
+        isSponsoredTopSite: 2,
+        visible: true,
+      });
+    });
+    it("should clear sponsored tile fields from a previous ad report", () => {
+      let state = DiscoveryStream(undefined, {
+        type: at.REPORT_AD_OPEN,
+        data: { block_key: "block-key-1", isSponsoredTopSite: 2 },
+      });
+      state = DiscoveryStream(state, {
+        type: at.REPORT_AD_OPEN,
+        data: { card_type: "spoc", url: "https://spoc.example.com" },
+      });
+      expect(state.report.block_key).toBeUndefined();
+      expect(state.report.isSponsoredTopSite).toBeUndefined();
+
+      state = DiscoveryStream(state, {
+        type: at.REPORT_AD_OPEN,
+        data: { block_key: "block-key-1", isSponsoredTopSite: 2 },
+      });
+      state = DiscoveryStream(state, {
+        type: at.REPORT_CONTENT_OPEN,
+        data: { card_type: "organic", url: "https://story.example.com" },
+      });
+      expect(state.report.block_key).toBeUndefined();
+      expect(state.report.isSponsoredTopSite).toBeUndefined();
+    });
   });
   describe("Search", () => {
     it("should return INITIAL_STATE by default", () => {
@@ -1331,44 +1370,6 @@ describe("Reducers", () => {
 
       const prev = INITIAL_STATE.PictureOfTheDay;
       expect(PictureOfTheDay(prev, { type: "SOME_OTHER_ACTION" })).toBe(prev);
-    });
-  });
-
-  describe("Stocks", () => {
-    it("WIDGETS_STOCKS_UPDATE replaces tickers and sets lastUpdated", () => {
-      const action = {
-        type: at.WIDGETS_STOCKS_UPDATE,
-        data: {
-          tickers: [{ ticker: "SPY", name: "SPDR S&P 500 ETF Trust" }],
-          lastUpdated: 1700000000000,
-        },
-      };
-      const nextState = reducers.Stocks(undefined, action);
-      expect(nextState.tickers).toEqual(action.data.tickers);
-      expect(nextState.lastUpdated).toBe(1700000000000);
-    });
-
-    it("returns previous state for unrelated actions", () => {
-      const prev = { tickers: [{ ticker: "DIA" }], lastUpdated: 1 };
-      expect(reducers.Stocks(prev, { type: "SOME_OTHER_ACTION" })).toBe(prev);
-    });
-
-    it("WIDGETS_STOCKS_UPDATE stores the error flag", () => {
-      const action = {
-        type: at.WIDGETS_STOCKS_UPDATE,
-        data: { tickers: [], lastUpdated: 1700000000000, error: true },
-      };
-      const nextState = reducers.Stocks(undefined, action);
-      expect(nextState.error).toBe(true);
-    });
-
-    it("WIDGETS_STOCKS_UPDATE defaults error to false when omitted", () => {
-      const action = {
-        type: at.WIDGETS_STOCKS_UPDATE,
-        data: { tickers: [], lastUpdated: 1 },
-      };
-      const nextState = reducers.Stocks(undefined, action);
-      expect(nextState.error).toBe(false);
     });
   });
 
