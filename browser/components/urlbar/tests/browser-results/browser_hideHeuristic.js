@@ -111,7 +111,7 @@ add_task(async function omnibox() {
 });
 
 // UrlbarShared.RESULT_GROUP.HEURISTIC_SEARCH_TIP should be shown.
-add_task(async function searchTip() {
+async function searchTip() {
   await SpecialPowers.pushPrefEnv({
     set: [["browser.urlbar.searchTips.test.ignoreShowLimits", true]],
   });
@@ -133,7 +133,10 @@ add_task(async function searchTip() {
     }
   );
   await SpecialPowers.popPrefEnv();
-});
+}
+// Search tips are disabled with contextual feature recommendations on
+// Firefox Enterprise (bug 2073149).
+add_task({ skip_if: () => AppConstants.MOZ_ENTERPRISE }, searchTip);
 
 // UrlbarShared.RESULT_GROUP.HEURISTIC_ENGINE_ALIAS should be hidden.
 add_task(async function engineAlias() {

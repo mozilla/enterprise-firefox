@@ -104,6 +104,7 @@ support-files = [
 ["browser_oneOffs_settings.js"]
 
 ["browser_partnerCode_smartbar.js"]
+skip-if = ["enterprise"] # Smart Window is disabled in enterprise builds, bug 2073100
 
 ["browser_partnerCode_urlbar.js"]
 

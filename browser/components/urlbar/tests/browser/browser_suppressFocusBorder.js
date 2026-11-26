@@ -202,7 +202,7 @@ add_task(async function newTab_alreadyOpen() {
   await BrowserTestUtils.closeWindow(win);
 });
 
-add_task(async function searchTip() {
+async function searchTip() {
   const win = await BrowserTestUtils.openNewBrowserWindow();
 
   info("Set a pref to show a search tip button.");
@@ -241,7 +241,10 @@ add_task(async function searchTip() {
   BrowserTestUtils.removeTab(tab);
   await BrowserTestUtils.closeWindow(win);
   await SpecialPowers.popPrefEnv();
-});
+}
+// Search tips are disabled with contextual feature recommendations on
+// Firefox Enterprise (bug 2073149).
+add_task({ skip_if: () => AppConstants.MOZ_ENTERPRISE }, searchTip);
 
 add_task(async function interactionOnNewTab() {
   const win = await BrowserTestUtils.openNewBrowserWindow();

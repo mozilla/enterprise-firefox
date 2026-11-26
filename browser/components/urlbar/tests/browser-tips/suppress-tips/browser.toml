@@ -25,4 +25,5 @@ skip-if = [
   # This is a startup test. Verify and repeat run tests multiple times after startup.
   "verify",
   "repeat",
+  "enterprise", # Search tips are disabled with contextual feature recommendations on Firefox Enterprise, bug 2073149
 ]
