@@ -429,6 +429,19 @@ Marks releases as shipped in Ship-It v1
 
 Update Bouncer's (download.mozilla.org) "latest" aliases.
 
+## comm-decision
+
+The decision task of the Thunderbird (comm) graph of Enterprise Firefox
+repositories. It is a copy of the running decision task, made with
+mozilla_taskgraph's `replicate` transform, which also checks out the
+Thunderbird revision pinned in `.comm_rev.yml` and creates the Thunderbird
+graph in its own task group. It is indexed as
+`<trust-domain>.v2.<project>.revision.<rev>.taskgraph.comm-decision`.
+
+It also runs on the `nightly-enterprise` and `daily-releases-enterprise` cron
+jobs, where it generates the comm graph with the same target tasks method,
+indexed as `...taskgraph.comm-decision-<cron job>`.
+
 ## cron-bouncer-check
 
 Checks Bouncer (download.mozilla.org) uptake.
