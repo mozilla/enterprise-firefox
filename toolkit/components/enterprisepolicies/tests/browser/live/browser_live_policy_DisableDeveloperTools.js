@@ -16,25 +16,33 @@
 const PREF_DEVTOOLS_DISABLED = "devtools.policy.disabled";
 const PREF_REMOTE_DISABLED = "remote.policy.disabled";
 
-const { PromiseTestUtils } = ChromeUtils.importESModule(
-  "resource://testing-common/PromiseTestUtils.sys.mjs"
-);
-
-// about:debugging can still dispatch actions while its tab is being closed.
-PromiseTestUtils.allowMatchingRejectionsGlobally(
-  /REDUX_MIDDLEWARE_IGNORED_REDUX_ACTION/
-);
-
 // The about: pages that DisableDeveloperTools blocks via the content policy.
-// about:debugging is loaded at the route it redirects to on load.
 const DEVTOOLS_ABOUT_PAGES = [
-  "about:debugging#/setup",
+  "about:debugging",
   "about:devtools-toolbox",
   "about:profiling",
 ];
 
+// Closing about:debugging before it finishes initializing appears to leak its
+// window, so wait for its Connect page, which it renders once initialized.
+async function checkAboutDebuggingAllowed() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "about:debugging"
+  );
+  await TestUtils.waitForCondition(
+    () => tab.linkedBrowser.contentDocument.querySelector(".qa-connect-page"),
+    "about:debugging finished initializing"
+  );
+  BrowserTestUtils.removeTab(tab);
+}
+
 async function checkDevToolsAboutPages(blocked) {
   for (const page of DEVTOOLS_ABOUT_PAGES) {
+    if (page == "about:debugging" && !blocked) {
+      await checkAboutDebuggingAllowed();
+      continue;
+    }
     await EnterprisePolicyTesting.checkBlockedPage(page, blocked);
   }
 }
