@@ -681,21 +681,32 @@ class gfxFontShaper {
 
   enum class RoundingFlags : uint8_t { kRoundX = 0x01, kRoundY = 0x02 };
 
+  // Per-run parameters that are passed unchanged through the shaping calls.
+  // mLanguage may be null, indicating no lang-specific shaping.
+  struct ShapingParams {
+    nsAtom* mLanguage;
+    Script mScript;
+    bool mVertical;
+    RoundingFlags mRounding;
+  };
+
   explicit gfxFontShaper(gfxFont* aFont) : mFont(aFont) {
     NS_ASSERTION(aFont, "shaper requires a valid font!");
   }
 
   virtual ~gfxFontShaper() = default;
 
+  // The encoding of text passed to ShapeText: char16_t UTF-16 code units, or
+  // uint8_t Latin-1 characters.
+  enum class TextEncoding : uint8_t { Utf16, Latin1 };
+
   // Shape a piece of text and store the resulting glyph data into
   // aShapedText. Parameters aOffset/aLength indicate the range of
-  // aShapedText to be updated; aLength is also the length of aText.
-  virtual bool ShapeText(const char16_t* aText, uint32_t aOffset,
-                         uint32_t aLength, Script aScript,
-                         nsAtom* aLanguage,  // may be null, indicating no
-                                             // lang-specific shaping to be
-                                             // applied
-                         bool aVertical, RoundingFlags aRounding,
+  // aShapedText to be updated; aLength is also the length of aText, which
+  // points to code units of the given encoding.
+  virtual bool ShapeText(const void* aText, TextEncoding aEncoding,
+                         uint32_t aOffset, uint32_t aLength,
+                         const ShapingParams& aParams,
                          gfxShapedText* aShapedText) = 0;
 
   gfxFont* GetFont() const { return mFont; }
@@ -1164,7 +1175,22 @@ class gfxShapedText {
 
   uint32_t GetLength() const { return mLength; }
 
-  bool FilterIfIgnorable(uint32_t aIndex, uint32_t aCh);
+  // If aCh, the Unicode scalar value at aIndex (occupying two UTF-16 code
+  // units if it is outside the BMP), is an ignorable character that should
+  // not be rendered, clear its glyph data and return true.
+  // aGlyphID and aAdvance describe the single glyph the shaper produced for
+  // it, so that a Format character the font renders is not filtered out.
+  bool FilterIfIgnorable(uint32_t aIndex, uint32_t aCh, uint32_t aGlyphID,
+                         float aAdvance);
+
+  // Latin-1 version of FilterIfIgnorable. The only default-ignorable Latin-1
+  // character is U+00AD (ZWNJ and ZWJ are outside Latin-1), so this avoids
+  // the Unicode property lookup for everything else.
+  bool FilterIfIgnorable(uint32_t aIndex, uint8_t aCh, uint32_t aGlyphID,
+                         float aAdvance) {
+    return aCh == 0x00AD &&
+           FilterIfIgnorable(aIndex, uint32_t(aCh), aGlyphID, aAdvance);
+  }
 
   // Erase glyph data from the gfxShapedText, while retaining line-break and
   // cluster flags.
@@ -1507,6 +1533,7 @@ class gfxFont {
   using SVGContextPaint = mozilla::SVGContextPaint;
 
   using RoundingFlags = gfxFontShaper::RoundingFlags;
+  using ShapingParams = gfxFontShaper::ShapingParams;
   using ShapedTextFlags = mozilla::gfx::ShapedTextFlags;
   using imgDrawingParams = mozilla::image::imgDrawingParams;
 
@@ -2169,24 +2196,17 @@ class gfxFont {
   // performs safe actions independent of the value returned.
   tainted_boolean_hint SpaceMayParticipateInShaping(Script aRunScript) const;
 
-  // For 8-bit text, expand to 16-bit and then call the following method.
-  bool ShapeText(const uint8_t* aText,
+  // Call the appropriate shaper to generate glyphs for aText (UTF-16 or
+  // Latin-1, as given by aEncoding) and store them into aShapedText.
+  bool ShapeText(const void* aText, gfxFontShaper::TextEncoding aEncoding,
                  uint32_t aOffset,  // dest offset in gfxShapedText
-                 uint32_t aLength, Script aScript, nsAtom* aLanguage,
-                 bool aVertical, RoundingFlags aRounding,
+                 uint32_t aLength, const ShapingParams& aParams,
                  gfxShapedText* aShapedText);  // where to store the result
-
-  // Call the appropriate shaper to generate glyphs for aText and store
-  // them into aShapedText.
-  bool ShapeText(const char16_t* aText, uint32_t aOffset, uint32_t aLength,
-                 Script aScript, nsAtom* aLanguage, bool aVertical,
-                 RoundingFlags aRounding, gfxShapedText* aShapedText);
 
   // Helper to adjust for synthetic bold and set character-type flags
   // in the shaped text; implementations of ShapeText should call this
   // after glyph shaping has been completed.
-  void PostShapingFixup(const char16_t* aText,
-                        uint32_t aOffset,  // position within aShapedText
+  void PostShapingFixup(uint32_t aOffset,  // position within aShapedText
                         uint32_t aLength, bool aVertical,
                         gfxShapedText* aShapedText);
 
@@ -2199,9 +2219,8 @@ class gfxFont {
   // text.
   template <typename T>
   bool ShapeTextWithoutWordCache(const T* aText, uint32_t aOffset,
-                                 uint32_t aLength, Script aScript,
-                                 nsAtom* aLanguage, bool aVertical,
-                                 RoundingFlags aRounding, gfxTextRun* aTextRun);
+                                 uint32_t aLength, const ShapingParams& aParams,
+                                 gfxTextRun* aTextRun);
 
   // Shape a fragment of text (a run that is known to contain only
   // "valid" characters, no newlines/tabs/other control chars).
@@ -2210,9 +2229,8 @@ class gfxFont {
   // platform shapers.
   template <typename T>
   bool ShapeFragmentWithoutWordCache(const T* aText, uint32_t aOffset,
-                                     uint32_t aLength, Script aScript,
-                                     nsAtom* aLanguage, bool aVertical,
-                                     RoundingFlags aRounding,
+                                     uint32_t aLength,
+                                     const ShapingParams& aParams,
                                      gfxTextRun* aTextRun);
 
   void CheckForFeaturesInvolvingSpace() const;
@@ -2221,11 +2239,9 @@ class gfxFont {
   // for use in setting up a gfxTextRun.
   template <typename T, typename Func>
   bool ProcessShapedWordInternal(const T* aText, uint8_t aLength,
-                                 uint32_t aHash, Script aRunScript,
-                                 nsAtom* aLanguage, bool aVertical,
+                                 uint32_t aHash, const ShapingParams& aParams,
                                  uint16_t aAppUnitsPerDevUnit,
                                  mozilla::gfx::ShapedTextFlags aFlags,
-                                 RoundingFlags aRounding,
                                  gfxTextPerfMetrics* aTextPerf, Func aCallback);
 
   // whether a given feature is included in feature settings from both the

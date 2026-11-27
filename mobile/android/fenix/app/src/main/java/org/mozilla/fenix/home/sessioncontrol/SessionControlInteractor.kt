@@ -371,6 +371,14 @@ class SessionControlInteractor(
         trackingProtectionController.handleProtectionStatusPillClicked()
     }
 
+    override fun onSportsWidgetMatchesAndResultsClicked() {
+        sportsWidgetController.handleSportsWidgetMatchesAndResultsClicked()
+    }
+
+    override fun onSportsWidgetMatchClicked() {
+        sportsWidgetController.handleSportsWidgetMatchClicked()
+    }
+
     override fun onSportsWidgetWallpapersClicked() {
         sportsWidgetController.handleSportsWidgetWallpapersClicked()
     }

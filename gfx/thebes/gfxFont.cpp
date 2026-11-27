@@ -868,7 +868,8 @@ void gfxShapedText::SetMissingGlyph(uint32_t aIndex, uint32_t aChar,
   g.SetMissing();
 }
 
-bool gfxShapedText::FilterIfIgnorable(uint32_t aIndex, uint32_t aCh) {
+bool gfxShapedText::FilterIfIgnorable(uint32_t aIndex, uint32_t aCh,
+                                      uint32_t aGlyphID, float aAdvance) {
   if (!IsIgnorable(aCh)) {
     return false;
   }
@@ -879,23 +880,27 @@ bool gfxShapedText::FilterIfIgnorable(uint32_t aIndex, uint32_t aCh) {
   // combining jamos; see bug 1238243.
   auto* charGlyphs = GetCharacterGlyphs();
   auto category = GetGeneralCategory(aCh);
+  const uint32_t charLength = aCh > 0xFFFF ? 2 : 1;
   if (category == HB_UNICODE_GENERAL_CATEGORY_OTHER_LETTER &&
-      aIndex + 1 < GetLength() && !charGlyphs[aIndex + 1].IsClusterStart()) {
+      aIndex + charLength < GetLength() &&
+      !charGlyphs[aIndex + charLength].IsClusterStart()) {
     return false;
   }
-  CompressedGlyph& g = charGlyphs[aIndex];
   // For Format-Control characters, we avoid filtering if the glyph is _not_
   // .notdef and has a positive advance width (e.g. Mongolian Vowel Separator
   // in some fonts).
-  if (category == HB_UNICODE_GENERAL_CATEGORY_FORMAT) {
-    if (!g.IsSimpleGlyph() ||
-        (g.GetSimpleGlyph() != 0 && g.GetSimpleAdvance() > 0)) {
-      return false;
-    }
+  if (category == HB_UNICODE_GENERAL_CATEGORY_FORMAT && aGlyphID != 0 &&
+      aAdvance > 0) {
+    return false;
   }
+  CompressedGlyph& g = charGlyphs[aIndex];
   // A compressedGlyph that is set to MISSING but has no DetailedGlyphs list
   // will be zero-width/invisible, which is what we want here.
   g.SetComplex(g.IsClusterStart(), g.IsLigatureGroupStart()).SetMissing();
+  if (charLength == 2) {
+    CompressedGlyph& low = charGlyphs[aIndex + 1];
+    low.SetComplex(low.IsClusterStart(), false);
+  }
   return true;
 }
 
@@ -3514,14 +3519,19 @@ static uint8_t IsBoundarySpace(uint8_t aChar, uint8_t aNextChar) {
 #  define GFX_MAYBE_UNUSED
 #endif
 
+template <typename T>
+static constexpr gfxFontShaper::TextEncoding TextEncodingFor =
+    sizeof(T) == sizeof(uint8_t) ? gfxFontShaper::TextEncoding::Latin1
+                                 : gfxFontShaper::TextEncoding::Utf16;
+
 template <typename T, typename Func>
 bool gfxFont::ProcessShapedWordInternal(
-    const T* aText, uint8_t aLength, uint32_t aHash, Script aRunScript,
-    nsAtom* aLanguage, bool aVertical, uint16_t aAppUnitsPerDevUnit,
-    gfx::ShapedTextFlags aFlags, RoundingFlags aRounding,
-    gfxTextPerfMetrics* aTextPerf GFX_MAYBE_UNUSED, Func aCallback) {
-  WordCacheKey key(aText, aLength, aHash, aRunScript, aLanguage,
-                   aAppUnitsPerDevUnit, aFlags, aRounding);
+    const T* aText, uint8_t aLength, uint32_t aHash,
+    const ShapingParams& aParams, uint16_t aAppUnitsPerDevUnit,
+    gfx::ShapedTextFlags aFlags, gfxTextPerfMetrics* aTextPerf GFX_MAYBE_UNUSED,
+    Func aCallback) {
+  WordCacheKey key(aText, aLength, aHash, aParams.mScript, aParams.mLanguage,
+                   aAppUnitsPerDevUnit, aFlags, aParams.mRounding);
   {
     // If we have a word cache, attempt to look up the word in it.
     AutoReadLock lock(mLock);
@@ -3546,14 +3556,14 @@ bool gfxFont::ProcessShapedWordInternal(
   // only when it comes time to cache the new entry.
 
   UniquePtr<gfxShapedWord> newShapedWord(
-      gfxShapedWord::Create(aText, aLength, aRunScript, aLanguage,
-                            aAppUnitsPerDevUnit, aFlags, aRounding));
+      gfxShapedWord::Create(aText, aLength, aParams.mScript, aParams.mLanguage,
+                            aAppUnitsPerDevUnit, aFlags, aParams.mRounding));
   if (!newShapedWord) {
     NS_WARNING("failed to create gfxShapedWord - expect missing text");
     return false;
   }
-  DebugOnly<bool> ok = ShapeText(aText, 0, aLength, aRunScript, aLanguage,
-                                 aVertical, aRounding, newShapedWord.get());
+  DebugOnly<bool> ok = ShapeText(aText, TextEncodingFor<T>, 0, aLength, aParams,
+                                 newShapedWord.get());
   NS_WARNING_ASSERTION(ok, "failed to shape word - expect garbled text");
 
   {
@@ -3643,29 +3653,16 @@ bool gfxFont::ProcessSingleSpaceShapedWord(
     RoundingFlags aRounding,
     const std::function<void(gfxShapedWord*)>& aCallback) {
   static const uint8_t space = ' ';
+  const ShapingParams params{/* mLanguage = */ nullptr, Script::LATIN,
+                             aVertical, aRounding};
   return ProcessShapedWordInternal(
       &space, 1, gfxShapedWord::HashMix(gfxShapedWord::sHashInitialValue, ' '),
-      Script::LATIN, /* aLanguage = */ nullptr, aVertical, aAppUnitsPerDevUnit,
-      aFlags, aRounding, nullptr, aCallback);
+      params, aAppUnitsPerDevUnit, aFlags, nullptr, aCallback);
 }
 
-bool gfxFont::ShapeText(const uint8_t* aText, uint32_t aOffset,
-                        uint32_t aLength, Script aScript, nsAtom* aLanguage,
-                        bool aVertical, RoundingFlags aRounding,
-                        gfxShapedText* aShapedText) {
-  nsDependentCSubstring ascii((const char*)aText, aLength);
-  nsAutoString utf16;
-  AppendASCIItoUTF16(ascii, utf16);
-  if (utf16.Length() != aLength) {
-    return false;
-  }
-  return ShapeText(utf16.BeginReading(), aOffset, aLength, aScript, aLanguage,
-                   aVertical, aRounding, aShapedText);
-}
-
-bool gfxFont::ShapeText(const char16_t* aText, uint32_t aOffset,
-                        uint32_t aLength, Script aScript, nsAtom* aLanguage,
-                        bool aVertical, RoundingFlags aRounding,
+bool gfxFont::ShapeText(const void* aText,
+                        gfxFontShaper::TextEncoding aEncoding, uint32_t aOffset,
+                        uint32_t aLength, const ShapingParams& aParams,
                         gfxShapedText* aShapedText) {
   // XXX Currently, we do all vertical shaping through harfbuzz.
   // Vertical graphite support may be wanted as a future enhancement.
@@ -3673,7 +3670,7 @@ bool gfxFont::ShapeText(const char16_t* aText, uint32_t aOffset,
   // On workers (offscreen canvas), `UseGraphiteShaping` always returns false,
   // and shaping uses harfbuzz.
   if (gfxPlatform::GetPlatform()->UseGraphiteShaping() &&
-      FontCanSupportGraphite() && !aVertical) {
+      FontCanSupportGraphite() && !aParams.mVertical) {
     gfxGraphiteShaper* shaper = mGraphiteShaper;
     if (!shaper) {
       shaper = new gfxGraphiteShaper(this);
@@ -3682,17 +3679,17 @@ bool gfxFont::ShapeText(const char16_t* aText, uint32_t aOffset,
         shaper = mGraphiteShaper;
       }
     }
-    if (shaper->ShapeText(aText, aOffset, aLength, aScript, aLanguage,
-                          aVertical, aRounding, aShapedText)) {
-      PostShapingFixup(aText, aOffset, aLength, aVertical, aShapedText);
+    if (shaper->ShapeText(aText, aEncoding, aOffset, aLength, aParams,
+                          aShapedText)) {
+      PostShapingFixup(aOffset, aLength, aParams.mVertical, aShapedText);
       return true;
     }
   }
 
   gfxHarfBuzzShaper* shaper = GetHarfBuzzShaper();
-  if (shaper && shaper->ShapeText(aText, aOffset, aLength, aScript, aLanguage,
-                                  aVertical, aRounding, aShapedText)) {
-    PostShapingFixup(aText, aOffset, aLength, aVertical, aShapedText);
+  if (shaper && shaper->ShapeText(aText, aEncoding, aOffset, aLength, aParams,
+                                  aShapedText)) {
+    PostShapingFixup(aOffset, aLength, aParams.mVertical, aShapedText);
     if (GetFontEntry()->HasTrackingTable()) {
       // Convert font size from device pixels back to CSS px
       // to use in selecting tracking value
@@ -3728,9 +3725,8 @@ bool gfxFont::ShapeText(const char16_t* aText, uint32_t aOffset,
   return false;
 }
 
-void gfxFont::PostShapingFixup(const char16_t* aText, uint32_t aOffset,
-                               uint32_t aLength, bool aVertical,
-                               gfxShapedText* aShapedText) {
+void gfxFont::PostShapingFixup(uint32_t aOffset, uint32_t aLength,
+                               bool aVertical, gfxShapedText* aShapedText) {
   if (ApplySyntheticBold()) {
     const Metrics& metrics = GetMetrics(aVertical ? nsFontMetrics::eVertical
                                                   : nsFontMetrics::eHorizontal);
@@ -3750,9 +3746,8 @@ void gfxFont::PostShapingFixup(const char16_t* aText, uint32_t aOffset,
 
 template <typename T>
 bool gfxFont::ShapeFragmentWithoutWordCache(const T* aText, uint32_t aOffset,
-                                            uint32_t aLength, Script aScript,
-                                            nsAtom* aLanguage, bool aVertical,
-                                            RoundingFlags aRounding,
+                                            uint32_t aLength,
+                                            const ShapingParams& aParams,
                                             gfxTextRun* aTextRun) {
   aTextRun->SetupClusterBoundaries(aOffset, aText, aLength);
 
@@ -3786,8 +3781,8 @@ bool gfxFont::ShapeFragmentWithoutWordCache(const T* aText, uint32_t aOffset,
       }
     }
 
-    ok = ShapeText(aText, aOffset, fragLen, aScript, aLanguage, aVertical,
-                   aRounding, aTextRun);
+    ok = ShapeText(aText, TextEncodingFor<T>, aOffset, fragLen, aParams,
+                   aTextRun);
 
     aText += fragLen;
     aOffset += fragLen;
@@ -3808,14 +3803,13 @@ static bool IsInvalidControlChar(uint32_t aCh) {
 
 template <typename T>
 bool gfxFont::ShapeTextWithoutWordCache(const T* aText, uint32_t aOffset,
-                                        uint32_t aLength, Script aScript,
-                                        nsAtom* aLanguage, bool aVertical,
-                                        RoundingFlags aRounding,
+                                        uint32_t aLength,
+                                        const ShapingParams& aParams,
                                         gfxTextRun* aTextRun) {
   uint32_t fragStart = 0;
   bool ok = true;
 
-  for (uint32_t i = 0; i <= aLength && ok; ++i) {
+  for (uint32_t i = 0; ok; ++i) {
     T ch = (i < aLength) ? aText[i] : '\n';
     bool invalid = gfxFontGroup::IsInvalidChar(ch);
     uint32_t length = i - fragStart;
@@ -3827,8 +3821,7 @@ bool gfxFont::ShapeTextWithoutWordCache(const T* aText, uint32_t aOffset,
 
     if (length > 0) {
       ok = ShapeFragmentWithoutWordCache(aText + fragStart, aOffset + fragStart,
-                                         length, aScript, aLanguage, aVertical,
-                                         aRounding, aTextRun);
+                                         length, aParams, aTextRun);
     }
 
     if (i == aLength) {
@@ -3848,8 +3841,7 @@ bool gfxFont::ShapeTextWithoutWordCache(const T* aText, uint32_t aOffset,
                !(aTextRun->GetFlags() &
                  gfx::ShapedTextFlags::TEXT_HIDE_CONTROL_CHARACTERS)) {
       if (GetFontEntry()->IsUserFont() && HasCharacter(ch)) {
-        ShapeFragmentWithoutWordCache(aText + i, aOffset + i, 1, aScript,
-                                      aLanguage, aVertical, aRounding,
+        ShapeFragmentWithoutWordCache(aText + i, aOffset + i, 1, aParams,
                                       aTextRun);
       } else {
         aTextRun->SetMissingGlyph(aOffset + i, ch, this);
@@ -3919,6 +3911,7 @@ bool gfxFont::SplitAndInitTextRun(
                static_cast<uint32_t>(std::numeric_limits<uint8_t>::max()));
 
   bool vertical = aOrientation == ShapedTextFlags::TEXT_ORIENT_VERTICAL_UPRIGHT;
+  const ShapingParams params{aLanguage, aRunScript, vertical, rounding};
 
   // If spaces can participate in shaping (e.g. within lookups for automatic
   // fractions), need to shape without using the word cache which segments
@@ -3936,9 +3929,8 @@ bool gfxFont::SplitAndInitTextRun(
   if (canParticipate) {
     if (aRunLength > wordCacheCharLimit || HasSpaces(aString, aRunLength)) {
       TEXT_PERF_INCR(tp, wordCacheSpaceRules);
-      return ShapeTextWithoutWordCache(aString, aRunStart, aRunLength,
-                                       aRunScript, aLanguage, vertical,
-                                       rounding, aTextRun);
+      return ShapeTextWithoutWordCache(aString, aRunStart, aRunLength, params,
+                                       aTextRun);
     }
   }
 
@@ -3984,8 +3976,7 @@ bool gfxFont::SplitAndInitTextRun(
     if (length > wordCacheCharLimit) {
       TEXT_PERF_INCR(tp, wordCacheLong);
       bool ok = ShapeFragmentWithoutWordCache(
-          aString + wordStart, aRunStart + wordStart, length, aRunScript,
-          aLanguage, vertical, rounding, aTextRun);
+          aString + wordStart, aRunStart + wordStart, length, params, aTextRun);
       if (!ok) {
         return false;
       }
@@ -4001,9 +3992,8 @@ bool gfxFont::SplitAndInitTextRun(
       }
       MOZ_ASSERT(length <= std::numeric_limits<uint8_t>::max());
       bool processed = ProcessShapedWordInternal(
-          aString + wordStart, static_cast<uint8_t>(length), hash, aRunScript,
-          aLanguage, vertical, appUnitsPerDevUnit, wordFlags, rounding, tp,
-          [&](gfxShapedWord* aShapedWord) {
+          aString + wordStart, static_cast<uint8_t>(length), hash, params,
+          appUnitsPerDevUnit, wordFlags, tp, [&](gfxShapedWord* aShapedWord) {
             aTextRun->CopyGlyphDataFrom(aShapedWord, aRunStart + wordStart);
           });
       if (!processed) {
@@ -4027,8 +4017,8 @@ bool gfxFont::SplitAndInitTextRun(
         bool processed = ProcessShapedWordInternal(
             &boundary, 1,
             gfxShapedWord::HashMix(gfxShapedWord::sHashInitialValue, boundary),
-            aRunScript, aLanguage, vertical, appUnitsPerDevUnit,
-            flags | gfx::ShapedTextFlags::TEXT_IS_8BIT, rounding, tp,
+            params, appUnitsPerDevUnit,
+            flags | gfx::ShapedTextFlags::TEXT_IS_8BIT, tp,
             [&](gfxShapedWord* aShapedWord) {
               aTextRun->CopyGlyphDataFrom(aShapedWord, aRunStart + i);
               if (boundary == ' ') {
@@ -4064,8 +4054,8 @@ bool gfxFont::SplitAndInitTextRun(
                !(aTextRun->GetFlags() &
                  gfx::ShapedTextFlags::TEXT_HIDE_CONTROL_CHARACTERS)) {
       if (GetFontEntry()->IsUserFont() && HasCharacter(ch)) {
-        ShapeFragmentWithoutWordCache(aString + i, aRunStart + i, 1, aRunScript,
-                                      aLanguage, vertical, rounding, aTextRun);
+        ShapeFragmentWithoutWordCache(aString + i, aRunStart + i, 1, params,
+                                      aTextRun);
       } else {
         aTextRun->SetMissingGlyph(aRunStart + i, ch, this);
       }

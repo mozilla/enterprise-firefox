@@ -14,38 +14,37 @@ const {
 } = require("resource://devtools/client/webconsole/constants.js");
 
 const l10nLevels = {
-  error: "level.error",
-  warn: "level.warn",
-  info: "level.info",
-  log: "level.log",
-  debug: "level.debug",
-  jstracer: "level.jstracer",
+  error: "webconsole-level-error",
+  warn: "webconsole-level-warn",
+  info: "webconsole-level-info",
+  log: "webconsole-level-log",
+  debug: "webconsole-level-debug",
+  jstracer: "webconsole-level-jstracer",
 };
 
 // Store common icons so they can be used without recreating the element
 // during render.
-const CONSTANT_ICONS = Object.entries(l10nLevels).reduce(
-  (acc, [key, l10nLabel]) => {
-    acc[key] = getIconElement(l10nLabel);
-    return acc;
-  },
-  {}
-);
+const CONSTANT_ICONS = Object.entries(l10nLevels).reduce((acc, [key]) => {
+  acc[key] = getIconElement(key);
+  return acc;
+}, {});
 
 function getIconElement(level, type, title) {
-  title = title || l10n.getStr(l10nLevels[level] || level);
+  if (!title && l10nLevels[level]) {
+    title = l10n.getStr(l10nLevels[level]);
+  }
   const classnames = ["icon"];
 
   if (type === "logPoint") {
-    title = l10n.getStr("logpoint.title");
+    title = l10n.getStr("webconsole-logpoint-title");
     classnames.push("logpoint");
   } else if (type === "blockedReason") {
-    title = l10n.getStr("blockedrequest.label2");
+    title = l10n.getStr("webconsole-blocked-request");
   } else if (type === MESSAGE_TYPE.COMMAND) {
-    title = l10n.getStr("command.title");
+    title = l10n.getStr("webconsole-command-title");
   } else if (type === MESSAGE_TYPE.RESULT) {
-    title = l10n.getStr("result.title");
-  } else if (level == "level.jstracer" || type == MESSAGE_TYPE.JSTRACER) {
+    title = l10n.getStr("webconsole-result-title");
+  } else if (level == "jstracer" || type == MESSAGE_TYPE.JSTRACER) {
     // Actual traces uses JSTracerTrace objects and `level` attribute,
     // while log messages relating to tracing uses ConsoleApiCall, where level == "log" and so rather uses `type` attribute.
     classnames.push("logtrace");

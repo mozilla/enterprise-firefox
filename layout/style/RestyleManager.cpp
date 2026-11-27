@@ -954,6 +954,18 @@ static bool RecomputePosition(nsIFrame* aFrame) {
     } else {
       MOZ_ASSERT(display->IsRelativelyPositionedStyle(),
                  "Unexpected type of positioning");
+      // Percentage block-axis insets might get treated as auto if the bsize is
+      // indefinite during reflow, but we can't easily know that from here, so
+      // reflow instead.
+      const auto* pos = aFrame->StylePosition();
+      const auto params = AnchorPosOffsetResolutionParams::UseCBFrameSize(
+          AnchorPosResolutionParams::From(aFrame));
+      const WritingMode cbWM = aFrame->GetContainingBlock()->GetWritingMode();
+      for (const auto side : {LogicalSide::BStart, LogicalSide::BEnd}) {
+        if (pos->GetAnchorResolvedInset(side, cbWM, params)->HasPercent()) {
+          return false;
+        }
+      }
       for (nsIFrame* cont = aFrame; cont;
            cont = nsLayoutUtils::GetNextContinuationOrIBSplitSibling(cont)) {
         nsIFrame* cb = cont->GetContainingBlock();
@@ -3212,8 +3224,12 @@ ServoElementSnapshot& RestyleManager::SnapshotFor(Element& aElement) {
     // its slots.
     Element* host = aElement.GetParentElement();
     MOZ_ASSERT(host && host->GetShadowRoot());
-    host->SetStyleFlags(NodeStyleFlags::MayHaveSlottedSnapshots);
-    host->NoteDirtyForServo();
+    // The host may already be unbound if we're in the middle of unbinding its
+    // subtree.
+    if (host->IsInComposedDoc()) [[likely]] {
+      host->SetStyleFlags(NodeStyleFlags::MayHaveSlottedSnapshots);
+      host->NoteDirtyForServo();
+    }
   }
 
   // Now that we have a snapshot, make sure a restyle is triggered.

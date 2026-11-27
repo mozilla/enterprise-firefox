@@ -8,10 +8,13 @@ import androidx.datastore.core.DataStore
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import mozilla.components.support.base.log.logger.Logger
 import org.mozilla.fenix.datastore.CustomizedMenuRecord
@@ -25,6 +28,8 @@ import org.mozilla.fenix.datastore.CustomizedMenuRecord.CustomizedSection
  * @param defaultSectionsInfo The items of each section whose items can be customized, keyed by section id, for users
  *   who didn't customize them.
  * @param requiredSectionIds Ids of the sections of the browser menu which cannot be removed.
+ * @param topLevelOnlyItemIds Ids of the menu items which can only be directly in their section, never inside another
+ *   item.
  * @param scope [CoroutineScope] outliving any screen, used for reading and writing the customization.
  */
 class MenuCustomizationRepository(
@@ -32,6 +37,7 @@ class MenuCustomizationRepository(
     private val defaultMenuInfo: () -> CustomizedMenuInfo,
     private val defaultSectionsInfo: Map<String, CustomizedSectionInfo>,
     private val requiredSectionIds: Set<String>,
+    private val topLevelOnlyItemIds: Set<String>,
     private val scope: CoroutineScope,
 ) {
     private val lock = Any()
@@ -83,7 +89,7 @@ class MenuCustomizationRepository(
     /** Persist a new customization of the items of a section, keeping the one of the menu sections. */
     fun save(sectionInfo: CustomizedSectionInfo) {
         val default = defaultSectionsInfo[sectionInfo.sectionId] ?: return
-        val reconciled = sectionInfo.reconciledWith(default)
+        val reconciled = sectionInfo.reconciledWith(default, topLevelOnlyItemIds)
         persist { it.toCurrentBuilder().withSectionInfo(reconciled).build() }
     }
 
@@ -146,7 +152,9 @@ class MenuCustomizationRepository(
         if (isCustomized) {
             customizedSectionsList
                 .mapNotNull { section ->
-                    defaultSectionsInfo[section.sectionId]?.let { section.toCustomizedSectionInfo().reconciledWith(it) }
+                    defaultSectionsInfo[section.sectionId]?.let {
+                        section.toCustomizedSectionInfo().reconciledWith(it, topLevelOnlyItemIds)
+                    }
                 }
                 .associateBy { it.sectionId }
         } else {
@@ -210,3 +218,23 @@ class MenuCustomizationRepository(
         val logger = Logger("MenuCustomizationRepository")
     }
 }
+
+/**
+ * The items of each menu section as customized by the user, keyed by section id, or no customization if [enabled] is
+ * `false`, this repository is `null` or the customization was not read yet.
+ */
+fun MenuCustomizationRepository?.customizedSectionsInfoIfEnabled(enabled: Boolean): Map<String, CustomizedSectionInfo> =
+    if (enabled) this?.customizedSectionsInfo?.value.orEmpty() else emptyMap()
+
+/**
+ * Observe the items of each menu section as customized by the user, keyed by section id, with no customization if
+ * [enabled] is `false`, this repository is `null` or the customization was not read yet.
+ */
+fun MenuCustomizationRepository?.customizedSectionsInfoFlow(
+    enabled: Boolean
+): Flow<Map<String, CustomizedSectionInfo>> =
+    if (enabled && this != null) {
+        customizedSectionsInfo.map { it.orEmpty() }
+    } else {
+        flowOf(emptyMap())
+    }

@@ -8,7 +8,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
@@ -20,6 +22,8 @@ import mozilla.components.compose.menu.data.MenuItem
 import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.CustomizableMenuItemsAction
+import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.AttemptedEmptySection
+import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.AttemptedMoveAsSubItem
 import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.ItemsChanged
 import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.Update
 import mozilla.components.compose.menu.store.CustomizableMenuItemsState
@@ -27,6 +31,10 @@ import mozilla.components.compose.menu.store.CustomizableMenuItemsStore
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.support.test.middleware.CaptureActionsMiddleware
 import org.junit.Test
+import org.mozilla.fenix.components.AppStore
+import org.mozilla.fenix.components.appstate.AppAction
+import org.mozilla.fenix.components.appstate.AppAction.SnackbarAction
+import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.menu.CustomizedItemInfo
 import org.mozilla.fenix.components.menu.CustomizedSectionInfo
 import org.mozilla.fenix.components.menu.MenuCustomizationRepository
@@ -36,6 +44,7 @@ import org.mozilla.fenix.components.menu.MenuItemsRegistry
 import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration
 import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration.TOOLS_GROUP_ID
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.DesktopSite
+import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Extensions
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.FindInPage
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.More
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Print
@@ -44,6 +53,10 @@ import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Print
 class EditMenuItemsMiddlewareTest {
     private val repository: MenuCustomizationRepository = mockk(relaxed = true)
     private val captureActions = CaptureActionsMiddleware<CustomizableMenuItemsState, CustomizableMenuItemsAction>()
+    private val captureAppActions = CaptureActionsMiddleware<AppState, AppAction>()
+    private val appStore = AppStore(middlewares = listOf(captureAppActions))
+    private val cannotMoveAsSubItemMessage = "Extensions can’t be moved into “More”"
+    private val cannotHideLastItemMessage = "Section can't be empty"
 
     @Test
     fun `GIVEN the items were customized WHEN the screen is shown THEN show the shown and the hidden items as saved`() =
@@ -166,6 +179,66 @@ class EditMenuItemsMiddlewareTest {
         }
     }
 
+    @Test
+    fun `WHEN the screen is shown THEN only the extensions item has to be directly in the section`() = runTest {
+        createStore(sectionsCustomization = MutableStateFlow(emptyMap()))
+        runCurrent()
+
+        captureActions.assertLastAction(Update::class) {
+            val all = it.items + it.items.flatMap { item -> item.subItems }
+            assertEquals(listOf(Extensions.id), all.filter { item -> item.isTopLevelOnly }.map { item -> item.id })
+        }
+    }
+
+    @Test
+    fun `GIVEN extensions was saved inside more WHEN the screen is shown THEN it still cannot be moved into another item`() =
+        runTest {
+            val saved =
+                CustomizedSectionInfo(
+                    sectionId = TOOLS_GROUP_ID,
+                    items =
+                        listOf(
+                            CustomizedItemInfo(FindInPage.id),
+                            CustomizedItemInfo(More(emptyList()).id, subItemIds = listOf(Extensions.id, Print.id)),
+                        ),
+                    hiddenItems = emptyList(),
+                )
+            createStore(sectionsCustomization = MutableStateFlow(mapOf(TOOLS_GROUP_ID to saved)))
+            runCurrent()
+
+            captureActions.assertLastAction(Update::class) {
+                val subItems = it.items.first { item -> item.id == More(emptyList()).id }.subItems
+                assertTrue(subItems.first { item -> item.id == Extensions.id }.isTopLevelOnly)
+                assertFalse(subItems.first { item -> item.id == Print.id }.isTopLevelOnly)
+            }
+        }
+
+    @Test
+    fun `WHEN the user lets go of an item inside another one it cannot be inside of THEN show a snackbar telling it`() =
+        runTest {
+            val store = createStore(sectionsCustomization = MutableStateFlow(emptyMap()))
+            runCurrent()
+
+            store.dispatch(AttemptedMoveAsSubItem(Extensions.id))
+
+            captureAppActions.assertLastAction(SnackbarAction.ShowSnackbar::class) {
+                assertEquals(cannotMoveAsSubItemMessage, it.title)
+            }
+        }
+
+    @Test
+    fun `WHEN the user tries to hide the last item shown THEN show a snackbar telling the section cannot be empty`() =
+        runTest {
+            val store = createStore(sectionsCustomization = MutableStateFlow(emptyMap()))
+            runCurrent()
+
+            store.dispatch(AttemptedEmptySection(DesktopSite.id))
+
+            captureAppActions.assertLastAction(SnackbarAction.ShowSnackbar::class) {
+                assertEquals(cannotHideLastItemMessage, it.title)
+            }
+        }
+
     private fun itemOf(id: String): MenuItem = StandardMenuItem(title = MenuItemTitle(Text.String(id)))
 
     // The customization is read on a scope that runTest cancels at the end of each test.
@@ -192,6 +265,9 @@ class EditMenuItemsMiddlewareTest {
                         registry = registry,
                         sectionId = TOOLS_GROUP_ID,
                         scope = backgroundScope,
+                        appStore = appStore,
+                        cannotMoveAsSubItemMessage = cannotMoveAsSubItemMessage,
+                        cannotHideLastItemMessage = cannotHideLastItemMessage,
                     ),
                 )
         )

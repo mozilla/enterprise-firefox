@@ -374,6 +374,12 @@ export class Tabbrowser {
   /** @type {WeakMap<MozTabbrowserTab, Promise<MozFindbar | null>>} */
   static #pendingFindBars = new WeakMap();
 
+  /**
+   * The timestamp part of the last generated tab group ID, shared by all
+   * windows so that group IDs stay unique across them.
+   */
+  static #lastTabGroupIdTimestamp = 0;
+
   /** @type {WeakSet<MozTabbrowserTab>} */
   static #tabsLeavingAdoptedSplitView = new WeakSet();
 
@@ -470,6 +476,7 @@ export class Tabbrowser {
     "startScroll",
     "urlbarOverrideValue",
     "loadStartedSinceUrlbarOverride",
+    "urlbarOverrideValueLoadStarted",
     "audioMuted",
   ];
 
@@ -3277,6 +3284,7 @@ export class Tabbrowser {
           };
           break;
         case "loadStartedSinceUrlbarOverride":
+        case "urlbarOverrideValueLoadStarted":
           getter = () => false;
           break;
         case "fullZoom":
@@ -4366,7 +4374,14 @@ export class Tabbrowser {
       // getExtTabGroupIdForInternalTabGroupId implementation in
       // browser/components/extensions/parent/ext-browser.js.
       // See: Bug 1960104 - Improve tab group ID generation in addTabGroup
-      id = `${Date.now()}-${Math.round(Math.random() * 100)}`;
+      // Groups can be created within the same millisecond, so the timestamp
+      // part is never reused.
+      let timestamp = Math.max(
+        Date.now(),
+        Tabbrowser.#lastTabGroupIdTimestamp + 1
+      );
+      Tabbrowser.#lastTabGroupIdTimestamp = timestamp;
+      id = `${timestamp}-${Math.round(Math.random() * 100)}`;
     }
     let group = this.#createTabGroup(id, color, false, label, adopting);
     this.tabContainer.insertBefore(group, insertBefore?.group ?? insertBefore);
@@ -4510,10 +4525,8 @@ export class Tabbrowser {
     group.removedByAdoption = true;
     group.saveOnWindowClose = false;
 
-    let oldSelectedTab = selectTab && group.documentGlobal.gBrowser.selectedTab;
-    let newTabs = [];
-    let adoptedTab;
-    let splitview;
+    let sourceSelectedTab = group.documentGlobal.gBrowser.selectedTab;
+    let newTabsAndSplitviews = [];
 
     // bug1969925 adopting a tab group will cause the window to close if it
     // is the only thing on the tab strip
@@ -4535,32 +4548,58 @@ export class Tabbrowser {
       }
     }
 
-    for (let element of group.tabsAndSplitViews) {
+    let adoptElement = element => {
       if (Tabbrowser.isSplitViewWrapper(element)) {
-        splitview = this.adoptSplitView(element, {
+        let splitview = this.adoptSplitView(element, {
           elementIndex,
           tabIndex,
+          selectTab,
         });
-        newTabs.push(splitview);
         tabIndex = splitview.tabs[0].index + splitview.tabs.length;
-      } else {
-        adoptedTab = this.adoptTab(element, {
+        return splitview;
+      }
+      let adoptedTab = this.adoptTab(element, {
+        elementIndex,
+        tabIndex,
+        selectTab: selectTab && element === sourceSelectedTab,
+      });
+      // Put next tab after current one.
+      elementIndex = undefined;
+      tabIndex = adoptedTab.index + 1;
+      return adoptedTab;
+    };
+
+    // Adopt the source window's selected tab (or the split view containing it)
+    // last. Adopting it earlier would make the source window select one of the
+    // group's remaining tabs, loading it if it was pending.
+    let selectedElement = sourceSelectedTab.splitview ?? sourceSelectedTab;
+    let selectedPosition;
+    for (let element of group.tabsAndSplitViews) {
+      if (element === selectedElement) {
+        selectedPosition = {
+          slot: newTabsAndSplitviews.length,
           elementIndex,
           tabIndex,
-          selectTab: element === oldSelectedTab,
-        });
-        newTabs.push(adoptedTab);
-        // Put next tab after current one.
-        elementIndex = undefined;
-        tabIndex = adoptedTab.index + 1;
+        };
+        continue;
       }
+      newTabsAndSplitviews.push(adoptElement(element));
     }
 
-    return this.addTabGroup(newTabs, {
+    if (selectedPosition) {
+      ({ elementIndex, tabIndex } = selectedPosition);
+      newTabsAndSplitviews.splice(
+        selectedPosition.slot,
+        0,
+        adoptElement(selectedElement)
+      );
+    }
+
+    return this.addTabGroup(newTabsAndSplitviews, {
       id: group.id,
       label: group.label,
       color: group.color,
-      insertBefore: newTabs[0],
+      insertBefore: newTabsAndSplitviews[0],
       adopting: true,
     });
   }
@@ -5024,7 +5063,7 @@ export class Tabbrowser {
       // pretend the user typed this so it'll be available till
       // the document successfully loads
       if (uriString && !this.documentGlobal.gInitialPages.includes(uriString)) {
-        browser.urlbarOverrideValue = uriString;
+        browser.urlbarOverride = { value: uriString, valueLoading: true };
       }
 
       let loadFlags = LOAD_FLAGS_NONE;
@@ -5435,9 +5474,15 @@ export class Tabbrowser {
       return true;
     }
 
+    const warnOnClosePref =
+      lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal) &&
+      !lazy.PrivateBrowsingUtils.permanentPrivateBrowsing
+        ? "browser.tabs.warnOnClose.pbmode"
+        : "browser.tabs.warnOnClose";
+
     const pref =
       aCloseTabs == Tabbrowser.closingTabsEnum.ALL
-        ? "browser.tabs.warnOnClose"
+        ? warnOnClosePref
         : "browser.tabs.warnOnCloseOtherTabs";
     var shouldPrompt = Services.prefs.getBoolPref(pref);
     if (!shouldPrompt) {

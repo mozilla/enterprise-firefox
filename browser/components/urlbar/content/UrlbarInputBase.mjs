@@ -1914,12 +1914,6 @@ ${
 
     let resultUrl = element?.dataset.url;
     let originalUntrimmedValue = this.untrimmedValue;
-    let isCanonized = this.setValueFromResult({
-      result,
-      event,
-      element,
-      urlOverride: resultUrl,
-    });
 
     let where;
     let openParams = {
@@ -1978,6 +1972,15 @@ ${
       openParams
     );
     openParams.avoidBrowserFocus = keepViewOpen;
+
+    let isCanonized =
+      !keepViewOpen &&
+      this.setValueFromResult({
+        result,
+        event,
+        element,
+        urlOverride: resultUrl,
+      });
 
     if (!this.#providesSearchMode(result) && !keepViewOpen) {
       this.view.close({ elementPicked: true });
@@ -4641,9 +4644,11 @@ ${
           );
           let fixup =
             text && UrlbarContentUtils.getFixupPrimitives(text, this.isPrivate);
-          l10nId = fixup?.keywordAsSent
-            ? "urlbar-menuitem-paste-and-search"
-            : "urlbar-menuitem-paste-and-go";
+          l10nId =
+            fixup?.keywordAsSent ||
+            (text && UrlbarShared.shouldSearchEmailAddress(text))
+              ? "urlbar-menuitem-paste-and-search"
+              : "urlbar-menuitem-paste-and-go";
         }
         pasteAndGo.ownerDocument.l10n.setAttributes(pasteAndGo, l10nId);
       },

@@ -120,6 +120,8 @@ run-if = [
 
 ["browser_csp_policy_container_migration.js"]
 
+["browser_discard_restore_no_about_blank_entry.js"]
+
 ["browser_docshell_uuid_consistency.js"]
 
 ["browser_duplicate_history.js"]
@@ -378,6 +380,9 @@ run-if = [
 ["browser_upgrade_backup.js"]
 
 ["browser_urlbarOverride_legacy_keys.js"]
+
+["browser_urlbarOverride_loadStarted.js"]
+tags = "urlbar"
 
 ["browser_urlbarSearchMode.js"]
 

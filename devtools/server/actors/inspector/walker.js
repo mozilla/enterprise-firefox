@@ -47,6 +47,7 @@ loader.lazyRequireGetter(
   [
     "findGridParentContainerForNode",
     "isNodeDead",
+    "isViewTransitionSnapshotContainingBlockNode",
     "nodeDocument",
     "getTreeWalkerFilter",
   ],
@@ -2466,7 +2467,16 @@ class WalkerActor extends Actor {
    */
   onAnonymousrootremoved(event) {
     const root = event.target;
-    const parent = this._anonParents.get(root);
+    let parent = this._anonParents.get(root);
+
+    // We can have cases where the anonymous root was created before we set the
+    // onAnonymousrootcreated event listener (e.g. for cross-document view transition).
+    // In such case, we won't have the root in `_anonParents`, but we still want to send
+    // the mutation.
+    if (!parent && isViewTransitionSnapshotContainingBlockNode(root)) {
+      // The snapshot containing block is always a child of the document element.
+      parent = root.ownerDocument.documentElement;
+    }
     if (!parent) {
       return;
     }
@@ -2512,7 +2522,7 @@ class WalkerActor extends Actor {
       return;
     }
 
-    window.document.shadowRootAttachedEventEnabled = true;
+    window.document.devToolsAnonymousAndShadowEventsEnabled = true;
 
     if (isTopLevel) {
       // If we initialize the inspector while the document is loading,

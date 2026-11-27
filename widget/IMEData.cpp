@@ -14,6 +14,10 @@
 #include "nsPrintfCString.h"
 #include "nsString.h"
 
+#ifdef XP_WIN
+#  include <minwindef.h>  // for LONG
+#endif
+
 namespace mozilla {
 
 template PrintStringDetail::PrintStringDetail(
@@ -189,6 +193,39 @@ std::ostream& operator<<(std::ostream& aStream,
                          const PrintStringDetail& aDetails) {
   return aStream << format_as(aDetails);
 }
+
+template <typename IntType>
+std::string format_as(const OffsetAndData<IntType>& aOffsetAndData) {
+  const auto maxDataLength =
+      aOffsetAndData.mFor == OffsetAndDataFor::CompositionString
+          ? PrintStringDetail::kMaxLengthForCompositionString
+          : (aOffsetAndData.mFor == OffsetAndDataFor::SelectedString
+                 ? PrintStringDetail::kMaxLengthForSelectedString
+                 : PrintStringDetail::kMaxLengthForEditor);
+  return fmt::format(
+      "{{ mOffset={}, mData={}, Length()={}, EndOffset()={} }}",
+      aOffsetAndData.mOffset,
+      PrintStringDetail(aOffsetAndData.mData, maxDataLength).get(),
+      aOffsetAndData.Length(), aOffsetAndData.EndOffset());
+}
+
+template std::string format_as(const OffsetAndData<uint32_t>&);
+#ifdef XP_WIN
+template std::string format_as(const OffsetAndData<LONG>&);
+#endif
+
+template <typename IntType>
+std::string format_as(const StartAndEndOffsets<IntType>& aStartAndEndOffsets) {
+  return fmt::format("{{ mStartOffset={}, mEndOffset={}, Length()={} }}",
+                     aStartAndEndOffsets.mStartOffset,
+                     aStartAndEndOffsets.mEndOffset,
+                     aStartAndEndOffsets.Length());
+}
+
+template std::string format_as(const StartAndEndOffsets<uint32_t>&);
+#ifdef XP_WIN
+template std::string format_as(const StartAndEndOffsets<LONG>&);
+#endif
 
 namespace widget {
 

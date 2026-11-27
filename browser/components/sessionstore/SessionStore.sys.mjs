@@ -3296,7 +3296,7 @@ class _SessionStore {
     aTab.removeAttribute("crashed");
 
     let { urlbarOverrideValue = null } = browser;
-    let hasStartedLoad = browser.loadStartedSinceUrlbarOverride;
+    let hasStartedLoad = browser.urlbarOverrideValueLoadStarted;
 
     let cacheState = lazy.TabStateCache.get(browser.permanentKey);
 
@@ -3323,11 +3323,19 @@ class _SessionStore {
       // Discard was likely called before state can be cached.  Update
       // the persistent tab state cache with browser information so a
       // restore will be successful.  This information is necessary for
-      // #restoreTabEntry to work properly.
+      // #restoreTabEntry to work properly. A tab discarded right after
+      // opening may not have started loading its value yet, so this doesn't
+      // require hasStartedLoad.
       lazy.TabStateCache.update(browser.permanentKey, {
         urlbarOverrideValue,
-        urlbarOverrideLoadStarted: true,
+        urlbarOverrideLoadStarted: browser.urlbarOverride.valueLoading || null,
       });
+    }
+
+    // Restoring reuses the browser element. If there is state to restore,
+    // suppress the default about:blank load that adds an extra history entry.
+    if (cacheState || shouldUpdateCacheState) {
+      browser.setAttribute("nodefaultsrc", "true");
     }
 
     TAB_LAZY_STATES.set(aTab, {
@@ -9299,6 +9307,8 @@ class _SessionStore {
       Glean.tabgroup.groupInteractions.open_tabmenu.add(1);
     } else if (source == TabMetrics.METRIC_SOURCE.APP_MENU_GROUP_LIST) {
       Glean.tabgroup.groupInteractions.open_appmenu_list.add(1);
+    } else if (source == TabMetrics.METRIC_SOURCE.TOOLBAR_GROUP_LIST) {
+      Glean.tabgroup.groupInteractions.open_toolbar_list.add(1);
     } else if (source == TabMetrics.METRIC_SOURCE.RECENT_TABS) {
       Glean.tabgroup.groupInteractions.open_recent.add(1);
     }

@@ -814,7 +814,7 @@ for more information about this.
   side by side in one SVG image, moved with `translateX` under `steps()`,
   with the last frame matching the icon's static state. The tab throbber
   in `tabs.css` is an example, and
-  [this demo](https://msuja.ws/svg.html) shows the technique step by
+  {doc}`css_guidelines/film_strip_animations` shows the technique step by
   step.
 
 - An effect that moves or morphs several elements between two states is
@@ -849,6 +849,37 @@ for more information about this.
   in a shadow root only apply within that shadow tree. `@property` and
   `@counter-style` rules have no effect in a shadow root, so they need to
   go in a document-level stylesheet.
+
+### Avoid `:has()`
+
+`:has()` makes the style of an element depend on its subtree. Its cost grows
+with the size of that subtree, with the number of elements the selector can
+match, and with how often their subtrees change, since a change can make the
+style engine re-check every element up the tree that `:has()` might apply to.
+Instead, set an attribute or class on the element you want to style from
+the code that changes the state, and select on that.
+
+A `:has()` on tabs, for example, puts work on every tab. Even though a tab's
+subtree is small, windows may contain lots of tabs, and websites change their
+tab titles, favicons and loading state all the time.
+
+In the following example, `:root:has()` searches the whole document, which
+grows with every open tab. In a window with thousands of tabs it made tab
+switching and hovering the extensions panel lag for seconds
+([bug 2054065](https://bugzilla.mozilla.org/show_bug.cgi?id=2054065)):
+
+```css
+/* Avoid */
+:root:has(#tabbrowser-tabpanels[splitview]) #sidebar-launcher-splitter {}
+
+/* Prefer */
+:root[splitview] #sidebar-launcher-splitter {}
+```
+
+The [stylelint-plugin-mozilla/no-has-selector](../lint/linters/stylelint-plugin-mozilla/rules/no-has-selector.md)
+rule enforces this. Disable it only where the selector matches few elements
+with small subtrees that rarely change, such as a label wrapping a checkbox,
+and add a comment explaining why it's acceptable and not easy to avoid.
 
 ## Misc
 
@@ -911,3 +942,9 @@ value, the declaration behaves as `unset`:
 a `padding` or a `margin` computes to 0, a `border` shorthand loses its style
 and reads 0px, and a `border-width` longhand with its style declared separately
 falls back to `medium` (3px).
+
+```{toctree}
+:hidden: true
+
+css_guidelines/film_strip_animations
+```

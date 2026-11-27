@@ -522,6 +522,9 @@ class TextRangeArray;
 
 typedef nsTArray<OwningNonNull<dom::StaticRange>> OwningNonNullStaticRangeArray;
 
+struct QueryContentOptions;
+struct QueryContentResult;
+
 // FontRange.h
 struct FontRange;
 

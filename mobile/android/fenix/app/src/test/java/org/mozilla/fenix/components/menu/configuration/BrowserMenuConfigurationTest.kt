@@ -32,9 +32,11 @@ import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Forward
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.More
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.NewPrivateTab
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.NewTab
+import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.OpenInApp
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Print
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Refresh
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Share
+import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.SummarizePage
 import org.mozilla.fenix.components.menu.configuration.FenixMenuItem.Translate
 import org.mozilla.fenix.components.menu.configuration.MenuPresentationMode.Grid
 import org.mozilla.fenix.components.menu.configuration.MenuPresentationMode.Row
@@ -449,6 +451,87 @@ class BrowserMenuConfigurationTest {
     }
 
     @Test
+    fun `GIVEN the Extensions item is hidden WHEN an extension update is pending THEN the menu button is not highlighted`() {
+        val toolsInfo =
+            CustomizedSectionInfo(
+                sectionId = TOOLS_GROUP_ID,
+                items = listOf(CustomizedItemInfo(Bookmark.id)),
+                hiddenItems = listOf(CustomizedItemInfo(Extensions.id)),
+            )
+        val itemsInfo = mapOf(TOOLS_GROUP_ID to toolsInfo)
+
+        assertFalse(
+            BrowserMenuConfiguration.hasNotificationToShow(
+                listOf(SupportedMenuNotifications.ExtensionUpdate),
+                customizationInfo = null,
+                customizedSectionsInfo = itemsInfo,
+            )
+        )
+    }
+
+    @Test
+    fun `GIVEN the Extensions item and Open in app inside More are shown WHEN either has a notification THEN the menu button is highlighted`() {
+        val toolsInfo =
+            CustomizedSectionInfo(
+                sectionId = TOOLS_GROUP_ID,
+                items = listOf(CustomizedItemInfo(Extensions.id), CustomizedItemInfo("more", listOf(OpenInApp.id))),
+                hiddenItems = listOf(CustomizedItemInfo(Bookmark.id)),
+            )
+        val itemsInfo = mapOf(TOOLS_GROUP_ID to toolsInfo)
+
+        assertTrue(
+            BrowserMenuConfiguration.hasNotificationToShow(
+                listOf(SupportedMenuNotifications.ExtensionUpdate),
+                customizationInfo = null,
+                customizedSectionsInfo = itemsInfo,
+            )
+        )
+        assertTrue(
+            BrowserMenuConfiguration.hasNotificationToShow(
+                listOf(SupportedMenuNotifications.OpenInApp),
+                customizationInfo = null,
+                customizedSectionsInfo = itemsInfo,
+            )
+        )
+    }
+
+    @Test
+    fun `GIVEN More is hidden WHEN items inside it have notifications THEN the menu button is not highlighted`() {
+        val toolsInfo =
+            CustomizedSectionInfo(
+                sectionId = TOOLS_GROUP_ID,
+                items = listOf(CustomizedItemInfo(Bookmark.id)),
+                hiddenItems = listOf(CustomizedItemInfo("more", listOf(OpenInApp.id, SummarizePage.id))),
+            )
+
+        assertFalse(
+            BrowserMenuConfiguration.hasNotificationToShow(
+                listOf(SupportedMenuNotifications.OpenInApp, SupportedMenuNotifications.Summarize),
+                customizationInfo = null,
+                customizedSectionsInfo = mapOf(TOOLS_GROUP_ID to toolsInfo),
+            )
+        )
+    }
+
+    @Test
+    fun `GIVEN only the Tools items are customized WHEN Downloads has a notification THEN the menu button is highlighted`() {
+        val toolsInfo =
+            CustomizedSectionInfo(
+                sectionId = TOOLS_GROUP_ID,
+                items = listOf(CustomizedItemInfo(Bookmark.id)),
+                hiddenItems = emptyList(),
+            )
+
+        assertTrue(
+            BrowserMenuConfiguration.hasNotificationToShow(
+                listOf(SupportedMenuNotifications.Downloads),
+                customizationInfo = null,
+                customizedSectionsInfo = mapOf(TOOLS_GROUP_ID to toolsInfo),
+            )
+        )
+    }
+
+    @Test
     fun `GIVEN the user customized the tools items WHEN building the browser menu THEN show the other sections with their default items`() {
         val toolsInfo =
             CustomizedSectionInfo(
@@ -532,6 +615,23 @@ class BrowserMenuConfigurationTest {
             ),
             BrowserMenuConfiguration.defaultSectionsInfo(),
         )
+    }
+
+    @Test
+    fun `WHEN getting the items which can only be directly in their section THEN only extensions is returned`() {
+        assertEquals(setOf(Extensions.id), BrowserMenuConfiguration.topLevelOnlyItemIds())
+    }
+
+    @Test
+    fun `WHEN getting the default items of the sections THEN none which can only be directly in their section is inside another item`() {
+        val topLevelOnlyIds = BrowserMenuConfiguration.topLevelOnlyItemIds()
+        val subItemIds =
+            BrowserMenuConfiguration.defaultSectionsInfo()
+                .values
+                .flatMap { it.items + it.hiddenItems }
+                .flatMap { it.subItemIds }
+
+        assertEquals(emptyList(), subItemIds.filter { it in topLevelOnlyIds })
     }
 
     private fun menuInfo(shown: List<String>, hidden: List<String> = emptyList()) =
