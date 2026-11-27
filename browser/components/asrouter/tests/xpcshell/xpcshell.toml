@@ -30,6 +30,9 @@ skip-if = ["enterprise"] # Selectable profiles are inapplicable for enterprise b
 
 ["test_OnboardingMessageProvider.js"]
 
+["test_OnboardingMessageProvider_enterprise.js"]
+run-if = ["enterprise"]
+
 ["test_PanelTestProvider.js"]
 
 ["test_PinnableSitesProvider.js"]

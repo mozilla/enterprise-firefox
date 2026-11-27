@@ -3458,6 +3458,29 @@ const PREONBOARDING_MESSAGES = () => [
   },
 ];
 
+const ENTERPRISE_PRIVACY_NOTICE_URL =
+  "https://www.firefox.com/enterprise/documentation/";
+
+/**
+ * Data collection on Firefox Enterprise is managed by the organization, so the
+ * TOU modal links the enterprise privacy notice and omits the data collection
+ * controls.
+ *
+ * @param {object[]} messages The messages from PREONBOARDING_MESSAGES.
+ * @return {object[]} the same messages, adapted for enterprise builds.
+ */
+function adaptPreonboardingMessagesForEnterprise(messages) {
+  const { content } = messages
+    .find(m => m.id === "NEW_USER_TOU_ONBOARDING")
+    .screens.find(s => s.id === "TOU_ONBOARDING");
+  content.title.string_id = "preonboarding-enterprise-title";
+  content.subtitle.string_id = "preonboarding-enterprise-subtitle";
+  content.tiles = content.tiles.filter(tile => tile.type !== "multiselect");
+  content.tiles.find(tile => tile.id === "privacy_notice").action.data.args =
+    ENTERPRISE_PRIVACY_NOTICE_URL;
+  return messages;
+}
+
 // Eventually, move Feature Callout messages to their own provider
 const ONBOARDING_MESSAGES = () =>
   BASE_MESSAGES().concat(FeatureCalloutMessages.getMessages());
@@ -3478,6 +3501,9 @@ export const OnboardingMessageProvider = {
   },
 
   getPreonboardingMessages() {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return adaptPreonboardingMessagesForEnterprise(PREONBOARDING_MESSAGES());
+    }
     return PREONBOARDING_MESSAGES();
   },
 
