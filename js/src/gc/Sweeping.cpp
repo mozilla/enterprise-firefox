@@ -710,7 +710,8 @@ IncrementalProgress GCRuntime::markGrayRoots(SliceBudget& budget,
   gcstats::AutoPhase ap(stats(), phase);
 
   {
-    AutoSetMarkColor setColorGray(marker(), MarkColor::Gray);
+    AutoSetMarkColor setColorGray(marker(), MarkColor::Gray,
+                                  AllowGrayMarkingBeforeEndOfBlackMarking::Yes);
 
     AutoUpdateLiveCompartments updateLive(this);
     marker().setRootMarkingMode(true);
@@ -951,6 +952,9 @@ void GCRuntime::moveToNextSweepGroup() {
 
   if (abortSweepAfterCurrentGroup) {
     markTask.join();
+    for (auto& marker : markers) {
+      marker->reset();
+    }
 
     // Abort collection of subsequent sweep groups.
     for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
@@ -1257,7 +1261,8 @@ IncrementalProgress GCRuntime::beginMarkingSweepGroup(JS::GCContext* gcx,
                         Zone::MarkBlackAndGray);
   }
 
-  AutoSetMarkColor setColorGray(marker(), MarkColor::Gray);
+  AutoSetMarkColor setColorGray(marker(), MarkColor::Gray,
+                                AllowGrayMarkingBeforeEndOfBlackMarking::Yes);
 
   // Mark incoming gray pointers from previously swept compartments.
   markIncomingGrayCrossCompartmentPointers();
