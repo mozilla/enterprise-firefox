@@ -1533,7 +1533,11 @@ pref("browser.xul.error_pages.expert_bad_cert", false);
 pref("browser.xul.error_pages.show_safe_browsing_details_on_load", false);
 
 // Deployments that do not want the artwork on error pages can turn this off
+#ifdef MOZ_ENTERPRISE
+pref("browser.netError.illustration.enabled", false);
+#else
 pref("browser.netError.illustration.enabled", true);
+#endif
 
 // Enable the one-click search call-to-action on the online dnsNotFound error
 // page. On in Nightly, off elsewhere until a Nimbus rollout (bug 2055718).

@@ -84,6 +84,7 @@ support-files = [
 ["browser_aboutNetError_emptyResponse.js"]
 
 ["browser_aboutNetError_feltprivacy_illustrations.js"]
+skip-if = ["enterprise"] # Illustrations are disabled on Enterprise builds.
 support-files = [
   "server_error.sjs",
 ]
