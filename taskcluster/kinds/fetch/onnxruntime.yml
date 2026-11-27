@@ -2,18 +2,24 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
-task-defaults:
-    fetch:
-        repo: https://github.com/Microsoft/onnxruntime
-        revision: f2c39fe2f838cf35ce7da92824f5a5e3ee6e88a7
+# github.com/Microsoft/onnxruntime is gone: reuse the mozilla-central fetch artifacts.
 
+# gecko.cache.level-3.content.v1.onnxruntime-src.hash.d7faabd6a4dc9095b36e65a4d1390615d0c6e4ce71ad98a8a5de5d2a0264e5e0
 onnxruntime-src:
-    description: Source code for ONNX runtime
+    description: Source code for ONNX runtime (f2c39fe2f838cf35ce7da92824f5a5e3ee6e88a7)
     fetch:
-        type: git
+        type: static-url
+        url: https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.cache.level-3.content.v1.onnxruntime-src.latest/artifacts/public/onnxruntime.tar.zst
+        sha256: af1e7d533c17f103f504fbd8bd1976d87985e65d9cbe5b3f371c7e872d876c24
+        size: 281501571
+        artifact-name: onnxruntime.tar.zst
 
+# gecko.cache.level-3.content.v1.onnxruntime-deps.hash.ea30054ced089cce380f7f344ceefddda33f8c5e5f5e4384980518b2bd8c0622
 onnxruntime-deps:
-    description: Source for ONNX runtime dependencies
+    description: Source for ONNX runtime dependencies (f2c39fe2f838cf35ce7da92824f5a5e3ee6e88a7)
     fetch:
-        type: onnxruntime-deps-fetch
+        type: static-url
+        url: https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.cache.level-3.content.v1.onnxruntime-deps.latest/artifacts/public/onnxruntime-deps.tar.zst
+        sha256: 05e103961425aa538d179d77d439769e9c6399d62abb8c3d4c9cee1950480361
+        size: 457049580
         artifact-name: onnxruntime-deps.tar.zst
