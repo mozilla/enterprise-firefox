@@ -2026,8 +2026,11 @@ skip-if = [
 ["test_trr_proxy.js"]
 
 ["test_trr_proxy_auth.js"]
+
+["test_trr_proxy_auth_http3.js"]
 skip-if = [
-  "true",
+  "os == 'android'", # the HTTP/3 server can't be started on demand
+  "os == 'win' && msix",
 ]
 
 ["test_trr_proxy_channel_filter.js"]

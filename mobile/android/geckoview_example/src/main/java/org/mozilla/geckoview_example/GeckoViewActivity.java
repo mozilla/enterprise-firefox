@@ -27,6 +27,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -36,7 +37,6 @@ import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Log;
 import android.util.LruCache;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -61,6 +61,7 @@ import androidx.annotation.OptIn;
 import androidx.annotation.UiThread;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -566,7 +567,12 @@ public class GeckoViewActivity extends AppCompatActivity
     if (!supportsPip()) return false;
     if (!mPipFullscreenMedia || !mPipIsPlaying) return false;
     try {
-      enterPictureInPictureMode(new PictureInPictureParams.Builder().build());
+      final PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder();
+      final Rect sourceRect = new Rect();
+      if (mGeckoView.getGlobalVisibleRect(sourceRect)) {
+        builder.setSourceRectHint(sourceRect);
+      }
+      enterPictureInPictureMode(builder.build());
       return true;
     } catch (IllegalStateException e) {
       Log.w(LOGTAG, "Could not enter picture-in-picture", e);
@@ -588,6 +594,9 @@ public class GeckoViewActivity extends AppCompatActivity
    */
   private void showMediaNotification() {
     if (!supportsPip()) {
+      return;
+    }
+    if (!checkNotificationPermission(this)) {
       return;
     }
 
@@ -616,14 +625,15 @@ public class GeckoViewActivity extends AppCompatActivity
     NotificationManagerCompat.from(this).notify(MEDIA_NOTIFICATION_ID, builder.build());
   }
 
+  private static boolean checkNotificationPermission(final Context context) {
+    return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+        || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+            == PackageManager.PERMISSION_GRANTED;
+  }
+
   /** Without this the media notification, and its picture-in-picture action, is never shown. */
   private void requestNotificationPermission() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-      Log.d(LOGTAG, "Notifications are on by default on API " + Build.VERSION.SDK_INT);
-      return;
-    }
-    if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-        != PackageManager.PERMISSION_GRANTED) {
+    if (!checkNotificationPermission(this)) {
       ActivityCompat.requestPermissions(
           this, new String[] {Manifest.permission.POST_NOTIFICATIONS}, REQUEST_NOTIFICATIONS);
     }
@@ -636,7 +646,7 @@ public class GeckoViewActivity extends AppCompatActivity
   @OptIn(markerClass = ExperimentalGeckoViewApi.class)
   private void requestPipForCurrentMedia() {
     if (mMediaPlayingSession == null) {
-      Log.d(LOGTAG, "No media playing, ignoring picture-in-picture request");
+      DebugLog.d(LOGTAG, "No media playing, ignoring picture-in-picture request");
       return;
     }
     mMediaPlayingSession.getSessionPictureInPicture().request();
@@ -999,7 +1009,7 @@ public class GeckoViewActivity extends AppCompatActivity
       notification.click();
     }
 
-    Log.i(LOGTAG, "zerdatime " + SystemClock.elapsedRealtime() + " - application start");
+    DebugLog.i(LOGTAG, "zerdatime " + SystemClock.elapsedRealtime() + " - application start");
     createNotificationChannel();
     requestNotificationPermission();
     setContentView(R.layout.geckoview_activity);
@@ -1019,7 +1029,8 @@ public class GeckoViewActivity extends AppCompatActivity
     // This references a preference value, so this is after reading initial preference state
     EdgeToEdgeUtils.init(getWindow(), mEdgeToEdgeEnabled.value());
 
-    mToolbarView = new ToolbarLayout(this, mTabSessionManager);
+    mToolbarView = new ToolbarLayout(this);
+    mToolbarView.setSessionManager(mTabSessionManager);
     mToolbarView.setId(R.id.toolbar_layout);
     mToolbarView.setTabListener(this);
 
@@ -1123,7 +1134,7 @@ public class GeckoViewActivity extends AppCompatActivity
               } else {
                 notificationManager.notify(mLastID++, builder.build());
               }
-              notification.show();
+              runOnUiThread(notification::show);
             }
 
             @Override
@@ -1256,8 +1267,8 @@ public class GeckoViewActivity extends AppCompatActivity
   }
 
   private void openPopupSession() {
-    LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
-    mPopupView = inflater.inflate(R.layout.browser_action_popup, null);
+    ViewGroup main = findViewById(R.id.main);
+    mPopupView = getLayoutInflater().inflate(R.layout.browser_action_popup, main, false);
     GeckoView geckoView = mPopupView.findViewById(R.id.gecko_view_popup);
     geckoView.setViewBackend(GeckoView.BACKEND_TEXTURE_VIEW);
     mPopupSession = new TabSession();
@@ -1266,11 +1277,9 @@ public class GeckoViewActivity extends AppCompatActivity
     geckoView.setSession(mPopupSession);
 
     mPopupView.setOnFocusChangeListener(this::hideBrowserAction);
-    RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(0, 0);
-    params.addRule(RelativeLayout.ABOVE, R.id.toolbar);
-    mPopupView.setLayoutParams(params);
+    mPopupView.setLayoutParams(new CoordinatorLayout.LayoutParams(0, 0));
     mPopupView.setFocusable(true);
-    ((ViewGroup) findViewById(R.id.main)).addView(mPopupView);
+    main.addView(mPopupView);
   }
 
   private void hideBrowserAction(View view, boolean hasFocus) {
@@ -1620,9 +1629,7 @@ public class GeckoViewActivity extends AppCompatActivity
               ContentResolver resolver = getContentResolver();
 
               ContentValues contentValues = new ContentValues();
-              contentValues.put(
-                  MediaStore.MediaColumns.DISPLAY_NAME,
-                  "screenshot-" + System.currentTimeMillis() + ".png");
+              contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "screenshot.png");
               contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/png");
               contentValues.put(
                   MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES);
@@ -1674,7 +1681,7 @@ public class GeckoViewActivity extends AppCompatActivity
                 session.getContentDelegate().onExternalResponse(session, response);
 
               } catch (Exception e) {
-                Log.d(LOGTAG, e.getMessage());
+                Log.w(LOGTAG, "Failed to download PDF", e);
               }
             });
   }
@@ -1718,7 +1725,7 @@ public class GeckoViewActivity extends AppCompatActivity
               TranslationsController.RuntimeTranslation.preferredLanguages()
                   .then(
                       preferredList -> {
-                        Log.d(LOGTAG, "Preferred Translation Languages: " + preferredList);
+                        DebugLog.d(LOGTAG, "Preferred Translation Languages: " + preferredList);
                         // Reorder dropdown listing based on preferences
                         for (int i = preferredList.size() - 1; i >= 0; i--) {
                           final int langIndex =
@@ -1821,7 +1828,7 @@ public class GeckoViewActivity extends AppCompatActivity
           // Pseudo container of "all" just to simplify spinner for GVE
           languages.add(new TranslationsController.Language("all", "All Models"));
           for (var model : models) {
-            Log.i(LOGTAG, "Translate Model State: " + model);
+            DebugLog.i(LOGTAG, "Translate Model State: " + model);
             languages.add(model.language);
           }
           ArrayAdapter<TranslationsController.Language> languageData =
@@ -1872,7 +1879,7 @@ public class GeckoViewActivity extends AppCompatActivity
                 reportChanges.then(
                     models -> {
                       for (var model : models) {
-                        Log.i(LOGTAG, "Translate Model State: " + model);
+                        DebugLog.i(LOGTAG, "Translate Model State: " + model);
                       }
                       return null;
                     });
@@ -2150,7 +2157,7 @@ public class GeckoViewActivity extends AppCompatActivity
     if (response.body == null) return;
 
     final String filename = getFileName(response);
-    Log.i(LOGTAG, "FileName:" + filename);
+    DebugLog.i(LOGTAG, "FileName:" + filename);
 
     if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) { // latest
       ContentResolver contentResolver = getContentResolver();
@@ -2159,7 +2166,7 @@ public class GeckoViewActivity extends AppCompatActivity
       ContentValues contentValues = new ContentValues();
       contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
       contentValues.put(MediaStore.MediaColumns.MIME_TYPE, mime);
-      Log.i(LOGTAG, "MimeType:" + mime);
+      DebugLog.i(LOGTAG, "MimeType:" + mime);
       contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
       contentValues.put(MediaStore.MediaColumns.IS_PENDING, 1);
 
@@ -2179,7 +2186,7 @@ public class GeckoViewActivity extends AppCompatActivity
           out.write(buffer, 0, len);
         }
       } catch (Throwable e) {
-        Log.i(LOGTAG, String.valueOf(e.getStackTrace()));
+        Log.w(LOGTAG, "Failed to write download", e);
       }
       // Release Pending
       contentValues.clear();
@@ -2245,7 +2252,7 @@ public class GeckoViewActivity extends AppCompatActivity
 
         mErrorTemplate = builder.toString();
       } catch (IOException e) {
-        Log.d(LOGTAG, "Failed to open error page template", e);
+        Log.w(LOGTAG, "Failed to open error page template", e);
         return null;
       } finally {
         if (stream != null) {
@@ -2279,7 +2286,7 @@ public class GeckoViewActivity extends AppCompatActivity
     @Override
     public GeckoResult<Boolean> onVisited(
         GeckoSession session, String url, String lastVisitedURL, int flags) {
-      Log.i(LOGTAG, "Visited URL: " + url);
+      DebugLog.i(LOGTAG, "Visited URL: " + url);
 
       mVisitedURLs.add(url);
       return GeckoResult.fromValue(true);
@@ -2297,7 +2304,7 @@ public class GeckoViewActivity extends AppCompatActivity
     @Override
     public void onHistoryStateChange(
         final GeckoSession session, final GeckoSession.HistoryDelegate.HistoryList state) {
-      Log.i(LOGTAG, "History state updated");
+      DebugLog.i(LOGTAG, "History state updated");
     }
   }
 
@@ -2332,7 +2339,7 @@ public class GeckoViewActivity extends AppCompatActivity
   private class ExampleContentDelegate implements GeckoSession.ContentDelegate {
     @Override
     public void onTitleChange(GeckoSession session, String title) {
-      Log.i(LOGTAG, "Content title changed to " + title);
+      DebugLog.i(LOGTAG, "Content title changed to " + title);
       TabSession tabSession = mTabSessionManager.getSession(session);
       if (tabSession != null) {
         tabSession.setTitle(title);
@@ -2355,7 +2362,7 @@ public class GeckoViewActivity extends AppCompatActivity
 
     @Override
     public void onFocusRequest(final GeckoSession session) {
-      Log.i(LOGTAG, "Content requesting focus");
+      DebugLog.i(LOGTAG, "Content requesting focus");
     }
 
     @Override
@@ -2369,7 +2376,7 @@ public class GeckoViewActivity extends AppCompatActivity
     @Override
     public void onContextMenu(
         final GeckoSession session, int screenX, int screenY, final ContextElement element) {
-      Log.d(
+      DebugLog.d(
           LOGTAG,
           "onContextMenu screenX="
               + screenX
@@ -2424,12 +2431,12 @@ public class GeckoViewActivity extends AppCompatActivity
 
     @Override
     public void onFirstComposite(final GeckoSession session) {
-      Log.d(LOGTAG, "onFirstComposite");
+      DebugLog.d(LOGTAG, "onFirstComposite");
     }
 
     @Override
     public void onWebAppManifest(final GeckoSession session, JSONObject manifest) {
-      Log.d(LOGTAG, "onWebAppManifest: " + manifest);
+      DebugLog.d(LOGTAG, "onWebAppManifest: " + manifest);
     }
 
     private boolean activeAlert = false;
@@ -2500,8 +2507,8 @@ public class GeckoViewActivity extends AppCompatActivity
 
     @Override
     public void onPageStart(GeckoSession session, String url) {
-      Log.i(LOGTAG, "Starting to load page at " + url);
-      Log.i(LOGTAG, "zerdatime " + SystemClock.elapsedRealtime() + " - page load start");
+      DebugLog.i(LOGTAG, "Starting to load page at " + url);
+      DebugLog.i(LOGTAG, "zerdatime " + SystemClock.elapsedRealtime() + " - page load start");
       mCb.clearCounters();
       mExpectedTranslate = false;
       mTranslateRestore = false;
@@ -2509,14 +2516,14 @@ public class GeckoViewActivity extends AppCompatActivity
 
     @Override
     public void onPageStop(GeckoSession session, boolean success) {
-      Log.i(LOGTAG, "Stopping page load " + (success ? "successfully" : "unsuccessfully"));
-      Log.i(LOGTAG, "zerdatime " + SystemClock.elapsedRealtime() + " - page load stop");
+      DebugLog.i(LOGTAG, "Stopping page load " + (success ? "successfully" : "unsuccessfully"));
+      DebugLog.i(LOGTAG, "zerdatime " + SystemClock.elapsedRealtime() + " - page load stop");
       mCb.logCounters();
     }
 
     @Override
     public void onProgressChange(GeckoSession session, int progress) {
-      Log.i(LOGTAG, "onProgressChange " + progress);
+      DebugLog.i(LOGTAG, "onProgressChange " + progress);
 
       mProgressView.setProgress(progress);
 
@@ -2529,12 +2536,12 @@ public class GeckoViewActivity extends AppCompatActivity
 
     @Override
     public void onSecurityChange(GeckoSession session, SecurityInformation securityInfo) {
-      Log.i(LOGTAG, "Security status changed to " + securityInfo.securityMode);
+      DebugLog.i(LOGTAG, "Security status changed to " + securityInfo.securityMode);
     }
 
     @Override
     public void onSessionStateChange(GeckoSession session, GeckoSession.SessionState state) {
-      Log.i(LOGTAG, "New Session state: " + state.toString());
+      DebugLog.i(LOGTAG, "New Session state: " + state.toString());
     }
   }
 
@@ -2730,7 +2737,7 @@ public class GeckoViewActivity extends AppCompatActivity
     GeckoResult<JSONObject> result = session.getWebCompatInfo();
     result.map(
         getWebCompatInfo -> {
-          Log.d(LOGTAG, "Received web compat info.");
+          DebugLog.d(LOGTAG, "Received web compat info.");
           if (getWebCompatInfo != null) {
             JSONObject info = new JSONObject();
             info.put("reason", "Reason");
@@ -2781,7 +2788,7 @@ public class GeckoViewActivity extends AppCompatActivity
     @Override
     public GeckoResult<AllowOrDeny> onLoadRequest(
         final GeckoSession session, final LoadRequest request) {
-      Log.d(
+      DebugLog.d(
           LOGTAG,
           "onLoadRequest="
               + request.uri
@@ -2800,7 +2807,7 @@ public class GeckoViewActivity extends AppCompatActivity
     @Override
     public GeckoResult<AllowOrDeny> onSubframeLoadRequest(
         final GeckoSession session, final LoadRequest request) {
-      Log.d(
+      DebugLog.d(
           LOGTAG,
           "onSubframeLoadRequest="
               + request.uri
@@ -2929,7 +2936,7 @@ public class GeckoViewActivity extends AppCompatActivity
 
           mErrorTemplate = builder.toString();
         } catch (IOException e) {
-          Log.d(LOGTAG, "Failed to open error page template", e);
+          Log.w(LOGTAG, "Failed to open error page template", e);
           return null;
         } finally {
           if (stream != null) {
@@ -2957,7 +2964,7 @@ public class GeckoViewActivity extends AppCompatActivity
     @Override
     public GeckoResult<String> onLoadError(
         final GeckoSession session, final String uri, final WebRequestError error) {
-      Log.d(
+      DebugLog.d(
           LOGTAG,
           "onLoadError=" + uri + " error category=" + error.category + " error=" + error.code);
 
@@ -2983,7 +2990,7 @@ public class GeckoViewActivity extends AppCompatActivity
     }
 
     private void logCounters() {
-      Log.d(
+      DebugLog.d(
           LOGTAG,
           "Trackers blocked: "
               + mBlockedAds
@@ -3003,7 +3010,7 @@ public class GeckoViewActivity extends AppCompatActivity
     @Override
     public void onContentBlocked(
         final GeckoSession session, final ContentBlocking.BlockEvent event) {
-      Log.d(
+      DebugLog.d(
           LOGTAG,
           "onContentBlocked"
               + " AT: "
@@ -3037,7 +3044,7 @@ public class GeckoViewActivity extends AppCompatActivity
     @Override
     public void onContentLoaded(
         final GeckoSession session, final ContentBlocking.BlockEvent event) {
-      Log.d(
+      DebugLog.d(
           LOGTAG,
           "onContentLoaded"
               + " AT: "
@@ -3076,23 +3083,27 @@ public class GeckoViewActivity extends AppCompatActivity
         }
       }
       if (camera != null && microphone != null) {
-        Log.d(LOGTAG, "ExampleDeviceDelegate:onRecordingDeviceEvent display alert_mic_camera");
+        DebugLog.d(LOGTAG, "ExampleDeviceDelegate:onRecordingDeviceEvent display alert_camera");
         message = getResources().getString(R.string.device_sharing_camera_and_mic);
-        icon = R.drawable.alert_mic_camera;
+        icon = R.drawable.alert_camera;
       } else if (camera != null) {
-        Log.d(LOGTAG, "ExampleDeviceDelegate:onRecordingDeviceEvent display alert_camera");
+        DebugLog.d(LOGTAG, "ExampleDeviceDelegate:onRecordingDeviceEvent display alert_camera");
         message = getResources().getString(R.string.device_sharing_camera);
         icon = R.drawable.alert_camera;
       } else if (microphone != null) {
-        Log.d(LOGTAG, "ExampleDeviceDelegate:onRecordingDeviceEvent display alert_mic");
+        DebugLog.d(LOGTAG, "ExampleDeviceDelegate:onRecordingDeviceEvent display alert_mic");
         message = getResources().getString(R.string.device_sharing_microphone);
         icon = R.drawable.alert_mic;
       } else {
-        Log.d(LOGTAG, "ExampleDeviceDelegate:onRecordingDeviceEvent dismiss any notifications");
+        DebugLog.d(
+            LOGTAG, "ExampleDeviceDelegate:onRecordingDeviceEvent dismiss any notifications");
         if (mNotificationId != null) {
           notificationManager.cancel(mNotificationId);
           mNotificationId = null;
         }
+        return;
+      }
+      if (!checkNotificationPermission(mActivity)) {
         return;
       }
       if (mNotificationId == null) {
@@ -3122,12 +3133,12 @@ public class GeckoViewActivity extends AppCompatActivity
       implements TranslationsController.SessionTranslation.Delegate {
     @Override
     public void onOfferTranslate(@NonNull GeckoSession session) {
-      Log.i(LOGTAG, "onOfferTranslate");
+      DebugLog.i(LOGTAG, "onOfferTranslate");
     }
 
     @Override
     public void onExpectedTranslate(@NonNull GeckoSession session) {
-      Log.i(LOGTAG, "onExpectedTranslate");
+      DebugLog.i(LOGTAG, "onExpectedTranslate");
       mExpectedTranslate = true;
     }
 
@@ -3135,7 +3146,7 @@ public class GeckoViewActivity extends AppCompatActivity
     public void onTranslationStateChange(
         @NonNull GeckoSession session,
         @Nullable TranslationsController.SessionTranslation.TranslationState translationState) {
-      Log.i(LOGTAG, "onTranslationStateChange");
+      DebugLog.i(LOGTAG, "onTranslationStateChange");
       if (translationState.detectedLanguages != null) {
         mDetectedLanguage = translationState.detectedLanguages.docLangTag;
       }
@@ -3176,7 +3187,7 @@ public class GeckoViewActivity extends AppCompatActivity
         final boolean enabled,
         @Nullable final MediaSession.ElementMetadata meta) {
       mPipFullscreenMedia = enabled;
-      Log.d(LOGTAG, "onFullscreen: Metadata=" + (meta != null ? meta.toString() : "null"));
+      DebugLog.d(LOGTAG, "onFullscreen: Metadata=" + (meta != null ? meta.toString() : "null"));
 
       if (!enabled) {
         mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
@@ -3190,7 +3201,7 @@ public class GeckoViewActivity extends AppCompatActivity
       if (meta.width > meta.height) {
         mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
       } else {
-        mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
+        mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
       }
     }
   }

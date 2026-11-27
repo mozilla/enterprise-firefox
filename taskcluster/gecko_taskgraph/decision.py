@@ -41,6 +41,8 @@ from .parameters import (
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
 from .util.bugbug import (
     PUSH_SCHEDULES_ENV,
+    SUPPORTED_PROJECTS,
+    is_try_auto,
     push_schedules,
     read_push_schedules_data,
     start_push_schedules,
@@ -290,6 +292,7 @@ def taskgraph_decision(options, parameters, bugbug_result_path=None):
 
         # write out the parameters used to generate this graph
         write_artifact("parameters.yml", dict(**tgg.parameters))
+        write_artifact("files-changed.json", list(tgg.parameters["files_changed"]))
 
         # write out the public/actions.json file
         write_artifact(
@@ -586,6 +589,12 @@ def get_decision_parameters(graph_config, options):
         path for path in parameters["files_changed"] if path != "try_task_config.json"
     ]
 
+    if is_try_auto(parameters) and parameters["project"] not in SUPPORTED_PROJECTS:
+        raise Exception(
+            f"`mach try auto` requires bugbug, which doesn't support the "
+            f"'{parameters['project']}' project. Use another selector."
+        )
+
     result = Parameters(**parameters)
     result.check()
     return result
@@ -677,6 +686,8 @@ def get_try_task_config_file(options):
 def uses_bugbug(options):
     """Whether the test kinds will query bugbug, as far as can be told before
     the parameters are resolved."""
+    if options["project"] not in SUPPORTED_PROJECTS:
+        return False
     if options["project"] == "autoland":
         return True
     if not options.get("allow_parameter_override"):

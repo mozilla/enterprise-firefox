@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import mozilla.components.compose.menu.data.CustomizableMenuItem
 import mozilla.components.compose.menu.store.CustomizableMenuItemsAction
+import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.AttemptedEmptySection
+import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.AttemptedMoveAsSubItem
 import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.ExpansionToggled
 import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.Init
 import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.ItemsChanged
@@ -18,6 +20,8 @@ import mozilla.components.compose.menu.store.CustomizableMenuItemsAction.Update
 import mozilla.components.compose.menu.store.CustomizableMenuItemsState
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
+import org.mozilla.fenix.components.AppStore
+import org.mozilla.fenix.components.appstate.AppAction.SnackbarAction
 import org.mozilla.fenix.components.menu.CustomizedItemInfo
 import org.mozilla.fenix.components.menu.CustomizedSectionInfo
 import org.mozilla.fenix.components.menu.MenuCustomizationRepository
@@ -32,12 +36,20 @@ import org.mozilla.fenix.components.menu.configuration.BrowserMenuConfiguration
  * @param registry [MenuItemsRegistry] providing the items of the section.
  * @param sectionId Id of the menu section whose items are customized.
  * @param scope [CoroutineScope] tied to the lifetime of the screen, on which to read the saved customization.
+ * @param appStore [AppStore] showing the snackbars of the screen.
+ * @param cannotMoveAsSubItemMessage Localized message shown when the Extensions item, which cannot be in another item,
+ *   is dropped inside another item.
+ * @param cannotHideLastItemMessage Localized message telling the user the last item shown in the section cannot be
+ *   removed from the menu.
  */
 class EditMenuItemsMiddleware(
     private val repository: MenuCustomizationRepository,
     private val registry: MenuItemsRegistry,
     private val sectionId: String,
     private val scope: CoroutineScope,
+    private val appStore: AppStore,
+    private val cannotMoveAsSubItemMessage: String,
+    private val cannotHideLastItemMessage: String,
 ) : Middleware<CustomizableMenuItemsState, CustomizableMenuItemsAction> {
     override fun invoke(
         store: Store<CustomizableMenuItemsState, CustomizableMenuItemsAction>,
@@ -49,6 +61,8 @@ class EditMenuItemsMiddleware(
         when (action) {
             is Init -> showItems(store)
             is ItemsChanged -> saveItems(action)
+            is AttemptedMoveAsSubItem -> appStore.dispatch(SnackbarAction.ShowSnackbar(cannotMoveAsSubItemMessage))
+            is AttemptedEmptySection -> appStore.dispatch(SnackbarAction.ShowSnackbar(cannotHideLastItemMessage))
             is Update,
             is ExpansionToggled,
             is PreviewClicked -> Unit
@@ -78,13 +92,16 @@ class EditMenuItemsMiddleware(
         )
     }
 
+    private val topLevelOnlyIds = BrowserMenuConfiguration.topLevelOnlyItemIds()
+
     private fun CustomizableMenuItem.toInfo() = CustomizedItemInfo(id = id, subItemIds = subItems.map { it.id })
 
     private fun CustomizedItemInfo.toCustomizable() =
         CustomizableMenuItem(
             id = id,
             item = itemOf(id),
-            subItems = subItemIds.map { CustomizableMenuItem(it, itemOf(it)) },
+            subItems = subItemIds.map { CustomizableMenuItem(it, itemOf(it), isTopLevelOnly = it in topLevelOnlyIds) },
+            isTopLevelOnly = id in topLevelOnlyIds,
         )
 
     private fun itemOf(id: String) = registry.providers[id]?.itemsFlow?.value?.firstOrNull()

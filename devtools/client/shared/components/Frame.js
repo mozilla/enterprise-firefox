@@ -27,9 +27,7 @@ const {
 const l10n = new LocalizationHelper(
   "devtools/client/locales/components.properties"
 );
-const webl10n = new LocalizationHelper(
-  "devtools/shared/locales/webconsole.properties"
-);
+const webl10n = require("resource://devtools/shared/webconsole/l10n.js");
 
 function savedFrameToDebuggerLocation(frame) {
   const { source: url, line, column, sourceId } = frame;
@@ -397,7 +395,8 @@ class Frame extends Component {
             key: "function-display-name",
             className: "frame-link-function-display-name",
           },
-          functionDisplayName || webl10n.getStr("stacktrace.anonymousFunction")
+          functionDisplayName ||
+            webl10n.getStr("webconsole-stacktrace-anonymous-function")
         ),
         " ",
       ];

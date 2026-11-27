@@ -38,11 +38,10 @@ private const val FULL_WIDTH_FRACTION = 1f
  * @param modifier [Modifier] to be applied to the widget.
  * @param onRefresh Invoked when the "Refresh" button of an error card is tapped.
  * @param onMatchClicked Invoked when the match is clicked.
- * @param onResults Invoked when "Results" menu item is selected.
- * @param onStandings Invoked when "Standings" menu item is selected.
+ * @param onMatchesAndResults Invoked when "Matches and Results" menu item is selected.
  * @param onWallpapers Invoked when "Wallpapers" menu item is selected.
  * @param onShare Invoked when "Share" menu item is selected.
- * @param onRemove Invoked when "Remove Widget" menu item is selected.
+ * @param onRemove Invoked when "Remove widget" menu item is selected.
  */
 @Suppress("LongParameterList")
 @Composable
@@ -50,9 +49,8 @@ fun SportsWidget(
     state: SportsWidgetState,
     modifier: Modifier = Modifier,
     onRefresh: () -> Unit = {},
-    onMatchClicked: (String, String, String) -> Unit = { _, _, _ -> },
-    onResults: () -> Unit = {},
-    onStandings: () -> Unit = {},
+    onMatchClicked: () -> Unit = {},
+    onMatchesAndResults: () -> Unit = {},
     onWallpapers: () -> Unit = {},
     onShare: () -> Unit = {},
     onRemove: () -> Unit = {},
@@ -77,8 +75,7 @@ fun SportsWidget(
             SportsWidgetHeader(
                 teamName = stringResource(R.string.wrex_widget_team_name),
                 drawableResId = R.drawable.team_badge_wrexham,
-                onResults = onResults,
-                onStandings = onStandings,
+                onMatchesAndResults = onMatchesAndResults,
                 onWallpapers = onWallpapers,
                 onShare = onShare,
                 onRemove = onRemove,
@@ -108,7 +105,7 @@ internal fun sportsWidgetPages(
     matchCards: List<MatchCardState>,
     errorState: SportCardErrorState?,
     onRefresh: () -> Unit,
-    onMatchClicked: (String, String, String) -> Unit,
+    onMatchClicked: () -> Unit,
 ): SportsWidgetPages {
     val hasLiveMatch = matchCards.any { card -> card.matches.any { it.matchStatus.isLive() } }
 

@@ -5,6 +5,11 @@ permalink: /changelog/
 ---
 
 # 163.0 (In Development)
+* **compose-base**
+  * 🆕 Added `CFRTooltip`, `CFR` and their supporting types in `mozilla.components.compose.base.cfr`. [Bug 2096210](https://bugzilla.mozilla.org/show_bug.cgi?id=2096210)
+* **compose-cfr**
+  * ⚠️ **Breaking change**: Renamed `CFRBox` to `CFRTooltip` and moved it, `CFR` and their supporting types to `mozilla.components.compose.base.cfr`. `CFRTooltip` now takes `mozilla.components.compose.base.cfr.IndicatorDirection` instead of `CFRPopup.IndicatorDirection`. [Bug 2096210](https://bugzilla.mozilla.org/show_bug.cgi?id=2096210)
+  * ⚠️ **Breaking change**: Removed `CFRPopupLayout` and `DismissAction`. Use `CFRTooltip` with `CFR` from compose-base for Compose anchors, or `CFRPopup` for View anchors. [Bug 2096083](https://bugzilla.mozilla.org/show_bug.cgi?id=2096083)
 * **browser-engine-gecko**
   * ⚠️ **Behavior change for embedders**: Implement `DownloadDelegate.getContentFileName` so that downloaded and shared PDFs from `content://` tabs keep their local filename. [Bug 2071966](https://bugzilla.mozilla.org/show_bug.cgi?id=2071966)
 * **compose-base**
@@ -27,7 +32,9 @@ permalink: /changelog/
   * ⚠️ **Breaking change**: The customize menu screen now asks the user to confirm resetting the menu to default itself, so `CustomizableMenuAction.ResetToDefaultClicked` was removed. [Bug 2090975](https://bugzilla.mozilla.org/show_bug.cgi?id=2090975)
   * 🆕 Added `EditMenuItemsContent`, the screen showing the items of a menu section as `CustomizableMenuItem`s, shown and hidden, with `CustomizableMenuItemsStore`, `CustomizableMenuItemsState` and `CustomizableMenuItemsAction` for its state. [Bug 2090975](https://bugzilla.mozilla.org/show_bug.cgi?id=2090975)
   * 🆕 Added `CustomizableMenuState.editableGroupIds` and `CustomizableMenuAction.Update.editableGroupIds`, the groups the customize menu screen shows a button for editing the items of, which dispatches the new `CustomizableMenuAction.EditGroupItemsClicked`. [Bug 2090975](https://bugzilla.mozilla.org/show_bug.cgi?id=2090975)
-  * 🆕 Added `CustomizableMenuItemsAction.ItemsChanged`, which `EditMenuItemsContent` dispatches when the user drags an item to another place inside its section or inside the item it is in. [Bug 2090976](https://bugzilla.mozilla.org/show_bug.cgi?id=2090976)
+  * 🆕 Added `CustomizableMenuItemsAction.ItemsChanged`, which `EditMenuItemsContent` dispatches when the user drags an item to another place in its section or inside an expandable item, including from one to the other, and when the user hides an item or shows it again. [Bug 2090976](https://bugzilla.mozilla.org/show_bug.cgi?id=2090976) [Bug 2090977](https://bugzilla.mozilla.org/show_bug.cgi?id=2090977) [Bug 2090978](https://bugzilla.mozilla.org/show_bug.cgi?id=2090978)
+  * 🆕 Added `CustomizableMenuItem.isTopLevelOnly`, which keeps an item directly in its section in `EditMenuItemsContent`, never inside another item. [Bug 2090979](https://bugzilla.mozilla.org/show_bug.cgi?id=2090979)
+  * 🆕 Added `CustomizableMenuItemsAction.AttemptedMoveAsSubItem`, which `EditMenuItemsContent` dispatches when the user lets go of an item inside another one it cannot be inside of, and `CustomizableMenuItemsAction.AttemptedEmptySection`, which it dispatches when the user drags the last item shown in the section to the hidden ones. [Bug 2090979](https://bugzilla.mozilla.org/show_bug.cgi?id=2090979)
 
 # 162.0
 * **concept-engine**
@@ -68,7 +75,7 @@ permalink: /changelog/
     * ⚠️ **Breaking change**: Added `ListInteractionState.onDraggedItemPositioned` and `ListInteractionState.updateListLayoutCoordinates`, which custom `ListInteractionState` implementations must implement, to keep a dragged list item under the finger also when the list lays it out out of view. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
     * `InteractableDragItemContainer` for lists and for grids keeps the dragged item composed while it is scrolled out of view, callers no longer need to. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
     * ⚠️ **Breaking change**: Replaced `ListInteractionState.previousItemAnimatableOffset` with `ListInteractionState.computeDroppedItemOffset`, which custom `ListInteractionState` implementations must implement, to keep a dropped list item where it was let go of when the list moves it only after that, as without live reordering, instead of drawing it for a frame away from there. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
-    * Added `scrollZoneHeight` to `createListInteractionState`, for the height of the areas at the start and at the end of a list in which a dragged item scrolls it once it went past the edge of the list there, instead of a third of the first visible item. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549)
+    * Added `scrollZoneHeight` to `createListInteractionState`, for the height of the areas at the start and at the end of a list in which a dragged item scrolls it once it went past the edge of the list there, instead of a third of the first visible item. With a height, an item dragged past the end also scrolls the list to its end, unless its last item is ignored. [Bug 2086549](https://bugzilla.mozilla.org/show_bug.cgi?id=2086549) [Bug 2090978](https://bugzilla.mozilla.org/show_bug.cgi?id=2090978)
     * The areas at the start and at the end of a list in which a dragged item scrolls it by default are no longer sized from the dragged item when this is the first visible item. [Bug 2086552](https://bugzilla.mozilla.org/show_bug.cgi?id=2086552)
     * Added `ItemInteractionHandler.onDragEnd`, called instead of `onDragCancel` when the user lets go of a dragged item without dropping it onto another item. By default it calls `onDragCancel`. [Bug 2086550](https://bugzilla.mozilla.org/show_bug.cgi?id=2086550)
     * Added `interceptInteractionMode` to `createListInteractionState`, to retarget or reject the interaction the list finds for a dragged item. The interaction it returns is optionally shown via a Rect parameter and acted upon when the user lets go. [Bug 2090877](https://bugzilla.mozilla.org/show_bug.cgi?id=2090877)
@@ -97,6 +104,10 @@ permalink: /changelog/
     * ⚠️ **Breaking change**: `DeviceConfig.capabilities` is now private. Use `DeviceConfig.getCapabilities(hasSyncScope)`, which returns an empty set when the account does not have the Sync scope. [Bug 2080763](https://bugzilla.mozilla.org/show_bug.cgi?id=2080763)
 * **service-firefox-accounts**
     * `FxaAccountManager` only advertises the `SEND_TAB` and `CLOSE_TABS` device capabilities when the account has the Sync scope. [Bug 2080763](https://bugzilla.mozilla.org/show_bug.cgi?id=2080763)
+* **feature-customtabs**
+    * 🆕 Added an optional `desktopMode` to `CustomTabIntentProcessor` to create custom tabs in desktop or mobile mode regardless of the browser default. [Bug 2095645](https://bugzilla.mozilla.org/show_bug.cgi?id=2095645)
+* **feature-tabs**
+    * 🆕 Added an optional `desktopMode` to `CustomTabsUseCases.AddCustomTabUseCase`, overriding `BrowserState.desktopMode`. [Bug 2095645](https://bugzilla.mozilla.org/show_bug.cgi?id=2095645)
 
 # 161.0
 * **browser-state**

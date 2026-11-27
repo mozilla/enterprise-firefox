@@ -125,11 +125,23 @@ static inline size_t CountUnicodes(const char16_t* aText, uint32_t aLength) {
   return total;
 }
 
-bool gfxGraphiteShaper::ShapeText(const char16_t* aText, uint32_t aOffset,
-                                  uint32_t aLength, Script aScript,
-                                  nsAtom* aLanguage, bool aVertical,
-                                  RoundingFlags aRounding,
+bool gfxGraphiteShaper::ShapeText(const void* aTextData, TextEncoding aEncoding,
+                                  uint32_t aOffset, uint32_t aLength,
+                                  const ShapingParams& aParams,
                                   gfxShapedText* aShapedText) {
+  // Graphite takes UTF-16, so expand Latin-1 text.
+  nsAutoString expandedText;
+  const char16_t* aText;
+  if (aEncoding == TextEncoding::Latin1) {
+    nsDependentCSubstring latin1(static_cast<const char*>(aTextData), aLength);
+    if (!AppendASCIItoUTF16(latin1, expandedText, mozilla::fallible)) {
+      return false;
+    }
+    aText = expandedText.BeginReading();
+  } else {
+    aText = static_cast<const char16_t*>(aTextData);
+  }
+
   const gfxFontStyle* style = mFont->GetStyle();
   auto t_mGrFace = rlbox::from_opaque(mGrFace);
   auto t_mGrFont = rlbox::from_opaque(mGrFont);
@@ -173,7 +185,7 @@ bool gfxGraphiteShaper::ShapeText(const char16_t* aText, uint32_t aOffset,
         case StyleFontVariantCaps::AllPetiteCaps:
         case StyleFontVariantCaps::PetiteCaps:
           bool synLower, synUpper;
-          mFont->SupportsVariantCaps(aScript, style->variantCaps,
+          mFont->SupportsVariantCaps(aParams.mScript, style->variantCaps,
                                      mFallbackToSmallCaps, synLower, synUpper);
           break;
         default:
@@ -188,9 +200,9 @@ bool gfxGraphiteShaper::ShapeText(const char16_t* aText, uint32_t aOffset,
     grLang = MakeGraphiteLangTag(style->languageOverride._0);
   } else if (entry->mLanguageOverride) {
     grLang = MakeGraphiteLangTag(entry->mLanguageOverride);
-  } else if (aLanguage) {
+  } else if (aParams.mLanguage) {
     nsAutoCString langString;
-    aLanguage->ToUTF8String(langString);
+    aParams.mLanguage->ToUTF8String(langString);
     grLang = GetGraphiteTagForLang(langString);
   }
   tainted_gr<gr_feature_val*> grFeatures =
@@ -244,9 +256,9 @@ bool gfxGraphiteShaper::ShapeText(const char16_t* aText, uint32_t aOffset,
     return false;
   }
 
-  nsresult rv =
-      SetGlyphsFromSegment(aShapedText, aOffset, aLength, aText,
-                           t_aText.to_opaque(), seg.to_opaque(), aRounding);
+  nsresult rv = SetGlyphsFromSegment(aShapedText, aOffset, aLength, aText,
+                                     t_aText.to_opaque(), seg.to_opaque(),
+                                     aParams.mRounding);
   if (NS_FAILED(rv)) {
     aShapedText->ClearGlyphs();
   }
@@ -341,24 +353,6 @@ nsresult gfxGraphiteShaper::SetGlyphsFromSegment(
     }
     minBaseChar = offs + 1;
 
-    // Check for default-ignorable char that didn't get filtered, combined,
-    // etc by the shaping process, and skip it.
-    auto one_glyph = c.nGlyphs == static_cast<uint32_t>(1);
-    auto one_char = c.nChars == static_cast<uint32_t>(1);
-
-    if ((one_glyph && one_char)
-            .unverified_safe_because(
-                "using this boolean check to decide whether to ignore a "
-                "character or not. The worst that can happen is a bad "
-                "rendering.")) {
-      if (aShapedText->FilterIfIgnorable(aOffset + offs, aText[offs])) {
-        continue;
-      }
-    }
-
-    uint32_t appAdvance = roundX ? NSToIntRound(adv) * dev2appUnits
-                                 : NSToIntRound(adv * dev2appUnits);
-
     const char gid_simple_value[] =
         "Per Bug 1569464 - these are glyph IDs that can range from 0 to the "
         "maximum glyph ID supported by the font. However, out-of-range values "
@@ -370,6 +364,35 @@ nsresult gfxGraphiteShaper::SetGlyphsFromSegment(
     // first to prevent a time-of-check-time-of-use vuln.
     uint16_t gid_of_base_glyph =
         gids[c.baseGlyph].unverified_safe_because(gid_simple_value);
+
+    // Check for default-ignorable char that didn't get filtered, combined,
+    // etc by the shaping process, and skip it.
+    auto one_glyph = c.nGlyphs == static_cast<uint32_t>(1);
+    auto one_char = c.nChars == static_cast<uint32_t>(1);
+    auto two_chars = c.nChars == static_cast<uint32_t>(2);
+
+    const char ignorable_check[] =
+        "using this boolean check to decide whether to ignore a character or "
+        "not. The worst that can happen is a bad rendering.";
+    if ((one_glyph && one_char).unverified_safe_because(ignorable_check)) {
+      if (aShapedText->FilterIfIgnorable(aOffset + offs, uint32_t(aText[offs]),
+                                         gid_of_base_glyph, adv)) {
+        continue;
+      }
+    } else if ((one_glyph && two_chars)
+                   .unverified_safe_because(ignorable_check) &&
+               offs + 1 < aLength &&
+               mozilla::IsSurrogatePair(aText[offs], aText[offs + 1])) {
+      if (aShapedText->FilterIfIgnorable(
+              aOffset + offs,
+              mozilla::SurrogateToUCS4(aText[offs], aText[offs + 1]),
+              gid_of_base_glyph, adv)) {
+        continue;
+      }
+    }
+
+    uint32_t appAdvance = roundX ? NSToIntRound(adv) * dev2appUnits
+                                 : NSToIntRound(adv * dev2appUnits);
 
     const char fast_path[] =
         "Even if the number of glyphs set is an incorrect value, the else "

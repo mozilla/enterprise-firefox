@@ -145,6 +145,18 @@ class SessionControlInteractorTest {
     }
 
     @Test
+    fun `WHEN onSportsWidgetMatchesAndResultsClicked is called THEN handleSportsWidgetMatchesAndResultsClicked is called`() {
+        interactor.onSportsWidgetMatchesAndResultsClicked()
+        verify { sportsWidgetController.handleSportsWidgetMatchesAndResultsClicked() }
+    }
+
+    @Test
+    fun `WHEN onSportsWidgetMatchClicked is called THEN handleSportsWidgetMatchClicked is called`() {
+        interactor.onSportsWidgetMatchClicked()
+        verify { sportsWidgetController.handleSportsWidgetMatchClicked() }
+    }
+
+    @Test
     fun `WHEN onSportsWidgetWallpapersClicked is called THEN handleSportsWidgetWallpapersClicked is called`() {
         interactor.onSportsWidgetWallpapersClicked()
         verify { sportsWidgetController.handleSportsWidgetWallpapersClicked() }

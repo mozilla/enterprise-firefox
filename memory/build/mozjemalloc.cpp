@@ -1005,29 +1005,11 @@ bool arena_t::SplitAndAllocRun(arena_run_t* aRun, size_t aSize, bool aLarge,
   return true;
 }
 
-void arena_t::InitChunk(arena_chunk_t* aChunk, size_t aMinCommittedPages) {
-  new (aChunk) arena_chunk_t(this);
-
-  mStats.mapped += kChunkSize;
-
-  // Setup the chunk's pages in two phases.  First we mark which pages are
-  // committed & decommitted and perform the decommit.  Then we update the map
-  // to create the runs.
-
-  // Clear the bits for the real header pages.
-  size_t i;
-  for (i = 0; i < gChunkHeaderNumPages - gPagesPerRealPage; i++) {
-    aChunk->mPageMap[i].bits = 0;
-  }
-  mStats.committed += gChunkHeaderNumPages - gPagesPerRealPage;
-
-  // Decommit the last header page (=leading page) as a guard.
-  MOZ_ASSERT(i % gPagesPerRealPage == 0);
-  pages_decommit((void*)(uintptr_t(aChunk) + (i << gPageSize2Pow)),
-                 gRealPageSize);
-  for (; i < gChunkHeaderNumPages; i++) {
-    aChunk->mPageMap[i].bits = CHUNK_MAP_DECOMMITTED;
-  }
+arena_chunk_t* arena_t::InitChunk(size_t aMinCommittedPages) {
+  // aMinCommittedPages will create a valid run.
+  MOZ_ASSERT(aMinCommittedPages > 0);
+  MOZ_ASSERT(aMinCommittedPages <=
+             gChunkNumPages - gChunkHeaderNumPages - gPagesPerRealPage);
 
   // If MALLOC_DECOMMIT is enabled then commit only the pages we're about to
   // use.  Otherwise commit all of them.
@@ -1047,10 +1029,43 @@ void arena_t::InitChunk(arena_chunk_t* aChunk, size_t aMinCommittedPages) {
       gChunkNumPages - gPagesPerRealPage - gChunkHeaderNumPages;
 #endif
 
+  // Map the chunk, committing only the header pages and the fresh usable pages;
+  // the remainder (any uncommitted middle pages plus the trailing guard page)
+  // is left reserved.
+  arena_chunk_t* chunk = (arena_chunk_t*)arena_chunk_alloc(
+      mChunkAllocator, kChunkSize, kChunkSize,
+      (gChunkHeaderNumPages + n_fresh_pages) << gPageSize2Pow);
+  if (!chunk) {
+    return nullptr;
+  }
+
+  new (chunk) arena_chunk_t(this);
+
+  mStats.mapped += kChunkSize;
+
+  // Setup the chunk's pages in two phases.  First we mark which pages are
+  // committed & decommitted and perform the decommit.  Then we update the map
+  // to create the runs.
+
+  // Clear the bits for the real header pages.
+  size_t i;
+  for (i = 0; i < gChunkHeaderNumPages - gPagesPerRealPage; i++) {
+    chunk->mPageMap[i].bits = 0;
+  }
+  mStats.committed += gChunkHeaderNumPages - gPagesPerRealPage;
+
+  // Decommit the last header page (=leading page) as a guard.
+  MOZ_ASSERT(i % gPagesPerRealPage == 0);
+  pages_decommit((void*)(uintptr_t(chunk) + (i << gPageSize2Pow)),
+                 gRealPageSize);
+  for (; i < gChunkHeaderNumPages; i++) {
+    chunk->mPageMap[i].bits = CHUNK_MAP_DECOMMITTED;
+  }
+
   // The committed pages are marked as Fresh.  Our caller, SplitAndAllocRun will
   // update this when it uses them.
   for (size_t j = 0; j < n_fresh_pages; j++) {
-    aChunk->mPageMap[i + j].bits = CHUNK_MAP_ZEROED | CHUNK_MAP_FRESH;
+    chunk->mPageMap[i + j].bits = CHUNK_MAP_ZEROED | CHUNK_MAP_FRESH;
   }
   i += n_fresh_pages;
   mNumFresh += n_fresh_pages;
@@ -1061,25 +1076,20 @@ void arena_t::InitChunk(arena_chunk_t* aChunk, size_t aMinCommittedPages) {
   MOZ_ASSERT(i == gChunkNumPages - gPagesPerRealPage);
 #endif
 
-  // If MALLOC_DECOMMIT is defined, then this will decommit the remainder of the
-  // chunk plus the last page which is a guard page, if it is not defined it
-  // will only decommit the guard page.
+  // The remainder of the chunk (any uncommitted middle pages plus the trailing
+  // guard page) needs to be marked decommitted so the page map matches the
+  // state of the pages.
   MOZ_ASSERT(i % gPagesPerRealPage == 0);
-  pages_decommit((void*)(uintptr_t(aChunk) + (i << gPageSize2Pow)),
-                 (gChunkNumPages - i) << gPageSize2Pow);
   for (; i < gChunkNumPages; i++) {
-    aChunk->mPageMap[i].bits = CHUNK_MAP_DECOMMITTED;
+    chunk->mPageMap[i].bits = CHUNK_MAP_DECOMMITTED;
   }
 
-  // aMinCommittedPages will create a valid run.
-  MOZ_ASSERT(aMinCommittedPages > 0);
-  MOZ_ASSERT(aMinCommittedPages <=
-             gChunkNumPages - gChunkHeaderNumPages - gPagesPerRealPage);
-
   // Create the run.
-  aChunk->mPageMap[gChunkHeaderNumPages].bits |= gMaxLargeClass;
-  aChunk->mPageMap[gChunkNumPages - gPagesPerRealPage - 1].bits |=
+  chunk->mPageMap[gChunkHeaderNumPages].bits |= gMaxLargeClass;
+  chunk->mPageMap[gChunkNumPages - gPagesPerRealPage - 1].bits |=
       gMaxLargeClass;
+
+  return chunk;
 }
 
 void arena_t::RemoveChunk(arena_chunk_t* aChunk) {
@@ -1192,13 +1202,11 @@ arena_run_t* arena_t::AllocRun(size_t aSize, bool aLarge, bool aZero) {
   } else {
     // No usable runs.  Create a new chunk from which to allocate
     // the run.
-    arena_chunk_t* chunk = (arena_chunk_t*)arena_chunk_alloc(
-        mChunkAllocator, kChunkSize, kChunkSize);
+    arena_chunk_t* chunk = InitChunk(aSize >> gPageSize2Pow);
     if (!chunk) {
       return nullptr;
     }
 
-    InitChunk(chunk, aSize >> gPageSize2Pow);
     arena_run_t* run = (arena_run_t*)(uintptr_t(chunk) +
                                       (gChunkHeaderNumPages << gPageSize2Pow));
 
@@ -3243,14 +3251,17 @@ void* arena_t::PallocHuge(size_t aSize, size_t aAlignment, bool aZero) {
     return nullptr;
   }
 
-  // Allocate one or more contiguous chunks for this request.
-  ret = arena_chunk_alloc(mChunkAllocator, csize, aAlignment);
+  // Allocate one or more contiguous chunks for this request.  Only commit the
+  // usable psize bytes; the trailing [psize, csize) region is left as an
+  // inaccessible guard and must never be mapped read-write, otherwise an
+  // adjacent growable stack could race into it during chunk recycle.
+  psize = REAL_PAGE_CEILING(aSize);
+  MOZ_ASSERT(psize < csize);
+  ret = arena_chunk_alloc(mChunkAllocator, csize, aAlignment, psize);
   if (!ret) {
     delete node;
     return nullptr;
   }
-  psize = REAL_PAGE_CEILING(aSize);
-  MOZ_ASSERT(psize < csize);
 #ifdef MOZ_DEBUG
   if (aZero) {
     chunk_assert_zero(ret, psize);
@@ -3267,30 +3278,16 @@ void* arena_t::PallocHuge(size_t aSize, size_t aAlignment, bool aZero) {
     MutexAutoLock lock(huge_mtx);
     huge.Insert(node);
 
-    // Although we allocated space for csize bytes, we indicate that we've
-    // allocated only psize bytes.
-    //
-    // If DECOMMIT is defined, this is a reasonable thing to do, since
-    // we'll explicitly decommit the bytes in excess of psize.
-    //
-    // If DECOMMIT is not defined, then we're relying on the OS to be lazy
-    // about how it allocates physical pages to mappings.  If we never
-    // touch the pages in excess of psize, the OS won't allocate a physical
-    // page, and we won't use more than psize bytes of physical memory.
-    //
-    // A correct program will only touch memory in excess of how much it
-    // requested if it first calls malloc_usable_size and finds out how
-    // much space it has to play with.  But because we set node->mSize =
-    // psize above, malloc_usable_size will return psize, not csize, and
-    // the program will (hopefully) never touch bytes in excess of psize.
-    // Thus those bytes won't take up space in physical memory, and we can
-    // reasonably claim we never "allocated" them in the first place.
+    // Although we reserved csize bytes of address space, only psize bytes
+    // were committed (see arena_chunk_alloc above); the [psize, csize)
+    // remainder is left as an inaccessible guard.  We account for
+    // only psize bytes: malloc_usable_size returns psize (we set
+    // node->mSize = psize above), so a correct program never touches the
+    // guard region and it never takes up physical memory.
     huge_allocated += psize;
     huge_mapped += csize;
     huge_operations++;
   }
-
-  pages_decommit((void*)((uintptr_t)ret + psize), csize - psize);
 
   if (!aZero) {
     ApplyZeroOrJunk(ret, psize);

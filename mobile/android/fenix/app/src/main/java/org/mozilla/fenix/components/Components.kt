@@ -449,6 +449,7 @@ class Components(
             },
             defaultSectionsInfo = BrowserMenuConfiguration.defaultSectionsInfo(),
             requiredSectionIds = BrowserMenuConfiguration.REQUIRED_SECTION_IDS,
+            topLevelOnlyItemIds = BrowserMenuConfiguration.topLevelOnlyItemIds(),
             scope = applicationScope,
         )
     }
@@ -486,8 +487,7 @@ class Components(
                 DefaultFenixSettingsIndexer.defaultPreferenceFileInformationList(
                     includeAutofillPreferences = settings.isAutofillSupported
                 ),
-            additionalProviders =
-                settingsSearchProviders(summarizationFeatureConfiguration = core.summarizeFeatureSettings),
+            additionalProviders = settingsSearchProviders(),
             excludedPreferenceKeys = ::createSettingsIndexerExclusions,
         )
     }
@@ -568,9 +568,7 @@ class Components(
 
     val aiFeatureRegistry by lazy {
         AIFeatureRegistry.default(scope = applicationScope, context = context).also {
-            if (settings.shakeToSummarizeFeatureFlagEnabled) {
-                it.register(PageSummaryFeature(summarizationSettings))
-            }
+            it.register(PageSummaryFeature(summarizationSettings))
             if (listenToPage.settings.available) {
                 it.register(ListenToPageAIControlFeature(listenToPage.settings))
             }
