@@ -218,3 +218,11 @@ data-collection-backlogged-crash-reports-enterprise =
     .label = Automatically send crash reports
     .description = Crash reports help your organization diagnose and fix issues with the browser. Reports may include personal or sensitive data.
     .accesskey = c
+
+# Title of the Terms of Use modal shown at first run.
+# Variant of preonboarding-title (preonboarding.ftl).
+preonboarding-enterprise-title = Welcome to { -brand-short-name }
+# Subtitle of the Terms of Use modal shown at first run.
+# Variant of preonboarding-subtitle (preonboarding.ftl), without the statement
+# about sending data to Mozilla, since data collection is managed by the organization.
+preonboarding-enterprise-subtitle = By continuing, you agree to the { -brand-product-name } Terms of Use and our Privacy Notice. Contact your administrator to learn more about your organization’s data policies.
