@@ -39,6 +39,10 @@ pref("enterprise.locking.restart", false, locked);
 // Lock the session instead of discarding it when repeated crashes stop the
 // browser from restarting.
 pref("enterprise.locking.crash", false, locked);
+// Keep content analysis (DLP) telemetry on and complete unless the
+// ContentAnalysisTelemetry policy changes it.
+pref("browser.contentanalysis.enterprise.telemetry.enabled", true, locked);
+pref("browser.contentanalysis.enterprise.telemetry.urlLogging", "full", locked);
 #endif
 
 // Set add-ons abuse report related prefs specific to Firefox Desktop.

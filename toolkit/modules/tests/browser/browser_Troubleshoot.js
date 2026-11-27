@@ -399,6 +399,14 @@ const SNAPSHOT_SCHEMA = {
           type: "boolean",
         },
         ...(AppConstants.MOZ_ENTERPRISE && {
+          "browser.contentanalysis.enterprise.telemetry.enabled": {
+            required: false,
+            type: "boolean",
+          },
+          "browser.contentanalysis.enterprise.telemetry.urlLogging": {
+            required: false,
+            type: "string",
+          },
           "network.connectivity-service.IPv4.url": {
             required: false,
             type: "string",

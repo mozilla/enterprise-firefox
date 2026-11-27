@@ -185,8 +185,9 @@ add_task(
     await setupPolicyEngineWithJson({
       policies: { Preferences: { [pref]: { Value: false, Status: "locked" } } },
     });
-    checkUnsetPref(pref);
-    Assert.ok(!Preferences.locked(pref), `Pref ${pref} is not locked`);
+    // The pref keeps the default that firefox.js locks it to.
+    Assert.equal(Services.prefs.getBoolPref(pref), true);
+    Assert.ok(Preferences.locked(pref), `Pref ${pref} is locked`);
     Assert.ok(
       PolicyFailures.getAll().Preferences?.includes(
         `Unable to set preference ${pref}. It is managed by the ContentAnalysisTelemetry policy.`

@@ -14,6 +14,17 @@ let mockCA = makeMockContentAnalysis();
 
 add_setup(async function test_setup() {
   mockCA = await mockContentAnalysisService(mockCA);
+
+  // firefox.js locks these prefs; unlock them so the tasks can vary them.
+  for (const pref of [
+    "browser.contentanalysis.enterprise.telemetry.enabled",
+    "browser.contentanalysis.enterprise.telemetry.urlLogging",
+  ]) {
+    if (Services.prefs.prefIsLocked(pref)) {
+      Services.prefs.unlockPref(pref);
+      registerCleanupFunction(() => Services.prefs.lockPref(pref));
+    }
+  }
 });
 
 // The collector also covers cases (like a warn verdict followed by its
